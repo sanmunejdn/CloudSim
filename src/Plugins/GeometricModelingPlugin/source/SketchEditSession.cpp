@@ -65,6 +65,15 @@ QString SketchEditSession::statusText() const
 	case SketchToolKind::Rectangle:
 		tool = tr(QStringLiteral("Rectangle"), QStringLiteral("矩形"));
 		break;
+	case SketchToolKind::Ellipse:
+		tool = tr(QStringLiteral("Ellipse"), QStringLiteral("椭圆"));
+		break;
+	case SketchToolKind::Polygon:
+		tool = tr(QStringLiteral("Polygon"), QStringLiteral("多边形"));
+		break;
+	case SketchToolKind::Slot:
+		tool = tr(QStringLiteral("Slot"), QStringLiteral("槽口"));
+		break;
 	case SketchToolKind::Spline:
 		tool = tr(QStringLiteral("Spline"), QStringLiteral("样条"));
 		break;
@@ -103,6 +112,15 @@ QString SketchEditSession::statusText() const
 		break;
 	case SketchToolKind::GeomEqualLength:
 		tool = tr(QStringLiteral("Equal"), QStringLiteral("等长"));
+		break;
+	case SketchToolKind::GeomTangent:
+		tool = tr(QStringLiteral("Tangent"), QStringLiteral("相切"));
+		break;
+	case SketchToolKind::GeomSymmetric:
+		tool = tr(QStringLiteral("Symmetric"), QStringLiteral("对称"));
+		break;
+	case SketchToolKind::GeomMidpoint:
+		tool = tr(QStringLiteral("Midpoint"), QStringLiteral("中点"));
 		break;
 	case SketchToolKind::GeomFix:
 		tool = tr(QStringLiteral("Fix"), QStringLiteral("固定"));
@@ -197,6 +215,7 @@ void SketchEditSession::end()
 void SketchEditSession::resetPickState()
 {
 	m_dimPickA = -1;
+	m_dimPickB = -1;
 	m_dimHoverId = -1;
 	m_dimHint.clear();
 	m_mirrorTargets.clear();
@@ -453,6 +472,15 @@ void SketchEditSession::updateDimHover(const SkVec2& uv)
 	}
 }
 
+void SketchEditSession::setPolygonSides(int sides)
+{
+	if (sides < PolygonSketchTool::kMinSides)
+		sides = PolygonSketchTool::kMinSides;
+	if (sides > PolygonSketchTool::kMaxSides)
+		sides = PolygonSketchTool::kMaxSides;
+	m_polygonSides = sides;
+}
+
 void SketchEditSession::setTool(SketchToolKind kind)
 {
 	m_toolKind = kind;
@@ -503,6 +531,10 @@ void SketchEditSession::setTool(SketchToolKind kind)
 		case SketchToolKind::GeomFix:
 			m_dimHint = tr(QStringLiteral("Click a point to fix"), QStringLiteral("点选点固定位置"));
 			break;
+		case SketchToolKind::GeomFixOrigin:
+			m_dimHint = tr(QStringLiteral("Click a point to fix at sketch origin (0,0)"),
+						   QStringLiteral("点选点固定到草图原点 (0,0)"));
+			break;
 		case SketchToolKind::Trim:
 			m_dimHint = tr(QStringLiteral("Click a segment to trim"), QStringLiteral("点选要裁掉的线段段"));
 			break;
@@ -531,6 +563,19 @@ void SketchEditSession::setTool(SketchToolKind kind)
 		break;
 	case SketchToolKind::Rectangle:
 		m_tool = std::make_unique<RectSketchTool>();
+		break;
+	case SketchToolKind::Ellipse:
+		m_tool = std::make_unique<EllipseSketchTool>();
+		break;
+	case SketchToolKind::Polygon:
+	{
+		auto poly = std::make_unique<PolygonSketchTool>();
+		poly->setSides(m_polygonSides);
+		m_tool = std::move(poly);
+		break;
+	}
+	case SketchToolKind::Slot:
+		m_tool = std::make_unique<SlotSketchTool>();
 		break;
 	case SketchToolKind::Spline:
 		m_tool = std::make_unique<SplineSketchTool>();
@@ -746,6 +791,8 @@ int SketchEditSession::hitAnyCurve(const SkVec2& uv) const
 		return lid;
 	if (const int cid = m_doc.hitTestCircle(uv, tol); cid >= 0)
 		return cid;
+	if (const int eid = m_doc.hitTestEllipse(uv, tol); eid >= 0)
+		return eid;
 	if (const int aid = m_doc.hitTestArc(uv, tol); aid >= 0)
 		return aid;
 	if (const int sid = m_doc.hitTestSpline(uv, tol); sid >= 0)
@@ -825,6 +872,7 @@ void SketchEditSession::updatePickHover(const SkVec2& uv)
 		break;
 	case SketchToolKind::GeomCoincident:
 	case SketchToolKind::GeomFix:
+	case SketchToolKind::GeomFixOrigin:
 		m_dimHoverId = m_doc.hitTestPoint(uv, tol);
 		if (m_toolKind == SketchToolKind::GeomCoincident && m_dimPickA >= 0)
 			m_dimHint = m_dimHoverId >= 0 ? QStringLiteral("命中点（第 2/2）") : QStringLiteral("已选第一点，请再选一点");
@@ -964,6 +1012,17 @@ bool SketchEditSession::tryPickSessionAt(const SkVec2& uv, bool rightButton, QSt
 			*err = QStringLiteral("点已固定");
 		return true;
 	}
+	case SketchToolKind::GeomFixOrigin:
+	{
+		const int pid = m_doc.hitTestPoint(uv, tol);
+		if (pid < 0)
+		{
+			if (err)
+				*err = QStringLiteral("请点选点");
+			return false;
+		}
+		return fixPointToOrigin(pid, err);
+	}
 	case SketchToolKind::GeomCoincident:
 	{
 		const int pid = m_doc.hitTestPoint(uv, tol);
@@ -991,8 +1050,129 @@ bool SketchEditSession::tryPickSessionAt(const SkVec2& uv, bool rightButton, QSt
 	case SketchToolKind::GeomParallel:
 	case SketchToolKind::GeomPerpendicular:
 	case SketchToolKind::GeomEqualLength:
+	case SketchToolKind::GeomTangent:
+	case SketchToolKind::GeomSymmetric:
+	case SketchToolKind::GeomMidpoint:
 	{
 		const int lid = m_doc.hitTestLine(uv, tol);
+		const int cid = m_doc.hitTestCircle(uv, tol);
+		const int aid = m_doc.hitTestArc(uv, tol);
+		const int pid = m_doc.hitTestPoint(uv, tol);
+		if (m_toolKind == SketchToolKind::GeomTangent)
+		{
+			if (lid < 0)
+			{
+				if (err)
+					*err = QStringLiteral("请点选直线");
+				return false;
+			}
+			if (m_dimPickA < 0)
+			{
+				m_dimPickA = lid;
+				if (err)
+					*err = QStringLiteral("已选直线，请再选圆或弧");
+				return false;
+			}
+			const int curveId = cid >= 0 ? cid : aid;
+			if (curveId < 0)
+			{
+				if (err)
+					*err = QStringLiteral("请点选圆或弧");
+				return false;
+			}
+			SkConstraint c;
+			c.kind = SkConstraintKind::Tangent;
+			c.a = m_dimPickA;
+			c.b = curveId;
+			m_doc.addConstraint(c);
+			m_dimPickA = -1;
+			(void)solveNow();
+			refreshOverlay();
+			if (m_onChanged)
+				m_onChanged();
+			return true;
+		}
+		if (m_toolKind == SketchToolKind::GeomMidpoint)
+		{
+			if (pid < 0)
+			{
+				if (err)
+					*err = QStringLiteral("请点选点");
+				return false;
+			}
+			if (m_dimPickA < 0)
+			{
+				m_dimPickA = pid;
+				if (err)
+					*err = QStringLiteral("已选点，请再选直线");
+				return false;
+			}
+			if (lid < 0)
+			{
+				if (err)
+					*err = QStringLiteral("请点选直线");
+				return false;
+			}
+			SkConstraint c;
+			c.kind = SkConstraintKind::Midpoint;
+			c.a = m_dimPickA;
+			c.b = lid;
+			m_doc.addConstraint(c);
+			m_dimPickA = -1;
+			(void)solveNow();
+			refreshOverlay();
+			if (m_onChanged)
+				m_onChanged();
+			return true;
+		}
+		if (m_toolKind == SketchToolKind::GeomSymmetric)
+		{
+			if (pid < 0)
+			{
+				if (err)
+					*err = QStringLiteral("请点选点");
+				return false;
+			}
+			if (m_dimPickA < 0)
+			{
+				m_dimPickA = pid;
+				if (err)
+					*err = QStringLiteral("已选第一点，请再选第二点");
+				return false;
+			}
+			if (m_dimPickB < 0)
+			{
+				if (pid == m_dimPickA)
+				{
+					if (err)
+						*err = QStringLiteral("请选择不同的点");
+					return false;
+				}
+				m_dimPickB = pid;
+				if (err)
+					*err = QStringLiteral("已选两点，请点选对称轴直线");
+				return false;
+			}
+			if (lid < 0)
+			{
+				if (err)
+					*err = QStringLiteral("请点选对称轴直线");
+				return false;
+			}
+			SkConstraint c;
+			c.kind = SkConstraintKind::Symmetric;
+			c.a = m_dimPickA;
+			c.b = m_dimPickB;
+			c.c = lid;
+			m_doc.addConstraint(c);
+			m_dimPickA = -1;
+			m_dimPickB = -1;
+			(void)solveNow();
+			refreshOverlay();
+			if (m_onChanged)
+				m_onChanged();
+			return true;
+		}
 		if (lid < 0)
 		{
 			if (err)
@@ -1052,6 +1232,32 @@ bool SketchEditSession::tryPickSessionAt(const SkVec2& uv, bool rightButton, QSt
 	default:
 		return false;
 	}
+}
+
+bool SketchEditSession::fixPointToOrigin(int pointId, QString* err)
+{
+	if (!m_active)
+	{
+		if (err)
+			*err = tr(QStringLiteral("No active sketch."), QStringLiteral("当前没有活动草图"));
+		return false;
+	}
+	SkPoint* pt = m_doc.findPoint(pointId);
+	if (!pt)
+	{
+		if (err)
+			*err = tr(QStringLiteral("Point not found."), QStringLiteral("点不存在"));
+		return false;
+	}
+	pt->p = {0.0, 0.0};
+	pt->fixed = true;
+	(void)solveNow(nullptr);
+	refreshOverlay();
+	if (m_onChanged)
+		m_onChanged();
+	if (err)
+		*err = tr(QStringLiteral("Point fixed at sketch origin."), QStringLiteral("点已固定到草图原点"));
+	return true;
 }
 
 bool SketchEditSession::beginPointDrag(const SkVec2& uv)
@@ -1208,6 +1414,7 @@ void SketchEditSession::syncConstraintsToSolver(SketchConstraintSolver& solver,
 												std::unordered_map<int, int>& arcIdToIdx,
 												std::unordered_map<int, int>& constraintTagToDocIndex)
 {
+	std::unordered_map<int, int> circleIdToIdx;
 	pointIdToIdx.clear();
 	lineIdToIdx.clear();
 	arcIdToIdx.clear();
@@ -1241,12 +1448,7 @@ void SketchEditSession::syncConstraintsToSolver(SketchConstraintSolver& solver,
 		const auto ic = pointIdToIdx.find(c.center);
 		if (ic == pointIdToIdx.end())
 			continue;
-		const SkPoint* cen = m_doc.findPoint(c.center);
-		if (!cen)
-			continue;
-		const int rim = solver.addPoint(cen->p.u + c.radius, cen->p.v, false);
-		SketchConstraint2d sc{SketchConstraintKind::Distance, ic->second, rim, c.radius, 0};
-		solver.addConstraint(sc);
+		circleIdToIdx[c.id] = solver.addCircle(ic->second, c.radius);
 	}
 	for (std::size_t ci = 0; ci < m_doc.constraints().size(); ++ci)
 	{
@@ -1334,6 +1536,33 @@ void SketchEditSession::syncConstraintsToSolver(SketchConstraintSolver& solver,
 			sc.a = ic->second;
 			sc.b = rim;
 			sc.value = c.value;
+			break;
+		}
+		case SkConstraintKind::Tangent:
+		{
+			sc.kind = SketchConstraintKind::Tangent;
+			sc.a = lineIdToIdx.count(c.a) ? lineIdToIdx[c.a] : -1;
+			if (arcIdToIdx.count(c.b))
+				sc.b = arcIdToIdx[c.b];
+			else if (circleIdToIdx.count(c.b))
+				sc.b = circleIdToIdx[c.b];
+			else
+				sc.b = -1;
+			break;
+		}
+		case SkConstraintKind::Symmetric:
+		{
+			sc.kind = SketchConstraintKind::Symmetric;
+			sc.a = pointIdToIdx.count(c.a) ? pointIdToIdx[c.a] : -1;
+			sc.b = pointIdToIdx.count(c.b) ? pointIdToIdx[c.b] : -1;
+			sc.c = lineIdToIdx.count(c.c) ? lineIdToIdx[c.c] : -1;
+			break;
+		}
+		case SkConstraintKind::Midpoint:
+		{
+			sc.kind = SketchConstraintKind::Midpoint;
+			sc.a = pointIdToIdx.count(c.a) ? pointIdToIdx[c.a] : -1;
+			sc.b = lineIdToIdx.count(c.b) ? lineIdToIdx[c.b] : -1;
 			break;
 		}
 		}

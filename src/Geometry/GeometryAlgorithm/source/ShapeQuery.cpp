@@ -13,6 +13,7 @@
 #include "WireOps.h"
 #include "detail/OccIncludes.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -45,6 +46,14 @@ int shapeEdgeCount(const TopoDS_Shape& shape)
 		++count;
 	}
 	return count;
+}
+
+int shapeHandleEdgeCount(const ShapeHandle& handle)
+{
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(handle, &native) || native.IsNull())
+		return 0;
+	return shapeEdgeCount(native);
 }
 
 int shapeFaceCount(const TopoDS_Shape& shape)
@@ -712,6 +721,46 @@ bool validateShapeEdgeIndex(const ShapeHandle& shapeHandle, const int edgeIndex,
 	}
 	TopoDS_Edge edge;
 	return shapeEdgeAtIndex(shape, edgeIndex, edge, errMsg);
+}
+
+bool discretizeShapeFaceEdgesToPolylines(const ShapeHandle& shapeHandle, const int faceIndex,
+										 const TessellateParams& params, std::vector<Polyline3d>& outPolylines,
+										 std::string* errMsg)
+{
+	outPolylines.clear();
+	std::vector<std::vector<int>> faceEdges;
+	if (!collectShapeFaceEdgeIndices(shapeHandle, faceEdges, errMsg))
+		return false;
+	if (faceIndex < 0 || static_cast<std::size_t>(faceIndex) >= faceEdges.size())
+	{
+		if (errMsg)
+			*errMsg = "face index out of range";
+		return false;
+	}
+	const std::vector<int>& edges = faceEdges[static_cast<std::size_t>(faceIndex)];
+	std::vector<int> unique;
+	unique.reserve(edges.size());
+	for (int ei : edges)
+	{
+		if (std::find(unique.begin(), unique.end(), ei) == unique.end())
+			unique.push_back(ei);
+	}
+	outPolylines.reserve(unique.size());
+	for (int ei : unique)
+	{
+		Polyline3d poly;
+		if (!discretizeShapeEdgeByIndex(shapeHandle, ei, params, poly, errMsg))
+			return false;
+		if (poly.xyz.size() >= 6)
+			outPolylines.push_back(std::move(poly));
+	}
+	if (outPolylines.empty())
+	{
+		if (errMsg)
+			*errMsg = "face has no discretizable boundary edges";
+		return false;
+	}
+	return true;
 }
 
 bool collectShapeFaceEdgeIndices(const ShapeHandle& shapeHandle, std::vector<std::vector<int>>& outFaceEdgeIndices,

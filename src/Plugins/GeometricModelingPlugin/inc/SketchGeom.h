@@ -89,6 +89,16 @@ struct SkCircle
 	bool construction = false;
 };
 
+struct SkEllipse
+{
+	int id = 0;
+	int center = -1;
+	double majorR = 0.0;
+	double minorR = 0.0;
+	double angleRad = 0.0;
+	bool construction = false;
+};
+
 struct SkSpline
 {
 	int id = 0;
@@ -107,7 +117,10 @@ enum class SkConstraintKind
 	Perpendicular,
 	Radius,
 	Angle,
-	ArcRadius
+	ArcRadius,
+	Tangent,
+	Symmetric,
+	Midpoint
 };
 
 struct SkConstraint
@@ -116,6 +129,8 @@ struct SkConstraint
 	int a = -1;
 	int b = -1;
 	double value = 0.0;
+	/// Symmetric：对称轴直线 id
+	int c = -1;
 };
 
 enum class SkConstraintDiag
@@ -141,12 +156,14 @@ public:
 	int addLine(int p1, int p2, bool construction = false);
 	int addArc(int pStart, int pMid, int pEnd, bool construction = false);
 	int addCircle(int center, double radius, bool construction = false);
+	int addEllipse(int center, double majorR, double minorR, double angleRad = 0.0, bool construction = false);
 	int addSpline(const std::vector<int>& throughPts, bool construction = false);
 	void addConstraint(const SkConstraint& c);
 	bool toggleConstruction(int entityId);
 	bool removeLine(int id);
 	bool removeArc(int id);
 	bool removeCircle(int id);
+	bool removeEllipse(int id);
 	bool removeSpline(int id);
 	/// 删线/弧/圆/样条并清理关联约束与孤点
 	bool removeEntity(int id);
@@ -166,6 +183,8 @@ public:
 	const SkArc* findArc(int id) const;
 	SkCircle* findCircle(int id);
 	const SkCircle* findCircle(int id) const;
+	SkEllipse* findEllipse(int id);
+	const SkEllipse* findEllipse(int id) const;
 	SkSpline* findSpline(int id);
 	const SkSpline* findSpline(int id) const;
 
@@ -177,6 +196,8 @@ public:
 	std::vector<SkArc>& arcsMut() { return m_arcs; }
 	const std::vector<SkCircle>& circles() const { return m_circles; }
 	std::vector<SkCircle>& circlesMut() { return m_circles; }
+	const std::vector<SkEllipse>& ellipses() const { return m_ellipses; }
+	std::vector<SkEllipse>& ellipsesMut() { return m_ellipses; }
 	const std::vector<SkSpline>& splines() const { return m_splines; }
 	std::vector<SkSpline>& splinesMut() { return m_splines; }
 	const std::vector<SkConstraint>& constraints() const { return m_constraints; }
@@ -187,6 +208,10 @@ public:
 
 	bool exportClosedProfileXyz(const PluginSketchPlane& plane, std::vector<float>& outXyzMm,
 								std::string* err = nullptr) const;
+	/// 所有闭合环；最大面积者为外轮廓，其余为孔
+	bool exportClosedProfilesXyz(const PluginSketchPlane& plane, std::vector<std::vector<float>>& outLoops,
+								 std::string* err = nullptr) const;
+	bool exportClosedProfilesUv(std::vector<std::vector<SkVec2>>& outLoops, std::string* err = nullptr) const;
 	/// 开放路径：连续 Line/Arc/样条折线（拒绝分叉/闭环）
 	bool exportOpenPathXyz(const PluginSketchPlane& plane, std::vector<float>& outXyzMm,
 						   std::string* err = nullptr) const;
@@ -208,6 +233,7 @@ public:
 	int hitTestPoint(const SkVec2& uv, double tolMm) const;
 	int hitTestLine(const SkVec2& uv, double tolMm) const;
 	int hitTestCircle(const SkVec2& uv, double tolMm) const;
+	int hitTestEllipse(const SkVec2& uv, double tolMm) const;
 	int hitTestArc(const SkVec2& uv, double tolMm) const;
 	int hitTestSpline(const SkVec2& uv, double tolMm) const;
 
@@ -221,6 +247,7 @@ private:
 	std::vector<SkLine> m_lines;
 	std::vector<SkArc> m_arcs;
 	std::vector<SkCircle> m_circles;
+	std::vector<SkEllipse> m_ellipses;
 	std::vector<SkSpline> m_splines;
 	std::vector<SkConstraint> m_constraints;
 };
@@ -232,5 +259,13 @@ bool sketchCircumcenter(const SkVec2& a, const SkVec2& b, const SkVec2& c, SkVec
 
 /// 过点 Catmull-Rom 均匀采样（端点重复）
 void sketchSampleCatmullRom(const std::vector<SkVec2>& through, std::vector<SkVec2>& out, int segsPerSpan = 12);
+
+void sketchSampleEllipse(const SkVec2& center, double majorR, double minorR, double angleRad,
+						 std::vector<SkVec2>& out, int segs = 48);
+
+bool offsetClosedUv(const std::vector<SkVec2>& poly, double dist, std::vector<SkVec2>& out, std::string* err = nullptr);
+
+/// 闭合折线是否自交（端点共享不算）
+bool closedPolylineSelfIntersectsUv(const std::vector<SkVec2>& poly, double eps = 1e-9);
 
 #endif

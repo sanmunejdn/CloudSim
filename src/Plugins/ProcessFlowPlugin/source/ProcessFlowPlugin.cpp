@@ -25,6 +25,7 @@
 #include <QJsonObject>
 #include <QLatin1String>
 #include <QMenu>
+#include <QMessageBox>
 #include <QPointF>
 #include <QTextStream>
 
@@ -46,7 +47,7 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	if (host->hostVersion() < 0x00011400U)
+	if (host->hostVersion() < 0x00012400U)
 	{
 		host->logError(QStringLiteral("ProcessFlowPlugin requires host 1.20.0+"));
 		return false;
@@ -125,6 +126,17 @@ void ProcessFlowPlugin::bindSimUi()
 	}
 	ProcessFlowReportPanel* report = m_simSide->reportPanel();
 	connect(report, &ProcessFlowReportPanel::runClicked, this, &ProcessFlowPlugin::runSimulation);
+	connect(report, &ProcessFlowReportPanel::optimizeClicked, this,
+			[this, report]()
+			{
+				if (!m_inProcessFlow || !m_sim)
+					return;
+				ProcessFlowPageWidget* page = ensurePageForActiveDocument();
+				if (!page || !page->canvas())
+					return;
+				report->applyConfigTo(&m_sim->config());
+				m_sim->optimizeThenStart(page->canvas());
+			});
 	connect(report, &ProcessFlowReportPanel::compareClicked, this,
 			[this, report]()
 			{
@@ -133,7 +145,7 @@ void ProcessFlowPlugin::bindSimUi()
 				ProcessFlowPageWidget* page = ensurePageForActiveDocument();
 				if (!page || !page->canvas())
 					return;
-				m_sim->config().horizonSec = report->horizonSec();
+				report->applyConfigTo(&m_sim->config());
 				m_sim->compare(page->canvas(), report->comparePolicies());
 			});
 	connect(report, &ProcessFlowReportPanel::stopClicked, m_sim, &ProcessFlowSimController::stop);
@@ -162,7 +174,9 @@ void ProcessFlowPlugin::bindSimUi()
 				if (page && page->canvas())
 					page->canvas()->setPlaybackTrace(stats);
 			});
-	connect(m_sim, &ProcessFlowSimController::compareReady, report, &ProcessFlowReportPanel::setCompareRows);
+	connect(m_sim, &ProcessFlowSimController::compareReady, this,
+			[report](const QVector<PolicyCompareRow>& rows, const QVector<SimStatistics>& perPolicy)
+			{ report->setCompareResult(rows, perPolicy); });
 	connect(m_sim, &ProcessFlowSimController::finished, this,
 			[this, report](bool ok, const QString& message)
 			{
@@ -184,6 +198,9 @@ void ProcessFlowPlugin::bindSimUi()
 					ProcessFlowPageWidget* page = ensurePageForActiveDocument();
 					if (page && page->canvas())
 						page->canvas()->setJobSetJson(js->toJson());
+					if (m_host)
+						m_host->markActiveDocumentModified();
+					m_flowDirty = true;
 				});
 	}
 }
@@ -205,8 +222,7 @@ void ProcessFlowPlugin::runSimulation()
 		return;
 	}
 	ProcessFlowReportPanel* report = m_simSide->reportPanel();
-	m_sim->config().horizonSec = report->horizonSec();
-	m_sim->config().policy = report->policyName();
+	report->applyConfigTo(&m_sim->config());
 	m_sim->start(page->canvas());
 }
 
@@ -381,11 +397,22 @@ void ProcessFlowPlugin::exitProcessFlow()
 	{
 		return;
 	}
+	if (m_flowDirty || m_host->isActiveDocumentModified())
+	{
+		const QMessageBox::StandardButton btn = QMessageBox::question(
+			nullptr, m_host->useChinese() ? QStringLiteral("未保存的工艺流程") : QStringLiteral("Unsaved process flow"),
+			m_host->useChinese() ? QStringLiteral("流程图已修改。退出前请先保存工程，或选择放弃修改。\n是否仍要退出？")
+								 : QStringLiteral("Flow graph changed. Exit anyway (save project first to keep changes)?"),
+			QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+		if (btn != QMessageBox::Yes)
+			return;
+	}
 	if (m_sim && m_sim->isRunning())
 	{
 		m_sim->stop();
 	}
 	m_inProcessFlow = false;
+	m_flowDirty = false;
 	m_host->returnToMainWorkspace();
 	if (m_palette && m_palette->propertyPanel())
 	{
@@ -413,6 +440,9 @@ ProcessFlowPageWidget* ProcessFlowPlugin::ensurePageForDocument(const QString& d
 			connect(slot->canvas(), &ProcessFlowCanvasWidget::graphChanged, this,
 					[this](int, int)
 					{
+						m_flowDirty = true;
+						if (m_host)
+							m_host->markActiveDocumentModified();
 						if (!m_sim)
 						{
 							return;
@@ -515,6 +545,7 @@ void ProcessFlowPlugin::onProjectAboutToSave(const QString& documentId, QJsonObj
 		return;
 	}
 	root.insert(QLatin1String(backend_type::kProjectKeyProcessFlow), canvas->toJson());
+	m_flowDirty = false;
 }
 
 void ProcessFlowPlugin::onProjectLoaded(const QString& documentId, const QJsonObject& root)

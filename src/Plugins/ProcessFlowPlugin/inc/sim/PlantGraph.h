@@ -24,6 +24,8 @@ struct PlantNode
 	double mtbfSec = 0.0;
 	double mttrSec = 0.0;
 	double requiredInputs = 1.0;
+	QString bindingBackendId;
+	QString bindingProgramId;
 };
 
 struct PlantGraph

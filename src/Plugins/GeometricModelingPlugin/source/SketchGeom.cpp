@@ -23,6 +23,7 @@ void SketchDocument2d::clear()
 	m_lines.clear();
 	m_arcs.clear();
 	m_circles.clear();
+	m_ellipses.clear();
 	m_splines.clear();
 	m_constraints.clear();
 	m_seq = 1;
@@ -72,6 +73,19 @@ int SketchDocument2d::addCircle(int center, double radius, bool construction)
 	return c.id;
 }
 
+int SketchDocument2d::addEllipse(int center, double majorR, double minorR, double angleRad, bool construction)
+{
+	SkEllipse e;
+	e.id = nextId();
+	e.center = center;
+	e.majorR = majorR;
+	e.minorR = minorR;
+	e.angleRad = angleRad;
+	e.construction = construction;
+	m_ellipses.push_back(e);
+	return e.id;
+}
+
 int SketchDocument2d::addSpline(const std::vector<int>& throughPts, bool construction)
 {
 	if (throughPts.size() < 2)
@@ -106,6 +120,11 @@ bool SketchDocument2d::toggleConstruction(int entityId)
 		cir->construction = !cir->construction;
 		return true;
 	}
+	if (auto* el = findEllipse(entityId))
+	{
+		el->construction = !el->construction;
+		return true;
+	}
 	if (auto* sp = findSpline(entityId))
 	{
 		sp->construction = !sp->construction;
@@ -137,6 +156,14 @@ bool SketchDocument2d::removeCircle(int id)
 	return m_circles.size() != n;
 }
 
+bool SketchDocument2d::removeEllipse(int id)
+{
+	const auto n = m_ellipses.size();
+	m_ellipses.erase(std::remove_if(m_ellipses.begin(), m_ellipses.end(), [&](const SkEllipse& e) { return e.id == id; }),
+					 m_ellipses.end());
+	return m_ellipses.size() != n;
+}
+
 bool SketchDocument2d::removeSpline(int id)
 {
 	const auto n = m_splines.size();
@@ -164,6 +191,12 @@ bool SketchDocument2d::removeEntity(int id)
 	{
 		ownedPts = {cir->center};
 		if (!removeCircle(id))
+			return false;
+	}
+	else if (const SkEllipse* el = findEllipse(id))
+	{
+		ownedPts = {el->center};
+		if (!removeEllipse(id))
 			return false;
 	}
 	else if (const SkSpline* sp = findSpline(id))
@@ -202,6 +235,11 @@ bool SketchDocument2d::removeEntity(int id)
 		for (const SkCircle& cir : m_circles)
 		{
 			if (cir.center == pid)
+				return true;
+		}
+		for (const SkEllipse& el : m_ellipses)
+		{
+			if (el.center == pid)
 				return true;
 		}
 		for (const SkSpline& sp : m_splines)
@@ -291,6 +329,22 @@ const SkCircle* SketchDocument2d::findCircle(int id) const
 	for (const auto& c : m_circles)
 		if (c.id == id)
 			return &c;
+	return nullptr;
+}
+
+SkEllipse* SketchDocument2d::findEllipse(int id)
+{
+	for (auto& e : m_ellipses)
+		if (e.id == id)
+			return &e;
+	return nullptr;
+}
+
+const SkEllipse* SketchDocument2d::findEllipse(int id) const
+{
+	for (const auto& e : m_ellipses)
+		if (e.id == id)
+			return &e;
 	return nullptr;
 }
 
@@ -429,6 +483,146 @@ void sketchSampleCatmullRom(const std::vector<SkVec2>& through, std::vector<SkVe
 	}
 }
 
+void sketchSampleEllipse(const SkVec2& center, double majorR, double minorR, double angleRad, std::vector<SkVec2>& out,
+						 int segs)
+{
+	out.clear();
+	if (segs < 3 || majorR < 1e-12)
+		return;
+	const double minor = minorR > 1e-12 ? minorR : majorR;
+	const double ca = std::cos(angleRad);
+	const double sa = std::sin(angleRad);
+	for (int i = 0; i <= segs; ++i)
+	{
+		const double t = 2.0 * 3.141592653589793 * i / segs;
+		const double lx = majorR * std::cos(t);
+		const double ly = minor * std::sin(t);
+		out.push_back({center.u + lx * ca - ly * sa, center.v + lx * sa + ly * ca});
+	}
+}
+
+bool offsetClosedUv(const std::vector<SkVec2>& poly, double dist, std::vector<SkVec2>& out, std::string* err)
+{
+	const std::size_t n = poly.size();
+	if (n < 3)
+	{
+		if (err)
+			*err = "need at least 3 points";
+		return false;
+	}
+
+	double area2 = 0.0;
+	for (std::size_t i = 0; i < n; ++i)
+	{
+		const std::size_t j = (i + 1) % n;
+		area2 += poly[i].u * poly[j].v - poly[j].u * poly[i].v;
+	}
+	const bool ccw = area2 > 0.0;
+	const double signedOff = (ccw ? 1.0 : -1.0) * dist;
+
+	auto edgeNormal = [](const SkVec2& a, const SkVec2& b, bool left) -> SkVec2
+	{
+		const double dx = b.u - a.u;
+		const double dy = b.v - a.v;
+		const double len = std::sqrt(dx * dx + dy * dy);
+		if (len < 1e-12)
+			return {0.0, 0.0};
+		const double nx = -dy / len;
+		const double ny = dx / len;
+		return left ? SkVec2{nx, ny} : SkVec2{-nx, -ny};
+	};
+
+	auto intersectLines = [](const SkVec2& p1, const SkVec2& d1, const SkVec2& p2, const SkVec2& d2, SkVec2& outPt) -> bool
+	{
+		const double cross = d1.u * d2.v - d1.v * d2.u;
+		if (std::abs(cross) < 1e-12)
+			return false;
+		const double dx = p2.u - p1.u;
+		const double dy = p2.v - p1.v;
+		const double t = (dx * d2.v - dy * d2.u) / cross;
+		outPt = {p1.u + d1.u * t, p1.v + d1.v * t};
+		return true;
+	};
+
+	out.clear();
+	out.reserve(n);
+	for (std::size_t i = 0; i < n; ++i)
+	{
+		const std::size_t im = (i + n - 1) % n;
+		const std::size_t ip = (i + 1) % n;
+		const SkVec2& p0 = poly[im];
+		const SkVec2& p1 = poly[i];
+		const SkVec2& p2 = poly[ip];
+
+		const SkVec2 e0{p1.u - p0.u, p1.v - p0.v};
+		const SkVec2 e1{p2.u - p1.u, p2.v - p1.v};
+		const SkVec2 n0 = edgeNormal(p0, p1, true);
+		const SkVec2 n1 = edgeNormal(p1, p2, true);
+		const SkVec2 q0{p0.u + n0.u * signedOff, p0.v + n0.v * signedOff};
+		const SkVec2 q1{p1.u + n1.u * signedOff, p1.v + n1.v * signedOff};
+
+		SkVec2 vtx;
+		if (!intersectLines(q0, e0, q1, e1, vtx))
+			vtx = {p1.u + n1.u * signedOff, p1.v + n1.v * signedOff};
+		out.push_back(vtx);
+	}
+	return out.size() >= 3;
+}
+
+bool closedPolylineSelfIntersectsUv(const std::vector<SkVec2>& poly, double eps)
+{
+	const std::size_t n = poly.size();
+	if (n < 4)
+		return false;
+
+	auto orient = [eps](const SkVec2& a, const SkVec2& b, const SkVec2& c) -> int
+	{
+		const double v = (b.u - a.u) * (c.v - a.v) - (b.v - a.v) * (c.u - a.u);
+		if (v > eps)
+			return 1;
+		if (v < -eps)
+			return -1;
+		return 0;
+	};
+	auto onSeg = [eps](const SkVec2& a, const SkVec2& b, const SkVec2& p) -> bool
+	{
+		return p.u >= std::min(a.u, b.u) - eps && p.u <= std::max(a.u, b.u) + eps &&
+			   p.v >= std::min(a.v, b.v) - eps && p.v <= std::max(a.v, b.v) + eps;
+	};
+	auto segmentsIntersect = [&](const SkVec2& a1, const SkVec2& a2, const SkVec2& b1, const SkVec2& b2) -> bool
+	{
+		const int o1 = orient(a1, a2, b1);
+		const int o2 = orient(a1, a2, b2);
+		const int o3 = orient(b1, b2, a1);
+		const int o4 = orient(b1, b2, a2);
+		if (o1 != o2 && o3 != o4)
+			return true;
+		if (o1 == 0 && onSeg(a1, a2, b1))
+			return true;
+		if (o2 == 0 && onSeg(a1, a2, b2))
+			return true;
+		if (o3 == 0 && onSeg(b1, b2, a1))
+			return true;
+		if (o4 == 0 && onSeg(b1, b2, a2))
+			return true;
+		return false;
+	};
+
+	for (std::size_t i = 0; i < n; ++i)
+	{
+		const std::size_t i2 = (i + 1) % n;
+		for (std::size_t j = i + 1; j < n; ++j)
+		{
+			const std::size_t j2 = (j + 1) % n;
+			if (i == j || i2 == j || i == j2 || i2 == j2)
+				continue;
+			if (segmentsIntersect(poly[i], poly[i2], poly[j], poly[j2]))
+				return true;
+		}
+	}
+	return false;
+}
+
 bool SketchDocument2d::sampleSplineUv(const SkSpline& sp, std::vector<SkVec2>& out, int segsPerSpan) const
 {
 	std::vector<SkVec2> through;
@@ -457,71 +651,114 @@ bool SketchDocument2d::isSplineThroughPoint(int pointId) const
 	return false;
 }
 
-bool SketchDocument2d::exportClosedProfileXyz(const PluginSketchPlane& plane, std::vector<float>& outXyzMm,
-											  std::string* err) const
+namespace
 {
-	outXyzMm.clear();
-	// 仅非构造圆且无其它轮廓时导出圆
+double loopAreaAbs(const std::vector<SkVec2>& poly)
+{
+	if (poly.size() < 3)
+		return 0.0;
+	double a = 0.0;
+	for (std::size_t i = 0; i < poly.size(); ++i)
 	{
-		int solidCircles = 0;
-		const SkCircle* only = nullptr;
-		for (const auto& c : m_circles)
+		const std::size_t j = (i + 1) % poly.size();
+		a += poly[i].u * poly[j].v - poly[j].u * poly[i].v;
+	}
+	return std::abs(a) * 0.5;
+}
+} // namespace
+
+bool SketchDocument2d::exportClosedProfilesUv(std::vector<std::vector<SkVec2>>& outLoops, std::string* err) const
+{
+	outLoops.clear();
+	std::vector<std::vector<SkVec2>> uvLoops;
+
+	auto countSolid = [](const auto& container)
+	{
+		int n = 0;
+		for (const auto& item : container)
 		{
-			if (c.construction)
-				continue;
-			++solidCircles;
-			only = &c;
+			if (!item.construction)
+				++n;
 		}
-		int solidLines = 0, solidArcs = 0, solidSplines = 0;
-		for (const auto& ln : m_lines)
-			if (!ln.construction)
-				++solidLines;
-		for (const auto& a : m_arcs)
-			if (!a.construction)
-				++solidArcs;
-		for (const auto& s : m_splines)
-			if (!s.construction)
-				++solidSplines;
-		if (solidCircles == 1 && solidLines == 0 && solidArcs == 0 && solidSplines == 0 && only)
+		return n;
+	};
+
+	// 单圆/单椭圆轮廓快速路径
+	{
+		const int solidCircles = countSolid(m_circles);
+		const int solidEllipses = countSolid(m_ellipses);
+		const int solidLines = countSolid(m_lines);
+		const int solidArcs = countSolid(m_arcs);
+		const int solidSplines = countSolid(m_splines);
+		if (solidLines == 0 && solidArcs == 0 && solidSplines == 0)
 		{
-			const SkPoint* cen = findPoint(only->center);
-			if (!cen || only->radius < 1e-6)
+			if (solidCircles == 1 && solidEllipses == 0)
 			{
-				if (err)
-					*err = "invalid circle";
-				return false;
+				const SkCircle* only = nullptr;
+				for (const auto& c : m_circles)
+				{
+					if (!c.construction)
+					{
+						only = &c;
+						break;
+					}
+				}
+				const SkPoint* cen = only ? findPoint(only->center) : nullptr;
+				if (!cen || only->radius < 1e-6)
+				{
+					if (err)
+						*err = "invalid circle";
+					return false;
+				}
+				std::vector<SkVec2> poly;
+				sketchSampleEllipse(cen->p, only->radius, only->radius, 0.0, poly, 48);
+				uvLoops.push_back(std::move(poly));
 			}
-			constexpr int segs = 48;
-			for (int i = 0; i <= segs; ++i)
+			else if (solidEllipses == 1 && solidCircles == 0)
 			{
-				const double a = 2.0 * 3.141592653589793 * i / segs;
-				const SkVec2 uv{cen->p.u + only->radius * std::cos(a), cen->p.v + only->radius * std::sin(a)};
-				pushWorld(outXyzMm, uvToWorld(plane, uv));
+				const SkEllipse* only = nullptr;
+				for (const auto& e : m_ellipses)
+				{
+					if (!e.construction)
+					{
+						only = &e;
+						break;
+					}
+				}
+				const SkPoint* cen = only ? findPoint(only->center) : nullptr;
+				if (!cen || only->majorR < 1e-6 || only->minorR < 1e-6)
+				{
+					if (err)
+						*err = "invalid ellipse";
+					return false;
+				}
+				std::vector<SkVec2> poly;
+				sketchSampleEllipse(cen->p, only->majorR, only->minorR, only->angleRad, poly, 48);
+				uvLoops.push_back(std::move(poly));
 			}
-			return true;
 		}
 	}
 
-	std::vector<SkVec2> poly;
 	std::vector<const SkLine*> solidLines;
 	for (const auto& ln : m_lines)
 		if (!ln.construction)
 			solidLines.push_back(&ln);
-	if (!solidLines.empty())
+
+	std::vector<char> used(solidLines.size(), 0);
+	for (std::size_t si = 0; si < solidLines.size(); ++si)
 	{
-		std::vector<char> used(solidLines.size(), 0);
-		const SkPoint* a = findPoint(solidLines[0]->p1);
-		const SkPoint* b = findPoint(solidLines[0]->p2);
-		if (!a || !b)
-		{
-			if (err)
-				*err = "missing line points";
-			return false;
-		}
-		poly.push_back(a->p);
-		poly.push_back(b->p);
-		used[0] = 1;
-		SkVec2 tip = b->p;
+		if (used[si])
+			continue;
+		const SkPoint* pa = findPoint(solidLines[si]->p1);
+		const SkPoint* pb = findPoint(solidLines[si]->p2);
+		if (!pa || !pb)
+			continue;
+		std::vector<SkVec2> poly;
+		poly.push_back(pa->p);
+		poly.push_back(pb->p);
+		used[si] = 1;
+		SkVec2 tip = pb->p;
+		const SkVec2 start = pa->p;
 		bool progressed = true;
 		while (progressed)
 		{
@@ -552,7 +789,12 @@ bool SketchDocument2d::exportClosedProfileXyz(const PluginSketchPlane& plane, st
 				}
 			}
 		}
+		if (poly.size() >= 3 && skDist(poly.front(), poly.back()) < 1e-3)
+			poly.pop_back();
+		if (poly.size() >= 3 && skDist(start, tip) < 1e-3)
+			uvLoops.push_back(std::move(poly));
 	}
+
 	for (const auto& arc : m_arcs)
 	{
 		if (arc.construction)
@@ -562,30 +804,66 @@ bool SketchDocument2d::exportClosedProfileXyz(const PluginSketchPlane& plane, st
 		const SkPoint* e = findPoint(arc.pEnd);
 		if (!s || !m || !e)
 			continue;
+		std::vector<SkVec2> poly;
 		appendArcSamples(poly, s->p, m->p, e->p, 24);
+		if (poly.size() >= 3 && skDist(poly.front(), poly.back()) < 1e-3)
+			uvLoops.push_back(std::move(poly));
 	}
-	for (const auto& sp : m_splines)
+
+	for (const auto& el : m_ellipses)
 	{
-		if (sp.construction)
+		if (el.construction)
 			continue;
-		std::vector<SkVec2> samples;
-		if (!sampleSplineUv(sp, samples, 12) || samples.size() < 2)
+		const SkPoint* cen = findPoint(el.center);
+		if (!cen || el.majorR < 1e-6 || el.minorR < 1e-6)
 			continue;
-		if (poly.empty())
-			poly.insert(poly.end(), samples.begin(), samples.end());
-		else
-			poly.insert(poly.end(), samples.begin() + 1, samples.end());
+		std::vector<SkVec2> poly;
+		sketchSampleEllipse(cen->p, el.majorR, el.minorR, el.angleRad, poly, 48);
+		if (poly.size() >= 3)
+			uvLoops.push_back(std::move(poly));
 	}
-	if (poly.size() < 3)
+
+	if (uvLoops.empty())
 	{
 		if (err)
-			*err = "profile needs >= 3 vertices";
+			*err = "no closed profile loop";
 		return false;
 	}
-	if (skDist(poly.front(), poly.back()) > 1e-3)
-		poly.push_back(poly.front());
-	for (const auto& uv : poly)
-		pushWorld(outXyzMm, uvToWorld(plane, uv));
+
+	std::sort(uvLoops.begin(), uvLoops.end(),
+			  [](const std::vector<SkVec2>& a, const std::vector<SkVec2>& b)
+			  { return loopAreaAbs(a) > loopAreaAbs(b); });
+	outLoops = std::move(uvLoops);
+	return !outLoops.empty();
+}
+
+bool SketchDocument2d::exportClosedProfilesXyz(const PluginSketchPlane& plane,
+											 std::vector<std::vector<float>>& outLoops, std::string* err) const
+{
+	outLoops.clear();
+	std::vector<std::vector<SkVec2>> uvLoops;
+	if (!exportClosedProfilesUv(uvLoops, err))
+		return false;
+
+	for (const auto& poly : uvLoops)
+	{
+		std::vector<float> xyz;
+		for (const auto& uv : poly)
+			pushWorld(xyz, uvToWorld(plane, uv));
+		if (xyz.size() >= 12)
+			outLoops.push_back(std::move(xyz));
+	}
+	return !outLoops.empty();
+}
+
+bool SketchDocument2d::exportClosedProfileXyz(const PluginSketchPlane& plane, std::vector<float>& outXyzMm,
+											  std::string* err) const
+{
+	outXyzMm.clear();
+	std::vector<std::vector<float>> loops;
+	if (!exportClosedProfilesXyz(plane, loops, err) || loops.empty())
+		return false;
+	outXyzMm = loops.front();
 	return outXyzMm.size() >= 12;
 }
 
@@ -974,13 +1252,17 @@ void SketchDocument2d::tessellateOverlay(const PluginSketchPlane& plane, std::ve
 		if (!cen)
 			continue;
 		std::vector<SkVec2> samples;
-		constexpr int segs = 48;
-		for (int i = 0; i <= segs; ++i)
-		{
-			const double a = 2.0 * 3.141592653589793 * i / segs;
-			samples.push_back({cen->p.u + c.radius * std::cos(a), cen->p.v + c.radius * std::sin(a)});
-		}
+		sketchSampleEllipse(cen->p, c.radius, c.radius, 0.0, samples, 48);
 		addSeg(samples, c.construction, c.id);
+	}
+	for (const auto& el : m_ellipses)
+	{
+		const SkPoint* cen = findPoint(el.center);
+		if (!cen)
+			continue;
+		std::vector<SkVec2> samples;
+		sketchSampleEllipse(cen->p, el.majorR, el.minorR, el.angleRad, samples, 48);
+		addSeg(samples, el.construction, el.id);
 	}
 	for (const auto& sp : m_splines)
 	{
@@ -1317,6 +1599,12 @@ QString SketchDocument2d::constraintLabel(const SkConstraint& c) const
 		return QStringLiteral("垂直");
 	case SkConstraintKind::Coincident:
 		return QStringLiteral("重合");
+	case SkConstraintKind::Tangent:
+		return QStringLiteral("相切");
+	case SkConstraintKind::Symmetric:
+		return QStringLiteral("对称");
+	case SkConstraintKind::Midpoint:
+		return QStringLiteral("中点");
 	}
 	return QStringLiteral("约束");
 }
@@ -1381,6 +1669,33 @@ int SketchDocument2d::hitTestCircle(const SkVec2& uv, double tolMm) const
 		{
 			bestD = d;
 			best = c.id;
+		}
+	}
+	return best;
+}
+
+int SketchDocument2d::hitTestEllipse(const SkVec2& uv, double tolMm) const
+{
+	int best = -1;
+	double bestD = tolMm;
+	for (const auto& el : m_ellipses)
+	{
+		const SkPoint* cen = findPoint(el.center);
+		if (!cen || el.majorR < 1e-9)
+			continue;
+		const double ca = std::cos(-el.angleRad);
+		const double sa = std::sin(-el.angleRad);
+		const double du = uv.u - cen->p.u;
+		const double dv = uv.v - cen->p.v;
+		const double lu = du * ca - dv * sa;
+		const double lv = du * sa + dv * ca;
+		const double minor = el.minorR > 1e-9 ? el.minorR : el.majorR;
+		const double norm = (lu * lu) / (el.majorR * el.majorR) + (lv * lv) / (minor * minor);
+		const double d = std::abs(std::sqrt(std::max(0.0, norm)) - 1.0) * el.majorR;
+		if (d <= bestD)
+		{
+			bestD = d;
+			best = el.id;
 		}
 	}
 	return best;
@@ -1492,6 +1807,19 @@ QByteArray SketchDocument2d::toJsonUtf8() const
 		circles.append(o);
 	}
 	root.insert(QStringLiteral("circles"), circles);
+	QJsonArray ellipses;
+	for (const auto& e : m_ellipses)
+	{
+		QJsonObject o;
+		o.insert(QStringLiteral("id"), e.id);
+		o.insert(QStringLiteral("center"), e.center);
+		o.insert(QStringLiteral("majorR"), e.majorR);
+		o.insert(QStringLiteral("minorR"), e.minorR);
+		o.insert(QStringLiteral("angleRad"), e.angleRad);
+		o.insert(QStringLiteral("construction"), e.construction);
+		ellipses.append(o);
+	}
+	root.insert(QStringLiteral("ellipses"), ellipses);
 	QJsonArray splines;
 	for (const auto& sp : m_splines)
 	{
@@ -1513,6 +1841,8 @@ QByteArray SketchDocument2d::toJsonUtf8() const
 		o.insert(QStringLiteral("a"), c.a);
 		o.insert(QStringLiteral("b"), c.b);
 		o.insert(QStringLiteral("value"), c.value);
+		if (c.c >= 0)
+			o.insert(QStringLiteral("c"), c.c);
 		cons.append(o);
 	}
 	root.insert(QStringLiteral("constraints"), cons);
@@ -1569,6 +1899,18 @@ bool SketchDocument2d::fromJsonUtf8(const QByteArray& utf8)
 		c.construction = o.value(QStringLiteral("construction")).toBool(false);
 		m_circles.push_back(c);
 	}
+	for (const QJsonValue& v : root.value(QStringLiteral("ellipses")).toArray())
+	{
+		const QJsonObject o = v.toObject();
+		SkEllipse e;
+		e.id = o.value(QStringLiteral("id")).toInt();
+		e.center = o.value(QStringLiteral("center")).toInt();
+		e.majorR = o.value(QStringLiteral("majorR")).toDouble();
+		e.minorR = o.value(QStringLiteral("minorR")).toDouble();
+		e.angleRad = o.value(QStringLiteral("angleRad")).toDouble();
+		e.construction = o.value(QStringLiteral("construction")).toBool(false);
+		m_ellipses.push_back(e);
+	}
 	for (const QJsonValue& v : root.value(QStringLiteral("splines")).toArray())
 	{
 		const QJsonObject o = v.toObject();
@@ -1588,6 +1930,7 @@ bool SketchDocument2d::fromJsonUtf8(const QByteArray& utf8)
 		c.a = o.value(QStringLiteral("a")).toInt();
 		c.b = o.value(QStringLiteral("b")).toInt();
 		c.value = o.value(QStringLiteral("value")).toDouble();
+		c.c = o.value(QStringLiteral("c")).toInt(-1);
 		m_constraints.push_back(c);
 	}
 	return true;
@@ -1830,6 +2173,21 @@ bool SketchDocument2d::mirrorEntities(int mirrorLineId, const std::vector<int>& 
 			if (nc >= 0)
 			{
 				addCircle(nc, cir->radius, cir->construction);
+				any = true;
+			}
+		}
+		else if (const SkEllipse* el = findEllipse(id))
+		{
+			const int nc = mapPt(el->center);
+			const SkPoint* cen = nc >= 0 ? findPoint(nc) : nullptr;
+			if (cen)
+			{
+				const double ca = std::cos(el->angleRad);
+				const double sa = std::sin(el->angleRad);
+				const SkVec2 majorTip{cen->p.u + el->majorR * ca, cen->p.v + el->majorR * sa};
+				const SkVec2 mMajor = mirrorPointAcrossLine(majorTip, a->p, b->p);
+				const double newAngle = std::atan2(mMajor.v - cen->p.v, mMajor.u - cen->p.u);
+				addEllipse(nc, el->majorR, el->minorR, newAngle, el->construction);
 				any = true;
 			}
 		}

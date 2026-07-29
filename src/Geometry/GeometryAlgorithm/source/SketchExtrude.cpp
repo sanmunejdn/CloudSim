@@ -110,6 +110,41 @@ bool makeFaceFromClosedPolyline(const std::vector<float>& xyz, TopoDS_Face& outF
 	return true;
 }
 
+bool makeFaceFromProfileAndHoles(const std::vector<float>& outerXyz,
+								 const std::vector<std::vector<float>>& holePolylinesXyzMm, TopoDS_Face& outFace,
+								 std::string* errMsg)
+{
+	TopoDS_Face outerFace;
+	if (!makeFaceFromClosedPolyline(outerXyz, outerFace, errMsg))
+		return false;
+	BRepBuilderAPI_MakeFace mkFace(outerFace);
+	for (const auto& hole : holePolylinesXyzMm)
+	{
+		if (hole.size() < 9U)
+			continue;
+		BRepBuilderAPI_MakePolygon poly;
+		const std::size_t n = hole.size() / 3U;
+		for (std::size_t i = 0; i < n; ++i)
+			poly.Add(gp_Pnt(hole[i * 3], hole[i * 3 + 1], hole[i * 3 + 2]));
+		const gp_Pnt p0(hole[0], hole[1], hole[2]);
+		const gp_Pnt pLast(hole[(n - 1) * 3], hole[(n - 1) * 3 + 1], hole[(n - 1) * 3 + 2]);
+		if (p0.Distance(pLast) > 1e-6)
+			poly.Add(p0);
+		poly.Close();
+		if (!poly.IsDone())
+			continue;
+		mkFace.Add(poly.Wire());
+	}
+	if (!mkFace.IsDone())
+	{
+		if (errMsg)
+			*errMsg = "MakeFace with holes failed";
+		return false;
+	}
+	outFace = mkFace.Face();
+	return true;
+}
+
 bool sketchExtrudeProfileNative(const TopoDS_Shape& profileFaceOrWire, const SketchExtrudeParams& params,
 								const TopoDS_Shape* baseOrNull, TopoDS_Shape& outShape, std::string* errMsg)
 {
@@ -311,39 +346,64 @@ bool resolveSketchExtrudeLengthMm(const SketchExtrudeParams& params, double& out
 		return true;
 	}
 
-	if (params.endCondition != SketchExtrudeEndCondition::UpToFace || !params.hasUpToFace)
-	{
-		if (params.lengthMm <= 1e-9)
-		{
-			if (errMsg)
-				*errMsg = "lengthMm must be > 0";
-			return false;
-		}
-		outLengthMm = params.lengthMm;
-		return true;
-	}
-
 	gp_Dir dir(params.normalX, params.normalY, params.normalZ);
 	if (params.reversed)
 		dir.Reverse();
-	gp_Dir faceN(params.upNormalX, params.upNormalY, params.upNormalZ);
-	const double denom = dir.Dot(faceN);
-	if (std::abs(denom) < 1e-9)
-	{
-		if (errMsg)
-			*errMsg = "UpToFace: extrude direction parallel to face";
-		return false;
-	}
 	const gp_Pnt O(params.originX, params.originY, params.originZ);
-	const gp_Pnt P(params.upOriginX, params.upOriginY, params.upOriginZ);
-	const double t = gp_Vec(O, P).Dot(faceN) / denom;
-	if (t <= 1e-6)
+
+	if (params.endCondition == SketchExtrudeEndCondition::UpToVertex && params.hasUpToVertex)
+	{
+		const gp_Pnt V(params.upToVertexX, params.upToVertexY, params.upToVertexZ);
+		const double t = gp_Vec(O, V).Dot(gp_Vec(dir));
+		if (t <= 1e-6)
+		{
+			if (errMsg)
+				*errMsg = "UpToVertex: vertex not ahead of sketch";
+			return false;
+		}
+		outLengthMm = t;
+		return true;
+	}
+
+	if ((params.endCondition == SketchExtrudeEndCondition::UpToFace
+		 || params.endCondition == SketchExtrudeEndCondition::OffsetFromFace)
+		&& params.hasUpToFace)
+	{
+		gp_Dir faceN(params.upNormalX, params.upNormalY, params.upNormalZ);
+		const double denom = dir.Dot(faceN);
+		if (std::abs(denom) < 1e-9)
+		{
+			if (errMsg)
+				*errMsg = "UpToFace: extrude direction parallel to face";
+			return false;
+		}
+		const gp_Pnt P(params.upOriginX, params.upOriginY, params.upOriginZ);
+		double t = gp_Vec(O, P).Dot(faceN) / denom;
+		if (t <= 1e-6)
+		{
+			if (errMsg)
+				*errMsg = "UpToFace: target face not ahead of sketch";
+			return false;
+		}
+		if (params.endCondition == SketchExtrudeEndCondition::OffsetFromFace)
+			t += params.offsetFromFaceMm;
+		if (t <= 1e-6)
+		{
+			if (errMsg)
+				*errMsg = "OffsetFromFace: effective length <= 0";
+			return false;
+		}
+		outLengthMm = t;
+		return true;
+	}
+
+	if (params.lengthMm <= 1e-9)
 	{
 		if (errMsg)
-			*errMsg = "UpToFace: target face not ahead of sketch";
+			*errMsg = "lengthMm must be > 0";
 		return false;
 	}
-	outLengthMm = t;
+	outLengthMm = params.lengthMm;
 	return true;
 }
 
@@ -351,7 +411,12 @@ bool sketchExtrudePolylineToHandle(const std::vector<float>& closedPolylineXyzMm
 								   const ShapeHandle* baseOrNull, ShapeHandle& outShape, std::string* errMsg)
 {
 	TopoDS_Face face;
-	if (!makeFaceFromClosedPolyline(closedPolylineXyzMm, face, errMsg))
+	if (params.holePolylinesXyzMm.empty())
+	{
+		if (!makeFaceFromClosedPolyline(closedPolylineXyzMm, face, errMsg))
+			return false;
+	}
+	else if (!makeFaceFromProfileAndHoles(closedPolylineXyzMm, params.holePolylinesXyzMm, face, errMsg))
 	{
 		return false;
 	}

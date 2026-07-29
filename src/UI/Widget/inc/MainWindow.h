@@ -140,6 +140,9 @@ public:
 	void setModeToolBar(QWidget* toolBar) override;
 	void refreshModeToolBarTheme();
 	void notifyWorkspaceModesChanged() override;
+	void markActiveDocumentModified() override;
+	void clearActiveDocumentModified() override;
+	bool isActiveDocumentModified() const override;
 	JobSystem* jobSystem();
 	int meshImportQuality() const { return m_meshImportQuality; }
 	void setMeshImportQuality(int quality) { m_meshImportQuality = quality; }
@@ -432,6 +435,7 @@ protected:
 	QHash<QWidget*, SidePanelTabToggleEntry> m_sidePanelTabToggles;
 	QAction* m_viewPanelToggleInsertBefore = nullptr;
 	bool m_useChinese = true;
+	QSet<QString> m_modifiedDocumentIds;
 	bool m_updatingPropertyBrowser = false;
 	MainWindowSelectionState m_selectionState;
 	JobSystem* m_jobSystem = nullptr;

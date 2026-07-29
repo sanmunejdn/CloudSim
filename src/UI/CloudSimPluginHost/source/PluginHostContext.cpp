@@ -1015,6 +1015,23 @@ void PluginHostContext::enterWorkspaceMode(const QString& modeId)
 	}
 }
 
+void PluginHostContext::markActiveDocumentModified()
+{
+	if (m_mainWindowHost)
+		m_mainWindowHost->markActiveDocumentModified();
+}
+
+void PluginHostContext::clearActiveDocumentModified()
+{
+	if (m_mainWindowHost)
+		m_mainWindowHost->clearActiveDocumentModified();
+}
+
+bool PluginHostContext::isActiveDocumentModified() const
+{
+	return m_mainWindowHost && m_mainWindowHost->isActiveDocumentModified();
+}
+
 void PluginHostContext::onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback)
 {
 	if (callback)
@@ -1050,6 +1067,22 @@ void PluginHostContext::invokeProjectLoaded(const QString& documentId, const QJs
 		{
 			cb(documentId, root);
 		}
+	}
+}
+
+void PluginHostContext::onParametricBodyHistoryChanged(
+	std::function<void(const QString& documentId, const QString& backendId)> callback)
+{
+	if (callback)
+		m_parametricHistoryCallbacks.push_back(std::move(callback));
+}
+
+void PluginHostContext::invokeParametricBodyHistoryChanged(const QString& documentId, const QString& backendId)
+{
+	for (const auto& cb : m_parametricHistoryCallbacks)
+	{
+		if (cb)
+			cb(documentId, backendId);
 	}
 }
 

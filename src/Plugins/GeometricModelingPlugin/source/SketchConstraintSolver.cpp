@@ -18,6 +18,7 @@ void SketchConstraintSolver::clear()
 	m_points.clear();
 	m_lines.clear();
 	m_arcs.clear();
+	m_circles.clear();
 	m_constraints.clear();
 	m_dof = 0;
 	m_hasConflicting = false;
@@ -42,6 +43,12 @@ int SketchConstraintSolver::addArc(int center, int start, int end, double radius
 {
 	m_arcs.push_back(SketchArc2d{center, start, end, radius});
 	return static_cast<int>(m_arcs.size()) - 1;
+}
+
+int SketchConstraintSolver::addCircle(int center, double radius)
+{
+	m_circles.push_back(SketchCircle2d{center, radius});
+	return static_cast<int>(m_circles.size()) - 1;
 }
 
 void SketchConstraintSolver::addConstraint(const SketchConstraint2d& c)
@@ -106,6 +113,19 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 		unknowns.push_back(&startAng[i]);
 		unknowns.push_back(&endAng[i]);
 		sys.addConstraintArcRules(garcs[i], 9000 + static_cast<int>(i));
+	}
+
+	std::vector<double> circleRadStorage(m_circles.size());
+	std::vector<GCS::Circle> gcircles(m_circles.size());
+	for (std::size_t i = 0; i < m_circles.size(); ++i)
+	{
+		const auto& c = m_circles[i];
+		if (c.center < 0 || c.center >= static_cast<int>(gpts.size()))
+			continue;
+		circleRadStorage[i] = c.radius > 1e-9 ? c.radius : 1.0;
+		gcircles[i].center = gpts[static_cast<std::size_t>(c.center)];
+		gcircles[i].rad = &circleRadStorage[i];
+		unknowns.push_back(&circleRadStorage[i]);
 	}
 
 	std::vector<double> distStorage;
@@ -177,6 +197,33 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 			}
 			break;
 		case SketchConstraintKind::Radius:
+			break;
+		case SketchConstraintKind::Tangent:
+			if (c.a >= 0 && c.a < static_cast<int>(glines.size()))
+			{
+				if (c.b >= 0 && c.b < static_cast<int>(garcs.size()))
+					sys.addConstraintTangent(glines[static_cast<std::size_t>(c.a)],
+											   garcs[static_cast<std::size_t>(c.b)], tag);
+				else if (c.b >= 0 && c.b < static_cast<int>(gcircles.size()))
+					sys.addConstraintTangent(glines[static_cast<std::size_t>(c.a)],
+											   gcircles[static_cast<std::size_t>(c.b)], tag);
+			}
+			break;
+		case SketchConstraintKind::Symmetric:
+			if (c.c >= 0 && c.c < static_cast<int>(glines.size()) && c.a >= 0 && c.b >= 0 &&
+				c.a < static_cast<int>(gpts.size()) && c.b < static_cast<int>(gpts.size()))
+				sys.addConstraintP2PSymmetric(gpts[static_cast<std::size_t>(c.a)], gpts[static_cast<std::size_t>(c.b)],
+											  glines[static_cast<std::size_t>(c.c)], tag);
+			break;
+		case SketchConstraintKind::Midpoint:
+			if (c.a >= 0 && c.a < static_cast<int>(gpts.size()) && c.b >= 0 &&
+				c.b < static_cast<int>(glines.size()))
+			{
+				// 线段中点与目标点重合：退化第二段为点-点
+				GCS::Line& ln = glines[static_cast<std::size_t>(c.b)];
+				GCS::Point& mid = gpts[static_cast<std::size_t>(c.a)];
+				sys.addConstraintMidpointOnLine(ln.p1, ln.p2, mid, mid, tag);
+			}
 			break;
 		}
 	}

@@ -17,7 +17,8 @@ namespace
 {
 bool isKnownApi(const std::string& api)
 {
-	return api == "createPrimitiveMesh" || api == "booleanMesh" || api == "importFileIntoActiveDocument";
+	return api == "createPrimitiveMesh" || api == "booleanMesh" || api == "importFileIntoActiveDocument" ||
+		   api == "askClarify";
 }
 } // namespace
 

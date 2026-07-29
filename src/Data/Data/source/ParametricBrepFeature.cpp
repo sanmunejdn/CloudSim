@@ -45,6 +45,13 @@ nlohmann::json parametricFeatureToJson(const ParametricFeature& f)
 	o["kind"] = parametricFeatureKindToString(f.kind);
 	o["plane"] = planeToJson(f.plane);
 	o["profile"] = f.profileXyzMm;
+	if (!f.profileHolesXyzMm.empty())
+	{
+		nlohmann::json holes = nlohmann::json::array();
+		for (const auto& h : f.profileHolesXyzMm)
+			holes.push_back(h);
+		o["profileHoles"] = std::move(holes);
+	}
 	if (!f.pathXyzMm.empty())
 		o["path"] = f.pathXyzMm;
 	if (!f.pathSegments.empty())
@@ -62,6 +69,8 @@ nlohmann::json parametricFeatureToJson(const ParametricFeature& f)
 		}
 		o["pathSegments"] = std::move(arr);
 	}
+	if (std::abs(f.twistDeg) > 1e-9)
+		o["twistDeg"] = f.twistDeg;
 	o["lengthMm"] = f.lengthMm;
 	o["draftAngleDeg"] = f.draftAngleDeg;
 	o["reversed"] = f.reversed;
@@ -72,13 +81,35 @@ nlohmann::json parametricFeatureToJson(const ParametricFeature& f)
 		o["upToFaceBackendId"] = f.upToFaceBackendId;
 	if (f.upToFaceIndex >= 0)
 		o["upToFaceIndex"] = f.upToFaceIndex;
+	if (f.hasUpToVertex)
+		o["upToVertex"] = nlohmann::json::array({f.upToVertexX, f.upToVertexY, f.upToVertexZ});
+	if (std::abs(f.offsetFromFaceMm) > 1e-9)
+		o["offsetFromFaceMm"] = f.offsetFromFaceMm;
 	o["sketchRefId"] = f.sketchRefId;
 	if (!f.pathSketchRefId.empty())
 		o["pathSketchRefId"] = f.pathSketchRefId;
+	if (!f.loftSketchRefId.empty())
+		o["loftSketchRefId"] = f.loftSketchRefId;
 	o["suppressed"] = f.suppressed;
 	o["visible"] = f.visible;
 	if (!f.sketchDocumentJson.empty())
 		o["sketchDocument"] = f.sketchDocumentJson;
+	if (!f.edgeIndices.empty())
+		o["edgeIndices"] = f.edgeIndices;
+	if (!f.faceIndices.empty())
+		o["faceIndices"] = f.faceIndices;
+	o["radiusMm"] = f.radiusMm;
+	o["chamferDistMm"] = f.chamferDistMm;
+	o["shellThicknessMm"] = f.shellThicknessMm;
+	o["revolveAngleDeg"] = f.revolveAngleDeg;
+	o["axisO"] = nlohmann::json::array({f.axisOx, f.axisOy, f.axisOz});
+	o["axisD"] = nlohmann::json::array({f.axisDx, f.axisDy, f.axisDz});
+	o["patternCount"] = f.patternCount;
+	o["patternD"] = nlohmann::json::array({f.patternDx, f.patternDy, f.patternDz});
+	if (!f.patternSourceFeatureId.empty())
+		o["patternSourceFeatureId"] = f.patternSourceFeatureId;
+	o["mirrorPlane"] = planeToJson(f.mirrorPlane);
+	o["mirrorKeepOriginal"] = f.mirrorKeepOriginal;
 	return o;
 }
 
@@ -96,6 +127,20 @@ bool parametricFeatureFromJson(const nlohmann::json& o, ParametricFeature& out)
 	{
 		for (const auto& v : o["profile"])
 			out.profileXyzMm.push_back(v.get<float>());
+	}
+	out.profileHolesXyzMm.clear();
+	if (o.contains("profileHoles") && o["profileHoles"].is_array())
+	{
+		for (const auto& hole : o["profileHoles"])
+		{
+			if (!hole.is_array())
+				continue;
+			std::vector<float> h;
+			for (const auto& v : hole)
+				h.push_back(v.get<float>());
+			if (h.size() >= 12)
+				out.profileHolesXyzMm.push_back(std::move(h));
+		}
 	}
 	out.pathXyzMm.clear();
 	if (o.contains("path") && o["path"].is_array())
@@ -129,6 +174,7 @@ bool parametricFeatureFromJson(const nlohmann::json& o, ParametricFeature& out)
 			out.pathSegments.push_back(s);
 		}
 	}
+	out.twistDeg = o.value("twistDeg", 0.0);
 	out.lengthMm = o.value("lengthMm", 10.0);
 	out.draftAngleDeg = o.value("draftAngleDeg", 0.0);
 	out.reversed = o.value("reversed", false);
@@ -141,8 +187,18 @@ bool parametricFeatureFromJson(const nlohmann::json& o, ParametricFeature& out)
 	}
 	out.upToFaceBackendId = o.value("upToFaceBackendId", std::string());
 	out.upToFaceIndex = o.value("upToFaceIndex", -1);
+	out.hasUpToVertex = false;
+	if (o.contains("upToVertex") && o["upToVertex"].is_array() && o["upToVertex"].size() >= 3)
+	{
+		out.upToVertexX = o["upToVertex"][0].get<double>();
+		out.upToVertexY = o["upToVertex"][1].get<double>();
+		out.upToVertexZ = o["upToVertex"][2].get<double>();
+		out.hasUpToVertex = true;
+	}
+	out.offsetFromFaceMm = o.value("offsetFromFaceMm", 0.0);
 	out.sketchRefId = o.value("sketchRefId", std::string());
 	out.pathSketchRefId = o.value("pathSketchRefId", std::string());
+	out.loftSketchRefId = o.value("loftSketchRefId", std::string());
 	out.suppressed = o.value("suppressed", false);
 	out.visible = o.value("visible", true);
 	out.sketchDocumentJson.clear();
@@ -153,5 +209,40 @@ bool parametricFeatureFromJson(const nlohmann::json& o, ParametricFeature& out)
 		else
 			out.sketchDocumentJson = o["sketchDocument"].dump();
 	}
+	out.edgeIndices.clear();
+	if (o.contains("edgeIndices") && o["edgeIndices"].is_array())
+	{
+		for (const auto& v : o["edgeIndices"])
+			out.edgeIndices.push_back(v.get<int>());
+	}
+	out.faceIndices.clear();
+	if (o.contains("faceIndices") && o["faceIndices"].is_array())
+	{
+		for (const auto& v : o["faceIndices"])
+			out.faceIndices.push_back(v.get<int>());
+	}
+	out.radiusMm = o.value("radiusMm", 1.0);
+	out.chamferDistMm = o.value("chamferDistMm", 1.0);
+	out.shellThicknessMm = o.value("shellThicknessMm", 1.0);
+	out.revolveAngleDeg = o.value("revolveAngleDeg", 360.0);
+	auto read3d = [](const nlohmann::json& a, double& x, double& y, double& z)
+	{
+		if (!a.is_array() || a.size() < 3)
+			return;
+		x = a[0].get<double>();
+		y = a[1].get<double>();
+		z = a[2].get<double>();
+	};
+	if (o.contains("axisO"))
+		read3d(o["axisO"], out.axisOx, out.axisOy, out.axisOz);
+	if (o.contains("axisD"))
+		read3d(o["axisD"], out.axisDx, out.axisDy, out.axisDz);
+	out.patternCount = o.value("patternCount", 2);
+	if (o.contains("patternD"))
+		read3d(o["patternD"], out.patternDx, out.patternDy, out.patternDz);
+	out.patternSourceFeatureId = o.value("patternSourceFeatureId", std::string());
+	if (o.contains("mirrorPlane") && o["mirrorPlane"].is_object())
+		planeFromJson(o["mirrorPlane"], out.mirrorPlane);
+	out.mirrorKeepOriginal = o.value("mirrorKeepOriginal", true);
 	return !out.id.empty();
 }

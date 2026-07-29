@@ -2,7 +2,7 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWSIMCONTROLLER_H
 
 /// @file ProcessFlowSimController.h
-/// @brief 仿真启停、对比与后台运行
+/// @brief 仿真启停、对比、优化启发式与后台运行
 
 #include "sim/SimRunConfig.h"
 #include "sim/SimStatistics.h"
@@ -26,12 +26,14 @@ public:
 	void setHost(IPluginHostContext* host);
 	bool isRunning() const { return m_running; }
 	const SimStatistics& lastResult() const { return m_lastResult; }
+	const QVector<SimStatistics>& lastCompareStats() const { return m_lastCompareStats; }
 	SimRunConfig& config() { return m_config; }
 	const SimRunConfig& config() const { return m_config; }
 
 public slots:
 	void start(ProcessFlowCanvasWidget* canvas);
 	void compare(ProcessFlowCanvasWidget* canvas, const QStringList& policies);
+	void optimizeThenStart(ProcessFlowCanvasWidget* canvas);
 	void stop();
 	void clearResult();
 
@@ -39,7 +41,7 @@ signals:
 	void started();
 	void finished(bool ok, const QString& message);
 	void resultReady(const SimStatistics& stats);
-	void compareReady(const QVector<PolicyCompareRow>& rows);
+	void compareReady(const QVector<PolicyCompareRow>& rows, const QVector<SimStatistics>& perPolicy);
 
 private:
 	void runInternal(ProcessFlowCanvasWidget* canvas, const QStringList& policies, bool compareMode);
@@ -47,6 +49,7 @@ private:
 	IPluginHostContext* m_host = nullptr;
 	SimRunConfig m_config;
 	SimStatistics m_lastResult;
+	QVector<SimStatistics> m_lastCompareStats;
 	std::shared_ptr<std::atomic_bool> m_cancel;
 	bool m_running = false;
 };

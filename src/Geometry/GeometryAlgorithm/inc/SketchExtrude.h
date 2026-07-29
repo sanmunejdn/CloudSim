@@ -25,7 +25,9 @@ enum class SketchExtrudeEndCondition
 	Blind = 0,
 	UpToFace,
 	MidPlane,
-	ThroughAll
+	ThroughAll,
+	UpToVertex,
+	OffsetFromFace
 };
 
 struct SketchExtrudeParams
@@ -48,8 +50,17 @@ struct SketchExtrudeParams
 	double upNormalY = 0.0;
 	double upNormalZ = 1.0;
 	bool hasUpToFace = false;
+	/// UpToVertex：目标顶点（世界 mm）
+	double upToVertexX = 0.0;
+	double upToVertexY = 0.0;
+	double upToVertexZ = 0.0;
+	bool hasUpToVertex = false;
+	/// OffsetFromFace：在到面长度上沿拉伸方向偏移
+	double offsetFromFaceMm = 0.0;
 	/// 拔模斜度（度）；0=直角侧壁
 	double draftAngleDeg = 0.0;
+	/// 内孔闭合轮廓（世界 xyz mm）
+	std::vector<std::vector<float>> holePolylinesXyzMm;
 };
 
 /// 定长/到面/对称：求有效拉伸长度。贯通请用带 base 的重载

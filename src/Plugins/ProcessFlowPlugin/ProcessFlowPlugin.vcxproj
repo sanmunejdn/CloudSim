@@ -115,6 +115,7 @@
     <ClCompile Include="source\sim\SimStatistics.cpp" />
     <ClCompile Include="source\sim\SimModelBuilder.cpp" />
     <ClCompile Include="source\sim\DesEngine.cpp" />
+    <ClCompile Include="source\sim\PriorityListScheduler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\ProcessFlowAiBridge.h" />

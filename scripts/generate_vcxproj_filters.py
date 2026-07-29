@@ -238,6 +238,7 @@ def functional_bucket(project: str, stem: str) -> str:
 					"Types",
 					"ViewTessellate*",
 					"TemplateBrep*",
+					"Hlr*",
 				],
 				"ShapeBrep",
 			),

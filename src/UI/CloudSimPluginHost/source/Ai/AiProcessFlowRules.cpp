@@ -164,6 +164,44 @@ AiAgentPlan tryBuildPlan(const QString& userText)
 	if (t.isEmpty() || !looksLikeProcessFlow(t))
 		return plan;
 
+	// 短句增量改属性，避免整图替换
+	const QRegularExpression setCycleRe(
+		QStringLiteral(R"(工位\s*(\d+)\s*(?:节拍|加工|周期)\s*(?:改|设|为|到)?\s*(\d+(?:\.\d+)?))"));
+	const QRegularExpressionMatch setCycle = setCycleRe.match(t);
+	if (setCycle.hasMatch())
+	{
+		const int nodeId = setCycle.captured(1).toInt();
+		const double cycle = setCycle.captured(2).toDouble();
+		nlohmann::json ops = nlohmann::json::array();
+		ops.push_back({{"op", "setNodeProp"},
+					   {"nodeId", nodeId},
+					   {"props", {{"cycleTimeSec", cycle}}}});
+		plan.steps.append(makeStep(QStringLiteral("patchProcessFlowGraph"), {{"ops_json", ops.dump()}},
+								   QStringLiteral("增量改节拍")));
+		if (t.contains(QStringLiteral("仿真")) || t.contains(QStringLiteral("运行")))
+		{
+			plan.steps.append(makeStep(QStringLiteral("runProcessFlowSimulation"),
+									   {{"horizonSec", detectHorizon(t)}, {"policy", detectPolicy(t).toStdString()}},
+									   QStringLiteral("运行 DES 仿真")));
+		}
+		plan.summary = QStringLiteral("改工位%1节拍=%2").arg(nodeId).arg(cycle);
+		return plan;
+	}
+	const QRegularExpression setBufRe(QStringLiteral(R"(缓冲(?:容量)?\s*(?:改|设|为|到)?\s*(\d+(?:\.\d+)?))"));
+	const QRegularExpressionMatch setBuf = setBufRe.match(t);
+	if (setBuf.hasMatch() && (t.contains(QStringLiteral("改")) || t.contains(QStringLiteral("设"))))
+	{
+		const double cap = setBuf.captured(1).toDouble();
+		nlohmann::json ops = nlohmann::json::array();
+		ops.push_back({{"op", "setNodeProp"},
+					   {"nodeId", 2},
+					   {"props", {{"capacityQty", cap}, {"kind", "buffer"}}}});
+		plan.steps.append(makeStep(QStringLiteral("patchProcessFlowGraph"), {{"ops_json", ops.dump()}},
+								   QStringLiteral("增量改缓冲")));
+		plan.summary = QStringLiteral("改缓冲容量=%1").arg(cap);
+		return plan;
+	}
+
 	const int stations = detectStationCount(t);
 	const bool withInspect = t.contains(QStringLiteral("检测")) || t.contains(QStringLiteral("报废"));
 	double scrap = 0.0;

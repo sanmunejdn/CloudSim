@@ -124,6 +124,9 @@ SimBuildResult SimModelBuilder::fromProcessFlowJson(const QJsonObject& flow, con
 		n.mtbfSec = props.value(QStringLiteral("mtbfSec")).toDouble();
 		n.mttrSec = props.value(QStringLiteral("mttrSec")).toDouble();
 		n.requiredInputs = props.value(QStringLiteral("requiredInputs")).toDouble(1.0);
+		const QJsonObject binding = props.value(QStringLiteral("binding")).toObject();
+		n.bindingBackendId = binding.value(QStringLiteral("backendId")).toString();
+		n.bindingProgramId = binding.value(QStringLiteral("programId")).toString();
 		plant.nodes.insert(n.id, n);
 		if (n.kind == QStringLiteral("start") && plant.startNodeId < 0)
 		{

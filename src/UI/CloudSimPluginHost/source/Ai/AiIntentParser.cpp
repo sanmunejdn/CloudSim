@@ -516,4 +516,54 @@ ParseResult tryParseComposeUserText(const QString& textIn)
 	return r;
 }
 
+ParseResult tryParseFeatureComposeUserText(const QString& textIn)
+{
+	ParseResult r;
+	const QString t = norm(textIn);
+	if (t.isEmpty())
+	{
+		r.errorMessage = QStringLiteral("请输入描述，例如：拉伸长方体 100×80×40。");
+		return r;
+	}
+
+	const std::vector<double> nums = extractNumbersMm(t);
+	double L = findLabeled(t, {QStringLiteral("长")}, nums, 0);
+	double W = findLabeled(t, {QStringLiteral("宽")}, nums, 1);
+	double H = findLabeled(t, {QStringLiteral("高")}, nums, 2);
+	if (L < 0 && nums.size() >= 3)
+	{
+		L = nums[0];
+		W = nums[1];
+		H = nums[2];
+	}
+	if (L <= 0.0 || W <= 0.0 || H <= 0.0)
+	{
+		r.errorMessage = QStringLiteral("请给出长×宽×高（mm），例如：建模 100x80x40 板。");
+		r.hintMessage = QStringLiteral("也可交给本地/远程 LLM（feature.compose）。");
+		return r;
+	}
+
+	nlohmann::json plan;
+	plan["version"] = 2;
+	plan["domain"] = "feature.compose";
+	plan["steps"] = nlohmann::json::array();
+	plan["steps"].push_back({
+		{"id", "body"},
+		{"api", "extrudeSketchProfileToBrep"},
+		{"args",
+		 {
+			 {"mode", "pad"},
+			 {"profile", "rectangle"},
+			 {"length_mm", L},
+			 {"width_mm", W},
+			 {"extrude_mm", H},
+			 {"name", "Body"},
+		 }},
+	});
+	r.ok = true;
+	r.command = std::move(plan);
+	r.hintMessage = QStringLiteral("已用规则生成 Pad 特征计划。");
+	return r;
+}
+
 } // namespace AiIntentParser

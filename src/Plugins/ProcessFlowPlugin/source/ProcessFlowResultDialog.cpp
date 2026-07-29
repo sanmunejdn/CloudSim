@@ -5,7 +5,9 @@
 
 #include "ProcessFlowGanttWidget.h"
 
+#include <QComboBox>
 #include <QHeaderView>
+#include <QLabel>
 #include <QScrollArea>
 #include <QTableWidget>
 #include <QVBoxLayout>
@@ -48,6 +50,17 @@ ProcessFlowResultDialog::ProcessFlowResultDialog(Mode mode, QWidget* parent) : Q
 			 QStringLiteral("瓶颈")});
 		m_table->horizontalHeader()->setStretchLastSection(true);
 		layout->addWidget(m_table);
+
+		layout->addWidget(new QLabel(QStringLiteral("甘特策略"), this));
+		m_policyCombo = new QComboBox(this);
+		layout->addWidget(m_policyCombo);
+		m_compareGantt = new ProcessFlowGanttWidget(this);
+		auto* scroll = new QScrollArea(this);
+		scroll->setWidget(m_compareGantt);
+		scroll->setWidgetResizable(false);
+		layout->addWidget(scroll, 1);
+		connect(m_policyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				[this](int i) { showCompareGantt(i); });
 	}
 	updateWindowTitle();
 }
@@ -76,37 +89,25 @@ void ProcessFlowResultDialog::applyLanguage(bool useChinese)
 void ProcessFlowResultDialog::updateWindowTitle()
 {
 	if (m_mode == Mode::Gantt)
-	{
 		setWindowTitle(m_zh ? QStringLiteral("甘特图") : QStringLiteral("Gantt Chart"));
-	}
 	else if (m_mode == Mode::Trace)
-	{
 		setWindowTitle(m_zh ? QStringLiteral("操作 Trace") : QStringLiteral("Operation Trace"));
-	}
 	else
-	{
 		setWindowTitle(m_zh ? QStringLiteral("策略对比") : QStringLiteral("Policy Compare"));
-	}
 }
 
 void ProcessFlowResultDialog::setStatistics(const SimStatistics& stats)
 {
 	if (m_mode == Mode::Gantt && m_gantt)
-	{
 		m_gantt->setStatistics(stats);
-	}
 	else if (m_mode == Mode::Trace)
-	{
 		rebuildTrace(stats);
-	}
 }
 
 void ProcessFlowResultDialog::setCompareRows(const QVector<PolicyCompareRow>& rows)
 {
 	if (m_mode != Mode::Compare || !m_table)
-	{
 		return;
-	}
 	m_table->setRowCount(rows.size());
 	for (int r = 0; r < rows.size(); ++r)
 	{
@@ -119,12 +120,36 @@ void ProcessFlowResultDialog::setCompareRows(const QVector<PolicyCompareRow>& ro
 	}
 }
 
+void ProcessFlowResultDialog::setCompareStats(const QVector<SimStatistics>& stats)
+{
+	m_compareStats = stats;
+	if (!m_policyCombo)
+		return;
+	m_policyCombo->blockSignals(true);
+	m_policyCombo->clear();
+	for (int i = 0; i < m_compareStats.size(); ++i)
+	{
+		QString label = QStringLiteral("Policy-%1").arg(i + 1);
+		if (m_table && i < m_table->rowCount() && m_table->item(i, 0))
+			label = m_table->item(i, 0)->text();
+		m_policyCombo->addItem(label);
+	}
+	m_policyCombo->blockSignals(false);
+	if (!m_compareStats.isEmpty())
+		showCompareGantt(0);
+}
+
+void ProcessFlowResultDialog::showCompareGantt(int index)
+{
+	if (!m_compareGantt || index < 0 || index >= m_compareStats.size())
+		return;
+	m_compareGantt->setStatistics(m_compareStats.at(index));
+}
+
 void ProcessFlowResultDialog::rebuildTrace(const SimStatistics& stats)
 {
 	if (!m_table)
-	{
 		return;
-	}
 	const int n = stats.trace.items.size();
 	const int show = std::min(n, 2000);
 	m_table->setRowCount(show);
@@ -142,11 +167,12 @@ void ProcessFlowResultDialog::rebuildTrace(const SimStatistics& stats)
 void ProcessFlowResultDialog::clear()
 {
 	if (m_gantt)
-	{
 		m_gantt->clear();
-	}
+	if (m_compareGantt)
+		m_compareGantt->clear();
 	if (m_table)
-	{
 		m_table->setRowCount(0);
-	}
+	m_compareStats.clear();
+	if (m_policyCombo)
+		m_policyCombo->clear();
 }

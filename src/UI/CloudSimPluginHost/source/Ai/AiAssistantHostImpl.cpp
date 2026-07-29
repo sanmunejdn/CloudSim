@@ -146,6 +146,15 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 	}
 	{
 		AiDomainDescriptor d;
+		d.domainId = AiDomainIds::featureCompose();
+		d.displayName = QStringLiteral("Compose parametric features");
+		d.outputKind = AiDomainOutputKind::ActionPlan;
+		d.supportsMultimodal = false;
+		d.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
+		m_registry.registerDomain(d, &m_featureComposeHandler);
+	}
+	{
+		AiDomainDescriptor d;
 		d.domainId = AiDomainIds::geometryRecognize();
 		d.displayName = QStringLiteral("Geometry recognize");
 		d.outputKind = AiDomainOutputKind::StructuredJson;
@@ -251,6 +260,25 @@ AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainI
 	if (d == AiDomainIds::meshCompose())
 	{
 		const AiIntentParser::ParseResult pr = AiIntentParser::tryParseComposeUserText(text);
+		r.ok = pr.ok;
+		r.outputKind = AiDomainOutputKind::ActionPlan;
+		if (pr.ok)
+		{
+			r.outputJsonUtf8 = QByteArray::fromStdString(pr.command.dump());
+			r.hintMessage = pr.hintMessage;
+			r.parserVia = QStringLiteral("Rules");
+		}
+		else
+		{
+			r.errorMessage = pr.errorMessage;
+			r.hintMessage = pr.hintMessage;
+			r.parserVia = QStringLiteral("Rules");
+		}
+		return r;
+	}
+	if (d == AiDomainIds::featureCompose())
+	{
+		const AiIntentParser::ParseResult pr = AiIntentParser::tryParseFeatureComposeUserText(text);
 		r.ok = pr.ok;
 		r.outputKind = AiDomainOutputKind::ActionPlan;
 		if (pr.ok)

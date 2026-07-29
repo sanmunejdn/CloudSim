@@ -7,6 +7,7 @@
 #include "Ai/AiDomainRegistryImpl.h"
 #include "Ai/AiDomainRouter.h"
 #include "Ai/CatalogActionPlanDomainHandler.h"
+#include "Ai/FeatureComposeDomainHandler.h"
 #include "Ai/GeometryRecognizeDomainHandler.h"
 #include "Ai/MeshComposeDomainHandler.h"
 #include "Ai/MeshCreateDomainHandler.h"
@@ -73,6 +74,7 @@ private:
 	AiDomainRouter m_router;
 	MeshCreateDomainHandler m_meshHandler;
 	MeshComposeDomainHandler m_composeHandler;
+	FeatureComposeDomainHandler m_featureComposeHandler;
 	GeometryRecognizeDomainHandler m_geomHandler;
 	TrajectoryFeatureDomainHandler m_trajFeatureHandler;
 	std::optional<CatalogActionPlanDomainHandler> m_docImportHandler;

@@ -93,7 +93,7 @@
       <Filter>inc\FeatureDiscretize</Filter>
     </ClInclude>
     <ClInclude Include="inc\HlrProject.h">
-      <Filter>Header Files</Filter>
+      <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
     <ClInclude Include="inc\FeatureDiscretizeParamUtils.h">
       <Filter>inc\FeatureDiscretize</Filter>
@@ -162,6 +162,24 @@
       <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
     <ClInclude Include="inc\SketchExtrude.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchDraft.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchFillet.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchRevolve.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchPattern.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchLoft.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchShell.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
     <ClInclude Include="inc\SketchPlane.h">
@@ -236,7 +254,7 @@
       <Filter>src\FeatureDiscretize</Filter>
     </ClCompile>
     <ClCompile Include="source\HlrProject.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\FaceSectionDiscretize.cpp">
       <Filter>src\FeatureDiscretize</Filter>
@@ -380,6 +398,24 @@
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchExtrude.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchDraft.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchFillet.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchRevolve.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchPattern.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchLoft.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchShell.cpp">
       <Filter>src\Sketch</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchPlane.cpp">

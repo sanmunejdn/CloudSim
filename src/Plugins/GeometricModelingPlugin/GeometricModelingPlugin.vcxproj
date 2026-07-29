@@ -94,6 +94,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\GeometricModelingPlugin.cpp" />
+    <ClCompile Include="source\GeometricModelingSolidFeatures.cpp" />
     <ClCompile Include="source\GeometricModelingPage.cpp" />
     <ClCompile Include="source\GeometricModelingRibbonBar.cpp" />
     <ClCompile Include="source\CommandStack.cpp" />
@@ -110,6 +111,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\FeatureDocument.h" />
+    <ClInclude Include="inc\BodyHistoryCmd.h" />
     <ClInclude Include="inc\SketchConstraintSolver.h" />
     <ClInclude Include="inc\SketchGeom.h" />
     <ClInclude Include="inc\SketchTools.h" />

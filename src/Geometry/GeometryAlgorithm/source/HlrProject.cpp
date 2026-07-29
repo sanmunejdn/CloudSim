@@ -173,6 +173,79 @@ gp_Pln midPlane(const Bnd_Box& box, DrawingSectionPlane plane)
 	}
 }
 
+bool sectionShapeToDrawingPln(const ShapeHandle& shape, const gp_Pln& pln, const Bnd_Box& box,
+							  const TessellateParams& params, HlrViewPolylines& out, std::string* errMsg)
+{
+	out = HlrViewPolylines{};
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native) || native.IsNull())
+	{
+		if (errMsg)
+			*errMsg = "section: null ShapeHandle";
+		return false;
+	}
+
+	Standard_Real xmin = 0, ymin = 0, zmin = 0, xmax = 0, ymax = 0, zmax = 0;
+	box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+	const double diag =
+		std::sqrt((xmax - xmin) * (xmax - xmin) + (ymax - ymin) * (ymax - ymin) + (zmax - zmin) * (zmax - zmin));
+	const double planeSize = (std::max)(diag * 2.0, 100.0);
+
+	const TopoDS_Face planeFace =
+		BRepBuilderAPI_MakeFace(pln, -planeSize, planeSize, -planeSize, planeSize).Face();
+	BRepAlgoAPI_Section sec(planeFace, native, Standard_False);
+	sec.Approximation(Standard_True);
+	sec.Build();
+	if (!sec.IsDone())
+	{
+		if (errMsg)
+			*errMsg = "section: BRepAlgoAPI_Section failed";
+		return false;
+	}
+
+	const gp_Ax3 ax = pln.Position();
+	std::vector<Polyline3d> edges3d;
+	for (TopExp_Explorer exp(sec.Shape(), TopAbs_EDGE); exp.More(); exp.Next())
+	{
+		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
+		Polyline3d poly;
+		if (!discretizeEdge(edge, params, poly, nullptr))
+			continue;
+		if (poly.xyz.size() >= 6)
+			edges3d.push_back(std::move(poly));
+	}
+	if (edges3d.empty())
+	{
+		if (errMsg)
+			*errMsg = "section: empty";
+		return false;
+	}
+	out.visible.clear();
+	out.visible.reserve(edges3d.size());
+	for (const Polyline3d& e : edges3d)
+	{
+		Polyline3d xy;
+		xy.xyz.reserve(e.xyz.size());
+		for (std::size_t i = 0; i + 2 < e.xyz.size(); i += 3)
+		{
+			const gp_Pnt p(e.xyz[i], e.xyz[i + 1], e.xyz[i + 2]);
+			const gp_Vec v(ax.Location(), p);
+			xy.xyz.push_back(static_cast<float>(v.Dot(gp_Vec(ax.XDirection()))));
+			xy.xyz.push_back(static_cast<float>(v.Dot(gp_Vec(ax.YDirection()))));
+			xy.xyz.push_back(0.f);
+		}
+		if (xy.xyz.size() >= 6)
+			out.visible.push_back(std::move(xy));
+	}
+	if (out.visible.empty())
+	{
+		if (errMsg)
+			*errMsg = "section: no edges";
+		return false;
+	}
+	return true;
+}
+
 } // namespace
 
 bool projectShapeHlr(const ShapeHandle& shape, HlrViewKind kind, HlrProjectionAngle angle,
@@ -269,73 +342,54 @@ bool sectionShapeToDrawing(const ShapeHandle& shape, DrawingSectionPlane plane, 
 	Bnd_Box box;
 	if (!shapeCenterAndBox(native, center, box, errMsg))
 		return false;
+	return sectionShapeToDrawingPln(shape, midPlane(box, plane), box, params, out, errMsg);
+}
 
-	Standard_Real xmin = 0, ymin = 0, zmin = 0, xmax = 0, ymax = 0, zmax = 0;
-	box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
-	const double diag =
-		std::sqrt((xmax - xmin) * (xmax - xmin) + (ymax - ymin) * (ymax - ymin) + (zmax - zmin) * (zmax - zmin));
-	const double planeSize = (std::max)(diag * 2.0, 100.0);
-
-	const gp_Pln pln = midPlane(box, plane);
-	const TopoDS_Face planeFace =
-		BRepBuilderAPI_MakeFace(pln, -planeSize, planeSize, -planeSize, planeSize).Face();
-	BRepAlgoAPI_Section sec(planeFace, native, Standard_False);
-	sec.Approximation(Standard_True);
-	sec.Build();
-	if (!sec.IsDone())
+bool sectionShapeToDrawing(const ShapeHandle& shape, const double originMm[3], const double normal[3],
+						   const TessellateParams& params, HlrViewPolylines& out, std::string* errMsg)
+{
+	out = HlrViewPolylines{};
+	if (!originMm || !normal)
 	{
 		if (errMsg)
-			*errMsg = "section: BRepAlgoAPI_Section failed";
+			*errMsg = "section: null origin/normal";
 		return false;
 	}
-
-	// 剖切结果投到与剖切面平行的视图坐标：取平面局部 UV 为图面 xy
-	const gp_Ax3 ax = pln.Position();
-	std::vector<Polyline3d> edges3d;
-	for (TopExp_Explorer exp(sec.Shape(), TopAbs_EDGE); exp.More(); exp.Next())
-	{
-		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
-		Polyline3d poly;
-		if (!discretizeEdge(edge, params, poly, nullptr))
-			continue;
-		if (poly.xyz.size() >= 6)
-			edges3d.push_back(std::move(poly));
-	}
-	if (edges3d.empty())
+	const double nl = std::sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+	if (nl < 1e-12)
 	{
 		if (errMsg)
-			*errMsg = "section: empty";
+			*errMsg = "section: zero normal";
 		return false;
 	}
-	out.visible.clear();
-	out.visible.reserve(edges3d.size());
-	for (const Polyline3d& e : edges3d)
-	{
-		Polyline3d xy;
-		xy.xyz.reserve(e.xyz.size());
-		for (std::size_t i = 0; i + 2 < e.xyz.size(); i += 3)
-		{
-			const gp_Pnt p(e.xyz[i], e.xyz[i + 1], e.xyz[i + 2]);
-			const gp_Vec v(ax.Location(), p);
-			xy.xyz.push_back(static_cast<float>(v.Dot(gp_Vec(ax.XDirection()))));
-			xy.xyz.push_back(static_cast<float>(v.Dot(gp_Vec(ax.YDirection()))));
-			xy.xyz.push_back(0.f);
-		}
-		if (xy.xyz.size() >= 6)
-			out.visible.push_back(std::move(xy));
-	}
-	if (out.visible.empty())
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native) || native.IsNull())
 	{
 		if (errMsg)
-			*errMsg = "section: no edges";
+			*errMsg = "section: null ShapeHandle";
 		return false;
 	}
-	return true;
+	gp_Pnt center;
+	Bnd_Box box;
+	if (!shapeCenterAndBox(native, center, box, errMsg))
+		return false;
+	const gp_Pln pln(gp_Pnt(originMm[0], originMm[1], originMm[2]),
+					gp_Dir(normal[0] / nl, normal[1] / nl, normal[2] / nl));
+	return sectionShapeToDrawingPln(shape, pln, box, params, out, errMsg);
 }
 
 bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle, bool includeIso,
 								  bool includeSection, DrawingSectionPlane sectionPlane,
 								  const TessellateParams& params, HlrDrawingBundle& out, std::string* errMsg)
+{
+	return projectShapeHlrDrawingBundle(shape, angle, includeIso, includeSection, sectionPlane, false, nullptr,
+										nullptr, params, out, errMsg);
+}
+
+bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle, bool includeIso,
+								  bool includeSection, DrawingSectionPlane sectionPlane, bool customSection,
+								  const double originMm[3], const double normal[3], const TessellateParams& params,
+								  HlrDrawingBundle& out, std::string* errMsg)
 {
 	out = HlrDrawingBundle{};
 	HlrThreeViewsResult three;
@@ -346,13 +400,17 @@ bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle a
 	out.right = std::move(three.right);
 	if (includeIso)
 	{
-		// 轴测失败不阻断三视图
 		if (projectShapeHlr(shape, HlrViewKind::Iso, angle, params, out.iso, nullptr))
 			out.hasIso = true;
 	}
 	if (includeSection)
 	{
-		if (sectionShapeToDrawing(shape, sectionPlane, params, out.section, nullptr))
+		bool ok = false;
+		if (customSection && originMm && normal)
+			ok = sectionShapeToDrawing(shape, originMm, normal, params, out.section, nullptr);
+		else
+			ok = sectionShapeToDrawing(shape, sectionPlane, params, out.section, nullptr);
+		if (ok)
 			out.hasSection = true;
 	}
 	return true;

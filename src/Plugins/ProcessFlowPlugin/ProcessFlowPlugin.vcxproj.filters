@@ -118,6 +118,9 @@
     <ClCompile Include="source\sim\DispatchPolicies.cpp">
       <Filter>src\sim</Filter>
     </ClCompile>
+    <ClCompile Include="source\sim\PriorityListScheduler.cpp">
+      <Filter>src\sim</Filter>
+    </ClCompile>
     <ClCompile Include="source\sim\SimModelBuilder.cpp">
       <Filter>src\sim</Filter>
     </ClCompile>

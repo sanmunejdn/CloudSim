@@ -28,6 +28,12 @@ struct SketchArc2d
 	double radius = 0.0;
 };
 
+struct SketchCircle2d
+{
+	int center = -1;
+	double radius = 0.0;
+};
+
 enum class SketchConstraintKind
 {
 	Distance = 0,
@@ -39,7 +45,10 @@ enum class SketchConstraintKind
 	Perpendicular,
 	Radius,
 	Angle,	   ///< a/b=线索引，value=度
-	ArcRadius ///< a=弧索引，value=半径 mm
+	ArcRadius, ///< a=弧索引，value=半径 mm
+	Tangent,
+	Symmetric,
+	Midpoint
 };
 
 struct SketchConstraint2d
@@ -48,6 +57,7 @@ struct SketchConstraint2d
 	int a = -1;
 	int b = -1;
 	double value = 0.0;
+	int c = -1;
 	int tagId = 0; ///< 0=自动分配；否则用文档约束序号映射诊断
 };
 
@@ -58,6 +68,7 @@ public:
 	int addPoint(double x, double y, bool fixed = false);
 	int addLine(int p1, int p2);
 	int addArc(int center, int start, int end, double radius);
+	int addCircle(int center, double radius);
 	void addConstraint(const SketchConstraint2d& c);
 
 	/// @return 0 成功
@@ -70,6 +81,7 @@ public:
 
 	const std::vector<SketchPoint2d>& points() const { return m_points; }
 	const std::vector<SketchArc2d>& arcs() const { return m_arcs; }
+	const std::vector<SketchCircle2d>& circles() const { return m_circles; }
 
 	static bool runEquilateralTriangleSelfTest(std::string* errMsg = nullptr);
 
@@ -77,6 +89,7 @@ private:
 	std::vector<SketchPoint2d> m_points;
 	std::vector<SketchLine2d> m_lines;
 	std::vector<SketchArc2d> m_arcs;
+	std::vector<SketchCircle2d> m_circles;
 	std::vector<SketchConstraint2d> m_constraints;
 	int m_dof = 0;
 	bool m_hasConflicting = false;

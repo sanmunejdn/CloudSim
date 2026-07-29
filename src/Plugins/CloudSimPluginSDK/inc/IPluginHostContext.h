@@ -202,6 +202,15 @@ public:
 	virtual void returnToMainWorkspace() = 0;
 	/// 1.35.0+：按已注册 modeId 调用 enterFn（顶栏分段点击）
 	virtual void enterWorkspaceMode(const QString& modeId) = 0;
+
+	/// 1.36.0+：活动文档未保存标记（页签 *）；工艺流程改图等调用
+	virtual void markActiveDocumentModified() = 0;
+	virtual void clearActiveDocumentModified() = 0;
+	virtual bool isActiveDocumentModified() const = 0;
+
+	/// 1.43.0+：Parametric Body 特征史变更（AI/Host 写入后；插件可 sync 特征树）
+	virtual void onParametricBodyHistoryChanged(
+		std::function<void(const QString& documentId, const QString& backendId)> callback) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

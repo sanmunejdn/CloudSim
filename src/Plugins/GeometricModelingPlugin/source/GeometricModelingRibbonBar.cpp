@@ -19,6 +19,8 @@
 #include <QVariant>
 #include <QVBoxLayout>
 
+#include <cmath>
+
 namespace
 {
 // 工程青绿：浅色/深色共用同一强调，避免紫粉 AI 默认色
@@ -45,6 +47,16 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.drawLine(10, 28, 30, 10);
 		p.drawEllipse(QPointF(12, 12), 2.2, 2.2);
 		p.drawEllipse(QPointF(28, 28), 2.2, 2.2);
+	}
+	else if (kind == QLatin1String("datumPlane"))
+	{
+		p.setBrush(fillSoft);
+		p.setPen(QPen(ink, 1.6));
+		p.drawRect(QRectF(8, 16, 24, 14));
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(20, 8, 20, 16);
+		p.drawLine(16, 12, 20, 8);
+		p.drawLine(24, 12, 20, 8);
 	}
 	else if (kind == QLatin1String("solve"))
 	{
@@ -130,6 +142,42 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.drawEllipse(QPointF(32, 11), 2.2, 2.2);
 		p.drawEllipse(QPointF(32, 29), 2.2, 2.2);
 		p.drawEllipse(QPointF(8, 29), 2.2, 2.2);
+	}
+	else if (kind == QLatin1String("ellipse"))
+	{
+		p.drawEllipse(QRectF(6, 12, 28, 16));
+		p.setBrush(QColor(kAccentSoft));
+		p.setPen(Qt::NoPen);
+		p.drawEllipse(QPointF(20, 20), 2.5, 2.5);
+	}
+	else if (kind == QLatin1String("polygon"))
+	{
+		QPolygonF hex;
+		for (int i = 0; i < 6; ++i)
+		{
+			const double a = 3.141592653589793 / 6.0 + i * 3.141592653589793 / 3.0;
+			hex << QPointF(20 + 12 * std::cos(a), 20 + 12 * std::sin(a));
+		}
+		p.drawPolygon(hex);
+	}
+	else if (kind == QLatin1String("slot"))
+	{
+		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(8, 20, 32, 20);
+		p.drawArc(QRectF(26, 14, 12, 12), 90 * 16, 180 * 16);
+		p.drawArc(QRectF(2, 14, 12, 12), 270 * 16, 180 * 16);
+	}
+	else if (kind == QLatin1String("offset"))
+	{
+		p.drawRoundedRect(QRectF(10, 12, 20, 16), 2, 2);
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::DashLine, Qt::RoundCap));
+		p.drawRoundedRect(QRectF(6, 8, 28, 24), 2, 2);
+	}
+	else if (kind == QLatin1String("convertEntities"))
+	{
+		p.drawRoundedRect(QRectF(8, 10, 24, 20), 2, 2);
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(12, 28, 28, 12);
 	}
 	else if (kind == QLatin1String("spline"))
 	{
@@ -250,6 +298,28 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.drawLine(10, 30, 18, 30);
 		p.drawLine(22, 30, 30, 30);
 	}
+	else if (kind == QLatin1String("geomTan"))
+	{
+		p.drawEllipse(QRectF(14, 8, 18, 18));
+		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(8, 30, 32, 18);
+	}
+	else if (kind == QLatin1String("geomSym"))
+	{
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::DashLine, Qt::RoundCap));
+		p.drawLine(20, 8, 20, 32);
+		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setBrush(Qt::NoBrush);
+		p.drawEllipse(QPointF(12, 20), 4, 4);
+		p.drawEllipse(QPointF(28, 20), 4, 4);
+	}
+	else if (kind == QLatin1String("geomMid"))
+	{
+		p.drawLine(8, 28, 32, 12);
+		p.setBrush(QColor(kAccentSoft));
+		p.setPen(Qt::NoPen);
+		p.drawEllipse(QPointF(20, 20), 3.5, 3.5);
+	}
 	else if (kind == QLatin1String("geomFix"))
 	{
 		p.setBrush(QColor(kAccentSoft));
@@ -259,6 +329,15 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.setBrush(Qt::NoBrush);
 		p.drawLine(20, 22, 20, 32);
 		p.drawLine(14, 32, 26, 32);
+	}
+	else if (kind == QLatin1String("geomFixOrigin"))
+	{
+		p.setPen(QPen(ink, 1.6, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(10, 20, 30, 20);
+		p.drawLine(20, 10, 20, 30);
+		p.setBrush(QColor(kAccentSoft));
+		p.setPen(Qt::NoPen);
+		p.drawEllipse(QPointF(20, 20), 3.5, 3.5);
 	}
 	else if (kind == QLatin1String("trim"))
 	{
@@ -279,6 +358,98 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.setPen(QPen(QColor(0xdc, 0x26, 0x26), 2.2, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(12, 12, 28, 28);
 		p.drawLine(28, 12, 12, 28);
+	}
+	else if (kind == QLatin1String("projectEdges"))
+	{
+		p.drawRoundedRect(QRectF(7, 18, 14, 12), 1, 1);
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(22, 12, 30, 12);
+		p.drawLine(22, 20, 32, 20);
+		p.drawLine(22, 28, 28, 28);
+	}
+	else if (kind == QLatin1String("fillet"))
+	{
+		p.drawLine(8, 28, 8, 16);
+		p.drawLine(8, 28, 24, 28);
+		p.setPen(QPen(QColor(kAccentSoft), 2.2, Qt::SolidLine, Qt::RoundCap));
+		p.drawArc(QRectF(8, 12, 16, 16), 180 * 16, 90 * 16);
+	}
+	else if (kind == QLatin1String("chamfer"))
+	{
+		p.drawLine(8, 28, 8, 12);
+		p.drawLine(8, 28, 28, 28);
+		p.setPen(QPen(QColor(kAccentSoft), 2.2, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(8, 16, 20, 28);
+	}
+	else if (kind == QLatin1String("revolve"))
+	{
+		p.drawEllipse(QRectF(10, 8, 20, 24));
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(20, 6, 20, 34);
+	}
+	else if (kind == QLatin1String("revolveCut"))
+	{
+		p.drawEllipse(QRectF(10, 8, 20, 24));
+		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(20, 6, 20, 34);
+		p.setBrush(hole);
+		p.setPen(QPen(ink, 1.5));
+		p.drawEllipse(QRectF(14, 14, 12, 12));
+	}
+	else if (kind == QLatin1String("pattern"))
+	{
+		p.setBrush(fillSoft);
+		p.setPen(QPen(ink, 1.5));
+		p.drawRoundedRect(QRectF(6, 14, 10, 10), 1, 1);
+		p.drawRoundedRect(QRectF(18, 14, 10, 10), 1, 1);
+		p.setBrush(QColor(kAccent));
+		p.setPen(Qt::NoPen);
+		p.drawRoundedRect(QRectF(30, 14, 8, 10), 1, 1);
+	}
+	else if (kind == QLatin1String("mirror3d"))
+	{
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::DashLine, Qt::RoundCap));
+		p.drawLine(20, 6, 20, 34);
+		p.setBrush(fillSoft);
+		p.setPen(QPen(ink, 1.5));
+		p.drawRoundedRect(QRectF(6, 12, 10, 16), 1, 1);
+		p.drawRoundedRect(QRectF(24, 12, 10, 16), 1, 1);
+	}
+	else if (kind == QLatin1String("loft"))
+	{
+		p.setBrush(fillSoft);
+		p.setPen(QPen(ink, 1.5));
+		p.drawEllipse(QRectF(8, 6, 24, 10));
+		p.drawEllipse(QRectF(12, 24, 16, 10));
+		p.setPen(QPen(QColor(kAccentSoft), 1.8, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(12, 14, 14, 26);
+		p.drawLine(28, 14, 26, 26);
+	}
+	else if (kind == QLatin1String("loftCut"))
+	{
+		p.setPen(QPen(ink, 1.5));
+		p.drawEllipse(QRectF(8, 6, 24, 10));
+		p.drawEllipse(QRectF(12, 24, 16, 10));
+		p.setBrush(hole);
+		p.drawEllipse(QRectF(14, 26, 12, 6));
+	}
+	else if (kind == QLatin1String("shell"))
+	{
+		p.setBrush(fillSoft);
+		p.setPen(QPen(ink, 1.8));
+		p.drawRoundedRect(QRectF(8, 8, 24, 24), 2, 2);
+		p.setBrush(hole);
+		p.drawRoundedRect(QRectF(13, 13, 14, 14), 1, 1);
+	}
+	else if (kind == QLatin1String("draft"))
+	{
+		QPolygonF trap;
+		trap << QPointF(10, 30) << QPointF(30, 30) << QPointF(26, 10) << QPointF(14, 10);
+		p.setBrush(fillSoft);
+		p.drawPolygon(trap);
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setBrush(Qt::NoBrush);
+		p.drawLine(8, 32, 32, 32);
 	}
 	return QIcon(pm);
 }
@@ -315,20 +486,20 @@ QToolButton* makeRibbonButton(QWidget* parent, const QString& text, const QStrin
 	return btn;
 }
 
-QWidget* makeGroup(QWidget* parent, const QString& title, QHBoxLayout*& outButtons)
+QWidget* makeStackedGroup(QWidget* parent, const QString& title, QVBoxLayout*& outStack)
 {
 	auto* group = new QWidget(parent);
 	group->setObjectName(QStringLiteral("RibbonGroup"));
 	auto* lay = new QVBoxLayout(group);
-	lay->setContentsMargins(6, 3, 6, 2);
+	lay->setContentsMargins(6, 2, 6, 2);
 	lay->setSpacing(1);
 
-	auto* buttonsHost = new QWidget(group);
-	buttonsHost->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-	outButtons = new QHBoxLayout(buttonsHost);
-	outButtons->setContentsMargins(0, 0, 0, 0);
-	outButtons->setSpacing(2);
-	lay->addWidget(buttonsHost, 0, Qt::AlignVCenter);
+	auto* stackHost = new QWidget(group);
+	stackHost->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+	outStack = new QVBoxLayout(stackHost);
+	outStack->setContentsMargins(0, 0, 0, 0);
+	outStack->setSpacing(2);
+	lay->addWidget(stackHost, 0, Qt::AlignVCenter);
 
 	auto* label = new QLabel(title, group);
 	label->setAlignment(Qt::AlignHCenter);
@@ -336,6 +507,17 @@ QWidget* makeGroup(QWidget* parent, const QString& title, QHBoxLayout*& outButto
 	label->setFixedHeight(12);
 	lay->addWidget(label, 0, Qt::AlignHCenter);
 	return group;
+}
+
+QHBoxLayout* addButtonRow(QVBoxLayout* stack)
+{
+	auto* rowHost = new QWidget;
+	auto* row = new QHBoxLayout(rowHost);
+	row->setContentsMargins(0, 0, 0, 0);
+	row->setSpacing(2);
+	row->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+	stack->addWidget(rowHost);
+	return row;
 }
 
 void addCompactSep(QHBoxLayout* lay)
@@ -353,7 +535,7 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 {
 	setObjectName(QStringLiteral("GeometricModelingRibbonBar"));
 	setAttribute(Qt::WA_StyledBackground, true);
-	setFixedHeight(88);
+	setFixedHeight(108);
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
 	auto* outer = new QHBoxLayout(this);
@@ -380,52 +562,81 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	m_drawTools = new QButtonGroup(this);
 	m_drawTools->setExclusive(true);
 
-	QHBoxLayout* sketchBtns = nullptr;
-	QWidget* sketch = makeGroup(host, QStringLiteral("草图"), sketchBtns);
+	QVBoxLayout* sketchStack = nullptr;
+	QWidget* sketch = makeStackedGroup(host, QStringLiteral("草图"), sketchStack);
 	m_lblSketch = sketch->findChild<QLabel*>(QStringLiteral("RibbonGroupTitle"));
-	m_btnNewSketch = makeRibbonButton(sketch, QStringLiteral("新建"), QStringLiteral("sketch"), QStringLiteral("normal"));
+	m_btnNewSketch =
+		makeRibbonButton(sketch, QStringLiteral("新建"), QStringLiteral("sketch"), QStringLiteral("normal"), true);
 	auto* newSketch = m_btnNewSketch;
+	m_btnDatumPlane =
+		makeRibbonButton(sketch, QStringLiteral("基准面"), QStringLiteral("datumPlane"), QStringLiteral("normal"), true);
 	m_btnLine = makeRibbonButton(sketch, QStringLiteral("直线"), QStringLiteral("line"), QStringLiteral("draw"), true);
 	m_btnArc = makeRibbonButton(sketch, QStringLiteral("圆弧"), QStringLiteral("arc"), QStringLiteral("draw"), true);
 	m_btnCircle = makeRibbonButton(sketch, QStringLiteral("圆"), QStringLiteral("circle"), QStringLiteral("draw"), true);
 	m_btnRect = makeRibbonButton(sketch, QStringLiteral("矩形"), QStringLiteral("rect"), QStringLiteral("draw"), true);
+	m_btnEllipse = makeRibbonButton(sketch, QStringLiteral("椭圆"), QStringLiteral("ellipse"), QStringLiteral("draw"), true);
+	m_btnPolygon = makeRibbonButton(sketch, QStringLiteral("多边形"), QStringLiteral("polygon"), QStringLiteral("draw"), true);
+	m_btnSlot = makeRibbonButton(sketch, QStringLiteral("槽口"), QStringLiteral("slot"), QStringLiteral("draw"), true);
 	m_btnSpline = makeRibbonButton(sketch, QStringLiteral("样条"), QStringLiteral("spline"), QStringLiteral("draw"), true);
 	m_btnConstr = makeRibbonButton(sketch, QStringLiteral("构造线"), QStringLiteral("constr"), QStringLiteral("draw"), true);
 	m_btnTrim = makeRibbonButton(sketch, QStringLiteral("修剪"), QStringLiteral("trim"), QStringLiteral("draw"), true);
 	m_btnMirror = makeRibbonButton(sketch, QStringLiteral("镜像"), QStringLiteral("mirror"), QStringLiteral("draw"), true);
 	m_btnDelete = makeRibbonButton(sketch, QStringLiteral("删除"), QStringLiteral("delete"), QStringLiteral("draw"), true);
-	m_btnEndSketch = makeRibbonButton(sketch, QStringLiteral("结束"), QStringLiteral("endSketch"), QStringLiteral("danger"));
+	m_btnProjectEdges =
+		makeRibbonButton(sketch, QStringLiteral("投影边"), QStringLiteral("projectEdges"), QStringLiteral("draw"), true);
+	m_btnConvertEntities = makeRibbonButton(sketch, QStringLiteral("转换实体"), QStringLiteral("convertEntities"),
+											  QStringLiteral("draw"), true);
+	m_btnOffset = makeRibbonButton(sketch, QStringLiteral("等距"), QStringLiteral("offset"), QStringLiteral("draw"), true);
+	m_btnEndSketch =
+		makeRibbonButton(sketch, QStringLiteral("结束"), QStringLiteral("endSketch"), QStringLiteral("danger"), true);
 	auto* endSketch = m_btnEndSketch;
-	for (QToolButton* b :
-		 {m_btnLine, m_btnArc, m_btnCircle, m_btnRect, m_btnSpline, m_btnConstr, m_btnTrim, m_btnMirror, m_btnDelete})
+	for (QToolButton* b : {m_btnLine, m_btnArc, m_btnCircle, m_btnRect, m_btnEllipse, m_btnPolygon, m_btnSlot,
+						   m_btnSpline, m_btnConstr, m_btnTrim, m_btnMirror, m_btnDelete, m_btnProjectEdges,
+						   m_btnConvertEntities, m_btnOffset})
 	{
 		b->setCheckable(true);
 		m_drawTools->addButton(b);
 	}
-	sketchBtns->addWidget(newSketch);
-	addCompactSep(sketchBtns);
-	sketchBtns->addWidget(m_btnLine);
-	sketchBtns->addWidget(m_btnArc);
-	sketchBtns->addWidget(m_btnCircle);
-	sketchBtns->addWidget(m_btnRect);
-	sketchBtns->addWidget(m_btnSpline);
-	addCompactSep(sketchBtns);
-	sketchBtns->addWidget(m_btnConstr);
-	sketchBtns->addWidget(m_btnTrim);
-	sketchBtns->addWidget(m_btnMirror);
-	sketchBtns->addWidget(m_btnDelete);
-	addCompactSep(sketchBtns);
-	sketchBtns->addWidget(endSketch);
+	QHBoxLayout* sketchRow1 = addButtonRow(sketchStack);
+	sketchRow1->addWidget(newSketch);
+	sketchRow1->addWidget(m_btnDatumPlane);
+	addCompactSep(sketchRow1);
+	sketchRow1->addWidget(m_btnLine);
+	sketchRow1->addWidget(m_btnArc);
+	sketchRow1->addWidget(m_btnCircle);
+	sketchRow1->addWidget(m_btnRect);
+	sketchRow1->addWidget(m_btnEllipse);
+	sketchRow1->addWidget(m_btnPolygon);
+	sketchRow1->addWidget(m_btnSlot);
+	QHBoxLayout* sketchRow2 = addButtonRow(sketchStack);
+	sketchRow2->addWidget(m_btnSpline);
+	sketchRow2->addWidget(m_btnConstr);
+	sketchRow2->addWidget(m_btnTrim);
+	sketchRow2->addWidget(m_btnMirror);
+	sketchRow2->addWidget(m_btnDelete);
+	addCompactSep(sketchRow2);
+	sketchRow2->addWidget(m_btnProjectEdges);
+	sketchRow2->addWidget(m_btnConvertEntities);
+	sketchRow2->addWidget(m_btnOffset);
+	addCompactSep(sketchRow2);
+	sketchRow2->addWidget(endSketch);
 	connect(newSketch, &QToolButton::clicked, this, &GeometricModelingRibbonBar::newSketchRequested);
+	connect(m_btnDatumPlane, &QToolButton::clicked, this, &GeometricModelingRibbonBar::datumPlaneRequested);
 	connect(m_btnLine, &QToolButton::clicked, this, &GeometricModelingRibbonBar::lineToolRequested);
 	connect(m_btnArc, &QToolButton::clicked, this, &GeometricModelingRibbonBar::arcToolRequested);
 	connect(m_btnCircle, &QToolButton::clicked, this, &GeometricModelingRibbonBar::circleToolRequested);
 	connect(m_btnRect, &QToolButton::clicked, this, &GeometricModelingRibbonBar::rectToolRequested);
+	connect(m_btnEllipse, &QToolButton::clicked, this, &GeometricModelingRibbonBar::ellipseToolRequested);
+	connect(m_btnPolygon, &QToolButton::clicked, this, &GeometricModelingRibbonBar::polygonToolRequested);
+	connect(m_btnSlot, &QToolButton::clicked, this, &GeometricModelingRibbonBar::slotToolRequested);
 	connect(m_btnSpline, &QToolButton::clicked, this, &GeometricModelingRibbonBar::splineToolRequested);
 	connect(m_btnConstr, &QToolButton::clicked, this, &GeometricModelingRibbonBar::constructionToolRequested);
 	connect(m_btnTrim, &QToolButton::clicked, this, &GeometricModelingRibbonBar::trimToolRequested);
 	connect(m_btnMirror, &QToolButton::clicked, this, &GeometricModelingRibbonBar::mirrorToolRequested);
 	connect(m_btnDelete, &QToolButton::clicked, this, &GeometricModelingRibbonBar::deleteToolRequested);
+	connect(m_btnProjectEdges, &QToolButton::clicked, this, &GeometricModelingRibbonBar::projectEdgesRequested);
+	connect(m_btnConvertEntities, &QToolButton::clicked, this, &GeometricModelingRibbonBar::convertEntitiesRequested);
+	connect(m_btnOffset, &QToolButton::clicked, this, &GeometricModelingRibbonBar::offsetRequested);
 	connect(endSketch, &QToolButton::clicked, this,
 			[this]()
 			{
@@ -434,8 +645,8 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 			});
 	root->addWidget(sketch);
 
-	QHBoxLayout* markBtns = nullptr;
-	QWidget* marks = makeGroup(host, QStringLiteral("标注"), markBtns);
+	QVBoxLayout* markStack = nullptr;
+	QWidget* marks = makeStackedGroup(host, QStringLiteral("标注"), markStack);
 	m_lblMarks = marks->findChild<QLabel*>(QStringLiteral("RibbonGroupTitle"));
 	m_btnDimLen = makeRibbonButton(marks, QStringLiteral("长度"), QStringLiteral("dimLen"), QStringLiteral("draw"), true);
 	m_btnDimDist = makeRibbonButton(marks, QStringLiteral("距离"), QStringLiteral("dimDist"), QStringLiteral("draw"), true);
@@ -448,20 +659,38 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	m_btnGeomPar = makeRibbonButton(marks, QStringLiteral("平行"), QStringLiteral("geomPar"), QStringLiteral("draw"), true);
 	m_btnGeomPerp = makeRibbonButton(marks, QStringLiteral("垂直"), QStringLiteral("geomPerp"), QStringLiteral("draw"), true);
 	m_btnGeomEq = makeRibbonButton(marks, QStringLiteral("等长"), QStringLiteral("geomEq"), QStringLiteral("draw"), true);
+	m_btnGeomTan = makeRibbonButton(marks, QStringLiteral("相切"), QStringLiteral("geomTan"), QStringLiteral("draw"), true);
+	m_btnGeomSym = makeRibbonButton(marks, QStringLiteral("对称"), QStringLiteral("geomSym"), QStringLiteral("draw"), true);
+	m_btnGeomMid = makeRibbonButton(marks, QStringLiteral("中点"), QStringLiteral("geomMid"), QStringLiteral("draw"), true);
 	m_btnGeomFix = makeRibbonButton(marks, QStringLiteral("固定"), QStringLiteral("geomFix"), QStringLiteral("draw"), true);
-	for (QToolButton* b : {m_btnDimLen, m_btnDimDist, m_btnDimRad, m_btnDimAng, m_btnDimArcR})
+	m_btnGeomFixOrigin =
+		makeRibbonButton(marks, QStringLiteral("到原点"), QStringLiteral("geomFixOrigin"), QStringLiteral("draw"), true);
+	for (QToolButton* b : {m_btnDimLen, m_btnDimDist, m_btnDimRad, m_btnDimAng, m_btnDimArcR, m_btnGeomH, m_btnGeomV,
+						   m_btnGeomCoin, m_btnGeomPar, m_btnGeomPerp, m_btnGeomEq, m_btnGeomTan, m_btnGeomSym,
+						   m_btnGeomMid, m_btnGeomFix, m_btnGeomFixOrigin})
 	{
 		b->setCheckable(true);
 		m_drawTools->addButton(b);
-		markBtns->addWidget(b);
 	}
-	addCompactSep(markBtns);
-	for (QToolButton* b : {m_btnGeomH, m_btnGeomV, m_btnGeomCoin, m_btnGeomPar, m_btnGeomPerp, m_btnGeomEq, m_btnGeomFix})
-	{
-		b->setCheckable(true);
-		m_drawTools->addButton(b);
-		markBtns->addWidget(b);
-	}
+	QHBoxLayout* markRow1 = addButtonRow(markStack);
+	markRow1->addWidget(m_btnDimLen);
+	markRow1->addWidget(m_btnDimDist);
+	markRow1->addWidget(m_btnDimRad);
+	markRow1->addWidget(m_btnDimAng);
+	markRow1->addWidget(m_btnDimArcR);
+	addCompactSep(markRow1);
+	markRow1->addWidget(m_btnGeomH);
+	markRow1->addWidget(m_btnGeomV);
+	markRow1->addWidget(m_btnGeomCoin);
+	QHBoxLayout* markRow2 = addButtonRow(markStack);
+	markRow2->addWidget(m_btnGeomPar);
+	markRow2->addWidget(m_btnGeomPerp);
+	markRow2->addWidget(m_btnGeomEq);
+	markRow2->addWidget(m_btnGeomTan);
+	markRow2->addWidget(m_btnGeomSym);
+	markRow2->addWidget(m_btnGeomMid);
+	markRow2->addWidget(m_btnGeomFix);
+	markRow2->addWidget(m_btnGeomFixOrigin);
 	connect(m_btnDimLen, &QToolButton::clicked, this, &GeometricModelingRibbonBar::dimLengthRequested);
 	connect(m_btnDimDist, &QToolButton::clicked, this, &GeometricModelingRibbonBar::dimDistanceRequested);
 	connect(m_btnDimRad, &QToolButton::clicked, this, &GeometricModelingRibbonBar::dimRadiusRequested);
@@ -473,17 +702,32 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	connect(m_btnGeomPar, &QToolButton::clicked, this, &GeometricModelingRibbonBar::geomParallelRequested);
 	connect(m_btnGeomPerp, &QToolButton::clicked, this, &GeometricModelingRibbonBar::geomPerpendicularRequested);
 	connect(m_btnGeomEq, &QToolButton::clicked, this, &GeometricModelingRibbonBar::geomEqualLengthRequested);
+	connect(m_btnGeomTan, &QToolButton::clicked, this, &GeometricModelingRibbonBar::geomTangentRequested);
+	connect(m_btnGeomSym, &QToolButton::clicked, this, &GeometricModelingRibbonBar::geomSymmetricRequested);
+	connect(m_btnGeomMid, &QToolButton::clicked, this, &GeometricModelingRibbonBar::geomMidpointRequested);
 	connect(m_btnGeomFix, &QToolButton::clicked, this, &GeometricModelingRibbonBar::geomFixRequested);
+	connect(m_btnGeomFixOrigin, &QToolButton::clicked, this, &GeometricModelingRibbonBar::geomFixOriginRequested);
 	root->addWidget(marks);
 
-	QHBoxLayout* featBtns = nullptr;
-	QWidget* feat = makeGroup(host, QStringLiteral("特征"), featBtns);
+	QVBoxLayout* featStack = nullptr;
+	QWidget* feat = makeStackedGroup(host, QStringLiteral("特征"), featStack);
 	m_lblFeat = feat->findChild<QLabel*>(QStringLiteral("RibbonGroupTitle"));
 	m_btnSolve = makeRibbonButton(feat, QStringLiteral("求解"), QStringLiteral("solve"), QStringLiteral("normal"), true);
-	m_btnPad = makeRibbonButton(feat, QStringLiteral("拉伸"), QStringLiteral("pad"), QStringLiteral("primary"));
+	m_btnPad = makeRibbonButton(feat, QStringLiteral("拉伸"), QStringLiteral("pad"), QStringLiteral("primary"), true);
 	m_btnPocket = makeRibbonButton(feat, QStringLiteral("切除"), QStringLiteral("pocket"), QStringLiteral("normal"), true);
-	m_btnSweep = makeRibbonButton(feat, QStringLiteral("扫描"), QStringLiteral("sweep"), QStringLiteral("normal"));
+	m_btnSweep = makeRibbonButton(feat, QStringLiteral("扫描"), QStringLiteral("sweep"), QStringLiteral("normal"), true);
 	m_btnSweepCut = makeRibbonButton(feat, QStringLiteral("扫描切除"), QStringLiteral("sweepCut"), QStringLiteral("normal"), true);
+	m_btnFillet = makeRibbonButton(feat, QStringLiteral("圆角"), QStringLiteral("fillet"), QStringLiteral("normal"), true);
+	m_btnChamfer = makeRibbonButton(feat, QStringLiteral("倒角"), QStringLiteral("chamfer"), QStringLiteral("normal"), true);
+	m_btnRevolve = makeRibbonButton(feat, QStringLiteral("旋转"), QStringLiteral("revolve"), QStringLiteral("normal"), true);
+	m_btnRevolveCut =
+		makeRibbonButton(feat, QStringLiteral("旋转切除"), QStringLiteral("revolveCut"), QStringLiteral("normal"), true);
+	m_btnPattern = makeRibbonButton(feat, QStringLiteral("线性阵列"), QStringLiteral("pattern"), QStringLiteral("normal"), true);
+	m_btnMirror3d = makeRibbonButton(feat, QStringLiteral("镜像"), QStringLiteral("mirror3d"), QStringLiteral("normal"), true);
+	m_btnLoft = makeRibbonButton(feat, QStringLiteral("放样"), QStringLiteral("loft"), QStringLiteral("normal"), true);
+	m_btnLoftCut = makeRibbonButton(feat, QStringLiteral("放样切除"), QStringLiteral("loftCut"), QStringLiteral("normal"), true);
+	m_btnShell = makeRibbonButton(feat, QStringLiteral("抽壳"), QStringLiteral("shell"), QStringLiteral("normal"), true);
+	m_btnDraft = makeRibbonButton(feat, QStringLiteral("拔模"), QStringLiteral("draft"), QStringLiteral("normal"), true);
 	m_btnRebuild = makeRibbonButton(feat, QStringLiteral("重建"), QStringLiteral("rebuild"), QStringLiteral("normal"), true);
 	m_btnUndo = makeRibbonButton(feat, QStringLiteral("撤销"), QStringLiteral("undo"), QStringLiteral("normal"), true);
 	m_btnRedo = makeRibbonButton(feat, QStringLiteral("重做"), QStringLiteral("redo"), QStringLiteral("normal"), true);
@@ -492,18 +736,43 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	auto* pocket = m_btnPocket;
 	auto* sweep = m_btnSweep;
 	auto* sweepCut = m_btnSweepCut;
+	auto* fillet = m_btnFillet;
+	auto* chamfer = m_btnChamfer;
+	auto* revolve = m_btnRevolve;
+	auto* revolveCut = m_btnRevolveCut;
+	auto* pattern = m_btnPattern;
+	auto* mirror3d = m_btnMirror3d;
+	auto* loft = m_btnLoft;
+	auto* loftCut = m_btnLoftCut;
+	auto* shell = m_btnShell;
+	auto* draft = m_btnDraft;
 	auto* rebuild = m_btnRebuild;
 	auto* undo = m_btnUndo;
 	auto* redo = m_btnRedo;
-	featBtns->addWidget(solve);
-	featBtns->addWidget(pad);
-	featBtns->addWidget(pocket);
-	featBtns->addWidget(sweep);
-	featBtns->addWidget(sweepCut);
-	featBtns->addWidget(rebuild);
-	addCompactSep(featBtns);
-	featBtns->addWidget(undo);
-	featBtns->addWidget(redo);
+
+	QHBoxLayout* featRow1 = addButtonRow(featStack);
+	featRow1->addWidget(pad);
+	featRow1->addWidget(pocket);
+	featRow1->addWidget(sweep);
+	featRow1->addWidget(sweepCut);
+	featRow1->addWidget(revolve);
+	featRow1->addWidget(revolveCut);
+	featRow1->addWidget(fillet);
+	featRow1->addWidget(chamfer);
+	featRow1->addWidget(loft);
+
+	QHBoxLayout* featRow2 = addButtonRow(featStack);
+	featRow2->addWidget(loftCut);
+	featRow2->addWidget(shell);
+	featRow2->addWidget(draft);
+	featRow2->addWidget(pattern);
+	featRow2->addWidget(mirror3d);
+	addCompactSep(featRow2);
+	featRow2->addWidget(solve);
+	featRow2->addWidget(rebuild);
+	addCompactSep(featRow2);
+	featRow2->addWidget(undo);
+	featRow2->addWidget(redo);
 	connect(solve, &QToolButton::clicked, this, &GeometricModelingRibbonBar::solveRequested);
 	connect(pad, &QToolButton::clicked, this,
 			[this]()
@@ -528,6 +797,66 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 			{
 				clearToolChecks();
 				emit sweepCutRequested();
+			});
+	connect(fillet, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit filletRequested();
+			});
+	connect(chamfer, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit chamferRequested();
+			});
+	connect(revolve, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit revolveRequested();
+			});
+	connect(revolveCut, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit revolveCutRequested();
+			});
+	connect(pattern, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit linearPatternRequested();
+			});
+	connect(mirror3d, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit mirror3dRequested();
+			});
+	connect(loft, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit loftRequested();
+			});
+	connect(loftCut, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit loftCutRequested();
+			});
+	connect(shell, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit shellRequested();
+			});
+	connect(draft, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit draftRequested();
 			});
 	connect(rebuild, &QToolButton::clicked, this, &GeometricModelingRibbonBar::rebuildRequested);
 	connect(undo, &QToolButton::clicked, this, &GeometricModelingRibbonBar::undoRequested);
@@ -691,16 +1020,23 @@ void GeometricModelingRibbonBar::applyLanguage(bool useChinese)
 		m_lblFeat->setText(tr(QStringLiteral("Features"), QStringLiteral("特征")));
 
 	setBtnText(m_btnNewSketch, tr(QStringLiteral("New"), QStringLiteral("新建")));
+	setBtnText(m_btnDatumPlane, tr(QStringLiteral("Datum Plane"), QStringLiteral("基准面")));
 	setBtnText(m_btnEndSketch, tr(QStringLiteral("Exit Sketch"), QStringLiteral("结束")));
 	setBtnText(m_btnLine, tr(QStringLiteral("Line"), QStringLiteral("直线")));
 	setBtnText(m_btnArc, tr(QStringLiteral("Arc"), QStringLiteral("圆弧")));
 	setBtnText(m_btnCircle, tr(QStringLiteral("Circle"), QStringLiteral("圆")));
 	setBtnText(m_btnRect, tr(QStringLiteral("Rectangle"), QStringLiteral("矩形")));
+	setBtnText(m_btnEllipse, tr(QStringLiteral("Ellipse"), QStringLiteral("椭圆")));
+	setBtnText(m_btnPolygon, tr(QStringLiteral("Polygon"), QStringLiteral("多边形")));
+	setBtnText(m_btnSlot, tr(QStringLiteral("Slot"), QStringLiteral("槽口")));
 	setBtnText(m_btnSpline, tr(QStringLiteral("Spline"), QStringLiteral("样条")));
 	setBtnText(m_btnConstr, tr(QStringLiteral("Construction"), QStringLiteral("构造线")));
 	setBtnText(m_btnTrim, tr(QStringLiteral("Trim"), QStringLiteral("修剪")));
 	setBtnText(m_btnMirror, tr(QStringLiteral("Mirror"), QStringLiteral("镜像")));
 	setBtnText(m_btnDelete, tr(QStringLiteral("Delete"), QStringLiteral("删除")));
+	setBtnText(m_btnProjectEdges, tr(QStringLiteral("Project Edges"), QStringLiteral("投影边")));
+	setBtnText(m_btnConvertEntities, tr(QStringLiteral("Convert Entities"), QStringLiteral("转换实体")));
+	setBtnText(m_btnOffset, tr(QStringLiteral("Offset"), QStringLiteral("等距")));
 	setBtnText(m_btnDimLen, tr(QStringLiteral("Length"), QStringLiteral("长度")));
 	setBtnText(m_btnDimDist, tr(QStringLiteral("Distance"), QStringLiteral("距离")));
 	setBtnText(m_btnDimRad, tr(QStringLiteral("Radius"), QStringLiteral("半径")));
@@ -712,12 +1048,26 @@ void GeometricModelingRibbonBar::applyLanguage(bool useChinese)
 	setBtnText(m_btnGeomPar, tr(QStringLiteral("Parallel"), QStringLiteral("平行")));
 	setBtnText(m_btnGeomPerp, tr(QStringLiteral("Perpendicular"), QStringLiteral("垂直")));
 	setBtnText(m_btnGeomEq, tr(QStringLiteral("Equal"), QStringLiteral("等长")));
+	setBtnText(m_btnGeomTan, tr(QStringLiteral("Tangent"), QStringLiteral("相切")));
+	setBtnText(m_btnGeomSym, tr(QStringLiteral("Symmetric"), QStringLiteral("对称")));
+	setBtnText(m_btnGeomMid, tr(QStringLiteral("Midpoint"), QStringLiteral("中点")));
 	setBtnText(m_btnGeomFix, tr(QStringLiteral("Fix"), QStringLiteral("固定")));
+	setBtnText(m_btnGeomFixOrigin, tr(QStringLiteral("To Origin"), QStringLiteral("到原点")));
 	setBtnText(m_btnSolve, tr(QStringLiteral("Solve"), QStringLiteral("求解")));
 	setBtnText(m_btnPad, tr(QStringLiteral("Pad"), QStringLiteral("拉伸")));
 	setBtnText(m_btnPocket, tr(QStringLiteral("Pocket"), QStringLiteral("切除")));
 	setBtnText(m_btnSweep, tr(QStringLiteral("Sweep"), QStringLiteral("扫描")));
 	setBtnText(m_btnSweepCut, tr(QStringLiteral("Sweep Cut"), QStringLiteral("扫描切除")));
+	setBtnText(m_btnFillet, tr(QStringLiteral("Fillet"), QStringLiteral("圆角")));
+	setBtnText(m_btnChamfer, tr(QStringLiteral("Chamfer"), QStringLiteral("倒角")));
+	setBtnText(m_btnRevolve, tr(QStringLiteral("Revolve"), QStringLiteral("旋转")));
+	setBtnText(m_btnRevolveCut, tr(QStringLiteral("Revolve Cut"), QStringLiteral("旋转切除")));
+	setBtnText(m_btnPattern, tr(QStringLiteral("Linear Pattern"), QStringLiteral("线性阵列")));
+	setBtnText(m_btnMirror3d, tr(QStringLiteral("Mirror 3D"), QStringLiteral("镜像")));
+	setBtnText(m_btnLoft, tr(QStringLiteral("Loft"), QStringLiteral("放样")));
+	setBtnText(m_btnLoftCut, tr(QStringLiteral("Loft Cut"), QStringLiteral("放样切除")));
+	setBtnText(m_btnShell, tr(QStringLiteral("Shell"), QStringLiteral("抽壳")));
+	setBtnText(m_btnDraft, tr(QStringLiteral("Draft"), QStringLiteral("拔模")));
 	setBtnText(m_btnRebuild, tr(QStringLiteral("Rebuild"), QStringLiteral("重建")));
 	setBtnText(m_btnUndo, tr(QStringLiteral("Undo"), QStringLiteral("撤销")));
 	setBtnText(m_btnRedo, tr(QStringLiteral("Redo"), QStringLiteral("重做")));

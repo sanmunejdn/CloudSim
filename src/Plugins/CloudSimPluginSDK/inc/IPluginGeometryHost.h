@@ -51,6 +51,11 @@ public:
 												   const PluginMeshDiscretizeParams& params,
 												   PluginGeometryFinishedFn onFinished) = 0;
 
+	/// 1.40.0+：按面索引离散该面边界边（含内环）为多条折线
+	virtual void discretizeBackendFaceEdgesToPolylines(IPluginDocument* doc, const PluginGeometryStepRef& faceRef,
+													   const PluginMeshDiscretizeParams& params,
+													   PluginGeometryFinishedFn onFinished) = 0;
+
 	virtual void intersectEdges(IPluginDocument* doc, const PluginGeometryStepRef& edge1,
 								const PluginGeometryStepRef& edge2, const PluginGeometryIntersectionParams& params,
 								PluginGeometryFinishedFn onFinished) = 0;
@@ -148,6 +153,52 @@ public:
 										  const PluginSketchSweepParams& params,
 										  PluginGeometryFinishedFn onFinished) = 0;
 
+	/// 1.38.0+：边圆角预览 / 提交
+	virtual bool previewFilletEdges(IPluginDocument* doc, const PluginSketchFilletParams& params,
+									QString* errOut = nullptr) = 0;
+	virtual void filletEdgesToBrep(IPluginDocument* doc, const PluginSketchFilletParams& params,
+								   PluginGeometryFinishedFn onFinished) = 0;
+	/// 1.38.0+：边倒角预览 / 提交
+	virtual bool previewChamferEdges(IPluginDocument* doc, const PluginSketchChamferParams& params,
+									 QString* errOut = nullptr) = 0;
+	virtual void chamferEdgesToBrep(IPluginDocument* doc, const PluginSketchChamferParams& params,
+									PluginGeometryFinishedFn onFinished) = 0;
+	/// 1.38.0+：旋转凸台/切除预览 / 提交
+	virtual bool previewSketchRevolve(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
+									  const PluginSketchRevolveParams& params, QString* errOut = nullptr) = 0;
+	virtual void revolveSketchProfileToBrep(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
+											const PluginSketchRevolveParams& params,
+											PluginGeometryFinishedFn onFinished) = 0;
+	/// 1.38.0+：线性阵列预览 / 提交
+	virtual bool previewLinearPattern(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
+									  QString* errOut = nullptr) = 0;
+	virtual void linearPatternBodyToBrep(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
+										PluginGeometryFinishedFn onFinished) = 0;
+	/// 1.38.0+：镜像预览 / 提交
+	virtual bool previewMirror3d(IPluginDocument* doc, const PluginSketchMirror3dParams& params,
+								 QString* errOut = nullptr) = 0;
+	virtual void mirror3dBodyToBrep(IPluginDocument* doc, const PluginSketchMirror3dParams& params,
+								  PluginGeometryFinishedFn onFinished) = 0;
+	/// 1.38.0+：放样预览 / 提交
+	virtual bool previewSketchLoft(IPluginDocument* doc, const std::vector<float>& profilePolylineAXyzMm,
+								   const std::vector<float>& profilePolylineBXyzMm, const PluginSketchLoftParams& params,
+								   QString* errOut = nullptr) = 0;
+	virtual void loftSketchProfilesToBrep(IPluginDocument* doc, const std::vector<float>& profilePolylineAXyzMm,
+										  const std::vector<float>& profilePolylineBXyzMm,
+										  const PluginSketchLoftParams& params,
+										  PluginGeometryFinishedFn onFinished) = 0;
+	/// 1.38.0+：抽壳预览 / 提交
+	virtual bool previewShellFaces(IPluginDocument* doc, const PluginSketchShellParams& params,
+								   QString* errOut = nullptr) = 0;
+	virtual void shellFacesToBrep(IPluginDocument* doc, const PluginSketchShellParams& params,
+								  PluginGeometryFinishedFn onFinished) = 0;
+
+	/// 1.39.0+：拔模预览 / 提交
+	virtual bool previewDraftFaces(IPluginDocument* doc, const PluginSketchDraftParams& params,
+								   QString* errOut = nullptr) = 0;
+	virtual void draftFacesToBrep(IPluginDocument* doc, const PluginSketchDraftParams& params,
+								PluginGeometryFinishedFn onFinished) = 0;
+
 	/// 1.33.0+：B-rep → 第一角法三视图 HLR 折线（异步）
 	virtual void projectBrepHlrToDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
 										 PluginDrawingHlrFinishedFn onFinished) = 0;
@@ -156,6 +207,10 @@ public:
 	virtual void projectBrepToEngineeringDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
 												 const PluginDrawingProjectParams& params,
 												 PluginDrawingHlrFinishedFn onFinished) = 0;
+
+	/// 1.37.0+：世界原点/三基准面 overlay 显隐（默认全显；退出建模可全关）
+	virtual void setOriginReferenceVisibility(IPluginDocument* doc,
+											  const PluginOriginReferenceVisibility& visibility) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H

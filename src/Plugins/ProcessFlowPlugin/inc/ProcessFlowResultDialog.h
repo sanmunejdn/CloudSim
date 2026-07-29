@@ -2,13 +2,15 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWRESULTDIALOG_H
 
 /// @file ProcessFlowResultDialog.h
-/// @brief 甘特 / Trace / 策略对比独立对话框
+/// @brief 甘特 / Trace / 策略对比（含可选多策略甘特）
 
 #include "sim/SimStatistics.h"
 
 #include <QDialog>
+#include <QVector>
 
 class ProcessFlowGanttWidget;
+class QComboBox;
 class QTableWidget;
 
 class ProcessFlowResultDialog final : public QDialog
@@ -29,16 +31,21 @@ public:
 	void applyLanguage(bool useChinese);
 	void setStatistics(const SimStatistics& stats);
 	void setCompareRows(const QVector<PolicyCompareRow>& rows);
+	void setCompareStats(const QVector<SimStatistics>& stats);
 	void clear();
 
 private:
 	void rebuildTrace(const SimStatistics& stats);
 	void updateWindowTitle();
+	void showCompareGantt(int index);
 
 	Mode m_mode = Mode::Gantt;
 	bool m_zh = true;
 	ProcessFlowGanttWidget* m_gantt = nullptr;
 	QTableWidget* m_table = nullptr;
+	QComboBox* m_policyCombo = nullptr;
+	ProcessFlowGanttWidget* m_compareGantt = nullptr;
+	QVector<SimStatistics> m_compareStats;
 };
 
 #endif

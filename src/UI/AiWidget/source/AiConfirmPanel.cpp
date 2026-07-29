@@ -366,12 +366,45 @@ void AiConfirmPanel::rebuildForm(const QByteArray& argsSchemaJson, const QByteAr
 		}
 		else
 		{
-			auto* edit = new QLineEdit(m_formHost);
+			QString text;
 			if (proposed.contains(name.toStdString()) && proposed[name.toStdString()].is_string())
-				edit->setText(QString::fromStdString(proposed[name.toStdString()].get<std::string>()));
-			connect(edit, &QLineEdit::textChanged, this, [this](const QString&) { updateConfirmEnabled(); });
-			bind.editor = edit;
-			m_form->addRow(label, edit);
+				text = QString::fromStdString(proposed[name.toStdString()].get<std::string>());
+			// 大 JSON（flow_json/ops）只展示摘要，避免确认面板刷屏
+			if ((name == QStringLiteral("flow_json") || name == QStringLiteral("ops_json") ||
+				 name == QStringLiteral("ops")) &&
+				text.size() > 180)
+			{
+				QString summary = text.left(120) + QStringLiteral("…");
+				try
+				{
+					const nlohmann::json j = nlohmann::json::parse(text.toStdString());
+					if (j.is_object() && j.contains("nodes") && j["nodes"].is_array())
+						summary = QStringLiteral("nodes=%1 edges=%2")
+									  .arg(j["nodes"].size())
+									  .arg(j.contains("edges") && j["edges"].is_array() ? j["edges"].size() : 0);
+					else if (j.is_array())
+						summary = QStringLiteral("ops=%1").arg(j.size());
+				}
+				catch (...)
+				{
+				}
+				auto* edit = new QLineEdit(m_formHost);
+				edit->setText(text);
+				edit->setVisible(false);
+				auto* preview = new QLabel(summary, m_formHost);
+				preview->setWordWrap(true);
+				bind.editor = edit;
+				m_form->addRow(label, preview);
+				m_form->addRow(QString(), edit);
+			}
+			else
+			{
+				auto* edit = new QLineEdit(m_formHost);
+				edit->setText(text);
+				connect(edit, &QLineEdit::textChanged, this, [this](const QString&) { updateConfirmEnabled(); });
+				bind.editor = edit;
+				m_form->addRow(label, edit);
+			}
 		}
 		m_fields.push_back(bind);
 	}

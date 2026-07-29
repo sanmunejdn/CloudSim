@@ -185,6 +185,10 @@ public:
 	void cancelOriginPlaneSelection();
 	bool isOriginPlaneSelectionActive() const { return m_originPlanePickActive; }
 
+	/// 持久显示世界原点三轴 + 三基准面（拾取会话期间自动隐藏，结束后按标志恢复）
+	void setOriginReferenceVisibility(bool originPoint, bool planeXY, bool planeXZ, bool planeYZ,
+									  float halfSizeMm = 60.f);
+
 	void setLabelingClickPickMode(bool enabled, bool meshFace);
 	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx);
 	PickResult queryPick(const PickQuery& query);
@@ -557,6 +561,15 @@ private:
 	osg::ref_ptr<osg::Geometry> m_originPlaneFillGeoms[3];
 	osg::ref_ptr<osg::Geometry> m_originPlaneEdgeGeoms[3];
 	osg::ref_ptr<osg::Material> m_originPlaneFillMaterials[3];
+	/// 持久原点/基准面（与拾取会话分离）
+	bool m_originRefPointVisible = false;
+	bool m_originRefPlaneVisible[3] = {false, false, false};
+	float m_originRefHalfMm = 60.f;
+	osg::ref_ptr<osg::Group> m_originRefGroup;
+	osg::ref_ptr<osg::Group> m_originRefPointGroup;
+	osg::ref_ptr<osg::Group> m_originRefPlaneGroups[3];
+	void ensureOriginReferenceGroup();
+	void syncOriginReferenceNodeMasks();
 	/// 返回命中基面 index；outDist2 为到相机距离平方
 	int hitTestOriginPlane(int screenX, int screenY, double* outDist2 = nullptr) const;
 	/// 基面与模型面更近者胜；胜出基面则返回其 index，否则 -1

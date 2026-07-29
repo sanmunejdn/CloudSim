@@ -15,6 +15,9 @@ enum class SketchToolKind
 	Arc,
 	Circle,
 	Rectangle,
+	Ellipse,
+	Polygon,
+	Slot,
 	Spline,
 	DimLength,
 	DimDistance,
@@ -28,10 +31,15 @@ enum class SketchToolKind
 	GeomParallel,
 	GeomPerpendicular,
 	GeomEqualLength,
+	GeomTangent,
+	GeomSymmetric,
+	GeomMidpoint,
 	GeomFix,
+	GeomFixOrigin,
 	Trim,
 	Mirror,
-	Delete
+	Delete,
+	ProjectEdges
 };
 
 inline bool sketchToolIsDimension(SketchToolKind k)
@@ -45,7 +53,9 @@ inline bool sketchToolIsGeomConstraint(SketchToolKind k)
 	return k == SketchToolKind::GeomHorizontal || k == SketchToolKind::GeomVertical ||
 		   k == SketchToolKind::GeomCoincident || k == SketchToolKind::GeomParallel ||
 		   k == SketchToolKind::GeomPerpendicular || k == SketchToolKind::GeomEqualLength ||
-		   k == SketchToolKind::GeomFix;
+		   k == SketchToolKind::GeomTangent || k == SketchToolKind::GeomSymmetric ||
+		   k == SketchToolKind::GeomMidpoint || k == SketchToolKind::GeomFix ||
+		   k == SketchToolKind::GeomFixOrigin;
 }
 
 inline bool sketchToolIsPickSession(SketchToolKind k)
@@ -161,6 +171,77 @@ private:
 	std::vector<SkVec2> m_pts;
 	SkVec2 m_curr{};
 	bool m_haveCursor = false;
+};
+
+class EllipseSketchTool : public ISketchTool
+{
+public:
+	SketchToolKind kind() const override { return SketchToolKind::Ellipse; }
+	std::string name() const override { return "Ellipse"; }
+	void cancel() override;
+	void onPress(const SkVec2& pos, bool rightButton, SketchDocument2d& doc) override;
+	void onMove(const SkVec2& pos) override;
+	bool hasPreview(SkVec2& outA, SkVec2& outB) const override;
+	bool previewPolyline(std::vector<SkVec2>& out) const override;
+	std::optional<SkVec2> referencePoint() const override;
+
+private:
+	bool m_haveCenter = false;
+	int m_centerId = -1;
+	SkVec2 m_center{};
+	SkVec2 m_curr{};
+};
+
+class PolygonSketchTool : public ISketchTool
+{
+public:
+	static constexpr int kDefaultSides = 6;
+	static constexpr int kMinSides = 3;
+	static constexpr int kMaxSides = 24;
+
+	void setSides(int sides)
+	{
+		if (sides < kMinSides)
+			sides = kMinSides;
+		if (sides > kMaxSides)
+			sides = kMaxSides;
+		m_sides = sides;
+	}
+	int sides() const { return m_sides; }
+
+	SketchToolKind kind() const override { return SketchToolKind::Polygon; }
+	std::string name() const override { return "Polygon"; }
+	void cancel() override;
+	void onPress(const SkVec2& pos, bool rightButton, SketchDocument2d& doc) override;
+	void onMove(const SkVec2& pos) override;
+	bool hasPreview(SkVec2& outA, SkVec2& outB) const override;
+	bool previewPolyline(std::vector<SkVec2>& out) const override;
+	std::optional<SkVec2> referencePoint() const override;
+
+private:
+	bool m_haveCenter = false;
+	SkVec2 m_center{};
+	SkVec2 m_curr{};
+	int m_sides = kDefaultSides;
+};
+
+class SlotSketchTool : public ISketchTool
+{
+public:
+	SketchToolKind kind() const override { return SketchToolKind::Slot; }
+	std::string name() const override { return "Slot"; }
+	void cancel() override;
+	void onPress(const SkVec2& pos, bool rightButton, SketchDocument2d& doc) override;
+	void onMove(const SkVec2& pos) override;
+	bool hasPreview(SkVec2& outA, SkVec2& outB) const override;
+	bool previewPolyline(std::vector<SkVec2>& out) const override;
+	std::optional<SkVec2> referencePoint() const override;
+
+private:
+	int m_step = 0;
+	SkVec2 m_start{};
+	SkVec2 m_end{};
+	SkVec2 m_curr{};
 };
 
 #endif

@@ -129,7 +129,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>InstantMeshesCore.lib;InstantMeshesLib.lib;tbb_static.lib;PointCloudAlgorithm.lib;tbb12.lib;tbbmalloc.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKOffset.lib;TKMesh.lib;TKHLR.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>InstantMeshesCore.lib;InstantMeshesLib.lib;tbb_static.lib;PointCloudAlgorithm.lib;tbb12.lib;tbbmalloc.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKOffset.lib;TKFillet.lib;TKMesh.lib;TKHLR.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);$(IMTbbLibDir)/Release;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/lib;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0/lib64-msvc-14.2;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -152,7 +152,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>InstantMeshesCore.lib;InstantMeshesLib.lib;tbb_static.lib;PointCloudAlgorithm.lib;tbb12.lib;tbbmalloc.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-x64-1_79.lib;boost_date_time-vc142-mt-x64-1_79.lib;libboost_exception-vc142-mt-x64-1_79.lib;boost_filesystem-vc142-mt-x64-1_79.lib;boost_graph-vc142-mt-x64-1_79.lib;boost_iostreams-vc142-mt-x64-1_79.lib;boost_locale-vc142-mt-x64-1_79.lib;boost_math_c99-vc142-mt-x64-1_79.lib;boost_math_c99f-vc142-mt-x64-1_79.lib;boost_math_c99l-vc142-mt-x64-1_79.lib;boost_math_tr1-vc142-mt-x64-1_79.lib;boost_math_tr1f-vc142-mt-x64-1_79.lib;boost_math_tr1l-vc142-mt-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-x64-1_79.lib;boost_random-vc142-mt-x64-1_79.lib;boost_regex-vc142-mt-x64-1_79.lib;boost_serialization-vc142-mt-x64-1_79.lib;boost_system-vc142-mt-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-x64-1_79.lib;boost_thread-vc142-mt-x64-1_79.lib;boost_unit_test_framework-vc142-mt-x64-1_79.lib;boost_wserialization-vc142-mt-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKOffset.lib;TKMesh.lib;TKHLR.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>InstantMeshesCore.lib;InstantMeshesLib.lib;tbb_static.lib;PointCloudAlgorithm.lib;tbb12.lib;tbbmalloc.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-x64-1_79.lib;boost_date_time-vc142-mt-x64-1_79.lib;libboost_exception-vc142-mt-x64-1_79.lib;boost_filesystem-vc142-mt-x64-1_79.lib;boost_graph-vc142-mt-x64-1_79.lib;boost_iostreams-vc142-mt-x64-1_79.lib;boost_locale-vc142-mt-x64-1_79.lib;boost_math_c99-vc142-mt-x64-1_79.lib;boost_math_c99f-vc142-mt-x64-1_79.lib;boost_math_c99l-vc142-mt-x64-1_79.lib;boost_math_tr1-vc142-mt-x64-1_79.lib;boost_math_tr1f-vc142-mt-x64-1_79.lib;boost_math_tr1l-vc142-mt-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-x64-1_79.lib;boost_random-vc142-mt-x64-1_79.lib;boost_regex-vc142-mt-x64-1_79.lib;boost_serialization-vc142-mt-x64-1_79.lib;boost_system-vc142-mt-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-x64-1_79.lib;boost_thread-vc142-mt-x64-1_79.lib;boost_unit_test_framework-vc142-mt-x64-1_79.lib;boost_wserialization-vc142-mt-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKOffset.lib;TKFillet.lib;TKMesh.lib;TKHLR.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);$(IMTbbLibDir)/Release;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/lib;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0/lib64-msvc-14.2;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -170,6 +170,12 @@
     <ClInclude Include="inc\BrepBoolean.h" />
     <ClInclude Include="inc\SketchExtrude.h" />
     <ClInclude Include="inc\SketchSweep.h" />
+    <ClInclude Include="inc\SketchDraft.h" />
+    <ClInclude Include="inc\SketchFillet.h" />
+    <ClInclude Include="inc\SketchRevolve.h" />
+    <ClInclude Include="inc\SketchPattern.h" />
+    <ClInclude Include="inc\SketchLoft.h" />
+    <ClInclude Include="inc\SketchShell.h" />
     <ClInclude Include="inc\SketchPlane.h" />
     <ClInclude Include="inc\WireOps.h" />
     <ClInclude Include="inc\ShellOps.h" />
@@ -216,6 +222,12 @@
     <ClCompile Include="source\BrepBoolean.cpp" />
     <ClCompile Include="source\SketchExtrude.cpp" />
     <ClCompile Include="source\SketchSweep.cpp" />
+    <ClCompile Include="source\SketchDraft.cpp" />
+    <ClCompile Include="source\SketchFillet.cpp" />
+    <ClCompile Include="source\SketchRevolve.cpp" />
+    <ClCompile Include="source\SketchPattern.cpp" />
+    <ClCompile Include="source\SketchLoft.cpp" />
+    <ClCompile Include="source\SketchShell.cpp" />
     <ClCompile Include="source\SketchPlane.cpp" />
     <ClCompile Include="source\WireOps.cpp" />
     <ClCompile Include="source\ShellOps.cpp" />

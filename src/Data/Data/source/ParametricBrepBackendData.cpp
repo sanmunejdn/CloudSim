@@ -4,8 +4,14 @@
 
 #include "BackendTypeIdentity.h"
 #include "ShapeQuery.h"
+#include "SketchDraft.h"
 #include "SketchExtrude.h"
+#include "SketchFillet.h"
+#include "SketchLoft.h"
+#include "SketchPattern.h"
 #include "SketchPlane.h"
+#include "SketchRevolve.h"
+#include "SketchShell.h"
 #include "SketchSweep.h"
 
 #include <cstdint>
@@ -22,6 +28,10 @@ geoalgo::SketchExtrudeEndCondition toAlgoEnd(ParametricExtrudeEnd e)
 		return geoalgo::SketchExtrudeEndCondition::MidPlane;
 	case ParametricExtrudeEnd::ThroughAll:
 		return geoalgo::SketchExtrudeEndCondition::ThroughAll;
+	case ParametricExtrudeEnd::UpToVertex:
+		return geoalgo::SketchExtrudeEndCondition::UpToVertex;
+	case ParametricExtrudeEnd::OffsetFromFace:
+		return geoalgo::SketchExtrudeEndCondition::OffsetFromFace;
 	default:
 		return geoalgo::SketchExtrudeEndCondition::Blind;
 	}
@@ -97,6 +107,115 @@ std::string ParametricBrepBackendData::addSweep(const std::string& profileSketch
 	f.kind = cut ? ParametricFeatureKind::SweepCut : ParametricFeatureKind::Sweep;
 	f.sketchRefId = profileSketchId;
 	f.pathSketchRefId = pathSketchId;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
+std::string ParametricBrepBackendData::addFillet(const std::vector<int>& edgeIndices, double radiusMm)
+{
+	ParametricFeature f;
+	f.id = nextId("Fillet");
+	f.name = f.id;
+	f.kind = ParametricFeatureKind::Fillet;
+	f.edgeIndices = edgeIndices;
+	f.radiusMm = radiusMm;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
+std::string ParametricBrepBackendData::addChamfer(const std::vector<int>& edgeIndices, double distanceMm)
+{
+	ParametricFeature f;
+	f.id = nextId("Chamfer");
+	f.name = f.id;
+	f.kind = ParametricFeatureKind::Chamfer;
+	f.edgeIndices = edgeIndices;
+	f.chamferDistMm = distanceMm;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
+std::string ParametricBrepBackendData::addRevolve(const std::string& sketchId, double angleDeg, double ox, double oy,
+												  double oz, double dx, double dy, double dz, bool cut)
+{
+	ParametricFeature f;
+	f.id = nextId(cut ? "RevolveCut" : "Revolve");
+	f.name = f.id;
+	f.kind = cut ? ParametricFeatureKind::RevolveCut : ParametricFeatureKind::Revolve;
+	f.sketchRefId = sketchId;
+	f.revolveAngleDeg = angleDeg;
+	f.axisOx = ox;
+	f.axisOy = oy;
+	f.axisOz = oz;
+	f.axisDx = dx;
+	f.axisDy = dy;
+	f.axisDz = dz;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
+std::string ParametricBrepBackendData::addLinearPattern(int count, double dx, double dy, double dz,
+														const std::string& sourceFeatureId)
+{
+	ParametricFeature f;
+	f.id = nextId("LinearPattern");
+	f.name = f.id;
+	f.kind = ParametricFeatureKind::LinearPattern;
+	f.patternCount = count;
+	f.patternDx = dx;
+	f.patternDy = dy;
+	f.patternDz = dz;
+	f.patternSourceFeatureId = sourceFeatureId;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
+std::string ParametricBrepBackendData::addMirror3D(const ParametricSketchPlane& plane, bool keepOriginal)
+{
+	ParametricFeature f;
+	f.id = nextId("Mirror3D");
+	f.name = f.id;
+	f.kind = ParametricFeatureKind::Mirror3D;
+	f.mirrorPlane = plane;
+	f.mirrorKeepOriginal = keepOriginal;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
+std::string ParametricBrepBackendData::addLoft(const std::string& sketchA, const std::string& sketchB, bool cut)
+{
+	ParametricFeature f;
+	f.id = nextId(cut ? "LoftCut" : "Loft");
+	f.name = f.id;
+	f.kind = cut ? ParametricFeatureKind::LoftCut : ParametricFeatureKind::Loft;
+	f.sketchRefId = sketchA;
+	f.loftSketchRefId = sketchB;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
+std::string ParametricBrepBackendData::addShell(const std::vector<int>& faceIndices, double thicknessMm)
+{
+	ParametricFeature f;
+	f.id = nextId("Shell");
+	f.name = f.id;
+	f.kind = ParametricFeatureKind::Shell;
+	f.faceIndices = faceIndices;
+	f.shellThicknessMm = thicknessMm;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
+std::string ParametricBrepBackendData::addDraft(const std::vector<int>& faceIndices, double angleDeg,
+												const ParametricSketchPlane& neutralPlane)
+{
+	ParametricFeature f;
+	f.id = nextId("Draft");
+	f.name = f.id;
+	f.kind = ParametricFeatureKind::Draft;
+	f.faceIndices = faceIndices;
+	f.draftAngleDeg = angleDeg;
+	f.mirrorPlane = neutralPlane;
 	m_features.push_back(std::move(f));
 	return m_features.back().id;
 }
@@ -183,10 +302,19 @@ std::string ParametricBrepBackendData::featureIdForFace(int faceIndex) const
 	return it->second;
 }
 
+geoalgo::ShapeHandle ParametricBrepBackendData::tipAfterFeature(const std::string& featureId) const
+{
+	const auto it = m_tipAfterFeature.find(featureId);
+	if (it == m_tipAfterFeature.end())
+		return {};
+	return it->second;
+}
+
 bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 {
 	geoalgo::ShapeHandle tip;
 	std::unordered_map<std::uintptr_t, std::string> tshapeOwners;
+	m_tipAfterFeature.clear();
 	m_faceOwnerByIndex.clear();
 
 	for (const auto& feat : m_features)
@@ -222,6 +350,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			geoalgo::SketchSweepParams sp;
 			sp.mode = (feat.kind == ParametricFeatureKind::SweepCut) ? geoalgo::SketchSweepMode::Cut
 																	: geoalgo::SketchSweepMode::Boss;
+			sp.twistDeg = feat.twistDeg;
 			bool ok = false;
 			if (!feat.pathSegments.empty())
 			{
@@ -263,7 +392,178 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 				return false;
 			}
 		}
-		else
+		else if (feat.kind == ParametricFeatureKind::Fillet || feat.kind == ParametricFeatureKind::Chamfer)
+		{
+			if (tip.isNull())
+			{
+				if (errMsg)
+					*errMsg = "Fillet/Chamfer requires existing solid tip";
+				return false;
+			}
+			const bool ok = (feat.kind == ParametricFeatureKind::Fillet)
+								? geoalgo::filletEdgesToHandle(tip, feat.edgeIndices, feat.radiusMm, next, &err)
+								: geoalgo::chamferEdgesToHandle(tip, feat.edgeIndices, feat.chamferDistMm, next, &err);
+			if (!ok || next.isNull())
+			{
+				if (errMsg)
+					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
+				return false;
+			}
+		}
+		else if (feat.kind == ParametricFeatureKind::Revolve || feat.kind == ParametricFeatureKind::RevolveCut)
+		{
+			const ParametricFeature* sk = findSketchFor(feat);
+			std::vector<float> profile =
+				(sk && sk->profileXyzMm.size() >= 12) ? sk->profileXyzMm : feat.profileXyzMm;
+			if (profile.size() < 12)
+			{
+				if (errMsg)
+					*errMsg = "missing revolve profile for " + feat.id;
+				return false;
+			}
+			if (feat.kind == ParametricFeatureKind::RevolveCut && tip.isNull())
+			{
+				if (errMsg)
+					*errMsg = "RevolveCut requires existing solid tip";
+				return false;
+			}
+			geoalgo::SketchRevolveParams rp;
+			rp.mode = (feat.kind == ParametricFeatureKind::RevolveCut) ? geoalgo::SketchRevolveMode::Cut
+																	  : geoalgo::SketchRevolveMode::Boss;
+			rp.angleDeg = feat.revolveAngleDeg;
+			rp.axisOx = feat.axisOx;
+			rp.axisOy = feat.axisOy;
+			rp.axisOz = feat.axisOz;
+			rp.axisDx = feat.axisDx;
+			rp.axisDy = feat.axisDy;
+			rp.axisDz = feat.axisDz;
+			if (!geoalgo::sketchRevolvePolylineToHandle(profile, rp, basePtr, next, &err) || next.isNull())
+			{
+				if (errMsg)
+					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
+				return false;
+			}
+		}
+		else if (feat.kind == ParametricFeatureKind::LinearPattern)
+		{
+			if (tip.isNull())
+			{
+				if (errMsg)
+					*errMsg = "LinearPattern requires existing solid tip";
+				return false;
+			}
+			geoalgo::ShapeHandle seed = tip;
+			if (!feat.patternSourceFeatureId.empty())
+			{
+				const auto it = m_tipAfterFeature.find(feat.patternSourceFeatureId);
+				if (it == m_tipAfterFeature.end() || it->second.isNull())
+				{
+					if (errMsg)
+						*errMsg = "LinearPattern source feature tip unavailable: " + feat.patternSourceFeatureId;
+					return false;
+				}
+				seed = it->second;
+			}
+			geoalgo::SketchLinearPatternParams pp;
+			pp.count = feat.patternCount;
+			pp.dxMm = feat.patternDx;
+			pp.dyMm = feat.patternDy;
+			pp.dzMm = feat.patternDz;
+			if (!geoalgo::linearPatternBodyToHandle(seed, pp, next, &err) || next.isNull())
+			{
+				if (errMsg)
+					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
+				return false;
+			}
+		}
+		else if (feat.kind == ParametricFeatureKind::Mirror3D)
+		{
+			if (tip.isNull())
+			{
+				if (errMsg)
+					*errMsg = "Mirror3D requires existing solid tip";
+				return false;
+			}
+			geoalgo::SketchMirror3dParams mp;
+			mp.ox = feat.mirrorPlane.originX;
+			mp.oy = feat.mirrorPlane.originY;
+			mp.oz = feat.mirrorPlane.originZ;
+			mp.nx = feat.mirrorPlane.normalX;
+			mp.ny = feat.mirrorPlane.normalY;
+			mp.nz = feat.mirrorPlane.normalZ;
+			mp.keepOriginal = feat.mirrorKeepOriginal;
+			if (!geoalgo::mirrorBodyToHandle(tip, mp, next, &err) || next.isNull())
+			{
+				if (errMsg)
+					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
+				return false;
+			}
+		}
+		else if (feat.kind == ParametricFeatureKind::Loft || feat.kind == ParametricFeatureKind::LoftCut)
+		{
+			const ParametricFeature* skA = findSketchFor(feat);
+			const ParametricFeature* skB = findFeature(feat.loftSketchRefId);
+			std::vector<float> a =
+				(skA && skA->profileXyzMm.size() >= 12) ? skA->profileXyzMm : feat.profileXyzMm;
+			std::vector<float> b =
+				(skB && skB->profileXyzMm.size() >= 12) ? skB->profileXyzMm : feat.pathXyzMm;
+			if (a.size() < 12 || b.size() < 12)
+			{
+				if (errMsg)
+					*errMsg = "missing loft profiles for " + feat.id;
+				return false;
+			}
+			if (feat.kind == ParametricFeatureKind::LoftCut && tip.isNull())
+			{
+				if (errMsg)
+					*errMsg = "LoftCut requires existing solid tip";
+				return false;
+			}
+			geoalgo::SketchLoftParams lp;
+			lp.mode = (feat.kind == ParametricFeatureKind::LoftCut) ? geoalgo::SketchLoftMode::Cut
+																   : geoalgo::SketchLoftMode::Boss;
+			if (!geoalgo::sketchLoftPolylinesToHandle(a, b, lp, basePtr, next, &err) || next.isNull())
+			{
+				if (errMsg)
+					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
+				return false;
+			}
+		}
+		else if (feat.kind == ParametricFeatureKind::Shell)
+		{
+			if (tip.isNull())
+			{
+				if (errMsg)
+					*errMsg = "Shell requires existing solid tip";
+				return false;
+			}
+			if (!geoalgo::shellFacesToHandle(tip, feat.faceIndices, feat.shellThicknessMm, next, &err) ||
+				next.isNull())
+			{
+				if (errMsg)
+					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
+				return false;
+			}
+		}
+		else if (feat.kind == ParametricFeatureKind::Draft)
+		{
+			if (tip.isNull())
+			{
+				if (errMsg)
+					*errMsg = "Draft requires existing solid tip";
+				return false;
+			}
+			const ParametricSketchPlane& np = feat.mirrorPlane;
+			if (!geoalgo::draftFacesToHandle(tip, feat.faceIndices, feat.draftAngleDeg, np.normalX, np.normalY,
+											 np.normalZ, np.originX, np.originY, np.originZ, next, &err)
+				|| next.isNull())
+			{
+				if (errMsg)
+					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
+				return false;
+			}
+		}
+		else if (feat.kind == ParametricFeatureKind::Pad || feat.kind == ParametricFeatureKind::Pocket)
 		{
 			const ParametricFeature* sk = findSketchFor(feat);
 			if (!sk || sk->profileXyzMm.size() < 12)
@@ -285,8 +585,12 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			ep.normalX = sk->plane.normalX;
 			ep.normalY = sk->plane.normalY;
 			ep.normalZ = sk->plane.normalZ;
+			// 孔岛：优先草图，其次特征自身缓存
+			ep.holePolylinesXyzMm =
+				!sk->profileHolesXyzMm.empty() ? sk->profileHolesXyzMm : feat.profileHolesXyzMm;
 
-			if (feat.endCondition == ParametricExtrudeEnd::UpToFace)
+			if (feat.endCondition == ParametricExtrudeEnd::UpToFace
+				|| feat.endCondition == ParametricExtrudeEnd::OffsetFromFace)
 			{
 				bool resolved = false;
 				const bool selfRef = feat.upToFaceBackendId.empty() || feat.upToFaceBackendId == id();
@@ -307,6 +611,15 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 				}
 				if (!resolved)
 					applyBakedUpToFace(feat, ep);
+				ep.offsetFromFaceMm = feat.offsetFromFaceMm;
+			}
+			else if (feat.endCondition == ParametricExtrudeEnd::UpToVertex)
+			{
+				ep.hasUpToFace = false;
+				ep.hasUpToVertex = feat.hasUpToVertex;
+				ep.upToVertexX = feat.upToVertexX;
+				ep.upToVertexY = feat.upToVertexY;
+				ep.upToVertexZ = feat.upToVertexZ;
 			}
 			else
 			{
@@ -326,7 +639,14 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 				return false;
 			}
 		}
+		else
+		{
+			if (errMsg)
+				*errMsg = "unsupported feature kind at " + feat.id;
+			return false;
+		}
 		tip = std::move(next);
+		m_tipAfterFeature[feat.id] = tip;
 		geoalgo::mergeFaceOwnershipByTShape(tip, feat.id, tshapeOwners, m_faceOwnerByIndex);
 	}
 

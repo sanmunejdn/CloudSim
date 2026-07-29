@@ -278,3 +278,329 @@ std::optional<SkVec2> SplineSketchTool::referencePoint() const
 		return std::nullopt;
 	return m_pts.back();
 }
+
+namespace
+{
+SkVec2 slotPerpNormal(const SkVec2& a, const SkVec2& b)
+{
+	const double dx = b.u - a.u;
+	const double dy = b.v - a.v;
+	const double len = std::sqrt(dx * dx + dy * dy);
+	if (len < 1e-9)
+		return {0.0, 1.0};
+	return {-dy / len, dx / len};
+}
+
+void appendArcSamplesLocal(std::vector<SkVec2>& out, const SkVec2& s, const SkVec2& m, const SkVec2& e, int segs)
+{
+	SkVec2 cen;
+	double r = 0.0;
+	if (!sketchCircumcenter(s, m, e, cen, r))
+	{
+		out.push_back(s);
+		out.push_back(e);
+		return;
+	}
+	auto ang = [&](const SkVec2& p) { return std::atan2(p.v - cen.v, p.u - cen.u); };
+	double a0 = ang(s);
+	double a1 = ang(m);
+	double a2 = ang(e);
+	auto norm = [](double a)
+	{
+		while (a < 0)
+			a += 2.0 * 3.141592653589793;
+		while (a >= 2.0 * 3.141592653589793)
+			a -= 2.0 * 3.141592653589793;
+		return a;
+	};
+	a0 = norm(a0);
+	a1 = norm(a1);
+	a2 = norm(a2);
+	double sweep = a2 - a0;
+	if (sweep < 0)
+		sweep += 2.0 * 3.141592653589793;
+	const double midRel = norm(a1 - a0);
+	if (midRel > sweep)
+		sweep -= 2.0 * 3.141592653589793;
+	for (int i = 0; i <= segs; ++i)
+	{
+		const double t = static_cast<double>(i) / segs;
+		const double a = a0 + sweep * t;
+		out.push_back({cen.u + r * std::cos(a), cen.v + r * std::sin(a)});
+	}
+}
+
+double slotHalfWidth(const SkVec2& a, const SkVec2& b, const SkVec2& pick)
+{
+	const SkVec2 n = slotPerpNormal(a, b);
+	const double dx = pick.u - a.u;
+	const double dy = pick.v - a.v;
+	return std::abs(dx * n.u + dy * n.v);
+}
+
+void slotPreviewPoly(const SkVec2& a, const SkVec2& b, const SkVec2& widthPick, std::vector<SkVec2>& out)
+{
+	out.clear();
+	const double hw = slotHalfWidth(a, b, widthPick);
+	if (hw < 1e-6 || skDist(a, b) < 1e-6)
+		return;
+	const SkVec2 n = slotPerpNormal(a, b);
+	const SkVec2 dir{(b.u - a.u) / skDist(a, b), (b.v - a.v) / skDist(a, b)};
+	const SkVec2 p1{a.u + n.u * hw, a.v + n.v * hw};
+	const SkVec2 p2{b.u + n.u * hw, b.v + n.v * hw};
+	const SkVec2 p3{b.u - n.u * hw, b.v - n.v * hw};
+	const SkVec2 p4{a.u - n.u * hw, a.v - n.v * hw};
+	out.push_back(p1);
+	out.push_back(p2);
+	const SkVec2 midB{b.u + dir.u * hw, b.v + dir.v * hw};
+	appendArcSamplesLocal(out, p2, midB, p3, 12);
+	out.push_back(p3);
+	out.push_back(p4);
+	const SkVec2 midA{a.u - dir.u * hw, a.v - dir.v * hw};
+	appendArcSamplesLocal(out, p4, midA, p1, 12);
+}
+
+void buildSlot(SketchDocument2d& doc, const SkVec2& a, const SkVec2& b, const SkVec2& widthPick)
+{
+	const double hw = slotHalfWidth(a, b, widthPick);
+	if (hw < 1e-6 || skDist(a, b) < 1e-6)
+		return;
+	const SkVec2 n = slotPerpNormal(a, b);
+	const double len = skDist(a, b);
+	const SkVec2 dir{(b.u - a.u) / len, (b.v - a.v) / len};
+
+	const int p1 = doc.addPoint(a.u + n.u * hw, a.v + n.v * hw);
+	const int p2 = doc.addPoint(b.u + n.u * hw, b.v + n.v * hw);
+	const int p3 = doc.addPoint(b.u - n.u * hw, b.v - n.v * hw);
+	const int p4 = doc.addPoint(a.u - n.u * hw, a.v - n.v * hw);
+	doc.addLine(p1, p2, false);
+	doc.addLine(p3, p4, false);
+
+	const int midB = doc.addPoint(b.u + dir.u * hw, b.v + dir.v * hw);
+	doc.addArc(p2, midB, p3, false);
+	const int midA = doc.addPoint(a.u - dir.u * hw, a.v - dir.v * hw);
+	doc.addArc(p4, midA, p1, false);
+}
+} // namespace
+
+void EllipseSketchTool::cancel()
+{
+	m_haveCenter = false;
+	m_centerId = -1;
+}
+
+void EllipseSketchTool::onPress(const SkVec2& pos, bool rightButton, SketchDocument2d& doc)
+{
+	if (rightButton)
+	{
+		cancel();
+		return;
+	}
+	if (!m_haveCenter)
+	{
+		m_centerId = doc.addPoint(pos.u, pos.v, true);
+		m_center = pos;
+		m_curr = pos;
+		m_haveCenter = true;
+		return;
+	}
+	const double majorR = skDist(m_center, pos);
+	if (majorR < 1e-6)
+	{
+		cancel();
+		return;
+	}
+	const double minorR = majorR * 0.6;
+	const double angleRad = std::atan2(pos.v - m_center.v, pos.u - m_center.u);
+	doc.addEllipse(m_centerId, majorR, minorR, angleRad);
+	cancel();
+}
+
+void EllipseSketchTool::onMove(const SkVec2& pos)
+{
+	m_curr = pos;
+}
+
+bool EllipseSketchTool::hasPreview(SkVec2& outA, SkVec2& outB) const
+{
+	if (!m_haveCenter)
+		return false;
+	outA = m_center;
+	outB = m_curr;
+	return true;
+}
+
+bool EllipseSketchTool::previewPolyline(std::vector<SkVec2>& out) const
+{
+	if (!m_haveCenter)
+		return false;
+	const double majorR = skDist(m_center, m_curr);
+	if (majorR < 1e-6)
+		return false;
+	const double minorR = majorR * 0.6;
+	const double angleRad = std::atan2(m_curr.v - m_center.v, m_curr.u - m_center.u);
+	sketchSampleEllipse(m_center, majorR, minorR, angleRad, out, 48);
+	return out.size() >= 3;
+}
+
+std::optional<SkVec2> EllipseSketchTool::referencePoint() const
+{
+	if (!m_haveCenter)
+		return std::nullopt;
+	return m_center;
+}
+
+void PolygonSketchTool::cancel()
+{
+	m_haveCenter = false;
+}
+
+void PolygonSketchTool::onPress(const SkVec2& pos, bool rightButton, SketchDocument2d& doc)
+{
+	if (rightButton)
+	{
+		cancel();
+		return;
+	}
+	if (!m_haveCenter)
+	{
+		m_center = pos;
+		m_curr = pos;
+		m_haveCenter = true;
+		return;
+	}
+	const double radius = skDist(m_center, pos);
+	if (radius < 1e-6)
+	{
+		cancel();
+		return;
+	}
+	const double startAng = std::atan2(pos.v - m_center.v, pos.u - m_center.u);
+	const int sides = m_sides;
+	constexpr double kPi = 3.141592653589793;
+	std::vector<int> ptIds;
+	ptIds.reserve(static_cast<std::size_t>(sides));
+	for (int i = 0; i < sides; ++i)
+	{
+		const double ang = startAng + 2.0 * kPi * i / sides;
+		ptIds.push_back(doc.addPoint(m_center.u + radius * std::cos(ang), m_center.v + radius * std::sin(ang)));
+	}
+	std::vector<int> lineIds;
+	lineIds.reserve(static_cast<std::size_t>(sides));
+	for (int i = 0; i < sides; ++i)
+	{
+		const int j = (i + 1) % sides;
+		lineIds.push_back(doc.addLine(ptIds[static_cast<std::size_t>(i)], ptIds[static_cast<std::size_t>(j)]));
+	}
+	for (int i = 0; i < sides; ++i)
+		doc.addConstraint({SkConstraintKind::EqualLength, lineIds[0], lineIds[static_cast<std::size_t>(i)], 0.0});
+	cancel();
+}
+
+void PolygonSketchTool::onMove(const SkVec2& pos)
+{
+	m_curr = pos;
+}
+
+bool PolygonSketchTool::hasPreview(SkVec2& outA, SkVec2& outB) const
+{
+	if (!m_haveCenter)
+		return false;
+	outA = m_center;
+	outB = m_curr;
+	return true;
+}
+
+bool PolygonSketchTool::previewPolyline(std::vector<SkVec2>& out) const
+{
+	if (!m_haveCenter)
+		return false;
+	const double radius = skDist(m_center, m_curr);
+	if (radius < 1e-6)
+		return false;
+	const double startAng = std::atan2(m_curr.v - m_center.v, m_curr.u - m_center.u);
+	const int sides = m_sides;
+	constexpr double kPi = 3.141592653589793;
+	out.clear();
+	for (int i = 0; i <= sides; ++i)
+	{
+		const double ang = startAng + 2.0 * kPi * (i % sides) / sides;
+		out.push_back({m_center.u + radius * std::cos(ang), m_center.v + radius * std::sin(ang)});
+	}
+	return out.size() >= 3;
+}
+
+std::optional<SkVec2> PolygonSketchTool::referencePoint() const
+{
+	if (!m_haveCenter)
+		return std::nullopt;
+	return m_center;
+}
+
+void SlotSketchTool::cancel()
+{
+	m_step = 0;
+}
+
+void SlotSketchTool::onPress(const SkVec2& pos, bool rightButton, SketchDocument2d& doc)
+{
+	if (rightButton)
+	{
+		cancel();
+		return;
+	}
+	if (m_step == 0)
+	{
+		m_start = pos;
+		m_curr = pos;
+		m_step = 1;
+		return;
+	}
+	if (m_step == 1)
+	{
+		if (skDist(m_start, pos) < 1e-6)
+			return;
+		m_end = pos;
+		m_curr = pos;
+		m_step = 2;
+		return;
+	}
+	buildSlot(doc, m_start, m_end, pos);
+	cancel();
+}
+
+void SlotSketchTool::onMove(const SkVec2& pos)
+{
+	m_curr = pos;
+}
+
+bool SlotSketchTool::hasPreview(SkVec2& outA, SkVec2& outB) const
+{
+	if (m_step == 0)
+		return false;
+	outA = (m_step == 1) ? m_start : m_end;
+	outB = m_curr;
+	return true;
+}
+
+bool SlotSketchTool::previewPolyline(std::vector<SkVec2>& out) const
+{
+	if (m_step == 2)
+	{
+		slotPreviewPoly(m_start, m_end, m_curr, out);
+		return out.size() >= 3;
+	}
+	if (m_step == 1 && skDist(m_start, m_curr) >= 1e-6)
+	{
+		out = {m_start, m_curr};
+		return true;
+	}
+	return false;
+}
+
+std::optional<SkVec2> SlotSketchTool::referencePoint() const
+{
+	if (m_step == 0)
+		return std::nullopt;
+	return (m_step == 1) ? m_start : m_end;
+}

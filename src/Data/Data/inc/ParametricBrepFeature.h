@@ -15,7 +15,17 @@ enum class ParametricFeatureKind
 	Pad,
 	Pocket,
 	Sweep,
-	SweepCut
+	SweepCut,
+	Fillet,
+	Chamfer,
+	Revolve,
+	RevolveCut,
+	LinearPattern,
+	Mirror3D,
+	Loft,
+	LoftCut,
+	Shell,
+	Draft
 };
 
 struct ParametricSketchPlane
@@ -32,7 +42,9 @@ enum class ParametricExtrudeEnd
 	Blind = 0,
 	UpToFace,
 	MidPlane,
-	ThroughAll
+	ThroughAll,
+	UpToVertex,
+	OffsetFromFace
 };
 
 struct ParametricFeature
@@ -42,9 +54,8 @@ struct ParametricFeature
 	ParametricFeatureKind kind = ParametricFeatureKind::Sketch;
 	ParametricSketchPlane plane{};
 	std::vector<float> profileXyzMm;
-	/// Sweep：路径折线（世界 xyz）；路径草图也可把折线写入其 profile
+	std::vector<std::vector<float>> profileHolesXyzMm;
 	std::vector<float> pathXyzMm;
-	/// Sweep：路径段（0=Line 1=Arc）；非空则 rebuild 优先真弧
 	struct PathSegment
 	{
 		int kind = 0;
@@ -53,23 +64,43 @@ struct ParametricFeature
 		float mx = 0, my = 0, mz = 0;
 	};
 	std::vector<PathSegment> pathSegments;
+	double twistDeg = 0.0;
 	double lengthMm = 10.0;
-	/// 拔模斜度（度）
 	double draftAngleDeg = 0.0;
 	bool reversed = false;
 	ParametricExtrudeEnd endCondition = ParametricExtrudeEnd::Blind;
 	ParametricSketchPlane upToFacePlane{};
 	bool hasUpToFacePlane = false;
-	/// UpToFace 弱引用：空 backendId 表示本 Body tip
+	double upToVertexX = 0.0;
+	double upToVertexY = 0.0;
+	double upToVertexZ = 0.0;
+	bool hasUpToVertex = false;
+	double offsetFromFaceMm = 0.0;
 	std::string upToFaceBackendId;
 	int upToFaceIndex = -1;
 	std::string sketchRefId;
 	std::string pathSketchRefId;
+	/// Loft 第二截面草图
+	std::string loftSketchRefId;
 	bool suppressed = false;
-	/// 草图视口 overlay；默认显示（仅 Sketch 消费）
 	bool visible = true;
-	/// Sketch 完整 2D 文档 JSON；rebuild 仍只读 profile
 	std::string sketchDocumentJson;
+
+	/// Fillet/Chamfer/Shell：边或面索引（相对上游 tip）
+	std::vector<int> edgeIndices;
+	std::vector<int> faceIndices;
+	double radiusMm = 1.0;
+	double chamferDistMm = 1.0;
+	double shellThicknessMm = 1.0;
+	double revolveAngleDeg = 360.0;
+	double axisOx = 0, axisOy = 0, axisOz = 0;
+	double axisDx = 0, axisDy = 0, axisDz = 1;
+	int patternCount = 2;
+	double patternDx = 10, patternDy = 0, patternDz = 0;
+	/// 非空：阵列该特征处 tip（含该特征）；空：阵列当前 tip
+	std::string patternSourceFeatureId;
+	ParametricSketchPlane mirrorPlane{};
+	bool mirrorKeepOriginal = true;
 };
 
 inline const char* parametricFeatureKindToString(ParametricFeatureKind k)
@@ -84,6 +115,26 @@ inline const char* parametricFeatureKindToString(ParametricFeatureKind k)
 		return "Sweep";
 	case ParametricFeatureKind::SweepCut:
 		return "SweepCut";
+	case ParametricFeatureKind::Fillet:
+		return "Fillet";
+	case ParametricFeatureKind::Chamfer:
+		return "Chamfer";
+	case ParametricFeatureKind::Revolve:
+		return "Revolve";
+	case ParametricFeatureKind::RevolveCut:
+		return "RevolveCut";
+	case ParametricFeatureKind::LinearPattern:
+		return "LinearPattern";
+	case ParametricFeatureKind::Mirror3D:
+		return "Mirror3D";
+	case ParametricFeatureKind::Loft:
+		return "Loft";
+	case ParametricFeatureKind::LoftCut:
+		return "LoftCut";
+	case ParametricFeatureKind::Shell:
+		return "Shell";
+	case ParametricFeatureKind::Draft:
+		return "Draft";
 	default:
 		return "Sketch";
 	}
@@ -99,6 +150,26 @@ inline ParametricFeatureKind parametricFeatureKindFromString(const std::string& 
 		return ParametricFeatureKind::Sweep;
 	if (s == "SweepCut")
 		return ParametricFeatureKind::SweepCut;
+	if (s == "Fillet")
+		return ParametricFeatureKind::Fillet;
+	if (s == "Chamfer")
+		return ParametricFeatureKind::Chamfer;
+	if (s == "Revolve")
+		return ParametricFeatureKind::Revolve;
+	if (s == "RevolveCut")
+		return ParametricFeatureKind::RevolveCut;
+	if (s == "LinearPattern")
+		return ParametricFeatureKind::LinearPattern;
+	if (s == "Mirror3D")
+		return ParametricFeatureKind::Mirror3D;
+	if (s == "Loft")
+		return ParametricFeatureKind::Loft;
+	if (s == "LoftCut")
+		return ParametricFeatureKind::LoftCut;
+	if (s == "Shell")
+		return ParametricFeatureKind::Shell;
+	if (s == "Draft")
+		return ParametricFeatureKind::Draft;
 	return ParametricFeatureKind::Sketch;
 }
 
@@ -112,6 +183,10 @@ inline const char* parametricExtrudeEndToString(ParametricExtrudeEnd e)
 		return "MidPlane";
 	case ParametricExtrudeEnd::ThroughAll:
 		return "ThroughAll";
+	case ParametricExtrudeEnd::UpToVertex:
+		return "UpToVertex";
+	case ParametricExtrudeEnd::OffsetFromFace:
+		return "OffsetFromFace";
 	default:
 		return "Blind";
 	}
@@ -125,6 +200,10 @@ inline ParametricExtrudeEnd parametricExtrudeEndFromString(const std::string& s)
 		return ParametricExtrudeEnd::MidPlane;
 	if (s == "ThroughAll")
 		return ParametricExtrudeEnd::ThroughAll;
+	if (s == "UpToVertex")
+		return ParametricExtrudeEnd::UpToVertex;
+	if (s == "OffsetFromFace")
+		return ParametricExtrudeEnd::OffsetFromFace;
 	return ParametricExtrudeEnd::Blind;
 }
 

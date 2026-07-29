@@ -75,6 +75,7 @@ private:
 	ProcessFlowSimController* m_sim = nullptr;
 	std::unique_ptr<ProcessFlowAiBridge> m_aiBridge;
 	bool m_inProcessFlow = false;
+	bool m_flowDirty = false;
 };
 
 #endif

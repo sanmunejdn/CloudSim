@@ -59,6 +59,8 @@ public:
 	void removeSelectedItem();
 	void removeSelectedNode();
 	void removeSelectedEdge();
+	bool removeNodeById(int id);
+	bool removeEdge(int from, int to);
 	void clearGraph();
 	void fitToView();
 	void autoLayout();

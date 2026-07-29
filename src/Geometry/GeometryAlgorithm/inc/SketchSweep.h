@@ -45,6 +45,8 @@ struct SketchSweepPathSegment
 struct SketchSweepParams
 {
 	SketchSweepMode mode = SketchSweepMode::Boss;
+	/// 截面绕路径起点切向旋转（度）；MVP 对齐后预旋转
+	double twistDeg = 0.0;
 };
 
 /**
@@ -56,7 +58,7 @@ GEOMETRY_ALGORITHM_API bool sketchSweepPolylineToHandle(const std::vector<float>
 														const SketchSweepParams& params, const ShapeHandle* baseOrNull,
 														ShapeHandle& outShape, std::string* errMsg = nullptr);
 
-/// 路径为 Line/Arc 段列表；平滑折线会拟合成单条 BSpline spine，并 UnifySameDomain 合并共面
+/// 路径为 Line/Arc/SplineThrough；截面先对齐到路径起点法向，再 PipeShell/MakePipe
 GEOMETRY_ALGORITHM_API bool sketchSweepSegmentsToHandle(const std::vector<float>& profilePolylineXyzMm,
 														const std::vector<SketchSweepPathSegment>& pathSegments,
 														const SketchSweepParams& params, const ShapeHandle* baseOrNull,

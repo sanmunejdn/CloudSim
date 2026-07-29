@@ -89,6 +89,12 @@ ProcessFlowNodeProps ProcessFlowNodeProps::defaultsForKind(const QString& kind)
 		p.inventoryQty = 0.0;
 		p.capacityQty = 5.0;
 	}
+	else if (p.kind == QStringLiteral("agv"))
+	{
+		p.cycleTimeSec = 20.0;
+		p.inventoryQty = 0.0;
+		p.capacityQty = 2.0;
+	}
 	else if (p.kind == QStringLiteral("assembly"))
 	{
 		p.cycleTimeSec = 40.0;
@@ -164,6 +170,8 @@ QString ProcessFlowNodeProps::displayNameZh(const QString& kind)
 		return QStringLiteral("检测");
 	if (kind == QStringLiteral("conveyor"))
 		return QStringLiteral("输送");
+	if (kind == QStringLiteral("agv"))
+		return QStringLiteral("AGV");
 	if (kind == QStringLiteral("assembly"))
 		return QStringLiteral("装配");
 	if (kind == QStringLiteral("end"))
@@ -183,6 +191,8 @@ QString ProcessFlowNodeProps::displayNameEn(const QString& kind)
 		return QStringLiteral("Inspect");
 	if (kind == QStringLiteral("conveyor"))
 		return QStringLiteral("Conveyor");
+	if (kind == QStringLiteral("agv"))
+		return QStringLiteral("AGV");
 	if (kind == QStringLiteral("assembly"))
 		return QStringLiteral("Assembly");
 	if (kind == QStringLiteral("end"))
@@ -193,14 +203,15 @@ QString ProcessFlowNodeProps::displayNameEn(const QString& kind)
 QStringList ProcessFlowNodeProps::allKinds()
 {
 	return {QStringLiteral("start"),	 QStringLiteral("station"),	  QStringLiteral("buffer"),
-			QStringLiteral("warehouse"), QStringLiteral("conveyor"),  QStringLiteral("assembly"),
-			QStringLiteral("inspect"),	 QStringLiteral("end")};
+			QStringLiteral("warehouse"), QStringLiteral("conveyor"),  QStringLiteral("agv"),
+			QStringLiteral("assembly"),	 QStringLiteral("inspect"),	  QStringLiteral("end")};
 }
 
 bool ProcessFlowNodeProps::isMachineKind(const QString& kind)
 {
 	return kind == QStringLiteral("station") || kind == QStringLiteral("inspect") ||
-		   kind == QStringLiteral("assembly") || kind == QStringLiteral("conveyor");
+		   kind == QStringLiteral("assembly") || kind == QStringLiteral("conveyor") ||
+		   kind == QStringLiteral("agv");
 }
 
 bool ProcessFlowNodeProps::isBufferKind(const QString& kind)

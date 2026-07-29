@@ -131,6 +131,10 @@ public:
 	void invokeProjectAboutToSave(const QString& documentId, QJsonObject& root);
 	void invokeProjectLoaded(const QString& documentId, const QJsonObject& root);
 
+	void onParametricBodyHistoryChanged(
+		std::function<void(const QString& documentId, const QString& backendId)> callback) override;
+	void invokeParametricBodyHistoryChanged(const QString& documentId, const QString& backendId);
+
 	void setProcessFlowAiBridge(IProcessFlowAiBridge* bridge) override;
 	IProcessFlowAiBridge* processFlowAiBridge() override;
 	const IProcessFlowAiBridge* processFlowAiBridge() const override;
@@ -147,6 +151,10 @@ public:
 							   std::function<void()> enterFn) override;
 	void returnToMainWorkspace() override;
 	void enterWorkspaceMode(const QString& modeId) override;
+
+	void markActiveDocumentModified() override;
+	void clearActiveDocumentModified() override;
+	bool isActiveDocumentModified() const override;
 
 	struct WorkspaceModeRegistration
 	{
@@ -185,6 +193,7 @@ private:
 	std::vector<QDockWidget*> m_ownedDocks;
 	std::vector<std::function<void(const QString&, QJsonObject&)>> m_projectSaveCallbacks;
 	std::vector<std::function<void(const QString&, const QJsonObject&)>> m_projectLoadCallbacks;
+	std::vector<std::function<void(const QString&, const QString&)>> m_parametricHistoryCallbacks;
 	IProcessFlowAiBridge* m_processFlowAiBridge = nullptr;
 	QString m_workspaceMode;
 	std::vector<std::function<void(const QString&)>> m_workspaceModeCallbacks;

@@ -15,6 +15,7 @@ public:
 
 	bool ensureEntered(QString* outError) override;
 	bool applyFlowJson(const QJsonObject& flow, bool autoLayout, QString* outError) override;
+	bool applyFlowPatch(const QJsonArray& ops, QString* outError) override;
 	bool runSimSync(const QJsonObject& config, QJsonObject* outStats, QString* outError) override;
 	bool compareSync(const QJsonObject& config, QJsonArray* outRows, QString* outError) override;
 	QJsonObject exportFlowJson() const override;

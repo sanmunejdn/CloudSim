@@ -5,6 +5,7 @@
 
 #include "ProcessFlowResultDialog.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -34,28 +35,62 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	m_horizon->setRange(1.0, 1e7);
 	m_horizon->setValue(3600.0);
 	m_horizon->setSuffix(QStringLiteral(" s"));
+	m_warmup = new QDoubleSpinBox(this);
+	m_warmup->setRange(0.0, 1e7);
+	m_warmup->setSuffix(QStringLiteral(" s"));
+	m_interarrival = new QDoubleSpinBox(this);
+	m_interarrival->setRange(0.1, 1e6);
+	m_interarrival->setValue(30.0);
+	m_interarrival->setSuffix(QStringLiteral(" s"));
 	m_policy = new QComboBox(this);
 	m_policy->addItem(QStringLiteral("FIFO"), QStringLiteral("fifo"));
 	m_policy->addItem(QStringLiteral("SPT"), QStringLiteral("spt"));
 	m_policy->addItem(QStringLiteral("LPT"), QStringLiteral("lpt"));
 	m_policy->addItem(QStringLiteral("EDD"), QStringLiteral("edd"));
 	m_policy->addItem(QStringLiteral("CR"), QStringLiteral("cr"));
+	m_arrival = new QComboBox(this);
+	m_arrival->addItem(QStringLiteral("固定间隔"), QStringLiteral("fixed"));
+	m_arrival->addItem(QStringLiteral("指数分布"), QStringLiteral("exponential"));
+	m_shiftEnable = new QCheckBox(QStringLiteral("启用班次"), this);
+	m_shiftStart = new QDoubleSpinBox(this);
+	m_shiftStart->setRange(0.0, 86400.0);
+	m_shiftStart->setValue(28800.0);
+	m_shiftStart->setSuffix(QStringLiteral(" s"));
+	m_shiftEnd = new QDoubleSpinBox(this);
+	m_shiftEnd->setRange(0.0, 86400.0);
+	m_shiftEnd->setValue(57600.0);
+	m_shiftEnd->setSuffix(QStringLiteral(" s"));
+	m_openGantt = new QCheckBox(QStringLiteral("完成后打开甘特"), this);
+	m_compareGantt = new QCheckBox(QStringLiteral("对比含甘特"), this);
+	m_compareGantt->setChecked(true);
 	form->addRow(QStringLiteral("时长"), m_horizon);
+	form->addRow(QStringLiteral("Warmup"), m_warmup);
+	form->addRow(QStringLiteral("到达间隔"), m_interarrival);
+	form->addRow(QStringLiteral("到达模式"), m_arrival);
 	form->addRow(QStringLiteral("策略"), m_policy);
+	form->addRow(QString(), m_shiftEnable);
+	form->addRow(QStringLiteral("班次起"), m_shiftStart);
+	form->addRow(QStringLiteral("班次止"), m_shiftEnd);
+	form->addRow(QString(), m_openGantt);
+	form->addRow(QString(), m_compareGantt);
 
 	auto* btnRow = new QHBoxLayout();
 	m_runBtn = new QPushButton(QStringLiteral("运行"), this);
 	m_runBtn->setObjectName(QStringLiteral("ProcessFlowPrimaryButton"));
+	m_optimizeBtn = new QPushButton(QStringLiteral("优化后仿真"), this);
 	m_compareBtn = new QPushButton(QStringLiteral("对比全部策略"), this);
 	m_stopBtn = new QPushButton(QStringLiteral("停止"), this);
 	m_stopBtn->setEnabled(false);
 	m_exportJsonBtn = new QPushButton(QStringLiteral("导出JSON"), this);
 	m_exportCsvBtn = new QPushButton(QStringLiteral("导出CSV"), this);
 	btnRow->addWidget(m_runBtn);
+	btnRow->addWidget(m_optimizeBtn);
 	btnRow->addWidget(m_compareBtn);
 	btnRow->addWidget(m_stopBtn);
-	btnRow->addWidget(m_exportJsonBtn);
-	btnRow->addWidget(m_exportCsvBtn);
+
+	auto* exportRow = new QHBoxLayout();
+	exportRow->addWidget(m_exportJsonBtn);
+	exportRow->addWidget(m_exportCsvBtn);
 
 	m_summary = new QLabel(QStringLiteral("尚未运行"), this);
 	m_summary->setWordWrap(true);
@@ -65,7 +100,13 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 		{QStringLiteral("节点"), QStringLiteral("利用率"), QStringLiteral("忙时"), QStringLiteral("阻塞"),
 		 QStringLiteral("均队长")});
 	m_machineTable->horizontalHeader()->setStretchLastSection(true);
-	m_machineTable->setMaximumHeight(140);
+	m_machineTable->setMaximumHeight(120);
+
+	m_bufferTable = new QTableWidget(0, 4, this);
+	m_bufferTable->setHorizontalHeaderLabels(
+		{QStringLiteral("缓冲段"), QStringLiteral("均库存"), QStringLiteral("峰库存"), QStringLiteral("满次")});
+	m_bufferTable->horizontalHeader()->setStretchLastSection(true);
+	m_bufferTable->setMaximumHeight(100);
 
 	auto* resultRow = new QHBoxLayout();
 	m_ganttBtn = new QPushButton(QStringLiteral("甘特图…"), this);
@@ -87,9 +128,12 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	layout->addWidget(m_title);
 	layout->addLayout(form);
 	layout->addLayout(btnRow);
+	layout->addLayout(exportRow);
 	layout->addWidget(m_summary);
 	layout->addWidget(new QLabel(QStringLiteral("机器统计"), this));
 	layout->addWidget(m_machineTable);
+	layout->addWidget(new QLabel(QStringLiteral("缓冲统计"), this));
+	layout->addWidget(m_bufferTable);
 	layout->addWidget(new QLabel(QStringLiteral("结果查看"), this));
 	layout->addLayout(resultRow);
 	layout->addLayout(playRow);
@@ -98,6 +142,7 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	updateEntryEnabled();
 
 	connect(m_runBtn, &QPushButton::clicked, this, &ProcessFlowReportPanel::runClicked);
+	connect(m_optimizeBtn, &QPushButton::clicked, this, &ProcessFlowReportPanel::optimizeClicked);
 	connect(m_compareBtn, &QPushButton::clicked, this, &ProcessFlowReportPanel::compareClicked);
 	connect(m_stopBtn, &QPushButton::clicked, this, &ProcessFlowReportPanel::stopClicked);
 	connect(m_exportJsonBtn, &QPushButton::clicked, this, &ProcessFlowReportPanel::exportJsonClicked);
@@ -144,6 +189,7 @@ void ProcessFlowReportPanel::applyLanguage(bool useChinese)
 	m_zh = useChinese;
 	m_title->setText(useChinese ? QStringLiteral("仿真报表") : QStringLiteral("Simulation Report"));
 	m_runBtn->setText(useChinese ? QStringLiteral("运行") : QStringLiteral("Run"));
+	m_optimizeBtn->setText(useChinese ? QStringLiteral("优化后仿真") : QStringLiteral("Optimize+Run"));
 	m_compareBtn->setText(useChinese ? QStringLiteral("对比全部策略") : QStringLiteral("Compare Policies"));
 	m_stopBtn->setText(useChinese ? QStringLiteral("停止") : QStringLiteral("Stop"));
 	m_exportJsonBtn->setText(useChinese ? QStringLiteral("导出JSON") : QStringLiteral("Export JSON"));
@@ -151,11 +197,19 @@ void ProcessFlowReportPanel::applyLanguage(bool useChinese)
 	m_ganttBtn->setText(useChinese ? QStringLiteral("甘特图…") : QStringLiteral("Gantt…"));
 	m_traceBtn->setText(useChinese ? QStringLiteral("操作 Trace…") : QStringLiteral("Trace…"));
 	m_compareViewBtn->setText(useChinese ? QStringLiteral("策略对比…") : QStringLiteral("Compare…"));
+	m_openGantt->setText(useChinese ? QStringLiteral("完成后打开甘特") : QStringLiteral("Open Gantt after run"));
+	m_compareGantt->setText(useChinese ? QStringLiteral("对比含甘特") : QStringLiteral("Compare with Gantt"));
+	m_shiftEnable->setText(useChinese ? QStringLiteral("启用班次") : QStringLiteral("Enable shift"));
 	m_machineTable->setHorizontalHeaderLabels(
 		useChinese ? QStringList{QStringLiteral("节点"), QStringLiteral("利用率"), QStringLiteral("忙时"),
 								 QStringLiteral("阻塞"), QStringLiteral("均队长")}
 				   : QStringList{QStringLiteral("Node"), QStringLiteral("Util"), QStringLiteral("Busy"),
 								 QStringLiteral("Block"), QStringLiteral("Queue")});
+	m_bufferTable->setHorizontalHeaderLabels(
+		useChinese ? QStringList{QStringLiteral("缓冲段"), QStringLiteral("均库存"), QStringLiteral("峰库存"),
+								 QStringLiteral("满次")}
+				   : QStringList{QStringLiteral("Buffer"), QStringLiteral("Avg"), QStringLiteral("Max"),
+								 QStringLiteral("Full")});
 	if (m_ganttDialog)
 		m_ganttDialog->applyLanguage(useChinese);
 	if (m_traceDialog)
@@ -167,6 +221,7 @@ void ProcessFlowReportPanel::applyLanguage(bool useChinese)
 void ProcessFlowReportPanel::setRunning(bool running)
 {
 	m_runBtn->setEnabled(!running);
+	m_optimizeBtn->setEnabled(!running);
 	m_compareBtn->setEnabled(!running);
 	m_stopBtn->setEnabled(running);
 	m_horizon->setEnabled(!running);
@@ -177,8 +232,10 @@ void ProcessFlowReportPanel::clearStatistics()
 {
 	m_stats = SimStatistics();
 	m_compareRows.clear();
+	m_compareStats.clear();
 	m_summary->setText(m_zh ? QStringLiteral("尚未运行") : QStringLiteral("No result"));
 	m_machineTable->setRowCount(0);
+	m_bufferTable->setRowCount(0);
 	updateEntryEnabled();
 	if (m_ganttDialog)
 		m_ganttDialog->clear();
@@ -194,15 +251,25 @@ void ProcessFlowReportPanel::setStatistics(const SimStatistics& stats)
 	rebuildSummary(stats);
 	updateEntryEnabled();
 	refreshOpenDialogs();
+	if (openGanttAfterRun() && !stats.trace.items.isEmpty())
+		openGanttDialog();
 }
 
 void ProcessFlowReportPanel::setCompareRows(const QVector<PolicyCompareRow>& rows)
 {
+	setCompareResult(rows, {});
+}
+
+void ProcessFlowReportPanel::setCompareResult(const QVector<PolicyCompareRow>& rows,
+											 const QVector<SimStatistics>& perPolicy)
+{
 	m_compareRows = rows;
+	m_compareStats = perPolicy;
 	updateEntryEnabled();
 	if (m_compareDialog)
 	{
 		m_compareDialog->setCompareRows(rows);
+		m_compareDialog->setCompareStats(perPolicy);
 	}
 }
 
@@ -216,6 +283,11 @@ void ProcessFlowReportPanel::updateEntryEnabled()
 		m_traceBtn->setEnabled(hasTrace);
 	if (m_compareViewBtn)
 		m_compareViewBtn->setEnabled(hasCompare);
+}
+
+void ProcessFlowReportPanel::openGanttDialog()
+{
+	openResultDialog(ProcessFlowResultDialog::Mode::Gantt);
 }
 
 void ProcessFlowReportPanel::openResultDialog(ProcessFlowResultDialog::Mode mode)
@@ -235,6 +307,7 @@ void ProcessFlowReportPanel::openResultDialog(ProcessFlowResultDialog::Mode mode
 			m_compareDialog->applyLanguage(m_zh);
 		}
 		m_compareDialog->setCompareRows(m_compareRows);
+		m_compareDialog->setCompareStats(m_compareStats);
 		m_compareDialog->show();
 		m_compareDialog->raise();
 		m_compareDialog->activateWindow();
@@ -268,7 +341,10 @@ void ProcessFlowReportPanel::refreshOpenDialogs()
 	if (m_traceDialog)
 		m_traceDialog->setStatistics(m_stats);
 	if (m_compareDialog)
+	{
 		m_compareDialog->setCompareRows(m_compareRows);
+		m_compareDialog->setCompareStats(m_compareStats);
+	}
 }
 
 double ProcessFlowReportPanel::horizonSec() const
@@ -276,9 +352,57 @@ double ProcessFlowReportPanel::horizonSec() const
 	return m_horizon ? m_horizon->value() : 3600.0;
 }
 
+double ProcessFlowReportPanel::warmupSec() const
+{
+	return m_warmup ? m_warmup->value() : 0.0;
+}
+
 QString ProcessFlowReportPanel::policyName() const
 {
 	return m_policy ? m_policy->currentData().toString() : QStringLiteral("fifo");
+}
+
+QString ProcessFlowReportPanel::arrivalMode() const
+{
+	return m_arrival ? m_arrival->currentData().toString() : QStringLiteral("fixed");
+}
+
+bool ProcessFlowReportPanel::openGanttAfterRun() const
+{
+	return m_openGantt && m_openGantt->isChecked();
+}
+
+bool ProcessFlowReportPanel::includeCompareTraces() const
+{
+	return m_compareGantt && m_compareGantt->isChecked();
+}
+
+bool ProcessFlowReportPanel::shiftEnabled() const
+{
+	return m_shiftEnable && m_shiftEnable->isChecked();
+}
+
+ShiftCalendar ProcessFlowReportPanel::shiftCalendar() const
+{
+	ShiftCalendar c;
+	c.enabled = shiftEnabled();
+	c.workStartSec = m_shiftStart ? m_shiftStart->value() : 28800.0;
+	c.workEndSec = m_shiftEnd ? m_shiftEnd->value() : 57600.0;
+	return c;
+}
+
+void ProcessFlowReportPanel::applyConfigTo(SimRunConfig* cfg) const
+{
+	if (!cfg)
+		return;
+	cfg->horizonSec = horizonSec();
+	cfg->warmupSec = warmupSec();
+	cfg->policy = policyName();
+	cfg->arrivalMode = arrivalMode();
+	cfg->defaultInterarrivalSec = m_interarrival ? m_interarrival->value() : 30.0;
+	cfg->shift = shiftCalendar();
+	cfg->openGanttAfterRun = openGanttAfterRun();
+	cfg->includeCompareTraces = includeCompareTraces();
 }
 
 QStringList ProcessFlowReportPanel::comparePolicies() const
@@ -310,5 +434,15 @@ void ProcessFlowReportPanel::rebuildSummary(const SimStatistics& stats)
 		m_machineTable->setItem(r, 2, new QTableWidgetItem(QString::number(m.busyTimeSec, 'f', 1)));
 		m_machineTable->setItem(r, 3, new QTableWidgetItem(QString::number(m.blockedTimeSec, 'f', 1)));
 		m_machineTable->setItem(r, 4, new QTableWidgetItem(QString::number(m.avgQueueLen, 'f', 2)));
+	}
+
+	m_bufferTable->setRowCount(stats.buffers.size());
+	for (int r = 0; r < stats.buffers.size(); ++r)
+	{
+		const BufferStat& b = stats.buffers[r];
+		m_bufferTable->setItem(r, 0, new QTableWidgetItem(b.title.isEmpty() ? QString::number(b.nodeId) : b.title));
+		m_bufferTable->setItem(r, 1, new QTableWidgetItem(QString::number(b.avgInventory, 'f', 2)));
+		m_bufferTable->setItem(r, 2, new QTableWidgetItem(QString::number(b.maxInventory, 'f', 0)));
+		m_bufferTable->setItem(r, 3, new QTableWidgetItem(QString::number(b.fullCount)));
 	}
 }

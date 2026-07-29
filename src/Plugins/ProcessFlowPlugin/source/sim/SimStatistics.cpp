@@ -72,6 +72,12 @@ QString SimStatistics::toCsv() const
 		ts << "machine," << m.nodeId << "_busy," << m.busyTimeSec << "\n";
 		ts << "machine," << m.nodeId << "_blocked," << m.blockedTimeSec << "\n";
 	}
+	for (const BufferStat& b : buffers)
+	{
+		ts << "buffer," << b.title << "_avg," << b.avgInventory << "\n";
+		ts << "buffer," << b.title << "_max," << b.maxInventory << "\n";
+		ts << "buffer," << b.title << "_full," << b.fullCount << "\n";
+	}
 	ts << "jobId,opSeq,machineNodeId,start,end\n";
 	for (const OperationTraceItem& it : trace.items)
 	{

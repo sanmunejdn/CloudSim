@@ -80,6 +80,11 @@ public:
 
 	/// 1.35.0+：插件 registerWorkspaceMode 后刷新顶栏分段
 	virtual void notifyWorkspaceModesChanged() = 0;
+
+	/// 1.36.0+：活动文档未保存 *
+	virtual void markActiveDocumentModified() = 0;
+	virtual void clearActiveDocumentModified() = 0;
+	virtual bool isActiveDocumentModified() const = 0;
 };
 
 #endif // CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H

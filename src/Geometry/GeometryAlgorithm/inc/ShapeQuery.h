@@ -23,6 +23,9 @@ namespace geoalgo
 /** Shape 内 Edge 数量（TopExp 遍历顺序，与 shapeEdgeAtIndex 一致） */
 GEOMETRY_ALGORITHM_API int shapeEdgeCount(const TopoDS_Shape& shape);
 
+/** ShapeHandle tip 边数（供 Host/AI 无 OCCT 头文件调用） */
+GEOMETRY_ALGORITHM_API int shapeHandleEdgeCount(const ShapeHandle& handle);
+
 /** Shape 内 Face 数量 */
 GEOMETRY_ALGORITHM_API int shapeFaceCount(const TopoDS_Shape& shape);
 
@@ -167,6 +170,15 @@ GEOMETRY_ALGORITHM_API bool validateShapeEdgeIndex(const ShapeHandle& shape, int
 GEOMETRY_ALGORITHM_API bool collectShapeFaceEdgeIndices(const ShapeHandle& shape,
 														std::vector<std::vector<int>>& outFaceEdgeIndices,
 														std::string* errMsg = nullptr);
+
+/**
+ * 按 faceIndex 离散该面全部边界边（含内环）为多条折线
+ * 边索引与 shapeEdgeAtIndex 一致；重复边只输出一次
+ */
+GEOMETRY_ALGORITHM_API bool discretizeShapeFaceEdgesToPolylines(const ShapeHandle& shape, int faceIndex,
+																const TessellateParams& params,
+																std::vector<Polyline3d>& outPolylines,
+																std::string* errMsg = nullptr);
 
 /**
  * 按 TShape 跟踪面归属：未见过的面记到 featureId，并刷新 faceIndex→featureId

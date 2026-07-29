@@ -25,6 +25,9 @@ AIBACKEND_EXPORT ParseResult tryParseUserText(const QString& text);
 
 /// mesh.compose：长方体 + 通孔等固定句式，避免小模型把坯料建成圆柱
 AIBACKEND_EXPORT ParseResult tryParseComposeUserText(const QString& text);
+
+/// feature.compose：简单板/块 → Pad 特征链
+AIBACKEND_EXPORT ParseResult tryParseFeatureComposeUserText(const QString& text);
 } // namespace AiIntentParser
 
 #endif // CLOUDSIMPLUGINHOST_AIINTENTPARSER_H

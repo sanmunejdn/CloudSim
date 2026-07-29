@@ -27,6 +27,11 @@ inline QString meshCompose()
 {
 	return QStringLiteral("mesh.compose");
 }
+/// 顺序特征链：草图拉伸 / 切除 / 圆角 / 阵列 → Parametric Body
+inline QString featureCompose()
+{
+	return QStringLiteral("feature.compose");
+}
 inline QString documentImport()
 {
 	return QStringLiteral("document.import");

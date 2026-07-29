@@ -99,7 +99,84 @@ QString featureTreeTitle(const QString& idOrName, GeomodelingFeatureKind kind, b
 		baseEn = QStringLiteral("SweepCut");
 		baseZh = QStringLiteral("\u626b\u63cf\u5207\u9664");
 	}
+	else if (kind == GeomodelingFeatureKind::Fillet || idOrName.startsWith(QLatin1String("Fillet_")))
+	{
+		baseEn = QStringLiteral("Fillet");
+		baseZh = QStringLiteral("\u5706\u89d2");
+	}
+	else if (kind == GeomodelingFeatureKind::Chamfer || idOrName.startsWith(QLatin1String("Chamfer_")))
+	{
+		baseEn = QStringLiteral("Chamfer");
+		baseZh = QStringLiteral("\u5012\u89d2");
+	}
+	else if (kind == GeomodelingFeatureKind::Revolve || idOrName.startsWith(QLatin1String("Revolve_")))
+	{
+		baseEn = QStringLiteral("Revolve");
+		baseZh = QStringLiteral("\u65cb\u8f6c");
+	}
+	else if (kind == GeomodelingFeatureKind::RevolveCut || idOrName.startsWith(QLatin1String("RevolveCut_")))
+	{
+		baseEn = QStringLiteral("RevolveCut");
+		baseZh = QStringLiteral("\u65cb\u8f6c\u5207\u9664");
+	}
+	else if (kind == GeomodelingFeatureKind::LinearPattern || idOrName.startsWith(QLatin1String("LinearPattern_")))
+	{
+		baseEn = QStringLiteral("LinearPattern");
+		baseZh = QStringLiteral("\u7ebf\u6027\u9635\u5217");
+	}
+	else if (kind == GeomodelingFeatureKind::Mirror3D || idOrName.startsWith(QLatin1String("Mirror3D_")))
+	{
+		baseEn = QStringLiteral("Mirror3D");
+		baseZh = QStringLiteral("\u955c\u50cf");
+	}
+	else if (kind == GeomodelingFeatureKind::Loft || idOrName.startsWith(QLatin1String("Loft_")))
+	{
+		baseEn = QStringLiteral("Loft");
+		baseZh = QStringLiteral("\u653e\u6837");
+	}
+	else if (kind == GeomodelingFeatureKind::LoftCut || idOrName.startsWith(QLatin1String("LoftCut_")))
+	{
+		baseEn = QStringLiteral("LoftCut");
+		baseZh = QStringLiteral("\u653e\u6837\u5207\u9664");
+	}
+	else if (kind == GeomodelingFeatureKind::Shell || idOrName.startsWith(QLatin1String("Shell_")))
+	{
+		baseEn = QStringLiteral("Shell");
+		baseZh = QStringLiteral("\u62bd\u58f3");
+	}
+	else if (kind == GeomodelingFeatureKind::Draft || idOrName.startsWith(QLatin1String("Draft_")))
+	{
+		baseEn = QStringLiteral("Draft");
+		baseZh = QStringLiteral("\u62d4\u6a21");
+	}
+	else if (kind == GeomodelingFeatureKind::DatumPlane || idOrName.startsWith(QLatin1String("DatumPlane_")))
+	{
+		baseEn = QStringLiteral("DatumPlane");
+		baseZh = QStringLiteral("\u57fa\u51c6\u9762");
+	}
 	return zh ? QStringLiteral("%1_%2").arg(baseZh, num) : QStringLiteral("%1_%2").arg(baseEn, num);
+}
+
+constexpr char kOriginId[] = "__origin__";
+constexpr char kOriginPointId[] = "__origin_point__";
+constexpr char kOriginXyId[] = "__origin_xy__";
+constexpr char kOriginXzId[] = "__origin_xz__";
+constexpr char kOriginYzId[] = "__origin_yz__";
+
+bool isVirtualOriginId(const QString& id)
+{
+	return id.startsWith(QStringLiteral("__origin"));
+}
+
+int originPlaneIndexFromId(const QString& id)
+{
+	if (id == QLatin1String(kOriginXyId))
+		return 0;
+	if (id == QLatin1String(kOriginXzId))
+		return 1;
+	if (id == QLatin1String(kOriginYzId))
+		return 2;
+	return -1;
 }
 } // namespace
 
@@ -138,9 +215,9 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 	m_tree->setHeaderLabels({QStringLiteral("\u7279\u5f81\u6811")});
 	m_tree->header()->setStretchLastSection(true);
 	m_tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-	m_tree->setRootIsDecorated(false);
+	m_tree->setRootIsDecorated(true);
 	m_tree->setUniformRowHeights(true);
-	m_tree->setIndentation(8);
+	m_tree->setIndentation(12);
 	m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
 	m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_tree, &QTreeWidget::itemClicked, this,
@@ -156,7 +233,20 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 				if (!item || column != 0)
 					return;
 				const QString id = item->data(0, Qt::UserRole).toString();
-				if (!id.isEmpty())
+				if (id.isEmpty())
+					return;
+				const int planeIdx = originPlaneIndexFromId(id);
+				if (planeIdx >= 0)
+				{
+					emit originPlaneSketchRequested(planeIdx);
+					return;
+				}
+				if (id == QLatin1String(kOriginPointId) || id == QLatin1String(kOriginId))
+				{
+					emit fixPointToOriginRequested();
+					return;
+				}
+				if (!isVirtualOriginId(id))
 					emit featureEditRequested(id);
 			});
 	auto* delShortcut = new QShortcut(QKeySequence::Delete, m_tree);
@@ -168,7 +258,7 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 				if (!item)
 					return;
 				const QString id = item->data(0, Qt::UserRole).toString();
-				if (!id.isEmpty())
+				if (!id.isEmpty() && !isVirtualOriginId(id))
 					emit featureDeleteRequested(id);
 			});
 	connect(m_tree, &QTreeWidget::customContextMenuRequested, this,
@@ -181,13 +271,16 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 				QAction* delAct = nullptr;
 				QAction* pickAct = nullptr;
 				QAction* rollbackAct = nullptr;
+				QAction* sketchOnPlaneAct = nullptr;
+				QAction* fixOriginAct = nullptr;
 				QString fid;
 				bool sketchVisible = true;
 				bool isSketch = false;
+				const bool virtualOrigin = item && isVirtualOriginId(item->data(0, Qt::UserRole).toString());
 				if (item)
 				{
 					fid = item->data(0, Qt::UserRole).toString();
-					if (!fid.isEmpty())
+					if (!fid.isEmpty() && !virtualOrigin)
 					{
 						editAct = menu.addAction(i18n(QStringLiteral("Edit"), QStringLiteral("\u7f16\u8f91")));
 						if (const GeomodelingFeature* f = m_features.find(fid))
@@ -205,6 +298,19 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 						rollbackAct =
 							menu.addAction(i18n(QStringLiteral("Rollback here"), QStringLiteral("\u56de\u9000\u81f3\u6b64")));
 					}
+					else if (virtualOrigin)
+					{
+						const int planeIdx = originPlaneIndexFromId(fid);
+						if (planeIdx >= 0)
+							sketchOnPlaneAct = menu.addAction(
+								i18n(QStringLiteral("New sketch on plane"), QStringLiteral("\u5728\u6b64\u5e73\u9762\u65b0\u5efa\u8349\u56fe")));
+						if (fid == QLatin1String(kOriginPointId) || fid == QLatin1String(kOriginId))
+							fixOriginAct = menu.addAction(
+								i18n(QStringLiteral("Fix point to origin"), QStringLiteral("\u56fa\u5b9a\u70b9\u5230\u539f\u70b9")));
+						const bool ov = originNodeVisible(fid);
+						visAct = menu.addAction(ov ? i18n(QStringLiteral("Hide"), QStringLiteral("\u9690\u85cf"))
+												   : i18n(QStringLiteral("Show"), QStringLiteral("\u663e\u793a")));
+					}
 				}
 				else
 				{
@@ -221,10 +327,16 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 					emit featureEditRequested(fid);
 				else if (chosen == visAct && isSketch && !fid.isEmpty())
 					emit sketchVisibilityToggleRequested(fid);
+				else if (chosen == visAct && virtualOrigin && !fid.isEmpty())
+					toggleOriginVisibility(fid);
 				else if (chosen == delAct && !fid.isEmpty())
 					emit featureDeleteRequested(fid);
 				else if (chosen == rollbackAct && !fid.isEmpty())
 					emit featureRollbackRequested(fid);
+				else if (chosen == sketchOnPlaneAct)
+					emit originPlaneSketchRequested(originPlaneIndexFromId(fid));
+				else if (chosen == fixOriginAct)
+					emit fixPointToOriginRequested();
 				else if (chosen == pickAct)
 					emit viewportFeaturePickRequested();
 				else if (chosen == exitRb)
@@ -276,6 +388,8 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 	m_endCondition->addItem(QStringLiteral("到面"), static_cast<int>(GeomodelingExtrudeEnd::UpToFace));
 	m_endCondition->addItem(QStringLiteral("对称"), static_cast<int>(GeomodelingExtrudeEnd::MidPlane));
 	m_endCondition->addItem(QStringLiteral("贯通"), static_cast<int>(GeomodelingExtrudeEnd::ThroughAll));
+	m_endCondition->addItem(QStringLiteral("到顶点"), static_cast<int>(GeomodelingExtrudeEnd::UpToVertex));
+	m_endCondition->addItem(QStringLiteral("到面偏移"), static_cast<int>(GeomodelingExtrudeEnd::OffsetFromFace));
 	connect(m_endCondition, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			[this](int)
 			{
@@ -286,6 +400,17 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 	m_btnPickFace = new QPushButton(QStringLiteral("选择终止面"), m_pageExtrude);
 	connect(m_btnPickFace, &QPushButton::clicked, this, &GeometricModelingPage::pickUpToFaceRequested);
 	exLay->addWidget(m_btnPickFace);
+	m_btnPickVertex = new QPushButton(QStringLiteral("选择顶点"), m_pageExtrude);
+	connect(m_btnPickVertex, &QPushButton::clicked, this, &GeometricModelingPage::pickUpToVertexRequested);
+	exLay->addWidget(m_btnPickVertex);
+	m_offsetFromFace = new QDoubleSpinBox(m_pageExtrude);
+	m_offsetFromFace->setRange(-1e6, 1e6);
+	m_offsetFromFace->setDecimals(2);
+	m_offsetFromFace->setSuffix(QStringLiteral(" mm"));
+	m_offsetFromFace->setValue(0.0);
+	connect(m_offsetFromFace, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double) { emit extrudeOptionsChanged(); });
+	exLay->addWidget(m_offsetFromFace);
 	m_upToFaceStatus = new QLabel(QStringLiteral("未选择终止面"), m_pageExtrude);
 	m_upToFaceStatus->setWordWrap(true);
 	exLay->addWidget(m_upToFaceStatus);
@@ -402,10 +527,25 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 	swLay->addWidget(m_sweepProfileCaption);
 	m_sweepProfileCombo = new QComboBox(m_pageSweep);
 	swLay->addWidget(m_sweepProfileCombo);
+	m_btnPickSweepProfile = new QPushButton(QStringLiteral("\u70b9\u9009\u8f6e\u5ed3"), m_pageSweep);
+	swLay->addWidget(m_btnPickSweepProfile);
 	m_sweepPathCaption = new QLabel(QStringLiteral("\u8def\u5f84\u8349\u56fe"), m_pageSweep);
 	swLay->addWidget(m_sweepPathCaption);
 	m_sweepPathCombo = new QComboBox(m_pageSweep);
 	swLay->addWidget(m_sweepPathCombo);
+	m_btnPickSweepPath = new QPushButton(QStringLiteral("\u70b9\u9009\u8def\u5f84"), m_pageSweep);
+	swLay->addWidget(m_btnPickSweepPath);
+	m_btnPickSweepEdgePath = new QPushButton(QStringLiteral("\u6a21\u578b\u8fb9\u8def\u5f84"), m_pageSweep);
+	swLay->addWidget(m_btnPickSweepEdgePath);
+	m_sweepTwist = new QDoubleSpinBox(m_pageSweep);
+	m_sweepTwist->setRange(-360.0, 360.0);
+	m_sweepTwist->setDecimals(1);
+	m_sweepTwist->setSuffix(QStringLiteral(" \u00b0"));
+	m_sweepTwist->setValue(0.0);
+	connect(m_sweepTwist, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double) { emit sweepSelectionChanged(); });
+	swLay->addWidget(new QLabel(QStringLiteral("\u626d\u8f6c\u89d2\u5ea6"), m_pageSweep));
+	swLay->addWidget(m_sweepTwist);
 	auto* swBtns = new QHBoxLayout();
 	m_btnSweepOk = new QPushButton(QStringLiteral("\u786e\u8ba4"), m_pageSweep);
 	m_btnSweepCancel = new QPushButton(QStringLiteral("\u53d6\u6d88"), m_pageSweep);
@@ -425,8 +565,274 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 	};
 	connect(m_sweepProfileCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, emitSweepSel);
 	connect(m_sweepPathCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, emitSweepSel);
+	connect(m_btnPickSweepProfile, &QPushButton::clicked, this, &GeometricModelingPage::pickSweepProfileRequested);
+	connect(m_btnPickSweepPath, &QPushButton::clicked, this, &GeometricModelingPage::pickSweepPathRequested);
+	connect(m_btnPickSweepEdgePath, &QPushButton::clicked, this, &GeometricModelingPage::pickSweepEdgePathRequested);
 	connect(m_btnSweepOk, &QPushButton::clicked, this, &GeometricModelingPage::confirmSweepRequested);
 	connect(m_btnSweepCancel, &QPushButton::clicked, this, &GeometricModelingPage::cancelSweepRequested);
+
+	auto makeEdgePanel = [&](QWidget*& page, QLabel*& title, QDoubleSpinBox*& spin, QLabel*& countLbl,
+							 QPushButton*& pickBtn, QPushButton*& okBtn, QPushButton*& cancelBtn,
+							 const QString& titleText, const QString& spinSuffix, double spinVal,
+							 const char* pickSignal, const char* okSignal, const char* cancelSignal)
+	{
+		page = new QWidget(m_toolStack);
+		auto* lay = new QVBoxLayout(page);
+		lay->setContentsMargins(0, 0, 0, 0);
+		title = new QLabel(titleText, page);
+		title->setFont(tf);
+		lay->addWidget(title);
+		spin = new QDoubleSpinBox(page);
+		spin->setRange(0.01, 1e6);
+		spin->setDecimals(2);
+		spin->setSuffix(spinSuffix);
+		spin->setValue(spinVal);
+		lay->addWidget(spin);
+		countLbl = new QLabel(QStringLiteral("\u5df2\u9009 0 \u6761\u8fb9"), page);
+		lay->addWidget(countLbl);
+		pickBtn = new QPushButton(QStringLiteral("\u70b9\u9009\u8fb9"), page);
+		okBtn = new QPushButton(QStringLiteral("\u786e\u8ba4"), page);
+		cancelBtn = new QPushButton(QStringLiteral("\u53d6\u6d88"), page);
+		lay->addWidget(pickBtn);
+		auto* btns = new QHBoxLayout();
+		btns->addWidget(okBtn);
+		btns->addWidget(cancelBtn);
+		lay->addLayout(btns);
+		lay->addStretch(1);
+		connect(pickBtn, SIGNAL(clicked()), this, pickSignal);
+		connect(okBtn, SIGNAL(clicked()), this, okSignal);
+		connect(cancelBtn, SIGNAL(clicked()), this, cancelSignal);
+		m_toolStack->addWidget(page);
+	};
+
+	makeEdgePanel(m_pageFillet, m_filletTitle, m_filletRadius, m_filletEdgeCount, m_btnPickFilletEdge, m_btnFilletOk,
+				  m_btnFilletCancel, QStringLiteral("\u5706\u89d2"), QStringLiteral(" mm"), 1.0,
+				  SIGNAL(pickFilletEdgeRequested()), SIGNAL(filletConfirmRequested()), SIGNAL(filletCancelRequested()));
+	makeEdgePanel(m_pageChamfer, m_chamferTitle, m_chamferDist, m_chamferEdgeCount, m_btnPickChamferEdge,
+				  m_btnChamferOk, m_btnChamferCancel, QStringLiteral("\u5012\u89d2"), QStringLiteral(" mm"), 1.0,
+				  SIGNAL(pickChamferEdgeRequested()), SIGNAL(chamferConfirmRequested()), SIGNAL(chamferCancelRequested()));
+
+	m_pageRevolve = new QWidget(m_toolStack);
+	{
+		auto* lay = new QVBoxLayout(m_pageRevolve);
+		lay->setContentsMargins(0, 0, 0, 0);
+		m_revolveTitle = new QLabel(QStringLiteral("\u65cb\u8f6c"), m_pageRevolve);
+		m_revolveTitle->setFont(tf);
+		lay->addWidget(m_revolveTitle);
+		lay->addWidget(new QLabel(QStringLiteral("\u8f6e\u5ed3\u8349\u56fe"), m_pageRevolve));
+		m_revolveSketchCombo = new QComboBox(m_pageRevolve);
+		lay->addWidget(m_revolveSketchCombo);
+		m_revolveAngle = new QDoubleSpinBox(m_pageRevolve);
+		m_revolveAngle->setRange(0.01, 360.0);
+		m_revolveAngle->setDecimals(1);
+		m_revolveAngle->setSuffix(QStringLiteral("\u00b0"));
+		m_revolveAngle->setValue(360.0);
+		lay->addWidget(new QLabel(QStringLiteral("\u89d2\u5ea6"), m_pageRevolve));
+		lay->addWidget(m_revolveAngle);
+		m_revolveStatus = new QLabel(m_pageRevolve);
+		m_revolveStatus->setWordWrap(true);
+		lay->addWidget(m_revolveStatus);
+		auto* btns = new QHBoxLayout();
+		m_btnRevolveOk = new QPushButton(QStringLiteral("\u786e\u8ba4"), m_pageRevolve);
+		m_btnRevolveCancel = new QPushButton(QStringLiteral("\u53d6\u6d88"), m_pageRevolve);
+		btns->addWidget(m_btnRevolveOk);
+		btns->addWidget(m_btnRevolveCancel);
+		lay->addLayout(btns);
+		lay->addStretch(1);
+		connect(m_revolveSketchCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&GeometricModelingPage::revolveSelectionChanged);
+		connect(m_btnRevolveOk, &QPushButton::clicked, this, &GeometricModelingPage::revolveConfirmRequested);
+		connect(m_btnRevolveCancel, &QPushButton::clicked, this, &GeometricModelingPage::revolveCancelRequested);
+		m_toolStack->addWidget(m_pageRevolve);
+	}
+
+	m_pagePattern = new QWidget(m_toolStack);
+	{
+		auto* lay = new QVBoxLayout(m_pagePattern);
+		lay->setContentsMargins(0, 0, 0, 0);
+		m_patternTitle = new QLabel(QStringLiteral("\u7ebf\u6027\u9635\u5217"), m_pagePattern);
+		m_patternTitle->setFont(tf);
+		lay->addWidget(m_patternTitle);
+		m_patternSource = new QComboBox(m_pagePattern);
+		lay->addWidget(m_patternSource);
+		m_patternCount = new QDoubleSpinBox(m_pagePattern);
+		m_patternCount->setRange(2, 1000);
+		m_patternCount->setDecimals(0);
+		m_patternCount->setValue(2);
+		lay->addWidget(new QLabel(QStringLiteral("\u6570\u91cf"), m_pagePattern));
+		lay->addWidget(m_patternCount);
+		m_patternDx = new QDoubleSpinBox(m_pagePattern);
+		m_patternDy = new QDoubleSpinBox(m_pagePattern);
+		m_patternDz = new QDoubleSpinBox(m_pagePattern);
+		for (QDoubleSpinBox* s : {m_patternDx, m_patternDy, m_patternDz})
+		{
+			s->setRange(-1e6, 1e6);
+			s->setDecimals(2);
+			s->setSuffix(QStringLiteral(" mm"));
+		}
+		m_patternDx->setValue(10.0);
+		lay->addWidget(new QLabel(QStringLiteral("dX"), m_pagePattern));
+		lay->addWidget(m_patternDx);
+		lay->addWidget(new QLabel(QStringLiteral("dY"), m_pagePattern));
+		lay->addWidget(m_patternDy);
+		lay->addWidget(new QLabel(QStringLiteral("dZ"), m_pagePattern));
+		lay->addWidget(m_patternDz);
+		auto* btns = new QHBoxLayout();
+		m_btnPatternOk = new QPushButton(QStringLiteral("\u786e\u8ba4"), m_pagePattern);
+		m_btnPatternCancel = new QPushButton(QStringLiteral("\u53d6\u6d88"), m_pagePattern);
+		btns->addWidget(m_btnPatternOk);
+		btns->addWidget(m_btnPatternCancel);
+		lay->addLayout(btns);
+		lay->addStretch(1);
+		connect(m_btnPatternOk, &QPushButton::clicked, this, &GeometricModelingPage::patternConfirmRequested);
+		connect(m_btnPatternCancel, &QPushButton::clicked, this, &GeometricModelingPage::patternCancelRequested);
+		connect(m_patternCount, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&GeometricModelingPage::patternOptionsChanged);
+		connect(m_patternDx, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&GeometricModelingPage::patternOptionsChanged);
+		connect(m_patternDy, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&GeometricModelingPage::patternOptionsChanged);
+		connect(m_patternDz, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&GeometricModelingPage::patternOptionsChanged);
+		connect(m_patternSource, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&GeometricModelingPage::patternOptionsChanged);
+		m_toolStack->addWidget(m_pagePattern);
+	}
+
+	m_pageMirror3d = new QWidget(m_toolStack);
+	{
+		auto* lay = new QVBoxLayout(m_pageMirror3d);
+		lay->setContentsMargins(0, 0, 0, 0);
+		m_mirror3dTitle = new QLabel(QStringLiteral("3D \u955c\u50cf"), m_pageMirror3d);
+		m_mirror3dTitle->setFont(tf);
+		lay->addWidget(m_mirror3dTitle);
+		m_mirror3dPlane = new QComboBox(m_pageMirror3d);
+		m_mirror3dPlane->addItem(QStringLiteral("XY"), 0);
+		m_mirror3dPlane->addItem(QStringLiteral("XZ"), 1);
+		m_mirror3dPlane->addItem(QStringLiteral("YZ"), 2);
+		lay->addWidget(new QLabel(QStringLiteral("\u955c\u50cf\u5e73\u9762"), m_pageMirror3d));
+		lay->addWidget(m_mirror3dPlane);
+		m_mirror3dKeep = new QCheckBox(QStringLiteral("\u4fdd\u7559\u539f\u5b9e\u4f53"), m_pageMirror3d);
+		m_mirror3dKeep->setChecked(true);
+		lay->addWidget(m_mirror3dKeep);
+		auto* btns = new QHBoxLayout();
+		m_btnMirror3dOk = new QPushButton(QStringLiteral("\u786e\u8ba4"), m_pageMirror3d);
+		m_btnMirror3dCancel = new QPushButton(QStringLiteral("\u53d6\u6d88"), m_pageMirror3d);
+		btns->addWidget(m_btnMirror3dOk);
+		btns->addWidget(m_btnMirror3dCancel);
+		lay->addLayout(btns);
+		lay->addStretch(1);
+		connect(m_mirror3dPlane, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&GeometricModelingPage::mirror3dOptionsChanged);
+		connect(m_mirror3dKeep, &QCheckBox::toggled, this, &GeometricModelingPage::mirror3dOptionsChanged);
+		connect(m_btnMirror3dOk, &QPushButton::clicked, this, &GeometricModelingPage::mirror3dConfirmRequested);
+		connect(m_btnMirror3dCancel, &QPushButton::clicked, this, &GeometricModelingPage::mirror3dCancelRequested);
+		m_toolStack->addWidget(m_pageMirror3d);
+	}
+
+	m_pageLoft = new QWidget(m_toolStack);
+	{
+		auto* lay = new QVBoxLayout(m_pageLoft);
+		lay->setContentsMargins(0, 0, 0, 0);
+		m_loftTitle = new QLabel(QStringLiteral("\u653e\u6837"), m_pageLoft);
+		m_loftTitle->setFont(tf);
+		lay->addWidget(m_loftTitle);
+		lay->addWidget(new QLabel(QStringLiteral("\u8349\u56fe A"), m_pageLoft));
+		m_loftSketchA = new QComboBox(m_pageLoft);
+		lay->addWidget(m_loftSketchA);
+		lay->addWidget(new QLabel(QStringLiteral("\u8349\u56fe B"), m_pageLoft));
+		m_loftSketchB = new QComboBox(m_pageLoft);
+		lay->addWidget(m_loftSketchB);
+		m_loftStatus = new QLabel(m_pageLoft);
+		m_loftStatus->setWordWrap(true);
+		lay->addWidget(m_loftStatus);
+		auto* btns = new QHBoxLayout();
+		m_btnLoftOk = new QPushButton(QStringLiteral("\u786e\u8ba4"), m_pageLoft);
+		m_btnLoftCancel = new QPushButton(QStringLiteral("\u53d6\u6d88"), m_pageLoft);
+		btns->addWidget(m_btnLoftOk);
+		btns->addWidget(m_btnLoftCancel);
+		lay->addLayout(btns);
+		lay->addStretch(1);
+		connect(m_loftSketchA, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&GeometricModelingPage::loftSelectionChanged);
+		connect(m_loftSketchB, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&GeometricModelingPage::loftSelectionChanged);
+		connect(m_btnLoftOk, &QPushButton::clicked, this, &GeometricModelingPage::loftConfirmRequested);
+		connect(m_btnLoftCancel, &QPushButton::clicked, this, &GeometricModelingPage::loftCancelRequested);
+		m_toolStack->addWidget(m_pageLoft);
+	}
+
+	m_pageShell = new QWidget(m_toolStack);
+	{
+		auto* lay = new QVBoxLayout(m_pageShell);
+		lay->setContentsMargins(0, 0, 0, 0);
+		m_shellTitle = new QLabel(QStringLiteral("\u62bd\u58f3"), m_pageShell);
+		m_shellTitle->setFont(tf);
+		lay->addWidget(m_shellTitle);
+		m_shellThickness = new QDoubleSpinBox(m_pageShell);
+		m_shellThickness->setRange(0.01, 1e6);
+		m_shellThickness->setDecimals(2);
+		m_shellThickness->setSuffix(QStringLiteral(" mm"));
+		m_shellThickness->setValue(1.0);
+		lay->addWidget(new QLabel(QStringLiteral("\u58c1\u539a"), m_pageShell));
+		lay->addWidget(m_shellThickness);
+		m_shellFaceCount = new QLabel(QStringLiteral("\u5df2\u9009 0 \u4e2a\u9762"), m_pageShell);
+		lay->addWidget(m_shellFaceCount);
+		m_btnPickShellFace = new QPushButton(QStringLiteral("\u70b9\u9009\u9762"), m_pageShell);
+		lay->addWidget(m_btnPickShellFace);
+		m_shellStatus = new QLabel(m_pageShell);
+		m_shellStatus->setWordWrap(true);
+		lay->addWidget(m_shellStatus);
+		auto* btns = new QHBoxLayout();
+		m_btnShellOk = new QPushButton(QStringLiteral("\u786e\u8ba4"), m_pageShell);
+		m_btnShellCancel = new QPushButton(QStringLiteral("\u53d6\u6d88"), m_pageShell);
+		btns->addWidget(m_btnShellOk);
+		btns->addWidget(m_btnShellCancel);
+		lay->addLayout(btns);
+		lay->addStretch(1);
+		connect(m_btnPickShellFace, &QPushButton::clicked, this, &GeometricModelingPage::shellPickFaceRequested);
+		connect(m_btnShellOk, &QPushButton::clicked, this, &GeometricModelingPage::shellConfirmRequested);
+		connect(m_btnShellCancel, &QPushButton::clicked, this, &GeometricModelingPage::shellCancelRequested);
+		m_toolStack->addWidget(m_pageShell);
+	}
+
+	m_pageDraft = new QWidget(m_toolStack);
+	{
+		auto* lay = new QVBoxLayout(m_pageDraft);
+		lay->setContentsMargins(0, 0, 0, 0);
+		m_draftTitle = new QLabel(QStringLiteral("\u62d4\u6a21"), m_pageDraft);
+		m_draftTitle->setFont(tf);
+		lay->addWidget(m_draftTitle);
+		m_draftAngle = new QDoubleSpinBox(m_pageDraft);
+		m_draftAngle->setRange(-45.0, 45.0);
+		m_draftAngle->setDecimals(1);
+		m_draftAngle->setSuffix(QStringLiteral(" \u00b0"));
+		m_draftAngle->setValue(1.0);
+		lay->addWidget(m_draftAngle);
+		m_draftFaceCount = new QLabel(QStringLiteral("\u5df2\u9009 0 \u4e2a\u9762"), m_pageDraft);
+		lay->addWidget(m_draftFaceCount);
+		m_btnPickDraftFace = new QPushButton(QStringLiteral("\u70b9\u9009\u62d4\u6a21\u9762"), m_pageDraft);
+		lay->addWidget(m_btnPickDraftFace);
+		m_draftNeutralLabel = new QLabel(QStringLiteral("\u4e2d\u6027\u9762\uff1a\u9ed8\u8ba4 XY"), m_pageDraft);
+		lay->addWidget(m_draftNeutralLabel);
+		m_btnPickDraftNeutral = new QPushButton(QStringLiteral("\u70b9\u9009\u4e2d\u6027\u9762"), m_pageDraft);
+		lay->addWidget(m_btnPickDraftNeutral);
+		m_draftStatus = new QLabel(m_pageDraft);
+		m_draftStatus->setWordWrap(true);
+		lay->addWidget(m_draftStatus);
+		auto* btns = new QHBoxLayout();
+		m_btnDraftOk = new QPushButton(QStringLiteral("\u786e\u8ba4"), m_pageDraft);
+		m_btnDraftCancel = new QPushButton(QStringLiteral("\u53d6\u6d88"), m_pageDraft);
+		btns->addWidget(m_btnDraftOk);
+		btns->addWidget(m_btnDraftCancel);
+		lay->addLayout(btns);
+		lay->addStretch(1);
+		connect(m_btnPickDraftFace, &QPushButton::clicked, this, &GeometricModelingPage::draftPickFaceRequested);
+		connect(m_btnPickDraftNeutral, &QPushButton::clicked, this, &GeometricModelingPage::draftPickNeutralRequested);
+		connect(m_btnDraftOk, &QPushButton::clicked, this, &GeometricModelingPage::draftConfirmRequested);
+		connect(m_btnDraftCancel, &QPushButton::clicked, this, &GeometricModelingPage::draftCancelRequested);
+		m_toolStack->addWidget(m_pageDraft);
+	}
 
 	propsLay->addWidget(m_toolStack);
 	propsLay->addStretch(1);
@@ -497,6 +903,38 @@ void GeometricModelingPage::clearUpToFacePlane()
 		m_upToFaceStatus->setText(i18n(QStringLiteral("No up-to face"), QStringLiteral("未选择终止面")));
 }
 
+void GeometricModelingPage::setUpToVertex(const PluginPoint3d& v)
+{
+	m_upToVertex = v;
+	m_hasUpToVertex = true;
+	if (m_upToFaceStatus)
+	{
+		m_upToFaceStatus->setText(
+			i18n(QStringLiteral("Vertex (%1,%2,%3)"), QStringLiteral("\u9876\u70b9 (%1,%2,%3)"))
+				.arg(v.x, 0, 'f', 2)
+				.arg(v.y, 0, 'f', 2)
+				.arg(v.z, 0, 'f', 2));
+	}
+	emit extrudeOptionsChanged();
+}
+
+void GeometricModelingPage::clearUpToVertex()
+{
+	m_hasUpToVertex = false;
+	if (m_upToFaceStatus && !m_hasUpToFacePlane)
+		m_upToFaceStatus->setText(i18n(QStringLiteral("No up-to vertex"), QStringLiteral("\u672a\u9009\u62e9\u9876\u70b9")));
+}
+
+double GeometricModelingPage::offsetFromFaceMm() const
+{
+	return m_offsetFromFace ? m_offsetFromFace->value() : 0.0;
+}
+
+double GeometricModelingPage::sweepTwistDeg() const
+{
+	return m_sweepTwist ? m_sweepTwist->value() : 0.0;
+}
+
 void GeometricModelingPage::setExtrudeUi(double lengthMm, bool reversed, GeomodelingExtrudeEnd end, bool createNewBody,
 										 double draftAngleDeg)
 {
@@ -558,13 +996,19 @@ void GeometricModelingPage::syncExtrudeEndUi()
 {
 	const GeomodelingExtrudeEnd end = extrudeEndCondition();
 	const bool upTo = end == GeomodelingExtrudeEnd::UpToFace;
+	const bool upVertex = end == GeomodelingExtrudeEnd::UpToVertex;
+	const bool offsetFace = end == GeomodelingExtrudeEnd::OffsetFromFace;
 	const bool through = end == GeomodelingExtrudeEnd::ThroughAll;
 	if (m_length)
-		m_length->setEnabled(!upTo && !through);
+		m_length->setEnabled(!upTo && !through && !upVertex && !offsetFace);
 	if (m_btnPickFace)
-		m_btnPickFace->setEnabled(upTo);
+		m_btnPickFace->setEnabled(upTo || offsetFace);
+	if (m_btnPickVertex)
+		m_btnPickVertex->setEnabled(upVertex);
+	if (m_offsetFromFace)
+		m_offsetFromFace->setEnabled(offsetFace);
 	if (m_upToFaceStatus)
-		m_upToFaceStatus->setVisible(upTo);
+		m_upToFaceStatus->setVisible(upTo || upVertex || offsetFace);
 }
 
 void GeometricModelingPage::setActiveBodyId(const QString& id)
@@ -614,6 +1058,30 @@ void GeometricModelingPage::setSideToolPanel(SideToolPanel panel)
 		break;
 	case SideToolPanel::Sweep:
 		m_toolStack->setCurrentWidget(m_pageSweep);
+		break;
+	case SideToolPanel::Fillet:
+		m_toolStack->setCurrentWidget(m_pageFillet);
+		break;
+	case SideToolPanel::Chamfer:
+		m_toolStack->setCurrentWidget(m_pageChamfer);
+		break;
+	case SideToolPanel::Revolve:
+		m_toolStack->setCurrentWidget(m_pageRevolve);
+		break;
+	case SideToolPanel::Pattern:
+		m_toolStack->setCurrentWidget(m_pagePattern);
+		break;
+	case SideToolPanel::Mirror3D:
+		m_toolStack->setCurrentWidget(m_pageMirror3d);
+		break;
+	case SideToolPanel::Loft:
+		m_toolStack->setCurrentWidget(m_pageLoft);
+		break;
+	case SideToolPanel::Shell:
+		m_toolStack->setCurrentWidget(m_pageShell);
+		break;
+	case SideToolPanel::Draft:
+		m_toolStack->setCurrentWidget(m_pageDraft);
 		break;
 	default:
 		m_toolStack->setCurrentWidget(m_pageEmpty);
@@ -743,6 +1211,24 @@ QString GeometricModelingPage::sweepPathSketchId() const
 	return m_sweepPathCombo ? m_sweepPathCombo->currentData().toString() : QString();
 }
 
+void GeometricModelingPage::selectSweepProfileSketch(const QString& id)
+{
+	if (!m_sweepProfileCombo || id.isEmpty())
+		return;
+	const int idx = m_sweepProfileCombo->findData(id);
+	if (idx >= 0)
+		m_sweepProfileCombo->setCurrentIndex(idx);
+}
+
+void GeometricModelingPage::selectSweepPathSketch(const QString& id)
+{
+	if (!m_sweepPathCombo || id.isEmpty())
+		return;
+	const int idx = m_sweepPathCombo->findData(id);
+	if (idx >= 0)
+		m_sweepPathCombo->setCurrentIndex(idx);
+}
+
 void GeometricModelingPage::updateMirrorPanel(int /*axisId*/, const QString& axisText,
 											  const std::vector<std::pair<int, QString>>& entities, bool pickingAxis,
 											  bool canConfirm)
@@ -806,12 +1292,14 @@ void GeometricModelingPage::applyLanguage(bool useChinese)
 		m_draftAngle->setToolTip(i18n(QStringLiteral("Draft angle"), QStringLiteral("拔模斜度")));
 	if (m_chkNewBody)
 		m_chkNewBody->setText(i18n(QStringLiteral("New body"), QStringLiteral("新建实体")));
-	if (m_endCondition && m_endCondition->count() >= 4)
+	if (m_endCondition && m_endCondition->count() >= 6)
 	{
 		m_endCondition->setItemText(0, i18n(QStringLiteral("Blind"), QStringLiteral("定长")));
 		m_endCondition->setItemText(1, i18n(QStringLiteral("Up to face"), QStringLiteral("到面")));
 		m_endCondition->setItemText(2, i18n(QStringLiteral("Mid plane"), QStringLiteral("对称")));
 		m_endCondition->setItemText(3, i18n(QStringLiteral("Through all"), QStringLiteral("贯通")));
+		m_endCondition->setItemText(4, i18n(QStringLiteral("Up to vertex"), QStringLiteral("到顶点")));
+		m_endCondition->setItemText(5, i18n(QStringLiteral("Offset from face"), QStringLiteral("到面偏移")));
 	}
 	if (m_btnPickFace)
 		m_btnPickFace->setText(i18n(QStringLiteral("Pick end face"), QStringLiteral("选择终止面")));
@@ -1047,6 +1535,53 @@ bool GeometricModelingPage::eventFilter(QObject* watched, QEvent* event)
 	return QWidget::eventFilter(watched, event);
 }
 
+bool GeometricModelingPage::originNodeVisible(const QString& syntheticId) const
+{
+	if (syntheticId == QLatin1String(kOriginPointId))
+		return m_originPointVisible;
+	if (syntheticId == QLatin1String(kOriginXyId))
+		return m_originXyVisible;
+	if (syntheticId == QLatin1String(kOriginXzId))
+		return m_originXzVisible;
+	if (syntheticId == QLatin1String(kOriginYzId))
+		return m_originYzVisible;
+	if (syntheticId == QLatin1String(kOriginId))
+		return m_originPointVisible || m_originXyVisible || m_originXzVisible || m_originYzVisible;
+	return true;
+}
+
+void GeometricModelingPage::toggleOriginVisibility(const QString& syntheticId)
+{
+	if (syntheticId == QLatin1String(kOriginId))
+	{
+		const bool next = !originNodeVisible(kOriginId);
+		m_originPointVisible = next;
+		m_originXyVisible = next;
+		m_originXzVisible = next;
+		m_originYzVisible = next;
+	}
+	else if (syntheticId == QLatin1String(kOriginPointId))
+		m_originPointVisible = !m_originPointVisible;
+	else if (syntheticId == QLatin1String(kOriginXyId))
+		m_originXyVisible = !m_originXyVisible;
+	else if (syntheticId == QLatin1String(kOriginXzId))
+		m_originXzVisible = !m_originXzVisible;
+	else if (syntheticId == QLatin1String(kOriginYzId))
+		m_originYzVisible = !m_originYzVisible;
+	else
+		return;
+	refreshFeatureTree();
+	emit originVisibilityChanged();
+}
+
+void GeometricModelingPage::restoreOriginVisibility(bool point, bool xy, bool xz, bool yz)
+{
+	m_originPointVisible = point;
+	m_originXyVisible = xy;
+	m_originXzVisible = xz;
+	m_originYzVisible = yz;
+}
+
 void GeometricModelingPage::refreshFeatureTree()
 {
 	m_tree->clear();
@@ -1071,6 +1606,75 @@ void GeometricModelingPage::refreshFeatureTree()
 		banner->setFont(0, f);
 		banner->setForeground(0, QColor(0x0f, 0x76, 0x6e));
 	}
+
+	auto attachEyeRow = [this](QTreeWidgetItem* item, const QString& title, bool visible, const QString& toggleId)
+	{
+		item->setText(0, QString());
+		auto* row = new QWidget(m_tree);
+		auto* rowLay = new QHBoxLayout(row);
+		rowLay->setContentsMargins(4, 0, 10, 0);
+		rowLay->setSpacing(4);
+		auto* name = new QLabel(title, row);
+		name->setAttribute(Qt::WA_TransparentForMouseEvents);
+		name->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+		if (!visible)
+		{
+			QFont font = name->font();
+			font.setItalic(true);
+			name->setFont(font);
+			name->setStyleSheet(QStringLiteral("color: #a1a1aa;"));
+		}
+		auto* eye = new QToolButton(row);
+		eye->setAutoRaise(true);
+		eye->setFocusPolicy(Qt::NoFocus);
+		eye->setCursor(Qt::PointingHandCursor);
+		eye->setFixedSize(26, 26);
+		eye->setIconSize(QSize(18, 18));
+		eye->setIcon(makeSketchEyeIcon(visible));
+		eye->setStyleSheet(QStringLiteral(
+			"QToolButton { border: none; background: transparent; padding: 0; margin: 0; }"
+			"QToolButton:hover { background: #e2e8f0; border-radius: 4px; }"));
+		eye->setToolTip(visible ? i18n(QStringLiteral("Hide"), QStringLiteral("\u9690\u85cf"))
+								: i18n(QStringLiteral("Show"), QStringLiteral("\u663e\u793a")));
+		connect(eye, &QToolButton::clicked, this, [this, toggleId]() { toggleOriginVisibility(toggleId); });
+		rowLay->addWidget(name, 1);
+		rowLay->addWidget(eye, 0, Qt::AlignVCenter | Qt::AlignRight);
+		m_tree->setItemWidget(item, 0, row);
+	};
+
+	// 虚拟原点：不进 Body 历史，仅方便开草图/约束到平面原点
+	auto* originRoot = new QTreeWidgetItem(m_tree);
+	originRoot->setData(0, Qt::UserRole, QLatin1String(kOriginId));
+	originRoot->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+	{
+		const bool allVis = originNodeVisible(QLatin1String(kOriginId));
+		QString title = i18n(QStringLiteral("Origin"), QStringLiteral("原点"));
+		if (!allVis)
+			title = QStringLiteral("%1 (%2)").arg(title, m_useChinese ? QStringLiteral("\u9690\u85cf")
+																	 : QStringLiteral("Hidden"));
+		attachEyeRow(originRoot, title, allVis, QLatin1String(kOriginId));
+	}
+	auto addOriginChild = [&](const QString& id, const QString& en, const QString& zh, bool visible)
+	{
+		auto* child = new QTreeWidgetItem(originRoot);
+		child->setData(0, Qt::UserRole, id);
+		child->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+		QString title = i18n(en, zh);
+		if (!visible)
+			title = QStringLiteral("%1 (%2)").arg(title, m_useChinese ? QStringLiteral("\u9690\u85cf")
+																	 : QStringLiteral("Hidden"));
+		attachEyeRow(child, title, visible, id);
+	};
+	addOriginChild(QLatin1String(kOriginPointId), QStringLiteral("Origin Point"), QStringLiteral("原点"),
+				   m_originPointVisible);
+	addOriginChild(QLatin1String(kOriginXyId), QStringLiteral("Front Plane (XY)"), QStringLiteral("前视平面 (XY)"),
+				   m_originXyVisible);
+	addOriginChild(QLatin1String(kOriginXzId), QStringLiteral("Top Plane (XZ)"), QStringLiteral("上视平面 (XZ)"),
+				   m_originXzVisible);
+	addOriginChild(QLatin1String(kOriginYzId), QStringLiteral("Right Plane (YZ)"), QStringLiteral("右视平面 (YZ)"),
+				   m_originYzVisible);
+	originRoot->setExpanded(true);
+
 	for (const auto& f : m_features.features())
 	{
 		const QString src = f.name.isEmpty() ? f.id : f.name;
@@ -1130,4 +1734,259 @@ void GeometricModelingPage::refreshFeatureTree()
 		}
 		item->setExpanded(true);
 	}
+}
+
+void GeometricModelingPage::fillClosedSketchCombo(QComboBox* combo, const QString& selectedId)
+{
+	if (!combo)
+		return;
+	const QSignalBlocker b(combo);
+	combo->clear();
+	int pickIdx = -1;
+	for (const auto& f : m_features.features())
+	{
+		if (f.kind != GeomodelingFeatureKind::Sketch)
+			continue;
+		const QString title = featureTreeTitle(f.name.isEmpty() ? f.id : f.name, f.kind, m_useChinese);
+		combo->addItem(title, f.id);
+		if (f.id == selectedId)
+			pickIdx = combo->count() - 1;
+	}
+	if (pickIdx >= 0)
+		combo->setCurrentIndex(pickIdx);
+}
+
+void GeometricModelingPage::setFilletUi(bool active)
+{
+	setSideToolPanel(active ? SideToolPanel::Fillet : SideToolPanel::None);
+}
+
+void GeometricModelingPage::setFilletEdgeCount(int n)
+{
+	if (m_filletEdgeCount)
+		m_filletEdgeCount->setText(i18n(QStringLiteral("%1 edge(s) selected"), QStringLiteral("\u5df2\u9009 %1 \u6761\u8fb9")).arg(n));
+}
+
+double GeometricModelingPage::filletRadiusMm() const
+{
+	return m_filletRadius ? m_filletRadius->value() : 1.0;
+}
+
+void GeometricModelingPage::setChamferUi(bool active)
+{
+	setSideToolPanel(active ? SideToolPanel::Chamfer : SideToolPanel::None);
+}
+
+void GeometricModelingPage::setChamferEdgeCount(int n)
+{
+	if (m_chamferEdgeCount)
+		m_chamferEdgeCount->setText(i18n(QStringLiteral("%1 edge(s) selected"), QStringLiteral("\u5df2\u9009 %1 \u6761\u8fb9")).arg(n));
+}
+
+double GeometricModelingPage::chamferDistanceMm() const
+{
+	return m_chamferDist ? m_chamferDist->value() : 1.0;
+}
+
+void GeometricModelingPage::setRevolveUi(bool active, bool cutMode)
+{
+	m_revolveCutMode = cutMode;
+	if (m_revolveTitle)
+		m_revolveTitle->setText(cutMode ? i18n(QStringLiteral("Revolve Cut"), QStringLiteral("\u65cb\u8f6c\u5207\u9664"))
+										: i18n(QStringLiteral("Revolve"), QStringLiteral("\u65cb\u8f6c")));
+	if (!active && m_revolveStatus)
+		m_revolveStatus->clear();
+	setSideToolPanel(active ? SideToolPanel::Revolve : SideToolPanel::None);
+}
+
+void GeometricModelingPage::fillRevolveSketchCombo(const QString& selectedId)
+{
+	fillClosedSketchCombo(m_revolveSketchCombo, selectedId);
+}
+
+QString GeometricModelingPage::revolveSketchId() const
+{
+	return m_revolveSketchCombo ? m_revolveSketchCombo->currentData().toString() : QString();
+}
+
+double GeometricModelingPage::revolveAngleDeg() const
+{
+	return m_revolveAngle ? m_revolveAngle->value() : 360.0;
+}
+
+void GeometricModelingPage::setRevolveStatus(const QString& text)
+{
+	if (!m_revolveStatus)
+		return;
+	m_revolveStatus->setText(text);
+	m_revolveStatus->setVisible(!text.isEmpty());
+}
+
+void GeometricModelingPage::setPatternUi(bool active)
+{
+	if (active)
+		fillPatternSourceCombo();
+	setSideToolPanel(active ? SideToolPanel::Pattern : SideToolPanel::None);
+}
+
+void GeometricModelingPage::fillPatternSourceCombo()
+{
+	if (!m_patternSource)
+		return;
+	const QSignalBlocker b(m_patternSource);
+	m_patternSource->clear();
+	m_patternSource->addItem(i18n(QStringLiteral("Entire tip (current body)"), QStringLiteral("整个实体（当前 tip）")),
+							 QString());
+	for (const auto& f : m_features.features())
+	{
+		if (f.kind == GeomodelingFeatureKind::Sketch || f.kind == GeomodelingFeatureKind::DatumPlane || f.suppressed)
+			continue;
+		const QString title = featureTreeTitle(f.name.isEmpty() ? f.id : f.name, f.kind, m_useChinese);
+		m_patternSource->addItem(title, f.id);
+	}
+}
+
+QString GeometricModelingPage::patternSourceFeatureId() const
+{
+	if (!m_patternSource || m_patternSource->currentIndex() < 0)
+		return {};
+	return m_patternSource->currentData().toString();
+}
+
+int GeometricModelingPage::patternCount() const
+{
+	return m_patternCount ? static_cast<int>(m_patternCount->value()) : 2;
+}
+
+double GeometricModelingPage::patternDxMm() const
+{
+	return m_patternDx ? m_patternDx->value() : 10.0;
+}
+
+double GeometricModelingPage::patternDyMm() const
+{
+	return m_patternDy ? m_patternDy->value() : 0.0;
+}
+
+double GeometricModelingPage::patternDzMm() const
+{
+	return m_patternDz ? m_patternDz->value() : 0.0;
+}
+
+void GeometricModelingPage::setMirror3dUi(bool active)
+{
+	setSideToolPanel(active ? SideToolPanel::Mirror3D : SideToolPanel::None);
+}
+
+bool GeometricModelingPage::mirror3dKeepOriginal() const
+{
+	return !m_mirror3dKeep || m_mirror3dKeep->isChecked();
+}
+
+int GeometricModelingPage::mirror3dPlaneIndex() const
+{
+	return m_mirror3dPlane ? m_mirror3dPlane->currentData().toInt() : 0;
+}
+
+void GeometricModelingPage::setLoftUi(bool active, bool cutMode)
+{
+	m_loftCutMode = cutMode;
+	if (m_loftTitle)
+		m_loftTitle->setText(cutMode ? i18n(QStringLiteral("Loft Cut"), QStringLiteral("\u653e\u6837\u5207\u9664"))
+									 : i18n(QStringLiteral("Loft"), QStringLiteral("\u653e\u6837")));
+	if (!active && m_loftStatus)
+		m_loftStatus->clear();
+	setSideToolPanel(active ? SideToolPanel::Loft : SideToolPanel::None);
+}
+
+void GeometricModelingPage::fillLoftSketchCombos(const QString& selectedA, const QString& selectedB)
+{
+	fillClosedSketchCombo(m_loftSketchA, selectedA);
+	fillClosedSketchCombo(m_loftSketchB, selectedB);
+}
+
+QString GeometricModelingPage::loftSketchAId() const
+{
+	return m_loftSketchA ? m_loftSketchA->currentData().toString() : QString();
+}
+
+QString GeometricModelingPage::loftSketchBId() const
+{
+	return m_loftSketchB ? m_loftSketchB->currentData().toString() : QString();
+}
+
+void GeometricModelingPage::setLoftStatus(const QString& text)
+{
+	if (!m_loftStatus)
+		return;
+	m_loftStatus->setText(text);
+	m_loftStatus->setVisible(!text.isEmpty());
+}
+
+void GeometricModelingPage::setShellUi(bool active)
+{
+	setSideToolPanel(active ? SideToolPanel::Shell : SideToolPanel::None);
+}
+
+double GeometricModelingPage::shellThicknessMm() const
+{
+	return m_shellThickness ? m_shellThickness->value() : 1.0;
+}
+
+void GeometricModelingPage::setShellFaceCount(int n)
+{
+	if (m_shellFaceCount)
+		m_shellFaceCount->setText(i18n(QStringLiteral("%1 face(s) selected"), QStringLiteral("\u5df2\u9009 %1 \u4e2a\u9762")).arg(n));
+}
+
+void GeometricModelingPage::setShellStatus(const QString& text)
+{
+	if (!m_shellStatus)
+		return;
+	m_shellStatus->setText(text);
+	m_shellStatus->setVisible(!text.isEmpty());
+}
+
+void GeometricModelingPage::setDraftUi(bool active)
+{
+	setSideToolPanel(active ? SideToolPanel::Draft : SideToolPanel::None);
+}
+
+double GeometricModelingPage::draftAngleDeg() const
+{
+	return m_draftAngle ? m_draftAngle->value() : 1.0;
+}
+
+void GeometricModelingPage::setDraftFaceCount(int n)
+{
+	if (m_draftFaceCount)
+		m_draftFaceCount->setText(i18n(QStringLiteral("%1 face(s) selected"), QStringLiteral("\u5df2\u9009 %1 \u4e2a\u9762")).arg(n));
+}
+
+void GeometricModelingPage::setDraftStatus(const QString& text)
+{
+	if (!m_draftStatus)
+		return;
+	m_draftStatus->setText(text);
+	m_draftStatus->setVisible(!text.isEmpty());
+}
+
+void GeometricModelingPage::setDraftNeutralPlane(const PluginSketchPlane& plane)
+{
+	m_draftNeutralPlane = plane;
+	m_hasDraftNeutral = plane.isPlanar;
+	if (m_draftNeutralLabel)
+	{
+		m_draftNeutralLabel->setText(m_hasDraftNeutral
+										 ? i18n(QStringLiteral("Neutral: planar face"), QStringLiteral("中性面：已选平面"))
+										 : i18n(QStringLiteral("Neutral: default XY"), QStringLiteral("中性面：默认 XY")));
+	}
+}
+
+void GeometricModelingPage::clearDraftNeutralPlane()
+{
+	m_draftNeutralPlane = {};
+	m_hasDraftNeutral = false;
+	if (m_draftNeutralLabel)
+		m_draftNeutralLabel->setText(i18n(QStringLiteral("Neutral: default XY"), QStringLiteral("中性面：默认 XY")));
 }

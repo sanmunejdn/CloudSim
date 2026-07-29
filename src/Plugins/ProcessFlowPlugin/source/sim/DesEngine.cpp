@@ -21,6 +21,7 @@ enum class EvType
 	EndOp,
 	MachineFail,
 	MachineRepair,
+	DispatchWake,
 	SimEnd
 };
 
@@ -86,6 +87,8 @@ struct MachineRuntime
 
 struct SegmentBuffer
 {
+	int fromId = -1;
+	int toId = -1;
 	double capacity = -1.0;
 	int occupied = 0;
 	int fullCount = 0;
@@ -123,6 +126,32 @@ void updateSegIntegrals(SegmentBuffer& b, double now)
 qint64 segKey(int fromId, int toId)
 {
 	return (static_cast<qint64>(fromId) << 32) ^ static_cast<qint64>(static_cast<quint32>(toId));
+}
+
+double nextShiftOpen(double t, const ShiftCalendar& cal)
+{
+	if (!cal.enabled || cal.workEndSec <= cal.workStartSec || cal.dayLengthSec <= 1.0)
+		return t;
+	const double day = cal.dayLengthSec;
+	double tod = std::fmod(t, day);
+	if (tod < 0.0)
+		tod += day;
+	if (tod >= cal.workStartSec && tod < cal.workEndSec)
+		return t;
+	if (tod < cal.workStartSec)
+		return t - tod + cal.workStartSec;
+	return t - tod + day + cal.workStartSec;
+}
+
+bool inShift(double t, const ShiftCalendar& cal)
+{
+	if (!cal.enabled)
+		return true;
+	const double day = cal.dayLengthSec;
+	double tod = std::fmod(t, day);
+	if (tod < 0.0)
+		tod += day;
+	return tod >= cal.workStartSec && tod < cal.workEndSec;
 }
 
 double remainingWork(const QVector<OpSpec>& ops, int fromOp)
@@ -194,6 +223,8 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 				if (!segments.contains(key))
 				{
 					SegmentBuffer b;
+					b.fromId = tmpl.ops[i].machineNodeId;
+					b.toId = tmpl.ops[i + 1].machineNodeId;
 					b.capacity = tmpl.ops[i].interBufferCapacity;
 					segments.insert(key, b);
 				}
@@ -217,10 +248,19 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 
 	const double horizon = std::max(0.0, config.horizonSec);
 	pushEv(horizon, EvType::SimEnd);
-	const double arrival = std::max(1e-6, interarrivalSec);
-	const int plannedReleases = std::min(config.maxJobs, static_cast<int>(std::floor(horizon / arrival)) + 1);
-	for (int i = 0; i < plannedReleases; ++i)
-		pushEv(i * arrival, EvType::JobRelease, i + 1);
+	const double arrivalMean = std::max(1e-6, interarrivalSec);
+	std::mt19937 rng(config.seed);
+	std::exponential_distribution<double> expDist(1.0 / arrivalMean);
+	const bool expArrival = config.arrivalMode.compare(QStringLiteral("exponential"), Qt::CaseInsensitive) == 0;
+	double releaseAt = 0.0;
+	int plannedReleases = 0;
+	while (plannedReleases < config.maxJobs && releaseAt <= horizon)
+	{
+		pushEv(releaseAt, EvType::JobRelease, plannedReleases + 1);
+		++plannedReleases;
+		const double gap = expArrival ? std::max(1e-6, expDist(rng)) : arrivalMean;
+		releaseAt += gap;
+	}
 
 	QHash<int, JobState> jobs;
 	int wip = 0;
@@ -232,7 +272,6 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 	int scrapped = 0;
 	int released = 0;
 	OperationTrace trace;
-	std::mt19937 rng(config.seed);
 	std::uniform_real_distribution<double> unit01(0.0, 1.0);
 
 	auto bumpWip = [&](double now, int delta)
@@ -359,6 +398,14 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 		updateMachineIntegrals(m, now);
 		if (m.failed || (m.downUntil >= 0.0 && now < m.downUntil))
 			return;
+		// 班次外不新开加工；到期再唤醒派工
+		if (config.shift.enabled && !inShift(now, config.shift))
+		{
+			const double openAt = nextShiftOpen(now, config.shift);
+			if (openAt > now + 1e-9 && openAt <= horizon)
+				pushEv(openAt, EvType::DispatchWake, -1, machineId);
+			return;
+		}
 
 		while (m.busy < m.capacity && !m.queue.empty())
 		{
@@ -478,6 +525,9 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 			const double batchFactor = op.kind == QStringLiteral("assembly") ? 1.0 : static_cast<double>(peers.size());
 			const double totalTime = op.setupTimeSec + op.processTimeSec * batchFactor;
 			StationBinding binding;
+			const PlantNode pn = plant.nodes.value(machineId);
+			binding.backendId = pn.bindingBackendId;
+			binding.programId = pn.bindingProgramId;
 			const double proc = m_executor->beginProcess(machineId, jobId, totalTime, binding);
 			js.processing = true;
 			js.queuedMachine = -1;
@@ -629,6 +679,9 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 			tryDispatch(m.nodeId, now);
 			break;
 		}
+		case EvType::DispatchWake:
+			tryDispatch(ev.machineNodeId, now);
+			break;
 		case EvType::SimEnd:
 			goto finish;
 		}
@@ -678,8 +731,10 @@ finish:
 		if (b.capacity < 0.0)
 			continue;
 		BufferStat bs;
-		bs.nodeId = segIndex;
-		bs.title = QStringLiteral("segment-%1").arg(segIndex);
+		bs.nodeId = b.fromId >= 0 ? b.fromId : segIndex;
+		const QString fromTitle = machines.contains(b.fromId) ? machines[b.fromId].title : QString::number(b.fromId);
+		const QString toTitle = machines.contains(b.toId) ? machines[b.toId].title : QString::number(b.toId);
+		bs.title = QStringLiteral("%1→%2").arg(fromTitle, toTitle);
 		bs.avgInventory = b.invIntegral / std::max(1e-9, horizon);
 		bs.maxInventory = b.maxInv;
 		bs.fullCount = b.fullCount;

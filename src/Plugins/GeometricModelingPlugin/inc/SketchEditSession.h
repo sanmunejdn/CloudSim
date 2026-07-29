@@ -37,9 +37,13 @@ public:
 						   const QByteArray& sketchJson, QString* err = nullptr);
 	void end();
 	void setTool(SketchToolKind kind);
+	void setPolygonSides(int sides);
+	int polygonSides() const { return m_polygonSides; }
 	SketchToolKind toolKind() const { return m_toolKind; }
 	void setUseChinese(bool useChinese);
 	bool useChinese() const { return m_useChinese; }
+	/// 将点移到草图平面原点并固定
+	bool fixPointToOrigin(int pointId, QString* err = nullptr);
 
 	bool handleInput(const PluginSketchInputEvent& ev);
 	bool solveNow(std::string* err = nullptr);
@@ -102,6 +106,7 @@ private:
 	SketchDocument2d m_doc;
 	SketchToolKind m_toolKind = SketchToolKind::Line;
 	std::unique_ptr<ISketchTool> m_tool;
+	int m_polygonSides = PolygonSketchTool::kDefaultSides;
 	SkSnapResult m_lastSnap{};
 	double m_snapTolMm = 3.0;
 	double m_gridMm = 5.0;
@@ -113,6 +118,7 @@ private:
 	std::unordered_set<int> m_redundantEntities;
 	/// 拾取暂存（尺寸/几何约束/镜像共用）
 	int m_dimPickA = -1;
+	int m_dimPickB = -1;
 	int m_dimHoverId = -1;
 	QString m_dimHint;
 	std::vector<int> m_mirrorTargets;

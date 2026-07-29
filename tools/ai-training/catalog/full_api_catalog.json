@@ -1539,6 +1539,29 @@
       ]
     },
     {
+      "id": "patchProcessFlowGraph",
+      "domains": [
+        "process.flow"
+      ],
+      "keywords": [
+        "修改工艺流程",
+        "改节拍",
+        "改缓冲",
+        "增量改图",
+        "Patch process flow"
+      ],
+      "summary": "Incremental process-flow edits (setNodeProp/addNode/removeNode/connect/disconnect)",
+      "risk": "high",
+      "args_schema": [
+        {
+          "name": "ops_json",
+          "type": "string",
+          "label": "补丁 JSON 数组",
+          "required": true
+        }
+      ]
+    },
+    {
       "id": "runProcessFlowSimulation",
       "domains": [
         "process.flow"

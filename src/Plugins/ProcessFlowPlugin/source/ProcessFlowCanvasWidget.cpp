@@ -152,6 +152,36 @@ void ProcessFlowCanvasWidget::removeSelectedEdge()
 	update();
 }
 
+bool ProcessFlowCanvasWidget::removeNodeById(int id)
+{
+	if (id < 0 || !findNode(id))
+		return false;
+	m_nodes.erase(std::remove_if(m_nodes.begin(), m_nodes.end(), [id](const Node& n) { return n.id == id; }),
+				  m_nodes.end());
+	m_edges.erase(std::remove_if(m_edges.begin(), m_edges.end(),
+								 [id](const Edge& e) { return e.from == id || e.to == id; }),
+				  m_edges.end());
+	if (m_selectedNodeId == id)
+		setSelectedNode(-1);
+	emitGraphChanged();
+	update();
+	return true;
+}
+
+bool ProcessFlowCanvasWidget::removeEdge(int from, int to)
+{
+	const int before = m_edges.size();
+	m_edges.erase(std::remove_if(m_edges.begin(), m_edges.end(),
+								 [from, to](const Edge& e) { return e.from == from && e.to == to; }),
+				  m_edges.end());
+	if (m_edges.size() == before)
+		return false;
+	setSelectedEdge(-1);
+	emitGraphChanged();
+	update();
+	return true;
+}
+
 void ProcessFlowCanvasWidget::clearGraph()
 {
 	m_nodes.clear();

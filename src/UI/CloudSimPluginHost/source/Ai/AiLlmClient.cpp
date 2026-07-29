@@ -144,35 +144,39 @@ QString composeSystemPrompt()
 {
 	const auto d = AiMeshDefaults::activeDefaults();
 	return QStringLiteral(
-			   "You convert CAD requests into ActionPlan JSON version 2 ONLY (no markdown). "
-			   "Schema: "
-			   "{\"version\":2,\"domain\":\"mesh.compose\",\"steps\":[{\"id\":\"body\",\"api\":\"createPrimitiveMesh\","
-			   "\"args\":{...}},...]}. "
-			   "Use fields id and api (NOT name/type). Args hold primitive, dimensions_mm, etc. "
-			   "booleanMesh target/tool MUST be $stepId refs. All steps in steps[] only (no result field). "
-			   "Host runs intermediate primitives in memory; only the final boolean result appears in the scene.\n"
-			   "APIs:\n"
-			   "1) createPrimitiveMesh args: primitive box|cylinder|cone|sphere, dimensions_mm (mm, all required), "
-			   "optional name, pose_mm, rotation_deg. Z is height axis, center at origin.\n"
-			   "2) booleanMesh args: op difference|union|intersection, target $stepId, tool $stepId, "
-			   "optional result_name, hide_operands (default true).\n"
-			   "Op mapping: difference=挖/孔/通孔/盲孔/减去/subtract/drill/hole; "
-			   "union=并集/合并/拼合/合在一起/combine/merge/附加凸台; "
-			   "intersection=交集/求交/重叠部分/intersect/common volume.\n"
-			   "Rules difference: Through-hole = box + cylinder (radius=diameter/2, height > box height) + difference. "
-			   "Use ids body, hole_tool, result. NEVER use difference when user says union/merge.\n"
-			   "Rules union: two solids merged; use box+box or box+cylinder boss; add pose_mm when offset needed. "
-			   "Example: box 80^3 + box 60^3 pose_mm x=40 + union($a,$b).\n"
-			   "Rules intersection: overlapping volume only; offset second body with pose_mm for partial overlap. "
-			   "Example: box 100^3 + box 80^3 pose_mm x=50 + intersection($a,$b).\n"
-			   "Defaults if sizes omitted: box %1x%2x%3, cylinder R%4 H%5.\n"
-			   "Example difference: 100 cube D50 hole: body box, hole_tool cyl R25 H120, result difference $body "
-			   "$hole_tool.")
+			   "You are a text-to-CAD planner for CloudSim. Output ActionPlan JSON version 2 ONLY (no markdown).\n"
+			   "Schema: {\"version\":2,\"domain\":\"mesh.compose\",\"steps\":[{\"id\":\"...\",\"api\":\"...\",\"args\":{...}}]}.\n"
+			   "Use mesh boolean CSG for through-holes / boolean ops (not parametric history).\n"
+			   "Clarify-before-draw: if specs incomplete, ONE askClarify step and STOP.\n"
+			   "APIs: askClarify; createPrimitiveMesh; booleanMesh.\n"
+			   "Defaults if sizes omitted: box %1x%2x%3, cylinder R%4 H%5.")
 		.arg(d.boxLengthMm)
 		.arg(d.boxWidthMm)
 		.arg(d.boxHeightMm)
 		.arg(d.cylinderRadiusMm)
 		.arg(d.cylinderHeightMm);
+}
+
+QString featureComposeSystemPrompt()
+{
+	return QStringLiteral(
+		"You are a parametric text-to-CAD planner for CloudSim. Output ActionPlan JSON version 2 ONLY (no markdown).\n"
+		"Schema: {\"version\":2,\"domain\":\"feature.compose\",\"steps\":[{\"id\":\"...\",\"api\":\"...\",\"args\":{...}}]}.\n"
+		"Philosophy (Text2CAD): SEQUENCE of real features — sketch profile extrude (Pad) → Pocket → Fillet → LinearPattern.\n"
+		"All dimensions in mm. Prefer clarify over inventing sizes.\n"
+		"Clarify-before-draw (Pro-CAD): if critical sizes missing, ONE step askClarify with questions[] and STOP.\n"
+		"APIs:\n"
+		"1) askClarify args: questions (string array).\n"
+		"2) extrudeSketchProfileToBrep args:\n"
+		"   mode: pad|pocket; profile: rectangle|polygon; length_mm+width_mm (rect) or sides+radius_mm (polygon);\n"
+		"   extrude_mm (depth); optional name; pocket requires target \"$priorStepId\".\n"
+		"   Optional profile_xyz_mm closed polyline (xyz interleaved) instead of profile helpers.\n"
+		"3) filletEdgesToBrep args: target \"$stepId\", radius_mm, edge_indices int[] OR edges:\"all\".\n"
+		"4) linearPatternBodyToBrep args: target \"$stepId\", count>=2, dx_mm, dy_mm, dz_mm; optional source_feature_id.\n"
+		"Example box 100x80x40 Pad:\n"
+		"{\"version\":2,\"domain\":\"feature.compose\",\"steps\":["
+		"{\"id\":\"body\",\"api\":\"extrudeSketchProfileToBrep\",\"args\":{\"mode\":\"pad\",\"profile\":\"rectangle\","
+		"\"length_mm\":100,\"width_mm\":80,\"extrude_mm\":40,\"name\":\"Body\"}}]}");
 }
 } // namespace
 
@@ -195,11 +199,15 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 
 	const bool recognitionSchema = domainId == AiDomainIds::geometryRecognize();
 	const bool composeSchema = domainId == AiDomainIds::meshCompose();
+	const bool featureComposeSchema = domainId == AiDomainIds::featureCompose();
 	const bool trajectorySchema = domainId == AiDomainIds::trajectoryFeature();
 	const QString sys =
-		recognitionSchema ? recognitionSystemPrompt()
-						  : (composeSchema ? composeSystemPrompt()
-										   : (trajectorySchema ? trajectoryFeatureSystemPrompt() : meshSystemPrompt()));
+		recognitionSchema
+			? recognitionSystemPrompt()
+			: (featureComposeSchema
+				   ? featureComposeSystemPrompt()
+				   : (composeSchema ? composeSystemPrompt()
+									: (trajectorySchema ? trajectoryFeatureSystemPrompt() : meshSystemPrompt())));
 	const QString userPrompt =
 		recognitionSchema
 			? recognitionUserPrompt(userText)

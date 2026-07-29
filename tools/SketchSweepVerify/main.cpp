@@ -1,5 +1,5 @@
 /// @file main.cpp
-/// @brief Rectangle profile + planar S-path sweep offline verify
+/// @brief Rectangle + path sweep offline verify（共面 / 反向 / 对齐校验）
 
 #include "SketchSweep.h"
 #include "ShapeHandle.h"
@@ -10,7 +10,6 @@
 #include <GeomAbs_SurfaceType.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
-#include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Pnt.hxx>
 
@@ -47,8 +46,27 @@ void countFaces(const geoalgo::ShapeHandle& h, int& faces, int& planarFaces)
 	}
 }
 
+std::vector<geoalgo::SketchSweepPathSegment> splineThrough(const std::vector<gp_Pnt>& through)
+{
+	std::vector<geoalgo::SketchSweepPathSegment> segs;
+	for (std::size_t i = 0; i + 1 < through.size(); ++i)
+	{
+		geoalgo::SketchSweepPathSegment s;
+		s.kind = geoalgo::SketchSweepPathSegKind::SplineThrough;
+		s.ax = static_cast<float>(through[i].X());
+		s.ay = static_cast<float>(through[i].Y());
+		s.az = static_cast<float>(through[i].Z());
+		s.bx = static_cast<float>(through[i + 1].X());
+		s.by = static_cast<float>(through[i + 1].Y());
+		s.bz = static_cast<float>(through[i + 1].Z());
+		segs.push_back(s);
+	}
+	return segs;
+}
+
 bool runCase(const char* name, const std::vector<float>& profile,
-			 const std::vector<geoalgo::SketchSweepPathSegment>& segs)
+			 const std::vector<geoalgo::SketchSweepPathSegment>& segs, bool expectCurvedSides = false,
+			 double minVol = 1.0)
 {
 	std::string err;
 	geoalgo::SketchSweepParams sp;
@@ -63,14 +81,19 @@ bool runCase(const char* name, const std::vector<float>& profile,
 	int faces = 0, planar = 0;
 	countFaces(shape, faces, planar);
 	std::cout << name << " vol=" << vol << " faces=" << faces << " planar=" << planar << '\n';
-	if (vol < 1.0)
+	if (vol < minVol)
 	{
 		std::cerr << "FAIL " << name << ": volume too small\n";
 		return false;
 	}
-	if (faces > 24 && planar * 2 >= faces)
+	if (expectCurvedSides && planar == faces && faces > 4)
 	{
-		std::cerr << "FAIL " << name << ": too many planar faces\n";
+		std::cerr << "FAIL " << name << ": curved sweep became all-planar\n";
+		return false;
+	}
+	if (expectCurvedSides && faces >= 6 && planar >= faces - 1)
+	{
+		std::cerr << "FAIL " << name << ": faceted planar fan\n";
 		return false;
 	}
 	return true;
@@ -79,6 +102,7 @@ bool runCase(const char* name, const std::vector<float>& profile,
 
 int main()
 {
+	// 30x20 矩形，位于 XY，中心在原点
 	const std::vector<float> rect = {-15, -10, 0, 15, -10, 0, 15, 10, 0, -15, 10, 0, -15, -10, 0};
 
 	{
@@ -90,33 +114,31 @@ int main()
 		s.bx = 0;
 		s.by = 0;
 		s.bz = 80;
-		if (!runCase("straight", rect, {s}))
+		if (!runCase("straight", rect, {s}, false, 40000))
 			return 1;
 	}
 
-	{
-		const std::vector<gp_Pnt> through = {
-			gp_Pnt(0, 0, 0),
-			gp_Pnt(0, 20, 30),
-			gp_Pnt(0, -10, 60),
-			gp_Pnt(0, 0, 90),
-		};
-		std::vector<geoalgo::SketchSweepPathSegment> segs;
-		for (std::size_t i = 0; i + 1 < through.size(); ++i)
-		{
-			geoalgo::SketchSweepPathSegment s;
-			s.kind = geoalgo::SketchSweepPathSegKind::SplineThrough;
-			s.ax = static_cast<float>(through[i].X());
-			s.ay = static_cast<float>(through[i].Y());
-			s.az = static_cast<float>(through[i].Z());
-			s.bx = static_cast<float>(through[i + 1].X());
-			s.by = static_cast<float>(through[i + 1].Y());
-			s.bz = static_cast<float>(through[i + 1].Z());
-			segs.push_back(s);
-		}
-		if (!runCase("splineS", rect, segs))
-			return 1;
-	}
+	if (!runCase("splineS", rect,
+				 splineThrough({gp_Pnt(0, 0, 0), gp_Pnt(0, 20, 30), gp_Pnt(0, -10, 60), gp_Pnt(0, 0, 90)}), true,
+				 50000))
+		return 1;
+
+	// 截图同类：轮廓与路径共面
+	if (!runCase("coplanarS", rect,
+				 splineThrough({gp_Pnt(0, 0, 0), gp_Pnt(20, 15, 0), gp_Pnt(-10, 40, 0), gp_Pnt(0, 70, 0)}), true,
+				 40000))
+		return 1;
+
+	if (!runCase("coplanarS_reversed", rect,
+				 splineThrough({gp_Pnt(0, 70, 0), gp_Pnt(-10, 40, 0), gp_Pnt(20, 15, 0), gp_Pnt(0, 0, 0)}), true,
+				 40000))
+		return 1;
+
+	// 窄截面 + 长 S（更接近用户截图）
+	const std::vector<float> thin = {-8, -1, 0, 8, -1, 0, 8, 1, 0, -8, 1, 0, -8, -1, 0};
+	if (!runCase("thin_coplanarS", thin,
+				 splineThrough({gp_Pnt(0, 0, 0), gp_Pnt(25, 20, 0), gp_Pnt(-15, 50, 0), gp_Pnt(5, 90, 0)}), true, 500))
+		return 1;
 
 	std::cout << "OK all\n";
 	return 0;

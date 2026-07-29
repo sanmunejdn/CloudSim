@@ -149,6 +149,12 @@
     <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h">
       <Filter>inc\Ai\Domains</Filter>
     </ClInclude>
+    <ClInclude Include="inc\Ai\FeatureComposeDomainHandler.h">
+      <Filter>inc\Ai\Domains</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiFeatureComposeSteps.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
     <ClInclude Include="inc\Ai\MeshComposeDomainHandler.h">
       <Filter>inc\Ai\Domains</Filter>
     </ClInclude>
@@ -267,6 +273,12 @@
     </ClCompile>
     <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp">
       <Filter>src\Ai\Domains</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\FeatureComposeDomainHandler.cpp">
+      <Filter>src\Ai\Domains</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiFeatureComposeSteps.cpp">
+      <Filter>src\Ai\Agent</Filter>
     </ClCompile>
     <ClCompile Include="source\Ai\MeshComposeDomainHandler.cpp">
       <Filter>src\Ai\Domains</Filter>

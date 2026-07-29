@@ -24,6 +24,16 @@ public:
 	std::string addPad(const std::string& sketchId, double lengthMm, bool reversed = false);
 	std::string addPocket(const std::string& sketchId, double lengthMm, bool reversed = false);
 	std::string addSweep(const std::string& profileSketchId, const std::string& pathSketchId, bool cut = false);
+	std::string addFillet(const std::vector<int>& edgeIndices, double radiusMm);
+	std::string addChamfer(const std::vector<int>& edgeIndices, double distanceMm);
+	std::string addRevolve(const std::string& sketchId, double angleDeg, double ox, double oy, double oz, double dx,
+						   double dy, double dz, bool cut);
+	std::string addLinearPattern(int count, double dx, double dy, double dz,
+								 const std::string& sourceFeatureId = {});
+	std::string addMirror3D(const ParametricSketchPlane& plane, bool keepOriginal);
+	std::string addLoft(const std::string& sketchA, const std::string& sketchB, bool cut);
+	std::string addShell(const std::vector<int>& faceIndices, double thicknessMm);
+	std::string addDraft(const std::vector<int>& faceIndices, double angleDeg, const ParametricSketchPlane& neutralPlane);
 	bool setProfile(const std::string& sketchId, const std::vector<float>& xyz);
 	bool setLength(const std::string& featureId, double lengthMm);
 	ParametricFeature* findFeature(const std::string& id);
@@ -37,6 +47,8 @@ public:
 	/// 当前 tip 上 faceIndex → 产生该面的特征 id（进程内，跨会话不保证）
 	std::string featureIdForFace(int faceIndex) const;
 	const std::unordered_map<int, std::string>& faceOwnerByIndex() const { return m_faceOwnerByIndex; }
+	/// rebuild 后：某特征执行完时的 tip（阵列上游选种）
+	geoalgo::ShapeHandle tipAfterFeature(const std::string& featureId) const;
 
 	nlohmann::json historyToJson() const;
 	bool historyFromJson(const nlohmann::json& in, std::string* errMsg = nullptr);
@@ -55,6 +67,7 @@ private:
 	std::vector<ParametricFeature> m_features;
 	int m_seq = 1;
 	std::unordered_map<int, std::string> m_faceOwnerByIndex;
+	std::unordered_map<std::string, geoalgo::ShapeHandle> m_tipAfterFeature;
 };
 
 #endif

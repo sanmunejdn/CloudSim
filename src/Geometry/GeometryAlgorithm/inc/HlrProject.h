@@ -84,10 +84,23 @@ GEOMETRY_ALGORITHM_API bool sectionShapeToDrawing(const ShapeHandle& shape, Draw
 												  const TessellateParams& params, HlrViewPolylines& out,
 												  std::string* errMsg = nullptr);
 
+/// 任意平面剖切：原点 mm、法向（不必单位化）；失败时 out 清空
+GEOMETRY_ALGORITHM_API bool sectionShapeToDrawing(const ShapeHandle& shape, const double originMm[3],
+												  const double normal[3], const TessellateParams& params,
+												  HlrViewPolylines& out, std::string* errMsg = nullptr);
+
 /// 三视图 + 可选轴测/剖视
 GEOMETRY_ALGORITHM_API bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle,
 														 bool includeIso, bool includeSection,
 														 DrawingSectionPlane sectionPlane,
+														 const TessellateParams& params, HlrDrawingBundle& out,
+														 std::string* errMsg = nullptr);
+
+/// 同上；customSection=true 时用 originMm/normal 忽略 sectionPlane 预设
+GEOMETRY_ALGORITHM_API bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle,
+														 bool includeIso, bool includeSection,
+														 DrawingSectionPlane sectionPlane, bool customSection,
+														 const double originMm[3], const double normal[3],
 														 const TessellateParams& params, HlrDrawingBundle& out,
 														 std::string* errMsg = nullptr);
 

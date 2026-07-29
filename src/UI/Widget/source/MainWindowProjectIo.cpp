@@ -208,6 +208,7 @@ void MainWindow::onSaveProject()
 			rebuildUnitsDocument(doc->documentId());
 		}
 	}
+	clearActiveDocumentModified();
 }
 
 void MainWindow::onOpenProjectFile()

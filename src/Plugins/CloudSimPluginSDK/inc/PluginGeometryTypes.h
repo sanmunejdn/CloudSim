@@ -72,12 +72,17 @@ struct PluginGeometryStepRef
 	int faceIndex = -1;
 	/// 1.24+：内存 B-rep / ParametricBody 无 STEP 时用 backendId 定位
 	std::string backendIdUtf8;
+	/// 1.40.0+：视口命中点（世界 mm）；Vertex 拾取时为近端点
+	PluginPoint3d hitWorldMm{};
+	bool hasHitPoint = false;
 };
 
 enum class PluginGeometryElementKind
 {
 	Edge = 0,
-	Face
+	Face,
+	/// 1.40.0+：边拾取后吸附到靠近点击的端点
+	Vertex
 };
 
 struct PluginGeometryBackendEntry
@@ -156,7 +161,9 @@ enum class PluginSketchExtrudeEnd
 	Blind = 0,
 	UpToFace,
 	MidPlane,
-	ThroughAll
+	ThroughAll,
+	UpToVertex,
+	OffsetFromFace
 };
 
 struct PluginSketchExtrudeParams
@@ -179,6 +186,13 @@ struct PluginSketchExtrudeParams
 	int upToFaceIndex = -1;
 	/// 1.32.0+：拔模斜度（度），默认 0
 	double draftAngleDeg = 0.0;
+	/// 1.39.0+：UpToVertex 目标点（世界 mm）
+	PluginPoint3d upToVertex{};
+	bool hasUpToVertex = false;
+	/// 1.39.0+：OffsetFromFace 沿拉伸方向偏移
+	double offsetFromFaceMm = 0.0;
+	/// 1.38.0+：内孔环（闭合折线 xyz）
+	std::vector<std::vector<float>> holePolylinesXyzMm;
 };
 
 enum class PluginSketchSweepMode
@@ -223,6 +237,105 @@ struct PluginSketchSweepParams
 	PluginSketchPlane pathPlane{};
 	/// 非空则优先真弧/线段建 wire；空则回退 path 折线
 	std::vector<PluginSketchSweepPathSegment> pathSegments;
+	/// 1.39.0+：截面绕路径起点切向扭转（度）
+	double twistDeg = 0.0;
+};
+
+struct PluginSketchFilletParams
+{
+	double radiusMm = 1.0;
+	std::vector<int> edgeIndices;
+	std::string targetParametricBackendIdUtf8;
+	std::string resultNameUtf8;
+	/// 1.43.0+：为 true 时圆角 tip 全部边（忽略 edgeIndices）
+	bool allEdges = false;
+};
+
+struct PluginSketchChamferParams
+{
+	double distanceMm = 1.0;
+	std::vector<int> edgeIndices;
+	std::string targetParametricBackendIdUtf8;
+	std::string resultNameUtf8;
+};
+
+enum class PluginSketchRevolveMode
+{
+	Boss = 0,
+	Cut
+};
+
+struct PluginSketchRevolveParams
+{
+	PluginSketchRevolveMode mode = PluginSketchRevolveMode::Boss;
+	double angleDeg = 360;
+	double axisOx = 0;
+	double axisOy = 0;
+	double axisOz = 0;
+	double axisDx = 0;
+	double axisDy = 0;
+	double axisDz = 1;
+	std::string targetParametricBackendIdUtf8;
+	std::string sketchIdUtf8;
+	std::string sketchDocumentJsonUtf8;
+	PluginSketchPlane plane{};
+	std::string resultNameUtf8;
+};
+
+struct PluginSketchLinearPatternParams
+{
+	int count = 2;
+	double dxMm = 10;
+	double dyMm = 0;
+	double dzMm = 0;
+	/// 1.41.0+：上游特征 id；空=阵列当前 tip
+	std::string sourceFeatureIdUtf8;
+	std::string targetParametricBackendIdUtf8;
+	std::string resultNameUtf8;
+};
+
+struct PluginSketchMirror3dParams
+{
+	PluginSketchPlane plane{};
+	bool keepOriginal = true;
+	std::string targetParametricBackendIdUtf8;
+	std::string resultNameUtf8;
+};
+
+enum class PluginSketchLoftMode
+{
+	Boss = 0,
+	Cut
+};
+
+struct PluginSketchLoftParams
+{
+	PluginSketchLoftMode mode = PluginSketchLoftMode::Boss;
+	std::string targetParametricBackendIdUtf8;
+	std::string sketchAIdUtf8;
+	std::string sketchBIdUtf8;
+	std::string sketchADocumentJsonUtf8;
+	std::string sketchBDocumentJsonUtf8;
+	PluginSketchPlane planeA{};
+	PluginSketchPlane planeB{};
+	std::string resultNameUtf8;
+};
+
+struct PluginSketchShellParams
+{
+	double thicknessMm = 1.0;
+	std::vector<int> faceIndices;
+	std::string targetParametricBackendIdUtf8;
+	std::string resultNameUtf8;
+};
+
+struct PluginSketchDraftParams
+{
+	double angleDeg = 1.0;
+	std::vector<int> faceIndices;
+	PluginSketchPlane neutralPlane{};
+	std::string targetParametricBackendIdUtf8;
+	std::string resultNameUtf8;
 };
 
 struct PluginSketchOverlaySegment
@@ -284,14 +397,27 @@ struct PluginDrawingHlrResult
 using PluginDrawingHlrFinishedFn =
 	std::function<void(bool ok, const QString& error, const PluginDrawingHlrResult& result)>;
 
-/// 1.34.0+：工程图投影参数
+/// 1.34.0+：工程图投影参数；1.42.0+ 追加自定义剖切平面
 struct PluginDrawingProjectParams
 {
 	bool thirdAngle = false;
 	bool includeIso = true;
 	bool includeSection = false;
-	/// 0=正视平行中面 1=俯视平行 2=右视平行
+	/// 0=正视平行中面 1=俯视平行 2=右视平行（customSection=false 时）
 	int sectionPlane = 0;
+	/// 1.42.0+：为 true 时用 sectionOriginMm / sectionNormal
+	bool customSection = false;
+	double sectionOriginMm[3] = {0.0, 0.0, 0.0};
+	double sectionNormal[3] = {0.0, 1.0, 0.0};
+};
+
+/// 1.37.0+：世界原点 + XY/XZ/YZ 基准面显隐（建模特征树眼开关）
+struct PluginOriginReferenceVisibility
+{
+	bool originPoint = true;
+	bool planeXY = true;
+	bool planeXZ = true;
+	bool planeYZ = true;
 };
 
 #endif // CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H

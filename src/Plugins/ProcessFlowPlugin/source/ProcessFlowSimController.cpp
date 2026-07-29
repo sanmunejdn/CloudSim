@@ -1,5 +1,5 @@
 /// @file ProcessFlowSimController.cpp
-/// @brief 从图快照后台跑 DES / 多策略对比
+/// @brief 从图快照后台跑 DES / 多策略对比 / 启发式优化
 
 #include "ProcessFlowSimController.h"
 
@@ -7,6 +7,7 @@
 #include "ProcessFlowCanvasWidget.h"
 #include "sim/DesEngine.h"
 #include "sim/DispatchPolicies.h"
+#include "sim/IScheduler.h"
 #include "sim/IStationExecutor.h"
 #include "sim/SimModelBuilder.h"
 
@@ -26,6 +27,7 @@ void ProcessFlowSimController::setHost(IPluginHostContext* host)
 void ProcessFlowSimController::clearResult()
 {
 	m_lastResult = SimStatistics();
+	m_lastCompareStats.clear();
 }
 
 void ProcessFlowSimController::stop()
@@ -42,6 +44,26 @@ void ProcessFlowSimController::start(ProcessFlowCanvasWidget* canvas)
 void ProcessFlowSimController::compare(ProcessFlowCanvasWidget* canvas, const QStringList& policies)
 {
 	runInternal(canvas, policies.isEmpty() ? allDispatchPolicyNames() : policies, true);
+}
+
+void ProcessFlowSimController::optimizeThenStart(ProcessFlowCanvasWidget* canvas)
+{
+	if (!canvas)
+		return;
+	const QJsonObject flow = canvas->toJson();
+	const SimBuildResult built = SimModelBuilder::fromProcessFlowJson(flow, m_config);
+	if (!built.ok)
+	{
+		emit finished(false, built.error);
+		return;
+	}
+	PriorityListScheduler scheduler;
+	SolveConfig sc;
+	sc.objective = m_config.policy;
+	const Schedule sch = scheduler.solve(built.jobSet, built.plant, sc);
+	if (sch.ok && !sch.recommendedPolicy.isEmpty())
+		m_config.policy = sch.recommendedPolicy;
+	runInternal(canvas, {m_config.policy}, false);
 }
 
 void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, const QStringList& policies, bool compareMode)
@@ -67,13 +89,15 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 	auto cancel = m_cancel;
 	auto resultHolder = std::make_shared<SimStatistics>();
 	auto compareHolder = std::make_shared<QVector<PolicyCompareRow>>();
+	auto compareStatsHolder = std::make_shared<QVector<SimStatistics>>();
 	auto errorHolder = std::make_shared<QString>();
 	const QStringList pols = policies;
+	const bool keepTraces = compareMode && cfg.includeCompareTraces;
 
 	m_host->enqueueJob(
 		QStringLiteral("ProcessFlow DES"),
-		[plant, jobSet, interarrival, cfg, cancel, pols, compareMode, resultHolder, compareHolder,
-		 errorHolder](const PluginJobProgressFn& progress)
+		[plant, jobSet, interarrival, cfg, cancel, pols, compareMode, keepTraces, resultHolder, compareHolder,
+		 compareStatsHolder, errorHolder](const PluginJobProgressFn& progress)
 		{
 			try
 			{
@@ -86,7 +110,10 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 						progress(5 + (90 * step) / std::max(1, pols.size()), policyName);
 					DesEngine engine;
 					engine.setDispatchPolicy(createDispatchPolicy(policyName));
-					engine.setStationExecutor(std::make_unique<NullStationExecutor>());
+					if (cfg.executorMode.compare(QStringLiteral("drivePreview"), Qt::CaseInsensitive) == 0)
+						engine.setStationExecutor(std::make_unique<PreviewStationExecutor>());
+					else
+						engine.setStationExecutor(std::make_unique<NullStationExecutor>());
 					SimRunConfig c = cfg;
 					c.policy = policyName;
 					SimStatistics st = engine.run(plant, jobSet, interarrival, c, cancel.get());
@@ -98,7 +125,9 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 					row.bottleneck = st.bottleneckTitle.isEmpty() ? QString::number(st.bottleneckNodeId)
 																 : st.bottleneckTitle;
 					compareHolder->append(row);
-					*resultHolder = st; // 保留最后一次详细结果
+					if (keepTraces || !compareMode)
+						compareStatsHolder->append(st);
+					*resultHolder = st;
 					++step;
 				}
 				if (progress)
@@ -114,7 +143,8 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 				*errorHolder = QStringLiteral("DES unknown error");
 			}
 		},
-		[this, resultHolder, compareHolder, errorHolder, cancel, compareMode](bool threw, const QString& throwMessage)
+		[this, resultHolder, compareHolder, compareStatsHolder, errorHolder, cancel,
+		 compareMode](bool threw, const QString& throwMessage)
 		{
 			m_running = false;
 			const bool cancelled = cancel && cancel->load();
@@ -134,9 +164,10 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 				return;
 			}
 			m_lastResult = *resultHolder;
+			m_lastCompareStats = *compareStatsHolder;
 			emit resultReady(m_lastResult);
 			if (compareMode)
-				emit compareReady(*compareHolder);
+				emit compareReady(*compareHolder, *compareStatsHolder);
 			emit finished(true, QStringLiteral("ok"));
 		});
 }

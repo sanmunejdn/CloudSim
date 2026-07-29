@@ -50,6 +50,8 @@ private:
 	QLabel* m_mtbfLabel = nullptr;
 	QLabel* m_mttrLabel = nullptr;
 	QLabel* m_inputsLabel = nullptr;
+	QLabel* m_bindBackendLabel = nullptr;
+	QLabel* m_bindProgramLabel = nullptr;
 	QComboBox* m_kindCombo = nullptr;
 	QDoubleSpinBox* m_cycleSpin = nullptr;
 	QDoubleSpinBox* m_inventorySpin = nullptr;
@@ -61,6 +63,8 @@ private:
 	QDoubleSpinBox* m_mtbfSpin = nullptr;
 	QDoubleSpinBox* m_mttrSpin = nullptr;
 	QDoubleSpinBox* m_inputsSpin = nullptr;
+	class QLineEdit* m_bindBackendEdit = nullptr;
+	class QLineEdit* m_bindProgramEdit = nullptr;
 };
 
 #endif

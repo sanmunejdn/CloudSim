@@ -44,6 +44,9 @@
     <ClInclude Include="inc\FeatureDocument.h">
       <Filter>inc\Feature</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BodyHistoryCmd.h">
+      <Filter>inc\Feature</Filter>
+    </ClInclude>
     <ClInclude Include="inc\SketchConstraintSolver.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
@@ -68,6 +71,9 @@
       <Filter>src\UI</Filter>
     </ClCompile>
     <ClCompile Include="source\GeometricModelingPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\GeometricModelingSolidFeatures.cpp">
       <Filter>src\Plugin</Filter>
     </ClCompile>
     <ClCompile Include="source\GeometricModelingRibbonBar.cpp">

@@ -44,6 +44,10 @@ public:
 										   const PluginMeshDiscretizeParams& params,
 										   PluginGeometryFinishedFn onFinished) override;
 
+	void discretizeBackendFaceEdgesToPolylines(IPluginDocument* doc, const PluginGeometryStepRef& faceRef,
+											   const PluginMeshDiscretizeParams& params,
+											   PluginGeometryFinishedFn onFinished) override;
+
 	void intersectEdges(IPluginDocument* doc, const PluginGeometryStepRef& edge1, const PluginGeometryStepRef& edge2,
 						const PluginGeometryIntersectionParams& params, PluginGeometryFinishedFn onFinished) override;
 
@@ -106,12 +110,51 @@ public:
 								  const std::vector<float>& pathPolylineXyzMm, const PluginSketchSweepParams& params,
 								  PluginGeometryFinishedFn onFinished) override;
 
+	bool previewFilletEdges(IPluginDocument* doc, const PluginSketchFilletParams& params,
+							QString* errOut = nullptr) override;
+	void filletEdgesToBrep(IPluginDocument* doc, const PluginSketchFilletParams& params,
+						   PluginGeometryFinishedFn onFinished) override;
+	bool previewChamferEdges(IPluginDocument* doc, const PluginSketchChamferParams& params,
+							 QString* errOut = nullptr) override;
+	void chamferEdgesToBrep(IPluginDocument* doc, const PluginSketchChamferParams& params,
+							PluginGeometryFinishedFn onFinished) override;
+	bool previewSketchRevolve(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
+							  const PluginSketchRevolveParams& params, QString* errOut = nullptr) override;
+	void revolveSketchProfileToBrep(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
+								  const PluginSketchRevolveParams& params,
+								  PluginGeometryFinishedFn onFinished) override;
+	bool previewLinearPattern(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
+							  QString* errOut = nullptr) override;
+	void linearPatternBodyToBrep(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
+								 PluginGeometryFinishedFn onFinished) override;
+	bool previewMirror3d(IPluginDocument* doc, const PluginSketchMirror3dParams& params,
+						 QString* errOut = nullptr) override;
+	void mirror3dBodyToBrep(IPluginDocument* doc, const PluginSketchMirror3dParams& params,
+							PluginGeometryFinishedFn onFinished) override;
+	bool previewSketchLoft(IPluginDocument* doc, const std::vector<float>& profilePolylineAXyzMm,
+						   const std::vector<float>& profilePolylineBXyzMm, const PluginSketchLoftParams& params,
+						   QString* errOut = nullptr) override;
+	void loftSketchProfilesToBrep(IPluginDocument* doc, const std::vector<float>& profilePolylineAXyzMm,
+								  const std::vector<float>& profilePolylineBXyzMm, const PluginSketchLoftParams& params,
+								  PluginGeometryFinishedFn onFinished) override;
+	bool previewShellFaces(IPluginDocument* doc, const PluginSketchShellParams& params,
+						   QString* errOut = nullptr) override;
+	void shellFacesToBrep(IPluginDocument* doc, const PluginSketchShellParams& params,
+						  PluginGeometryFinishedFn onFinished) override;
+	bool previewDraftFaces(IPluginDocument* doc, const PluginSketchDraftParams& params,
+						   QString* errOut = nullptr) override;
+	void draftFacesToBrep(IPluginDocument* doc, const PluginSketchDraftParams& params,
+						  PluginGeometryFinishedFn onFinished) override;
+
 	void projectBrepHlrToDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
 								 PluginDrawingHlrFinishedFn onFinished) override;
 
 	void projectBrepToEngineeringDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
 										 const PluginDrawingProjectParams& params,
 										 PluginDrawingHlrFinishedFn onFinished) override;
+
+	void setOriginReferenceVisibility(IPluginDocument* doc,
+									  const PluginOriginReferenceVisibility& visibility) override;
 
 private:
 	void clearSketchSupportPlanePick();

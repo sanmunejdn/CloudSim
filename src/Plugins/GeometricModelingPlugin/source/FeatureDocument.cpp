@@ -24,6 +24,17 @@ QString FeatureDocument::addSketch(const PluginSketchPlane& plane, const QString
 	return f.id;
 }
 
+QString FeatureDocument::addDatumPlane(const PluginSketchPlane& plane, const QString& name)
+{
+	GeomodelingFeature f;
+	f.id = nextId("DatumPlane");
+	f.name = name.isEmpty() ? f.id : name;
+	f.kind = GeomodelingFeatureKind::DatumPlane;
+	f.plane = plane;
+	m_features.push_back(f);
+	return f.id;
+}
+
 QString FeatureDocument::addPad(const QString& sketchId, double lengthMm, bool reversed)
 {
 	GeomodelingFeature f;
@@ -149,7 +160,7 @@ bool FeatureDocument::removeFeature(const QString& featureId)
 		{
 			if (f.id == featureId)
 				continue;
-			if (f.sketchRefId == featureId || f.pathSketchRefId == featureId)
+			if (f.sketchRefId == featureId || f.pathSketchRefId == featureId || f.loftSketchRefId == featureId)
 				removeIds.push_back(f.id);
 		}
 	}
@@ -257,6 +268,18 @@ QJsonObject FeatureDocument::toJson() const
 			o.insert(QStringLiteral("upToFaceBackendId"), f.upToFaceBackendId);
 		if (f.upToFaceIndex >= 0)
 			o.insert(QStringLiteral("upToFaceIndex"), f.upToFaceIndex);
+		if (f.hasUpToVertex)
+		{
+			QJsonObject vtx;
+			vtx.insert(QStringLiteral("x"), f.upToVertex.x);
+			vtx.insert(QStringLiteral("y"), f.upToVertex.y);
+			vtx.insert(QStringLiteral("z"), f.upToVertex.z);
+			o.insert(QStringLiteral("upToVertex"), vtx);
+		}
+		if (std::abs(f.offsetFromFaceMm) > 1e-9)
+			o.insert(QStringLiteral("offsetFromFaceMm"), f.offsetFromFaceMm);
+		if (std::abs(f.twistDeg) > 1e-9)
+			o.insert(QStringLiteral("twistDeg"), f.twistDeg);
 		o.insert(QStringLiteral("sketchRefId"), f.sketchRefId);
 		if (!f.pathSketchRefId.isEmpty())
 			o.insert(QStringLiteral("pathSketchRefId"), f.pathSketchRefId);
@@ -282,6 +305,18 @@ QJsonObject FeatureDocument::toJson() const
 		for (float v : f.profileXyzMm)
 			xyz.append(v);
 		o.insert(QStringLiteral("profile"), xyz);
+		if (!f.profileHolesXyzMm.empty())
+		{
+			QJsonArray holes;
+			for (const auto& h : f.profileHolesXyzMm)
+			{
+				QJsonArray ha;
+				for (float hv : h)
+					ha.append(hv);
+				holes.append(ha);
+			}
+			o.insert(QStringLiteral("profileHoles"), holes);
+		}
 		if (!f.pathXyzMm.empty())
 		{
 			QJsonArray path;
@@ -354,6 +389,17 @@ void FeatureDocument::fromJson(const QJsonObject& obj)
 		}
 		f.upToFaceBackendId = o.value(QStringLiteral("upToFaceBackendId")).toString();
 		f.upToFaceIndex = o.value(QStringLiteral("upToFaceIndex")).toInt(-1);
+		f.hasUpToVertex = false;
+		if (o.contains(QStringLiteral("upToVertex")))
+		{
+			const QJsonObject vtx = o.value(QStringLiteral("upToVertex")).toObject();
+			f.upToVertex.x = vtx.value(QStringLiteral("x")).toDouble();
+			f.upToVertex.y = vtx.value(QStringLiteral("y")).toDouble();
+			f.upToVertex.z = vtx.value(QStringLiteral("z")).toDouble();
+			f.hasUpToVertex = true;
+		}
+		f.offsetFromFaceMm = o.value(QStringLiteral("offsetFromFaceMm")).toDouble(0.0);
+		f.twistDeg = o.value(QStringLiteral("twistDeg")).toDouble(0.0);
 		f.sketchRefId = o.value(QStringLiteral("sketchRefId")).toString();
 		f.pathSketchRefId = o.value(QStringLiteral("pathSketchRefId")).toString();
 		f.resultBackendId = o.value(QStringLiteral("resultBackendId")).toString();
@@ -371,6 +417,14 @@ void FeatureDocument::fromJson(const QJsonObject& obj)
 		f.plane.isPlanar = pl.value(QStringLiteral("planar")).toBool(true);
 		for (const QJsonValue& p : o.value(QStringLiteral("profile")).toArray())
 			f.profileXyzMm.push_back(static_cast<float>(p.toDouble()));
+		for (const QJsonValue& hv : o.value(QStringLiteral("profileHoles")).toArray())
+		{
+			std::vector<float> hole;
+			for (const QJsonValue& p : hv.toArray())
+				hole.push_back(static_cast<float>(p.toDouble()));
+			if (hole.size() >= 12)
+				f.profileHolesXyzMm.push_back(std::move(hole));
+		}
 		for (const QJsonValue& p : o.value(QStringLiteral("path")).toArray())
 			f.pathXyzMm.push_back(static_cast<float>(p.toDouble()));
 		for (const QJsonValue& sv : o.value(QStringLiteral("pathSegments")).toArray())
@@ -444,6 +498,28 @@ GeomodelingFeatureKind kindFromHost(const QString& s)
 		return GeomodelingFeatureKind::Sweep;
 	if (s == QLatin1String("SweepCut"))
 		return GeomodelingFeatureKind::SweepCut;
+	if (s == QLatin1String("Fillet"))
+		return GeomodelingFeatureKind::Fillet;
+	if (s == QLatin1String("Chamfer"))
+		return GeomodelingFeatureKind::Chamfer;
+	if (s == QLatin1String("Revolve"))
+		return GeomodelingFeatureKind::Revolve;
+	if (s == QLatin1String("RevolveCut"))
+		return GeomodelingFeatureKind::RevolveCut;
+	if (s == QLatin1String("LinearPattern"))
+		return GeomodelingFeatureKind::LinearPattern;
+	if (s == QLatin1String("Mirror3D"))
+		return GeomodelingFeatureKind::Mirror3D;
+	if (s == QLatin1String("Loft"))
+		return GeomodelingFeatureKind::Loft;
+	if (s == QLatin1String("LoftCut"))
+		return GeomodelingFeatureKind::LoftCut;
+	if (s == QLatin1String("Shell"))
+		return GeomodelingFeatureKind::Shell;
+	if (s == QLatin1String("Draft"))
+		return GeomodelingFeatureKind::Draft;
+	if (s == QLatin1String("DatumPlane"))
+		return GeomodelingFeatureKind::DatumPlane;
 	return GeomodelingFeatureKind::Sketch;
 }
 
@@ -457,6 +533,28 @@ QString kindToHost(GeomodelingFeatureKind k)
 		return QStringLiteral("Sweep");
 	if (k == GeomodelingFeatureKind::SweepCut)
 		return QStringLiteral("SweepCut");
+	if (k == GeomodelingFeatureKind::Fillet)
+		return QStringLiteral("Fillet");
+	if (k == GeomodelingFeatureKind::Chamfer)
+		return QStringLiteral("Chamfer");
+	if (k == GeomodelingFeatureKind::Revolve)
+		return QStringLiteral("Revolve");
+	if (k == GeomodelingFeatureKind::RevolveCut)
+		return QStringLiteral("RevolveCut");
+	if (k == GeomodelingFeatureKind::LinearPattern)
+		return QStringLiteral("LinearPattern");
+	if (k == GeomodelingFeatureKind::Mirror3D)
+		return QStringLiteral("Mirror3D");
+	if (k == GeomodelingFeatureKind::Loft)
+		return QStringLiteral("Loft");
+	if (k == GeomodelingFeatureKind::LoftCut)
+		return QStringLiteral("LoftCut");
+	if (k == GeomodelingFeatureKind::Shell)
+		return QStringLiteral("Shell");
+	if (k == GeomodelingFeatureKind::Draft)
+		return QStringLiteral("Draft");
+	if (k == GeomodelingFeatureKind::DatumPlane)
+		return QStringLiteral("DatumPlane");
 	return QStringLiteral("Sketch");
 }
 
@@ -468,6 +566,10 @@ QString endToHost(GeomodelingExtrudeEnd e)
 		return QStringLiteral("MidPlane");
 	if (e == GeomodelingExtrudeEnd::ThroughAll)
 		return QStringLiteral("ThroughAll");
+	if (e == GeomodelingExtrudeEnd::UpToVertex)
+		return QStringLiteral("UpToVertex");
+	if (e == GeomodelingExtrudeEnd::OffsetFromFace)
+		return QStringLiteral("OffsetFromFace");
 	return QStringLiteral("Blind");
 }
 
@@ -479,6 +581,10 @@ GeomodelingExtrudeEnd endFromHost(const QString& s)
 		return GeomodelingExtrudeEnd::MidPlane;
 	if (s == QLatin1String("ThroughAll"))
 		return GeomodelingExtrudeEnd::ThroughAll;
+	if (s == QLatin1String("UpToVertex"))
+		return GeomodelingExtrudeEnd::UpToVertex;
+	if (s == QLatin1String("OffsetFromFace"))
+		return GeomodelingExtrudeEnd::OffsetFromFace;
 	return GeomodelingExtrudeEnd::Blind;
 }
 } // namespace
@@ -488,6 +594,8 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 	QJsonArray arr;
 	for (const auto& f : m_features)
 	{
+		if (f.kind == GeomodelingFeatureKind::DatumPlane)
+			continue;
 		QJsonObject o;
 		o.insert(QStringLiteral("id"), f.id);
 		o.insert(QStringLiteral("name"), f.name);
@@ -503,6 +611,18 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 		for (float v : f.profileXyzMm)
 			xyz.append(v);
 		o.insert(QStringLiteral("profile"), xyz);
+		if (!f.profileHolesXyzMm.empty())
+		{
+			QJsonArray holes;
+			for (const auto& h : f.profileHolesXyzMm)
+			{
+				QJsonArray ha;
+				for (float hv : h)
+					ha.append(hv);
+				holes.append(ha);
+			}
+			o.insert(QStringLiteral("profileHoles"), holes);
+		}
 		if (!f.pathXyzMm.empty())
 		{
 			QJsonArray path;
@@ -525,6 +645,8 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 			}
 			o.insert(QStringLiteral("pathSegments"), segs);
 		}
+		if (std::abs(f.twistDeg) > 1e-9)
+			o.insert(QStringLiteral("twistDeg"), f.twistDeg);
 		o.insert(QStringLiteral("lengthMm"), f.lengthMm);
 		o.insert(QStringLiteral("draftAngleDeg"), f.draftAngleDeg);
 		o.insert(QStringLiteral("reversed"), f.reversed);
@@ -543,13 +665,57 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 			o.insert(QStringLiteral("upToFaceBackendId"), f.upToFaceBackendId);
 		if (f.upToFaceIndex >= 0)
 			o.insert(QStringLiteral("upToFaceIndex"), f.upToFaceIndex);
+		if (f.hasUpToVertex)
+			o.insert(QStringLiteral("upToVertex"),
+					  vec3(f.upToVertex.x, f.upToVertex.y, f.upToVertex.z));
+		if (std::abs(f.offsetFromFaceMm) > 1e-9)
+			o.insert(QStringLiteral("offsetFromFaceMm"), f.offsetFromFaceMm);
 		o.insert(QStringLiteral("sketchRefId"), f.sketchRefId);
 		if (!f.pathSketchRefId.isEmpty())
 			o.insert(QStringLiteral("pathSketchRefId"), f.pathSketchRefId);
+		if (!f.loftSketchRefId.isEmpty())
+			o.insert(QStringLiteral("loftSketchRefId"), f.loftSketchRefId);
 		o.insert(QStringLiteral("suppressed"), f.suppressed);
 		o.insert(QStringLiteral("visible"), f.visible);
 		if (!f.sketchDocumentUtf8.isEmpty())
 			o.insert(QStringLiteral("sketchDocument"), QString::fromUtf8(f.sketchDocumentUtf8));
+		if (!f.edgeIndices.empty())
+		{
+			QJsonArray arr;
+			for (int v : f.edgeIndices)
+				arr.append(v);
+			o.insert(QStringLiteral("edgeIndices"), arr);
+		}
+		if (!f.faceIndices.empty())
+		{
+			QJsonArray arr;
+			for (int v : f.faceIndices)
+				arr.append(v);
+			o.insert(QStringLiteral("faceIndices"), arr);
+		}
+		o.insert(QStringLiteral("radiusMm"), f.radiusMm);
+		o.insert(QStringLiteral("chamferDistMm"), f.chamferDistMm);
+		o.insert(QStringLiteral("shellThicknessMm"), f.shellThicknessMm);
+		o.insert(QStringLiteral("revolveAngleDeg"), f.revolveAngleDeg);
+		o.insert(QStringLiteral("axisO"), vec3(f.axisOx, f.axisOy, f.axisOz));
+		o.insert(QStringLiteral("axisD"), vec3(f.axisDx, f.axisDy, f.axisDz));
+		o.insert(QStringLiteral("patternCount"), f.patternCount);
+		o.insert(QStringLiteral("patternD"), vec3(f.patternDx, f.patternDy, f.patternDz));
+		if (!f.patternSourceFeatureId.isEmpty())
+			o.insert(QStringLiteral("patternSourceFeatureId"), f.patternSourceFeatureId);
+		{
+			QJsonObject mp;
+			mp.insert(QStringLiteral("origin"), vec3(f.mirrorPlane.origin.x, f.mirrorPlane.origin.y, f.mirrorPlane.origin.z));
+			mp.insert(QStringLiteral("axisX"),
+					  vec3(f.mirrorPlane.axisX.x, f.mirrorPlane.axisX.y, f.mirrorPlane.axisX.z));
+			mp.insert(QStringLiteral("axisY"),
+					  vec3(f.mirrorPlane.axisY.x, f.mirrorPlane.axisY.y, f.mirrorPlane.axisY.z));
+			mp.insert(QStringLiteral("normal"),
+					  vec3(f.mirrorPlane.normal.x, f.mirrorPlane.normal.y, f.mirrorPlane.normal.z));
+			mp.insert(QStringLiteral("isPlanar"), f.mirrorPlane.isPlanar);
+			o.insert(QStringLiteral("mirrorPlane"), mp);
+		}
+		o.insert(QStringLiteral("mirrorKeepOriginal"), f.mirrorKeepOriginal);
 		arr.append(o);
 	}
 	QJsonObject root;
@@ -590,14 +756,75 @@ bool FeatureDocument::fromParametricHistoryJson(const QByteArray& utf8)
 		}
 		f.upToFaceBackendId = o.value(QStringLiteral("upToFaceBackendId")).toString();
 		f.upToFaceIndex = o.value(QStringLiteral("upToFaceIndex")).toInt(-1);
+		f.hasUpToVertex = false;
+		if (o.contains(QStringLiteral("upToVertex")))
+		{
+			const QJsonArray vtx = o.value(QStringLiteral("upToVertex")).toArray();
+			if (vtx.size() >= 3)
+			{
+				f.upToVertex.x = vtx[0].toDouble();
+				f.upToVertex.y = vtx[1].toDouble();
+				f.upToVertex.z = vtx[2].toDouble();
+				f.hasUpToVertex = true;
+			}
+		}
+		f.offsetFromFaceMm = o.value(QStringLiteral("offsetFromFaceMm")).toDouble(0.0);
+		f.twistDeg = o.value(QStringLiteral("twistDeg")).toDouble(0.0);
 		f.sketchRefId = o.value(QStringLiteral("sketchRefId")).toString();
 		f.pathSketchRefId = o.value(QStringLiteral("pathSketchRefId")).toString();
+		f.loftSketchRefId = o.value(QStringLiteral("loftSketchRefId")).toString();
 		f.suppressed = o.value(QStringLiteral("suppressed")).toBool(false);
 		f.visible = o.value(QStringLiteral("visible")).toBool(true);
 		for (const QJsonValue& p : o.value(QStringLiteral("profile")).toArray())
 			f.profileXyzMm.push_back(static_cast<float>(p.toDouble()));
+		for (const QJsonValue& hv : o.value(QStringLiteral("profileHoles")).toArray())
+		{
+			std::vector<float> hole;
+			for (const QJsonValue& p : hv.toArray())
+				hole.push_back(static_cast<float>(p.toDouble()));
+			if (hole.size() >= 12)
+				f.profileHolesXyzMm.push_back(std::move(hole));
+		}
 		for (const QJsonValue& p : o.value(QStringLiteral("path")).toArray())
 			f.pathXyzMm.push_back(static_cast<float>(p.toDouble()));
+		for (const QJsonValue& ev : o.value(QStringLiteral("edgeIndices")).toArray())
+			f.edgeIndices.push_back(ev.toInt());
+		for (const QJsonValue& fv : o.value(QStringLiteral("faceIndices")).toArray())
+			f.faceIndices.push_back(fv.toInt());
+		f.radiusMm = o.value(QStringLiteral("radiusMm")).toDouble(1.0);
+		f.chamferDistMm = o.value(QStringLiteral("chamferDistMm")).toDouble(1.0);
+		f.shellThicknessMm = o.value(QStringLiteral("shellThicknessMm")).toDouble(1.0);
+		f.revolveAngleDeg = o.value(QStringLiteral("revolveAngleDeg")).toDouble(360.0);
+		{
+			const QJsonArray axisO = o.value(QStringLiteral("axisO")).toArray();
+			const QJsonArray axisD = o.value(QStringLiteral("axisD")).toArray();
+			if (axisO.size() >= 3)
+			{
+				f.axisOx = axisO[0].toDouble();
+				f.axisOy = axisO[1].toDouble();
+				f.axisOz = axisO[2].toDouble();
+			}
+			if (axisD.size() >= 3)
+			{
+				f.axisDx = axisD[0].toDouble();
+				f.axisDy = axisD[1].toDouble();
+				f.axisDz = axisD[2].toDouble();
+			}
+		}
+		f.patternCount = o.value(QStringLiteral("patternCount")).toInt(2);
+		{
+			const QJsonArray patternD = o.value(QStringLiteral("patternD")).toArray();
+			if (patternD.size() >= 3)
+			{
+				f.patternDx = patternD[0].toDouble();
+				f.patternDy = patternD[1].toDouble();
+				f.patternDz = patternD[2].toDouble();
+			}
+		}
+		f.patternSourceFeatureId = o.value(QStringLiteral("patternSourceFeatureId")).toString();
+		if (o.contains(QStringLiteral("mirrorPlane")))
+			f.mirrorPlane = planeFromHost(o.value(QStringLiteral("mirrorPlane")).toObject());
+		f.mirrorKeepOriginal = o.value(QStringLiteral("mirrorKeepOriginal")).toBool(true);
 		for (const QJsonValue& sv : o.value(QStringLiteral("pathSegments")).toArray())
 		{
 			const QJsonObject so = sv.toObject();
@@ -655,4 +882,31 @@ void FeatureDocument::clear()
 	m_features.clear();
 	m_seq = 1;
 	m_rollbackAfterFeatureId.clear();
+}
+
+std::vector<GeomodelingFeature> FeatureDocument::extractDatumPlanes()
+{
+	std::vector<GeomodelingFeature> out;
+	std::vector<GeomodelingFeature> rest;
+	out.reserve(m_features.size());
+	rest.reserve(m_features.size());
+	for (const GeomodelingFeature& f : m_features)
+	{
+		if (f.kind == GeomodelingFeatureKind::DatumPlane)
+			out.push_back(f);
+		else
+			rest.push_back(f);
+	}
+	m_features = std::move(rest);
+	return out;
+}
+
+void FeatureDocument::appendPreserved(const GeomodelingFeature& f)
+{
+	m_features.push_back(f);
+	const QString num = f.id.section(QLatin1Char('_'), -1);
+	bool ok = false;
+	const int n = num.toInt(&ok);
+	if (ok && n >= m_seq)
+		m_seq = n + 1;
 }

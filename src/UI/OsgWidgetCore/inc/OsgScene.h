@@ -150,6 +150,8 @@ public:
 	/// 检测鼠标是否悬停在视角立方体上（用于光标样式反馈）
 	bool isMouseOverViewCube(double logicalX, double logicalY) const;
 	void setCameraViewDirection(const osg::Vec3d& eyeDirectionFromCenter, const osg::Vec3d& upHint);
+	/// 注视 focus，沿 normal 正视平面（草图进入编辑）
+	void orientViewToPlane(const osg::Vec3d& focusMm, const osg::Vec3d& normal, const osg::Vec3d& upHint);
 
 	static osg::Quat eulerDegToQuat(const osg::Vec3f& eulerDeg);
 	static osg::Vec3f quatToEulerDeg(const osg::Quat& q);

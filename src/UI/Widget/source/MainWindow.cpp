@@ -1212,6 +1212,47 @@ void MainWindow::notifyWorkspaceModesChanged()
 	rebuildWorkspaceModeSwitcher();
 }
 
+void MainWindow::markActiveDocumentModified()
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_documentTabs)
+		return;
+	const QString id = doc->documentId();
+	if (id.isEmpty())
+		return;
+	m_modifiedDocumentIds.insert(id);
+	const int idx = m_documentTabs->indexOf(doc);
+	if (idx < 0)
+		return;
+	QString text = m_documentTabs->tabText(idx);
+	if (!text.endsWith(QLatin1Char('*')))
+		m_documentTabs->setTabText(idx, text + QLatin1Char('*'));
+}
+
+void MainWindow::clearActiveDocumentModified()
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_documentTabs)
+		return;
+	const QString id = doc->documentId();
+	m_modifiedDocumentIds.remove(id);
+	const int idx = m_documentTabs->indexOf(doc);
+	if (idx < 0)
+		return;
+	QString text = m_documentTabs->tabText(idx);
+	while (text.endsWith(QLatin1Char('*')))
+		text.chop(1);
+	m_documentTabs->setTabText(idx, text);
+}
+
+bool MainWindow::isActiveDocumentModified() const
+{
+	const DocumentPage* doc = currentPage();
+	if (!doc)
+		return false;
+	return m_modifiedDocumentIds.contains(doc->documentId());
+}
+
 void MainWindow::rebuildWorkspaceModeSwitcher()
 {
 	struct ModeItem

@@ -22,11 +22,14 @@ public:
 	/// 校验并整图替换；成功后可选自动排版
 	virtual bool applyFlowJson(const QJsonObject& flow, bool autoLayout = true, QString* outError = nullptr) = 0;
 
-	/// 同步 DES；config 可含 horizonSec / policy；outStats 为 SimStatistics JSON
+	/// 增量改图：ops 为数组，元素含 op=setNodeProp|addNode|removeNode|connect|disconnect
+	virtual bool applyFlowPatch(const QJsonArray& ops, QString* outError = nullptr) = 0;
+
+	/// 同步 DES；config 可含 horizonSec / policy / openGantt；outStats 为 SimStatistics JSON
 	virtual bool runSimSync(const QJsonObject& config, QJsonObject* outStats = nullptr,
 							QString* outError = nullptr) = 0;
 
-	/// 多策略对比；outRows 为 PolicyCompareRow 数组
+	/// 多策略对比；config.includeTraces 时 outRows 带 operationTrace；否则仅汇总
 	virtual bool compareSync(const QJsonObject& config, QJsonArray* outRows = nullptr,
 							 QString* outError = nullptr) = 0;
 

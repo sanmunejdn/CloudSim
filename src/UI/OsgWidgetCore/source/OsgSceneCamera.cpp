@@ -426,3 +426,47 @@ void OsgScene::setCameraViewDirection(const osg::Vec3d& eyeDirectionFromCenter, 
 	updateCompassScale();
 	requestRedraw();
 }
+
+void OsgScene::orientViewToPlane(const osg::Vec3d& focusMm, const osg::Vec3d& normal, const osg::Vec3d& upHint)
+{
+	if (!m_trackballManipulator.valid() || !m_viewer.valid() || !m_viewer->getCamera())
+		return;
+
+	osg::Vec3d presetDir = normal;
+	if (presetDir.length2() < 1e-12)
+		return;
+	presetDir.normalize();
+
+	osg::Vec3d eye;
+	osg::Vec3d center;
+	osg::Vec3d upCurrent;
+	m_trackballManipulator->getTransformation(eye, center, upCurrent);
+
+	osg::Vec3d offset = eye - center;
+	double dist = offset.length();
+	if (dist < 1e-3 || !std::isfinite(dist))
+		dist = 3000.0;
+
+	osg::Vec3d up = upHint;
+	if (up.length2() < 1e-12)
+	{
+		up.set(0.0, 0.0, 1.0);
+		if (std::abs(presetDir.z()) > 0.9)
+			up.set(0.0, 1.0, 0.0);
+	}
+	up.normalize();
+
+	const osg::Vec3d forward = -presetDir;
+	if (std::abs(forward * up) > 0.95)
+	{
+		up = osg::Vec3d(0.0, 1.0, 0.0);
+		if (std::abs(forward * up) > 0.95)
+			up = osg::Vec3d(1.0, 0.0, 0.0);
+	}
+
+	const osg::Vec3d newEye = focusMm + presetDir * dist;
+	m_trackballManipulator->setTransformation(newEye, focusMm, up);
+	updateCompassScale();
+	requestRedraw();
+}
+

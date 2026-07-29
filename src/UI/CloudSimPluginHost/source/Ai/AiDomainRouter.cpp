@@ -39,6 +39,17 @@ QString AiDomainRouter::resolve(const QString& requestedDomainId, const QString&
 	{
 		return AiDomainIds::meshCompose();
 	}
+	if (t.contains(QStringLiteral("拉伸")) || t.contains(QStringLiteral("法兰")) ||
+		t.contains(QStringLiteral("支架")) || t.contains(QStringLiteral("零件")) ||
+		t.contains(QStringLiteral("凸台")) || t.contains(QStringLiteral("阵列")) ||
+		t.contains(QStringLiteral("圆角")) || t.contains(QStringLiteral("倒角")) ||
+		t.contains(QStringLiteral("切除")) || t.contains(QStringLiteral("草图")) ||
+		t.contains(QStringLiteral("text-to-cad"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("生成模型")) || t.contains(QStringLiteral("建模")) ||
+		t.contains(QStringLiteral("特征")))
+	{
+		return AiDomainIds::featureCompose();
+	}
 
 	if (t.contains(QStringLiteral("中心线")) || t.contains(QStringLiteral("模板点位")) ||
 		t.contains(QStringLiteral("区域划分")) || t.contains(QStringLiteral("特征构建")) ||

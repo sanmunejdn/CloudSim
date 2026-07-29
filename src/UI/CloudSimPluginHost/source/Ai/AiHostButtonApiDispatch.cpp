@@ -1115,7 +1115,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		return doneOk();
 	}
 
-	if (api == "applyProcessFlowGraph" || api == "runProcessFlowSimulation" || api == "compareProcessFlowPolicies")
+	if (api == "applyProcessFlowGraph" || api == "patchProcessFlowGraph" || api == "runProcessFlowSimulation" ||
+		api == "compareProcessFlowPolicies")
 	{
 		IProcessFlowAiBridge* bridge = host.processFlowAiBridge();
 		if (!bridge)
@@ -1155,6 +1156,36 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 				return doneFail(err.isEmpty() ? QStringLiteral("写入流程图失败。") : err);
 			if (outSummary)
 				*outSummary = QStringLiteral("已应用工艺流程图。");
+			return doneOk();
+		}
+
+		if (api == "patchProcessFlowGraph")
+		{
+			QJsonArray ops;
+			if (args.contains("ops") && args["ops"].is_array())
+			{
+				ops = QJsonDocument::fromJson(QByteArray::fromStdString(args["ops"].dump())).array();
+			}
+			else
+			{
+				std::string raw = argString(args, "ops_json");
+				if (raw.empty())
+					raw = argString(args, "ops");
+				if (raw.empty())
+					return doneFail(QStringLiteral("缺少 ops / ops_json。"));
+				if (!raw.empty() && raw.front() == '"' && raw.back() == '"')
+					raw = nlohmann::json::parse(raw).get<std::string>();
+				QJsonParseError pe;
+				const QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(raw), &pe);
+				if (pe.error != QJsonParseError::NoError || !doc.isArray())
+					return doneFail(QStringLiteral("ops_json 不是合法 JSON 数组。"));
+				ops = doc.array();
+			}
+			QString err;
+			if (!bridge->applyFlowPatch(ops, &err))
+				return doneFail(err.isEmpty() ? QStringLiteral("增量改图失败。") : err);
+			if (outSummary)
+				*outSummary = QStringLiteral("已应用工艺流程补丁（%1 条）。").arg(ops.size());
 			return doneOk();
 		}
 

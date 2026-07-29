@@ -2701,6 +2701,9 @@ void OsgWidget::beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float 
 	m_originPlaneHalfMm = halfSizeMm > 1.f ? halfSizeMm : 60.f;
 	m_originPlanePickActive = true;
 	m_originPlaneHoverIndex = -1;
+	// 拾取会话自带半透明面，先藏持久 overlay 避免叠两层
+	if (m_originRefGroup.valid())
+		m_originRefGroup->setNodeMask(0u);
 
 	m_originPlanePickGroup = new osg::Group;
 	m_originPlanePickGroup->setName("OriginPlanePick");
@@ -2841,8 +2844,152 @@ void OsgWidget::cancelOriginPlaneSelection()
 			m_lastViewportCursor = Qt::ArrowCursor;
 			m_glWidget->setCursor(Qt::ArrowCursor);
 		}
+		syncOriginReferenceNodeMasks();
 		requestRedraw();
 	}
+}
+
+void OsgWidget::ensureOriginReferenceGroup()
+{
+	if (m_originRefGroup.valid())
+		return;
+
+	m_originRefGroup = new osg::Group;
+	m_originRefGroup->setName("OriginReference");
+	m_originRefGroup->setNodeMask(kMaskPickOverlay);
+	applyOriginPlaneState(m_originRefGroup->getOrCreateStateSet(), true);
+
+	m_originRefPointGroup = new osg::Group;
+	m_originRefPointGroup->setName("OriginPoint");
+	{
+		const float axisLen = m_originRefHalfMm * 0.45f;
+		const struct
+		{
+			osg::Vec3f dir;
+			osg::Vec4 color;
+		} axes[] = {
+			{{1.f, 0.f, 0.f}, {0.92f, 0.22f, 0.22f, 1.f}},
+			{{0.f, 1.f, 0.f}, {0.22f, 0.78f, 0.32f, 1.f}},
+			{{0.f, 0.f, 1.f}, {0.25f, 0.50f, 0.98f, 1.f}},
+		};
+		osg::ref_ptr<osg::Geode> axisGeode = new osg::Geode;
+		for (const auto& ax : axes)
+		{
+			osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+			verts->push_back(osg::Vec3f(0.f, 0.f, 0.f));
+			verts->push_back(ax.dir * axisLen);
+			osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+			colors->push_back(ax.color);
+			osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+			geom->setVertexArray(verts.get());
+			geom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+			geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
+			axisGeode->addDrawable(geom.get());
+		}
+		osg::ref_ptr<osg::Vec3Array> ptVerts = new osg::Vec3Array;
+		ptVerts->push_back(osg::Vec3f(0.f, 0.f, 0.f));
+		osg::ref_ptr<osg::Vec4Array> ptColors = new osg::Vec4Array;
+		ptColors->push_back(osg::Vec4(1.f, 1.f, 1.f, 1.f));
+		osg::ref_ptr<osg::Geometry> ptGeom = new osg::Geometry;
+		ptGeom->setVertexArray(ptVerts.get());
+		ptGeom->setColorArray(ptColors.get(), osg::Array::BIND_OVERALL);
+		ptGeom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, 1));
+		osg::StateSet* ptSs = ptGeom->getOrCreateStateSet();
+		ptSs->setAttributeAndModes(new osg::Point(6.f),
+								   osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		axisGeode->addDrawable(ptGeom.get());
+		osg::StateSet* ss = axisGeode->getOrCreateStateSet();
+		applyOriginPlaneState(ss, false);
+		ss->setAttributeAndModes(new osg::LineWidth(2.5f),
+								 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		m_originRefPointGroup->addChild(axisGeode.get());
+	}
+	m_originRefGroup->addChild(m_originRefPointGroup.get());
+
+	for (int i = 0; i < 3; ++i)
+	{
+		const OriginPlaneDef& d = kOriginPlanes[i];
+		m_originRefPlaneGroups[i] = new osg::Group;
+		m_originRefPlaneGroups[i]->setName(i == 0 ? "OriginPlaneXY" : (i == 1 ? "OriginPlaneXZ" : "OriginPlaneYZ"));
+
+		osg::ref_ptr<osg::Vec4Array> fillColors = new osg::Vec4Array;
+		fillColors->push_back(d.baseFill);
+		osg::ref_ptr<osg::Geometry> fillGeom = new osg::Geometry;
+		fillOriginPlaneQuadWorld(fillGeom.get(), d, m_originRefHalfMm);
+		fillGeom->setColorArray(fillColors.get(), osg::Array::BIND_OVERALL);
+		fillGeom->setDataVariance(osg::Object::DYNAMIC);
+		fillGeom->setUseDisplayList(false);
+		fillGeom->setUseVertexBufferObjects(false);
+		osg::ref_ptr<osg::Material> fillMat = new osg::Material;
+		setOriginPlaneMaterialColor(fillMat.get(), d.baseFill);
+		osg::ref_ptr<osg::Geode> fillGeode = new osg::Geode;
+		fillGeode->addDrawable(fillGeom.get());
+		osg::StateSet* fillSs = fillGeode->getOrCreateStateSet();
+		applyOriginPlaneState(fillSs, true);
+		fillSs->setAttributeAndModes(fillMat.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+		osg::ref_ptr<osg::Vec4Array> edgeColors = new osg::Vec4Array;
+		edgeColors->push_back(d.baseEdge);
+		osg::ref_ptr<osg::Geometry> edgeGeom = new osg::Geometry;
+		fillOriginPlaneBorderWorld(edgeGeom.get(), d, m_originRefHalfMm);
+		edgeGeom->setColorArray(edgeColors.get(), osg::Array::BIND_OVERALL);
+		edgeGeom->setDataVariance(osg::Object::DYNAMIC);
+		edgeGeom->setUseDisplayList(false);
+		edgeGeom->setUseVertexBufferObjects(false);
+		osg::ref_ptr<osg::Geode> edgeGeode = new osg::Geode;
+		edgeGeode->addDrawable(edgeGeom.get());
+		osg::StateSet* edgeSs = edgeGeode->getOrCreateStateSet();
+		applyOriginPlaneState(edgeSs, false);
+		edgeSs->setAttributeAndModes(new osg::LineWidth(1.8f),
+									 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+		m_originRefPlaneGroups[i]->addChild(fillGeode.get());
+		m_originRefPlaneGroups[i]->addChild(edgeGeode.get());
+		m_originRefGroup->addChild(m_originRefPlaneGroups[i].get());
+	}
+
+	if (m_trajectoryOverlayGroup.valid())
+		m_trajectoryOverlayGroup->addChild(m_originRefGroup.get());
+	else if (m_annotationGroup.valid())
+		m_annotationGroup->addChild(m_originRefGroup.get());
+	else if (m_root.valid())
+		m_root->addChild(m_originRefGroup.get());
+}
+
+void OsgWidget::syncOriginReferenceNodeMasks()
+{
+	if (!m_originRefGroup.valid())
+		return;
+	if (m_originPlanePickActive)
+	{
+		m_originRefGroup->setNodeMask(0u);
+		return;
+	}
+	const bool any = m_originRefPointVisible || m_originRefPlaneVisible[0] || m_originRefPlaneVisible[1] ||
+					 m_originRefPlaneVisible[2];
+	m_originRefGroup->setNodeMask(any ? kMaskPickOverlay : 0u);
+	if (m_originRefPointGroup.valid())
+		m_originRefPointGroup->setNodeMask(m_originRefPointVisible ? 0xffffffffu : 0u);
+	for (int i = 0; i < 3; ++i)
+	{
+		if (m_originRefPlaneGroups[i].valid())
+			m_originRefPlaneGroups[i]->setNodeMask(m_originRefPlaneVisible[i] ? 0xffffffffu : 0u);
+	}
+}
+
+void OsgWidget::setOriginReferenceVisibility(bool originPoint, bool planeXY, bool planeXZ, bool planeYZ,
+											 float halfSizeMm)
+{
+	m_originRefPointVisible = originPoint;
+	m_originRefPlaneVisible[0] = planeXY;
+	m_originRefPlaneVisible[1] = planeXZ;
+	m_originRefPlaneVisible[2] = planeYZ;
+	m_originRefHalfMm = halfSizeMm > 1.f ? halfSizeMm : 60.f;
+	const bool any = originPoint || planeXY || planeXZ || planeYZ;
+	if (any)
+		ensureOriginReferenceGroup();
+	syncOriginReferenceNodeMasks();
+	requestRedraw();
 }
 
 void OsgWidget::setLabelingClickPickMode(const bool enabled, const bool meshFace)

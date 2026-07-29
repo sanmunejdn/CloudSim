@@ -107,6 +107,8 @@
     <ClInclude Include="inc\Ai\AiTrajectoryFeatureCatalog.h" />
     <ClInclude Include="inc\Ai\TrajectoryFeatureDomainHandler.h" />
     <ClInclude Include="inc\Ai\MeshComposeDomainHandler.h" />
+    <ClInclude Include="inc\Ai\FeatureComposeDomainHandler.h" />
+    <ClInclude Include="inc\Ai\AiFeatureComposeSteps.h" />
     <ClInclude Include="inc\Ai\MeshCreateDomainHandler.h" />
     <ClInclude Include="inc\DocumentGeometryOps.h" />
     <ClInclude Include="inc\DocumentPointCloudOps.h" />
@@ -151,6 +153,8 @@
     <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp" />
     <ClCompile Include="source\Ai\TrajectoryFeatureDomainHandler.cpp" />
     <ClCompile Include="source\Ai\MeshComposeDomainHandler.cpp" />
+    <ClCompile Include="source\Ai\FeatureComposeDomainHandler.cpp" />
+    <ClCompile Include="source\Ai\AiFeatureComposeSteps.cpp" />
     <ClCompile Include="source\Ai\MeshCreateDomainHandler.cpp" />
     <ClCompile Include="source\DocumentGeometryOps.cpp" />
     <ClCompile Include="source\DocumentPointCloudOps.cpp" />

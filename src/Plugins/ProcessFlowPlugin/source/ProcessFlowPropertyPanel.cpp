@@ -7,6 +7,7 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -60,6 +61,10 @@ ProcessFlowPropertyPanel::ProcessFlowPropertyPanel(QWidget* parent) : QWidget(pa
 	m_mttrSpin->setSuffix(QStringLiteral(" s"));
 	m_inputsSpin = makeSpin(this, 100.0, 0);
 	m_inputsSpin->setMinimum(1.0);
+	m_bindBackendEdit = new QLineEdit(this);
+	m_bindBackendEdit->setPlaceholderText(QStringLiteral("backendId（仅存储）"));
+	m_bindProgramEdit = new QLineEdit(this);
+	m_bindProgramEdit->setPlaceholderText(QStringLiteral("programId（仅存储）"));
 
 	m_kindLabel = new QLabel(QStringLiteral("类型"), this);
 	m_kindLabel->setObjectName(QStringLiteral("ProcessFlowFieldLabel"));
@@ -83,6 +88,10 @@ ProcessFlowPropertyPanel::ProcessFlowPropertyPanel(QWidget* parent) : QWidget(pa
 	m_mttrLabel->setObjectName(QStringLiteral("ProcessFlowFieldLabel"));
 	m_inputsLabel = new QLabel(QStringLiteral("汇合数"), this);
 	m_inputsLabel->setObjectName(QStringLiteral("ProcessFlowFieldLabel"));
+	m_bindBackendLabel = new QLabel(QStringLiteral("绑定Backend"), this);
+	m_bindBackendLabel->setObjectName(QStringLiteral("ProcessFlowFieldLabel"));
+	m_bindProgramLabel = new QLabel(QStringLiteral("绑定程序"), this);
+	m_bindProgramLabel->setObjectName(QStringLiteral("ProcessFlowFieldLabel"));
 
 	m_form->addRow(m_kindLabel, m_kindCombo);
 	m_form->addRow(m_timeLabel, m_cycleSpin);
@@ -95,6 +104,8 @@ ProcessFlowPropertyPanel::ProcessFlowPropertyPanel(QWidget* parent) : QWidget(pa
 	m_form->addRow(m_mtbfLabel, m_mtbfSpin);
 	m_form->addRow(m_mttrLabel, m_mttrSpin);
 	m_form->addRow(m_inputsLabel, m_inputsSpin);
+	m_form->addRow(m_bindBackendLabel, m_bindBackendEdit);
+	m_form->addRow(m_bindProgramLabel, m_bindProgramEdit);
 
 	root->addWidget(m_titleLabel);
 	root->addLayout(m_form);
@@ -114,6 +125,8 @@ ProcessFlowPropertyPanel::ProcessFlowPropertyPanel(QWidget* parent) : QWidget(pa
 	bindSpin(m_mtbfSpin);
 	bindSpin(m_mttrSpin);
 	bindSpin(m_inputsSpin);
+	connect(m_bindBackendEdit, &QLineEdit::textChanged, this, [this](const QString&) { emitEdited(); });
+	connect(m_bindProgramEdit, &QLineEdit::textChanged, this, [this](const QString&) { emitEdited(); });
 
 	clearSelection();
 }
@@ -131,7 +144,7 @@ void ProcessFlowPropertyPanel::updateFieldVisibility(const QString& kind)
 	const bool isMachine = ProcessFlowNodeProps::isMachineKind(kind);
 	const bool isInspect = kind == QStringLiteral("inspect");
 	const bool isAssembly = kind == QStringLiteral("assembly");
-	const bool isConveyor = kind == QStringLiteral("conveyor");
+	const bool isConveyor = kind == QStringLiteral("conveyor") || kind == QStringLiteral("agv");
 
 	auto setRow = [](QLabel* lab, QWidget* w, bool on)
 	{
@@ -151,6 +164,8 @@ void ProcessFlowPropertyPanel::updateFieldVisibility(const QString& kind)
 		setRow(m_mtbfLabel, m_mtbfSpin, false);
 		setRow(m_mttrLabel, m_mttrSpin, false);
 		setRow(m_inputsLabel, m_inputsSpin, false);
+		setRow(m_bindBackendLabel, m_bindBackendEdit, false);
+		setRow(m_bindProgramLabel, m_bindProgramEdit, false);
 		return;
 	}
 
@@ -164,6 +179,8 @@ void ProcessFlowPropertyPanel::updateFieldVisibility(const QString& kind)
 	setRow(m_mtbfLabel, m_mtbfSpin, isMachine);
 	setRow(m_mttrLabel, m_mttrSpin, isMachine);
 	setRow(m_inputsLabel, m_inputsSpin, isAssembly);
+	setRow(m_bindBackendLabel, m_bindBackendEdit, isMachine);
+	setRow(m_bindProgramLabel, m_bindProgramEdit, isMachine);
 
 	if (isStart)
 	{
@@ -228,6 +245,8 @@ void ProcessFlowPropertyPanel::clearSelection()
 	setSpin(m_mtbfSpin, 0.0);
 	setSpin(m_mttrSpin, 0.0);
 	setSpin(m_inputsSpin, 2.0);
+	m_bindBackendEdit->clear();
+	m_bindProgramEdit->clear();
 	m_block = false;
 	updateFieldVisibility(m_kindCombo->currentData().toString());
 }
@@ -253,6 +272,8 @@ void ProcessFlowPropertyPanel::setNodeProps(int nodeId, const ProcessFlowNodePro
 	setSpin(m_mtbfSpin, props.mtbfSec);
 	setSpin(m_mttrSpin, props.mttrSec);
 	setSpin(m_inputsSpin, std::max(1.0, props.requiredInputs));
+	m_bindBackendEdit->setText(props.bindingBackendId);
+	m_bindProgramEdit->setText(props.bindingProgramId);
 	m_block = false;
 	updateFieldVisibility(props.kind);
 }
@@ -299,5 +320,7 @@ void ProcessFlowPropertyPanel::emitEdited()
 	props.mtbfSec = m_mtbfSpin->value();
 	props.mttrSec = m_mttrSpin->value();
 	props.requiredInputs = m_inputsSpin->value();
+	props.bindingBackendId = m_bindBackendEdit->text().trimmed();
+	props.bindingProgramId = m_bindProgramEdit->text().trimmed();
 	emit propsEdited(m_nodeId, props);
 }
