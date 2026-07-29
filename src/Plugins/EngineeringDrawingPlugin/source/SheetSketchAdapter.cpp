@@ -76,6 +76,7 @@ void SheetSketchAdapter::clear()
 {
 	clearTool();
 	m_doc.clear();
+	m_entityLayer.clear();
 	m_lastSnap = {};
 }
 
@@ -135,12 +136,21 @@ SkVec2 SheetSketchAdapter::applySnap(const QPointF& scene, double tolMm, const Q
 }
 
 bool SheetSketchAdapter::press(const QPointF& scene, bool rightButton, double snapTolMm,
-							   const QVector<QPointF>& extraSnap)
+							   const QVector<QPointF>& extraSnap, const QString& layerId)
 {
 	if (!m_tool)
 		return false;
+	const int beforeMax = maxEntityId();
 	const SkVec2 uv = rightButton ? toUv(scene) : applySnap(scene, snapTolMm, extraSnap);
 	m_tool->onPress(uv, rightButton, m_doc);
+	const QString lid = layerId.isEmpty() ? QStringLiteral("L0") : layerId;
+	QVector<int> ids;
+	collectEntityIds(ids);
+	for (int id : ids)
+	{
+		if (id > beforeMax)
+			m_entityLayer.insert(id, lid);
+	}
 	return true;
 }
 
@@ -253,25 +263,101 @@ QVector<QPointF> SheetSketchAdapter::previewPolyline() const
 
 int SheetSketchAdapter::hitTestEntity(const QPointF& scene, double tolMm) const
 {
+	return hitTestEntity(scene, tolMm, {});
+}
+
+int SheetSketchAdapter::hitTestEntity(const QPointF& scene, double tolMm,
+									  const std::function<bool(int)>& accept) const
+{
 	const SkVec2 uv = toUv(scene);
-	if (const int id = m_doc.hitTestCircle(uv, tolMm); id >= 0)
+	auto tryId = [&](int id) -> int {
+		if (id < 0)
+			return -1;
+		if (accept && !accept(id))
+			return -1;
 		return id;
-	if (const int id = m_doc.hitTestArc(uv, tolMm); id >= 0)
+	};
+	if (const int id = tryId(m_doc.hitTestCircle(uv, tolMm)); id >= 0)
 		return id;
-	if (const int id = m_doc.hitTestSpline(uv, tolMm); id >= 0)
+	if (const int id = tryId(m_doc.hitTestArc(uv, tolMm)); id >= 0)
 		return id;
-	if (const int id = m_doc.hitTestLine(uv, tolMm); id >= 0)
+	if (const int id = tryId(m_doc.hitTestSpline(uv, tolMm)); id >= 0)
+		return id;
+	if (const int id = tryId(m_doc.hitTestLine(uv, tolMm)); id >= 0)
 		return id;
 	return -1;
 }
 
 bool SheetSketchAdapter::removeEntity(int id)
 {
+	m_entityLayer.remove(id);
 	return m_doc.removeEntity(id);
+}
+
+QString SheetSketchAdapter::layerOf(int entityId) const
+{
+	return m_entityLayer.value(entityId, QStringLiteral("L0"));
+}
+
+void SheetSketchAdapter::setLayerOf(int entityId, const QString& layerId)
+{
+	if (entityId < 0)
+		return;
+	m_entityLayer.insert(entityId, layerId.isEmpty() ? QStringLiteral("L0") : layerId);
+}
+
+void SheetSketchAdapter::setEntityLayers(const QHash<int, QString>& map)
+{
+	m_entityLayer = map;
+}
+
+void SheetSketchAdapter::remapLayer(const QString& fromId, const QString& toId)
+{
+	for (auto it = m_entityLayer.begin(); it != m_entityLayer.end(); ++it)
+	{
+		if (it.value() == fromId)
+			it.value() = toId;
+	}
+}
+
+int SheetSketchAdapter::maxEntityId() const
+{
+	int m = 0;
+	auto bump = [&](int id) {
+		if (id > m)
+			m = id;
+	};
+	for (const auto& ln : m_doc.lines())
+		bump(ln.id);
+	for (const auto& a : m_doc.arcs())
+		bump(a.id);
+	for (const auto& c : m_doc.circles())
+		bump(c.id);
+	for (const auto& e : m_doc.ellipses())
+		bump(e.id);
+	for (const auto& s : m_doc.splines())
+		bump(s.id);
+	return m;
+}
+
+void SheetSketchAdapter::collectEntityIds(QVector<int>& out) const
+{
+	out.clear();
+	for (const auto& ln : m_doc.lines())
+		out.push_back(ln.id);
+	for (const auto& a : m_doc.arcs())
+		out.push_back(a.id);
+	for (const auto& c : m_doc.circles())
+		out.push_back(c.id);
+	for (const auto& e : m_doc.ellipses())
+		out.push_back(e.id);
+	for (const auto& s : m_doc.splines())
+		out.push_back(s.id);
 }
 
 bool SheetSketchAdapter::fromJsonUtf8(const QByteArray& utf8)
 {
 	clearTool();
+	m_entityLayer.clear();
 	return m_doc.fromJsonUtf8(utf8);
 }

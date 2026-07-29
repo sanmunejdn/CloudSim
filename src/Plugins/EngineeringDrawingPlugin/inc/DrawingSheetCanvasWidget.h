@@ -2,10 +2,11 @@
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGSHEETCANVASWIDGET_H
 
 /// @file DrawingSheetCanvasWidget.h
-/// @brief 工程图图幅：多视图、草图绘制、标注、拖拽、局部放大
+/// @brief 工程图图幅：多视图、草图、图框、标注、局部放大
 
 #include "SheetSketchAdapter.h"
 
+#include <QColor>
 #include <QJsonObject>
 #include <QPixmap>
 #include <QPointF>
@@ -37,13 +38,25 @@ enum class DrawingCanvasTool
 	SketchSpline,
 	DimRadius,
 	DimDiameter,
-	SelectEntity
+	SelectEntity,
+	DimAngle,
+	NoteLeader
 };
 
 enum class DrawingProjectionMethod
 {
 	FirstAngle = 0,
 	ThirdAngle
+};
+
+enum class DrawingPaperSize
+{
+	A4 = 0,
+	A3,
+	A2,
+	A1,
+	A0,
+	Custom
 };
 
 class DrawingSheetCanvasWidget final : public QWidget
@@ -56,6 +69,15 @@ public:
 		QVector<QPointF> points;
 	};
 
+	struct SheetLayer
+	{
+		QString id;
+		QString name;
+		bool visible = true;
+		bool locked = false;
+		QColor color = QColor(30, 35, 45);
+	};
+
 	struct DrawingView
 	{
 		QString id;
@@ -66,6 +88,7 @@ public:
 		QVector<Polyline2d> hidden;
 		double contentScale = 1.0;
 		QString parentViewId;
+		QString layerId = QStringLiteral("L0");
 	};
 
 	struct SheetDimension
@@ -74,15 +97,43 @@ public:
 		{
 			Linear = 0,
 			Radius,
-			Diameter
+			Diameter,
+			Angle
 		};
 		Kind kind = Kind::Linear;
 		QString id;
 		QPointF p1;
 		QPointF p2;
+		QPointF p3; ///< Angle: 第二射线终点；Linear 未用
 		QPointF textOffset{0.0, -12.0};
+		QString anchorViewId;
+		QString layerId = QStringLiteral("L0");
 		int sketchEntityId = -1;
 		double overrideValue = std::numeric_limits<double>::quiet_NaN();
+	};
+
+	struct SheetNote
+	{
+		QString id;
+		QPointF anchor;
+		QPointF textPos;
+		QString text;
+		QString anchorViewId;
+		QString layerId = QStringLiteral("L0");
+	};
+
+	struct SheetPaper
+	{
+		DrawingPaperSize size = DrawingPaperSize::A4;
+		bool landscape = true;
+		double customWidthMm = 297.0;
+		double customHeightMm = 210.0;
+		/// 图面 mm / 模型 mm；0.5 表示比例 1:2
+		double sheetScale = 1.0;
+		QString title;
+		QString scaleText = QStringLiteral("1:1");
+		QString date;
+		bool visible = true;
 	};
 
 	using LinearDimension = SheetDimension;
@@ -106,6 +157,27 @@ public:
 	void setDimensions(const QVector<SheetDimension>& dims);
 	const QVector<SheetDimension>& dimensions() const { return m_dims; }
 
+	void setNotes(const QVector<SheetNote>& notes);
+	const QVector<SheetNote>& notes() const { return m_notes; }
+
+	SheetPaper& paperMutable() { return m_paper; }
+	const SheetPaper& paper() const { return m_paper; }
+	void setPaper(const SheetPaper& paper);
+	QSizeF paperSizeMm() const;
+	QRectF paperRect() const;
+	QRectF paperDrawableRect() const;
+
+	/// scale：图面/模型；rescaleContent 时按新旧比例改写场景几何
+	void setSheetScale(double scale, bool rescaleContent = true);
+	double sheetScale() const { return m_paper.sheetScale; }
+	void syncScaleTextFromSheetScale();
+	/// 按当前图幅有效区缩放并落位全部视图/标注
+	bool fitViewsToPaper();
+	/// 仅平移落位到图框内（不改比例）
+	void placeViewsInPaper();
+	/// 生成后：按 sheetScale 缩放并落位（假设当前几何为模型 1:1）
+	void applySheetScaleFromModel();
+
 	SheetSketchAdapter& sketch() { return m_sketch; }
 	const SheetSketchAdapter& sketch() const { return m_sketch; }
 
@@ -123,23 +195,44 @@ public:
 
 	bool exportSvg(const QString& filePath) const;
 	bool exportDxf(const QString& filePath) const;
+	bool exportPdf(const QString& filePath);
 
 	QJsonObject toJson() const;
 	bool fromJson(const QJsonObject& root);
-	bool isEmpty() const { return m_views.isEmpty() && m_dims.isEmpty() && m_sketch.document().lines().empty() &&
-								  m_sketch.document().arcs().empty() && m_sketch.document().circles().empty() &&
-								  m_sketch.document().splines().empty(); }
+	bool isEmpty() const;
 
 	QString backendId() const { return m_backendId; }
-	void setBackendId(const QString& id) { m_backendId = id; }
+	void setBackendId(const QString& id);
 
 	bool addDetailView(const QString& parentViewId, const QRectF& regionScene, double scale);
+	bool removeView(const QString& viewId);
+	bool renameView(const QString& viewId, const QString& title);
+	bool setDetailViewScale(const QString& viewId, double scale);
+	QVector<DrawingView> detailViews() const;
+
+	void setDetailScale(double scale);
+	double detailScale() const { return m_detailScale; }
 
 	void setViewCatalog(const QVector<ViewTemplate>& catalog);
 	bool addCatalogViewAt(const QString& kind, const QPointF& sceneTopLeft);
 
+	static QString defaultLayerId() { return QStringLiteral("L0"); }
+	const QVector<SheetLayer>& layers() const { return m_layers; }
+	QString currentLayerId() const { return m_currentLayerId; }
+	bool setCurrentLayer(const QString& layerId);
+	QString addLayer(const QString& name);
+	bool renameLayer(const QString& layerId, const QString& name);
+	bool removeLayer(const QString& layerId);
+	bool setLayerVisible(const QString& layerId, bool visible);
+	bool setLayerLocked(const QString& layerId, bool locked);
+	bool reassignSelectionToCurrentLayer();
+	const SheetLayer* layerById(const QString& layerId) const;
+	bool isLayerDrawable(const QString& layerId) const;
+	bool isLayerEditable(const QString& layerId) const;
+
 signals:
 	void sheetChanged();
+	void layersChanged();
 	void viewChanged(double zoom);
 	void statusMessage(const QString& text);
 
@@ -161,24 +254,42 @@ private:
 	QPointF widgetToScene(const QPointF& widget) const;
 	void clampZoom();
 	QRectF contentBounds() const;
+	void paintSheet(class QPainter& p, bool forExport) const;
 	void drawGrid(class QPainter& p) const;
+	void drawPaper(class QPainter& p) const;
 	void drawView(class QPainter& p, const DrawingView& view) const;
-	void drawSketch(class QPainter& p) const;
+	void drawSketch(class QPainter& p, bool interactive) const;
 	void drawDimension(class QPainter& p, const SheetDimension& dim) const;
+	void drawNote(class QPainter& p, const SheetNote& note) const;
 	void drawDimArrow(class QPainter& p, const QPointF& tipWidget, const QPointF& dirScene) const;
 	int hitViewIndex(const QPointF& scenePos) const;
 	int hitDimensionIndex(const QPointF& scenePos) const;
+	int hitNoteIndex(const QPointF& scenePos) const;
 	void moveViewBy(int index, const QPointF& deltaScene);
+	QString inferAnchorViewId(const QPointF& scenePos) const;
 	QVector<QPointF> collectViewSnapPoints() const;
 	double snapTolMm() const;
 	bool isSketchTool(DrawingCanvasTool t) const;
 	void syncSketchTool();
 	bool resolveCircleDim(int entityId, QPointF& center, QPointF& rim, double& radius) const;
+	bool resolveHlrCircleNear(const QPointF& scenePos, QPointF& center, QPointF& rim, double& radius) const;
 	double dimensionValue(const SheetDimension& dim) const;
 	QString dimensionText(const SheetDimension& dim) const;
+	void ensureDefaultLayer();
+	int layerIndex(const QString& layerId) const;
+	QString uniqueLayerName(const QString& base) const;
+	int hitSketchEntity(const QPointF& scenePos, bool requireEditable) const;
+	void migrateLayerEntities(const QString& fromId, const QString& toId);
+	void scaleSceneContent(double factor);
+	QRectF viewsContentBounds() const;
 
 	QVector<DrawingView> m_views;
 	QVector<SheetDimension> m_dims;
+	QVector<SheetNote> m_notes;
+	QVector<SheetLayer> m_layers;
+	QString m_currentLayerId = QStringLiteral("L0");
+	int m_nextLayerSeq = 1;
+	SheetPaper m_paper;
 	SheetSketchAdapter m_sketch;
 	QVector<ViewTemplate> m_viewCatalog;
 	QString m_backendId;
@@ -195,16 +306,22 @@ private:
 	int m_dimPickStep = 0;
 	QPointF m_dimP1;
 	QPointF m_dimP2;
+	QPointF m_dimP3;
 	int m_dimEntityId = -1;
+	bool m_notePicking = false;
+	QPointF m_noteAnchor;
 	bool m_detailDragging = false;
 	QPointF m_detailStart;
 	QPointF m_detailCurrent;
 	QPointF m_lastWidgetPos;
 	int m_nextDimId = 1;
+	int m_nextNoteId = 1;
 	int m_nextDetailId = 1;
 	int m_nextCatalogViewId = 1;
+	double m_detailScale = 2.0;
 	int m_selectedSketchId = -1;
 	int m_selectedDimIndex = -1;
+	int m_selectedNoteIndex = -1;
 };
 
 QVector<DrawingSheetCanvasWidget::DrawingView> layoutEngineeringViews(

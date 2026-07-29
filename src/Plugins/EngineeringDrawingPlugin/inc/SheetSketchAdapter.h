@@ -8,8 +8,11 @@
 #include "SketchTools.h"
 
 #include <QByteArray>
+#include <QHash>
 #include <QPointF>
+#include <QString>
 #include <QVector>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -39,7 +42,8 @@ public:
 	SkVec2 snapScene(const QPointF& scene, double tolMm, const QVector<QPointF>& extra,
 					 const SkVec2* refForOrtho) const;
 
-	bool press(const QPointF& scene, bool rightButton, double snapTolMm, const QVector<QPointF>& extraSnap);
+	bool press(const QPointF& scene, bool rightButton, double snapTolMm, const QVector<QPointF>& extraSnap,
+			   const QString& layerId = QStringLiteral("L0"));
 	void move(const QPointF& scene, double snapTolMm, const QVector<QPointF>& extraSnap);
 	void cancelTool();
 
@@ -48,17 +52,27 @@ public:
 	SkSnapResult lastSnap() const { return m_lastSnap; }
 
 	int hitTestEntity(const QPointF& scene, double tolMm) const;
+	int hitTestEntity(const QPointF& scene, double tolMm, const std::function<bool(int)>& accept) const;
 	bool removeEntity(int id);
+
+	QString layerOf(int entityId) const;
+	void setLayerOf(int entityId, const QString& layerId);
+	void setEntityLayers(const QHash<int, QString>& map);
+	QHash<int, QString> entityLayers() const { return m_entityLayer; }
+	void remapLayer(const QString& fromId, const QString& toId);
 
 	QByteArray toJsonUtf8() const { return m_doc.toJsonUtf8(); }
 	bool fromJsonUtf8(const QByteArray& utf8);
 
 private:
 	SkVec2 applySnap(const QPointF& scene, double tolMm, const QVector<QPointF>& extra) const;
+	int maxEntityId() const;
+	void collectEntityIds(QVector<int>& out) const;
 
 	SketchDocument2d m_doc;
 	std::unique_ptr<ISketchTool> m_tool;
 	mutable SkSnapResult m_lastSnap;
+	QHash<int, QString> m_entityLayer;
 };
 
 #endif

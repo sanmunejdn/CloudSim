@@ -5,12 +5,16 @@
 
 #include <QAbstractItemView>
 #include <QDrag>
+#include <QHBoxLayout>
+#include <QInputDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMimeData>
 #include <QPainter>
+#include <QPushButton>
 #include <QVBoxLayout>
 
 namespace
@@ -135,10 +139,50 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 	m_viewTitle = new QLabel(QStringLiteral("视角（拖到图幅添加）"), this);
 	m_viewList = new ViewPaletteList(this);
 
+	m_detailTitle = new QLabel(QStringLiteral("局部视图"), this);
+	m_detailList = new QListWidget(this);
+	m_detailList->setMaximumHeight(100);
+	m_detailList->setMinimumHeight(56);
+	auto* detailBtns = new QWidget(this);
+	auto* detailBar = new QHBoxLayout(detailBtns);
+	detailBar->setContentsMargins(0, 0, 0, 0);
+	detailBar->setSpacing(4);
+	m_detailRenameBtn = new QPushButton(QStringLiteral("改名"), detailBtns);
+	m_detailScaleBtn = new QPushButton(QStringLiteral("倍率"), detailBtns);
+	m_detailDeleteBtn = new QPushButton(QStringLiteral("删除"), detailBtns);
+	detailBar->addWidget(m_detailRenameBtn);
+	detailBar->addWidget(m_detailScaleBtn);
+	detailBar->addWidget(m_detailDeleteBtn);
+	detailBar->addStretch(1);
+
+	m_layerTitle = new QLabel(QStringLiteral("图层"), this);
+	m_layerList = new QListWidget(this);
+	m_layerList->setMaximumHeight(140);
+	m_layerList->setMinimumHeight(72);
+	auto* layerBtns = new QWidget(this);
+	auto* layerBar = new QHBoxLayout(layerBtns);
+	layerBar->setContentsMargins(0, 0, 0, 0);
+	layerBar->setSpacing(4);
+	m_layerAddBtn = new QPushButton(QStringLiteral("新建"), layerBtns);
+	m_layerRenameBtn = new QPushButton(QStringLiteral("重命名"), layerBtns);
+	m_layerDeleteBtn = new QPushButton(QStringLiteral("删除"), layerBtns);
+	m_layerMoveBtn = new QPushButton(QStringLiteral("移到当前层"), layerBtns);
+	layerBar->addWidget(m_layerAddBtn);
+	layerBar->addWidget(m_layerRenameBtn);
+	layerBar->addWidget(m_layerDeleteBtn);
+	layerBar->addWidget(m_layerMoveBtn);
+	layerBar->addStretch(1);
+
 	root->addWidget(m_modelTitle);
 	root->addWidget(m_modelList);
 	root->addWidget(m_viewTitle);
 	root->addWidget(m_viewList, 1);
+	root->addWidget(m_detailTitle);
+	root->addWidget(m_detailList);
+	root->addWidget(detailBtns);
+	root->addWidget(m_layerTitle);
+	root->addWidget(m_layerList);
+	root->addWidget(layerBtns);
 
 	connect(m_modelList, &QListWidget::currentRowChanged, this, [this](int row) {
 		if (row < 0 || row >= m_backendIds.size())
@@ -152,6 +196,100 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 		if (!item || !item->data(Qt::UserRole + 1).toBool())
 			return;
 		emit viewTemplateActivated(item->data(Qt::UserRole).toString());
+	});
+	connect(m_layerList, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
+		if (m_layerUiBusy || !m_canvas || !item)
+			return;
+		m_canvas->setCurrentLayer(item->data(Qt::UserRole).toString());
+		rebuildLayerList();
+	});
+	connect(m_layerList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
+		if (m_layerUiBusy || !m_canvas || !item)
+			return;
+		const QString id = item->data(Qt::UserRole).toString();
+		const auto* L = m_canvas->layerById(id);
+		if (!L)
+			return;
+		m_canvas->setLayerLocked(id, !L->locked);
+		rebuildLayerList();
+	});
+	connect(m_layerList, &QListWidget::itemChanged, this, [this](QListWidgetItem* item) {
+		if (m_layerUiBusy || !m_canvas || !item)
+			return;
+		const QString id = item->data(Qt::UserRole).toString();
+		const bool vis = item->checkState() == Qt::Checked;
+		m_canvas->setLayerVisible(id, vis);
+	});
+	connect(m_layerAddBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_canvas)
+			return;
+		bool ok = false;
+		const QString name = QInputDialog::getText(this, QStringLiteral("新建图层"), QStringLiteral("名称"),
+												   QLineEdit::Normal, QStringLiteral("图层"), &ok);
+		if (!ok)
+			return;
+		m_canvas->addLayer(name);
+		rebuildLayerList();
+	});
+	connect(m_layerRenameBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_canvas || !m_layerList || !m_layerList->currentItem())
+			return;
+		const QString id = m_layerList->currentItem()->data(Qt::UserRole).toString();
+		const auto* L = m_canvas->layerById(id);
+		if (!L)
+			return;
+		bool ok = false;
+		const QString name =
+			QInputDialog::getText(this, QStringLiteral("重命名图层"), QStringLiteral("名称"), QLineEdit::Normal, L->name,
+								  &ok);
+		if (!ok || name.trimmed().isEmpty())
+			return;
+		if (!m_canvas->renameLayer(id, name))
+			return;
+		rebuildLayerList();
+	});
+	connect(m_layerDeleteBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_canvas || !m_layerList || !m_layerList->currentItem())
+			return;
+		const QString id = m_layerList->currentItem()->data(Qt::UserRole).toString();
+		if (!m_canvas->removeLayer(id))
+			return;
+		rebuildLayerList();
+	});
+	connect(m_layerMoveBtn, &QPushButton::clicked, this, [this]() {
+		if (m_canvas)
+			m_canvas->reassignSelectionToCurrentLayer();
+	});
+	connect(m_detailRenameBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_canvas || !m_detailList || !m_detailList->currentItem())
+			return;
+		const QString id = m_detailList->currentItem()->data(Qt::UserRole).toString();
+		bool ok = false;
+		const QString name = QInputDialog::getText(this, QStringLiteral("局部视图"), QStringLiteral("标题"),
+												   QLineEdit::Normal, m_detailList->currentItem()->text(), &ok);
+		if (!ok || name.trimmed().isEmpty())
+			return;
+		m_canvas->renameView(id, name);
+		rebuildDetailList();
+	});
+	connect(m_detailScaleBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_canvas || !m_detailList || !m_detailList->currentItem())
+			return;
+		const QString id = m_detailList->currentItem()->data(Qt::UserRole).toString();
+		const double cur = m_detailList->currentItem()->data(Qt::UserRole + 1).toDouble();
+		bool ok = false;
+		const double scale =
+			QInputDialog::getDouble(this, QStringLiteral("局部倍率"), QStringLiteral("倍率"), cur, 1.5, 10.0, 1, &ok);
+		if (!ok)
+			return;
+		m_canvas->setDetailViewScale(id, scale);
+		rebuildDetailList();
+	});
+	connect(m_detailDeleteBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_canvas || !m_detailList || !m_detailList->currentItem())
+			return;
+		m_canvas->removeView(m_detailList->currentItem()->data(Qt::UserRole).toString());
+		rebuildDetailList();
 	});
 
 	// 占位：尚未投影时仍显示四视角卡片
@@ -186,6 +324,76 @@ void DrawingSidePanel::setViewTemplates(const QVector<DrawingViewTemplate>& temp
 {
 	m_templates = templates;
 	rebuildViewList();
+}
+
+void DrawingSidePanel::bindCanvas(DrawingSheetCanvasWidget* canvas)
+{
+	if (m_canvas == canvas)
+	{
+		rebuildLayerList();
+		return;
+	}
+	if (m_canvas)
+		disconnect(m_canvas, nullptr, this, nullptr);
+	m_canvas = canvas;
+	if (m_canvas)
+	{
+		connect(m_canvas, &DrawingSheetCanvasWidget::layersChanged, this, [this]() { rebuildLayerList(); });
+		connect(m_canvas, &DrawingSheetCanvasWidget::sheetChanged, this, [this]() {
+			rebuildLayerList();
+			rebuildDetailList();
+		});
+	}
+	rebuildLayerList();
+	rebuildDetailList();
+}
+
+void DrawingSidePanel::rebuildDetailList()
+{
+	if (!m_detailList)
+		return;
+	m_detailList->clear();
+	if (!m_canvas)
+		return;
+	for (const auto& v : m_canvas->detailViews())
+	{
+		auto* item = new QListWidgetItem(v.title.isEmpty() ? v.id : v.title);
+		item->setData(Qt::UserRole, v.id);
+		item->setData(Qt::UserRole + 1, v.contentScale);
+		m_detailList->addItem(item);
+	}
+}
+
+void DrawingSidePanel::rebuildLayerList()
+{
+	if (!m_layerList)
+		return;
+	m_layerUiBusy = true;
+	m_layerList->clear();
+	if (!m_canvas)
+	{
+		m_layerUiBusy = false;
+		return;
+	}
+	const QString current = m_canvas->currentLayerId();
+	for (const auto& L : m_canvas->layers())
+	{
+		QString text = L.name;
+		if (L.locked)
+			text = QStringLiteral("[锁] %1").arg(text);
+		if (L.id == current)
+			text = QStringLiteral("▶ %1").arg(text);
+		auto* item = new QListWidgetItem(text);
+		item->setData(Qt::UserRole, L.id);
+		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+		item->setCheckState(L.visible ? Qt::Checked : Qt::Unchecked);
+		item->setToolTip(m_useChinese ? QStringLiteral("单击设为当前层；勾选显示；双击切换锁定")
+									  : QStringLiteral("Click=current; check=visible; double-click=lock"));
+		m_layerList->addItem(item);
+		if (L.id == current)
+			m_layerList->setCurrentItem(item);
+	}
+	m_layerUiBusy = false;
 }
 
 void DrawingSidePanel::rebuildViewList()
@@ -247,5 +455,25 @@ void DrawingSidePanel::applyLanguage(bool useChinese)
 	if (m_viewTitle)
 		m_viewTitle->setText(useChinese ? QStringLiteral("视角（拖到图幅添加）")
 										: QStringLiteral("Views (drag to sheet)"));
+	if (m_detailTitle)
+		m_detailTitle->setText(useChinese ? QStringLiteral("局部视图") : QStringLiteral("Details"));
+	if (m_detailRenameBtn)
+		m_detailRenameBtn->setText(useChinese ? QStringLiteral("改名") : QStringLiteral("Rename"));
+	if (m_detailScaleBtn)
+		m_detailScaleBtn->setText(useChinese ? QStringLiteral("倍率") : QStringLiteral("Scale"));
+	if (m_detailDeleteBtn)
+		m_detailDeleteBtn->setText(useChinese ? QStringLiteral("删除") : QStringLiteral("Delete"));
+	if (m_layerTitle)
+		m_layerTitle->setText(useChinese ? QStringLiteral("图层") : QStringLiteral("Layers"));
+	if (m_layerAddBtn)
+		m_layerAddBtn->setText(useChinese ? QStringLiteral("新建") : QStringLiteral("Add"));
+	if (m_layerRenameBtn)
+		m_layerRenameBtn->setText(useChinese ? QStringLiteral("重命名") : QStringLiteral("Rename"));
+	if (m_layerDeleteBtn)
+		m_layerDeleteBtn->setText(useChinese ? QStringLiteral("删除") : QStringLiteral("Delete"));
+	if (m_layerMoveBtn)
+		m_layerMoveBtn->setText(useChinese ? QStringLiteral("移到当前层") : QStringLiteral("Move to current"));
 	rebuildViewList();
+	rebuildLayerList();
+	rebuildDetailList();
 }

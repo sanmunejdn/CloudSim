@@ -57,9 +57,9 @@ bool EngineeringDrawingPlugin::initialize(IPluginHostContext* host)
 {
 	if (!host)
 		return false;
-	if (host->hostVersion() < 0x00012200U)
+	if (host->hostVersion() < 0x00012A00U)
 	{
-		host->logError(QStringLiteral("EngineeringDrawingPlugin requires host 1.34.0+"));
+		host->logError(QStringLiteral("EngineeringDrawingPlugin requires host 1.42.0+"));
 		return false;
 	}
 	m_host = host;
@@ -97,6 +97,8 @@ bool EngineeringDrawingPlugin::initialize(IPluginHostContext* host)
 				m_host->setCentralAlternateWidget(page);
 				m_host->showCentralAlternate();
 				bindPage(page);
+				if (m_ribbon && page->canvas())
+					m_ribbon->syncFromCanvas(page->canvas());
 				refreshBackendList();
 			}
 		});
@@ -170,6 +172,69 @@ void EngineeringDrawingPlugin::ensureRibbon()
 	m_ribbon->applyLanguage(m_host && m_host->useChinese());
 	QObject::connect(m_ribbon, &DrawingRibbonBar::toolRequested, this,
 					 &EngineeringDrawingPlugin::applyToolToActiveCanvas);
+	QObject::connect(m_ribbon, &DrawingRibbonBar::generateRequested, this, &EngineeringDrawingPlugin::generateViews);
+	QObject::connect(m_ribbon, &DrawingRibbonBar::exportSvgRequested, this, [this]() {
+		DrawingPageWidget* page = ensurePageForActiveDocument();
+		if (!page || !page->canvas())
+			return;
+		const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 SVG"), QString(),
+														  QStringLiteral("SVG (*.svg)"));
+		if (path.isEmpty())
+			return;
+		if (!page->canvas()->exportSvg(path))
+			QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 SVG。"));
+	});
+	QObject::connect(m_ribbon, &DrawingRibbonBar::exportDxfRequested, this, [this]() {
+		DrawingPageWidget* page = ensurePageForActiveDocument();
+		if (!page || !page->canvas())
+			return;
+		const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 DXF"), QString(),
+														  QStringLiteral("DXF (*.dxf)"));
+		if (path.isEmpty())
+			return;
+		if (!page->canvas()->exportDxf(path))
+			QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 DXF。"));
+	});
+	QObject::connect(m_ribbon, &DrawingRibbonBar::exportPdfRequested, this, [this]() {
+		DrawingPageWidget* page = ensurePageForActiveDocument();
+		if (!page || !page->canvas() || !m_ribbon)
+			return;
+		m_ribbon->applySheetSettings(page->canvas(), false);
+		const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 PDF"), QString(),
+														  QStringLiteral("PDF (*.pdf)"));
+		if (path.isEmpty())
+			return;
+		if (!page->canvas()->exportPdf(path))
+			QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 PDF。"));
+	});
+	QObject::connect(m_ribbon, &DrawingRibbonBar::fitWindowRequested, this, [this]() {
+		if (DrawingPageWidget* page = ensurePageForActiveDocument())
+			if (page->canvas())
+				page->canvas()->fitToView();
+	});
+	QObject::connect(m_ribbon, &DrawingRibbonBar::fitPaperRequested, this, [this]() {
+		DrawingPageWidget* page = ensurePageForActiveDocument();
+		if (!page || !page->canvas() || !m_ribbon)
+			return;
+		m_ribbon->applySheetSettings(page->canvas(), false);
+		if (page->canvas()->fitViewsToPaper())
+			m_ribbon->syncFromCanvas(page->canvas());
+	});
+	QObject::connect(m_ribbon, &DrawingRibbonBar::gridVisibleChanged, this, [this](bool visible) {
+		if (DrawingPageWidget* page = ensurePageForActiveDocument())
+			if (page->canvas())
+				page->canvas()->setGridVisible(visible);
+	});
+	QObject::connect(m_ribbon, &DrawingRibbonBar::detailScaleChanged, this, [this](double scale) {
+		if (DrawingPageWidget* page = ensurePageForActiveDocument())
+			if (page->canvas())
+				page->canvas()->setDetailScale(scale);
+	});
+	QObject::connect(m_ribbon, &DrawingRibbonBar::sheetSettingsChanged, this, [this](bool rescale) {
+		DrawingPageWidget* page = ensurePageForActiveDocument();
+		if (page && page->canvas() && m_ribbon)
+			m_ribbon->applySheetSettings(page->canvas(), rescale);
+	});
 }
 
 void EngineeringDrawingPlugin::applyToolToActiveCanvas(DrawingCanvasTool tool)
@@ -199,6 +264,11 @@ void EngineeringDrawingPlugin::enterDrawing()
 	m_host->enterAlternateSideUi(m_side, nullptr);
 	m_host->showCentralAlternate();
 	bindPage(page);
+	if (m_ribbon && page->canvas())
+	{
+		m_ribbon->syncFromCanvas(page->canvas());
+		m_ribbon->applySheetSettings(page->canvas(), false);
+	}
 	refreshBackendList();
 	m_inDrawing = true;
 }
@@ -249,28 +319,8 @@ void EngineeringDrawingPlugin::bindPage(DrawingPageWidget* page)
 {
 	if (!page)
 		return;
-	QObject::disconnect(page, nullptr, this, nullptr);
-	QObject::connect(page, &DrawingPageWidget::generateRequested, this, &EngineeringDrawingPlugin::generateViews);
-	QObject::connect(page, &DrawingPageWidget::exportSvgRequested, this, [this, page]() {
-		if (!page->canvas())
-			return;
-		const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 SVG"), QString(),
-														  QStringLiteral("SVG (*.svg)"));
-		if (path.isEmpty())
-			return;
-		if (!page->canvas()->exportSvg(path))
-			QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 SVG。"));
-	});
-	QObject::connect(page, &DrawingPageWidget::exportDxfRequested, this, [this, page]() {
-		if (!page->canvas())
-			return;
-		const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 DXF"), QString(),
-														  QStringLiteral("DXF (*.dxf)"));
-		if (path.isEmpty())
-			return;
-		if (!page->canvas()->exportDxf(path))
-			QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 DXF。"));
-	});
+	if (m_side && page->canvas())
+		m_side->bindCanvas(page->canvas());
 }
 
 void EngineeringDrawingPlugin::refreshBackendList()
@@ -404,7 +454,7 @@ void EngineeringDrawingPlugin::refreshViewPreviews(const QString& backendId)
 		return;
 
 	PluginDrawingProjectParams params;
-	params.thirdAngle = page->thirdAngle();
+	params.thirdAngle = m_ribbon && m_ribbon->thirdAngle();
 	params.includeIso = true;
 	params.includeSection = false;
 	geo->projectBrepToEngineeringDrawing(
@@ -427,7 +477,7 @@ void EngineeringDrawingPlugin::generateViews()
 	IPluginGeometryHost* geo = m_host->geometryHost();
 	IPluginDocument* doc = m_host->activeDocument();
 	DrawingPageWidget* page = ensurePageForActiveDocument();
-	if (!geo || !doc || !page || !page->canvas())
+	if (!geo || !doc || !page || !page->canvas() || !m_ribbon)
 	{
 		m_host->logWarn(QStringLiteral("Cannot generate drawing."));
 		return;
@@ -439,18 +489,23 @@ void EngineeringDrawingPlugin::generateViews()
 		return;
 	}
 
-	PluginDrawingProjectParams params;
-	params.thirdAngle = page->thirdAngle();
-	params.includeIso = page->includeIso();
-	params.includeSection = page->includeSection();
-	params.sectionPlane = page->sectionPlane();
+	m_ribbon->applySheetSettings(page->canvas(), false);
 
-	page->generateButton()->setEnabled(false);
+	PluginDrawingProjectParams params;
+	params.thirdAngle = m_ribbon->thirdAngle();
+	params.includeIso = m_ribbon->includeIso();
+	params.includeSection = m_ribbon->includeSection();
+	params.sectionPlane = m_ribbon->sectionPlane();
+	params.customSection = m_ribbon->customSection();
+	m_ribbon->sectionOriginMm(params.sectionOriginMm);
+	m_ribbon->sectionNormal(params.sectionNormal);
+
+	m_ribbon->generateButton()->setEnabled(false);
 	geo->projectBrepToEngineeringDrawing(
 		doc, backendId.toStdString(), params,
 		[this, page, backendId, params](bool ok, const QString& error, const PluginDrawingHlrResult& result) {
-			if (page && page->generateButton())
-				page->generateButton()->setEnabled(true);
+			if (m_ribbon && m_ribbon->generateButton())
+				m_ribbon->generateButton()->setEnabled(true);
 			if (!ok)
 			{
 				if (m_host)
@@ -481,4 +536,8 @@ void EngineeringDrawingPlugin::onProjectLoaded(const QString& documentId, const 
 	if (!page || !page->canvas())
 		return;
 	page->canvas()->fromJson(drawing);
+	if (m_inDrawing && m_ribbon && page->canvas() &&
+		m_host && m_host->activeDocument() &&
+		QString::fromStdString(m_host->activeDocument()->documentId()) == documentId)
+		m_ribbon->syncFromCanvas(page->canvas());
 }

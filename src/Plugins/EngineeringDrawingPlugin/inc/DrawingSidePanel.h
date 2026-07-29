@@ -2,11 +2,12 @@
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGSIDEPANEL_H
 
 /// @file DrawingSidePanel.h
-/// @brief 左侧：模型列表 + 可拖拽视角预览
+/// @brief 左侧：模型列表 + 可拖拽视角预览 + 图层
 
 #include "DrawingSheetCanvasWidget.h"
 
 #include <QPixmap>
+#include <QPointer>
 #include <QSize>
 #include <QString>
 #include <QVector>
@@ -14,6 +15,7 @@
 
 class QLabel;
 class QListWidget;
+class QPushButton;
 
 using DrawingViewTemplate = DrawingSheetCanvasWidget::ViewTemplate;
 
@@ -38,6 +40,7 @@ public:
 	QString selectedBackendId() const;
 	void setViewTemplates(const QVector<DrawingViewTemplate>& templates);
 	const QVector<DrawingViewTemplate>& viewTemplates() const { return m_templates; }
+	void bindCanvas(DrawingSheetCanvasWidget* canvas);
 	void applyLanguage(bool useChinese);
 
 signals:
@@ -46,14 +49,29 @@ signals:
 
 private:
 	void rebuildViewList();
+	void rebuildLayerList();
+	void rebuildDetailList();
 
 	QLabel* m_modelTitle = nullptr;
 	QListWidget* m_modelList = nullptr;
 	QLabel* m_viewTitle = nullptr;
 	QListWidget* m_viewList = nullptr;
+	QLabel* m_detailTitle = nullptr;
+	QListWidget* m_detailList = nullptr;
+	QPushButton* m_detailRenameBtn = nullptr;
+	QPushButton* m_detailScaleBtn = nullptr;
+	QPushButton* m_detailDeleteBtn = nullptr;
+	QLabel* m_layerTitle = nullptr;
+	QListWidget* m_layerList = nullptr;
+	QPushButton* m_layerAddBtn = nullptr;
+	QPushButton* m_layerRenameBtn = nullptr;
+	QPushButton* m_layerDeleteBtn = nullptr;
+	QPushButton* m_layerMoveBtn = nullptr;
 	QStringList m_backendIds;
 	QVector<DrawingViewTemplate> m_templates;
+	QPointer<DrawingSheetCanvasWidget> m_canvas;
 	bool m_useChinese = true;
+	bool m_layerUiBusy = false;
 };
 
 #endif
