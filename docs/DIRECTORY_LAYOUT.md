@@ -12,7 +12,7 @@ CloudSim/
 ├── Directory.Build.props
 ├── ARCHITECTURE_SUMMARY.md
 ├── .clang-format
-├── docs/                        # 常读 + CloudSim全阶段整治；历史见 docs/_archive/
+├── docs/                        # 常读（含 几何建模/）+ 整治；历史见 docs/_archive/
 ├── scripts/                     # 格式/筛选器等维护脚本
 ├── tools/                       # 验证工具、训练、维护脚本
 ├── .cursor/

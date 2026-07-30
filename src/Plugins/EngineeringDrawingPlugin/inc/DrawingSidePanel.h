@@ -13,6 +13,8 @@
 #include <QVector>
 #include <QWidget>
 
+class QComboBox;
+class QDoubleSpinBox;
 class QLabel;
 class QListWidget;
 class QPushButton;
@@ -51,6 +53,8 @@ private:
 	void rebuildViewList();
 	void rebuildLayerList();
 	void rebuildDetailList();
+	void syncLayerStyleUi();
+	QString selectedLayerId() const;
 
 	QLabel* m_modelTitle = nullptr;
 	QListWidget* m_modelList = nullptr;
@@ -67,6 +71,11 @@ private:
 	QPushButton* m_layerRenameBtn = nullptr;
 	QPushButton* m_layerDeleteBtn = nullptr;
 	QPushButton* m_layerMoveBtn = nullptr;
+	QPushButton* m_layerColorBtn = nullptr;
+	QLabel* m_layerLineTypeLabel = nullptr;
+	QComboBox* m_layerLineTypeCombo = nullptr;
+	QLabel* m_layerWidthLabel = nullptr;
+	QDoubleSpinBox* m_layerWidthSpin = nullptr;
 	QStringList m_backendIds;
 	QVector<DrawingViewTemplate> m_templates;
 	QPointer<DrawingSheetCanvasWidget> m_canvas;

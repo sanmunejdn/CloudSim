@@ -32,24 +32,28 @@ QString AiDomainRouter::resolve(const QString& requestedDomainId, const QString&
 	{
 		return AiDomainIds::geometryRecognize();
 	}
-	if (t.contains(QStringLiteral("挖")) || t.contains(QStringLiteral("通孔")) || t.contains(QStringLiteral("盲孔")) ||
-		t.contains(QStringLiteral("布尔")) || t.contains(QStringLiteral("差集")) ||
-		t.contains(QStringLiteral("并集")) || t.contains(QStringLiteral("相交")) ||
-		t.contains(QStringLiteral("boolean"), Qt::CaseInsensitive))
-	{
-		return AiDomainIds::meshCompose();
-	}
-	if (t.contains(QStringLiteral("拉伸")) || t.contains(QStringLiteral("法兰")) ||
-		t.contains(QStringLiteral("支架")) || t.contains(QStringLiteral("零件")) ||
-		t.contains(QStringLiteral("凸台")) || t.contains(QStringLiteral("阵列")) ||
-		t.contains(QStringLiteral("圆角")) || t.contains(QStringLiteral("倒角")) ||
-		t.contains(QStringLiteral("切除")) || t.contains(QStringLiteral("草图")) ||
-		t.contains(QStringLiteral("text-to-cad"), Qt::CaseInsensitive) ||
-		t.contains(QStringLiteral("生成模型")) || t.contains(QStringLiteral("建模")) ||
-		t.contains(QStringLiteral("特征")))
-	{
+	const bool holeCue = t.contains(QStringLiteral("挖")) || t.contains(QStringLiteral("通孔")) ||
+						 t.contains(QStringLiteral("盲孔")) || t.contains(QStringLiteral("穿孔")) ||
+						 t.contains(QStringLiteral("钻孔"));
+	const bool booleanCue = t.contains(QStringLiteral("布尔")) || t.contains(QStringLiteral("差集")) ||
+							t.contains(QStringLiteral("并集")) || t.contains(QStringLiteral("相交")) ||
+							t.contains(QStringLiteral("boolean"), Qt::CaseInsensitive);
+	const bool featureCue = t.contains(QStringLiteral("拉伸")) || t.contains(QStringLiteral("法兰")) ||
+							t.contains(QStringLiteral("支架")) || t.contains(QStringLiteral("零件")) ||
+							t.contains(QStringLiteral("凸台")) || t.contains(QStringLiteral("阵列")) ||
+							t.contains(QStringLiteral("圆角")) || t.contains(QStringLiteral("倒角")) ||
+							t.contains(QStringLiteral("切除")) || t.contains(QStringLiteral("草图")) ||
+							t.contains(QStringLiteral("板")) || t.contains(QStringLiteral("旋转")) ||
+							t.contains(QStringLiteral("text-to-cad"), Qt::CaseInsensitive) ||
+							t.contains(QStringLiteral("生成模型")) || t.contains(QStringLiteral("建模")) ||
+							t.contains(QStringLiteral("特征"));
+	// 板/建模 + 孔 → 特征链 Pocket；纯布尔词仍 mesh
+	if (holeCue && featureCue)
 		return AiDomainIds::featureCompose();
-	}
+	if (holeCue || booleanCue)
+		return AiDomainIds::meshCompose();
+	if (featureCue)
+		return AiDomainIds::featureCompose();
 
 	if (t.contains(QStringLiteral("中心线")) || t.contains(QStringLiteral("模板点位")) ||
 		t.contains(QStringLiteral("区域划分")) || t.contains(QStringLiteral("特征构建")) ||

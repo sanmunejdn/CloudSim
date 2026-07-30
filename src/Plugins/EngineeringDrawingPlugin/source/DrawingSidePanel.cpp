@@ -4,6 +4,9 @@
 #include "DrawingSidePanel.h"
 
 #include <QAbstractItemView>
+#include <QColorDialog>
+#include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QDrag>
 #include <QHBoxLayout>
 #include <QInputDialog>
@@ -15,6 +18,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 namespace
@@ -173,6 +177,33 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 	layerBar->addWidget(m_layerMoveBtn);
 	layerBar->addStretch(1);
 
+	auto* layerStyle = new QWidget(this);
+	auto* styleBar = new QHBoxLayout(layerStyle);
+	styleBar->setContentsMargins(0, 0, 0, 0);
+	styleBar->setSpacing(4);
+	m_layerColorBtn = new QPushButton(QStringLiteral("颜色"), layerStyle);
+	m_layerColorBtn->setFixedWidth(48);
+	m_layerLineTypeLabel = new QLabel(QStringLiteral("线型"), layerStyle);
+	m_layerLineTypeCombo = new QComboBox(layerStyle);
+	m_layerLineTypeCombo->addItem(QStringLiteral("实线"), static_cast<int>(SheetLineType::Continuous));
+	m_layerLineTypeCombo->addItem(QStringLiteral("虚线"), static_cast<int>(SheetLineType::Dashed));
+	m_layerLineTypeCombo->addItem(QStringLiteral("中心线"), static_cast<int>(SheetLineType::Center));
+	m_layerLineTypeCombo->addItem(QStringLiteral("点划线"), static_cast<int>(SheetLineType::DashDot));
+	m_layerLineTypeCombo->setMinimumWidth(84);
+	m_layerWidthLabel = new QLabel(QStringLiteral("线宽"), layerStyle);
+	m_layerWidthSpin = new QDoubleSpinBox(layerStyle);
+	m_layerWidthSpin->setRange(0.13, 2.0);
+	m_layerWidthSpin->setDecimals(2);
+	m_layerWidthSpin->setSingleStep(0.05);
+	m_layerWidthSpin->setSuffix(QStringLiteral(" mm"));
+	m_layerWidthSpin->setValue(0.35);
+	m_layerWidthSpin->setMaximumWidth(88);
+	styleBar->addWidget(m_layerColorBtn);
+	styleBar->addWidget(m_layerLineTypeLabel);
+	styleBar->addWidget(m_layerLineTypeCombo, 1);
+	styleBar->addWidget(m_layerWidthLabel);
+	styleBar->addWidget(m_layerWidthSpin);
+
 	root->addWidget(m_modelTitle);
 	root->addWidget(m_modelList);
 	root->addWidget(m_viewTitle);
@@ -183,6 +214,7 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 	root->addWidget(m_layerTitle);
 	root->addWidget(m_layerList);
 	root->addWidget(layerBtns);
+	root->addWidget(layerStyle);
 
 	connect(m_modelList, &QListWidget::currentRowChanged, this, [this](int row) {
 		if (row < 0 || row >= m_backendIds.size())
@@ -203,6 +235,10 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 		m_canvas->setCurrentLayer(item->data(Qt::UserRole).toString());
 		rebuildLayerList();
 	});
+	connect(m_layerList, &QListWidget::currentItemChanged, this, [this](QListWidgetItem*, QListWidgetItem*) {
+		if (!m_layerUiBusy)
+			syncLayerStyleUi();
+	});
 	connect(m_layerList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
 		if (m_layerUiBusy || !m_canvas || !item)
 			return;
@@ -219,6 +255,32 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 		const QString id = item->data(Qt::UserRole).toString();
 		const bool vis = item->checkState() == Qt::Checked;
 		m_canvas->setLayerVisible(id, vis);
+	});
+	connect(m_layerColorBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_canvas)
+			return;
+		const QString id = selectedLayerId();
+		const auto* L = m_canvas->layerById(id);
+		if (!L)
+			return;
+		const QColor c = QColorDialog::getColor(L->color, this, m_useChinese ? QStringLiteral("图层颜色")
+																			 : QStringLiteral("Layer Color"));
+		if (!c.isValid())
+			return;
+		m_canvas->setLayerColor(id, c);
+		rebuildLayerList();
+	});
+	connect(m_layerLineTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+		if (m_layerUiBusy || !m_canvas || !m_layerLineTypeCombo)
+			return;
+		const QString id = selectedLayerId();
+		const SheetLineType t = static_cast<SheetLineType>(m_layerLineTypeCombo->currentData().toInt());
+		m_canvas->setLayerLineType(id, t);
+	});
+	connect(m_layerWidthSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double w) {
+		if (m_layerUiBusy || !m_canvas)
+			return;
+		m_canvas->setLayerLineWidth(selectedLayerId(), w);
 	});
 	connect(m_layerAddBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_canvas)
@@ -373,9 +435,24 @@ void DrawingSidePanel::rebuildLayerList()
 	if (!m_canvas)
 	{
 		m_layerUiBusy = false;
+		syncLayerStyleUi();
 		return;
 	}
 	const QString current = m_canvas->currentLayerId();
+	auto lineTypeName = [this](SheetLineType t) -> QString {
+		switch (t)
+		{
+		case SheetLineType::Dashed:
+			return m_useChinese ? QStringLiteral("虚线") : QStringLiteral("Dashed");
+		case SheetLineType::Center:
+			return m_useChinese ? QStringLiteral("中心线") : QStringLiteral("Center");
+		case SheetLineType::DashDot:
+			return m_useChinese ? QStringLiteral("点划线") : QStringLiteral("DashDot");
+		case SheetLineType::Continuous:
+		default:
+			return m_useChinese ? QStringLiteral("实线") : QStringLiteral("Continuous");
+		}
+	};
 	for (const auto& L : m_canvas->layers())
 	{
 		QString text = L.name;
@@ -387,13 +464,54 @@ void DrawingSidePanel::rebuildLayerList()
 		item->setData(Qt::UserRole, L.id);
 		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
 		item->setCheckState(L.visible ? Qt::Checked : Qt::Unchecked);
-		item->setToolTip(m_useChinese ? QStringLiteral("单击设为当前层；勾选显示；双击切换锁定")
-									  : QStringLiteral("Click=current; check=visible; double-click=lock"));
+		item->setForeground(L.color);
+		const QString tip =
+			m_useChinese
+				? QStringLiteral("%1 · %2 mm · 单击当前层；勾选显示；双击锁定")
+					  .arg(lineTypeName(L.lineType))
+					  .arg(L.lineWidthMm, 0, 'f', 2)
+				: QStringLiteral("%1 · %2 mm · click=current; check=visible; dbl=lock")
+					  .arg(lineTypeName(L.lineType))
+					  .arg(L.lineWidthMm, 0, 'f', 2);
+		item->setToolTip(tip);
 		m_layerList->addItem(item);
 		if (L.id == current)
 			m_layerList->setCurrentItem(item);
 	}
 	m_layerUiBusy = false;
+	syncLayerStyleUi();
+}
+
+QString DrawingSidePanel::selectedLayerId() const
+{
+	if (m_layerList && m_layerList->currentItem())
+		return m_layerList->currentItem()->data(Qt::UserRole).toString();
+	return m_canvas ? m_canvas->currentLayerId() : QStringLiteral("L0");
+}
+
+void DrawingSidePanel::syncLayerStyleUi()
+{
+	if (!m_layerColorBtn || !m_layerLineTypeCombo || !m_layerWidthSpin)
+		return;
+	const bool has = m_canvas != nullptr;
+	m_layerColorBtn->setEnabled(has);
+	m_layerLineTypeCombo->setEnabled(has);
+	m_layerWidthSpin->setEnabled(has);
+	if (!has)
+		return;
+	const auto* L = m_canvas->layerById(selectedLayerId());
+	if (!L)
+		return;
+	const QSignalBlocker b1(m_layerLineTypeCombo);
+	const QSignalBlocker b2(m_layerWidthSpin);
+	const int idx = m_layerLineTypeCombo->findData(static_cast<int>(L->lineType));
+	if (idx >= 0)
+		m_layerLineTypeCombo->setCurrentIndex(idx);
+	m_layerWidthSpin->setValue(L->lineWidthMm);
+	m_layerColorBtn->setStyleSheet(QStringLiteral("QPushButton { background-color: %1; color: %2; }")
+									   .arg(L->color.name(QColor::HexRgb),
+											L->color.lightness() > 140 ? QStringLiteral("#111")
+																	   : QStringLiteral("#fff")));
 }
 
 void DrawingSidePanel::rebuildViewList()
@@ -473,6 +591,20 @@ void DrawingSidePanel::applyLanguage(bool useChinese)
 		m_layerDeleteBtn->setText(useChinese ? QStringLiteral("删除") : QStringLiteral("Delete"));
 	if (m_layerMoveBtn)
 		m_layerMoveBtn->setText(useChinese ? QStringLiteral("移到当前层") : QStringLiteral("Move to current"));
+	if (m_layerColorBtn)
+		m_layerColorBtn->setText(useChinese ? QStringLiteral("颜色") : QStringLiteral("Color"));
+	if (m_layerLineTypeLabel)
+		m_layerLineTypeLabel->setText(useChinese ? QStringLiteral("线型") : QStringLiteral("Type"));
+	if (m_layerWidthLabel)
+		m_layerWidthLabel->setText(useChinese ? QStringLiteral("线宽") : QStringLiteral("Width"));
+	if (m_layerLineTypeCombo)
+	{
+		const QSignalBlocker b(m_layerLineTypeCombo);
+		m_layerLineTypeCombo->setItemText(0, useChinese ? QStringLiteral("实线") : QStringLiteral("Continuous"));
+		m_layerLineTypeCombo->setItemText(1, useChinese ? QStringLiteral("虚线") : QStringLiteral("Dashed"));
+		m_layerLineTypeCombo->setItemText(2, useChinese ? QStringLiteral("中心线") : QStringLiteral("Center"));
+		m_layerLineTypeCombo->setItemText(3, useChinese ? QStringLiteral("点划线") : QStringLiteral("DashDot"));
+	}
 	rebuildViewList();
 	rebuildLayerList();
 	rebuildDetailList();

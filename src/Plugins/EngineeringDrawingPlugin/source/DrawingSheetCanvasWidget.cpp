@@ -810,6 +810,114 @@ bool DrawingSheetCanvasWidget::setLayerLocked(const QString& layerId, bool locke
 	return true;
 }
 
+QString DrawingSheetCanvasWidget::lineTypeToString(SheetLineType t)
+{
+	switch (t)
+	{
+	case SheetLineType::Dashed:
+		return QStringLiteral("dashed");
+	case SheetLineType::Center:
+		return QStringLiteral("center");
+	case SheetLineType::DashDot:
+		return QStringLiteral("dashDot");
+	case SheetLineType::Continuous:
+	default:
+		return QStringLiteral("continuous");
+	}
+}
+
+SheetLineType DrawingSheetCanvasWidget::lineTypeFromString(const QString& s)
+{
+	if (s == QLatin1String("dashed"))
+		return SheetLineType::Dashed;
+	if (s == QLatin1String("center"))
+		return SheetLineType::Center;
+	if (s == QLatin1String("dashDot") || s == QLatin1String("dashdot"))
+		return SheetLineType::DashDot;
+	return SheetLineType::Continuous;
+}
+
+bool DrawingSheetCanvasWidget::setLayerColor(const QString& layerId, const QColor& color)
+{
+	const int idx = layerIndex(layerId);
+	if (idx < 0 || !color.isValid())
+		return false;
+	if (m_layers[idx].color == color)
+		return true;
+	m_layers[idx].color = color;
+	emit layersChanged();
+	emit sheetChanged();
+	update();
+	return true;
+}
+
+bool DrawingSheetCanvasWidget::setLayerLineType(const QString& layerId, SheetLineType lineType)
+{
+	const int idx = layerIndex(layerId);
+	if (idx < 0)
+		return false;
+	if (m_layers[idx].lineType == lineType)
+		return true;
+	m_layers[idx].lineType = lineType;
+	emit layersChanged();
+	emit sheetChanged();
+	update();
+	return true;
+}
+
+bool DrawingSheetCanvasWidget::setLayerLineWidth(const QString& layerId, double widthMm)
+{
+	const int idx = layerIndex(layerId);
+	if (idx < 0)
+		return false;
+	const double w = qBound(0.05, widthMm, 5.0);
+	if (std::abs(m_layers[idx].lineWidthMm - w) < 1e-9)
+		return true;
+	m_layers[idx].lineWidthMm = w;
+	emit layersChanged();
+	emit sheetChanged();
+	update();
+	return true;
+}
+
+QPen DrawingSheetCanvasWidget::penForLayer(const QString& layerId, bool forceDashed, bool selected) const
+{
+	const SheetLayer* L = layerById(layerId);
+	QColor color = L ? L->color : QColor(30, 35, 45);
+	SheetLineType lt = L ? L->lineType : SheetLineType::Continuous;
+	double widthMm = L ? L->lineWidthMm : 0.35;
+	if (!(widthMm > 1e-6))
+		widthMm = 0.35;
+	if (forceDashed)
+		lt = SheetLineType::Dashed;
+	if (selected)
+		color = QColor(142, 68, 173);
+
+	Qt::PenStyle style = Qt::SolidLine;
+	switch (lt)
+	{
+	case SheetLineType::Dashed:
+		style = Qt::DashLine;
+		break;
+	case SheetLineType::Center:
+		style = Qt::DashDotLine;
+		break;
+	case SheetLineType::DashDot:
+		style = Qt::DashDotDotLine;
+		break;
+	case SheetLineType::Continuous:
+	default:
+		style = Qt::SolidLine;
+		break;
+	}
+
+	const double px = qMax(0.8, widthMm * m_zoom * (selected ? 1.35 : 1.0));
+	QPen pen(color, px, style);
+	pen.setCapStyle(Qt::RoundCap);
+	pen.setJoinStyle(Qt::RoundJoin);
+	return pen;
+}
+
 bool DrawingSheetCanvasWidget::reassignSelectionToCurrentLayer()
 {
 	if (!isLayerEditable(m_currentLayerId))
@@ -1251,8 +1359,8 @@ void DrawingSheetCanvasWidget::drawView(QPainter& p, const DrawingView& view) co
 			p.drawPolyline(polyWidget);
 		}
 	};
-	drawPolys(view.hidden, QPen(QColor(140, 145, 155), 1.0, Qt::DashLine));
-	drawPolys(view.visible, QPen(QColor(20, 24, 32), 1.6, Qt::SolidLine));
+	drawPolys(view.hidden, penForLayer(view.layerId, true, false));
+	drawPolys(view.visible, penForLayer(view.layerId, false, false));
 	p.restore();
 }
 
@@ -1263,11 +1371,17 @@ void DrawingSheetCanvasWidget::drawSketch(QPainter& p, bool interactive) const
 	{
 		if (poly.points.size() < 2)
 			continue;
-		if (!isLayerDrawable(m_sketch.layerOf(poly.entityId)))
+		const QString lid = m_sketch.layerOf(poly.entityId);
+		if (!isLayerDrawable(lid))
 			continue;
 		const bool sel = interactive && poly.entityId >= 0 && poly.entityId == m_selectedSketchId;
-		QPen pen(poly.construction ? QColor(140, 145, 155) : QColor(30, 120, 180), sel ? 2.4 : 1.6,
-				 poly.construction ? Qt::DashLine : Qt::SolidLine);
+		QPen pen = penForLayer(lid, poly.construction, sel);
+		if (poly.construction && !sel)
+		{
+			QColor c = pen.color();
+			c.setAlpha(170);
+			pen.setColor(c);
+		}
 		p.setPen(pen);
 		QPolygonF w;
 		for (const QPointF& pt : poly.points)
@@ -1352,8 +1466,7 @@ void DrawingSheetCanvasWidget::drawDimension(QPainter& p, const SheetDimension& 
 	p.save();
 	const bool sel = m_selectedDimIndex >= 0 && m_selectedDimIndex < m_dims.size() &&
 					 m_dims[m_selectedDimIndex].id == dim.id;
-	QPen pen(sel ? QColor(142, 68, 173) : QColor(192, 57, 43), sel ? 1.8 : 1.2);
-	p.setPen(pen);
+	p.setPen(penForLayer(dim.layerId, false, sel));
 
 	if (dim.kind == SheetDimension::Kind::Linear)
 	{
@@ -1435,7 +1548,7 @@ void DrawingSheetCanvasWidget::drawNote(QPainter& p, const SheetNote& note) cons
 	p.save();
 	const bool sel = m_selectedNoteIndex >= 0 && m_selectedNoteIndex < m_notes.size() &&
 					 m_notes[m_selectedNoteIndex].id == note.id;
-	p.setPen(QPen(sel ? QColor(142, 68, 173) : QColor(52, 73, 94), sel ? 1.6 : 1.1));
+	p.setPen(penForLayer(note.layerId, false, sel));
 	p.drawLine(sceneToWidget(note.anchor), sceneToWidget(note.textPos));
 	p.drawEllipse(sceneToWidget(note.anchor), 3, 3);
 	p.drawText(sceneToWidget(note.textPos) + QPointF(4, -2), note.text);
@@ -2333,7 +2446,7 @@ void DrawingSheetCanvasWidget::wheelEvent(QWheelEvent* event)
 QJsonObject DrawingSheetCanvasWidget::toJson() const
 {
 	QJsonObject root;
-	root.insert(QStringLiteral("version"), 6);
+	root.insert(QStringLiteral("version"), 7);
 	root.insert(QStringLiteral("backendId"), m_backendId);
 	root.insert(QStringLiteral("projection"),
 				m_projection == DrawingProjectionMethod::ThirdAngle ? QStringLiteral("thirdAngle")
@@ -2348,6 +2461,8 @@ QJsonObject DrawingSheetCanvasWidget::toJson() const
 		lo.insert(QStringLiteral("visible"), L.visible);
 		lo.insert(QStringLiteral("locked"), L.locked);
 		lo.insert(QStringLiteral("color"), L.color.name(QColor::HexRgb));
+		lo.insert(QStringLiteral("lineType"), lineTypeToString(L.lineType));
+		lo.insert(QStringLiteral("lineWidthMm"), L.lineWidthMm);
 		layersArr.append(lo);
 	}
 	root.insert(QStringLiteral("layers"), layersArr);
@@ -2486,6 +2601,10 @@ bool DrawingSheetCanvasWidget::fromJson(const QJsonObject& root)
 		const QString colorName = lo.value(QStringLiteral("color")).toString();
 		if (!colorName.isEmpty())
 			L.color = QColor(colorName);
+		L.lineType = lineTypeFromString(lo.value(QStringLiteral("lineType")).toString());
+		L.lineWidthMm = lo.value(QStringLiteral("lineWidthMm")).toDouble(0.35);
+		if (!(L.lineWidthMm > 1e-6))
+			L.lineWidthMm = 0.35;
 		if (L.id.isEmpty())
 			continue;
 		m_layers.push_back(L);

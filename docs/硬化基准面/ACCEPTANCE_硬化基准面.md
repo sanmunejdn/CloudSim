@@ -12,17 +12,18 @@
 | T7 DatumPlane 持久化 | 完成 | `onProjectAboutToSave` / `onProjectLoaded` 写入/合并 `geometricModeling.features` |
 | T8 基准面视口 overlay | 完成 | `appendVisibleSketchOverlays` 绘制约 80×80 mm 青绿边框 |
 | T9 特征级线性阵列 | 完成 | `patternSourceFeatureId`；侧栏「整个实体 / 上游特征」；ABI **1.41.0** |
-| T10 Text-to-CAD → AI | 完成 | 顺序特征意图 + `askClarify`；见 `TEXT2CAD_AI助手.md` |
+| T10 Text-to-CAD → AI | 完成 | `feature.compose` 已写 Parametric；见 `../特征史AI/` |
 
 ## 编译验收
 
 - [x] GeometryAlgorithm / Data
-- [x] CloudSimPluginSDK（ABI `0x00012900` = 1.41.0）
+- [x] CloudSimPluginSDK（续期 ABI 见 `../特征史AI/`，当前 **1.44.0**）
 - [x] CloudSimHost（含 PluginGeometryHostImpl、AiLlmClient）
-- [x] GeometricModelingPlugin（Debug|x64 通过）
+- [x] GeometricModelingPlugin（Debug|x64）
 
 ## 手测建议
 
 1. 建 DatumPlane → 保存工程 → 重开：树节点与视口框仍在  
 2. 阵列侧栏选「上游特征」→ 预览/提交与「整个实体」行为不同  
-3. AI 助手模糊尺寸请求应返回澄清问题（`askClarify`）
+3. AI：「建模 100x80x40 中心通孔 d10」→ Pad+Pocket 特征链（非 mesh）  
+4. AI 模糊尺寸 → `askClarify`

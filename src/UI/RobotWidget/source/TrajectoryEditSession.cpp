@@ -10,6 +10,7 @@
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
 #include "InstructionProgramDocument.h"
+#include "ProgramEditCommand.h"
 #include "RawTrajectory.h"
 #include "RecipeBlueprint.h"
 #include "RobotInstructionProgram.h"
@@ -459,9 +460,9 @@ void TrajectoryEditSession::reportProjectionMissesIfAny() const
 void TrajectoryEditSession::updatePipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops,
 											  const bool /*allowPreviewReapply*/)
 {
+	// 草稿期只改 session；PathPlan.pipeline 由 Apply Command 提交，避免 before==after
 	m_ops = std::move(ops);
 	invalidatePreviewScopeCache();
-	syncPipelineToBoundPathPlan();
 }
 
 void TrajectoryEditSession::setPipeline(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops)
@@ -469,7 +470,12 @@ void TrajectoryEditSession::setPipeline(std::vector<RobotInstruction::Trajectory
 	reset();
 	m_ops = std::move(ops);
 	invalidatePreviewScopeCache();
-	syncPipelineToBoundPathPlan();
+}
+
+void TrajectoryEditSession::replacePipelineOpsFromStore(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops)
+{
+	m_ops = std::move(ops);
+	invalidatePreviewScopeCache();
 }
 
 void TrajectoryEditSession::setContextProgramId(const std::string& programId)
@@ -1131,6 +1137,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 	if (boundPathPlan)
 	{
 		RobotInstruction::RobotProgramCatalog& catalog = m_store->activeCatalog();
+		// appliedHistory 记录本次提交的草稿；pipeline 同步为提交后状态（undo 靠 Command 内 before）
 		cmds.push_back(
 			std::make_shared<RobotInstruction::UpdatePathPlanPipelineCommand>(m_boundPathPlanId, m_ops, m_ops));
 		if (usingRaw && m_rawTrajectory.has_value())
@@ -1437,8 +1444,10 @@ void TrajectoryEditSession::setRawTrajectory(RobotInstruction::RawTrajectory tra
 			cmds.push_back(std::make_shared<RobotInstruction::UpdatePathPlanRawCommand>(
 				&m_store->activeCatalog(), m_boundPathPlanId, *m_rawTrajectory,
 				RobotInstruction::PathPlanPhase::RawReady));
+			std::vector<RobotInstruction::ProgramEditStack::CommandPtr> batch;
+			batch.push_back(std::make_shared<RobotInstruction::CompositeProgramEditCommand>(std::move(cmds)));
 			QString err;
-			(void)m_editService->executeBatch(cmds, &err);
+			(void)m_editService->executeBatch(batch, &err);
 		}
 		else
 		{
@@ -1449,26 +1458,10 @@ void TrajectoryEditSession::setRawTrajectory(RobotInstruction::RawTrajectory tra
 	else if (m_store && !m_boundPathPlanId.empty())
 	{
 		RobotInstruction::RobotProgramCatalog& catalog = m_store->activeCatalog();
-		if (m_editService)
+		RobotInstruction::PathPlanInstruction* pp =
+			catalog.findPathPlan(catalog.activeProgramId(), m_boundPathPlanId);
+		if (pp)
 		{
-			auto cmd = std::make_shared<RobotInstruction::UpdatePathPlanRawCommand>(
-				&catalog, m_boundPathPlanId, *m_rawTrajectory, RobotInstruction::PathPlanPhase::RawReady);
-			QString err;
-			(void)m_editService->execute(cmd, &err);
-		}
-		else
-		{
-			catalog.pathPlanRaws().save(m_boundPathPlanId, *m_rawTrajectory);
-		}
-		if (RobotInstruction::PathPlanInstruction* pp =
-				catalog.findPathPlan(catalog.activeProgramId(), m_boundPathPlanId))
-		{
-			pp->appliedHistoryMut().clear();
-			if (!m_editService)
-			{
-				pp->setPhase(RobotInstruction::PathPlanPhase::RawReady);
-				pp->bumpRawRevision();
-			}
 			pp->setSourceFeatureJson(m_rawTrajectory->sourceFeatureJson);
 			if (pp->name().empty())
 			{
@@ -1478,6 +1471,36 @@ void TrajectoryEditSession::setRawTrajectory(RobotInstruction::RawTrajectory tra
 			{
 				pp->setRawTrajectoryKey(m_boundPathPlanId);
 			}
+		}
+		if (m_editService)
+		{
+			std::vector<RobotInstruction::ProgramEditStack::CommandPtr> cmds;
+			if (pp)
+			{
+				// 重离散清空 appliedHistory，纳入同一撤销单元
+				cmds.push_back(std::make_shared<RobotInstruction::UpdatePathPlanPipelineCommand>(
+					m_boundPathPlanId, pp->pipeline(), std::vector<RobotInstruction::TrajectoryOpDescriptor>{}));
+			}
+			cmds.push_back(std::make_shared<RobotInstruction::UpdatePathPlanRawCommand>(
+				&catalog, m_boundPathPlanId, *m_rawTrajectory, RobotInstruction::PathPlanPhase::RawReady));
+			std::vector<RobotInstruction::ProgramEditStack::CommandPtr> batch;
+			if (cmds.size() > 1)
+			{
+				batch.push_back(std::make_shared<RobotInstruction::CompositeProgramEditCommand>(std::move(cmds)));
+			}
+			else
+			{
+				batch = std::move(cmds);
+			}
+			QString err;
+			(void)m_editService->executeBatch(batch, &err);
+		}
+		else if (pp)
+		{
+			catalog.pathPlanRaws().save(m_boundPathPlanId, *m_rawTrajectory);
+			pp->appliedHistoryMut().clear();
+			pp->setPhase(RobotInstruction::PathPlanPhase::RawReady);
+			pp->bumpRawRevision();
 		}
 	}
 	emit rawTrajectoryChanged();

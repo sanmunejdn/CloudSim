@@ -116,6 +116,8 @@
     <QtMoc Include="inc\TrajectoryGenerationPageWidget.h" />
     <QtMoc Include="inc\TrajectoryOpParamPanel.h" />
     <QtMoc Include="inc\TrajectoryPipelineListWidget.h" />
+    <ClInclude Include="inc\UserTemplateLibrary.h" />
+    <ClInclude Include="inc\PipelineDraftEditStack.h" />
     <ClInclude Include="inc\SimulationLogIoSink.h" />
     <ClInclude Include="inc\PythonScriptCaller.h" />
     <QtMoc Include="inc\BrandProgramExportDialog.h" />
@@ -147,6 +149,8 @@
     <ClCompile Include="source\TrajectoryOpParamPanel.cpp" />
     <ClCompile Include="source\TrajectoryParamWidgetFactory.cpp" />
     <ClCompile Include="source\TrajectoryPipelineListWidget.cpp" />
+    <ClCompile Include="source\UserTemplateLibrary.cpp" />
+    <ClCompile Include="source\PipelineDraftEditStack.cpp" />
     <ClCompile Include="source\SimulationLogIoSink.cpp" />
     <ClCompile Include="source\RobotAxisControlWidget.cpp" />
     <ClCompile Include="source\RobotCommPageWidget.cpp" />

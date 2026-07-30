@@ -3,6 +3,7 @@
 
 #include "DrawingExport.h"
 
+#include <QColor>
 #include <QFile>
 #include <QHash>
 #include <QLineF>
@@ -186,15 +187,24 @@ bool layerVisible(const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers, c
 	return true;
 }
 
-QString layerNameOf(const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers, const QString& layerId)
+const DrawingSheetCanvasWidget::SheetLayer* findLayer(const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers,
+													 const QString& layerId)
 {
 	const QString id = layerId.isEmpty() ? QStringLiteral("L0") : layerId;
 	for (const auto& L : layers)
 	{
 		if (L.id == id)
-			return L.name.isEmpty() ? id : L.name;
+			return &L;
 	}
-	return QStringLiteral("0");
+	return nullptr;
+}
+
+QString layerNameOf(const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers, const QString& layerId)
+{
+	const auto* L = findLayer(layers, layerId);
+	if (!L)
+		return QStringLiteral("0");
+	return L->name.isEmpty() ? L->id : L->name;
 }
 
 QString sanitizeDxfLayerName(QString name)
@@ -211,6 +221,96 @@ QString sanitizeDxfLayerName(QString name)
 	}
 	return name.left(31);
 }
+
+QString svgDashFor(SheetLineType t, bool forceDashed)
+{
+	if (forceDashed)
+		t = SheetLineType::Dashed;
+	switch (t)
+	{
+	case SheetLineType::Dashed:
+		return QStringLiteral("4 3");
+	case SheetLineType::Center:
+		return QStringLiteral("8 2 1.5 2");
+	case SheetLineType::DashDot:
+		return QStringLiteral("6 2 1.2 2 1.2 2");
+	case SheetLineType::Continuous:
+	default:
+		return {};
+	}
+}
+
+QString dxfLinetypeName(SheetLineType t, bool forceDashed = false)
+{
+	if (forceDashed)
+		t = SheetLineType::Dashed;
+	switch (t)
+	{
+	case SheetLineType::Dashed:
+		return QStringLiteral("DASHED");
+	case SheetLineType::Center:
+		return QStringLiteral("CENTER");
+	case SheetLineType::DashDot:
+		return QStringLiteral("DASHDOT");
+	case SheetLineType::Continuous:
+	default:
+		return QStringLiteral("CONTINUOUS");
+	}
+}
+
+int colorToAci(const QColor& c)
+{
+	if (!c.isValid())
+		return 7;
+	if (c.lightness() < 40)
+		return 250;
+	struct Entry
+	{
+		int aci;
+		int r, g, b;
+	};
+	static const Entry kTable[] = {
+		{1, 255, 0, 0},		{2, 255, 255, 0},	{3, 0, 255, 0},		{4, 0, 255, 255},
+		{5, 0, 0, 255},		{6, 255, 0, 255},	{7, 255, 255, 255}, {8, 128, 128, 128},
+		{9, 192, 192, 192},
+	};
+	int best = 7;
+	int bestD = 1 << 30;
+	for (const Entry& e : kTable)
+	{
+		const int dr = c.red() - e.r;
+		const int dg = c.green() - e.g;
+		const int db = c.blue() - e.b;
+		const int d = dr * dr + dg * dg + db * db;
+		if (d < bestD)
+		{
+			bestD = d;
+			best = e.aci;
+		}
+	}
+	return best;
+}
+
+QString strokeCss(const DrawingSheetCanvasWidget::SheetLayer* L)
+{
+	if (!L)
+		return QStringLiteral("#1E2330");
+	return L->color.name(QColor::HexRgb);
+}
+
+double strokeWidthMm(const DrawingSheetCanvasWidget::SheetLayer* L)
+{
+	if (!L || !(L->lineWidthMm > 1e-6))
+		return 0.35;
+	return L->lineWidthMm;
+}
+
+struct DxfUserLayer
+{
+	QString name;
+	int color = 7;
+	QString ltype;
+};
 
 } // namespace
 
@@ -234,13 +334,13 @@ bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 	   << box.height() << "\" fill=\"#F5F7FA\"/>\n";
 	emitPaperSvg(ts, paper, projection);
 
-	auto emitPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, const QString& stroke,
+	auto emitPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, const QString& stroke, double width,
 						 const QString& dash) {
 		for (const auto& poly : polys)
 		{
 			if (poly.points.size() < 2)
 				continue;
-			ts << "<polyline fill=\"none\" stroke=\"" << stroke << "\" stroke-width=\"0.8\"";
+			ts << "<polyline fill=\"none\" stroke=\"" << stroke << "\" stroke-width=\"" << width << "\"";
 			if (!dash.isEmpty())
 				ts << " stroke-dasharray=\"" << dash << "\"";
 			ts << " points=\"";
@@ -254,13 +354,17 @@ bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 	{
 		if (!layerVisible(layers, v.layerId))
 			continue;
+		const auto* L = findLayer(layers, v.layerId);
+		const QString stroke = strokeCss(L);
+		const double w = strokeWidthMm(L);
+		const SheetLineType lt = L ? L->lineType : SheetLineType::Continuous;
 		ts << "<g id=\"" << esc(v.id) << "\">\n";
 		ts << "<rect x=\"" << v.frame.x() << "\" y=\"" << v.frame.y() << "\" width=\"" << v.frame.width()
 		   << "\" height=\"" << v.frame.height() << "\" fill=\"none\" stroke=\"#5A6478\" stroke-width=\"1\"/>\n";
-		ts << "<text x=\"" << (v.frame.x() + 4) << "\" y=\"" << (v.frame.y() + 12) << "\" font-size=\"10\" fill=\"#323C50\">"
-		   << esc(v.title) << "</text>\n";
-		emitPolys(v.hidden, QStringLiteral("#8C919B"), QStringLiteral("4 3"));
-		emitPolys(v.visible, QStringLiteral("#141820"), QString());
+		ts << "<text x=\"" << (v.frame.x() + 4) << "\" y=\"" << (v.frame.y() + 12)
+		   << "\" font-size=\"10\" fill=\"#323C50\">" << esc(v.title) << "</text>\n";
+		emitPolys(v.hidden, stroke, qMax(0.2, w * 0.85), svgDashFor(lt, true));
+		emitPolys(v.visible, stroke, w, svgDashFor(lt, false));
 		ts << "</g>\n";
 	}
 
@@ -271,19 +375,22 @@ bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 		const QString lid = sketchLayers.value(poly.entityId, QStringLiteral("L0"));
 		if (!layerVisible(layers, lid))
 			continue;
-		ts << "<polyline fill=\"none\" stroke=\"#1E78B4\" stroke-width=\"0.9\"";
-		if (poly.construction)
-			ts << " stroke-dasharray=\"3 2\"";
-		ts << " points=\"";
-		for (const QPointF& p : poly.points)
-			ts << p.x() << "," << p.y() << " ";
-		ts << "\"/>\n";
+		const auto* L = findLayer(layers, lid);
+		const SheetLineType lt = L ? L->lineType : SheetLineType::Continuous;
+		DrawingSheetCanvasWidget::Polyline2d one;
+		one.points = poly.points;
+		emitPolys({one}, strokeCss(L), strokeWidthMm(L), svgDashFor(lt, poly.construction));
 	}
 
 	for (const auto& d : dims)
 	{
 		if (!layerVisible(layers, d.layerId))
 			continue;
+		const auto* L = findLayer(layers, d.layerId);
+		const QString stroke = strokeCss(L);
+		const double w = strokeWidthMm(L);
+		const QString dash = svgDashFor(L ? L->lineType : SheetLineType::Continuous, false);
+		const QString dashAttr = dash.isEmpty() ? QString() : QStringLiteral(" stroke-dasharray=\"%1\"").arg(dash);
 		if (d.kind == DrawingSheetCanvasWidget::SheetDimension::Kind::Linear)
 		{
 			QLineF base(d.p1, d.p2);
@@ -302,38 +409,45 @@ bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 				mid = (a + b) * 0.5;
 			}
 			ts << "<line x1=\"" << a.x() << "\" y1=\"" << a.y() << "\" x2=\"" << b.x() << "\" y2=\"" << b.y()
-			   << "\" stroke=\"#C0392B\" stroke-width=\"0.7\"/>\n";
-			ts << "<text x=\"" << mid.x() << "\" y=\"" << mid.y() << "\" font-size=\"9\" fill=\"#C0392B\">"
+			   << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
+			ts << "<text x=\"" << mid.x() << "\" y=\"" << mid.y() << "\" font-size=\"9\" fill=\"" << stroke << "\">"
 			   << esc(dimText(d)) << "</text>\n";
 		}
 		else if (d.kind == DrawingSheetCanvasWidget::SheetDimension::Kind::Angle)
 		{
 			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p2.x() << "\" y2=\"" << d.p2.y()
-			   << "\" stroke=\"#C0392B\" stroke-width=\"0.7\"/>\n";
+			   << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
 			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p3.x() << "\" y2=\"" << d.p3.y()
-			   << "\" stroke=\"#C0392B\" stroke-width=\"0.7\"/>\n";
+			   << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
 			const QPointF mid = d.p1 + ((d.p2 - d.p1) + (d.p3 - d.p1)) * 0.15;
-			ts << "<text x=\"" << mid.x() << "\" y=\"" << mid.y() << "\" font-size=\"9\" fill=\"#C0392B\">"
+			ts << "<text x=\"" << mid.x() << "\" y=\"" << mid.y() << "\" font-size=\"9\" fill=\"" << stroke << "\">"
 			   << esc(dimText(d)) << "</text>\n";
 		}
 		else
 		{
 			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p2.x() << "\" y2=\"" << d.p2.y()
-			   << "\" stroke=\"#C0392B\" stroke-width=\"0.7\"/>\n";
+			   << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
 			const QPointF t = d.p2 + d.textOffset;
-			ts << "<text x=\"" << t.x() << "\" y=\"" << t.y() << "\" font-size=\"9\" fill=\"#C0392B\">" << esc(dimText(d))
-			   << "</text>\n";
+			ts << "<text x=\"" << t.x() << "\" y=\"" << t.y() << "\" font-size=\"9\" fill=\"" << stroke << "\">"
+			   << esc(dimText(d)) << "</text>\n";
 		}
 	}
+
 	for (const auto& n : notes)
 	{
 		if (!layerVisible(layers, n.layerId))
 			continue;
+		const auto* L = findLayer(layers, n.layerId);
+		const QString stroke = strokeCss(L);
+		const double w = strokeWidthMm(L);
+		const QString dash = svgDashFor(L ? L->lineType : SheetLineType::Continuous, false);
+		const QString dashAttr = dash.isEmpty() ? QString() : QStringLiteral(" stroke-dasharray=\"%1\"").arg(dash);
 		ts << "<line x1=\"" << n.anchor.x() << "\" y1=\"" << n.anchor.y() << "\" x2=\"" << n.textPos.x() << "\" y2=\""
-		   << n.textPos.y() << "\" stroke=\"#34495E\" stroke-width=\"0.6\"/>\n";
-		ts << "<text x=\"" << n.textPos.x() << "\" y=\"" << n.textPos.y() << "\" font-size=\"9\" fill=\"#34495E\">"
-		   << esc(n.text) << "</text>\n";
+		   << n.textPos.y() << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
+		ts << "<text x=\"" << n.textPos.x() << "\" y=\"" << n.textPos.y() << "\" font-size=\"9\" fill=\"" << stroke
+		   << "\">" << esc(n.text) << "</text>\n";
 	}
+
 	ts << "</svg>\n";
 	return true;
 }
@@ -351,47 +465,68 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 	QTextStream ts(&f);
 	ts.setRealNumberPrecision(6);
 
-	auto entLine = [&](double x1, double y1, double x2, double y2, int color, const QString& layer) {
-		ts << "0\nLINE\n8\n" << layer << "\n62\n" << color << "\n10\n" << x1 << "\n20\n" << y1 << "\n30\n0\n11\n" << x2
-		   << "\n21\n" << y2 << "\n31\n0\n";
+	auto entLine = [&](double x1, double y1, double x2, double y2, int color, const QString& layer,
+					   const QString& ltype) {
+		ts << "0\nLINE\n8\n" << layer << "\n6\n" << ltype << "\n62\n" << color << "\n10\n" << x1 << "\n20\n" << y1
+		   << "\n30\n0\n11\n" << x2 << "\n21\n" << y2 << "\n31\n0\n";
 	};
 	auto entText = [&](double x, double y, const QString& text, int color, const QString& layer) {
 		ts << "0\nTEXT\n8\n" << layer << "\n62\n" << color << "\n10\n" << x << "\n20\n" << y << "\n30\n0\n40\n3\n1\n"
 		   << text << "\n";
 	};
 
-	QStringList userLayerNames;
+	QVector<DxfUserLayer> userLayers;
 	for (const auto& L : layers)
 	{
 		if (!L.visible)
 			continue;
-		const QString n = sanitizeDxfLayerName(L.name);
-		if (!userLayerNames.contains(n))
-			userLayerNames.push_back(n);
+		DxfUserLayer u;
+		u.name = sanitizeDxfLayerName(L.name);
+		u.color = colorToAci(L.color);
+		u.ltype = dxfLinetypeName(L.lineType);
+		bool exists = false;
+		for (const auto& e : userLayers)
+		{
+			if (e.name == u.name)
+			{
+				exists = true;
+				break;
+			}
+		}
+		if (!exists)
+			userLayers.push_back(u);
 	}
-	const int layerCount = 3 + userLayerNames.size();
+	const int layerCount = 3 + userLayers.size();
 
 	ts << "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n";
 	ts << "0\nSECTION\n2\nTABLES\n";
+
+	ts << "0\nTABLE\n2\nLTYPE\n70\n4\n";
+	ts << "0\nLTYPE\n2\nCONTINUOUS\n70\n0\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n";
+	ts << "0\nLTYPE\n2\nDASHED\n70\n0\n3\nDashed\n72\n65\n73\n2\n40\n0.75\n49\n0.5\n49\n-0.25\n";
+	ts << "0\nLTYPE\n2\nCENTER\n70\n0\n3\nCenter\n72\n65\n73\n4\n40\n2.0\n49\n1.25\n49\n-0.25\n49\n0.25\n49\n-0.25\n";
+	ts << "0\nLTYPE\n2\nDASHDOT\n70\n0\n3\nDash dot\n72\n65\n73\n4\n40\n1.0\n49\n0.5\n49\n-0.25\n49\n0.0\n49\n-0.25\n";
+	ts << "0\nENDTAB\n";
+
 	ts << "0\nTABLE\n2\nLAYER\n70\n" << layerCount << "\n";
-	auto writeLayer = [&](const QString& name, int color) {
-		ts << "0\nLAYER\n2\n" << name << "\n70\n0\n62\n" << color << "\n6\nCONTINUOUS\n";
+	auto writeLayer = [&](const QString& name, int color, const QString& ltype) {
+		ts << "0\nLAYER\n2\n" << name << "\n70\n0\n62\n" << color << "\n6\n" << ltype << "\n";
 	};
-	writeLayer(QStringLiteral("VISIBLE"), 7);
-	writeLayer(QStringLiteral("HIDDEN"), 8);
-	writeLayer(QStringLiteral("FRAME"), 8);
-	for (const QString& n : userLayerNames)
-		writeLayer(n, 7);
+	writeLayer(QStringLiteral("VISIBLE"), 7, QStringLiteral("CONTINUOUS"));
+	writeLayer(QStringLiteral("HIDDEN"), 8, QStringLiteral("DASHED"));
+	writeLayer(QStringLiteral("FRAME"), 8, QStringLiteral("CONTINUOUS"));
+	for (const DxfUserLayer& u : userLayers)
+		writeLayer(u.name, u.color, u.ltype);
 	ts << "0\nENDTAB\n0\nENDSEC\n";
 	ts << "0\nSECTION\n2\nENTITIES\n";
 
 	if (paper.visible)
 	{
 		const QSizeF s = paperSizeMm(paper);
-		entLine(0, 0, s.width(), 0, 8, QStringLiteral("FRAME"));
-		entLine(s.width(), 0, s.width(), s.height(), 8, QStringLiteral("FRAME"));
-		entLine(s.width(), s.height(), 0, s.height(), 8, QStringLiteral("FRAME"));
-		entLine(0, s.height(), 0, 0, 8, QStringLiteral("FRAME"));
+		entLine(0, 0, s.width(), 0, 8, QStringLiteral("FRAME"), QStringLiteral("CONTINUOUS"));
+		entLine(s.width(), 0, s.width(), s.height(), 8, QStringLiteral("FRAME"), QStringLiteral("CONTINUOUS"));
+		entLine(s.width(), s.height(), 0, s.height(), 8, QStringLiteral("FRAME"), QStringLiteral("CONTINUOUS"));
+		entLine(0, s.height(), 0, 0, 8, QStringLiteral("FRAME"), QStringLiteral("CONTINUOUS"));
 		const QString proj =
 			projection == DrawingProjectionMethod::ThirdAngle ? QStringLiteral("第三角") : QStringLiteral("第一角");
 		const QString title = paper.title.isEmpty() ? QStringLiteral("未命名") : paper.title;
@@ -402,13 +537,14 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 				8, QStringLiteral("FRAME"));
 	}
 
-	auto emitPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, int color, const QString& layer) {
+	auto emitPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, int color, const QString& layer,
+						 const QString& ltype) {
 		for (const auto& poly : polys)
 		{
 			for (int i = 1; i < poly.points.size(); ++i)
 			{
 				entLine(poly.points[i - 1].x(), poly.points[i - 1].y(), poly.points[i].x(), poly.points[i].y(), color,
-						layer);
+						layer, ltype);
 			}
 		}
 	};
@@ -417,28 +553,42 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 	{
 		if (!layerVisible(layers, v.layerId))
 			continue;
-		entLine(v.frame.left(), v.frame.top(), v.frame.right(), v.frame.top(), 8, QStringLiteral("FRAME"));
-		entLine(v.frame.right(), v.frame.top(), v.frame.right(), v.frame.bottom(), 8, QStringLiteral("FRAME"));
-		entLine(v.frame.right(), v.frame.bottom(), v.frame.left(), v.frame.bottom(), 8, QStringLiteral("FRAME"));
-		entLine(v.frame.left(), v.frame.bottom(), v.frame.left(), v.frame.top(), 8, QStringLiteral("FRAME"));
-		emitPolys(v.hidden, 8, QStringLiteral("HIDDEN"));
-		emitPolys(v.visible, 7, QStringLiteral("VISIBLE"));
+		const auto* L = findLayer(layers, v.layerId);
+		const QString dxfLayer = sanitizeDxfLayerName(layerNameOf(layers, v.layerId));
+		const int aci = L ? colorToAci(L->color) : 7;
+		const SheetLineType lt = L ? L->lineType : SheetLineType::Continuous;
+		entLine(v.frame.left(), v.frame.top(), v.frame.right(), v.frame.top(), 8, QStringLiteral("FRAME"),
+				QStringLiteral("CONTINUOUS"));
+		entLine(v.frame.right(), v.frame.top(), v.frame.right(), v.frame.bottom(), 8, QStringLiteral("FRAME"),
+				QStringLiteral("CONTINUOUS"));
+		entLine(v.frame.right(), v.frame.bottom(), v.frame.left(), v.frame.bottom(), 8, QStringLiteral("FRAME"),
+				QStringLiteral("CONTINUOUS"));
+		entLine(v.frame.left(), v.frame.bottom(), v.frame.left(), v.frame.top(), 8, QStringLiteral("FRAME"),
+				QStringLiteral("CONTINUOUS"));
+		emitPolys(v.hidden, aci, dxfLayer, dxfLinetypeName(lt, true));
+		emitPolys(v.visible, aci, dxfLayer, dxfLinetypeName(lt, false));
 	}
 	for (const auto& poly : sketch)
 	{
 		const QString lid = sketchLayers.value(poly.entityId, QStringLiteral("L0"));
 		if (!layerVisible(layers, lid))
 			continue;
+		const auto* L = findLayer(layers, lid);
 		const QString dxfLayer = sanitizeDxfLayerName(layerNameOf(layers, lid));
+		const int aci = L ? colorToAci(L->color) : 5;
+		const SheetLineType lt = L ? L->lineType : SheetLineType::Continuous;
 		for (int i = 1; i < poly.points.size(); ++i)
-			entLine(poly.points[i - 1].x(), poly.points[i - 1].y(), poly.points[i].x(), poly.points[i].y(), 5,
-					dxfLayer);
+			entLine(poly.points[i - 1].x(), poly.points[i - 1].y(), poly.points[i].x(), poly.points[i].y(), aci,
+					dxfLayer, dxfLinetypeName(lt, poly.construction));
 	}
 	for (const auto& d : dims)
 	{
 		if (!layerVisible(layers, d.layerId))
 			continue;
+		const auto* L = findLayer(layers, d.layerId);
 		const QString dxfLayer = sanitizeDxfLayerName(layerNameOf(layers, d.layerId));
+		const int aci = L ? colorToAci(L->color) : 1;
+		const QString ltype = dxfLinetypeName(L ? L->lineType : SheetLineType::Continuous);
 		if (d.kind == DrawingSheetCanvasWidget::SheetDimension::Kind::Linear)
 		{
 			QLineF base(d.p1, d.p2);
@@ -455,30 +605,33 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 				b = d.p2 + n * off;
 				mid = (a + b) * 0.5;
 			}
-			entLine(a.x(), a.y(), b.x(), b.y(), 1, dxfLayer);
-			entText(mid.x(), mid.y(), dimText(d), 1, dxfLayer);
+			entLine(a.x(), a.y(), b.x(), b.y(), aci, dxfLayer, ltype);
+			entText(mid.x(), mid.y(), dimText(d), aci, dxfLayer);
 		}
 		else if (d.kind == DrawingSheetCanvasWidget::SheetDimension::Kind::Angle)
 		{
-			entLine(d.p1.x(), d.p1.y(), d.p2.x(), d.p2.y(), 1, dxfLayer);
-			entLine(d.p1.x(), d.p1.y(), d.p3.x(), d.p3.y(), 1, dxfLayer);
+			entLine(d.p1.x(), d.p1.y(), d.p2.x(), d.p2.y(), aci, dxfLayer, ltype);
+			entLine(d.p1.x(), d.p1.y(), d.p3.x(), d.p3.y(), aci, dxfLayer, ltype);
 			const QPointF mid = d.p1 + ((d.p2 - d.p1) + (d.p3 - d.p1)) * 0.15;
-			entText(mid.x(), mid.y(), dimText(d), 1, dxfLayer);
+			entText(mid.x(), mid.y(), dimText(d), aci, dxfLayer);
 		}
 		else
 		{
-			entLine(d.p1.x(), d.p1.y(), d.p2.x(), d.p2.y(), 1, dxfLayer);
+			entLine(d.p1.x(), d.p1.y(), d.p2.x(), d.p2.y(), aci, dxfLayer, ltype);
 			const QPointF t = d.p2 + d.textOffset;
-			entText(t.x(), t.y(), dimText(d), 1, dxfLayer);
+			entText(t.x(), t.y(), dimText(d), aci, dxfLayer);
 		}
 	}
 	for (const auto& n : notes)
 	{
 		if (!layerVisible(layers, n.layerId))
 			continue;
+		const auto* L = findLayer(layers, n.layerId);
 		const QString dxfLayer = sanitizeDxfLayerName(layerNameOf(layers, n.layerId));
-		entLine(n.anchor.x(), n.anchor.y(), n.textPos.x(), n.textPos.y(), 4, dxfLayer);
-		entText(n.textPos.x(), n.textPos.y(), n.text, 4, dxfLayer);
+		const int aci = L ? colorToAci(L->color) : 4;
+		const QString ltype = dxfLinetypeName(L ? L->lineType : SheetLineType::Continuous);
+		entLine(n.anchor.x(), n.anchor.y(), n.textPos.x(), n.textPos.y(), aci, dxfLayer, ltype);
+		entText(n.textPos.x(), n.textPos.y(), n.text, aci, dxfLayer);
 	}
 
 	ts << "0\nENDSEC\n0\nEOF\n";

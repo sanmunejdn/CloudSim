@@ -11,15 +11,15 @@
 
 ## 已落地
 
-1. Domain **`feature.compose`**：Pad / Pocket / Fillet / LinearPattern → Parametric Host 真特征史  
-2. Domain **`mesh.compose`**：网格布尔（通孔/差集等）保留  
-3. `askClarify`、路由拆分、规则 Pad（`tryParseFeatureComposeUserText`）  
-4. `onParametricBodyHistoryChanged` → 几何建模特征树 sync  
+1. Domain **`feature.compose`**：Pad / Pocket / Fillet / Chamfer / Revolve / LinearPattern → Parametric Host 真特征史  
+2. AI Pad/Revolve 写入可编辑 `sketchDocumentJson`（双击草图可改尺寸 rebuild）  
+3. 「建模+通孔」走 Pocket 特征链；纯布尔词仍 **`mesh.compose`**  
+4. `askClarify`、路由拆分、规则 Pad+Pocket / 旋转圆柱  
+5. `onParametricBodyHistoryChanged` → 几何建模特征树 sync  
 
 详见 `../特征史AI/`。
 
-## 下一跳
+## 下一跳（P1）
 
-- Pocket/Chamfer/Revolve 进 ActionPlan  
-- 可编辑草图 JSON  
-- 混合句「拉伸+通孔」统一到 feature 链
+- Fillet 智能选边；Convert 保留圆弧；成角基准面；真 Vertex  
+- AI 扩 Sweep/Loft/Shell/Draft；圆周阵列

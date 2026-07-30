@@ -257,6 +257,8 @@ struct PluginSketchChamferParams
 	std::vector<int> edgeIndices;
 	std::string targetParametricBackendIdUtf8;
 	std::string resultNameUtf8;
+	/// 1.44.0+：为 true 时倒角 tip 全部边（忽略 edgeIndices）
+	bool allEdges = false;
 };
 
 enum class PluginSketchRevolveMode

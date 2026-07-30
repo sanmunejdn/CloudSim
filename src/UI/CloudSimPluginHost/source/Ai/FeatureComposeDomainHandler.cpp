@@ -18,7 +18,7 @@ namespace
 bool isKnownApi(const std::string& api)
 {
 	return api == "askClarify" || api == "extrudeSketchProfileToBrep" || api == "filletEdgesToBrep" ||
-		   api == "linearPatternBodyToBrep";
+		   api == "chamferEdgesToBrep" || api == "revolveSketchProfileToBrep" || api == "linearPatternBodyToBrep";
 }
 } // namespace
 
@@ -86,7 +86,7 @@ bool FeatureComposeDomainHandler::validatePlanJson(const nlohmann::json& root, Q
 				}
 			}
 		}
-		if (api == "filletEdgesToBrep" || api == "linearPatternBodyToBrep")
+		if (api == "filletEdgesToBrep" || api == "chamferEdgesToBrep" || api == "linearPatternBodyToBrep")
 		{
 			const std::string target = args.value("target", "");
 			if (target.empty() || target.front() != '$' ||
@@ -96,6 +96,21 @@ bool FeatureComposeDomainHandler::validatePlanJson(const nlohmann::json& root, Q
 					*err = QStringLiteral("%1 requires target $stepId.")
 							   .arg(QString::fromStdString(api));
 				return false;
+			}
+		}
+		if (api == "revolveSketchProfileToBrep")
+		{
+			const std::string mode = args.value("mode", "boss");
+			if (mode == "cut")
+			{
+				const std::string target = args.value("target", "");
+				if (target.empty() || target.front() != '$' ||
+					!definedIds.contains(QString::fromStdString(target.substr(1))))
+				{
+					if (err)
+						*err = QStringLiteral("revolve cut requires target $stepId defined earlier.");
+					return false;
+				}
 			}
 		}
 		if (step.contains("id"))

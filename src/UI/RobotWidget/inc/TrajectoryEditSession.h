@@ -36,6 +36,9 @@ public:
 
 	void setPipeline(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops);
 	void updatePipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops, bool allowPreviewReapply = true);
+	/// 从 PathPlan/程序修订恢复 ops：不 reset、不写回 PathPlan
+	void replacePipelineOpsFromStore(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops);
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps() const { return m_ops; }
 
 	void setContextProgramId(const std::string& programId);
 	void setDefaultGroupId(const std::string& groupId);

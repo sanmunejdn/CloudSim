@@ -29,22 +29,25 @@
 #include "TrajectoryPipelineListWidget.h"
 #include "UiIconDecorators.h"
 #include "UnifiedTrajectory.h"
+#include "UserTemplateLibrary.h"
 
 #include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDrag>
+#include <QFileDialog>
 #include <QFont>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPushButton>
-#include <QSettings>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QStyle>
@@ -434,8 +437,6 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(pa
 	m_resetBtn = new QPushButton(QStringLiteral("重置"), this);
 	m_undoBtn = new QPushButton(QStringLiteral("撤销"), this);
 	m_redoBtn = new QPushButton(QStringLiteral("重做"), this);
-	m_saveTemplateBtn = new QPushButton(QStringLiteral("保存"), this);
-	m_loadTemplateBtn = new QPushButton(QStringLiteral("加载"), this);
 	actionRow1->addWidget(m_previewCheck);
 	actionRow1->addWidget(m_applyBtn, 1);
 	actionRow1->addWidget(m_resetBtn, 1);
@@ -444,12 +445,26 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(pa
 	auto* actionRow2 = new QHBoxLayout;
 	actionRow2->setSpacing(3);
 	actionRow2->setContentsMargins(0, 0, 0, 0);
+	m_templateCombo = new QComboBox(this);
+	configureCompactCombo(m_templateCombo);
+	m_templateCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	m_saveTemplateBtn = new QPushButton(QStringLiteral("保存"), this);
+	m_loadTemplateBtn = new QPushButton(QStringLiteral("加载"), this);
+	m_deleteTemplateBtn = new QPushButton(QStringLiteral("删除"), this);
+	m_importTemplateBtn = new QPushButton(QStringLiteral("导入"), this);
+	m_exportTemplateBtn = new QPushButton(QStringLiteral("导出"), this);
+	actionRow2->addWidget(m_templateCombo, 2);
 	actionRow2->addWidget(m_saveTemplateBtn, 1);
 	actionRow2->addWidget(m_loadTemplateBtn, 1);
+	actionRow2->addWidget(m_deleteTemplateBtn, 1);
+	actionRow2->addWidget(m_importTemplateBtn, 1);
+	actionRow2->addWidget(m_exportTemplateBtn, 1);
 	root->addLayout(actionRow1);
 	root->addLayout(actionRow2);
 
 	rebuildPalette();
+	UserTemplateLibrary::migrateLegacyPipelineSlot();
+	refreshPipelineTemplateCombo();
 
 	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&TrajectoryEditPageWidget::onProgramChanged);
@@ -459,6 +474,12 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(pa
 	connect(m_pipeline, &TrajectoryPipelineListWidget::opsChanged, this,
 			[this]()
 			{
+				if (!m_suppressDraftPush && !m_loadingParams)
+				{
+					pushDraftFromBaseline(m_coalesceDraftPush);
+					m_coalesceDraftPush = false;
+				}
+				rememberDraftBaseline();
 				setPipelineAppliedState(false, false);
 				syncSessionPipeline();
 				if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
@@ -477,6 +498,9 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(pa
 	connect(m_redoBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRedoClicked);
 	connect(m_saveTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onSaveTemplateClicked);
 	connect(m_loadTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onLoadTemplateClicked);
+	connect(m_deleteTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onDeleteTemplateClicked);
+	connect(m_importTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onImportTemplateClicked);
+	connect(m_exportTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onExportTemplateClicked);
 	connect(m_rawApplyBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRawApplyRecipe);
 	connect(m_rawEmitBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRawEmitProgram);
 
@@ -486,6 +510,9 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(pa
 	UiIconDecorators::apply(m_redoBtn, UiIconId::Redo);
 	UiIconDecorators::apply(m_saveTemplateBtn, UiIconId::SaveTemplate);
 	UiIconDecorators::apply(m_loadTemplateBtn, UiIconId::LoadTemplate);
+	UiIconDecorators::apply(m_deleteTemplateBtn, UiIconId::Delete);
+	UiIconDecorators::apply(m_importTemplateBtn, UiIconId::OpenProject);
+	UiIconDecorators::apply(m_exportTemplateBtn, UiIconId::Export);
 	UiIconDecorators::apply(m_rawApplyBtn, UiIconId::FillRecipe);
 	UiIconDecorators::apply(m_rawEmitBtn, UiIconId::EmitProgram);
 
@@ -497,6 +524,9 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(pa
 	applyBtnRole(m_redoBtn, "secondary");
 	applyBtnRole(m_saveTemplateBtn, "secondary");
 	applyBtnRole(m_loadTemplateBtn, "secondary");
+	applyBtnRole(m_deleteTemplateBtn, "secondary");
+	applyBtnRole(m_importTemplateBtn, "secondary");
+	applyBtnRole(m_exportTemplateBtn, "secondary");
 
 	connect(m_paramPanel, &TrajectoryOpParamPanel::paramsChanged, this,
 			[this]()
@@ -504,7 +534,9 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(pa
 				if (!m_loadingParams)
 				{
 					setPipelineAppliedState(false, false);
+					m_coalesceDraftPush = true;
 					applyParamsToSelectedOp();
+					QTimer::singleShot(300, this, [this]() { m_draftStack.endCoalesceWindow(); });
 				}
 			});
 	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::activated), this,
@@ -513,7 +545,9 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(pa
 				if (!m_loadingParams)
 				{
 					setPipelineAppliedState(false, false);
+					m_coalesceDraftPush = true;
 					applyParamsToSelectedOp();
+					QTimer::singleShot(300, this, [this]() { m_draftStack.endCoalesceWindow(); });
 				}
 			});
 	// 仅 activated：刷新/重建时 setCurrentIndex 不触发预览，避免 SPARE 卡死 UI
@@ -599,6 +633,22 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	{
 		m_loadTemplateBtn->setText(zh ? QStringLiteral("加载") : QStringLiteral("Load"));
 	}
+	if (m_deleteTemplateBtn)
+	{
+		m_deleteTemplateBtn->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
+	}
+	if (m_importTemplateBtn)
+	{
+		m_importTemplateBtn->setText(zh ? QStringLiteral("导入") : QStringLiteral("Import"));
+	}
+	if (m_exportTemplateBtn)
+	{
+		m_exportTemplateBtn->setText(zh ? QStringLiteral("导出") : QStringLiteral("Export"));
+	}
+	if (m_templateCombo)
+	{
+		m_templateCombo->setToolTip(zh ? QStringLiteral("流水线命名模板") : QStringLiteral("Named pipeline templates"));
+	}
 	if (m_rawGroupBox)
 	{
 		m_rawGroupBox->setTitle(zh ? QStringLiteral("工艺模板") : QStringLiteral("Recipe"));
@@ -632,8 +682,10 @@ void TrajectoryEditPageWidget::setReadOnly(const bool readOnly)
 {
 	m_readOnly = readOnly;
 	QWidget* widgets[] = {
-		m_programCombo, m_groupCombo, m_palette, m_pipeline, m_scopeGroupCombo, m_paramPanel,	   m_previewCheck,
-		m_applyBtn,		m_resetBtn,	  m_undoBtn, m_redoBtn,	 m_saveTemplateBtn, m_loadTemplateBtn, m_rawRecipeCombo,
+		m_programCombo,		 m_groupCombo,		   m_palette,			m_pipeline,			  m_scopeGroupCombo,
+		m_paramPanel,		 m_previewCheck,	   m_applyBtn,			m_resetBtn,			  m_undoBtn,
+		m_redoBtn,			 m_templateCombo,	   m_saveTemplateBtn,	m_loadTemplateBtn,	  m_deleteTemplateBtn,
+		m_importTemplateBtn, m_exportTemplateBtn,  m_rawRecipeCombo,
 	};
 	for (QWidget* w : widgets)
 	{
@@ -1047,11 +1099,18 @@ void TrajectoryEditPageWidget::syncBoundPathPlanFromSession()
 	if (RobotInstruction::PathPlanInstruction* pp =
 			m_store->activeCatalog().findPathPlan(m_store->activeCatalog().activeProgramId(), pathPlanId))
 	{
+		m_suppressDraftPush = true;
 		m_loadingParams = true;
 		m_pipeline->blockSignals(true);
 		m_pipeline->setOps(pp->pipeline());
 		m_pipeline->blockSignals(false);
+		m_session->replacePipelineOpsFromStore(pp->pipeline());
+		(void)m_session->loadRawFromBoundPathPlan();
 		m_loadingParams = false;
+		m_suppressDraftPush = false;
+		clearDraftHistory();
+		rememberDraftBaseline();
+		setPipelineAppliedState(pp->phase() == RobotInstruction::PathPlanPhase::Applied, false);
 	}
 }
 
@@ -1061,8 +1120,10 @@ void TrajectoryEditPageWidget::restoreBoundPathPlanForEdit()
 	{
 		return;
 	}
+	m_suppressDraftPush = true;
 	(void)m_session->reloadBoundPathPlanFromStore();
 	syncBoundPathPlanFromSession();
+	m_suppressDraftPush = false;
 	refreshProgramAndGroupCombos();
 
 	bool applied = false;
@@ -1601,11 +1662,17 @@ void TrajectoryEditPageWidget::applyParamsToSelectedOp(const bool skipPreviewRea
 		}
 	}
 	syncProjectBackendFromComboToPipeline(false);
+	if (!m_suppressDraftPush && !m_flushingParams)
+	{
+		pushDraftFromBaseline(m_coalesceDraftPush);
+		m_coalesceDraftPush = false;
+	}
 	m_loadingParams = true;
 	m_paramPanel->setLoading(true);
 	m_pipeline->updateOpAt(opIndex, op);
 	m_paramPanel->setLoading(false);
 	m_loadingParams = false;
+	rememberDraftBaseline();
 	updateTransformActionButtons(op, m_previewCheck, m_applyBtn, m_readOnly);
 	syncSessionParams(skipPreviewReapply);
 }
@@ -1617,13 +1684,17 @@ void TrajectoryEditPageWidget::fillScopeFromUi(RobotInstruction::OpScope& scope)
 
 void TrajectoryEditPageWidget::refreshUndoButtons()
 {
-	if (m_undoBtn && m_editService)
+	const bool draftUndo = m_draftStack.canUndo();
+	const bool draftRedo = m_draftStack.canRedo();
+	const bool progUndo = m_editService && m_editService->canUndo();
+	const bool progRedo = m_editService && m_editService->canRedo();
+	if (m_undoBtn)
 	{
-		m_undoBtn->setEnabled(m_editService->canUndo() && !m_readOnly);
+		m_undoBtn->setEnabled((draftUndo || progUndo) && !m_readOnly);
 	}
-	if (m_redoBtn && m_editService)
+	if (m_redoBtn)
 	{
-		m_redoBtn->setEnabled(m_editService->canRedo() && !m_readOnly);
+		m_redoBtn->setEnabled((draftRedo || progRedo) && !m_readOnly);
 	}
 }
 
@@ -1977,12 +2048,15 @@ void TrajectoryEditPageWidget::onApplyClicked()
 	if (m_pipeline)
 	{
 		const QSignalBlocker pipelineBlocker(m_pipeline);
+		m_suppressDraftPush = true;
 		m_pipeline->setOps({});
+		m_suppressDraftPush = false;
 	}
 	if (m_session)
 	{
 		m_session->clearPipelineAfterCommit();
 	}
+	clearDraftHistory();
 	if (m_previewCheck)
 	{
 		const QSignalBlocker blocker(m_previewCheck);
@@ -2034,8 +2108,11 @@ void TrajectoryEditPageWidget::onResetClicked()
 	}
 	if (m_pipeline)
 	{
+		m_suppressDraftPush = true;
 		m_pipeline->setOps({});
+		m_suppressDraftPush = false;
 	}
+	clearDraftHistory();
 	if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
 	{
 		loadSelectedOpToParams();
@@ -2044,6 +2121,16 @@ void TrajectoryEditPageWidget::onResetClicked()
 
 void TrajectoryEditPageWidget::onUndoClicked()
 {
+	if (m_draftStack.canUndo())
+	{
+		PipelineDraftSnapshot restored;
+		if (m_draftStack.undo(captureDraftSnapshot(), restored))
+		{
+			applyDraftSnapshot(restored);
+			refreshUndoButtons();
+		}
+		return;
+	}
 	if (!m_editService)
 	{
 		return;
@@ -2057,6 +2144,16 @@ void TrajectoryEditPageWidget::onUndoClicked()
 
 void TrajectoryEditPageWidget::onRedoClicked()
 {
+	if (m_draftStack.canRedo())
+	{
+		PipelineDraftSnapshot restored;
+		if (m_draftStack.redo(captureDraftSnapshot(), restored))
+		{
+			applyDraftSnapshot(restored);
+			refreshUndoButtons();
+		}
+		return;
+	}
 	if (!m_editService)
 	{
 		return;
@@ -2098,34 +2195,215 @@ void TrajectoryEditPageWidget::onSaveTemplateClicked()
 	{
 		return;
 	}
+	bool ok = false;
+	const QString name = QInputDialog::getText(
+		this, m_useChinese ? QStringLiteral("保存流水线模板") : QStringLiteral("Save Pipeline Template"),
+		m_useChinese ? QStringLiteral("模板名称") : QStringLiteral("Template name"), QLineEdit::Normal,
+		m_templateCombo && m_templateCombo->currentIndex() > 0 ? m_templateCombo->currentText() : QString(), &ok);
+	if (!ok || name.trimmed().isEmpty())
+	{
+		return;
+	}
 	const nlohmann::json pipelineJson = RobotInstruction::trajectoryPipelineToJson(m_pipeline->ops());
-	QSettings settings(QStringLiteral("CloudSim"), QStringLiteral("TrajectoryPipeline"));
-	settings.setValue(QStringLiteral("pipelineJson"), QString::fromStdString(pipelineJson.dump()));
+	QString err;
+	QString id;
+	if (!UserTemplateLibrary::save(UserTemplateKind::Pipeline, name.trimmed(), pipelineJson, &id, &err))
+	{
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("保存") : QStringLiteral("Save"), err);
+		return;
+	}
+	refreshPipelineTemplateCombo();
+	if (m_templateCombo)
+	{
+		const int idx = m_templateCombo->findData(id);
+		if (idx >= 0)
+		{
+			m_templateCombo->setCurrentIndex(idx);
+		}
+	}
 }
 
 void TrajectoryEditPageWidget::onLoadTemplateClicked()
 {
-	QSettings settings(QStringLiteral("CloudSim"), QStringLiteral("TrajectoryPipeline"));
-	const QString jsonText = settings.value(QStringLiteral("pipelineJson")).toString();
-	if (jsonText.isEmpty())
+	if (!m_templateCombo || m_templateCombo->currentIndex() <= 0)
+	{
+		QMessageBox::information(this, m_useChinese ? QStringLiteral("加载") : QStringLiteral("Load"),
+								 m_useChinese ? QStringLiteral("请先选择模板") : QStringLiteral("Select a template"));
+		return;
+	}
+	loadPipelineTemplateById(m_templateCombo->currentData().toString());
+}
+
+void TrajectoryEditPageWidget::onDeleteTemplateClicked()
+{
+	if (!m_templateCombo || m_templateCombo->currentIndex() <= 0)
 	{
 		return;
 	}
-	nlohmann::json pipelineJson = nlohmann::json::parse(jsonText.toStdString(), nullptr, false);
-	if (pipelineJson.is_discarded())
+	const QString id = m_templateCombo->currentData().toString();
+	const QString name = m_templateCombo->currentText();
+	const auto ret = QMessageBox::question(
+		this, m_useChinese ? QStringLiteral("删除模板") : QStringLiteral("Delete Template"),
+		m_useChinese ? QStringLiteral("删除「%1」？").arg(name) : QStringLiteral("Delete \"%1\"?").arg(name));
+	if (ret != QMessageBox::Yes)
 	{
+		return;
+	}
+	QString err;
+	if (!UserTemplateLibrary::remove(UserTemplateKind::Pipeline, id, &err))
+	{
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("删除") : QStringLiteral("Delete"), err);
+		return;
+	}
+	refreshPipelineTemplateCombo();
+}
+
+void TrajectoryEditPageWidget::onImportTemplateClicked()
+{
+	const QString path = QFileDialog::getOpenFileName(
+		this, m_useChinese ? QStringLiteral("导入流水线模板") : QStringLiteral("Import Pipeline Template"), QString(),
+		QStringLiteral("JSON (*.json)"));
+	if (path.isEmpty())
+	{
+		return;
+	}
+	QString err;
+	QString id;
+	if (!UserTemplateLibrary::importFile(UserTemplateKind::Pipeline, path, &id, &err))
+	{
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("导入") : QStringLiteral("Import"), err);
+		return;
+	}
+	refreshPipelineTemplateCombo();
+	if (m_templateCombo)
+	{
+		const int idx = m_templateCombo->findData(id);
+		if (idx >= 0)
+		{
+			m_templateCombo->setCurrentIndex(idx);
+		}
+	}
+}
+
+void TrajectoryEditPageWidget::onExportTemplateClicked()
+{
+	if (!m_templateCombo || m_templateCombo->currentIndex() <= 0)
+	{
+		QMessageBox::information(this, m_useChinese ? QStringLiteral("导出") : QStringLiteral("Export"),
+								 m_useChinese ? QStringLiteral("请先选择模板") : QStringLiteral("Select a template"));
+		return;
+	}
+	const QString id = m_templateCombo->currentData().toString();
+	const QString suggested = m_templateCombo->currentText() + QStringLiteral(".json");
+	const QString path = QFileDialog::getSaveFileName(
+		this, m_useChinese ? QStringLiteral("导出流水线模板") : QStringLiteral("Export Pipeline Template"), suggested,
+		QStringLiteral("JSON (*.json)"));
+	if (path.isEmpty())
+	{
+		return;
+	}
+	QString err;
+	if (!UserTemplateLibrary::exportFile(UserTemplateKind::Pipeline, id, path, &err))
+	{
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("导出") : QStringLiteral("Export"), err);
+	}
+}
+
+void TrajectoryEditPageWidget::pushDraftFromBaseline(const bool coalesce)
+{
+	m_draftStack.push(m_lastDraftSnapshot, coalesce);
+	refreshUndoButtons();
+}
+
+void TrajectoryEditPageWidget::rememberDraftBaseline()
+{
+	m_lastDraftSnapshot = captureDraftSnapshot();
+}
+
+PipelineDraftSnapshot TrajectoryEditPageWidget::captureDraftSnapshot() const
+{
+	PipelineDraftSnapshot snap;
+	if (m_pipeline)
+	{
+		snap.ops = m_pipeline->ops();
+		snap.selectedIndex = m_pipeline->selectedOpIndex();
+	}
+	return snap;
+}
+
+void TrajectoryEditPageWidget::applyDraftSnapshot(const PipelineDraftSnapshot& snap)
+{
+	if (!m_pipeline)
+	{
+		return;
+	}
+	m_suppressDraftPush = true;
+	m_loadingParams = true;
+	m_pipeline->setOps(snap.ops);
+	if (snap.selectedIndex >= 0 && snap.selectedIndex < static_cast<int>(snap.ops.size()))
+	{
+		m_pipeline->setCurrentRow(snap.selectedIndex);
+	}
+	m_loadingParams = false;
+	m_suppressDraftPush = false;
+	rememberDraftBaseline();
+	syncSessionPipeline();
+	if (m_pipeline->selectedOpIndex() >= 0)
+	{
+		loadSelectedOpToParams();
+	}
+	schedulePreviewRun(120, false);
+}
+
+void TrajectoryEditPageWidget::clearDraftHistory()
+{
+	m_draftStack.clear();
+	rememberDraftBaseline();
+	refreshUndoButtons();
+}
+
+void TrajectoryEditPageWidget::refreshPipelineTemplateCombo()
+{
+	if (!m_templateCombo)
+	{
+		return;
+	}
+	const QString prevId = m_templateCombo->currentData().toString();
+	m_templateCombo->blockSignals(true);
+	m_templateCombo->clear();
+	m_templateCombo->addItem(m_useChinese ? QStringLiteral("（选择模板）") : QStringLiteral("(Select template)"),
+							 QString());
+	for (const UserTemplateEntry& e : UserTemplateLibrary::list(UserTemplateKind::Pipeline))
+	{
+		m_templateCombo->addItem(e.name, e.id);
+	}
+	const int idx = prevId.isEmpty() ? 0 : m_templateCombo->findData(prevId);
+	m_templateCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+	m_templateCombo->blockSignals(false);
+}
+
+void TrajectoryEditPageWidget::loadPipelineTemplateById(const QString& id)
+{
+	if (!m_pipeline || id.isEmpty())
+	{
+		return;
+	}
+	nlohmann::json payload;
+	QString err;
+	if (!UserTemplateLibrary::load(UserTemplateKind::Pipeline, id, &payload, nullptr, &err))
+	{
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("加载") : QStringLiteral("Load"), err);
 		return;
 	}
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops;
-	std::string err;
-	if (!RobotInstruction::trajectoryPipelineFromJson(pipelineJson, ops, &err))
+	std::string codecErr;
+	if (!RobotInstruction::trajectoryPipelineFromJson(payload, ops, &codecErr))
 	{
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("加载") : QStringLiteral("Load"),
+							 codecErr.empty() ? QStringLiteral("模板解析失败") : QString::fromStdString(codecErr));
 		return;
 	}
-	if (m_pipeline)
-	{
-		m_pipeline->setOps(ops);
-		syncSessionPipeline();
-		schedulePreviewRun(120, false);
-	}
+	m_pipeline->setOps(ops);
+	syncSessionPipeline();
+	schedulePreviewRun(120, false);
 }

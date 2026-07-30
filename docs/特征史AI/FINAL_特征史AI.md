@@ -1,14 +1,14 @@
-# FINAL — feature.compose Parametric 特征史
+# FINAL — feature.compose Parametric 特征史（续期包）
 
-AI ActionPlan 已接到 Host `*ToBrep` API，真正写入 `ParametricBrepBackendData` 特征链。
+AI ActionPlan 写入可编辑草图 JSON；板+通孔走 Pocket 特征链；Chamfer/Revolve 已挂执行器。
 
 ## 交付
 
-- Domain：`feature.compose`（Handler + 路由 + LLM prompt + 规则 Pad）
-- 步骤：`extrudeSketchProfileToBrep`、`filletEdgesToBrep`（含 `edges=all`）、`linearPatternBodyToBrep`、`askClarify`
-- ABI **1.43.0**：`onParametricBodyHistoryChanged`；Fillet `allEdges`
-- 几何建模插件订阅回调 → `syncFeaturesFromBody`
+- **F1**：`extrude` / `revolve` 前生成 `SketchDocument2d` 兼容 JSON → `sketchDocumentJsonUtf8`
+- **F2**：Router（建模+孔 → feature）；规则 Pad+Pocket；Prompt 禁止 booleanMesh 通孔
+- **F3**：`chamferEdgesToBrep` / `revolveSketchProfileToBrep` + 白名单 + Prompt；Chamfer `allEdges`
+- ABI **1.44.0**：Chamfer `allEdges`（Fillet `allEdges` / history 回调仍为 1.43 起）
 
 ## 文档
 
-`CONSENSUS` / `DESIGN` / `TASK` / `ACCEPTANCE` 于本目录；思想说明见 `../硬化基准面/TEXT2CAD_AI助手.md`（可对照更新）。
+本目录 `TODO` / `ACCEPTANCE` / `FINAL`；硬化基准面 TODO 已去掉过时「AI 仍网格」条目。

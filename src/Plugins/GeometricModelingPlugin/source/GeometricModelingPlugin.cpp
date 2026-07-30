@@ -77,9 +77,9 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 {
 	if (!host)
 		return false;
-	if (host->hostVersion() < 0x00012B00U)
+	if (host->hostVersion() < 0x00012C00U)
 	{
-		host->logError(QStringLiteral("GeometricModelingPlugin requires host 1.43.0+"));
+		host->logError(QStringLiteral("GeometricModelingPlugin requires host 1.44.0+"));
 		return false;
 	}
 	m_host = host;

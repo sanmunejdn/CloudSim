@@ -2080,7 +2080,7 @@ void PluginGeometryHostImpl::chamferEdgesToBrep(IPluginDocument* doc, const Plug
 		onFinished(false, QStringLiteral("No active document"), {});
 		return;
 	}
-	if (params.edgeIndices.empty())
+	if (params.edgeIndices.empty() && !params.allEdges)
 	{
 		onFinished(false, QStringLiteral("No edges selected"), {});
 		return;
@@ -2093,7 +2093,22 @@ void PluginGeometryHostImpl::chamferEdgesToBrep(IPluginDocument* doc, const Plug
 		return;
 	}
 
-	body->addChamfer(params.edgeIndices, params.distanceMm);
+	std::vector<int> edges = params.edgeIndices;
+	if (params.allEdges)
+	{
+		edges.clear();
+		const int n = geoalgo::shapeHandleEdgeCount(body->worldShape());
+		edges.reserve(n > 0 ? n : 0);
+		for (int i = 0; i < n; ++i)
+			edges.push_back(i);
+		if (edges.empty())
+		{
+			onFinished(false, QStringLiteral("Tip has no edges"), {});
+			return;
+		}
+	}
+
+	body->addChamfer(edges, params.distanceMm);
 	std::string rebuildErr;
 	if (!body->rebuild(&rebuildErr))
 	{

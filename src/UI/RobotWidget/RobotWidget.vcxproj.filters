@@ -113,6 +113,12 @@
     <ClInclude Include="inc\TrajectoryGeometryResolverHost.h">
       <Filter>inc\TrajectoryUi</Filter>
     </ClInclude>
+    <ClInclude Include="inc\UserTemplateLibrary.h">
+      <Filter>inc\TrajectoryUi</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PipelineDraftEditStack.h">
+      <Filter>inc\TrajectoryUi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp">
@@ -251,6 +257,12 @@
       <Filter>src\TrajectoryUi</Filter>
     </ClCompile>
     <ClCompile Include="source\TrajectoryPipelineListWidget.cpp">
+      <Filter>src\TrajectoryUi</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UserTemplateLibrary.cpp">
+      <Filter>src\TrajectoryUi</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PipelineDraftEditStack.cpp">
       <Filter>src\TrajectoryUi</Filter>
     </ClCompile>
   </ItemGroup>

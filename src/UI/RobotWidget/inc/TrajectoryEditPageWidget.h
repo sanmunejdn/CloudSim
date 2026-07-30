@@ -6,6 +6,7 @@
 
 #include "robotwidget_global.h"
 
+#include "PipelineDraftEditStack.h"
 #include "TrajectoryPipelineTypes.h"
 
 #include <QPoint>
@@ -163,9 +164,23 @@ private:
 
 	void onLoadTemplateClicked();
 
+	void onDeleteTemplateClicked();
+
+	void onImportTemplateClicked();
+
+	void onExportTemplateClicked();
+
 	void showPipelineContextMenu(const QPoint& pos);
 
 	void resetTrajectoryGenerationPages();
+
+	void pushDraftFromBaseline(bool coalesce);
+	void rememberDraftBaseline();
+	PipelineDraftSnapshot captureDraftSnapshot() const;
+	void applyDraftSnapshot(const PipelineDraftSnapshot& snap);
+	void clearDraftHistory();
+	void refreshPipelineTemplateCombo();
+	void loadPipelineTemplateById(const QString& id);
 
 	bool m_useChinese = true;
 
@@ -226,18 +241,30 @@ private:
 
 	QPushButton* m_redoBtn = nullptr;
 
+	QComboBox* m_templateCombo = nullptr;
+
 	QPushButton* m_saveTemplateBtn = nullptr;
 
 	QPushButton* m_loadTemplateBtn = nullptr;
+
+	QPushButton* m_deleteTemplateBtn = nullptr;
+
+	QPushButton* m_importTemplateBtn = nullptr;
+
+	QPushButton* m_exportTemplateBtn = nullptr;
 
 	bool m_loadingParams = false;
 	bool m_flushingParams = false;
 	bool m_pendingLoadSelectedOp = false;
 	bool m_committingApply = false;
 	bool m_pipelineAppliedSinceLastRawChange = false;
+	bool m_suppressDraftPush = false;
+	bool m_coalesceDraftPush = false;
 	int m_previewScheduleToken = 0;
 
 	std::string m_selectedGroupId;
+	PipelineDraftEditStack m_draftStack;
+	PipelineDraftSnapshot m_lastDraftSnapshot;
 };
 
 #endif // ROBOTWIDGET_TRAJECTORYEDITPAGEWIDGET_H

@@ -145,10 +145,14 @@ bool isBoxStockPhrase(const QString& t)
 
 double findDiameterMm(const QString& t, const std::vector<double>& nums)
 {
-	QRegularExpression re(QStringLiteral("直径\\s*(?:为|是)?\\s*(\\d+(?:\\.\\d+)?)"));
+	QRegularExpression re(QStringLiteral("(?:直径|φ|Φ)\\s*(?:为|是)?\\s*(\\d+(?:\\.\\d+)?)"));
 	const auto m = re.match(t);
 	if (m.hasMatch())
 		return m.captured(1).toDouble();
+	QRegularExpression reD(QStringLiteral("\\bd\\s*(\\d+(?:\\.\\d+)?)"), QRegularExpression::CaseInsensitiveOption);
+	const auto md = reD.match(t);
+	if (md.hasMatch())
+		return md.captured(1).toDouble();
 	if (t.contains(QStringLiteral("直径")) && nums.size() >= 4)
 		return nums[3];
 	if (t.contains(QStringLiteral("直径")) && !nums.empty())
@@ -526,6 +530,51 @@ ParseResult tryParseFeatureComposeUserText(const QString& textIn)
 		return r;
 	}
 
+	// 旋转圆柱：矩形截面绕 +Y 360°
+	if (t.contains(QStringLiteral("旋转")) &&
+		(t.contains(QStringLiteral("圆柱")) || t.contains(QStringLiteral("回转"))))
+	{
+		const std::vector<double> nums = extractNumbersMm(t);
+		double R = findLabeled(t, {QStringLiteral("半径")}, nums, 0);
+		if (R <= 0.0)
+		{
+			const double D = findDiameterMm(t, nums);
+			if (D > 0.0)
+				R = D * 0.5;
+		}
+		double H = findLabeled(t, {QStringLiteral("高")}, nums, 1);
+		if (R <= 0.0 || H <= 0.0)
+		{
+			r.errorMessage = QStringLiteral("旋转圆柱请给出半径/直径与高度（mm）。");
+			r.hintMessage = QStringLiteral("例如：旋转圆柱 半径50 高100。");
+			return r;
+		}
+		nlohmann::json plan;
+		plan["version"] = 2;
+		plan["domain"] = "feature.compose";
+		plan["steps"] = nlohmann::json::array();
+		plan["steps"].push_back({
+			{"id", "body"},
+			{"api", "revolveSketchProfileToBrep"},
+			{"args",
+			 {
+				 {"mode", "boss"},
+				 {"profile", "rectangle"},
+				 {"length_mm", R},
+				 {"width_mm", H},
+				 {"angle_deg", 360.0},
+				 {"axis_dx", 0.0},
+				 {"axis_dy", 1.0},
+				 {"axis_dz", 0.0},
+				 {"name", "RevolveBody"},
+			 }},
+		});
+		r.ok = true;
+		r.command = std::move(plan);
+		r.hintMessage = QStringLiteral("已用规则生成 Revolve 圆柱特征计划。");
+		return r;
+	}
+
 	const std::vector<double> nums = extractNumbersMm(t);
 	double L = findLabeled(t, {QStringLiteral("长")}, nums, 0);
 	double W = findLabeled(t, {QStringLiteral("宽")}, nums, 1);
@@ -560,6 +609,44 @@ ParseResult tryParseFeatureComposeUserText(const QString& textIn)
 			 {"name", "Body"},
 		 }},
 	});
+
+	if (hasHoleIntent(t))
+	{
+		double dia = findDiameterMm(t, nums);
+		if (dia <= 0.0)
+		{
+			QRegularExpression reHole(QStringLiteral("孔\\s*(?:直径|d|D)?\\s*(\\d+(?:\\.\\d+)?)"));
+			const auto mh = reHole.match(t);
+			if (mh.hasMatch())
+				dia = mh.captured(1).toDouble();
+		}
+		if (dia <= 0.0)
+		{
+			r.errorMessage = QStringLiteral("通孔请给出直径（mm），例如：建模 100x80x40 中心通孔 d10。");
+			return r;
+		}
+		plan["steps"].push_back({
+			{"id", "hole"},
+			{"api", "extrudeSketchProfileToBrep"},
+			{"args",
+			 {
+				 {"mode", "pocket"},
+				 {"profile", "circle"},
+				 {"diameter_mm", dia},
+				 {"center_u_mm", L * 0.5},
+				 {"center_v_mm", W * 0.5},
+				 {"end_condition", "through_all"},
+				 {"extrude_mm", H},
+				 {"target", "$body"},
+				 {"name", "ThroughHole"},
+			 }},
+		});
+		r.ok = true;
+		r.command = std::move(plan);
+		r.hintMessage = QStringLiteral("已用规则生成 Pad+Pocket 通孔特征计划。");
+		return r;
+	}
+
 	r.ok = true;
 	r.command = std::move(plan);
 	r.hintMessage = QStringLiteral("已用规则生成 Pad 特征计划。");

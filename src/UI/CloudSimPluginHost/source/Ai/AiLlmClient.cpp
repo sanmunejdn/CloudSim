@@ -162,21 +162,29 @@ QString featureComposeSystemPrompt()
 	return QStringLiteral(
 		"You are a parametric text-to-CAD planner for CloudSim. Output ActionPlan JSON version 2 ONLY (no markdown).\n"
 		"Schema: {\"version\":2,\"domain\":\"feature.compose\",\"steps\":[{\"id\":\"...\",\"api\":\"...\",\"args\":{...}}]}.\n"
-		"Philosophy (Text2CAD): SEQUENCE of real features — sketch profile extrude (Pad) → Pocket → Fillet → LinearPattern.\n"
+		"Philosophy (Text2CAD): SEQUENCE of real features — Pad → Pocket → Fillet/Chamfer → Revolve → LinearPattern.\n"
+		"Through-holes / cutouts on a plate MUST be Pocket on \"$priorBody\" (end_condition through_all). NEVER use booleanMesh.\n"
 		"All dimensions in mm. Prefer clarify over inventing sizes.\n"
 		"Clarify-before-draw (Pro-CAD): if critical sizes missing, ONE step askClarify with questions[] and STOP.\n"
 		"APIs:\n"
 		"1) askClarify args: questions (string array).\n"
 		"2) extrudeSketchProfileToBrep args:\n"
-		"   mode: pad|pocket; profile: rectangle|polygon; length_mm+width_mm (rect) or sides+radius_mm (polygon);\n"
-		"   extrude_mm (depth); optional name; pocket requires target \"$priorStepId\".\n"
+		"   mode: pad|pocket; profile: rectangle|polygon|circle; length_mm+width_mm (rect) or sides+radius_mm (polygon)\n"
+		"   or diameter_mm/radius_mm + optional center_u_mm/center_v_mm (circle);\n"
+		"   extrude_mm (depth); end_condition: blind|through_all; optional name; pocket requires target \"$priorStepId\".\n"
 		"   Optional profile_xyz_mm closed polyline (xyz interleaved) instead of profile helpers.\n"
 		"3) filletEdgesToBrep args: target \"$stepId\", radius_mm, edge_indices int[] OR edges:\"all\".\n"
-		"4) linearPatternBodyToBrep args: target \"$stepId\", count>=2, dx_mm, dy_mm, dz_mm; optional source_feature_id.\n"
-		"Example box 100x80x40 Pad:\n"
+		"4) chamferEdgesToBrep args: target \"$stepId\", distance_mm, edge_indices int[] OR edges:\"all\".\n"
+		"5) revolveSketchProfileToBrep args: mode boss|cut; same profile helpers as extrude; angle_deg (default 360);\n"
+		"   default axis origin +Y (axis_dy=1); cut requires target \"$stepId\".\n"
+		"6) linearPatternBodyToBrep args: target \"$stepId\", count>=2, dx_mm, dy_mm, dz_mm; optional source_feature_id.\n"
+		"Example plate 100x80x40 with center through-hole d10:\n"
 		"{\"version\":2,\"domain\":\"feature.compose\",\"steps\":["
 		"{\"id\":\"body\",\"api\":\"extrudeSketchProfileToBrep\",\"args\":{\"mode\":\"pad\",\"profile\":\"rectangle\","
-		"\"length_mm\":100,\"width_mm\":80,\"extrude_mm\":40,\"name\":\"Body\"}}]}");
+		"\"length_mm\":100,\"width_mm\":80,\"extrude_mm\":40,\"name\":\"Body\"}},"
+		"{\"id\":\"hole\",\"api\":\"extrudeSketchProfileToBrep\",\"args\":{\"mode\":\"pocket\",\"profile\":\"circle\","
+		"\"diameter_mm\":10,\"center_u_mm\":50,\"center_v_mm\":40,\"end_condition\":\"through_all\","
+		"\"extrude_mm\":40,\"target\":\"$body\"}}]}");
 }
 } // namespace
 

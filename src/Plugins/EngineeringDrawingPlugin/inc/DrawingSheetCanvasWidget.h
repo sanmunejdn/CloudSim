@@ -8,6 +8,7 @@
 
 #include <QColor>
 #include <QJsonObject>
+#include <QPen>
 #include <QPixmap>
 #include <QPointF>
 #include <QRectF>
@@ -59,6 +60,14 @@ enum class DrawingPaperSize
 	Custom
 };
 
+enum class SheetLineType
+{
+	Continuous = 0,
+	Dashed,
+	Center,
+	DashDot
+};
+
 class DrawingSheetCanvasWidget final : public QWidget
 {
 	Q_OBJECT
@@ -76,6 +85,8 @@ public:
 		bool visible = true;
 		bool locked = false;
 		QColor color = QColor(30, 35, 45);
+		SheetLineType lineType = SheetLineType::Continuous;
+		double lineWidthMm = 0.35;
 	};
 
 	struct DrawingView
@@ -225,10 +236,15 @@ public:
 	bool removeLayer(const QString& layerId);
 	bool setLayerVisible(const QString& layerId, bool visible);
 	bool setLayerLocked(const QString& layerId, bool locked);
+	bool setLayerColor(const QString& layerId, const QColor& color);
+	bool setLayerLineType(const QString& layerId, SheetLineType lineType);
+	bool setLayerLineWidth(const QString& layerId, double widthMm);
 	bool reassignSelectionToCurrentLayer();
 	const SheetLayer* layerById(const QString& layerId) const;
 	bool isLayerDrawable(const QString& layerId) const;
 	bool isLayerEditable(const QString& layerId) const;
+	static QString lineTypeToString(SheetLineType t);
+	static SheetLineType lineTypeFromString(const QString& s);
 
 signals:
 	void sheetChanged();
@@ -262,6 +278,8 @@ private:
 	void drawDimension(class QPainter& p, const SheetDimension& dim) const;
 	void drawNote(class QPainter& p, const SheetNote& note) const;
 	void drawDimArrow(class QPainter& p, const QPointF& tipWidget, const QPointF& dirScene) const;
+	/// forceDashed：HLR 隐藏线强制虚线，仍用图层色宽
+	QPen penForLayer(const QString& layerId, bool forceDashed = false, bool selected = false) const;
 	int hitViewIndex(const QPointF& scenePos) const;
 	int hitDimensionIndex(const QPointF& scenePos) const;
 	int hitNoteIndex(const QPointF& scenePos) const;

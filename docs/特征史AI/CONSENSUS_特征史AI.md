@@ -17,7 +17,7 @@ AI ActionPlan 调用 `extrudeSketchProfileToBrep` / `filletEdgesToBrep` / `linea
 - [ ] `askClarify` 合法；尺寸不全时停手
 - [ ] 几何建模工作区打开时特征树刷新
 - [ ] Debug|x64：SDK / Host / GeometricModelingPlugin 编译通过
-- [ ] ABI ≥ **1.43.0**（`0x00012B00`）
+- [ ] ABI ≥ **1.44.0**（`0x00012C00`）
 
 ## 边界
 
