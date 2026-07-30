@@ -27,6 +27,8 @@ class QCheckBox;
 
 class QComboBox;
 
+class QButtonGroup;
+
 class QGroupBox;
 
 class QLabel;
@@ -122,9 +124,19 @@ private slots:
 
 	void onDeleteAllRows();
 
+	void onRemoveFacesFromFeature();
+
+	void onRemoveEdgesFromFeature();
+
 	void onStrategyComboChanged();
 
 	void onPathPlanBound(const std::string& pathPlanId);
+
+	void onSaveDiscretizeTemplateClicked();
+	void onLoadDiscretizeTemplateClicked();
+	void onDeleteDiscretizeTemplateClicked();
+	void onImportDiscretizeTemplateClicked();
+	void onExportDiscretizeTemplateClicked();
 
 protected:
 	void showEvent(QShowEvent* event) override;
@@ -168,6 +180,13 @@ private:
 								   int knownFaceIndex, int knownEdgeIndex, geoalgo::FeatureEntry& out,
 								   QString* err) const;
 
+	/// 将拾取的面/边追加到选中行（两面交线、面+边偏置等）
+	bool tryAppendPickToSelectedFeature(bool pickFace, const geoalgo::Point3d& modelA, const geoalgo::Point3d& modelB,
+										int knownFaceIndex, int knownEdgeIndex, QString* err);
+
+	static bool featureNeedsMoreGeometry(const geoalgo::FeatureEntry& entry);
+	static bool canAppendPickToFeature(const geoalgo::FeatureEntry& entry, bool pickFace, QString* err);
+
 	bool buildFeatureListDocument(geoalgo::FeatureListDocument& out, QString* err) const;
 
 	bool discretizeFromTable(bool quiet = false);
@@ -193,9 +212,17 @@ private:
 	/// 特征表增删后：有剩余则重离散，清空则清 raw 并经 rawTrajectoryChanged 刷新 3D
 	void syncDiscretizationAfterFeatureTableChange();
 
+	/// 勾选弹窗剔除面或边；剔空则删行
+	void removeGeometryIndicesFromRow(int row, bool removeFaces);
+
+	bool isAppendPickMode() const;
+
 	void refreshPreviewFromSession();
 
 	bool buildPreviewOverlayJson(const QByteArray& catalogSliceUtf8, QByteArray& outPreviewJson, QString* err) const;
+
+	void refreshDiscretizeTemplateCombo();
+	bool applyDiscretizeTemplatePayload(const nlohmann::json& payload, QString* err);
 
 	bool enumerateCatalogForBackend(const QString& backendId, geoalgo::FeatureCatalog& out, QString* err) const;
 
@@ -244,6 +271,8 @@ private:
 
 	std::string m_lastLoadedSourceJson;
 
+	QString m_lastWorkpieceBackendId;
+
 	QComboBox* m_backendCombo = nullptr;
 
 	QTableView* m_featureTable = nullptr;
@@ -252,9 +281,22 @@ private:
 
 	QComboBox* m_strategyCombo = nullptr;
 
+	QComboBox* m_discretizeTemplateCombo = nullptr;
+	QPushButton* m_saveDiscretizeTemplateBtn = nullptr;
+	QPushButton* m_loadDiscretizeTemplateBtn = nullptr;
+	QPushButton* m_deleteDiscretizeTemplateBtn = nullptr;
+	QPushButton* m_importDiscretizeTemplateBtn = nullptr;
+	QPushButton* m_exportDiscretizeTemplateBtn = nullptr;
+
 	FeatureDiscretizerParamPanel* m_paramPanel = nullptr;
 
 	QLabel* m_pickStatusLabel = nullptr;
+
+	QPushButton* m_pickModeAppendBtn = nullptr;
+
+	QPushButton* m_pickModeNewBtn = nullptr;
+
+	QButtonGroup* m_pickWriteModeGroup = nullptr;
 
 	QPushButton* m_pickEdgeBtn = nullptr;
 

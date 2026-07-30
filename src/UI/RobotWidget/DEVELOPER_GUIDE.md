@@ -454,18 +454,16 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 
 ### Session 几何历史（多次 Apply / 预览对齐）
 
-`TrajectoryEditSession` 在流水线 **Apply 成功后** 会 `clearPipelineAfterCommit()` 清空 UI 流水线，但保留下列历史，用于下次从**同一 CAD raw 基线**重放全部几何变换（避免「第二次 Apply 覆盖第一次移动」）：
+`TrajectoryEditSession` 在流水线 **Apply 成功后** 会 `clearPipelineAfterCommit()` 清空 UI/session 草稿流水线。有 raw 时保留 `m_bakedWorldRaw`（诊断用）；**不再**维护 `m_accumulatedGeometryOps` / `m_pendingPreRawGeometryOps`（已移除）。下次 Apply 始终从 `m_rawTrajectory`（CAD 源 raw）经引擎重放当前草稿。
 
-| 成员 | 何时写入 | 何时用于预览/Apply |
-|------|----------|-------------------|
-| `m_pendingPreRawGeometryOps` | 引擎 `pendingPreRaw` 槽位（Program Command 路径已移除，通常为空） | 有 raw 的 Apply/预览经 `setPendingPreRawOps` 传入；Apply 成功后 **清空** |
-| `m_accumulatedGeometryOps` | 每次有 raw 的 Apply 成功后追加本批全部几何块 | 之后每次 Apply/预览作为引擎 `committed` 在 `draft` 之前重放 |
-| `m_bakedWorldRaw` | 有 raw 的 Apply 成功后由 `unifiedTrajectoryToRaw` 烘焙 | 诊断/状态用；**不再**作为 Apply 起点（始终从 `m_rawTrajectory` 重建） |
-| `m_rawTrajectory` | 轨迹生成页 `setRawTrajectory`；有 raw 的 Apply 可更新 `rawWorking` | 引擎 raw 路径的 **文件坐标** 输入；`rebuildUnifiedFromSourceRaw` 转世界系 |
+| 成员 | 何时写入 | 用途 |
+|------|----------|------|
+| `m_bakedWorldRaw` | 有 raw 的 Apply 成功后由 `unifiedTrajectoryToRaw` 烘焙 | 诊断/状态；**不是** Apply 起点 |
+| `m_rawTrajectory` | 轨迹生成页 `setRawTrajectory`；有 raw 的 Apply 可更新 `rawWorking` | 引擎 raw 路径的 **文件坐标** 输入 |
 
-用户点轨迹编辑 **Reset** 时：`clearTrajectoryGeometryHistory()` 清空上述历史 + `m_bakedWorldRaw`（`onResetClicked`）。`setRawTrajectory`（新离散）会清 `m_bakedWorldRaw`，**保留** accumulated（除非用户 Reset）。
+用户点轨迹编辑 **Reset** 时：`clearTrajectoryGeometryHistory()` 清空 `m_bakedWorldRaw`（`onResetClicked`）。`setRawTrajectory`（新离散）亦清 `m_bakedWorldRaw`。
 
-**新离散**：`setRawTrajectory` 清几何历史；**已绑定** PathPlan 时只更新该条 raw；无绑定时在根级 PathPlan 序列末尾 `InsertPathPlanCommand` 并自动命名（featureId 去重）。重离散清 `appliedHistory`。`bindPathPlan(id)` 加载 Session 内 `pipeline` / raw（**不**自动刷新轨迹编辑页流水线 UI）。Apply（有 raw）用 `CompositeProgramEditCommand` 一次撤销。删除 PathPlan：`RemovePathPlanCommand`（指令树删除按钮）。
+**新离散**：`setRawTrajectory` 清几何烘焙；**已绑定** PathPlan 时 `Composite(UpdatePathPlanPipeline 清 appliedHistory + UpdatePathPlanRaw)`；无绑定时 `Composite(InsertPathPlan + UpdatePathPlanRaw)` 并自动命名。`bindPathPlan(id)` 加载 Session 内 `pipeline` / raw（**不**自动刷新轨迹编辑页流水线 UI）。Apply（有 raw）用 `CompositeProgramEditCommand` 一次撤销。删除 PathPlan：`RemovePathPlanCommand`（指令树删除按钮）。
 
 **指令树 · 路径规划区**：根级虚拟节点「路径规划」下展示全部 `Type::PathPlan`（可拖放排序）；子节点可显示对应 `PathPlanOutput` 分组（只读）。运动程序（分组/路点）在其下方。`program.steps` 约定为 **PathPlan 块在前、运动指令在后**（`syncToProgram` 写回）。PathPlan **绑定**在轨迹生成页顶栏下拉或指令树选中 PathPlan 节点；轨迹编辑页顶栏**无**「规划」下拉（2026-03）。
 
@@ -477,7 +475,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 |------|------|----------|
 | **特征 + 离散参数** | `sourceFeatureJson`（`FeatureListDocument` JSON） | 离散 / 拾取后 `setRawTrajectory` |
 | **原始轨迹点列** | `pathPlanRaws` + `rawTrajectoryKey` | 同上 |
-| **算子流水线** | `pipeline[]` | 轨迹编辑页 `updatePipelineOps` → `syncPipelineToBoundPathPlan` |
+| **算子流水线** | `pipeline[]` | **仅 Apply** 经 `UpdatePathPlanPipelineCommand`（草稿期不直写 PathPlan） |
 
 **轨迹生成页顶栏**（`TrajectoryGenerationPageWidget`）：路径规划下拉、`+` 新建、`开始修改`、`取消修改`。切换 PathPlan 仅 `bindPathPlan` + 清空 CAD 特征表；**不**自动重离散、**不**预显示 raw 叠加层（`shouldShowTrajectoryGenerationPreview` ← `FeatureTrajectoryPageWidget::isFeatureEditActive()`）。
 
@@ -526,14 +524,16 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 
 | 操作 | UI 路径 | Session API |
 |------|---------|-------------|
-| 增删/排序/拖入/加载模板/启停勾选 | `opsChanged` → `syncSessionPipeline()` | 已绑定 PathPlan：**`updatePipelineOps`**；否则 **`setPipeline`**；勾选预览时重跑（仅 `enabled` 块进引擎） |
-| 改参数（Schema / 几何下拉） | `applyParamsToSelectedOp` → `syncSessionParams` | **当前块已启用**才防抖预览；未启用只写回参数（勿 `setPipeline`） |
+| 增删/排序/拖入/加载模板/启停勾选 | `opsChanged` → 压草稿栈 → `syncSessionPipeline()` | 已绑定 PathPlan：**`updatePipelineOps`**（**不**直写 PathPlan）；否则 **`setPipeline`**；勾选预览时重跑（仅 `enabled` 块进引擎） |
+| 改参数（Schema / 几何下拉） | `applyParamsToSelectedOp` → 压草稿栈（300ms coalesce）→ `syncSessionParams` | **当前块已启用**才防抖预览；未启用只写回参数（勿 `setPipeline`） |
 | 预览勾选 / Apply | `reconcilePipelineScopes()` + `flushPipelineToSession()` | 有选中块 → `applyParamsToSelectedOp`；否则 `syncSessionParams` |
-| 撤销 / 重做（任意 Command） | `ProgramEditService::revisionChanged` → `syncUiAfterProgramRevision()` | 刷新分组下拉、丢弃预览、协调流水线 scope（见下） |
+| 撤销 / 重做 | 优先 `PipelineDraftEditStack`；空则 `ProgramEditService` → `syncUiAfterProgramRevision()` | 程序修订后 `replacePipelineOpsFromStore` + `loadRawFromBoundPathPlan` |
 
 **禁止**在参数变更路径调用 `setPipeline()`，否则预览位姿会被 `reset()` 立刻还原。
 
 ### 撤销 / 重做与作用域协调
+
+**双栈语义**：页上「撤销/重做」优先消费草稿栈（流水线结构/参数）；草稿栈空时才走 `ProgramEditService`（Apply、指令树、PathPlan Command）。Apply / Reset / 「开始修改」会 `clearDraftHistory()`。
 
 程序树变更（含轨迹 **Apply**、分组创建/删除、指令增删等）均走 `ProgramEditService` 撤销栈。`revisionChanged` 时轨迹页 **`syncUiAfterProgramRevision()`**：
 
@@ -541,6 +541,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 |------|------|
 | 刷新 UI | `refreshUndoButtons`、`refreshProgramAndGroupCombos`（保留顶栏/参数区/当前选中块的分组选中项） |
 | 丢弃预览 | `TrajectoryEditSession::abandonPreview()` — **不**还原快照（程序已被 undo/redo 改写，旧快照会污染 store） |
+| 同步 PathPlan | `syncBoundPathPlanFromSession`：UI `setOps` + `replacePipelineOpsFromStore` + `loadRawFromBoundPathPlan` + phase 门控；清空草稿栈 |
 | 协调 scope | `reconcilePipelineScopes()` — 分组块引用的 `groupId` 若已不存在或成员为空：先回退顶栏当前分组，否则改为 `EntireProgram` |
 | 同步参数面板 | 若有选中块 → `loadSelectedOpToParams()` |
 
@@ -563,9 +564,9 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | **Apply** | `reconcilePipelineScopes` → `flush` → `apply`：统一引擎 + `ReplaceProgramContentCommand`；成功后清空流水线、**取消勾选**预览、**关闭 raw/overlay 叠加层**并 `refreshInstructionPoseAxes` |
 | **Apply 后生成门控** | 页面状态 `m_pipelineAppliedSinceLastRawChange=true`，`m_rawEmitBtn` 禁用；`onRawEmitProgram` 也有硬门禁提示，防止绕过按钮状态覆盖结果 |
 | **Reset** | `session->reset()` + `pipeline->setOps({})`（`opsChanged` → `setPipeline` 同步 Session） |
-| **Undo / Redo** | `ProgramEditService::undo/redo` → `revisionChanged` → `syncUiAfterProgramRevision` |
+| **Undo / Redo** | 优先草稿栈；否则 `ProgramEditService::undo/redo` → `revisionChanged` → `syncUiAfterProgramRevision` |
 | **流水线右键** | 移除块 / 上移 / 下移（`opsChanged` → `syncSessionPipeline` + 勾选时自动预览） |
-| **加载模板** | `setOps` + `syncSessionPipeline` + 勾选时 `runPreviewIfEnabled` |
+| **命名模板** | 下拉 + 保存/加载/删除/导入/导出（`UserTemplateLibrary`，AppData `templates/pipeline`） |
 
 ### 调色板拖放
 
@@ -611,10 +612,8 @@ flowchart TD
 **Raw 预览引擎顺序**（与 Apply 一致，`configurePipelineEngineForRaw` + `executeFull`）：
 
 1. `ingressUnifiedFromRaw`（`m_rawTrajectory` 文件坐标 → 世界 Unified）
-2. `pendingPreRaw`（`m_pendingPreRawGeometryOps`，通常为空）
-3. `committed`（`m_accumulatedGeometryOps`）
-4. `draft`（当前流水线 `m_ops`）
-5. `unifiedTrajectoryToRaw` → 世界系 `outPreviewRaw` → 分支 A 画 OSG
+2. `draft`（当前流水线 `m_ops`）
+3. `unifiedTrajectoryToRaw` → 世界系 `outPreviewRaw` → 分支 A 画 OSG
 
 **注意**：离散后、尚未「生成程序」时，预览只看 **raw 叠加层**（分支 A），不要与指令树路点轴混读。纯 overlay（B）时 `refreshPreviewVisuals` 跳过路点轴；**混合预览（B′）** 写回 store 但 3D 仍以 overlay 为准，选中路点可在属性面板看到 blend/speed。`m_rawTrajectoryPreviewActive` 时 `refreshInstructionPoseAxes` 直接返回。
 
@@ -624,12 +623,12 @@ flowchart TD
 
 与 raw 预览相同引擎重放，最后 `unifiedTrajectoryToProgram` / `unifiedTrajectoryMergeIntoProgram` + `ReplaceProgramContentCommand`。成功后：
 
-- `appendGeometryOpsHistory(m_accumulatedGeometryOps, geometryOps)` 记录本批几何；
 - 有 raw 时更新 `m_rawTrajectory`（`rawWorking`）、写入 `m_bakedWorldRaw`；
+- PathPlan：`UpdatePathPlanPipelineCommand`（before 为 Apply 前 catalog 中的 pipeline，因草稿期未直写）；
 - `syncRenderMatricesForInstructionIds(..., worldFrameTcp=true)`；
-- 页面 `onApplyClicked`：`setRawTrajectoryPreviewActive(false)`、`clearRawTrajectoryOverlay*`、`refreshInstructionPoseAxes`。
+- 页面 `onApplyClicked`：`setRawTrajectoryPreviewActive(false)`、`clearRawTrajectoryOverlay*`、`refreshInstructionPoseAxes`、清空草稿栈。
 
-无 raw 且程序无路点 → 报错「无原始轨迹且程序中无路点」。有 raw 的 Apply 经 `configurePipelineEngineForRaw` 配置 pending/committed/draft。
+无 raw 且程序无路点 → 报错「无原始轨迹且程序中无路点」。有 raw 的 Apply 经 `configurePipelineEngineForRaw` 配置 draft。
 
 #### 坐标系
 
@@ -687,7 +686,7 @@ flowchart TD
 
 流水线摘要 `formatOpSummary`：委托 Registry 中对应 `ITrajectoryOp::formatSummary`（含坐标系、Δ、角度等）。
 
-模板：`QSettings` 键 `pipelineJson`，`trajectoryPipelineToJson` / `trajectoryPipelineFromJson`（见 [`TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../../Robot/TrajectoryAlgorithm/DEVELOPER_GUIDE.md) §8）。
+命名模板：`UserTemplateLibrary`（`AppDataLocation/CloudSim/templates/pipeline|discretize`）。流水线 payload 为 `trajectoryPipelineToJson` 数组；旧单槽 `QSettings pipelineJson` 首次启动迁移为「迁移的上次保存」。详见 [`docs/轨迹编辑模板与撤销/`](../../../docs/轨迹编辑模板与撤销/)。
 
 ### 已知限制（Phase 2b）
 
@@ -709,25 +708,26 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 | 选 PathPlan | 顶栏 `m_pathPlanCombo` → `TrajectoryEditSession::bindPathPlan` |
 | 开始修改 | `beginEditBoundPathPlan()` — 特征表 + 离散参数 + 算子流程 + 预览 |
 | 取消修改 | `cancelEditBoundPathPlan()` — 退出编辑态、清表/预览；已落盘 PathPlan 保留 |
-| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；`Model` 需 `.step`/`.stp`；`BrepModel` 需内存 shape（含 AI `createPrimitiveMesh`）；真实 STEP 路径去重，虚拟/`BrepModel` 按 id 保留；切页/`showEvent` 会 `refreshWorkpieces` |
-| **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → `buildFeatureEntryFromPick` / `buildFeatureEntryFromModelPick`（世界坐标经 `feature_pick_transform::worldPointToStepModelMm`） |
+| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；`Model` 需 `.step`/`.stp`；`BrepModel` 需内存 shape（含 AI `createPrimitiveMesh`）；真实 STEP 路径去重，虚拟/`BrepModel` 按 id 保留；切页/`showEvent` 会 `refreshWorkpieces`（`blockSignals` + 恢复原 backendId，**仅工件真正变化才清空特征表**） |
+| **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → 由互斥按钮「追加到选中 / 新建特征」决定写入方式（追加须表有选中行）；`FaceIntersection` 需同行 ≥2 面、`FaceOffsetCurve` 需同行面+边，几何未齐时保持/切换拾取态；右键「移除面/边…」勾选剔除索引 |
 | 离散策略 | 拾取前下拉（面/线 affinity 过滤）；`resolveStrategyIdForPick` 严格匹配；`normalizeEntryStrategyForGeometry` 纠正策略/几何不一致 |
+| 离散参数模板 | 策略行下方命名模板：保存/加载/删除/导入/导出（`UserTemplateLibrary` · Discretize；仅 `strategyId`+`params`） |
 | 特征表 | `FeatureTableModel` + `FeatureDiscretizerParamPanel`；`discretizeFeatureList` → `setRawTrajectory` |
 | 3D 轨迹叠加 | 仅 `m_featureEditActive` 时 `refreshBoundPathPlanPreview`（拾取/开始修改后）；轴控件控制 `previewOptions()` |
 | BREP 信息 | 底部预览组只读展示选中特征 `featureId` / 类型 / `faceIndices` / `edgeIndices`；无「离散预览」按钮，离散仅走策略/参数/拾取自动路径 |
 | 删除特征 | `syncDiscretizationAfterFeatureTableChange`：有剩余 → `discretizeFromTable`；清空 → `clearRawTrajectory`（含 `pathPlanRaws.remove`）经既有 `rawTrajectoryChanged` → `refreshPathPlanPreviewForActiveTab` 刷新 3D |
 
-**离散参数 UI ↔ JSON**（V1 不增 schema 字段）：
+**离散参数 UI ↔ JSON**（扁平键，与 `discretizers/*.json` schema 一致）：
 
-| 模式 | UI 控件 | JSON 路径 | 默认 |
-|------|---------|-----------|------|
-| 线/轮廓（`EdgeChain` / `FaceBoundary`） | 步距、曲线精度 | `discretize.stepMm`、`discretize.linearDeflectionMm` | 2.0 mm、0.01 mm |
-| 面截面（`FaceUVGrid`） | 截面间距、截面原点/绕转、交线离散、轨迹连接 | `discretize.stepMm`、`refs.sectionOrigin*`、`refs.sectionR*`、`refs.uvCountU`、`refs.trajConnectMode` | 10 mm、Bow |
-| 参数面（`FaceParamSurface`） | 行/列间距、扫描偏转、轨迹%、异母组合 | `discretize.stepMm`、`refs.colSpacingMm`、`refs.gridAngleDeg`、`refs.heteroCombineMode` | 10/1 mm、Auto |
+| 模式 | UI 控件 | JSON 键（`FeatureEntry.params`） | 默认 |
+|------|---------|--------------------------------|------|
+| 线/轮廓（`EdgeChain` / `FaceBoundary`） | 步距、曲线精度 | `stepMm`、`linearDeflectionMm` | 2.0 mm、0.01 mm |
+| 面截面（`FaceSection`） | 截面间距、截面原点/绕转、交线离散、轨迹连接 | `stepMm`、`sectionOrigin*`、`sectionR*Deg`、`uvCountU`、`trajConnectMode` | 见策略 JSON |
+| 参数面（`FaceParamSurface`） | 行/列间距、扫描偏转、轨迹%、异母组合 | `stepMm`、`colSpacingMm`、`gridAngleDeg`、`heteroCombineMode` 等 | 见策略 JSON；单面行数由扫描向 3D 弧长 `ceil(L/step)+1` 决定，行位 **等 UV**；`RowStitch` 多面先取各面自然行数之 **max**，再强制同档行数建网格后按行拼接（短面行距可密于设定值，换接缝连续）；面序保留拾取顺序 |
 
 拾取写 Spec 时 UI 当前值覆盖 `buildFeatureSpecFromModelPick` 默认；离散完成后状态栏显示实际点数（如「步距 2 mm → 共 N 点」或「UV 16×16 → 共 N 点」）。
 
-**3D 拾取数据流**：轨迹页「拾取边/面」→ `IRobotOsgViewHost::setMesh*PickMode` + `setMeshPickScopeBackendId`（当前 combo backend）→ 视口左键 → `MainWindowRobotHost::notifyMeshPickCommitted` → 自动填 `FeatureSpec` 并离散。
+**3D 拾取数据流**：轨迹页「拾取边/面」→ `IRobotOsgViewHost::setMesh*PickMode` + `setMeshPickScopeBackendId`（当前 combo backend）→ 视口左键 → `MainWindowRobotHost::notifyMeshPickCommitted` →「追加到选中」则向该 `FeatureEntry.geometry` 追加索引，「新建特征」则新建行并离散。多输入策略（交线/偏置）未齐几何时不退出拾取；右键可勾选移除单面/单边。
 
 **坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld`：`resolvePickScopeBackendId` 后乘 `getBackendRootWorldMatrix`（统一世界坐标契约，**不**加减 `modelCenter`）。AI 特征编号 overlay 走同一路径。
 
@@ -835,7 +835,7 @@ onGenerateClicked → MeshTrajectorySpec → generateRawPath
 2. 新增运动点字段：扩展 `RobotInstruction` extensions，并在**预览与 Run** 两条路径一致使用（勿只改其一）。
 3. 若新增 `IRobotSimulationDocument` 虚函数，**DocumentHost 必须转发** `DocumentPage` 对应实现。
 4. DLL 导出：页面类 `ROBOTWIDGET_EXPORT`（`robotwidget_global.h`）。
-5. **轨迹编辑**：结构变更走 `setPipeline`；参数变更走 `updatePipelineOps`；Preview/Apply 前必须 `reconcilePipelineScopes` + `flushPipelineToSession`；undo/redo 后走 `syncUiAfterProgramRevision`（`abandonPreview`，勿在修订路径用 `reset()` 还原快照）；调色板拖放须用 `kMimeType`，勿依赖 Qt 默认列表拖放。
+5. **轨迹编辑**：结构变更走 `setPipeline`；参数变更走 `updatePipelineOps`（草稿期**不**直写 PathPlan）；Preview/Apply 前必须 `reconcilePipelineScopes` + `flushPipelineToSession`；Undo 优先草稿栈，程序修订后走 `syncUiAfterProgramRevision`（`abandonPreview` + `replacePipelineOpsFromStore`，勿在修订路径用 `reset()` 还原快照）；调色板拖放须用 `kMimeType`，勿依赖 Qt 默认列表拖放。
 
 ---
 

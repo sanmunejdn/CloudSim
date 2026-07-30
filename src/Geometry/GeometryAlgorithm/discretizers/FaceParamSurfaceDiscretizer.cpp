@@ -13,6 +13,20 @@ REGISTER_FEATURE_DISCRETIZER(FaceParamSurfaceDiscretizer);
 std::vector<FeatureDiscretizerParamField> FaceParamSurfaceDiscretizer::paramFields() const
 {
 	std::vector<FeatureDiscretizerParamField> fields = featureDiscretizerCommonParamFields();
+	// 与 HPL 参数面扫描默认一致：行间距 10、弦高 1
+	for (FeatureDiscretizerParamField& field : fields)
+	{
+		if (field.key == "stepMm")
+		{
+			field.labelEn = "Row spacing";
+			field.labelZh = "行间距";
+			field.defaultDouble = 10.0;
+		}
+		else if (field.key == "linearDeflectionMm")
+		{
+			field.defaultDouble = 1.0;
+		}
+	}
 	fields.push_back(
 		doubleFeatureParamField("colSpacingMm", "Column spacing", "列间距", "mm", 0.1, 1000.0, 0.1, 1.0, 10, "scan"));
 	fields.push_back(

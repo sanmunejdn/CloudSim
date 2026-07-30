@@ -5,7 +5,7 @@
     "fields": [
       { "key": "stepMm", "type": "Double", "labelZh": "行间距", "unit": "mm", "default": 10.0, "order": 1, "group": "discretize" },
       { "key": "colSpacingMm", "type": "Double", "labelZh": "列间距", "unit": "mm", "default": 1.0, "order": 2, "group": "scan" },
-      { "key": "linearDeflectionMm", "type": "Double", "labelZh": "弦高", "unit": "mm", "default": 0.01, "order": 3, "group": "discretize" },
+      { "key": "linearDeflectionMm", "type": "Double", "labelZh": "弦高", "unit": "mm", "default": 1.0, "order": 3, "group": "discretize" },
       { "key": "gridAngleDeg", "type": "Double", "labelZh": "扫描偏角", "unit": "deg", "default": 0.0, "order": 4, "group": "scan" },
       { "key": "trackStartPct", "type": "Double", "labelZh": "轨迹起点%", "default": 0.0, "order": 5, "group": "scan" },
       { "key": "trackEndPct", "type": "Double", "labelZh": "轨迹终点%", "default": 100.0, "order": 6, "group": "scan" },
@@ -20,10 +20,15 @@
     "params": {
       "stepMm": 10.0,
       "colSpacingMm": 1.0,
-      "linearDeflectionMm": 0.01,
+      "linearDeflectionMm": 1.0,
+      "gridAngleDeg": 0.0,
+      "trackStartPct": 0.0,
+      "trackEndPct": 100.0,
       "heteroCombineMode": "Auto",
       "unifySameBasis": true,
-      "trajConnectMode": "Bow"
+      "edgeDiscretizeMode": "Uniform",
+      "trajConnectMode": "Bow",
+      "reverseLayer": false
     }
   }
 }

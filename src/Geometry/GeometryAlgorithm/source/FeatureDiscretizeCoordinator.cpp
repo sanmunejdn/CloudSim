@@ -175,13 +175,18 @@ std::vector<std::vector<int>> connectedEdgeComponents(const TopoDS_Shape& shape,
 
 std::vector<int> unionFaceIndices(const std::vector<FeatureEntry>& entries)
 {
+	// 保留选取/录入顺序（与 HPL 实体序一致），不要按索引号排序
 	std::vector<int> faces;
 	for (const FeatureEntry& entry : entries)
 	{
-		faces.insert(faces.end(), entry.geometry.faceIndices.begin(), entry.geometry.faceIndices.end());
+		for (const int idx : entry.geometry.faceIndices)
+		{
+			if (std::find(faces.begin(), faces.end(), idx) == faces.end())
+			{
+				faces.push_back(idx);
+			}
+		}
 	}
-	std::sort(faces.begin(), faces.end());
-	faces.erase(std::unique(faces.begin(), faces.end()), faces.end());
 	return faces;
 }
 

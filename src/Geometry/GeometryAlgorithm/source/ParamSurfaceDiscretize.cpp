@@ -736,8 +736,9 @@ double InterpolateFracAtArcLength(const UvArcLengthProfile& profile, double targ
 	return frac0 + t * (frac1 - frac0);
 }
 
-int ComputeScanRowCount(const Handle(Geom_Surface) & geomSurf, const gp_Trsf& toGlobal, const gp_Pnt2d& startUV,
-						const gp_Vec2d& dir2UV, double rowSpacing, bool applyTransform)
+/// dir2 方向 3D 弧长定行数；行位由调用方按 UV 等分放置（与 HPL 一致）
+int ComputeScanRowCount(const Handle(Geom_Surface) & geomSurf, const gp_Trsf& toGlobal, bool applyTransform,
+						const gp_Pnt2d& startUV, const gp_Vec2d& dir2UV, double rowSpacing)
 {
 	UvArcLengthProfile profile;
 	if (!BuildUvArcLengthProfile(geomSurf, toGlobal, applyTransform, startUV, dir2UV, 0.0, 1.0,
@@ -954,17 +955,19 @@ bool BuildScanPointFromSample(const std::vector<TopoDS_Face>& domainFaces, const
 							  ScanPoint& out)
 {
 	gp_Vec nVec;
-	bool gotNormal = GetBestFaceNormalAtPoint(domainFaces, p, nVec);
+	// 与 HPL 一致：先 RefUV 法向，再投影最近点法向
+	bool gotNormal = false;
+	for (const TopoDS_Face& face : domainFaces)
+	{
+		if (GetFaceNormalAtRefUV(face, refGeomSurf, refFaceLoc, u, v, nVec))
+		{
+			gotNormal = true;
+			break;
+		}
+	}
 	if (!gotNormal)
 	{
-		for (const TopoDS_Face& face : domainFaces)
-		{
-			if (GetFaceNormalAtRefUV(face, refGeomSurf, refFaceLoc, u, v, nVec))
-			{
-				gotNormal = true;
-				break;
-			}
-		}
+		gotNormal = GetBestFaceNormalAtPoint(domainFaces, p, nVec);
 	}
 	if (!gotNormal)
 	{
@@ -1117,18 +1120,12 @@ bool appendPointDedup(RawPath& path, const ScanPoint& sp, double seamTol)
 size_t AppendPathRowToRawPath(RawPath& path, const std::vector<ScanPoint>& row, bool reverse, double seamTol)
 {
 	size_t appended = 0;
+	// 与 HPL 一致：弓字仅反转点序，不翻转切向
 	if (reverse)
 	{
 		for (auto it = row.rbegin(); it != row.rend(); ++it)
 		{
-			ScanPoint sp = *it;
-			if (sp.hasTangent)
-			{
-				sp.tangent.x = -sp.tangent.x;
-				sp.tangent.y = -sp.tangent.y;
-				sp.tangent.z = -sp.tangent.z;
-			}
-			if (appendPointDedup(path, sp, seamTol))
+			if (appendPointDedup(path, *it, seamTol))
 			{
 				++appended;
 			}
@@ -1229,7 +1226,11 @@ size_t DiscretizeOnParamFace(const TopoDS_Face& refFace, const std::vector<TopoD
 
 	const gp_Trsf& surfToGlobal = faceLoc.Transformation();
 	const bool applyTransform = !faceLoc.IsIdentity();
-	const int rowCount = ComputeScanRowCount(geomSurf, surfToGlobal, startUV, dir2UV, rowSpacing, applyTransform);
+	const int rowCount = ComputeScanRowCount(geomSurf, surfToGlobal, applyTransform, startUV, dir2UV, rowSpacing);
+	if (rowCount < 2)
+	{
+		return 0;
+	}
 	const gp_Vec2d deltaDir2 =
 		(rowCount > 1) ? gp_Vec2d(dir2UV.X() / (rowCount - 1), dir2UV.Y() / (rowCount - 1)) : gp_Vec2d(0.0, 0.0);
 
@@ -1337,7 +1338,8 @@ size_t DiscretizeOnParamFace(const TopoDS_Face& refFace, const std::vector<TopoD
 
 bool DiscretizeSingleFaceToGrid(const TopoDS_Face& face, bool useUniform, double colSpacing, double chordHeight,
 								double rowSpacing, double dirAlphaRad, double trackStartPct, double trackEndPct,
-								FaceRowGrid& outGrid, RowFracList& outFracs, FaceGridScanFrame& outFrame)
+								FaceRowGrid& outGrid, RowFracList& outFracs, FaceGridScanFrame& outFrame,
+								int forcedRowCount = -1)
 {
 	outGrid.clear();
 	outFracs.clear();
@@ -1368,7 +1370,16 @@ bool DiscretizeSingleFaceToGrid(const TopoDS_Face& face, bool useUniform, double
 
 	const gp_Trsf& surfToGlobal = faceLoc.Transformation();
 	const bool applyTransform = !faceLoc.IsIdentity();
-	const int rowCount = ComputeScanRowCount(geomSurf, surfToGlobal, startUV, dir2UV, rowSpacing, applyTransform);
+	UvArcLengthProfile dir2Profile;
+	double dir2ArcLen = 0.0;
+	if (BuildUvArcLengthProfile(geomSurf, surfToGlobal, applyTransform, startUV, dir2UV, 0.0, 1.0,
+								kUvArcLengthSampleSegments, dir2Profile))
+	{
+		dir2ArcLen = dir2Profile.totalLength;
+	}
+	// 多面拼接时强制与首面同档行数，避免比例映射重复/跳行造成阶梯错位
+	const int rowCount =
+		(forcedRowCount >= 2) ? forcedRowCount : std::max(2, static_cast<int>(std::ceil(dir2ArcLen / rowSpacing)) + 1);
 	if (rowCount < 2)
 	{
 		return false;
@@ -1441,9 +1452,9 @@ size_t MapStitchRowToFaceRow(size_t stitchRow, size_t stitchRowCount, size_t fac
 	{
 		return 0;
 	}
-	const size_t srcR =
-		static_cast<size_t>(std::lround(static_cast<double>(stitchRow) * static_cast<double>(faceRowCount - 1) /
-										static_cast<double>(stitchRowCount - 1)));
+	const size_t srcR = static_cast<size_t>(std::lround(static_cast<double>(stitchRow) *
+														static_cast<double>(faceRowCount - 1) /
+														static_cast<double>(stitchRowCount - 1)));
 	return std::min(srcR, faceRowCount - 1);
 }
 
@@ -1528,7 +1539,7 @@ std::vector<std::vector<ScanPoint>> AssembleHeteroRows(const std::vector<FaceRow
 	for (size_t r = 0; r < rowCount; ++r)
 	{
 		std::vector<ScanPoint> row;
-		const std::vector<ScanPoint>* refRow = grids.empty() ? nullptr : FaceRowAtStitchIndex(grids[0], r, rowCount);
+		const std::vector<ScanPoint>* refRow = FaceRowAtStitchIndex(grids[0], r, rowCount);
 
 		for (size_t f = 0; f < grids.size(); ++f)
 		{
@@ -1542,6 +1553,15 @@ std::vector<std::vector<ScanPoint>> AssembleHeteroRows(const std::vector<FaceRow
 			if (f > 0 && refRow)
 			{
 				(void)OrientFaceRowToFirstFace(*refRow, faceRow);
+			}
+			if (f > 0 && !row.empty() && faceRow.size() >= 2)
+			{
+				const double dFront = pointDist(faceRow.front().position, row.back().position);
+				const double dBack = pointDist(faceRow.back().position, row.back().position);
+				if (dBack + 1e-9 < dFront)
+				{
+					std::reverse(faceRow.begin(), faceRow.end());
+				}
 			}
 
 			row.insert(row.end(), faceRow.begin(), faceRow.end());
@@ -1606,29 +1626,42 @@ size_t DiscretizeHeteroByRowStitch(const std::vector<TopoDS_Face>& orderedFaces,
 		return 0;
 	}
 
+	// 先估各面自然行数取 max，再强制同档行数建网格（消除不同行数比例映射的接缝阶梯）
 	std::vector<FaceRowGrid> allGrids;
 	allGrids.reserve(orderedFaces.size());
 	size_t stitchRowCount = 0;
 	const double perFaceTrackStartPct = 0.0;
 	const double perFaceTrackEndPct = 100.0;
 
-	for (const TopoDS_Face& face : orderedFaces)
+	for (size_t fi = 0; fi < orderedFaces.size(); ++fi)
+	{
+		FaceRowGrid probeGrid;
+		RowFracList probeFracs;
+		FaceGridScanFrame probeFrame;
+		if (!DiscretizeSingleFaceToGrid(orderedFaces[fi], useUniform, colSpacing, chordHeight, rowSpacing, dirAlphaRad,
+										perFaceTrackStartPct, perFaceTrackEndPct, probeGrid, probeFracs, probeFrame))
+		{
+			return 0;
+		}
+		stitchRowCount = std::max(stitchRowCount, static_cast<size_t>(probeFrame.rowCount));
+	}
+	if (stitchRowCount < 2)
+	{
+		return 0;
+	}
+
+	for (size_t fi = 0; fi < orderedFaces.size(); ++fi)
 	{
 		FaceRowGrid grid;
 		RowFracList fracs;
 		FaceGridScanFrame frame;
-		if (!DiscretizeSingleFaceToGrid(face, useUniform, colSpacing, chordHeight, rowSpacing, dirAlphaRad,
-										perFaceTrackStartPct, perFaceTrackEndPct, grid, fracs, frame))
+		if (!DiscretizeSingleFaceToGrid(orderedFaces[fi], useUniform, colSpacing, chordHeight, rowSpacing, dirAlphaRad,
+										perFaceTrackStartPct, perFaceTrackEndPct, grid, fracs, frame,
+										static_cast<int>(stitchRowCount)))
 		{
 			return 0;
 		}
-		stitchRowCount = std::max(stitchRowCount, static_cast<size_t>(frame.rowCount));
 		allGrids.push_back(std::move(grid));
-	}
-
-	if (stitchRowCount < 2)
-	{
-		return 0;
 	}
 
 	return StitchHeteroRowGrids(allGrids, stitchRowCount, serpentine, reverseRow, trackStartPct, trackEndPct, path);
@@ -1915,9 +1948,9 @@ bool discretizeFaceParamSurface(const TopoDS_Shape& shape, const FeatureDiscreti
 {
 	out.points.clear();
 
-	const double rowSpacing = paramDouble(input.params, "stepMm", 2.0);
+	const double rowSpacing = paramDouble(input.params, "stepMm", 10.0);
 	const double colSpacing = paramDouble(input.params, "colSpacingMm", 1.0);
-	const double chordHeight = paramDouble(input.params, "linearDeflectionMm", 0.01);
+	const double chordHeight = paramDouble(input.params, "linearDeflectionMm", 1.0);
 	double dirAlphaDeg = paramDouble(input.params, "gridAngleDeg", 0.0);
 	normalizeDirAlphaDeg(dirAlphaDeg);
 	const double dirAlphaRad = dirAlphaDeg * kPi / 180.0;
@@ -1960,6 +1993,7 @@ bool discretizeFaceParamSurface(const TopoDS_Shape& shape, const FeatureDiscreti
 	}
 
 	const bool serpentine = paramString(input.params, "trajConnectMode", "Bow") == "Bow";
+	bool reverseRow = paramBool(input.params, "reverseLayer", false);
 
 	std::vector<TopoDS_Face> inputFaces;
 	if (!collectInputFaces(shape, input.geometry, inputFaces, errMsg))
@@ -1968,7 +2002,6 @@ bool discretizeFaceParamSurface(const TopoDS_Shape& shape, const FeatureDiscreti
 	}
 
 	const std::size_t pathBefore = out.points.size();
-	bool reverseRow = paramBool(input.params, "reverseLayer", false);
 
 	if (heteroRowStitch && inputFaces.size() > 1)
 	{

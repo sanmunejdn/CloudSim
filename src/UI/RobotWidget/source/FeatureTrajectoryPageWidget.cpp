@@ -21,24 +21,32 @@
 #include "TrajectoryEditPageWidget.h"
 #include "TrajectoryEditSession.h"
 #include "UiIconDecorators.h"
+#include "UserTemplateLibrary.h"
 
+#include <QAbstractButton>
 #include <QAbstractItemView>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QItemSelectionModel>
 #include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSet>
 #include <QSignalBlocker>
-#include <QFileInfo>
 #include <QShowEvent>
 #include <QSpinBox>
 #include <QStringList>
@@ -136,9 +144,25 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	layout->addWidget(m_featureTable);
 
 	auto* pickRow = new QHBoxLayout;
+	m_pickModeAppendBtn = new QPushButton(QStringLiteral("追加到选中"), this);
+	m_pickModeNewBtn = new QPushButton(QStringLiteral("新建特征"), this);
+	m_pickModeAppendBtn->setCheckable(true);
+	m_pickModeNewBtn->setCheckable(true);
+	m_pickModeAppendBtn->setChecked(true);
+	m_pickWriteModeGroup = new QButtonGroup(this);
+	m_pickWriteModeGroup->setExclusive(true);
+	m_pickWriteModeGroup->addButton(m_pickModeAppendBtn, 0);
+	m_pickWriteModeGroup->addButton(m_pickModeNewBtn, 1);
+	connect(m_pickWriteModeGroup, QOverload<QAbstractButton*>::of(&QButtonGroup::buttonClicked), this,
+			[this](QAbstractButton*)
+			{
+				updatePickUiState();
+			});
 	m_pickEdgeBtn = new QPushButton(QStringLiteral("拾取线"), this);
 	m_pickFaceBtn = new QPushButton(QStringLiteral("拾取面"), this);
 	m_cancelPickBtn = new QPushButton(QStringLiteral("取消拾取"), this);
+	pickRow->addWidget(m_pickModeAppendBtn);
+	pickRow->addWidget(m_pickModeNewBtn);
 	pickRow->addWidget(m_pickEdgeBtn);
 	pickRow->addWidget(m_pickFaceBtn);
 	pickRow->addWidget(m_cancelPickBtn);
@@ -152,6 +176,22 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	m_strategyCombo = new QComboBox(this);
 	strategyRow->addWidget(m_strategyCombo, 1);
 	layout->addLayout(strategyRow);
+
+	auto* templateRow = new QHBoxLayout;
+	m_discretizeTemplateCombo = new QComboBox(this);
+	m_discretizeTemplateCombo->setMaxVisibleItems(16);
+	m_saveDiscretizeTemplateBtn = new QPushButton(QStringLiteral("保存"), this);
+	m_loadDiscretizeTemplateBtn = new QPushButton(QStringLiteral("加载"), this);
+	m_deleteDiscretizeTemplateBtn = new QPushButton(QStringLiteral("删除"), this);
+	m_importDiscretizeTemplateBtn = new QPushButton(QStringLiteral("导入"), this);
+	m_exportDiscretizeTemplateBtn = new QPushButton(QStringLiteral("导出"), this);
+	templateRow->addWidget(m_discretizeTemplateCombo, 2);
+	templateRow->addWidget(m_saveDiscretizeTemplateBtn);
+	templateRow->addWidget(m_loadDiscretizeTemplateBtn);
+	templateRow->addWidget(m_deleteDiscretizeTemplateBtn);
+	templateRow->addWidget(m_importDiscretizeTemplateBtn);
+	templateRow->addWidget(m_exportDiscretizeTemplateBtn);
+	layout->addLayout(templateRow);
 
 	m_paramPanel = new FeatureDiscretizerParamPanel(this);
 	layout->addWidget(m_paramPanel);
@@ -189,6 +229,23 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	connect(m_cancelPickBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onCancelPick);
 	connect(m_strategyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&FeatureTrajectoryPageWidget::onStrategyComboChanged);
+	connect(m_saveDiscretizeTemplateBtn, &QPushButton::clicked, this,
+			&FeatureTrajectoryPageWidget::onSaveDiscretizeTemplateClicked);
+	connect(m_loadDiscretizeTemplateBtn, &QPushButton::clicked, this,
+			&FeatureTrajectoryPageWidget::onLoadDiscretizeTemplateClicked);
+	connect(m_deleteDiscretizeTemplateBtn, &QPushButton::clicked, this,
+			&FeatureTrajectoryPageWidget::onDeleteDiscretizeTemplateClicked);
+	connect(m_importDiscretizeTemplateBtn, &QPushButton::clicked, this,
+			&FeatureTrajectoryPageWidget::onImportDiscretizeTemplateClicked);
+	connect(m_exportDiscretizeTemplateBtn, &QPushButton::clicked, this,
+			&FeatureTrajectoryPageWidget::onExportDiscretizeTemplateClicked);
+
+	UiIconDecorators::apply(m_saveDiscretizeTemplateBtn, UiIconId::SaveTemplate);
+	UiIconDecorators::apply(m_loadDiscretizeTemplateBtn, UiIconId::LoadTemplate);
+	UiIconDecorators::apply(m_deleteDiscretizeTemplateBtn, UiIconId::Delete);
+	UiIconDecorators::apply(m_importDiscretizeTemplateBtn, UiIconId::OpenProject);
+	UiIconDecorators::apply(m_exportDiscretizeTemplateBtn, UiIconId::Export);
+	refreshDiscretizeTemplateCombo();
 
 	connect(m_featureTable->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
 			[this](const QModelIndex& current, const QModelIndex& previous)
@@ -202,7 +259,26 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	connect(m_featureTable, &QTableView::customContextMenuRequested, this,
 			[this](const QPoint& pos)
 			{
+				const QModelIndex under = m_featureTable->indexAt(pos);
+				if (under.isValid())
+				{
+					m_featureTable->selectRow(under.row());
+					m_featureModel->setSelectedRow(under.row());
+				}
+				const int row = m_featureModel ? m_featureModel->selectedRow() : -1;
+				const geoalgo::FeatureEntry entry =
+					(row >= 0 && m_featureModel) ? m_featureModel->entryAt(row) : geoalgo::FeatureEntry{};
+
 				QMenu menu(this);
+				QAction* removeFacesAct =
+					menu.addAction(m_chinese ? QStringLiteral("移除面…") : QStringLiteral("Remove faces…"), this,
+								   &FeatureTrajectoryPageWidget::onRemoveFacesFromFeature);
+				removeFacesAct->setEnabled(row >= 0 && !entry.geometry.faceIndices.empty());
+				QAction* removeEdgesAct =
+					menu.addAction(m_chinese ? QStringLiteral("移除边…") : QStringLiteral("Remove edges…"), this,
+								   &FeatureTrajectoryPageWidget::onRemoveEdgesFromFeature);
+				removeEdgesAct->setEnabled(row >= 0 && !entry.geometry.edgeIndices.empty());
+				menu.addSeparator();
 				menu.addAction(m_chinese ? QStringLiteral("删除选中行") : QStringLiteral("Delete selected"), this,
 							   &FeatureTrajectoryPageWidget::onDeleteSelectedRows);
 				menu.addAction(m_chinese ? QStringLiteral("删除全部") : QStringLiteral("Delete all"), this,
@@ -232,6 +308,13 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			[this]()
 			{
+				const QString backendId =
+					m_backendCombo ? m_backendCombo->currentData().toString() : QString();
+				if (backendId == m_lastWorkpieceBackendId)
+				{
+					return;
+				}
+				m_lastWorkpieceBackendId = backendId;
 				clearCandidatePreview();
 				m_cachedCatalogBackendId.clear();
 				m_cachedCatalogJsonUtf8.clear();
@@ -270,6 +353,14 @@ void FeatureTrajectoryPageWidget::setUseChinese(const bool chinese)
 void FeatureTrajectoryPageWidget::updateUiLabels()
 {
 	const bool zh = m_chinese;
+	if (m_pickModeAppendBtn)
+	{
+		m_pickModeAppendBtn->setText(zh ? QStringLiteral("追加到选中") : QStringLiteral("Append to selected"));
+	}
+	if (m_pickModeNewBtn)
+	{
+		m_pickModeNewBtn->setText(zh ? QStringLiteral("新建特征") : QStringLiteral("New feature"));
+	}
 	if (m_pickEdgeBtn)
 	{
 		m_pickEdgeBtn->setText(zh ? QStringLiteral("拾取线") : QStringLiteral("Pick edge"));
@@ -297,6 +388,32 @@ void FeatureTrajectoryPageWidget::updateUiLabels()
 	if (m_showAxisZCheck)
 	{
 		m_showAxisZCheck->setText(zh ? QStringLiteral("Z 轴") : QStringLiteral("Z axis"));
+	}
+	if (m_saveDiscretizeTemplateBtn)
+	{
+		m_saveDiscretizeTemplateBtn->setText(zh ? QStringLiteral("保存") : QStringLiteral("Save"));
+	}
+	if (m_loadDiscretizeTemplateBtn)
+	{
+		m_loadDiscretizeTemplateBtn->setText(zh ? QStringLiteral("加载") : QStringLiteral("Load"));
+	}
+	if (m_deleteDiscretizeTemplateBtn)
+	{
+		m_deleteDiscretizeTemplateBtn->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
+	}
+	if (m_importDiscretizeTemplateBtn)
+	{
+		m_importDiscretizeTemplateBtn->setText(zh ? QStringLiteral("导入") : QStringLiteral("Import"));
+	}
+	if (m_exportDiscretizeTemplateBtn)
+	{
+		m_exportDiscretizeTemplateBtn->setText(zh ? QStringLiteral("导出") : QStringLiteral("Export"));
+	}
+	if (m_discretizeTemplateCombo)
+	{
+		m_discretizeTemplateCombo->setToolTip(zh ? QStringLiteral("离散策略参数模板")
+												 : QStringLiteral("Discretize strategy/param templates"));
+		refreshDiscretizeTemplateCombo();
 	}
 	updatePickUiState();
 	refreshBrepInfoForSelection();
@@ -394,6 +511,7 @@ void FeatureTrajectoryPageWidget::showEvent(QShowEvent* event)
 void FeatureTrajectoryPageWidget::onTableSelectionChanged()
 {
 	loadParamsForSelectedRow();
+	updatePickUiState();
 }
 
 void FeatureTrajectoryPageWidget::syncStrategyComboToEntry(const geoalgo::FeatureEntry& entry)
@@ -650,6 +768,99 @@ void FeatureTrajectoryPageWidget::onDeleteAllRows()
 {
 	m_featureModel->clearAll();
 	m_paramPanel->clear();
+	syncDiscretizationAfterFeatureTableChange();
+}
+
+bool FeatureTrajectoryPageWidget::isAppendPickMode() const
+{
+	return m_pickModeAppendBtn && m_pickModeAppendBtn->isChecked();
+}
+
+void FeatureTrajectoryPageWidget::onRemoveFacesFromFeature()
+{
+	removeGeometryIndicesFromRow(m_featureModel ? m_featureModel->selectedRow() : -1, true);
+}
+
+void FeatureTrajectoryPageWidget::onRemoveEdgesFromFeature()
+{
+	removeGeometryIndicesFromRow(m_featureModel ? m_featureModel->selectedRow() : -1, false);
+}
+
+void FeatureTrajectoryPageWidget::removeGeometryIndicesFromRow(const int row, const bool removeFaces)
+{
+	if (!m_featureModel || row < 0 || row >= m_featureModel->rowCount())
+	{
+		return;
+	}
+	geoalgo::FeatureEntry entry = m_featureModel->entryAt(row);
+	std::vector<int>& indices = removeFaces ? entry.geometry.faceIndices : entry.geometry.edgeIndices;
+	if (indices.empty())
+	{
+		return;
+	}
+
+	QDialog dlg(this);
+	dlg.setWindowTitle(removeFaces ? (m_chinese ? QStringLiteral("移除面") : QStringLiteral("Remove faces"))
+								   : (m_chinese ? QStringLiteral("移除边") : QStringLiteral("Remove edges")));
+	auto* layout = new QVBoxLayout(&dlg);
+	layout->addWidget(new QLabel(m_chinese ? QStringLiteral("勾选要移除的项：") : QStringLiteral("Check items to remove:"),
+								 &dlg));
+	auto* list = new QListWidget(&dlg);
+	list->setSelectionMode(QAbstractItemView::NoSelection);
+	for (const int idx : indices)
+	{
+		const QString text =
+			removeFaces ? (m_chinese ? QStringLiteral("面 %1").arg(idx) : QStringLiteral("face %1").arg(idx))
+						: (m_chinese ? QStringLiteral("边 %1").arg(idx) : QStringLiteral("edge %1").arg(idx));
+		auto* item = new QListWidgetItem(text, list);
+		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+		item->setCheckState(Qt::Unchecked);
+		item->setData(Qt::UserRole, idx);
+	}
+	layout->addWidget(list);
+	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+	layout->addWidget(buttons);
+	connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+	connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+	if (dlg.exec() != QDialog::Accepted)
+	{
+		return;
+	}
+
+	QSet<int> toRemove;
+	for (int i = 0; i < list->count(); ++i)
+	{
+		const QListWidgetItem* item = list->item(i);
+		if (item && item->checkState() == Qt::Checked)
+		{
+			toRemove.insert(item->data(Qt::UserRole).toInt());
+		}
+	}
+	if (toRemove.isEmpty())
+	{
+		return;
+	}
+
+	std::vector<int> kept;
+	kept.reserve(indices.size());
+	for (const int idx : indices)
+	{
+		if (!toRemove.contains(idx))
+		{
+			kept.push_back(idx);
+		}
+	}
+	indices = std::move(kept);
+
+	if (entry.geometry.faceIndices.empty() && entry.geometry.edgeIndices.empty())
+	{
+		m_featureModel->removeRows(QList<int>{row});
+	}
+	else
+	{
+		(void)m_featureModel->updateEntry(row, entry);
+		refreshBrepInfoForSelection();
+	}
 	syncDiscretizationAfterFeatureTableChange();
 }
 
@@ -1008,15 +1219,45 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 	{
 		return;
 	}
+	const bool appendMode = isAppendPickMode();
+	const int sel = m_featureModel ? m_featureModel->selectedRow() : -1;
 	if (m_pickSession == PickSessionKind::Edge)
 	{
-		m_pickStatusLabel->setText(m_chinese ? QStringLiteral("请在视口中点击一条边…")
-											 : QStringLiteral("Click an edge in the 3D view…"));
+		if (appendMode && sel >= 0)
+		{
+			m_pickStatusLabel->setText(
+				m_chinese ? QStringLiteral("追加边到当前特征（行 %1）：在视口点击…").arg(sel + 1)
+						  : QStringLiteral("Append edge to feature row %1…").arg(sel + 1));
+		}
+		else if (appendMode)
+		{
+			m_pickStatusLabel->setText(m_chinese ? QStringLiteral("追加模式：请先选中特征行，再在视口点击边…")
+												 : QStringLiteral("Append mode: select a feature row, then click an edge…"));
+		}
+		else
+		{
+			m_pickStatusLabel->setText(m_chinese ? QStringLiteral("新建特征：请在视口中点击一条边…")
+												 : QStringLiteral("New feature: click an edge in the 3D view…"));
+		}
 	}
 	else if (m_pickSession == PickSessionKind::Face)
 	{
-		m_pickStatusLabel->setText(m_chinese ? QStringLiteral("请在视口中点击一个面…")
-											 : QStringLiteral("Click a face in the 3D view…"));
+		if (appendMode && sel >= 0)
+		{
+			m_pickStatusLabel->setText(
+				m_chinese ? QStringLiteral("追加面到当前特征（行 %1）：在视口点击…").arg(sel + 1)
+						  : QStringLiteral("Append face to feature row %1…").arg(sel + 1));
+		}
+		else if (appendMode)
+		{
+			m_pickStatusLabel->setText(m_chinese ? QStringLiteral("追加模式：请先选中特征行，再在视口点击面…")
+												 : QStringLiteral("Append mode: select a feature row, then click a face…"));
+		}
+		else
+		{
+			m_pickStatusLabel->setText(m_chinese ? QStringLiteral("新建特征：请在视口中点击一个面…")
+												 : QStringLiteral("New feature: click a face in the 3D view…"));
+		}
 	}
 	else
 	{
@@ -1055,8 +1296,18 @@ void FeatureTrajectoryPageWidget::onPickEdge()
 	m_lastPickAffinity = geoalgo::GeometryAffinity::Line;
 	refreshStrategyCombo(geoalgo::GeometryAffinity::Line);
 	updatePickUiState();
-	setStatus(m_chinese ? QStringLiteral("边拾取模式：在视口左键点击确认")
-						: QStringLiteral("Edge pick: left-click in viewport"));
+	if (isAppendPickMode())
+	{
+		const int sel = m_featureModel ? m_featureModel->selectedRow() : -1;
+		setStatus(sel >= 0 ? (m_chinese ? QStringLiteral("边拾取：追加到当前特征")
+										: QStringLiteral("Edge pick: append to selected feature"))
+						   : (m_chinese ? QStringLiteral("边拾取（追加模式）：请先选中特征行")
+										: QStringLiteral("Edge pick (append): select a feature row first")));
+	}
+	else
+	{
+		setStatus(m_chinese ? QStringLiteral("边拾取：将新建特征行") : QStringLiteral("Edge pick: will create a new feature"));
+	}
 }
 
 void FeatureTrajectoryPageWidget::onPickFace()
@@ -1079,8 +1330,18 @@ void FeatureTrajectoryPageWidget::onPickFace()
 	m_lastPickAffinity = geoalgo::GeometryAffinity::Face;
 	refreshStrategyCombo(geoalgo::GeometryAffinity::Face);
 	updatePickUiState();
-	setStatus(m_chinese ? QStringLiteral("面拾取模式：在视口左键点击确认")
-						: QStringLiteral("Face pick: left-click in viewport"));
+	if (isAppendPickMode())
+	{
+		const int sel = m_featureModel ? m_featureModel->selectedRow() : -1;
+		setStatus(sel >= 0 ? (m_chinese ? QStringLiteral("面拾取：追加到当前特征")
+										: QStringLiteral("Face pick: append to selected feature"))
+						   : (m_chinese ? QStringLiteral("面拾取（追加模式）：请先选中特征行")
+										: QStringLiteral("Face pick (append): select a feature row first")));
+	}
+	else
+	{
+		setStatus(m_chinese ? QStringLiteral("面拾取：将新建特征行") : QStringLiteral("Face pick: will create a new feature"));
+	}
 }
 
 void FeatureTrajectoryPageWidget::onCancelPick()
@@ -1140,6 +1401,157 @@ bool FeatureTrajectoryPageWidget::buildFeatureEntryFromPick(const bool pickFace,
 	return true;
 }
 
+bool FeatureTrajectoryPageWidget::canAppendPickToFeature(const geoalgo::FeatureEntry& entry, const bool pickFace,
+														QString* err)
+{
+	const geoalgo::GeometryAffinity affinity = geometry_backend_ops::featureDiscretizerAffinity(entry.strategyId);
+	if (pickFace)
+	{
+		if (affinity == geoalgo::GeometryAffinity::Line)
+		{
+			if (err)
+			{
+				*err = QStringLiteral("当前行为线策略，无法追加面；请取消表选中后新建，或先改策略");
+			}
+			return false;
+		}
+		return true;
+	}
+	if (affinity == geoalgo::GeometryAffinity::Face)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("当前行为面策略，无法追加边；FaceOffsetCurve 等可用「任意」策略追加边");
+		}
+		return false;
+	}
+	return true;
+}
+
+bool FeatureTrajectoryPageWidget::featureNeedsMoreGeometry(const geoalgo::FeatureEntry& entry)
+{
+	if (entry.strategyId == "FaceIntersection")
+	{
+		return entry.geometry.faceIndices.size() < 2U;
+	}
+	if (entry.strategyId == "FaceOffsetCurve")
+	{
+		return entry.geometry.faceIndices.empty() || entry.geometry.edgeIndices.empty();
+	}
+	return false;
+}
+
+bool FeatureTrajectoryPageWidget::tryAppendPickToSelectedFeature(const bool pickFace, const geoalgo::Point3d& modelA,
+																 const geoalgo::Point3d& modelB,
+																 const int knownFaceIndex, const int knownEdgeIndex,
+																 QString* err)
+{
+	if (!m_featureModel)
+	{
+		return false;
+	}
+	const int row = m_featureModel->selectedRow();
+	if (row < 0)
+	{
+		return false;
+	}
+	geoalgo::FeatureEntry entry = m_featureModel->entryAt(row);
+	if (!canAppendPickToFeature(entry, pickFace, err))
+	{
+		return false;
+	}
+	if (m_backendCombo->currentIndex() < 0)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("未选择工件");
+		}
+		return false;
+	}
+	const QString backendId = m_backendCombo->currentData().toString();
+	geoalgo::ShapeHandle shape;
+	geoalgo::WorkpieceRef wp;
+	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, err))
+	{
+		return false;
+	}
+
+	geoalgo::FeatureEntry picked{};
+	picked.strategyId = entry.strategyId;
+	picked.params = entry.params;
+	std::string stdErr;
+	if (!geometry_backend_ops::buildFeatureEntryFromModelPick(wp, shape, entry.strategyId, pickFace, modelA, modelB,
+															  picked, &stdErr, knownFaceIndex, knownEdgeIndex))
+	{
+		if (err)
+		{
+			*err = QString::fromStdString(stdErr);
+		}
+		return false;
+	}
+
+	if (pickFace)
+	{
+		if (picked.geometry.faceIndices.empty())
+		{
+			if (err)
+			{
+				*err = QStringLiteral("未解析到面索引");
+			}
+			return false;
+		}
+		const int faceIdx = picked.geometry.faceIndices.front();
+		for (const int existing : entry.geometry.faceIndices)
+		{
+			if (existing == faceIdx)
+			{
+				if (err)
+				{
+					*err = m_chinese ? QStringLiteral("面 %1 已在当前特征中").arg(faceIdx)
+									 : QStringLiteral("Face %1 already in feature").arg(faceIdx);
+				}
+				return false;
+			}
+		}
+		entry.geometry.faceIndices.push_back(faceIdx);
+	}
+	else
+	{
+		if (picked.geometry.edgeIndices.empty())
+		{
+			if (err)
+			{
+				*err = QStringLiteral("未解析到边索引");
+			}
+			return false;
+		}
+		const int edgeIdx = picked.geometry.edgeIndices.front();
+		for (const int existing : entry.geometry.edgeIndices)
+		{
+			if (existing == edgeIdx)
+			{
+				if (err)
+				{
+					*err = m_chinese ? QStringLiteral("边 %1 已在当前特征中").arg(edgeIdx)
+									 : QStringLiteral("Edge %1 already in feature").arg(edgeIdx);
+				}
+				return false;
+			}
+		}
+		entry.geometry.edgeIndices.push_back(edgeIdx);
+	}
+
+	if (!m_featureModel->updateEntry(row, entry))
+	{
+		if (err)
+		{
+			*err = QStringLiteral("更新特征失败");
+		}
+		return false;
+	}
+	return true;
+}
+
 void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, const int pickKindInt)
 {
 	if (m_pickSession == PickSessionKind::None || !m_host || !pick.hit)
@@ -1191,29 +1603,112 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		modelB = modelA;
 	}
 
-	geoalgo::FeatureEntry entry;
+	const bool pickFace = kind == PickKind::MeshFace;
+	const int knownFaceIndex = pick.brepNativePick && pickFace ? pick.brepFaceIndex : -1;
+	const int knownEdgeIndex = pick.brepNativePick && !pickFace ? pick.brepEdgeIndex : -1;
 	QString pickErr;
-	const int knownFaceIndex = pick.brepNativePick && kind == PickKind::MeshFace ? pick.brepFaceIndex : -1;
-	const int knownEdgeIndex = pick.brepNativePick && kind == PickKind::MeshEdge ? pick.brepEdgeIndex : -1;
-	if (!buildFeatureEntryFromPick(kind == PickKind::MeshFace, modelA, modelB, knownFaceIndex, knownEdgeIndex, entry,
-								   &pickErr))
-	{
-		QMessageBox::warning(this, QStringLiteral("Pick"), pickErr);
-		exitPickMode();
-		return;
-	}
 
 	++m_strategyRowSyncDepth;
 	m_suppressParamRediscretize = true;
-	m_featureModel->appendEntry(entry);
-	exitPickMode();
+
+	const bool appendMode = isAppendPickMode();
+	const int selectedRow = m_featureModel ? m_featureModel->selectedRow() : -1;
+	if (appendMode && selectedRow < 0)
+	{
+		m_suppressParamRediscretize = false;
+		--m_strategyRowSyncDepth;
+		QMessageBox::warning(this, QStringLiteral("Pick"),
+							 m_chinese ? QStringLiteral("追加模式：请先在特征表中选中一行")
+									   : QStringLiteral("Append mode: select a feature row first"));
+		return;
+	}
+
+	const bool wantAppend = appendMode && selectedRow >= 0;
+	bool appended = false;
+	if (wantAppend)
+	{
+		if (!tryAppendPickToSelectedFeature(pickFace, modelA, modelB, knownFaceIndex, knownEdgeIndex, &pickErr))
+		{
+			m_suppressParamRediscretize = false;
+			--m_strategyRowSyncDepth;
+			QMessageBox::warning(this, QStringLiteral("Pick"), pickErr);
+			// 保持拾取态，便于换目标再点
+			return;
+		}
+		appended = true;
+	}
+	else
+	{
+		geoalgo::FeatureEntry entry;
+		if (!buildFeatureEntryFromPick(pickFace, modelA, modelB, knownFaceIndex, knownEdgeIndex, entry, &pickErr))
+		{
+			m_suppressParamRediscretize = false;
+			--m_strategyRowSyncDepth;
+			QMessageBox::warning(this, QStringLiteral("Pick"), pickErr);
+			exitPickMode();
+			return;
+		}
+		m_featureModel->appendEntry(entry);
+	}
+
+	const int row = m_featureModel->selectedRow();
+	geoalgo::FeatureEntry entry = row >= 0 ? m_featureModel->entryAt(row) : geoalgo::FeatureEntry{};
 	syncStrategyComboToEntry(entry);
 	loadParamsForSelectedRow();
+	refreshBrepInfoForSelection();
 	m_suppressParamRediscretize = false;
 	setFeatureEditActive(true);
+
+	const bool needMore = featureNeedsMoreGeometry(entry);
+	if (needMore)
+	{
+		QString hint;
+		if (entry.strategyId == "FaceIntersection")
+		{
+			hint = m_chinese ? QStringLiteral("两面交线还需再拾取一面（继续点视口）")
+							 : QStringLiteral("FaceIntersection needs another face (keep clicking)");
+		}
+		else if (entry.strategyId == "FaceOffsetCurve")
+		{
+			hint = entry.geometry.faceIndices.empty()
+					   ? (m_chinese ? QStringLiteral("面内偏置还需拾取面")
+									: QStringLiteral("FaceOffsetCurve still needs a face"))
+					   : (m_chinese ? QStringLiteral("面内偏置还需拾取边")
+									: QStringLiteral("FaceOffsetCurve still needs an edge"));
+		}
+		setStatus((appended ? (m_chinese ? QStringLiteral("已追加到 %1；") : QStringLiteral("Appended to %1; "))
+							: (m_chinese ? QStringLiteral("已添加 %1；") : QStringLiteral("Added %1; ")))
+					  .arg(QString::fromStdString(entry.featureId)) +
+				  hint);
+		// FaceOffsetCurve 缺边/面时切换拾取种类；交线保持面拾取
+		if (entry.strategyId == "FaceOffsetCurve")
+		{
+			if (entry.geometry.faceIndices.empty() && m_pickSession != PickSessionKind::Face)
+			{
+				--m_strategyRowSyncDepth;
+				onPickFace();
+				return;
+			}
+			if (entry.geometry.edgeIndices.empty() && m_pickSession != PickSessionKind::Edge)
+			{
+				--m_strategyRowSyncDepth;
+				onPickEdge();
+				return;
+			}
+		}
+		updatePickUiState();
+		--m_strategyRowSyncDepth;
+		return;
+	}
+
+	exitPickMode();
 	setStatus(m_chinese
-				  ? QStringLiteral("已添加特征 %1，正在离散…").arg(QString::fromStdString(entry.featureId))
-				  : QStringLiteral("Added feature %1, discretizing…").arg(QString::fromStdString(entry.featureId)));
+				  ? QStringLiteral("%1特征 %2，正在离散…")
+						.arg(appended ? QStringLiteral("已更新") : QStringLiteral("已添加"),
+							 QString::fromStdString(entry.featureId))
+				  : QStringLiteral("%1 feature %2, discretizing…")
+						.arg(appended ? QStringLiteral("Updated") : QStringLiteral("Added"),
+							 QString::fromStdString(entry.featureId)));
 	const bool ok = discretizeFromTable(true);
 	--m_strategyRowSyncDepth;
 	if (ok && m_session && m_session->hasRawTrajectory())
@@ -1237,14 +1732,19 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 
 void FeatureTrajectoryPageWidget::refreshBackendCombo()
 {
+	const QString prevBackendId =
+		m_backendCombo ? m_backendCombo->currentData().toString() : QString();
+	const QSignalBlocker blocker(m_backendCombo);
 	m_backendCombo->clear();
 	if (!m_host)
 	{
+		m_lastWorkpieceBackendId.clear();
 		return;
 	}
 	IRobotDocumentHost* doc = m_host->document();
 	if (!doc)
 	{
+		m_lastWorkpieceBackendId.clear();
 		return;
 	}
 	BackendDataManager& mgr = doc->backend();
@@ -1345,12 +1845,29 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 	}
 	if (stepCount == 0)
 	{
+		m_lastWorkpieceBackendId.clear();
 		setStatus(m_chinese ? QStringLiteral("请导入 STEP 或用 AI 创建基本体（CAD/BREP 工件）")
 							: QStringLiteral("Import STEP or create an AI primitive (CAD/BREP workpiece)"));
 	}
-	else if (m_backendCombo->currentIndex() >= 0)
+	else
 	{
-		QTimer::singleShot(0, this, [this]() { (void)autoEnumerateCatalogForCurrentWorkpiece(true, nullptr); });
+		if (!prevBackendId.isEmpty() && selectBackendComboById(prevBackendId))
+		{
+			m_lastWorkpieceBackendId = prevBackendId;
+		}
+		else if (m_backendCombo->currentIndex() < 0)
+		{
+			m_backendCombo->setCurrentIndex(0);
+			m_lastWorkpieceBackendId = m_backendCombo->currentData().toString();
+		}
+		else
+		{
+			m_lastWorkpieceBackendId = m_backendCombo->currentData().toString();
+		}
+		if (m_backendCombo->currentIndex() >= 0)
+		{
+			QTimer::singleShot(0, this, [this]() { (void)autoEnumerateCatalogForCurrentWorkpiece(true, nullptr); });
+		}
 	}
 	updatePickUiState();
 }
@@ -2025,5 +2542,229 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 			*err = QStringLiteral("特征计划 JSON 无效");
 		}
 		return false;
+	}
+}
+
+void FeatureTrajectoryPageWidget::refreshDiscretizeTemplateCombo()
+{
+	if (!m_discretizeTemplateCombo)
+	{
+		return;
+	}
+	const QString prevId = m_discretizeTemplateCombo->currentData().toString();
+	m_discretizeTemplateCombo->blockSignals(true);
+	m_discretizeTemplateCombo->clear();
+	m_discretizeTemplateCombo->addItem(m_chinese ? QStringLiteral("（选择模板）") : QStringLiteral("(Select template)"),
+									   QString());
+	for (const UserTemplateEntry& e : UserTemplateLibrary::list(UserTemplateKind::Discretize))
+	{
+		m_discretizeTemplateCombo->addItem(e.name, e.id);
+	}
+	const int idx = prevId.isEmpty() ? 0 : m_discretizeTemplateCombo->findData(prevId);
+	m_discretizeTemplateCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+	m_discretizeTemplateCombo->blockSignals(false);
+}
+
+bool FeatureTrajectoryPageWidget::applyDiscretizeTemplatePayload(const nlohmann::json& payload, QString* err)
+{
+	if (!payload.is_object() || !payload.contains("strategyId"))
+	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("模板缺少 strategyId") : QStringLiteral("Missing strategyId");
+		}
+		return false;
+	}
+	const std::string strategyId = payload.value("strategyId", std::string());
+	if (strategyId.empty() || !m_strategyCombo)
+	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("策略无效") : QStringLiteral("Invalid strategy");
+		}
+		return false;
+	}
+	nlohmann::json params =
+		payload.contains("params") && payload["params"].is_object() ? payload["params"] : nlohmann::json::object();
+
+	if (m_strategyCombo->findData(QString::fromStdString(strategyId)) < 0)
+	{
+		refreshStrategyCombo(geoalgo::GeometryAffinity::Any);
+	}
+	const int idx2 = m_strategyCombo->findData(QString::fromStdString(strategyId));
+	if (idx2 < 0)
+	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("当前环境无此离散策略") : QStringLiteral("Strategy not available");
+		}
+		return false;
+	}
+
+	m_suppressParamRediscretize = true;
+	{
+		const QSignalBlocker blocker(m_strategyCombo);
+		m_strategyCombo->setCurrentIndex(idx2);
+	}
+	m_paramPanel->rebuildForStrategy(strategyId);
+	m_paramPanel->loadParams(params);
+
+	const int row = m_featureModel ? m_featureModel->selectedRow() : -1;
+	if (row >= 0)
+	{
+		geoalgo::FeatureEntry entry = m_featureModel->entryAt(row);
+		entry.strategyId = strategyId;
+		entry.params = params;
+		(void)m_featureModel->updateEntry(row, entry);
+	}
+	m_suppressParamRediscretize = false;
+	if (m_featureEditActive)
+	{
+		scheduleParameterRediscretize();
+	}
+	return true;
+}
+
+void FeatureTrajectoryPageWidget::onSaveDiscretizeTemplateClicked()
+{
+	if (!m_strategyCombo || !m_paramPanel)
+	{
+		return;
+	}
+	const QString strategyId = m_strategyCombo->currentData().toString();
+	if (strategyId.isEmpty())
+	{
+		QMessageBox::information(this, m_chinese ? QStringLiteral("保存") : QStringLiteral("Save"),
+								 m_chinese ? QStringLiteral("请先选择离散策略") : QStringLiteral("Select a strategy"));
+		return;
+	}
+	bool ok = false;
+	const QString name = QInputDialog::getText(
+		this, m_chinese ? QStringLiteral("保存离散模板") : QStringLiteral("Save Discretize Template"),
+		m_chinese ? QStringLiteral("模板名称") : QStringLiteral("Template name"), QLineEdit::Normal,
+		m_discretizeTemplateCombo && m_discretizeTemplateCombo->currentIndex() > 0
+			? m_discretizeTemplateCombo->currentText()
+			: QString(),
+		&ok);
+	if (!ok || name.trimmed().isEmpty())
+	{
+		return;
+	}
+	nlohmann::json params = nlohmann::json::object();
+	(void)m_paramPanel->applyParams(params);
+	nlohmann::json payload =
+		nlohmann::json::object({{"strategyId", strategyId.toStdString()}, {"params", std::move(params)}});
+	QString err;
+	QString id;
+	if (!UserTemplateLibrary::save(UserTemplateKind::Discretize, name.trimmed(), payload, &id, &err))
+	{
+		QMessageBox::warning(this, m_chinese ? QStringLiteral("保存") : QStringLiteral("Save"), err);
+		return;
+	}
+	refreshDiscretizeTemplateCombo();
+	if (m_discretizeTemplateCombo)
+	{
+		const int idx = m_discretizeTemplateCombo->findData(id);
+		if (idx >= 0)
+		{
+			m_discretizeTemplateCombo->setCurrentIndex(idx);
+		}
+	}
+}
+
+void FeatureTrajectoryPageWidget::onLoadDiscretizeTemplateClicked()
+{
+	if (!m_discretizeTemplateCombo || m_discretizeTemplateCombo->currentIndex() <= 0)
+	{
+		QMessageBox::information(this, m_chinese ? QStringLiteral("加载") : QStringLiteral("Load"),
+								 m_chinese ? QStringLiteral("请先选择模板") : QStringLiteral("Select a template"));
+		return;
+	}
+	nlohmann::json payload;
+	QString err;
+	if (!UserTemplateLibrary::load(UserTemplateKind::Discretize, m_discretizeTemplateCombo->currentData().toString(),
+								   &payload, nullptr, &err))
+	{
+		QMessageBox::warning(this, m_chinese ? QStringLiteral("加载") : QStringLiteral("Load"), err);
+		return;
+	}
+	if (!applyDiscretizeTemplatePayload(payload, &err))
+	{
+		QMessageBox::warning(this, m_chinese ? QStringLiteral("加载") : QStringLiteral("Load"), err);
+	}
+}
+
+void FeatureTrajectoryPageWidget::onDeleteDiscretizeTemplateClicked()
+{
+	if (!m_discretizeTemplateCombo || m_discretizeTemplateCombo->currentIndex() <= 0)
+	{
+		return;
+	}
+	const QString id = m_discretizeTemplateCombo->currentData().toString();
+	const QString name = m_discretizeTemplateCombo->currentText();
+	const auto ret = QMessageBox::question(
+		this, m_chinese ? QStringLiteral("删除模板") : QStringLiteral("Delete Template"),
+		m_chinese ? QStringLiteral("删除「%1」？").arg(name) : QStringLiteral("Delete \"%1\"?").arg(name));
+	if (ret != QMessageBox::Yes)
+	{
+		return;
+	}
+	QString err;
+	if (!UserTemplateLibrary::remove(UserTemplateKind::Discretize, id, &err))
+	{
+		QMessageBox::warning(this, m_chinese ? QStringLiteral("删除") : QStringLiteral("Delete"), err);
+		return;
+	}
+	refreshDiscretizeTemplateCombo();
+}
+
+void FeatureTrajectoryPageWidget::onImportDiscretizeTemplateClicked()
+{
+	const QString path = QFileDialog::getOpenFileName(
+		this, m_chinese ? QStringLiteral("导入离散模板") : QStringLiteral("Import Discretize Template"), QString(),
+		QStringLiteral("JSON (*.json)"));
+	if (path.isEmpty())
+	{
+		return;
+	}
+	QString err;
+	QString id;
+	if (!UserTemplateLibrary::importFile(UserTemplateKind::Discretize, path, &id, &err))
+	{
+		QMessageBox::warning(this, m_chinese ? QStringLiteral("导入") : QStringLiteral("Import"), err);
+		return;
+	}
+	refreshDiscretizeTemplateCombo();
+	if (m_discretizeTemplateCombo)
+	{
+		const int idx = m_discretizeTemplateCombo->findData(id);
+		if (idx >= 0)
+		{
+			m_discretizeTemplateCombo->setCurrentIndex(idx);
+		}
+	}
+}
+
+void FeatureTrajectoryPageWidget::onExportDiscretizeTemplateClicked()
+{
+	if (!m_discretizeTemplateCombo || m_discretizeTemplateCombo->currentIndex() <= 0)
+	{
+		QMessageBox::information(this, m_chinese ? QStringLiteral("导出") : QStringLiteral("Export"),
+								 m_chinese ? QStringLiteral("请先选择模板") : QStringLiteral("Select a template"));
+		return;
+	}
+	const QString id = m_discretizeTemplateCombo->currentData().toString();
+	const QString suggested = m_discretizeTemplateCombo->currentText() + QStringLiteral(".json");
+	const QString path = QFileDialog::getSaveFileName(
+		this, m_chinese ? QStringLiteral("导出离散模板") : QStringLiteral("Export Discretize Template"), suggested,
+		QStringLiteral("JSON (*.json)"));
+	if (path.isEmpty())
+	{
+		return;
+	}
+	QString err;
+	if (!UserTemplateLibrary::exportFile(UserTemplateKind::Discretize, id, path, &err))
+	{
+		QMessageBox::warning(this, m_chinese ? QStringLiteral("导出") : QStringLiteral("Export"), err);
 	}
 }
