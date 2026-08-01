@@ -14,6 +14,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 class IPluginDocument;
@@ -50,6 +51,10 @@ public:
 	bool exportClosedProfile(std::vector<float>& outXyzMm, std::string* err = nullptr) const;
 	void refreshOverlay();
 	QByteArray sketchDocumentJson() const { return m_doc.toJsonUtf8(); }
+	int selectedEntityId() const { return m_selectedEntityId; }
+	void clearSelectedEntity() { m_selectedEntityId = -1; }
+	bool applyNamedParam(int entityId, const QString& key, double value, QString* err = nullptr);
+	bool readNamedParams(int entityId, std::vector<std::pair<QString, double>>& out) const;
 
 	/// 尺寸/求解后通知宿主刷新状态栏
 	void setChangeNotifier(std::function<void()> fn) { m_onChanged = std::move(fn); }
@@ -124,6 +129,7 @@ private:
 	std::vector<int> m_mirrorTargets;
 	bool m_mirrorPickAxis = true;
 	int m_dragPointId = -1;
+	int m_selectedEntityId = -1;
 	std::function<void()> m_onChanged;
 	std::function<void(std::vector<PluginSketchOverlaySegment>&)> m_backgroundOverlay;
 };

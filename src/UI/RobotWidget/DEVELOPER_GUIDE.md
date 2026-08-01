@@ -680,7 +680,7 @@ flowchart TD
 | 顶栏分组 Combo | 页级持有；`scope.groupId` 行复用同一控件，面板 `clearRows` 时不销毁 |
 | 几何 Backend Combo | `project.targetBackendId`：列出点云 / mesh / BREP，仅下拉选择 |
 | 非刚性源/目标 Combo | `nrr.sourceBackendId` / `nrr.targetBackendId`：仅点云 / mesh，仅下拉选择 |
-| `TrajectoryGeometryResolverHost` | 预览/Apply 前 `bindTrajectoryGeometryResolver(document, osg)`，将 backend 烘焙到世界 mm |
+| `TrajectoryGeometryResolverHost` | 预览/Apply/改参 `executeFrom` 前均 `bindTrajectoryGeometryResolver`；几何**每次现取**当前 OSG 世界矩阵烘焙（不做 backendId 长缓存）；非刚性入口清空 SPARE 结果缓存 |
 
 构造时 `RobotInstruction::ensureTrajectoryOpBuiltinsRegistered()`。调色板种类来自 `trajectoryOpPaletteKinds()`；默认块 `makeDefaultDescriptor(defaultScopeForNewOp())` 且 **`enabled=false`**（须勾选行末「启用」后才参与预览/应用）。旧 JSON 缺 `enabled` 字段反序列化为 `true`。
 

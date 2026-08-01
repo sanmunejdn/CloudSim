@@ -59,13 +59,13 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../../Contracts/CloudSimCore/inc;third_party/planegcs;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../CloudSimAiSDK/inc;../../Contracts/CloudSimCore/inc;third_party/planegcs;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\python311/include;$(CloudSimRepoRoot)bin\SDK\python311/Lib/site-packages/pybind11/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>SketcherExport=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>CloudSimPluginSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(CloudSimBinDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>CloudSimPluginSDK.lib;python311.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\python311/libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)plugin.json" "$(OutDir)plugin.json"</Command>
@@ -74,13 +74,13 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../../Contracts/CloudSimCore/inc;third_party/planegcs;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../CloudSimAiSDK/inc;../../Contracts/CloudSimCore/inc;third_party/planegcs;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\python311/include;$(CloudSimRepoRoot)bin\SDK\python311/Lib/site-packages/pybind11/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>SketcherExport=;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>CloudSimPluginSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(CloudSimBinDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>CloudSimPluginSDK.lib;python311.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\python311/libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)plugin.json" "$(OutDir)plugin.json"</Command>
@@ -97,6 +97,8 @@
     <ClCompile Include="source\GeometricModelingSolidFeatures.cpp" />
     <ClCompile Include="source\GeometricModelingPage.cpp" />
     <ClCompile Include="source\GeometricModelingRibbonBar.cpp" />
+    <ClCompile Include="source\ScriptModelIo.cpp" />
+    <ClCompile Include="source\CloudSimGeomPython.cpp" />
     <ClCompile Include="source\CommandStack.cpp" />
     <ClCompile Include="source\FeatureDocument.cpp" />
     <ClCompile Include="source\SketchConstraintSolver.cpp" />
@@ -112,6 +114,8 @@
   <ItemGroup>
     <ClInclude Include="inc\FeatureDocument.h" />
     <ClInclude Include="inc\BodyHistoryCmd.h" />
+    <ClInclude Include="inc\ScriptModelIo.h" />
+    <ClInclude Include="inc\CloudSimGeomPython.h" />
     <ClInclude Include="inc\SketchConstraintSolver.h" />
     <ClInclude Include="inc\SketchGeom.h" />
     <ClInclude Include="inc\SketchTools.h" />

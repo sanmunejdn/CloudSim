@@ -4,6 +4,7 @@
 /// @file MainWindow.h
 /// @brief 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 协调入口
 
+#include "ApplicationSettings.h"
 #include "widget_global.h"
 
 #include "BackendFollowSolve.h"
@@ -234,6 +235,8 @@ private:
 	void onOpenModel();
 	void onOpenPointCloud();
 	void onCreateCoordinateFrame();
+	void onOpenHelpDocumentation();
+	void onAboutCloudSim();
 	void onBackendTreeSelectionChanged();
 	void onSelectedObjectPoseChanged(float x, float y, float z);
 	void onSelectedObjectRotationChanged(float rx, float ry, float rz);
@@ -308,6 +311,11 @@ private:
 	void syncViewModeActionsFromCurrentOsg();
 	void setAllDocumentViewerDarkBackground(bool dark);
 	void syncSidePanelToggleUi();
+	void loadUiPreferencesFromStorage();
+	void persistUiPreferencesToStorage();
+	void restoreUiPreferencesAfterPlugins();
+	void applySavedViewLayout();
+	bool sidePanelTabSavedVisible(const QString& key, bool defaultVisible) const;
 	bool viewerUsesDarkBackground() const;
 	bool shouldDeferPropertyPanelRebuild(const QString& contextId) const;
 	void beginPropertyPanelNumericEdit(const QString& contextId, const QString& propertyKey);
@@ -371,6 +379,9 @@ protected:
 	QMenu* m_viewMenu = nullptr;
 	QMenu* m_insertMenu = nullptr;
 	QMenu* m_settingsMenu = nullptr;
+	QMenu* m_helpMenu = nullptr;
+	QAction* m_helpDocumentationAction = nullptr;
+	QAction* m_aboutAction = nullptr;
 	QMenu* m_workspaceModeMenu = nullptr;
 	QActionGroup* m_workspaceModeActionGroup = nullptr;
 	QMenu* m_languageMenu = nullptr;
@@ -435,6 +446,7 @@ protected:
 	QHash<QWidget*, SidePanelTabToggleEntry> m_sidePanelTabToggles;
 	QAction* m_viewPanelToggleInsertBefore = nullptr;
 	bool m_useChinese = true;
+	ApplicationSettings::UiPreferences m_uiPreferences;
 	QSet<QString> m_modifiedDocumentIds;
 	bool m_updatingPropertyBrowser = false;
 	MainWindowSelectionState m_selectionState;
@@ -443,6 +455,7 @@ protected:
 	PluginManager* m_pluginManager = nullptr;
 	bool m_pluginsLoadStarted = false;
 	bool m_runtimeShutdownDone = false;
+	bool m_restoringUiPreferences = false;
 	QString m_activeAxisName = QStringLiteral("None");
 	std::shared_ptr<RobotInstruction::Base> m_activeInstructionForProperty;
 	QHash<QtProperty*, QStringList> m_propertyEnumTokens;

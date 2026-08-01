@@ -97,7 +97,7 @@ flowchart TB
 | **应用** | `CloudSimBootstrap` | 组合根 API 头文件（实现于 Host） |
 | **契约** | `CloudSimCore.dll` | 前后端解耦契约：`IDataService`、`IRenderView`、`IRobotService`、`EventHub`、DTO |
 | **宿主** | `CloudSimHost.dll` | 文档宿主、Core 适配器、组合根、`OsgWidget` 编译、`CloudSimPluginHost` |
-| **UI** | `Widget.dll` | 主窗口、文档页、属性面板、仿真协调 |
+| **UI** | `Widget.dll` | 主窗口、文档页、属性面板、仿真协调；Help 菜单打开内嵌 HTML 帮助 |
 | **UI** | `OsgWidgetCore.dll` | OSG 场景核心、拾取、gizmo、绑定索引 |
 | **UI** | `BackendVisual.dll` | Data → OSG 分支构建策略 |
 | **UI** | `RobotWidget.dll` | 仿真/设备 Dock、轨迹编辑、CAD 轨迹生成 |

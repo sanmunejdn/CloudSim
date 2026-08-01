@@ -8,6 +8,7 @@
 #include "BackendPoseOsg.h"
 #include "BackendVisualMath.h"
 #include "BackendVisualRegistry.h"
+#include "BrepBackendVisual.h"
 #include "GraphicsWindowQt1.h"
 #include "LabelingPickOperation.h"
 #include "MeshBackendData.h"
@@ -1270,16 +1271,46 @@ void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 	requestRedraw();
 }
 
-void OsgWidget::setWireframeMode(bool enabled)
+void OsgWidget::applyViewportWireframeToBackendBranch(osg::Node* outerBranch)
 {
-	m_wireframeMode = enabled;
-	if (!m_root.valid())
+	if (!outerBranch)
 	{
 		return;
 	}
+	if (applyBrepViewportWireframe(outerBranch, m_wireframeMode))
+	{
+		// BRep：清掉可能残留的三角 PolygonMode，避免拓扑边再被线框化
+		osg::StateSet* ss = outerBranch->getOrCreateStateSet();
+		ss->removeAttribute(osg::StateAttribute::POLYGONMODE);
+		return;
+	}
 	osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
-	pm->setMode(osg::PolygonMode::FRONT_AND_BACK, enabled ? osg::PolygonMode::LINE : osg::PolygonMode::FILL);
-	m_root->getOrCreateStateSet()->setAttributeAndModes(pm, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	pm->setMode(osg::PolygonMode::FRONT_AND_BACK,
+				m_wireframeMode ? osg::PolygonMode::LINE : osg::PolygonMode::FILL);
+	outerBranch->getOrCreateStateSet()->setAttributeAndModes(
+		pm, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+}
+
+void OsgWidget::applyViewportWireframeToAllBackends()
+{
+	for (const auto& kv : m_backendObjectRoots)
+	{
+		if (kv.second.valid())
+		{
+			applyViewportWireframeToBackendBranch(kv.second.get());
+		}
+	}
+}
+
+void OsgWidget::setWireframeMode(bool enabled)
+{
+	m_wireframeMode = enabled;
+	if (m_root.valid())
+	{
+		// 兼容旧版：去掉根节点全局 OVERRIDE，改为按后端分支处理
+		m_root->getOrCreateStateSet()->removeAttribute(osg::StateAttribute::POLYGONMODE);
+	}
+	applyViewportWireframeToAllBackends();
 	requestRedraw();
 }
 
@@ -1659,6 +1690,10 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 		m_backendVisibility[id] = true;
 	}
 	applyVisibilityMaskForBackend(id);
+	if (m_wireframeMode && inserted.second && inserted.first->second.valid())
+	{
+		applyViewportWireframeToBackendBranch(inserted.first->second.get());
+	}
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
@@ -1745,6 +1780,10 @@ bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString*
 		m_backendVisibility[id] = true;
 	}
 	applyVisibilityMaskForBackend(id);
+	if (m_wireframeMode && inserted.second && inserted.first->second.valid())
+	{
+		applyViewportWireframeToBackendBranch(inserted.first->second.get());
+	}
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
@@ -2613,28 +2652,99 @@ int OsgWidget::hitTestOriginPlane(int screenX, int screenY, double* outDist2) co
 	return best;
 }
 
-int OsgWidget::resolveSketchSupportOriginIndex(int screenX, int screenY) const
+void OsgWidget::setSketchSupportExtraPlanes(std::vector<SketchSupportExtraPlane> planes)
 {
-	double originDist2 = 1e300;
-	const int originIdx = hitTestOriginPlane(screenX, screenY, &originDist2);
-	if (originIdx < 0)
+	m_supportExtras = std::move(planes);
+}
+
+void OsgWidget::clearSketchSupportExtraPlanes()
+{
+	m_supportExtras.clear();
+}
+
+int OsgWidget::hitTestSupportExtra(int screenX, int screenY, double* outDist2) const
+{
+	if (outDist2)
+		*outDist2 = 1e300;
+	if (m_supportExtras.empty())
 		return -1;
-
-	osg::Vec3f pt, a, b, c, n;
-	if (!pickMeshFaceByRayIntersection(QPoint(screenX, screenY), pt, a, b, c, n))
-		return originIdx;
-
 	osg::Vec3d eye(0, 0, 0);
 	if (m_viewer && m_viewer->getCamera())
 	{
 		const osg::Matrixd inv = osg::Matrixd::inverse(m_viewer->getCamera()->getViewMatrix());
 		eye = osg::Vec3d(0, 0, 0) * inv;
 	}
-	const double meshDist2 = (osg::Vec3d(pt.x(), pt.y(), pt.z()) - eye).length2();
-	// 与点击一致：模型面明显更近则让出基面
-	if (meshDist2 + 1e-6 < originDist2)
+	int best = -1;
+	double bestDist = 1e300;
+	for (int i = 0; i < static_cast<int>(m_supportExtras.size()); ++i)
+	{
+		const SketchSupportExtraPlane& d = m_supportExtras[static_cast<std::size_t>(i)];
+		osg::Vec3d hit;
+		QString err;
+		if (!intersectScreenWithPlaneMm(screenX, screenY, d.origin, d.normal, hit, &err))
+			continue;
+		const osg::Vec3d local = hit - d.origin;
+		const double u = local * d.axisX;
+		const double v = local * d.axisY;
+		const float half = d.halfMm > 1.f ? d.halfMm : 40.f;
+		if (std::abs(u) > half || std::abs(v) > half)
+			continue;
+		const double dist = (hit - eye).length2();
+		if (dist < bestDist)
+		{
+			bestDist = dist;
+			best = i;
+		}
+	}
+	if (outDist2 && best >= 0)
+		*outDist2 = bestDist;
+	return best;
+}
+
+int OsgWidget::resolveSketchSupportOriginIndex(int screenX, int screenY) const
+{
+	double originDist2 = 1e300;
+	const int originIdx = hitTestOriginPlane(screenX, screenY, &originDist2);
+	double extraDist2 = 1e300;
+	const int extraIdx = hitTestSupportExtra(screenX, screenY, &extraDist2);
+
+	double meshDist2 = 1e300;
+	bool hasMesh = false;
+	osg::Vec3f pt, a, b, c, n;
+	if (pickMeshFaceByRayIntersection(QPoint(screenX, screenY), pt, a, b, c, n))
+	{
+		osg::Vec3d eye(0, 0, 0);
+		if (m_viewer && m_viewer->getCamera())
+		{
+			const osg::Matrixd inv = osg::Matrixd::inverse(m_viewer->getCamera()->getViewMatrix());
+			eye = osg::Vec3d(0, 0, 0) * inv;
+		}
+		meshDist2 = (osg::Vec3d(pt.x(), pt.y(), pt.z()) - eye).length2();
+		hasMesh = true;
+	}
+
+	const bool originOk = originIdx >= 0;
+	const bool extraOk = extraIdx >= 0;
+	if (!originOk && !extraOk)
 		return -1;
-	return originIdx;
+
+	double bestPlaneDist = 1e300;
+	int bestPlaneCode = -1;
+	if (originOk && originDist2 < bestPlaneDist)
+	{
+		bestPlaneDist = originDist2;
+		bestPlaneCode = originIdx;
+	}
+	if (extraOk && extraDist2 < bestPlaneDist)
+	{
+		bestPlaneDist = extraDist2;
+		bestPlaneCode = 100 + extraIdx;
+	}
+
+	// 模型面明显更近则让出平面拾取
+	if (hasMesh && meshDist2 + 1e-6 < bestPlaneDist)
+		return -1;
+	return bestPlaneCode;
 }
 
 void OsgWidget::updateSketchSupportHover(int screenX, int screenY)
@@ -2797,6 +2907,15 @@ void OsgWidget::beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float 
 			if (originIdx < 0)
 				return false;
 
+			if (originIdx >= 100)
+			{
+				auto fn = std::move(m_originPlanePickedFn);
+				cancelOriginPlaneSelection();
+				if (fn)
+					fn(true, originIdx);
+				return true;
+			}
+
 			const OriginPlaneDef& d = kOriginPlanes[originIdx];
 			setCameraViewDirection(d.normal, d.axisY);
 
@@ -2815,6 +2934,7 @@ void OsgWidget::cancelOriginPlaneSelection()
 	m_originPlanePickActive = false;
 	m_originPlaneHoverIndex = -1;
 	m_originPlanePickedFn = {};
+	m_supportExtras.clear();
 	for (int i = 0; i < 3; ++i)
 	{
 		m_originPlaneFillColors[i] = nullptr;
@@ -3677,6 +3797,10 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	if (inserted.second && inserted.first->second.valid())
 	{
 		bindBackendVisualRoot(stdId, inserted.first->second.get());
+		if (m_wireframeMode)
+		{
+			applyViewportWireframeToBackendBranch(inserted.first->second.get());
+		}
 	}
 	m_litMeshBackendIds.insert(stdId);
 

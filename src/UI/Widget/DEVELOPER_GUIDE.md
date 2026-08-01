@@ -38,8 +38,10 @@ Widget/
 │   ├── widget_global.h                    # WIDGET_EXPORT / OSG_WIDGET_API
 │   ├── MainWindow.h                       # 主窗口（QMainWindow）
 │   ├── MainWindow_p.h                     # 主窗口私有类型（ItemDataRole 等）
+│   ├── HelpBrowserDialog.h                # 内嵌 HTML 帮助浏览器
 │   ├── DocumentPage.h                     # 单文档页（DocumentHost + IRobotSimulationDocument）
 │   ├── ApplicationStyle.h                 # 浅色/深色主题
+│   ├── ApplicationSettings.h              # 应用级 UI 偏好持久化
 │   ├── RunInfoPage.h                      # 运行日志面板（中央 splitter）
 │   ├── DevicePageWidget.h                 # 设备页
 │   ├── MainWindowSelectionState.h         # 选择状态
@@ -56,6 +58,8 @@ Widget/
 └── source/
     ├── MainWindow.cpp                     # 核心逻辑、语言切换、选择处理
     ├── MainWindowUiSetup.cpp              # 构造函数、菜单栏、Dock 布局
+    ├── MainWindowHelp.cpp                 # 帮助文档 / 关于
+    ├── HelpBrowserDialog.cpp              # 内嵌 HTML 帮助浏览器
     ├── MainWindowProjectIo.cpp            # 工程保存/加载
     ├── MainWindowFileImport.cpp           # 模型/点云导入
     ├── MainWindowBackendTree.cpp          # 后端树管理
@@ -73,6 +77,7 @@ Widget/
     ├── WidgetSceneSignalWiring.cpp        # OsgWidget → MainWindow 信号接线
     ├── WidgetOsgViewHost.cpp              # IRobotOsgViewHost 实现
     ├── ApplicationStyle.cpp               # 主题加载/应用
+    ├── ApplicationSettings.cpp            # settings.ini 读写
     ├── RunInfoPage.cpp                    # 运行日志
     └── DevicePageWidget.cpp               # 设备页
 ```
@@ -133,6 +138,7 @@ flowchart TB
 | 文件 | 职责 |
 |------|------|
 | `MainWindowUiSetup.cpp` | 构造函数、菜单栏、Dock 布局、语言切换初始化 |
+| `MainWindowHelp.cpp` | Help 菜单：打开本地 HTML、About |
 | 设置 → 模式切换 | 工作区模式入口（主/几何/工艺/工程图） |
 | `MainWindow.cpp` | 核心逻辑、`applyLanguage()`、选择处理、`closeDocumentTab()` |
 | `MainWindowProjectIo.cpp` | 工程保存/加载（`.pcp` / `.json`） |
@@ -168,6 +174,8 @@ flowchart TB
 - FK 绑定矩阵（`fkMeshWorldT0`、`outerWorldAtBind`、`basePlacementWorld` → `core::Mat4`）
 - 坐标系（`RobotCoordinateFrameSet`）
 - 关节 `MatrixTransform*`（可选；per-link 模式可为空）
+
+**视口工具栏线框**：`ViewportToolBar::wireframeToggled` → `OsgWidget::setWireframeMode`。BRep 走拓扑边（`applyBrepViewportWireframe`），非 BRep 为三角 `PolygonMode::LINE`；与导入 `showWireOutline` 解耦。详见 [`BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md) §4.3。
 
 ### 4.3 `WidgetSceneSignalWiring`
 
@@ -221,6 +229,43 @@ OsgWidget 信号的**唯一边界**。所有 OsgWidget 的 Qt 信号（拾取、
 **QComboBox**：全局 QSS 闭合高度约 24–26px；弹层 `item` 设 `min-height` 并允许滚动。
 
 **圆角策略**：仅小控件（按钮/单行输入/Combo/Spin/滚动条把手等）保留 `border-radius`。`QTabWidget::pane`、树/列表、多行文本、`QGroupBox`、菜单弹层等大面积区域强制直角，避免 Qt 无法裁切视口导致「圆角描边 + 直角内容漏角」。
+
+### 4.7 `ApplicationSettings`
+
+应用级 UI 偏好持久化，与工程文件（`.pcp`）分离。配置文件路径：**与 `CloudSim.exe` 同目录** 的 `settings.ini`（与 `ai_config.json` 相同约定）。
+
+**与 `ai_config.json` 的分工**：`ai_config.json` 在 exe 旁，管 LLM 端点；`settings.ini` 在用户配置目录，管界面偏好。
+
+**持久化字段**（`ApplicationSettings::UiPreferences`）：
+
+| 分组 | 键 | 说明 |
+|------|-----|------|
+| `General` | `language` | `zh` / `en` |
+| `Appearance` | `theme` | `light` / `dark`（原注册表项首次启动自动迁移） |
+| `View` | `leftPanelVisible` / `rightPanelVisible` | 视图菜单「左/右侧面板」勾选 |
+| `View` | `leftDockWidth` / `rightDockWidth` | 侧栏宽度（≥160px 才恢复） |
+| `SidePanelTabs` | `<objectName>` | 视图菜单各侧栏页签（如 `CloudSim_AiAssistant`、插件 tab） |
+| `Workspace` | `modeId` | 设置 → 模式切换 / 顶栏工作区模式 |
+
+**生命周期**
+
+```
+启动 → loadUiPreferencesFromStorage()
+     → applyLanguage / applyTheme / 侧栏可见性
+loadPlugins 完成 → restoreUiPreferencesAfterPlugins()（插件 tab + 工作区模式）
+用户改语言/主题/模式/视图勾选 → 即时 persistUiPreferencesToStorage()
+关窗 closeEvent / aboutToQuit → persistUiPreferencesToStorage()
+loadPlugins 完成 → 先恢复工作区模式，再 applySavedViewLayout()（避免插件模式覆盖侧栏可见性）
+```
+
+**侧栏页签键**：优先 `QWidget::objectName()`；插件侧栏应在注册前设稳定 objectName，避免用标题（随语言变化）。
+
+| API | 说明 |
+|-----|------|
+| `ApplicationSettings::load()` / `save()` | 读写完整偏好 |
+| `ApplicationSettings::saveTheme()` / `loadTheme()` | 仅更新主题（避免覆盖其它未保存项） |
+| `ApplicationSettings::settingsFilePath()` | 返回 ini 绝对路径（调试/文档） |
+| `MainWindow::persistUiPreferencesToStorage()` | 从当前 UI 状态收集并保存 |
 
 ---
 
@@ -352,11 +397,12 @@ Widget 实现此接口，供插件宿主（编入 Host）访问 UI 能力：
 | `enqueueBackgroundJob(...)` | 后台任务 |
 | `mainWindowWidget()` | 主窗口 QWidget* |
 
-**菜单栏结构**（`setupMenuBar`）：File / View / **Insert** / Settings。
+**菜单栏结构**（`setupMenuBar`）：File / View / **Insert** / Settings / **Help**。
 
 | 菜单 | 要点 |
 |------|------|
 | Insert（插入） | `Coordinate Frame…` → `onCreateCoordinateFrame`：对话框填名称+位姿，注册 `FrameBackendData`（`catalogTypeName=CoordinateFrame`）并加载轴可视化 |
+| Help（帮助） | `Documentation` → `onOpenHelpDocumentation`：内嵌 `HelpBrowserDialog` 打开 `applicationDirPath()/help/{zh\|en}/index.html`；`About CloudSim` → `QMessageBox::about`。源资源在仓库 `CloudSim/help/`，由 `CloudSim.vcxproj` PostBuild 拷到 `$(CloudSimBinDir)help\` |
 
 ---
 

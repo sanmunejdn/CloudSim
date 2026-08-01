@@ -13,6 +13,7 @@
 #include <QVector>
 #include <QWidget>
 
+class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
@@ -76,6 +77,8 @@ private:
 	QComboBox* m_layerLineTypeCombo = nullptr;
 	QLabel* m_layerWidthLabel = nullptr;
 	QDoubleSpinBox* m_layerWidthSpin = nullptr;
+	QCheckBox* m_layerFrozenCheck = nullptr;
+	QCheckBox* m_layerPlotCheck = nullptr;
 	QStringList m_backendIds;
 	QVector<DrawingViewTemplate> m_templates;
 	QPointer<DrawingSheetCanvasWidget> m_canvas;

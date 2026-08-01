@@ -9,7 +9,9 @@
 
 #include <QByteArray>
 #include <QHash>
+#include <QLineF>
 #include <QPointF>
+#include <QRectF>
 #include <QString>
 #include <QVector>
 #include <functional>
@@ -51,6 +53,24 @@ public:
 	QVector<QPointF> previewPolyline() const;
 	SkSnapResult lastSnap() const { return m_lastSnap; }
 
+	bool trimAt(const QPointF& scene, double tolMm);
+	/// 将 lineHit 处线段近端延伸到 boundary 所在直线
+	bool extendToBoundary(const QLineF& boundary, const QPointF& lineHit, double tolMm);
+	/// 对命中实体的闭合折线做偏移并写入新线段
+	bool offsetClosedAt(const QPointF& scene, double distMm, double tolMm, const QString& layerId);
+	/// 线-线圆角：在点击附近找两条线并插入圆弧近似（切点缩短）；亦支持线-弧 / 弧-弧
+	bool filletLinesAt(const QPointF& scene, double radiusMm, double tolMm, const QString& layerId);
+	/// 线-线倒角：对称距离缩短并插入斜线；线-弧时缩短直线并改弧端点
+	bool chamferLinesAt(const QPointF& scene, double distMm, double tolMm, const QString& layerId);
+	bool breakLineAt(const QPointF& scene, double tolMm);
+	bool joinLinesAt(const QPointF& scene, double tolMm);
+	/// 窗内顶点平移（Stretch）
+	bool stretchInWindow(const QRectF& winScene, const QPointF& delta);
+	/// 平移/旋转复制实体，返回新 id；失败 -1
+	int duplicateEntityTranslated(int entityId, const QPointF& delta, const QString& layerFallback);
+	int duplicateEntityRotated(int entityId, const QPointF& pivot, double angleRad, const QString& layerFallback);
+	bool addCircleAt(const QPointF& center, double radiusMm, const QString& layerId);
+	bool addArcAt(const QPointF& center, double radiusMm, double startDeg, double endDeg, const QString& layerId);
 	int hitTestEntity(const QPointF& scene, double tolMm) const;
 	int hitTestEntity(const QPointF& scene, double tolMm, const std::function<bool(int)>& accept) const;
 	bool removeEntity(int id);

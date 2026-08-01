@@ -168,22 +168,23 @@ struct PointCloudSdfResult
 	double meanErrorMm = 0.0;
 	int deformationNodeCount = 0;
 	double fieldVoxelMmUsed = 0.0;
+	std::string debugSummary;
 };
 
 struct PointCloudSdfParams
 {
-	int fieldMode = 0;		///< 0=DdfVector 1=SignedDistance
+	int fieldMode = 1;		///< 0=DdfVector 1=SignedDistance（默认法向主导，防轴向拉丝）
 	double fieldVoxelMm = 0.0;
 	int fineDataTerm = 0;	///< 0=PointToPlane 1=Ddf 2=SignedDistance
 	bool useCoarseReg = true;
 	bool useFineReg = true;
 	double sampleRadiusRatio = 0.0;
-	double wSmo = 0.01;
+	double wSmo = 1.0;
 	double wRot = 1e-4;
 	double wArapCoarse = 500.0;
 	double wArapFine = 200.0;
 	bool normalizeScale = true;
-	bool rigidPreAlign = false;
+	bool rigidPreAlign = true;
 	double voxelPrefilterMm = 0.0;
 	int maxOuterIters = 30;
 };

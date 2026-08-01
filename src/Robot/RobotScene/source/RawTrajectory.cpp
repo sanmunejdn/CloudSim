@@ -1,4 +1,4 @@
-﻿/// @file RawTrajectory.cpp
+/// @file RawTrajectory.cpp
 /// @brief RawTrajectory 实现
 
 #include "RawTrajectory.h"
@@ -12,6 +12,7 @@
 #include <unordered_set>
 
 #include <FeatureListDocument.h>
+#include <MeshTrajectory.h>
 #include <RigidTransform.h>
 #include <json.hpp>
 
@@ -281,13 +282,21 @@ std::string rawTrajectoryWorkpieceBackendId(const RawTrajectory& trajectory)
 	{
 		return {};
 	}
-	geoalgo::FeatureListDocument doc{};
+	// FeatureList v2 与 MeshTrajectorySpec v1 都可能挂在 sourceFeatureJson
+	geoalgo::FeatureListDocument featureDoc{};
 	std::string err;
-	if (!geometry_backend_ops::featureListFromJson(trajectory.sourceFeatureJson, doc, &err))
+	if (geometry_backend_ops::featureListFromJson(trajectory.sourceFeatureJson, featureDoc, &err) &&
+		!featureDoc.workpiece.backendIdUtf8.empty())
 	{
-		return {};
+		return featureDoc.workpiece.backendIdUtf8;
 	}
-	return doc.workpiece.backendIdUtf8;
+	geoalgo::MeshTrajectorySpec meshSpec{};
+	if (geoalgo::meshTrajectorySpecFromJson(trajectory.sourceFeatureJson, meshSpec, &err) &&
+		!meshSpec.workpiece.backendIdUtf8.empty())
+	{
+		return meshSpec.workpiece.backendIdUtf8;
+	}
+	return {};
 }
 
 std::string rawTrajectoryFeatureId(const RawTrajectory& trajectory)

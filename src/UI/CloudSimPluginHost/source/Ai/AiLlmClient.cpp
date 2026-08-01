@@ -5,6 +5,7 @@
 
 #include "Ai/AiArgsSchema.h"
 #include "Ai/AiMeshDefaults.h"
+#include "Ai/FeatureComposeDomainHandler.h"
 #include "Ai/MeshComposeDomainHandler.h"
 #include "AiCommandSchema.h"
 #include "AiDomainTypes.h"
@@ -162,7 +163,7 @@ QString featureComposeSystemPrompt()
 	return QStringLiteral(
 		"You are a parametric text-to-CAD planner for CloudSim. Output ActionPlan JSON version 2 ONLY (no markdown).\n"
 		"Schema: {\"version\":2,\"domain\":\"feature.compose\",\"steps\":[{\"id\":\"...\",\"api\":\"...\",\"args\":{...}}]}.\n"
-		"Philosophy (Text2CAD): SEQUENCE of real features — Pad → Pocket → Fillet/Chamfer → Revolve → LinearPattern.\n"
+		"Philosophy (Text2CAD): SEQUENCE of real features — Pad → Pocket → Fillet/Chamfer → Revolve → Pattern → Sweep/Loft → Shell/Draft.\n"
 		"Through-holes / cutouts on a plate MUST be Pocket on \"$priorBody\" (end_condition through_all). NEVER use booleanMesh.\n"
 		"All dimensions in mm. Prefer clarify over inventing sizes.\n"
 		"Clarify-before-draw (Pro-CAD): if critical sizes missing, ONE step askClarify with questions[] and STOP.\n"
@@ -173,11 +174,19 @@ QString featureComposeSystemPrompt()
 		"   or diameter_mm/radius_mm + optional center_u_mm/center_v_mm (circle);\n"
 		"   extrude_mm (depth); end_condition: blind|through_all; optional name; pocket requires target \"$priorStepId\".\n"
 		"   Optional profile_xyz_mm closed polyline (xyz interleaved) instead of profile helpers.\n"
-		"3) filletEdgesToBrep args: target \"$stepId\", radius_mm, edge_indices int[] OR edges:\"all\".\n"
-		"4) chamferEdgesToBrep args: target \"$stepId\", distance_mm, edge_indices int[] OR edges:\"all\".\n"
+		"3) filletEdgesToBrep args: target \"$stepId\", radius_mm, edge_indices int[] OR edges:\"longest\"|\"top_boundary\"|\"all\".\n"
+		"   Default edges=longest (top-K, edge_count default 4). Prefer longest/top_boundary over all.\n"
+		"4) chamferEdgesToBrep args: target \"$stepId\", distance_mm, same edges options as fillet.\n"
 		"5) revolveSketchProfileToBrep args: mode boss|cut; same profile helpers as extrude; angle_deg (default 360);\n"
 		"   default axis origin +Y (axis_dy=1); cut requires target \"$stepId\".\n"
 		"6) linearPatternBodyToBrep args: target \"$stepId\", count>=2, dx_mm, dy_mm, dz_mm; optional source_feature_id.\n"
+		"7) sweepSketchProfileToBrep args: mode boss|cut; same profile helpers as extrude; path path_xyz_mm float[] OR "
+		"path line_z (path_length_mm along +Z) OR path line with path_dx/dy/dz_mm; optional twist_deg; cut requires target \"$stepId\".\n"
+		"8) loftSketchProfilesToBrep args: mode boss|cut; profile_a/profile_b helpers (profile_a rectangle + length_a_mm etc.) "
+		"or profile_a_xyz_mm/profile_b_xyz_mm; profile_b_z_mm (default 10) separates sections; cut requires target \"$stepId\".\n"
+		"9) shellFacesToBrep args: target \"$stepId\", thickness_mm, face_indices int[] (required; Host has no faces=all).\n"
+		"10) draftFacesToBrep args: target \"$stepId\", angle_deg, face_indices int[]; optional neutral_ox/oy/oz, neutral_nx/ny/nz (default XY).\n"
+		"11) circularPatternBodyToBrep args: target \"$stepId\", count>=2, angle_deg (default 360), axis_ox/oy/oz, axis_dx/dy/dz (default +Z); optional source_feature_id.\n"
 		"Example plate 100x80x40 with center through-hole d10:\n"
 		"{\"version\":2,\"domain\":\"feature.compose\",\"steps\":["
 		"{\"id\":\"body\",\"api\":\"extrudeSketchProfileToBrep\",\"args\":{\"mode\":\"pad\",\"profile\":\"rectangle\","
@@ -351,6 +360,25 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 		if (!MeshComposeDomainHandler::validatePlanJson(out.command, &planErr))
 		{
 			out.errorMessage = planErr;
+			return out;
+		}
+	}
+	else if (featureComposeSchema)
+	{
+		const std::string extracted = AiCommandSchema::extractJsonObjectText(content);
+		try
+		{
+			out.command = nlohmann::json::parse(extracted, nullptr, true);
+		}
+		catch (...)
+		{
+			out.errorMessage = QStringLiteral("feature.compose 计划 JSON 解析失败。");
+			return out;
+		}
+		QString planErr;
+		if (!FeatureComposeDomainHandler::validatePlanJson(out.command, &planErr))
+		{
+			out.errorMessage = planErr.isEmpty() ? QStringLiteral("feature.compose 计划校验失败。") : planErr;
 			return out;
 		}
 	}

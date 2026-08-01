@@ -34,6 +34,14 @@ struct SketchCircle2d
 	double radius = 0.0;
 };
 
+struct SketchEllipse2d
+{
+	int center = -1;
+	double majorR = 0.0;
+	double minorR = 0.0;
+	double angleRad = 0.0;
+};
+
 enum class SketchConstraintKind
 {
 	Distance = 0,
@@ -48,7 +56,9 @@ enum class SketchConstraintKind
 	ArcRadius, ///< a=弧索引，value=半径 mm
 	Tangent,
 	Symmetric,
-	Midpoint
+	Midpoint,
+	MajorRadius, ///< a=椭圆索引，value=长半轴
+	MinorRadius
 };
 
 struct SketchConstraint2d
@@ -69,6 +79,7 @@ public:
 	int addLine(int p1, int p2);
 	int addArc(int center, int start, int end, double radius);
 	int addCircle(int center, double radius);
+	int addEllipse(int center, double majorR, double minorR, double angleRad);
 	void addConstraint(const SketchConstraint2d& c);
 
 	/// @return 0 成功
@@ -82,6 +93,7 @@ public:
 	const std::vector<SketchPoint2d>& points() const { return m_points; }
 	const std::vector<SketchArc2d>& arcs() const { return m_arcs; }
 	const std::vector<SketchCircle2d>& circles() const { return m_circles; }
+	const std::vector<SketchEllipse2d>& ellipses() const { return m_ellipses; }
 
 	static bool runEquilateralTriangleSelfTest(std::string* errMsg = nullptr);
 
@@ -90,6 +102,7 @@ private:
 	std::vector<SketchLine2d> m_lines;
 	std::vector<SketchArc2d> m_arcs;
 	std::vector<SketchCircle2d> m_circles;
+	std::vector<SketchEllipse2d> m_ellipses;
 	std::vector<SketchConstraint2d> m_constraints;
 	int m_dof = 0;
 	bool m_hasConflicting = false;

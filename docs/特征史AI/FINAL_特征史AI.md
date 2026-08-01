@@ -1,14 +1,16 @@
-# FINAL — feature.compose Parametric 特征史（续期包）
+# FINAL — feature.compose + Host 规范收口
 
-AI ActionPlan 写入可编辑草图 JSON；板+通孔走 Pocket 特征链；Chamfer/Revolve 已挂执行器。
+P2 功能保留；Host 侧按 ABI/校验规范收口。
 
-## 交付
+## 关键修正
 
-- **F1**：`extrude` / `revolve` 前生成 `SketchDocument2d` 兼容 JSON → `sketchDocumentJsonUtf8`
-- **F2**：Router（建模+孔 → feature）；规则 Pad+Pocket；Prompt 禁止 booleanMesh 通孔
-- **F3**：`chamferEdgesToBrep` / `revolveSketchProfileToBrep` + 白名单 + Prompt；Chamfer `allEdges`
-- ABI **1.44.0**：Chamfer `allEdges`（Fillet `allEdges` / history 回调仍为 1.43 起）
+- **虚表**：`previewCircularPattern` / `circularPatternBodyToBrep` 移到 `IPluginGeometryHost` **末尾**；ABI **1.47.0**
+- **LLM**：`featureComposeSchema` 走独立 JSON 解析 + `FeatureComposeDomainHandler::validatePlanJson`
+- **执行**：`AiActionPlanExecutor` 对 `feature.compose` 先校验再跑步骤
+- **DRY**：`resolvePatternSeed` + `clearStagingAndWarn`
+- **Loft AI**：`polylineOnPlane` 把 UV 轮廓抬到 `planeA/B`
+- **门禁**：`plugin.json` / `initialize` / `ARCHITECTURE` 对齐 1.47.0
 
 ## 文档
 
-本目录 `TODO` / `ACCEPTANCE` / `FINAL`；硬化基准面 TODO 已去掉过时「AI 仍网格」条目。
+见本目录 TODO / ACCEPTANCE。

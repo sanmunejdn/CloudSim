@@ -133,10 +133,18 @@ void applySoupToFillGeometry(const std::vector<float>& soup, osg::Geometry& geom
 	geometry.dirtyBound();
 }
 
-osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(const std::vector<std::vector<float>>& edgePolylines,
-												const osg::Vec4& fillColor, const MeshVisualOptions& opt)
+constexpr const char* kBrepWireOverlayName = "brepWireOverlay";
+constexpr const char* kBrepViewportWireframeName = "brepViewportWireframe";
+
+bool isBrepWireGeodeName(const std::string& name)
 {
-	if (!opt.showWireOutline || edgePolylines.empty())
+	return name == kBrepWireOverlayName || name == kBrepViewportWireframeName;
+}
+
+osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(const std::vector<std::vector<float>>& edgePolylines,
+												const osg::Vec4& fillColor, const std::string& geodeName)
+{
+	if (edgePolylines.empty())
 	{
 		return nullptr;
 	}
@@ -186,7 +194,7 @@ osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(const std::vector<std::vector<fl
 	geometryWire->setColorArray(wc.get(), osg::Array::BIND_OVERALL);
 
 	osg::ref_ptr<osg::Geode> geodeWire = new osg::Geode;
-	geodeWire->setName("brepWireOverlay");
+	geodeWire->setName(geodeName);
 	geodeWire->setNodeMask(0x2u);
 	geodeWire->addDrawable(geometryWire.get());
 	osg::StateSet* ssWire = geodeWire->getOrCreateStateSet();
@@ -195,6 +203,59 @@ osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(const std::vector<std::vector<fl
 	ssWire->setAttributeAndModes(new osg::LineWidth(1.0f));
 	ssWire->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	return geodeWire;
+}
+
+osg::Vec4 readFillColorFromDisplayGroup(osg::Group& displayGroup)
+{
+	for (unsigned int i = 0; i < displayGroup.getNumChildren(); ++i)
+	{
+		osg::Geode* geode = displayGroup.getChild(i)->asGeode();
+		if (!geode || isBrepWireGeodeName(geode->getName()))
+		{
+			continue;
+		}
+		for (unsigned int d = 0; d < geode->getNumDrawables(); ++d)
+		{
+			osg::Geometry* geom = geode->getDrawable(d) ? geode->getDrawable(d)->asGeometry() : nullptr;
+			if (!geom)
+			{
+				continue;
+			}
+			osg::Vec4Array* colors = dynamic_cast<osg::Vec4Array*>(geom->getColorArray());
+			if (colors && !colors->empty())
+			{
+				return (*colors)[0];
+			}
+		}
+	}
+	return osg::Vec4(0.75f, 0.75f, 0.75f, 1.0f);
+}
+
+void setBrepFillGeodesVisible(osg::Group& displayGroup, bool visible)
+{
+	const unsigned int mask = visible ? 0xffffffffu : 0u;
+	for (unsigned int i = 0; i < displayGroup.getNumChildren(); ++i)
+	{
+		osg::Node* child = displayGroup.getChild(i);
+		if (!child || isBrepWireGeodeName(child->getName()))
+		{
+			continue;
+		}
+		child->setNodeMask(mask);
+	}
+}
+
+osg::Geode* findNamedGeode(osg::Group& displayGroup, const char* name)
+{
+	for (unsigned int i = 0; i < displayGroup.getNumChildren(); ++i)
+	{
+		osg::Geode* geode = displayGroup.getChild(i)->asGeode();
+		if (geode && geode->getName() == name)
+		{
+			return geode;
+		}
+	}
+	return nullptr;
 }
 
 osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const MeshVisualOptions& opt,
@@ -287,7 +348,8 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 	{
 		std::string pickErr;
 		(void)geoalgo::ensureBrepImportPickArtifacts(shape, artifacts, errorMessage ? &pickErr : nullptr);
-		osg::ref_ptr<osg::Geode> wireGeode = buildBrepEdgeWireGeode(artifacts.edgePolylines, fillColor, opt);
+		osg::ref_ptr<osg::Geode> wireGeode =
+			buildBrepEdgeWireGeode(artifacts.edgePolylines, fillColor, kBrepWireOverlayName);
 		if (wireGeode.valid())
 		{
 			grp->addChild(wireGeode.get());
@@ -297,7 +359,83 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 	return grp;
 }
 
+bool applyBrepViewportWireframeImpl(osg::Node* outerBranch, bool enabled)
+{
+	if (!outerBranch)
+	{
+		return false;
+	}
+	const auto* meta = dynamic_cast<const BackendIdUserData*>(outerBranch->getUserData());
+	if (!meta || !meta->hasBrepShape())
+	{
+		return false;
+	}
+	auto* outerGroup = outerBranch->asGroup();
+	if (!outerGroup)
+	{
+		return false;
+	}
+	osg::Node* displayNode = backendVisualResolvePickNode(outerGroup);
+	auto* displayGroup = displayNode ? displayNode->asGroup() : nullptr;
+	if (!displayGroup)
+	{
+		return false;
+	}
+
+	if (!enabled)
+	{
+		setBrepFillGeodesVisible(*displayGroup, true);
+		if (osg::Geode* viewportWire = findNamedGeode(*displayGroup, kBrepViewportWireframeName))
+		{
+			displayGroup->removeChild(viewportWire);
+		}
+		return true;
+	}
+
+	std::string pickErr;
+	const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
+		geoalgo::getOrBuildBrepImportArtifacts(meta->brepShape(), &pickErr);
+	if (!artifacts || !geoalgo::ensureBrepImportPickArtifacts(meta->brepShape(), *artifacts, &pickErr) ||
+		artifacts->edgePolylines.empty())
+	{
+		return true; // 仍是 BRep，但不隐藏填充以免空场景
+	}
+
+	osg::Geode* existingOverlay = findNamedGeode(*displayGroup, kBrepWireOverlayName);
+	osg::Geode* existingViewport = findNamedGeode(*displayGroup, kBrepViewportWireframeName);
+	if (!existingOverlay && !existingViewport)
+	{
+		const osg::Vec4 fillColor = readFillColorFromDisplayGroup(*displayGroup);
+		osg::ref_ptr<osg::Geode> wireGeode =
+			buildBrepEdgeWireGeode(artifacts->edgePolylines, fillColor, kBrepViewportWireframeName);
+		if (!wireGeode.valid())
+		{
+			return true;
+		}
+		displayGroup->addChild(wireGeode.get());
+	}
+	else
+	{
+		if (existingOverlay)
+		{
+			existingOverlay->setNodeMask(0x2u);
+		}
+		if (existingViewport)
+		{
+			existingViewport->setNodeMask(0x2u);
+		}
+	}
+
+	setBrepFillGeodesVisible(*displayGroup, false);
+	return true;
+}
+
 } // namespace
+
+bool applyBrepViewportWireframe(osg::Node* outerBranch, bool enabled)
+{
+	return applyBrepViewportWireframeImpl(outerBranch, enabled);
+}
 
 std::string BrepBackendVisual::typeKey() const
 {

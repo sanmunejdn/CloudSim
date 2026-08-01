@@ -7,6 +7,9 @@
 #include <QSettings>
 #include <QString>
 
+#include <QCoreApplication>
+#include <QDir>
+
 static void initLogoResources()
 {
 	Q_INIT_RESOURCE(cloudsim_logo);
@@ -18,11 +21,25 @@ bool g_logoResourcesInitialized = false;
 
 QString themeFolder()
 {
-	QSettings settings;
+	if (!QCoreApplication::instance())
+	{
+		return QStringLiteral("light");
+	}
+	const QString path =
+		QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("settings.ini"));
+	QSettings settings(path, QSettings::IniFormat);
 	settings.beginGroup(QStringLiteral("Appearance"));
-	const QString value = settings.value(QStringLiteral("theme"), QStringLiteral("light")).toString();
+	QString value = settings.value(QStringLiteral("theme")).toString();
+	settings.endGroup();
+	if (value.isEmpty())
+	{
+		QSettings legacy;
+		legacy.beginGroup(QStringLiteral("Appearance"));
+		value = legacy.value(QStringLiteral("theme"), QStringLiteral("light")).toString();
+		legacy.endGroup();
+	}
 	return value.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0 ? QStringLiteral("dark")
-																		   : QStringLiteral("light");
+																		  : QStringLiteral("light");
 }
 
 } // namespace

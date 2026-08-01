@@ -267,8 +267,9 @@ bool runSelfTest(std::vector<std::string>& failures)
 		sdfParams.useCoarseReg = true;
 		sdfParams.useFineReg = true;
 		sdfParams.normalizeScale = true;
-		sdfParams.fieldMode = SdfFieldMode::DdfVector;
+		sdfParams.fieldMode = SdfFieldMode::SignedDistance;
 		sdfParams.fineDataTerm = SdfFineDataTerm::PointToPlane;
+		sdfParams.rigidPreAlign = true;
 		SdfRegisterResult sdfResult;
 		std::string sdfErr;
 		expectTrue(failures, "sdf.ok",

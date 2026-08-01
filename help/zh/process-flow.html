@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>工艺流程</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+<figure class="help-figure">
+  <img src="../images/process-flow.png" alt="工艺流程节点示意" width="680" />
+  <figcaption>工艺流程节点示意</figcaption>
+</figure>
+
+
+<h1>工艺流程与离散事件仿真</h1>
+<p>切换到<strong>工艺流程</strong>模式后，中央区域变为流程画布。</p>
+<h2>建模</h2>
+<ul>
+  <li>节点类型：开始、工位、缓冲、仓库、传送带、装配、检测、结束，以及 AGV 等（以插件版本为准）</li>
+  <li>连线、网格对齐、自动布局；导出流程 JSON</li>
+  <li>作业集（JobSet）模板；可由路径生成</li>
+</ul>
+<h2>仿真（DES）</h2>
+<ul>
+  <li>调度规则：FIFO、SPT、LPT、EDD、CR 等</li>
+  <li>批量、装配、MTBF、废品率；班次日历；到达分布（固定/指数）</li>
+  <li>策略对比与甘特图；优化后仿真</li>
+  <li>结果：汇总、利用率、甘特、轨迹 Trace、回放、CSV/JSON 导出</li>
+</ul>
+<p>流程数据保存在工程侧车 <code>processFlow</code> 中。</p>
+
+<p class="footer">CloudSim 用户帮助 · 左侧目录选择章节</p>
+</body>
+</html>

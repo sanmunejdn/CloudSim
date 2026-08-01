@@ -1,4 +1,4 @@
-﻿#ifndef ROBOTWIDGET_TRAJECTORYEDITSESSION_H
+#ifndef ROBOTWIDGET_TRAJECTORYEDITSESSION_H
 #define ROBOTWIDGET_TRAJECTORYEDITSESSION_H
 
 /// @file TrajectoryEditSession.h
@@ -124,6 +124,7 @@ private:
 	void updateLightweightPreviewState(bool active);
 	void ensureGeometryResolverBound() const;
 	void reportProjectionMissesIfAny() const;
+	void reportNonRigidStatsIfAny() const;
 	/// 捕获当前 TCP 并注入管道（失败则清除，算子侧报错）
 	void injectWorkpieceReferenceOnEngine() const;
 	void injectExternalAxisSearchOnEngine() const;

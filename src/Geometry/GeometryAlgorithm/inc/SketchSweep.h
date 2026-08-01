@@ -7,6 +7,7 @@
 #include "geometry_algorithm_global.h"
 
 #include "ShapeHandle.h"
+#include "SketchCurveWire.h"
 
 #include <string>
 #include <vector>
@@ -47,6 +48,8 @@ struct SketchSweepParams
 	SketchSweepMode mode = SketchSweepMode::Boss;
 	/// 截面绕路径起点切向旋转（度）；MVP 对齐后预旋转
 	double twistDeg = 0.0;
+	/// 外轮廓真曲线段（优先于折线）
+	std::vector<SketchCurveSegment> profileSegments;
 };
 
 /**

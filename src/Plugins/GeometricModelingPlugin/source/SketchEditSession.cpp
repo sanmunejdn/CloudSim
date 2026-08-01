@@ -355,12 +355,19 @@ int SketchEditSession::hitDimTarget(const SkVec2& uv, double* outMeasure) const
 	case SketchToolKind::DimRadius:
 	{
 		const int cid = m_doc.hitTestCircle(uv, tol);
-		const SkCircle* c = m_doc.findCircle(cid);
-		if (!c)
+		if (const SkCircle* c = m_doc.findCircle(cid))
+		{
+			if (outMeasure)
+				*outMeasure = c->radius;
+			return cid;
+		}
+		const int eid = m_doc.hitTestEllipse(uv, tol);
+		const SkEllipse* e = m_doc.findEllipse(eid);
+		if (!e)
 			return -1;
 		if (outMeasure)
-			*outMeasure = c->radius;
-		return cid;
+			*outMeasure = e->majorR;
+		return eid;
 	}
 	case SketchToolKind::DimAngle:
 	{
@@ -689,14 +696,17 @@ bool SketchEditSession::tryAddDimensionAt(const SkVec2& uv, QString* err)
 	case SketchToolKind::DimRadius:
 	{
 		const int cid = m_doc.hitTestCircle(uv, tol);
-		const SkCircle* c = m_doc.findCircle(cid);
-		if (!c)
+		if (const SkCircle* c = m_doc.findCircle(cid))
+			return promptAndAddConstraint(SkConstraintKind::Radius, cid, -1, c->radius, err);
+		const int eid = m_doc.hitTestEllipse(uv, tol);
+		const SkEllipse* e = m_doc.findEllipse(eid);
+		if (!e)
 		{
 			if (err)
-				*err = QStringLiteral("请点选圆");
+				*err = QStringLiteral("请点选圆或椭圆");
 			return false;
 		}
-		return promptAndAddConstraint(SkConstraintKind::Radius, cid, -1, c->radius, err);
+		return promptAndAddConstraint(SkConstraintKind::MajorRadius, eid, -1, e->majorR, err);
 	}
 	case SketchToolKind::DimAngle:
 	{
@@ -1334,6 +1344,13 @@ bool SketchEditSession::handleInput(const PluginSketchInputEvent& ev)
 	m_lastCursorUv = uv;
 	m_hasCursorUv = true;
 
+	if (ev.kind == PluginSketchInputKind::MousePress && ev.buttonOrKey == 1)
+	{
+		const int hit = hitAnyCurve(uv);
+		if (hit >= 0)
+			m_selectedEntityId = hit;
+	}
+
 	if (m_dragPointId >= 0)
 	{
 		if (ev.kind == PluginSketchInputKind::MouseMove)
@@ -1450,6 +1467,15 @@ void SketchEditSession::syncConstraintsToSolver(SketchConstraintSolver& solver,
 			continue;
 		circleIdToIdx[c.id] = solver.addCircle(ic->second, c.radius);
 	}
+	std::unordered_map<int, int> ellipseIdToIdx;
+	for (const auto& e : m_doc.ellipses())
+	{
+		const auto ic = pointIdToIdx.find(e.center);
+		if (ic == pointIdToIdx.end())
+			continue;
+		ellipseIdToIdx[e.id] = solver.addEllipse(ic->second, e.majorR, e.minorR, e.angleRad);
+	}
+	(void)ellipseIdToIdx;
 	for (std::size_t ci = 0; ci < m_doc.constraints().size(); ++ci)
 	{
 		const auto& c = m_doc.constraints()[ci];
@@ -1532,6 +1558,28 @@ void SketchEditSession::syncConstraintsToSolver(SketchConstraintSolver& solver,
 			if (!cen)
 				continue;
 			const int rim = solver.addPoint(cen->p.u + c.value, cen->p.v, false);
+			sc.kind = SketchConstraintKind::Distance;
+			sc.a = ic->second;
+			sc.b = rim;
+			sc.value = c.value;
+			break;
+		}
+		case SkConstraintKind::MajorRadius:
+		case SkConstraintKind::MinorRadius:
+		{
+			const SkEllipse* el = m_doc.findEllipse(c.a);
+			if (!el)
+				continue;
+			const auto ic = pointIdToIdx.find(el->center);
+			if (ic == pointIdToIdx.end())
+				continue;
+			const SkPoint* cen = m_doc.findPoint(el->center);
+			if (!cen)
+				continue;
+			const double ang =
+				(c.kind == SkConstraintKind::MajorRadius) ? el->angleRad : (el->angleRad + 1.5707963267948966);
+			const int rim =
+				solver.addPoint(cen->p.u + c.value * std::cos(ang), cen->p.v + c.value * std::sin(ang), false);
 			sc.kind = SketchConstraintKind::Distance;
 			sc.a = ic->second;
 			sc.b = rim;
@@ -1638,6 +1686,8 @@ bool SketchEditSession::solveNow(std::string* err)
 			break;
 		case SkConstraintKind::Radius:
 		case SkConstraintKind::ArcRadius:
+		case SkConstraintKind::MajorRadius:
+		case SkConstraintKind::MinorRadius:
 			addEnt(c.a);
 			break;
 		default:
@@ -1659,7 +1709,8 @@ bool SketchEditSession::solveNow(std::string* err)
 			continue;
 		const auto kind = m_doc.constraints()[static_cast<std::size_t>(idx)].kind;
 		if (kind == SkConstraintKind::Distance || kind == SkConstraintKind::Radius ||
-			kind == SkConstraintKind::Angle || kind == SkConstraintKind::ArcRadius)
+			kind == SkConstraintKind::Angle || kind == SkConstraintKind::ArcRadius ||
+			kind == SkConstraintKind::MajorRadius || kind == SkConstraintKind::MinorRadius)
 			continue;
 		markConstraintEntities(t, false);
 	}
@@ -1690,6 +1741,204 @@ bool SketchEditSession::solveNow(std::string* err)
 				c.radius = cons.value;
 		}
 	}
+	for (auto& e : m_doc.ellipsesMut())
+	{
+		bool hasMaj = false, hasMin = false;
+		for (const auto& cons : m_doc.constraints())
+		{
+			if (cons.a != e.id)
+				continue;
+			if (cons.kind == SkConstraintKind::MajorRadius)
+			{
+				e.majorR = cons.value;
+				hasMaj = true;
+			}
+			if (cons.kind == SkConstraintKind::MinorRadius)
+			{
+				e.minorR = cons.value;
+				hasMin = true;
+			}
+		}
+		(void)hasMaj;
+		(void)hasMin;
+	}
+	{
+		const auto& epts = solver.ellipses();
+		auto& ells = m_doc.ellipsesMut();
+		for (std::size_t i = 0; i < ells.size() && i < epts.size(); ++i)
+			ells[i].angleRad = epts[i].angleRad;
+	}
+	return true;
+}
+
+bool SketchEditSession::readNamedParams(int entityId, std::vector<std::pair<QString, double>>& out) const
+{
+	out.clear();
+	if (const SkCircle* c = m_doc.findCircle(entityId))
+	{
+		const SkPoint* p = m_doc.findPoint(c->center);
+		if (p)
+		{
+			out.emplace_back(QStringLiteral("centerX"), p->p.u);
+			out.emplace_back(QStringLiteral("centerY"), p->p.v);
+		}
+		out.emplace_back(QStringLiteral("radius"), c->radius);
+		return true;
+	}
+	if (const SkLine* ln = m_doc.findLine(entityId))
+	{
+		const SkPoint* p1 = m_doc.findPoint(ln->p1);
+		const SkPoint* p2 = m_doc.findPoint(ln->p2);
+		if (p1 && p2)
+		{
+			out.emplace_back(QStringLiteral("startX"), p1->p.u);
+			out.emplace_back(QStringLiteral("startY"), p1->p.v);
+			out.emplace_back(QStringLiteral("endX"), p2->p.u);
+			out.emplace_back(QStringLiteral("endY"), p2->p.v);
+			out.emplace_back(QStringLiteral("length"), skDist(p1->p, p2->p));
+		}
+		return p1 && p2;
+	}
+	if (const SkEllipse* e = m_doc.findEllipse(entityId))
+	{
+		const SkPoint* p = m_doc.findPoint(e->center);
+		if (p)
+		{
+			out.emplace_back(QStringLiteral("centerX"), p->p.u);
+			out.emplace_back(QStringLiteral("centerY"), p->p.v);
+		}
+		out.emplace_back(QStringLiteral("majorRadius"), e->majorR);
+		out.emplace_back(QStringLiteral("minorRadius"), e->minorR);
+		out.emplace_back(QStringLiteral("majorAxisAngle"), e->angleRad * 180.0 / 3.141592653589793);
+		return true;
+	}
+	if (const SkSpline* sp = m_doc.findSpline(entityId))
+	{
+		out.emplace_back(QStringLiteral("mode"), static_cast<double>(sp->mode));
+		out.emplace_back(QStringLiteral("degreeHint"), static_cast<double>(sp->throughPts.size()));
+		return true;
+	}
+	return false;
+}
+
+bool SketchEditSession::applyNamedParam(int entityId, const QString& key, double value, QString* err)
+{
+	auto upsertRadiusLike = [&](SkConstraintKind kind, int id, double v) {
+		for (auto& c : m_doc.constraintsMut())
+		{
+			if (c.kind == kind && c.a == id)
+			{
+				c.value = v;
+				return;
+			}
+		}
+		m_doc.addConstraint(SkConstraint{kind, id, -1, v, -1});
+	};
+
+	if (SkCircle* c = m_doc.findCircle(entityId))
+	{
+		if (key == QStringLiteral("radius") && value > 1e-9)
+		{
+			c->radius = value;
+			upsertRadiusLike(SkConstraintKind::Radius, entityId, value);
+		}
+		else if ((key == QStringLiteral("centerX") || key == QStringLiteral("centerY")))
+		{
+			SkPoint* p = m_doc.findPoint(c->center);
+			if (!p)
+				return false;
+			if (key == QStringLiteral("centerX"))
+				p->p.u = value;
+			else
+				p->p.v = value;
+		}
+		else
+			return false;
+	}
+	else if (SkLine* ln = m_doc.findLine(entityId))
+	{
+		SkPoint* p1 = m_doc.findPoint(ln->p1);
+		SkPoint* p2 = m_doc.findPoint(ln->p2);
+		if (!p1 || !p2)
+			return false;
+		if (key == QStringLiteral("startX"))
+			p1->p.u = value;
+		else if (key == QStringLiteral("startY"))
+			p1->p.v = value;
+		else if (key == QStringLiteral("endX"))
+			p2->p.u = value;
+		else if (key == QStringLiteral("endY"))
+			p2->p.v = value;
+		else if (key == QStringLiteral("length") && value > 1e-9)
+		{
+			const double dx = p2->p.u - p1->p.u;
+			const double dy = p2->p.v - p1->p.v;
+			const double len = std::sqrt(dx * dx + dy * dy);
+			if (len < 1e-9)
+				return false;
+			const double s = value / len;
+			p2->p.u = p1->p.u + dx * s;
+			p2->p.v = p1->p.v + dy * s;
+		}
+		else
+			return false;
+	}
+	else if (SkEllipse* e = m_doc.findEllipse(entityId))
+	{
+		if (key == QStringLiteral("majorRadius") && value > 1e-9)
+		{
+			e->majorR = value;
+			upsertRadiusLike(SkConstraintKind::MajorRadius, entityId, value);
+		}
+		else if (key == QStringLiteral("minorRadius") && value > 1e-9)
+		{
+			e->minorR = value;
+			upsertRadiusLike(SkConstraintKind::MinorRadius, entityId, value);
+		}
+		else if (key == QStringLiteral("majorAxisAngle"))
+			e->angleRad = value * 3.141592653589793 / 180.0;
+		else if (key == QStringLiteral("centerX") || key == QStringLiteral("centerY"))
+		{
+			SkPoint* p = m_doc.findPoint(e->center);
+			if (!p)
+				return false;
+			if (key == QStringLiteral("centerX"))
+				p->p.u = value;
+			else
+				p->p.v = value;
+		}
+		else
+			return false;
+	}
+	else if (SkSpline* sp = m_doc.findSpline(entityId))
+	{
+		if (key == QStringLiteral("mode"))
+		{
+			const auto mode = (value >= 0.5) ? SkSplineMode::ControlPoints : SkSplineMode::ThroughPoints;
+			if (!m_doc.setSplineMode(entityId, mode))
+			{
+				if (err)
+					*err = QStringLiteral("无法切换样条模式");
+				return false;
+			}
+			(void)sp;
+		}
+		else
+			return false;
+	}
+	else
+		return false;
+
+	std::string solveErr;
+	if (!solveNow(&solveErr))
+	{
+		if (err)
+			*err = QString::fromStdString(solveErr);
+		return false;
+	}
+	refreshOverlay();
+	if (m_onChanged)
+		m_onChanged();
 	return true;
 }
 
@@ -1722,6 +1971,8 @@ void SketchEditSession::refreshOverlay()
 		style.highlightEntityIds.insert(m_dimHoverId);
 	if (m_dimPickA >= 0)
 		style.highlightEntityIds.insert(m_dimPickA);
+	if (m_selectedEntityId >= 0)
+		style.highlightEntityIds.insert(m_selectedEntityId);
 	for (int id : m_mirrorTargets)
 		style.highlightEntityIds.insert(id);
 	std::vector<PluginSketchOverlaySegment> segs;

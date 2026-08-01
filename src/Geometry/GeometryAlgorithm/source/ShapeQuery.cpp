@@ -13,9 +13,17 @@
 #include "WireOps.h"
 #include "detail/OccIncludes.h"
 
+#include <BRepGProp.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <GProp_GProps.hxx>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace geoalgo
 {
@@ -828,6 +836,327 @@ void mergeFaceOwnershipByTShape(const ShapeHandle& tip, const std::string& featu
 		if (it != tshapeOwners.end())
 			outFaceIndexOwners[idx] = it->second;
 	}
+}
+
+namespace
+{
+void appendPnt(std::vector<float>& xyz, const gp_Pnt& p)
+{
+	xyz.push_back(static_cast<float>(p.X()));
+	xyz.push_back(static_cast<float>(p.Y()));
+	xyz.push_back(static_cast<float>(p.Z()));
+}
+
+double edgeLengthMmOf(const TopoDS_Edge& edge)
+{
+	GProp_GProps props;
+	BRepGProp::LinearProperties(edge, props);
+	return props.Mass();
+}
+
+bool isFullCircleSpan(const BRepAdaptor_Curve& curve, const TopoDS_Edge& edge)
+{
+	const double first = curve.FirstParameter();
+	const double last = curve.LastParameter();
+	const double span = std::abs(last - first);
+	// 周期圆容差略放宽，避免近满圆被当成 Arc 再取错误 mid
+	return edge.Closed() || std::abs(span - 2.0 * M_PI) < 1e-2 || span > 2.0 * M_PI - 1e-2;
+}
+
+double arcMidParameter(const BRepAdaptor_Curve& curve)
+{
+	const double first = curve.FirstParameter();
+	const double last = curve.LastParameter();
+	if (last >= first - 1e-12)
+		return 0.5 * (first + last);
+	if (curve.IsPeriodic())
+	{
+		const double period = curve.Period();
+		double span = last - first;
+		if (span < 0.0)
+			span += period;
+		return first + 0.5 * span;
+	}
+	return 0.5 * (first + last);
+}
+} // namespace
+
+bool extractShapeFaceBoundarySegments(const ShapeHandle& shapeHandle, const int faceIndex,
+									  const TessellateParams& fallbackTess, std::vector<FaceBoundarySeg>& outSegs,
+									  std::string* errMsg)
+{
+	outSegs.clear();
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+		return false;
+	TopoDS_Face face;
+	if (!shapeFaceAtIndex(shape, faceIndex, face, errMsg))
+		return false;
+
+	TopTools_IndexedMapOfShape seenEdges;
+	for (TopExp_Explorer wireExp(face, TopAbs_WIRE); wireExp.More(); wireExp.Next())
+	{
+		const TopoDS_Wire wire = TopoDS::Wire(wireExp.Current());
+		for (BRepTools_WireExplorer edgeExp(wire, face); edgeExp.More(); edgeExp.Next())
+		{
+			const TopoDS_Edge edge = edgeExp.Current();
+			if (seenEdges.Contains(edge))
+				continue;
+			seenEdges.Add(edge);
+
+			BRepAdaptor_Curve curve(edge);
+			FaceBoundarySeg seg;
+			if (curve.GetType() == GeomAbs_Line)
+			{
+				seg.kind = FaceBoundarySegKind::Line;
+				appendPnt(seg.xyz, curve.Value(curve.FirstParameter()));
+				appendPnt(seg.xyz, curve.Value(curve.LastParameter()));
+				outSegs.push_back(std::move(seg));
+				continue;
+			}
+			if (curve.GetType() == GeomAbs_Circle)
+			{
+				const gp_Circ circ = curve.Circle();
+				const double radius = circ.Radius();
+				if (radius > 1e-9 && isFullCircleSpan(curve, edge))
+				{
+					seg.kind = FaceBoundarySegKind::Circle;
+					seg.radiusMm = radius;
+					appendPnt(seg.xyz, circ.Location());
+					appendPnt(seg.xyz, curve.Value(curve.FirstParameter()));
+					outSegs.push_back(std::move(seg));
+					continue;
+				}
+				if (radius > 1e-9)
+				{
+					seg.kind = FaceBoundarySegKind::Arc;
+					const double midParam = arcMidParameter(curve);
+					appendPnt(seg.xyz, curve.Value(curve.FirstParameter()));
+					appendPnt(seg.xyz, curve.Value(midParam));
+					appendPnt(seg.xyz, curve.Value(curve.LastParameter()));
+					outSegs.push_back(std::move(seg));
+					continue;
+				}
+			}
+
+			Polyline3d poly;
+			const int ei = edgeIndexOfEdge(shape, edge);
+			if (ei < 0)
+			{
+				BRepAdaptor_Curve c2(edge);
+				poly.xyz.clear();
+				constexpr int segs = 24;
+				for (int i = 0; i <= segs; ++i)
+				{
+					const double t =
+						c2.FirstParameter() +
+						(c2.LastParameter() - c2.FirstParameter()) * (static_cast<double>(i) / segs);
+					appendPnt(poly.xyz, c2.Value(t));
+				}
+			}
+			else if (!discretizeShapeEdgeByIndex(shapeHandle, ei, fallbackTess, poly, errMsg))
+				return false;
+			if (poly.xyz.size() >= 6)
+			{
+				seg.kind = FaceBoundarySegKind::Polyline;
+				seg.xyz = std::move(poly.xyz);
+				outSegs.push_back(std::move(seg));
+			}
+		}
+	}
+
+	if (outSegs.empty())
+	{
+		if (errMsg)
+			*errMsg = "face has no boundary segments";
+		return false;
+	}
+	return true;
+}
+
+bool selectLongestEdgeIndices(const ShapeHandle& shapeHandle, int topK, std::vector<int>& outEdgeIndices,
+							  std::string* errMsg)
+{
+	outEdgeIndices.clear();
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+		return false;
+	std::vector<std::pair<double, int>> scored;
+	int idx = 0;
+	for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next(), ++idx)
+	{
+		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
+		scored.emplace_back(edgeLengthMmOf(edge), idx);
+	}
+	if (scored.empty())
+	{
+		if (errMsg)
+			*errMsg = "shape has no edges";
+		return false;
+	}
+	std::sort(scored.begin(), scored.end(),
+			  [](const auto& a, const auto& b) { return a.first > b.first; });
+	const int k = topK <= 0 ? 4 : topK;
+	const int n = static_cast<int>(std::min(scored.size(), static_cast<size_t>(k)));
+	outEdgeIndices.reserve(static_cast<size_t>(n));
+	for (int i = 0; i < n; ++i)
+		outEdgeIndices.push_back(scored[static_cast<size_t>(i)].second);
+	return true;
+}
+
+bool selectTopBoundaryEdgeIndices(const ShapeHandle& shapeHandle, std::vector<int>& outEdgeIndices,
+								  std::string* errMsg)
+{
+	outEdgeIndices.clear();
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+		return false;
+
+	int bestFace = -1;
+	double bestZ = -(std::numeric_limits<double>::max)();
+	int faceIdx = 0;
+	for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next(), ++faceIdx)
+	{
+		const TopoDS_Face face = TopoDS::Face(exp.Current());
+		BRepAdaptor_Surface surf(face);
+		if (surf.GetType() != GeomAbs_Plane)
+			continue;
+		gp_Pln pln = surf.Plane();
+		gp_Dir n = pln.Axis().Direction();
+		if (face.Orientation() == TopAbs_REVERSED)
+			n.Reverse();
+		// 近似「顶面」：法向朝 +Z 且原点 Z 最大
+		if (n.Z() < 0.5)
+			continue;
+		const double z = pln.Location().Z();
+		if (z > bestZ)
+		{
+			bestZ = z;
+			bestFace = faceIdx;
+		}
+	}
+
+	if (bestFace < 0)
+		return selectLongestEdgeIndices(shapeHandle, 4, outEdgeIndices, errMsg);
+
+	std::vector<std::vector<int>> faceEdges;
+	if (!collectShapeFaceEdgeIndices(shapeHandle, faceEdges, errMsg))
+		return false;
+	if (static_cast<size_t>(bestFace) >= faceEdges.size())
+	{
+		if (errMsg)
+			*errMsg = "top face index out of range";
+		return false;
+	}
+	outEdgeIndices = faceEdges[static_cast<size_t>(bestFace)];
+	std::sort(outEdgeIndices.begin(), outEdgeIndices.end());
+	outEdgeIndices.erase(std::unique(outEdgeIndices.begin(), outEdgeIndices.end()), outEdgeIndices.end());
+	if (outEdgeIndices.empty())
+	{
+		if (errMsg)
+			*errMsg = "top face has no edges";
+		return false;
+	}
+	return true;
+}
+
+int shapeHandleVertexCount(const ShapeHandle& handle)
+{
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(handle, &native) || native.IsNull())
+		return 0;
+	TopTools_IndexedMapOfShape map;
+	TopExp::MapShapes(native, TopAbs_VERTEX, map);
+	return map.Extent();
+}
+
+bool shapeVertexPointAtIndex(const ShapeHandle& handle, int vertexIndex, Point3d& outPointMm, std::string* errMsg)
+{
+	TopoDS_Shape native;
+	if (!nativeShapeOrErr(handle, native, errMsg))
+		return false;
+	TopTools_IndexedMapOfShape map;
+	TopExp::MapShapes(native, TopAbs_VERTEX, map);
+	if (vertexIndex < 0 || vertexIndex >= map.Extent())
+	{
+		if (errMsg)
+			*errMsg = "vertex index out of range";
+		return false;
+	}
+	const TopoDS_Vertex v = TopoDS::Vertex(map.FindKey(vertexIndex + 1));
+	const gp_Pnt p = BRep_Tool::Pnt(v);
+	outPointMm = {p.X(), p.Y(), p.Z()};
+	return true;
+}
+
+bool pickShapeVertexByModelPoint(const ShapeHandle& shapeHandle, const Point3d& queryPointModelMm,
+								 const double toleranceMm, int& outVertexIndex, Point3d& outVertexModelMm,
+								 std::string* errMsg)
+{
+	outVertexIndex = -1;
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+		return false;
+	TopTools_IndexedMapOfShape map;
+	TopExp::MapShapes(shape, TopAbs_VERTEX, map);
+	const gp_Pnt query = toGpPnt(queryPointModelMm);
+	double bestDist2 = (std::numeric_limits<double>::max)();
+	int bestIdx = -1;
+	gp_Pnt bestPt;
+	for (int i = 1; i <= map.Extent(); ++i)
+	{
+		const TopoDS_Vertex v = TopoDS::Vertex(map.FindKey(i));
+		const gp_Pnt p = BRep_Tool::Pnt(v);
+		const double dx = p.X() - query.X();
+		const double dy = p.Y() - query.Y();
+		const double dz = p.Z() - query.Z();
+		const double d2 = dx * dx + dy * dy + dz * dz;
+		if (d2 < bestDist2)
+		{
+			bestDist2 = d2;
+			bestIdx = i - 1;
+			bestPt = p;
+		}
+	}
+	if (bestIdx < 0 || bestDist2 > toleranceMm * toleranceMm)
+	{
+		if (errMsg)
+			*errMsg = "no B-rep vertex within tolerance";
+		return false;
+	}
+	outVertexIndex = bestIdx;
+	outVertexModelMm = {bestPt.X(), bestPt.Y(), bestPt.Z()};
+	return true;
+}
+
+bool shapeHandleEdgeEndpoints(const ShapeHandle& handle, int edgeIndex, Point3d& outAMm, Point3d& outBMm,
+							  std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(handle, shape, errMsg))
+		return false;
+	TopoDS_Edge edge;
+	if (!shapeEdgeAtIndex(shape, edgeIndex, edge, errMsg))
+		return false;
+	TopExp_Explorer ex(edge, TopAbs_VERTEX);
+	if (!ex.More())
+	{
+		if (errMsg)
+			*errMsg = "edge has no vertices";
+		return false;
+	}
+	const gp_Pnt a = BRep_Tool::Pnt(TopoDS::Vertex(ex.Current()));
+	ex.Next();
+	if (!ex.More())
+	{
+		if (errMsg)
+			*errMsg = "edge has only one vertex";
+		return false;
+	}
+	const gp_Pnt b = BRep_Tool::Pnt(TopoDS::Vertex(ex.Current()));
+	outAMm = {a.X(), a.Y(), a.Z()};
+	outBMm = {b.X(), b.Y(), b.Z()};
+	return true;
 }
 
 } // namespace geoalgo

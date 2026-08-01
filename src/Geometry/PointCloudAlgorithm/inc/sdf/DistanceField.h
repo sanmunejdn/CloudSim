@@ -20,9 +20,9 @@ namespace sdf
 struct FieldSample
 {
 	Eigen::Vector3d closest;   ///< Π(x)
-	Eigen::Vector3d directed;  ///< d = x - Π(x)（点云路径为沿法线投影）
+	Eigen::Vector3d directed;  ///< d = x − Π(x) 真有向距离向量
 	Eigen::Vector3d normal;	   ///< 目标法线
-	double signedDistance = 0; ///< φ
+	double signedDistance = 0; ///< φ = d·n
 	bool valid = false;
 };
 

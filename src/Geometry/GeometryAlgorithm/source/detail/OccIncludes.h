@@ -27,6 +27,7 @@
 #include <BSplCLib.hxx>
 #include <Bnd_Box.hxx>
 #include <ElCLib.hxx>
+#include <GCPnts_TangentialDeflection.hxx>
 #include <GCPnts_UniformAbscissa.hxx>
 #include <GCPnts_UniformDeflection.hxx>
 #include <GeomAPI_PointsToBSplineSurface.hxx>

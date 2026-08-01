@@ -75,6 +75,27 @@ struct PluginGeometryStepRef
 	/// 1.40.0+：视口命中点（世界 mm）；Vertex 拾取时为近端点
 	PluginPoint3d hitWorldMm{};
 	bool hasHitPoint = false;
+	/// 1.45.0+：TopExp 顶点索引（与 shapeHandleVertexCount 顺序一致）
+	int vertexIndex = -1;
+	/// 1.47.0+：Edge 拾取时两端点（旋转轴/圆周阵列轴）
+	PluginPoint3d edgeEndAMm{};
+	PluginPoint3d edgeEndBMm{};
+	bool hasEdgeEnds = false;
+};
+
+enum class PluginFaceBoundarySegKind
+{
+	Line = 0,
+	Arc,
+	Circle,
+	Polyline
+};
+
+struct PluginFaceBoundarySeg
+{
+	PluginFaceBoundarySegKind kind = PluginFaceBoundarySegKind::Polyline;
+	std::vector<float> xyz;
+	double radiusMm = 0.0;
 };
 
 enum class PluginGeometryElementKind
@@ -132,6 +153,8 @@ struct PluginGeometryJobResult
 	std::size_t triangleCount = 0U;
 	double avgEdgeLengthMm = 0.0;
 	double maxResidualMm = 0.0;
+	/// 1.45.0+：面边界曲线段（Convert 优先用；空则回退 polylines）
+	std::vector<PluginFaceBoundarySeg> faceBoundarySegs;
 };
 
 using PluginGeometryFinishedFn =
@@ -163,7 +186,40 @@ enum class PluginSketchExtrudeEnd
 	MidPlane,
 	ThroughAll,
 	UpToVertex,
-	OffsetFromFace
+	OffsetFromFace,
+	/// 1.48.0+：正向 lengthMm + 反向 length2Mm
+	TwoDirections
+};
+
+enum class PluginSketchSweepMode
+{
+	Boss = 0,
+	Cut
+};
+
+enum class PluginSketchSweepPathSegKind
+{
+	Line = 0,
+	Arc,
+	SplineThrough,
+	/// ax,ay,az=圆心；bx=半径；mx,my,mz=法向
+	Circle = 3,
+	/// ax,ay,az=中心；bx=长半轴 by=短半轴 bz=面内转角(rad)；m=法向
+	Ellipse = 4
+};
+
+struct PluginSketchSweepPathSegment
+{
+	PluginSketchSweepPathSegKind kind = PluginSketchSweepPathSegKind::Line;
+	float ax = 0.f;
+	float ay = 0.f;
+	float az = 0.f;
+	float bx = 0.f;
+	float by = 0.f;
+	float bz = 0.f;
+	float mx = 0.f;
+	float my = 0.f;
+	float mz = 0.f;
 };
 
 struct PluginSketchExtrudeParams
@@ -189,37 +245,18 @@ struct PluginSketchExtrudeParams
 	/// 1.39.0+：UpToVertex 目标点（世界 mm）
 	PluginPoint3d upToVertex{};
 	bool hasUpToVertex = false;
+	/// 1.45.0+：UpToVertex 顶点索引（>=0 时 rebuild 优先重解）
+	int upToVertexIndex = -1;
+	std::string upToVertexBackendIdUtf8;
 	/// 1.39.0+：OffsetFromFace 沿拉伸方向偏移
 	double offsetFromFaceMm = 0.0;
 	/// 1.38.0+：内孔环（闭合折线 xyz）
 	std::vector<std::vector<float>> holePolylinesXyzMm;
-};
-
-enum class PluginSketchSweepMode
-{
-	Boss = 0,
-	Cut
-};
-
-enum class PluginSketchSweepPathSegKind
-{
-	Line = 0,
-	Arc,
-	SplineThrough
-};
-
-struct PluginSketchSweepPathSegment
-{
-	PluginSketchSweepPathSegKind kind = PluginSketchSweepPathSegKind::Line;
-	float ax = 0.f;
-	float ay = 0.f;
-	float az = 0.f;
-	float bx = 0.f;
-	float by = 0.f;
-	float bz = 0.f;
-	float mx = 0.f;
-	float my = 0.f;
-	float mz = 0.f;
+	/// 1.48.0+：Blind/双向起始偏移；双向反向深度
+	double startOffsetMm = 0.0;
+	double length2Mm = 0.0;
+	/// 1.50.0+：外轮廓真曲线段（优先于折线）
+	std::vector<PluginSketchSweepPathSegment> profileSegments;
 };
 
 struct PluginSketchSweepParams
@@ -237,6 +274,8 @@ struct PluginSketchSweepParams
 	PluginSketchPlane pathPlane{};
 	/// 非空则优先真弧/线段建 wire；空则回退 path 折线
 	std::vector<PluginSketchSweepPathSegment> pathSegments;
+	/// 1.50.0+：外轮廓真曲线段（优先于折线）
+	std::vector<PluginSketchSweepPathSegment> profileSegments;
 	/// 1.39.0+：截面绕路径起点切向扭转（度）
 	double twistDeg = 0.0;
 };
@@ -249,6 +288,9 @@ struct PluginSketchFilletParams
 	std::string resultNameUtf8;
 	/// 1.43.0+：为 true 时圆角 tip 全部边（忽略 edgeIndices）
 	bool allEdges = false;
+	/// 1.45.0+：longest | top_boundary；与 allEdges 互斥，解析后写入 edgeIndices
+	std::string edgeSelectUtf8;
+	int edgeSelectCount = 4;
 };
 
 struct PluginSketchChamferParams
@@ -259,6 +301,9 @@ struct PluginSketchChamferParams
 	std::string resultNameUtf8;
 	/// 1.44.0+：为 true 时倒角 tip 全部边（忽略 edgeIndices）
 	bool allEdges = false;
+	/// 1.45.0+：同 Fillet
+	std::string edgeSelectUtf8;
+	int edgeSelectCount = 4;
 };
 
 enum class PluginSketchRevolveMode
@@ -291,6 +336,19 @@ struct PluginSketchLinearPatternParams
 	double dyMm = 0;
 	double dzMm = 0;
 	/// 1.41.0+：上游特征 id；空=阵列当前 tip
+	std::string sourceFeatureIdUtf8;
+	std::string targetParametricBackendIdUtf8;
+	std::string resultNameUtf8;
+};
+
+struct PluginSketchCircularPatternParams
+{
+	/// 1.47.0+：圆周阵列（虚表尾部追加）
+	int count = 2;
+	double angleDeg = 360.0;
+	double axisOx = 0, axisOy = 0, axisOz = 0;
+	double axisDx = 0, axisDy = 0, axisDz = 1;
+	/// 上游特征 id；空=阵列当前 tip
 	std::string sourceFeatureIdUtf8;
 	std::string targetParametricBackendIdUtf8;
 	std::string resultNameUtf8;
@@ -383,6 +441,18 @@ enum class PluginOriginPlaneKind
 using PluginOriginPlanePickedFn =
 	std::function<void(bool ok, const QString& error, PluginOriginPlaneKind kind, const PluginSketchPlane& plane)>;
 
+/// 1.49.0+：新建草图/等距基准面可选的用户平面（tag 回传 featureId）
+struct PluginSupportPlaneCandidate
+{
+	PluginSketchPlane plane{};
+	std::string tagUtf8;
+	float halfExtentMm = 40.f;
+};
+
+using PluginSupportPlanePickedFn =
+	std::function<void(bool ok, const QString& error, PluginOriginPlaneKind kind, const PluginSketchPlane& plane,
+					   const QString& tag)>;
+
 /// 1.33.0+：单视图 HLR 折线（xy 交错，无 z）
 struct PluginDrawingHlrViewResult
 {
@@ -399,7 +469,7 @@ struct PluginDrawingHlrResult
 using PluginDrawingHlrFinishedFn =
 	std::function<void(bool ok, const QString& error, const PluginDrawingHlrResult& result)>;
 
-/// 1.34.0+：工程图投影参数；1.42.0+ 追加自定义剖切平面
+/// 1.34.0+：工程图投影参数；1.42.0+ 追加自定义剖切平面；1.xx+ coarseView
 struct PluginDrawingProjectParams
 {
 	bool thirdAngle = false;
@@ -411,6 +481,8 @@ struct PluginDrawingProjectParams
 	bool customSection = false;
 	double sectionOriginMm[3] = {0.0, 0.0, 0.0};
 	double sectionNormal[3] = {0.0, 1.0, 0.0};
+	/// true：PolyAlgo 快速预览（正式出图请保持 false）
+	bool coarseView = false;
 };
 
 /// 1.37.0+：世界原点 + XY/XZ/YZ 基准面显隐（建模特征树眼开关）

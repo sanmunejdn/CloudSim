@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>入门与界面</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+<figure class="help-figure">
+  <img src="../images/ui-layout.png" alt="主窗口布局示意" width="680" />
+  <figcaption>主窗口布局示意</figcaption>
+</figure>
+
+
+<h1>入门与主界面</h1>
+<h2>启动后布局</h2>
+<ul>
+  <li><strong>中央</strong>：文档标签页中的三维视口；下方为运行日志（Run Info）</li>
+  <li><strong>左侧</strong>：对象/单元树（Units）、场景结构</li>
+  <li><strong>右侧</strong>：工作区标签（属性、设备、仿真相关页、插件页、AI 助手等）</li>
+  <li><strong>顶栏</strong>：工作区模式切换（主程序 / 几何建模 / 工艺流程 / 工程图）</li>
+</ul>
+<div class="tip">工作区模式只切换工具与 Ribbon，<strong>不会清空场景对象</strong>；同一文档内的模型在各模式间共享。</div>
+<h2>菜单栏</h2>
+<table>
+  <tr><th>菜单</th><th>主要功能</th></tr>
+  <tr><td>文件</td><td>新建文档、打开/保存工程、打开模型、打开点云、退出</td></tr>
+  <tr><td>视图</td><td>重置布局、左右面板显示、交互模式、Gizmo 局部/世界系</td></tr>
+  <tr><td>插入</td><td>创建坐标系</td></tr>
+  <tr><td>设置</td><td>模式切换、主题、语言</td></tr>
+  <tr><td>帮助</td><td>帮助文档、关于 CloudSim</td></tr>
+</table>
+<p>部分插件还会注册 <strong>工具（Tools）</strong> 等菜单项。</p>
+<h2>工作区模式</h2>
+<ul>
+  <li><strong>主程序</strong>：三维仿真、导入、机器人与通用插件侧栏</li>
+  <li><strong>几何建模</strong>：特征树 + Ribbon 草图/实体特征</li>
+  <li><strong>工艺流程</strong>：流程画布与 DES 仿真（替换中央三维区）</li>
+  <li><strong>工程图</strong>：出图、标注、导出图纸</li>
+</ul>
+<p>也可通过 <strong>设置 → 模式切换</strong> 或快捷键 <code>Ctrl+1</code>～<code>Ctrl+4</code> 切换（插件已加载时可用）。</p>
+<h2>仿真相关 Dock（主程序）</h2>
+<p>典型标签包括：指令、关节轴、坐标系（工具/用户）、外部轴、轨迹编辑/生成、机器人通讯、碰撞等（以当前加载插件与布局为准）。</p>
+<p>设备页提供 URDF 等机器人导入入口。</p>
+
+<p class="footer">CloudSim 用户帮助 · 左侧目录选择章节</p>
+</body>
+</html>

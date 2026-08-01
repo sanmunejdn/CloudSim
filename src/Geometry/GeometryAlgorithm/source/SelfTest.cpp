@@ -273,6 +273,47 @@ bool runSelfTest(std::vector<std::string>& failures)
 				}
 			}
 		}
+
+		{
+			// 近圆折线应提升为圆柱侧面（非棱柱平面）
+			std::vector<float> circle;
+			circle.reserve(48 * 3);
+			constexpr double R = 20.0;
+			for (int i = 0; i < 48; ++i)
+			{
+				const double a = (2.0 * 3.14159265358979323846 * i) / 48.0;
+				circle.push_back(static_cast<float>(R * std::cos(a)));
+				circle.push_back(static_cast<float>(R * std::sin(a)));
+				circle.push_back(0.f);
+			}
+			SketchExtrudeParams cyl;
+			cyl.mode = SketchExtrudeMode::Pad;
+			cyl.lengthMm = 15.0;
+			cyl.normalZ = 1.0;
+			ShapeHandle cylPad;
+			if (!sketchExtrudePolylineToHandle(circle, cyl, nullptr, cylPad, &err) || cylPad.isNull())
+			{
+				fail("sketchExtrudeCirclePad", err.empty() ? "null shape" : err);
+			}
+			else
+			{
+				TopoDS_Shape native;
+				if (!ShapeHandleAccess::nativeShape(cylPad, &native) || native.IsNull())
+					fail("sketchExtrudeCirclePad", "native shape");
+				else
+				{
+					int cylFaces = 0;
+					for (TopExp_Explorer ex(native, TopAbs_FACE); ex.More(); ex.Next())
+					{
+						BRepAdaptor_Surface surf(TopoDS::Face(ex.Current()), Standard_True);
+						if (surf.GetType() == GeomAbs_Cylinder)
+							++cylFaces;
+					}
+					if (cylFaces < 1)
+						fail("sketchExtrudeCirclePad", "expected cylindrical side face");
+				}
+			}
+		}
 	}
 
 	{

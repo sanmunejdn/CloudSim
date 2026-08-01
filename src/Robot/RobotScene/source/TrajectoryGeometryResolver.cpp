@@ -8,13 +8,17 @@
 #include "PointCloudBackendOps.h"
 #include "RobotSceneGeometryProjection.h"
 #include "RobotSceneNonRigidTrajectoryWarp.h"
+#include "RawTrajectory.h"
+#include "RunLogger.h"
 #include "ShapeQuery.h"
 #include "TrajectoryProjection.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
-#include <unordered_map>
+#include <sstream>
 
+#include <Adapters.h>
 #include <RigidTransform.h>
 #include <TrajectoryUnifiedScope.h>
 
@@ -23,107 +27,79 @@ namespace RobotInstruction
 namespace
 {
 TrajectoryGeometryResolveFn g_geometryResolver;
-std::unordered_map<std::string, TrajectoryGeometrySnapshot> g_geometryCache;
 std::size_t g_lastProjectionMissCount = 0;
+NonRigidWarpLastStats g_lastNonRigidStats{};
+
+void clearNonRigidSpareCache();
+
+// modelToWorldColMajor16 与 BackendMat4/OSG 同序：须经 Adapters，不能当 Eigen 列向量 M*p（平移不在 v[12..14]）
+engine::RigidTransform rigidFromModelToWorld16(const double modelToWorldColMajor16[16])
+{
+	engine::ColMajorMat4 cm{};
+	for (int i = 0; i < 16; ++i)
+	{
+		cm[static_cast<size_t>(i)] = modelToWorldColMajor16[i];
+	}
+	return engine::rigidTransformFromColMajor(cm);
+}
 
 void transformPointModelToWorld(const double modelToWorldColMajor16[16], const double modelMm[3], double worldMm[3])
 {
-	worldMm[0] = modelToWorldColMajor16[0] * modelMm[0] + modelToWorldColMajor16[4] * modelMm[1] +
-				 modelToWorldColMajor16[8] * modelMm[2] + modelToWorldColMajor16[12];
-	worldMm[1] = modelToWorldColMajor16[1] * modelMm[0] + modelToWorldColMajor16[5] * modelMm[1] +
-				 modelToWorldColMajor16[9] * modelMm[2] + modelToWorldColMajor16[13];
-	worldMm[2] = modelToWorldColMajor16[2] * modelMm[0] + modelToWorldColMajor16[6] * modelMm[1] +
-				 modelToWorldColMajor16[10] * modelMm[2] + modelToWorldColMajor16[14];
+	const Eigen::Vector3d out =
+		rigidFromModelToWorld16(modelToWorldColMajor16).isometry() *
+		Eigen::Vector3d(modelMm[0], modelMm[1], modelMm[2]);
+	worldMm[0] = out.x();
+	worldMm[1] = out.y();
+	worldMm[2] = out.z();
 }
 
 void transformDirModelToWorld(const double modelToWorldColMajor16[16], const double modelDir[3], double worldDir[3])
 {
-	worldDir[0] = modelToWorldColMajor16[0] * modelDir[0] + modelToWorldColMajor16[4] * modelDir[1] +
-				  modelToWorldColMajor16[8] * modelDir[2];
-	worldDir[1] = modelToWorldColMajor16[1] * modelDir[0] + modelToWorldColMajor16[5] * modelDir[1] +
-				  modelToWorldColMajor16[9] * modelDir[2];
-	worldDir[2] = modelToWorldColMajor16[2] * modelDir[0] + modelToWorldColMajor16[6] * modelDir[1] +
-				  modelToWorldColMajor16[10] * modelDir[2];
-	const double len = std::sqrt(worldDir[0] * worldDir[0] + worldDir[1] * worldDir[1] + worldDir[2] * worldDir[2]);
+	const Eigen::Vector3d out =
+		rigidFromModelToWorld16(modelToWorldColMajor16).isometry().linear() *
+		Eigen::Vector3d(modelDir[0], modelDir[1], modelDir[2]);
+	const double len = out.norm();
 	if (len > 1e-9)
 	{
-		worldDir[0] /= len;
-		worldDir[1] /= len;
-		worldDir[2] /= len;
+		worldDir[0] = out.x() / len;
+		worldDir[1] = out.y() / len;
+		worldDir[2] = out.z() / len;
 	}
-}
-
-bool invertColMajor4x4(const double m[16], double out[16])
-{
-	const double a = m[0];
-	const double b = m[4];
-	const double c = m[8];
-	const double d = m[12];
-	const double e = m[1];
-	const double f = m[5];
-	const double g = m[9];
-	const double h = m[13];
-	const double i = m[2];
-	const double j = m[6];
-	const double k = m[10];
-	const double l = m[14];
-	const double mm = m[3];
-	const double n = m[7];
-	const double o = m[11];
-	const double p = m[15];
-	out[0] = f * (k * p - l * o) - j * (g * p - h * o) + n * (g * l - h * k);
-	out[4] = -(b * (k * p - l * o) - i * (g * p - h * o) + mm * (g * l - h * k));
-	out[8] = b * (j * p - n * o) - e * (k * p - l * o) + mm * (j * l - n * k);
-	out[12] = -(b * (j * o - n * k) - e * (g * o - h * k) + i * (g * n - h * j));
-	out[1] = -(e * (k * p - l * o) - i * (f * p - h * o) + mm * (f * l - h * k));
-	out[5] = a * (k * p - l * o) - c * (g * p - h * o) + d * (g * l - h * k);
-	out[9] = -(a * (j * p - n * o) - c * (f * p - h * o) + d * (j * l - n * k));
-	out[13] = a * (j * o - n * k) - c * (f * o - h * k) + d * (f * n - h * j);
-	out[2] = e * (j * p - n * o) - i * (f * p - h * o) + mm * (f * n - h * j);
-	out[6] = -(a * (j * p - n * o) - b * (i * p - l * o) + d * (i * n - l * j));
-	out[10] = a * (f * p - h * o) - b * (e * p - h * o) + c * (e * n - h * mm);
-	out[14] = -(a * (f * o - h * mm) - b * (e * o - h * i) + c * (e * mm - h * e));
-	out[3] = -(e * (j * o - n * k) - i * (f * o - h * k) + mm * (f * k - h * j));
-	out[7] = a * (j * o - n * k) - b * (i * o - l * k) + c * (i * n - l * mm);
-	out[11] = -(a * (f * o - h * mm) - b * (e * o - h * i) + c * (e * mm - f * i));
-	out[15] = a * (f * k - h * j) - b * (e * k - h * i) + c * (e * j - f * i);
-	const double det = a * out[0] + e * out[4] + i * out[8] + mm * out[12];
-	if (std::fabs(det) < 1e-12)
+	else
 	{
-		return false;
+		worldDir[0] = out.x();
+		worldDir[1] = out.y();
+		worldDir[2] = out.z();
 	}
-	const double inv = 1.0 / det;
-	for (int idx = 0; idx < 16; ++idx)
-	{
-		out[idx] *= inv;
-	}
-	return true;
 }
 
-void transformPointWorldToModel(const double worldToModelColMajor16[16], const double worldMm[3], double modelMm[3])
+void transformPointWorldToModel(const double modelToWorldColMajor16[16], const double worldMm[3], double modelMm[3])
 {
-	modelMm[0] = worldToModelColMajor16[0] * worldMm[0] + worldToModelColMajor16[4] * worldMm[1] +
-				 worldToModelColMajor16[8] * worldMm[2] + worldToModelColMajor16[12];
-	modelMm[1] = worldToModelColMajor16[1] * worldMm[0] + worldToModelColMajor16[5] * worldMm[1] +
-				 worldToModelColMajor16[9] * worldMm[2] + worldToModelColMajor16[13];
-	modelMm[2] = worldToModelColMajor16[2] * worldMm[0] + worldToModelColMajor16[6] * worldMm[1] +
-				 worldToModelColMajor16[10] * worldMm[2] + worldToModelColMajor16[14];
+	const Eigen::Vector3d out =
+		rigidFromModelToWorld16(modelToWorldColMajor16).inverse().isometry() *
+		Eigen::Vector3d(worldMm[0], worldMm[1], worldMm[2]);
+	modelMm[0] = out.x();
+	modelMm[1] = out.y();
+	modelMm[2] = out.z();
 }
 
-void transformDirWorldToModel(const double worldToModelColMajor16[16], const double worldDir[3], double modelDir[3])
+void transformDirWorldToModel(const double modelToWorldColMajor16[16], const double worldDir[3], double modelDir[3])
 {
-	modelDir[0] = worldToModelColMajor16[0] * worldDir[0] + worldToModelColMajor16[4] * worldDir[1] +
-				  worldToModelColMajor16[8] * worldDir[2];
-	modelDir[1] = worldToModelColMajor16[1] * worldDir[0] + worldToModelColMajor16[5] * worldDir[1] +
-				  worldToModelColMajor16[9] * worldDir[2];
-	modelDir[2] = worldToModelColMajor16[2] * worldDir[0] + worldToModelColMajor16[6] * worldDir[1] +
-				  worldToModelColMajor16[10] * worldDir[2];
-	const double len = std::sqrt(modelDir[0] * modelDir[0] + modelDir[1] * modelDir[1] + modelDir[2] * modelDir[2]);
+	const Eigen::Vector3d out =
+		rigidFromModelToWorld16(modelToWorldColMajor16).inverse().isometry().linear() *
+		Eigen::Vector3d(worldDir[0], worldDir[1], worldDir[2]);
+	const double len = out.norm();
 	if (len > 1e-9)
 	{
-		modelDir[0] /= len;
-		modelDir[1] /= len;
-		modelDir[2] /= len;
+		modelDir[0] = out.x() / len;
+		modelDir[1] = out.y() / len;
+		modelDir[2] = out.z() / len;
+	}
+	else
+	{
+		modelDir[0] = out.x();
+		modelDir[1] = out.y();
+		modelDir[2] = out.z();
 	}
 }
 
@@ -174,19 +150,10 @@ bool projectPointOntoSnapshot(const TrajectoryGeometrySnapshot& snap, const doub
 			}
 			return false;
 		}
-		double worldToModel[16]{};
-		if (!invertColMajor4x4(snap.modelToWorldColMajor16, worldToModel))
-		{
-			if (errMsg)
-			{
-				*errMsg = "failed to invert brep transform";
-			}
-			return false;
-		}
 		double originModel[3]{};
 		double dirModel[3]{};
-		transformPointWorldToModel(worldToModel, originWorldMm, originModel);
-		transformDirWorldToModel(worldToModel, dirWorldUnit, dirModel);
+		transformPointWorldToModel(snap.modelToWorldColMajor16, originWorldMm, originModel);
+		transformDirWorldToModel(snap.modelToWorldColMajor16, dirWorldUnit, dirModel);
 		geoalgo::ShapeRayPickResult pick{};
 		geoalgo::Point3d o{originModel[0], originModel[1], originModel[2]};
 		geoalgo::Point3d d{dirModel[0], dirModel[1], dirModel[2]};
@@ -216,16 +183,21 @@ bool projectPointOntoSnapshot(const TrajectoryGeometrySnapshot& snap, const doub
 
 } // namespace
 
+void invalidateTrajectoryGeometryCache()
+{
+	clearNonRigidSpareCache();
+}
+
 void setTrajectoryGeometryResolver(TrajectoryGeometryResolveFn fn)
 {
 	g_geometryResolver = std::move(fn);
-	g_geometryCache.clear();
+	invalidateTrajectoryGeometryCache();
 }
 
 void clearTrajectoryGeometryResolver()
 {
 	g_geometryResolver = nullptr;
-	g_geometryCache.clear();
+	invalidateTrajectoryGeometryCache();
 }
 
 bool resolveTrajectoryGeometry(const std::string& backendId, TrajectoryGeometrySnapshot& out, std::string* errMsg)
@@ -238,12 +210,7 @@ bool resolveTrajectoryGeometry(const std::string& backendId, TrajectoryGeometryS
 		}
 		return false;
 	}
-	const auto cached = g_geometryCache.find(backendId);
-	if (cached != g_geometryCache.end())
-	{
-		out = cached->second;
-		return true;
-	}
+	// 场景物体位姿常变：禁止按 backendId 长缓存，每次从 Host 重烘焙世界坐标
 	if (!g_geometryResolver)
 	{
 		if (errMsg)
@@ -252,12 +219,7 @@ bool resolveTrajectoryGeometry(const std::string& backendId, TrajectoryGeometryS
 		}
 		return false;
 	}
-	if (!g_geometryResolver(backendId, out, errMsg))
-	{
-		return false;
-	}
-	g_geometryCache[backendId] = out;
-	return true;
+	return g_geometryResolver(backendId, out, errMsg);
 }
 
 std::size_t trajectoryProjectionMissCount()
@@ -268,6 +230,16 @@ std::size_t trajectoryProjectionMissCount()
 void resetTrajectoryProjectionMissCount()
 {
 	g_lastProjectionMissCount = 0;
+}
+
+NonRigidWarpLastStats trajectoryNonRigidLastStats()
+{
+	return g_lastNonRigidStats;
+}
+
+void resetTrajectoryNonRigidLastStats()
+{
+	g_lastNonRigidStats = NonRigidWarpLastStats{};
 }
 
 bool projectUnifiedToGeometry(UnifiedTrajectory& traj, const ProjectToGeometryParams& params, const OpScope& scope,
@@ -601,12 +573,23 @@ void fillMeshFromWorldSoup(MeshBackendData& mesh, const std::vector<float>& soup
 	mesh.setTriangleSoup(soup);
 }
 
+// 世界坐标指纹：源/目标平移旋转后必须使 SPARE 缓存失效
+struct GeomWorldStamp
+{
+	std::size_t floatCount = 0;
+	float first[3]{};
+	float last[3]{};
+	double sum = 0.0;
+};
+
 struct NonRigidSpareCacheKey
 {
 	std::string srcId;
 	std::string tgtId;
 	TrajectoryGeometryKind srcKind = TrajectoryGeometryKind::PointCloud;
 	TrajectoryGeometryKind tgtKind = TrajectoryGeometryKind::PointCloud;
+	GeomWorldStamp srcStamp{};
+	GeomWorldStamp tgtStamp{};
 	double maxBindDistanceMm = 0.0;
 	double sampleRadiusRatio = 0.0;
 	int maxOuterIters = 0;
@@ -619,6 +602,8 @@ struct NonRigidSpareCache
 	NonRigidSpareCacheKey key{};
 	std::vector<float> deformedMeshSoup;
 	std::vector<float> deformedPointCloud;
+	double meanErrorMm = 0.0;
+	int deformationNodeCount = 0;
 	bool valid = false;
 };
 
@@ -628,9 +613,138 @@ NonRigidSpareCache& nonRigidSpareCache()
 	return cache;
 }
 
+void clearNonRigidSpareCache()
+{
+	NonRigidSpareCache& cache = nonRigidSpareCache();
+	cache.valid = false;
+	cache.deformedMeshSoup.clear();
+	cache.deformedPointCloud.clear();
+	cache.meanErrorMm = 0.0;
+	cache.deformationNodeCount = 0;
+	cache.key = NonRigidSpareCacheKey{};
+}
+
+GeomWorldStamp makeWorldStamp(const std::vector<float>& xyz)
+{
+	GeomWorldStamp stamp{};
+	stamp.floatCount = xyz.size();
+	if (xyz.size() >= 3U)
+	{
+		stamp.first[0] = xyz[0];
+		stamp.first[1] = xyz[1];
+		stamp.first[2] = xyz[2];
+		const std::size_t n = xyz.size();
+		stamp.last[0] = xyz[n - 3U];
+		stamp.last[1] = xyz[n - 2U];
+		stamp.last[2] = xyz[n - 1U];
+	}
+	for (const float v : xyz)
+	{
+		stamp.sum += static_cast<double>(v);
+	}
+	return stamp;
+}
+
+GeomWorldStamp stampFromSnapshot(const TrajectoryGeometrySnapshot& snap)
+{
+	GeomWorldStamp stamp{};
+	if (snap.kind == TrajectoryGeometryKind::TriangleMesh)
+	{
+		stamp = makeWorldStamp(!snap.triangleSoupModelMm.empty() ? snap.triangleSoupModelMm : snap.triangleSoupWorldMm);
+	}
+	else if (snap.kind == TrajectoryGeometryKind::PointCloud)
+	{
+		stamp = makeWorldStamp(!snap.positionsModelMm.empty() ? snap.positionsModelMm : snap.positionsWorldMm);
+	}
+	if (snap.hasModelToWorld)
+	{
+		// 位姿变化必须使 SPARE 缓存失效（OSG 序：平移在 v[3,7,11]）
+		stamp.sum += snap.modelToWorldColMajor16[3] + snap.modelToWorldColMajor16[7] + snap.modelToWorldColMajor16[11];
+		stamp.sum += snap.modelToWorldColMajor16[0] + snap.modelToWorldColMajor16[5] + snap.modelToWorldColMajor16[10];
+	}
+	return stamp;
+}
+
+bool expressGeometryInSourceModelFrame(const TrajectoryGeometrySnapshot& srcSnap,
+									   const TrajectoryGeometrySnapshot& tgtSnap,
+									   TrajectoryGeometrySnapshot& outTgtInSrc, std::string* errMsg)
+{
+	if (!srcSnap.hasModelToWorld || !tgtSnap.hasModelToWorld)
+	{
+		if (errMsg)
+		{
+			*errMsg = "source/target world matrix unavailable for non-rigid frame";
+		}
+		return false;
+	}
+	outTgtInSrc = tgtSnap;
+	outTgtInSrc.hasModelToWorld = false;
+	const auto xformModelToSrcModel = [&](const float mx, const float my, const float mz, float& ox, float& oy,
+										  float& oz)
+	{
+		const double model[3] = {static_cast<double>(mx), static_cast<double>(my), static_cast<double>(mz)};
+		double world[3]{};
+		double srcModel[3]{};
+		transformPointModelToWorld(tgtSnap.modelToWorldColMajor16, model, world);
+		transformPointWorldToModel(srcSnap.modelToWorldColMajor16, world, srcModel);
+		ox = static_cast<float>(srcModel[0]);
+		oy = static_cast<float>(srcModel[1]);
+		oz = static_cast<float>(srcModel[2]);
+	};
+	if (tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh)
+	{
+		const std::vector<float>& local =
+			!tgtSnap.triangleSoupModelMm.empty() ? tgtSnap.triangleSoupModelMm : tgtSnap.triangleSoupWorldMm;
+		outTgtInSrc.triangleSoupWorldMm.clear();
+		outTgtInSrc.triangleSoupWorldMm.reserve(local.size());
+		for (std::size_t i = 0; i + 2 < local.size(); i += 3)
+		{
+			float ox = 0.0f;
+			float oy = 0.0f;
+			float oz = 0.0f;
+			xformModelToSrcModel(local[i], local[i + 1], local[i + 2], ox, oy, oz);
+			outTgtInSrc.triangleSoupWorldMm.push_back(ox);
+			outTgtInSrc.triangleSoupWorldMm.push_back(oy);
+			outTgtInSrc.triangleSoupWorldMm.push_back(oz);
+		}
+		return !outTgtInSrc.triangleSoupWorldMm.empty();
+	}
+	if (tgtSnap.kind == TrajectoryGeometryKind::PointCloud)
+	{
+		const std::vector<float>& local =
+			!tgtSnap.positionsModelMm.empty() ? tgtSnap.positionsModelMm : tgtSnap.positionsWorldMm;
+		outTgtInSrc.positionsWorldMm.clear();
+		outTgtInSrc.positionsWorldMm.reserve(local.size());
+		for (std::size_t i = 0; i + 2 < local.size(); i += 3)
+		{
+			float ox = 0.0f;
+			float oy = 0.0f;
+			float oz = 0.0f;
+			xformModelToSrcModel(local[i], local[i + 1], local[i + 2], ox, oy, oz);
+			outTgtInSrc.positionsWorldMm.push_back(ox);
+			outTgtInSrc.positionsWorldMm.push_back(oy);
+			outTgtInSrc.positionsWorldMm.push_back(oz);
+		}
+		return !outTgtInSrc.positionsWorldMm.empty();
+	}
+	if (errMsg)
+	{
+		*errMsg = "unsupported target geometry for non-rigid frame";
+	}
+	return false;
+}
+
+bool stampEqual(const GeomWorldStamp& a, const GeomWorldStamp& b)
+{
+	return a.floatCount == b.floatCount && a.first[0] == b.first[0] && a.first[1] == b.first[1] &&
+		   a.first[2] == b.first[2] && a.last[0] == b.last[0] && a.last[1] == b.last[1] &&
+		   a.last[2] == b.last[2] && a.sum == b.sum;
+}
+
 bool cacheKeyEqual(const NonRigidSpareCacheKey& a, const NonRigidSpareCacheKey& b)
 {
 	return a.srcId == b.srcId && a.tgtId == b.tgtId && a.srcKind == b.srcKind && a.tgtKind == b.tgtKind &&
+		   stampEqual(a.srcStamp, b.srcStamp) && stampEqual(a.tgtStamp, b.tgtStamp) &&
 		   a.maxBindDistanceMm == b.maxBindDistanceMm && a.sampleRadiusRatio == b.sampleRadiusRatio &&
 		   a.maxOuterIters == b.maxOuterIters && a.rigidPreAlign == b.rigidPreAlign &&
 		   a.voxelPrefilterMm == b.voxelPrefilterMm;
@@ -645,6 +759,8 @@ NonRigidSpareCacheKey makeSpareCacheKey(const TrajectoryGeometrySnapshot& srcSna
 	key.tgtId = params.targetBackendId;
 	key.srcKind = srcSnap.kind;
 	key.tgtKind = tgtSnap.kind;
+	key.srcStamp = stampFromSnapshot(srcSnap);
+	key.tgtStamp = stampFromSnapshot(tgtSnap);
 	key.maxBindDistanceMm = params.maxBindDistanceMm;
 	key.sampleRadiusRatio = params.sampleRadiusRatio;
 	key.maxOuterIters = params.maxOuterIters;
@@ -668,8 +784,11 @@ NonRigidRegistrationParams withEffectiveSpareParams(const TrajectoryGeometrySnap
 
 bool runSpareRegistration(const TrajectoryGeometrySnapshot& srcSnap, const TrajectoryGeometrySnapshot& tgtSnap,
 						  const NonRigidRegistrationParams& params, std::vector<float>& deformedMeshSoupOut,
-						  std::vector<float>& deformedPointCloudOut, std::string* errMsg)
+						  std::vector<float>& deformedPointCloudOut, point_cloud_backend_ops::PointCloudSpareResult& spareOut,
+						  bool& fromCacheOut, std::string* errMsg)
 {
+	fromCacheOut = false;
+	spareOut = point_cloud_backend_ops::PointCloudSpareResult{};
 	const NonRigidRegistrationParams effective = withEffectiveSpareParams(srcSnap, params);
 	const NonRigidSpareCacheKey key = makeSpareCacheKey(srcSnap, tgtSnap, effective);
 	NonRigidSpareCache& cache = nonRigidSpareCache();
@@ -677,6 +796,9 @@ bool runSpareRegistration(const TrajectoryGeometrySnapshot& srcSnap, const Traje
 	{
 		deformedMeshSoupOut = cache.deformedMeshSoup;
 		deformedPointCloudOut = cache.deformedPointCloud;
+		spareOut.meanErrorMm = cache.meanErrorMm;
+		spareOut.deformationNodeCount = cache.deformationNodeCount;
+		fromCacheOut = true;
 		return true;
 	}
 
@@ -746,7 +868,10 @@ bool runSpareRegistration(const TrajectoryGeometrySnapshot& srcSnap, const Traje
 	cache.key = key;
 	cache.deformedMeshSoup = deformedMeshSoupOut;
 	cache.deformedPointCloud = deformedPointCloudOut;
+	cache.meanErrorMm = spareResult.meanErrorMm;
+	cache.deformationNodeCount = spareResult.deformationNodeCount;
 	cache.valid = true;
+	spareOut = spareResult;
 	return true;
 }
 
@@ -790,12 +915,134 @@ void applyPointCloudBinding(UnifiedTrajectoryPoint& point, const PointCloudBindi
 	point.poseMm.z = deformedXyz[base + 2U];
 }
 
+
+bool xyzCentroid3(const std::vector<float>& xyz, double out[3])
+{
+	out[0] = out[1] = out[2] = 0.0;
+	const std::size_t n = xyz.size() / 3U;
+	if (n == 0U)
+	{
+		return false;
+	}
+	for (std::size_t i = 0; i < n; ++i)
+	{
+		const std::size_t b = i * 3U;
+		out[0] += static_cast<double>(xyz[b]);
+		out[1] += static_cast<double>(xyz[b + 1U]);
+		out[2] += static_cast<double>(xyz[b + 2U]);
+	}
+	const double inv = 1.0 / static_cast<double>(n);
+	out[0] *= inv;
+	out[1] *= inv;
+	out[2] *= inv;
+	return true;
+}
+
+bool trajCentroid3(const UnifiedTrajectory& traj, const std::vector<std::size_t>& indices, double out[3])
+{
+	out[0] = out[1] = out[2] = 0.0;
+	std::size_t n = 0;
+	for (const std::size_t idx : indices)
+	{
+		if (idx >= traj.points.size())
+		{
+			continue;
+		}
+		out[0] += static_cast<double>(traj.points[idx].poseMm.x);
+		out[1] += static_cast<double>(traj.points[idx].poseMm.y);
+		out[2] += static_cast<double>(traj.points[idx].poseMm.z);
+		++n;
+	}
+	if (n == 0U)
+	{
+		return false;
+	}
+	const double inv = 1.0 / static_cast<double>(n);
+	out[0] *= inv;
+	out[1] *= inv;
+	out[2] *= inv;
+	return true;
+}
+
+struct NonRigidBindAttempt
+{
+	std::vector<TrajectoryPointBinding> bindings;
+	std::size_t bindOk = 0;
+	std::size_t bindFail = 0;
+	double bindDistMinMm = 0.0;
+	double bindDistMeanMm = 0.0;
+	double bindDistMaxMm = 0.0;
+};
+
+NonRigidBindAttempt bindTrajectoryToSoup(const UnifiedTrajectory& traj, const std::vector<std::size_t>& indices,
+										 const std::vector<float>& soup, const bool sourceIsMesh,
+										 const double maxBindDistanceMm)
+{
+	NonRigidBindAttempt out{};
+	out.bindings.reserve(indices.size());
+	double bindDistSum = 0.0;
+	double bindDistMin = std::numeric_limits<double>::infinity();
+	double bindDistMax = 0.0;
+	for (const std::size_t idxPoint : indices)
+	{
+		if (idxPoint >= traj.points.size())
+		{
+			continue;
+		}
+		TrajectoryPointBinding item{};
+		item.trajIndex = idxPoint;
+		item.isMesh = sourceIsMesh;
+		const double p[3] = {static_cast<double>(traj.points[idxPoint].poseMm.x),
+							 static_cast<double>(traj.points[idxPoint].poseMm.y),
+							 static_cast<double>(traj.points[idxPoint].poseMm.z)};
+		double bindDist = 0.0;
+		if (sourceIsMesh)
+		{
+			item.meshBinding = bindPointToMeshSoup(p, soup, maxBindDistanceMm);
+			bindDist = item.meshBinding.bindDistance;
+			if (item.meshBinding.valid)
+			{
+				++out.bindOk;
+			}
+			else
+			{
+				++out.bindFail;
+			}
+		}
+		else
+		{
+			item.pointBinding = bindPointToPointCloud(p, soup, maxBindDistanceMm);
+			bindDist = item.pointBinding.bindDistance;
+			if (item.pointBinding.valid)
+			{
+				++out.bindOk;
+			}
+			else
+			{
+				++out.bindFail;
+			}
+		}
+		bindDistSum += bindDist;
+		bindDistMin = std::min(bindDistMin, bindDist);
+		bindDistMax = std::max(bindDistMax, bindDist);
+		out.bindings.push_back(item);
+	}
+	if (!out.bindings.empty())
+	{
+		out.bindDistMeanMm = bindDistSum / static_cast<double>(out.bindings.size());
+		out.bindDistMinMm = std::isfinite(bindDistMin) ? bindDistMin : 0.0;
+		out.bindDistMaxMm = bindDistMax;
+	}
+	return out;
+}
+
 } // namespace
 
 bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegistrationParams& params,
 								   const OpScope& scope, const RobotProgram* program, std::size_t* outMissCount,
 								   std::string* errMsg)
 {
+	g_lastNonRigidStats = NonRigidWarpLastStats{};
 	if (outMissCount)
 	{
 		*outMissCount = 0;
@@ -825,6 +1072,8 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		return false;
 	}
 
+	clearNonRigidSpareCache();
+
 	TrajectoryGeometrySnapshot srcSnap{};
 	if (!resolveTrajectoryGeometry(params.sourceBackendId, srcSnap, errMsg))
 	{
@@ -835,6 +1084,14 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		if (errMsg)
 		{
 			*errMsg = "source backend must be point cloud or mesh";
+		}
+		return false;
+	}
+	if (!srcSnap.hasModelToWorld)
+	{
+		if (errMsg)
+		{
+			*errMsg = "source world matrix unavailable";
 		}
 		return false;
 	}
@@ -852,6 +1109,14 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		}
 		return false;
 	}
+	if (!tgtSnap.hasModelToWorld)
+	{
+		if (errMsg)
+		{
+			*errMsg = "target world matrix unavailable";
+		}
+		return false;
+	}
 
 	const std::vector<std::size_t> indices = trajectory_algo::resolveScopedPointIndices(traj, scope, program);
 	if (indices.empty())
@@ -863,32 +1128,72 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		return false;
 	}
 
+	// BREP 工件出轨迹（世界=Tw×模型），非刚性源多为同模离散 mesh（Ts 可能不同）：
+	// 绑定在「工件模型系」对源 ModelMm；SPARE 在源模型系；写回 Tw×变形模型（与入管/显示同一世界挂点）
 	const bool sourceIsMesh = srcSnap.kind == TrajectoryGeometryKind::TriangleMesh;
-	std::vector<TrajectoryPointBinding> bindings;
-	bindings.reserve(indices.size());
-	for (const std::size_t idx : indices)
+	const std::vector<float>& srcModelSoup =
+		sourceIsMesh ? (!srcSnap.triangleSoupModelMm.empty() ? srcSnap.triangleSoupModelMm : srcSnap.triangleSoupWorldMm)
+					 : (!srcSnap.positionsModelMm.empty() ? srcSnap.positionsModelMm : srcSnap.positionsWorldMm);
+	const std::vector<float>& srcWorldSoup =
+		sourceIsMesh ? srcSnap.triangleSoupWorldMm : srcSnap.positionsWorldMm;
+	if (srcModelSoup.empty() && srcWorldSoup.empty())
 	{
-		if (idx >= traj.points.size())
+		if (errMsg)
 		{
-			continue;
+			*errMsg = "source geometry is empty";
 		}
-		TrajectoryPointBinding item{};
-		item.trajIndex = idx;
-		item.isMesh = sourceIsMesh;
-		const double p[3] = {static_cast<double>(traj.points[idx].poseMm.x),
-							 static_cast<double>(traj.points[idx].poseMm.y),
-							 static_cast<double>(traj.points[idx].poseMm.z)};
-		if (sourceIsMesh)
+		return false;
+	}
+
+	RawTrajectory trajMeta{};
+	trajMeta.sourceFeatureJson = traj.sourceFeatureJson;
+	const std::string trajWp = rawTrajectoryWorkpieceBackendId(trajMeta);
+
+	bool bindInWorkpieceModel = false;
+	TrajectoryGeometrySnapshot wpSnap{};
+	if (!trajWp.empty() && trajWp != params.sourceBackendId)
+	{
+		std::string wpErr;
+		if (resolveTrajectoryGeometry(trajWp, wpSnap, &wpErr) && wpSnap.hasModelToWorld)
 		{
-			item.meshBinding = bindPointToMeshSoup(p, srcSnap.triangleSoupWorldMm, params.maxBindDistanceMm);
+			bindInWorkpieceModel = true;
 		}
 		else
 		{
-			item.pointBinding = bindPointToPointCloud(p, srcSnap.positionsWorldMm, params.maxBindDistanceMm);
+			RunLogger::warn(std::string("[非刚性配准] 无法解析轨迹工件矩阵 backend=") + trajWp + " err=" + wpErr);
 		}
-		bindings.push_back(item);
 	}
-	if (bindings.empty())
+
+	UnifiedTrajectory trajForBind = traj;
+	if (bindInWorkpieceModel)
+	{
+		for (const std::size_t idxPoint : indices)
+		{
+			if (idxPoint >= trajForBind.points.size())
+			{
+				continue;
+			}
+			UnifiedTrajectoryPoint& p = trajForBind.points[idxPoint];
+			const double worldP[3] = {static_cast<double>(p.poseMm.x), static_cast<double>(p.poseMm.y),
+									 static_cast<double>(p.poseMm.z)};
+			double modelP[3]{};
+			transformPointWorldToModel(wpSnap.modelToWorldColMajor16, worldP, modelP);
+			p.poseMm.x = static_cast<float>(modelP[0]);
+			p.poseMm.y = static_cast<float>(modelP[1]);
+			p.poseMm.z = static_cast<float>(modelP[2]);
+		}
+	}
+
+	NonRigidBindAttempt bind{};
+	if (bindInWorkpieceModel)
+	{
+		bind = bindTrajectoryToSoup(trajForBind, indices, srcModelSoup, sourceIsMesh, params.maxBindDistanceMm);
+	}
+	else
+	{
+		bind = bindTrajectoryToSoup(traj, indices, srcWorldSoup, sourceIsMesh, params.maxBindDistanceMm);
+	}
+	if (bind.bindings.empty())
 	{
 		if (errMsg)
 		{
@@ -897,15 +1202,73 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		return false;
 	}
 
+	{
+		double trajC[3]{};
+		double srcC[3]{};
+		double tgtC[3]{};
+		const std::vector<float>& tgtWorldSoup = tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh
+													? tgtSnap.triangleSoupWorldMm
+													: tgtSnap.positionsWorldMm;
+		(void)trajCentroid3(traj, indices, trajC);
+		(void)xyzCentroid3(srcWorldSoup, srcC);
+		(void)xyzCentroid3(tgtWorldSoup, tgtC);
+		std::ostringstream os;
+		os << "[非刚性配准] 诊断 source=" << params.sourceBackendId << " target=" << params.targetBackendId;
+		if (!trajWp.empty())
+		{
+			os << " 轨迹工件=" << trajWp;
+		}
+		os << " 绑定模式=" << (bindInWorkpieceModel ? "工件模型系→源Model" : "世界系→源World")
+		   << " 轨迹质心W=(" << trajC[0] << "," << trajC[1] << "," << trajC[2] << ")"
+		   << " 源世界质心=(" << srcC[0] << "," << srcC[1] << "," << srcC[2] << ")"
+		   << " 目标世界质心=(" << tgtC[0] << "," << tgtC[1] << "," << tgtC[2] << ")"
+		   << " 绑定成功=" << bind.bindOk << "/" << (bind.bindOk + bind.bindFail)
+		   << " meanDist=" << bind.bindDistMeanMm << " mm";
+		RunLogger::info(os.str());
+	}
+	if (bind.bindOk == 0)
+	{
+		std::ostringstream fail;
+		fail << "non-rigid bind failed: meanDist=" << bind.bindDistMeanMm << " mm"
+			 << " (mode=" << (bindInWorkpieceModel ? "workpieceModel" : "world") << ")";
+		if (errMsg)
+		{
+			*errMsg = fail.str();
+		}
+		RunLogger::warn(std::string("[非刚性配准] ") + fail.str());
+		return false;
+	}
+
+	TrajectoryGeometrySnapshot srcForSpare = srcSnap;
+	TrajectoryGeometrySnapshot tgtForSpare = tgtSnap;
+	if (bindInWorkpieceModel)
+	{
+		if (sourceIsMesh)
+		{
+			srcForSpare.triangleSoupWorldMm = srcModelSoup;
+		}
+		else
+		{
+			srcForSpare.positionsWorldMm = srcModelSoup;
+		}
+		if (!expressGeometryInSourceModelFrame(srcSnap, tgtSnap, tgtForSpare, errMsg))
+		{
+			return false;
+		}
+	}
+
 	std::vector<float> deformedMeshSoup;
 	std::vector<float> deformedPointCloud;
-	if (!runSpareRegistration(srcSnap, tgtSnap, params, deformedMeshSoup, deformedPointCloud, errMsg))
+	point_cloud_backend_ops::PointCloudSpareResult spareResult;
+	bool spareFromCache = false;
+	if (!runSpareRegistration(srcForSpare, tgtForSpare, params, deformedMeshSoup, deformedPointCloud, spareResult,
+							  spareFromCache, errMsg))
 	{
 		return false;
 	}
 
 	std::size_t missCount = 0;
-	for (const TrajectoryPointBinding& item : bindings)
+	for (const TrajectoryPointBinding& item : bind.bindings)
 	{
 		if (item.trajIndex >= traj.points.size())
 		{
@@ -930,10 +1293,45 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 			}
 			applyPointCloudBinding(point, item.pointBinding, deformedPointCloud);
 		}
+		if (bindInWorkpieceModel)
+		{
+			// 与入管一致：轨迹世界系挂在 BREP 工件 Tw 上，不能用源 mesh 的 Ts（二者常不一致）
+			const double modelOut[3] = {static_cast<double>(point.poseMm.x), static_cast<double>(point.poseMm.y),
+										static_cast<double>(point.poseMm.z)};
+			double worldOut[3]{};
+			transformPointModelToWorld(wpSnap.modelToWorldColMajor16, modelOut, worldOut);
+			point.poseMm.x = static_cast<float>(worldOut[0]);
+			point.poseMm.y = static_cast<float>(worldOut[1]);
+			point.poseMm.z = static_cast<float>(worldOut[2]);
+		}
 	}
 	if (outMissCount)
 	{
 		*outMissCount = missCount;
+	}
+
+	g_lastNonRigidStats.valid = true;
+	g_lastNonRigidStats.bindOk = bind.bindOk;
+	g_lastNonRigidStats.bindFail = bind.bindFail;
+	g_lastNonRigidStats.bindDistMinMm = bind.bindDistMinMm;
+	g_lastNonRigidStats.bindDistMeanMm = bind.bindDistMeanMm;
+	g_lastNonRigidStats.bindDistMaxMm = bind.bindDistMaxMm;
+	g_lastNonRigidStats.bindMode = bindInWorkpieceModel ? 1 : 0;
+	g_lastNonRigidStats.meanErrorMm = spareResult.meanErrorMm;
+	g_lastNonRigidStats.deformationNodeCount = spareResult.deformationNodeCount;
+	g_lastNonRigidStats.spareFromCache = spareFromCache;
+
+	{
+		double outC[3]{};
+		(void)trajCentroid3(traj, indices, outC);
+		std::ostringstream os;
+		os << "[非刚性配准] 绑定成功=" << bind.bindOk << " 失败=" << bind.bindFail
+		   << " 模式=" << (bindInWorkpieceModel ? "工件模型系" : "世界系")
+		   << " 距离min/mean/max=" << bind.bindDistMinMm << "/" << bind.bindDistMeanMm << "/" << bind.bindDistMaxMm
+		   << " mm SPARE均值误差=" << spareResult.meanErrorMm << " mm 变形节点=" << spareResult.deformationNodeCount
+		   << (spareFromCache ? " (缓存)" : "") << " 写回后轨迹质心W=(" << outC[0] << "," << outC[1] << "," << outC[2]
+		   << ")";
+		RunLogger::info(os.str());
 	}
 	return true;
 }

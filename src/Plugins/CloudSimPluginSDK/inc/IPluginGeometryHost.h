@@ -129,6 +129,10 @@ public:
 	virtual void pickOriginSketchPlane(IPluginDocument* doc, PluginOriginPlanePickedFn onFinished) = 0;
 	virtual void cancelOriginSketchPlanePick(IPluginDocument* doc) = 0;
 
+	/// 1.49.0+：原点基面 + 模型平面面 + 用户候选面（如 DatumPlane）并行拾取
+	virtual void pickSketchSupportPlane(IPluginDocument* doc, const std::vector<PluginSupportPlaneCandidate>& extras,
+										PluginSupportPlanePickedFn onFinished) = 0;
+
 	/// 1.27.0+：拉伸预览（不写入 Parametric Body）
 	virtual void previewSketchExtrude(IPluginDocument* doc, const std::vector<float>& closedPolylineXyzMm,
 									  const PluginSketchPlane& plane, const PluginSketchExtrudeParams& params) = 0;
@@ -211,6 +215,12 @@ public:
 	/// 1.37.0+：世界原点/三基准面 overlay 显隐（默认全显；退出建模可全关）
 	virtual void setOriginReferenceVisibility(IPluginDocument* doc,
 											  const PluginOriginReferenceVisibility& visibility) = 0;
+
+	/// 1.47.0+：圆周阵列预览 / 提交（虚表尾部追加，勿插入中间）
+	virtual bool previewCircularPattern(IPluginDocument* doc, const PluginSketchCircularPatternParams& params,
+										QString* errOut = nullptr) = 0;
+	virtual void circularPatternBodyToBrep(IPluginDocument* doc, const PluginSketchCircularPatternParams& params,
+										   PluginGeometryFinishedFn onFinished) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H

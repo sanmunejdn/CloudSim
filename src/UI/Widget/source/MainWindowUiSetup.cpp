@@ -8,6 +8,7 @@
 #include "AiAssistantDockWidget.h"
 #include "AppIcon.h"
 #include "ApplicationStyle.h"
+#include "ApplicationSettings.h"
 #include "CoreEvents.h"
 #include "DevicePageWidget.h"
 #include "DocumentPage.h"
@@ -27,6 +28,7 @@
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
 
+#include <QApplication>
 #include <QAbstractItemView>
 #include <QAction>
 #include <QActionGroup>
@@ -121,6 +123,8 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	m_robotSimulation->setHost(m_robotHost.get());
 	m_robotSimulation->initializePlanners();
 	setupMenuBar();
+	loadUiPreferencesFromStorage();
+	connect(qApp, &QApplication::aboutToQuit, this, &MainWindow::persistUiPreferencesToStorage);
 
 	auto* central = new QWidget(this);
 	central->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -259,7 +263,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 				});
 	}
 	applyLanguage();
-	const ApplicationStyle::Theme savedTheme = ApplicationStyle::loadSavedTheme();
+	const ApplicationStyle::Theme savedTheme = m_uiPreferences.theme;
 	ApplicationStyle::applyTheme(qApp, savedTheme);
 	setAllDocumentViewerDarkBackground(savedTheme == ApplicationStyle::Theme::Dark);
 	// 首文档在 applyTheme 前创建，延迟重刷视口按钮样式
@@ -416,6 +420,12 @@ void MainWindow::setupMenuBar()
 	connect(m_languageEnglishAction, &QAction::triggered, this, &MainWindow::onLanguageEnglishTriggered);
 	connect(m_languageChineseAction, &QAction::triggered, this, &MainWindow::onLanguageChineseTriggered);
 
+	m_helpMenu = menuBar()->addMenu(QStringLiteral("Help"));
+	m_helpDocumentationAction =
+		m_helpMenu->addAction(QStringLiteral("Documentation"), this, &MainWindow::onOpenHelpDocumentation);
+	m_helpMenu->addSeparator();
+	m_aboutAction = m_helpMenu->addAction(QStringLiteral("About CloudSim"), this, &MainWindow::onAboutCloudSim);
+
 	UiIconDecorators::apply(m_newDocumentAction, UiIconId::NewDocument);
 	UiIconDecorators::apply(m_openProjectAction, UiIconId::OpenProject);
 	UiIconDecorators::apply(m_saveAction, UiIconId::SaveProject);
@@ -513,6 +523,7 @@ void MainWindow::setupDockWidgets()
 	setupDockTabWidget(m_rightPanelTabs);
 	m_rightPanelTabs->addTab(m_unitDockTabs, QStringLiteral("Workspace"));
 	m_aiAssistantPage = new AiAssistantDockWidget(m_rightPanelTabs);
+	m_aiAssistantPage->setObjectName(QString::fromLatin1(ApplicationSettings::kAiAssistantTabKey));
 	m_unitDock->setWidget(m_rightPanelTabs);
 	hideDockTitleBar(m_unitDock);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
@@ -530,13 +541,15 @@ void MainWindow::setupDockWidgets()
 	setupAiAssistantCoordinator();
 
 	m_viewMenu->addSeparator();
-	registerSidePanelTabToggle(m_aiAssistantPage, i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")),
-							   true);
+	m_restoringUiPreferences = true;
+	registerSidePanelTabToggle(
+		m_aiAssistantPage, i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")),
+		sidePanelTabSavedVisible(QString::fromLatin1(ApplicationSettings::kAiAssistantTabKey), true));
 	m_toggleAiAssistantAction = m_sidePanelTabToggles.value(m_aiAssistantPage).viewAction;
 	m_viewPanelToggleInsertBefore = m_toggleAiAssistantAction;
 
-	// 首文档工具栏早于 Dock 创建，此处按真实可见性校正，避免首次点击只改按钮态
-	syncSidePanelToggleUi();
+	applySavedViewLayout();
+	m_restoringUiPreferences = false;
 
 	// Defer plugin load until the dock/tab hierarchy is fully attached (avoids addTab crash at startup).
 	QTimer::singleShot(0, this, [this]() { loadPlugins(); });
@@ -544,6 +557,7 @@ void MainWindow::setupDockWidgets()
 
 MainWindow::~MainWindow()
 {
+	persistUiPreferencesToStorage();
 	shutdownRuntimeWorkers();
 	// shutdownAll 会先 delete 插件侧栏；若仍 restore 会 insertTab 悬空指针
 	discardProcessFlowRightTabsForShutdown();
@@ -555,6 +569,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+	persistUiPreferencesToStorage();
 	shutdownRuntimeWorkers();
 	QMainWindow::closeEvent(event);
 }

@@ -29,6 +29,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <vector>
 
 #include <RigidTransform.h>
 #include <osg/Array>
@@ -180,10 +181,27 @@ public:
 	void clearSketchPlaneInputHandler();
 
 	/// 新建草图：显示 XY/XZ/YZ 半透明基准面，点击回调 index（0/1/2）；取消 ok=false
+	/// index>=100 表示 setSketchSupportExtraPlanes 中的用户面（100+i）
 	using OriginPlanePickedFn = std::function<void(bool ok, int planeIndex)>;
 	void beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float halfSizeMm = 60.f);
 	void cancelOriginPlaneSelection();
 	bool isOriginPlaneSelectionActive() const { return m_originPlanePickActive; }
+
+	struct SketchSupportExtraPlane
+	{
+		osg::Vec3d origin{0, 0, 0};
+		osg::Vec3d axisX{1, 0, 0};
+		osg::Vec3d axisY{0, 1, 0};
+		osg::Vec3d normal{0, 0, 1};
+		float halfMm = 40.f;
+	};
+	void setSketchSupportExtraPlanes(std::vector<SketchSupportExtraPlane> planes);
+	void clearSketchSupportExtraPlanes();
+	/// 命中用户候选面；outDist2 为到相机距离平方
+	int hitTestSupportExtra(int screenX, int screenY, double* outDist2 = nullptr) const;
+	/// 基面/用户面与模型面更近者胜；胜出基面 0..2，用户面 100+i，否则 -1 交给网格
+	int resolveSketchSupportOriginIndex(int screenX, int screenY) const;
+	QPoint lastMousePos() const { return m_lastMousePos; }
 
 	/// 持久显示世界原点三轴 + 三基准面（拾取会话期间自动隐藏，结束后按标志恢复）
 	void setOriginReferenceVisibility(bool originPoint, bool planeXY, bool planeXZ, bool planeYZ,
@@ -555,6 +573,7 @@ private:
 	float m_originPlaneHalfMm = 60.f;
 	int m_originPlaneHoverIndex = -1;
 	OriginPlanePickedFn m_originPlanePickedFn;
+	std::vector<SketchSupportExtraPlane> m_supportExtras;
 	osg::ref_ptr<osg::Group> m_originPlanePickGroup;
 	osg::ref_ptr<osg::Vec4Array> m_originPlaneFillColors[3];
 	osg::ref_ptr<osg::Vec4Array> m_originPlaneEdgeColors[3];
@@ -572,8 +591,6 @@ private:
 	void syncOriginReferenceNodeMasks();
 	/// 返回命中基面 index；outDist2 为到相机距离平方
 	int hitTestOriginPlane(int screenX, int screenY, double* outDist2 = nullptr) const;
-	/// 基面与模型面更近者胜；胜出基面则返回其 index，否则 -1
-	int resolveSketchSupportOriginIndex(int screenX, int screenY) const;
 	void applyOriginPlaneHover(int hoverIndex);
 	void updateSketchSupportHover(int screenX, int screenY);
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
@@ -605,6 +622,8 @@ private:
 	osg::ref_ptr<osg::Geometry> m_gradientBackgroundGeom;
 	bool m_darkUiTheme = false;
 	bool m_wireframeMode = false;
+	void applyViewportWireframeToBackendBranch(osg::Node* outerBranch);
+	void applyViewportWireframeToAllBackends();
 	void createGradientBackground();
 	void updateGradientColors(bool dark);
 

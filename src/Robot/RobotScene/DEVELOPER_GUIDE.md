@@ -556,7 +556,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 | `unifiedTrajectoryFromRaw` / `unifiedTrajectoryFromProgram` | 同上 Ingress 的薄封装 |
 | `unifiedTrajectoryToRaw` | Unified → 点位列（轨迹编辑预览为世界 mm，由 UI 直接画 OSG） |
 | `RobotSceneGeometryProjection` | `IGeometryProjection` 适配，封装 `projectUnifiedToGeometry` |
-| `RobotSceneNonRigidTrajectoryWarp` | `INonRigidTrajectoryWarp` 适配，实现在 [`TrajectoryGeometryResolver.cpp`](source/TrajectoryGeometryResolver.cpp) |
+| `RobotSceneNonRigidTrajectoryWarp` | 绑定与 SPARE 在**源模型坐标系**：轨迹经当前 `Ts` 反变换后绑定模型网格；目标经当前 `Tt→Ts` 表达相对位姿；写回再乘 `Ts`。避免源/目标 gizmo 移动后仍用旧世界坐标绑定 |
 | `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction`；多段时按 `segmentEndExclusive` 建多个输出分组（`*_S1`…）；PathPlan 绑定行为同前 |
 | `rawTrajectoryToPreviewPolylineXyz` / `rawTrajectoryReachabilityColorsJson` | UI/OSG 预览 |
 

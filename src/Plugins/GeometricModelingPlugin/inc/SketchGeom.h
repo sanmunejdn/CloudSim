@@ -99,10 +99,19 @@ struct SkEllipse
 	bool construction = false;
 };
 
+enum class SkSplineMode
+{
+	ThroughPoints = 0,
+	ControlPoints = 1
+};
+
 struct SkSpline
 {
 	int id = 0;
 	std::vector<int> throughPts;
+	/// ControlPoints 模式的极点；旧文档可空
+	std::vector<int> controlPts;
+	SkSplineMode mode = SkSplineMode::ThroughPoints;
 	bool construction = false;
 };
 
@@ -120,7 +129,10 @@ enum class SkConstraintKind
 	ArcRadius,
 	Tangent,
 	Symmetric,
-	Midpoint
+	Midpoint,
+	/// 椭圆长/短半轴（a=椭圆 id）
+	MajorRadius,
+	MinorRadius
 };
 
 struct SkConstraint
@@ -158,6 +170,9 @@ public:
 	int addCircle(int center, double radius, bool construction = false);
 	int addEllipse(int center, double majorR, double minorR, double angleRad = 0.0, bool construction = false);
 	int addSpline(const std::vector<int>& throughPts, bool construction = false);
+	/// 过点模式首次进入控制点时生成 poles（默认同过点）
+	bool ensureSplineControlPoints(int splineId);
+	bool setSplineMode(int splineId, SkSplineMode mode);
 	void addConstraint(const SkConstraint& c);
 	bool toggleConstruction(int entityId);
 	bool removeLine(int id);
@@ -218,6 +233,9 @@ public:
 	/// 开放路径段：Line/Arc 真段 + 样条离散为折线段
 	bool exportOpenPathSegments(const PluginSketchPlane& plane, std::vector<PluginSketchSweepPathSegment>& outSegs,
 								std::string* err = nullptr) const;
+	/// 闭合外轮廓真曲线段（单圆/椭圆或线弧闭环）；失败时回退折线导出
+	bool exportClosedProfileSegments(const PluginSketchPlane& plane, std::vector<PluginSketchSweepPathSegment>& outSegs,
+									 std::string* err = nullptr) const;
 
 	void tessellateOverlay(const PluginSketchPlane& plane, std::vector<PluginSketchOverlaySegment>& out,
 						   const SkVec2* previewA = nullptr, const SkVec2* previewB = nullptr,

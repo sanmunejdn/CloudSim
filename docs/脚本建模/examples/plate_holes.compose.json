@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "steps": [
+    {
+      "id": "body",
+      "api": "extrudeSketchProfileToBrep",
+      "args": {
+        "mode": "pad",
+        "profile": "rectangle",
+        "length_mm": 100,
+        "width_mm": 80,
+        "extrude_mm": 20,
+        "name": "Plate"
+      }
+    },
+    {
+      "id": "hole",
+      "api": "extrudeSketchProfileToBrep",
+      "args": {
+        "mode": "pocket",
+        "profile": "circle",
+        "diameter_mm": 12,
+        "center_u_mm": 50,
+        "center_v_mm": 40,
+        "end_condition": "through_all",
+        "extrude_mm": 20,
+        "target": "$body"
+      }
+    }
+  ]
+}

@@ -18,7 +18,9 @@ namespace
 bool isKnownApi(const std::string& api)
 {
 	return api == "askClarify" || api == "extrudeSketchProfileToBrep" || api == "filletEdgesToBrep" ||
-		   api == "chamferEdgesToBrep" || api == "revolveSketchProfileToBrep" || api == "linearPatternBodyToBrep";
+		   api == "chamferEdgesToBrep" || api == "revolveSketchProfileToBrep" || api == "linearPatternBodyToBrep" ||
+		   api == "sweepSketchProfileToBrep" || api == "loftSketchProfilesToBrep" || api == "shellFacesToBrep" ||
+		   api == "draftFacesToBrep" || api == "circularPatternBodyToBrep";
 }
 } // namespace
 
@@ -86,7 +88,8 @@ bool FeatureComposeDomainHandler::validatePlanJson(const nlohmann::json& root, Q
 				}
 			}
 		}
-		if (api == "filletEdgesToBrep" || api == "chamferEdgesToBrep" || api == "linearPatternBodyToBrep")
+		if (api == "filletEdgesToBrep" || api == "chamferEdgesToBrep" || api == "linearPatternBodyToBrep" ||
+			api == "shellFacesToBrep" || api == "draftFacesToBrep" || api == "circularPatternBodyToBrep")
 		{
 			const std::string target = args.value("target", "");
 			if (target.empty() || target.front() != '$' ||
@@ -94,6 +97,43 @@ bool FeatureComposeDomainHandler::validatePlanJson(const nlohmann::json& root, Q
 			{
 				if (err)
 					*err = QStringLiteral("%1 requires target $stepId.")
+							   .arg(QString::fromStdString(api));
+				return false;
+			}
+		}
+		if (api == "linearPatternBodyToBrep" || api == "circularPatternBodyToBrep")
+		{
+			const int count = args.value("count", 0);
+			if (count < 2)
+			{
+				if (err)
+					*err = QStringLiteral("%1 requires count >= 2.").arg(QString::fromStdString(api));
+				return false;
+			}
+		}
+		if (api == "sweepSketchProfileToBrep" || api == "loftSketchProfilesToBrep")
+		{
+			const std::string mode = args.value("mode", "boss");
+			if (mode == "cut")
+			{
+				const std::string target = args.value("target", "");
+				if (target.empty() || target.front() != '$' ||
+					!definedIds.contains(QString::fromStdString(target.substr(1))))
+				{
+					if (err)
+						*err = QStringLiteral("%1 cut requires target $stepId defined earlier.")
+								   .arg(QString::fromStdString(api));
+					return false;
+				}
+			}
+		}
+		if (api == "shellFacesToBrep" || api == "draftFacesToBrep")
+		{
+			if (!args.contains("face_indices") || !args["face_indices"].is_array() ||
+				args["face_indices"].empty())
+			{
+				if (err)
+					*err = QStringLiteral("%1 requires non-empty face_indices int[].")
 							   .arg(QString::fromStdString(api));
 				return false;
 			}

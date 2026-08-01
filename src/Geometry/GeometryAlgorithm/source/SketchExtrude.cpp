@@ -5,10 +5,10 @@
 
 #include "BrepBoolean.h"
 #include "detail/OccIncludes.h"
+#include "detail/SketchCurveWireOcc.h"
 
 #include <BRepAdaptor_Surface.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include <BRepOffsetAPI_DraftAngle.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <GeomAbs_SurfaceType.hxx>
@@ -71,80 +71,10 @@ bool applyDraftAngle(TopoDS_Shape& solid, const SketchExtrudeParams& params, con
 	solid = draft.Shape();
 	return !solid.IsNull();
 }
+} // namespace
 
-bool makeFaceFromClosedPolyline(const std::vector<float>& xyz, TopoDS_Face& outFace, std::string* errMsg)
+namespace
 {
-	if (xyz.size() < 9U || (xyz.size() % 3U) != 0U)
-	{
-		if (errMsg)
-			*errMsg = "polyline needs >=3 points";
-		return false;
-	}
-	BRepBuilderAPI_MakePolygon poly;
-	const std::size_t n = xyz.size() / 3U;
-	for (std::size_t i = 0; i < n; ++i)
-	{
-		poly.Add(gp_Pnt(xyz[i * 3], xyz[i * 3 + 1], xyz[i * 3 + 2]));
-	}
-	const gp_Pnt p0(xyz[0], xyz[1], xyz[2]);
-	const gp_Pnt pLast(xyz[(n - 1) * 3], xyz[(n - 1) * 3 + 1], xyz[(n - 1) * 3 + 2]);
-	if (p0.Distance(pLast) > 1e-6)
-	{
-		poly.Add(p0);
-	}
-	poly.Close();
-	if (!poly.IsDone())
-	{
-		if (errMsg)
-			*errMsg = "MakePolygon failed";
-		return false;
-	}
-	BRepBuilderAPI_MakeFace mkFace(poly.Wire(), Standard_True);
-	if (!mkFace.IsDone())
-	{
-		if (errMsg)
-			*errMsg = "MakeFace from wire failed";
-		return false;
-	}
-	outFace = mkFace.Face();
-	return true;
-}
-
-bool makeFaceFromProfileAndHoles(const std::vector<float>& outerXyz,
-								 const std::vector<std::vector<float>>& holePolylinesXyzMm, TopoDS_Face& outFace,
-								 std::string* errMsg)
-{
-	TopoDS_Face outerFace;
-	if (!makeFaceFromClosedPolyline(outerXyz, outerFace, errMsg))
-		return false;
-	BRepBuilderAPI_MakeFace mkFace(outerFace);
-	for (const auto& hole : holePolylinesXyzMm)
-	{
-		if (hole.size() < 9U)
-			continue;
-		BRepBuilderAPI_MakePolygon poly;
-		const std::size_t n = hole.size() / 3U;
-		for (std::size_t i = 0; i < n; ++i)
-			poly.Add(gp_Pnt(hole[i * 3], hole[i * 3 + 1], hole[i * 3 + 2]));
-		const gp_Pnt p0(hole[0], hole[1], hole[2]);
-		const gp_Pnt pLast(hole[(n - 1) * 3], hole[(n - 1) * 3 + 1], hole[(n - 1) * 3 + 2]);
-		if (p0.Distance(pLast) > 1e-6)
-			poly.Add(p0);
-		poly.Close();
-		if (!poly.IsDone())
-			continue;
-		mkFace.Add(poly.Wire());
-	}
-	if (!mkFace.IsDone())
-	{
-		if (errMsg)
-			*errMsg = "MakeFace with holes failed";
-		return false;
-	}
-	outFace = mkFace.Face();
-	return true;
-}
-
 bool sketchExtrudeProfileNative(const TopoDS_Shape& profileFaceOrWire, const SketchExtrudeParams& params,
 								const TopoDS_Shape* baseOrNull, TopoDS_Shape& outShape, std::string* errMsg)
 {
@@ -231,19 +161,54 @@ bool sketchExtrudeProfileNative(const TopoDS_Shape& profileFaceOrWire, const Ske
 	if (params.reversed)
 		dir.Reverse();
 
-	TopoDS_Shape tool;
-	// 对称：正反半棱柱各自拔模后再 Fuse（整块侧壁跨中性面时 DraftAngle 常无效）
-	if (params.endCondition == SketchExtrudeEndCondition::MidPlane)
+	// Blind/双向：先把轮廓沿拉伸向偏置，再做棱柱
+	if (std::abs(params.startOffsetMm) > 1e-9
+		&& (params.endCondition == SketchExtrudeEndCondition::Blind
+			|| params.endCondition == SketchExtrudeEndCondition::TwoDirections))
 	{
-		const double half = 0.5 * lengthMm;
-		const gp_Vec fwdVec(dir.XYZ() * half);
-		const gp_Vec bwdVec(dir.XYZ() * (-half));
+		gp_Trsf tr;
+		tr.SetTranslation(gp_Vec(dir.XYZ() * params.startOffsetMm));
+		BRepBuilderAPI_Transform xf(face, tr, Standard_True);
+		if (!xf.IsDone())
+		{
+			if (errMsg)
+				*errMsg = "startOffset transform failed";
+			return false;
+		}
+		face = TopoDS::Face(xf.Shape());
+	}
+
+	TopoDS_Shape tool;
+	// 对称 / 双向：正反棱柱各自拔模后再 Fuse
+	if (params.endCondition == SketchExtrudeEndCondition::MidPlane
+		|| params.endCondition == SketchExtrudeEndCondition::TwoDirections)
+	{
+		double fwdLen = 0.0;
+		double bwdLen = 0.0;
+		if (params.endCondition == SketchExtrudeEndCondition::MidPlane)
+		{
+			fwdLen = 0.5 * lengthMm;
+			bwdLen = fwdLen;
+		}
+		else
+		{
+			fwdLen = lengthMm;
+			bwdLen = params.length2Mm;
+			if (bwdLen <= 1e-9)
+			{
+				if (errMsg)
+					*errMsg = "TwoDirections: length2Mm must be > 0";
+				return false;
+			}
+		}
+		const gp_Vec fwdVec(dir.XYZ() * fwdLen);
+		const gp_Vec bwdVec(dir.XYZ() * (-bwdLen));
 		BRepPrimAPI_MakePrism fwdPrism(face, fwdVec, Standard_True, Standard_True);
 		BRepPrimAPI_MakePrism bwdPrism(face, bwdVec, Standard_True, Standard_True);
 		if (!fwdPrism.IsDone() || !bwdPrism.IsDone())
 		{
 			if (errMsg)
-				*errMsg = "MidPlane MakePrism failed";
+				*errMsg = "bidirectional MakePrism failed";
 			return false;
 		}
 		TopoDS_Shape fwdTool = fwdPrism.Shape();
@@ -403,6 +368,12 @@ bool resolveSketchExtrudeLengthMm(const SketchExtrudeParams& params, double& out
 			*errMsg = "lengthMm must be > 0";
 		return false;
 	}
+	if (params.endCondition == SketchExtrudeEndCondition::TwoDirections && params.length2Mm <= 1e-9)
+	{
+		if (errMsg)
+			*errMsg = "TwoDirections: length2Mm must be > 0";
+		return false;
+	}
 	outLengthMm = params.lengthMm;
 	return true;
 }
@@ -411,15 +382,15 @@ bool sketchExtrudePolylineToHandle(const std::vector<float>& closedPolylineXyzMm
 								   const ShapeHandle* baseOrNull, ShapeHandle& outShape, std::string* errMsg)
 {
 	TopoDS_Face face;
-	if (params.holePolylinesXyzMm.empty())
+	if (!params.profileSegments.empty() && params.holePolylinesXyzMm.empty())
 	{
-		if (!makeFaceFromClosedPolyline(closedPolylineXyzMm, face, errMsg))
+		if (!makeClosedFaceFromSegments(params.profileSegments, params.normalX, params.normalY, params.normalZ, face,
+										errMsg))
 			return false;
 	}
-	else if (!makeFaceFromProfileAndHoles(closedPolylineXyzMm, params.holePolylinesXyzMm, face, errMsg))
-	{
+	else if (!makeFaceFromProfileAndHolePolylinesMm(closedPolylineXyzMm, params.holePolylinesXyzMm, params.normalX,
+													params.normalY, params.normalZ, face, errMsg))
 		return false;
-	}
 	TopoDS_Shape baseNative;
 	const TopoDS_Shape* basePtr = nullptr;
 	if (baseOrNull && !baseOrNull->isNull())

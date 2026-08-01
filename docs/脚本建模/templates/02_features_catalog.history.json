@@ -1,0 +1,266 @@
+{
+  "seq": 16,
+  "_doc": "特征目录模板：尽量可 rebuild。Fillet/Chamfer/Shell/Draft 的索引需按实际拓扑改；Sweep/Loft 附独立草图。Mirror3D 仅 history 有。",
+  "features": [
+    {
+      "id": "SkBase",
+      "name": "SkBase",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [0, 0, 0],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 1, 0],
+        "normal": [0, 0, 1],
+        "isPlanar": true
+      },
+      "profile": [0, 0, 0, 50, 0, 0, 50, 30, 0, 0, 30, 0, 0, 0, 0],
+      "suppressed": false,
+      "visible": true
+    },
+    {
+      "id": "PadBlind",
+      "name": "PadBlind",
+      "kind": "Pad",
+      "_fields": "lengthMm,startOffsetMm,endCondition Blind|MidPlane|TwoDirections|ThroughAll|UpToFace|UpToVertex|OffsetFromFace",
+      "lengthMm": 15,
+      "startOffsetMm": 0,
+      "length2Mm": 0,
+      "endCondition": "Blind",
+      "draftAngleDeg": 0,
+      "reversed": false,
+      "sketchRefId": "SkBase"
+    },
+    {
+      "id": "SkPocket",
+      "name": "SkPocket",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [0, 0, 15],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 1, 0],
+        "normal": [0, 0, 1],
+        "isPlanar": true
+      },
+      "profile": [15, 8, 15, 35, 8, 15, 35, 22, 15, 15, 22, 15, 15, 8, 15]
+    },
+    {
+      "id": "Pocket1",
+      "name": "Pocket1",
+      "kind": "Pocket",
+      "lengthMm": 8,
+      "endCondition": "Blind",
+      "reversed": false,
+      "sketchRefId": "SkPocket"
+    },
+    {
+      "id": "PadTwoDir",
+      "_note": "示范字段；接在链上可能改变形体。实际使用可单独文件。",
+      "name": "PadTwoDir_REF",
+      "kind": "Pad",
+      "lengthMm": 10,
+      "length2Mm": 5,
+      "startOffsetMm": 0,
+      "endCondition": "TwoDirections",
+      "sketchRefId": "SkBase",
+      "suppressed": true
+    },
+    {
+      "id": "Fillet1",
+      "name": "Fillet1",
+      "kind": "Fillet",
+      "edgeIndices": [0, 1, 2, 3],
+      "radiusMm": 1.5
+    },
+    {
+      "id": "Chamfer1",
+      "name": "Chamfer1",
+      "kind": "Chamfer",
+      "edgeIndices": [4, 5],
+      "chamferDistMm": 1.0
+    },
+    {
+      "id": "SkRevolve",
+      "name": "SkRevolve",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [80, 0, 0],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 0, 1],
+        "normal": [0, -1, 0],
+        "isPlanar": true
+      },
+      "profile": [80, 0, 0, 95, 0, 0, 95, 0, 20, 80, 0, 20, 80, 0, 0],
+      "suppressed": true
+    },
+    {
+      "id": "Revolve1",
+      "name": "Revolve1",
+      "kind": "Revolve",
+      "revolveAngleDeg": 360,
+      "axisO": [80, 0, 0],
+      "axisD": [0, 0, 1],
+      "sketchRefId": "SkRevolve",
+      "suppressed": true
+    },
+    {
+      "id": "RevolveCut1",
+      "name": "RevolveCut1",
+      "kind": "RevolveCut",
+      "revolveAngleDeg": 90,
+      "axisO": [0, 0, 0],
+      "axisD": [0, 1, 0],
+      "sketchRefId": "SkRevolve",
+      "suppressed": true
+    },
+    {
+      "id": "LinPat1",
+      "name": "LinPat1",
+      "kind": "LinearPattern",
+      "patternCount": 3,
+      "patternD": [55, 0, 0],
+      "patternSourceFeatureId": "PadBlind"
+    },
+    {
+      "id": "CircPat1",
+      "name": "CircPat1",
+      "kind": "CircularPattern",
+      "patternCount": 4,
+      "patternAngleDeg": 360,
+      "axisO": [25, 15, 0],
+      "axisD": [0, 0, 1],
+      "patternSourceFeatureId": "PadBlind",
+      "suppressed": true
+    },
+    {
+      "id": "Mirror1",
+      "name": "Mirror1",
+      "kind": "Mirror3D",
+      "mirrorPlane": {
+        "origin": [0, 0, 0],
+        "axisX": [0, 1, 0],
+        "axisY": [0, 0, 1],
+        "normal": [1, 0, 0],
+        "isPlanar": true
+      },
+      "mirrorKeepOriginal": true,
+      "suppressed": true
+    },
+    {
+      "id": "SkPath",
+      "name": "SkPath",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [0, 0, 0],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 0, 1],
+        "normal": [0, 1, 0],
+        "isPlanar": true
+      },
+      "profile": [0, 0, 0, 0, 0, 40],
+      "suppressed": true
+    },
+    {
+      "id": "SkSweepProf",
+      "name": "SkSweepProf",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [0, 0, 0],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 1, 0],
+        "normal": [0, 0, 1],
+        "isPlanar": true
+      },
+      "profile": [-2, -2, 0, 2, -2, 0, 2, 2, 0, -2, 2, 0, -2, -2, 0],
+      "suppressed": true
+    },
+    {
+      "id": "Sweep1",
+      "name": "Sweep1",
+      "kind": "Sweep",
+      "sketchRefId": "SkSweepProf",
+      "pathSketchRefId": "SkPath",
+      "path": [0, 0, 0, 0, 0, 40],
+      "pathSegments": [
+        { "kind": 0, "a": [0, 0, 0], "b": [0, 0, 40] }
+      ],
+      "twistDeg": 0,
+      "suppressed": true
+    },
+    {
+      "id": "SweepCut1",
+      "name": "SweepCut1",
+      "kind": "SweepCut",
+      "sketchRefId": "SkSweepProf",
+      "pathSketchRefId": "SkPath",
+      "twistDeg": 15,
+      "suppressed": true
+    },
+    {
+      "id": "SkLoftA",
+      "name": "SkLoftA",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [0, 0, 0],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 1, 0],
+        "normal": [0, 0, 1],
+        "isPlanar": true
+      },
+      "profile": [0, 0, 0, 20, 0, 0, 20, 20, 0, 0, 20, 0, 0, 0, 0],
+      "suppressed": true
+    },
+    {
+      "id": "SkLoftB",
+      "name": "SkLoftB",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [0, 0, 25],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 1, 0],
+        "normal": [0, 0, 1],
+        "isPlanar": true
+      },
+      "profile": [5, 5, 25, 15, 5, 25, 15, 15, 25, 5, 15, 25, 5, 5, 25],
+      "suppressed": true
+    },
+    {
+      "id": "Loft1",
+      "name": "Loft1",
+      "kind": "Loft",
+      "sketchRefId": "SkLoftA",
+      "loftSketchRefId": "SkLoftB",
+      "suppressed": true
+    },
+    {
+      "id": "LoftCut1",
+      "name": "LoftCut1",
+      "kind": "LoftCut",
+      "sketchRefId": "SkLoftA",
+      "loftSketchRefId": "SkLoftB",
+      "suppressed": true
+    },
+    {
+      "id": "Shell1",
+      "name": "Shell1",
+      "kind": "Shell",
+      "faceIndices": [0],
+      "shellThicknessMm": 1.5,
+      "suppressed": true
+    },
+    {
+      "id": "Draft1",
+      "name": "Draft1",
+      "kind": "Draft",
+      "faceIndices": [1, 2],
+      "draftAngleDeg": 3,
+      "mirrorPlane": {
+        "origin": [0, 0, 0],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 1, 0],
+        "normal": [0, 0, 1],
+        "isPlanar": true
+      },
+      "suppressed": true
+    }
+  ]
+}

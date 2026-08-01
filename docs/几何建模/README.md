@@ -23,6 +23,7 @@
 
 | 路径 | 说明 |
 |------|------|
+| [草图硬化/](../草图硬化/) | 命名参数面 + 椭圆 GCS + Convert 保型 + 样条双模式 |
 | [SW差距续期/](../SW差距续期/) | 椭圆/Offset/Convert/扫描硬化/终止条件/Draft 等已交付 |
 | [硬化基准面/](../硬化基准面/) | Convert/UpToVertex/Offset/DatumPlane/特征级 Pattern 等 |
 | [特征史AI/](../特征史AI/) | `feature.compose` → Parametric + 特征树 sync |

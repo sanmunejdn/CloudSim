@@ -3,7 +3,22 @@
 
 #include "DrawingSidePanel.h"
 
+#include <QCheckBox>
+#include <QColorDialog>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QHBoxLayout>
+#include <QInputDialog>
+#include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QListWidgetItem>
+#include <QPushButton>
+#include <QSignalBlocker>
+#include <QVBoxLayout>
+
 #include <QAbstractItemView>
+#include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -109,12 +124,43 @@ QPixmap renderDrawingViewThumbnail(const QVector<DrawingSheetCanvasWidget::Polyl
 	const QPointF origin(size.width() * 0.5, size.height() * 0.5);
 	const QPointF center = box.center();
 	auto mapPt = [&](const QPointF& pt) { return origin + (pt - center) * scale; };
+	auto fitCircle = [&](const QVector<QPointF>& pts, QPointF& c, double& r) -> bool {
+		if (pts.size() < 5)
+			return false;
+		double sx = 0, sy = 0;
+		for (const QPointF& p : pts)
+		{
+			sx += p.x();
+			sy += p.y();
+		}
+		c = QPointF(sx / pts.size(), sy / pts.size());
+		r = 0;
+		double err = 0;
+		for (const QPointF& p : pts)
+			r += QLineF(c, p).length();
+		r /= pts.size();
+		if (!(r > 1e-6))
+			return false;
+		for (const QPointF& p : pts)
+			err = qMax(err, std::abs(QLineF(c, p).length() - r));
+		return err <= qMax(0.03 * r, 0.25);
+	};
 	auto drawPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, const QPen& pen) {
 		p.setPen(pen);
+		p.setBrush(Qt::NoBrush);
 		for (const auto& poly : polys)
 		{
 			if (poly.points.size() < 2)
 				continue;
+			QPointF c;
+			double r = 0;
+			if (fitCircle(poly.points, c, r) &&
+				QLineF(poly.points.first(), poly.points.last()).length() <= qMax(0.04 * r, 0.3))
+			{
+				const QPointF wc = mapPt(c);
+				p.drawEllipse(wc, r * scale, r * scale);
+				continue;
+			}
 			QPolygonF polyW;
 			for (const QPointF& pt : poly.points)
 				polyW << mapPt(pt);
@@ -204,6 +250,17 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 	styleBar->addWidget(m_layerWidthLabel);
 	styleBar->addWidget(m_layerWidthSpin);
 
+	auto* layerFlags = new QWidget(this);
+	auto* flagBar = new QHBoxLayout(layerFlags);
+	flagBar->setContentsMargins(0, 0, 0, 0);
+	flagBar->setSpacing(8);
+	m_layerFrozenCheck = new QCheckBox(QStringLiteral("冻结"), layerFlags);
+	m_layerPlotCheck = new QCheckBox(QStringLiteral("可打印"), layerFlags);
+	m_layerPlotCheck->setChecked(true);
+	flagBar->addWidget(m_layerFrozenCheck);
+	flagBar->addWidget(m_layerPlotCheck);
+	flagBar->addStretch(1);
+
 	root->addWidget(m_modelTitle);
 	root->addWidget(m_modelList);
 	root->addWidget(m_viewTitle);
@@ -215,6 +272,7 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 	root->addWidget(m_layerList);
 	root->addWidget(layerBtns);
 	root->addWidget(layerStyle);
+	root->addWidget(layerFlags);
 
 	connect(m_modelList, &QListWidget::currentRowChanged, this, [this](int row) {
 		if (row < 0 || row >= m_backendIds.size())
@@ -281,6 +339,16 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 		if (m_layerUiBusy || !m_canvas)
 			return;
 		m_canvas->setLayerLineWidth(selectedLayerId(), w);
+	});
+	connect(m_layerFrozenCheck, &QCheckBox::toggled, this, [this](bool on) {
+		if (m_layerUiBusy || !m_canvas)
+			return;
+		m_canvas->setLayerFrozen(selectedLayerId(), on);
+	});
+	connect(m_layerPlotCheck, &QCheckBox::toggled, this, [this](bool on) {
+		if (m_layerUiBusy || !m_canvas)
+			return;
+		m_canvas->setLayerPlottable(selectedLayerId(), on);
 	});
 	connect(m_layerAddBtn, &QPushButton::clicked, this, [this]() {
 		if (!m_canvas)
@@ -458,6 +526,10 @@ void DrawingSidePanel::rebuildLayerList()
 		QString text = L.name;
 		if (L.locked)
 			text = QStringLiteral("[锁] %1").arg(text);
+		if (L.frozen)
+			text = QStringLiteral("[冻] %1").arg(text);
+		if (!L.plottable)
+			text = QStringLiteral("[不打印] %1").arg(text);
 		if (L.id == current)
 			text = QStringLiteral("▶ %1").arg(text);
 		auto* item = new QListWidgetItem(text);
@@ -467,10 +539,10 @@ void DrawingSidePanel::rebuildLayerList()
 		item->setForeground(L.color);
 		const QString tip =
 			m_useChinese
-				? QStringLiteral("%1 · %2 mm · 单击当前层；勾选显示；双击锁定")
+				? QStringLiteral("%1 · %2 mm · 单击当前层；勾选显示；双击锁定；下方冻结/打印")
 					  .arg(lineTypeName(L.lineType))
 					  .arg(L.lineWidthMm, 0, 'f', 2)
-				: QStringLiteral("%1 · %2 mm · click=current; check=visible; dbl=lock")
+				: QStringLiteral("%1 · %2 mm · click=current; check=visible; dbl=lock; freeze/plot below")
 					  .arg(lineTypeName(L.lineType))
 					  .arg(L.lineWidthMm, 0, 'f', 2);
 		item->setToolTip(tip);
@@ -497,6 +569,10 @@ void DrawingSidePanel::syncLayerStyleUi()
 	m_layerColorBtn->setEnabled(has);
 	m_layerLineTypeCombo->setEnabled(has);
 	m_layerWidthSpin->setEnabled(has);
+	if (m_layerFrozenCheck)
+		m_layerFrozenCheck->setEnabled(has);
+	if (m_layerPlotCheck)
+		m_layerPlotCheck->setEnabled(has);
 	if (!has)
 		return;
 	const auto* L = m_canvas->layerById(selectedLayerId());
@@ -512,6 +588,16 @@ void DrawingSidePanel::syncLayerStyleUi()
 									   .arg(L->color.name(QColor::HexRgb),
 											L->color.lightness() > 140 ? QStringLiteral("#111")
 																	   : QStringLiteral("#fff")));
+	if (m_layerFrozenCheck)
+	{
+		const QSignalBlocker b(m_layerFrozenCheck);
+		m_layerFrozenCheck->setChecked(L->frozen);
+	}
+	if (m_layerPlotCheck)
+	{
+		const QSignalBlocker b(m_layerPlotCheck);
+		m_layerPlotCheck->setChecked(L->plottable);
+	}
 }
 
 void DrawingSidePanel::rebuildViewList()
@@ -597,6 +683,10 @@ void DrawingSidePanel::applyLanguage(bool useChinese)
 		m_layerLineTypeLabel->setText(useChinese ? QStringLiteral("线型") : QStringLiteral("Type"));
 	if (m_layerWidthLabel)
 		m_layerWidthLabel->setText(useChinese ? QStringLiteral("线宽") : QStringLiteral("Width"));
+	if (m_layerFrozenCheck)
+		m_layerFrozenCheck->setText(useChinese ? QStringLiteral("冻结") : QStringLiteral("Frozen"));
+	if (m_layerPlotCheck)
+		m_layerPlotCheck->setText(useChinese ? QStringLiteral("可打印") : QStringLiteral("Plot"));
 	if (m_layerLineTypeCombo)
 	{
 		const QSignalBlocker b(m_layerLineTypeCombo);

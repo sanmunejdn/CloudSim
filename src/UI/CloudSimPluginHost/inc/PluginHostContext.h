@@ -6,6 +6,7 @@
 
 #include "IPluginHostContext.h"
 
+#include <QHash>
 #include <QObject>
 #include <functional>
 #include <memory>
@@ -172,6 +173,10 @@ public:
 
 	IPluginMainWindowHost* mainWindowHost() const { return m_mainWindowHost; }
 
+	/// 插件 initialize 期间调用，用于侧栏页签稳定 objectName
+	void beginPluginRegistration(const QString& pluginId);
+	void endPluginRegistration();
+
 private:
 	bool booleanSoupsAndRegister(const std::vector<float>& targetWorldSoup, const std::vector<float>& toolWorldSoup,
 								 PluginMeshBooleanOp op, const PluginBooleanMeshOptions& options,
@@ -198,6 +203,8 @@ private:
 	QString m_workspaceMode;
 	std::vector<std::function<void(const QString&)>> m_workspaceModeCallbacks;
 	std::vector<WorkspaceModeRegistration> m_workspaceModes;
+	QString m_registeringPluginId;
+	QHash<QString, int> m_pluginSidePanelTabSerial;
 };
 
 #endif // CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H

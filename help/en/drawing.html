@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Engineering Drawing</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+<figure class="help-figure">
+  <img src="../images/drawing.png" alt="Engineering drawing views" width="680" />
+  <figcaption>Engineering drawing views</figcaption>
+</figure>
+
+
+<h1>Engineering drawing workspace</h1>
+<p>Switch to <strong>Drawing</strong> mode and use the Ribbon (Views / Draw / Annotate / Modify / Snap / Output) to generate 2D sheets from B-rep. The right <strong>Properties</strong> panel edits layers and ByLayer / ByBlock overrides.</p>
+
+<h2>Views &amp; generation</h2>
+<ul>
+  <li>HLR multi-views: front / top / right, isometric, sections; 1st / 3rd angle</li>
+  <li>Section cut marks are draggable and can drive the plane on regenerate; <strong>half-section</strong> clips the front view expression</li>
+  <li>Detail bubbles are editable; detail views refresh with the region</li>
+  <li>Optional <strong>pin projection</strong> to keep projection constraints when dragging views</li>
+  <li>Sheet sizes A0–A4 / custom, title block, scale; sidecar <code>engineeringDrawing</code></li>
+</ul>
+
+<h2>Draw &amp; modify</h2>
+<ul>
+  <li>Sketch lines, rect, circle, arc, spline; Trim / Extend / Offset / Scale / Fillet / Chamfer / Break / Join; Stretch; rectangular and polar arrays (including sketch entities)</li>
+  <li>Osnap: end / mid / intersection / center / perpendicular / nearest; ortho and polar</li>
+  <li>Pick feedback highlights snap points vs hovered edges/entities</li>
+</ul>
+
+<h2>Annotation</h2>
+<ul>
+  <li>Linear, angular, radius, diameter; <strong>continued</strong> and <strong>baseline</strong> dimensions</li>
+  <li>Dim styles, tolerance overrides; weak edge keys when views move</li>
+  <li>Leaders, MText; <strong>roughness</strong> and lightweight <strong>GD&amp;T</strong> frames (DXF as text/geometry approx.)</li>
+</ul>
+
+<h2>Layers, blocks &amp; interchange</h2>
+<ul>
+  <li>User layers (visible / locked / frozen / plot); entity ByLayer / ByBlock / override</li>
+  <li>Block create / insert / explode; title-block attributes on sheet</li>
+  <li>DXF round-trip for circles, arcs, blocks/attributes; also SVG / PDF; print preview and CTB table</li>
+</ul>
+
+<p class="footer">CloudSim User Help · Select a chapter from the left TOC</p>
+</body>
+</html>

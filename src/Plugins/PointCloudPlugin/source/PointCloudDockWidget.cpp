@@ -263,6 +263,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_sdfFieldModeCombo = new QComboBox(m_sdfOptionsWidget);
 	m_sdfFieldModeCombo->addItem(QStringLiteral("DDF"), 0);
 	m_sdfFieldModeCombo->addItem(QStringLiteral("SDF"), 1);
+	m_sdfFieldModeCombo->setCurrentIndex(1); // 默认法向主导，避免细长件轴向拉丝
 	sdfFieldRow->addWidget(sdfFieldLabel);
 	sdfFieldRow->addWidget(m_sdfFieldModeCombo, 1);
 	sdfOptLayout->addLayout(sdfFieldRow);
@@ -287,6 +288,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	sdfFineRow->addWidget(m_sdfFineTermCombo, 1);
 	sdfOptLayout->addLayout(sdfFineRow);
 	m_sdfRigidPreAlignCheck = new QCheckBox(m_sdfOptionsWidget);
+	m_sdfRigidPreAlignCheck->setChecked(true);
 	m_sdfCreateNewCheck = new QCheckBox(m_sdfOptionsWidget);
 	sdfOptLayout->addWidget(m_sdfRigidPreAlignCheck);
 	sdfOptLayout->addWidget(m_sdfCreateNewCheck);
@@ -2387,7 +2389,7 @@ void PointCloudDockWidget::onSdfRegisterClicked()
 	params.targetKind =
 		targetKind == QStringLiteral("mesh") ? PluginSdfTargetKind::Mesh : PluginSdfTargetKind::PointCloud;
 	params.targetBackendIdUtf8 = targetId;
-	params.fieldMode = m_sdfFieldModeCombo ? m_sdfFieldModeCombo->currentData().toInt() : 0;
+	params.fieldMode = m_sdfFieldModeCombo ? m_sdfFieldModeCombo->currentData().toInt() : 1;
 	params.fieldVoxelMm = m_sdfFieldVoxelSpin ? m_sdfFieldVoxelSpin->value() : 0.0;
 	params.fineDataTerm = m_sdfFineTermCombo ? m_sdfFineTermCombo->currentData().toInt() : 0;
 	params.rigidPreAlign = m_sdfRigidPreAlignCheck && m_sdfRigidPreAlignCheck->isChecked();
@@ -2404,6 +2406,23 @@ void PointCloudDockWidget::onSdfRegisterClicked()
 											 .arg(result.rmseMm, 0, 'f', 3)
 											 .arg(result.spareDeformationNodeCount);
 									 m_host->logInfo(msg);
+									 if (!result.debugReport.empty())
+									 {
+										 const QString report = QString::fromStdString(result.debugReport);
+										 const QStringList lines =
+											 report.split(QChar('\n'), Qt::SkipEmptyParts);
+										 for (const QString& line : lines)
+										 {
+											 if (line.contains(QStringLiteral("[SDF-WARN]")))
+											 {
+												 m_host->logWarn(line);
+											 }
+											 else
+											 {
+												 m_host->logInfo(line);
+											 }
+										 }
+									 }
 									 refreshSpareObjectLists();
 								 }
 								 runFinished(ok, error, result);

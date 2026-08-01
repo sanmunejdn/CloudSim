@@ -2,12 +2,14 @@
 /// @brief MainWindowPlugins 实现
 
 #include "MainWindow.h"
+#include "ApplicationSettings.h"
 #include "PluginHostContext.h"
 #include "PluginManager.h"
 
 #include <QAction>
 #include <QSignalBlocker>
 #include <QTabWidget>
+#include <QTimer>
 
 namespace
 {
@@ -59,6 +61,54 @@ void MainWindow::registerSidePanelTabToggle(QWidget* widget, const QString& titl
 	applySidePanelTabToggleVisibility(widget, visible);
 }
 
+void MainWindow::applySidePanelTabToggleVisibility(QWidget* widget, const bool visible)
+{
+	if (!m_rightPanelTabs || !widget)
+	{
+		return;
+	}
+
+	const auto it = m_sidePanelTabToggles.constFind(widget);
+	const QString title = it != m_sidePanelTabToggles.cend() ? it.value().title : QString();
+
+	int tabIdx = m_rightPanelTabs->indexOf(widget);
+	if (visible)
+	{
+		if (tabIdx < 0)
+		{
+			tabIdx = m_rightPanelTabs->addTab(widget, title);
+		}
+		else if (!title.isEmpty())
+		{
+			m_rightPanelTabs->setTabText(tabIdx, title);
+		}
+		m_rightPanelTabs->setCurrentIndex(tabIdx);
+		if (!m_restoringUiPreferences)
+		{
+			persistUiPreferencesToStorage();
+		}
+		return;
+	}
+
+	if (tabIdx < 0)
+	{
+		return;
+	}
+	if (m_rightPanelTabs->currentWidget() == widget)
+	{
+		const int workspaceIdx = workspaceTabIndex(m_rightPanelTabs);
+		if (workspaceIdx >= 0)
+		{
+			m_rightPanelTabs->setCurrentIndex(workspaceIdx);
+		}
+	}
+	m_rightPanelTabs->removeTab(tabIdx);
+	if (!m_restoringUiPreferences)
+	{
+		persistUiPreferencesToStorage();
+	}
+}
+
 void MainWindow::unregisterSidePanelTabToggle(QWidget* widget)
 {
 	if (!widget)
@@ -95,46 +145,6 @@ void MainWindow::unregisterSidePanelTabToggle(QWidget* widget)
 		delete it.value().viewAction;
 	}
 	m_sidePanelTabToggles.erase(it);
-}
-
-void MainWindow::applySidePanelTabToggleVisibility(QWidget* widget, const bool visible)
-{
-	if (!m_rightPanelTabs || !widget)
-	{
-		return;
-	}
-
-	const auto it = m_sidePanelTabToggles.constFind(widget);
-	const QString title = it != m_sidePanelTabToggles.cend() ? it.value().title : QString();
-
-	int tabIdx = m_rightPanelTabs->indexOf(widget);
-	if (visible)
-	{
-		if (tabIdx < 0)
-		{
-			tabIdx = m_rightPanelTabs->addTab(widget, title);
-		}
-		else if (!title.isEmpty())
-		{
-			m_rightPanelTabs->setTabText(tabIdx, title);
-		}
-		m_rightPanelTabs->setCurrentIndex(tabIdx);
-		return;
-	}
-
-	if (tabIdx < 0)
-	{
-		return;
-	}
-	if (m_rightPanelTabs->currentWidget() == widget)
-	{
-		const int workspaceIdx = workspaceTabIndex(m_rightPanelTabs);
-		if (workspaceIdx >= 0)
-		{
-			m_rightPanelTabs->setCurrentIndex(workspaceIdx);
-		}
-	}
-	m_rightPanelTabs->removeTab(tabIdx);
 }
 
 void MainWindow::setPluginSidePanelTabTitle(QWidget* widget, const QString& title)
@@ -176,8 +186,27 @@ int MainWindow::addPluginSidePanelTab(const QString& title, QWidget* widget)
 		widget->setParent(nullptr);
 	}
 
-	registerSidePanelTabToggle(widget, title, true);
+	const QString tabKey = ApplicationSettings::sidePanelTabKey(widget);
+	const bool visible =
+		m_uiPreferences.sidePanelTabs.contains(tabKey) ? m_uiPreferences.sidePanelTabs.value(tabKey) : true;
+	registerSidePanelTabToggle(widget, title, visible);
 	return m_rightPanelTabs->indexOf(widget);
+}
+
+void MainWindow::restoreUiPreferencesAfterPlugins()
+{
+	m_restoringUiPreferences = true;
+	if (!m_uiPreferences.workspaceModeId.isEmpty() && m_pluginManager && m_pluginManager->hostContext())
+	{
+		m_pluginManager->hostContext()->enterWorkspaceMode(m_uiPreferences.workspaceModeId);
+	}
+	QTimer::singleShot(0, this, [this]() {
+		applySavedViewLayout();
+		QTimer::singleShot(100, this, [this]() {
+			applySavedViewLayout();
+			m_restoringUiPreferences = false;
+		});
+	});
 }
 
 void MainWindow::removePluginSidePanelTab(QWidget* widget)
@@ -210,6 +239,7 @@ void MainWindow::loadPlugins()
 	}
 
 	m_pluginsLoadStarted = true;
+	m_restoringUiPreferences = true;
 
 	if (!m_pluginManager)
 	{
@@ -230,6 +260,7 @@ void MainWindow::loadPlugins()
 			});
 	}
 	rebuildWorkspaceModeSwitcher();
+	restoreUiPreferencesAfterPlugins();
 }
 
 void MainWindow::onWorkspaceModeRequested(const QString& modeId)
@@ -237,6 +268,10 @@ void MainWindow::onWorkspaceModeRequested(const QString& modeId)
 	if (!m_pluginManager || !m_pluginManager->hostContext())
 		return;
 	m_pluginManager->hostContext()->enterWorkspaceMode(modeId);
+	if (!m_restoringUiPreferences)
+	{
+		persistUiPreferencesToStorage();
+	}
 }
 
 void MainWindow::notifyPluginsLanguageChanged()

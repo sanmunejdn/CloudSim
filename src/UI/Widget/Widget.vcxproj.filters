@@ -95,6 +95,9 @@
     <ClInclude Include="inc\MainWindow_p.h">
       <Filter>inc\MainWindow</Filter>
     </ClInclude>
+    <QtMoc Include="inc\HelpBrowserDialog.h">
+      <Filter>inc\MainWindow</Filter>
+    </QtMoc>
     <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
       <Filter>inc\MainWindow</Filter>
     </ClInclude>
@@ -185,6 +188,12 @@
       <Filter>src\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowFileImport.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowHelp.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HelpBrowserDialog.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp">

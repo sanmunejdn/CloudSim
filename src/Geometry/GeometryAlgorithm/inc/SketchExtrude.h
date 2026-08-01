@@ -8,6 +8,7 @@
 #include "geometry_algorithm_global.h"
 
 #include "ShapeHandle.h"
+#include "SketchCurveWire.h"
 
 #include <string>
 #include <vector>
@@ -27,13 +28,18 @@ enum class SketchExtrudeEndCondition
 	MidPlane,
 	ThroughAll,
 	UpToVertex,
-	OffsetFromFace
+	OffsetFromFace,
+	TwoDirections
 };
 
 struct SketchExtrudeParams
 {
 	SketchExtrudeMode mode = SketchExtrudeMode::Pad;
 	double lengthMm = 10.0;
+	/// TwoDirections：反向独立深度；其余终止条件忽略
+	double length2Mm = 0.0;
+	/// Blind/双向：轮廓沿法向先偏置再拉伸
+	double startOffsetMm = 0.0;
 	bool reversed = false;
 	SketchExtrudeEndCondition endCondition = SketchExtrudeEndCondition::Blind;
 	double originX = 0.0;
@@ -61,6 +67,8 @@ struct SketchExtrudeParams
 	double draftAngleDeg = 0.0;
 	/// 内孔闭合轮廓（世界 xyz mm）
 	std::vector<std::vector<float>> holePolylinesXyzMm;
+	/// 外轮廓真曲线段（优先于折线；圆/弧不再离散）
+	std::vector<SketchCurveSegment> profileSegments;
 };
 
 /// 定长/到面/对称：求有效拉伸长度。贯通请用带 base 的重载
@@ -72,6 +80,7 @@ GEOMETRY_ALGORITHM_API bool resolveSketchExtrudeLengthMm(const SketchExtrudePara
 
 /**
  * 闭合折线（世界 xyz）→ Pad/Pocket → ShapeHandle
+ * 近圆折线会提升为 Geom_Circle，拉伸侧面为圆柱面
  * @param baseOrNull 可选基实体；Pocket 必填
  */
 GEOMETRY_ALGORITHM_API bool sketchExtrudePolylineToHandle(const std::vector<float>& closedPolylineXyzMm,

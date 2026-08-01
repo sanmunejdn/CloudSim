@@ -6,6 +6,7 @@
 #include "ShapeQuery.h"
 #include "SketchDraft.h"
 #include "SketchExtrude.h"
+#include "SketchCurveWire.h"
 #include "SketchFillet.h"
 #include "SketchLoft.h"
 #include "SketchPattern.h"
@@ -32,6 +33,8 @@ geoalgo::SketchExtrudeEndCondition toAlgoEnd(ParametricExtrudeEnd e)
 		return geoalgo::SketchExtrudeEndCondition::UpToVertex;
 	case ParametricExtrudeEnd::OffsetFromFace:
 		return geoalgo::SketchExtrudeEndCondition::OffsetFromFace;
+	case ParametricExtrudeEnd::TwoDirections:
+		return geoalgo::SketchExtrudeEndCondition::TwoDirections;
 	default:
 		return geoalgo::SketchExtrudeEndCondition::Blind;
 	}
@@ -170,6 +173,27 @@ std::string ParametricBrepBackendData::addLinearPattern(int count, double dx, do
 	return m_features.back().id;
 }
 
+std::string ParametricBrepBackendData::addCircularPattern(int count, double angleDeg, double ox, double oy, double oz,
+														  double dx, double dy, double dz,
+														  const std::string& sourceFeatureId)
+{
+	ParametricFeature f;
+	f.id = nextId("CircularPattern");
+	f.name = f.id;
+	f.kind = ParametricFeatureKind::CircularPattern;
+	f.patternCount = count;
+	f.patternAngleDeg = angleDeg;
+	f.axisOx = ox;
+	f.axisOy = oy;
+	f.axisOz = oz;
+	f.axisDx = dx;
+	f.axisDy = dy;
+	f.axisDz = dz;
+	f.patternSourceFeatureId = sourceFeatureId;
+	m_features.push_back(std::move(f));
+	return m_features.back().id;
+}
+
 std::string ParametricBrepBackendData::addMirror3D(const ParametricSketchPlane& plane, bool keepOriginal)
 {
 	ParametricFeature f;
@@ -302,6 +326,14 @@ std::string ParametricBrepBackendData::featureIdForFace(int faceIndex) const
 	return it->second;
 }
 
+geoalgo::ShapeHandle ParametricBrepBackendData::tipBeforeFeature(const std::string& featureId) const
+{
+	const auto it = m_tipBeforeFeature.find(featureId);
+	if (it == m_tipBeforeFeature.end())
+		return {};
+	return it->second;
+}
+
 geoalgo::ShapeHandle ParametricBrepBackendData::tipAfterFeature(const std::string& featureId) const
 {
 	const auto it = m_tipAfterFeature.find(featureId);
@@ -314,6 +346,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 {
 	geoalgo::ShapeHandle tip;
 	std::unordered_map<std::uintptr_t, std::string> tshapeOwners;
+	m_tipBeforeFeature.clear();
 	m_tipAfterFeature.clear();
 	m_faceOwnerByIndex.clear();
 
@@ -322,6 +355,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 		if (feat.suppressed || feat.kind == ParametricFeatureKind::Sketch)
 			continue;
 
+		m_tipBeforeFeature[feat.id] = tip;
 		const geoalgo::ShapeHandle* basePtr = tip.isNull() ? nullptr : &tip;
 		geoalgo::ShapeHandle next;
 		std::string err;
@@ -351,6 +385,28 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			sp.mode = (feat.kind == ParametricFeatureKind::SweepCut) ? geoalgo::SketchSweepMode::Cut
 																	: geoalgo::SketchSweepMode::Boss;
 			sp.twistDeg = feat.twistDeg;
+			{
+				const auto& src = !feat.profileSegments.empty()
+									  ? feat.profileSegments
+									  : (profileSk ? profileSk->profileSegments : feat.profileSegments);
+				sp.profileSegments.clear();
+				sp.profileSegments.reserve(src.size());
+				for (const auto& ps : src)
+				{
+					geoalgo::SketchCurveSegment g;
+					g.kind = static_cast<geoalgo::SketchCurveSegKind>(ps.kind);
+					g.ax = ps.ax;
+					g.ay = ps.ay;
+					g.az = ps.az;
+					g.bx = ps.bx;
+					g.by = ps.by;
+					g.bz = ps.bz;
+					g.mx = ps.mx;
+					g.my = ps.my;
+					g.mz = ps.mz;
+					sp.profileSegments.push_back(g);
+				}
+			}
 			bool ok = false;
 			if (!feat.pathSegments.empty())
 			{
@@ -453,23 +509,87 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 				return false;
 			}
 			geoalgo::ShapeHandle seed = tip;
+			const geoalgo::ShapeHandle* fuseOnto = nullptr;
+			geoalgo::ShapeHandle tipCopy = tip;
 			if (!feat.patternSourceFeatureId.empty())
 			{
-				const auto it = m_tipAfterFeature.find(feat.patternSourceFeatureId);
-				if (it == m_tipAfterFeature.end() || it->second.isNull())
+				const auto itAfter = m_tipAfterFeature.find(feat.patternSourceFeatureId);
+				if (itAfter == m_tipAfterFeature.end() || itAfter->second.isNull())
 				{
 					if (errMsg)
 						*errMsg = "LinearPattern source feature tip unavailable: " + feat.patternSourceFeatureId;
 					return false;
 				}
-				seed = it->second;
+				geoalgo::ShapeHandle tipBefore;
+				const auto itBefore = m_tipBeforeFeature.find(feat.patternSourceFeatureId);
+				if (itBefore != m_tipBeforeFeature.end())
+					tipBefore = itBefore->second;
+				// 只阵列源特征贡献，避免把 Fillet 等中间特征整实体复制掉
+				if (!geoalgo::featureContributionSeed(itAfter->second, tipBefore, seed, &err) || seed.isNull())
+				{
+					if (errMsg)
+						*errMsg = err.empty() ? ("LinearPattern contribution seed failed: " + feat.patternSourceFeatureId)
+											  : err;
+					return false;
+				}
+				fuseOnto = &tipCopy;
 			}
 			geoalgo::SketchLinearPatternParams pp;
 			pp.count = feat.patternCount;
 			pp.dxMm = feat.patternDx;
 			pp.dyMm = feat.patternDy;
 			pp.dzMm = feat.patternDz;
-			if (!geoalgo::linearPatternBodyToHandle(seed, pp, next, &err) || next.isNull())
+			if (!geoalgo::linearPatternBodyToHandle(seed, pp, next, &err, fuseOnto) || next.isNull())
+			{
+				if (errMsg)
+					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
+				return false;
+			}
+		}
+		else if (feat.kind == ParametricFeatureKind::CircularPattern)
+		{
+			if (tip.isNull())
+			{
+				if (errMsg)
+					*errMsg = "CircularPattern requires existing solid tip";
+				return false;
+			}
+			geoalgo::ShapeHandle seed = tip;
+			const geoalgo::ShapeHandle* fuseOnto = nullptr;
+			geoalgo::ShapeHandle tipCopy = tip;
+			if (!feat.patternSourceFeatureId.empty())
+			{
+				const auto itAfter = m_tipAfterFeature.find(feat.patternSourceFeatureId);
+				if (itAfter == m_tipAfterFeature.end() || itAfter->second.isNull())
+				{
+					if (errMsg)
+						*errMsg = "CircularPattern source feature tip unavailable: " + feat.patternSourceFeatureId;
+					return false;
+				}
+				geoalgo::ShapeHandle tipBefore;
+				const auto itBefore = m_tipBeforeFeature.find(feat.patternSourceFeatureId);
+				if (itBefore != m_tipBeforeFeature.end())
+					tipBefore = itBefore->second;
+				if (!geoalgo::featureContributionSeed(itAfter->second, tipBefore, seed, &err) || seed.isNull())
+				{
+					if (errMsg)
+						*errMsg = err.empty()
+									  ? ("CircularPattern contribution seed failed: " + feat.patternSourceFeatureId)
+									  : err;
+					return false;
+				}
+				fuseOnto = &tipCopy;
+			}
+			geoalgo::SketchCircularPatternParams pp;
+			pp.count = feat.patternCount;
+			pp.angleDeg = feat.patternAngleDeg;
+			pp.axisOx = feat.axisOx;
+			pp.axisOy = feat.axisOy;
+			pp.axisOz = feat.axisOz;
+			pp.axisDx = feat.axisDx;
+			pp.axisDy = feat.axisDy;
+			pp.axisDz = feat.axisDz;
+			if (!geoalgo::circularPatternBodyToHandle(seed, pp, next, &err, fuseOnto) || next.isNull())
 			{
 				if (errMsg)
 					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
@@ -576,6 +696,8 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			ep.mode = (feat.kind == ParametricFeatureKind::Pocket) ? geoalgo::SketchExtrudeMode::Pocket
 																  : geoalgo::SketchExtrudeMode::Pad;
 			ep.lengthMm = feat.lengthMm;
+			ep.length2Mm = feat.length2Mm;
+			ep.startOffsetMm = feat.startOffsetMm;
 			ep.reversed = feat.reversed;
 			ep.draftAngleDeg = feat.draftAngleDeg;
 			ep.endCondition = toAlgoEnd(feat.endCondition);
@@ -588,6 +710,26 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			// 孔岛：优先草图，其次特征自身缓存
 			ep.holePolylinesXyzMm =
 				!sk->profileHolesXyzMm.empty() ? sk->profileHolesXyzMm : feat.profileHolesXyzMm;
+			{
+				const auto& src = !feat.profileSegments.empty() ? feat.profileSegments : sk->profileSegments;
+				ep.profileSegments.clear();
+				ep.profileSegments.reserve(src.size());
+				for (const auto& ps : src)
+				{
+					geoalgo::SketchCurveSegment g;
+					g.kind = static_cast<geoalgo::SketchCurveSegKind>(ps.kind);
+					g.ax = ps.ax;
+					g.ay = ps.ay;
+					g.az = ps.az;
+					g.bx = ps.bx;
+					g.by = ps.by;
+					g.bz = ps.bz;
+					g.mx = ps.mx;
+					g.my = ps.my;
+					g.mz = ps.mz;
+					ep.profileSegments.push_back(g);
+				}
+			}
 
 			if (feat.endCondition == ParametricExtrudeEnd::UpToFace
 				|| feat.endCondition == ParametricExtrudeEnd::OffsetFromFace)
@@ -620,6 +762,18 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 				ep.upToVertexX = feat.upToVertexX;
 				ep.upToVertexY = feat.upToVertexY;
 				ep.upToVertexZ = feat.upToVertexZ;
+				// 索引优先重解，失败保留烤坐标
+				if (feat.upToVertexIndex >= 0 && !tip.isNull())
+				{
+					geoalgo::Point3d vp;
+					if (geoalgo::shapeVertexPointAtIndex(tip, feat.upToVertexIndex, vp, nullptr))
+					{
+						ep.upToVertexX = vp.x;
+						ep.upToVertexY = vp.y;
+						ep.upToVertexZ = vp.z;
+						ep.hasUpToVertex = true;
+					}
+				}
 			}
 			else
 			{

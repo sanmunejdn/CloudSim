@@ -83,7 +83,7 @@ CloudSimPluginSDK → GeometryAlgorithm → Data → CloudSimHost → GeometricM
 - Debug：`bin/x64d/plugins/com.cloudsim.geomodeling/`
 - Release：`bin/x64/plugins/com.cloudsim.geomodeling/`
 
-新 Host API 须 bump `CLOUDSIM_PLUGIN_HOST_VERSION`；插件门禁当前 **1.44.0**（`0x00012C00`）。
+新 Host API 须 bump `CLOUDSIM_PLUGIN_HOST_VERSION`（虚表仅尾部追加）；插件门禁当前 **1.47.0**（`0x00012F00`）。
 
 ## 相关文档
 

@@ -451,6 +451,75 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.setBrush(Qt::NoBrush);
 		p.drawLine(8, 32, 32, 32);
 	}
+	else if (kind == QLatin1String("circularPattern"))
+	{
+		p.setBrush(fillSoft);
+		p.setPen(QPen(ink, 1.5));
+		p.drawEllipse(QRectF(14, 6, 12, 12));
+		p.drawEllipse(QRectF(6, 22, 12, 12));
+		p.setBrush(QColor(kAccent));
+		p.setPen(Qt::NoPen);
+		p.drawEllipse(QRectF(22, 22, 12, 12));
+		p.setPen(QPen(QColor(kAccentSoft), 1.6, Qt::DashLine, Qt::RoundCap));
+		p.setBrush(Qt::NoBrush);
+		p.drawEllipse(QRectF(10, 10, 20, 20));
+	}
+	else if (kind == QLatin1String("exportHistory"))
+	{
+		p.drawRoundedRect(QRectF(10, 8, 16, 20), 2, 2);
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(20, 18, 20, 32);
+		p.setBrush(QColor(kAccentSoft));
+		p.setPen(Qt::NoPen);
+		QPolygonF a;
+		a << QPointF(20, 34) << QPointF(15, 28) << QPointF(25, 28);
+		p.drawPolygon(a);
+	}
+	else if (kind == QLatin1String("importReplace"))
+	{
+		p.drawRoundedRect(QRectF(10, 12, 16, 20), 2, 2);
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(20, 22, 20, 8);
+		p.setBrush(QColor(kAccentSoft));
+		p.setPen(Qt::NoPen);
+		QPolygonF a;
+		a << QPointF(20, 6) << QPointF(15, 12) << QPointF(25, 12);
+		p.drawPolygon(a);
+		p.setPen(QPen(ink, 1.6, Qt::SolidLine, Qt::RoundCap));
+		p.setBrush(Qt::NoBrush);
+		p.drawLine(28, 10, 34, 16);
+		p.drawLine(34, 10, 28, 16);
+	}
+	else if (kind == QLatin1String("importNew"))
+	{
+		p.drawRoundedRect(QRectF(8, 10, 16, 20), 2, 2);
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(18, 20, 18, 6);
+		p.setBrush(QColor(kAccentSoft));
+		p.setPen(Qt::NoPen);
+		QPolygonF a;
+		a << QPointF(18, 4) << QPointF(13, 10) << QPointF(23, 10);
+		p.drawPolygon(a);
+		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(28, 22, 36, 22);
+		p.drawLine(32, 18, 32, 26);
+	}
+	else if (kind == QLatin1String("runCompose"))
+	{
+		p.setBrush(QColor(kAccentSoft));
+		p.setPen(Qt::NoPen);
+		QPolygonF play;
+		play << QPointF(12, 8) << QPointF(30, 20) << QPointF(12, 32);
+		p.drawPolygon(play);
+	}
+	else if (kind == QLatin1String("pythonConsole"))
+	{
+		p.drawRoundedRect(QRectF(6, 8, 28, 24), 3, 3);
+		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+		p.drawLine(12, 16, 18, 20);
+		p.drawLine(18, 20, 12, 24);
+		p.drawLine(20, 26, 28, 26);
+	}
 	return QIcon(pm);
 }
 
@@ -723,6 +792,8 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	m_btnRevolveCut =
 		makeRibbonButton(feat, QStringLiteral("旋转切除"), QStringLiteral("revolveCut"), QStringLiteral("normal"), true);
 	m_btnPattern = makeRibbonButton(feat, QStringLiteral("线性阵列"), QStringLiteral("pattern"), QStringLiteral("normal"), true);
+	m_btnCircularPattern =
+		makeRibbonButton(feat, QStringLiteral("圆周阵列"), QStringLiteral("circularPattern"), QStringLiteral("normal"), true);
 	m_btnMirror3d = makeRibbonButton(feat, QStringLiteral("镜像"), QStringLiteral("mirror3d"), QStringLiteral("normal"), true);
 	m_btnLoft = makeRibbonButton(feat, QStringLiteral("放样"), QStringLiteral("loft"), QStringLiteral("normal"), true);
 	m_btnLoftCut = makeRibbonButton(feat, QStringLiteral("放样切除"), QStringLiteral("loftCut"), QStringLiteral("normal"), true);
@@ -731,6 +802,16 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	m_btnRebuild = makeRibbonButton(feat, QStringLiteral("重建"), QStringLiteral("rebuild"), QStringLiteral("normal"), true);
 	m_btnUndo = makeRibbonButton(feat, QStringLiteral("撤销"), QStringLiteral("undo"), QStringLiteral("normal"), true);
 	m_btnRedo = makeRibbonButton(feat, QStringLiteral("重做"), QStringLiteral("redo"), QStringLiteral("normal"), true);
+	m_btnExportHistory =
+		makeRibbonButton(feat, QStringLiteral("导出JSON"), QStringLiteral("exportHistory"), QStringLiteral("normal"), true);
+	m_btnImportReplace =
+		makeRibbonButton(feat, QStringLiteral("导入替换"), QStringLiteral("importReplace"), QStringLiteral("normal"), true);
+	m_btnImportNew =
+		makeRibbonButton(feat, QStringLiteral("导入新建"), QStringLiteral("importNew"), QStringLiteral("normal"), true);
+	m_btnRunCompose =
+		makeRibbonButton(feat, QStringLiteral("运行Compose"), QStringLiteral("runCompose"), QStringLiteral("normal"), true);
+	m_btnPythonConsole =
+		makeRibbonButton(feat, QStringLiteral("Python"), QStringLiteral("pythonConsole"), QStringLiteral("normal"), true);
 	auto* solve = m_btnSolve;
 	auto* pad = m_btnPad;
 	auto* pocket = m_btnPocket;
@@ -741,6 +822,7 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	auto* revolve = m_btnRevolve;
 	auto* revolveCut = m_btnRevolveCut;
 	auto* pattern = m_btnPattern;
+	auto* circularPattern = m_btnCircularPattern;
 	auto* mirror3d = m_btnMirror3d;
 	auto* loft = m_btnLoft;
 	auto* loftCut = m_btnLoftCut;
@@ -750,6 +832,7 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	auto* undo = m_btnUndo;
 	auto* redo = m_btnRedo;
 
+	// 与草图/标注一致：特征区固定两行，脚本入口并入第二行
 	QHBoxLayout* featRow1 = addButtonRow(featStack);
 	featRow1->addWidget(pad);
 	featRow1->addWidget(pocket);
@@ -760,12 +843,13 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	featRow1->addWidget(fillet);
 	featRow1->addWidget(chamfer);
 	featRow1->addWidget(loft);
+	featRow1->addWidget(loftCut);
+	featRow1->addWidget(shell);
+	featRow1->addWidget(draft);
 
 	QHBoxLayout* featRow2 = addButtonRow(featStack);
-	featRow2->addWidget(loftCut);
-	featRow2->addWidget(shell);
-	featRow2->addWidget(draft);
 	featRow2->addWidget(pattern);
+	featRow2->addWidget(circularPattern);
 	featRow2->addWidget(mirror3d);
 	addCompactSep(featRow2);
 	featRow2->addWidget(solve);
@@ -773,6 +857,12 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	addCompactSep(featRow2);
 	featRow2->addWidget(undo);
 	featRow2->addWidget(redo);
+	addCompactSep(featRow2);
+	featRow2->addWidget(m_btnExportHistory);
+	featRow2->addWidget(m_btnImportReplace);
+	featRow2->addWidget(m_btnImportNew);
+	featRow2->addWidget(m_btnRunCompose);
+	featRow2->addWidget(m_btnPythonConsole);
 	connect(solve, &QToolButton::clicked, this, &GeometricModelingRibbonBar::solveRequested);
 	connect(pad, &QToolButton::clicked, this,
 			[this]()
@@ -828,6 +918,12 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 				clearToolChecks();
 				emit linearPatternRequested();
 			});
+	connect(circularPattern, &QToolButton::clicked, this,
+			[this]()
+			{
+				clearToolChecks();
+				emit circularPatternRequested();
+			});
 	connect(mirror3d, &QToolButton::clicked, this,
 			[this]()
 			{
@@ -861,6 +957,11 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	connect(rebuild, &QToolButton::clicked, this, &GeometricModelingRibbonBar::rebuildRequested);
 	connect(undo, &QToolButton::clicked, this, &GeometricModelingRibbonBar::undoRequested);
 	connect(redo, &QToolButton::clicked, this, &GeometricModelingRibbonBar::redoRequested);
+	connect(m_btnExportHistory, &QToolButton::clicked, this, &GeometricModelingRibbonBar::exportHistoryRequested);
+	connect(m_btnImportReplace, &QToolButton::clicked, this, &GeometricModelingRibbonBar::importHistoryReplaceRequested);
+	connect(m_btnImportNew, &QToolButton::clicked, this, &GeometricModelingRibbonBar::importHistoryNewRequested);
+	connect(m_btnRunCompose, &QToolButton::clicked, this, &GeometricModelingRibbonBar::runComposeFileRequested);
+	connect(m_btnPythonConsole, &QToolButton::clicked, this, &GeometricModelingRibbonBar::pythonConsoleRequested);
 	root->addWidget(feat);
 
 	root->addStretch(1);
@@ -1063,6 +1164,7 @@ void GeometricModelingRibbonBar::applyLanguage(bool useChinese)
 	setBtnText(m_btnRevolve, tr(QStringLiteral("Revolve"), QStringLiteral("旋转")));
 	setBtnText(m_btnRevolveCut, tr(QStringLiteral("Revolve Cut"), QStringLiteral("旋转切除")));
 	setBtnText(m_btnPattern, tr(QStringLiteral("Linear Pattern"), QStringLiteral("线性阵列")));
+	setBtnText(m_btnCircularPattern, tr(QStringLiteral("Circular Pattern"), QStringLiteral("圆周阵列")));
 	setBtnText(m_btnMirror3d, tr(QStringLiteral("Mirror 3D"), QStringLiteral("镜像")));
 	setBtnText(m_btnLoft, tr(QStringLiteral("Loft"), QStringLiteral("放样")));
 	setBtnText(m_btnLoftCut, tr(QStringLiteral("Loft Cut"), QStringLiteral("放样切除")));
@@ -1071,4 +1173,9 @@ void GeometricModelingRibbonBar::applyLanguage(bool useChinese)
 	setBtnText(m_btnRebuild, tr(QStringLiteral("Rebuild"), QStringLiteral("重建")));
 	setBtnText(m_btnUndo, tr(QStringLiteral("Undo"), QStringLiteral("撤销")));
 	setBtnText(m_btnRedo, tr(QStringLiteral("Redo"), QStringLiteral("重做")));
+	setBtnText(m_btnExportHistory, tr(QStringLiteral("Export JSON"), QStringLiteral("导出JSON")));
+	setBtnText(m_btnImportReplace, tr(QStringLiteral("Import Replace"), QStringLiteral("导入替换")));
+	setBtnText(m_btnImportNew, tr(QStringLiteral("Import New"), QStringLiteral("导入新建")));
+	setBtnText(m_btnRunCompose, tr(QStringLiteral("Run Compose"), QStringLiteral("运行Compose")));
+	setBtnText(m_btnPythonConsole, tr(QStringLiteral("Python"), QStringLiteral("Python")));
 }

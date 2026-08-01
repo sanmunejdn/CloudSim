@@ -1,0 +1,148 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "_doc": "Compose 全 API 示范链。shell/draft 需按拓扑改 face_indices；无 Mirror3D（用 history）。可「运行 Compose」。",
+  "steps": [
+    {
+      "id": "body",
+      "api": "extrudeSketchProfileToBrep",
+      "args": {
+        "mode": "pad",
+        "profile": "rectangle",
+        "length_mm": 80,
+        "width_mm": 50,
+        "extrude_mm": 20,
+        "end_condition": "blind",
+        "name": "Body"
+      }
+    },
+    {
+      "id": "hole",
+      "api": "extrudeSketchProfileToBrep",
+      "args": {
+        "mode": "pocket",
+        "profile": "circle",
+        "diameter_mm": 10,
+        "center_u_mm": 40,
+        "center_v_mm": 25,
+        "end_condition": "through_all",
+        "extrude_mm": 20,
+        "target": "$body"
+      }
+    },
+    {
+      "id": "fillet",
+      "api": "filletEdgesToBrep",
+      "args": {
+        "target": "$body",
+        "radius_mm": 2,
+        "edges": "longest",
+        "edge_count": 4
+      }
+    },
+    {
+      "id": "chamfer",
+      "api": "chamferEdgesToBrep",
+      "args": {
+        "target": "$body",
+        "distance_mm": 1,
+        "edges": "top_boundary"
+      }
+    },
+    {
+      "id": "revolve_boss",
+      "api": "revolveSketchProfileToBrep",
+      "args": {
+        "mode": "boss",
+        "profile": "rectangle",
+        "length_mm": 8,
+        "width_mm": 20,
+        "angle_deg": 360,
+        "axis_ox": 100,
+        "axis_oy": 0,
+        "axis_oz": 0,
+        "axis_dx": 0,
+        "axis_dy": 0,
+        "axis_dz": 1,
+        "name": "RevolveBoss"
+      }
+    },
+    {
+      "id": "linpat",
+      "api": "linearPatternBodyToBrep",
+      "args": {
+        "target": "$body",
+        "count": 3,
+        "dx_mm": 90,
+        "dy_mm": 0,
+        "dz_mm": 0
+      }
+    },
+    {
+      "id": "circpat",
+      "api": "circularPatternBodyToBrep",
+      "args": {
+        "target": "$body",
+        "count": 4,
+        "angle_deg": 360,
+        "axis_ox": 40,
+        "axis_oy": 25,
+        "axis_oz": 0,
+        "axis_dx": 0,
+        "axis_dy": 0,
+        "axis_dz": 1
+      }
+    },
+    {
+      "id": "sweep",
+      "api": "sweepSketchProfileToBrep",
+      "args": {
+        "mode": "boss",
+        "profile": "circle",
+        "diameter_mm": 6,
+        "path": "line_z",
+        "path_length_mm": 40,
+        "twist_deg": 0,
+        "name": "SweepBoss"
+      }
+    },
+    {
+      "id": "loft",
+      "api": "loftSketchProfilesToBrep",
+      "args": {
+        "mode": "boss",
+        "profile_a": "rectangle",
+        "length_a_mm": 20,
+        "width_a_mm": 20,
+        "profile_b": "circle",
+        "diameter_b_mm": 12,
+        "profile_b_z_mm": 30,
+        "name": "LoftBoss"
+      }
+    },
+    {
+      "id": "shell",
+      "api": "shellFacesToBrep",
+      "args": {
+        "target": "$body",
+        "thickness_mm": 1.5,
+        "face_indices": [0]
+      }
+    },
+    {
+      "id": "draft",
+      "api": "draftFacesToBrep",
+      "args": {
+        "target": "$body",
+        "angle_deg": 2,
+        "face_indices": [1, 2],
+        "neutral_ox": 0,
+        "neutral_oy": 0,
+        "neutral_oz": 0,
+        "neutral_nx": 0,
+        "neutral_ny": 0,
+        "neutral_nz": 1
+      }
+    }
+  ]
+}

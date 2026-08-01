@@ -2,9 +2,10 @@
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGRIBBONBAR_H
 
 /// @file DrawingRibbonBar.h
-/// @brief 工程图 Ribbon：视图/绘图/标注 + 出图/图幅/导出
+/// @brief 工程图 Ribbon：视图/绘图/标注/修改/捕捉 + 出图/图幅/导出
 
 #include "DrawingSheetCanvasWidget.h"
+#include "SheetSnapEngine.h"
 
 #include <QWidget>
 
@@ -29,6 +30,8 @@ public:
 	QPushButton* generateButton() const { return m_generateBtn; }
 
 	bool includeIso() const;
+	/// PolyAlgo 快速预览（默认关；正式出图请关闭）
+	bool coarseView() const;
 	bool includeSection() const;
 	int sectionPlane() const;
 	bool customSection() const;
@@ -37,9 +40,7 @@ public:
 	bool thirdAngle() const;
 	double detailScale() const;
 
-	/// 把当前图幅/比例/图名写到画布
 	void applySheetSettings(DrawingSheetCanvasWidget* canvas, bool rescaleContent = false);
-	/// 从画布回填图幅 UI（切页/加载后）
 	void syncFromCanvas(const DrawingSheetCanvasWidget* canvas);
 
 public slots:
@@ -52,12 +53,28 @@ signals:
 	void exportSvgRequested();
 	void exportDxfRequested();
 	void exportPdfRequested();
+	void importDxfRequested();
+	void printPreviewRequested();
+	void createBlockRequested();
+	void insertBlockRequested();
+	void dimStyleDialogRequested();
+	void titleBlockAttrsRequested();
+	void ctbEnabledChanged(bool enabled);
+	void ctbTableEditRequested();
+	void recalculateDimsRequested();
+	void projectionDragLockChanged(bool on);
+	void projectionPinnedChanged(bool on);
+	void projectionGuidesVisibleChanged(bool visible);
+	void halfSectionChanged(bool on);
 	void fitWindowRequested();
 	void fitPaperRequested();
+	void viewAlignRequested(ViewAlignMode mode);
+	void projectionAlignRequested();
 	void gridVisibleChanged(bool visible);
 	void detailScaleChanged(double scale);
-	/// rescaleContent：改比例时为 true，仅改图幅时为 false
 	void sheetSettingsChanged(bool rescaleContent);
+	void snapFlagsChanged(SheetSnapFlags flags);
+	void ltScaleChanged(double scale);
 
 private:
 	void rebuildIcons(bool dark);
@@ -65,12 +82,15 @@ private:
 	void updateCustomSectionUi();
 	void updateCustomPaperUi();
 	void updateCustomScaleUi();
+	void emitSnapFlags();
 
 	bool m_dark = false;
 	bool m_useChinese = true;
 	QLabel* m_lblView = nullptr;
 	QLabel* m_lblSketch = nullptr;
 	QLabel* m_lblMarks = nullptr;
+	QLabel* m_lblModify = nullptr;
+	QLabel* m_lblSnap = nullptr;
 	QLabel* m_lblOut = nullptr;
 	QLabel* m_lblSheet = nullptr;
 	QLabel* m_lblExport = nullptr;
@@ -78,6 +98,13 @@ private:
 	QToolButton* m_btnPan = nullptr;
 	QToolButton* m_btnDetail = nullptr;
 	QToolButton* m_btnFitWindow = nullptr;
+	QToolButton* m_btnAlignLeft = nullptr;
+	QToolButton* m_btnAlignHCenter = nullptr;
+	QToolButton* m_btnAlignRight = nullptr;
+	QToolButton* m_btnAlignTop = nullptr;
+	QToolButton* m_btnAlignVCenter = nullptr;
+	QToolButton* m_btnAlignBottom = nullptr;
+	QToolButton* m_btnAlignProj = nullptr;
 	QCheckBox* m_gridCheck = nullptr;
 	QToolButton* m_btnLine = nullptr;
 	QToolButton* m_btnArc = nullptr;
@@ -89,12 +116,48 @@ private:
 	QToolButton* m_btnDimRadius = nullptr;
 	QToolButton* m_btnDimDiameter = nullptr;
 	QToolButton* m_btnDimAngle = nullptr;
+	QToolButton* m_btnDimCont = nullptr;
+	QToolButton* m_btnDimBase = nullptr;
 	QToolButton* m_btnNote = nullptr;
+	QToolButton* m_btnHatch = nullptr;
+	QToolButton* m_btnText = nullptr;
+	QToolButton* m_btnMText = nullptr;
+	QToolButton* m_btnMatch = nullptr;
+	QToolButton* m_btnMove = nullptr;
+	QToolButton* m_btnCopy = nullptr;
+	QToolButton* m_btnRotate = nullptr;
+	QToolButton* m_btnMirror = nullptr;
+	QToolButton* m_btnErase = nullptr;
+	QToolButton* m_btnTrim = nullptr;
+	QToolButton* m_btnOffset = nullptr;
+	QToolButton* m_btnScale = nullptr;
+	QToolButton* m_btnFillet = nullptr;
+	QToolButton* m_btnChamfer = nullptr;
+	QToolButton* m_btnExtend = nullptr;
+	QToolButton* m_btnArray = nullptr;
+	QToolButton* m_btnPolarArray = nullptr;
+	QToolButton* m_btnBreak = nullptr;
+	QToolButton* m_btnJoin = nullptr;
+	QToolButton* m_btnStretch = nullptr;
+	QToolButton* m_btnRoughness = nullptr;
+	QToolButton* m_btnGdt = nullptr;
+	QToolButton* m_btnExplode = nullptr;
+	QToolButton* m_btnProjGuide = nullptr;
+	QCheckBox* m_snapEnd = nullptr;
+	QCheckBox* m_snapMid = nullptr;
+	QCheckBox* m_snapInt = nullptr;
+	QCheckBox* m_snapCen = nullptr;
+	QCheckBox* m_snapPerp = nullptr;
+	QCheckBox* m_snapNear = nullptr;
+	QCheckBox* m_snapPolar = nullptr;
+	QCheckBox* m_orthoCheck = nullptr;
 
 	QPushButton* m_generateBtn = nullptr;
 	QComboBox* m_angleCombo = nullptr;
 	QCheckBox* m_isoCheck = nullptr;
+	QCheckBox* m_coarseViewCheck = nullptr;
 	QCheckBox* m_sectionCheck = nullptr;
+	QCheckBox* m_halfSectionCheck = nullptr;
 	QComboBox* m_sectionPlaneCombo = nullptr;
 	QLabel* m_secOxLabel = nullptr;
 	QDoubleSpinBox* m_secOx = nullptr;
@@ -112,6 +175,8 @@ private:
 	QDoubleSpinBox* m_paperHSpin = nullptr;
 	QComboBox* m_scaleCombo = nullptr;
 	QDoubleSpinBox* m_scaleSpin = nullptr;
+	QLabel* m_ltScaleLabel = nullptr;
+	QDoubleSpinBox* m_ltScaleSpin = nullptr;
 	QPushButton* m_fitPaperBtn = nullptr;
 	QLineEdit* m_titleEdit = nullptr;
 	QDoubleSpinBox* m_detailScaleSpin = nullptr;
@@ -119,6 +184,18 @@ private:
 	QPushButton* m_svgBtn = nullptr;
 	QPushButton* m_dxfBtn = nullptr;
 	QPushButton* m_pdfBtn = nullptr;
+	QPushButton* m_importDxfBtn = nullptr;
+	QPushButton* m_printPreviewBtn = nullptr;
+	QPushButton* m_blockBtn = nullptr;
+	QPushButton* m_insertBlockBtn = nullptr;
+	QPushButton* m_dimStyleBtn = nullptr;
+	QPushButton* m_titleAttrBtn = nullptr;
+	QCheckBox* m_ctbCheck = nullptr;
+	QPushButton* m_ctbTableBtn = nullptr;
+	QPushButton* m_recalcDimBtn = nullptr;
+	QCheckBox* m_projDragLock = nullptr;
+	QCheckBox* m_projPinned = nullptr;
+	QCheckBox* m_projGuideVisible = nullptr;
 };
 
 #endif

@@ -23,14 +23,16 @@ struct SkinWeight
 
 struct DeformGraph
 {
-	std::vector<Eigen::Vector3d> nodeRest;			 ///< 节点静止位置
-	std::vector<std::vector<int>> nodeNeighbors;	 ///< 节点邻接（kNN）
-	std::vector<std::vector<SkinWeight>> vertSkin; ///< 每顶点蒙皮
+	std::vector<Eigen::Vector3d> nodeRest;
+	std::vector<std::vector<int>> nodeNeighbors;
+	std::vector<std::vector<SkinWeight>> vertSkin;
 };
 
 /// sampleRadiusMm：节点间距；kSkin：每点影响节点数
+/// vertAdj 非空时沿网格邻接蒙皮/连边，避免凹槽两侧欧氏 kNN 跨空腔拉丝
 bool buildDeformGraph(const std::vector<float>& xyz, double sampleRadiusMm, int kSkin, int kNodeNeighbors,
-					  DeformGraph& out, std::string* errMsg);
+					  DeformGraph& out, std::string* errMsg,
+					  const std::vector<std::vector<int>>* vertAdj = nullptr);
 
 } // namespace sdf
 } // namespace pclalgo

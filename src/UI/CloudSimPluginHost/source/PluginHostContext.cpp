@@ -322,6 +322,16 @@ QWidget* PluginHostContext::sidePanelTabParent() const
 	return m_mainWindowHost ? m_mainWindowHost->rightPanelTabs() : nullptr;
 }
 
+void PluginHostContext::beginPluginRegistration(const QString& pluginId)
+{
+	m_registeringPluginId = pluginId;
+}
+
+void PluginHostContext::endPluginRegistration()
+{
+	m_registeringPluginId.clear();
+}
+
 int PluginHostContext::registerSidePanelTab(const char* titleUtf8, QWidget* widget)
 {
 	if (!m_mainWindowHost || !widget || !titleUtf8)
@@ -334,6 +344,16 @@ int PluginHostContext::registerSidePanelTab(const char* titleUtf8, QWidget* widg
 		logError(QStringLiteral(
 			"registerSidePanelTab: invalid title pointer (plugin/host ABI mismatch — rebuild the plugin)."));
 		return -1;
+	}
+	if (widget->objectName().isEmpty() && !m_registeringPluginId.isEmpty())
+	{
+		const int index = ++m_pluginSidePanelTabSerial[m_registeringPluginId];
+		QString objectName = QStringLiteral("CloudSim.PluginTab.%1").arg(m_registeringPluginId);
+		if (index > 1)
+		{
+			objectName += QLatin1Char('.') + QString::number(index);
+		}
+		widget->setObjectName(objectName);
 	}
 	return m_mainWindowHost->addPluginSidePanelTab(QString::fromUtf8(titleUtf8), widget);
 }

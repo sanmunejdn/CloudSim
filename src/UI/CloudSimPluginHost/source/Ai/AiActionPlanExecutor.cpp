@@ -6,6 +6,7 @@
 #include "Ai/AiFeatureComposeSteps.h"
 #include "Ai/AiHostButtonApiDispatch.h"
 #include "Ai/AiMeshDefaults.h"
+#include "Ai/FeatureComposeDomainHandler.h"
 #include "AiCommandSchema.h"
 #include "PluginHostContext.h"
 #include "PluginPrimitiveTypes.h"
@@ -494,6 +495,17 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 			*outError = QStringLiteral("Expected action plan version 2 with steps[].");
 
 		return false;
+	}
+
+	if (root.value("domain", "") == "feature.compose")
+	{
+		QString planErr;
+		if (!FeatureComposeDomainHandler::validatePlanJson(root, &planErr))
+		{
+			if (outError)
+				*outError = planErr.isEmpty() ? QStringLiteral("feature.compose 计划校验失败。") : planErr;
+			return false;
+		}
 	}
 
 	AiPlanStepContext ctx;

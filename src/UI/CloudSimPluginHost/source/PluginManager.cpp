@@ -182,8 +182,10 @@ bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manif
 		return false;
 	}
 
+	m_hostContext->beginPluginRegistration(id);
 	if (!plugin->initialize(m_hostContext.get()))
 	{
+		m_hostContext->endPluginRegistration();
 		RunLogger::warn("Plugin initialize() returned false: " + id.toStdString());
 		loader->unload();
 		return false;
@@ -213,6 +215,7 @@ bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manif
 			}
 		}
 	}
+	m_hostContext->endPluginRegistration();
 
 	auto loaded = std::make_unique<LoadedPlugin>();
 	loaded->id = id;

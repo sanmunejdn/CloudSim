@@ -36,10 +36,12 @@ enum class SideToolPanel
 	Chamfer,
 	Revolve,
 	Pattern,
+	CircularPattern,
 	Mirror3D,
 	Loft,
 	Shell,
-	Draft
+	Draft,
+	Params
 };
 
 class GeometricModelingPage : public QWidget
@@ -50,6 +52,8 @@ public:
 
 	QWidget* featureTreePanel() const;
 	double extrudeLengthMm() const;
+	double extrudeLength2Mm() const;
+	double extrudeStartOffsetMm() const;
 	double extrudeDraftAngleDeg() const;
 	bool extrudeReversed() const;
 	bool extrudeCreateNewBody() const;
@@ -58,8 +62,10 @@ public:
 	bool hasUpToFacePlane() const { return m_hasUpToFacePlane; }
 	PluginPoint3d upToVertex() const { return m_upToVertex; }
 	bool hasUpToVertex() const { return m_hasUpToVertex; }
+	int upToVertexIndex() const { return m_upToVertexIndex; }
+	QString upToVertexBackendId() const { return m_upToVertexBackendId; }
 	double offsetFromFaceMm() const;
-	void setUpToVertex(const PluginPoint3d& v);
+	void setUpToVertex(const PluginPoint3d& v, int vertexIndex = -1, const QString& backendId = QString());
 	void clearUpToVertex();
 	QString upToFaceBackendId() const { return m_upToFaceBackendId; }
 	int upToFaceIndex() const { return m_upToFaceIndex; }
@@ -67,7 +73,7 @@ public:
 	void clearUpToFacePlane();
 
 	void setExtrudeUi(double lengthMm, bool reversed, GeomodelingExtrudeEnd end, bool createNewBody,
-					  double draftAngleDeg = 0.0);
+					  double draftAngleDeg = 0.0, double startOffsetMm = 0.0, double length2Mm = 0.0);
 	void setExtrudeOperationMode(bool pocket);
 	QString editingFeatureId() const { return m_editingFeatureId; }
 	void setEditingFeatureId(const QString& id) { m_editingFeatureId = id; }
@@ -106,6 +112,9 @@ public:
 	void fillRevolveSketchCombo(const QString& selectedId = QString());
 	QString revolveSketchId() const;
 	double revolveAngleDeg() const;
+	/// 0=草图Y 1=草图X 2=拾取边
+	int revolveAxisMode() const;
+	void setRevolveAxisLabel(const QString& text);
 	void setRevolveStatus(const QString& text);
 
 	void setPatternUi(bool active);
@@ -115,6 +124,13 @@ public:
 	double patternDyMm() const;
 	double patternDzMm() const;
 	QString patternSourceFeatureId() const;
+
+	void setCircularPatternUi(bool active);
+	void fillCircularPatternSourceCombo();
+	int circularPatternCount() const;
+	double circularPatternAngleDeg() const;
+	QString circularPatternSourceFeatureId() const;
+	void setCircularPatternAxisLabel(const QString& text);
 
 	void setMirror3dUi(bool active);
 	bool mirror3dKeepOriginal() const;
@@ -152,6 +168,12 @@ public:
 	void setTrimHint(const QString& text);
 	void applyLanguage(bool useChinese);
 
+	/// 命名参数页：rows = (key, label, value)
+	void showNamedParams(const QString& title, const std::vector<std::pair<QString, double>>& rows,
+						 bool sketchEntity = false);
+	void clearNamedParams();
+	void setParamsFeatureId(const QString& featureId) { m_paramsFeatureId = featureId; }
+
 	void showLegendOverlay();
 	void hideLegendOverlay();
 
@@ -177,9 +199,14 @@ signals:
 	void revolveConfirmRequested();
 	void revolveCancelRequested();
 	void revolveSelectionChanged();
+	void pickRevolveAxisRequested();
 	void patternConfirmRequested();
 	void patternCancelRequested();
 	void patternOptionsChanged();
+	void circularPatternConfirmRequested();
+	void circularPatternCancelRequested();
+	void circularPatternOptionsChanged();
+	void pickCircularPatternAxisRequested();
 	void mirror3dConfirmRequested();
 	void mirror3dCancelRequested();
 	void mirror3dOptionsChanged();
@@ -209,6 +236,8 @@ signals:
 	void originPlaneSketchRequested(int planeIndex);
 	void fixPointToOriginRequested();
 	void originVisibilityChanged();
+	void namedParamEdited(const QString& key, double value);
+	void featureParamApplyRequested(const QString& featureId, const QString& key, double value);
 
 protected:
 	bool eventFilter(QObject* watched, QEvent* event) override;
@@ -247,10 +276,16 @@ private:
 	QWidget* m_pageChamfer = nullptr;
 	QWidget* m_pageRevolve = nullptr;
 	QWidget* m_pagePattern = nullptr;
+	QWidget* m_pageCircularPattern = nullptr;
 	QWidget* m_pageMirror3d = nullptr;
 	QWidget* m_pageLoft = nullptr;
 	QWidget* m_pageShell = nullptr;
 	QWidget* m_pageDraft = nullptr;
+	QWidget* m_pageParams = nullptr;
+	QLabel* m_paramsTitle = nullptr;
+	QVBoxLayout* m_paramsFormLay = nullptr;
+	QString m_paramsFeatureId;
+	bool m_paramsIsSketchEntity = false;
 	QLabel* m_sweepTitle = nullptr;
 	QLabel* m_sweepProfileCaption = nullptr;
 	QLabel* m_sweepPathCaption = nullptr;
@@ -279,6 +314,9 @@ private:
 	QLabel* m_revolveTitle = nullptr;
 	QComboBox* m_revolveSketchCombo = nullptr;
 	QDoubleSpinBox* m_revolveAngle = nullptr;
+	QComboBox* m_revolveAxisMode = nullptr;
+	QLabel* m_revolveAxisLabel = nullptr;
+	QPushButton* m_btnPickRevolveAxis = nullptr;
 	QLabel* m_revolveStatus = nullptr;
 	QPushButton* m_btnRevolveOk = nullptr;
 	QPushButton* m_btnRevolveCancel = nullptr;
@@ -291,6 +329,14 @@ private:
 	QDoubleSpinBox* m_patternDz = nullptr;
 	QPushButton* m_btnPatternOk = nullptr;
 	QPushButton* m_btnPatternCancel = nullptr;
+	QLabel* m_circPatternTitle = nullptr;
+	QComboBox* m_circPatternSource = nullptr;
+	QDoubleSpinBox* m_circPatternCount = nullptr;
+	QDoubleSpinBox* m_circPatternAngle = nullptr;
+	QLabel* m_circPatternAxisLabel = nullptr;
+	QPushButton* m_btnPickCircPatternAxis = nullptr;
+	QPushButton* m_btnCircPatternOk = nullptr;
+	QPushButton* m_btnCircPatternCancel = nullptr;
 	QLabel* m_mirror3dTitle = nullptr;
 	QComboBox* m_mirror3dPlane = nullptr;
 	QCheckBox* m_mirror3dKeep = nullptr;
@@ -322,6 +368,8 @@ private:
 	PluginSketchPlane m_draftNeutralPlane{};
 	bool m_hasDraftNeutral = false;
 	QDoubleSpinBox* m_length = nullptr;
+	QDoubleSpinBox* m_length2 = nullptr;
+	QDoubleSpinBox* m_startOffset = nullptr;
 	QCheckBox* m_chkReversed = nullptr;
 	QCheckBox* m_chkNewBody = nullptr;
 	QComboBox* m_endCondition = nullptr;
@@ -353,6 +401,8 @@ private:
 	int m_upToFaceIndex = -1;
 	PluginPoint3d m_upToVertex{};
 	bool m_hasUpToVertex = false;
+	int m_upToVertexIndex = -1;
+	QString m_upToVertexBackendId;
 	bool m_pocketMode = false;
 	bool m_originPointVisible = true;
 	bool m_originXyVisible = true;

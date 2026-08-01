@@ -124,6 +124,11 @@ QString featureTreeTitle(const QString& idOrName, GeomodelingFeatureKind kind, b
 		baseEn = QStringLiteral("LinearPattern");
 		baseZh = QStringLiteral("\u7ebf\u6027\u9635\u5217");
 	}
+	else if (kind == GeomodelingFeatureKind::CircularPattern || idOrName.startsWith(QLatin1String("CircularPattern_")))
+	{
+		baseEn = QStringLiteral("CircularPattern");
+		baseZh = QStringLiteral("\u5706\u5468\u9635\u5217");
+	}
 	else if (kind == GeomodelingFeatureKind::Mirror3D || idOrName.startsWith(QLatin1String("Mirror3D_")))
 	{
 		baseEn = QStringLiteral("Mirror3D");
@@ -149,10 +154,13 @@ QString featureTreeTitle(const QString& idOrName, GeomodelingFeatureKind kind, b
 		baseEn = QStringLiteral("Draft");
 		baseZh = QStringLiteral("\u62d4\u6a21");
 	}
-	else if (kind == GeomodelingFeatureKind::DatumPlane || idOrName.startsWith(QLatin1String("DatumPlane_")))
+	else if (kind == GeomodelingFeatureKind::DatumPlane || kind == GeomodelingFeatureKind::DatumPlaneAngle ||
+			 idOrName.startsWith(QLatin1String("DatumPlane_")))
 	{
-		baseEn = QStringLiteral("DatumPlane");
-		baseZh = QStringLiteral("\u57fa\u51c6\u9762");
+		baseEn = (kind == GeomodelingFeatureKind::DatumPlaneAngle) ? QStringLiteral("DatumPlaneAngle")
+																  : QStringLiteral("DatumPlane");
+		baseZh = (kind == GeomodelingFeatureKind::DatumPlaneAngle) ? QStringLiteral("\u6210\u89d2\u57fa\u51c6\u9762")
+																  : QStringLiteral("\u57fa\u51c6\u9762");
 	}
 	return zh ? QStringLiteral("%1_%2").arg(baseZh, num) : QStringLiteral("%1_%2").arg(baseEn, num);
 }
@@ -226,6 +234,19 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 				if (!item)
 					return;
 				m_selectedFeatureId = item->data(0, Qt::UserRole).toString();
+				if (m_selectedFeatureId.isEmpty() || isVirtualOriginId(m_selectedFeatureId))
+					return;
+				const GeomodelingFeature* f = m_features.find(m_selectedFeatureId);
+				if (!f)
+					return;
+				if (f->kind == GeomodelingFeatureKind::Pad || f->kind == GeomodelingFeatureKind::Pocket)
+				{
+					std::vector<std::pair<QString, double>> rows;
+					rows.emplace_back(QStringLiteral("pad.depth"), f->lengthMm);
+					rows.emplace_back(QStringLiteral("pad.draftAngle"), f->draftAngleDeg);
+					m_paramsFeatureId = m_selectedFeatureId;
+					showNamedParams(f->name.isEmpty() ? m_selectedFeatureId : f->name, rows, false);
+				}
 			});
 	connect(m_tree, &QTreeWidget::itemDoubleClicked, this,
 			[this](QTreeWidgetItem* item, int column)
@@ -370,6 +391,24 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 	connect(m_length, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
 			&GeometricModelingPage::lengthEdited);
 	exLay->addWidget(m_length);
+	m_startOffset = new QDoubleSpinBox(m_pageExtrude);
+	m_startOffset->setRange(-1e6, 1e6);
+	m_startOffset->setValue(0.0);
+	m_startOffset->setDecimals(2);
+	m_startOffset->setSuffix(QStringLiteral(" mm"));
+	m_startOffset->setToolTip(QStringLiteral("\u8d77\u59cb\u504f\u79fb"));
+	connect(m_startOffset, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double) { emit extrudeOptionsChanged(); });
+	exLay->addWidget(m_startOffset);
+	m_length2 = new QDoubleSpinBox(m_pageExtrude);
+	m_length2->setRange(0.01, 1e6);
+	m_length2->setValue(5.0);
+	m_length2->setDecimals(2);
+	m_length2->setSuffix(QStringLiteral(" mm"));
+	m_length2->setToolTip(QStringLiteral("\u53cd\u5411\u6df1\u5ea6"));
+	connect(m_length2, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double) { emit extrudeOptionsChanged(); });
+	exLay->addWidget(m_length2);
 	m_draftAngle = new QDoubleSpinBox(m_pageExtrude);
 	m_draftAngle->setRange(-45.0, 45.0);
 	m_draftAngle->setValue(0.0);
@@ -387,6 +426,7 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 	m_endCondition->addItem(QStringLiteral("定长"), static_cast<int>(GeomodelingExtrudeEnd::Blind));
 	m_endCondition->addItem(QStringLiteral("到面"), static_cast<int>(GeomodelingExtrudeEnd::UpToFace));
 	m_endCondition->addItem(QStringLiteral("对称"), static_cast<int>(GeomodelingExtrudeEnd::MidPlane));
+	m_endCondition->addItem(QStringLiteral("双向"), static_cast<int>(GeomodelingExtrudeEnd::TwoDirections));
 	m_endCondition->addItem(QStringLiteral("贯通"), static_cast<int>(GeomodelingExtrudeEnd::ThroughAll));
 	m_endCondition->addItem(QStringLiteral("到顶点"), static_cast<int>(GeomodelingExtrudeEnd::UpToVertex));
 	m_endCondition->addItem(QStringLiteral("到面偏移"), static_cast<int>(GeomodelingExtrudeEnd::OffsetFromFace));
@@ -629,6 +669,17 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 		m_revolveAngle->setValue(360.0);
 		lay->addWidget(new QLabel(QStringLiteral("\u89d2\u5ea6"), m_pageRevolve));
 		lay->addWidget(m_revolveAngle);
+		m_revolveAxisMode = new QComboBox(m_pageRevolve);
+		m_revolveAxisMode->addItem(QStringLiteral("\u8349\u56fe Y"), 0);
+		m_revolveAxisMode->addItem(QStringLiteral("\u8349\u56fe X"), 1);
+		m_revolveAxisMode->addItem(QStringLiteral("\u62fe\u53d6\u8fb9"), 2);
+		lay->addWidget(new QLabel(QStringLiteral("\u65cb\u8f6c\u8f74"), m_pageRevolve));
+		lay->addWidget(m_revolveAxisMode);
+		m_revolveAxisLabel = new QLabel(QStringLiteral("\u9ed8\u8ba4\uff1a\u8349\u56fe\u539f\u70b9 + Y"), m_pageRevolve);
+		m_revolveAxisLabel->setWordWrap(true);
+		lay->addWidget(m_revolveAxisLabel);
+		m_btnPickRevolveAxis = new QPushButton(QStringLiteral("\u70b9\u9009\u8f74\u8fb9"), m_pageRevolve);
+		lay->addWidget(m_btnPickRevolveAxis);
 		m_revolveStatus = new QLabel(m_pageRevolve);
 		m_revolveStatus->setWordWrap(true);
 		lay->addWidget(m_revolveStatus);
@@ -641,6 +692,11 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 		lay->addStretch(1);
 		connect(m_revolveSketchCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 				&GeometricModelingPage::revolveSelectionChanged);
+		connect(m_revolveAngle, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&GeometricModelingPage::revolveSelectionChanged);
+		connect(m_revolveAxisMode, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&GeometricModelingPage::revolveSelectionChanged);
+		connect(m_btnPickRevolveAxis, &QPushButton::clicked, this, &GeometricModelingPage::pickRevolveAxisRequested);
 		connect(m_btnRevolveOk, &QPushButton::clicked, this, &GeometricModelingPage::revolveConfirmRequested);
 		connect(m_btnRevolveCancel, &QPushButton::clicked, this, &GeometricModelingPage::revolveCancelRequested);
 		m_toolStack->addWidget(m_pageRevolve);
@@ -697,6 +753,53 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 		connect(m_patternSource, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 				&GeometricModelingPage::patternOptionsChanged);
 		m_toolStack->addWidget(m_pagePattern);
+	}
+
+	m_pageCircularPattern = new QWidget(m_toolStack);
+	{
+		auto* lay = new QVBoxLayout(m_pageCircularPattern);
+		lay->setContentsMargins(0, 0, 0, 0);
+		m_circPatternTitle = new QLabel(QStringLiteral("\u5706\u5468\u9635\u5217"), m_pageCircularPattern);
+		m_circPatternTitle->setFont(tf);
+		lay->addWidget(m_circPatternTitle);
+		m_circPatternSource = new QComboBox(m_pageCircularPattern);
+		lay->addWidget(m_circPatternSource);
+		m_circPatternCount = new QDoubleSpinBox(m_pageCircularPattern);
+		m_circPatternCount->setRange(2, 1000);
+		m_circPatternCount->setDecimals(0);
+		m_circPatternCount->setValue(4);
+		lay->addWidget(new QLabel(QStringLiteral("\u6570\u91cf"), m_pageCircularPattern));
+		lay->addWidget(m_circPatternCount);
+		m_circPatternAngle = new QDoubleSpinBox(m_pageCircularPattern);
+		m_circPatternAngle->setRange(0.01, 360.0);
+		m_circPatternAngle->setDecimals(1);
+		m_circPatternAngle->setSuffix(QStringLiteral("\u00b0"));
+		m_circPatternAngle->setValue(360.0);
+		lay->addWidget(new QLabel(QStringLiteral("\u89d2\u5ea6\u8de8\u5ea6"), m_pageCircularPattern));
+		lay->addWidget(m_circPatternAngle);
+		m_circPatternAxisLabel = new QLabel(QStringLiteral("\u8f74\uff1a\u8bf7\u70b9\u9009\u6a21\u578b\u8fb9"), m_pageCircularPattern);
+		m_circPatternAxisLabel->setWordWrap(true);
+		lay->addWidget(m_circPatternAxisLabel);
+		m_btnPickCircPatternAxis = new QPushButton(QStringLiteral("\u70b9\u9009\u9635\u5217\u8f74"), m_pageCircularPattern);
+		lay->addWidget(m_btnPickCircPatternAxis);
+		auto* btns = new QHBoxLayout();
+		m_btnCircPatternOk = new QPushButton(QStringLiteral("\u786e\u8ba4"), m_pageCircularPattern);
+		m_btnCircPatternCancel = new QPushButton(QStringLiteral("\u53d6\u6d88"), m_pageCircularPattern);
+		btns->addWidget(m_btnCircPatternOk);
+		btns->addWidget(m_btnCircPatternCancel);
+		lay->addLayout(btns);
+		lay->addStretch(1);
+		connect(m_btnCircPatternOk, &QPushButton::clicked, this, &GeometricModelingPage::circularPatternConfirmRequested);
+		connect(m_btnCircPatternCancel, &QPushButton::clicked, this, &GeometricModelingPage::circularPatternCancelRequested);
+		connect(m_btnPickCircPatternAxis, &QPushButton::clicked, this,
+				&GeometricModelingPage::pickCircularPatternAxisRequested);
+		connect(m_circPatternCount, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&GeometricModelingPage::circularPatternOptionsChanged);
+		connect(m_circPatternAngle, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&GeometricModelingPage::circularPatternOptionsChanged);
+		connect(m_circPatternSource, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&GeometricModelingPage::circularPatternOptionsChanged);
+		m_toolStack->addWidget(m_pageCircularPattern);
 	}
 
 	m_pageMirror3d = new QWidget(m_toolStack);
@@ -834,6 +937,15 @@ GeometricModelingPage::GeometricModelingPage(IPluginHostContext* host, QWidget* 
 		m_toolStack->addWidget(m_pageDraft);
 	}
 
+	m_pageParams = new QWidget(m_toolStack);
+	m_paramsFormLay = new QVBoxLayout(m_pageParams);
+	m_paramsFormLay->setContentsMargins(0, 0, 0, 0);
+	m_paramsFormLay->setSpacing(4);
+	m_paramsTitle = new QLabel(QStringLiteral("参数"), m_pageParams);
+	m_paramsFormLay->addWidget(m_paramsTitle);
+	m_paramsFormLay->addStretch(1);
+	m_toolStack->addWidget(m_pageParams);
+
 	propsLay->addWidget(m_toolStack);
 	propsLay->addStretch(1);
 
@@ -856,6 +968,16 @@ QWidget* GeometricModelingPage::featureTreePanel() const
 double GeometricModelingPage::extrudeLengthMm() const
 {
 	return m_length ? m_length->value() : 10.0;
+}
+
+double GeometricModelingPage::extrudeLength2Mm() const
+{
+	return m_length2 ? m_length2->value() : 0.0;
+}
+
+double GeometricModelingPage::extrudeStartOffsetMm() const
+{
+	return m_startOffset ? m_startOffset->value() : 0.0;
 }
 
 double GeometricModelingPage::extrudeDraftAngleDeg() const
@@ -903,10 +1025,12 @@ void GeometricModelingPage::clearUpToFacePlane()
 		m_upToFaceStatus->setText(i18n(QStringLiteral("No up-to face"), QStringLiteral("未选择终止面")));
 }
 
-void GeometricModelingPage::setUpToVertex(const PluginPoint3d& v)
+void GeometricModelingPage::setUpToVertex(const PluginPoint3d& v, int vertexIndex, const QString& backendId)
 {
 	m_upToVertex = v;
 	m_hasUpToVertex = true;
+	m_upToVertexIndex = vertexIndex;
+	m_upToVertexBackendId = backendId;
 	if (m_upToFaceStatus)
 	{
 		m_upToFaceStatus->setText(
@@ -921,6 +1045,8 @@ void GeometricModelingPage::setUpToVertex(const PluginPoint3d& v)
 void GeometricModelingPage::clearUpToVertex()
 {
 	m_hasUpToVertex = false;
+	m_upToVertexIndex = -1;
+	m_upToVertexBackendId.clear();
 	if (m_upToFaceStatus && !m_hasUpToFacePlane)
 		m_upToFaceStatus->setText(i18n(QStringLiteral("No up-to vertex"), QStringLiteral("\u672a\u9009\u62e9\u9876\u70b9")));
 }
@@ -936,12 +1062,22 @@ double GeometricModelingPage::sweepTwistDeg() const
 }
 
 void GeometricModelingPage::setExtrudeUi(double lengthMm, bool reversed, GeomodelingExtrudeEnd end, bool createNewBody,
-										 double draftAngleDeg)
+										 double draftAngleDeg, double startOffsetMm, double length2Mm)
 {
 	if (m_length)
 	{
 		const QSignalBlocker b(m_length);
 		m_length->setValue(lengthMm);
+	}
+	if (m_startOffset)
+	{
+		const QSignalBlocker b(m_startOffset);
+		m_startOffset->setValue(startOffsetMm);
+	}
+	if (m_length2)
+	{
+		const QSignalBlocker b(m_length2);
+		m_length2->setValue(length2Mm > 1e-9 ? length2Mm : 5.0);
 	}
 	if (m_draftAngle)
 	{
@@ -999,8 +1135,17 @@ void GeometricModelingPage::syncExtrudeEndUi()
 	const bool upVertex = end == GeomodelingExtrudeEnd::UpToVertex;
 	const bool offsetFace = end == GeomodelingExtrudeEnd::OffsetFromFace;
 	const bool through = end == GeomodelingExtrudeEnd::ThroughAll;
+	const bool twoDir = end == GeomodelingExtrudeEnd::TwoDirections;
+	const bool blindLike = end == GeomodelingExtrudeEnd::Blind || twoDir || end == GeomodelingExtrudeEnd::MidPlane;
 	if (m_length)
 		m_length->setEnabled(!upTo && !through && !upVertex && !offsetFace);
+	if (m_startOffset)
+		m_startOffset->setEnabled(end == GeomodelingExtrudeEnd::Blind || twoDir);
+	if (m_length2)
+	{
+		m_length2->setVisible(twoDir);
+		m_length2->setEnabled(twoDir);
+	}
 	if (m_btnPickFace)
 		m_btnPickFace->setEnabled(upTo || offsetFace);
 	if (m_btnPickVertex)
@@ -1009,6 +1154,7 @@ void GeometricModelingPage::syncExtrudeEndUi()
 		m_offsetFromFace->setEnabled(offsetFace);
 	if (m_upToFaceStatus)
 		m_upToFaceStatus->setVisible(upTo || upVertex || offsetFace);
+	(void)blindLike;
 }
 
 void GeometricModelingPage::setActiveBodyId(const QString& id)
@@ -1071,6 +1217,9 @@ void GeometricModelingPage::setSideToolPanel(SideToolPanel panel)
 	case SideToolPanel::Pattern:
 		m_toolStack->setCurrentWidget(m_pagePattern);
 		break;
+	case SideToolPanel::CircularPattern:
+		m_toolStack->setCurrentWidget(m_pageCircularPattern);
+		break;
 	case SideToolPanel::Mirror3D:
 		m_toolStack->setCurrentWidget(m_pageMirror3d);
 		break;
@@ -1082,6 +1231,9 @@ void GeometricModelingPage::setSideToolPanel(SideToolPanel panel)
 		break;
 	case SideToolPanel::Draft:
 		m_toolStack->setCurrentWidget(m_pageDraft);
+		break;
+	case SideToolPanel::Params:
+		m_toolStack->setCurrentWidget(m_pageParams);
 		break;
 	default:
 		m_toolStack->setCurrentWidget(m_pageEmpty);
@@ -1814,6 +1966,17 @@ double GeometricModelingPage::revolveAngleDeg() const
 	return m_revolveAngle ? m_revolveAngle->value() : 360.0;
 }
 
+int GeometricModelingPage::revolveAxisMode() const
+{
+	return m_revolveAxisMode ? m_revolveAxisMode->currentData().toInt() : 0;
+}
+
+void GeometricModelingPage::setRevolveAxisLabel(const QString& text)
+{
+	if (m_revolveAxisLabel)
+		m_revolveAxisLabel->setText(text);
+}
+
 void GeometricModelingPage::setRevolveStatus(const QString& text)
 {
 	if (!m_revolveStatus)
@@ -1839,7 +2002,8 @@ void GeometricModelingPage::fillPatternSourceCombo()
 							 QString());
 	for (const auto& f : m_features.features())
 	{
-		if (f.kind == GeomodelingFeatureKind::Sketch || f.kind == GeomodelingFeatureKind::DatumPlane || f.suppressed)
+		if (f.kind == GeomodelingFeatureKind::Sketch || f.kind == GeomodelingFeatureKind::DatumPlane ||
+			f.kind == GeomodelingFeatureKind::DatumPlaneAngle || f.suppressed)
 			continue;
 		const QString title = featureTreeTitle(f.name.isEmpty() ? f.id : f.name, f.kind, m_useChinese);
 		m_patternSource->addItem(title, f.id);
@@ -1871,6 +2035,54 @@ double GeometricModelingPage::patternDyMm() const
 double GeometricModelingPage::patternDzMm() const
 {
 	return m_patternDz ? m_patternDz->value() : 0.0;
+}
+
+void GeometricModelingPage::setCircularPatternUi(bool active)
+{
+	if (active)
+		fillCircularPatternSourceCombo();
+	setSideToolPanel(active ? SideToolPanel::CircularPattern : SideToolPanel::None);
+}
+
+void GeometricModelingPage::fillCircularPatternSourceCombo()
+{
+	if (!m_circPatternSource)
+		return;
+	const QSignalBlocker b(m_circPatternSource);
+	m_circPatternSource->clear();
+	m_circPatternSource->addItem(i18n(QStringLiteral("Entire tip (current body)"), QStringLiteral("整个实体（当前 tip）")),
+								QString());
+	for (const auto& f : m_features.features())
+	{
+		if (f.kind == GeomodelingFeatureKind::Sketch || f.kind == GeomodelingFeatureKind::DatumPlane ||
+			f.kind == GeomodelingFeatureKind::DatumPlaneAngle || f.suppressed)
+			continue;
+		const QString title = featureTreeTitle(f.name.isEmpty() ? f.id : f.name, f.kind, m_useChinese);
+		m_circPatternSource->addItem(title, f.id);
+	}
+}
+
+QString GeometricModelingPage::circularPatternSourceFeatureId() const
+{
+	if (!m_circPatternSource || m_circPatternSource->currentIndex() < 0)
+		return {};
+	return m_circPatternSource->currentData().toString();
+}
+
+int GeometricModelingPage::circularPatternCount() const
+{
+	return m_circPatternCount ? static_cast<int>(m_circPatternCount->value()) : 4;
+}
+
+double GeometricModelingPage::circularPatternAngleDeg() const
+{
+	return m_circPatternAngle ? m_circPatternAngle->value() : 360.0;
+}
+
+void GeometricModelingPage::setCircularPatternAxisLabel(const QString& text)
+{
+	if (m_circPatternAxisLabel)
+		m_circPatternAxisLabel->setText(text);
 }
 
 void GeometricModelingPage::setMirror3dUi(bool active)
@@ -1989,4 +2201,66 @@ void GeometricModelingPage::clearDraftNeutralPlane()
 	m_hasDraftNeutral = false;
 	if (m_draftNeutralLabel)
 		m_draftNeutralLabel->setText(i18n(QStringLiteral("Neutral: default XY"), QStringLiteral("中性面：默认 XY")));
+}
+
+void GeometricModelingPage::clearNamedParams()
+{
+	m_paramsFeatureId.clear();
+	m_paramsIsSketchEntity = false;
+	if (!m_paramsFormLay)
+		return;
+	while (m_paramsFormLay->count() > 1)
+	{
+		QLayoutItem* it = m_paramsFormLay->takeAt(1);
+		if (!it)
+			break;
+		if (QWidget* w = it->widget())
+			w->deleteLater();
+		delete it;
+	}
+	m_paramsFormLay->addStretch(1);
+	setSideToolPanel(SideToolPanel::None);
+}
+
+void GeometricModelingPage::showNamedParams(const QString& title, const std::vector<std::pair<QString, double>>& rows,
+											bool sketchEntity)
+{
+	if (!m_paramsFormLay || !m_paramsTitle)
+		return;
+	m_paramsIsSketchEntity = sketchEntity;
+	if (sketchEntity)
+		m_paramsFeatureId.clear();
+	while (m_paramsFormLay->count() > 1)
+	{
+		QLayoutItem* it = m_paramsFormLay->takeAt(1);
+		if (!it)
+			break;
+		if (QWidget* w = it->widget())
+			w->deleteLater();
+		delete it;
+	}
+	m_paramsTitle->setText(title.isEmpty() ? i18n(QStringLiteral("Parameters"), QStringLiteral("参数")) : title);
+	for (const auto& row : rows)
+	{
+		auto* lab = new QLabel(row.first, m_pageParams);
+		auto* spin = new QDoubleSpinBox(m_pageParams);
+		spin->setRange(-1e6, 1e6);
+		spin->setDecimals(3);
+		spin->setValue(row.second);
+		spin->setProperty("paramKey", row.first);
+		connect(spin, &QDoubleSpinBox::editingFinished, this,
+				[this, spin]()
+				{
+					const QString key = spin->property("paramKey").toString();
+					const double v = spin->value();
+					if (m_paramsIsSketchEntity)
+						emit namedParamEdited(key, v);
+					else if (!m_paramsFeatureId.isEmpty())
+						emit featureParamApplyRequested(m_paramsFeatureId, key, v);
+				});
+		m_paramsFormLay->addWidget(lab);
+		m_paramsFormLay->addWidget(spin);
+	}
+	m_paramsFormLay->addStretch(1);
+	setSideToolPanel(SideToolPanel::Params);
 }

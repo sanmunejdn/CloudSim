@@ -1,0 +1,27 @@
+#ifndef GEOMETRICMODELINGPLUGIN_SCRIPTMODELIO_H
+#define GEOMETRICMODELINGPLUGIN_SCRIPTMODELIO_H
+
+/// @file ScriptModelIo.h
+/// @brief 脚本建模 JSON 判别与 unwrap（history / feature.compose）
+
+#include <QByteArray>
+#include <QString>
+
+enum class ScriptModelJsonKind
+{
+	Invalid = 0,
+	History,
+	Compose
+};
+
+struct ScriptModelParseResult
+{
+	ScriptModelJsonKind kind = ScriptModelJsonKind::Invalid;
+	/// history：可直接交给 setParametricBodyHistoryJson；compose：原样交给 executeActionPlan
+	QByteArray payloadUtf8;
+	QString error;
+};
+
+ScriptModelParseResult parseScriptModelJson(const QByteArray& utf8);
+
+#endif

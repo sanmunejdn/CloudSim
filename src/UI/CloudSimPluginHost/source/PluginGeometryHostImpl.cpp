@@ -27,6 +27,7 @@
 #include "SketchDraft.h"
 #include "SketchShell.h"
 #include "SketchSweep.h"
+#include "SketchCurveWire.h"
 #include "MeshDiscretize.h"
 #include "HlrProject.h"
 #include "SketchPlane.h"
@@ -43,8 +44,12 @@
 #include <QString>
 #include <QTimer>
 #include <QVector>
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <vector>
 
 #include <FeatureSpec.h>
 #include <RobotOsgUiTypes.h>
@@ -71,6 +76,76 @@ bool isStepPath(const QString& path)
 bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string& backendId)
 {
 	return mgr.parentsOf(backendId).empty();
+}
+
+geoalgo::SketchCurveSegment toCurveSeg(const PluginSketchSweepPathSegment& p)
+{
+	geoalgo::SketchCurveSegment g;
+	switch (p.kind)
+	{
+	case PluginSketchSweepPathSegKind::Arc:
+		g.kind = geoalgo::SketchCurveSegKind::Arc;
+		break;
+	case PluginSketchSweepPathSegKind::SplineThrough:
+		g.kind = geoalgo::SketchCurveSegKind::SplineThrough;
+		break;
+	case PluginSketchSweepPathSegKind::Circle:
+		g.kind = geoalgo::SketchCurveSegKind::Circle;
+		break;
+	case PluginSketchSweepPathSegKind::Ellipse:
+		g.kind = geoalgo::SketchCurveSegKind::Ellipse;
+		break;
+	default:
+		g.kind = geoalgo::SketchCurveSegKind::Line;
+		break;
+	}
+	g.ax = p.ax;
+	g.ay = p.ay;
+	g.az = p.az;
+	g.bx = p.bx;
+	g.by = p.by;
+	g.bz = p.bz;
+	g.mx = p.mx;
+	g.my = p.my;
+	g.mz = p.mz;
+	return g;
+}
+
+void appendProfileSegments(geoalgo::SketchExtrudeParams& ep, const std::vector<PluginSketchSweepPathSegment>& segs)
+{
+	ep.profileSegments.clear();
+	ep.profileSegments.reserve(segs.size());
+	for (const auto& p : segs)
+		ep.profileSegments.push_back(toCurveSeg(p));
+}
+
+void appendProfileSegments(geoalgo::SketchSweepParams& sp, const std::vector<PluginSketchSweepPathSegment>& segs)
+{
+	sp.profileSegments.clear();
+	sp.profileSegments.reserve(segs.size());
+	for (const auto& p : segs)
+		sp.profileSegments.push_back(toCurveSeg(p));
+}
+
+void storeProfileSegments(ParametricFeature& feat, const std::vector<PluginSketchSweepPathSegment>& segs)
+{
+	feat.profileSegments.clear();
+	feat.profileSegments.reserve(segs.size());
+	for (const auto& p : segs)
+	{
+		ParametricFeature::PathSegment s;
+		s.kind = static_cast<int>(p.kind);
+		s.ax = p.ax;
+		s.ay = p.ay;
+		s.az = p.az;
+		s.bx = p.bx;
+		s.by = p.by;
+		s.bz = p.bz;
+		s.mx = p.mx;
+		s.my = p.my;
+		s.mz = p.mz;
+		feat.profileSegments.push_back(s);
+	}
 }
 
 struct ComputableBackendCandidate
@@ -143,6 +218,7 @@ struct IntersectWorkResult
 {
 	geoalgo::IntersectionResult intersection;
 	std::vector<geoalgo::Polyline3d> polylines;
+	std::vector<geoalgo::FaceBoundarySeg> faceBoundarySegs;
 	std::string error;
 	bool ok = false;
 };
@@ -234,6 +310,14 @@ void runIntersectJob(PluginHostContext* host, IPluginDocument* doc, const QStrin
 			for (const geoalgo::Polyline3d& poly : result->polylines)
 			{
 				jobResult.polylines.push_back(poly.xyz);
+			}
+			for (const geoalgo::FaceBoundarySeg& seg : result->faceBoundarySegs)
+			{
+				PluginFaceBoundarySeg p;
+				p.kind = static_cast<PluginFaceBoundarySegKind>(static_cast<int>(seg.kind));
+				p.xyz = seg.xyz;
+				p.radiusMm = seg.radiusMm;
+				jobResult.faceBoundarySegs.push_back(std::move(p));
 			}
 			onFinished(true, QString(), jobResult);
 		});
@@ -376,7 +460,11 @@ void PluginGeometryHostImpl::discretizeBackendFaceEdgesToPolylines(IPluginDocume
 		m_host, doc, QStringLiteral("Face boundary edges"),
 		[shape, faceIndex, tess](IntersectWorkResult& out)
 		{
-			return geoalgo::discretizeShapeFaceEdgesToPolylines(shape, faceIndex, tess, out.polylines, &out.error);
+			if (!geoalgo::extractShapeFaceBoundarySegments(shape, faceIndex, tess, out.faceBoundarySegs, &out.error))
+				return false;
+			std::string polyErr;
+			(void)geoalgo::discretizeShapeFaceEdgesToPolylines(shape, faceIndex, tess, out.polylines, &polyErr);
+			return true;
 		},
 		std::move(onFinished));
 }
@@ -792,16 +880,39 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 					return;
 				}
 				outRef.edgeIndex = entry.geometry.edgeIndices.front();
-				// Vertex：吸附到靠近点击的边端点（mesh 边端点为世界坐标）
+				{
+					geoalgo::Point3d ea, eb;
+					if (geoalgo::shapeHandleEdgeEndpoints(shape, outRef.edgeIndex, ea, eb, nullptr))
+					{
+						outRef.edgeEndAMm = {static_cast<float>(ea.x), static_cast<float>(ea.y),
+											 static_cast<float>(ea.z)};
+						outRef.edgeEndBMm = {static_cast<float>(eb.x), static_cast<float>(eb.y),
+											 static_cast<float>(eb.z)};
+						outRef.hasEdgeEnds = true;
+					}
+				}
+				// Vertex：优先 TopExp 顶点；失败再吸附 mesh 边端点
 				if (pickVertex)
 				{
-					const osg::Vec3f& a = pick.meshEdgeA;
-					const osg::Vec3f& b = pick.meshEdgeB;
-					const osg::Vec3f& p = pick.worldPoint;
-					const float dA = (a - p).length2();
-					const float dB = (b - p).length2();
-					const osg::Vec3f& ep = (dA <= dB) ? a : b;
-					outRef.hitWorldMm = {ep.x(), ep.y(), ep.z()};
+					geoalgo::Point3d q{pick.worldPoint.x(), pick.worldPoint.y(), pick.worldPoint.z()};
+					geoalgo::Point3d vMm;
+					int vIdx = -1;
+					if (geoalgo::pickShapeVertexByModelPoint(shape, q, 2.0, vIdx, vMm, nullptr))
+					{
+						outRef.vertexIndex = vIdx;
+						outRef.hitWorldMm = {vMm.x, vMm.y, vMm.z};
+						outRef.hasHitPoint = true;
+					}
+					else
+					{
+						const osg::Vec3f& a = pick.meshEdgeA;
+						const osg::Vec3f& b = pick.meshEdgeB;
+						const osg::Vec3f& p = pick.worldPoint;
+						const float dA = (a - p).length2();
+						const float dB = (b - p).length2();
+						const osg::Vec3f& ep = (dA <= dB) ? a : b;
+						outRef.hitWorldMm = {ep.x(), ep.y(), ep.z()};
+					}
 				}
 			}
 			complete(true, QString(), outRef);
@@ -900,6 +1011,49 @@ std::shared_ptr<ParametricBrepBackendData> parametricBodyWithTip(cloudsim::host:
 		return nullptr;
 	}
 	return body;
+}
+
+/// 有 sourceFeatureId 时：seed=源特征贡献体(after CUT before)，fuseOnto=当前 tip
+bool resolvePatternSeed(const ParametricBrepBackendData& body, const std::string& sourceFeatureId,
+						geoalgo::ShapeHandle& seedOut, geoalgo::ShapeHandle& tipCopyOut,
+						const geoalgo::ShapeHandle*& fuseOntoOut, QString* errOut)
+{
+	seedOut = body.worldShape();
+	fuseOntoOut = nullptr;
+	if (sourceFeatureId.empty())
+		return true;
+	const geoalgo::ShapeHandle after = body.tipAfterFeature(sourceFeatureId);
+	if (after.isNull())
+	{
+		if (errOut)
+			*errOut = QStringLiteral("Source feature tip unavailable (rebuild body first)");
+		return false;
+	}
+	std::string seedErr;
+	if (!geoalgo::featureContributionSeed(after, body.tipBeforeFeature(sourceFeatureId), seedOut, &seedErr) ||
+		seedOut.isNull())
+	{
+		if (errOut)
+			*errOut = QString::fromStdString(seedErr.empty() ? "contribution seed failed" : seedErr);
+		return false;
+	}
+	tipCopyOut = body.worldShape();
+	fuseOntoOut = &tipCopyOut;
+	return true;
+}
+
+bool clearStagingAndWarn(PluginHostContext* host, IPluginDocument* doc, const QString& tag, const QString& msg,
+						 QString* errOut)
+{
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	if (osg)
+		osg->clearStagingGeometry();
+	if (errOut)
+		*errOut = msg;
+	if (host && !msg.isEmpty())
+		host->logWarn(QStringLiteral("[%1] %2").arg(tag, msg));
+	return false;
 }
 
 void finishParametricBodyJob(PluginHostContext* host, cloudsim::host::DocumentHost* page,
@@ -1211,20 +1365,49 @@ void PluginGeometryHostImpl::pickOriginSketchPlane(IPluginDocument* doc, PluginO
 {
 	if (!onFinished)
 		return;
+	pickSketchSupportPlane(doc, {},
+						   [onFinished](bool ok, const QString& err, PluginOriginPlaneKind kind,
+										const PluginSketchPlane& plane, const QString& /*tag*/)
+						   { onFinished(ok, err, kind, plane); });
+}
+
+void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
+													const std::vector<PluginSupportPlaneCandidate>& extras,
+													PluginSupportPlanePickedFn onFinished)
+{
+	if (!onFinished)
+		return;
 	endSketchInput(doc);
 	clearSketchSupportPlanePick();
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 	{
-		onFinished(false, QStringLiteral("3D viewport unavailable"), PluginOriginPlaneKind::XY, {});
+		onFinished(false, QStringLiteral("3D viewport unavailable"), PluginOriginPlaneKind::XY, {}, QString());
 		return;
+	}
+
+	const auto extrasPtr = std::make_shared<std::vector<PluginSupportPlaneCandidate>>(extras);
+	{
+		std::vector<OsgWidget::SketchSupportExtraPlane> osgExtras;
+		osgExtras.reserve(extrasPtr->size());
+		for (const PluginSupportPlaneCandidate& c : *extrasPtr)
+		{
+			OsgWidget::SketchSupportExtraPlane e;
+			e.origin = osg::Vec3d(c.plane.origin.x, c.plane.origin.y, c.plane.origin.z);
+			e.axisX = osg::Vec3d(c.plane.axisX.x, c.plane.axisX.y, c.plane.axisX.z);
+			e.axisY = osg::Vec3d(c.plane.axisY.x, c.plane.axisY.y, c.plane.axisY.z);
+			e.normal = osg::Vec3d(c.plane.normal.x, c.plane.normal.y, c.plane.normal.z);
+			e.halfMm = c.halfExtentMm > 1.f ? c.halfExtentMm : 40.f;
+			osgExtras.push_back(e);
+		}
+		osg->setSketchSupportExtraPlanes(std::move(osgExtras));
 	}
 
 	const auto sessionDone = std::make_shared<bool>(false);
 	m_supportPlanePickDone = sessionDone;
 
-	const auto finishOrigin = [sessionDone, this, osg, onFinished](bool ok, int planeIndex)
+	const auto finishPlane = [sessionDone, this, osg, onFinished, extrasPtr](bool ok, int planeIndex)
 	{
 		if (*sessionDone)
 			return;
@@ -1238,29 +1421,71 @@ void PluginGeometryHostImpl::pickOriginSketchPlane(IPluginDocument* doc, PluginO
 		{
 			osg->setMeshLinePickMode(false);
 			osg->setMeshFacePickMode(false);
+			osg->clearSketchSupportExtraPlanes();
 		}
 		m_supportPlanePickDone.reset();
-		if (!ok || planeIndex < 0 || planeIndex > 2)
+		if (!ok || planeIndex < 0)
 		{
-			onFinished(false, QStringLiteral("已取消草图平面选择"), PluginOriginPlaneKind::XY, {});
+			onFinished(false, QStringLiteral("已取消草图平面选择"), PluginOriginPlaneKind::XY, {}, QString());
+			return;
+		}
+		if (planeIndex >= 100)
+		{
+			const int ei = planeIndex - 100;
+			if (ei < 0 || ei >= static_cast<int>(extrasPtr->size()))
+			{
+				onFinished(false, QStringLiteral("已取消草图平面选择"), PluginOriginPlaneKind::XY, {}, QString());
+				return;
+			}
+			const PluginSupportPlaneCandidate& c = (*extrasPtr)[static_cast<std::size_t>(ei)];
+			onFinished(true, QString(), PluginOriginPlaneKind::XY, c.plane, QString::fromStdString(c.tagUtf8));
+			return;
+		}
+		if (planeIndex > 2)
+		{
+			onFinished(false, QStringLiteral("已取消草图平面选择"), PluginOriginPlaneKind::XY, {}, QString());
 			return;
 		}
 		const auto kind = static_cast<PluginOriginPlaneKind>(planeIndex);
-		onFinished(true, QString(), kind, makeOriginPluginPlane(planeIndex));
+		onFinished(true, QString(), kind, makeOriginPluginPlane(planeIndex),
+				   QStringLiteral("origin:%1").arg(planeIndex));
 	};
 
-	// 模型面与基面并行：基面未命中时 OsgWidget 放行给 MeshFace 拾取
 	osg->setSelectionActive(true);
 	osg->setMeshLinePickMode(false);
 	osg->setMeshFacePickMode(true);
 	m_supportPlaneFaceConn = QObject::connect(
 		osg, &OsgWidget::meshPickCommitted, m_host,
-		[sessionDone, this, osg, page, doc, onFinished](PickResult pick, int pickKindInt)
+		[sessionDone, this, osg, page, doc, onFinished, extrasPtr](PickResult pick, int pickKindInt)
 		{
 			if (*sessionDone || !pick.hit)
 				return;
 			if (static_cast<PickKind>(pickKindInt) != PickKind::MeshFace)
 				return;
+
+			const QPoint mp = osg->lastMousePos();
+			const int resolved = osg->resolveSketchSupportOriginIndex(mp.x(), mp.y());
+			if (resolved >= 100)
+			{
+				const int extraIdx = resolved - 100;
+				if (extraIdx < 0 || extraIdx >= static_cast<int>(extrasPtr->size()))
+					return;
+				*sessionDone = true;
+				if (m_supportPlaneFaceConn)
+				{
+					QObject::disconnect(m_supportPlaneFaceConn);
+					m_supportPlaneFaceConn = {};
+				}
+				m_supportPlanePickDone.reset();
+				osg->setMeshLinePickMode(false);
+				osg->setMeshFacePickMode(false);
+				osg->cancelOriginPlaneSelection();
+				const PluginSupportPlaneCandidate& c = (*extrasPtr)[static_cast<std::size_t>(extraIdx)];
+				osg->setCameraViewDirection(osg::Vec3d(c.plane.normal.x, c.plane.normal.y, c.plane.normal.z),
+											osg::Vec3d(c.plane.axisY.x, c.plane.axisY.y, c.plane.axisY.z));
+				onFinished(true, QString(), PluginOriginPlaneKind::XY, c.plane, QString::fromStdString(c.tagUtf8));
+				return;
+			}
 
 			const std::string backendId = pick.backendId;
 			if (backendId.empty())
@@ -1316,7 +1541,6 @@ void PluginGeometryHostImpl::pickOriginSketchPlane(IPluginDocument* doc, PluginO
 			{
 				if (planeErr.isEmpty())
 					planeErr = QStringLiteral("所选面不是平面，请选平面面或基准面");
-				// 未结束会话，允许继续点选
 				return;
 			}
 
@@ -1335,10 +1559,14 @@ void PluginGeometryHostImpl::pickOriginSketchPlane(IPluginDocument* doc, PluginO
 				osg->setCameraViewDirection(osg::Vec3d(plane.normal.x, plane.normal.y, plane.normal.z),
 											osg::Vec3d(plane.axisY.x, plane.axisY.y, plane.axisY.z));
 			}
-			onFinished(true, QString(), PluginOriginPlaneKind::XY, plane);
+			// tag 编码面源，供等距基准面写关联
+			const QString faceTag = QStringLiteral("face:%1:%2")
+										.arg(QString::fromStdString(backendId))
+										.arg(outRef.faceIndex);
+			onFinished(true, QString(), PluginOriginPlaneKind::XY, plane, faceTag);
 		});
 
-	osg->beginOriginPlaneSelection(finishOrigin);
+	osg->beginOriginPlaneSelection(finishPlane);
 }
 
 void PluginGeometryHostImpl::cancelOriginSketchPlanePick(IPluginDocument* doc)
@@ -1373,6 +1601,8 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 	ep.mode = (params.mode == PluginSketchExtrudeMode::Pocket) ? geoalgo::SketchExtrudeMode::Pocket
 															  : geoalgo::SketchExtrudeMode::Pad;
 	ep.lengthMm = params.lengthMm;
+	ep.length2Mm = params.length2Mm;
+	ep.startOffsetMm = params.startOffsetMm;
 	ep.reversed = params.reversed;
 	ep.draftAngleDeg = params.draftAngleDeg;
 	if (params.endCondition == PluginSketchExtrudeEnd::UpToFace)
@@ -1385,6 +1615,8 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 		ep.endCondition = geoalgo::SketchExtrudeEndCondition::UpToVertex;
 	else if (params.endCondition == PluginSketchExtrudeEnd::OffsetFromFace)
 		ep.endCondition = geoalgo::SketchExtrudeEndCondition::OffsetFromFace;
+	else if (params.endCondition == PluginSketchExtrudeEnd::TwoDirections)
+		ep.endCondition = geoalgo::SketchExtrudeEndCondition::TwoDirections;
 	else
 		ep.endCondition = geoalgo::SketchExtrudeEndCondition::Blind;
 	ep.hasUpToFace = params.hasUpToFacePlane;
@@ -1406,6 +1638,7 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 	ep.normalY = plane.normal.y;
 	ep.normalZ = plane.normal.z;
 	ep.holePolylinesXyzMm = params.holePolylinesXyzMm;
+	appendProfileSegments(ep, params.profileSegments);
 
 	const geoalgo::ShapeHandle* basePtr = nullptr;
 	geoalgo::ShapeHandle baseOwned;
@@ -1535,6 +1768,8 @@ void PluginGeometryHostImpl::extrudeSketchProfileToBrep(IPluginDocument* doc,
 			extrudeFeat->endCondition = ParametricExtrudeEnd::UpToVertex;
 		else if (params.endCondition == PluginSketchExtrudeEnd::OffsetFromFace)
 			extrudeFeat->endCondition = ParametricExtrudeEnd::OffsetFromFace;
+		else if (params.endCondition == PluginSketchExtrudeEnd::TwoDirections)
+			extrudeFeat->endCondition = ParametricExtrudeEnd::TwoDirections;
 		else
 			extrudeFeat->endCondition = ParametricExtrudeEnd::Blind;
 		if (params.hasUpToFacePlane)
@@ -1548,8 +1783,12 @@ void PluginGeometryHostImpl::extrudeSketchProfileToBrep(IPluginDocument* doc,
 		extrudeFeat->upToVertexX = params.upToVertex.x;
 		extrudeFeat->upToVertexY = params.upToVertex.y;
 		extrudeFeat->upToVertexZ = params.upToVertex.z;
+		extrudeFeat->upToVertexIndex = params.upToVertexIndex;
 		extrudeFeat->offsetFromFaceMm = params.offsetFromFaceMm;
 		extrudeFeat->draftAngleDeg = params.draftAngleDeg;
+		extrudeFeat->startOffsetMm = params.startOffsetMm;
+		extrudeFeat->length2Mm = params.length2Mm;
+		storeProfileSegments(*extrudeFeat, params.profileSegments);
 	}
 
 	std::string rebuildErr;
@@ -1749,6 +1988,7 @@ bool PluginGeometryHostImpl::previewSketchSweep(IPluginDocument* doc, const std:
 	geoalgo::SketchSweepParams sp;
 	sp.mode = (params.mode == PluginSketchSweepMode::Cut) ? geoalgo::SketchSweepMode::Cut : geoalgo::SketchSweepMode::Boss;
 	sp.twistDeg = params.twistDeg;
+	appendProfileSegments(sp, params.profileSegments);
 
 	const geoalgo::ShapeHandle* basePtr = nullptr;
 	geoalgo::ShapeHandle baseOwned;
@@ -1908,6 +2148,7 @@ void PluginGeometryHostImpl::sweepSketchProfileToBrep(IPluginDocument* doc,
 			s.mz = p.mz;
 			sw->pathSegments.push_back(s);
 		}
+		storeProfileSegments(*sw, params.profileSegments);
 		sw->twistDeg = params.twistDeg;
 	}
 
@@ -1993,7 +2234,7 @@ void PluginGeometryHostImpl::filletEdgesToBrep(IPluginDocument* doc, const Plugi
 		onFinished(false, QStringLiteral("No active document"), {});
 		return;
 	}
-	if (params.edgeIndices.empty() && !params.allEdges)
+	if (params.edgeIndices.empty() && !params.allEdges && params.edgeSelectUtf8.empty())
 	{
 		onFinished(false, QStringLiteral("No edges selected"), {});
 		return;
@@ -2007,7 +2248,23 @@ void PluginGeometryHostImpl::filletEdgesToBrep(IPluginDocument* doc, const Plugi
 	}
 
 	std::vector<int> edges = params.edgeIndices;
-	if (params.allEdges)
+	if (!params.edgeSelectUtf8.empty() && !params.allEdges)
+	{
+		edges.clear();
+		std::string selErr;
+		const bool okSel =
+			(params.edgeSelectUtf8 == "top_boundary")
+				? geoalgo::selectTopBoundaryEdgeIndices(body->worldShape(), edges, &selErr)
+				: geoalgo::selectLongestEdgeIndices(body->worldShape(),
+													params.edgeSelectCount > 0 ? params.edgeSelectCount : 4, edges,
+													&selErr);
+		if (!okSel || edges.empty())
+		{
+			onFinished(false, QString::fromStdString(selErr.empty() ? "edge select failed" : selErr), {});
+			return;
+		}
+	}
+	else if (params.allEdges)
 	{
 		edges.clear();
 		const int n = geoalgo::shapeHandleEdgeCount(body->worldShape());
@@ -2080,7 +2337,7 @@ void PluginGeometryHostImpl::chamferEdgesToBrep(IPluginDocument* doc, const Plug
 		onFinished(false, QStringLiteral("No active document"), {});
 		return;
 	}
-	if (params.edgeIndices.empty() && !params.allEdges)
+	if (params.edgeIndices.empty() && !params.allEdges && params.edgeSelectUtf8.empty())
 	{
 		onFinished(false, QStringLiteral("No edges selected"), {});
 		return;
@@ -2094,7 +2351,23 @@ void PluginGeometryHostImpl::chamferEdgesToBrep(IPluginDocument* doc, const Plug
 	}
 
 	std::vector<int> edges = params.edgeIndices;
-	if (params.allEdges)
+	if (!params.edgeSelectUtf8.empty() && !params.allEdges)
+	{
+		edges.clear();
+		std::string selErr;
+		const bool okSel =
+			(params.edgeSelectUtf8 == "top_boundary")
+				? geoalgo::selectTopBoundaryEdgeIndices(body->worldShape(), edges, &selErr)
+				: geoalgo::selectLongestEdgeIndices(body->worldShape(),
+													params.edgeSelectCount > 0 ? params.edgeSelectCount : 4, edges,
+													&selErr);
+		if (!okSel || edges.empty())
+		{
+			onFinished(false, QString::fromStdString(selErr.empty() ? "edge select failed" : selErr), {});
+			return;
+		}
+	}
+	else if (params.allEdges)
 	{
 		edges.clear();
 		const int n = geoalgo::shapeHandleEdgeCount(body->worldShape());
@@ -2250,30 +2523,19 @@ void PluginGeometryHostImpl::revolveSketchProfileToBrep(IPluginDocument* doc,
 bool PluginGeometryHostImpl::previewLinearPattern(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
 												  QString* errOut)
 {
-	auto fail = [&](const QString& msg) -> bool
-	{
-		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
-		if (errOut)
-			*errOut = msg;
-		if (m_host && !msg.isEmpty())
-			m_host->logWarn(QStringLiteral("[LinearPattern preview] %1").arg(msg));
-		return false;
-	};
-
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
-		return fail(QStringLiteral("No viewport"));
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"), QStringLiteral("No viewport"),
+								   errOut);
 	if (params.count < 2)
-		return fail(QStringLiteral("Pattern count must be >= 2"));
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"),
+								   QStringLiteral("Pattern count must be >= 2"), errOut);
 
 	QString bodyErr;
 	const auto body = parametricBodyWithTip(page, params.targetParametricBackendIdUtf8, &bodyErr);
 	if (!body)
-		return fail(bodyErr);
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"), bodyErr, errOut);
 
 	geoalgo::SketchLinearPatternParams pp;
 	pp.count = params.count;
@@ -2281,22 +2543,24 @@ bool PluginGeometryHostImpl::previewLinearPattern(IPluginDocument* doc, const Pl
 	pp.dyMm = params.dyMm;
 	pp.dzMm = params.dzMm;
 
-	geoalgo::ShapeHandle seed = body->worldShape();
-	if (!params.sourceFeatureIdUtf8.empty())
-	{
-		const geoalgo::ShapeHandle src = body->tipAfterFeature(params.sourceFeatureIdUtf8);
-		if (src.isNull())
-			return fail(QStringLiteral("Source feature tip unavailable (rebuild body first)"));
-		seed = src;
-	}
+	geoalgo::ShapeHandle seed;
+	geoalgo::ShapeHandle tipCopy;
+	const geoalgo::ShapeHandle* fuseOnto = nullptr;
+	QString seedErr;
+	if (!resolvePatternSeed(*body, params.sourceFeatureIdUtf8, seed, tipCopy, fuseOnto, &seedErr))
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"), seedErr, errOut);
 
 	geoalgo::ShapeHandle result;
 	std::string err;
-	if (!geoalgo::linearPatternBodyToHandle(seed, pp, result, &err) || result.isNull())
-		return fail(QString::fromStdString(err.empty() ? "LinearPattern failed" : err));
+	if (!geoalgo::linearPatternBodyToHandle(seed, pp, result, &err, fuseOnto) || result.isNull())
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"),
+								   QString::fromStdString(err.empty() ? "LinearPattern failed" : err), errOut);
 
 	const osg::Vec4 rgba(0.55f, 0.55f, 0.95f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut) ? true : fail(errOut ? *errOut : QStringLiteral("preview failed"));
+	return previewShapeStaging(osg, result, rgba, errOut)
+			   ? true
+			   : clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"),
+									 errOut ? *errOut : QStringLiteral("preview failed"), errOut);
 }
 
 void PluginGeometryHostImpl::linearPatternBodyToBrep(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
@@ -2324,6 +2588,88 @@ void PluginGeometryHostImpl::linearPatternBodyToBrep(IPluginDocument* doc, const
 	}
 
 	body->addLinearPattern(params.count, params.dxMm, params.dyMm, params.dzMm, params.sourceFeatureIdUtf8);
+	std::string rebuildErr;
+	if (!body->rebuild(&rebuildErr))
+	{
+		onFinished(false, QString::fromStdString(rebuildErr.empty() ? "rebuild failed" : rebuildErr), {});
+		return;
+	}
+	finishParametricBodyJob(m_host, page, body, false, std::move(onFinished));
+}
+
+bool PluginGeometryHostImpl::previewCircularPattern(IPluginDocument* doc, const PluginSketchCircularPatternParams& params,
+													QString* errOut)
+{
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	if (!osg)
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"), QStringLiteral("No viewport"),
+								   errOut);
+	if (params.count < 2)
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"),
+								   QStringLiteral("Pattern count must be >= 2"), errOut);
+
+	QString bodyErr;
+	const auto body = parametricBodyWithTip(page, params.targetParametricBackendIdUtf8, &bodyErr);
+	if (!body)
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"), bodyErr, errOut);
+
+	geoalgo::ShapeHandle seed;
+	geoalgo::ShapeHandle tipCopy;
+	const geoalgo::ShapeHandle* fuseOnto = nullptr;
+	QString seedErr;
+	if (!resolvePatternSeed(*body, params.sourceFeatureIdUtf8, seed, tipCopy, fuseOnto, &seedErr))
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"), seedErr, errOut);
+
+	geoalgo::SketchCircularPatternParams pp;
+	pp.count = params.count;
+	pp.angleDeg = params.angleDeg;
+	pp.axisOx = params.axisOx;
+	pp.axisOy = params.axisOy;
+	pp.axisOz = params.axisOz;
+	pp.axisDx = params.axisDx;
+	pp.axisDy = params.axisDy;
+	pp.axisDz = params.axisDz;
+
+	geoalgo::ShapeHandle result;
+	std::string err;
+	if (!geoalgo::circularPatternBodyToHandle(seed, pp, result, &err, fuseOnto) || result.isNull())
+		return clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"),
+								   QString::fromStdString(err.empty() ? "CircularPattern failed" : err), errOut);
+
+	const osg::Vec4 rgba(0.55f, 0.75f, 0.95f, 0.35f);
+	return previewShapeStaging(osg, result, rgba, errOut)
+			   ? true
+			   : clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"),
+									 errOut ? *errOut : QStringLiteral("preview failed"), errOut);
+}
+
+void PluginGeometryHostImpl::circularPatternBodyToBrep(IPluginDocument* doc, const PluginSketchCircularPatternParams& params,
+													   PluginGeometryFinishedFn onFinished)
+{
+	if (!onFinished)
+		return;
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!page || !m_host || !m_host->mainWindowHost())
+	{
+		onFinished(false, QStringLiteral("No active document"), {});
+		return;
+	}
+	if (params.count < 2)
+	{
+		onFinished(false, QStringLiteral("Pattern count must be >= 2"), {});
+		return;
+	}
+
+	auto body = parametricBodyWithTip(page, params.targetParametricBackendIdUtf8);
+	if (!body)
+	{
+		onFinished(false, QStringLiteral("Parametric Body not found or has no solid tip"), {});
+		return;
+	}
+
+	body->addCircularPattern(params.count, params.angleDeg, params.axisOx, params.axisOy, params.axisOz, params.axisDx,
+							 params.axisDy, params.axisDz, params.sourceFeatureIdUtf8);
 	std::string rebuildErr;
 	if (!body->rebuild(&rebuildErr))
 	{
@@ -2747,6 +3093,77 @@ void PluginGeometryHostImpl::projectBrepToEngineeringDrawing(IPluginDocument* do
 		return;
 	}
 
+	struct DrawingJobKey
+	{
+		int pipelineVersion = 3; // 离散优先，失效解析假圆缓存
+		std::string backendId;
+		bool thirdAngle = false;
+		bool includeIso = false;
+		bool includeSection = false;
+		bool customSection = false;
+		bool coarseView = false;
+		int sectionPlane = 0;
+		long long ox = 0, oy = 0, oz = 0, nx = 0, ny = 0, nz = 0;
+		bool operator==(const DrawingJobKey& o) const
+		{
+			return pipelineVersion == o.pipelineVersion && backendId == o.backendId && thirdAngle == o.thirdAngle &&
+				   includeIso == o.includeIso && includeSection == o.includeSection &&
+				   customSection == o.customSection && coarseView == o.coarseView && sectionPlane == o.sectionPlane &&
+				   ox == o.ox && oy == o.oy && oz == o.oz && nx == o.nx && ny == o.ny && nz == o.nz;
+		}
+	};
+	auto makeKey = [&](const PluginDrawingProjectParams& p) {
+		DrawingJobKey k;
+		k.pipelineVersion = 3;
+		k.backendId = backendIdUtf8;
+		k.thirdAngle = p.thirdAngle;
+		k.includeIso = p.includeIso;
+		k.includeSection = p.includeSection;
+		k.customSection = p.customSection;
+		k.coarseView = p.coarseView;
+		k.sectionPlane = p.sectionPlane;
+		auto q = [](double v) { return static_cast<long long>(std::llround(v * 1000.0)); };
+		k.ox = q(p.sectionOriginMm[0]);
+		k.oy = q(p.sectionOriginMm[1]);
+		k.oz = q(p.sectionOriginMm[2]);
+		k.nx = q(p.sectionNormal[0]);
+		k.ny = q(p.sectionNormal[1]);
+		k.nz = q(p.sectionNormal[2]);
+		return k;
+	};
+	const DrawingJobKey jobKey = makeKey(params);
+
+	struct DrawingJobSlot
+	{
+		DrawingJobKey key;
+		bool running = false;
+		PluginDrawingHlrResult cached;
+		bool hasCache = false;
+		std::vector<PluginDrawingHlrFinishedFn> waiters;
+	};
+	static std::mutex s_drawingJobMutex;
+	static std::vector<DrawingJobSlot> s_drawingJobs;
+
+	{
+		std::lock_guard<std::mutex> lock(s_drawingJobMutex);
+		for (DrawingJobSlot& slot : s_drawingJobs)
+		{
+			if (!(slot.key == jobKey))
+				continue;
+			if (slot.hasCache)
+			{
+				onFinished(true, QString(), slot.cached);
+				return;
+			}
+			if (slot.running)
+			{
+				// 合并同参数请求，避免重复 HLR
+				slot.waiters.push_back(std::move(onFinished));
+				return;
+			}
+		}
+	}
+
 	struct HlrWorkResult
 	{
 		geoalgo::HlrDrawingBundle bundle;
@@ -2756,15 +3173,52 @@ void PluginGeometryHostImpl::projectBrepToEngineeringDrawing(IPluginDocument* do
 	auto result = std::make_shared<HlrWorkResult>();
 	const PluginDrawingProjectParams jobParams = params;
 	const geoalgo::ShapeHandle shapeCopy = shape.clone();
+
+	{
+		std::lock_guard<std::mutex> lock(s_drawingJobMutex);
+		DrawingJobSlot* slot = nullptr;
+		for (DrawingJobSlot& s : s_drawingJobs)
+		{
+			if (s.key == jobKey)
+			{
+				slot = &s;
+				break;
+			}
+		}
+		if (!slot)
+		{
+			s_drawingJobs.push_back(DrawingJobSlot{});
+			slot = &s_drawingJobs.back();
+			slot->key = jobKey;
+		}
+		slot->running = true;
+		slot->hasCache = false;
+		slot->waiters.clear();
+		slot->waiters.push_back(std::move(onFinished));
+	}
+
 	m_host->enqueueJob(
 		QStringLiteral("Engineering drawing projection"),
 		[result, shapeCopy, jobParams](const PluginJobProgressFn& report)
 		{
 			report(0.2, QStringLiteral("HLR..."));
 			geoalgo::TessellateParams tess;
-			tess.linearDeflectionMm = 0.1;
+			// 工程图：尺度相关弦高；过密（0.5°/亚丝米）会让复杂模型 HLR 卡死
+			double diag = 100.0;
+			const geoalgo::ShapeHandle::BoundsMm bb = shapeCopy.boundingBoxMm();
+			if (bb.valid)
+			{
+				const double dx = bb.maxX - bb.minX;
+				const double dy = bb.maxY - bb.minY;
+				const double dz = bb.maxZ - bb.minZ;
+				diag = std::sqrt(dx * dx + dy * dy + dz * dz);
+				if (!(diag > 1e-9))
+					diag = 100.0;
+			}
+			tess.linearDeflectionMm = (std::max)(0.05, (std::min)(0.5, diag * 0.002));
 			tess.linearDeflectionRelative = false;
-			tess.angularDeflectionDeg = 0.5;
+			// 过粗转角会让圆呈折线且 HLR 短弧易丢
+			tess.angularDeflectionDeg = 4.0;
 			const geoalgo::HlrProjectionAngle angle =
 				jobParams.thirdAngle ? geoalgo::HlrProjectionAngle::Third : geoalgo::HlrProjectionAngle::First;
 			geoalgo::DrawingSectionPlane secPlane = geoalgo::DrawingSectionPlane::FrontParallel;
@@ -2772,58 +3226,86 @@ void PluginGeometryHostImpl::projectBrepToEngineeringDrawing(IPluginDocument* do
 				secPlane = geoalgo::DrawingSectionPlane::TopParallel;
 			else if (jobParams.sectionPlane == 2)
 				secPlane = geoalgo::DrawingSectionPlane::RightParallel;
+			geoalgo::DrawingHlrRunOptions opts;
+			opts.useMeshHlr = jobParams.coarseView;
+			opts.nbIso = 0;
 			result->ok = geoalgo::projectShapeHlrDrawingBundle(
 				shapeCopy, angle, jobParams.includeIso, jobParams.includeSection, secPlane, jobParams.customSection,
-				jobParams.sectionOriginMm, jobParams.sectionNormal, tess, result->bundle, &result->error);
+				jobParams.sectionOriginMm, jobParams.sectionNormal, tess, opts, result->bundle, &result->error);
 			report(1.0, QStringLiteral("Done"));
 		},
-		[result, onFinished = std::move(onFinished)](const bool threw, const QString& throwMessage)
+		[result, jobKey](const bool threw, const QString& throwMessage)
 		{
 			PluginDrawingHlrResult out;
+			bool ok = false;
+			QString err;
 			if (threw)
 			{
-				onFinished(false, throwMessage, out);
-				return;
+				err = throwMessage;
 			}
-			if (!result->ok)
+			else if (!result->ok)
 			{
-				onFinished(false, QString::fromStdString(result->error), out);
-				return;
+				err = QString::fromStdString(result->error);
+			}
+			else
+			{
+				auto packView = [](const char* id, const geoalgo::HlrViewPolylines& src) {
+					PluginDrawingHlrViewResult v;
+					v.viewId = id;
+					auto toXy = [](const std::vector<geoalgo::Polyline3d>& polys) {
+						std::vector<std::vector<float>> outPolys;
+						outPolys.reserve(polys.size());
+						for (const geoalgo::Polyline3d& p : polys)
+						{
+							std::vector<float> xy;
+							xy.reserve(p.xyz.size() * 2 / 3);
+							for (std::size_t i = 0; i + 2 < p.xyz.size(); i += 3)
+							{
+								xy.push_back(p.xyz[i]);
+								xy.push_back(p.xyz[i + 1]);
+							}
+							if (xy.size() >= 4)
+								outPolys.push_back(std::move(xy));
+						}
+						return outPolys;
+					};
+					v.visibleXy = toXy(src.visible);
+					v.hiddenXy = toXy(src.hidden);
+					return v;
+				};
+
+				out.views.push_back(packView("front", result->bundle.front));
+				out.views.push_back(packView("top", result->bundle.top));
+				out.views.push_back(packView("right", result->bundle.right));
+				if (result->bundle.hasIso)
+					out.views.push_back(packView("iso", result->bundle.iso));
+				if (result->bundle.hasSection)
+					out.views.push_back(packView("section", result->bundle.section));
+				ok = true;
 			}
 
-			auto packView = [](const char* id, const geoalgo::HlrViewPolylines& src) {
-				PluginDrawingHlrViewResult v;
-				v.viewId = id;
-				auto toXy = [](const std::vector<geoalgo::Polyline3d>& polys) {
-					std::vector<std::vector<float>> outPolys;
-					outPolys.reserve(polys.size());
-					for (const geoalgo::Polyline3d& p : polys)
+			std::vector<PluginDrawingHlrFinishedFn> waiters;
+			{
+				std::lock_guard<std::mutex> lock(s_drawingJobMutex);
+				for (DrawingJobSlot& slot : s_drawingJobs)
+				{
+					if (!(slot.key == jobKey))
+						continue;
+					slot.running = false;
+					if (ok)
 					{
-						std::vector<float> xy;
-						xy.reserve(p.xyz.size() * 2 / 3);
-						for (std::size_t i = 0; i + 2 < p.xyz.size(); i += 3)
-						{
-							xy.push_back(p.xyz[i]);
-							xy.push_back(p.xyz[i + 1]);
-						}
-						if (xy.size() >= 4)
-							outPolys.push_back(std::move(xy));
+						slot.cached = out;
+						slot.hasCache = true;
 					}
-					return outPolys;
-				};
-				v.visibleXy = toXy(src.visible);
-				v.hiddenXy = toXy(src.hidden);
-				return v;
-			};
-
-			out.views.push_back(packView("front", result->bundle.front));
-			out.views.push_back(packView("top", result->bundle.top));
-			out.views.push_back(packView("right", result->bundle.right));
-			if (result->bundle.hasIso)
-				out.views.push_back(packView("iso", result->bundle.iso));
-			if (result->bundle.hasSection)
-				out.views.push_back(packView("section", result->bundle.section));
-			onFinished(true, QString(), out);
+					waiters.swap(slot.waiters);
+					break;
+				}
+			}
+			for (PluginDrawingHlrFinishedFn& fn : waiters)
+			{
+				if (fn)
+					fn(ok, err, out);
+			}
 		});
 }
 

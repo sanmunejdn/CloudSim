@@ -242,6 +242,55 @@ struct ProfileBuild
 	std::string sketchJson;
 };
 
+nlohmann::json profileArgsForKey(const nlohmann::json& args, const char* key)
+{
+	nlohmann::json sub = nlohmann::json::object();
+	const std::string k = key;
+	if (k.empty())
+	{
+		if (args.contains("profile_xyz_mm") && args["profile_xyz_mm"].is_array())
+			sub["profile_xyz_mm"] = args["profile_xyz_mm"];
+		sub["profile"] = args.value("profile", "rectangle");
+		const char* keys[] = {"length_mm",	 "width_mm",	"radius_mm",	"diameter_mm",	"sides",
+							  "center_u_mm", "center_v_mm", "center_x_mm", "center_y_mm"};
+		for (const char* nk : keys)
+		{
+			if (args.contains(nk))
+				sub[nk] = args[nk];
+		}
+		if (args.contains("size_mm"))
+			sub["size_mm"] = args["size_mm"];
+		if (args.contains("dimensions_mm"))
+			sub["dimensions_mm"] = args["dimensions_mm"];
+		return sub;
+	}
+
+	const std::string xyzKey = k + "_xyz_mm";
+	if (args.contains(xyzKey) && args[xyzKey].is_array())
+		sub["profile_xyz_mm"] = args[xyzKey];
+	sub["profile"] = args.value(k, "rectangle");
+
+	const auto copyNum = [&](const char* dst, const char* srcPrefixed)
+	{
+		if (args.contains(srcPrefixed))
+			sub[dst] = args[srcPrefixed];
+	};
+	copyNum("length_mm", (k + "_length_mm").c_str());
+	copyNum("width_mm", (k + "_width_mm").c_str());
+	copyNum("radius_mm", (k + "_radius_mm").c_str());
+	copyNum("diameter_mm", (k + "_diameter_mm").c_str());
+	copyNum("sides", (k + "_sides").c_str());
+	copyNum("center_u_mm", (k + "_center_u_mm").c_str());
+	copyNum("center_v_mm", (k + "_center_v_mm").c_str());
+	copyNum("center_x_mm", (k + "_center_x_mm").c_str());
+	copyNum("center_y_mm", (k + "_center_y_mm").c_str());
+	if (args.contains(k + "_size_mm"))
+		sub["size_mm"] = args[k + "_size_mm"];
+	if (args.contains(k + "_dimensions_mm"))
+		sub["dimensions_mm"] = args[k + "_dimensions_mm"];
+	return sub;
+}
+
 bool parseProfile(const nlohmann::json& args, ProfileBuild& out, QString* outError)
 {
 	out = {};
@@ -336,6 +385,118 @@ bool parseProfile(const nlohmann::json& args, ProfileBuild& out, QString* outErr
 	return false;
 }
 
+bool parseProfileKey(const nlohmann::json& args, const char* key, ProfileBuild& out, QString* outError)
+{
+	return parseProfile(profileArgsForKey(args, key), out, outError);
+}
+
+struct PathBuild
+{
+	std::vector<float> polyline;
+	std::string sketchJson;
+};
+
+bool parsePath(const nlohmann::json& args, PathBuild& out, QString* outError)
+{
+	out = {};
+	if (args.contains("path_xyz_mm") && args["path_xyz_mm"].is_array())
+	{
+		for (const auto& v : args["path_xyz_mm"])
+		{
+			if (v.is_number())
+				out.polyline.push_back(static_cast<float>(v.get<double>()));
+		}
+		if (out.polyline.size() < 6)
+		{
+			if (outError)
+				*outError = QStringLiteral("path_xyz_mm too short");
+			return false;
+		}
+		out.sketchJson = sketchJsonFromPolylineXy(out.polyline);
+		return true;
+	}
+
+	const std::string path = args.value("path", args.value("path_profile", "line_z"));
+	if (path == "line_z" || path == "line")
+	{
+		const double dx = args.value("path_dx_mm", 0.0);
+		const double dy = args.value("path_dy_mm", 0.0);
+		double dz = args.value("path_dz_mm", 0.0);
+		if (path == "line_z" && dz == 0.0)
+			dz = args.value("path_length_mm", args.value("length_mm", 50.0));
+		if (dx == 0.0 && dy == 0.0 && dz == 0.0)
+		{
+			if (outError)
+				*outError = QStringLiteral("path needs path_length_mm or path_dx/dy/dz_mm");
+			return false;
+		}
+		out.polyline = {0.f, 0.f, 0.f, static_cast<float>(dx), static_cast<float>(dy), static_cast<float>(dz)};
+		out.sketchJson = sketchJsonFromPolylineXy(out.polyline);
+		return true;
+	}
+
+	if (outError)
+		*outError = QStringLiteral("Unknown path; use line_z|line or path_xyz_mm");
+	return false;
+}
+
+bool parseFaceIndices(const nlohmann::json& args, std::vector<int>& out, QString* outError)
+{
+	out.clear();
+	if (!args.contains("face_indices") || !args["face_indices"].is_array() || args["face_indices"].empty())
+	{
+		if (outError)
+			*outError = QStringLiteral("face_indices int[] required");
+		return false;
+	}
+	for (const auto& v : args["face_indices"])
+	{
+		if (v.is_number_integer())
+			out.push_back(v.get<int>());
+		else if (v.is_number())
+			out.push_back(static_cast<int>(v.get<double>()));
+	}
+	return !out.empty();
+}
+
+PluginSketchPlane parseNeutralPlane(const nlohmann::json& args)
+{
+	PluginSketchPlane p;
+	if (!args.contains("neutral_ox") && !args.contains("neutral_oy") && !args.contains("neutral_oz") &&
+		!args.contains("neutral_nx") && !args.contains("neutral_ny") && !args.contains("neutral_nz"))
+		return p;
+	p.isPlanar = true;
+	p.origin = {args.value("neutral_ox", 0.0), args.value("neutral_oy", 0.0), args.value("neutral_oz", 0.0)};
+	p.normal = {args.value("neutral_nx", 0.0), args.value("neutral_ny", 0.0), args.value("neutral_nz", 1.0)};
+	p.axisX = {1, 0, 0};
+	p.axisY = {0, 1, 0};
+	return p;
+}
+
+PluginSketchPlane xyPlaneAtZ(double z)
+{
+	PluginSketchPlane p = defaultXyPlane();
+	p.origin = {0, 0, static_cast<float>(z)};
+	return p;
+}
+
+/// 草图 UV 折线 → 世界坐标（与插件 loadSketchPolyline 对齐）
+std::vector<float> polylineOnPlane(const std::vector<float>& uvz, const PluginSketchPlane& pl)
+{
+	std::vector<float> out;
+	out.reserve(uvz.size());
+	for (size_t i = 0; i + 2 < uvz.size(); i += 3)
+	{
+		const double u = uvz[i];
+		const double v = uvz[i + 1];
+		const double w = uvz[i + 2];
+		out.push_back(static_cast<float>(pl.origin.x + pl.axisX.x * u + pl.axisY.x * v + pl.normal.x * w));
+		out.push_back(static_cast<float>(pl.origin.y + pl.axisX.y * u + pl.axisY.y * v + pl.normal.y * w));
+		out.push_back(static_cast<float>(pl.origin.z + pl.axisX.z * u + pl.axisY.z * v + pl.normal.z * w));
+	}
+	return out;
+}
+
 QString resolveTarget(const nlohmann::json& args, const QHash<QString, QString>& stepIdToBackendId, QString* outError)
 {
 	const std::string ref = args.value("target", "");
@@ -374,7 +535,7 @@ bool executeExtrude(PluginHostContext& host, const nlohmann::json& args, const s
 	}
 
 	ProfileBuild profile;
-	if (!parseProfile(args, profile, outError))
+	if (!parseProfileKey(args, "", profile, outError))
 		return false;
 
 	const std::string mode = args.value("mode", "pad");
@@ -442,8 +603,13 @@ bool executeFillet(PluginHostContext& host, const nlohmann::json& args, const st
 	PluginSketchFilletParams p;
 	p.targetParametricBackendIdUtf8 = target.toStdString();
 	p.radiusMm = args.value("radius_mm", 1.0);
-	const std::string edges = args.value("edges", "");
+	const std::string edges = args.value("edges", "longest");
 	p.allEdges = (edges == "all");
+	if (edges == "longest" || edges == "top_boundary")
+	{
+		p.edgeSelectUtf8 = edges;
+		p.edgeSelectCount = args.value("edge_count", 4);
+	}
 	if (args.contains("edge_indices") && args["edge_indices"].is_array())
 	{
 		for (const auto& v : args["edge_indices"])
@@ -453,11 +619,12 @@ bool executeFillet(PluginHostContext& host, const nlohmann::json& args, const st
 			else if (v.is_number())
 				p.edgeIndices.push_back(static_cast<int>(v.get<double>()));
 		}
+		p.edgeSelectUtf8.clear();
 	}
-	if (p.edgeIndices.empty() && !p.allEdges)
+	if (p.edgeIndices.empty() && !p.allEdges && p.edgeSelectUtf8.empty())
 	{
 		if (outError)
-			*outError = QStringLiteral("fillet needs edge_indices or edges=all");
+			*outError = QStringLiteral("fillet needs edge_indices or edges=all|longest|top_boundary");
 		return false;
 	}
 
@@ -490,8 +657,13 @@ bool executeChamfer(PluginHostContext& host, const nlohmann::json& args, const s
 	PluginSketchChamferParams p;
 	p.targetParametricBackendIdUtf8 = target.toStdString();
 	p.distanceMm = args.value("distance_mm", args.value("chamfer_mm", 1.0));
-	const std::string edges = args.value("edges", "");
+	const std::string edges = args.value("edges", "longest");
 	p.allEdges = (edges == "all");
+	if (edges == "longest" || edges == "top_boundary")
+	{
+		p.edgeSelectUtf8 = edges;
+		p.edgeSelectCount = args.value("edge_count", 4);
+	}
 	if (args.contains("edge_indices") && args["edge_indices"].is_array())
 	{
 		for (const auto& v : args["edge_indices"])
@@ -501,11 +673,12 @@ bool executeChamfer(PluginHostContext& host, const nlohmann::json& args, const s
 			else if (v.is_number())
 				p.edgeIndices.push_back(static_cast<int>(v.get<double>()));
 		}
+		p.edgeSelectUtf8.clear();
 	}
-	if (p.edgeIndices.empty() && !p.allEdges)
+	if (p.edgeIndices.empty() && !p.allEdges && p.edgeSelectUtf8.empty())
 	{
 		if (outError)
-			*outError = QStringLiteral("chamfer needs edge_indices or edges=all");
+			*outError = QStringLiteral("chamfer needs edge_indices or edges=all|longest|top_boundary");
 		return false;
 	}
 
@@ -532,7 +705,7 @@ bool executeRevolve(PluginHostContext& host, const nlohmann::json& args, const s
 	}
 
 	ProfileBuild profile;
-	if (!parseProfile(args, profile, outError))
+	if (!parseProfileKey(args, "", profile, outError))
 		return false;
 
 	PluginSketchRevolveParams p;
@@ -612,6 +785,224 @@ bool executePattern(PluginHostContext& host, const nlohmann::json& args, const s
 		stepIdToBackendId[QString::fromStdString(stepId)] = target;
 	return true;
 }
+
+bool executeSweep(PluginHostContext& host, const nlohmann::json& args, const std::string& stepId,
+				  QHash<QString, QString>& stepIdToBackendId, QString* outError)
+{
+	IPluginDocument* doc = host.activeDocument();
+	IPluginGeometryHost* geo = host.geometryHost();
+	if (!doc || !geo)
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document or geometry host.");
+		return false;
+	}
+
+	ProfileBuild profile;
+	if (!parseProfileKey(args, "", profile, outError))
+		return false;
+	PathBuild path;
+	if (!parsePath(args, path, outError))
+		return false;
+
+	PluginSketchSweepParams p;
+	p.mode = (args.value("mode", "boss") == "cut") ? PluginSketchSweepMode::Cut : PluginSketchSweepMode::Boss;
+	p.profilePlane = defaultXyPlane();
+	p.pathPlane = defaultXyPlane();
+	p.twistDeg = args.value("twist_deg", 0.0);
+	if (args.contains("name") && args["name"].is_string())
+		p.resultNameUtf8 = args["name"].get<std::string>();
+	if (!profile.sketchJson.empty())
+		p.profileSketchDocumentJsonUtf8 = profile.sketchJson;
+	if (!path.sketchJson.empty())
+		p.pathSketchDocumentJsonUtf8 = path.sketchJson;
+
+	const QString target = resolveTarget(args, stepIdToBackendId, outError);
+	if (p.mode == PluginSketchSweepMode::Cut)
+	{
+		if (target.isEmpty())
+			return false;
+		p.targetParametricBackendIdUtf8 = target.toStdString();
+	}
+	else if (!target.isEmpty())
+		p.targetParametricBackendIdUtf8 = target.toStdString();
+
+	PluginGeometryJobResult job;
+	if (!waitGeomJobResult(
+			[&](PluginGeometryFinishedFn cb)
+			{ geo->sweepSketchProfileToBrep(doc, profile.polyline, path.polyline, p, std::move(cb)); },
+			&job, outError))
+		return false;
+
+	if (!stepId.empty() && !job.newBackendId.empty())
+		stepIdToBackendId[QString::fromStdString(stepId)] = QString::fromStdString(job.newBackendId);
+	else if (!stepId.empty() && !target.isEmpty())
+		stepIdToBackendId[QString::fromStdString(stepId)] = target;
+	return true;
+}
+
+bool executeLoft(PluginHostContext& host, const nlohmann::json& args, const std::string& stepId,
+				 QHash<QString, QString>& stepIdToBackendId, QString* outError)
+{
+	IPluginDocument* doc = host.activeDocument();
+	IPluginGeometryHost* geo = host.geometryHost();
+	if (!doc || !geo)
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document or geometry host.");
+		return false;
+	}
+
+	ProfileBuild profileA;
+	ProfileBuild profileB;
+	if (!parseProfileKey(args, "profile_a", profileA, outError))
+		return false;
+	if (!parseProfileKey(args, "profile_b", profileB, outError))
+		return false;
+
+	PluginSketchLoftParams p;
+	p.mode = (args.value("mode", "boss") == "cut") ? PluginSketchLoftMode::Cut : PluginSketchLoftMode::Boss;
+	p.planeA = xyPlaneAtZ(args.value("profile_a_z_mm", args.value("plane_a_oz", 0.0)));
+	p.planeB = xyPlaneAtZ(args.value("profile_b_z_mm", args.value("plane_b_oz", 10.0)));
+	if (args.contains("name") && args["name"].is_string())
+		p.resultNameUtf8 = args["name"].get<std::string>();
+	if (!profileA.sketchJson.empty())
+		p.sketchADocumentJsonUtf8 = profileA.sketchJson;
+	if (!profileB.sketchJson.empty())
+		p.sketchBDocumentJsonUtf8 = profileB.sketchJson;
+
+	const QString target = resolveTarget(args, stepIdToBackendId, outError);
+	if (p.mode == PluginSketchLoftMode::Cut)
+	{
+		if (target.isEmpty())
+			return false;
+		p.targetParametricBackendIdUtf8 = target.toStdString();
+	}
+	else if (!target.isEmpty())
+		p.targetParametricBackendIdUtf8 = target.toStdString();
+
+	PluginGeometryJobResult job;
+	if (!waitGeomJobResult(
+			[&](PluginGeometryFinishedFn cb)
+			{
+				const std::vector<float> worldA = polylineOnPlane(profileA.polyline, p.planeA);
+				const std::vector<float> worldB = polylineOnPlane(profileB.polyline, p.planeB);
+				geo->loftSketchProfilesToBrep(doc, worldA, worldB, p, std::move(cb));
+			},
+			&job, outError))
+		return false;
+
+	if (!stepId.empty() && !job.newBackendId.empty())
+		stepIdToBackendId[QString::fromStdString(stepId)] = QString::fromStdString(job.newBackendId);
+	else if (!stepId.empty() && !target.isEmpty())
+		stepIdToBackendId[QString::fromStdString(stepId)] = target;
+	return true;
+}
+
+bool executeShell(PluginHostContext& host, const nlohmann::json& args, const std::string& stepId,
+				  QHash<QString, QString>& stepIdToBackendId, QString* outError)
+{
+	IPluginDocument* doc = host.activeDocument();
+	IPluginGeometryHost* geo = host.geometryHost();
+	if (!doc || !geo)
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document or geometry host.");
+		return false;
+	}
+
+	const QString target = resolveTarget(args, stepIdToBackendId, outError);
+	if (target.isEmpty())
+		return false;
+
+	PluginSketchShellParams p;
+	p.targetParametricBackendIdUtf8 = target.toStdString();
+	p.thicknessMm = args.value("thickness_mm", 1.0);
+	if (!parseFaceIndices(args, p.faceIndices, outError))
+		return false;
+
+	PluginGeometryJobResult job;
+	if (!waitGeomJobResult([&](PluginGeometryFinishedFn cb) { geo->shellFacesToBrep(doc, p, std::move(cb)); }, &job,
+						   outError))
+		return false;
+
+	if (!stepId.empty())
+		stepIdToBackendId[QString::fromStdString(stepId)] = target;
+	return true;
+}
+
+bool executeDraft(PluginHostContext& host, const nlohmann::json& args, const std::string& stepId,
+				  QHash<QString, QString>& stepIdToBackendId, QString* outError)
+{
+	IPluginDocument* doc = host.activeDocument();
+	IPluginGeometryHost* geo = host.geometryHost();
+	if (!doc || !geo)
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document or geometry host.");
+		return false;
+	}
+
+	const QString target = resolveTarget(args, stepIdToBackendId, outError);
+	if (target.isEmpty())
+		return false;
+
+	PluginSketchDraftParams p;
+	p.targetParametricBackendIdUtf8 = target.toStdString();
+	p.angleDeg = args.value("angle_deg", 1.0);
+	p.neutralPlane = parseNeutralPlane(args);
+	if (!parseFaceIndices(args, p.faceIndices, outError))
+		return false;
+
+	PluginGeometryJobResult job;
+	if (!waitGeomJobResult([&](PluginGeometryFinishedFn cb) { geo->draftFacesToBrep(doc, p, std::move(cb)); }, &job,
+						   outError))
+		return false;
+
+	if (!stepId.empty())
+		stepIdToBackendId[QString::fromStdString(stepId)] = target;
+	return true;
+}
+
+bool executeCircularPattern(PluginHostContext& host, const nlohmann::json& args, const std::string& stepId,
+							QHash<QString, QString>& stepIdToBackendId, QString* outError)
+{
+	IPluginDocument* doc = host.activeDocument();
+	IPluginGeometryHost* geo = host.geometryHost();
+	if (!doc || !geo)
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document or geometry host.");
+		return false;
+	}
+
+	const QString target = resolveTarget(args, stepIdToBackendId, outError);
+	if (target.isEmpty())
+		return false;
+
+	PluginSketchCircularPatternParams p;
+	p.targetParametricBackendIdUtf8 = target.toStdString();
+	p.count = args.value("count", 2);
+	p.angleDeg = args.value("angle_deg", 360.0);
+	p.axisOx = args.value("axis_ox", 0.0);
+	p.axisOy = args.value("axis_oy", 0.0);
+	p.axisOz = args.value("axis_oz", 0.0);
+	p.axisDx = args.value("axis_dx", 0.0);
+	p.axisDy = args.value("axis_dy", 0.0);
+	p.axisDz = args.value("axis_dz", 1.0);
+	if (args.contains("source_feature_id") && args["source_feature_id"].is_string())
+		p.sourceFeatureIdUtf8 = args["source_feature_id"].get<std::string>();
+
+	PluginGeometryJobResult job;
+	if (!waitGeomJobResult(
+			[&](PluginGeometryFinishedFn cb) { geo->circularPatternBodyToBrep(doc, p, std::move(cb)); }, &job,
+			outError))
+		return false;
+
+	if (!stepId.empty())
+		stepIdToBackendId[QString::fromStdString(stepId)] = target;
+	return true;
+}
 } // namespace
 
 namespace AiFeatureComposeSteps
@@ -664,6 +1055,51 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		{
 			if (outError && outError->isEmpty())
 				*outError = QStringLiteral("linearPatternBodyToBrep failed");
+		}
+		return true;
+	}
+	if (api == "sweepSketchProfileToBrep")
+	{
+		if (!executeSweep(host, args, stepId, stepIdToBackendId, outError))
+		{
+			if (outError && outError->isEmpty())
+				*outError = QStringLiteral("sweepSketchProfileToBrep failed");
+		}
+		return true;
+	}
+	if (api == "loftSketchProfilesToBrep")
+	{
+		if (!executeLoft(host, args, stepId, stepIdToBackendId, outError))
+		{
+			if (outError && outError->isEmpty())
+				*outError = QStringLiteral("loftSketchProfilesToBrep failed");
+		}
+		return true;
+	}
+	if (api == "shellFacesToBrep")
+	{
+		if (!executeShell(host, args, stepId, stepIdToBackendId, outError))
+		{
+			if (outError && outError->isEmpty())
+				*outError = QStringLiteral("shellFacesToBrep failed");
+		}
+		return true;
+	}
+	if (api == "draftFacesToBrep")
+	{
+		if (!executeDraft(host, args, stepId, stepIdToBackendId, outError))
+		{
+			if (outError && outError->isEmpty())
+				*outError = QStringLiteral("draftFacesToBrep failed");
+		}
+		return true;
+	}
+	if (api == "circularPatternBodyToBrep")
+	{
+		if (!executeCircularPattern(host, args, stepId, stepIdToBackendId, outError))
+		{
+			if (outError && outError->isEmpty())
+				*outError = QStringLiteral("circularPatternBodyToBrep failed");
 		}
 		return true;
 	}

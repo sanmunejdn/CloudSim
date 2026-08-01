@@ -3,6 +3,7 @@
 
 #include "ApplicationStyle.h"
 
+#include "ApplicationSettings.h"
 #include "UiIconDecorators.h"
 #include "UiIcons.h"
 
@@ -10,22 +11,10 @@
 #include <QColor>
 #include <QFont>
 #include <QPalette>
-#include <QSettings>
 #include <QStyleFactory>
 
 namespace
 {
-QString themeToString(ApplicationStyle::Theme t)
-{
-	return t == ApplicationStyle::Theme::Dark ? QStringLiteral("dark") : QStringLiteral("light");
-}
-
-ApplicationStyle::Theme themeFromString(const QString& s)
-{
-	return s.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0 ? ApplicationStyle::Theme::Dark
-																	   : ApplicationStyle::Theme::Light;
-}
-
 // 亮色主题：带微妙冷色调的专业配色
 QPalette makeLightPalette()
 {
@@ -1077,16 +1066,12 @@ void applyTheme(QApplication* app, Theme theme)
 
 Theme loadSavedTheme()
 {
-	QSettings settings;
-	settings.beginGroup(QStringLiteral("Appearance"));
-	return themeFromString(settings.value(QStringLiteral("theme"), QStringLiteral("light")).toString());
+	return ApplicationSettings::loadTheme();
 }
 
 void saveTheme(Theme theme)
 {
-	QSettings settings;
-	settings.beginGroup(QStringLiteral("Appearance"));
-	settings.setValue(QStringLiteral("theme"), themeToString(theme));
+	ApplicationSettings::saveTheme(theme);
 }
 
 bool usesDarkTheme()

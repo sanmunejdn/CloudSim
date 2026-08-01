@@ -14,6 +14,7 @@
 class DrawingPageWidget;
 class DrawingRibbonBar;
 class DrawingSidePanel;
+class DrawingInfoPanel;
 class QAction;
 class QJsonObject;
 class QMenu;
@@ -58,6 +59,7 @@ private:
 	QAction* m_enterAction = nullptr;
 	QAction* m_exitAction = nullptr;
 	QPointer<DrawingSidePanel> m_side;
+	QPointer<DrawingInfoPanel> m_info;
 	QPointer<DrawingRibbonBar> m_ribbon;
 	QHash<QString, QPointer<DrawingPageWidget>> m_pagesByDocId;
 	bool m_inDrawing = false;

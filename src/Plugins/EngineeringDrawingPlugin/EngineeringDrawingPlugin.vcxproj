@@ -91,20 +91,27 @@
     <QtMoc Include="inc\DrawingRibbonBar.h" />
     <QtMoc Include="inc\DrawingSidePanel.h" />
     <QtMoc Include="inc\DrawingInfoPanel.h" />
+    <QtMoc Include="inc\DimStyleDialog.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\DrawingExport.h" />
+    <ClInclude Include="inc\DrawingSheetModel.h" />
     <ClInclude Include="inc\SheetSketchAdapter.h" />
+    <ClInclude Include="inc\SheetSnapEngine.h" />
     <ClInclude Include="..\GeometricModelingPlugin\inc\SketchGeom.h" />
     <ClInclude Include="..\GeometricModelingPlugin\inc\SketchTools.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\EngineeringDrawingPlugin.cpp" />
     <ClCompile Include="source\DrawingSheetCanvasWidget.cpp" />
+    <ClCompile Include="source\DrawingSheetModel.cpp" />
+    <ClCompile Include="source\DrawingSheetCanvasCadExt.cpp" />
+    <ClCompile Include="source\SheetSnapEngine.cpp" />
     <ClCompile Include="source\DrawingPageWidget.cpp" />
     <ClCompile Include="source\DrawingRibbonBar.cpp" />
     <ClCompile Include="source\DrawingSidePanel.cpp" />
     <ClCompile Include="source\DrawingInfoPanel.cpp" />
+    <ClCompile Include="source\DimStyleDialog.cpp" />
     <ClCompile Include="source\DrawingExport.cpp" />
     <ClCompile Include="source\SheetSketchAdapter.cpp" />
     <ClCompile Include="..\GeometricModelingPlugin\source\SketchGeom.cpp" />

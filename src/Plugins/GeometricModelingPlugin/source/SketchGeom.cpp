@@ -93,9 +93,33 @@ int SketchDocument2d::addSpline(const std::vector<int>& throughPts, bool constru
 	SkSpline sp;
 	sp.id = nextId();
 	sp.throughPts = throughPts;
+	sp.mode = SkSplineMode::ThroughPoints;
 	sp.construction = construction;
 	m_splines.push_back(sp);
 	return sp.id;
+}
+
+bool SketchDocument2d::ensureSplineControlPoints(int splineId)
+{
+	SkSpline* sp = findSpline(splineId);
+	if (!sp || sp->throughPts.size() < 2)
+		return false;
+	if (sp->controlPts.size() >= 2)
+		return true;
+	// 无 OCC：以过点为初始极点，足够支撑拖拽编辑
+	sp->controlPts = sp->throughPts;
+	return true;
+}
+
+bool SketchDocument2d::setSplineMode(int splineId, SkSplineMode mode)
+{
+	SkSpline* sp = findSpline(splineId);
+	if (!sp)
+		return false;
+	if (mode == SkSplineMode::ControlPoints && !ensureSplineControlPoints(splineId))
+		return false;
+	sp->mode = mode;
+	return true;
 }
 
 void SketchDocument2d::addConstraint(const SkConstraint& c)
@@ -544,8 +568,13 @@ bool offsetClosedUv(const std::vector<SkVec2>& poly, double dist, std::vector<Sk
 		return true;
 	};
 
+	// 尖角 miter 过长时切成 bevel，避免 spike；仍自交则由调用方拒绝
+	constexpr double kMiterLimit = 4.0;
+	const double absOff = std::abs(signedOff);
+	const double maxMiter = absOff * kMiterLimit;
+
 	out.clear();
-	out.reserve(n);
+	out.reserve(n * 2);
 	for (std::size_t i = 0; i < n; ++i)
 	{
 		const std::size_t im = (i + n - 1) % n;
@@ -558,15 +587,38 @@ bool offsetClosedUv(const std::vector<SkVec2>& poly, double dist, std::vector<Sk
 		const SkVec2 e1{p2.u - p1.u, p2.v - p1.v};
 		const SkVec2 n0 = edgeNormal(p0, p1, true);
 		const SkVec2 n1 = edgeNormal(p1, p2, true);
+		if ((n0.u * n0.u + n0.v * n0.v) < 1e-24 || (n1.u * n1.u + n1.v * n1.v) < 1e-24)
+		{
+			if (err)
+				*err = "degenerate edge in offset";
+			return false;
+		}
 		const SkVec2 q0{p0.u + n0.u * signedOff, p0.v + n0.v * signedOff};
 		const SkVec2 q1{p1.u + n1.u * signedOff, p1.v + n1.v * signedOff};
+		const SkVec2 bevelA{p1.u + n0.u * signedOff, p1.v + n0.v * signedOff};
+		const SkVec2 bevelB{p1.u + n1.u * signedOff, p1.v + n1.v * signedOff};
 
 		SkVec2 vtx;
-		if (!intersectLines(q0, e0, q1, e1, vtx))
-			vtx = {p1.u + n1.u * signedOff, p1.v + n1.v * signedOff};
-		out.push_back(vtx);
+		const bool hit = intersectLines(q0, e0, q1, e1, vtx);
+		const double du = vtx.u - p1.u;
+		const double dv = vtx.v - p1.v;
+		const double miterLen = std::sqrt(du * du + dv * dv);
+		if (!hit || miterLen > maxMiter + 1e-9)
+		{
+			out.push_back(bevelA);
+			if ((bevelA.u - bevelB.u) * (bevelA.u - bevelB.u) + (bevelA.v - bevelB.v) * (bevelA.v - bevelB.v) > 1e-16)
+				out.push_back(bevelB);
+		}
+		else
+			out.push_back(vtx);
 	}
-	return out.size() >= 3;
+	if (out.size() < 3)
+	{
+		if (err)
+			*err = "offset collapsed";
+		return false;
+	}
+	return true;
 }
 
 bool closedPolylineSelfIntersectsUv(const std::vector<SkVec2>& poly, double eps)
@@ -625,9 +677,11 @@ bool closedPolylineSelfIntersectsUv(const std::vector<SkVec2>& poly, double eps)
 
 bool SketchDocument2d::sampleSplineUv(const SkSpline& sp, std::vector<SkVec2>& out, int segsPerSpan) const
 {
+	const std::vector<int>& ids =
+		(sp.mode == SkSplineMode::ControlPoints && sp.controlPts.size() >= 2) ? sp.controlPts : sp.throughPts;
 	std::vector<SkVec2> through;
-	through.reserve(sp.throughPts.size());
-	for (int pid : sp.throughPts)
+	through.reserve(ids.size());
+	for (int pid : ids)
 	{
 		const SkPoint* p = findPoint(pid);
 		if (!p)
@@ -643,6 +697,11 @@ bool SketchDocument2d::isSplineThroughPoint(int pointId) const
 	for (const SkSpline& sp : m_splines)
 	{
 		for (int tid : sp.throughPts)
+		{
+			if (tid == pointId)
+				return true;
+		}
+		for (int tid : sp.controlPts)
 		{
 			if (tid == pointId)
 				return true;
@@ -1063,6 +1122,227 @@ bool SketchDocument2d::exportOpenPathSegments(const PluginSketchPlane& plane,
 	return !outSegs.empty();
 }
 
+bool SketchDocument2d::exportClosedProfileSegments(const PluginSketchPlane& plane,
+												   std::vector<PluginSketchSweepPathSegment>& outSegs,
+												   std::string* err) const
+{
+	outSegs.clear();
+
+	auto countSolid = [](const auto& container)
+	{
+		int n = 0;
+		for (const auto& item : container)
+		{
+			if (!item.construction)
+				++n;
+		}
+		return n;
+	};
+
+	const int solidCircles = countSolid(m_circles);
+	const int solidEllipses = countSolid(m_ellipses);
+	const int solidLines = countSolid(m_lines);
+	const int solidArcs = countSolid(m_arcs);
+	const int solidSplines = countSolid(m_splines);
+
+	if (solidLines == 0 && solidArcs == 0 && solidSplines == 0 && solidCircles == 1 && solidEllipses == 0)
+	{
+		const SkCircle* only = nullptr;
+		for (const auto& c : m_circles)
+		{
+			if (!c.construction)
+			{
+				only = &c;
+				break;
+			}
+		}
+		const SkPoint* cen = only ? findPoint(only->center) : nullptr;
+		if (!cen || only->radius < 1e-6)
+		{
+			if (err)
+				*err = "invalid circle";
+			return false;
+		}
+		const PluginPoint3d wc = uvToWorld(plane, cen->p);
+		PluginSketchSweepPathSegment s;
+		s.kind = PluginSketchSweepPathSegKind::Circle;
+		s.ax = static_cast<float>(wc.x);
+		s.ay = static_cast<float>(wc.y);
+		s.az = static_cast<float>(wc.z);
+		s.bx = static_cast<float>(only->radius);
+		s.mx = static_cast<float>(plane.normal.x);
+		s.my = static_cast<float>(plane.normal.y);
+		s.mz = static_cast<float>(plane.normal.z);
+		outSegs.push_back(s);
+		return true;
+	}
+
+	if (solidLines == 0 && solidArcs == 0 && solidSplines == 0 && solidEllipses == 1 && solidCircles == 0)
+	{
+		const SkEllipse* only = nullptr;
+		for (const auto& e : m_ellipses)
+		{
+			if (!e.construction)
+			{
+				only = &e;
+				break;
+			}
+		}
+		const SkPoint* cen = only ? findPoint(only->center) : nullptr;
+		if (!cen || only->majorR < 1e-6 || only->minorR < 1e-6)
+		{
+			if (err)
+				*err = "invalid ellipse";
+			return false;
+		}
+		const PluginPoint3d wc = uvToWorld(plane, cen->p);
+		PluginSketchSweepPathSegment s;
+		s.kind = PluginSketchSweepPathSegKind::Ellipse;
+		s.ax = static_cast<float>(wc.x);
+		s.ay = static_cast<float>(wc.y);
+		s.az = static_cast<float>(wc.z);
+		s.bx = static_cast<float>(only->majorR);
+		s.by = static_cast<float>(only->minorR);
+		s.bz = static_cast<float>(only->angleRad);
+		s.mx = static_cast<float>(plane.normal.x);
+		s.my = static_cast<float>(plane.normal.y);
+		s.mz = static_cast<float>(plane.normal.z);
+		outSegs.push_back(s);
+		return true;
+	}
+
+	// 线+弧闭环（与开放路径同序，但要求首尾闭合）
+	struct SegUv
+	{
+		enum class Kind
+		{
+			Line = 0,
+			Arc
+		};
+		Kind kind = Kind::Line;
+		SkVec2 a{};
+		SkVec2 b{};
+		SkVec2 m{};
+	};
+	std::vector<SegUv> segs;
+	for (const auto& ln : m_lines)
+	{
+		if (ln.construction)
+			continue;
+		const SkPoint* p1 = findPoint(ln.p1);
+		const SkPoint* p2 = findPoint(ln.p2);
+		if (!p1 || !p2)
+			continue;
+		segs.push_back({SegUv::Kind::Line, p1->p, p2->p, {}});
+	}
+	for (const auto& arc : m_arcs)
+	{
+		if (arc.construction)
+			continue;
+		const SkPoint* s = findPoint(arc.pStart);
+		const SkPoint* m = findPoint(arc.pMid);
+		const SkPoint* e = findPoint(arc.pEnd);
+		if (!s || !m || !e)
+			continue;
+		segs.push_back({SegUv::Kind::Arc, s->p, e->p, m->p});
+	}
+	if (segs.empty())
+	{
+		if (err)
+			*err = "no closed profile segments";
+		return false;
+	}
+
+	std::vector<char> used(segs.size(), 0);
+	std::vector<SegUv> ordered;
+	ordered.push_back(segs[0]);
+	used[0] = 1;
+	SkVec2 head = segs[0].a;
+	SkVec2 tip = segs[0].b;
+
+	auto tryExtend = [&](SkVec2& endPt, bool prepend) -> bool
+	{
+		for (std::size_t i = 0; i < segs.size(); ++i)
+		{
+			if (used[i])
+				continue;
+			const bool atA = skDist(endPt, segs[i].a) < 1e-4;
+			const bool atB = skDist(endPt, segs[i].b) < 1e-4;
+			if (!atA && !atB)
+				continue;
+			used[i] = 1;
+			SegUv chunk = segs[i];
+			if (atB)
+			{
+				std::swap(chunk.a, chunk.b);
+				endPt = segs[i].a;
+			}
+			else
+			{
+				endPt = segs[i].b;
+			}
+			if (prepend)
+				ordered.insert(ordered.begin(), chunk);
+			else
+				ordered.push_back(chunk);
+			return true;
+		}
+		return false;
+	};
+
+	while (tryExtend(tip, false))
+	{
+	}
+	while (tryExtend(head, true))
+	{
+	}
+
+	for (char u : used)
+	{
+		if (!u)
+		{
+			if (err)
+				*err = "profile sketch is branched or disconnected";
+			return false;
+		}
+	}
+	if (skDist(head, tip) > 1e-3)
+	{
+		if (err)
+			*err = "profile sketch is not closed";
+		return false;
+	}
+	if (ordered.size() < 1)
+	{
+		if (err)
+			*err = "profile needs segments";
+		return false;
+	}
+
+	for (const auto& uv : ordered)
+	{
+		PluginSketchSweepPathSegment s;
+		s.kind = (uv.kind == SegUv::Kind::Arc) ? PluginSketchSweepPathSegKind::Arc : PluginSketchSweepPathSegKind::Line;
+		const PluginPoint3d wa = uvToWorld(plane, uv.a);
+		const PluginPoint3d wb = uvToWorld(plane, uv.b);
+		s.ax = static_cast<float>(wa.x);
+		s.ay = static_cast<float>(wa.y);
+		s.az = static_cast<float>(wa.z);
+		s.bx = static_cast<float>(wb.x);
+		s.by = static_cast<float>(wb.y);
+		s.bz = static_cast<float>(wb.z);
+		if (uv.kind == SegUv::Kind::Arc)
+		{
+			const PluginPoint3d wm = uvToWorld(plane, uv.m);
+			s.mx = static_cast<float>(wm.x);
+			s.my = static_cast<float>(wm.y);
+			s.mz = static_cast<float>(wm.z);
+		}
+		outSegs.push_back(s);
+	}
+	return !outSegs.empty();
+}
+
 namespace
 {
 // 尺寸=琥珀金；选中/捕捉=亮黄；冲突红另走 colorForEntity，三者互不抢色
@@ -1270,8 +1550,21 @@ void SketchDocument2d::tessellateOverlay(const PluginSketchPlane& plane, std::ve
 		if (!sampleSplineUv(sp, samples, 12))
 			continue;
 		addSeg(samples, sp.construction, sp.id);
-		// 过点手柄，便于拖拽
-		for (int pid : sp.throughPts)
+		const std::vector<int>& handleIds =
+			(sp.mode == SkSplineMode::ControlPoints && sp.controlPts.size() >= 2) ? sp.controlPts : sp.throughPts;
+		if (sp.mode == SkSplineMode::ControlPoints && sp.controlPts.size() >= 2)
+		{
+			std::vector<SkVec2> poly;
+			for (int pid : sp.controlPts)
+			{
+				const SkPoint* pt = findPoint(pid);
+				if (pt)
+					poly.push_back(pt->p);
+			}
+			if (poly.size() >= 2)
+				addSeg(poly, true, sp.id);
+		}
+		for (int pid : handleIds)
 		{
 			const SkPoint* pt = findPoint(pid);
 			if (!pt)
@@ -1829,6 +2122,12 @@ QByteArray SketchDocument2d::toJsonUtf8() const
 		for (int pid : sp.throughPts)
 			ids.append(pid);
 		o.insert(QStringLiteral("points"), ids);
+		QJsonArray cids;
+		for (int pid : sp.controlPts)
+			cids.append(pid);
+		if (!cids.isEmpty())
+			o.insert(QStringLiteral("controlPoints"), cids);
+		o.insert(QStringLiteral("mode"), static_cast<int>(sp.mode));
 		o.insert(QStringLiteral("construction"), sp.construction);
 		splines.append(o);
 	}
@@ -1918,6 +2217,9 @@ bool SketchDocument2d::fromJsonUtf8(const QByteArray& utf8)
 		sp.id = o.value(QStringLiteral("id")).toInt();
 		for (const QJsonValue& pv : o.value(QStringLiteral("points")).toArray())
 			sp.throughPts.push_back(pv.toInt());
+		for (const QJsonValue& pv : o.value(QStringLiteral("controlPoints")).toArray())
+			sp.controlPts.push_back(pv.toInt());
+		sp.mode = static_cast<SkSplineMode>(o.value(QStringLiteral("mode")).toInt(0));
 		sp.construction = o.value(QStringLiteral("construction")).toBool(false);
 		if (sp.throughPts.size() >= 2)
 			m_splines.push_back(sp);

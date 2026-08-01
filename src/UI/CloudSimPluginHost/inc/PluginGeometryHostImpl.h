@@ -2,7 +2,7 @@
 #define CLOUDSIMPLUGINHOST_PLUGINGEOMETRYHOSTIMPL_H
 
 /// @file PluginGeometryHostImpl.h
-/// @brief PluginGeometryHostImpl 接口
+/// @brief IPluginGeometryHost 实现（编入 CloudSimHost）
 
 #include "IPluginGeometryHost.h"
 
@@ -98,6 +98,8 @@ public:
 	void endSketchInput(IPluginDocument* doc) override;
 	void pickOriginSketchPlane(IPluginDocument* doc, PluginOriginPlanePickedFn onFinished) override;
 	void cancelOriginSketchPlanePick(IPluginDocument* doc) override;
+	void pickSketchSupportPlane(IPluginDocument* doc, const std::vector<PluginSupportPlaneCandidate>& extras,
+								PluginSupportPlanePickedFn onFinished) override;
 	void previewSketchExtrude(IPluginDocument* doc, const std::vector<float>& closedPolylineXyzMm,
 							  const PluginSketchPlane& plane, const PluginSketchExtrudeParams& params) override;
 	void clearSketchExtrudePreview(IPluginDocument* doc) override;
@@ -155,6 +157,11 @@ public:
 
 	void setOriginReferenceVisibility(IPluginDocument* doc,
 									  const PluginOriginReferenceVisibility& visibility) override;
+
+	bool previewCircularPattern(IPluginDocument* doc, const PluginSketchCircularPatternParams& params,
+								QString* errOut = nullptr) override;
+	void circularPatternBodyToBrep(IPluginDocument* doc, const PluginSketchCircularPatternParams& params,
+								   PluginGeometryFinishedFn onFinished) override;
 
 private:
 	void clearSketchSupportPlanePick();

@@ -29,7 +29,18 @@ enum class GeomodelingFeatureKind
 	Shell,
 	Draft,
 	/// 用户基准面（仅 FeatureDocument，不进 Parametric tip）
-	DatumPlane
+	DatumPlane,
+	/// 成角基准面（同 DatumPlane 槽位；持久化角度/铰链）
+	DatumPlaneAngle,
+	CircularPattern
+};
+
+/// 等距/关联参考面的几何源（三点无源）
+enum class GeomodelingDatumSourceKind
+{
+	None = 0,
+	OriginPlane,
+	Face
 };
 
 enum class GeomodelingExtrudeEnd
@@ -39,7 +50,8 @@ enum class GeomodelingExtrudeEnd
 	MidPlane,
 	ThroughAll,
 	UpToVertex,
-	OffsetFromFace
+	OffsetFromFace,
+	TwoDirections
 };
 
 struct GeomodelingFeature
@@ -59,8 +71,12 @@ struct GeomodelingFeature
 		float mx = 0, my = 0, mz = 0;
 	};
 	std::vector<PathSegment> pathSegments;
+	/// 外轮廓真曲线段（圆/弧；优先于 profile 折线）
+	std::vector<PathSegment> profileSegments;
 	double twistDeg = 0.0;
 	double lengthMm = 10.0;
+	double length2Mm = 0.0;
+	double startOffsetMm = 0.0;
 	double draftAngleDeg = 0.0;
 	bool reversed = false;
 	GeomodelingExtrudeEnd endCondition = GeomodelingExtrudeEnd::Blind;
@@ -96,16 +112,34 @@ struct GeomodelingFeature
 	double patternDx = 10;
 	double patternDy = 0;
 	double patternDz = 0;
+	double patternAngleDeg = 360.0;
 	QString patternSourceFeatureId;
 	PluginSketchPlane mirrorPlane{};
 	bool mirrorKeepOriginal = true;
+	/// DatumPlaneAngle：绕铰链旋转角（度）
+	double datumAngleDeg = 0.0;
+	PluginPoint3d datumHingeOrigin{};
+	PluginPoint3d datumHingeDir{0.f, 0.f, 1.f};
+	GeomodelingDatumSourceKind datumSourceKind = GeomodelingDatumSourceKind::None;
+	int datumOriginPlaneIndex = 0;
+	QString datumFaceBackendId;
+	int datumFaceIndex = -1;
+	double datumOffsetMm = 0.0;
+	/// 草图挂接的用户参考面；空 = 直接落在基面/模型面
+	QString datumPlaneId;
 };
 
 class FeatureDocument
 {
 public:
-	QString addSketch(const PluginSketchPlane& plane, const QString& name = QString());
+	QString addSketch(const PluginSketchPlane& plane, const QString& name = QString(),
+					  const QString& datumPlaneId = QString());
 	QString addDatumPlane(const PluginSketchPlane& plane, const QString& name = QString());
+	QString addDatumPlaneOffset(const PluginSketchPlane& plane, GeomodelingDatumSourceKind sourceKind, double offsetMm,
+								int originPlaneIndex = 0, const QString& faceBackendId = QString(), int faceIndex = -1,
+								const QString& name = QString());
+	QString addDatumPlaneAngle(const PluginSketchPlane& plane, double angleDeg, const PluginPoint3d& hingeOrigin,
+							   const PluginPoint3d& hingeDir, const QString& name = QString());
 	QString addPad(const QString& sketchId, double lengthMm, bool reversed = false);
 	QString addPocket(const QString& sketchId, double lengthMm, bool reversed = false);
 	bool setProfile(const QString& sketchId, const std::vector<float>& xyz);

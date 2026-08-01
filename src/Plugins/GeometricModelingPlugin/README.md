@@ -13,7 +13,7 @@ Visual Studio 生成 **GeometricModelingPlugin**，须同时编 **Debug|x64** �
 
 产物含 `GeometricModelingPlugin.dll` + `plugin.json`。
 
-依赖 Host ABI **≥ 1.44.0**（`0x00012C00`）。插件拒绝加载更低版本宿主。
+依赖 Host ABI **≥ 1.48.0**（`0x00013000`）。插件拒绝加载更低版本宿主。
 
 工程使用 **C++20**（PlaneGCS）；依赖链常见为：CloudSimPluginSDK → GeometryAlgorithm → Data → CloudSimHost → GeometricModelingPlugin。
 

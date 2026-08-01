@@ -8,6 +8,9 @@
 #include <QPixmap>
 #include <QSettings>
 #include <QString>
+
+#include <QCoreApplication>
+#include <QDir>
 #include <QtDebug>
 
 inline uint qHash(UiIconId id, uint seed = 0) noexcept
@@ -41,9 +44,23 @@ QString themeFolder(UiIcons::Theme theme)
 
 UiIcons::Theme themeFromSettings()
 {
-	QSettings settings;
+	if (!QCoreApplication::instance())
+	{
+		return UiIcons::Theme::Light;
+	}
+	const QString path =
+		QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("settings.ini"));
+	QSettings settings(path, QSettings::IniFormat);
 	settings.beginGroup(QStringLiteral("Appearance"));
-	const QString value = settings.value(QStringLiteral("theme"), QStringLiteral("light")).toString();
+	QString value = settings.value(QStringLiteral("theme")).toString();
+	settings.endGroup();
+	if (value.isEmpty())
+	{
+		QSettings legacy;
+		legacy.beginGroup(QStringLiteral("Appearance"));
+		value = legacy.value(QStringLiteral("theme"), QStringLiteral("light")).toString();
+		legacy.endGroup();
+	}
 	return value.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0 ? UiIcons::Theme::Dark
 																		   : UiIcons::Theme::Light;
 }

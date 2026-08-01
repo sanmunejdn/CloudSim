@@ -6,6 +6,7 @@
 #include "GCS.h"
 #include "Geo.h"
 
+#include <algorithm>
 #include <cmath>
 #include <sstream>
 
@@ -19,6 +20,7 @@ void SketchConstraintSolver::clear()
 	m_lines.clear();
 	m_arcs.clear();
 	m_circles.clear();
+	m_ellipses.clear();
 	m_constraints.clear();
 	m_dof = 0;
 	m_hasConflicting = false;
@@ -49,6 +51,12 @@ int SketchConstraintSolver::addCircle(int center, double radius)
 {
 	m_circles.push_back(SketchCircle2d{center, radius});
 	return static_cast<int>(m_circles.size()) - 1;
+}
+
+int SketchConstraintSolver::addEllipse(int center, double majorR, double minorR, double angleRad)
+{
+	m_ellipses.push_back(SketchEllipse2d{center, majorR, minorR, angleRad});
+	return static_cast<int>(m_ellipses.size()) - 1;
 }
 
 void SketchConstraintSolver::addConstraint(const SketchConstraint2d& c)
@@ -128,6 +136,30 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 		unknowns.push_back(&circleRadStorage[i]);
 	}
 
+	// 椭圆：焦点+短半轴进 GCS；长短轴尺寸用中心到顶点的 Distance 驱动（与圆半径同套路）
+	std::vector<double> ellFocusX(m_ellipses.size()), ellFocusY(m_ellipses.size()), ellRadmin(m_ellipses.size());
+	std::vector<GCS::Ellipse> gellipses(m_ellipses.size());
+	for (std::size_t i = 0; i < m_ellipses.size(); ++i)
+	{
+		const auto& e = m_ellipses[i];
+		if (e.center < 0 || e.center >= static_cast<int>(gpts.size()))
+			continue;
+		double a = e.majorR > 1e-9 ? e.majorR : 1.0;
+		double b = e.minorR > 1e-9 ? e.minorR : a * 0.5;
+		if (b > a)
+			std::swap(a, b);
+		const double c = std::sqrt(std::max(0.0, a * a - b * b));
+		ellFocusX[i] = px[static_cast<std::size_t>(e.center)] + c * std::cos(e.angleRad);
+		ellFocusY[i] = py[static_cast<std::size_t>(e.center)] + c * std::sin(e.angleRad);
+		ellRadmin[i] = b;
+		gellipses[i].center = gpts[static_cast<std::size_t>(e.center)];
+		gellipses[i].focus1 = GCS::Point(&ellFocusX[i], &ellFocusY[i]);
+		gellipses[i].radmin = &ellRadmin[i];
+		unknowns.push_back(&ellFocusX[i]);
+		unknowns.push_back(&ellFocusY[i]);
+		unknowns.push_back(&ellRadmin[i]);
+	}
+
 	std::vector<double> distStorage;
 	distStorage.reserve(m_constraints.size() + 8);
 	std::vector<double> angleStorage;
@@ -198,6 +230,10 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 			break;
 		case SketchConstraintKind::Radius:
 			break;
+		case SketchConstraintKind::MajorRadius:
+		case SketchConstraintKind::MinorRadius:
+			// 由调用方展开为 Distance；此处保留枚举以映射诊断 tag
+			break;
 		case SketchConstraintKind::Tangent:
 			if (c.a >= 0 && c.a < static_cast<int>(glines.size()))
 			{
@@ -254,6 +290,22 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 	}
 	for (std::size_t i = 0; i < m_arcs.size(); ++i)
 		m_arcs[i].radius = radStorage[i];
+	for (std::size_t i = 0; i < m_circles.size(); ++i)
+		m_circles[i].radius = circleRadStorage[i];
+	for (std::size_t i = 0; i < m_ellipses.size(); ++i)
+	{
+		const int ci = m_ellipses[i].center;
+		if (ci < 0 || ci >= static_cast<int>(px.size()))
+			continue;
+		const double dx = ellFocusX[i] - px[static_cast<std::size_t>(ci)];
+		const double dy = ellFocusY[i] - py[static_cast<std::size_t>(ci)];
+		const double c = std::sqrt(dx * dx + dy * dy);
+		const double b = std::max(ellRadmin[i], 1e-9);
+		m_ellipses[i].minorR = b;
+		m_ellipses[i].majorR = std::sqrt(c * c + b * b);
+		m_ellipses[i].angleRad = std::atan2(dy, dx);
+	}
+	(void)gellipses;
 	return 0;
 }
 

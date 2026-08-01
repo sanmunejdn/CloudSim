@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_HLRPROJECT_H
 
 /// @file HlrProject.h
-/// @brief B-rep 隐线消除 / 剖切投影为图面折线
+/// @brief B-rep 隐线消除投影为图面折线（工程图三视图）
 
 #include "geometry_algorithm_global.h"
 
@@ -63,10 +63,21 @@ struct HlrDrawingBundle
 	bool hasSection = false;
 };
 
-/// 单视图 HLR；折线 xyz 中 z=0，xy 为图面 mm
+/// useMeshHlr=true 走 PolyAlgo 预览；失败自动回落精确
+struct DrawingHlrRunOptions
+{
+	bool useMeshHlr = false;
+	int nbIso = 0;
+};
+
+/// 单视图 HLR；折线 xyz 中 z=0，xy 为图面 mm（几何直接取自 HLR 可见/隐藏复合体）
 GEOMETRY_ALGORITHM_API bool projectShapeHlr(const ShapeHandle& shape, HlrViewKind kind, HlrProjectionAngle angle,
 											const TessellateParams& params, HlrViewPolylines& out,
 											std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API bool projectShapeHlr(const ShapeHandle& shape, HlrViewKind kind, HlrProjectionAngle angle,
+											const TessellateParams& params, const DrawingHlrRunOptions& options,
+											HlrViewPolylines& out, std::string* errMsg = nullptr);
 
 /// 兼容：默认第一角法
 GEOMETRY_ALGORITHM_API bool projectShapeHlr(const ShapeHandle& shape, HlrViewKind kind, const TessellateParams& params,
@@ -102,6 +113,15 @@ GEOMETRY_ALGORITHM_API bool projectShapeHlrDrawingBundle(const ShapeHandle& shap
 														 DrawingSectionPlane sectionPlane, bool customSection,
 														 const double originMm[3], const double normal[3],
 														 const TessellateParams& params, HlrDrawingBundle& out,
+														 std::string* errMsg = nullptr);
+
+/// 带运行选项（快速预览 / Iso 计数）；各视图并行 HLR
+GEOMETRY_ALGORITHM_API bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle,
+														 bool includeIso, bool includeSection,
+														 DrawingSectionPlane sectionPlane, bool customSection,
+														 const double originMm[3], const double normal[3],
+														 const TessellateParams& params,
+														 const DrawingHlrRunOptions& options, HlrDrawingBundle& out,
 														 std::string* errMsg = nullptr);
 
 } // namespace geoalgo

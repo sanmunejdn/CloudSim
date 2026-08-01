@@ -16,6 +16,7 @@
 #include "../RobotWidget/inc/TrajectoryGenerationPageWidget.h"
 #include "AiAssistantDockWidget.h"
 #include "ApplicationStyle.h"
+#include "ApplicationSettings.h"
 #include "BackendFollowSolve.h"
 #include "BackendHierarchyFollow.h"
 #include "BackendSceneDocumentFacade.h"
@@ -100,6 +101,53 @@ bool MainWindow::useChinese() const
 	return m_useChinese;
 }
 
+void MainWindow::loadUiPreferencesFromStorage()
+{
+	m_uiPreferences = ApplicationSettings::load();
+	m_useChinese = !m_uiPreferences.language.startsWith(QStringLiteral("en"), Qt::CaseInsensitive);
+}
+
+bool MainWindow::sidePanelTabSavedVisible(const QString& key, const bool defaultVisible) const
+{
+	return m_uiPreferences.sidePanelTabs.contains(key) ? m_uiPreferences.sidePanelTabs.value(key) : defaultVisible;
+}
+
+void MainWindow::applySavedViewLayout()
+{
+	m_restoringUiPreferences = true;
+	setLeftSidePanelVisible(m_uiPreferences.leftPanelVisible);
+	setRightSidePanelVisible(m_uiPreferences.rightPanelVisible);
+	if (m_uiPreferences.leftDockWidth >= 160 && m_propertyDock)
+	{
+		m_leftDockSavedWidth = m_uiPreferences.leftDockWidth;
+		resizeDocks({m_propertyDock}, {m_leftDockSavedWidth}, Qt::Horizontal);
+	}
+	if (m_uiPreferences.rightDockWidth >= 160 && m_unitDock)
+	{
+		m_rightDockSavedWidth = m_uiPreferences.rightDockWidth;
+		resizeDocks({m_unitDock}, {m_rightDockSavedWidth}, Qt::Horizontal);
+	}
+
+	for (auto it = m_sidePanelTabToggles.constBegin(); it != m_sidePanelTabToggles.constEnd(); ++it)
+	{
+		QWidget* widget = it.key();
+		if (!widget)
+		{
+			continue;
+		}
+		const QString key = ApplicationSettings::sidePanelTabKey(widget);
+		const bool visible = sidePanelTabSavedVisible(key, true);
+		if (it.value().viewAction)
+		{
+			const QSignalBlocker blocker(it.value().viewAction);
+			it.value().viewAction->setChecked(visible);
+		}
+		applySidePanelTabToggleVisibility(widget, visible);
+	}
+	syncSidePanelToggleUi();
+	m_restoringUiPreferences = false;
+}
+
 void MainWindow::applyLanguage()
 {
 	setWindowTitle(i18n(QStringLiteral("CloudSim - MainWindow"), QStringLiteral("CloudSim - 主窗口")));
@@ -142,6 +190,17 @@ void MainWindow::applyLanguage()
 	}
 	if (m_settingsMenu)
 		m_settingsMenu->setTitle(i18n(QStringLiteral("Settings"), QStringLiteral("设置")));
+	if (m_helpMenu)
+		m_helpMenu->setTitle(i18n(QStringLiteral("Help"), QStringLiteral("帮助")));
+	if (m_helpDocumentationAction)
+	{
+		m_helpDocumentationAction->setText(
+			i18n(QStringLiteral("Documentation"), QStringLiteral("帮助文档")));
+	}
+	if (m_aboutAction)
+	{
+		m_aboutAction->setText(i18n(QStringLiteral("About CloudSim"), QStringLiteral("关于 CloudSim")));
+	}
 	if (m_workspaceModeMenu)
 		m_workspaceModeMenu->setTitle(i18n(QStringLiteral("Mode Switch"), QStringLiteral("模式切换")));
 	rebuildWorkspaceModeSwitcher();
@@ -218,7 +277,11 @@ void MainWindow::applyLanguage()
 	}
 	if (m_processFlowRightDock)
 	{
-		m_processFlowRightDock->setWindowTitle(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
+		QWidget* rightW = m_processFlowRightDock->widget();
+		m_processFlowRightDock->setWindowTitle(
+			(rightW && !rightW->windowTitle().isEmpty())
+				? rightW->windowTitle()
+				: i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
 	}
 	if (m_rightPanelTabs && m_rightPanelTabs->count() >= 1 && !m_processFlowSideUiActive && m_unitDockTabs)
 	{
@@ -740,6 +803,7 @@ void MainWindow::onLanguageEnglishTriggered()
 {
 	m_useChinese = false;
 	applyLanguage();
+	persistUiPreferencesToStorage();
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(QStringLiteral("UI language switched to English."));
@@ -750,6 +814,7 @@ void MainWindow::onLanguageChineseTriggered()
 {
 	m_useChinese = true;
 	applyLanguage();
+	persistUiPreferencesToStorage();
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(QStringLiteral("\u754c\u9762\u8bed\u8a00\u5df2\u5207\u6362\u4e3a\u4e2d\u6587\u3002"));
@@ -847,6 +912,49 @@ void hideSideDock(QDockWidget* dock, int& savedWidth)
 }
 } // namespace
 
+void MainWindow::persistUiPreferencesToStorage()
+{
+	m_uiPreferences.language = m_useChinese ? QStringLiteral("zh") : QStringLiteral("en");
+	m_uiPreferences.theme = ApplicationStyle::loadSavedTheme();
+	m_uiPreferences.leftPanelVisible =
+		m_processFlowSideUiActive ? sideDockShown(m_processFlowLeftDock) : sideDockShown(m_propertyDock);
+	m_uiPreferences.rightPanelVisible =
+		m_processFlowSideUiActive
+			? (sideDockShown(m_unitDock)
+			   || (m_processFlowUsesRightDock && sideDockShown(m_processFlowRightDock)))
+			: sideDockShown(m_unitDock);
+	if (m_propertyDock && m_propertyDock->width() >= kMinRestorableDockWidth)
+	{
+		m_uiPreferences.leftDockWidth = m_propertyDock->width();
+	}
+	if (m_unitDock && m_unitDock->width() >= kMinRestorableDockWidth)
+	{
+		m_uiPreferences.rightDockWidth = m_unitDock->width();
+	}
+
+	m_uiPreferences.sidePanelTabs.clear();
+	for (auto it = m_sidePanelTabToggles.constBegin(); it != m_sidePanelTabToggles.constEnd(); ++it)
+	{
+		const QWidget* widget = it.key();
+		if (!widget)
+		{
+			continue;
+		}
+		const QString key = ApplicationSettings::sidePanelTabKey(widget);
+		const bool visible =
+			it.value().viewAction ? it.value().viewAction->isChecked()
+								  : (m_rightPanelTabs && m_rightPanelTabs->indexOf(const_cast<QWidget*>(widget)) >= 0);
+		m_uiPreferences.sidePanelTabs.insert(key, visible);
+	}
+
+	if (m_pluginManager && m_pluginManager->hostContext())
+	{
+		m_uiPreferences.workspaceModeId = m_pluginManager->hostContext()->currentWorkspaceMode();
+	}
+
+	ApplicationSettings::save(m_uiPreferences);
+}
+
 void MainWindow::setLeftSidePanelVisible(const bool visible)
 {
 	if (m_processFlowSideUiActive)
@@ -865,6 +973,10 @@ void MainWindow::setLeftSidePanelVisible(const bool visible)
 			hideSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth);
 		}
 		syncSidePanelToggleUi();
+		if (!m_restoringUiPreferences)
+		{
+			persistUiPreferencesToStorage();
+		}
 		return;
 	}
 
@@ -882,6 +994,10 @@ void MainWindow::setLeftSidePanelVisible(const bool visible)
 		hideSideDock(m_propertyDock, m_leftDockSavedWidth);
 	}
 	syncSidePanelToggleUi();
+	if (!m_restoringUiPreferences)
+	{
+		persistUiPreferencesToStorage();
+	}
 }
 
 void MainWindow::setRightSidePanelVisible(const bool visible)
@@ -913,6 +1029,10 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 			hideSideDock(m_unitDock, m_rightDockSavedWidth);
 		}
 		syncSidePanelToggleUi();
+		if (!m_restoringUiPreferences)
+		{
+			persistUiPreferencesToStorage();
+		}
 		return;
 	}
 
@@ -930,6 +1050,10 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 		hideSideDock(m_unitDock, m_rightDockSavedWidth);
 	}
 	syncSidePanelToggleUi();
+	if (!m_restoringUiPreferences)
+	{
+		persistUiPreferencesToStorage();
+	}
 }
 
 void MainWindow::syncSidePanelToggleUi()
@@ -1344,13 +1468,16 @@ void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 			applyStyledDockTitleBar(m_processFlowRightDock);
 			addDockWidget(Qt::RightDockWidgetArea, m_processFlowRightDock);
 		}
-		else
 		{
-			m_processFlowRightDock->setWindowTitle(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
-			if (!qobject_cast<StyledDockTitleBar*>(m_processFlowRightDock->titleBarWidget()))
-			{
-				applyStyledDockTitleBar(m_processFlowRightDock);
-			}
+			const QString rightTitle =
+				!rightPanel->windowTitle().isEmpty()
+					? rightPanel->windowTitle()
+					: i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板"));
+			m_processFlowRightDock->setWindowTitle(rightTitle);
+		}
+		if (!qobject_cast<StyledDockTitleBar*>(m_processFlowRightDock->titleBarWidget()))
+		{
+			applyStyledDockTitleBar(m_processFlowRightDock);
 		}
 		if (m_processFlowRightDock->widget() != rightPanel)
 		{

@@ -1,5 +1,5 @@
 /// @file TrajectoryGeometryResolverHost.cpp
-/// @brief TrajectoryGeometryResolverHost й╣ож
+/// @brief TrajectoryGeometryResolverHost ?О©╫О©╫
 
 #include "TrajectoryGeometryResolverHost.h"
 
@@ -56,8 +56,8 @@ bool bakeModelPointToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
 	return true;
 }
 
-bool fillBrepModelToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
-						  RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
+bool fillModelToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+					  RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	const std::string xformId = osg->resolvePickScopeBackendId(backendId);
 	osg::Matrixd worldMat{};
@@ -86,7 +86,12 @@ bool resolvePointCloudSnapshot(IRobotOsgViewHost* osg, const PointCloudBackendDa
 		}
 		return false;
 	}
+	if (!fillModelToWorld(osg, backendId, out, errMsg))
+	{
+		return false;
+	}
 	out.kind = RobotInstruction::TrajectoryGeometryKind::PointCloud;
+	out.positionsModelMm = xyz;
 	out.positionsWorldMm.clear();
 	out.positionsWorldMm.reserve(xyz.size());
 	for (std::size_t i = 0; i + 2 < xyz.size(); i += 3)
@@ -117,7 +122,12 @@ bool resolveMeshSnapshot(IRobotOsgViewHost* osg, const MeshBackendData& data, co
 		}
 		return false;
 	}
+	if (!fillModelToWorld(osg, backendId, out, errMsg))
+	{
+		return false;
+	}
 	out.kind = RobotInstruction::TrajectoryGeometryKind::TriangleMesh;
+	out.triangleSoupModelMm = soup;
 	out.triangleSoupWorldMm.clear();
 	out.triangleSoupWorldMm.reserve(soup.size());
 	for (std::size_t i = 0; i + 2 < soup.size(); i += 3)
@@ -149,7 +159,7 @@ bool resolveBrepSnapshot(IRobotOsgViewHost* osg, const BrepBackendData& data, co
 	}
 	out.kind = RobotInstruction::TrajectoryGeometryKind::Brep;
 	out.brepShape = data.shapeRef();
-	return fillBrepModelToWorld(osg, backendId, out, errMsg);
+	return fillModelToWorld(osg, backendId, out, errMsg);
 }
 
 } // namespace

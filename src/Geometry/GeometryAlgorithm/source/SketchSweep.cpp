@@ -5,6 +5,7 @@
 
 #include "BrepBoolean.h"
 #include "detail/OccIncludes.h"
+#include "detail/SketchCurveWireOcc.h"
 
 #include <BRepAdaptor_CompCurve.hxx>
 #include <BRepAdaptor_Curve.hxx>
@@ -62,51 +63,34 @@ void appendUnique(std::vector<gp_Pnt>& pts, const gp_Pnt& p)
 
 bool makeClosedFace(const std::vector<float>& xyz, TopoDS_Face& outFace, std::string* errMsg)
 {
-	if (xyz.size() < 9U || (xyz.size() % 3U) != 0U)
-	{
-		if (errMsg)
-			*errMsg = "profile needs >=3 points";
-		return false;
-	}
-	std::vector<gp_Pnt> pts;
-	const std::size_t nIn = xyz.size() / 3U;
-	pts.reserve(nIn);
-	for (std::size_t i = 0; i < nIn; ++i)
-	{
-		const gp_Pnt p(xyz[i * 3], xyz[i * 3 + 1], xyz[i * 3 + 2]);
-		if (!pts.empty() && pts.back().Distance(p) < kEps)
-			continue;
-		pts.push_back(p);
-	}
-	if (pts.size() >= 2U && pts.front().Distance(pts.back()) < 1e-6)
-		pts.pop_back();
-	if (pts.size() < 3U)
-	{
-		if (errMsg)
-			*errMsg = "profile needs >=3 points";
-		return false;
-	}
+	double nx = 0, ny = 0, nz = 1;
+	(void)estimatePolylinePlaneNormal(xyz, nx, ny, nz);
+	return makeClosedFaceFromPolylineMm(xyz, nx, ny, nz, outFace, errMsg);
+}
 
-	BRepBuilderAPI_MakePolygon poly;
-	for (const auto& p : pts)
-		poly.Add(p);
-	poly.Add(pts.front());
-	poly.Close();
-	if (!poly.IsDone())
+bool makeProfileFace(const std::vector<float>& xyz, const SketchSweepParams& params, TopoDS_Face& outFace,
+					 std::string* errMsg)
+{
+	if (!params.profileSegments.empty())
 	{
-		if (errMsg)
-			*errMsg = "profile MakePolygon failed";
-		return false;
+		double nx = 0, ny = 0, nz = 1;
+		if (xyz.size() >= 9)
+			(void)estimatePolylinePlaneNormal(xyz, nx, ny, nz);
+		else if (params.profileSegments[0].kind == SketchCurveSegKind::Circle
+				 || params.profileSegments[0].kind == SketchCurveSegKind::Ellipse)
+		{
+			const auto& s = params.profileSegments[0];
+			const double len = std::sqrt(s.mx * s.mx + s.my * s.my + s.mz * s.mz);
+			if (len > 1e-12)
+			{
+				nx = s.mx / len;
+				ny = s.my / len;
+				nz = s.mz / len;
+			}
+		}
+		return makeClosedFaceFromSegments(params.profileSegments, nx, ny, nz, outFace, errMsg);
 	}
-	BRepBuilderAPI_MakeFace mkFace(poly.Wire(), Standard_True);
-	if (!mkFace.IsDone())
-	{
-		if (errMsg)
-			*errMsg = "profile MakeFace failed";
-		return false;
-	}
-	outFace = mkFace.Face();
-	return true;
+	return makeClosedFace(xyz, outFace, errMsg);
 }
 
 bool fitBSplineEdge(const std::vector<gp_Pnt>& pts, TopoDS_Edge& outEdge)
@@ -671,7 +655,7 @@ bool sketchSweepPolylineToHandle(const std::vector<float>& profilePolylineXyzMm,
 								 const ShapeHandle* baseOrNull, ShapeHandle& outShape, std::string* errMsg)
 {
 	TopoDS_Face profileFace;
-	if (!makeClosedFace(profilePolylineXyzMm, profileFace, errMsg))
+	if (!makeProfileFace(profilePolylineXyzMm, params, profileFace, errMsg))
 		return false;
 	TopoDS_Wire pathWire;
 	if (!makePathWireFromPolyline(pathPolylineXyzMm, pathWire, errMsg))
@@ -685,7 +669,7 @@ bool sketchSweepSegmentsToHandle(const std::vector<float>& profilePolylineXyzMm,
 								 std::string* errMsg)
 {
 	TopoDS_Face profileFace;
-	if (!makeClosedFace(profilePolylineXyzMm, profileFace, errMsg))
+	if (!makeProfileFace(profilePolylineXyzMm, params, profileFace, errMsg))
 		return false;
 	TopoDS_Wire pathWire;
 	if (!makePathWireFromSegments(pathSegments, pathWire, errMsg))

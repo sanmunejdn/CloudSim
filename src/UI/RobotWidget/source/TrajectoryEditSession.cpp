@@ -18,6 +18,7 @@
 #include "RobotExternalAxes.h"
 #include "RobotSimulationController.h"
 #include "RobotSimulationMath.h"
+#include "RunLogger.h"
 #include "SimulationCommandWidget.h"
 #include "TrajectoryGeometryResolver.h"
 #include "TrajectoryGeometryResolverHost.h"
@@ -175,6 +176,18 @@ bool pipelineHasProjectToGeometry(const std::vector<RobotInstruction::Trajectory
 	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
 	{
 		if (op.enabled && op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool pipelineHasNonRigidRegistration(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops)
+{
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
+	{
+		if (op.enabled && op.kind == RobotInstruction::TrajectoryOpKind::NonRigidRegistration)
 		{
 			return true;
 		}
@@ -457,6 +470,40 @@ void TrajectoryEditSession::reportProjectionMissesIfAny() const
 		QStringLiteral("轨迹投影：%1 个点未命中几何，已保留原位置").arg(static_cast<qulonglong>(misses)));
 }
 
+void TrajectoryEditSession::reportNonRigidStatsIfAny() const
+{
+	if (!pipelineHasNonRigidRegistration(m_ops) || !m_simController)
+	{
+		return;
+	}
+	IRobotMainWindowHost* host = m_simController->host();
+	if (!host)
+	{
+		return;
+	}
+	const RobotInstruction::NonRigidWarpLastStats stats = RobotInstruction::trajectoryNonRigidLastStats();
+	if (!stats.valid)
+	{
+		return;
+	}
+	QString msg =
+		QStringLiteral("非刚性配准：绑定成功 %1，失败 %2；模式=%3；绑定距离 min/mean/max=%4/%5/%6 mm；"
+					   "SPARE 均值误差 %7 mm，变形节点 %8")
+			.arg(static_cast<qulonglong>(stats.bindOk))
+			.arg(static_cast<qulonglong>(stats.bindFail))
+			.arg(stats.bindMode == 1 ? QStringLiteral("工件模型系") : QStringLiteral("世界系"))
+			.arg(stats.bindDistMinMm, 0, 'f', 3)
+			.arg(stats.bindDistMeanMm, 0, 'f', 3)
+			.arg(stats.bindDistMaxMm, 0, 'f', 3)
+			.arg(stats.meanErrorMm, 0, 'f', 3)
+			.arg(stats.deformationNodeCount);
+	if (stats.spareFromCache)
+	{
+		msg += QStringLiteral("（缓存）");
+	}
+	host->appendRunInfo(msg);
+}
+
 void TrajectoryEditSession::updatePipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops,
 											  const bool /*allowPreviewReapply*/)
 {
@@ -571,16 +618,41 @@ bool TrajectoryEditSession::rebuildUnifiedFromSourceRaw(const RobotInstruction::
 														QString* outError) const
 {
 	RobotInstruction::RawTrajectory rawForUnified = sourceRaw;
-	const std::string backendId = RobotInstruction::rawTrajectoryWorkpieceBackendId(sourceRaw);
-	if (!backendId.empty() && m_simController && m_simController->host() && m_simController->host()->osgView())
+	// 有 Feature/Mesh spec 时必须 file→world，否则非刚性等算子会拿模型坐标去绑世界几何
+	if (!sourceRaw.sourceFeatureJson.empty())
 	{
+		const std::string backendId = RobotInstruction::rawTrajectoryWorkpieceBackendId(sourceRaw);
+		if (backendId.empty())
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("轨迹缺少工件 backendId，无法变换到世界坐标");
+			}
+			return false;
+		}
+		if (!m_simController || !m_simController->host() || !m_simController->host()->osgView())
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("无 OSG 视图，无法将轨迹变换到世界坐标");
+			}
+			return false;
+		}
 		RobotInstruction::RawTrajectory worldRaw;
 		std::string worldErr;
-		if (feature_pick_transform::transformRawTrajectoryToWorld(m_simController->host()->osgView(), backendId,
+		if (!feature_pick_transform::transformRawTrajectoryToWorld(m_simController->host()->osgView(), backendId,
 																  sourceRaw, worldRaw, &worldErr))
 		{
-			rawForUnified = std::move(worldRaw);
+			if (outError)
+			{
+				*outError = worldErr.empty() ? QStringLiteral("轨迹变换到世界坐标失败")
+											: QString::fromStdString(worldErr);
+			}
+			return false;
 		}
+		rawForUnified = std::move(worldRaw);
+		RunLogger::info(std::string("[轨迹入管] file→world 完成 backend=") + backendId +
+						" points=" + std::to_string(rawForUnified.points.size()));
 	}
 	std::string convErr;
 	if (!RobotInstruction::unifiedTrajectoryFromRaw(rawForUnified, unified, &convErr))
@@ -791,6 +863,7 @@ bool TrajectoryEditSession::previewUnifiedFromProgramPipeline(QString* outError)
 		return false;
 	}
 	reportProjectionMissesIfAny();
+	reportNonRigidStatsIfAny();
 	unified = m_pipelineEngine.result();
 	const bool lightweight = unified.points.size() > kLightweightPreviewGuardThreshold;
 	updateLightweightPreviewState(lightweight);
@@ -1042,6 +1115,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 			return false;
 		}
 		reportProjectionMissesIfAny();
+		reportNonRigidStatsIfAny();
 		unified = m_pipelineEngine.result();
 		rawWorking = m_pipelineEngine.rawWorking();
 		m_bakedWorldRaw.reset();
@@ -1093,6 +1167,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 			return false;
 		}
 		reportProjectionMissesIfAny();
+		reportNonRigidStatsIfAny();
 		unified = m_pipelineEngine.result();
 	}
 	RobotInstruction::RobotProgram replacement = *activeProgram;
@@ -1601,11 +1676,14 @@ bool TrajectoryEditSession::runPipelineEngineFull(QString* outError)
 		return false;
 	}
 	reportProjectionMissesIfAny();
+	reportNonRigidStatsIfAny();
 	return true;
 }
 
 bool TrajectoryEditSession::runPipelineEngineFrom(const std::size_t nodeIndex, QString* outError)
 {
+	// 与 Full 一致：重绑以拿到源/目标当前世界矩阵（改参预览也会走此路径）
+	ensureGeometryResolverBound();
 	injectWorkpieceReferenceOnEngine();
 	std::string err;
 	if (!m_pipelineEngine.executeFrom(nodeIndex, &err))
@@ -1643,6 +1721,7 @@ bool TrajectoryEditSession::buildRawPreviewWithPipeline(
 		return false;
 	}
 	reportProjectionMissesIfAny();
+	reportNonRigidStatsIfAny();
 	RobotInstruction::RawTrajectory worldPreview{};
 	if (!RobotInstruction::unifiedTrajectoryToRaw(m_pipelineEngine.result(), worldPreview, &err))
 	{

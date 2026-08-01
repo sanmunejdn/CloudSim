@@ -4,11 +4,9 @@
 
 #include "BrepBoolean.h"
 #include "detail/OccIncludes.h"
+#include "detail/SketchCurveWireOcc.h"
 
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepOffsetAPI_ThruSections.hxx>
-#include <gp_Pnt.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Wire.hxx>
 
@@ -16,46 +14,11 @@ namespace geoalgo
 {
 namespace
 {
-constexpr double kEps = 1e-9;
-
 bool makeClosedWire(const std::vector<float>& xyz, TopoDS_Wire& outWire, std::string* errMsg)
 {
-	if (xyz.size() < 9U || (xyz.size() % 3U) != 0U)
-	{
-		if (errMsg)
-			*errMsg = "loft profile needs >=3 points";
-		return false;
-	}
-	std::vector<gp_Pnt> pts;
-	const std::size_t nIn = xyz.size() / 3U;
-	for (std::size_t i = 0; i < nIn; ++i)
-	{
-		const gp_Pnt p(xyz[i * 3], xyz[i * 3 + 1], xyz[i * 3 + 2]);
-		if (!pts.empty() && pts.back().Distance(p) < kEps)
-			continue;
-		pts.push_back(p);
-	}
-	if (pts.size() >= 2U && pts.front().Distance(pts.back()) < 1e-6)
-		pts.pop_back();
-	if (pts.size() < 3U)
-	{
-		if (errMsg)
-			*errMsg = "loft profile needs >=3 points";
-		return false;
-	}
-	BRepBuilderAPI_MakePolygon poly;
-	for (const auto& p : pts)
-		poly.Add(p);
-	poly.Add(pts.front());
-	poly.Close();
-	if (!poly.IsDone())
-	{
-		if (errMsg)
-			*errMsg = "loft MakePolygon failed";
-		return false;
-	}
-	outWire = poly.Wire();
-	return !outWire.IsNull();
+	double nx = 0, ny = 0, nz = 1;
+	(void)estimatePolylinePlaneNormal(xyz, nx, ny, nz);
+	return makeClosedWireFromPolylineMm(xyz, nx, ny, nz, outWire, errMsg);
 }
 } // namespace
 

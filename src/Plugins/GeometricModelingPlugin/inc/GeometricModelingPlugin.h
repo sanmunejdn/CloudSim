@@ -55,9 +55,13 @@ private:
 	void onOriginPlaneSketchRequested(int planeIndex);
 	void onFixPointToOriginRequested();
 	void beginSketchOnPlane(GeometricModelingPage* page, IPluginGeometryHost* geo, IPluginDocument* doc,
-							const PluginSketchPlane& plane);
+							const PluginSketchPlane& plane, const QString& datumPlaneId = QString());
 	void onEndSketch();
 	void onEditFeature(const QString& featureId);
+	void reevaluateDatumPlanes(GeometricModelingPage* page);
+	void syncSketchesBoundToDatum(GeometricModelingPage* page, const QString& datumId, const PluginSketchPlane& plane);
+	bool resolveDatumSourcePlane(GeometricModelingPage* page, const GeomodelingFeature& datum, PluginSketchPlane& out,
+								 QString* err);
 	void onEditSketch(const QString& sketchId);
 	void onEditExtrudeFeature(const QString& featureId);
 	void onPickUpToFace();
@@ -69,7 +73,8 @@ private:
 	void rebuildDownstreamAfterSketch(GeometricModelingPage* page);
 	void fillExtrudeParams(GeometricModelingPage* page, PluginSketchExtrudeParams& params) const;
 	void beginExtrudePreviewFromProfile(bool pocket, const std::vector<float>& profile, const PluginSketchPlane& plane,
-										const std::vector<std::vector<float>>& holes = {});
+										const std::vector<std::vector<float>>& holes = {},
+										const std::vector<PluginSketchSweepPathSegment>& profileSegs = {});
 	void onToolLine();
 	void onToolArc();
 	void onToolCircle();
@@ -111,6 +116,7 @@ private:
 	void onRevolve();
 	void onRevolveCut();
 	void onLinearPattern();
+	void onCircularPattern();
 	void onMirror3d();
 	void onLoft();
 	void onLoftCut();
@@ -118,11 +124,22 @@ private:
 	void onRebuild();
 	void onUndo();
 	void onRedo();
+	void onExportHistory();
+	void onImportHistoryReplace();
+	void onImportHistoryNew();
+	void onRunComposeFile();
+	void onPythonConsole();
+	void applyHistoryJsonToBody(GeometricModelingPage* page, IPluginDocument* doc, IPluginGeometryHost* geo,
+								const QString& bodyId, const QByteArray& historyUtf8, const QByteArray& beforeHist);
+	void createBodyThenApplyHistory(GeometricModelingPage* page, IPluginDocument* doc, IPluginGeometryHost* geo,
+									const QByteArray& historyUtf8);
 	void onFeatureRollback(const QString& featureId);
 	void onExitRollback();
 	void onFeatureDelete(const QString& featureId);
 	void pushBodyHistoryAfterRollback(GeometricModelingPage* page, const QByteArray& beforeHist);
 	void onLengthEdited(double mm);
+	void onNamedParamEdited(const QString& key, double value);
+	void onFeatureParamApply(const QString& featureId, const QString& key, double value);
 	void onExtrudeOptionsChanged();
 	void onConfirmExtrude();
 	void onCancelExtrude();
@@ -157,10 +174,18 @@ private:
 	void refreshRevolvePreview();
 	void onConfirmRevolve();
 	void onCancelRevolve();
+	void onPickRevolveAxis();
+	void fillRevolveAxisParams(GeometricModelingPage* page, const GeomodelingFeature& sk,
+							   PluginSketchRevolveParams& params) const;
 	void beginPatternPanel();
 	void refreshPatternPreview();
 	void onConfirmPattern();
 	void onCancelPattern();
+	void beginCircularPatternPanel();
+	void refreshCircularPatternPreview();
+	void onConfirmCircularPattern();
+	void onCancelCircularPattern();
+	void onPickCircularPatternAxis();
 	void beginMirror3dPanel();
 	void refreshMirror3dPreview();
 	void onConfirmMirror3d();
@@ -219,12 +244,14 @@ private:
 	bool m_editExtrudeMode = false;
 	std::vector<float> m_previewProfile;
 	std::vector<std::vector<float>> m_previewHoles;
+	std::vector<PluginSketchSweepPathSegment> m_previewProfileSegments;
 	PluginSketchPlane m_previewPlane{};
 
 	bool m_sweepPreviewActive = false;
 	bool m_sweepCut = false;
 	bool m_editSweepMode = false;
 	std::vector<float> m_sweepProfile;
+	std::vector<PluginSketchSweepPathSegment> m_sweepProfileSegments;
 	std::vector<float> m_sweepPath;
 	std::vector<PluginSketchSweepPathSegment> m_sweepPathSegments;
 	bool m_sweepPathFromEdge = false;
@@ -236,6 +263,12 @@ private:
 	std::vector<int> m_pickedFaceIndices;
 	std::vector<float> m_revolveProfile;
 	PluginSketchPlane m_revolvePlane{};
+	bool m_revolveAxisPicked = false;
+	double m_revolveAxisOx = 0, m_revolveAxisOy = 0, m_revolveAxisOz = 0;
+	double m_revolveAxisDx = 0, m_revolveAxisDy = 1, m_revolveAxisDz = 0;
+	bool m_circPatternAxisPicked = false;
+	double m_circPatternOx = 0, m_circPatternOy = 0, m_circPatternOz = 0;
+	double m_circPatternDx = 0, m_circPatternDy = 0, m_circPatternDz = 1;
 	std::vector<float> m_loftProfileA;
 	std::vector<float> m_loftProfileB;
 };

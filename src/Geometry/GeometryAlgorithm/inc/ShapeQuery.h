@@ -180,6 +180,53 @@ GEOMETRY_ALGORITHM_API bool discretizeShapeFaceEdgesToPolylines(const ShapeHandl
 																std::vector<Polyline3d>& outPolylines,
 																std::string* errMsg = nullptr);
 
+enum class FaceBoundarySegKind
+{
+	Line = 0,
+	Arc,
+	Circle,
+	Polyline
+};
+
+struct FaceBoundarySeg
+{
+	FaceBoundarySegKind kind = FaceBoundarySegKind::Polyline;
+	std::vector<float> xyz;
+	double radiusMm = 0.0;
+};
+
+/** 面边界按曲线类型提取（圆/弧优先，其它离散为折线） */
+GEOMETRY_ALGORITHM_API bool extractShapeFaceBoundarySegments(const ShapeHandle& shape, int faceIndex,
+															 const TessellateParams& fallbackTess,
+															 std::vector<FaceBoundarySeg>& outSegs,
+															 std::string* errMsg = nullptr);
+
+/** 按边长降序取 Top-K 边索引 */
+GEOMETRY_ALGORITHM_API bool selectLongestEdgeIndices(const ShapeHandle& shape, int topK,
+													 std::vector<int>& outEdgeIndices, std::string* errMsg = nullptr);
+
+/** Z 最大平面外环边（无平面则退化为 longest） */
+GEOMETRY_ALGORITHM_API bool selectTopBoundaryEdgeIndices(const ShapeHandle& shape, std::vector<int>& outEdgeIndices,
+														 std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API int shapeHandleVertexCount(const ShapeHandle& handle);
+
+/** 按 TopExp 顶点索引取世界坐标 */
+GEOMETRY_ALGORITHM_API bool shapeVertexPointAtIndex(const ShapeHandle& handle, int vertexIndex, Point3d& outPointMm,
+													std::string* errMsg = nullptr);
+
+/**
+ * 模型点 → 最近 TopExp 顶点
+ * @return false：容差内无顶点
+ */
+GEOMETRY_ALGORITHM_API bool pickShapeVertexByModelPoint(const ShapeHandle& shape, const Point3d& queryPointModelMm,
+														double toleranceMm, int& outVertexIndex,
+														Point3d& outVertexModelMm, std::string* errMsg = nullptr);
+
+/** 边两端点世界坐标（与 shapeEdgeAtIndex 顺序一致） */
+GEOMETRY_ALGORITHM_API bool shapeHandleEdgeEndpoints(const ShapeHandle& handle, int edgeIndex, Point3d& outAMm,
+													 Point3d& outBMm, std::string* errMsg = nullptr);
+
 /**
  * 按 TShape 跟踪面归属：未见过的面记到 featureId，并刷新 faceIndex→featureId
  * Data 层勿直接碰 OCC，经此 API 维护进程内归属表

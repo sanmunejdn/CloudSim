@@ -5,6 +5,7 @@
 
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
+#include "BackendSpatial.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
@@ -22,8 +23,10 @@
 
 #include <QLatin1String>
 #include <atomic>
+#include <cmath>
 #include <functional>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 
 #include <Adapters.h>
@@ -51,6 +54,139 @@ QString makeUniqueBrepDisplayName(cloudsim::host::DocumentHost& page, const QStr
 		}
 		candidate = root + QStringLiteral("_%1").arg(suffix++);
 	}
+}
+
+void rotateNormalsByWorldMatrix(std::vector<float>& normals, const BackendMat4& world)
+{
+	if (normals.size() < 3U)
+	{
+		return;
+	}
+	const BackendVec3 origin = backend_mat4_transform_point(world, BackendVec3{0.0, 0.0, 0.0});
+	for (std::size_t i = 0; i + 2U < normals.size(); i += 3U)
+	{
+		const BackendVec3 tip = backend_mat4_transform_point(
+			world, BackendVec3{static_cast<double>(normals[i]), static_cast<double>(normals[i + 1U]),
+							   static_cast<double>(normals[i + 2U])});
+		double nx = tip.x - origin.x;
+		double ny = tip.y - origin.y;
+		double nz = tip.z - origin.z;
+		const double len = std::sqrt(nx * nx + ny * ny + nz * nz);
+		if (len > 1e-12)
+		{
+			nx /= len;
+			ny /= len;
+			nz /= len;
+		}
+		normals[i] = static_cast<float>(nx);
+		normals[i + 1U] = static_cast<float>(ny);
+		normals[i + 2U] = static_cast<float>(nz);
+	}
+}
+
+void triangleSoupWorldToStored(const MeshBackendData& mesh, std::vector<float>& soup)
+{
+	for (std::size_t i = 0; i + 2U < soup.size(); i += 3U)
+	{
+		const BackendVec3 worldPt{static_cast<double>(soup[i]), static_cast<double>(soup[i + 1U]),
+								  static_cast<double>(soup[i + 2U])};
+		const BackendVec3 localPt = transformPointToStored(mesh, worldPt);
+		soup[i] = static_cast<float>(localPt.x);
+		soup[i + 1U] = static_cast<float>(localPt.y);
+		soup[i + 2U] = static_cast<float>(localPt.z);
+	}
+}
+
+void xyzWorldToStored(const PointCloudBackendData& pc, std::vector<float>& xyz)
+{
+	for (std::size_t i = 0; i + 2U < xyz.size(); i += 3U)
+	{
+		const BackendVec3 worldPt{static_cast<double>(xyz[i]), static_cast<double>(xyz[i + 1U]),
+								  static_cast<double>(xyz[i + 2U])};
+		const BackendVec3 localPt = transformPointToStored(pc, worldPt);
+		xyz[i] = static_cast<float>(localPt.x);
+		xyz[i + 1U] = static_cast<float>(localPt.y);
+		xyz[i + 2U] = static_cast<float>(localPt.z);
+	}
+}
+
+/// 统计 soup 中最长边相对包围盒对角的比例及 >25%diag 三角数
+void auditSoupLongTris(const std::vector<float>& soup, int& outOver25, double& outMaxRatio)
+{
+	outOver25 = 0;
+	outMaxRatio = 0.0;
+	if (soup.size() < 9U)
+	{
+		return;
+	}
+	double minX = soup[0], minY = soup[1], minZ = soup[2];
+	double maxX = minX, maxY = minY, maxZ = minZ;
+	for (std::size_t i = 0; i + 2U < soup.size(); i += 3U)
+	{
+		minX = std::min(minX, static_cast<double>(soup[i]));
+		minY = std::min(minY, static_cast<double>(soup[i + 1U]));
+		minZ = std::min(minZ, static_cast<double>(soup[i + 2U]));
+		maxX = std::max(maxX, static_cast<double>(soup[i]));
+		maxY = std::max(maxY, static_cast<double>(soup[i + 1U]));
+		maxZ = std::max(maxZ, static_cast<double>(soup[i + 2U]));
+	}
+	const double dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
+	const double diag = std::max(1e-6, std::sqrt(dx * dx + dy * dy + dz * dz));
+	const std::size_t triCount = soup.size() / 9U;
+	for (std::size_t t = 0; t < triCount; ++t)
+	{
+		const float* p = soup.data() + t * 9U;
+		const double e01 = std::sqrt(std::pow(p[3] - p[0], 2) + std::pow(p[4] - p[1], 2) + std::pow(p[5] - p[2], 2));
+		const double e12 = std::sqrt(std::pow(p[6] - p[3], 2) + std::pow(p[7] - p[4], 2) + std::pow(p[8] - p[5], 2));
+		const double e20 = std::sqrt(std::pow(p[0] - p[6], 2) + std::pow(p[1] - p[7], 2) + std::pow(p[2] - p[8], 2));
+		const double maxE = std::max({e01, e12, e20});
+		const double ratio = maxE / diag;
+		outMaxRatio = std::max(outMaxRatio, ratio);
+		if (ratio > 0.25)
+		{
+			++outOver25;
+		}
+	}
+}
+
+/// 打印首个长边三角的角点坐标，直接看数据形态
+std::string dumpFirstLongTri(const std::vector<float>& soup, double threshRatio)
+{
+	if (soup.size() < 9U)
+	{
+		return {};
+	}
+	double minX = soup[0], minY = soup[1], minZ = soup[2];
+	double maxX = minX, maxY = minY, maxZ = minZ;
+	for (std::size_t i = 0; i + 2U < soup.size(); i += 3U)
+	{
+		minX = std::min(minX, static_cast<double>(soup[i]));
+		minY = std::min(minY, static_cast<double>(soup[i + 1U]));
+		minZ = std::min(minZ, static_cast<double>(soup[i + 2U]));
+		maxX = std::max(maxX, static_cast<double>(soup[i]));
+		maxY = std::max(maxY, static_cast<double>(soup[i + 1U]));
+		maxZ = std::max(maxZ, static_cast<double>(soup[i + 2U]));
+	}
+	const double dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
+	const double diag = std::max(1e-6, std::sqrt(dx * dx + dy * dy + dz * dz));
+	const std::size_t triCount = soup.size() / 9U;
+	std::ostringstream oss;
+	for (std::size_t t = 0; t < triCount; ++t)
+	{
+		const float* p = soup.data() + t * 9U;
+		const double e01 = std::sqrt(std::pow(p[3] - p[0], 2) + std::pow(p[4] - p[1], 2) + std::pow(p[5] - p[2], 2));
+		const double e12 = std::sqrt(std::pow(p[6] - p[3], 2) + std::pow(p[7] - p[4], 2) + std::pow(p[8] - p[5], 2));
+		const double e20 = std::sqrt(std::pow(p[0] - p[6], 2) + std::pow(p[1] - p[7], 2) + std::pow(p[2] - p[8], 2));
+		if (std::max({e01, e12, e20}) / diag > threshRatio)
+		{
+			oss << "[SDF-debug] firstLongTri#" << t << " diag=" << diag << " corners: (" << p[0] << "," << p[1] << ","
+				<< p[2] << ") (" << p[3] << "," << p[4] << "," << p[5] << ") (" << p[6] << "," << p[7] << "," << p[8]
+				<< ")\n";
+			return oss.str();
+		}
+	}
+	oss << "[SDF-debug] no tri over " << threshRatio << " diag=" << diag << "\n";
+	return oss.str();
 }
 
 cloudsim::host::DocumentHost* pageFromDoc(IPluginDocument* doc)
@@ -772,6 +908,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 		std::vector<float> newMeshSoup;
 		std::string error;
 		bool ok = false;
+		bool resultInWorldFrame = false;
 	};
 	auto result = std::make_shared<SdfWorkResult>();
 	const point_cloud_backend_ops::PointCloudSdfParams coreParams = buildSdfParams(params);
@@ -826,44 +963,115 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 		[sourceIsMesh, targetIsMesh, sourcePc, sourceMesh, targetPc, targetMesh, coreParams,
 		 result](const PluginJobProgressFn& report)
 		{
-			report(0.15, QStringLiteral("Running SDF/DDF..."));
+			report(0.15, QStringLiteral("Running SDF/DDF (world frame)..."));
+			// 在世界系配准，避免源/目标 local 位姿不一致导致「形变不大却看起来乱」
+			auto makeWorldTargetPc = [&]() -> std::shared_ptr<PointCloudBackendData> {
+				auto w = std::make_shared<PointCloudBackendData>();
+				std::vector<float> xyz = targetPc->worldPositionsXyz();
+				std::vector<float> normals = targetPc->pointNormalsNxNyNz();
+				rotateNormalsByWorldMatrix(normals, targetPc->worldMatrix());
+				w->setPointBuffers(std::move(xyz), {}, std::move(normals));
+				return w;
+			};
+			auto makeWorldTargetMesh = [&]() -> std::shared_ptr<MeshBackendData> {
+				auto w = std::make_shared<MeshBackendData>();
+				w->setTriangleSoup(targetMesh->worldTriangleSoup());
+				return w;
+			};
+
 			if (sourceIsMesh)
 			{
+				int localOver25 = 0;
+				double localMaxRatio = 0.0;
+				auditSoupLongTris(sourceMesh->triangleSoup(), localOver25, localMaxRatio);
+				int worldOver25 = 0;
+				double worldMaxRatio = 0.0;
+				const std::vector<float> worldSoup = sourceMesh->worldTriangleSoup();
+				auditSoupLongTris(worldSoup, worldOver25, worldMaxRatio);
+
 				auto meshCopy = std::make_shared<MeshBackendData>();
-				meshCopy->setTriangleSoup(sourceMesh->triangleSoup());
+				meshCopy->setTriangleSoup(worldSoup);
+				std::shared_ptr<PointCloudBackendData> tgtPcWorld;
+				std::shared_ptr<MeshBackendData> tgtMeshWorld;
+				const PointCloudBackendData* tgtPcPtr = nullptr;
+				const MeshBackendData* tgtMeshPtr = nullptr;
+				if (targetIsMesh)
+				{
+					tgtMeshWorld = makeWorldTargetMesh();
+					tgtMeshPtr = tgtMeshWorld.get();
+				}
+				else
+				{
+					tgtPcWorld = makeWorldTargetPc();
+					tgtPcPtr = tgtPcWorld.get();
+				}
 				result->ok = point_cloud_backend_ops::nonRigidRegisterMeshSdf(
-					*meshCopy, targetIsMesh ? nullptr : targetPc.get(), targetIsMesh ? targetMesh.get() : nullptr,
-					result->sdf, coreParams, &result->error);
+					*meshCopy, tgtPcPtr, tgtMeshPtr, result->sdf, coreParams, &result->error);
 				if (result->ok)
 				{
 					result->newMeshSoup = meshCopy->triangleSoup();
+					result->resultInWorldFrame = true;
+					std::ostringstream pre;
+					pre << "[SDF-debug] frame=world\n";
+					pre << "[SDF-debug] sourceSoup local: >25%diag=" << localOver25 << " maxEdge/diag=" << localMaxRatio
+						<< " | world: >25%diag=" << worldOver25 << " maxEdge/diag=" << worldMaxRatio << "\n";
+					{
+						int algoOut25 = 0;
+						double algoOutMax = 0.0;
+						auditSoupLongTris(result->newMeshSoup, algoOut25, algoOutMax);
+						pre << "[SDF-debug] algoOutSoup(world, pre-convert): >25%diag=" << algoOut25
+							<< " maxEdge/diag=" << algoOutMax << "\n";
+						pre << dumpFirstLongTri(result->newMeshSoup, 0.25);
+					}
+					if (localOver25 == 0 && worldOver25 > 0)
+					{
+						pre << "[SDF-WARN] 仅世界系 soup 出现长边 → worldMatrix 可能含非均匀缩放/剪切\n";
+					}
+					else if (localOver25 > 0)
+					{
+						pre << "[SDF-WARN] 源 local soup 已有长边 → 后端三角数据本身含跨瓣边（显示光滑也可能存在）\n";
+					}
+					result->sdf.debugSummary = pre.str() + result->sdf.debugSummary;
 				}
 			}
 			else if (targetIsMesh)
 			{
 				auto pcCopy = std::make_shared<PointCloudBackendData>();
-				pcCopy->setPointBuffers(sourcePc->pointPositionsXyz(), sourcePc->pointVertexRgba(),
-										sourcePc->pointNormalsNxNyNz());
+				std::vector<float> xyz = sourcePc->worldPositionsXyz();
+				std::vector<float> normals = sourcePc->pointNormalsNxNyNz();
+				rotateNormalsByWorldMatrix(normals, sourcePc->worldMatrix());
+				pcCopy->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
+				auto tgtMeshWorld = makeWorldTargetMesh();
 				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSdf(
-					*pcCopy, *targetMesh, result->sdf, coreParams, &result->error);
+					*pcCopy, *tgtMeshWorld, result->sdf, coreParams, &result->error);
 				if (result->ok)
 				{
 					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
 					result->newPointCloudNormals = pcCopy->pointNormalsNxNyNz();
+					result->resultInWorldFrame = true;
 				}
 			}
 			else
 			{
 				auto pcCopy = std::make_shared<PointCloudBackendData>();
-				pcCopy->setPointBuffers(sourcePc->pointPositionsXyz(), sourcePc->pointVertexRgba(),
-										sourcePc->pointNormalsNxNyNz());
+				std::vector<float> xyz = sourcePc->worldPositionsXyz();
+				std::vector<float> normals = sourcePc->pointNormalsNxNyNz();
+				rotateNormalsByWorldMatrix(normals, sourcePc->worldMatrix());
+				pcCopy->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
+				auto tgtPcWorld = makeWorldTargetPc();
 				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudsSdf(
-					*pcCopy, *targetPc, result->sdf, coreParams, &result->error);
+					*pcCopy, *tgtPcWorld, result->sdf, coreParams, &result->error);
 				if (result->ok)
 				{
 					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
 					result->newPointCloudNormals = pcCopy->pointNormalsNxNyNz();
+					result->resultInWorldFrame = true;
 				}
+			}
+			if (result->ok && !sourceIsMesh)
+			{
+				result->sdf.debugSummary =
+					std::string("[SDF-debug] frame=world\n") + result->sdf.debugSummary;
 			}
 			report(1.0, QStringLiteral("Done"));
 		},
@@ -883,13 +1091,32 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 			}
 			jobResult.rmseMm = result->sdf.meanErrorMm;
 			jobResult.spareDeformationNodeCount = result->sdf.deformationNodeCount;
+			jobResult.debugReport = result->sdf.debugSummary;
 
 			if (sourceIsMesh)
 			{
+				std::vector<float> soup = result->newMeshSoup;
+				// 新建/写回源：一律落到源局部系，并继承源 worldMatrix（与场景里源的显示契约一致）
+				if (result->resultInWorldFrame)
+				{
+					triangleSoupWorldToStored(*sourceMesh, soup);
+				}
+				// 最终写回前审计：若此处干净而画面乱，则问题在显示/导入路径而非算法
+				{
+					int outOver25 = 0;
+					double outMaxRatio = 0.0;
+					auditSoupLongTris(soup, outOver25, outMaxRatio);
+					std::ostringstream outAudit;
+					outAudit << "[SDF-debug] outputSoup(local, pre-register): >25%diag=" << outOver25
+							 << " maxEdge/diag=" << outMaxRatio << "\n";
+					outAudit << dumpFirstLongTri(soup, 0.25);
+					result->sdf.debugSummary += outAudit.str();
+					jobResult.debugReport = result->sdf.debugSummary;
+				}
 				if (params.createNewObject)
 				{
 					auto meshPtr = std::make_shared<MeshBackendData>();
-					meshPtr->setTriangleSoup(result->newMeshSoup);
+					meshPtr->setTriangleSoup(std::move(soup));
 					PluginMeshCreateOptions options = params.newObjectOptions;
 					if (options.displayName.isEmpty())
 					{
@@ -907,11 +1134,18 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 						onFinished(false, QString::fromStdString(regErr), jobResult);
 						return;
 					}
+					// registerReconstructedMesh 内 setPose/setRotation 会重建矩阵；之后再拷贝源位姿
+					meshPtr->setWorldMatrix(sourceMesh->worldMatrix());
+					if (OsgWidget* osg = widgetOsgFromPage(page))
+					{
+						QString geomErr;
+						(void)osg->loadMeshFromBackendData(*meshPtr, &geomErr, false, true, true);
+					}
 					jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9U;
 				}
 				else if (params.applyDeformationToSource)
 				{
-					sourceMesh->setTriangleSoup(result->newMeshSoup);
+					sourceMesh->setTriangleSoup(std::move(soup));
 					if (OsgWidget* osg = widgetOsgFromPage(page))
 					{
 						QString geomErr;
@@ -922,10 +1156,12 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 			}
 			else if (params.createNewObject)
 			{
+				std::vector<float> xyz = result->newPointCloudXyz;
+				std::vector<float> normals = result->newPointCloudNormals;
 				auto newPc = std::make_shared<PointCloudBackendData>();
 				newPc->setName(sourcePc->name() + "_sdf");
-				newPc->setPointBuffers(std::move(result->newPointCloudXyz), sourcePc->pointVertexRgba(),
-									   std::move(result->newPointCloudNormals));
+				newPc->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
+				newPc->setWorldMatrix(BackendMat4::identity());
 				cloudsim::host::AdoptPointCloudOptions adoptOpt;
 				adoptOpt.sourcePath = QStringLiteral("plugin://pointcloud/sdf");
 				QString regErr;
@@ -941,8 +1177,37 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 			}
 			else if (params.applyDeformationToSource)
 			{
-				sourcePc->setPointBuffers(std::move(result->newPointCloudXyz), sourcePc->pointVertexRgba(),
-										  std::move(result->newPointCloudNormals));
+				std::vector<float> xyz = result->newPointCloudXyz;
+				std::vector<float> normals = result->newPointCloudNormals;
+				if (result->resultInWorldFrame)
+				{
+					xyzWorldToStored(*sourcePc, xyz);
+					// 世界系法线转回源局部：R^T n（用逆世界作用在方向上）
+					const BackendMat4 w = sourcePc->worldMatrix();
+					const BackendVec3 oWorld = backend_mat4_transform_point(w, BackendVec3{0.0, 0.0, 0.0});
+					for (std::size_t i = 0; i + 2U < normals.size(); i += 3U)
+					{
+						const BackendVec3 nWorld{static_cast<double>(normals[i]), static_cast<double>(normals[i + 1U]),
+												 static_cast<double>(normals[i + 2U])};
+						const BackendVec3 tipWorld{oWorld.x + nWorld.x, oWorld.y + nWorld.y, oWorld.z + nWorld.z};
+						const BackendVec3 oLocal = transformPointToStored(*sourcePc, oWorld);
+						const BackendVec3 tipLocal = transformPointToStored(*sourcePc, tipWorld);
+						double nx = tipLocal.x - oLocal.x;
+						double ny = tipLocal.y - oLocal.y;
+						double nz = tipLocal.z - oLocal.z;
+						const double len = std::sqrt(nx * nx + ny * ny + nz * nz);
+						if (len > 1e-12)
+						{
+							nx /= len;
+							ny /= len;
+							nz /= len;
+						}
+						normals[i] = static_cast<float>(nx);
+						normals[i + 1U] = static_cast<float>(ny);
+						normals[i + 2U] = static_cast<float>(nz);
+					}
+				}
+				sourcePc->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
 				document_point_cloud_ops::commitPointCloudVisual(page, *sourcePc);
 				jobResult.pointCountAfter = sourcePc->geometryElementCount();
 			}

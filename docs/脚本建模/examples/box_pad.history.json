@@ -1,0 +1,33 @@
+{
+  "seq": 2,
+  "features": [
+    {
+      "id": "Sketch1",
+      "name": "Sketch1",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [0, 0, 0],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 1, 0],
+        "normal": [0, 0, 1],
+        "isPlanar": true
+      },
+      "profile": [0, 0, 0, 40, 0, 0, 40, 40, 0, 0, 40, 0, 0, 0, 0],
+      "sketchRefId": "",
+      "suppressed": false,
+      "visible": true
+    },
+    {
+      "id": "Pad1",
+      "name": "Pad1",
+      "kind": "Pad",
+      "lengthMm": 10,
+      "endCondition": "Blind",
+      "draftAngleDeg": 0,
+      "reversed": false,
+      "sketchRefId": "Sketch1",
+      "suppressed": false,
+      "visible": true
+    }
+  ]
+}

@@ -21,6 +21,7 @@ enum class ParametricFeatureKind
 	Revolve,
 	RevolveCut,
 	LinearPattern,
+	CircularPattern,
 	Mirror3D,
 	Loft,
 	LoftCut,
@@ -44,7 +45,8 @@ enum class ParametricExtrudeEnd
 	MidPlane,
 	ThroughAll,
 	UpToVertex,
-	OffsetFromFace
+	OffsetFromFace,
+	TwoDirections
 };
 
 struct ParametricFeature
@@ -64,8 +66,11 @@ struct ParametricFeature
 		float mx = 0, my = 0, mz = 0;
 	};
 	std::vector<PathSegment> pathSegments;
+	std::vector<PathSegment> profileSegments;
 	double twistDeg = 0.0;
 	double lengthMm = 10.0;
+	double length2Mm = 0.0;
+	double startOffsetMm = 0.0;
 	double draftAngleDeg = 0.0;
 	bool reversed = false;
 	ParametricExtrudeEnd endCondition = ParametricExtrudeEnd::Blind;
@@ -75,6 +80,7 @@ struct ParametricFeature
 	double upToVertexY = 0.0;
 	double upToVertexZ = 0.0;
 	bool hasUpToVertex = false;
+	int upToVertexIndex = -1;
 	double offsetFromFaceMm = 0.0;
 	std::string upToFaceBackendId;
 	int upToFaceIndex = -1;
@@ -97,6 +103,7 @@ struct ParametricFeature
 	double axisDx = 0, axisDy = 0, axisDz = 1;
 	int patternCount = 2;
 	double patternDx = 10, patternDy = 0, patternDz = 0;
+	double patternAngleDeg = 360.0;
 	/// 非空：阵列该特征处 tip（含该特征）；空：阵列当前 tip
 	std::string patternSourceFeatureId;
 	ParametricSketchPlane mirrorPlane{};
@@ -125,6 +132,8 @@ inline const char* parametricFeatureKindToString(ParametricFeatureKind k)
 		return "RevolveCut";
 	case ParametricFeatureKind::LinearPattern:
 		return "LinearPattern";
+	case ParametricFeatureKind::CircularPattern:
+		return "CircularPattern";
 	case ParametricFeatureKind::Mirror3D:
 		return "Mirror3D";
 	case ParametricFeatureKind::Loft:
@@ -160,6 +169,8 @@ inline ParametricFeatureKind parametricFeatureKindFromString(const std::string& 
 		return ParametricFeatureKind::RevolveCut;
 	if (s == "LinearPattern")
 		return ParametricFeatureKind::LinearPattern;
+	if (s == "CircularPattern")
+		return ParametricFeatureKind::CircularPattern;
 	if (s == "Mirror3D")
 		return ParametricFeatureKind::Mirror3D;
 	if (s == "Loft")
@@ -187,6 +198,8 @@ inline const char* parametricExtrudeEndToString(ParametricExtrudeEnd e)
 		return "UpToVertex";
 	case ParametricExtrudeEnd::OffsetFromFace:
 		return "OffsetFromFace";
+	case ParametricExtrudeEnd::TwoDirections:
+		return "TwoDirections";
 	default:
 		return "Blind";
 	}
@@ -204,6 +217,8 @@ inline ParametricExtrudeEnd parametricExtrudeEndFromString(const std::string& s)
 		return ParametricExtrudeEnd::UpToVertex;
 	if (s == "OffsetFromFace")
 		return ParametricExtrudeEnd::OffsetFromFace;
+	if (s == "TwoDirections")
+		return ParametricExtrudeEnd::TwoDirections;
 	return ParametricExtrudeEnd::Blind;
 }
 

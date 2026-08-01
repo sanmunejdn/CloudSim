@@ -95,6 +95,12 @@
     <ClInclude Include="inc\HlrProject.h">
       <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
+    <ClInclude Include="inc\DrawingGeometry.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DrawingEngines.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
     <ClInclude Include="inc\FeatureDiscretizeParamUtils.h">
       <Filter>inc\FeatureDiscretize</Filter>
     </ClInclude>
@@ -256,6 +262,15 @@
     <ClCompile Include="source\HlrProject.cpp">
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
+    <ClCompile Include="source\DrawingGeometry.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingGeomFactory.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingEngines.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
     <ClCompile Include="source\FaceSectionDiscretize.cpp">
       <Filter>src\FeatureDiscretize</Filter>
     </ClCompile>
@@ -398,6 +413,9 @@
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchExtrude.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchCurveWire.cpp">
       <Filter>src\Sketch</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchDraft.cpp">

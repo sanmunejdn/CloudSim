@@ -1,22 +1,19 @@
-# ACCEPTANCE — feature.compose → Parametric 特征史（含续期）
+# ACCEPTANCE — feature.compose + Host 规范收口
 
 | 项 | 状态 |
 |----|------|
-| Domain `feature.compose` 注册 | 完成 |
-| Router：建模+孔 → feature；纯布尔 → mesh | 完成 |
-| LLM `featureComposeSystemPrompt`（Pocket/Chamfer/Revolve） | 完成 |
-| `extrudeSketchProfileToBrep` 写 `sketchDocumentJson` | 完成 |
-| Pad + Pocket 通孔规则解析 | 完成 |
-| Fillet / Chamfer（`edges=all`）/ LinearPattern / Revolve | 完成 |
-| `askClarify` | 完成 |
-| `onParametricBodyHistoryChanged` + geomodeling sync | 完成 |
-| ABI 1.44.0 `0x00012C00`（Chamfer `allEdges`） | 完成 |
-| Debug\|x64 编译 | 通过 |
+| CircularPattern 虚表尾部追加 | 完成 |
+| feature.compose LLM 解析分支 | 完成 |
+| ActionPlan 执行前 validatePlanJson | 完成 |
+| Pattern `resolvePatternSeed` 统一 tip fuseOnto | 完成 |
+| AI Loft 世界坐标轮廓 | 完成 |
+| plugin.json minHostVersion = 1.47.0 | 完成 |
+| ABI 1.47.0 `0x00012F00` | 完成 |
+| Debug\|x64 编译 | 完成（SDK→CloudSimHost→GeometricModelingPlugin） |
 
-## 手测
+## 手测要点
 
-1. AI：「建模 100x80x40」→ Parametric Body；双击 Sketch → 可改边长并 rebuild  
-2. 「建模 100x80x40 中心通孔 d10」→ history 含 Sketch+Pad+Sketch+Pocket；**无** MeshBackendData  
-3. 「倒角 / 旋转圆柱 半径50 高100」→ Chamfer / Revolve 写入 tip  
-4. 纯「布尔差集挖孔」仍可走 mesh.compose  
-5. 模糊尺寸 → askClarify
+1. 旧插件勿链新 Host：虚表插错会导致 crash；须同编 1.47+  
+2. AI feature.compose 远程 LLM 输出经校验后再执行  
+3. Pad→Fillet→Pattern(source=Pad) 预览/提交均保留 Fillet  
+4. AI loft 两轮廓 Z 不同时实体非共面 degenerate

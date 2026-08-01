@@ -544,6 +544,7 @@ bool nonRigidRegisterPointCloudsSdf(PointCloudBackendData& sourceInOut, const Po
 	out.meanErrorMm = stats.meanErrorMm;
 	out.deformationNodeCount = stats.deformationNodeCount;
 	out.fieldVoxelMmUsed = stats.fieldVoxelMmUsed;
+	out.debugSummary = stats.debugSummary;
 	return true;
 }
 
@@ -622,6 +623,7 @@ bool nonRigidRegisterMeshSdf(MeshBackendData& sourceMeshInOut, const PointCloudB
 	out.meanErrorMm = stats.meanErrorMm;
 	out.deformationNodeCount = stats.deformationNodeCount;
 	out.fieldVoxelMmUsed = stats.fieldVoxelMmUsed;
+	out.debugSummary = stats.debugSummary;
 	return true;
 }
 

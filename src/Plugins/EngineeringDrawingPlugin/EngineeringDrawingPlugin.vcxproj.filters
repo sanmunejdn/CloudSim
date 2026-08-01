@@ -29,12 +29,21 @@
     <ClInclude Include="inc\SheetSketchAdapter.h">
       <Filter>inc\UI</Filter>
     </ClInclude>
+    <ClInclude Include="inc\SheetSnapEngine.h">
+      <Filter>inc\UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\EngineeringDrawingPlugin.cpp">
       <Filter>src\Plugin</Filter>
     </ClCompile>
     <ClCompile Include="source\DrawingSheetCanvasWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingSheetCanvasCadExt.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SheetSnapEngine.cpp">
       <Filter>src\UI</Filter>
     </ClCompile>
     <ClCompile Include="source\DrawingPageWidget.cpp">
@@ -47,6 +56,9 @@
       <Filter>src\UI</Filter>
     </ClCompile>
     <ClCompile Include="source\DrawingInfoPanel.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DimStyleDialog.cpp">
       <Filter>src\UI</Filter>
     </ClCompile>
     <ClCompile Include="source\DrawingExport.cpp">
@@ -79,6 +91,9 @@
       <Filter>inc\UI</Filter>
     </QtMoc>
     <QtMoc Include="inc\DrawingInfoPanel.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DimStyleDialog.h">
       <Filter>inc\UI</Filter>
     </QtMoc>
   </ItemGroup>

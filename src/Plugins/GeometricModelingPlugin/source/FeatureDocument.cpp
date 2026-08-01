@@ -13,13 +13,14 @@ QString FeatureDocument::nextId(const char* prefix)
 	return QStringLiteral("%1_%2").arg(QLatin1String(prefix)).arg(m_seq++);
 }
 
-QString FeatureDocument::addSketch(const PluginSketchPlane& plane, const QString& name)
+QString FeatureDocument::addSketch(const PluginSketchPlane& plane, const QString& name, const QString& datumPlaneId)
 {
 	GeomodelingFeature f;
 	f.id = nextId("Sketch");
 	f.name = name.isEmpty() ? f.id : name;
 	f.kind = GeomodelingFeatureKind::Sketch;
 	f.plane = plane;
+	f.datumPlaneId = datumPlaneId;
 	m_features.push_back(f);
 	return f.id;
 }
@@ -31,6 +32,40 @@ QString FeatureDocument::addDatumPlane(const PluginSketchPlane& plane, const QSt
 	f.name = name.isEmpty() ? f.id : name;
 	f.kind = GeomodelingFeatureKind::DatumPlane;
 	f.plane = plane;
+	m_features.push_back(f);
+	return f.id;
+}
+
+QString FeatureDocument::addDatumPlaneOffset(const PluginSketchPlane& plane, GeomodelingDatumSourceKind sourceKind,
+											 double offsetMm, int originPlaneIndex, const QString& faceBackendId,
+											 int faceIndex, const QString& name)
+{
+	GeomodelingFeature f;
+	f.id = nextId("DatumPlane");
+	f.name = name.isEmpty() ? f.id : name;
+	f.kind = GeomodelingFeatureKind::DatumPlane;
+	f.plane = plane;
+	f.datumSourceKind = sourceKind;
+	f.datumOffsetMm = offsetMm;
+	f.datumOriginPlaneIndex = originPlaneIndex;
+	f.datumFaceBackendId = faceBackendId;
+	f.datumFaceIndex = faceIndex;
+	m_features.push_back(f);
+	return f.id;
+}
+
+QString FeatureDocument::addDatumPlaneAngle(const PluginSketchPlane& plane, double angleDeg,
+										   const PluginPoint3d& hingeOrigin, const PluginPoint3d& hingeDir,
+										   const QString& name)
+{
+	GeomodelingFeature f;
+	f.id = nextId("DatumPlane");
+	f.name = name.isEmpty() ? f.id : name;
+	f.kind = GeomodelingFeatureKind::DatumPlaneAngle;
+	f.plane = plane;
+	f.datumAngleDeg = angleDeg;
+	f.datumHingeOrigin = hingeOrigin;
+	f.datumHingeDir = hingeDir;
 	m_features.push_back(f);
 	return f.id;
 }
@@ -240,6 +275,10 @@ QJsonObject FeatureDocument::toJson() const
 		o.insert(QStringLiteral("name"), f.name);
 		o.insert(QStringLiteral("kind"), static_cast<int>(f.kind));
 		o.insert(QStringLiteral("lengthMm"), f.lengthMm);
+		if (std::abs(f.length2Mm) > 1e-9)
+			o.insert(QStringLiteral("length2Mm"), f.length2Mm);
+		if (std::abs(f.startOffsetMm) > 1e-9)
+			o.insert(QStringLiteral("startOffsetMm"), f.startOffsetMm);
 		o.insert(QStringLiteral("draftAngleDeg"), f.draftAngleDeg);
 		o.insert(QStringLiteral("reversed"), f.reversed);
 		{
@@ -250,6 +289,12 @@ QJsonObject FeatureDocument::toJson() const
 				endStr = QStringLiteral("MidPlane");
 			else if (f.endCondition == GeomodelingExtrudeEnd::ThroughAll)
 				endStr = QStringLiteral("ThroughAll");
+			else if (f.endCondition == GeomodelingExtrudeEnd::UpToVertex)
+				endStr = QStringLiteral("UpToVertex");
+			else if (f.endCondition == GeomodelingExtrudeEnd::OffsetFromFace)
+				endStr = QStringLiteral("OffsetFromFace");
+			else if (f.endCondition == GeomodelingExtrudeEnd::TwoDirections)
+				endStr = QStringLiteral("TwoDirections");
 			o.insert(QStringLiteral("endCondition"), endStr);
 		}
 		if (f.hasUpToFacePlane)
@@ -333,14 +378,54 @@ QJsonObject FeatureDocument::toJson() const
 				so.insert(QStringLiteral("kind"), s.kind);
 				so.insert(QStringLiteral("a"), QJsonArray{s.ax, s.ay, s.az});
 				so.insert(QStringLiteral("b"), QJsonArray{s.bx, s.by, s.bz});
-				if (s.kind == 1)
+				if (s.kind == 1 || s.kind == 3 || s.kind == 4)
 					so.insert(QStringLiteral("m"), QJsonArray{s.mx, s.my, s.mz});
 				segs.append(so);
 			}
 			o.insert(QStringLiteral("pathSegments"), segs);
 		}
+		if (!f.profileSegments.empty())
+		{
+			QJsonArray segs;
+			for (const auto& s : f.profileSegments)
+			{
+				QJsonObject so;
+				so.insert(QStringLiteral("kind"), s.kind);
+				so.insert(QStringLiteral("a"), QJsonArray{s.ax, s.ay, s.az});
+				so.insert(QStringLiteral("b"), QJsonArray{s.bx, s.by, s.bz});
+				if (s.kind == 1 || s.kind == 3 || s.kind == 4)
+					so.insert(QStringLiteral("m"), QJsonArray{s.mx, s.my, s.mz});
+				segs.append(so);
+			}
+			o.insert(QStringLiteral("profileSegments"), segs);
+		}
 		if (!f.sketchDocumentUtf8.isEmpty())
 			o.insert(QStringLiteral("sketchDocument"), QString::fromUtf8(f.sketchDocumentUtf8));
+		if (f.datumSourceKind != GeomodelingDatumSourceKind::None)
+			o.insert(QStringLiteral("datumSourceKind"), static_cast<int>(f.datumSourceKind));
+		if (f.datumSourceKind == GeomodelingDatumSourceKind::OriginPlane)
+			o.insert(QStringLiteral("datumOriginPlaneIndex"), f.datumOriginPlaneIndex);
+		if (f.datumSourceKind == GeomodelingDatumSourceKind::Face)
+		{
+			o.insert(QStringLiteral("datumFaceBackendId"), f.datumFaceBackendId);
+			o.insert(QStringLiteral("datumFaceIndex"), f.datumFaceIndex);
+		}
+		if (std::abs(f.datumOffsetMm) > 1e-12 || f.datumSourceKind != GeomodelingDatumSourceKind::None)
+			o.insert(QStringLiteral("datumOffsetMm"), f.datumOffsetMm);
+		if (f.kind == GeomodelingFeatureKind::DatumPlaneAngle || std::abs(f.datumAngleDeg) > 1e-9)
+		{
+			o.insert(QStringLiteral("datumAngleDeg"), f.datumAngleDeg);
+			QJsonObject hinge;
+			hinge.insert(QStringLiteral("ox"), f.datumHingeOrigin.x);
+			hinge.insert(QStringLiteral("oy"), f.datumHingeOrigin.y);
+			hinge.insert(QStringLiteral("oz"), f.datumHingeOrigin.z);
+			hinge.insert(QStringLiteral("dx"), f.datumHingeDir.x);
+			hinge.insert(QStringLiteral("dy"), f.datumHingeDir.y);
+			hinge.insert(QStringLiteral("dz"), f.datumHingeDir.z);
+			o.insert(QStringLiteral("datumHinge"), hinge);
+		}
+		if (!f.datumPlaneId.isEmpty())
+			o.insert(QStringLiteral("datumPlaneId"), f.datumPlaneId);
 		arr.append(o);
 	}
 	QJsonObject root;
@@ -364,6 +449,8 @@ void FeatureDocument::fromJson(const QJsonObject& obj)
 		f.name = o.value(QStringLiteral("name")).toString();
 		f.kind = static_cast<GeomodelingFeatureKind>(o.value(QStringLiteral("kind")).toInt());
 		f.lengthMm = o.value(QStringLiteral("lengthMm")).toDouble(10.0);
+		f.length2Mm = o.value(QStringLiteral("length2Mm")).toDouble(0.0);
+		f.startOffsetMm = o.value(QStringLiteral("startOffsetMm")).toDouble(0.0);
 		f.draftAngleDeg = o.value(QStringLiteral("draftAngleDeg")).toDouble(0.0);
 		f.reversed = o.value(QStringLiteral("reversed")).toBool();
 		{
@@ -374,6 +461,12 @@ void FeatureDocument::fromJson(const QJsonObject& obj)
 				f.endCondition = GeomodelingExtrudeEnd::MidPlane;
 			else if (endStr == QLatin1String("ThroughAll"))
 				f.endCondition = GeomodelingExtrudeEnd::ThroughAll;
+			else if (endStr == QLatin1String("UpToVertex"))
+				f.endCondition = GeomodelingExtrudeEnd::UpToVertex;
+			else if (endStr == QLatin1String("OffsetFromFace"))
+				f.endCondition = GeomodelingExtrudeEnd::OffsetFromFace;
+			else if (endStr == QLatin1String("TwoDirections"))
+				f.endCondition = GeomodelingExtrudeEnd::TwoDirections;
 			else
 				f.endCondition = GeomodelingExtrudeEnd::Blind;
 		}
@@ -455,9 +548,54 @@ void FeatureDocument::fromJson(const QJsonObject& obj)
 			}
 			f.pathSegments.push_back(s);
 		}
+		for (const QJsonValue& sv : o.value(QStringLiteral("profileSegments")).toArray())
+		{
+			const QJsonObject so = sv.toObject();
+			GeomodelingFeature::PathSegment s;
+			s.kind = so.value(QStringLiteral("kind")).toInt(0);
+			const QJsonArray a = so.value(QStringLiteral("a")).toArray();
+			const QJsonArray b = so.value(QStringLiteral("b")).toArray();
+			const QJsonArray m = so.value(QStringLiteral("m")).toArray();
+			if (a.size() >= 3)
+			{
+				s.ax = static_cast<float>(a[0].toDouble());
+				s.ay = static_cast<float>(a[1].toDouble());
+				s.az = static_cast<float>(a[2].toDouble());
+			}
+			if (b.size() >= 3)
+			{
+				s.bx = static_cast<float>(b[0].toDouble());
+				s.by = static_cast<float>(b[1].toDouble());
+				s.bz = static_cast<float>(b[2].toDouble());
+			}
+			if (m.size() >= 3)
+			{
+				s.mx = static_cast<float>(m[0].toDouble());
+				s.my = static_cast<float>(m[1].toDouble());
+				s.mz = static_cast<float>(m[2].toDouble());
+			}
+			f.profileSegments.push_back(s);
+		}
 		const QString skDoc = o.value(QStringLiteral("sketchDocument")).toString();
 		if (!skDoc.isEmpty())
 			f.sketchDocumentUtf8 = skDoc.toUtf8();
+		f.datumSourceKind = static_cast<GeomodelingDatumSourceKind>(o.value(QStringLiteral("datumSourceKind")).toInt(0));
+		f.datumOriginPlaneIndex = o.value(QStringLiteral("datumOriginPlaneIndex")).toInt(0);
+		f.datumFaceBackendId = o.value(QStringLiteral("datumFaceBackendId")).toString();
+		f.datumFaceIndex = o.value(QStringLiteral("datumFaceIndex")).toInt(-1);
+		f.datumOffsetMm = o.value(QStringLiteral("datumOffsetMm")).toDouble(0.0);
+		f.datumAngleDeg = o.value(QStringLiteral("datumAngleDeg")).toDouble(0.0);
+		if (o.contains(QStringLiteral("datumHinge")))
+		{
+			const QJsonObject hinge = o.value(QStringLiteral("datumHinge")).toObject();
+			f.datumHingeOrigin = {static_cast<float>(hinge.value(QStringLiteral("ox")).toDouble()),
+								 static_cast<float>(hinge.value(QStringLiteral("oy")).toDouble()),
+								 static_cast<float>(hinge.value(QStringLiteral("oz")).toDouble())};
+			f.datumHingeDir = {static_cast<float>(hinge.value(QStringLiteral("dx")).toDouble()),
+							   static_cast<float>(hinge.value(QStringLiteral("dy")).toDouble()),
+							   static_cast<float>(hinge.value(QStringLiteral("dz")).toDouble())};
+		}
+		f.datumPlaneId = o.value(QStringLiteral("datumPlaneId")).toString();
 		m_features.push_back(std::move(f));
 	}
 }
@@ -508,6 +646,8 @@ GeomodelingFeatureKind kindFromHost(const QString& s)
 		return GeomodelingFeatureKind::RevolveCut;
 	if (s == QLatin1String("LinearPattern"))
 		return GeomodelingFeatureKind::LinearPattern;
+	if (s == QLatin1String("CircularPattern"))
+		return GeomodelingFeatureKind::CircularPattern;
 	if (s == QLatin1String("Mirror3D"))
 		return GeomodelingFeatureKind::Mirror3D;
 	if (s == QLatin1String("Loft"))
@@ -520,6 +660,8 @@ GeomodelingFeatureKind kindFromHost(const QString& s)
 		return GeomodelingFeatureKind::Draft;
 	if (s == QLatin1String("DatumPlane"))
 		return GeomodelingFeatureKind::DatumPlane;
+	if (s == QLatin1String("DatumPlaneAngle"))
+		return GeomodelingFeatureKind::DatumPlaneAngle;
 	return GeomodelingFeatureKind::Sketch;
 }
 
@@ -543,6 +685,8 @@ QString kindToHost(GeomodelingFeatureKind k)
 		return QStringLiteral("RevolveCut");
 	if (k == GeomodelingFeatureKind::LinearPattern)
 		return QStringLiteral("LinearPattern");
+	if (k == GeomodelingFeatureKind::CircularPattern)
+		return QStringLiteral("CircularPattern");
 	if (k == GeomodelingFeatureKind::Mirror3D)
 		return QStringLiteral("Mirror3D");
 	if (k == GeomodelingFeatureKind::Loft)
@@ -555,6 +699,8 @@ QString kindToHost(GeomodelingFeatureKind k)
 		return QStringLiteral("Draft");
 	if (k == GeomodelingFeatureKind::DatumPlane)
 		return QStringLiteral("DatumPlane");
+	if (k == GeomodelingFeatureKind::DatumPlaneAngle)
+		return QStringLiteral("DatumPlaneAngle");
 	return QStringLiteral("Sketch");
 }
 
@@ -570,6 +716,8 @@ QString endToHost(GeomodelingExtrudeEnd e)
 		return QStringLiteral("UpToVertex");
 	if (e == GeomodelingExtrudeEnd::OffsetFromFace)
 		return QStringLiteral("OffsetFromFace");
+	if (e == GeomodelingExtrudeEnd::TwoDirections)
+		return QStringLiteral("TwoDirections");
 	return QStringLiteral("Blind");
 }
 
@@ -585,6 +733,8 @@ GeomodelingExtrudeEnd endFromHost(const QString& s)
 		return GeomodelingExtrudeEnd::UpToVertex;
 	if (s == QLatin1String("OffsetFromFace"))
 		return GeomodelingExtrudeEnd::OffsetFromFace;
+	if (s == QLatin1String("TwoDirections"))
+		return GeomodelingExtrudeEnd::TwoDirections;
 	return GeomodelingExtrudeEnd::Blind;
 }
 } // namespace
@@ -594,7 +744,7 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 	QJsonArray arr;
 	for (const auto& f : m_features)
 	{
-		if (f.kind == GeomodelingFeatureKind::DatumPlane)
+		if (f.kind == GeomodelingFeatureKind::DatumPlane || f.kind == GeomodelingFeatureKind::DatumPlaneAngle)
 			continue;
 		QJsonObject o;
 		o.insert(QStringLiteral("id"), f.id);
@@ -639,15 +789,34 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 				so.insert(QStringLiteral("kind"), s.kind);
 				so.insert(QStringLiteral("a"), QJsonArray{s.ax, s.ay, s.az});
 				so.insert(QStringLiteral("b"), QJsonArray{s.bx, s.by, s.bz});
-				if (s.kind == 1)
+				if (s.kind == 1 || s.kind == 3 || s.kind == 4)
 					so.insert(QStringLiteral("m"), QJsonArray{s.mx, s.my, s.mz});
 				segs.append(so);
 			}
 			o.insert(QStringLiteral("pathSegments"), segs);
 		}
+		if (!f.profileSegments.empty())
+		{
+			QJsonArray segs;
+			for (const auto& s : f.profileSegments)
+			{
+				QJsonObject so;
+				so.insert(QStringLiteral("kind"), s.kind);
+				so.insert(QStringLiteral("a"), QJsonArray{s.ax, s.ay, s.az});
+				so.insert(QStringLiteral("b"), QJsonArray{s.bx, s.by, s.bz});
+				if (s.kind == 1 || s.kind == 3 || s.kind == 4)
+					so.insert(QStringLiteral("m"), QJsonArray{s.mx, s.my, s.mz});
+				segs.append(so);
+			}
+			o.insert(QStringLiteral("profileSegments"), segs);
+		}
 		if (std::abs(f.twistDeg) > 1e-9)
 			o.insert(QStringLiteral("twistDeg"), f.twistDeg);
 		o.insert(QStringLiteral("lengthMm"), f.lengthMm);
+		if (std::abs(f.length2Mm) > 1e-9)
+			o.insert(QStringLiteral("length2Mm"), f.length2Mm);
+		if (std::abs(f.startOffsetMm) > 1e-9)
+			o.insert(QStringLiteral("startOffsetMm"), f.startOffsetMm);
 		o.insert(QStringLiteral("draftAngleDeg"), f.draftAngleDeg);
 		o.insert(QStringLiteral("reversed"), f.reversed);
 		o.insert(QStringLiteral("endCondition"), endToHost(f.endCondition));
@@ -701,6 +870,7 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 		o.insert(QStringLiteral("axisD"), vec3(f.axisDx, f.axisDy, f.axisDz));
 		o.insert(QStringLiteral("patternCount"), f.patternCount);
 		o.insert(QStringLiteral("patternD"), vec3(f.patternDx, f.patternDy, f.patternDz));
+		o.insert(QStringLiteral("patternAngleDeg"), f.patternAngleDeg);
 		if (!f.patternSourceFeatureId.isEmpty())
 			o.insert(QStringLiteral("patternSourceFeatureId"), f.patternSourceFeatureId);
 		{
@@ -716,6 +886,31 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 			o.insert(QStringLiteral("mirrorPlane"), mp);
 		}
 		o.insert(QStringLiteral("mirrorKeepOriginal"), f.mirrorKeepOriginal);
+		if (f.kind == GeomodelingFeatureKind::DatumPlaneAngle || std::abs(f.datumAngleDeg) > 1e-9)
+		{
+			o.insert(QStringLiteral("datumAngleDeg"), f.datumAngleDeg);
+			QJsonObject hinge;
+			hinge.insert(QStringLiteral("ox"), f.datumHingeOrigin.x);
+			hinge.insert(QStringLiteral("oy"), f.datumHingeOrigin.y);
+			hinge.insert(QStringLiteral("oz"), f.datumHingeOrigin.z);
+			hinge.insert(QStringLiteral("dx"), f.datumHingeDir.x);
+			hinge.insert(QStringLiteral("dy"), f.datumHingeDir.y);
+			hinge.insert(QStringLiteral("dz"), f.datumHingeDir.z);
+			o.insert(QStringLiteral("datumHinge"), hinge);
+		}
+		if (f.datumSourceKind != GeomodelingDatumSourceKind::None)
+			o.insert(QStringLiteral("datumSourceKind"), static_cast<int>(f.datumSourceKind));
+		if (f.datumSourceKind == GeomodelingDatumSourceKind::OriginPlane)
+			o.insert(QStringLiteral("datumOriginPlaneIndex"), f.datumOriginPlaneIndex);
+		if (f.datumSourceKind == GeomodelingDatumSourceKind::Face)
+		{
+			o.insert(QStringLiteral("datumFaceBackendId"), f.datumFaceBackendId);
+			o.insert(QStringLiteral("datumFaceIndex"), f.datumFaceIndex);
+		}
+		if (std::abs(f.datumOffsetMm) > 1e-12 || f.datumSourceKind != GeomodelingDatumSourceKind::None)
+			o.insert(QStringLiteral("datumOffsetMm"), f.datumOffsetMm);
+		if (!f.datumPlaneId.isEmpty())
+			o.insert(QStringLiteral("datumPlaneId"), f.datumPlaneId);
 		arr.append(o);
 	}
 	QJsonObject root;
@@ -744,6 +939,8 @@ bool FeatureDocument::fromParametricHistoryJson(const QByteArray& utf8)
 		f.kind = kindFromHost(o.value(QStringLiteral("kind")).toString());
 		f.plane = planeFromHost(o.value(QStringLiteral("plane")).toObject());
 		f.lengthMm = o.value(QStringLiteral("lengthMm")).toDouble(10.0);
+		f.length2Mm = o.value(QStringLiteral("length2Mm")).toDouble(0.0);
+		f.startOffsetMm = o.value(QStringLiteral("startOffsetMm")).toDouble(0.0);
 		f.draftAngleDeg = o.value(QStringLiteral("draftAngleDeg")).toDouble(0.0);
 		f.reversed = o.value(QStringLiteral("reversed")).toBool();
 		f.endCondition = endFromHost(o.value(QStringLiteral("endCondition")).toString());
@@ -821,10 +1018,28 @@ bool FeatureDocument::fromParametricHistoryJson(const QByteArray& utf8)
 				f.patternDz = patternD[2].toDouble();
 			}
 		}
+		f.patternAngleDeg = o.value(QStringLiteral("patternAngleDeg")).toDouble(360.0);
 		f.patternSourceFeatureId = o.value(QStringLiteral("patternSourceFeatureId")).toString();
 		if (o.contains(QStringLiteral("mirrorPlane")))
 			f.mirrorPlane = planeFromHost(o.value(QStringLiteral("mirrorPlane")).toObject());
 		f.mirrorKeepOriginal = o.value(QStringLiteral("mirrorKeepOriginal")).toBool(true);
+		f.datumAngleDeg = o.value(QStringLiteral("datumAngleDeg")).toDouble(0.0);
+		if (o.contains(QStringLiteral("datumHinge")))
+		{
+			const QJsonObject hinge = o.value(QStringLiteral("datumHinge")).toObject();
+			f.datumHingeOrigin = {static_cast<float>(hinge.value(QStringLiteral("ox")).toDouble()),
+								 static_cast<float>(hinge.value(QStringLiteral("oy")).toDouble()),
+								 static_cast<float>(hinge.value(QStringLiteral("oz")).toDouble())};
+			f.datumHingeDir = {static_cast<float>(hinge.value(QStringLiteral("dx")).toDouble()),
+							   static_cast<float>(hinge.value(QStringLiteral("dy")).toDouble()),
+							   static_cast<float>(hinge.value(QStringLiteral("dz")).toDouble(1.0))};
+		}
+		f.datumSourceKind = static_cast<GeomodelingDatumSourceKind>(o.value(QStringLiteral("datumSourceKind")).toInt(0));
+		f.datumOriginPlaneIndex = o.value(QStringLiteral("datumOriginPlaneIndex")).toInt(0);
+		f.datumFaceBackendId = o.value(QStringLiteral("datumFaceBackendId")).toString();
+		f.datumFaceIndex = o.value(QStringLiteral("datumFaceIndex")).toInt(-1);
+		f.datumOffsetMm = o.value(QStringLiteral("datumOffsetMm")).toDouble(0.0);
+		f.datumPlaneId = o.value(QStringLiteral("datumPlaneId")).toString();
 		for (const QJsonValue& sv : o.value(QStringLiteral("pathSegments")).toArray())
 		{
 			const QJsonObject so = sv.toObject();
@@ -852,6 +1067,34 @@ bool FeatureDocument::fromParametricHistoryJson(const QByteArray& utf8)
 				s.mz = static_cast<float>(m[2].toDouble());
 			}
 			f.pathSegments.push_back(s);
+		}
+		for (const QJsonValue& sv : o.value(QStringLiteral("profileSegments")).toArray())
+		{
+			const QJsonObject so = sv.toObject();
+			GeomodelingFeature::PathSegment s;
+			s.kind = so.value(QStringLiteral("kind")).toInt(0);
+			const QJsonArray a = so.value(QStringLiteral("a")).toArray();
+			const QJsonArray b = so.value(QStringLiteral("b")).toArray();
+			const QJsonArray m = so.value(QStringLiteral("m")).toArray();
+			if (a.size() >= 3)
+			{
+				s.ax = static_cast<float>(a[0].toDouble());
+				s.ay = static_cast<float>(a[1].toDouble());
+				s.az = static_cast<float>(a[2].toDouble());
+			}
+			if (b.size() >= 3)
+			{
+				s.bx = static_cast<float>(b[0].toDouble());
+				s.by = static_cast<float>(b[1].toDouble());
+				s.bz = static_cast<float>(b[2].toDouble());
+			}
+			if (m.size() >= 3)
+			{
+				s.mx = static_cast<float>(m[0].toDouble());
+				s.my = static_cast<float>(m[1].toDouble());
+				s.mz = static_cast<float>(m[2].toDouble());
+			}
+			f.profileSegments.push_back(s);
 		}
 		const QJsonValue skDoc = o.value(QStringLiteral("sketchDocument"));
 		if (skDoc.isString())
@@ -892,7 +1135,7 @@ std::vector<GeomodelingFeature> FeatureDocument::extractDatumPlanes()
 	rest.reserve(m_features.size());
 	for (const GeomodelingFeature& f : m_features)
 	{
-		if (f.kind == GeomodelingFeatureKind::DatumPlane)
+		if (f.kind == GeomodelingFeatureKind::DatumPlane || f.kind == GeomodelingFeatureKind::DatumPlaneAngle)
 			out.push_back(f);
 		else
 			rest.push_back(f);

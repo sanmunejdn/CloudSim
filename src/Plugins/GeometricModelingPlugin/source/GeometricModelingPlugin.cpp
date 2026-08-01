@@ -4,20 +4,26 @@
 
 #include "BackendTypeIds.h"
 #include "BodyHistoryCmd.h"
+#include "CloudSimGeomPython.h"
 #include "CommandStack.h"
 #include "GeometricModelingPage.h"
 #include "GeometricModelingRibbonBar.h"
 #include "GeomodelingI18n.h"
+#include "IAiAssistantHost.h"
 #include "IPluginDocument.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
+#include "ScriptModelIo.h"
 #include "SketchConstraintSolver.h"
 #include "SketchGeom.h"
 #include "SketchTools.h"
 
 #include <QAction>
 #include <QCursor>
+#include <QFile>
+#include <QFileDialog>
 #include <QInputDialog>
+#include <QIODevice>
 #include <QJsonObject>
 #include <QLatin1String>
 #include <QMenu>
@@ -77,12 +83,13 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 {
 	if (!host)
 		return false;
-	if (host->hostVersion() < 0x00012C00U)
+	if (host->hostVersion() < 0x00013200U)
 	{
-		host->logError(QStringLiteral("GeometricModelingPlugin requires host 1.44.0+"));
+		host->logError(QStringLiteral("GeometricModelingPlugin requires host 1.50.0+"));
 		return false;
 	}
 	m_host = host;
+	CloudSimGeomPython::setHost(host);
 
 	std::string err;
 	if (!SketchConstraintSolver::runEquilateralTriangleSelfTest(&err))
@@ -246,6 +253,7 @@ void GeometricModelingPlugin::ensureRibbon()
 	connect(m_ribbon, &GeometricModelingRibbonBar::revolveRequested, this, &GeometricModelingPlugin::onRevolve);
 	connect(m_ribbon, &GeometricModelingRibbonBar::revolveCutRequested, this, &GeometricModelingPlugin::onRevolveCut);
 	connect(m_ribbon, &GeometricModelingRibbonBar::linearPatternRequested, this, &GeometricModelingPlugin::onLinearPattern);
+	connect(m_ribbon, &GeometricModelingRibbonBar::circularPatternRequested, this, &GeometricModelingPlugin::onCircularPattern);
 	connect(m_ribbon, &GeometricModelingRibbonBar::mirror3dRequested, this, &GeometricModelingPlugin::onMirror3d);
 	connect(m_ribbon, &GeometricModelingRibbonBar::loftRequested, this, &GeometricModelingPlugin::onLoft);
 	connect(m_ribbon, &GeometricModelingRibbonBar::loftCutRequested, this, &GeometricModelingPlugin::onLoftCut);
@@ -254,6 +262,15 @@ void GeometricModelingPlugin::ensureRibbon()
 	connect(m_ribbon, &GeometricModelingRibbonBar::rebuildRequested, this, &GeometricModelingPlugin::onRebuild);
 	connect(m_ribbon, &GeometricModelingRibbonBar::undoRequested, this, &GeometricModelingPlugin::onUndo);
 	connect(m_ribbon, &GeometricModelingRibbonBar::redoRequested, this, &GeometricModelingPlugin::onRedo);
+	connect(m_ribbon, &GeometricModelingRibbonBar::exportHistoryRequested, this, &GeometricModelingPlugin::onExportHistory);
+	connect(m_ribbon, &GeometricModelingRibbonBar::importHistoryReplaceRequested, this,
+			&GeometricModelingPlugin::onImportHistoryReplace);
+	connect(m_ribbon, &GeometricModelingRibbonBar::importHistoryNewRequested, this,
+			&GeometricModelingPlugin::onImportHistoryNew);
+	connect(m_ribbon, &GeometricModelingRibbonBar::runComposeFileRequested, this,
+			&GeometricModelingPlugin::onRunComposeFile);
+	connect(m_ribbon, &GeometricModelingRibbonBar::pythonConsoleRequested, this,
+			&GeometricModelingPlugin::onPythonConsole);
 }
 
 void GeometricModelingPlugin::enterGeometricModeling()
@@ -342,6 +359,9 @@ GeometricModelingPage* GeometricModelingPlugin::ensurePageForActiveDocument()
 	auto* page = new GeometricModelingPage(m_host, nullptr);
 	page->applyLanguage(useChinese());
 	connect(page, &GeometricModelingPage::lengthEdited, this, &GeometricModelingPlugin::onLengthEdited);
+	connect(page, &GeometricModelingPage::namedParamEdited, this, &GeometricModelingPlugin::onNamedParamEdited);
+	connect(page, &GeometricModelingPage::featureParamApplyRequested, this,
+			&GeometricModelingPlugin::onFeatureParamApply);
 	connect(page, &GeometricModelingPage::confirmExtrudeRequested, this, &GeometricModelingPlugin::onConfirmExtrude);
 	connect(page, &GeometricModelingPage::cancelExtrudeRequested, this, &GeometricModelingPlugin::onCancelExtrude);
 	connect(page, &GeometricModelingPage::confirmSweepRequested, this, &GeometricModelingPlugin::onConfirmSweep);
@@ -410,9 +430,18 @@ GeometricModelingPage* GeometricModelingPlugin::ensurePageForActiveDocument()
 	connect(page, &GeometricModelingPage::revolveConfirmRequested, this, &GeometricModelingPlugin::onConfirmRevolve);
 	connect(page, &GeometricModelingPage::revolveCancelRequested, this, &GeometricModelingPlugin::onCancelRevolve);
 	connect(page, &GeometricModelingPage::revolveSelectionChanged, this, &GeometricModelingPlugin::refreshRevolvePreview);
+	connect(page, &GeometricModelingPage::pickRevolveAxisRequested, this, &GeometricModelingPlugin::onPickRevolveAxis);
 	connect(page, &GeometricModelingPage::patternConfirmRequested, this, &GeometricModelingPlugin::onConfirmPattern);
 	connect(page, &GeometricModelingPage::patternCancelRequested, this, &GeometricModelingPlugin::onCancelPattern);
 	connect(page, &GeometricModelingPage::patternOptionsChanged, this, &GeometricModelingPlugin::refreshPatternPreview);
+	connect(page, &GeometricModelingPage::circularPatternConfirmRequested, this,
+			&GeometricModelingPlugin::onConfirmCircularPattern);
+	connect(page, &GeometricModelingPage::circularPatternCancelRequested, this,
+			&GeometricModelingPlugin::onCancelCircularPattern);
+	connect(page, &GeometricModelingPage::circularPatternOptionsChanged, this,
+			&GeometricModelingPlugin::refreshCircularPatternPreview);
+	connect(page, &GeometricModelingPage::pickCircularPatternAxisRequested, this,
+			&GeometricModelingPlugin::onPickCircularPatternAxis);
 	connect(page, &GeometricModelingPage::mirror3dConfirmRequested, this, &GeometricModelingPlugin::onConfirmMirror3d);
 	connect(page, &GeometricModelingPage::mirror3dCancelRequested, this, &GeometricModelingPlugin::onCancelMirror3d);
 	connect(page, &GeometricModelingPage::mirror3dOptionsChanged, this, &GeometricModelingPlugin::refreshMirror3dPreview);
@@ -453,6 +482,7 @@ void GeometricModelingPlugin::syncFeaturesFromBody(GeometricModelingPage* page)
 	}
 	for (const GeomodelingFeature& d : datums)
 		page->features().appendPreserved(d);
+	reevaluateDatumPlanes(page);
 	page->refreshFeatureTree();
 	refreshBodyList(page);
 	refreshVisibleSketchOverlays(page);
@@ -574,7 +604,8 @@ void GeometricModelingPlugin::appendVisibleSketchOverlays(GeometricModelingPage*
 	constexpr float kHalf = 40.f;
 	for (const GeomodelingFeature& f : page->features().features())
 	{
-		if (f.kind != GeomodelingFeatureKind::DatumPlane || f.suppressed || !f.visible)
+		if ((f.kind != GeomodelingFeatureKind::DatumPlane && f.kind != GeomodelingFeatureKind::DatumPlaneAngle) ||
+			f.suppressed || !f.visible)
 			continue;
 		if (!f.plane.isPlanar)
 			continue;
@@ -702,18 +733,34 @@ void GeometricModelingPlugin::onNewSketch()
 	if (!doc || !geo || !page)
 		return;
 	clearExtrudePreviewUi();
-	hostLogInfo(i18n(QStringLiteral("Click a datum or planar face to start sketch (Esc to cancel)"), QStringLiteral("\u8bf7\u70b9\u9009\u57fa\u51c6\u9762\u6216\u6a21\u578b\u5e73\u9762\u5f00\u59cb\u8349\u56fe\uff08Esc \u53d6\u6d88\uff09")));
-	geo->pickOriginSketchPlane(
-		doc,
+	std::vector<PluginSupportPlaneCandidate> extras;
+	for (const GeomodelingFeature& f : page->features().features())
+	{
+		if ((f.kind != GeomodelingFeatureKind::DatumPlane && f.kind != GeomodelingFeatureKind::DatumPlaneAngle) ||
+			f.suppressed || !f.visible || !f.plane.isPlanar)
+			continue;
+		PluginSupportPlaneCandidate c;
+		c.plane = f.plane;
+		c.tagUtf8 = f.id.toStdString();
+		c.halfExtentMm = 40.f;
+		extras.push_back(c);
+	}
+	hostLogInfo(i18n(QStringLiteral("Click a datum, origin plane or planar face to start sketch (Esc to cancel)"),
+					 QStringLiteral("\u8bf7\u70b9\u9009\u53c2\u8003\u9762\u3001\u57fa\u9762\u6216\u6a21\u578b\u5e73\u9762\u5f00\u59cb\u8349\u56fe\uff08Esc \u53d6\u6d88\uff09")));
+	geo->pickSketchSupportPlane(
+		doc, extras,
 		[this, page, geo, doc](bool ok, const QString& err, PluginOriginPlaneKind /*kind*/,
-							   const PluginSketchPlane& plane)
+							   const PluginSketchPlane& plane, const QString& tag)
 		{
 			if (!ok)
 			{
 				hostLogInfo(err.isEmpty() ? QStringLiteral("\u5df2\u53d6\u6d88") : err);
 				return;
 			}
-			beginSketchOnPlane(page, geo, doc, plane);
+			QString datumId;
+			if (!tag.isEmpty() && !tag.startsWith(QLatin1String("face:")) && !tag.startsWith(QLatin1String("origin:")))
+				datumId = tag;
+			beginSketchOnPlane(page, geo, doc, plane, datumId);
 		});
 }
 
@@ -758,6 +805,43 @@ bool planeFromThreePoints(const PluginPoint3d& a, const PluginPoint3d& b, const 
 	out.normal = {static_cast<float>(nx), static_cast<float>(ny), static_cast<float>(nz)};
 	return true;
 }
+
+void rotateVec(double ax, double ay, double az, double ux, double uy, double uz, double angRad, double& ox, double& oy,
+			   double& oz)
+{
+	const double c = std::cos(angRad);
+	const double s = std::sin(angRad);
+	const double dot = ax * ux + ay * uy + az * uz;
+	ox = ux * c + (ay * uz - az * uy) * s + ax * dot * (1.0 - c);
+	oy = uy * c + (az * ux - ax * uz) * s + ay * dot * (1.0 - c);
+	oz = uz * c + (ax * uy - ay * ux) * s + az * dot * (1.0 - c);
+}
+
+PluginSketchPlane rotatePlaneAroundAxis(const PluginSketchPlane& src, const PluginPoint3d& axisO,
+										const PluginPoint3d& axisD, double angleDeg)
+{
+	double alen = std::sqrt(axisD.x * axisD.x + axisD.y * axisD.y + axisD.z * axisD.z);
+	if (alen < 1e-9)
+		return src;
+	const double ax = axisD.x / alen, ay = axisD.y / alen, az = axisD.z / alen;
+	const double ang = angleDeg * 3.14159265358979323846 / 180.0;
+	PluginSketchPlane p = src;
+	double nx, ny, nz, xx, xy, xz, yx, yy, yz;
+	rotateVec(ax, ay, az, src.normal.x, src.normal.y, src.normal.z, ang, nx, ny, nz);
+	rotateVec(ax, ay, az, src.axisX.x, src.axisX.y, src.axisX.z, ang, xx, xy, xz);
+	rotateVec(ax, ay, az, src.axisY.x, src.axisY.y, src.axisY.z, ang, yx, yy, yz);
+	p.normal = {static_cast<float>(nx), static_cast<float>(ny), static_cast<float>(nz)};
+	p.axisX = {static_cast<float>(xx), static_cast<float>(xy), static_cast<float>(xz)};
+	p.axisY = {static_cast<float>(yx), static_cast<float>(yy), static_cast<float>(yz)};
+	p.origin = axisO;
+	p.isPlanar = true;
+	return p;
+}
+
+bool isUserDatumKind(GeomodelingFeatureKind k)
+{
+	return k == GeomodelingFeatureKind::DatumPlane || k == GeomodelingFeatureKind::DatumPlaneAngle;
+}
 } // namespace
 
 void GeometricModelingPlugin::onDatumPlane()
@@ -770,7 +854,8 @@ void GeometricModelingPlugin::onDatumPlane()
 
 	QStringList modes;
 	modes << i18n(QStringLiteral("Offset from face"), QStringLiteral("\u7b49\u8ddd\u9762"))
-		  << i18n(QStringLiteral("Three points"), QStringLiteral("\u4e09\u70b9"));
+		  << i18n(QStringLiteral("Three points"), QStringLiteral("\u4e09\u70b9"))
+		  << i18n(QStringLiteral("Angle from face"), QStringLiteral("\u6210\u89d2\u9762"));
 	bool ok = false;
 	const QString mode = QInputDialog::getItem(
 		nullptr, i18n(QStringLiteral("Datum Plane"), QStringLiteral("\u57fa\u51c6\u9762")),
@@ -780,13 +865,12 @@ void GeometricModelingPlugin::onDatumPlane()
 
 	if (mode == modes[0])
 	{
-		hostLogInfo(i18n(QStringLiteral("Pick a planar face to offset."),
-						 QStringLiteral("\u8bf7\u70b9\u9009\u8981\u7b49\u8ddd\u7684\u5e73\u9762\u9762\u3002")));
-		PluginGeometryElementPickRequest req;
-		req.kind = PluginGeometryElementKind::Face;
-		geo->pickStepElementFromViewport(
-			doc, req,
-			[this, page, geo, doc](bool okPick, const QString& err, const PluginGeometryStepRef& ref)
+		hostLogInfo(i18n(QStringLiteral("Pick an origin plane or planar face to offset."),
+						 QStringLiteral("\u8bf7\u70b9\u9009\u539f\u70b9\u57fa\u9762\u6216\u6a21\u578b\u5e73\u9762\u4f5c\u7b49\u8ddd\u6e90\u3002")));
+		geo->pickSketchSupportPlane(
+			doc, {},
+			[this, page, geo, doc](bool okPick, const QString& err, PluginOriginPlaneKind kind,
+								   const PluginSketchPlane& facePlane, const QString& tag)
 			{
 				if (!okPick)
 				{
@@ -794,13 +878,9 @@ void GeometricModelingPlugin::onDatumPlane()
 						hostLogInfo(err);
 					return;
 				}
-				PluginSketchPlane facePlane;
-				QString planeErr;
-				if (!geo->queryFaceSketchPlane(doc, ref, facePlane, &planeErr) || !facePlane.isPlanar)
+				if (!facePlane.isPlanar)
 				{
-					hostLogWarn(planeErr.isEmpty()
-									? i18n(QStringLiteral("Face is not planar."), QStringLiteral("\u9762\u4e0d\u662f\u5e73\u9762\u3002"))
-									: planeErr);
+					hostLogWarn(i18n(QStringLiteral("Face is not planar."), QStringLiteral("\u9762\u4e0d\u662f\u5e73\u9762\u3002")));
 					return;
 				}
 				bool okDist = false;
@@ -811,11 +891,120 @@ void GeometricModelingPlugin::onDatumPlane()
 				if (!okDist)
 					return;
 				const PluginSketchPlane plane = offsetPlaneAlongNormal(facePlane, dist);
-				const QString id = page->features().addDatumPlane(plane);
+				GeomodelingDatumSourceKind srcKind = GeomodelingDatumSourceKind::None;
+				int originIdx = 0;
+				QString faceBackend;
+				int faceIndex = -1;
+				if (tag.startsWith(QLatin1String("origin:")))
+				{
+					srcKind = GeomodelingDatumSourceKind::OriginPlane;
+					originIdx = tag.section(QLatin1Char(':'), 1).toInt();
+					if (originIdx < 0 || originIdx > 2)
+						originIdx = static_cast<int>(kind);
+				}
+				else if (tag.startsWith(QLatin1String("face:")))
+				{
+					srcKind = GeomodelingDatumSourceKind::Face;
+					const QStringList parts = tag.split(QLatin1Char(':'));
+					if (parts.size() >= 3)
+					{
+						faceBackend = parts[1];
+						faceIndex = parts[2].toInt();
+					}
+				}
+				else if (static_cast<int>(kind) >= 0 && static_cast<int>(kind) <= 2 && tag.isEmpty())
+				{
+					srcKind = GeomodelingDatumSourceKind::OriginPlane;
+					originIdx = static_cast<int>(kind);
+				}
+				const QString id =
+					(srcKind == GeomodelingDatumSourceKind::None)
+						? page->features().addDatumPlane(plane)
+						: page->features().addDatumPlaneOffset(plane, srcKind, dist, originIdx, faceBackend, faceIndex);
 				page->refreshFeatureTree();
 				refreshVisibleSketchOverlays(page);
 				hostLogInfo(i18n(QStringLiteral("Datum plane created: %1"), QStringLiteral("\u5df2\u521b\u5efa\u57fa\u51c6\u9762\uff1a%1"))
 								.arg(id));
+				(void)geo;
+				(void)doc;
+			});
+		return;
+	}
+
+	if (mode == modes[2])
+	{
+		hostLogInfo(i18n(QStringLiteral("Pick a planar face, then a hinge edge."),
+						 QStringLiteral("\u8bf7\u5148\u70b9\u9009\u53c2\u8003\u5e73\u9762\uff0c\u518d\u70b9\u9009\u94fe\u94fe\u8f74\u8fb9\u3002")));
+		PluginGeometryElementPickRequest reqFace;
+		reqFace.kind = PluginGeometryElementKind::Face;
+		geo->pickStepElementFromViewport(
+			doc, reqFace,
+			[this, page, geo, doc](bool okFace, const QString& errFace, const PluginGeometryStepRef& faceRef)
+			{
+				if (!okFace)
+				{
+					if (!errFace.isEmpty())
+						hostLogInfo(errFace);
+					return;
+				}
+				PluginSketchPlane facePlane;
+				QString planeErr;
+				if (!geo->queryFaceSketchPlane(doc, faceRef, facePlane, &planeErr) || !facePlane.isPlanar)
+				{
+					hostLogWarn(planeErr.isEmpty()
+									? i18n(QStringLiteral("Face is not planar."), QStringLiteral("\u9762\u4e0d\u662f\u5e73\u9762\u3002"))
+									: planeErr);
+					return;
+				}
+				hostLogInfo(i18n(QStringLiteral("Pick hinge edge."), QStringLiteral("\u8bf7\u70b9\u9009\u94fe\u94fe\u8f74\u8fb9\u3002")));
+				PluginGeometryElementPickRequest reqEdge;
+				reqEdge.kind = PluginGeometryElementKind::Edge;
+				reqEdge.backendIdUtf8 = faceRef.backendIdUtf8;
+				geo->pickStepElementFromViewport(
+					doc, reqEdge,
+					[this, page, facePlane, faceRef](bool okEdge, const QString& errEdge,
+													 const PluginGeometryStepRef& edgeRef)
+					{
+						if (!okEdge)
+						{
+							if (!errEdge.isEmpty())
+								hostLogInfo(errEdge);
+							return;
+						}
+						bool okAng = false;
+						const double ang = QInputDialog::getDouble(
+							nullptr, i18n(QStringLiteral("Angle"), QStringLiteral("\u6210\u89d2")),
+							i18n(QStringLiteral("Angle (deg):"), QStringLiteral("\u89d2\u5ea6\uff08\u5ea6\uff09\uff1a")), 30.0,
+							-179.0, 179.0, 2, &okAng);
+						if (!okAng)
+							return;
+						// 铰链：命中点为原点；边两端定轴向，失败再退回面内 axisX
+						PluginPoint3d hingeO = facePlane.origin;
+						if (edgeRef.hasHitPoint)
+							hingeO = edgeRef.hitWorldMm;
+						PluginPoint3d hingeD = facePlane.axisX;
+						if (edgeRef.hasEdgeEnds)
+						{
+							const double dx = static_cast<double>(edgeRef.edgeEndBMm.x) - edgeRef.edgeEndAMm.x;
+							const double dy = static_cast<double>(edgeRef.edgeEndBMm.y) - edgeRef.edgeEndAMm.y;
+							const double dz = static_cast<double>(edgeRef.edgeEndBMm.z) - edgeRef.edgeEndAMm.z;
+							const double len = std::sqrt(dx * dx + dy * dy + dz * dz);
+							if (len > 1e-9)
+							{
+								hingeD = {static_cast<float>(dx / len), static_cast<float>(dy / len),
+										  static_cast<float>(dz / len)};
+							}
+						}
+						const PluginSketchPlane plane = rotatePlaneAroundAxis(facePlane, hingeO, hingeD, ang);
+						const QString id =
+							page->features().addDatumPlaneAngle(plane, ang, hingeO, hingeD);
+						page->refreshFeatureTree();
+						refreshVisibleSketchOverlays(page);
+						hostLogInfo(i18n(QStringLiteral("Angled datum plane created: %1"),
+										 QStringLiteral("\u5df2\u521b\u5efa\u6210\u89d2\u57fa\u51c6\u9762\uff1a%1"))
+										.arg(id));
+						(void)faceRef;
+					});
 			});
 		return;
 	}
@@ -899,7 +1088,8 @@ PluginSketchPlane makeOriginPluginPlaneLocal(int index)
 } // namespace
 
 void GeometricModelingPlugin::beginSketchOnPlane(GeometricModelingPage* page, IPluginGeometryHost* geo,
-												 IPluginDocument* doc, const PluginSketchPlane& plane)
+												 IPluginDocument* doc, const PluginSketchPlane& plane,
+												 const QString& datumPlaneId)
 {
 	if (!page || !geo || !doc)
 		return;
@@ -910,7 +1100,12 @@ void GeometricModelingPlugin::beginSketchOnPlane(GeometricModelingPage* page, IP
 	{
 		if (f.kind != GeomodelingFeatureKind::Sketch)
 			continue;
-		if (!planeApproxEqual(f.plane, plane))
+		if (!datumPlaneId.isEmpty())
+		{
+			if (f.datumPlaneId != datumPlaneId)
+				continue;
+		}
+		else if (!planeApproxEqual(f.plane, plane))
 			continue;
 		if (f.sketchDocumentUtf8.isEmpty())
 			continue;
@@ -931,6 +1126,13 @@ void GeometricModelingPlugin::beginSketchOnPlane(GeometricModelingPage* page, IP
 				persistActiveSketchDocument(page);
 				if (m_sketch.toolKind() == SketchToolKind::Mirror)
 					refreshMirrorPanel(page);
+				const int eid = m_sketch.selectedEntityId();
+				if (eid >= 0)
+				{
+					std::vector<std::pair<QString, double>> rows;
+					if (m_sketch.readNamedParams(eid, rows))
+						page->showNamedParams(m_sketch.entityDisplayName(eid), rows, true);
+				}
 			});
 	};
 	if (loaded)
@@ -944,7 +1146,7 @@ void GeometricModelingPlugin::beginSketchOnPlane(GeometricModelingPage* page, IP
 	}
 	else
 	{
-		sketchId = page->features().addSketch(plane);
+		sketchId = page->features().addSketch(plane, QString(), datumPlaneId);
 		page->setActiveSketchId(sketchId);
 		if (!m_sketch.begin(geo, doc, plane, &beginErr))
 		{
@@ -959,6 +1161,120 @@ void GeometricModelingPlugin::beginSketchOnPlane(GeometricModelingPage* page, IP
 	updateDofUi(page);
 	hostLogInfo(loaded ? QStringLiteral("\u8349\u56fe\u5df2\u4ece\u7279\u5f81\u52a0\u8f7d")
 					   : QStringLiteral("\u5df2\u5728\u57fa\u51c6\u9762\u5f00\u59cb\u8349\u56fe\uff0c\u53f3\u952e\u786e\u8ba4\uff0cESC \u53d6\u6d88"));
+}
+
+bool GeometricModelingPlugin::resolveDatumSourcePlane(GeometricModelingPage* page, const GeomodelingFeature& datum,
+													  PluginSketchPlane& out, QString* err)
+{
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	if (!doc || !geo)
+	{
+		if (err)
+			*err = QStringLiteral("geometry host unavailable");
+		return false;
+	}
+	if (datum.datumSourceKind == GeomodelingDatumSourceKind::OriginPlane)
+	{
+		out = makeOriginPluginPlaneLocal(datum.datumOriginPlaneIndex);
+		return out.isPlanar;
+	}
+	if (datum.datumSourceKind == GeomodelingDatumSourceKind::Face)
+	{
+		if (datum.datumFaceBackendId.isEmpty() || datum.datumFaceIndex < 0)
+		{
+			if (err)
+				*err = i18n(QStringLiteral("Datum face reference incomplete."),
+							QStringLiteral("\u57fa\u51c6\u9762\u6e90\u9762\u5f15\u7528\u4e0d\u5b8c\u6574\u3002"));
+			return false;
+		}
+		PluginGeometryStepRef ref;
+		ref.backendIdUtf8 = datum.datumFaceBackendId.toStdString();
+		ref.faceIndex = datum.datumFaceIndex;
+		QString planeErr;
+		if (!geo->queryFaceSketchPlane(doc, ref, out, &planeErr) || !out.isPlanar)
+		{
+			if (err)
+				*err = planeErr.isEmpty() ? i18n(QStringLiteral("Cannot resolve datum source face."),
+												 QStringLiteral("\u65e0\u6cd5\u89e3\u6790\u57fa\u51c6\u9762\u6e90\u9762\u3002"))
+										  : planeErr;
+			return false;
+		}
+		(void)page;
+		return true;
+	}
+	if (err)
+		*err = i18n(QStringLiteral("Datum has no associative source."),
+					QStringLiteral("\u8be5\u57fa\u51c6\u9762\u65e0\u5173\u8054\u6e90\u3002"));
+	return false;
+}
+
+void GeometricModelingPlugin::syncSketchesBoundToDatum(GeometricModelingPage* page, const QString& datumId,
+													   const PluginSketchPlane& plane)
+{
+	if (!page || datumId.isEmpty())
+		return;
+	std::vector<QString> ids;
+	for (const GeomodelingFeature& f : page->features().features())
+	{
+		if (f.kind == GeomodelingFeatureKind::Sketch && f.datumPlaneId == datumId)
+			ids.push_back(f.id);
+	}
+	for (const QString& id : ids)
+	{
+		GeomodelingFeature* f = page->features().find(id);
+		if (!f)
+			continue;
+		f->plane = plane;
+		if (f->sketchDocumentUtf8.isEmpty())
+			continue;
+		SketchDocument2d sk;
+		if (!sk.fromJsonUtf8(f->sketchDocumentUtf8))
+			continue;
+		std::vector<std::vector<float>> loops;
+		std::string exportErr;
+		if (!sk.exportClosedProfilesXyz(plane, loops, &exportErr) || loops.empty())
+			continue;
+		f->profileXyzMm = loops.front();
+		f->profileHolesXyzMm.clear();
+		for (std::size_t i = 1; i < loops.size(); ++i)
+			f->profileHolesXyzMm.push_back(std::move(loops[i]));
+	}
+}
+
+void GeometricModelingPlugin::reevaluateDatumPlanes(GeometricModelingPage* page)
+{
+	if (!page)
+		return;
+	std::vector<QString> ids;
+	for (const GeomodelingFeature& f : page->features().features())
+	{
+		if ((f.kind == GeomodelingFeatureKind::DatumPlane || f.kind == GeomodelingFeatureKind::DatumPlaneAngle) &&
+			f.datumSourceKind != GeomodelingDatumSourceKind::None)
+			ids.push_back(f.id);
+	}
+	for (const QString& id : ids)
+	{
+		GeomodelingFeature* f = page->features().find(id);
+		if (!f)
+			continue;
+		PluginSketchPlane src;
+		QString err;
+		if (!resolveDatumSourcePlane(page, *f, src, &err))
+		{
+			hostLogWarn(err.isEmpty() ? i18n(QStringLiteral("Datum source lost: %1"),
+											 QStringLiteral("\u57fa\u51c6\u9762\u6e90\u5931\u6548\uff1a%1"))
+											.arg(f->id)
+									  : err);
+			continue;
+		}
+		if (f->kind == GeomodelingFeatureKind::DatumPlaneAngle)
+			f->plane = rotatePlaneAroundAxis(offsetPlaneAlongNormal(src, f->datumOffsetMm), f->datumHingeOrigin,
+											 f->datumHingeDir, f->datumAngleDeg);
+		else
+			f->plane = offsetPlaneAlongNormal(src, f->datumOffsetMm);
+		syncSketchesBoundToDatum(page, f->id, f->plane);
+	}
 }
 
 void GeometricModelingPlugin::onOriginPlaneSketchRequested(int planeIndex)
@@ -1166,6 +1482,7 @@ void GeometricModelingPlugin::clearExtrudePreviewUi()
 	m_editExtrudeMode = false;
 	m_previewProfile.clear();
 	m_previewHoles.clear();
+	m_previewProfileSegments.clear();
 	if (GeometricModelingPage* page = ensurePageForActiveDocument())
 	{
 		if (!m_sweepPreviewActive)
@@ -1187,6 +1504,7 @@ void GeometricModelingPlugin::clearSweepPreviewUi()
 	m_sweepCut = false;
 	m_editSweepMode = false;
 	m_sweepProfile.clear();
+	m_sweepProfileSegments.clear();
 	m_sweepPath.clear();
 	m_sweepPathSegments.clear();
 	m_sweepPathFromEdge = false;
@@ -1470,6 +1788,31 @@ void GeometricModelingPlugin::refreshSweepPreview()
 	}
 
 	m_sweepProfile = profile;
+	{
+		std::vector<PluginSketchSweepPathSegment> segs;
+		SketchDocument2d doc;
+		if (!profileSk->sketchDocumentUtf8.isEmpty() && doc.fromJsonUtf8(profileSk->sketchDocumentUtf8))
+			(void)doc.exportClosedProfileSegments(profileSk->plane, segs, nullptr);
+		else if (!profileSk->profileSegments.empty())
+		{
+			for (const auto& s : profileSk->profileSegments)
+			{
+				PluginSketchSweepPathSegment p;
+				p.kind = static_cast<PluginSketchSweepPathSegKind>(s.kind);
+				p.ax = s.ax;
+				p.ay = s.ay;
+				p.az = s.az;
+				p.bx = s.bx;
+				p.by = s.by;
+				p.bz = s.bz;
+				p.mx = s.mx;
+				p.my = s.my;
+				p.mz = s.mz;
+				segs.push_back(p);
+			}
+		}
+		m_sweepProfileSegments = std::move(segs);
+	}
 	m_sweepPath = path;
 	m_sweepPathSegments = pathSegs;
 
@@ -1477,6 +1820,7 @@ void GeometricModelingPlugin::refreshSweepPreview()
 	params.mode = m_sweepCut ? PluginSketchSweepMode::Cut : PluginSketchSweepMode::Boss;
 	params.targetParametricBackendIdUtf8 = page->activeBodyId().toStdString();
 	params.pathSegments = pathSegs;
+	params.profileSegments = m_sweepProfileSegments;
 	params.twistDeg = page->sweepTwistDeg();
 	QString previewErr;
 	if (!geo->previewSketchSweep(doc, profile, path, params, &previewErr))
@@ -1595,6 +1939,7 @@ void GeometricModelingPlugin::commitSweep()
 	}
 	params.profileSketchDocumentJsonUtf8 = QString::fromUtf8(profileSk->sketchDocumentUtf8).toStdString();
 	params.pathSegments = m_sweepPathSegments;
+	params.profileSegments = m_sweepProfileSegments;
 	params.twistDeg = page->sweepTwistDeg();
 
 	const std::vector<float> profile = m_sweepProfile;
@@ -1720,6 +2065,8 @@ void GeometricModelingPlugin::fillExtrudeParams(GeometricModelingPage* page, Plu
 	if (!page)
 		return;
 	params.lengthMm = page->extrudeLengthMm();
+	params.length2Mm = page->extrudeLength2Mm();
+	params.startOffsetMm = page->extrudeStartOffsetMm();
 	params.draftAngleDeg = page->extrudeDraftAngleDeg();
 	params.reversed = page->extrudeReversed();
 	const GeomodelingExtrudeEnd end = page->extrudeEndCondition();
@@ -1733,6 +2080,8 @@ void GeometricModelingPlugin::fillExtrudeParams(GeometricModelingPage* page, Plu
 		params.endCondition = PluginSketchExtrudeEnd::UpToVertex;
 	else if (end == GeomodelingExtrudeEnd::OffsetFromFace)
 		params.endCondition = PluginSketchExtrudeEnd::OffsetFromFace;
+	else if (end == GeomodelingExtrudeEnd::TwoDirections)
+		params.endCondition = PluginSketchExtrudeEnd::TwoDirections;
 	else
 		params.endCondition = PluginSketchExtrudeEnd::Blind;
 	params.hasUpToFacePlane = page->hasUpToFacePlane();
@@ -1740,7 +2089,11 @@ void GeometricModelingPlugin::fillExtrudeParams(GeometricModelingPage* page, Plu
 		params.upToFacePlane = page->upToFacePlane();
 	params.hasUpToVertex = page->hasUpToVertex();
 	if (params.hasUpToVertex)
+	{
 		params.upToVertex = page->upToVertex();
+		params.upToVertexIndex = page->upToVertexIndex();
+		params.upToVertexBackendIdUtf8 = page->upToVertexBackendId().toStdString();
+	}
 	params.offsetFromFaceMm = page->offsetFromFaceMm();
 	params.upToFaceBackendIdUtf8 = page->upToFaceBackendId().toStdString();
 	params.upToFaceIndex = page->upToFaceIndex();
@@ -1753,7 +2106,8 @@ void GeometricModelingPlugin::fillExtrudeParams(GeometricModelingPage* page, Plu
 
 void GeometricModelingPlugin::beginExtrudePreviewFromProfile(bool pocket, const std::vector<float>& profile,
 															 const PluginSketchPlane& plane,
-															 const std::vector<std::vector<float>>& holes)
+															 const std::vector<std::vector<float>>& holes,
+															 const std::vector<PluginSketchSweepPathSegment>& profileSegs)
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!page || profile.size() < 12)
@@ -1798,6 +2152,7 @@ void GeometricModelingPlugin::beginExtrudePreviewFromProfile(bool pocket, const 
 	m_previewPocket = pocket;
 	m_previewProfile = profile;
 	m_previewHoles = holes;
+	m_previewProfileSegments = profileSegs;
 	m_previewPlane = plane;
 	page->setExtrudePreviewUi(true);
 	refreshExtrudePreview();
@@ -1840,10 +2195,13 @@ void GeometricModelingPlugin::beginExtrudePreview(bool pocket)
 		}
 	}
 
+	std::vector<PluginSketchSweepPathSegment> profileSegs;
+	(void)m_sketch.document().exportClosedProfileSegments(m_sketch.plane(), profileSegs, nullptr);
+
 	persistActiveSketchDocument(page);
 	m_editExtrudeMode = false;
 	page->setEditingFeatureId(QString());
-	beginExtrudePreviewFromProfile(pocket, profile, m_sketch.plane(), holes);
+	beginExtrudePreviewFromProfile(pocket, profile, m_sketch.plane(), holes, profileSegs);
 	hostLogInfo(pocket ? i18n(QStringLiteral("Pocket preview started."), QStringLiteral("Pocket \u9884\u89c8\u5df2\u5f00\u59cb\u3002"))
 					   : i18n(QStringLiteral("Pad preview started."), QStringLiteral("Pad \u9884\u89c8\u5df2\u5f00\u59cb\u3002")));
 }
@@ -1862,6 +2220,7 @@ void GeometricModelingPlugin::refreshExtrudePreview()
 	params.mode = m_previewPocket ? PluginSketchExtrudeMode::Pocket : PluginSketchExtrudeMode::Pad;
 	fillExtrudeParams(page, params);
 	params.holePolylinesXyzMm = m_previewHoles;
+	params.profileSegments = m_previewProfileSegments;
 	geo->previewSketchExtrude(doc, m_previewProfile, m_previewPlane, params);
 }
 
@@ -1869,6 +2228,90 @@ void GeometricModelingPlugin::onLengthEdited(double /*mm*/)
 {
 	if (m_previewActive)
 		refreshExtrudePreview();
+}
+
+void GeometricModelingPlugin::onNamedParamEdited(const QString& key, double value)
+{
+	if (!m_sketch.active())
+		return;
+	const int eid = m_sketch.selectedEntityId();
+	if (eid < 0)
+		return;
+	QString err;
+	if (!m_sketch.applyNamedParam(eid, key, value, &err))
+	{
+		if (!err.isEmpty())
+			hostLogWarn(err);
+		return;
+	}
+	if (GeometricModelingPage* page = ensurePageForActiveDocument())
+		persistActiveSketchDocument(page);
+}
+
+void GeometricModelingPlugin::onFeatureParamApply(const QString& featureId, const QString& key, double value)
+{
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	if (!page || !doc || !geo || featureId.isEmpty())
+		return;
+	GeomodelingFeature* f = page->features().find(featureId);
+	if (!f)
+		return;
+	if (key == QStringLiteral("pad.depth") && value > 1e-9)
+		(void)page->features().setLength(featureId, value);
+	else if (key == QStringLiteral("pad.draftAngle"))
+		(void)page->features().setDraftAngleDeg(featureId, value);
+	else if (key == QStringLiteral("datum.offset"))
+	{
+		if (f->kind != GeomodelingFeatureKind::DatumPlane && f->kind != GeomodelingFeatureKind::DatumPlaneAngle)
+			return;
+		f->datumOffsetMm = value;
+		PluginSketchPlane src;
+		QString err;
+		if (!resolveDatumSourcePlane(page, *f, src, &err))
+		{
+			hostLogWarn(err.isEmpty() ? i18n(QStringLiteral("Datum source lost; keeping baked plane."),
+											 QStringLiteral("\u53c2\u8003\u6e90\u5931\u6548\uff0c\u4fdd\u7559\u5f53\u524d\u5e73\u9762\u3002"))
+									  : err);
+			page->refreshFeatureTree();
+			return;
+		}
+		if (f->kind == GeomodelingFeatureKind::DatumPlaneAngle)
+			f->plane = rotatePlaneAroundAxis(offsetPlaneAlongNormal(src, f->datumOffsetMm), f->datumHingeOrigin,
+											 f->datumHingeDir, f->datumAngleDeg);
+		else
+			f->plane = offsetPlaneAlongNormal(src, f->datumOffsetMm);
+		syncSketchesBoundToDatum(page, f->id, f->plane);
+		page->refreshFeatureTree();
+		refreshVisibleSketchOverlays(page);
+		rebuildDownstreamAfterSketch(page);
+		return;
+	}
+	else if (key == QStringLiteral("datum.angle"))
+	{
+		if (f->kind != GeomodelingFeatureKind::DatumPlaneAngle)
+			return;
+		f->datumAngleDeg = value;
+		PluginSketchPlane src;
+		QString err;
+		if (resolveDatumSourcePlane(page, *f, src, &err))
+			f->plane = rotatePlaneAroundAxis(src, f->datumHingeOrigin, f->datumHingeDir, f->datumAngleDeg);
+		else
+			hostLogWarn(err.isEmpty() ? i18n(QStringLiteral("Datum source lost; angle stored only."),
+											 QStringLiteral("\u53c2\u8003\u6e90\u5931\u6548\uff0c\u4ec5\u4fdd\u5b58\u89d2\u5ea6\u3002"))
+									  : err);
+		syncSketchesBoundToDatum(page, f->id, f->plane);
+		page->refreshFeatureTree();
+		refreshVisibleSketchOverlays(page);
+		rebuildDownstreamAfterSketch(page);
+		return;
+	}
+	else
+		return;
+	page->refreshFeatureTree();
+	// 参数改完后走重建，避免与预览态打架
+	onRebuild();
 }
 
 void GeometricModelingPlugin::onExtrudeOptionsChanged()
@@ -1906,6 +2349,11 @@ void GeometricModelingPlugin::commitEditExtrude()
 	page->features().setLength(featureId, page->extrudeLengthMm());
 	page->features().setDraftAngleDeg(featureId, page->extrudeDraftAngleDeg());
 	page->features().setReversed(featureId, page->extrudeReversed());
+	if (GeomodelingFeature* feat = page->features().find(featureId))
+	{
+		feat->startOffsetMm = page->extrudeStartOffsetMm();
+		feat->length2Mm = page->extrudeLength2Mm();
+	}
 	PluginSketchPlane upPlane;
 	const PluginSketchPlane* upTo = nullptr;
 	QString upBackend;
@@ -1959,6 +2407,7 @@ void GeometricModelingPlugin::commitExtrude()
 	params.mode = pocket ? PluginSketchExtrudeMode::Pocket : PluginSketchExtrudeMode::Pad;
 	fillExtrudeParams(page, params);
 	params.holePolylinesXyzMm = holes;
+	params.profileSegments = m_previewProfileSegments;
 	const QString sid = page->activeSketchId();
 	if (!sid.isEmpty())
 	{
@@ -2051,6 +2500,219 @@ void GeometricModelingPlugin::onRedo()
 {
 	if (GeometricModelingPage* page = ensurePageForActiveDocument())
 		page->commands().redo();
+}
+
+void GeometricModelingPlugin::applyHistoryJsonToBody(GeometricModelingPage* page, IPluginDocument* doc,
+													 IPluginGeometryHost* geo, const QString& bodyId,
+													 const QByteArray& historyUtf8, const QByteArray& beforeHist)
+{
+	if (!page || !doc || !geo || bodyId.isEmpty())
+		return;
+	geo->setParametricBodyHistoryJson(
+		doc, bodyId.toStdString(), historyUtf8,
+		[this, page, doc, bodyId, beforeHist, historyUtf8](bool ok, const QString& err, const PluginGeometryJobResult&)
+		{
+			if (!ok)
+			{
+				hostLogError(err);
+				return;
+			}
+			page->setActiveBodyId(bodyId);
+			refreshBodyList(page);
+			syncFeaturesFromBody(page);
+			const QByteArray beforeSnap =
+				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
+			page->commands().execute(std::make_unique<BodyHistoryCmd>(
+				m_host, doc, bodyId, beforeSnap, historyUtf8,
+				[this, page]() { syncFeaturesFromBody(page); }, true));
+			hostLogInfo(i18n(QStringLiteral("History imported: %1"), QStringLiteral("\u5df2\u5bfc\u5165\u5386\u53f2\uff1a%1"))
+							.arg(bodyId));
+		});
+}
+
+void GeometricModelingPlugin::createBodyThenApplyHistory(GeometricModelingPage* page, IPluginDocument* doc,
+														 IPluginGeometryHost* geo, const QByteArray& historyUtf8)
+{
+	if (!page || !doc || !geo)
+		return;
+	// 空 target 建最小 Pad，再覆盖为完整 history（一期无新建 Body ABI）
+	PluginSketchPlane plane;
+	plane.origin = {0, 0, 0};
+	plane.axisX = {1, 0, 0};
+	plane.axisY = {0, 1, 0};
+	plane.normal = {0, 0, 1};
+	plane.isPlanar = true;
+	const std::vector<float> profile = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0};
+	PluginSketchExtrudeParams params;
+	params.mode = PluginSketchExtrudeMode::Pad;
+	params.lengthMm = 1.0;
+	params.endCondition = PluginSketchExtrudeEnd::Blind;
+	params.targetParametricBackendIdUtf8.clear();
+	params.resultNameUtf8 = "ImportedBody";
+	geo->extrudeSketchProfileToBrep(
+		doc, profile, plane, params,
+		[this, page, doc, geo, historyUtf8](bool ok, const QString& err, const PluginGeometryJobResult& result)
+		{
+			if (!ok)
+			{
+				hostLogError(err.isEmpty() ? QStringLiteral("create body failed") : err);
+				return;
+			}
+			const QString bodyId = QString::fromStdString(result.newBackendId);
+			page->setActiveBodyId(bodyId);
+			refreshBodyList(page);
+			applyHistoryJsonToBody(page, doc, geo, bodyId, historyUtf8, QByteArray());
+		});
+}
+
+void GeometricModelingPlugin::onExportHistory()
+{
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	if (!page || !doc || !geo || page->activeBodyId().isEmpty())
+	{
+		hostLogWarn(i18n(QStringLiteral("No active Parametric Body."), QStringLiteral("\u65e0\u6d3b\u52a8 Parametric Body\u3002")));
+		return;
+	}
+	QByteArray hist;
+	QString qerr;
+	if (!geo->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), hist, &qerr))
+	{
+		hostLogError(qerr);
+		return;
+	}
+	const QString path = QFileDialog::getSaveFileName(
+		nullptr, i18n(QStringLiteral("Export history JSON"), QStringLiteral("\u5bfc\u51fa\u5386\u53f2 JSON")),
+		QStringLiteral("part.cloudsim-part.json"),
+		QStringLiteral("History JSON (*.cloudsim-part.json *.json)"));
+	if (path.isEmpty())
+		return;
+	QFile f(path);
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+	{
+		hostLogError(i18n(QStringLiteral("Cannot write file."), QStringLiteral("\u65e0\u6cd5\u5199\u5165\u6587\u4ef6\u3002")));
+		return;
+	}
+	f.write(hist);
+	hostLogInfo(i18n(QStringLiteral("Exported: %1"), QStringLiteral("\u5df2\u5bfc\u51fa\uff1a%1")).arg(path));
+}
+
+void GeometricModelingPlugin::onImportHistoryReplace()
+{
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	if (!page || !doc || !geo || page->activeBodyId().isEmpty())
+	{
+		hostLogWarn(i18n(QStringLiteral("No active Parametric Body to replace."),
+						 QStringLiteral("\u65e0\u6d3b\u52a8 Body\uff0c\u8bf7\u7528\u300c\u5bfc\u5165\u65b0\u5efa\u300d\u3002")));
+		return;
+	}
+	const QString path = QFileDialog::getOpenFileName(
+		nullptr, i18n(QStringLiteral("Import history JSON"), QStringLiteral("\u5bfc\u5165\u5386\u53f2 JSON")), QString(),
+		QStringLiteral("History JSON (*.cloudsim-part.json *.json)"));
+	if (path.isEmpty())
+		return;
+	QFile f(path);
+	if (!f.open(QIODevice::ReadOnly))
+	{
+		hostLogError(i18n(QStringLiteral("Cannot read file."), QStringLiteral("\u65e0\u6cd5\u8bfb\u53d6\u6587\u4ef6\u3002")));
+		return;
+	}
+	const ScriptModelParseResult parsed = parseScriptModelJson(f.readAll());
+	if (parsed.kind != ScriptModelJsonKind::History)
+	{
+		hostLogError(parsed.error.isEmpty()
+						 ? i18n(QStringLiteral("Not a history JSON."), QStringLiteral("\u4e0d\u662f history JSON\u3002"))
+						 : parsed.error);
+		return;
+	}
+	QByteArray beforeHist;
+	QString qerr;
+	(void)geo->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), beforeHist, &qerr);
+	applyHistoryJsonToBody(page, doc, geo, page->activeBodyId(), parsed.payloadUtf8, beforeHist);
+}
+
+void GeometricModelingPlugin::onImportHistoryNew()
+{
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	if (!page || !doc || !geo)
+		return;
+	const QString path = QFileDialog::getOpenFileName(
+		nullptr, i18n(QStringLiteral("Import history as new body"), QStringLiteral("\u5bfc\u5165\u4e3a\u65b0 Body")), QString(),
+		QStringLiteral("History JSON (*.cloudsim-part.json *.json)"));
+	if (path.isEmpty())
+		return;
+	QFile f(path);
+	if (!f.open(QIODevice::ReadOnly))
+	{
+		hostLogError(i18n(QStringLiteral("Cannot read file."), QStringLiteral("\u65e0\u6cd5\u8bfb\u53d6\u6587\u4ef6\u3002")));
+		return;
+	}
+	const ScriptModelParseResult parsed = parseScriptModelJson(f.readAll());
+	if (parsed.kind != ScriptModelJsonKind::History)
+	{
+		hostLogError(parsed.error.isEmpty()
+						 ? i18n(QStringLiteral("Not a history JSON."), QStringLiteral("\u4e0d\u662f history JSON\u3002"))
+						 : parsed.error);
+		return;
+	}
+	createBodyThenApplyHistory(page, doc, geo, parsed.payloadUtf8);
+}
+
+void GeometricModelingPlugin::onRunComposeFile()
+{
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IAiAssistantHost* ai = m_host ? m_host->aiAssistantHost() : nullptr;
+	if (!doc || !ai)
+	{
+		hostLogWarn(i18n(QStringLiteral("AI host unavailable."), QStringLiteral("AI \u4e3b\u673a\u4e0d\u53ef\u7528\u3002")));
+		return;
+	}
+	const QString path = QFileDialog::getOpenFileName(
+		nullptr, i18n(QStringLiteral("Run feature.compose JSON"), QStringLiteral("\u8fd0\u884c Compose JSON")), QString(),
+		QStringLiteral("Compose JSON (*.cloudsim-compose.json *.json)"));
+	if (path.isEmpty())
+		return;
+	QFile f(path);
+	if (!f.open(QIODevice::ReadOnly))
+	{
+		hostLogError(i18n(QStringLiteral("Cannot read file."), QStringLiteral("\u65e0\u6cd5\u8bfb\u53d6\u6587\u4ef6\u3002")));
+		return;
+	}
+	const ScriptModelParseResult parsed = parseScriptModelJson(f.readAll());
+	if (parsed.kind != ScriptModelJsonKind::Compose)
+	{
+		hostLogError(parsed.error.isEmpty()
+						 ? i18n(QStringLiteral("Not a feature.compose JSON."),
+								QStringLiteral("\u4e0d\u662f feature.compose JSON\u3002"))
+						 : parsed.error);
+		return;
+	}
+	QString summary;
+	QString err;
+	if (!ai->executeActionPlan(parsed.payloadUtf8, &summary, &err))
+	{
+		hostLogError(err.isEmpty() ? QStringLiteral("executeActionPlan failed") : err);
+		return;
+	}
+	if (GeometricModelingPage* page = ensurePageForActiveDocument())
+	{
+		refreshBodyList(page);
+		syncFeaturesFromBody(page);
+	}
+	hostLogInfo(summary.isEmpty()
+					? i18n(QStringLiteral("Compose finished."), QStringLiteral("Compose \u5df2\u5b8c\u6210\u3002"))
+					: summary);
+}
+
+void GeometricModelingPlugin::onPythonConsole()
+{
+	CloudSimGeomPython::setHost(m_host);
+	CloudSimGeomPython::openConsole(nullptr);
 }
 
 void GeometricModelingPlugin::pushBodyHistoryAfterRollback(GeometricModelingPage* page, const QByteArray& beforeHist)
@@ -2206,6 +2868,8 @@ void GeometricModelingPlugin::onEditFeature(const QString& featureId)
 		beginRevolvePanel(true);
 	else if (feature->kind == GeomodelingFeatureKind::LinearPattern)
 		beginPatternPanel();
+	else if (feature->kind == GeomodelingFeatureKind::CircularPattern)
+		beginCircularPatternPanel();
 	else if (feature->kind == GeomodelingFeatureKind::Mirror3D)
 		beginMirror3dPanel();
 	else if (feature->kind == GeomodelingFeatureKind::Loft)
@@ -2214,12 +2878,17 @@ void GeometricModelingPlugin::onEditFeature(const QString& featureId)
 		beginLoftPanel(true);
 	else if (feature->kind == GeomodelingFeatureKind::Shell)
 		beginShellPanel();
-	else if (feature->kind == GeomodelingFeatureKind::DatumPlane)
+	else if (feature->kind == GeomodelingFeatureKind::DatumPlane ||
+			 feature->kind == GeomodelingFeatureKind::DatumPlaneAngle)
 	{
-		IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-		IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
-		if (doc && geo)
-			beginSketchOnPlane(page, geo, doc, feature->plane);
+		page->setParamsFeatureId(featureId);
+		std::vector<std::pair<QString, double>> rows;
+		rows.emplace_back(QStringLiteral("datum.offset"), feature->datumOffsetMm);
+		if (feature->kind == GeomodelingFeatureKind::DatumPlaneAngle)
+			rows.emplace_back(QStringLiteral("datum.angle"), feature->datumAngleDeg);
+		page->showNamedParams(feature->name.isEmpty() ? featureId : feature->name, rows, false);
+		hostLogInfo(i18n(QStringLiteral("Edit datum offset/angle in params; use New Sketch to draw on this plane."),
+						 QStringLiteral("\u5728\u53c2\u6570\u9875\u4fee\u6539\u504f\u79fb/\u89d2\u5ea6\uff1b\u7528\u300c\u65b0\u5efa\u8349\u56fe\u300d\u5728\u8be5\u9762\u4e0a\u7ed8\u5236\u3002")));
 	}
 	else
 		hostLogInfo(i18n(QStringLiteral("Feature kind has no edit panel yet."),
@@ -2268,8 +2937,16 @@ void GeometricModelingPlugin::onEditSketch(const QString& sketchId)
 			persistActiveSketchDocument(page);
 			if (m_sketch.toolKind() == SketchToolKind::Mirror)
 				refreshMirrorPanel(page);
+			const int eid = m_sketch.selectedEntityId();
+			if (eid >= 0)
+			{
+				std::vector<std::pair<QString, double>> rows;
+				if (m_sketch.readNamedParams(eid, rows))
+					page->showNamedParams(m_sketch.entityDisplayName(eid), rows, true);
+			}
 		});
 
+	page->refreshFeatureTree();
 	page->showLegendOverlay();
 	page->refreshFeatureTree();
 	updateDofUi(page);
@@ -2298,14 +2975,38 @@ void GeometricModelingPlugin::onEditExtrudeFeature(const QString& featureId)
 	page->setEditingFeatureId(featureId);
 	m_editExtrudeMode = true;
 	page->setExtrudeOperationMode(feature->kind == GeomodelingFeatureKind::Pocket);
-	page->setExtrudeUi(feature->lengthMm, feature->reversed, feature->endCondition, false, feature->draftAngleDeg);
+	page->setExtrudeUi(feature->lengthMm, feature->reversed, feature->endCondition, false, feature->draftAngleDeg,
+					   feature->startOffsetMm, feature->length2Mm);
 	if (feature->hasUpToFacePlane)
 		page->setUpToFacePlane(feature->upToFacePlane, feature->upToFaceBackendId, feature->upToFaceIndex);
 	else
 		page->clearUpToFacePlane();
 
 	const bool pocket = feature->kind == GeomodelingFeatureKind::Pocket;
-	beginExtrudePreviewFromProfile(pocket, sketch->profileXyzMm, sketch->plane, sketch->profileHolesXyzMm);
+	std::vector<PluginSketchSweepPathSegment> profileSegs;
+	const auto& srcSegs = !feature->profileSegments.empty() ? feature->profileSegments : sketch->profileSegments;
+	for (const auto& s : srcSegs)
+	{
+		PluginSketchSweepPathSegment p;
+		p.kind = static_cast<PluginSketchSweepPathSegKind>(s.kind);
+		p.ax = s.ax;
+		p.ay = s.ay;
+		p.az = s.az;
+		p.bx = s.bx;
+		p.by = s.by;
+		p.bz = s.bz;
+		p.mx = s.mx;
+		p.my = s.my;
+		p.mz = s.mz;
+		profileSegs.push_back(p);
+	}
+	if (profileSegs.empty() && !sketch->sketchDocumentUtf8.isEmpty())
+	{
+		SketchDocument2d doc;
+		if (doc.fromJsonUtf8(sketch->sketchDocumentUtf8))
+			(void)doc.exportClosedProfileSegments(sketch->plane, profileSegs, nullptr);
+	}
+	beginExtrudePreviewFromProfile(pocket, sketch->profileXyzMm, sketch->plane, sketch->profileHolesXyzMm, profileSegs);
 	if (!m_previewActive)
 	{
 		m_editExtrudeMode = false;
@@ -2483,7 +3184,7 @@ void GeometricModelingPlugin::onPickUpToVertex()
 								 QStringLiteral("\u9876\u70b9\u62fe\u53d6\u672a\u8fd4\u56de\u5750\u6807\u3002")));
 				return;
 			}
-			page->setUpToVertex(ref.hitWorldMm);
+			page->setUpToVertex(ref.hitWorldMm, ref.vertexIndex, QString::fromStdString(ref.backendIdUtf8));
 			hostLogInfo(i18n(QStringLiteral("Up-to vertex set."), QStringLiteral("\u5df2\u8bbe\u7f6e\u5230\u9876\u70b9\u3002")));
 		});
 }
@@ -2662,7 +3363,7 @@ void GeometricModelingPlugin::onProjectLoaded(const QString& documentId, const Q
 		side.fromJson(wrap);
 		for (const GeomodelingFeature& f : side.features())
 		{
-			if (f.kind != GeomodelingFeatureKind::DatumPlane)
+			if (f.kind != GeomodelingFeatureKind::DatumPlane && f.kind != GeomodelingFeatureKind::DatumPlaneAngle)
 				continue;
 			if (page->features().find(f.id))
 				continue;

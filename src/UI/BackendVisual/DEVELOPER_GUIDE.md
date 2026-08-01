@@ -111,10 +111,13 @@ outer (osg::MatrixTransform)     ← backend worldMatrix → osgMatrixFromBacken
 | `typeKey()` | `"BrepModel"`（与 `BrepBackendData` 注册 catalog 一致） |
 | `buildOuterBranch(...)` | `getOrBuildBrepImportArtifacts`（Phase1）→ 填充三角 Geode；优先用 `artifacts.displayNormals`；`out.brepArtifacts` 供 bind |
 | `computeModelCenterAndDiagonal(...)` | 由 `BrepBackendData::geometryBounds()` / artifacts soup 算 AABB |
+| `applyBrepViewportWireframe(outer, on)` | 视口线框：隐藏填充 + 拓扑边 Geode（`brepViewportWireframe` / 复用 `brepWireOverlay`） |
 
 **数据输入**：`BrepBackendData::shapeRef()`（`geoalgo::ShapeHandle`）。显示与 `BrepPickIndex` 共用同一份 artifacts；装配多逻辑零件共享 Phase1 缓存。
 
-**导入显示约定**：Host `registerAdoptedBrepAndLoadScene` / 装配父节点默认 **`showWireOutline=false`**（首帧不等 Phase2）；`useSceneLighting=true` 时用法线自 Phase1 预计算。用户开启线框或首次边拾取时经 `ensureBrepImportPickArtifacts` 补 Phase2。
+**导入显示约定**：Host `registerAdoptedBrepAndLoadScene` / 装配父节点默认 **`showWireOutline=false`**（首帧不等 Phase2）；`useSceneLighting=true` 时用法线自 Phase1 预计算。首次边拾取时经 `ensureBrepImportPickArtifacts` 补 Phase2。
+
+**视口线框模式**（工具栏「线框」）：与导入 `showWireOutline` 解耦。`applyBrepViewportWireframe(outer, enabled)` — ON 时隐藏填充 Geode，显示拓扑边（复用已有 `brepWireOverlay` 或挂 `brepViewportWireframe`）；OFF 时恢复填充并移除 `brepViewportWireframe`。Mesh 等非 BRep 仍由 `OsgWidget` 对该分支设 `PolygonMode::LINE`。
 
 **装配显示约定**：层级 STEP 仅在 `importParent` 上 `loadBackendFromBackendData(...)` 建一次 OSG 分支；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)` + `setPickVisualAlias(partId → importParentId)`（见 Host §4.4.1b、OsgWidgetCore §5.7a）。
 

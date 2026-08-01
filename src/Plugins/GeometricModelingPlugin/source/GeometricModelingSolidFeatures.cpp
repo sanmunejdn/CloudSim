@@ -82,6 +82,55 @@ int projectPolylineToSketch(SketchDocument2d& skDoc, const PluginSketchPlane& pl
 	}
 	return added;
 }
+
+int projectBoundarySegToSketch(SketchDocument2d& skDoc, const PluginSketchPlane& plane,
+							   const PluginFaceBoundarySeg& seg)
+{
+	auto uvAt = [&](std::size_t i) -> SkVec2 {
+		const PluginPoint3d w{seg.xyz[i], seg.xyz[i + 1], seg.xyz[i + 2]};
+		return skDoc.worldToUv(plane, w);
+	};
+
+	if (seg.kind == PluginFaceBoundarySegKind::Line && seg.xyz.size() >= 6)
+	{
+		const SkVec2 a = uvAt(0);
+		const SkVec2 b = uvAt(3);
+		const int p1 = skDoc.addPoint(a.u, a.v);
+		const int p2 = skDoc.addPoint(b.u, b.v);
+		skDoc.addLine(p1, p2, false);
+		return 1;
+	}
+	if (seg.kind == PluginFaceBoundarySegKind::Arc && seg.xyz.size() >= 9)
+	{
+		const SkVec2 a = uvAt(0);
+		const SkVec2 m = uvAt(3);
+		const SkVec2 b = uvAt(6);
+		const int p1 = skDoc.addPoint(a.u, a.v);
+		const int p2 = skDoc.addPoint(m.u, m.v);
+		const int p3 = skDoc.addPoint(b.u, b.v);
+		skDoc.addArc(p1, p2, p3, false);
+		return 1;
+	}
+	if (seg.kind == PluginFaceBoundarySegKind::Circle && seg.xyz.size() >= 6)
+	{
+		const SkVec2 c = uvAt(0);
+		const SkVec2 rim = uvAt(3);
+		const double du = rim.u - c.u;
+		const double dv = rim.v - c.v;
+		double r = std::sqrt(du * du + dv * dv);
+		if (r < 1e-9 && seg.radiusMm > 0.0)
+			r = seg.radiusMm;
+		if (r < 1e-9)
+			return 0;
+		const int cid = skDoc.addPoint(c.u, c.v, true);
+		const int circleId = skDoc.addCircle(cid, r, false);
+		skDoc.addConstraint({SkConstraintKind::Radius, circleId, -1, r});
+		return 1;
+	}
+	if (seg.xyz.size() >= 6)
+		return projectPolylineToSketch(skDoc, plane, seg.xyz);
+	return 0;
+}
 } // namespace
 
 PluginSketchPlane GeometricModelingPlugin::originMirrorPlane(int planeIndex) const
@@ -124,12 +173,15 @@ void GeometricModelingPlugin::clearSolidFeaturePreviewUi()
 	m_revolveProfile.clear();
 	m_loftProfileA.clear();
 	m_loftProfileB.clear();
+	m_revolveAxisPicked = false;
+	m_circPatternAxisPicked = false;
 	if (GeometricModelingPage* page = ensurePageForActiveDocument())
 	{
 		page->setFilletUi(false);
 		page->setChamferUi(false);
 		page->setRevolveUi(false, false);
 		page->setPatternUi(false);
+		page->setCircularPatternUi(false);
 		page->setMirror3dUi(false);
 		page->setLoftUi(false, false);
 		page->setShellUi(false);
@@ -406,11 +458,90 @@ void GeometricModelingPlugin::beginRevolvePanel(bool cut)
 	m_solidPreviewActive = true;
 	m_solidPanel = SideToolPanel::Revolve;
 	m_solidCutMode = cut;
+	m_revolveAxisPicked = false;
 	page->fillRevolveSketchCombo();
 	page->setRevolveUi(true, cut);
+	page->setRevolveAxisLabel(i18n(QStringLiteral("Default: sketch origin + Y"),
+								   QStringLiteral("\u9ed8\u8ba4\uff1a\u8349\u56fe\u539f\u70b9 + Y")));
 	refreshRevolvePreview();
 	hostLogInfo(i18n(QStringLiteral("Select profile sketch for revolve."),
 					 QStringLiteral("\u8bf7\u9009\u62e9\u8f6e\u5ed3\u8349\u56fe\u8fdb\u884c\u65cb\u8f6c\u3002")));
+}
+
+void GeometricModelingPlugin::fillRevolveAxisParams(GeometricModelingPage* page, const GeomodelingFeature& sk,
+													PluginSketchRevolveParams& params) const
+{
+	params.axisOx = sk.plane.origin.x;
+	params.axisOy = sk.plane.origin.y;
+	params.axisOz = sk.plane.origin.z;
+	const int mode = page ? page->revolveAxisMode() : 0;
+	if (mode == 1)
+	{
+		params.axisDx = sk.plane.axisX.x;
+		params.axisDy = sk.plane.axisX.y;
+		params.axisDz = sk.plane.axisX.z;
+	}
+	else if (mode == 2 && m_revolveAxisPicked)
+	{
+		params.axisOx = m_revolveAxisOx;
+		params.axisOy = m_revolveAxisOy;
+		params.axisOz = m_revolveAxisOz;
+		params.axisDx = m_revolveAxisDx;
+		params.axisDy = m_revolveAxisDy;
+		params.axisDz = m_revolveAxisDz;
+	}
+	else
+	{
+		params.axisDx = sk.plane.axisY.x;
+		params.axisDy = sk.plane.axisY.y;
+		params.axisDz = sk.plane.axisY.z;
+	}
+}
+
+void GeometricModelingPlugin::onPickRevolveAxis()
+{
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::Revolve)
+		return;
+	if (page->revolveAxisMode() != 2)
+	{
+		hostLogInfo(i18n(QStringLiteral("Switch axis mode to Pick edge first."),
+						 QStringLiteral("\u8bf7\u5148\u5c06\u65cb\u8f6c\u8f74\u5207\u6362\u4e3a\u62fe\u53d6\u8fb9\u3002")));
+		return;
+	}
+
+	PluginGeometryElementPickRequest req;
+	req.kind = PluginGeometryElementKind::Edge;
+	req.backendIdUtf8 = page->activeBodyId().toStdString();
+	geo->pickStepElementFromViewport(
+		doc, req,
+		[this, page](bool ok, const QString& err, const PluginGeometryStepRef& ref)
+		{
+			if (!ok)
+			{
+				if (!err.isEmpty())
+					hostLogInfo(err);
+				return;
+			}
+			if (!ref.hasEdgeEnds)
+			{
+				hostLogWarn(i18n(QStringLiteral("Edge endpoints unavailable."),
+								 QStringLiteral("\u65e0\u6cd5\u83b7\u53d6\u8fb9\u7aef\u70b9\u3002")));
+				return;
+			}
+			m_revolveAxisOx = ref.edgeEndAMm.x;
+			m_revolveAxisOy = ref.edgeEndAMm.y;
+			m_revolveAxisOz = ref.edgeEndAMm.z;
+			m_revolveAxisDx = ref.edgeEndBMm.x - ref.edgeEndAMm.x;
+			m_revolveAxisDy = ref.edgeEndBMm.y - ref.edgeEndAMm.y;
+			m_revolveAxisDz = ref.edgeEndBMm.z - ref.edgeEndAMm.z;
+			m_revolveAxisPicked = true;
+			page->setRevolveAxisLabel(
+				i18n(QStringLiteral("Axis from picked edge"), QStringLiteral("\u5df2\u7528\u62fe\u53d6\u8fb9\u4f5c\u8f74")));
+			refreshRevolvePreview();
+		});
 }
 
 void GeometricModelingPlugin::refreshRevolvePreview()
@@ -435,16 +566,10 @@ void GeometricModelingPlugin::refreshRevolvePreview()
 	}
 	m_revolvePlane = sk->plane;
 
-	// MVP：旋转轴 = 草图平面原点 + axisY 方向
 	PluginSketchRevolveParams params;
 	params.mode = m_solidCutMode ? PluginSketchRevolveMode::Cut : PluginSketchRevolveMode::Boss;
 	params.angleDeg = page->revolveAngleDeg();
-	params.axisOx = sk->plane.origin.x;
-	params.axisOy = sk->plane.origin.y;
-	params.axisOz = sk->plane.origin.z;
-	params.axisDx = sk->plane.axisY.x;
-	params.axisDy = sk->plane.axisY.y;
-	params.axisDz = sk->plane.axisY.z;
+	fillRevolveAxisParams(page, *sk, params);
 	params.targetParametricBackendIdUtf8 = page->activeBodyId().toStdString();
 	params.sketchIdUtf8 = skId.toStdString();
 	params.sketchDocumentJsonUtf8 = QString::fromUtf8(sk->sketchDocumentUtf8).toStdString();
@@ -480,12 +605,7 @@ void GeometricModelingPlugin::onConfirmRevolve()
 	PluginSketchRevolveParams params;
 	params.mode = m_solidCutMode ? PluginSketchRevolveMode::Cut : PluginSketchRevolveMode::Boss;
 	params.angleDeg = page->revolveAngleDeg();
-	params.axisOx = sk->plane.origin.x;
-	params.axisOy = sk->plane.origin.y;
-	params.axisOz = sk->plane.origin.z;
-	params.axisDx = sk->plane.axisY.x;
-	params.axisDy = sk->plane.axisY.y;
-	params.axisDz = sk->plane.axisY.z;
+	fillRevolveAxisParams(page, *sk, params);
 	params.targetParametricBackendIdUtf8 = page->activeBodyId().toStdString();
 	if (!m_solidCutMode && page->activeBodyId().isEmpty())
 		params.targetParametricBackendIdUtf8.clear();
@@ -620,6 +740,161 @@ void GeometricModelingPlugin::onCancelPattern()
 {
 	clearSolidFeaturePreviewUi();
 	hostLogInfo(i18n(QStringLiteral("Pattern cancelled."), QStringLiteral("\u9635\u5217\u5df2\u53d6\u6d88\u3002")));
+}
+
+void GeometricModelingPlugin::beginCircularPatternPanel()
+{
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	if (!page)
+		return;
+	if (page->activeBodyId().isEmpty())
+	{
+		hostLogWarn(i18n(QStringLiteral("Circular pattern requires an active Parametric Body."),
+						 QStringLiteral("\u5706\u5468\u9635\u5217\u9700\u8981\u6d3b\u52a8 Parametric Body\u3002")));
+		return;
+	}
+	clearExtrudePreviewUi();
+	clearSweepPreviewUi();
+	clearSolidFeaturePreviewUi();
+	m_solidPreviewActive = true;
+	m_solidPanel = SideToolPanel::CircularPattern;
+	m_circPatternAxisPicked = false;
+	m_circPatternOx = 0;
+	m_circPatternOy = 0;
+	m_circPatternOz = 0;
+	m_circPatternDx = 0;
+	m_circPatternDy = 0;
+	m_circPatternDz = 1;
+	page->setCircularPatternUi(true);
+	page->setCircularPatternAxisLabel(i18n(QStringLiteral("Axis: pick a model edge (default Z)"),
+										   QStringLiteral("\u8f74\uff1a\u70b9\u9009\u6a21\u578b\u8fb9\uff08\u9ed8\u8ba4 Z\uff09")));
+	refreshCircularPatternPreview();
+}
+
+void GeometricModelingPlugin::onPickCircularPatternAxis()
+{
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::CircularPattern)
+		return;
+
+	PluginGeometryElementPickRequest req;
+	req.kind = PluginGeometryElementKind::Edge;
+	req.backendIdUtf8 = page->activeBodyId().toStdString();
+	geo->pickStepElementFromViewport(
+		doc, req,
+		[this, page](bool ok, const QString& err, const PluginGeometryStepRef& ref)
+		{
+			if (!ok)
+			{
+				if (!err.isEmpty())
+					hostLogInfo(err);
+				return;
+			}
+			if (!ref.hasEdgeEnds)
+			{
+				hostLogWarn(i18n(QStringLiteral("Edge endpoints unavailable."),
+								 QStringLiteral("\u65e0\u6cd5\u83b7\u53d6\u8fb9\u7aef\u70b9\u3002")));
+				return;
+			}
+			m_circPatternOx = ref.edgeEndAMm.x;
+			m_circPatternOy = ref.edgeEndAMm.y;
+			m_circPatternOz = ref.edgeEndAMm.z;
+			m_circPatternDx = ref.edgeEndBMm.x - ref.edgeEndAMm.x;
+			m_circPatternDy = ref.edgeEndBMm.y - ref.edgeEndAMm.y;
+			m_circPatternDz = ref.edgeEndBMm.z - ref.edgeEndAMm.z;
+			m_circPatternAxisPicked = true;
+			page->setCircularPatternAxisLabel(
+				i18n(QStringLiteral("Axis from picked edge"), QStringLiteral("\u5df2\u7528\u62fe\u53d6\u8fb9\u4f5c\u8f74")));
+			refreshCircularPatternPreview();
+		});
+}
+
+void GeometricModelingPlugin::refreshCircularPatternPreview()
+{
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	if (!page || !doc || !geo || !m_solidPreviewActive)
+		return;
+
+	PluginSketchCircularPatternParams params;
+	params.count = page->circularPatternCount();
+	params.angleDeg = page->circularPatternAngleDeg();
+	params.axisOx = m_circPatternOx;
+	params.axisOy = m_circPatternOy;
+	params.axisOz = m_circPatternOz;
+	params.axisDx = m_circPatternDx;
+	params.axisDy = m_circPatternDy;
+	params.axisDz = m_circPatternDz;
+	params.sourceFeatureIdUtf8 = page->circularPatternSourceFeatureId().toStdString();
+	params.targetParametricBackendIdUtf8 = page->activeBodyId().toStdString();
+	QString previewErr;
+	if (!geo->previewCircularPattern(doc, params, &previewErr))
+		hostLogWarn(previewErr.isEmpty()
+						? i18n(QStringLiteral("Circular pattern preview failed."),
+							   QStringLiteral("\u5706\u5468\u9635\u5217\u9884\u89c8\u5931\u8d25\u3002"))
+						: previewErr);
+}
+
+void GeometricModelingPlugin::onConfirmCircularPattern()
+{
+	GeometricModelingPage* page = ensurePageForActiveDocument();
+	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	if (!page || !doc || !geo)
+		return;
+
+	refreshCircularPatternPreview();
+	QByteArray beforeHist;
+	QString qerr;
+	(void)geo->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), beforeHist, &qerr);
+
+	PluginSketchCircularPatternParams params;
+	params.count = page->circularPatternCount();
+	params.angleDeg = page->circularPatternAngleDeg();
+	params.axisOx = m_circPatternOx;
+	params.axisOy = m_circPatternOy;
+	params.axisOz = m_circPatternOz;
+	params.axisDx = m_circPatternDx;
+	params.axisDy = m_circPatternDy;
+	params.axisDz = m_circPatternDz;
+	params.sourceFeatureIdUtf8 = page->circularPatternSourceFeatureId().toStdString();
+	params.targetParametricBackendIdUtf8 = page->activeBodyId().toStdString();
+	params.resultNameUtf8 = "ParametricBody";
+	clearSolidFeaturePreviewUi();
+
+	geo->circularPatternBodyToBrep(
+		doc, params,
+		[this, page, doc, beforeHist](bool ok, const QString& err, const PluginGeometryJobResult& result)
+		{
+			if (!ok)
+			{
+				hostLogError(err);
+				return;
+			}
+			page->setActiveBodyId(QString::fromStdString(result.newBackendId));
+			refreshBodyList(page);
+			syncFeaturesFromBody(page);
+			QByteArray afterHist;
+			QString qe;
+			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
+			const QByteArray beforeSnap =
+				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
+			page->commands().execute(std::make_unique<BodyHistoryCmd>(
+				m_host, doc, page->activeBodyId(), beforeSnap, afterHist,
+				[this, page]() { syncFeaturesFromBody(page); }, true));
+			hostLogInfo(i18n(QStringLiteral("Circular pattern created."),
+							 QStringLiteral("\u5706\u5468\u9635\u5217\u5df2\u521b\u5efa\u3002")));
+		});
+}
+
+void GeometricModelingPlugin::onCancelCircularPattern()
+{
+	clearSolidFeaturePreviewUi();
+	hostLogInfo(i18n(QStringLiteral("Circular pattern cancelled."), QStringLiteral("\u5706\u5468\u9635\u5217\u5df2\u53d6\u6d88\u3002")));
 }
 
 void GeometricModelingPlugin::beginMirror3dPanel()
@@ -978,6 +1253,7 @@ void GeometricModelingPlugin::onChamfer() { beginChamferPanel(); }
 void GeometricModelingPlugin::onRevolve() { beginRevolvePanel(false); }
 void GeometricModelingPlugin::onRevolveCut() { beginRevolvePanel(true); }
 void GeometricModelingPlugin::onLinearPattern() { beginPatternPanel(); }
+void GeometricModelingPlugin::onCircularPattern() { beginCircularPatternPanel(); }
 void GeometricModelingPlugin::onMirror3d() { beginMirror3dPanel(); }
 void GeometricModelingPlugin::onLoft() { beginLoftPanel(false); }
 void GeometricModelingPlugin::onLoftCut() { beginLoftPanel(true); }
@@ -1268,7 +1544,7 @@ void GeometricModelingPlugin::onConvertEntities()
 				doc, ref, meshParams,
 				[this](bool ok2, const QString& err2, const PluginGeometryJobResult& result)
 				{
-					if (!ok2 || result.polylines.empty())
+					if (!ok2 || (result.faceBoundarySegs.empty() && result.polylines.empty()))
 					{
 						hostLogWarn(err2.isEmpty() ? i18n(QStringLiteral("Face boundary discretize failed."),
 														  QStringLiteral("\u9762\u8fb9\u754c\u79bb\u6563\u5316\u5931\u8d25\u3002"))
@@ -1279,13 +1555,38 @@ void GeometricModelingPlugin::onConvertEntities()
 					const PluginSketchPlane plane = m_sketch.plane();
 					int totalAdded = 0;
 					int edgeCount = 0;
-					for (const std::vector<float>& pl : result.polylines)
+					int circleN = 0, arcN = 0, lineN = 0, polyN = 0;
+					if (!result.faceBoundarySegs.empty())
 					{
-						const int n = projectPolylineToSketch(skDoc, plane, pl);
-						if (n > 0)
+						for (const PluginFaceBoundarySeg& seg : result.faceBoundarySegs)
 						{
-							totalAdded += n;
-							++edgeCount;
+							if (seg.kind == PluginFaceBoundarySegKind::Circle)
+								++circleN;
+							else if (seg.kind == PluginFaceBoundarySegKind::Arc)
+								++arcN;
+							else if (seg.kind == PluginFaceBoundarySegKind::Line)
+								++lineN;
+							else
+								++polyN;
+							const int n = projectBoundarySegToSketch(skDoc, plane, seg);
+							if (n > 0)
+							{
+								totalAdded += n;
+								++edgeCount;
+							}
+						}
+					}
+					else
+					{
+						for (const std::vector<float>& pl : result.polylines)
+						{
+							++polyN;
+							const int n = projectPolylineToSketch(skDoc, plane, pl);
+							if (n > 0)
+							{
+								totalAdded += n;
+								++edgeCount;
+							}
 						}
 					}
 					if (totalAdded == 0)
@@ -1297,10 +1598,18 @@ void GeometricModelingPlugin::onConvertEntities()
 					(void)m_sketch.solveNow();
 					m_sketch.refreshOverlay();
 					persistActiveSketchDocument(ensurePageForActiveDocument());
-					hostLogInfo(i18n(QStringLiteral("Converted %1 edge(s), %2 segment(s)."),
-									 QStringLiteral("\u5df2\u8f6c\u6362 %1 \u6761\u8fb9\u3001%2 \u6761\u7ebf\u6bb5\u3002"))
+					hostLogInfo(i18n(QStringLiteral("Converted %1 edge(s): circle=%2 arc=%3 line=%4 polyline=%5, segments=%6."),
+									 QStringLiteral("\u5df2\u8f6c\u6362 %1 \u6761\u8fb9\uff1a\u5706=%2 \u5f27=%3 \u7ebf=%4 \u6298\u7ebf=%5\uff0c\u7ebf\u6bb5=%6\u3002"))
 									.arg(edgeCount)
+									.arg(circleN)
+									.arg(arcN)
+									.arg(lineN)
+									.arg(polyN)
 									.arg(totalAdded));
+					if (polyN > 0)
+						hostLogWarn(i18n(QStringLiteral("%1 edge(s) fell back to polyline (not circle/arc)."),
+										 QStringLiteral("%1 \u6761\u8fb9\u56de\u9000\u4e3a\u6298\u7ebf\uff08\u975e\u5706/\u5f27\uff09\u3002"))
+										.arg(polyN));
 				});
 		});
 }

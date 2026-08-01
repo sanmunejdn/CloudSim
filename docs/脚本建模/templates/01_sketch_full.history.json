@@ -1,0 +1,94 @@
+{
+  "seq": 2,
+  "_doc": "可导入：含点/线/弧/圆/椭圆/样条与常用约束的闭合矩形轮廓 + Pad。profile 为世界坐标烤折线。",
+  "features": [
+    {
+      "id": "Sketch1",
+      "name": "SketchFull",
+      "kind": "Sketch",
+      "plane": {
+        "origin": [0, 0, 0],
+        "axisX": [1, 0, 0],
+        "axisY": [0, 1, 0],
+        "normal": [0, 0, 1],
+        "isPlanar": true
+      },
+      "profile": [0, 0, 0, 60, 0, 0, 60, 40, 0, 0, 40, 0, 0, 0, 0],
+      "sketchDocument": {
+        "seq": 20,
+        "points": [
+          { "id": 1, "u": 0, "v": 0, "fixed": true },
+          { "id": 2, "u": 60, "v": 0, "fixed": false },
+          { "id": 3, "u": 60, "v": 40, "fixed": false },
+          { "id": 4, "u": 0, "v": 40, "fixed": false },
+          { "id": 5, "u": 30, "v": 20, "fixed": false },
+          { "id": 6, "u": 20, "v": 10, "fixed": false },
+          { "id": 7, "u": 40, "v": 10, "fixed": false },
+          { "id": 8, "u": 30, "v": 30, "fixed": false },
+          { "id": 9, "u": 10, "v": 20, "fixed": false },
+          { "id": 10, "u": 15, "v": 25, "fixed": false },
+          { "id": 11, "u": 25, "v": 25, "fixed": false }
+        ],
+        "lines": [
+          { "id": 100, "p1": 1, "p2": 2, "construction": false },
+          { "id": 101, "p1": 2, "p2": 3, "construction": false },
+          { "id": 102, "p1": 3, "p2": 4, "construction": false },
+          { "id": 103, "p1": 4, "p2": 1, "construction": false },
+          { "id": 104, "p1": 1, "p2": 3, "construction": true }
+        ],
+        "arcs": [
+          { "id": 200, "pStart": 6, "pMid": 8, "pEnd": 7, "construction": false }
+        ],
+        "circles": [
+          { "id": 300, "center": 5, "radius": 5, "construction": false }
+        ],
+        "ellipses": [
+          { "id": 400, "center": 9, "majorR": 8, "minorR": 4, "angleRad": 0.3, "construction": false }
+        ],
+        "splines": [
+          {
+            "id": 500,
+            "points": [10, 11, 8],
+            "controlPoints": [],
+            "mode": 0,
+            "construction": true
+          }
+        ],
+        "constraints": [
+          { "kind": 1, "a": 100, "b": -1, "value": 0 },
+          { "kind": 2, "a": 101, "b": -1, "value": 0 },
+          { "kind": 4, "a": 100, "b": -1, "value": 60 },
+          { "kind": 4, "a": 101, "b": -1, "value": 40 },
+          { "kind": 5, "a": 100, "b": 102, "value": 0 },
+          { "kind": 6, "a": 100, "b": 101, "value": 0 },
+          { "kind": 3, "a": 100, "b": 102, "value": 0 },
+          { "kind": 7, "a": 300, "b": -1, "value": 5 },
+          { "kind": 9, "a": 200, "b": -1, "value": 0 },
+          { "kind": 13, "a": 400, "b": -1, "value": 8 },
+          { "kind": 14, "a": 400, "b": -1, "value": 4 },
+          { "kind": 0, "a": 1, "b": 1, "value": 0 },
+          { "kind": 10, "a": 200, "b": 100, "value": 0 },
+          { "kind": 12, "a": 5, "b": 100, "value": 0 },
+          { "kind": 11, "a": 6, "b": 7, "value": 0, "c": 104 },
+          { "kind": 8, "a": 100, "b": 101, "value": 90 }
+        ]
+      },
+      "suppressed": false,
+      "visible": true
+    },
+    {
+      "id": "Pad1",
+      "name": "Pad1",
+      "kind": "Pad",
+      "lengthMm": 12,
+      "startOffsetMm": 0,
+      "length2Mm": 0,
+      "endCondition": "Blind",
+      "draftAngleDeg": 0,
+      "reversed": false,
+      "sketchRefId": "Sketch1",
+      "suppressed": false,
+      "visible": true
+    }
+  ]
+}

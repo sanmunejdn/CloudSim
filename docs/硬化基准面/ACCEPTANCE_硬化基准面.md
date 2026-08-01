@@ -12,7 +12,10 @@
 | T7 DatumPlane 持久化 | 完成 | `onProjectAboutToSave` / `onProjectLoaded` 写入/合并 `geometricModeling.features` |
 | T8 基准面视口 overlay | 完成 | `appendVisibleSketchOverlays` 绘制约 80×80 mm 青绿边框 |
 | T9 特征级线性阵列 | 完成 | `patternSourceFeatureId`；侧栏「整个实体 / 上游特征」；ABI **1.41.0** |
-| T10 Text-to-CAD → AI | 完成 | `feature.compose` 已写 Parametric；见 `../特征史AI/` |
+| T10 Text-to-CAD → AI | 完成 | `feature.compose` + P1 智能选边；见 `../特征史AI/` |
+| Convert 圆弧 | 完成 | `faceBoundarySegs` → Arc/Circle |
+| 成角基准面 | 完成 | `DatumPlaneAngle` |
+| 真 Vertex | 完成 | TopExp + UpToVertex 索引 |
 
 ## 编译验收
 

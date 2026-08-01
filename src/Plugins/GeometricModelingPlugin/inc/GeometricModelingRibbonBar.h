@@ -65,6 +65,7 @@ signals:
 	void revolveRequested();
 	void revolveCutRequested();
 	void linearPatternRequested();
+	void circularPatternRequested();
 	void mirror3dRequested();
 	void loftRequested();
 	void loftCutRequested();
@@ -73,6 +74,11 @@ signals:
 	void rebuildRequested();
 	void undoRequested();
 	void redoRequested();
+	void exportHistoryRequested();
+	void importHistoryReplaceRequested();
+	void importHistoryNewRequested();
+	void runComposeFileRequested();
+	void pythonConsoleRequested();
 
 private:
 	void rebuildIcons(bool dark);
@@ -129,6 +135,7 @@ private:
 	QToolButton* m_btnRevolve = nullptr;
 	QToolButton* m_btnRevolveCut = nullptr;
 	QToolButton* m_btnPattern = nullptr;
+	QToolButton* m_btnCircularPattern = nullptr;
 	QToolButton* m_btnMirror3d = nullptr;
 	QToolButton* m_btnLoft = nullptr;
 	QToolButton* m_btnLoftCut = nullptr;
@@ -137,6 +144,11 @@ private:
 	QToolButton* m_btnRebuild = nullptr;
 	QToolButton* m_btnUndo = nullptr;
 	QToolButton* m_btnRedo = nullptr;
+	QToolButton* m_btnExportHistory = nullptr;
+	QToolButton* m_btnImportReplace = nullptr;
+	QToolButton* m_btnImportNew = nullptr;
+	QToolButton* m_btnRunCompose = nullptr;
+	QToolButton* m_btnPythonConsole = nullptr;
 };
 
 #endif

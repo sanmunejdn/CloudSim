@@ -25,6 +25,7 @@ QFrame* makeCard(QWidget* parent)
 ProcessFlowSimSideWidget::ProcessFlowSimSideWidget(QWidget* parent) : QWidget(parent)
 {
 	setObjectName(QStringLiteral("ProcessFlowSideRoot"));
+	setWindowTitle(QStringLiteral("仿真面板"));
 	setStyleSheet(processFlowSideChromeStyle());
 
 	auto* layout = new QVBoxLayout(this);
@@ -55,6 +56,7 @@ ProcessFlowSimSideWidget::ProcessFlowSimSideWidget(QWidget* parent) : QWidget(pa
 
 void ProcessFlowSimSideWidget::applyLanguage(bool useChinese)
 {
+	setWindowTitle(useChinese ? QStringLiteral("仿真面板") : QStringLiteral("Simulation"));
 	if (m_jobSetPanel)
 	{
 		m_jobSetPanel->applyLanguage(useChinese);
