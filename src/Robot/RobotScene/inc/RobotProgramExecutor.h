@@ -40,6 +40,9 @@ public:
 	const RobotInstruction::Base* currentInstruction() const;
 	/// 当前运动段进度 [0,1]；非运动中为 1
 	double motionSegmentProgress01() const;
+	/// 播放倍率（虚拟时钟）；运行中可改，不改 plan.durationSec
+	void setPlaybackRate(double rate);
+	double playbackRate() const { return m_playbackRate; }
 	/// 因规划失败停机时的摘要；正常结束为空
 	const std::string& lastAbortSummary() const { return m_lastAbortSummary; }
 	bool abortedDueToFailedPlan() const { return m_abortedDueToFailedPlan; }
@@ -63,6 +66,8 @@ private:
 	bool tickMotionSegment(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
 	bool applyJointAngles(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
 	const RobotInstruction::PlanResult* planForMotion(const RobotInstruction::Base& ins) const;
+	void resetVirtualClock();
+	void advanceVirtualClock();
 
 	bool m_running = false;
 	bool m_abortedDueToFailedPlan = false;
@@ -81,6 +86,9 @@ private:
 	bool m_inMotion = false;
 	QElapsedTimer m_segmentTimer;
 	double m_segDurationSec = 0.0;
+	double m_playbackRate = 1.0;
+	double m_simElapsedSec = 0.0;
+	double m_lastWallSec = 0.0;
 	QVector<double> m_segStartJointAngles;
 	const RobotInstruction::Base* m_activeMotion = nullptr;
 

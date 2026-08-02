@@ -2,6 +2,7 @@
 /// @brief DocumentHost 实现
 
 #include "DocumentHost.h"
+#include "CloudSimHost.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
@@ -15,6 +16,7 @@
 #include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
+#include "NullCoreServices.h"
 #include "OsgWidget.h"
 #include "OsgWidgetSceneBridge.h"
 #include "PointCloudBackendData.h"
@@ -23,12 +25,19 @@
 #include "adapters/OsgRenderViewAdapter.h"
 #include "adapters/RobotServiceAdapter.h"
 
+#include <Qt>
 #include <QVBoxLayout>
 
 namespace cloudsim::host
 {
-// Data→OSG→三适配器
 DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId)
+	: DocumentHost(parent, events, documentId, true)
+{
+}
+
+// enableOsgView：桌面必开；Web Headless 关，避免隐藏窗仍拉起 OSG/OpenGL
+DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId,
+						   bool enableOsgView)
 	: QWidget(parent), m_documentId(documentId), m_events(events)
 {
 	setContentsMargins(0, 0, 0, 0);
@@ -40,14 +49,29 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 	m_robotProgramStore = std::make_unique<RobotProgramStore>();
 	m_hierarchyModel = std::make_unique<BackendHierarchyModel>(*m_backend);
 
-	// OSG 直挂 layout：勿用 QStackedWidget 包 OpenGL，Windows 上会拖视图卡顿
-	m_osgWidget = new OsgWidget(this);
-	m_sceneBridge.setOsgWidget(m_osgWidget);
-	m_centralLayout->addWidget(m_osgWidget);
+	if (enableOsgView)
+	{
+		// OSG 直挂 layout：勿用 QStackedWidget 包 OpenGL，Windows 上会拖视图卡顿
+		m_osgWidget = new OsgWidget(this);
+		m_sceneBridge.setOsgWidget(m_osgWidget);
+		m_centralLayout->addWidget(m_osgWidget);
+		m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget, *this);
+	}
+	else
+	{
+		m_osgWidget = nullptr;
+		m_sceneBridge.setOsgWidget(nullptr);
+		// 真 Null：不入 layout，避免与 NullRenderView 内部 unique_ptr 双重托管
+		m_renderView = cloudsim::core::makeNullRenderViewFactory()->createView(this);
+		if (auto* nullW = m_renderView->widget())
+		{
+			nullW->setAttribute(Qt::WA_DontShowOnScreen, true);
+			nullW->hide();
+		}
+	}
 
 	m_dataService = std::make_unique<DataServiceAdapter>(*this);
 	m_robotService = std::make_unique<RobotServiceAdapter>(*this, *m_robotProgramStore);
-	m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget, *this);
 }
 
 void DocumentHost::setCentralAlternateWidget(QWidget* widget)
@@ -581,6 +605,15 @@ std::unique_ptr<core::IDocumentScope> createDocumentHost(QWidget* parent, core::
 														 const QString& documentId)
 {
 	return std::make_unique<DocumentHost>(parent, events, documentId);
+}
+
+std::unique_ptr<core::IDocumentScope> createHeadlessDocumentHost(core::EventHub& events, const QString& documentId)
+{
+	// 第三参 false：真 Null 渲染，不构造 OsgWidget（桌面 createDocumentHost 仍走 OSG）
+	auto host = std::make_unique<DocumentHost>(nullptr, events, documentId, false);
+	host->setAttribute(Qt::WA_DontShowOnScreen, true);
+	host->hide();
+	return host;
 }
 
 std::unique_ptr<core::IRenderViewFactory> createHostRenderViewFactory()

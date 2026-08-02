@@ -25,6 +25,7 @@
 #include <QString>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 namespace
@@ -137,8 +138,27 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	m_stopBtn = new QPushButton(QStringLiteral("Stop"));
 	m_exportBtn = new QPushButton(QStringLiteral("Export"));
 	m_stopBtn->setEnabled(false);
+	m_playbackRateLabel = new QLabel(QStringLiteral("Sim Rate"), this);
+	m_playbackRateCombo = new QComboBox(this);
+	const double ratePresets[] = {0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0};
+	int defaultRateIndex = 3;
+	for (int i = 0; i < static_cast<int>(sizeof(ratePresets) / sizeof(ratePresets[0])); ++i)
+	{
+		const double r = ratePresets[i];
+		const QString label = (r < 1.0) ? QString::number(r, 'g', 3) + QStringLiteral("×")
+										: QString::number(static_cast<int>(r)) + QStringLiteral("×");
+		m_playbackRateCombo->addItem(label, r);
+		if (std::abs(r - 1.0) < 1e-9)
+		{
+			defaultRateIndex = i;
+		}
+	}
+	m_playbackRateCombo->setCurrentIndex(defaultRateIndex);
+	m_playbackRateCombo->setToolTip(QStringLiteral("Playback rate (does not change planned duration)"));
 	rowRun->addWidget(m_runBtn);
 	rowRun->addWidget(m_stopBtn);
+	rowRun->addWidget(m_playbackRateLabel);
+	rowRun->addWidget(m_playbackRateCombo);
 	rowRun->addWidget(m_exportBtn);
 	rowRun->addStretch(1);
 	root->addLayout(rowRun);
@@ -257,6 +277,11 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	connect(m_runBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runRequested);
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
 	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
+	connect(m_playbackRateCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				emit playbackRateChanged(playbackRate());
+			});
 
 	UiIconDecorators::apply(m_programNewBtn, UiIconId::Add, UiIconDecorators::IconPlacement::IconOnly,
 							UiIcons::Size::Small);
@@ -447,6 +472,18 @@ QString SimulationCommandWidget::selectedTcpLink() const
 	return m_tcpLinkCombo->currentText();
 }
 
+double SimulationCommandWidget::playbackRate() const
+{
+	if (!m_playbackRateCombo)
+	{
+		return 1.0;
+	}
+	const QVariant data = m_playbackRateCombo->currentData();
+	bool ok = false;
+	const double rate = data.toDouble(&ok);
+	return (ok && rate > 0.0) ? rate : 1.0;
+}
+
 void SimulationCommandWidget::setUseChinese(bool chinese)
 {
 	m_useChinese = chinese;
@@ -463,6 +500,15 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	m_clearBtn->setText(chinese ? QStringLiteral("清空") : QStringLiteral("Clear"));
 	m_runBtn->setText(chinese ? QStringLiteral("运行") : QStringLiteral("Run"));
 	m_stopBtn->setText(chinese ? QStringLiteral("停止") : QStringLiteral("Stop"));
+	if (m_playbackRateLabel)
+	{
+		m_playbackRateLabel->setText(chinese ? QStringLiteral("仿真倍率") : QStringLiteral("Sim Rate"));
+	}
+	if (m_playbackRateCombo)
+	{
+		m_playbackRateCombo->setToolTip(chinese ? QStringLiteral("播放倍率（不改变规划时长）")
+												: QStringLiteral("Playback rate (does not change planned duration)"));
+	}
 	if (m_exportBtn)
 	{
 		m_exportBtn->setText(chinese ? QStringLiteral("导出") : QStringLiteral("Export"));

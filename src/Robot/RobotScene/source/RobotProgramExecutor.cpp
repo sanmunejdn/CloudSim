@@ -38,6 +38,33 @@ void RobotProgramExecutor::stop()
 	m_segStartJointAngles.clear();
 	m_fkMeshWorldT0.clear();
 	m_outerWorldAtStart.clear();
+	m_simElapsedSec = 0.0;
+	m_lastWallSec = 0.0;
+	m_segDurationSec = 0.0;
+}
+
+void RobotProgramExecutor::setPlaybackRate(double rate)
+{
+	m_playbackRate = std::clamp(rate, 0.1, 10.0);
+}
+
+void RobotProgramExecutor::resetVirtualClock()
+{
+	m_simElapsedSec = 0.0;
+	m_lastWallSec = 0.0;
+	m_segmentTimer.restart();
+}
+
+void RobotProgramExecutor::advanceVirtualClock()
+{
+	if (!m_segmentTimer.isValid())
+	{
+		return;
+	}
+	const double wallNow = m_segmentTimer.elapsed() / 1000.0;
+	const double dt = std::max(0.0, wallNow - m_lastWallSec);
+	m_lastWallSec = wallNow;
+	m_simElapsedSec += dt * m_playbackRate;
 }
 
 bool RobotProgramExecutor::evaluateCondition(const RobotInstruction::Condition& c) const
@@ -91,8 +118,7 @@ double RobotProgramExecutor::motionSegmentProgress01() const
 	{
 		return 1.0;
 	}
-	const double elapsed = m_segmentTimer.elapsed() / 1000.0;
-	return std::clamp(elapsed / m_segDurationSec, 0.0, 1.0);
+	return std::clamp(m_simElapsedSec / m_segDurationSec, 0.0, 1.0);
 }
 
 const RobotInstruction::PlanResult* RobotProgramExecutor::planForMotion(const RobotInstruction::Base& ins) const
@@ -183,15 +209,15 @@ bool RobotProgramExecutor::startMotionSegment(const RobotInstruction::Base& ins)
 		}
 	}
 	m_segDurationSec = std::max(0.05, m_segDurationSec);
-	m_segmentTimer.restart();
+	resetVirtualClock();
 	return true;
 }
 
 bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
 {
 	const RobotInstruction::PlanResult* plan = m_activeMotion ? planForMotion(*m_activeMotion) : nullptr;
-	const double elapsed = m_segmentTimer.elapsed() / 1000.0;
-	const double u = std::min(1.0, elapsed / m_segDurationSec);
+	advanceVirtualClock();
+	const double u = std::min(1.0, m_simElapsedSec / m_segDurationSec);
 
 	// 多样本轨迹优先于起止关节 lerp（LINE 笛卡尔采样依赖此分支）
 	if (plan && plan->ok && plan->jointTrajectoryRad.size() >= 2U)
@@ -316,7 +342,7 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 			m_inMotion = false;
 			m_activeMotion = nullptr;
 			m_segDurationSec = std::max(0.0, ins->durationSec());
-			m_segmentTimer.restart();
+			resetVirtualClock();
 			return true;
 		}
 		case RobotInstruction::Type::SET_DO:
@@ -475,8 +501,8 @@ RobotInstructionPlaybackTickResult RobotProgramExecutor::tick(IRobotSimulationDo
 
 	if (!m_activeMotion && m_segDurationSec > 1e-9 && !m_inMotion && m_segmentTimer.isValid())
 	{
-		const double elapsed = m_segmentTimer.elapsed() / 1000.0;
-		if (elapsed < m_segDurationSec)
+		advanceVirtualClock();
+		if (m_simElapsedSec < m_segDurationSec)
 		{
 			return RobotInstructionPlaybackTickResult::Continue;
 		}

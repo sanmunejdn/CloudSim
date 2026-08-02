@@ -48,6 +48,8 @@ class CLOUDSIM_HOST_EXPORT DocumentHost : public QWidget, public cloudsim::core:
 
 public:
 	DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId);
+	/// enableOsgView=false：Web/Headless 不建 OsgWidget，render() 为真 Null
+	DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId, bool enableOsgView);
 	~DocumentHost() override;
 
 	QString documentId() const override;

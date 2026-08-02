@@ -20,6 +20,7 @@
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
+#include "ViewTessellate.h"
 
 #include <QDir>
 #include <QFile>
@@ -241,11 +242,20 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
-		if (outError)
+		// Web/Headless：无 OSG 时仍注册 Data，浏览器经 /api/mesh 取 triangleSoup
+		if (const auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(backendObject))
 		{
-			*outError = QStringLiteral("no active 3D view");
+			if (pc->pointPositionsXyz().empty())
+			{
+				if (outError)
+				{
+					*outError = QStringLiteral("Point cloud has no geometry (missing PLY sidecar and embedded data).");
+				}
+				return false;
+			}
 		}
-		return false;
+		(void)robotLinkMeshVisual;
+		return registerAdoptedBackendObject(host, backendObject, sourcePath, catalogTypeName, parentId, outError);
 	}
 	QString visualErr;
 	bool visualOk = false;
@@ -574,6 +584,48 @@ void finalizeProjectHierarchyAfterObjects(DocumentHost& host, const bool useEdge
 		applyProjectEdgesToBackend(host, edges, outWarnings);
 	}
 	rebuildBackendParentIdMirror(host);
+}
+
+bool exportBackendTriangleSoupMm(DocumentHost& host, const QString& backendId, std::vector<float>& outSoup,
+								 QString* outError)
+{
+	outSoup.clear();
+	const auto data = host.backend().getData(backendId.toStdString());
+	if (!data)
+	{
+		if (outError)
+			*outError = QStringLiteral("Unknown id.");
+		return false;
+	}
+	if (const auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data))
+	{
+		if (mesh->triangleSoup().empty())
+		{
+			if (outError)
+				*outError = QStringLiteral("No mesh geometry.");
+			return false;
+		}
+		outSoup = mesh->triangleSoup();
+		return true;
+	}
+	if (const auto brep = std::dynamic_pointer_cast<BrepBackendData>(data))
+	{
+		std::string tessErr;
+		if (!geoalgo::tessellateShapeMedium(brep->shapeRef(), outSoup, nullptr, &tessErr) || outSoup.size() < 9U)
+		{
+			if (outError)
+			{
+				*outError = tessErr.empty() ? QStringLiteral("B-rep tessellation failed.")
+											: QString::fromStdString(tessErr);
+			}
+			outSoup.clear();
+			return false;
+		}
+		return true;
+	}
+	if (outError)
+		*outError = QStringLiteral("No mesh geometry.");
+	return false;
 }
 
 void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, const QVector<ProjectHierarchyEdge>& edges,

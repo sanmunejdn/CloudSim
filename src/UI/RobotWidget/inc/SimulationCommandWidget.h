@@ -51,6 +51,9 @@ public:
 
 	void setSimulationRunning(bool running);
 
+	/// 当前仿真播放倍率（预设下拉）
+	double playbackRate() const;
+
 	void setTcpDragTeachMode(bool enabled);
 
 	bool tcpDragTeachMode() const;
@@ -122,6 +125,8 @@ signals:
 	void stopRequested();
 
 	void exportProgramRequested();
+
+	void playbackRateChanged(double rate);
 
 	void tcpDragTeachModeChanged(bool enabled);
 
@@ -207,6 +212,10 @@ private:
 	QPushButton* m_runBtn = nullptr;
 
 	QPushButton* m_stopBtn = nullptr;
+
+	QLabel* m_playbackRateLabel = nullptr;
+
+	QComboBox* m_playbackRateCombo = nullptr;
 
 	QPushButton* m_exportBtn = nullptr;
 

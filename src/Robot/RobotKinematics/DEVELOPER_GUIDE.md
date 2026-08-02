@@ -56,7 +56,7 @@
 
 | 调用方 | 何时使用 |
 |--------|----------|
-| `Controller::setDhRows` | UI/配置注入 DH 表 |
+| `Controller::setDhRows` | 仅无 URDF 时由上层注入；有 URDF 时 RobotWidget 跳过自动建表 |
 | `PtpPlanner` / `LinePlanner` / `ArcPlanner` | `context.urdfPath` 为空且 `hasDhRows()` 时（ARC 优先 URDF 笛卡尔弧） |
 
 ### 3.2 圆弧几何（`CircularArcGeometry.h`）

@@ -166,7 +166,8 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | 操作 | 调用链 |
 |------|--------|
 | 点击指令树 | `InstructionProgramTreeWidget::instructionSelected` → `SimulationCommandWidget::instructionSelectionChanged` → `onSimulationInstructionSelectionChanged` →（非 TCP 拖动）`applyRobotPoseForInstructionPreview` |
-| 点 Run | `runRequested` → `onSimulationStartTriggered` → `tryStart` + `QTimer` → `onRobotSimulationTick` → `ensurePlaybackPlansReady` → `tick` + `tickLookaheadPlanning` |
+| 点 Run | `runRequested` → `onSimulationStartTriggered` → `tryStart` + 同步 `playbackRate` + `QTimer` → `onRobotSimulationTick` → `ensurePlaybackPlansReady` → `tick` + `tickLookaheadPlanning` |
+| 仿真倍率 | Instructions 页 `Sim Rate` 下拉 → `playbackRateChanged` → `RobotProgramExecutor::setPlaybackRate`；虚拟时钟缩放播放，**不改** `plan.durationSec` |
 
 `emitSelection=false` 重建树时不发 `instructionSelected`，避免在工具扩展写入前触发预览/IK（见 `InstructionProgramTreeWidget`）。
 
@@ -323,7 +324,7 @@ Executor 侧：`RobotProgramExecutor::currentInstruction()`（见 [`../Robot/Rob
 
 | 类 | 说明 |
 |----|------|
-| `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/ARC/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged`；**ARC 两步示教**（`setArcTeachPending`） |
+| `SimulationCommandWidget` | 指令树、Run/Stop、**仿真倍率**下拉、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/ARC/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged`；**ARC 两步示教**（`setArcTeachPending`） |
 | `RobotAxisControlWidget` | 关节/外轴滑条；顶部「显示可达域」+ 密度滑条（默认 50%，调采样数/体素边长）；Halton 采样细点 overlay | 关节滑块（`qBound` 限位）；外轴滑条（平移 mm / 旋转 deg，内部 rad） |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → `onRobotCoordinateFramesChanged`（见下） |
 | `RobotExternalAxisSettingsWidget` | 多轴 Translate/Rotate × RobotBase/Workpiece；`workingFrameId` 工作架下拉（空=绑定根）；`setBackendIdOptions`；`externalAxesChanged` → `onRobotExternalAxesChanged`；Run 时由 `applyExternalAxisFromPlan` 按段进度插值 `externalAxisQs` |
@@ -398,7 +399,7 @@ Dock **机器人** 页内指令编辑区自上而下：
 | **指令**（`m_instructionGroupBox`） | PTP、LINE、ARC、\|、WAIT、IF、WHILE、SET_DO、SET_AO |
 | **功能**（`m_functionGroupBox`） | 末端拖动、删除、清空 |
 | 指令树 | `InstructionProgramTreeWidget`（占剩余高度） |
-| 运行 | Run / Stop / Export（品牌程序） |
+| 运行 | Run / Stop / 仿真倍率 / Export（品牌程序） |
 
 ### 品牌程序导出
 

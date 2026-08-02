@@ -809,11 +809,14 @@ void RobotSimulationController::wireSimulationSignals()
 	if (cmd)
 	{
 		cmd->setProgramEditService(m_programEditService);
+		connect(cmd, &SimulationCommandWidget::runRequested, this, &RobotSimulationController::onSimulationRunRequested);
+		connect(cmd, &SimulationCommandWidget::stopRequested, this, &RobotSimulationController::onSimulationStopRequested);
+		connect(cmd, &SimulationCommandWidget::exportProgramRequested, this,
+				&RobotSimulationController::onSimulationExportRequested);
+		connect(cmd, &SimulationCommandWidget::playbackRateChanged, this,
+				[this](const double rate) { m_programExecutor.setPlaybackRate(rate); });
+		m_programExecutor.setPlaybackRate(cmd->playbackRate());
 	}
-	connect(cmd, &SimulationCommandWidget::runRequested, this, &RobotSimulationController::onSimulationRunRequested);
-	connect(cmd, &SimulationCommandWidget::stopRequested, this, &RobotSimulationController::onSimulationStopRequested);
-	connect(cmd, &SimulationCommandWidget::exportProgramRequested, this,
-			&RobotSimulationController::onSimulationExportRequested);
 	connect(cmd, &SimulationCommandWidget::addInstructionRequested, this,
 			&RobotSimulationController::onSimulationAddInstructionRequested);
 	connect(cmd, &SimulationCommandWidget::instructionSelectionChanged, this,
@@ -3120,8 +3123,7 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		m_host->simulationCommandPage()->setTcpDragTeachMode(false);
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Stop simulation before TCP drag teach."),
-												  QStringLiteral("?????????????????????????")));
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Stop simulation before TCP drag teach."), QStringLiteral("请先停止仿真，再使用末端拖动示教。")));
 		}
 		return;
 	}
@@ -3314,8 +3316,7 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		m_host->simulationCommandPage()->setTcpDragTeachMode(false);
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Failed to attach TCP drag gizmo."),
-												  QStringLiteral("??????? TCP ???????????")));
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Failed to attach TCP drag gizmo."), QStringLiteral("无法挂载 TCP 拖动示教罗盘。")));
 		}
 	}
 	// gizmo 用 P_eff；缓存目标用 P0（与示教/IK 一致）
@@ -3635,8 +3636,7 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	if (anyClamped && m_host->runInfoPage())
 	{
 		m_host->appendRunWarning(
-			m_host->i18n(QStringLiteral("TCP drag IK exceeded joint limits; angles were clamped to URDF range."),
-						 QStringLiteral("?????? IK ??????????????? URDF ???????")));
+			m_host->i18n(QStringLiteral("TCP drag IK exceeded joint limits; angles were clamped to URDF range."), QStringLiteral("末端拖动 IK 超关节限位，已钳制到 URDF 范围。")));
 	}
 	m_suppressMotionPreviewStartCapture = false;
 	m_tcpDragApplyingIk = false;
@@ -3717,7 +3717,7 @@ void RobotSimulationController::onSimulationStopRequested()
 	stopRobotSimulation();
 	if (m_host->runInfoPage())
 	{
-		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation stopped."), QStringLiteral("??????????")));
+		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation stopped."), QStringLiteral("仿真已停止。")));
 	}
 }
 
@@ -3734,8 +3734,7 @@ void RobotSimulationController::onSimulationExportRequested()
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(
-				m_host->i18n(QStringLiteral("Import a robot (URDF) first, then export the program."),
-							 QStringLiteral("????????????(URDF)???????????")));
+				m_host->i18n(QStringLiteral("Import a robot (URDF) first, then export the program."), QStringLiteral("请先导入机器人(URDF)，再导出程序。")));
 		}
 		return;
 	}
@@ -3764,7 +3763,7 @@ void RobotSimulationController::onSimulationExportRequested()
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(
-				m_host->i18n(QStringLiteral("No program to export."), QStringLiteral("???????????")));
+				m_host->i18n(QStringLiteral("No program to export."), QStringLiteral("没有可导出的程序。")));
 		}
 		return;
 	}
@@ -3781,7 +3780,7 @@ void RobotSimulationController::onSimulationExportRequested()
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(
-				m_host->i18n(QStringLiteral("Invalid brand selection."), QStringLiteral("???????????")));
+				m_host->i18n(QStringLiteral("Invalid brand selection."), QStringLiteral("品牌选择无效。")));
 		}
 		return;
 	}
@@ -3793,7 +3792,7 @@ void RobotSimulationController::onSimulationExportRequested()
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(
-				m_host->i18n(QStringLiteral("Selected program not found."), QStringLiteral("???????????")));
+				m_host->i18n(QStringLiteral("Selected program not found."), QStringLiteral("未找到所选程序。")));
 		}
 		return;
 	}
@@ -3801,8 +3800,7 @@ void RobotSimulationController::onSimulationExportRequested()
 	{
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(m_host->i18n(QStringLiteral("No motion instructions to export."),
-												  QStringLiteral("???????????????")));
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("No motion instructions to export."), QStringLiteral("没有可导出的运动指令。")));
 		}
 		return;
 	}
@@ -3824,9 +3822,9 @@ void RobotSimulationController::onSimulationExportRequested()
 	const QString defaultName = defaultBase + brand.defaultExt;
 	const QString filter =
 		brand.filter + QStringLiteral(";;") +
-		m_host->i18n(QStringLiteral("All files (*.*)"), QStringLiteral("??????? (*.*)"));
+		m_host->i18n(QStringLiteral("All files (*.*)"), QStringLiteral("所有文件 (*.*)"));
 	const QString outPath = QFileDialog::getSaveFileName(
-		nullptr, m_host->i18n(QStringLiteral("Save brand robot program"), QStringLiteral("???????????????")),
+		nullptr, m_host->i18n(QStringLiteral("Save brand robot program"), QStringLiteral("保存品牌机器人程序")),
 		defaultName, filter);
 	if (outPath.isEmpty())
 	{
@@ -3840,8 +3838,7 @@ void RobotSimulationController::onSimulationExportRequested()
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(
-				m_host->i18n(QStringLiteral("Brand export script not found: %1").arg(scriptPath),
-							 QStringLiteral("???????????????%1").arg(scriptPath)));
+				m_host->i18n(QStringLiteral("Brand export script not found: %1").arg(scriptPath), QStringLiteral("未找到品牌导出脚本：%1").arg(scriptPath)));
 		}
 		return;
 	}
@@ -3889,8 +3886,7 @@ void RobotSimulationController::onSimulationExportRequested()
 	{
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Cannot create temporary Canonical file."),
-												  QStringLiteral("?????????? Canonical ?????")));
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Cannot create temporary Canonical file."), QStringLiteral("无法创建临时 Canonical 文件。")));
 		}
 		return;
 	}
@@ -3914,8 +3910,7 @@ void RobotSimulationController::onSimulationExportRequested()
 		{
 			const QString detail = pyErr.empty() ? QString::fromStdString(result) : QString::fromStdString(pyErr);
 			m_host->appendRunWarning(
-				m_host->i18n(QStringLiteral("Brand export failed: %1").arg(detail),
-							 QStringLiteral("??????????%1").arg(detail)));
+				m_host->i18n(QStringLiteral("Brand export failed: %1").arg(detail), QStringLiteral("品牌导出失败：%1").arg(detail)));
 		}
 		refreshInstructionPoseAxes();
 		return;
@@ -3927,7 +3922,7 @@ void RobotSimulationController::onSimulationExportRequested()
 			m_host->i18n(QStringLiteral("Exported %1 program \"%2\" to %3 (flat motion refs: %4).")
 							 .arg(brand.brandId, brandDlg.selectedProgramName(), outPath)
 							 .arg(exportDoc.flatMotionSequence.size()),
-						 QStringLiteral("????? %1 ????%2???? %3???????????? %4 ??????")
+						 QStringLiteral("已导出 %1 程序「%2」到 %3（展平运动引用：%4）。")
 							 .arg(brand.brandId, brandDlg.selectedProgramName(), outPath)
 							 .arg(exportDoc.flatMotionSequence.size())));
 	}
@@ -3945,8 +3940,7 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 	{
 		if (errMsg)
 		{
-			*errMsg = m_host->i18n(QStringLiteral("Robot simulation context is not ready."),
-								   QStringLiteral("????????????????????????"));
+			*errMsg = m_host->i18n(QStringLiteral("Robot simulation context is not ready."), QStringLiteral("机器人仿真上下文尚未就绪。"));
 		}
 		return false;
 	}
@@ -3959,7 +3953,7 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 	{
 		if (errMsg)
 		{
-			*errMsg = m_host->i18n(QStringLiteral("URDF path is empty."), QStringLiteral("URDF ???????"));
+			*errMsg = m_host->i18n(QStringLiteral("URDF path is empty."), QStringLiteral("URDF 路径为空。"));
 		}
 		return false;
 	}
@@ -4084,11 +4078,9 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 			if (!hasLinkFk)
 			{
 				const QString detail = computeErr.isEmpty()
-										   ? m_host->i18n(QStringLiteral("URDF forward kinematics failed."),
-														  QStringLiteral("URDF ???????????"))
+										   ? m_host->i18n(QStringLiteral("URDF forward kinematics failed."), QStringLiteral("URDF 正解计算失败。"))
 										   : computeErr;
-				*errMsg = m_host->i18n(QStringLiteral("Cannot evaluate TCP: %1").arg(detail),
-									   QStringLiteral("????? TCP??%1").arg(detail));
+				*errMsg = m_host->i18n(QStringLiteral("Cannot evaluate TCP: %1").arg(detail), QStringLiteral("无法求 TCP：%1").arg(detail));
 			}
 			else
 			{
@@ -4104,26 +4096,20 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 				const QString flangeQ = QString::fromStdString(flangeLink);
 				if (flangeQ.isEmpty())
 				{
-					*errMsg = m_host->i18n(QStringLiteral("Flange link name is not configured."),
-										   QStringLiteral("????????????????"));
+					*errMsg = m_host->i18n(QStringLiteral("Flange link name is not configured."), QStringLiteral("未配置法兰连杆名。"));
 				}
 				else if (!linkWorldByName.contains(flangeQ))
 				{
-					*errMsg = m_host->i18n(
-						QStringLiteral("Link '%1' not in URDF FK result (check tool frame flange link).").arg(flangeQ),
-						QStringLiteral("?????%1?????? URDF ???????????????????????????").arg(flangeQ));
+					*errMsg = m_host->i18n(QStringLiteral("Link '%1' not in URDF FK result (check tool frame flange link).").arg(flangeQ), QStringLiteral("连杆「%1」不在 URDF 正解结果中（请检查工具系法兰连杆）。").arg(flangeQ));
 				}
 				else if (!lastJointName.isEmpty() && !doc->hasRobotJointLocalMatrix(lastJointName))
 				{
-					*errMsg = m_host->i18n(
-						QStringLiteral("Per-link robot has no joint scene node '%1'; use URDF FK path.")
-							.arg(lastJointName),
-						QStringLiteral("????????????????????%1????????? URDF ?????????").arg(lastJointName));
+					*errMsg = m_host->i18n(QStringLiteral("Per-link robot has no joint scene node '%1'; use URDF FK path.")
+							.arg(lastJointName), QStringLiteral("每连杆机器人无关节场景节点「%1」；请使用 URDF 正解路径。").arg(lastJointName));
 				}
 				else
 				{
-					*errMsg = m_host->i18n(QStringLiteral("Cannot evaluate TCP world transform."),
-										   QStringLiteral("?????????????????"));
+					*errMsg = m_host->i18n(QStringLiteral("Cannot evaluate TCP world transform."), QStringLiteral("无法获取末端世界坐标。"));
 				}
 			}
 		}
@@ -4564,19 +4550,7 @@ RobotSimulationController::feasibleMotionAxisConfigurationOptionsForInstruction(
 	{
 		return out;
 	}
-	{
-		std::vector<robot_kinematics::DhRow> dhRows;
-		QString dhErr;
-		if (RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
-		{
-			m_instructionController.setDhRows(dhRows);
-		}
-		else
-		{
-			m_instructionController.clearDhRows();
-		}
-		syncInstructionControllerExternalAxes(m_instructionController, doc, instIdx);
-	}
+	ensureInstructionControllerKinematics(doc, instIdx, urdfPath);
 	int targetMotionIndex = -1;
 	QVector<double> rollingQ;
 	if (precomputedChainSeed && !precomputedChainSeed->jointRad.isEmpty())
@@ -4741,18 +4715,10 @@ void RobotSimulationController::ensureInstructionControllerKinematics(IRobotDocu
 		m_instructionController.clearExternalAxes();
 		return;
 	}
+	// 有 URDF 时走数值 IK；自动 DH 对多数工业臂 origin 不可分解，跳过建表
 	if (m_cachedInstructionDhUrdfPath != urdfPath)
 	{
-		std::vector<robot_kinematics::DhRow> dhRows;
-		QString dhErr;
-		if (RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
-		{
-			m_instructionController.setDhRows(dhRows);
-		}
-		else
-		{
-			m_instructionController.clearDhRows();
-		}
+		m_instructionController.clearDhRows();
 		m_cachedInstructionDhUrdfPath = urdfPath;
 	}
 	syncInstructionControllerExternalAxes(m_instructionController, doc, instanceIndex);
@@ -4849,7 +4815,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(
 			const QString pointTag = QString::fromStdString(
 				RobotInstruction::formatMotionPointName(RobotInstruction::motionPointIndex(*targetIns)));
 			const QString detail =
-				planErr.empty() ? m_host->i18n(QStringLiteral("Preview IK failed."), QStringLiteral("??? IK ????"))
+				planErr.empty() ? m_host->i18n(QStringLiteral("Preview IK failed."), QStringLiteral("预览 IK 失败。"))
 								: QString::fromStdString(planErr);
 			m_host->appendRunWarning(pointTag.isEmpty() ? detail : QStringLiteral("%1: %2").arg(pointTag, detail));
 		}
@@ -5171,9 +5137,7 @@ QHash<QString, bool> RobotSimulationController::computeMotionReachabilityForCurr
 	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
 		urdfPath, m_host->simulationCommandPage() ? m_host->simulationCommandPage()->selectedTcpLink() : QString());
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
-	std::vector<robot_kinematics::DhRow> dhRows;
-	QString dhErr;
-	(void)RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr);
+	const std::vector<robot_kinematics::DhRow> dhRows; // 有 URDF 不建 DH，worker 走数值 IK
 	QVector<double> rollingQ = motionPreviewProgramStartJointsLocal(nj, jointOffset);
 	const QVector<double> programStartQ = rollingQ;
 	for (size_t mi = 0; mi < motions.size(); ++mi)
@@ -5732,8 +5696,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(
-				m_host->i18n(QStringLiteral("Import a robot (URDF) first, then add simulation commands."),
-							 QStringLiteral("????????????(URDF)??????????????")));
+				m_host->i18n(QStringLiteral("Import a robot (URDF) first, then add simulation commands."), QStringLiteral("请先导入机器人(URDF)，再添加仿真指令。")));
 		}
 		return;
 	}
@@ -5748,24 +5711,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 	{
 		return;
 	}
-	{
-		std::vector<robot_kinematics::DhRow> dhRows;
-		QString dhErr;
-		if (RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
-		{
-			m_instructionController.setDhRows(dhRows);
-		}
-		else
-		{
-			m_instructionController.clearDhRows();
-			if (m_host->runInfoPage())
-			{
-				m_host->appendRunInfo(m_host->i18n(QStringLiteral("DH rows not built: %1").arg(dhErr),
-												   QStringLiteral("DH rows not built: %1").arg(dhErr)));
-			}
-		}
-		syncInstructionControllerExternalAxes(m_instructionController, doc, instIdx);
-	}
+	ensureInstructionControllerKinematics(doc, instIdx, urdfPath);
 	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
 	if (nj <= 0)
 	{
@@ -5774,7 +5720,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 			m_host->appendRunWarning(m_host->i18n(
 				QStringLiteral(
 					"No revolute joints in URDF (joints need type=\"revolute\" or \"continuous\" and an axis)."),
-				QStringLiteral("URDF ?????????????? type=??revolute/continuous?? ?? axis????")));
+				QStringLiteral("URDF 中无可旋转关节（需 type=“revolute/continuous” 及 axis）。")));
 		}
 		return;
 	}
@@ -5784,8 +5730,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 	{
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Add at least one instruction row."),
-												  QStringLiteral("????????????????")));
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Add at least one instruction row."), QStringLiteral("请至少添加一条指令。")));
 		}
 		return;
 	}
@@ -5836,7 +5781,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 			if (m_host->runInfoPage())
 			{
 				m_host->appendRunWarning(
-					m_host->i18n(QStringLiteral("Instruction row is invalid."), QStringLiteral("??????????")));
+					m_host->i18n(QStringLiteral("Instruction row is invalid."), QStringLiteral("指令行无效。")));
 			}
 			return;
 		}
@@ -5926,32 +5871,26 @@ void RobotSimulationController::onSimulationStartTriggered()
 	{
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(m_host->i18n(
-				QStringLiteral("All motion instructions failed to plan; simulation not started."),
-				QStringLiteral("?????????????????????????")));
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("All motion instructions failed to plan; simulation not started."), QStringLiteral("所有运动指令规划失败，未启动仿真。")));
 		}
 		return;
 	}
 	if (planningStoppedAfterFailure && m_host->runInfoPage())
 	{
 		const int failOneBased = static_cast<int>(firstFailedMotionIndex) + 1;
-		m_host->appendRunWarning(m_host->i18n(
-			QStringLiteral("Partial plan failure: will play until motion %1 (%2), then stop. Reason: %3")
+		m_host->appendRunWarning(m_host->i18n(QStringLiteral("Partial plan failure: will play until motion %1 (%2), then stop. Reason: %3")
 				.arg(failOneBased)
 				.arg(firstFailedMotionLabel)
-				.arg(firstFailedReason),
-			QStringLiteral("??????????????????? %1 ???????%2????????????%3")
+				.arg(firstFailedReason), QStringLiteral("部分规划失败：将播放至第 %1 条（%2）后停止。原因：%3")
 				.arg(failOneBased)
 				.arg(firstFailedMotionLabel)
 				.arg(firstFailedReason)));
 	}
 	else if (motions.size() > kEagerPlanCount && m_host->runInfoPage())
 	{
-		m_host->appendRunInfo(m_host->i18n(
-			QStringLiteral("Lazy planning: %1/%2 motions planned at start; rest on demand.")
+		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Lazy planning: %1/%2 motions planned at start; rest on demand.")
 				.arg(successMotionCount)
-				.arg(static_cast<int>(motions.size())),
-			QStringLiteral("????????????? %1/%2 ??????????????")
+				.arg(static_cast<int>(motions.size())), QStringLiteral("懒加载规划：启动时已规划 %1/%2 条，其余按需规划。")
 				.arg(successMotionCount)
 				.arg(static_cast<int>(motions.size()))));
 	}
@@ -5983,8 +5922,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 		{
 			if (err.contains(QLatin1String("Invalid joint index")))
 			{
-				m_host->appendRunWarning(m_host->i18n(QStringLiteral("Invalid joint index in simulation command."),
-													  QStringLiteral("??????????????????")));
+				m_host->appendRunWarning(m_host->i18n(QStringLiteral("Invalid joint index in simulation command."), QStringLiteral("仿真指令关节索引无效。")));
 			}
 			else if (!err.isEmpty())
 			{
@@ -5992,6 +5930,11 @@ void RobotSimulationController::onSimulationStartTriggered()
 			}
 		}
 		return;
+	}
+	// tryStart 后同步控件倍率（运行中改倍率走 playbackRateChanged）
+	if (m_host->simulationCommandPage())
+	{
+		m_programExecutor.setPlaybackRate(m_host->simulationCommandPage()->playbackRate());
 	}
 	if (m_host->robotAxisControlPage())
 	{
@@ -6008,7 +5951,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 	}
 	if (m_host->runInfoPage())
 	{
-		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation started."), QStringLiteral("??????????")));
+		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation started."), QStringLiteral("仿真已开始。")));
 	}
 }
 
@@ -6066,8 +6009,7 @@ void RobotSimulationController::logPlaybackFrameComparison(const QVector<double>
 	QString fkErr;
 	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, finalJointAnglesRad, linkWorldByName, &fkErr))
 	{
-		m_host->appendRunWarning(m_host->i18n(QStringLiteral("Forward kinematics failed: %1").arg(fkErr),
-											  QStringLiteral("????????%1").arg(fkErr)));
+		m_host->appendRunWarning(m_host->i18n(QStringLiteral("Forward kinematics failed: %1").arg(fkErr), QStringLiteral("正解失败：%1").arg(fkErr)));
 		return;
 	}
 }
@@ -6146,7 +6088,7 @@ void RobotSimulationController::onRobotSimulationTick()
 		stopRobotSimulation();
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation finished."), QStringLiteral("???????????")));
+			m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation finished."), QStringLiteral("仿真已结束。")));
 		}
 		break;
 	case RobotInstructionPlaybackTickResult::Aborted:
@@ -6166,12 +6108,10 @@ void RobotSimulationController::onRobotSimulationTick()
 		stopRobotSimulation();
 		if (dueToPlanFail && m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(m_host->i18n(
-				QStringLiteral("Simulation stopped before failed motion%1. %2")
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Simulation stopped before failed motion%1. %2")
 					.arg(failedLabel.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(failedLabel))
-					.arg(abortSummary),
-				QStringLiteral("???????????????????%1??%2")
-					.arg(failedLabel.isEmpty() ? QString() : QStringLiteral("??%1??").arg(failedLabel))
+					.arg(abortSummary), QStringLiteral("仿真已在失败运动前停止%1。%2")
+					.arg(failedLabel.isEmpty() ? QString() : QStringLiteral("（%1）").arg(failedLabel))
 					.arg(abortSummary)));
 		}
 		break;
@@ -6198,19 +6138,7 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 	(void)sceneRootBackendId;
 	// Run/Preview 直调本地 Controller，避免 Host DTO 丢掉 duration/外轴/轨迹
 	RobotSimulationController* self = const_cast<RobotSimulationController*>(this);
-	{
-		std::vector<robot_kinematics::DhRow> dhRows;
-		QString dhErr;
-		if (RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
-		{
-			self->m_instructionController.setDhRows(dhRows);
-		}
-		else
-		{
-			self->m_instructionController.clearDhRows();
-		}
-		syncInstructionControllerExternalAxes(self->m_instructionController, doc, instanceIndex);
-	}
+	self->ensureInstructionControllerKinematics(doc, instanceIndex, urdfPath);
 	std::string err;
 	plan = {};
 	if (!self->m_instructionController.validate(instruction, &err))
@@ -6912,9 +6840,7 @@ void RobotSimulationController::scheduleDeferredFeasibleAxisProbe(
 		return;
 	}
 
-	std::vector<robot_kinematics::DhRow> dhRows;
-	QString dhErr;
-	(void)RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr);
+	const std::vector<robot_kinematics::DhRow> dhRows; // 有 URDF 不建 DH，worker 走数值 IK
 
 	FeasibleAxisJobPayload payload;
 	const RobotExternal::RobotExternalAxisConfigSet& extAxes = doc->robotExternalAxesForInstance(instIdx);
@@ -7365,8 +7291,7 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 		{
 			m_host->appendRunWarning(
 				m_host->i18n(QStringLiteral("Lazy plan seed unavailable for motion %1.")
-								 .arg(static_cast<int>(motionIndex) + 1),
-							 QStringLiteral("???????????????? %1 ???????")
+								 .arg(static_cast<int>(motionIndex) + 1), QStringLiteral("运动 %1 的懒加载规划种子不可用。")
 								 .arg(static_cast<int>(motionIndex) + 1)));
 		}
 		return false;
@@ -7585,10 +7510,7 @@ void RobotSimulationController::tickLookaheadPlanning()
 	const QVector<double> programStartQ =
 		!m_playbackProgramStartQ.isEmpty() ? m_playbackProgramStartQ : m_playbackRollingSeedQ;
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
-
-	std::vector<robot_kinematics::DhRow> dhRows;
-	QString dhErr;
-	(void)RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr);
+	const std::vector<robot_kinematics::DhRow> dhRows; // 有 URDF 不建 DH，worker 走数值 IK
 
 	int jobsStarted = 0;
 	for (int ahead = 1; ahead <= m_lookaheadConfig.maxAdvanceBlocks; ++ahead)
@@ -7714,9 +7636,7 @@ void RobotSimulationController::enqueueReachabilityBatch(const int batchStart)
 	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
 		urdfPath, m_host->simulationCommandPage() ? m_host->simulationCommandPage()->selectedTcpLink() : QString());
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
-	std::vector<robot_kinematics::DhRow> dhRows;
-	QString dhErr;
-	(void)RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr);
+	const std::vector<robot_kinematics::DhRow> dhRows; // 有 URDF 不建 DH，worker 走数值 IK
 
 	ReachabilityJobInput input;
 	input.frames = frames;
@@ -7807,7 +7727,7 @@ bool RobotSimulationController::showAiFeatureCandidatePreview(const QByteArray& 
 	{
 		if (err)
 		{
-			*err = QStringLiteral("????????????");
+			*err = QStringLiteral("特征轨迹页不可用");
 		}
 		return false;
 	}
@@ -7815,7 +7735,7 @@ bool RobotSimulationController::showAiFeatureCandidatePreview(const QByteArray& 
 	{
 		if (err)
 		{
-			*err = QStringLiteral("?????????????");
+			*err = QStringLiteral("候选预览构建失败");
 		}
 		return false;
 	}
@@ -7841,7 +7761,7 @@ bool RobotSimulationController::commitAiTrajectoryFeatures(const QByteArray& fea
 	{
 		if (err)
 		{
-			*err = QStringLiteral("????????????");
+			*err = QStringLiteral("特征轨迹页不可用");
 		}
 		return false;
 	}

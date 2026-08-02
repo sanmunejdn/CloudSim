@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudSim Web</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="menubar">
+      <div class="brand">CloudSim</div>
+      <nav>
+        <button type="button" id="btnNew">新建</button>
+        <button type="button" id="btnOpen">打开</button>
+        <button type="button" id="btnOpenFolder">打开文件夹</button>
+        <button type="button" id="btnSave">保存</button>
+        <button type="button" id="btnImport">导入</button>
+        <button type="button" id="btnFocus">聚焦</button>
+      </nav>
+      <select id="modeSelect" title="工作区模式"></select>
+      <div id="health" class="pill bad">checking…</div>
+    </header>
+    <div class="main">
+      <!-- 对齐桌面：左属性坞 / 中三维 / 右工作区树+仿真 -->
+      <aside class="left dock">
+        <div class="dock-tabs">
+          <button type="button" class="tab active" data-left-tab="props">属性</button>
+          <button type="button" class="tab" data-left-tab="ai">AI</button>
+        </div>
+        <div id="leftProps" class="dock-body">
+          <div id="props" class="props">未选中</div>
+        </div>
+        <div id="leftAi" class="dock-body hidden">
+          <textarea id="aiPrompt" rows="4" placeholder="提问…"></textarea>
+          <button type="button" id="btnAi">发送</button>
+          <pre id="aiOut" class="ai-out"></pre>
+        </div>
+      </aside>
+      <div id="scene" class="center"></div>
+      <aside class="right dock">
+        <div class="dock-tabs">
+          <button type="button" class="tab active" data-right-tab="tree">工作区</button>
+          <button type="button" class="tab" data-right-tab="sim">仿真</button>
+        </div>
+        <div id="rightTree" class="dock-body">
+          <h2>对象</h2>
+          <ul id="tree"></ul>
+        </div>
+        <div id="rightSim" class="dock-body hidden">
+          <h2>机器人</h2>
+          <label>URDF 路径</label>
+          <input id="urdfPath" placeholder="D:\\robot.urdf" />
+          <button type="button" id="btnUrdf">导入 URDF</button>
+          <label>sceneRootBackendId</label>
+          <input id="robotRoot" />
+          <label>关节角 (rad, CSV)</label>
+          <input id="jointsCsv" placeholder="0,0,0,0,0,0" />
+          <button type="button" id="btnJoints">应用关节</button>
+          <div class="row">
+            <button type="button" id="btnPlan">规划</button>
+            <button type="button" id="btnRun">Run</button>
+            <button type="button" id="btnStop">Stop</button>
+          </div>
+          <h2>几何 / 点云</h2>
+          <select id="geoOp">
+            <option value="boolean">boolean</option>
+            <option value="downsample">downsample</option>
+            <option value="normals">normals</option>
+            <option value="icp">icp</option>
+          </select>
+          <button type="button" id="btnGeo">执行算法作业</button>
+        </div>
+      </aside>
+    </div>
+    <footer class="simbar">
+      <span id="status">就绪</span>
+      <span id="sseHint">SSE…</span>
+      <input id="path" class="path" placeholder="工程路径 .pcp / project.json" />
+    </footer>
+  </div>
+  <script type="importmap">
+  {"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}
+  </script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

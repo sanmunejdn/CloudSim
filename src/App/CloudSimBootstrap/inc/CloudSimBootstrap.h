@@ -16,6 +16,9 @@ class ICloudSimContext;
 /// 组合根 API（实现在 CloudSimHost.dll）
 CLOUDSIM_HOST_EXPORT std::unique_ptr<cloudsim::core::ICloudSimContext> cloudsimCreateApplicationContext();
 
+/// Web 进程旁路组合根：Null 渲染工厂 + Headless 文档；桌面勿调用
+CLOUDSIM_HOST_EXPORT std::unique_ptr<cloudsim::core::ICloudSimContext> cloudsimCreateHeadlessApplicationContext();
+
 CLOUDSIM_HOST_EXPORT void cloudsimSetApplicationContext(std::unique_ptr<cloudsim::core::ICloudSimContext> context);
 CLOUDSIM_HOST_EXPORT cloudsim::core::ICloudSimContext* cloudsimApplicationContext();
 

@@ -7,6 +7,7 @@
 #include "ICloudSimContext.h"
 #include "IDocumentScope.h"
 #include "IRenderView.h"
+#include "NullCoreServices.h"
 
 #include <QWidget>
 #include <memory>
@@ -17,8 +18,8 @@ namespace cloudsim::core
 class ApplicationContextImpl final : public ICloudSimContext
 {
 public:
-	ApplicationContextImpl(std::unique_ptr<IRenderViewFactory> renderFactory)
-		: m_renderFactory(std::move(renderFactory))
+	ApplicationContextImpl(std::unique_ptr<IRenderViewFactory> renderFactory, bool headlessDocuments)
+		: m_renderFactory(std::move(renderFactory)), m_headlessDocuments(headlessDocuments)
 	{
 	}
 
@@ -27,6 +28,10 @@ public:
 
 	std::unique_ptr<IDocumentScope> createDocumentScope(QWidget* parent, const QString& documentId) override
 	{
+		if (m_headlessDocuments)
+		{
+			return cloudsim::host::createHeadlessDocumentHost(m_events, documentId);
+		}
 		return cloudsim::host::createDocumentHost(parent, m_events, documentId);
 	}
 
@@ -37,6 +42,7 @@ private:
 	EventHub m_events;
 	std::unique_ptr<IRenderViewFactory> m_renderFactory;
 	IDocumentScope* m_activeScope = nullptr;
+	bool m_headlessDocuments = false;
 };
 
 } // namespace cloudsim::core
@@ -59,5 +65,11 @@ cloudsim::core::ICloudSimContext* cloudsimApplicationContext()
 
 std::unique_ptr<cloudsim::core::ICloudSimContext> cloudsimCreateApplicationContext()
 {
-	return std::make_unique<cloudsim::core::ApplicationContextImpl>(cloudsim::host::createHostRenderViewFactory());
+	return std::make_unique<cloudsim::core::ApplicationContextImpl>(cloudsim::host::createHostRenderViewFactory(),
+																	false);
+}
+
+std::unique_ptr<cloudsim::core::ICloudSimContext> cloudsimCreateHeadlessApplicationContext()
+{
+	return std::make_unique<cloudsim::core::ApplicationContextImpl>(cloudsim::core::makeNullRenderViewFactory(), true);
 }

@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 class BackendDataBase;
 class PointCloudBackendData;
@@ -106,6 +107,10 @@ struct FollowSolveContext;
 CLOUDSIM_HOST_EXPORT void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host,
 																 const QVector<ProjectHierarchyEdge>& edges,
 																 const FollowSolveContext* solveCtx = nullptr);
+
+/// Web：导出显示用 triangle soup（Mesh 直取；Brep 现场 Medium 离散）
+CLOUDSIM_HOST_EXPORT bool exportBackendTriangleSoupMm(DocumentHost& host, const QString& backendId,
+													  std::vector<float>& outSoup, QString* outError = nullptr);
 
 } // namespace cloudsim::host
 

@@ -191,15 +191,16 @@
 | `updateMotionPlanResult` / `motionPlanResult` | Run 中回写/查询单段规划（懒规划补算） |
 | `currentInstruction()` | 当前执行指令：运动中为 `activeMotion()`，否则栈顶 frame 的 `pc-1` 步 |
 | `activeMotion()` | 当前运动段（插值中）；规划失败停机时仍指向失败指令 |
-| `motionSegmentProgress01()` | 当前运动段进度 [0,1]；非运动中为 1（供外轴插值） |
+| `motionSegmentProgress01()` | 当前运动段进度 [0,1]；非运动中为 1（供外轴插值）；读虚拟时钟 |
+| `setPlaybackRate` / `playbackRate` | 播放倍率 `[0.1,10]`；`simElapsed += dtWall * rate`，运行中可改不跳帧；**不改** `plan.durationSec` |
 | `lastAbortSummary()` / `abortedDueToFailedPlan()` | 规划失败停机原因 |
-| `stop()` / `isRunning()` | 控制 |
+| `stop()` / `isRunning()` | 控制（`stop` 不清零倍率） |
 
 私有：`While` 最大迭代 `kMaxWhileIterations = 10000`。
 
 `motionPlanResults` 由 UI 在 **Run 启动时** 急算前缀段并对其余填 `lazyPending`（或失败占位）；播放中由 Widget `ensurePlaybackPlansReady` / lookahead 经 `updateMotionPlanResult` 补齐。任一点规划失败时写入 `ok=false`，**至少一段成功则仍 `tryStart`**，播放至失败点前停止。`lazyPending` 须在进入该段前被消掉，否则视为停机。指令树选中预览在 Widget 层 **单次** `plan`、**不**经过本 executor。Run 期间 Widget 用 `currentInstruction()` 高亮指令树。预览与 Run 的差异见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。
 
-播放插值：`jointTrajectoryRad.size() >= 2` 时优先按轨迹（含段起点）插值；否则对 `jointTargetsRad` 起止 lerp。外轴不在 Executor 内驱动，由 Widget tick 用 `motionSegmentProgress01()` 对 `externalAxisQs`（兼容标量）插值后写文档 Q 再 FK。
+播放插值：`jointTrajectoryRad.size() >= 2` 时优先按轨迹（含段起点）插值；否则对 `jointTargetsRad` 起止 lerp。段进度与 WAIT 均用虚拟时钟（`m_simElapsedSec`）。外轴不在 Executor 内驱动，由 Widget tick 用 `motionSegmentProgress01()` 对 `externalAxisQs`（兼容标量）插值后写文档 Q 再 FK。
 
 ### 7.3 `IRobotIoSink`
 

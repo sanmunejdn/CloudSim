@@ -25,6 +25,10 @@ class DocumentHost;
 CLOUDSIM_HOST_EXPORT std::unique_ptr<core::IDocumentScope> createDocumentHost(QWidget* parent, core::EventHub& events,
 																			  const QString& documentId);
 
+/// Web 旁路：DocumentHost 不显示（仍可复用 Data/OSG 适配器）
+CLOUDSIM_HOST_EXPORT std::unique_ptr<core::IDocumentScope> createHeadlessDocumentHost(core::EventHub& events,
+																					  const QString& documentId);
+
 /// 创建渲染工厂
 CLOUDSIM_HOST_EXPORT std::unique_ptr<core::IRenderViewFactory> createHostRenderViewFactory();
 
