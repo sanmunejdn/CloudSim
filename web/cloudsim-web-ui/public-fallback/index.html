@@ -1,87 +1,393 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CloudSim Web</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <title>CloudSim - 主窗口</title>
+  <link rel="stylesheet" href="./styles.css?v=traj-marker-20260805a" />
 </head>
 <body>
   <div class="shell">
+    <!-- 顶栏：对齐桌面菜单 -->
     <header class="menubar">
-      <div class="brand">CloudSim</div>
-      <nav>
-        <button type="button" id="btnNew">新建</button>
-        <button type="button" id="btnOpen">打开</button>
-        <button type="button" id="btnOpenFolder">打开文件夹</button>
-        <button type="button" id="btnSave">保存</button>
-        <button type="button" id="btnImport">导入</button>
-        <button type="button" id="btnFocus">聚焦</button>
-      </nav>
-      <select id="modeSelect" title="工作区模式"></select>
+      <div class="menu">
+        <button type="button" class="menu-btn" data-menu="file">文件</button>
+        <div class="menu-drop" id="menuFile">
+          <button type="button" id="btnNew">新建</button>
+          <button type="button" id="btnOpen">打开…</button>
+          <button type="button" id="btnOpenFolder">打开文件夹…</button>
+          <button type="button" id="btnSave">保存</button>
+          <button type="button" id="btnImport">导入…</button>
+        </div>
+      </div>
+      <div class="menu"><button type="button" class="menu-btn" data-menu="view">视图</button>
+        <div class="menu-drop" id="menuView">
+          <button type="button" id="btnFocus">聚焦全部</button>
+        </div>
+      </div>
+      <div class="menu"><button type="button" class="menu-btn" data-menu="insert">插入</button>
+        <div class="menu-drop" id="menuInsert">
+          <button type="button" id="btnUrdfMenu">导入 URDF…</button>
+        </div>
+      </div>
+      <div class="menu"><button type="button" class="menu-btn" data-menu="settings">设置</button>
+        <div class="menu-drop" id="menuSettings">
+          <label class="menu-label">工作区模式
+            <select id="modeSelect"></select>
+          </label>
+        </div>
+      </div>
+      <div class="menu"><button type="button" class="menu-btn" data-menu="help">帮助</button>
+        <div class="menu-drop" id="menuHelp">
+          <button type="button" id="btnAbout">关于 CloudSim Web</button>
+        </div>
+      </div>
+      <div class="menubar-spacer"></div>
       <div id="health" class="pill bad">checking…</div>
     </header>
+
     <div class="main">
-      <!-- 对齐桌面：左属性坞 / 中三维 / 右工作区树+仿真 -->
+      <!-- 左坞：属性 | 设备 -->
       <aside class="left dock">
-        <div class="dock-tabs">
+        <div class="dock-tabs primary">
           <button type="button" class="tab active" data-left-tab="props">属性</button>
-          <button type="button" class="tab" data-left-tab="ai">AI</button>
+          <button type="button" class="tab" data-left-tab="devices">设备</button>
         </div>
         <div id="leftProps" class="dock-body">
-          <div id="props" class="props">未选中</div>
+          <div class="prop-head">
+            <span>属性</span><span>值</span>
+          </div>
+          <div id="props" class="prop-table empty">未选中</div>
         </div>
-        <div id="leftAi" class="dock-body hidden">
-          <textarea id="aiPrompt" rows="4" placeholder="提问…"></textarea>
+        <div id="leftDevices" class="dock-body hidden">
+          <div class="device-toolbar">
+            <label class="field compact">类型
+              <select id="deviceType"></select>
+            </label>
+            <label class="field compact">品牌
+              <select id="deviceBrand"></select>
+            </label>
+            <button type="button" id="btnDeviceRefresh" class="btn-ghost">刷新</button>
+          </div>
+          <div id="deviceGrid" class="device-grid"></div>
+          <p id="deviceStatus" class="hint">加载设备库…</p>
+        </div>
+      </aside>
+
+      <!-- 中：文档页签 + 三维视口 -->
+      <section class="center">
+        <div class="doc-tabs">
+          <div class="doc-tab active"><span id="docTabTitle">未命名1</span><button type="button" class="doc-close" title="关闭" disabled>×</button></div>
+        </div>
+        <div class="viewport">
+          <div id="scene" class="scene"></div>
+          <div class="view-toolbar">
+            <button type="button" id="btnFocusToolbar" title="聚焦">⌂</button>
+            <button type="button" id="btnHomeView" title="主视图">◎</button>
+          </div>
+          <div class="view-cube" title="视图方位">前</div>
+          <div class="axis-badge">XYZ</div>
+        </div>
+      </section>
+
+      <!-- 右坞：工作区 | AI | 点云 -->
+      <aside class="right dock">
+        <div class="dock-tabs primary">
+          <button type="button" class="tab active" data-right-primary="workspace">工作区</button>
+          <button type="button" class="tab" data-right-primary="ai">AI 助手</button>
+          <button type="button" class="tab" data-right-primary="cloud">点云</button>
+        </div>
+
+        <div id="rightWorkspace" class="dock-stack">
+          <div class="dock-tabs secondary">
+            <button type="button" class="tab" data-ws-tab="units">单元部件</button>
+            <button type="button" class="tab active" data-ws-tab="robot">机器人</button>
+          </div>
+
+          <div id="wsUnits" class="dock-body hidden">
+            <ul id="treeUnits" class="tree"></ul>
+          </div>
+
+          <div id="wsRobot" class="dock-body">
+            <div class="dock-tabs tertiary">
+              <button type="button" class="tab active" data-robot-tab="cmd">指令</button>
+              <button type="button" class="tab" data-robot-tab="joint">轴控制</button>
+              <button type="button" class="tab" data-robot-tab="trajGen">轨迹生成</button>
+              <button type="button" class="tab" data-robot-tab="trajEdit">轨迹编辑</button>
+              <button type="button" class="tab" data-robot-tab="frame">坐标系</button>
+            </div>
+
+            <div id="robotCmd" class="robot-pane">
+              <div class="toolbar-row">
+                <button type="button" id="btnRun" class="btn-run">运行</button>
+                <button type="button" id="btnStop" class="btn-stop">停止</button>
+                <label class="inline">仿真倍率
+                  <input id="simRate" type="number" min="0.1" max="10" step="0.1" value="1" />
+                  <span>x</span>
+                </label>
+                <button type="button" id="btnExport" class="btn-ghost">导出</button>
+              </div>
+              <label class="field">TCP
+                <select id="tcpSelect"><option value="default">default</option></select>
+              </label>
+              <div class="prog-head">
+                <span id="progTitle">程序 Main</span>
+                <button type="button" id="btnPlan" class="btn-ghost" title="规划选中指令">规划</button>
+                <button type="button" id="btnDelInstr" class="btn-ghost danger">删除</button>
+              </div>
+              <div class="section-title">指令</div>
+              <div class="cmd-grid">
+                <button type="button" data-cmd="ptp">PTP</button>
+                <button type="button" data-cmd="line">直线</button>
+                <button type="button" data-cmd="arc">圆弧</button>
+                <button type="button" data-cmd="wait">等待</button>
+                <button type="button" data-cmd="if">条件</button>
+                <button type="button" data-cmd="while">循环</button>
+                <button type="button" data-cmd="set_do">DO</button>
+                <button type="button" data-cmd="set_ao">AO</button>
+                <button type="button" data-cmd="path_plan" title="插入 PathPlan">路径</button>
+              </div>
+              <div class="section-title">功能</div>
+              <div class="cmd-grid narrow">
+                <button type="button" id="btnDrag" title="开启后拖动末端罗盘做 IK">拖拽</button>
+                <button type="button" id="btnDelInstr2" class="danger">删除</button>
+                <button type="button" id="btnClearProg" class="danger">清空</button>
+              </div>
+              <div id="progList" class="prog-list muted">暂无指令</div>
+              <details class="adv">
+                <summary>URDF / 关节</summary>
+                <label class="field">URDF<input id="urdfPath" placeholder="选择或粘贴路径" /></label>
+                <button type="button" id="btnUrdf">导入 URDF</button>
+                <label class="field">sceneRootBackendId<input id="robotRoot" /></label>
+                <label class="field">关节角 rad (CSV)<input id="jointsCsv" placeholder="0,0,0,0,0,0" /></label>
+                <button type="button" id="btnJoints">应用关节</button>
+              </details>
+            </div>
+
+            <div id="robotJoint" class="robot-pane hidden">
+              <label class="field">机器人实例
+                <select id="axisInstance"></select>
+              </label>
+              <div class="toolbar-row">
+                <button type="button" id="btnAxisReload" class="btn-ghost">刷新</button>
+                <button type="button" id="btnAxisResetAll" class="btn-ghost">全部重置</button>
+              </div>
+              <div id="axisJoints" class="axis-joints"></div>
+              <details class="adv">
+                <summary>高级：CSV</summary>
+                <label class="field">关节角 rad (CSV)<input id="jointsCsv2" placeholder="0,0,0,0,0,0" /></label>
+                <button type="button" id="btnJoints2">应用关节</button>
+              </details>
+            </div>
+
+            <div id="robotTrajGen" class="robot-pane hidden">
+              <div class="toolbar-row">
+                <label class="field compact">PathPlan
+                  <select id="pathPlanSelect"></select>
+                </label>
+                <button type="button" id="btnPathPlanNew" class="btn-ghost">+</button>
+                <button type="button" id="btnTrajBeginEdit" class="btn-run">开始修改</button>
+                <button type="button" id="btnTrajCancelEdit" class="btn-ghost">取消修改</button>
+              </div>
+              <div id="trajEditGate" class="hint">未开始修改：特征选取已锁定</div>
+              <div class="dock-tabs tertiary">
+                <button type="button" class="tab active" data-traj-sub="cad">CAD/BREP</button>
+                <button type="button" class="tab" data-traj-sub="mesh">Mesh</button>
+              </div>
+              <div id="trajCadPane" class="traj-cad-pane">
+                <label class="field compact">工件
+                  <select id="trajWorkpiece"></select>
+                </label>
+
+                <div class="feat-table-wrap">
+                  <table class="feat-table" id="featTableEl">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>特征ID</th>
+                        <th>离散策略</th>
+                        <th>几何摘要</th>
+                        <th>状态</th>
+                      </tr>
+                    </thead>
+                    <tbody id="featTableBody">
+                      <tr class="empty"><td colspan="5">暂无特征</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="cmd-grid traj-write-row">
+                  <button type="button" id="btnFeatAppend" class="toggle-btn active">追加到选中</button>
+                  <button type="button" id="btnFeatNew" class="toggle-btn">新建特征</button>
+                </div>
+                <div class="cmd-grid traj-pick-row">
+                  <button type="button" id="btnPickEdge">拾取线</button>
+                  <button type="button" id="btnPickFace">拾取面</button>
+                  <button type="button" id="btnPickCancel" class="btn-ghost">取消拾取</button>
+                </div>
+                <div id="trajPickStatus" class="hint">3D 拾取未激活</div>
+
+                <div class="toolbar-row strategy-row">
+                  <span class="lbl">离散策略</span>
+                  <select id="featStrategy" class="grow"></select>
+                </div>
+                <div class="toolbar-row tpl-row">
+                  <select id="discTplSelect" class="grow" title="离散参数模板"></select>
+                  <button type="button" id="btnDiscTplSave" class="btn-ghost">保存</button>
+                  <button type="button" id="btnDiscTplLoad" class="btn-ghost">加载</button>
+                  <button type="button" id="btnDiscTplDelete" class="danger">删除</button>
+                  <button type="button" id="btnDiscTplImport" class="btn-ghost">导入</button>
+                  <button type="button" id="btnDiscTplExport" class="btn-ghost">导出</button>
+                </div>
+                <div id="featParamForm" class="op-params-form feat-param-form muted">选择策略后显示参数</div>
+
+                <fieldset class="preview-group">
+                  <legend>预览</legend>
+                  <div class="preview-axis-row">
+                    <label class="inline"><input type="checkbox" id="previewAxisX" checked /> X 轴</label>
+                    <label class="inline"><input type="checkbox" id="previewAxisY" checked /> Y 轴</label>
+                    <label class="inline"><input type="checkbox" id="previewAxisZ" checked /> Z 轴</label>
+                    <span class="lbl">轴间隔</span>
+                    <input id="previewAxisInterval" type="number" min="0" step="1" value="0" title="0 = 自动（约 n/20）" />
+                  </div>
+                  <div id="trajBrepInfo" class="brep-info">未选择特征</div>
+                  <div id="trajRawStatus" class="hint raw-status">Raw: —</div>
+                </fieldset>
+
+                <!-- 桌面无独立离散按钮；保留隐藏入口供脚本调用 -->
+                <button type="button" id="btnTrajPreviewRaw" class="hidden" tabindex="-1" aria-hidden="true">刷新预览</button>
+                <button type="button" id="btnFeatDiscretize" class="hidden" tabindex="-1" aria-hidden="true">离散</button>
+                <button type="button" id="btnFeatCatalog" class="hidden" tabindex="-1" aria-hidden="true">特征目录</button>
+                <button type="button" id="btnFeatDelete" class="hidden" tabindex="-1" aria-hidden="true">删除特征</button>
+                <input id="discTplName" type="hidden" value="" />
+                <div id="featGeomChips" class="hidden" aria-hidden="true"></div>
+              </div>
+              <div id="trajMeshPane" class="hidden">
+                <label class="field">Mesh 工件<select id="meshWorkpiece"></select></label>
+                <label class="field">方法
+                  <select id="meshMethod">
+                    <option value="CrossSection">截面</option>
+                    <option value="BsplineRegion">B样条区域</option>
+                  </select>
+                </label>
+                <label class="field">平面原点 mm (CSV)<input id="meshPlaneOrigin" value="0,0,50" /></label>
+                <label class="field">平面法向 (CSV)<input id="meshPlaneNormal" value="0,0,1" /></label>
+                <label class="field">stepMm<input id="meshStepMm" type="number" value="2" step="0.1" /></label>
+                <label class="field" id="meshTriRow">三角索引 CSV（B样条）
+                  <input id="meshTriIndices" placeholder="0,1,2,…" />
+                </label>
+                <button type="button" id="btnMeshGenerate" class="btn-run">生成 Raw</button>
+                <div id="trajRawStatusMesh" class="hint">Mesh Raw 状态见会话</div>
+              </div>
+            </div>
+
+            <div id="robotTrajEdit" class="robot-pane traj-edit-pane hidden">
+              <fieldset class="traj-edit-recipe">
+                <legend>工艺模板</legend>
+                <div class="toolbar-row traj-edit-recipe-row">
+                  <span id="trajEditRawStatus" class="traj-edit-raw-status grow">请先在轨迹生成页离散</span>
+                  <select id="trajRecipe" title="工艺">
+                    <option value="weld">焊缝</option>
+                    <option value="glue">涂胶</option>
+                    <option value="grind">打磨</option>
+                  </select>
+                  <button type="button" id="btnRecipeFill">填充</button>
+                  <button type="button" id="btnTrajEmit" class="btn-run" disabled>生成</button>
+                </div>
+              </fieldset>
+
+              <div class="toolbar-row traj-edit-scope-row">
+                <span class="lbl">程序</span>
+                <select id="trajEditProgram" class="grow"></select>
+                <span class="lbl">组</span>
+                <select id="trajEditGroup" class="grow">
+                  <option value="">（无）</option>
+                </select>
+              </div>
+
+              <div class="traj-edit-body">
+                <div class="traj-edit-palette-col">
+                  <div class="section-title">算子</div>
+                  <div id="opPalette" class="traj-op-palette"></div>
+                </div>
+                <div class="traj-edit-pipeline-col">
+                  <div class="section-title">流水线</div>
+                  <div id="opPipeline" class="traj-op-pipeline muted">空</div>
+                </div>
+              </div>
+
+              <details class="traj-edit-params" open>
+                <summary>参数</summary>
+                <div id="opParamsForm" class="op-params-form feat-param-form muted">选中算子后显示参数</div>
+                <details class="adv">
+                  <summary>高级：原始 JSON</summary>
+                  <textarea id="opParamsJson" rows="3" placeholder="{}"></textarea>
+                  <button type="button" id="btnOpParamsApply" class="btn-ghost">应用 JSON</button>
+                </details>
+              </details>
+
+              <div class="toolbar-row traj-edit-actions">
+                <label class="inline"><input type="checkbox" id="trajPreviewOn" checked /> 预览</label>
+                <button type="button" id="btnTrajApply" class="btn-run">应用</button>
+                <button type="button" id="btnTrajReset" class="btn-ghost">重置</button>
+                <button type="button" id="btnTrajUndo" class="btn-ghost">撤销</button>
+                <button type="button" id="btnTrajRedo" class="btn-ghost">重做</button>
+              </div>
+
+              <div class="toolbar-row tpl-row traj-edit-tpl">
+                <select id="pipeTplSelect" class="grow" title="流水线模板"></select>
+                <button type="button" id="btnTplSave" class="btn-ghost">保存</button>
+                <button type="button" id="btnTplLoad" class="btn-ghost">加载</button>
+                <button type="button" id="btnTplDelete" class="danger">删除</button>
+                <button type="button" id="btnTplImport" class="btn-ghost">导入</button>
+                <button type="button" id="btnTplExport" class="btn-ghost">导出</button>
+              </div>
+              <input id="tplName" type="hidden" value="" />
+              <pre id="tplListOut" class="hidden" aria-hidden="true"></pre>
+              <button type="button" id="btnTplList" class="hidden" tabindex="-1" aria-hidden="true">列出</button>
+            </div>
+
+            <div id="robotFrame" class="robot-pane hidden">
+              <p class="hint">坐标系面板（占位）</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="rightAi" class="dock-body hidden">
+          <textarea id="aiPrompt" rows="5" placeholder="向 AI 助手提问…"></textarea>
           <button type="button" id="btnAi">发送</button>
           <pre id="aiOut" class="ai-out"></pre>
         </div>
-      </aside>
-      <div id="scene" class="center"></div>
-      <aside class="right dock">
-        <div class="dock-tabs">
-          <button type="button" class="tab active" data-right-tab="tree">工作区</button>
-          <button type="button" class="tab" data-right-tab="sim">仿真</button>
-        </div>
-        <div id="rightTree" class="dock-body">
-          <h2>对象</h2>
-          <ul id="tree"></ul>
-        </div>
-        <div id="rightSim" class="dock-body hidden">
-          <h2>机器人</h2>
-          <label>URDF 路径</label>
-          <input id="urdfPath" placeholder="D:\\robot.urdf" />
-          <button type="button" id="btnUrdf">导入 URDF</button>
-          <label>sceneRootBackendId</label>
-          <input id="robotRoot" />
-          <label>关节角 (rad, CSV)</label>
-          <input id="jointsCsv" placeholder="0,0,0,0,0,0" />
-          <button type="button" id="btnJoints">应用关节</button>
-          <div class="row">
-            <button type="button" id="btnPlan">规划</button>
-            <button type="button" id="btnRun">Run</button>
-            <button type="button" id="btnStop">Stop</button>
-          </div>
-          <h2>几何 / 点云</h2>
-          <select id="geoOp">
-            <option value="boolean">boolean</option>
-            <option value="downsample">downsample</option>
-            <option value="normals">normals</option>
-            <option value="icp">icp</option>
-          </select>
+
+        <div id="rightCloud" class="dock-body hidden">
+          <label class="field">算法
+            <select id="geoOp">
+              <option value="boolean">boolean</option>
+              <option value="downsample">downsample</option>
+              <option value="normals">normals</option>
+              <option value="icp">icp</option>
+            </select>
+          </label>
           <button type="button" id="btnGeo">执行算法作业</button>
+          <p class="hint">需先在场景中选中目标对象</p>
         </div>
       </aside>
     </div>
-    <footer class="simbar">
-      <span id="status">就绪</span>
-      <span id="sseHint">SSE…</span>
-      <input id="path" class="path" placeholder="工程路径 .pcp / project.json" />
+
+    <!-- 底栏：运行日志 + 状态 -->
+    <footer class="bottom">
+      <div id="log" class="log"></div>
+      <div class="statusbar">
+        <span id="status">就绪</span>
+        <span id="sseHint">SSE…</span>
+        <input id="path" class="path" readonly title="当前工程路径" placeholder="未打开工程" />
+      </div>
     </footer>
   </div>
+
   <script type="importmap">
   {"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}
   </script>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=traj-marker-20260805a"></script>
 </body>
 </html>

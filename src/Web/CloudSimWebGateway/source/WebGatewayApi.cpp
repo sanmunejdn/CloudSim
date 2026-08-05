@@ -3,8 +3,10 @@
 
 #include "WebGateway.h"
 
+#include "CloudSimHost.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
+#include "HeadlessRobotContext.h"
 #include "IDataService.h"
 #include "IDocumentScope.h"
 #include "IRobotService.h"
@@ -68,6 +70,7 @@ cloudsim::core::PoseDto poseFromJson(const QJsonObject& o)
 	}
 	return p;
 }
+
 } // namespace
 
 void webGatewayLoadSidecarsFromProject(const QJsonObject& root)
@@ -99,6 +102,8 @@ bool WebGateway::newProjectOnGuiThread(cloudsim::host::DocumentHost* host, QStri
 	host->backendSourcePath().clear();
 	host->backendSourceType().clear();
 	host->backendParentId().clear();
+	if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
+		hrc->clearRobotSimulationContext();
 	host->setProjectFilePath(QString());
 	g_sidecars = SidecarStore{};
 	pushEvent(QStringLiteral("{\"type\":\"ProjectLoaded\",\"path\":\"\",\"objectCount\":0}"));
@@ -359,8 +364,215 @@ bool WebGateway::applyJointsOnGuiThread(const QByteArray& body, QString* err)
 	QVector<double> agg;
 	if (!m_document->robot().applyJointAnglesRad(rootId, joints, &agg, err))
 		return false;
+	if (auto* host = cloudsim::host::documentHostFromScope(m_document.get()))
+	{
+		if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
+			hrc->recordJointAnglesForSceneRoot(rootId, joints);
+	}
 	QJsonArray a;
 	for (double d : agg)
+		a.append(d);
+	pushEvent(QStringLiteral("{\"type\":\"RobotKinematicsApplied\",\"sceneRootBackendId\":\"%1\",\"joints\":%2}")
+				  .arg(rootId, QString::fromUtf8(QJsonDocument(a).toJson(QJsonDocument::Compact))));
+	return true;
+}
+
+QByteArray WebGateway::robotInstancesJsonOnGuiThread()
+{
+	QJsonObject root;
+	root.insert(QStringLiteral("ok"), true);
+	QJsonArray arr;
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	if (host)
+	{
+		if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
+		{
+			for (const auto& info : hrc->listInstances())
+			{
+				QJsonObject o;
+				o.insert(QStringLiteral("sceneRootBackendId"), info.sceneRootBackendId);
+				o.insert(QStringLiteral("label"), info.label);
+				o.insert(QStringLiteral("jointCount"), info.jointCount);
+				o.insert(QStringLiteral("urdfPath"), info.urdfPath);
+				arr.append(o);
+			}
+		}
+	}
+	root.insert(QStringLiteral("instances"), arr);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+QByteArray WebGateway::robotJointsMetaJsonOnGuiThread(const QString& sceneRootBackendId)
+{
+	QJsonObject root;
+	root.insert(QStringLiteral("ok"), false);
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	if (!host)
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("no document"));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext();
+	if (!hrc)
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("no headless robot context"));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	QString rootId = sceneRootBackendId.trimmed();
+	if (rootId.isEmpty())
+	{
+		const auto instances = hrc->listInstances();
+		if (!instances.isEmpty())
+			rootId = instances.first().sceneRootBackendId;
+	}
+	QStringList names;
+	QVector<double> lower;
+	QVector<double> upper;
+	QVector<double> angles;
+	if (!hrc->jointMetaForSceneRoot(rootId, names, lower, upper, angles))
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("unknown sceneRootBackendId"));
+		root.insert(QStringLiteral("sceneRootBackendId"), rootId);
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	QJsonArray joints;
+	for (int i = 0; i < names.size(); ++i)
+	{
+		QJsonObject j;
+		j.insert(QStringLiteral("name"), names[i]);
+		j.insert(QStringLiteral("lowerRad"), i < lower.size() ? lower[i] : -3.141592653589793);
+		j.insert(QStringLiteral("upperRad"), i < upper.size() ? upper[i] : 3.141592653589793);
+		j.insert(QStringLiteral("angleRad"), i < angles.size() ? angles[i] : 0.0);
+		joints.append(j);
+	}
+	root.insert(QStringLiteral("ok"), true);
+	root.insert(QStringLiteral("sceneRootBackendId"), rootId);
+	root.insert(QStringLiteral("joints"), joints);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+QByteArray WebGateway::robotResolveJsonOnGuiThread(const QString& backendId)
+{
+	QJsonObject root;
+	root.insert(QStringLiteral("ok"), true);
+	root.insert(QStringLiteral("isRobot"), false);
+	root.insert(QStringLiteral("backendId"), backendId);
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	if (!host || !host->headlessRobotContext())
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext();
+	bool isSceneRoot = false;
+	const int idx = hrc->robotInstanceIndexForBackendId(backendId, &isSceneRoot);
+	if (idx < 0)
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	const auto instances = hrc->listInstances();
+	if (idx >= instances.size())
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	root.insert(QStringLiteral("isRobot"), true);
+	root.insert(QStringLiteral("isSceneRoot"), isSceneRoot);
+	root.insert(QStringLiteral("sceneRootBackendId"), instances[idx].sceneRootBackendId);
+	root.insert(QStringLiteral("anchorBackendId"), hrc->robotGizmoAnchorBackendId(backendId));
+	root.insert(QStringLiteral("flangeBackendId"), hrc->robotFlangeBackendId(backendId));
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::placeRobotOnGuiThread(const QByteArray& body, QString* err)
+{
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	if (!host || !host->headlessRobotContext())
+	{
+		if (err)
+			*err = QStringLiteral("no headless robot context");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	if (!doc.isObject())
+	{
+		if (err)
+			*err = QStringLiteral("Invalid JSON.");
+		return false;
+	}
+	const QJsonObject o = doc.object();
+	const QString anchorId = o.value(QStringLiteral("anchorBackendId")).toString();
+	const QJsonArray wmArr = o.value(QStringLiteral("worldMatrix")).toArray();
+	if (anchorId.isEmpty() || wmArr.size() < 16)
+	{
+		if (err)
+			*err = QStringLiteral("anchorBackendId and worldMatrix[16] required");
+		return false;
+	}
+	QVector<double> m16;
+	m16.reserve(16);
+	for (int i = 0; i < 16; ++i)
+		m16.append(wmArr.at(i).toDouble());
+	QString placeErr;
+	if (!host->headlessRobotContext()->applyFkFromGizmoAnchorThreeJsMatrix(anchorId, m16, &placeErr))
+	{
+		if (err)
+			*err = placeErr.isEmpty() ? QStringLiteral("place failed") : placeErr;
+		return false;
+	}
+	pushEvent(QStringLiteral("{\"type\":\"RobotKinematicsApplied\",\"sceneRootBackendId\":\"%1\"}").arg(anchorId));
+	return true;
+}
+
+bool WebGateway::tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out)
+{
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	if (!host || !host->headlessRobotContext())
+	{
+		if (err)
+			*err = QStringLiteral("no headless robot context");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	if (!doc.isObject())
+	{
+		if (err)
+			*err = QStringLiteral("Invalid JSON.");
+		return false;
+	}
+	const QJsonObject o = doc.object();
+	QString flangeId = o.value(QStringLiteral("flangeBackendId")).toString();
+	if (flangeId.isEmpty())
+		flangeId = o.value(QStringLiteral("anchorBackendId")).toString();
+	const QJsonArray wmArr = o.value(QStringLiteral("worldMatrix")).toArray();
+	if (flangeId.isEmpty() || wmArr.size() < 16)
+	{
+		if (err)
+			*err = QStringLiteral("flangeBackendId and worldMatrix[16] required");
+		return false;
+	}
+	QVector<double> m16;
+	m16.reserve(16);
+	for (int i = 0; i < 16; ++i)
+		m16.append(wmArr.at(i).toDouble());
+	QVector<double> joints;
+	QString ikErr;
+	if (!host->headlessRobotContext()->applyIkFromFlangeThreeJsMatrix(flangeId, m16, &joints, &ikErr))
+	{
+		if (err)
+			*err = ikErr.isEmpty() ? QStringLiteral("tcp IK failed") : ikErr;
+		return false;
+	}
+	const int instIdx = host->headlessRobotContext()->robotInstanceIndexForBackendId(flangeId);
+	QString rootId = flangeId;
+	if (instIdx >= 0)
+	{
+		const auto instances = host->headlessRobotContext()->listInstances();
+		if (instIdx < instances.size())
+			rootId = instances[instIdx].sceneRootBackendId;
+	}
+	if (out)
+	{
+		QJsonArray ja;
+		for (double d : joints)
+			ja.append(d);
+		(*out)[QStringLiteral("sceneRootBackendId")] = rootId;
+		(*out)[QStringLiteral("jointAnglesRad")] = ja;
+	}
+	QJsonArray a;
+	for (double d : joints)
 		a.append(d);
 	pushEvent(QStringLiteral("{\"type\":\"RobotKinematicsApplied\",\"sceneRootBackendId\":\"%1\",\"joints\":%2}")
 				  .arg(rootId, QString::fromUtf8(QJsonDocument(a).toJson(QJsonDocument::Compact))));
@@ -424,6 +636,29 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		ctx.extensions.insert(QStringLiteral("sceneRootBackendId"), sceneRoot);
 	if (o.contains(QStringLiteral("urdfPath")))
 		ctx.urdfPath = o.value(QStringLiteral("urdfPath")).toString();
+	// prepareMotionInstructionForHostPlanning 用 seed 覆盖 taught CSV
+	if (!instr.jointRadCsv.isEmpty())
+	{
+		const QStringList parts = instr.jointRadCsv.split(QLatin1Char(','), Qt::SkipEmptyParts);
+		ctx.seedJointRad.reserve(parts.size());
+		for (const QString& p : parts)
+			ctx.seedJointRad.append(p.trimmed().toDouble());
+	}
+	else if (o.contains(QStringLiteral("seedJointRad")))
+	{
+		for (const auto& v : o.value(QStringLiteral("seedJointRad")).toArray())
+			ctx.seedJointRad.append(v.toDouble());
+	}
+	else if (auto* host = cloudsim::host::documentHostFromScope(m_document.get()))
+	{
+		if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
+		{
+			QStringList names;
+			QVector<double> lo, hi, ang;
+			if (hrc->jointMetaForSceneRoot(sceneRoot, names, lo, hi, ang))
+				ctx.seedJointRad = ang;
+		}
+	}
 	cloudsim::core::PlanResultDto result;
 	if (!m_document->robot().planInstruction(instr, ctx, result, err))
 		return false;
@@ -437,6 +672,94 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		(*out)[QStringLiteral("jointTargetsRad")] = joints;
 	}
 	return result.ok;
+}
+
+QByteArray WebGateway::robotTcpPoseJsonOnGuiThread(const QString& sceneRootBackendId)
+{
+	QJsonObject root;
+	root.insert(QStringLiteral("ok"), false);
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	if (!host || !host->headlessRobotContext())
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("no headless robot context"));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	QString rootId = sceneRootBackendId.trimmed();
+	if (rootId.isEmpty())
+	{
+		const auto instances = host->headlessRobotContext()->listInstances();
+		if (!instances.isEmpty())
+			rootId = instances.first().sceneRootBackendId;
+	}
+	cloudsim::host::HeadlessRobotContext::TcpPoseCapture pose;
+	QString err;
+	if (!host->headlessRobotContext()->captureTcpPose(rootId, pose, &err))
+	{
+		root.insert(QStringLiteral("error"), err.isEmpty() ? QStringLiteral("capture failed") : err);
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	root.insert(QStringLiteral("ok"), true);
+	root.insert(QStringLiteral("sceneRootBackendId"), rootId);
+	root.insert(QStringLiteral("flangeLinkName"), pose.flangeLinkName);
+	root.insert(QStringLiteral("jointRadCsv"), pose.jointRadCsv);
+	root.insert(QStringLiteral("positionMm"),
+				QJsonArray{pose.positionMm[0], pose.positionMm[1], pose.positionMm[2]});
+	root.insert(QStringLiteral("eulerDeg"), QJsonArray{pose.eulerDeg[0], pose.eulerDeg[1], pose.eulerDeg[2]});
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+QByteArray WebGateway::instructionPropertiesJsonOnGuiThread(const QString& instructionId)
+{
+	QJsonObject root;
+	root.insert(QStringLiteral("ok"), false);
+	if (!m_document || instructionId.isEmpty())
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("missing instructionId"));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	const auto rows = m_document->robot().instructionPropertyRows(instructionId);
+	QJsonArray arr;
+	for (const auto& r : rows)
+	{
+		QJsonObject o;
+		o.insert(QStringLiteral("key"), r.key);
+		o.insert(QStringLiteral("label"), r.labelEn.isEmpty() ? r.key : r.labelEn);
+		o.insert(QStringLiteral("value"), r.value);
+		o.insert(QStringLiteral("editable"), r.editable);
+		arr.append(o);
+	}
+	root.insert(QStringLiteral("ok"), true);
+	root.insert(QStringLiteral("instructionId"), instructionId);
+	root.insert(QStringLiteral("properties"), arr);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::patchInstructionPropertyOnGuiThread(const QString& instructionId, const QByteArray& body,
+													 QString* err)
+{
+	if (!m_document || instructionId.isEmpty())
+	{
+		if (err)
+			*err = QStringLiteral("missing instructionId");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	if (!doc.isObject())
+	{
+		if (err)
+			*err = QStringLiteral("Invalid JSON.");
+		return false;
+	}
+	const QJsonObject o = doc.object();
+	const QString key = o.value(QStringLiteral("key")).toString();
+	const QString value = o.value(QStringLiteral("value")).toVariant().toString();
+	if (key.isEmpty())
+	{
+		if (err)
+			*err = QStringLiteral("key required");
+		return false;
+	}
+	return m_document->robot().applyInstructionPropertyChange(instructionId, key, value, err);
 }
 
 QByteArray WebGateway::sidecarGetOnGuiThread(const QString& key)

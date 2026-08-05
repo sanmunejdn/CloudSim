@@ -22,8 +22,8 @@ struct FollowSolveContext
 	std::function<bool(std::string& outSelectedId)> fillGizmoSelectedId;
 };
 
-/// Follow 求解写 OSG
-CLOUDSIM_HOST_EXPORT void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg,
+/// Follow 求解；osg 可空（Web Headless 只写 BackendData，靠 worldMatrix 回落）
+CLOUDSIM_HOST_EXPORT void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg,
 													   const FollowSolveContext* ctx = nullptr,
 													   const std::string* manualPoseAuthorityBackendId = nullptr);
 

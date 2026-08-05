@@ -337,7 +337,7 @@ public:
 	void setRobotObjectGizmoFkRefreshHook(RobotObjectGizmoFkRefreshFn fn);
 	/// 写活动外层 PAT；per-link 机器人走 FK 钩子而非逻辑父子传播
 	void syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging);
-	/// 对象/TCP 示教 gizmo 拖拽中，跳过跟随位姿覆写
+	/// 对象 gizmo 拖拽中，跳过对该选中跟随者的位姿覆写
 	bool isTransformGizmoDragging() const;
 	/// 按缓存质心将 \a data 位姿写到外层 PAT
 	bool syncOuterPatFromBackend(const BackendDataBase& data);

@@ -647,12 +647,7 @@ void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, const QVector<Pr
 		}
 		applyHierarchyFollowBinding(host, childId, edge.parentId.toStdString());
 	}
-	OsgWidget* osg = osgWidgetFrom(host);
-	if (!osg)
-	{
-		return;
-	}
-	runBackendFollowSolveAndSync(host, *osg, solveCtx);
+	runBackendFollowSolveAndSync(host, osgWidgetFrom(host), solveCtx);
 }
 
 } // namespace cloudsim::host

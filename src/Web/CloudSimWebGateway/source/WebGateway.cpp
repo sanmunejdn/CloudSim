@@ -9,8 +9,11 @@
 #include "CloudSimHost.h"
 #include "CoreEvents.h"
 #include "CoreTypes.h"
+#include "DeviceCatalogScan.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
+#include "HeadlessRobotContext.h"
+#include "IRobotUrdfImportContext.h"
 #include "EventHub.h"
 #include "ICloudSimContext.h"
 #include "IDataService.h"
@@ -594,6 +597,86 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 			Qt::BlockingQueuedConnection);
 		writeJsonOk(res, ok, err, QJsonObject{});
 	});
+	m_impl->svr.Get("/api/robot/instances", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QByteArray body;
+		QMetaObject::invokeMethod(
+			this, [this, &body]() { body = robotInstancesJsonOnGuiThread(); }, Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Get("/api/robot/joints", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QByteArray body;
+		const QString rootId = QString::fromStdString(req.get_param_value("sceneRootBackendId"));
+		QMetaObject::invokeMethod(
+			this, [this, rootId, &body]() { body = robotJointsMetaJsonOnGuiThread(rootId); },
+			Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Get("/api/robot/resolve", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QByteArray body;
+		const QString backendId = QString::fromStdString(req.get_param_value("backendId"));
+		QMetaObject::invokeMethod(
+			this, [this, backendId, &body]() { body = robotResolveJsonOnGuiThread(backendId); },
+			Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Post("/api/robot/place", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = placeRobotOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/robot/tcp-ik", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &extra, &ok]()
+			{ ok = tcpIkRobotOnGuiThread(body, &err, &extra); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Get("/api/robot/tcp-pose", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QByteArray body;
+		const QString rootId = QString::fromStdString(req.get_param_value("sceneRootBackendId"));
+		QMetaObject::invokeMethod(
+			this, [this, rootId, &body]() { body = robotTcpPoseJsonOnGuiThread(rootId); },
+			Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Get(R"(/api/robot/instructions/(.+)/properties)",
+					[this](const httplib::Request& req, httplib::Response& res)
+					{
+						QByteArray body;
+						const QString id = QString::fromStdString(req.matches[1]);
+						QMetaObject::invokeMethod(
+							this, [this, id, &body]() { body = instructionPropertiesJsonOnGuiThread(id); },
+							Qt::BlockingQueuedConnection);
+						res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+					});
+	m_impl->svr.Patch(R"(/api/robot/instructions/(.+))",
+					  [this](const httplib::Request& req, httplib::Response& res)
+					  {
+						  QString err;
+						  bool ok = false;
+						  const QString id = QString::fromStdString(req.matches[1]);
+						  QMetaObject::invokeMethod(
+							  this,
+							  [this, id, body = QByteArray::fromStdString(req.body), &err, &ok]()
+							  { ok = patchInstructionPropertyOnGuiThread(id, body, &err); },
+							  Qt::BlockingQueuedConnection);
+						  writeJsonOk(res, ok, err, QJsonObject{});
+					  });
 	m_impl->svr.Post("/api/robot/urdf/import", [this](const httplib::Request& req, httplib::Response& res)
 	{
 		QString err;
@@ -618,6 +701,286 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 			Qt::BlockingQueuedConnection);
 		writeJsonOk(res, ok, err, extra);
 	});
+
+	m_impl->svr.Get("/api/trajectory/session", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QByteArray body;
+		QMetaObject::invokeMethod(this, [this, &body]() { body = trajectorySessionJsonOnGuiThread(); },
+								  Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Get("/api/trajectory/path-plans", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QByteArray body;
+		const QString rootId = QString::fromStdString(req.get_param_value("sceneRootBackendId"));
+		QMetaObject::invokeMethod(this, [this, rootId, &body]() { body = trajectoryPathPlansJsonOnGuiThread(rootId); },
+								  Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Post("/api/robot/path-plan", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &extra, &ok]()
+			{ ok = createPathPlanOnGuiThread(body, &err, &extra); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Post("/api/trajectory/bind", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = bindPathPlanOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/trajectory/begin-edit", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &err, &ok]() { ok = beginTrajectoryEditOnGuiThread(&err); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/trajectory/cancel-edit", [this](const httplib::Request&, httplib::Response& res)
+	{
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &ok]() { ok = cancelTrajectoryEditOnGuiThread(); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, QString{}, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/pick/mesh-element", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &extra, &ok]()
+			{ ok = pickMeshElementOnGuiThread(body, &err, &extra); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Post("/api/pick/hover", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &extra, &ok]()
+			{ ok = pickHoverOnGuiThread(body, &err, &extra); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Get("/api/trajectory/op-schema", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		const QString kind = QString::fromStdString(req.get_param_value("kind"));
+		const int opIndex = req.has_param("opIndex") ? QString::fromStdString(req.get_param_value("opIndex")).toInt() : -1;
+		QMetaObject::invokeMethod(
+			this, [this, kind, opIndex, &err, &extra, &ok]()
+			{ ok = trajectoryOpSchemaOnGuiThread(kind, opIndex, &err, &extra); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Get("/api/trajectory/feature-catalog", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QByteArray body;
+		const QString wp = QString::fromStdString(req.get_param_value("workpiece"));
+		QMetaObject::invokeMethod(
+			this, [this, wp, &body, &err]() { body = featureCatalogOnGuiThread(wp, &err); },
+			Qt::BlockingQueuedConnection);
+		if (body.isEmpty())
+		{
+			writeJsonOk(res, false, err.isEmpty() ? QStringLiteral("catalog failed") : err, QJsonObject{});
+			return;
+		}
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Get("/api/trajectory/feature-schema", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		const QString strategyId = QString::fromStdString(req.get_param_value("strategyId"));
+		QMetaObject::invokeMethod(
+			this, [this, strategyId, &err, &extra, &ok]()
+			{ ok = featureSchemaOnGuiThread(strategyId, &err, &extra); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Post("/api/trajectory/discretize", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = discretizeFeaturesOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/trajectory/mesh-spec", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = discretizeMeshSpecOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Get("/api/trajectory/pipeline", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QByteArray body;
+		QMetaObject::invokeMethod(this, [this, &body]() { body = trajectoryPipelineJsonOnGuiThread(); },
+								  Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Put("/api/trajectory/pipeline", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = setTrajectoryPipelineOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/trajectory/recipe", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = fillTrajectoryRecipeOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/trajectory/preview", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &err, &extra, &ok]() { ok = previewTrajectoryOnGuiThread(&err, &extra); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Post("/api/trajectory/apply", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &err, &ok]() { ok = applyTrajectoryOnGuiThread(&err); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/trajectory/emit", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &err, &ok]() { ok = emitTrajectoryRawOnGuiThread(&err); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Get("/api/trajectory/op-palette", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &err, &extra, &ok]() { ok = trajectoryOpPaletteOnGuiThread(&err, &extra); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Post("/api/trajectory/reset", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &err, &ok]() { ok = resetTrajectoryPipelineOnGuiThread(&err); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/trajectory/undo", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &err, &ok]() { ok = undoTrajectoryDraftOnGuiThread(&err); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/trajectory/redo", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(this, [this, &err, &ok]() { ok = redoTrajectoryDraftOnGuiThread(&err); },
+								  Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	// 先注册 kind/name，避免被 templates/(.+) 吞掉
+	m_impl->svr.Get(R"(/api/trajectory/templates/(.+)/(.+))", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QByteArray body;
+		const QString kind = QString::fromStdString(req.matches[1]);
+		const QString name = QString::fromStdString(req.matches[2]);
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this, [this, kind, name, &body, &err, &ok]()
+			{ ok = loadTrajectoryTemplateOnGuiThread(kind, name, &body, &err); },
+			Qt::BlockingQueuedConnection);
+		if (!ok)
+		{
+			writeJsonOk(res, false, err, QJsonObject{});
+			return;
+		}
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Delete(R"(/api/trajectory/templates/(.+)/(.+))",
+					   [this](const httplib::Request& req, httplib::Response& res)
+					   {
+						   QString err;
+						   bool ok = false;
+						   const QString kind = QString::fromStdString(req.matches[1]);
+						   const QString name = QString::fromStdString(req.matches[2]);
+						   QMetaObject::invokeMethod(
+							   this, [this, kind, name, &err, &ok]()
+							   { ok = deleteTrajectoryTemplateOnGuiThread(kind, name, &err); },
+							   Qt::BlockingQueuedConnection);
+						   writeJsonOk(res, ok, err, QJsonObject{});
+					   });
+	m_impl->svr.Get(R"(/api/trajectory/templates/(.+))", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QByteArray body;
+		const QString kind = QString::fromStdString(req.matches[1]);
+		QMetaObject::invokeMethod(this, [this, kind, &body]() { body = listTrajectoryTemplatesOnGuiThread(kind); },
+								  Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Post(R"(/api/trajectory/templates/(.+))", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		const QString kind = QString::fromStdString(req.matches[1]);
+		QMetaObject::invokeMethod(
+			this,
+			[this, kind, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = saveTrajectoryTemplateOnGuiThread(kind, body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+
 	m_impl->svr.Post("/api/robot/run",
 					  [](const httplib::Request&, httplib::Response& res)
 					  {
@@ -745,6 +1108,49 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 						const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
 						res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
 					});
+	m_impl->svr.Get("/api/devices/catalog",
+					[](const httplib::Request&, httplib::Response& res)
+					{
+						const QString modelsRoot =
+							QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("resource/models"));
+						const QJsonObject catalog = scanDeviceCatalog(modelsRoot);
+						const QByteArray out = QJsonDocument(catalog).toJson(QJsonDocument::Compact);
+						res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
+					});
+	m_impl->svr.Get("/api/devices/thumbnail",
+					[](const httplib::Request& req, httplib::Response& res)
+					{
+						const QString path = QString::fromStdString(req.get_param_value("path"));
+						const QString modelsRoot = QDir::cleanPath(
+							QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("resource/models")));
+						const QString canon = QFileInfo(path).canonicalFilePath();
+						if (canon.isEmpty() || !canon.startsWith(modelsRoot, Qt::CaseInsensitive) ||
+							!QFileInfo::exists(canon))
+						{
+							res.status = 404;
+							res.set_content(R"({"ok":false,"error":"thumbnail not found"})",
+											"application/json; charset=utf-8");
+							return;
+						}
+						QFile f(canon);
+						if (!f.open(QIODevice::ReadOnly))
+						{
+							res.status = 404;
+							res.set_content(R"({"ok":false,"error":"cannot read thumbnail"})",
+											"application/json; charset=utf-8");
+							return;
+						}
+						const QByteArray bytes = f.readAll();
+						const QString suf = QFileInfo(canon).suffix().toLower();
+						const char* mime = "image/png";
+						if (suf == QLatin1String("jpg") || suf == QLatin1String("jpeg"))
+							mime = "image/jpeg";
+						else if (suf == QLatin1String("webp"))
+							mime = "image/webp";
+						else if (suf == QLatin1String("bmp"))
+							mime = "image/bmp";
+						res.set_content(bytes.constData(), bytes.size(), mime);
+					});
 	m_impl->svr.Get("/api/devices/plc",
 					[](const httplib::Request&, httplib::Response& res)
 					{
@@ -840,6 +1246,8 @@ bool WebGateway::openProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 	host->backendSourcePath().clear();
 	host->backendSourceType().clear();
 	host->backendParentId().clear();
+	if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
+		hrc->clearRobotSimulationContext();
 
 	const QVector<cloudsim::host::ProjectHierarchyEdge> pendingEdges =
 		cloudsim::host::parseProjectEdgesJson(root.value(QStringLiteral("edges")).toArray());
@@ -873,6 +1281,33 @@ bool WebGateway::openProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 	cloudsim::host::finalizeProjectHierarchyAfterObjects(*host, useEdgesRelation, pendingEdges, &warnings);
 	(void)cloudsim::host::loadRobotProgramsFromProjectJson(*host, root, nullptr);
 	cloudsim::host::finalizeProjectLoadFollowAndViewport(*host, root, useEdgesRelation, pendingEdges, nullptr);
+
+	// Headless 无 OSG finalize 早退；在此恢复 FK 绑定并写回连杆矩阵
+	if (cloudsim::host::IRobotUrdfImportContext* ctx = host->robotUrdfImportContext())
+	{
+		const cloudsim::host::RobotKinematicsRestoreResult kin =
+			cloudsim::host::restoreRobotKinematicsFromProjectJson(*ctx, root);
+		if (kin.restoredInstanceCount > 0 && !kin.aggregatedJointAnglesRad.isEmpty())
+		{
+			QString kinErr;
+			(void)cloudsim::host::applyRestoredJointAnglesToScene(*ctx, kin.aggregatedJointAnglesRad, &kinErr);
+			if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
+			{
+				int offset = 0;
+				for (const auto& info : hrc->listInstances())
+				{
+					QVector<double> local;
+					local.reserve(info.jointCount);
+					for (int i = 0; i < info.jointCount && offset + i < kin.aggregatedJointAnglesRad.size(); ++i)
+						local.append(kin.aggregatedJointAnglesRad[offset + i]);
+					while (local.size() < info.jointCount)
+						local.append(0.0);
+					hrc->recordJointAnglesForSceneRoot(info.sceneRootBackendId, local);
+					offset += info.jointCount;
+				}
+			}
+		}
+	}
 	webGatewayLoadSidecarsFromProject(root);
 
 	host->setProjectFilePath(openPath);

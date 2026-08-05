@@ -5,6 +5,7 @@
 
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
+#include "BackendFollowMath.h"
 #include "BackendSpatial.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
@@ -108,6 +109,20 @@ void xyzWorldToStored(const PointCloudBackendData& pc, std::vector<float>& xyz)
 		xyz[i + 1U] = static_cast<float>(localPt.y);
 		xyz[i + 2U] = static_cast<float>(localPt.z);
 	}
+}
+
+/// 新建 mesh 时继承源 worldMatrix，避免 register 后再 setWorldMatrix + 二次 load 触发 OSG/驱动崩溃
+void inheritSourceWorldPoseForMeshCreate(const MeshBackendData& source, PluginMeshCreateOptions& options)
+{
+	BackendVec3 pose{};
+	BackendVec3 euler{};
+	backend_pose_euler_from_world_mat(source.worldMatrix(), pose, euler);
+	options.poseMm.x = pose.x;
+	options.poseMm.y = pose.y;
+	options.poseMm.z = pose.z;
+	options.rotationDeg.x = euler.x;
+	options.rotationDeg.y = euler.y;
+	options.rotationDeg.z = euler.z;
 }
 
 /// 统计 soup 中最长边相对包围盒对角的比例及 >25%diag 三角数
@@ -687,6 +702,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 		std::vector<float> newMeshSoup;
 		std::string error;
 		bool ok = false;
+		bool resultInWorldFrame = false;
 	};
 	auto result = std::make_shared<SpareWorkResult>();
 	const point_cloud_backend_ops::PointCloudSpareParams coreParams = buildSpareParams(params);
@@ -741,43 +757,80 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 		[sourceIsMesh, targetIsMesh, sourcePc, sourceMesh, targetPc, targetMesh, coreParams,
 		 result](const PluginJobProgressFn& report)
 		{
-			report(0.15, QStringLiteral("Running SPARE..."));
+			report(0.15, QStringLiteral("Running SPARE (world frame)..."));
+			// 与 SDF 一致：在世界系配准，避免源/目标 local 位姿不一致
+			auto makeWorldTargetPc = [&]() -> std::shared_ptr<PointCloudBackendData> {
+				auto w = std::make_shared<PointCloudBackendData>();
+				std::vector<float> xyz = targetPc->worldPositionsXyz();
+				std::vector<float> normals = targetPc->pointNormalsNxNyNz();
+				rotateNormalsByWorldMatrix(normals, targetPc->worldMatrix());
+				w->setPointBuffers(std::move(xyz), {}, std::move(normals));
+				return w;
+			};
+			auto makeWorldTargetMesh = [&]() -> std::shared_ptr<MeshBackendData> {
+				auto w = std::make_shared<MeshBackendData>();
+				w->setTriangleSoup(targetMesh->worldTriangleSoup());
+				return w;
+			};
+
 			if (sourceIsMesh)
 			{
 				auto meshCopy = std::make_shared<MeshBackendData>();
-				meshCopy->setTriangleSoup(sourceMesh->triangleSoup());
+				meshCopy->setTriangleSoup(sourceMesh->worldTriangleSoup());
+				std::shared_ptr<PointCloudBackendData> tgtPcWorld;
+				std::shared_ptr<MeshBackendData> tgtMeshWorld;
+				const PointCloudBackendData* tgtPcPtr = nullptr;
+				const MeshBackendData* tgtMeshPtr = nullptr;
+				if (targetIsMesh)
+				{
+					tgtMeshWorld = makeWorldTargetMesh();
+					tgtMeshPtr = tgtMeshWorld.get();
+				}
+				else
+				{
+					tgtPcWorld = makeWorldTargetPc();
+					tgtPcPtr = tgtPcWorld.get();
+				}
 				result->ok = point_cloud_backend_ops::nonRigidRegisterMeshSpare(
-					*meshCopy, targetIsMesh ? nullptr : targetPc.get(), targetIsMesh ? targetMesh.get() : nullptr,
-					result->spare, coreParams, &result->error);
+					*meshCopy, tgtPcPtr, tgtMeshPtr, result->spare, coreParams, &result->error);
 				if (result->ok)
 				{
 					result->newMeshSoup = meshCopy->triangleSoup();
+					result->resultInWorldFrame = true;
 				}
 			}
 			else if (targetIsMesh)
 			{
 				auto pcCopy = std::make_shared<PointCloudBackendData>();
-				pcCopy->setPointBuffers(sourcePc->pointPositionsXyz(), sourcePc->pointVertexRgba(),
-										sourcePc->pointNormalsNxNyNz());
+				std::vector<float> xyz = sourcePc->worldPositionsXyz();
+				std::vector<float> normals = sourcePc->pointNormalsNxNyNz();
+				rotateNormalsByWorldMatrix(normals, sourcePc->worldMatrix());
+				pcCopy->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
+				auto tgtMeshWorld = makeWorldTargetMesh();
 				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSpare(
-					*pcCopy, *targetMesh, result->spare, coreParams, &result->error);
+					*pcCopy, *tgtMeshWorld, result->spare, coreParams, &result->error);
 				if (result->ok)
 				{
 					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
 					result->newPointCloudNormals = pcCopy->pointNormalsNxNyNz();
+					result->resultInWorldFrame = true;
 				}
 			}
 			else
 			{
 				auto pcCopy = std::make_shared<PointCloudBackendData>();
-				pcCopy->setPointBuffers(sourcePc->pointPositionsXyz(), sourcePc->pointVertexRgba(),
-										sourcePc->pointNormalsNxNyNz());
+				std::vector<float> xyz = sourcePc->worldPositionsXyz();
+				std::vector<float> normals = sourcePc->pointNormalsNxNyNz();
+				rotateNormalsByWorldMatrix(normals, sourcePc->worldMatrix());
+				pcCopy->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
+				auto tgtPcWorld = makeWorldTargetPc();
 				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudsSpare(
-					*pcCopy, *targetPc, result->spare, coreParams, &result->error);
+					*pcCopy, *tgtPcWorld, result->spare, coreParams, &result->error);
 				if (result->ok)
 				{
 					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
 					result->newPointCloudNormals = pcCopy->pointNormalsNxNyNz();
+					result->resultInWorldFrame = true;
 				}
 			}
 			report(1.0, QStringLiteral("Done"));
@@ -801,11 +854,17 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 
 			if (sourceIsMesh)
 			{
+				std::vector<float> soup = result->newMeshSoup;
+				if (result->resultInWorldFrame)
+				{
+					triangleSoupWorldToStored(*sourceMesh, soup);
+				}
 				if (params.createNewObject)
 				{
 					auto meshPtr = std::make_shared<MeshBackendData>();
-					meshPtr->setTriangleSoup(result->newMeshSoup);
+					meshPtr->setTriangleSoup(std::move(soup));
 					PluginMeshCreateOptions options = params.newObjectOptions;
+					inheritSourceWorldPoseForMeshCreate(*sourceMesh, options);
 					if (options.displayName.isEmpty())
 					{
 						const QString base = QString::fromStdString(sourceMesh->name());
@@ -826,7 +885,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 				}
 				else if (params.applyDeformationToSource)
 				{
-					sourceMesh->setTriangleSoup(result->newMeshSoup);
+					sourceMesh->setTriangleSoup(std::move(soup));
 					if (OsgWidget* osg = widgetOsgFromPage(page))
 					{
 						QString geomErr;
@@ -837,10 +896,12 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 			}
 			else if (params.createNewObject)
 			{
+				std::vector<float> xyz = result->newPointCloudXyz;
+				std::vector<float> normals = result->newPointCloudNormals;
 				auto newPc = std::make_shared<PointCloudBackendData>();
 				newPc->setName(sourcePc->name() + "_spare");
-				newPc->setPointBuffers(std::move(result->newPointCloudXyz), sourcePc->pointVertexRgba(),
-									   std::move(result->newPointCloudNormals));
+				newPc->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
+				newPc->setWorldMatrix(BackendMat4::identity());
 				cloudsim::host::AdoptPointCloudOptions adoptOpt;
 				adoptOpt.sourcePath = QStringLiteral("plugin://pointcloud/spare");
 				QString regErr;
@@ -856,8 +917,36 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 			}
 			else if (params.applyDeformationToSource)
 			{
-				sourcePc->setPointBuffers(std::move(result->newPointCloudXyz), sourcePc->pointVertexRgba(),
-										  std::move(result->newPointCloudNormals));
+				std::vector<float> xyz = result->newPointCloudXyz;
+				std::vector<float> normals = result->newPointCloudNormals;
+				if (result->resultInWorldFrame)
+				{
+					xyzWorldToStored(*sourcePc, xyz);
+					const BackendMat4 w = sourcePc->worldMatrix();
+					const BackendVec3 oWorld = backend_mat4_transform_point(w, BackendVec3{0.0, 0.0, 0.0});
+					for (std::size_t i = 0; i + 2U < normals.size(); i += 3U)
+					{
+						const BackendVec3 nWorld{static_cast<double>(normals[i]), static_cast<double>(normals[i + 1U]),
+												 static_cast<double>(normals[i + 2U])};
+						const BackendVec3 tipWorld{oWorld.x + nWorld.x, oWorld.y + nWorld.y, oWorld.z + nWorld.z};
+						const BackendVec3 oLocal = transformPointToStored(*sourcePc, oWorld);
+						const BackendVec3 tipLocal = transformPointToStored(*sourcePc, tipWorld);
+						double nx = tipLocal.x - oLocal.x;
+						double ny = tipLocal.y - oLocal.y;
+						double nz = tipLocal.z - oLocal.z;
+						const double len = std::sqrt(nx * nx + ny * ny + nz * nz);
+						if (len > 1e-12)
+						{
+							nx /= len;
+							ny /= len;
+							nz /= len;
+						}
+						normals[i] = static_cast<float>(nx);
+						normals[i + 1U] = static_cast<float>(ny);
+						normals[i + 2U] = static_cast<float>(nz);
+					}
+				}
+				sourcePc->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
 				document_point_cloud_ops::commitPointCloudVisual(page, *sourcePc);
 				jobResult.pointCountAfter = sourcePc->geometryElementCount();
 			}
@@ -1118,6 +1207,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 					auto meshPtr = std::make_shared<MeshBackendData>();
 					meshPtr->setTriangleSoup(std::move(soup));
 					PluginMeshCreateOptions options = params.newObjectOptions;
+					inheritSourceWorldPoseForMeshCreate(*sourceMesh, options);
 					if (options.displayName.isEmpty())
 					{
 						const QString base = QString::fromStdString(sourceMesh->name());
@@ -1133,13 +1223,6 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 					{
 						onFinished(false, QString::fromStdString(regErr), jobResult);
 						return;
-					}
-					// registerReconstructedMesh 内 setPose/setRotation 会重建矩阵；之后再拷贝源位姿
-					meshPtr->setWorldMatrix(sourceMesh->worldMatrix());
-					if (OsgWidget* osg = widgetOsgFromPage(page))
-					{
-						QString geomErr;
-						(void)osg->loadMeshFromBackendData(*meshPtr, &geomErr, false, true, true);
 					}
 					jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9U;
 				}

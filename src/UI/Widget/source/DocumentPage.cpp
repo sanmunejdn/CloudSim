@@ -1031,10 +1031,7 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 	}
 	// 同步求解并清空脏集；per-frame hook 仅兜底 gizmo/属性/forced，避免 FK 后再解一遍
 	cloudsim::core::FollowSolveContextDto ctx;
-	if (const OsgWidget* ow = osgWidget())
-	{
-		ctx.skipAll = ow->isTcpDragTeachActive();
-	}
+	ctx.skipAll = false;
 	(void)data().runFollowSolveAndSync(ctx, nullptr);
 }
 

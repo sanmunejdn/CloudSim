@@ -20,13 +20,9 @@
 
 namespace cloudsim::host
 {
-void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const FollowSolveContext* ctx,
+void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const FollowSolveContext* ctx,
 								  const std::string* manualPoseAuthorityBackendId)
 {
-	if (osg.isTcpDragTeachActive()) // TCP 示教与 Follow 求解互斥
-	{
-		return;
-	}
 	if (ctx && ctx->skipAll && ctx->skipAll())
 	{
 		return;
@@ -38,7 +34,7 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const Foll
 	BackendDataManager& mgr = page.backend();
 	const bool forced = page.takeFollowSolveForced();
 	auto& dirty = page.followDirtyBackendIds();
-	const bool gizmoDrag = osg.isTransformGizmoDragging();
+	const bool gizmoDrag = osg && osg->isTransformGizmoDragging();
 	if (!forced && dirty.empty() && !gizmoDrag)
 	{
 		return;
@@ -57,11 +53,16 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const Foll
 		skipId = gizmoDragSelectedId;
 	}
 
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&osg](const std::string& bid,
-																		  BackendMat4& out) -> bool
+	// 无 OSG 时 query 失败 → solver 回落 BackendData pose（Web FK 已写连杆矩阵）
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid,
+																		 BackendMat4& out) -> bool
 	{
+		if (!osg)
+		{
+			return false;
+		}
 		osg::Matrixd om;
-		if (!osg.getBackendRootWorldMatrix(bid, om))
+		if (!osg->getBackendRootWorldMatrix(bid, om))
 		{
 			return false;
 		}

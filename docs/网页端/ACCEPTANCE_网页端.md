@@ -25,6 +25,10 @@
 | 验收项 | 状态 |
 |--------|------|
 | URDF / joints / programs / plan | 完成 |
+| HeadlessRobotContext（Web FK/导入） | 完成 |
+| 打开工程恢复 robotKinematics + 关节角 | 完成 |
+| 设备库 catalog + 左坞导入 | 完成（对齐桌面 DevicePage，非 PLC） |
+| 轴控制滑条（防抖 POST joints） | 完成（右坞「轴控制」） |
 | run/stop/export 面 | 完成（编排/导出管道可扩展） |
 | 仿真 UI + 轨迹叠加 | 完成（fallback 右栏） |
 

@@ -3307,12 +3307,11 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 			doc->reconcilePerLinkOuterBindFromScene(instIdx, jointQ);
 		}
 	}
-	doc->setSuppressRobotFollowDirtyNotify(true);
+	doc->setSuppressRobotFollowDirtyNotify(false);
 	doc->clearFollowDirtyBackendIds();
 	osg->beginTcpDragTeach(mountBackendId, targetInBase, modelDiag, resolveRobotBaseWorld, toolLocalPtr);
 	if (!osg->isTcpDragTeachActive())
 	{
-		doc->setSuppressRobotFollowDirtyNotify(false);
 		m_host->simulationCommandPage()->setTcpDragTeachMode(false);
 		if (m_host->runInfoPage())
 		{

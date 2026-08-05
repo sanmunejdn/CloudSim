@@ -75,12 +75,15 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="source\DeviceCatalogScan.cpp" />
     <ClCompile Include="source\StoreZipExtract.cpp" />
     <ClCompile Include="source\WebGateway.cpp" />
     <ClCompile Include="source\WebGatewayApi.cpp" />
+    <ClCompile Include="source\WebGatewayTrajectory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="inc\WebGateway.h" />
+    <ClInclude Include="inc\DeviceCatalogScan.h" />
     <ClInclude Include="inc\StoreZipExtract.h" />
     <ClInclude Include="inc\WebGatewaySidecars.h" />
     <ClInclude Include="inc\cloudsim_web_gateway_global.h" />

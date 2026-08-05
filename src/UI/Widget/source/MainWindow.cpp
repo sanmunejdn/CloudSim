@@ -594,8 +594,8 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& b
 	if (!dragging)
 	{
 		cloudsim::core::FollowSolveContextDto ctx;
-		// 仅 TCP 示教互斥跟随；仿真 Run 必须解跟随，否则绑定工件/工具静止
-		ctx.skipAll = rv->isTcpDragTeachActive();
+		// TCP 示教期间仍解跟随，否则绑到法兰的工件静止
+		ctx.skipAll = false;
 		(void)doc->data().runFollowSolveAndSync(ctx, nullptr);
 	}
 	if (dragging || shouldDeferPropertyPanelRebuild(backendId))
@@ -1695,7 +1695,7 @@ void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, co
 		return;
 	}
 	cloudsim::core::FollowSolveContextDto ctx;
-	ctx.skipAll = rv->isTcpDragTeachActive();
+	ctx.skipAll = false;
 	if (rv->isTransformGizmoDragging())
 	{
 		ctx.gizmoSelectedBackendId = m_selectionState.selectedBackendId();
@@ -1724,7 +1724,7 @@ cloudsim::core::FollowSolveContextDto MainWindow::makeFollowSolveContextDto(Docu
 {
 	cloudsim::core::FollowSolveContextDto ctx;
 	const cloudsim::core::IRenderView& rv = page.render();
-	ctx.skipAll = rv.isTcpDragTeachActive();
+	ctx.skipAll = false;
 	if (rv.isTransformGizmoDragging() && m_selectionState.hasBackendSelection())
 	{
 		ctx.gizmoSelectedBackendId = m_selectionState.selectedBackendId();
@@ -1766,10 +1766,6 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 				return;
 			}
 			cloudsim::core::IRenderView& rv = page->render();
-			if (rv.isTcpDragTeachActive())
-			{
-				return;
-			}
 			// FK 路径已在 notify 内同步求解并清空脏集；此处只处理 gizmo 拖动 / 属性 dirty / forced
 			if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() &&
 				!rv.isTransformGizmoDragging())

@@ -464,11 +464,6 @@ void DataServiceAdapter::requestFollowSolveForced()
 bool DataServiceAdapter::runFollowSolveAndSync(const core::FollowSolveContextDto& ctx, QString* outError)
 {
 	(void)outError;
-	OsgWidget* osg = osgWidgetFrom(m_host);
-	if (!osg)
-	{
-		return false;
-	}
 	FollowSolveContext hostCtx;
 	hostCtx.skipAll = [ctx]() { return ctx.skipAll; };
 	hostCtx.fillGizmoSelectedId = [ctx](std::string& outSelectedId) -> bool
@@ -482,7 +477,7 @@ bool DataServiceAdapter::runFollowSolveAndSync(const core::FollowSolveContextDto
 	};
 	const std::string manualStd = ctx.manualPoseAuthorityBackendId.toStdString();
 	const std::string* manualPtr = ctx.manualPoseAuthorityBackendId.isEmpty() ? nullptr : &manualStd;
-	runBackendFollowSolveAndSync(m_host, *osg, &hostCtx, manualPtr);
+	runBackendFollowSolveAndSync(m_host, osgWidgetFrom(m_host), &hostCtx, manualPtr);
 	return true;
 }
 

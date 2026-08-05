@@ -40,6 +40,8 @@ namespace cloudsim::host
 {
 class IRobotUrdfImportContext;
 class IRobotInstructionPropertyDelegate;
+class HeadlessRobotContext;
+class HeadlessTrajectorySession;
 
 /// 单文档组合根
 class CLOUDSIM_HOST_EXPORT DocumentHost : public QWidget, public cloudsim::core::IDocumentScope
@@ -135,10 +137,15 @@ public:
 	/// URDF 导入上下文
 	void setRobotUrdfImportContext(IRobotUrdfImportContext* context);
 	IRobotUrdfImportContext* robotUrdfImportContext() const;
+	/// Web/Headless 自建上下文；桌面 OSG 路径为 nullptr
+	HeadlessRobotContext* headlessRobotContext() const;
+	HeadlessTrajectorySession* headlessTrajectorySession() const;
 
 	/// 仿真指令属性（Widget 注入，供 IRobotService 转发）
 	void setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate);
 	IRobotInstructionPropertyDelegate* instructionPropertyDelegate() const;
+	/// Headless 自持有委托（所有权在 DocumentHost）
+	void setOwnedInstructionPropertyDelegate(std::unique_ptr<IRobotInstructionPropertyDelegate> delegate);
 
 	/// per-link 机器人运动学宿主注入（由 DocumentPage 实现或 Host 内部实现）
 	void setPerLinkKinematicsHost(IPerLinkKinematicsHost* host);
@@ -173,7 +180,10 @@ private:
 	bool m_suppressRobotFollowDirtyNotify = false;
 	bool m_deferPropertyPanelVisualFullSync = false;
 	IRobotUrdfImportContext* m_robotUrdfImportContext = nullptr;
+	std::unique_ptr<HeadlessRobotContext> m_headlessRobotContext;
+	std::unique_ptr<HeadlessTrajectorySession> m_headlessTrajectorySession;
 	IRobotInstructionPropertyDelegate* m_instructionPropertyDelegate = nullptr;
+	std::unique_ptr<IRobotInstructionPropertyDelegate> m_ownedInstructionPropertyDelegate;
 	IPerLinkKinematicsHost* m_perLinkKinematicsHost = nullptr;
 	IPerLinkRobotStateAccessor* m_perLinkRobotStateAccessor = nullptr;
 };

@@ -3,6 +3,7 @@
 
 #include "DocumentHost.h"
 #include "CloudSimHost.h"
+#include "HeadlessRobotContext.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
@@ -13,6 +14,9 @@
 #include "DocumentHostEvents.h"
 #include "FollowAttachmentComponent.h"
 #include "HostRenderViewFactory.h"
+#include "HeadlessInstructionPropertyDelegate.h"
+#include "HeadlessRobotContext.h"
+#include "HeadlessTrajectorySession.h"
 #include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
@@ -68,6 +72,10 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 			nullW->setAttribute(Qt::WA_DontShowOnScreen, true);
 			nullW->hide();
 		}
+		// Web：无 DocumentPage，在此挂 FK/URDF 与轨迹会话
+		m_headlessRobotContext = std::make_unique<HeadlessRobotContext>(*this);
+		m_robotUrdfImportContext = m_headlessRobotContext.get();
+		m_headlessTrajectorySession = std::make_unique<HeadlessTrajectorySession>(*this);
 	}
 
 	m_dataService = std::make_unique<DataServiceAdapter>(*this);
@@ -220,6 +228,16 @@ IRobotUrdfImportContext* DocumentHost::robotUrdfImportContext() const
 	return m_robotUrdfImportContext;
 }
 
+HeadlessRobotContext* DocumentHost::headlessRobotContext() const
+{
+	return m_headlessRobotContext.get();
+}
+
+HeadlessTrajectorySession* DocumentHost::headlessTrajectorySession() const
+{
+	return m_headlessTrajectorySession.get();
+}
+
 void DocumentHost::setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate)
 {
 	m_instructionPropertyDelegate = delegate;
@@ -228,6 +246,12 @@ void DocumentHost::setInstructionPropertyDelegate(IRobotInstructionPropertyDeleg
 IRobotInstructionPropertyDelegate* DocumentHost::instructionPropertyDelegate() const
 {
 	return m_instructionPropertyDelegate;
+}
+
+void DocumentHost::setOwnedInstructionPropertyDelegate(std::unique_ptr<IRobotInstructionPropertyDelegate> delegate)
+{
+	m_ownedInstructionPropertyDelegate = std::move(delegate);
+	m_instructionPropertyDelegate = m_ownedInstructionPropertyDelegate.get();
 }
 
 void DocumentHost::setPerLinkKinematicsHost(IPerLinkKinematicsHost* host)
@@ -613,6 +637,7 @@ std::unique_ptr<core::IDocumentScope> createHeadlessDocumentHost(core::EventHub&
 	auto host = std::make_unique<DocumentHost>(nullptr, events, documentId, false);
 	host->setAttribute(Qt::WA_DontShowOnScreen, true);
 	host->hide();
+	host->setOwnedInstructionPropertyDelegate(std::make_unique<HeadlessInstructionPropertyDelegate>(*host));
 	return host;
 }
 

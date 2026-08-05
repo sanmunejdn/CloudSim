@@ -76,8 +76,45 @@ private:
 	QByteArray robotProgramsJsonOnGuiThread();
 	bool setRobotProgramsOnGuiThread(const QByteArray& body, QString* err);
 	bool applyJointsOnGuiThread(const QByteArray& body, QString* err);
+	QByteArray robotInstancesJsonOnGuiThread();
+	QByteArray robotJointsMetaJsonOnGuiThread(const QString& sceneRootBackendId);
+	QByteArray robotResolveJsonOnGuiThread(const QString& backendId);
+	bool placeRobotOnGuiThread(const QByteArray& body, QString* err);
+	bool tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
+	QByteArray robotTcpPoseJsonOnGuiThread(const QString& sceneRootBackendId);
+	QByteArray instructionPropertiesJsonOnGuiThread(const QString& instructionId);
+	bool patchInstructionPropertyOnGuiThread(const QString& instructionId, const QByteArray& body, QString* err);
 	bool registerUrdfOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
 	bool planInstructionOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
+
+	// Trajectory / feature pick (headless)
+	QByteArray trajectorySessionJsonOnGuiThread();
+	QByteArray trajectoryPathPlansJsonOnGuiThread(const QString& sceneRootBackendId);
+	bool createPathPlanOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
+	bool bindPathPlanOnGuiThread(const QByteArray& body, QString* err);
+	bool beginTrajectoryEditOnGuiThread(QString* err);
+	bool cancelTrajectoryEditOnGuiThread();
+	bool pickMeshElementOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
+	bool pickHoverOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
+	QByteArray featureCatalogOnGuiThread(const QString& workpieceBackendId, QString* err);
+	bool featureSchemaOnGuiThread(const QString& strategyId, QString* err, QJsonObject* out);
+	bool discretizeFeaturesOnGuiThread(const QByteArray& body, QString* err);
+	bool discretizeMeshSpecOnGuiThread(const QByteArray& body, QString* err);
+	bool setTrajectoryPipelineOnGuiThread(const QByteArray& body, QString* err);
+	QByteArray trajectoryPipelineJsonOnGuiThread();
+	bool trajectoryOpSchemaOnGuiThread(const QString& kind, int opIndex, QString* err, QJsonObject* out);
+	bool fillTrajectoryRecipeOnGuiThread(const QByteArray& body, QString* err);
+	bool previewTrajectoryOnGuiThread(QString* err, QJsonObject* out);
+	bool applyTrajectoryOnGuiThread(QString* err);
+	bool emitTrajectoryRawOnGuiThread(QString* err);
+	bool trajectoryOpPaletteOnGuiThread(QString* err, QJsonObject* out);
+	bool resetTrajectoryPipelineOnGuiThread(QString* err);
+	bool undoTrajectoryDraftOnGuiThread(QString* err);
+	bool redoTrajectoryDraftOnGuiThread(QString* err);
+	QByteArray listTrajectoryTemplatesOnGuiThread(const QString& kind);
+	bool saveTrajectoryTemplateOnGuiThread(const QString& kind, const QByteArray& body, QString* err);
+	bool loadTrajectoryTemplateOnGuiThread(const QString& kind, const QString& name, QByteArray* out, QString* err);
+	bool deleteTrajectoryTemplateOnGuiThread(const QString& kind, const QString& name, QString* err);
 
 	// P3 / P4 / P5 thin surfaces
 	QByteArray sidecarGetOnGuiThread(const QString& key);

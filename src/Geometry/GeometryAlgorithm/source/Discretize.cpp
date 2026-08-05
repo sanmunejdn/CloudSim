@@ -206,6 +206,8 @@ bool discretizeFaceToSoup(const TopoDS_Face& face, const TessellateParams& param
 						  std::string* errMsg)
 {
 	TopoDS_Shape shape = face;
+	// 清旧三角，避免 IncrementalMesh 复用残缺/过粗缓存导致面高亮不全
+	BRepTools::Clean(shape);
 	if (!meshShapeIncremental(shape, params, errMsg))
 	{
 		return false;

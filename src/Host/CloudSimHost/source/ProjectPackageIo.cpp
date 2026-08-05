@@ -271,11 +271,6 @@ void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject&
 										  const QVector<ProjectHierarchyEdge>& edges,
 										  const core::FollowSolveContextDto* solveCtxDto)
 {
-	OsgWidget* osg = osgWidgetFrom(host);
-	if (!osg)
-	{
-		return;
-	}
 	FollowSolveContext hostCtx = followSolveContextFromDto(solveCtxDto);
 	const FollowSolveContext* solveCtx = solveCtxDto ? &hostCtx : nullptr;
 	syncOsgBackendParentsFromBackend(host);
@@ -286,9 +281,12 @@ void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject&
 	applyProjectViewportFromJson(host, root);
 	host.invalidateFollowReverseIndex();
 	host.requestFollowSolveForced(); // 工程打开首帧须全图求解
-	runBackendFollowSolveAndSync(host, *osg, solveCtx);
+	runBackendFollowSolveAndSync(host, osgWidgetFrom(host), solveCtx);
 	// 打开工程后自适应视口（与工具栏「聚焦」同一接口）
-	osg->focusCameraOnAllVisibleBackends();
+	if (OsgWidget* osg = osgWidgetFrom(host))
+	{
+		osg->focusCameraOnAllVisibleBackends();
+	}
 }
 
 RobotKinematicsRestoreResult restoreRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx,

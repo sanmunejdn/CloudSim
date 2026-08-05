@@ -993,10 +993,8 @@ void MainWindowRobotHost::runFollowSolveAndSyncForCurrentDocument()
 	{
 		return;
 	}
-	cloudsim::core::IRenderView* rv = &page->render();
 	cloudsim::core::FollowSolveContextDto ctx;
-	// 与 MainWindow::makeFollowSolveContextDto 一致：Run 期间不 skip 跟随
-	ctx.skipAll = rv->isTcpDragTeachActive();
+	ctx.skipAll = false;
 	(void)page->data().runFollowSolveAndSync(ctx, nullptr);
 }
 

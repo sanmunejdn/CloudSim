@@ -26,7 +26,22 @@ bool readScopeJson(const nlohmann::json& j, RobotInstruction::OpScope& scope)
 {
 	if (j.contains("kind"))
 	{
-		scope.kind = static_cast<RobotInstruction::OpScope::Kind>(j["kind"].get<int>());
+		if (j["kind"].is_number_integer() || j["kind"].is_number())
+		{
+			scope.kind = static_cast<RobotInstruction::OpScope::Kind>(j["kind"].get<int>());
+		}
+		else if (j["kind"].is_string())
+		{
+			const std::string tok = j["kind"].get<std::string>();
+			if (tok == "EntireProgram" || tok == "entire_program")
+				scope.kind = RobotInstruction::OpScope::Kind::EntireProgram;
+			else if (tok == "Group" || tok == "group")
+				scope.kind = RobotInstruction::OpScope::Kind::Group;
+			else if (tok == "PointIndexRange" || tok == "point_range")
+				scope.kind = RobotInstruction::OpScope::Kind::PointIndexRange;
+			else if (tok == "InstructionIds" || tok == "instruction_ids")
+				scope.kind = RobotInstruction::OpScope::Kind::InstructionIds;
+		}
 	}
 	if (j.contains("groupId"))
 	{
