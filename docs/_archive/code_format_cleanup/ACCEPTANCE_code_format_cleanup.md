@@ -19,7 +19,7 @@
 | 缺失 `/// @file` / `/// @brief` | 684 文件补齐 |
 | clang-format 批量排版 | 968 文件，`batch_failures=0` |
 | `.vcxproj.filters` 仅补缺 | 10 个工程新建 filters |
-| 约定文档更新 | `SOURCE_CONVENTIONS.md`、`MODULE_DEVELOPER_GUIDES.md`、`DIRECTORY_LAYOUT.md`、`docs/README.md`、`ARCHITECTURE_SUMMARY.md`、cpp/architecture cursor rules |
+| 约定文档更新 | `SOURCE_CONVENTIONS.md`、`MODULE_DEVELOPER_GUIDES.md`、`DIRECTORY_LAYOUT.md`、docs/README.md、`docs/README.md`、cpp/architecture cursor rules |
 
 ## 乱码修复清单
 

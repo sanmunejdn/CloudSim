@@ -242,7 +242,7 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 | [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) | `DocumentImportFacade`、`DocumentHost::sceneFacade()`、`osgWidgetFrom` |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService`、`EventHub` |
 | [`Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) | `MainWindow` 实现 `IPluginMainWindowHost`、JobSystem |
-| [`ARCHITECTURE_SUMMARY.md`](../../../ARCHITECTURE_SUMMARY.md) §10 | 插件运行时与目录约定 |
+| [文档索引](../../../docs/README.md) §10 | 插件运行时与目录约定 |
 | [`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md) | 模板 B-rep + 点云配准与面更新 |
 | [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI 助手、`ai_config`、训练索引 |
 | [`tools/ai-training/CONFIGURATION.md`](../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 字段 |

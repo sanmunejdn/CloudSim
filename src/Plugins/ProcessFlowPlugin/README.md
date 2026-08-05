@@ -166,6 +166,6 @@ bin/x64d/   或   bin/x64/
 | [`docs/工艺流程仿真插件/ACCEPTANCE_工艺流程仿真插件.md`](../../../docs/工艺流程仿真插件/ACCEPTANCE_工艺流程仿真插件.md) | 分阶段验收 |
 | [`docs/工艺流程仿真插件/TODO_工艺流程仿真插件.md`](../../../docs/工艺流程仿真插件/TODO_工艺流程仿真插件.md) | 后续待办 |
 | [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../CloudSimPluginSDK/DEVELOPER_GUIDE.md) | 插件 SDK |
-| [`ARCHITECTURE_SUMMARY.md`](../../../ARCHITECTURE_SUMMARY.md) | 宿主插件架构 |
+| [文档索引](../../../docs/README.md) | 宿主插件架构 |
 
 早期 `CONSENSUS_*.md` 中「不做仿真/持久化」等表述已被后续实现覆盖，**以本文与源码为准**。

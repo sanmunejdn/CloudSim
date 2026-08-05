@@ -186,6 +186,6 @@ const bool ok = vcgalgo::runSelfTest(failures);
 
 - [`PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)
 - [`GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)
-- [`ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md)
+- [文档索引](../../../docs/README.md)
 - [`docs/vcglib_integration/`](../../docs/vcglib_integration/)
 - vcglib 仓库：https://github.com/cnr-isti-vclab/vcglib

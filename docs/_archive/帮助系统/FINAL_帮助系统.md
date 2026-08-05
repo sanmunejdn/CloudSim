@@ -11,7 +11,7 @@
 | Widget | `HelpBrowserDialog`、`MainWindowHelp.cpp`、菜单与 i18n |
 | 资源 | `CloudSim/help/zh|en/index.html` |
 | App | `CloudSim.vcxproj` PostBuild 拷贝 help |
-| 文档 | `docs/帮助系统/*`、ARCHITECTURE_SUMMARY、Widget DEVELOPER_GUIDE |
+| 文档 | `docs/帮助系统/*`、docs/README、Widget DEVELOPER_GUIDE |
 
 ## 使用方式
 

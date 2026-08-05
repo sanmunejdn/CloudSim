@@ -71,7 +71,7 @@
 
 ## 6. 参考文档
 
-- [`ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §4.3, §5
+- [文档索引](../../README.md) §4.3, §5
 - [`PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../../src/Geometry/PointCloudAlgorithm/DEVELOPER_GUIDE.md)
 - [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../../src/Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md)
 - [`mesh_reconstruction_optimization/`](../mesh_reconstruction_optimization/)

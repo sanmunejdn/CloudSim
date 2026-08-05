@@ -4,7 +4,7 @@
 
 CloudSim 以 `Data.dll` 的 `BackendDataBase` 为三维场景对象真源，经 `BackendRegistry` / `IDataService` 持久化与 CRUD；插件通过 `claimWorkspaceMode` 互斥切换工作区 UI。工艺流程与几何建模编辑态分别落在文档侧车键与 Host 几何 API，不全量进 Backend 继承树。
 
-参考：[ARCHITECTURE_SUMMARY.md](../../ARCHITECTURE_SUMMARY.md)、[Data/DEVELOPER_GUIDE.md](../../src/Data/Data/DEVELOPER_GUIDE.md)、[ProcessFlowPlugin/README.md](../../src/Plugins/ProcessFlowPlugin/README.md)、[GeometricModelingPlugin/README.md](../../src/Plugins/GeometricModelingPlugin/README.md)。
+参考：[文档索引](../README.md)、[Data/DEVELOPER_GUIDE.md](../../src/Data/Data/DEVELOPER_GUIDE.md)、[ProcessFlowPlugin/README.md](../../src/Plugins/ProcessFlowPlugin/README.md)、[GeometricModelingPlugin/README.md](../../src/Plugins/GeometricModelingPlugin/README.md)。
 
 ## 原始需求
 

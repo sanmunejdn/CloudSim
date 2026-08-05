@@ -113,5 +113,5 @@ return ret;
 
 ## 5. 相关文档
 
-- 总览：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md)
+- 总览：[文档索引](../../../docs/README.md)
 - 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../docs/MODULE_DEVELOPER_GUIDES.md)

@@ -1,6 +1,6 @@
 ﻿# CloudSim 目录布局
 
-解决方案入口为 [`CloudSim.sln`](../CloudSim.sln)。源码按功能域集中在 `src/`；`docs/`、`.cursor/` 与 `ARCHITECTURE_SUMMARY.md` 位于 `CloudSim/` 根下。
+解决方案入口为 [`CloudSim.sln`](../CloudSim.sln)。源码按功能域集中在 `src/`；`docs/` 与 `.cursor/` 位于 `CloudSim/` 根下。文档入口见 [`README.md`](README.md)。
 
 源码格式（编码、头卫、clang-format、筛选器）见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md)。
 
@@ -10,9 +10,8 @@
 CloudSim/
 ├── CloudSim.sln                 # 约 40 个产品 C++ 工程（无解决方案文件夹）
 ├── Directory.Build.props
-├── ARCHITECTURE_SUMMARY.md
 ├── .clang-format
-├── docs/                        # 常读（含 几何建模/）+ 整治；历史见 docs/_archive/
+├── docs/                        # 常读 + 专题；历史见 docs/_archive/
 ├── scripts/                     # 格式/筛选器等维护脚本
 ├── tools/                       # 验证工具、训练、维护脚本
 ├── .cursor/
@@ -106,7 +105,7 @@ CloudSim/
 - 插件输出：`$(CloudSimBinDir)plugins/<plugin.id>/`
 - 第三方 SDK：`$(CloudSimRepoRoot)bin/SDK/...`（Include / Lib / 部署拷贝）
 - **生成顺序建议**：`CloudSimCore` → `Data` 等 → **`CloudSimHost`** → `Widget` → `CloudSim`
-- 细节见 [`ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §9
+- 模块职责与文档入口见 [`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md)
 
 ### x64 运行时 DLL（与 exe 同目录）
 
@@ -127,5 +126,5 @@ CloudSim/
 ## CloudSimPluginHost 说明
 
 - **sln 工程**：`src/UI/CloudSimPluginHost/`（可选单独编译参考）
-- **产品路径**：源码由 **`CloudSimHost.vcxproj` 编入 `CloudSimHost.dll`**（勿再编入 Widget）；细节见 [`ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §10–§11.1
+- **产品路径**：源码由 **`CloudSimHost.vcxproj` 编入 `CloudSimHost.dll`**（勿再编入 Widget）；详见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)、[`CloudSimHost/DEVELOPER_GUIDE.md`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md)
 - **OsgWidget 真源**：`src/UI/Widget/source/OsgWidget*`（由 Host 编译）；禁止在 `Host/inc|source/osg` 维护平行副本

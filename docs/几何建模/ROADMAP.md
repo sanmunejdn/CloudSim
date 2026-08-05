@@ -4,11 +4,11 @@
 
 | 序 | 能力 | 状态 |
 |----|------|------|
-| 1 | 命名参数面 MVP | **已交付**（`docs/草图硬化/`） |
+| 1 | 命名参数面 MVP | **已交付**（`docs/_archive/草图硬化/`） |
 | 2 | 椭圆 GCS / Convert 保圆弧 / 样条双模式 | **已交付**（包 A） |
-| 3 | 拉伸 startOffset·双向深度、圆周阵列、成角基准面 | **已交付**（`docs/特征阵列与拉伸深化/`，Host ABI **1.48.0**） |
+| 3 | 拉伸 startOffset·双向深度、圆周阵列、成角基准面 | **已交付**（`docs/_archive/特征阵列与拉伸深化/`，Host ABI **1.48.0**） |
 | 4 | TopoNaming 自研渐进 | **下期独立专题**（见 `docs/TopoNaming/`） |
-| — | JSON / Python 脚本建模 | **已交付**（`docs/脚本建模/`；一期无 ABI bump） |
+| — | JSON / Python 脚本建模 | **已交付**（`docs/_archive/脚本建模/`；一期无 ABI bump） |
 
 参考 Yi3D 语义，不移植 Transaction/Element。
 
@@ -30,7 +30,7 @@
 
 ## 3. 本期已交付 — 包 B + C 子集（优先栈第 3 项）
 
-详见 `docs/特征阵列与拉伸深化/`：
+详见 `docs/_archive/特征阵列与拉伸深化/`：
 
 | 项 | 状态 |
 |----|------|
@@ -49,8 +49,8 @@
 
 ## 4b. 脚本建模（已交付）
 
-见 `docs/脚本建模/`：Ribbon 导出/导入 history、运行 compose；进程内 `cloudsim_geom` + 控制台。不做 headless。
+见 `docs/_archive/脚本建模/`：Ribbon 导出/导入 history、运行 compose；进程内 `cloudsim_geom` + 控制台。不做 headless。
 
 ## 5. 包 A 交付摘要（已完成）
 
-见 `docs/草图硬化/ACCEPTANCE_草图硬化.md`：A0 命名参数、A1 椭圆 GCS、A2 Convert 保弧、A3 样条双模式；Debug+Release 已编过。
+见 `docs/_archive/草图硬化/ACCEPTANCE_草图硬化.md`：A0 命名参数、A1 椭圆 GCS、A2 Convert 保弧、A3 样条双模式；Debug+Release 已编过。

@@ -29,7 +29,7 @@
 
 | 维度 | 结论 |
 |------|------|
-| 架构对齐 | 与 `ARCHITECTURE_SUMMARY.md` §11 一致；§11.1 新代码边界已更新 |
+| 架构对齐 | 与 `docs/README.md` §11 一致；§11.1 新代码边界已更新 |
 | 编译 | Debug\|x64：`RobotScene` + `CloudSimHost` + `RobotWidget` + `Widget` 通过（2026-07-21） |
 | 契约稳定性 | Core/Host 对外接口以 Mat4/DTO 为主；vtable 追加遵守既有约定 |
 | 技术债务 | 见 [TODO](TODO_架构边界收口.md)；已显式列为长期项，不阻塞本轮交付 |

@@ -1,6 +1,6 @@
 # ACCEPTANCE：架构边界收口（Sprint A）
 
-> 对应评审：[ARCHITECTURE_SUMMARY.md](../../ARCHITECTURE_SUMMARY.md) §11；画布评审结论 Sprint A。
+> 对应评审：[文档索引](../../README.md) §11；画布评审结论 Sprint A。
 
 ## 范围
 

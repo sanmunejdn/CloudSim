@@ -58,7 +58,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 - Output: `bin/x64(d)/RobotWidget.dll`.
 - Depends: `RobotScene`, `RobotUrdf`, `RobotKinematics`, `GeometryEngine`, `Data`, `RunLogger`, `OsgWidgetCore`, `BackendVisual`, OSG.
 
-See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §3.3 / §13–§16 and [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.4.
+See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §3.3 / §13–§16 and [文档索引](../../../docs/README.md) §6.4.
 
 ### UI 图标（`CloudSimUiAssets`）
 
@@ -72,7 +72,7 @@ See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §3.3 / 
 
 Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSignals()` after dock creation.
 
-**重构进度**（详见 `ARCHITECTURE_SUMMARY.md` §迁移路线图）：
+**重构进度**（详见 `CloudSimHost/DEVELOPER_GUIDE.md` 演进说明）：
 - 阶段 1.1-1.5 已完成：运动学（6 处 `applyJointAnglesForInstance`）、坐标系管理、TCP IK 已通过 `IRobotDocumentHost` 委托
 - 阶段 1.6 已完成：品牌导出经 Controller（Canonical + pybind）
 
@@ -687,7 +687,7 @@ flowchart TD
 
 流水线摘要 `formatOpSummary`：委托 Registry 中对应 `ITrajectoryOp::formatSummary`（含坐标系、Δ、角度等）。
 
-命名模板：`UserTemplateLibrary`（`AppDataLocation/CloudSim/templates/pipeline|discretize`）。流水线 payload 为 `trajectoryPipelineToJson` 数组；旧单槽 `QSettings pipelineJson` 首次启动迁移为「迁移的上次保存」。详见 [`docs/轨迹编辑模板与撤销/`](../../../docs/轨迹编辑模板与撤销/)。
+命名模板：`UserTemplateLibrary`（`AppDataLocation/CloudSim/templates/pipeline|discretize`）。流水线 payload 为 `trajectoryPipelineToJson` 数组；旧单槽 `QSettings pipelineJson` 首次启动迁移为「迁移的上次保存」。详见 [`docs/_archive/轨迹编辑模板与撤销/`](../../../docs/_archive/轨迹编辑模板与撤销/)。
 
 ### 已知限制（Phase 2b）
 
@@ -759,7 +759,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 | 预览 | `applyRawTrajectoryPreviewToOsg` / `applyWorldRawTrajectoryPreviewToOsg`；`clearRawTrajectoryOverlay*`；指令路点 `setInstructionPoseAxes` |
 | `FeaturePickTransform` | `transformRawTrajectoryToWorld` / `transformRawTrajectoryWorldToFile` / `stepModelPointToWorldMm` / `applyWorldRawTrajectoryPreviewToOsg`（实现于 `FeaturePickTransform.cpp`） |
 
-AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校验 `features[]`；确认离散经 `commitFeaturePlanFromAi`）。**完整 AI 流程、3D 编号叠加、编号选择高亮过滤**见 [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md)。
+AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校验 `features[]`；确认离散经 `commitFeaturePlanFromAi`）。**完整 AI 流程、3D 编号叠加、编号选择高亮过滤**见 [`docs/_archive/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md)。
 
 | API（`FeatureTrajectoryPageWidget`） | 说明 |
 |--------------------------------------|------|
@@ -859,7 +859,7 @@ MVP 桩 `importTubularGrindingPointsToRawTrajectory` 返回 `false`，`errMsg = 
 
 ## 相关文档
 
-- 总架构：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md)
+- 总架构：[文档索引](../../../docs/README.md)
 - 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../docs/MODULE_DEVELOPER_GUIDES.md)
 - Host 工程包 / kinematics：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.2c
 - Widget 宿主 / TCP / 保存流程：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)

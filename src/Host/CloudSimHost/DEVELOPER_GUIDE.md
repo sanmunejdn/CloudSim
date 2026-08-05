@@ -559,7 +559,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 | 文档 | 内容 |
 |------|------|
-| [`ARCHITECTURE_SUMMARY.md`](../../../ARCHITECTURE_SUMMARY.md) §2.1、§4.0.1 | 全局边界与运行时 DLL |
+| [文档索引](../../../docs/README.md) §2.1、§4.0.1 | 全局边界与运行时 DLL |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService` / `IRenderView` / `EventHub` 与 Host 行为对照 |
 | [`Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) | 主窗口与 `DocumentPage`（UI 仍描述 OsgWidget 行为，实现位于 Host） |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 动态插件宿主（**编入 Host**）、`PluginHostContext` 与 Facade 接线 |
@@ -586,7 +586,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 6. ~~**API 去重**~~：移除 `DocumentHost` 公开 `registerAdopted*`；Host 内 `osgWidgetFrom` + Widget `widgetOsgFromPage`；删除 Widget 死代码（`syncOsgViewer*`、`backendPropertyCommitted` 等）。
 7. ~~**PluginHost 迁入 Host**~~：`CloudSimPluginHost` 源码编入 `CloudSimHost.vcxproj`；`PluginManager`（`CLOUDSIM_HOST_EXPORT`）+ `IPluginMainWindowHost` 解耦 Widget 类型。
 
-**仍待 / 长期（详见 `ARCHITECTURE_SUMMARY.md` §迁移路线图）**
+**仍待 / 长期（详见本文件演进说明与 `docs/_archive/架构边界收口/`）**
 
 1. ~~**`RobotSimulationController` 核心逻辑迁入 Host**~~：阶段 1.1-1.5 已完成。运动学（6 处）、坐标系管理、TCP IK 已通过 `IRobotDocumentHost` 委托；规划和程序 JSON 已通过 Host 模块集中。阶段 1.6（导出）待定。
 2. **`IRobotSimulationDocument`**：实例元数据仍留 `DocumentPage` / `RobotWidget`（`RobotSimulationController` 编排）。

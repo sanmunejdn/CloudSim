@@ -108,4 +108,4 @@ flowchart LR
 
 ## 6. 与架构文档的对应
 
-全局架构见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.9。本模块仅提供日志通道，不参与业务状态机。
+全局架构见 [文档索引](../../../docs/README.md) §4.9。本模块仅提供日志通道，不参与业务状态机。

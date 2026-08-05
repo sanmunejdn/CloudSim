@@ -8,7 +8,7 @@
 
 1. Data DEVELOPER_GUIDE 含权威「三键」对照表；代码真源为 `CloudSimCore/BackendTypeIds.h`；新类型须三列齐全后再注册。
 2. 本文与 DESIGN 列出 `project.json` 根键注册表（owner、空写策略、schema 提示）；键常量 `kProjectKey*`。
-3. ARCHITECTURE_SUMMARY 写明：工作区模式只影响 UI 互斥，不卸载/不过滤 Backend 类型。
+3. docs/README 写明：工作区模式只影响 UI 互斥，不卸载/不过滤 Backend 类型。
 4. 明确禁止：工艺节点 / JobSet / DES 统计派生 `BackendDataBase`。
 5. `catalogTypeFromClassName` 与全仓库业务比较/赋值使用 `backend_type::*`（LLM「Model」表单项等除外）。
 

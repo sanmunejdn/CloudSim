@@ -6,9 +6,9 @@
 
 ## 项目上下文
 
-- 架构权威：[`ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md)
-- 目录权威：[`DIRECTORY_LAYOUT.md`](../DIRECTORY_LAYOUT.md)
-- 常读索引：[`docs/README.md`](../README.md)
+- 架构权威：[文档索引](../../README.md)
+- 目录权威：[`DIRECTORY_LAYOUT.md`](../../DIRECTORY_LAYOUT.md)
+- 常读索引：[docs/README.md](../../README.md)
 - 构建：`CloudSim.sln` + `Directory.Build.props` → 仓库根 `bin\x64(d)/`
 
 ## 任务边界

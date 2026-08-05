@@ -225,7 +225,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 ### 3.6 SDF/DDF 混合非刚性配准（`RegistrationSdf.h`）
 
-自研模块（**不修改** `spare/` / `RegistrationSpare`）。粗阶段用目标表面 **DDF 有向距离**（或可选有符号 SDF）作数据项，细阶段默认 **点-面**；目标场可体素缓存。原理与调参见 [`docs/sdf_nonrigid_registration.md`](../../docs/sdf_nonrigid_registration.md)。
+自研模块（**不修改** `spare/` / `RegistrationSpare`）。粗阶段用目标表面 **DDF 有向距离**（或可选有符号 SDF）作数据项，细阶段默认 **点-面**；目标场可体素缓存。原理与调参见 [`docs/_archive/sdf_nonrigid_registration.md`](../../../docs/_archive/sdf_nonrigid_registration.md)。
 
 | 入口 | 说明 |
 |------|------|

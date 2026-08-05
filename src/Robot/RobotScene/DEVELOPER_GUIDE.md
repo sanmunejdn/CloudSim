@@ -578,4 +578,4 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 - DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)
 - 特征离散：[`../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md`](../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1
 - UI 轨迹生成：[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成
-- 轴配置详解：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.8.1–4.8.3
+- 轴配置详解：[文档索引](../../../docs/README.md) §4.8.1–4.8.3

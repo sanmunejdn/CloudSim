@@ -72,4 +72,4 @@ bin/x64(d)/
 
 - SDK：[`../PlcCommSDK/DEVELOPER_GUIDE.md`](../PlcCommSDK/DEVELOPER_GUIDE.md)
 - UI：[`../PlcCommUI/DEVELOPER_GUIDE.md`](../PlcCommUI/DEVELOPER_GUIDE.md)
-- 插件系统：[`../../../ARCHITECTURE_SUMMARY.md`](../../../ARCHITECTURE_SUMMARY.md) §10
+- 插件系统：[文档索引](../../../docs/README.md) §10

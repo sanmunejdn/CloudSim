@@ -41,7 +41,7 @@ flowchart TD
 ### T5 — 文档同步
 
 - **输入**：DESIGN
-- **输出**：更新 `ARCHITECTURE_SUMMARY.md`、`Widget/DEVELOPER_GUIDE.md`
+- **输出**：更新 `docs/README.md`、`Widget/DEVELOPER_GUIDE.md`
 - **验收**：菜单结构含 Help；路径说明正确
 
 ### T6 — 编译验收

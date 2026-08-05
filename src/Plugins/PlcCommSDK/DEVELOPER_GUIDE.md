@@ -121,4 +121,4 @@ protocol=ab_eip&gateway=192.168.0.10&path=1,0&cpu=lgx&name=MyTag&elem_count=1
 
 - UI：[`../PlcCommUI/DEVELOPER_GUIDE.md`](../PlcCommUI/DEVELOPER_GUIDE.md)
 - CloudSim 插件：[`../PlcCommPlugin/DEVELOPER_GUIDE.md`](../PlcCommPlugin/DEVELOPER_GUIDE.md)
-- 架构总览：[`../../../ARCHITECTURE_SUMMARY.md`](../../../ARCHITECTURE_SUMMARY.md) §10.5
+- 架构总览：[文档索引](../../../docs/README.md) §10.5

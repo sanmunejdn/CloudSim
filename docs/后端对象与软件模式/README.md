@@ -7,4 +7,4 @@
 | [DESIGN](DESIGN_后端对象与软件模式.md) | 三键表、侧车注册表、Mode vs Backend |
 | [ACCEPTANCE](ACCEPTANCE_后端对象与软件模式.md) | P0 验收 |
 
-权威日常入口：[`ARCHITECTURE_SUMMARY.md` §6.5–6.6](../../ARCHITECTURE_SUMMARY.md)、[`Data/DEVELOPER_GUIDE.md` §4.0](../../src/Data/Data/DEVELOPER_GUIDE.md)。
+权威日常入口：[文档索引](../README.md)、[`Data/DEVELOPER_GUIDE.md` §4.0](../../src/Data/Data/DEVELOPER_GUIDE.md)。

@@ -207,7 +207,7 @@ flowchart TD
 **输出契约**：
 - `SelfTest.h/cpp`：vcglib 能力自检
 - `DEVELOPER_GUIDE.md` 更新
-- `ARCHITECTURE_SUMMARY.md` 更新
+- `docs/README.md` 更新
 
 **验收标准**：
 - [ ] SelfTest 全部通过

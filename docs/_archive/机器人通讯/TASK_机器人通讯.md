@@ -46,5 +46,5 @@ flowchart TD
 ## T5 — 文档 Assess
 
 - **输入**：T1–T4 完成
-- **输出**：`ACCEPTANCE_机器人通讯.md` / `FINAL_机器人通讯.md` / `TODO_机器人通讯.md`（授权、机侧配置、联调清单）；`ARCHITECTURE_SUMMARY.md` / `MODULE_DEVELOPER_GUIDES.md` 一行
+- **输出**：`ACCEPTANCE_机器人通讯.md` / `FINAL_机器人通讯.md` / `TODO_机器人通讯.md`（授权、机侧配置、联调清单）；`docs/README.md` / `MODULE_DEVELOPER_GUIDES.md` 一行
 - **验收**：6A 闭环；TODO 列明 RWS 账号、Fanuc 以太网、KUKA 程序、商用授权步骤

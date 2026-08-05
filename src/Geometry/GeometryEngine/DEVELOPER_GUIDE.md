@@ -128,4 +128,4 @@ flowchart LR
 - [`CONVENTIONS.md`](CONVENTIONS.md)
 - [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §8.3
 - [`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md) §10
-- [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.4
+- [文档索引](../../../docs/README.md) §6.4

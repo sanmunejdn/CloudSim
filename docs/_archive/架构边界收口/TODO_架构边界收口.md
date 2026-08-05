@@ -9,7 +9,7 @@
 | P1 | 去掉 `DocumentPage::backend()` 穿透 | 需把运动学/mesh 所需 `BackendDataManager` API 继续上提到 `IDataService` 或专用 Host 服务后再删 | `IDataService`、`RobotSceneKinematics`、`DocumentPage.cpp` |
 | P2 | 关节句柄去 `MatrixTransform*` | per-link 已可不依赖；旧关节树路径仍用场景节点 | `HierarchicalRobotInstance`、`applyRobotJointLocalMatrix` |
 | P2 | `RobotSimulationController` → Host | 仿真编排下沉，缩小 RobotWidget 对引擎直连 | `RobotWidget/source/RobotSimulationController.cpp` |
-| P3 | IRenderView 全面替代 OsgWidget 直引 | 阶段 3.3–3.4；主窗口/工具栏部分已走 `render().widget()` | `ARCHITECTURE_SUMMARY.md` §11 |
+| P3 | IRenderView 全面替代 OsgWidget 直引 | 阶段 3.3–3.4；主窗口/工具栏部分已走 `render().widget()` | `docs/README.md` §11 |
 | P3 | Widget 层 OSG include 清零 | 与上项绑定；TCP/截面等仍在 OsgWidget 内部合理 | `Widget/inc`、`OsgWidget*` |
 
 ## 2. 配置 / 环境
@@ -34,7 +34,7 @@
 |------|------|
 | [FINAL](FINAL_架构边界收口.md) | 本轮总结 |
 | [ACCEPTANCE Sprint H](ACCEPTANCE_架构边界收口_SprintH.md) | 最近一次验收 |
-| `ARCHITECTURE_SUMMARY.md` §11 | 演进状态真源 |
+| `docs/README.md` §11 | 演进状态真源 |
 | `Widget/DEVELOPER_GUIDE.md` | `backend()` 白名单与 Mat4 存储约定 |
 
 ## 5. 需要你拍板时

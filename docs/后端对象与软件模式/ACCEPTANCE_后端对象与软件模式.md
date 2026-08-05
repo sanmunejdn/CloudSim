@@ -9,7 +9,7 @@ P0 文档 + 类型/侧车键代码真源 + 全仓库业务字面量收口。
 | # | 项 | 状态 |
 |---|----|------|
 | 1 | ALIGNMENT / CONSENSUS / DESIGN 已落盘 | 通过 |
-| 2 | Data DEVELOPER_GUIDE / ARCHITECTURE_SUMMARY / docs 索引 | 通过 |
+| 2 | Data DEVELOPER_GUIDE / docs/README / docs 索引 | 通过 |
 | 3 | 契约真源 `CloudSimCore/inc/BackendTypeIds.h`；Data `BackendTypeIdentity.h` 转发 | 通过 |
 | 4 | builtins / className() / Visual / ProjectIo 接入 | 通过 |
 | 5 | Host / Widget / RobotWidget / PluginHost / AiWidget / 相关插件字面量改为 `backend_type::*` | 通过 |

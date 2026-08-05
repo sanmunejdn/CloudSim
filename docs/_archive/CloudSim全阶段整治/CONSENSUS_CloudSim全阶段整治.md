@@ -13,7 +13,7 @@
 
 ## 验收标准
 
-1. 安全垃圾已清；历史任务 docs 位于 `docs/_archive/`；常读文档与 `docs/README.md` 索引正确
+1. 安全垃圾已清；历史任务 docs 位于 `docs/_archive/`；常读文档与 docs/README.md 索引正确
 2. `BUG_AUDIT.md` 覆盖 Robot / TrajUI / GeoMesh / CatchIO 四路；非 Top3 仅记录
 3. Top3 有明确修复或「证据不足不改」说明；无范围外大重构
 4. 触及工程 **Debug|x64 与 Release|x64 均编译成功**

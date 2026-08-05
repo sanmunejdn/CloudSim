@@ -263,7 +263,7 @@ UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syn
 3. **RMB 旋转** → `cacheRotatePivot`（世界枢轴）→ `beginGizmoScreenRotate` → `gizmoScreenRotateDeltaRad` → `adjustCenterPlusPoseForRotationDelta` → `applyToOuter` → `selectedObjectRotationChanged`
 4. 拖动中 → `MainWindow::syncPropertyPanelGizmoLiveValues` 从 gizmo 直写属性行；释放 → `writeActiveBackendPoseFromOsg` → `transformGizmoCommitted` → 全量 `updatePropertyPanel`
 
-详见 [`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §6.2.0。
+详见 [文档索引](../../../docs/README.md) §6.2.0。
 
 ---
 

@@ -159,4 +159,4 @@ CAD 轨迹的外部轴上下文写入 [`RawTrajectory::TrajectoryContext::extern
 - 空间契约：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)
 - 场景 FK 写回：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
 - UI 导入：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §`registerUrdfRobot`
-- 架构 §6.1：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)
+- 架构 §6.1：[文档索引](../../../docs/README.md)

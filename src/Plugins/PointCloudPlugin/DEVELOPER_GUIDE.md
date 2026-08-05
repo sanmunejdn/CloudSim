@@ -63,7 +63,7 @@
 
 ## SDF/DDF 混合非刚性配准（1.17.0+）
 
-原理见 [`docs/sdf_nonrigid_registration.md`](../../../docs/sdf_nonrigid_registration.md)。
+原理见 [`docs/_archive/sdf_nonrigid_registration.md`](../../../docs/_archive/sdf_nonrigid_registration.md)。
 
 | 控件 | 说明 |
 |------|------|

@@ -22,4 +22,4 @@
 - [Host DEVELOPER_GUIDE.md](../../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.2c
 - [Widget DEVELOPER_GUIDE.md](../../src/UI/Widget/DEVELOPER_GUIDE.md) §11
 - [RobotWidget DEVELOPER_GUIDE.md](../../src/UI/RobotWidget/DEVELOPER_GUIDE.md)（robotKinematics JSON）
-- [ARCHITECTURE_SUMMARY.md](../../ARCHITECTURE_SUMMARY.md) §6.5
+- [文档索引](../../README.md) §6.5

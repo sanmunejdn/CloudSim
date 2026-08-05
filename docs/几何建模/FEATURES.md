@@ -83,10 +83,10 @@
 
 | 项 | 状态 | 来源 |
 |----|------|------|
-| 椭圆/多边形/槽口、Offset、Convert、扫描边路径+扭转 MVP、UpToVertex/OffsetFromFace、Draft | 已交付 | `docs/SW差距续期/` |
-| Convert 真面、Offset 孔环、多边形 3–24、DatumPlane 持久化/overlay、特征级 LinearPattern | 已交付 | `docs/硬化基准面/` |
-| AI → Parametric `feature.compose` | 已交付 | `docs/特征史AI/` |
-| 命名参数面 MVP、椭圆 GCS、Convert 保型、样条双模式 | 已交付 | `docs/草图硬化/` |
-| JSON 导入导出 / Compose 文件 / `cloudsim_geom` | 已交付 | `docs/脚本建模/` |
+| 椭圆/多边形/槽口、Offset、Convert、扫描边路径+扭转 MVP、UpToVertex/OffsetFromFace、Draft | 已交付 | `docs/_archive/SW差距续期/` |
+| Convert 真面、Offset 孔环、多边形 3–24、DatumPlane 持久化/overlay、特征级 LinearPattern | 已交付 | `docs/_archive/硬化基准面/` |
+| AI → Parametric `feature.compose` | 已交付 | `docs/_archive/特征史AI/` |
+| 命名参数面 MVP、椭圆 GCS、Convert 保型、样条双模式 | 已交付 | `docs/_archive/草图硬化/` |
+| JSON 导入导出 / Compose 文件 / `cloudsim_geom` | 已交付 | `docs/_archive/脚本建模/` |
 
 下一期增量见 [ROADMAP.md](ROADMAP.md)。

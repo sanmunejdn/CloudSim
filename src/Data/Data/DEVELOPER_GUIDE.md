@@ -477,7 +477,7 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 
 - 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
 - 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§11；插件宿主：[`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)
-- Units 显示树：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)；契约：[`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) §2
-- 总架构：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §4.3、§6.5、§6.6
+- Units 显示树：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)；契约：[`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) §2
+- 文档索引：[`../../../docs/README.md`](../../../docs/README.md)
 - 后端类型三键 / 侧车 / 工作区模式：[`../../docs/后端对象与软件模式/`](../../docs/后端对象与软件模式/)
-- 持久化设计/任务/回归：[`../../docs/backend_persistence/`](../../docs/backend_persistence/)
+- 持久化设计/任务/回归：[`../../docs/_archive/backend_persistence/`](../../docs/_archive/backend_persistence/)

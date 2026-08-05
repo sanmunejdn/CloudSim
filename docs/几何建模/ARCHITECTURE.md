@@ -19,7 +19,7 @@ flowchart TB
 
 | 层 | 角色 | 关键路径 |
 |----|------|----------|
-| 工作区入口 | 顶栏分段切换；`claimWorkspaceMode` 互斥 | `docs/WorkspaceModeSwitcher/`；Host chrome |
+| 工作区入口 | 顶栏分段切换；`claimWorkspaceMode` 互斥 | `docs/_archive/WorkspaceModeSwitcher/`；Host chrome |
 | 插件壳 | 进入/退出、Ribbon 接线、特征编排、存盘钩子 | `GeometricModelingPlugin.*` |
 | 会话 UI | 特征树、侧栏属性/拾取面板、Body 下拉 | `GeometricModelingPage.*`、`GeometricModelingSolidFeatures.cpp` |
 | 特征模型 | kind + 参数 + JSON；DatumPlane 仅插件树 | `FeatureDocument.*` |

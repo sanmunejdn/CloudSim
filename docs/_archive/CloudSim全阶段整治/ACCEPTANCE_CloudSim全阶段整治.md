@@ -7,7 +7,7 @@
 - [x] `src/Geometry/bin`、`src/Infra/bin`、`RobotUrdf/x64`、`RobotWidget/x64` 已删
 - [x] `.venv`、`__pycache__`、`RobotCommBridge/obj`、onecad logs 已删
 - [x] 历史专题 docs 迁入 `docs/_archive/`，常读保留
-- [x] `docs/README.md`、`_archive/INDEX.md`、`DIRECTORY_LAYOUT.md`、架构链接已更新
+- [x] docs/README.md、`_archive/INDEX.md`、`DIRECTORY_LAYOUT.md`、架构链接已更新
 - [x] HelloAiPlugin / Sketch*Verify / PluginHost.vcxproj **保留**
 - [x] 一次性 `tools/gen_*.py`（filters/op 骨架）迁入 `tools/_archive/`；保留有文档入口的 `gen_atomic_ops.py`、`gen_trajectory_json.py`
 - [x] `patch_*.py` / `update_*_vcxproj.py`（含 `RobotWidget/tools/patch_controller.py`）迁入 `tools/_archive/`

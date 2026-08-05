@@ -281,6 +281,6 @@ LLM grounding：`catalogSliceUtf8` 中 `displayIndex` / `candidateId` / `summary
 |------|------|
 | [`tools/ai-training/CONFIGURATION.md`](../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 全字段 |
 | [`tools/ai-training/README.md`](../../tools/ai-training/README.md) | 训练、LLaMA-Factory、Ollama 导出 |
-| [`ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §6.1.1 | 产品级流程说明 |
+| [文档索引](../../../docs/README.md) §6.1.1 | 产品级流程说明 |
 | [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md) | AI 轨迹特征端到端、状态机、验收 |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 宿主 API 与插件 |

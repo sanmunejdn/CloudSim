@@ -2,7 +2,7 @@
 
 > **日期**：2026-06-17  
 > **状态**：进行中（Phase 0 启动前）  
-> **参考**：[`ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §8、`CloudSimHost/DEVELOPER_GUIDE.md` §8、`Widget/DEVELOPER_GUIDE.md`
+> **参考**：[文档索引](../README.md) §8、`CloudSimHost/DEVELOPER_GUIDE.md` §8、`Widget/DEVELOPER_GUIDE.md`
 
 ## 1. 当前绕过矩阵（Widget 仍在绕过契约）
 
@@ -53,7 +53,7 @@
 
 ---
 
-## 2. 与 ARCHITECTURE_SUMMARY §8 阶段对照
+## 2. 与 docs/README §8 阶段对照
 
 | 阶段 | 描述 | 状态 | 本审计对应 |
 |------|------|------|------------|
