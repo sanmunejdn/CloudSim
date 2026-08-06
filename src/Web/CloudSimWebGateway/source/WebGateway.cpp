@@ -654,6 +654,80 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 			Qt::BlockingQueuedConnection);
 		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
 	});
+	m_impl->svr.Get("/api/robot/frames", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QByteArray body;
+		const QString rootId = QString::fromStdString(req.get_param_value("sceneRootBackendId"));
+		QMetaObject::invokeMethod(
+			this, [this, rootId, &body]() { body = robotFramesJsonOnGuiThread(rootId); },
+			Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Put("/api/robot/frames", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = putRobotFramesOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/robot/frames/mutate", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &extra, &ok]()
+			{ ok = mutateRobotFramesOnGuiThread(body, &err, &extra); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
+	m_impl->svr.Post("/api/robot/frames/capture-tool", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = captureRobotToolFrameOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/robot/frames/capture-user", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = captureRobotUserFrameOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Post("/api/robot/frames/reset-tool", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = resetRobotToolFrameOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
+	m_impl->svr.Get("/api/robot/frames/overlays", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QByteArray body;
+		const QString rootId = QString::fromStdString(req.get_param_value("sceneRootBackendId"));
+		QMetaObject::invokeMethod(
+			this, [this, rootId, &body]() { body = robotFrameOverlaysJsonOnGuiThread(rootId); },
+			Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
 	m_impl->svr.Get(R"(/api/robot/instructions/(.+)/properties)",
 					[this](const httplib::Request& req, httplib::Response& res)
 					{

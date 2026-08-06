@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CloudSim - 主窗口</title>
-  <link rel="stylesheet" href="./styles.css?v=traj-marker-20260805a" />
+  <link rel="stylesheet" href="./styles.css?v=interact-20260806a" />
 </head>
 <body>
   <div class="shell">
@@ -22,6 +22,9 @@
       </div>
       <div class="menu"><button type="button" class="menu-btn" data-menu="view">视图</button>
         <div class="menu-drop" id="menuView">
+          <button type="button" id="btnInteractView" class="menu-check on">视图移动</button>
+          <button type="button" id="btnInteractSelect" class="menu-check">对象选择</button>
+          <hr class="menu-sep" />
           <button type="button" id="btnFocus">聚焦全部</button>
         </div>
       </div>
@@ -348,7 +351,70 @@
             </div>
 
             <div id="robotFrame" class="robot-pane hidden">
-              <p class="hint">坐标系面板（占位）</p>
+              <label class="field">机器人实例
+                <select id="frameInstance"></select>
+              </label>
+              <div class="toolbar-row">
+                <button type="button" id="btnFrameReload" class="btn-ghost">刷新</button>
+              </div>
+              <div id="frameEmptyHint" class="hint hidden">暂无机器人实例，请从设备库导入或打开含机器人的工程</div>
+              <div id="frameBody">
+              <fieldset class="frame-group">
+                <legend>工具坐标系</legend>
+                <div class="frame-list-wrap">
+                  <ul id="toolFrameList" class="frame-list"></ul>
+                  <div class="toolbar-row frame-btns">
+                    <button type="button" id="btnToolAdd" class="btn-ghost">添加</button>
+                    <button type="button" id="btnToolDup" class="btn-ghost">复制</button>
+                    <button type="button" id="btnToolDel" class="btn-ghost danger">删除</button>
+                    <button type="button" id="btnToolActive" class="btn-ghost">设为当前</button>
+                  </div>
+                </div>
+                <label class="field">法兰 link
+                  <select id="toolFlangeLink"></select>
+                </label>
+                <div class="frame-spins" id="toolSpins">
+                  <label>X<input type="number" data-tool="px" step="0.1" /></label>
+                  <label>Y<input type="number" data-tool="py" step="0.1" /></label>
+                  <label>Z<input type="number" data-tool="pz" step="0.1" /></label>
+                  <label>Rx<input type="number" data-tool="ex" step="0.1" /></label>
+                  <label>Ry<input type="number" data-tool="ey" step="0.1" /></label>
+                  <label>Rz<input type="number" data-tool="ez" step="0.1" /></label>
+                </div>
+                <div class="toolbar-row frame-btns">
+                  <button type="button" id="btnToolCapture" class="btn-ghost">从 TCP 捕获</button>
+                  <button type="button" id="btnToolReset" class="btn-ghost">重置</button>
+                </div>
+              </fieldset>
+              <fieldset class="frame-group">
+                <legend>用户坐标系</legend>
+                <div class="frame-list-wrap">
+                  <ul id="userFrameList" class="frame-list"></ul>
+                  <div class="toolbar-row frame-btns">
+                    <button type="button" id="btnUserAdd" class="btn-ghost">添加</button>
+                    <button type="button" id="btnUserDup" class="btn-ghost">复制</button>
+                    <button type="button" id="btnUserDel" class="btn-ghost danger">删除</button>
+                    <button type="button" id="btnUserActive" class="btn-ghost">设为当前</button>
+                  </div>
+                </div>
+                <div class="frame-spins" id="userSpins">
+                  <label>X<input type="number" data-user="px" step="0.1" /></label>
+                  <label>Y<input type="number" data-user="py" step="0.1" /></label>
+                  <label>Z<input type="number" data-user="pz" step="0.1" /></label>
+                  <label>Rx<input type="number" data-user="ex" step="0.1" /></label>
+                  <label>Ry<input type="number" data-user="ey" step="0.1" /></label>
+                  <label>Rz<input type="number" data-user="ez" step="0.1" /></label>
+                </div>
+                <div class="toolbar-row frame-btns">
+                  <button type="button" id="btnUserCapture" class="btn-ghost">从 TCP 捕获</button>
+                </div>
+              </fieldset>
+              <fieldset class="frame-group">
+                <legend>三维显示</legend>
+                <label class="inline"><input type="checkbox" id="chkShowToolFrames" checked /> 显示工具系</label>
+                <label class="inline"><input type="checkbox" id="chkShowUserFrames" checked /> 显示用户系</label>
+              </fieldset>
+              </div>
             </div>
           </div>
         </div>
@@ -388,6 +454,6 @@
   <script type="importmap">
   {"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}
   </script>
-  <script type="module" src="./app.js?v=traj-marker-20260805a"></script>
+  <script type="module" src="./app.js?v=interact-20260806d"></script>
 </body>
 </html>

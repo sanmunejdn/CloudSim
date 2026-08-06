@@ -19,13 +19,9 @@
 
 class QComboBox;
 
-class QGroupBox;
-
 class QPushButton;
 
 class QLabel;
-
-class QScrollArea;
 
 class RobotProgramStore;
 
@@ -171,6 +167,8 @@ private:
 
 	void refreshArcTeachButtonLabels();
 
+	void updateTcpDragTeachUi(bool enabled);
+
 	QPushButton* createTypeButton(RobotInstruction::Type type);
 
 	RobotProgramStore* m_programStore = nullptr;
@@ -183,14 +181,17 @@ private:
 
 	bool m_hasRobotContext = false;
 
-	QGroupBox* m_instructionGroupBox = nullptr;
+	QLabel* m_robotLabel = nullptr;
 
 	QLabel* m_programLabel = nullptr;
 
-	QGroupBox* m_functionGroupBox = nullptr;
+	QLabel* m_insertLabel = nullptr;
+
+	QLabel* m_editLabel = nullptr;
 
 	QComboBox* m_robotCombo = nullptr;
 
+	/// 界面隐藏；setTcpLinkOptions / selectedTcpLink 仍供规划回退
 	QComboBox* m_tcpLinkCombo = nullptr;
 
 	QComboBox* m_programCombo = nullptr;
@@ -221,11 +222,11 @@ private:
 
 	QPushButton* m_tcpDragTeachBtn = nullptr;
 
+	QLabel* m_tcpDragHintLabel = nullptr;
+
 	bool m_tcpDragTeachMode = false;
 
 	bool m_arcTeachPending = false;
-
-	QScrollArea* m_scrollArea = nullptr;
 };
 
 #endif // ROBOTWIDGET_SIMULATIONCOMMANDWIDGET_H

@@ -39,6 +39,12 @@ SSE：`ProjectLoaded` `ProjectSaved` `PoseCommitted` `ObjectPatched` `BackendObj
 | POST | `/api/robot/place` | `{anchorBackendId,worldMatrix[16]}` 反解基座并 FK 全连杆（gizmo 拖动） |
 | POST | `/api/robot/tcp-ik` | `{flangeBackendId,worldMatrix[16]}` 末端 IK → 关节 |
 | GET | `/api/robot/tcp-pose?sceneRootBackendId=` | 当前 TCP：`positionMm[]`/`eulerDeg[]`/`jointRadCsv` |
+| GET | `/api/robot/frames?sceneRootBackendId=` | `frames`（`RobotCoordinateFrameSet` JSON）+ `linkNames[]` |
+| PUT | `/api/robot/frames` | `{sceneRootBackendId?,frames}` 写回；Active/几何变更同步路点 tool context |
+| POST | `/api/robot/frames/capture-tool` | 当前 TCP → 激活工具系 |
+| POST | `/api/robot/frames/capture-user` | 当前 TCP → 激活用户系 |
+| POST | `/api/robot/frames/reset-tool` | 激活工具系复位为单位 |
+| GET | `/api/robot/frames/overlays?sceneRootBackendId=` | 可见工具/用户系世界位姿：`tools[]`/`users[]`（`positionMm`/`eulerDeg`/`active`） |
 | POST | `/api/robot/joints` | `{sceneRootBackendId,jointAnglesRad[]}` → FK + SSE |
 | GET/PUT | `/api/robot/programs` | 程序 JSON（`[{sceneBackendId,activeProgramId,programs:[{id,instructions[]}]}]`） |
 | GET | `/api/robot/instructions/:id/properties` | 指令属性行 |
@@ -47,7 +53,7 @@ SSE：`ProjectLoaded` `ProjectSaved` `PoseCommitted` `ObjectPatched` `BackendObj
 | POST | `/api/robot/run` `/api/robot/stop` | 回放控制（stub，后续 Executor） |
 | POST | `/api/robot/export` | Canonical 导出管道占位 |
 
-SSE：`RobotKinematicsApplied`
+SSE：`RobotKinematicsApplied` `RobotCoordinateFramesChanged`
 
 ## P3 几何 / 点云
 

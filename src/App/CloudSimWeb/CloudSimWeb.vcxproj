@@ -72,7 +72,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHost.lib;CloudSimCore.lib;Data.lib;ws2_32.lib;osgViewer.lib;osg.lib;osgDB.lib;osgUtil.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHost.lib;CloudSimCore.lib;Data.lib;RobotScene.lib;ws2_32.lib;osgViewer.lib;osg.lib;osgDB.lib;osgUtil.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)web" mkdir "$(OutDir)web"
@@ -87,10 +87,10 @@ xcopy /Y /I /Q "$(ProjectDir)..\..\..\web\cloudsim-web-ui\public-fallback\*" "$(
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHost.lib;CloudSimCore.lib;Data.lib;ws2_32.lib;osgViewer.lib;osg.lib;osgDB.lib;osgUtil.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHost.lib;CloudSimCore.lib;Data.lib;RobotScene.lib;ws2_32.lib;osgViewer.lib;osg.lib;osgDB.lib;osgUtil.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)web" mkdir "$(OutDir)web"

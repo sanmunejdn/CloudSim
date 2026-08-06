@@ -324,7 +324,7 @@ Executor 侧：`RobotProgramExecutor::currentInstruction()`（见 [`../Robot/Rob
 
 | 类 | 说明 |
 |----|------|
-| `SimulationCommandWidget` | 指令树、Run/Stop、**仿真倍率**下拉、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/ARC/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged`；**ARC 两步示教**（`setArcTeachPending`） |
+| `SimulationCommandWidget` | 指令树、Run/Stop、**仿真倍率**下拉、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；扁工具条插入（PTP/LINE/ARC/…/PathPlan）与编辑（末端拖动/删除/清空）；TCP combo **界面隐藏**（`setTcpLinkOptions` / `selectedTcpLink` 仍供规划回退）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged`；**ARC 两步示教**（`setArcTeachPending`） |
 | `RobotAxisControlWidget` | 关节/外轴滑条；顶部「显示可达域」+ 密度滑条（默认 50%，调采样数/体素边长）；Halton 采样细点 overlay | 关节滑块（`qBound` 限位）；外轴滑条（平移 mm / 旋转 deg，内部 rad） |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → `onRobotCoordinateFramesChanged`（见下） |
 | `RobotExternalAxisSettingsWidget` | 多轴 Translate/Rotate × RobotBase/Workpiece；`workingFrameId` 工作架下拉（空=绑定根）；`setBackendIdOptions`；`externalAxesChanged` → `onRobotExternalAxesChanged`；Run 时由 `applyExternalAxisFromPlan` 按段进度插值 `externalAxisQs` |
@@ -389,17 +389,38 @@ TCP 拖动 OSG 实现仍在 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER
 
 ### `SimulationCommandWidget` 布局（指令子页）
 
-Dock **机器人** 页内指令编辑区自上而下：
+Dock **机器人** → 子 Tab **指令**。排版变更不得改信号名与 Controller 接线；属性仍在 Property Dock。
 
-| 区域 | 控件 |
-|------|------|
-| 提示 | 选择机器人、插入指令、Ctrl 多选 + 右键分组、拖放排序 |
-| 机器人 / TCP | `m_robotCombo`、`m_tcpLinkCombo` |
-| 程序 | 下拉 + 新建 / 重命名 / 删除 |
-| **指令**（`m_instructionGroupBox`） | PTP、LINE、ARC、\|、WAIT、IF、WHILE、SET_DO、SET_AO |
-| **功能**（`m_functionGroupBox`） | 末端拖动、删除、清空 |
-| 指令树 | `InstructionProgramTreeWidget`（占剩余高度） |
-| 运行 | Run / Stop / 仿真倍率 / Export（品牌程序） |
+**参考 UI：**
+
+```text
+┌─ 播放条（顶栏 + 底部分隔线）───────────────────────┐
+│ [▶ 运行] [■ 停止]  仿真倍率 [1×▼]        [导出]   │
+├─ 上下文（标签定宽对齐）────────────────────────────┤
+│ 机器人 [R-2000iC-165F ▼]                           │
+│ 程序   [Main ▼]  [新建] [重命名] [删除]             │
+├─ 工具条（扁标签，无厚 QGroupBox）──────────────────┤
+│ 插入  PTP  直线  圆弧                                │
+│       等待  条件  循环  DO  AO  路径                   │
+│ 编辑  [拖动]  [删除]  [清空]                         │
+│       （拖动开启时蓝底 + 提示行）                      │
+├─ 指令树（stretch）─────────────────────────────────┤
+│  InstructionProgramTreeWidget                      │
+└────────────────────────────────────────────────────┘
+（内部：m_tcpLinkCombo 隐藏，仍由 setTcpLinkOptions 维护 preferred）
+```
+
+| 区域 | 控件 | 说明 |
+|------|------|------|
+| 播放条 | Run / Stop / 仿真倍率 / Export | Run=`primary`，Stop=`danger`，Export=`secondary`；固定顶栏 |
+| 机器人 | `m_robotLabel` + `m_robotCombo` | 全宽下拉 |
+| TCP | `m_tcpLinkCombo` | **界面隐藏**；API 保留；示教 TCP 以「坐标系」工具系为准 |
+| 程序 | 下拉 + 新建 / 重命名 / 删除 | 纯文字按钮，高度与程序下拉对齐（30px） |
+| 插入（`m_insertLabel`） | PTP、LINE、ARC / WAIT、IF、WHILE、SET_DO、SET_AO、PathPlan | **两行网格**，避免窄 Dock 裁切 |
+| 编辑（`m_editLabel`） | 末端拖动、删除、清空 | 删除/清空=`danger`；拖动按下=`primary` + 提示行，再点退出 |
+| 指令树 | `InstructionProgramTreeWidget` | 占剩余高度；不在整页 ScrollArea 内 |
+
+**本页样式比例（局部，不改 `ApplicationStyle`）：** 控件高 **30px**（容纳全局 padding + 边框，避免下边框被裁）；页边距 6；chrome 段间距 4；工具条内 spacing 2；上下文标签定宽对齐；插入钮 `min-width`≈52。
 
 ### 品牌程序导出
 
@@ -710,7 +731,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 | 开始修改 | `beginEditBoundPathPlan()` — 特征表 + 离散参数 + 算子流程 + 预览 |
 | 取消修改 | `cancelEditBoundPathPlan()` — 退出编辑态、清表/预览；已落盘 PathPlan 保留 |
 | 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；`Model` 需 `.step`/`.stp`；`BrepModel` 需内存 shape（含 AI `createPrimitiveMesh`）；真实 STEP 路径去重，虚拟/`BrepModel` 按 id 保留；切页/`showEvent` 会 `refreshWorkpieces`（`blockSignals` + 恢复原 backendId，**仅工件真正变化才清空特征表**） |
-| **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → 由互斥按钮「追加到选中 / 新建特征」决定写入方式（追加须表有选中行）；`FaceIntersection` 需同行 ≥2 面、`FaceOffsetCurve` 需同行面+边，几何未齐时保持/切换拾取态；右键「移除面/边…」勾选剔除索引 |
+| **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → 由互斥按钮「追加到选中 / 新建特征」决定写入方式（当前模式 `btnRole=primary` 高亮 + 状态行提示；追加须表有选中行）；`FaceIntersection` 需同行 ≥2 面、`FaceOffsetCurve` 需同行面+边，几何未齐时保持/切换拾取态；右键「移除面/边…」勾选剔除索引 |
 | 离散策略 | 拾取前下拉（面/线 affinity 过滤）；`resolveStrategyIdForPick` 严格匹配；`normalizeEntryStrategyForGeometry` 纠正策略/几何不一致 |
 | 离散参数模板 | 策略行下方命名模板：保存/加载/删除/导入/导出（`UserTemplateLibrary` · Discretize；仅 `strategyId`+`params`） |
 | 特征表 | `FeatureTableModel` + `FeatureDiscretizerParamPanel`；`discretizeFeatureList` → `setRawTrajectory` |

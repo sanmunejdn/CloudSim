@@ -82,6 +82,13 @@ private:
 	bool placeRobotOnGuiThread(const QByteArray& body, QString* err);
 	bool tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
 	QByteArray robotTcpPoseJsonOnGuiThread(const QString& sceneRootBackendId);
+	QByteArray robotFramesJsonOnGuiThread(const QString& sceneRootBackendId);
+	bool putRobotFramesOnGuiThread(const QByteArray& body, QString* err);
+	bool mutateRobotFramesOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
+	bool captureRobotToolFrameOnGuiThread(const QByteArray& body, QString* err);
+	bool captureRobotUserFrameOnGuiThread(const QByteArray& body, QString* err);
+	bool resetRobotToolFrameOnGuiThread(const QByteArray& body, QString* err);
+	QByteArray robotFrameOverlaysJsonOnGuiThread(const QString& sceneRootBackendId);
 	QByteArray instructionPropertiesJsonOnGuiThread(const QString& instructionId);
 	bool patchInstructionPropertyOnGuiThread(const QString& instructionId, const QByteArray& body, QString* err);
 	bool registerUrdfOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);

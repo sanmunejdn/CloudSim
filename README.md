@@ -1,1 +1,86 @@
-<img width="2560" height="1494" alt="image" src="https://github.com/user-attachments/assets/0ad653cf-cb9a-489d-aede-71c2e268615b" />
+# CloudSim
+
+面向工业机器人仿真的桌面与网页端：三维场景、URDF/运动规划、几何建模（OCC）、点云与轨迹工具，以及可扩展插件体系。
+
+![CloudSim](https://github.com/user-attachments/assets/0ad653cf-cb9a-489d-aede-71c2e268615b)
+
+## 快速入口
+
+| 项 | 路径 |
+|----|------|
+| 桌面解决方案 | [`CloudSim.sln`](CloudSim.sln) → `CloudSim.exe` |
+| 网页解决方案 | [`CloudSimWeb.sln`](CloudSimWeb.sln) → `CloudSimWeb.exe` |
+| 双端安装包 | [`../Setup/packaging`](../Setup/packaging)（`-Product Desktop\|Web`） |
+| 文档索引 | [`docs/README.md`](docs/README.md) |
+| 目录布局 | [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md) |
+| 模块开发指南 | [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md) |
+| 源码约定 | [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md) |
+| 世界坐标契约 | [`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md) |
+| 网页 API（归档） | [`docs/_archive/网页端/API_网页端.md`](docs/_archive/网页端/API_网页端.md) |
+
+构建产物：Debug → 仓库根 `bin\x64d\`，Release → `bin\x64\`（见 `Directory.Build.props`）。网页静态资源在同目录 `web\`。
+
+## 桌面 vs 网页
+
+| | 桌面 | 网页 |
+|--|------|------|
+| 解决方案 | `CloudSim.sln` | `CloudSimWeb.sln`（仅 Web 依赖链，不含 Widget UI） |
+| 进程 | `CloudSim.exe` | `CloudSimWeb.exe`（独立，不监听桌面端口） |
+| 入口 | `src/App/CloudSim/` | `src/App/CloudSimWeb/` |
+| 宿主 | 完整 Qt/OSG UI | Headless Host + HTTP/WS 网关 |
+| 默认访问 | 桌面窗口 | `http://127.0.0.1:8787`（可用 `--port=` 改端口） |
+
+两套 sln **互不引入**对方的 UI/Web 工程；共享 `CloudSimCore` / `CloudSimHost` / `Data` / 机器人与几何等后端 DLL。
+
+## 网页版源码
+
+```text
+CloudSim/
+├── CloudSimWeb.sln
+├── web/cloudsim-web-ui/          # 前端（Vite + React + Three.js）
+│   ├── src/                      # TS/TSX 源码
+│   └── public-fallback/          # 无 Node 时 post-build 拷贝的兜底静态页
+├── src/App/CloudSimWeb/          # CloudSimWeb.exe：Qt 事件循环、启停 Gateway
+└── src/Web/CloudSimWebGateway/   # HTTP/WS（cpp-httplib）、REST/SSE、静态托管
+```
+
+- **Gateway**：托管 `$(OutDir)web`，对外 REST + SSE（`/api/events`）；业务经 Headless Host / Data / 轨迹等与桌面同源。
+- **前端构建**（有 Node 时，在 `web/cloudsim-web-ui`）：
+
+```bash
+npm run build:debug    # → bin/x64d/web
+npm run build:release  # → bin/x64/web
+```
+
+- **无 Node**：编译 `CloudSimWeb` 会把 `public-fallback/*` xcopy 到 `$(OutDir)web`（规则见 `CloudSimWeb.vcxproj`）。改 `public-fallback` 后须编过对应 Configuration，勿只拷到其它目录。
+
+## 源码结构（摘要）
+
+```text
+CloudSim/
+├── CloudSim.sln / CloudSimWeb.sln
+├── docs/                 # 常读文档；历史专题见 docs/_archive/
+├── web/                  # 网页前端
+├── scripts/              # clang-format / 编码 / vcxproj.filters
+└── src/
+    ├── App/              # CloudSim.exe / CloudSimWeb.exe / Bootstrap
+    ├── Web/              # CloudSimWebGateway
+    ├── Contracts/        # CloudSimCore 契约
+    ├── Host/             # CloudSimHost 文档宿主
+    ├── UI/               # Widget / RobotWidget / 插件宿主等（桌面）
+    ├── Robot/            # 运动学、场景、轨迹
+    ├── Geometry/         # OCC / 点云 / VCG
+    ├── Data/             # 后端对象与持久化
+    ├── Plugins/          # 几何建模、工艺、PLC、AI 等
+    └── Infra/            # RunLogger 等
+```
+
+## 维护命令
+
+在 `CloudSim/` 根目录：
+
+```bash
+python scripts/run_clang_format.py
+python scripts/normalize_source_encoding.py
+python scripts/generate_vcxproj_filters.py --sync
+```

@@ -11,6 +11,8 @@
 #include "IDocumentScope.h"
 #include "IRobotService.h"
 #include "ProjectPackageIo.h"
+#include "RobotCoordinateFrameOps.h"
+#include "RobotCoordinateFrames.h"
 #include "StoreZipExtract.h"
 #include "WebGatewaySidecars.h"
 
@@ -153,6 +155,7 @@ bool WebGateway::saveProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 		return false;
 	}
 	cloudsim::host::mergeRobotProgramsIntoProjectRoot(*host, built.root);
+	cloudsim::host::mergeRobotKinematicsIntoProjectRoot(*host, built.root);
 	webGatewayMergeSidecarsIntoProject(built.root);
 
 	QFile out(jsonPath);
@@ -705,6 +708,348 @@ QByteArray WebGateway::robotTcpPoseJsonOnGuiThread(const QString& sceneRootBacke
 	root.insert(QStringLiteral("positionMm"),
 				QJsonArray{pose.positionMm[0], pose.positionMm[1], pose.positionMm[2]});
 	root.insert(QStringLiteral("eulerDeg"), QJsonArray{pose.eulerDeg[0], pose.eulerDeg[1], pose.eulerDeg[2]});
+	QJsonArray mat;
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+			mat.append(pose.worldMat.v[r * 4 + c]);
+	}
+	root.insert(QStringLiteral("worldMatrix"), mat);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+namespace
+{
+QString resolveSceneRootId(cloudsim::host::HeadlessRobotContext* hrc, const QString& sceneRootBackendId)
+{
+	QString rootId = sceneRootBackendId.trimmed();
+	if (rootId.isEmpty() && hrc)
+	{
+		const auto instances = hrc->listInstances();
+		if (!instances.isEmpty())
+			rootId = instances.first().sceneRootBackendId;
+	}
+	return rootId;
+}
+
+QJsonObject overlayEntryToJson(const cloudsim::host::FrameOverlayEntry& e)
+{
+	QJsonArray mat;
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+			mat.append(e.worldMat.v[r * 4 + c]);
+	}
+	return QJsonObject{{QStringLiteral("id"), e.id},
+					   {QStringLiteral("name"), e.name},
+					   {QStringLiteral("active"), e.active},
+					   {QStringLiteral("positionMm"), QJsonArray{e.positionMm[0], e.positionMm[1], e.positionMm[2]}},
+					   {QStringLiteral("eulerDeg"), QJsonArray{e.eulerDeg[0], e.eulerDeg[1], e.eulerDeg[2]}},
+					   {QStringLiteral("worldMatrix"), mat}};
+}
+} // namespace
+
+QByteArray WebGateway::robotFramesJsonOnGuiThread(const QString& sceneRootBackendId)
+{
+	QJsonObject root;
+	root.insert(QStringLiteral("ok"), false);
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("no headless robot context"));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	const QString rootId = resolveSceneRootId(hrc, sceneRootBackendId);
+	const int idx = hrc->robotInstanceIndexForSceneBackendId(rootId);
+	if (idx < 0)
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("unknown sceneRootBackendId"));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = hrc->robotCoordinateFramesForInstance(idx);
+	QJsonArray linkNames;
+	cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+	if (hrc->robotPerLinkKinematicsForInstance(idx, pl))
+	{
+		QStringList keys = pl.linkNameToBackendId.keys();
+		keys.sort();
+		for (const QString& k : keys)
+			linkNames.append(k);
+	}
+	root.insert(QStringLiteral("ok"), true);
+	root.insert(QStringLiteral("sceneRootBackendId"), rootId);
+	root.insert(QStringLiteral("frames"), cloudsim::host::coordinateFrameSetToQJson(frames));
+	root.insert(QStringLiteral("linkNames"), linkNames);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::putRobotFramesOnGuiThread(const QByteArray& body, QString* err)
+{
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		if (err)
+			*err = QStringLiteral("no headless robot context");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	if (!doc.isObject())
+	{
+		if (err)
+			*err = QStringLiteral("invalid json");
+		return false;
+	}
+	const QJsonObject o = doc.object();
+	const QString rootId = resolveSceneRootId(hrc, o.value(QStringLiteral("sceneRootBackendId")).toString());
+	const int idx = hrc->robotInstanceIndexForSceneBackendId(rootId);
+	if (idx < 0)
+	{
+		if (err)
+			*err = QStringLiteral("unknown sceneRootBackendId");
+		return false;
+	}
+	RobotCoordinate::RobotCoordinateFrameSet newFrames;
+	const QJsonObject framesObj = o.value(QStringLiteral("frames")).toObject();
+	if (framesObj.isEmpty() || !cloudsim::host::coordinateFrameSetFromQJson(framesObj, newFrames))
+	{
+		if (err)
+			*err = QStringLiteral("invalid frames");
+		return false;
+	}
+	RobotCoordinate::RobotCoordinateFrameSet& cur = hrc->robotCoordinateFramesForInstance(idx);
+	const RobotCoordinate::RobotCoordinateFrameSet oldFrames = cur;
+	cur = newFrames;
+	cloudsim::host::syncProgramToolContextAfterFrameChange(host->robotProgramStore(), rootId, oldFrames, cur);
+	pushEvent(QStringLiteral("{\"type\":\"RobotCoordinateFramesChanged\",\"sceneRootBackendId\":\"%1\"}")
+				  .arg(jsonEscapeApi(rootId)));
+	return true;
+}
+
+bool WebGateway::mutateRobotFramesOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out)
+{
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		if (err)
+			*err = QStringLiteral("no headless robot context");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	const QJsonObject o = doc.isObject() ? doc.object() : QJsonObject{};
+	const QString rootId = resolveSceneRootId(hrc, o.value(QStringLiteral("sceneRootBackendId")).toString());
+	const int idx = hrc->robotInstanceIndexForSceneBackendId(rootId);
+	if (idx < 0)
+	{
+		if (err)
+			*err = QStringLiteral("unknown sceneRootBackendId");
+		return false;
+	}
+	const QString action = o.value(QStringLiteral("action")).toString();
+	const QString sourceId = o.value(QStringLiteral("id")).toString();
+	RobotCoordinate::RobotCoordinateFrameSet& frames = hrc->robotCoordinateFramesForInstance(idx);
+	const RobotCoordinate::RobotCoordinateFrameSet oldFrames = frames;
+	std::string selectedId;
+	if (action == QLatin1String("addTool"))
+	{
+		selectedId = cloudsim::host::addToolFrame(frames);
+	}
+	else if (action == QLatin1String("addUser"))
+	{
+		selectedId = cloudsim::host::addUserFrame(frames);
+	}
+	else if (action == QLatin1String("duplicateTool"))
+	{
+		selectedId = cloudsim::host::duplicateToolFrame(frames, sourceId.toStdString());
+		if (selectedId.empty())
+		{
+			if (err)
+				*err = QStringLiteral("tool frame not found");
+			return false;
+		}
+	}
+	else if (action == QLatin1String("duplicateUser"))
+	{
+		selectedId = cloudsim::host::duplicateUserFrame(frames, sourceId.toStdString());
+		if (selectedId.empty())
+		{
+			if (err)
+				*err = QStringLiteral("user frame not found");
+			return false;
+		}
+	}
+	else
+	{
+		if (err)
+			*err = QStringLiteral("unknown action");
+		return false;
+	}
+	cloudsim::host::syncProgramToolContextAfterFrameChange(host->robotProgramStore(), rootId, oldFrames, frames);
+	pushEvent(QStringLiteral("{\"type\":\"RobotCoordinateFramesChanged\",\"sceneRootBackendId\":\"%1\"}")
+				  .arg(jsonEscapeApi(rootId)));
+	if (out)
+	{
+		QJsonArray linkNames;
+		cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+		if (hrc->robotPerLinkKinematicsForInstance(idx, pl))
+		{
+			QStringList keys = pl.linkNameToBackendId.keys();
+			keys.sort();
+			for (const QString& k : keys)
+				linkNames.append(k);
+		}
+		out->insert(QStringLiteral("sceneRootBackendId"), rootId);
+		out->insert(QStringLiteral("frames"), cloudsim::host::coordinateFrameSetToQJson(frames));
+		out->insert(QStringLiteral("linkNames"), linkNames);
+		out->insert(QStringLiteral("selectedId"), QString::fromStdString(selectedId));
+		out->insert(QStringLiteral("kind"),
+					action.startsWith(QLatin1String("addTool")) || action.startsWith(QLatin1String("duplicateTool"))
+						? QStringLiteral("tool")
+						: QStringLiteral("user"));
+	}
+	return true;
+}
+
+bool WebGateway::captureRobotToolFrameOnGuiThread(const QByteArray& body, QString* err)
+{
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		if (err)
+			*err = QStringLiteral("no headless robot context");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	const QJsonObject o = doc.isObject() ? doc.object() : QJsonObject{};
+	const QString rootId = resolveSceneRootId(hrc, o.value(QStringLiteral("sceneRootBackendId")).toString());
+	const int idx = hrc->robotInstanceIndexForSceneBackendId(rootId);
+	if (idx < 0)
+	{
+		if (err)
+			*err = QStringLiteral("unknown sceneRootBackendId");
+		return false;
+	}
+	cloudsim::host::HeadlessRobotContext::TcpPoseCapture pose;
+	if (!hrc->captureTcpPose(rootId, pose, err))
+		return false;
+	const BackendMat4 T_base_tcp = RobotCoordinate::tcpInBaseFromPose(
+		pose.positionMm[0], pose.positionMm[1], pose.positionMm[2], pose.eulerDeg[0], pose.eulerDeg[1], pose.eulerDeg[2]);
+	RobotCoordinate::RobotCoordinateFrameSet& frames = hrc->robotCoordinateFramesForInstance(idx);
+	const RobotCoordinate::RobotCoordinateFrameSet oldFrames = frames;
+	QString flangeLink = pose.flangeLinkName;
+	if (const RobotCoordinate::RobotToolFrame* active = RobotCoordinate::activeToolFrame(frames))
+	{
+		const QString eff = QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *active));
+		if (!eff.isEmpty())
+			flangeLink = eff;
+	}
+	QStringList names;
+	QVector<double> lo, hi, angles;
+	(void)hrc->jointMetaForSceneRoot(rootId, names, lo, hi, angles);
+	if (!cloudsim::host::captureToolFrameFromTcpPose(hrc->robotUrdfAbsolutePathForInstance(idx), angles, flangeLink,
+													 T_base_tcp, frames, err))
+		return false;
+	cloudsim::host::syncProgramToolContextAfterFrameChange(host->robotProgramStore(), rootId, oldFrames, frames);
+	pushEvent(QStringLiteral("{\"type\":\"RobotCoordinateFramesChanged\",\"sceneRootBackendId\":\"%1\"}")
+				  .arg(jsonEscapeApi(rootId)));
+	return true;
+}
+
+bool WebGateway::captureRobotUserFrameOnGuiThread(const QByteArray& body, QString* err)
+{
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		if (err)
+			*err = QStringLiteral("no headless robot context");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	const QJsonObject o = doc.isObject() ? doc.object() : QJsonObject{};
+	const QString rootId = resolveSceneRootId(hrc, o.value(QStringLiteral("sceneRootBackendId")).toString());
+	const int idx = hrc->robotInstanceIndexForSceneBackendId(rootId);
+	if (idx < 0)
+	{
+		if (err)
+			*err = QStringLiteral("unknown sceneRootBackendId");
+		return false;
+	}
+	cloudsim::host::HeadlessRobotContext::TcpPoseCapture pose;
+	if (!hrc->captureTcpPose(rootId, pose, err))
+		return false;
+	RobotCoordinate::RobotCoordinateFrameSet& frames = hrc->robotCoordinateFramesForInstance(idx);
+	const RobotCoordinate::RobotCoordinateFrameSet oldFrames = frames;
+	if (!cloudsim::host::captureUserFrameFromTcpPose(pose.positionMm[0], pose.positionMm[1], pose.positionMm[2],
+													 pose.eulerDeg[0], pose.eulerDeg[1], pose.eulerDeg[2], frames, err))
+		return false;
+	cloudsim::host::syncProgramToolContextAfterFrameChange(host->robotProgramStore(), rootId, oldFrames, frames);
+	pushEvent(QStringLiteral("{\"type\":\"RobotCoordinateFramesChanged\",\"sceneRootBackendId\":\"%1\"}")
+				  .arg(jsonEscapeApi(rootId)));
+	return true;
+}
+
+bool WebGateway::resetRobotToolFrameOnGuiThread(const QByteArray& body, QString* err)
+{
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		if (err)
+			*err = QStringLiteral("no headless robot context");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	const QJsonObject o = doc.isObject() ? doc.object() : QJsonObject{};
+	const QString rootId = resolveSceneRootId(hrc, o.value(QStringLiteral("sceneRootBackendId")).toString());
+	const int idx = hrc->robotInstanceIndexForSceneBackendId(rootId);
+	if (idx < 0)
+	{
+		if (err)
+			*err = QStringLiteral("unknown sceneRootBackendId");
+		return false;
+	}
+	RobotCoordinate::RobotCoordinateFrameSet& frames = hrc->robotCoordinateFramesForInstance(idx);
+	const RobotCoordinate::RobotCoordinateFrameSet oldFrames = frames;
+	cloudsim::host::resetActiveToolFrame(frames);
+	cloudsim::host::syncProgramToolContextAfterFrameChange(host->robotProgramStore(), rootId, oldFrames, frames);
+	pushEvent(QStringLiteral("{\"type\":\"RobotCoordinateFramesChanged\",\"sceneRootBackendId\":\"%1\"}")
+				  .arg(jsonEscapeApi(rootId)));
+	return true;
+}
+
+QByteArray WebGateway::robotFrameOverlaysJsonOnGuiThread(const QString& sceneRootBackendId)
+{
+	QJsonObject root;
+	root.insert(QStringLiteral("ok"), false);
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("no headless robot context"));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	const QString rootId = resolveSceneRootId(hrc, sceneRootBackendId);
+	cloudsim::host::FrameOverlaySnapshot snap;
+	QString err;
+	if (!cloudsim::host::buildFrameOverlaySnapshot(*hrc, host->backend(), rootId, snap, &err))
+	{
+		root.insert(QStringLiteral("error"), err.isEmpty() ? QStringLiteral("overlay failed") : err);
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	QJsonArray tools;
+	for (const auto& e : snap.tools)
+		tools.append(overlayEntryToJson(e));
+	QJsonArray users;
+	for (const auto& e : snap.users)
+		users.append(overlayEntryToJson(e));
+	root.insert(QStringLiteral("ok"), true);
+	root.insert(QStringLiteral("sceneRootBackendId"), rootId);
+	root.insert(QStringLiteral("tools"), tools);
+	root.insert(QStringLiteral("users"), users);
 	return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }
 

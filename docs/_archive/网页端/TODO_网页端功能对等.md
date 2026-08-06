@@ -10,3 +10,4 @@
 8. ~~指令程序编辑器（基础）~~：**已完成**（示教 PTP/LINE/ARC、GET/PUT programs、选中规划预览、属性 GET/PATCH；Run/导出仍 stub）。  
 9. **轴控制增强（可选）**：外部轴滑条、可达域、可行轴配置 UI。  
 10. ~~PathPlan / 轨迹管线~~：**已完成**（`HeadlessTrajectorySession`、拾取/离散/Mesh、管线预览应用、模板与 undo；细节见 `docs/网页端轨迹对等/`）。
+11. ~~坐标系 Frames 页~~：**已完成**（`/api/robot/frames*`、捕获/重置、overlays、工程 kinematics 写出；见 `docs/网页端坐标系对齐/`）。

@@ -299,6 +299,9 @@
     <ClInclude Include="inc\HeadlessRobotContext.h">
       <Filter>inc\DocumentHost</Filter>
     </ClInclude>
+    <ClInclude Include="inc\RobotCoordinateFrameOps.h">
+      <Filter>inc\DocumentHost</Filter>
+    </ClInclude>
     <ClInclude Include="inc\widget_global.h">
       <Filter>inc\Global</Filter>
     </ClInclude>
@@ -536,6 +539,9 @@
       <Filter>src\DocumentHost</Filter>
     </ClCompile>
     <ClCompile Include="source\HeadlessRobotContext.cpp">
+      <Filter>src\DocumentHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotCoordinateFrameOps.cpp">
       <Filter>src\DocumentHost</Filter>
     </ClCompile>
     <ClCompile Include="source\DocumentHostEvents.cpp">

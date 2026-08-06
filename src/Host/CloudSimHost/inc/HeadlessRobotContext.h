@@ -56,6 +56,8 @@ public:
 	};
 
 	void clearRobotSimulationContext();
+	/// 删除后端对象时：若命中场景根或任一连杆，卸掉该机器人实例（对齐 DocumentPage）
+	void clearRobotSimulationIfContains(const QString& removedBackendId);
 	QVector<InstanceInfo> listInstances() const;
 	bool jointMetaForSceneRoot(const QString& sceneRootBackendId, QStringList& outNames, QVector<double>& outLower,
 							   QVector<double>& outUpper, QVector<double>& outAngles) const;
@@ -82,6 +84,8 @@ public:
 		double eulerDeg[3]{0.0, 0.0, 0.0};
 		QString jointRadCsv;
 		QString flangeLinkName;
+		/// 场景系 TCP（与 objects.worldMatrix 同 BackendMat4 布局），供网页罗盘贴合
+		BackendMat4 worldMat = BackendMat4::identity();
 	};
 	/// 当前关节下基座系 TCP（工具原点）示教位姿
 	bool captureTcpPose(const QString& sceneRootBackendId, TcpPoseCapture& out, QString* outError = nullptr) const;

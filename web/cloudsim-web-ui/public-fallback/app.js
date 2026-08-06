@@ -17,6 +17,8 @@ const docTabTitle = $("docTabTitle");
 const zUpToYUp = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
 const idToMesh = new Map();
 let selectedId = null;
+// 默认视图移动；对象选择需菜单开启，避免点连杆误挂平移罗盘
+let sceneInteractMode = "view"; // "view" | "select"
 let objects = [];
 let detail = null;
 let suppressPosePush = false;
@@ -24,7 +26,7 @@ let selectedRobot = null; // { sceneRootBackendId, anchorBackendId, flangeBacken
 let posePushInFlight = false;
 let posePushPending = false;
 let robotDragMode = false;
-let dragFlangeId = null; // 拖拽罗盘锚定的法兰 backendId
+let dragFlangeId = null; // 拖拽罗盘锚定的法兰 backendId（IK 实例解析用）
 
 // 指令程序：与 Host RobotProgramCatalog JSON 对齐
 let programCatalogs = []; // [{sceneBackendId, activeProgramId, programs:[{id,name,isMain,instructions,groups}]}]
@@ -80,13 +82,35 @@ transform.addEventListener("dragging-changed", (e) => {
   controls.enabled = !e.value;
   if (!e.value) {
     posePushPending = true;
-    void flushPosePush();
+    void (async () => {
+      await flushPosePush();
+      if (robotDragMode && dragFlangeId) {
+        await refreshFrameOverlays();
+        transform.enabled = true;
+        transform.attach(dragProxy);
+        transform.getHelper().visible = true;
+      } else if (sceneInteractMode === "select" && isRobotSceneSelection(selectedId)) {
+        snapPlaceProxyToAnchor();
+        transform.enabled = true;
+        transform.attach(dragProxy);
+        transform.getHelper().visible = true;
+      }
+    })();
   }
 });
 transform.addEventListener("objectChange", () => {
-  if (suppressPosePush || !robotDragMode || !dragFlangeId) return;
-  posePushPending = true;
-  void flushPosePush();
+  if (suppressPosePush) return;
+  if (robotDragMode && dragFlangeId) {
+    followActiveToolOverlayToDragProxy();
+    posePushPending = true;
+    void flushPosePush();
+    return;
+  }
+  // 对象选择：整机放置 / 普通物体位姿
+  if (sceneInteractMode === "select" && transform.object) {
+    posePushPending = true;
+    void flushPosePush();
+  }
 });
 scene.add(transform.getHelper());
 // 半球填光 + 主/辅方向光：贴近桌面 HEADLIGHT 的可读性，避免 Standard 无 envMap 发闷
@@ -126,6 +150,9 @@ root.add(pickHighlight);
 const instrMarkers = new THREE.Group();
 instrMarkers.name = "instrMarkers";
 root.add(instrMarkers);
+const frameOverlays = new THREE.Group();
+frameOverlays.name = "frameOverlays";
+root.add(frameOverlays);
 
 function resize() {
   const w = Math.max(sceneMount.clientWidth, 1);
@@ -292,8 +319,12 @@ let treeExpandedIds = new Set(); // 用户展开的节点
 async function refreshRobotSceneRoots() {
   try {
     const inst = await (await fetch("/api/robot/instances")).json();
+    const objectIds = new Set(objects.map((o) => o.id));
+    // 场景里已无对应根时不计实例，避免删机后轴控制/坐标系仍挂幽灵
     robotSceneRootIds = new Set(
-      (inst.instances || []).map((i) => i.sceneRootBackendId).filter(Boolean)
+      (inst.instances || [])
+        .map((i) => i.sceneRootBackendId)
+        .filter((id) => id && (!objectIds.size || objectIds.has(id)))
     );
   } catch {
     robotSceneRootIds = new Set();
@@ -393,19 +424,104 @@ function robotRootOwning(backendId) {
   return null;
 }
 
+/// 点任何连杆/法兰都归到机器人场景根
+function resolveScenePickId(backendId) {
+  if (!backendId) return backendId;
+  return robotRootOwning(backendId) || backendId;
+}
+
+function selectionHighlightsId(mid) {
+  if (!selectedId || !mid) return false;
+  if (mid === selectedId) return true;
+  if (robotSceneRootIds.has(selectedId) && robotRootOwning(mid) === selectedId) return true;
+  return false;
+}
+
+function isRobotSceneSelection(id) {
+  if (!id) return false;
+  return robotSceneRootIds.has(id) || !!robotRootOwning(id);
+}
+
+function clearObjectTransformGizmo() {
+  if (robotDragMode && dragFlangeId) return;
+  transform.detach();
+  transform.enabled = false;
+  transform.getHelper().visible = false;
+}
+
+function snapPlaceProxyToAnchor() {
+  const anchorId = selectedRobot?.anchorBackendId;
+  const mesh = anchorId ? idToMesh.get(anchorId) : null;
+  if (!mesh) return false;
+  mesh.updateMatrixWorld(true);
+  root.updateMatrixWorld(true);
+  const local = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(mesh.matrixWorld);
+  local.decompose(dragProxy.position, dragProxy.quaternion, dragProxy.scale);
+  dragProxy.matrixAutoUpdate = true;
+  dragProxy.updateMatrix();
+  dragProxy.updateMatrixWorld(true);
+  return true;
+}
+
+function attachObjectGizmoIfNeeded() {
+  if (robotDragMode) return;
+  if (sceneInteractMode !== "select" || !selectedId) {
+    clearObjectTransformGizmo();
+    return;
+  }
+  // 机器人：罗盘挂锚点代理，整机平移/旋转走 /api/robot/place
+  if (isRobotSceneSelection(selectedId)) {
+    if (!selectedRobot?.anchorBackendId || !snapPlaceProxyToAnchor()) {
+      clearObjectTransformGizmo();
+      return;
+    }
+    transform.enabled = true;
+    transform.attach(dragProxy);
+    transform.getHelper().visible = true;
+    return;
+  }
+  const mesh = idToMesh.get(selectedId);
+  if (!mesh) {
+    clearObjectTransformGizmo();
+    return;
+  }
+  prepareMeshForGizmo(mesh);
+  transform.enabled = true;
+  transform.attach(mesh);
+  transform.setMode("translate");
+  transform.getHelper().visible = true;
+}
+
+function syncInteractModeMenu() {
+  $("btnInteractView")?.classList.toggle("on", sceneInteractMode === "view");
+  $("btnInteractSelect")?.classList.toggle("on", sceneInteractMode === "select");
+}
+
+function setSceneInteractMode(mode) {
+  sceneInteractMode = mode === "select" ? "select" : "view";
+  syncInteractModeMenu();
+  if (sceneInteractMode === "view") {
+    if (!robotDragMode) clearObjectTransformGizmo();
+    setStatus("视图移动：拖拽旋转/平移视图");
+  } else {
+    attachObjectGizmoIfNeeded();
+    setStatus("对象选择：点击场景选中对象（机器人点任意连杆=整机）");
+  }
+}
+
 function fillTree(el) {
   if (!el) return;
   el.innerHTML = "";
   const childMap = buildObjectChildMap();
   const hiddenLinks = robotLinkIdsHiddenByDefault();
-  const selectedRobotRoot = robotRootOwning(selectedId);
 
   const appendRow = (o, isChild) => {
     const isRobotRoot = robotSceneRootIds.has(o.id);
     const li = document.createElement("li");
     const sel =
       o.id === selectedId ||
-      (isRobotRoot && selectedRobotRoot === o.id && selectedId && selectedId !== o.id && hiddenLinks.has(selectedId));
+      (isRobotRoot && selectedId === o.id) ||
+      (isRobotRoot && robotRootOwning(selectedId) === o.id);
     if (sel) li.classList.add("sel");
     if (isChild) li.classList.add("tree-child");
 
@@ -535,23 +651,35 @@ async function focusObject(backendId) {
 async function deleteObject(backendId) {
   if (!backendId) return;
   if (!window.confirm(`删除对象「${backendId}」及其子节点？`)) return;
+  const deletedRobotRoot = resolveScenePickId(backendId);
+  const wasRobot = !!deletedRobotRoot && (robotSceneRootIds.has(deletedRobotRoot) || robotSceneRootIds.has(backendId));
   const r = await (await fetch(`/api/objects/${encodeURIComponent(backendId)}`, { method: "DELETE" })).json();
   if (!r.ok) {
     setStatus(r.error || "删除失败", "err");
     return;
   }
-  if (selectedId === backendId) {
+  if (selectedId === backendId || selectedId === deletedRobotRoot || robotRootOwning(selectedId) === deletedRobotRoot) {
     selectedId = null;
     selectedRobot = null;
-    transform.detach();
+    clearObjectTransformGizmo();
   }
-  if (dragFlangeId === backendId) {
+  if (dragFlangeId === backendId || (wasRobot && robotDragMode)) {
     robotDragMode = false;
     detachDragCompass();
     syncDragButtonUi();
   }
+  if (wasRobot) {
+    // 先清叠加与面板，避免 refresh 期间用残留 robotRoot 重画 TCP/用户系
+    if ($("robotRoot") && ($("robotRoot").value.trim() === deletedRobotRoot || $("robotRoot").value.trim() === backendId)) {
+      $("robotRoot").value = "";
+    }
+    clearCoordinateFramesUi();
+  }
   setStatus("已删除");
   await refreshObjects(false);
+  scrubStaleRobotRootRefs();
+  void loadAxisControl();
+  await loadCoordinateFrames();
 }
 
 function renderTree() {
@@ -563,7 +691,60 @@ function meshLocalMatrixArray(obj) {
   return Array.from(obj.matrix.elements);
 }
 
-/// 把代理对齐到法兰连杆的世界位姿（root 局部）
+function applyDragProxyFromWorldMatrix16(wm16) {
+  if (!Array.isArray(wm16) || wm16.length < 16) return false;
+  const m = new THREE.Matrix4().fromArray(wm16.map(Number));
+  m.decompose(dragProxy.position, dragProxy.quaternion, dragProxy.scale);
+  dragProxy.matrixAutoUpdate = true;
+  dragProxy.updateMatrix();
+  dragProxy.updateMatrixWorld(true);
+  return true;
+}
+
+/// 与可见工具系叠加同一数据源（overlays），避免 tcp-pose 与叠加分叉导致罗盘漂移
+async function fetchActiveToolWorldMatrix() {
+  const rootId = activeSceneRootId();
+  if (!rootId) return null;
+  const q = encodeURIComponent(rootId);
+  try {
+    const r = await (await fetch(`/api/robot/frames/overlays?sceneRootBackendId=${q}`)).json();
+    if (r.ok) {
+      const tools = r.tools || [];
+      const active = tools.find((t) => t.active && Array.isArray(t.worldMatrix) && t.worldMatrix.length >= 16);
+      if (active) return active.worldMatrix;
+      const any = tools.find((t) => Array.isArray(t.worldMatrix) && t.worldMatrix.length >= 16);
+      if (any) return any.worldMatrix;
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    const pose = await (await fetch(`/api/robot/tcp-pose?sceneRootBackendId=${q}`)).json();
+    if (pose.ok && Array.isArray(pose.worldMatrix) && pose.worldMatrix.length >= 16) return pose.worldMatrix;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/// 罗盘跟可见末端 TCP（overlays 激活工具系）
+async function snapDragProxyToActiveTcp() {
+  if (transform.dragging) return false;
+  const wm = await fetchActiveToolWorldMatrix();
+  if (transform.dragging) return false;
+  const wantAttach = robotDragMode && dragFlangeId;
+  const wasOnProxy = transform.object === dragProxy;
+  if (wasOnProxy) transform.detach();
+  let ok = applyDragProxyFromWorldMatrix16(wm);
+  if (!ok) ok = snapDragProxyToFlange(dragFlangeId);
+  if (ok && (wasOnProxy || wantAttach) && !transform.dragging) {
+    transform.enabled = true;
+    transform.attach(dragProxy);
+    transform.getHelper().visible = true;
+  }
+  return ok;
+}
+
 function snapDragProxyToFlange(flangeId) {
   const mesh = idToMesh.get(flangeId);
   if (!mesh) return false;
@@ -577,9 +758,10 @@ function snapDragProxyToFlange(flangeId) {
   return true;
 }
 
-function attachDragCompass(flangeId) {
+async function attachDragCompass(flangeId) {
   dragFlangeId = flangeId;
-  if (!snapDragProxyToFlange(flangeId)) return false;
+  const ok = (await snapDragProxyToActiveTcp()) || snapDragProxyToFlange(flangeId);
+  if (!ok) return false;
   transform.enabled = true;
   transform.attach(dragProxy);
   transform.setMode("translate");
@@ -644,7 +826,45 @@ async function pushSelectedPoseOnce() {
     axisSyncQuietUntil = performance.now() + 120;
     applyAxisAnglesFromServer(r.jointAnglesRad);
     await syncObjectTransforms();
-    if (!transform.dragging) snapDragProxyToFlange(dragFlangeId);
+    if (transform.dragging) {
+      followActiveToolOverlayToDragProxy();
+    } else {
+      await refreshFrameOverlays();
+    }
+    return;
+  }
+
+  // 对象选择 + 机器人：锚点世界阵 → 整机 basePlacement
+  if (
+    sceneInteractMode === "select" &&
+    isRobotSceneSelection(selectedId) &&
+    selectedRobot?.anchorBackendId &&
+    transform.object === dragProxy
+  ) {
+    dragProxy.updateMatrix();
+    const worldMatrix = meshLocalMatrixArray(dragProxy);
+    const r = await (
+      await fetch("/api/robot/place", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anchorBackendId: selectedRobot.anchorBackendId,
+          worldMatrix,
+        }),
+      })
+    ).json();
+    if (!r.ok) {
+      setStatus(r.error || "整机放置失败", "err");
+      return;
+    }
+    axisSyncQuietUntil = performance.now() + 120;
+    await syncObjectTransforms();
+    if (!transform.dragging) {
+      snapPlaceProxyToAnchor();
+      transform.enabled = true;
+      transform.attach(dragProxy);
+      transform.getHelper().visible = true;
+    }
     return;
   }
 
@@ -681,9 +901,11 @@ async function resolveSelectedRobot(backendId) {
         flangeBackendId: r.flangeBackendId || r.anchorBackendId || backendId,
       };
       if ($("robotRoot")) $("robotRoot").value = r.sceneRootBackendId || "";
-      if ($("axisInstance") && r.sceneRootBackendId) {
-        const sel = $("axisInstance");
-        if ([...sel.options].some((o) => o.value === r.sceneRootBackendId)) sel.value = r.sceneRootBackendId;
+      if (r.sceneRootBackendId) {
+        for (const id of ["axisInstance", "frameInstance"]) {
+          const sel = $(id);
+          if (sel && [...sel.options].some((o) => o.value === r.sceneRootBackendId)) sel.value = r.sceneRootBackendId;
+        }
       }
       return r;
     }
@@ -718,6 +940,7 @@ async function setRobotDragMode(on) {
     robotDragMode = false;
     detachDragCompass();
     syncDragButtonUi();
+    attachObjectGizmoIfNeeded();
     setStatus("已退出拖拽模式");
     return;
   }
@@ -759,7 +982,8 @@ async function setRobotDragMode(on) {
   }
 
   selectedId = flangeId;
-  if (!attachDragCompass(flangeId)) {
+  if (!frameState) await loadCoordinateFrames();
+  if (!(await attachDragCompass(flangeId))) {
     robotDragMode = false;
     syncDragButtonUi();
     setStatus("无法在末端挂载罗盘", "err");
@@ -829,6 +1053,7 @@ function bindUiChrome() {
       showPane("robotTrajEdit", tab === "trajEdit");
       showPane("robotFrame", tab === "frame");
       if (tab === "joint") void loadAxisControl();
+      if (tab === "frame") void loadCoordinateFrames();
       if (tab === "trajGen" || tab === "trajEdit") void refreshTrajectoryUi();
     };
   });
@@ -848,9 +1073,11 @@ function bindUiChrome() {
 }
 
 function activeSceneRootId() {
+  // 拖拽/IK 优先 robotRoot（与轴控制写入源一致），frameInstance 仅作坐标系页选择
   return (
     ($("robotRoot") && $("robotRoot").value.trim()) ||
     ($("axisInstance") && $("axisInstance").value) ||
+    ($("frameInstance") && $("frameInstance").value) ||
     (selectedRobot && selectedRobot.sceneRootBackendId) ||
     ""
   );
@@ -1258,6 +1485,7 @@ async function applyJointAngles(rootId, joints) {
   axisSyncQuietUntil = performance.now() + 200;
   applyAxisAnglesFromServer(joints);
   await syncObjectTransforms();
+  void refreshFrameOverlays();
   return true;
 }
 
@@ -1634,30 +1862,20 @@ async function refreshHealth() {
 }
 
 async function selectObject(id) {
-  selectedId = id;
-  await resolveSelectedRobot(id);
+  const resolved = resolveScenePickId(id);
+  selectedId = resolved;
+  await resolveSelectedRobot(resolved);
   await fetch("/api/selection", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ backendId: id }),
+    body: JSON.stringify({ backendId: resolved }),
   });
   renderTree();
   await loadDetail();
-  // 拖拽模式：选中只高亮，罗盘始终在末端代理上
-  if (!robotDragMode) {
-    detachDragCompass();
-    const mesh = idToMesh.get(id);
-    if (mesh) {
-      prepareMeshForGizmo(mesh);
-      transform.enabled = true;
-      transform.attach(mesh);
-      transform.setMode("translate");
-      transform.getHelper().visible = true;
-    }
-  }
+  if (!robotDragMode) attachObjectGizmoIfNeeded();
   for (const [mid, m] of idToMesh) {
     const o = objects.find((x) => x.id === mid);
-    applyMeshSelectionStyle(m, o, mid === id);
+    applyMeshSelectionStyle(m, o, selectionHighlightsId(mid));
   }
 }
 
@@ -1721,7 +1939,7 @@ function disposeSceneMesh(mesh) {
 
 /// 只保留 idToMesh 与辅助节点；并发 rebuild/选中重拉留下的旧网格会变成鬼影
 function pruneOrphanMeshes() {
-  const keep = new Set([trajLine, rawPreviewGroup, dragProxy, instrMarkers, pickHighlight]);
+  const keep = new Set([trajLine, rawPreviewGroup, dragProxy, instrMarkers, frameOverlays, pickHighlight]);
   for (const m of idToMesh.values()) keep.add(m);
   for (const c of [...root.children]) {
     if (keep.has(c)) continue;
@@ -1745,7 +1963,7 @@ async function rebuildScene() {
       transform.detach();
       transform.enabled = false;
       for (const c of [...root.children]) {
-        if (c === trajLine || c === rawPreviewGroup || c === dragProxy || c === instrMarkers || c === pickHighlight)
+        if (c === trajLine || c === rawPreviewGroup || c === dragProxy || c === instrMarkers || c === frameOverlays || c === pickHighlight)
           continue;
         root.remove(c);
         disposeSceneMesh(c);
@@ -1754,6 +1972,7 @@ async function rebuildScene() {
       if (!root.children.includes(trajLine)) root.add(trajLine);
       if (!root.children.includes(dragProxy)) root.add(dragProxy);
       if (!root.children.includes(instrMarkers)) root.add(instrMarkers);
+      if (!root.children.includes(frameOverlays)) root.add(frameOverlays);
       if (!root.children.includes(pickHighlight)) root.add(pickHighlight);
       idToMesh.clear();
       const box = new THREE.Box3();
@@ -1781,7 +2000,7 @@ async function rebuildScene() {
         geo.computeVertexNormals();
         const mesh = new THREE.Mesh(
           geo,
-          createMeshMaterial(colorFromObject(o, o.id === selectedId), o.id === selectedId)
+          createMeshMaterial(colorFromObject(o, selectionHighlightsId(o.id)), selectionHighlightsId(o.id))
         );
         mesh.userData.backendId = o.id;
         applyObjectTransform(mesh, o);
@@ -1799,12 +2018,14 @@ async function rebuildScene() {
       if (gen !== rebuildGen) return box;
       pruneOrphanMeshes();
       if (keepDrag && dragFlangeId && idToMesh.has(dragFlangeId)) {
-        attachDragCompass(dragFlangeId);
-      } else if (!keepDrag && selectedId && idToMesh.has(selectedId)) {
-        prepareMeshForGizmo(idToMesh.get(selectedId));
-        transform.enabled = true;
-        transform.attach(idToMesh.get(selectedId));
-        transform.getHelper().visible = true;
+        void attachDragCompass(dragFlangeId);
+      } else if (!keepDrag) {
+        attachObjectGizmoIfNeeded();
+      }
+      // 重建后刷新选中高亮（含整机）
+      for (const [mid, m] of idToMesh) {
+        const o = objects.find((x) => x.id === mid);
+        applyMeshSelectionStyle(m, o, selectionHighlightsId(mid));
       }
       refreshInstructionMarkers();
       statusEl.textContent = `对象 ${objects.length} · 网格 ${meshOk}${meshFail ? ` · 失败 ${meshFail}` : ""}`;
@@ -1876,7 +2097,12 @@ async function syncObjectTransforms() {
   if (sceneRebuildDepth > 0) return;
   objects = list.objects || [];
   const draggingRobot = robotDragMode && transform.dragging;
-  if (!draggingRobot) transform.detach();
+  // 拖拽模式下保留罗盘挂接，避免 FK 同步时 detach 造成拖不动
+  const placingRobot =
+    sceneInteractMode === "select" && isRobotSceneSelection(selectedId) && transform.object === dragProxy;
+  if (!draggingRobot && !(robotDragMode && dragFlangeId) && !(placingRobot && transform.dragging)) {
+    transform.detach();
+  }
   pruneOrphanMeshes();
   for (const o of objects) {
     const mesh = idToMesh.get(o.id);
@@ -1886,19 +2112,18 @@ async function syncObjectTransforms() {
   }
   if (robotDragMode && dragFlangeId) {
     if (!draggingRobot) {
-      snapDragProxyToFlange(dragFlangeId);
-      transform.enabled = true;
-      transform.attach(dragProxy);
-      transform.getHelper().visible = true;
+      await refreshFrameOverlays();
     }
     return;
   }
-  if (selectedId && idToMesh.has(selectedId)) {
-    prepareMeshForGizmo(idToMesh.get(selectedId));
+  if (placingRobot && transform.dragging) {
+    // 拖整机中：代理跟手，连杆已由 place 刷新
     transform.enabled = true;
-    transform.attach(idToMesh.get(selectedId));
+    transform.attach(dragProxy);
     transform.getHelper().visible = true;
+    return;
   }
+  attachObjectGizmoIfNeeded();
 }
 
 async function applyJointsFrom(inputId) {
@@ -2022,10 +2247,15 @@ async function loadAxisControl() {
   const instSel = $("axisInstance");
   const box = $("axisJoints");
   if (!instSel || !box) return;
+  scrubStaleRobotRootRefs();
   const prev = instSel.value || $("robotRoot").value.trim();
   const inst = await (await fetch("/api/robot/instances")).json();
+  const objectIds = new Set(objects.map((o) => o.id));
+  const instances = (inst.instances || []).filter(
+    (it) => it.sceneRootBackendId && (!objectIds.size || objectIds.has(it.sceneRootBackendId))
+  );
   instSel.innerHTML = "";
-  for (const it of inst.instances || []) {
+  for (const it of instances) {
     const opt = document.createElement("option");
     opt.value = it.sceneRootBackendId;
     opt.textContent = `${it.label || it.sceneRootBackendId} (${it.jointCount})`;
@@ -2040,9 +2270,15 @@ async function loadAxisControl() {
   if (!rootId) {
     box.innerHTML = '<p class="hint">暂无机器人实例，请从设备库导入或打开含机器人的工程</p>';
     axisJointsState = [];
+    if ($("frameInstance")) $("frameInstance").innerHTML = "";
+    clearCoordinateFramesUi();
+    scrubStaleRobotRootRefs();
     return;
   }
   $("robotRoot").value = rootId;
+  if ($("frameInstance") && [...$("frameInstance").options].some((o) => o.value === rootId)) {
+    $("frameInstance").value = rootId;
+  }
   const meta = await (await fetch(`/api/robot/joints?sceneRootBackendId=${encodeURIComponent(rootId)}`)).json();
   if (!meta.ok) {
     box.innerHTML = `<p class="hint">${meta.error || "无法读取关节"}</p>`;
@@ -2265,9 +2501,15 @@ $("btnAxisResetAll") &&
   });
 $("axisInstance") &&
   ($("axisInstance").onchange = () => {
-    $("robotRoot").value = $("axisInstance").value;
+    const v = $("axisInstance").value;
+    $("robotRoot").value = v;
+    if ($("frameInstance") && [...$("frameInstance").options].some((o) => o.value === v)) {
+      $("frameInstance").value = v;
+    }
     void loadAxisControl();
     void loadProgramsFromServer();
+    if (!$("robotFrame")?.classList.contains("hidden")) void loadCoordinateFrames();
+    else void refreshFrameOverlays();
   });
 
 function refreshInstructionMarkers() {
@@ -4155,12 +4397,16 @@ modeSelect.onchange = async () => {
 
 window.addEventListener("keydown", (ev) => {
   if (ev.target && /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
+  if (sceneInteractMode !== "select" || robotDragMode) return;
+  if (!transform.object) return;
   if (ev.key === "g" || ev.key === "G") transform.setMode("translate");
   if (ev.key === "r" || ev.key === "R") transform.setMode("rotate");
 });
 
 renderer.domElement.addEventListener("click", (ev) => {
   if (transform.dragging) return;
+  if (trajPickMode) return;
+  if (sceneInteractMode !== "select") return;
   const rect = renderer.domElement.getBoundingClientRect();
   const pointer = new THREE.Vector2(
     ((ev.clientX - rect.left) / rect.width) * 2 - 1,
@@ -4172,12 +4418,664 @@ renderer.domElement.addEventListener("click", (ev) => {
   if (!hits.length) return;
   let o = hits[0].object;
   while (o && !o.userData.backendId) o = o.parent;
-  if (o) void selectObject(o.userData.backendId);
+  if (o) void selectObject(resolveScenePickId(o.userData.backendId));
 });
+
+$("btnInteractView") &&
+  ($("btnInteractView").onclick = () => {
+    setSceneInteractMode("view");
+    document.querySelectorAll(".menu").forEach((m) => m.classList.remove("open"));
+  });
+$("btnInteractSelect") &&
+  ($("btnInteractSelect").onclick = () => {
+    setSceneInteractMode("select");
+    document.querySelectorAll(".menu").forEach((m) => m.classList.remove("open"));
+  });
+syncInteractModeMenu();
 
 bindUiChrome();
 appendLog("CloudSim Web 就绪");
 void loadProgramsFromServer();
+
+// —— 坐标系面板（对齐 RobotFrameSettingsWidget）——
+let frameState = null;
+let frameLinkNames = [];
+let selectedToolId = "";
+let selectedUserId = "";
+let frameUiBlock = false;
+let framesPutTimer = 0;
+let framesIgnoreSseReload = 0;
+
+function emptyRigid() {
+  return { positionMm: [0, 0, 0], eulerDeg: [0, 0, 0] };
+}
+
+function ensureFramesDefaults(f) {
+  if (!f) f = {};
+  if (!Array.isArray(f.toolFrames)) f.toolFrames = [];
+  if (!Array.isArray(f.userFrames)) f.userFrames = [];
+  if (typeof f.showToolFrame !== "boolean") f.showToolFrame = true;
+  if (typeof f.showUserFrames !== "boolean") f.showUserFrames = true;
+  if (!f.toolFrames.length) {
+    f.toolFrames.push({
+      id: "TFR_1",
+      name: "Tool1",
+      T_flange_tool: emptyRigid(),
+      flangeLinkName: "",
+      showInScene: true,
+    });
+    f.activeToolFrameId = "TFR_1";
+  }
+  if (!f.activeToolFrameId) f.activeToolFrameId = f.toolFrames[0].id;
+  if (!f.userFrames.length) {
+    f.userFrames.push({ id: "UFR_1", name: "User1", T_base_user: emptyRigid(), showInScene: true });
+    f.activeUserFrameId = "UFR_1";
+  }
+  if (!f.activeUserFrameId) f.activeUserFrameId = f.userFrames[0].id;
+  return f;
+}
+
+function clearFrameOverlayGroup() {
+  for (const c of [...frameOverlays.children]) {
+    frameOverlays.remove(c);
+    c.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose());
+        else o.material.dispose();
+      }
+    });
+  }
+}
+
+function addFrameAxisMarker(worldMatrixOrPose, euler, active, kind) {
+  const g = new THREE.Group();
+  g.userData.frameKind = kind;
+  g.userData.active = !!active;
+  if (Array.isArray(worldMatrixOrPose) && worldMatrixOrPose.length >= 16) {
+    // 与连杆 mesh 同一 worldMatrix 编码，避免欧拉分解与 Z-up 叠加后轴向相反
+    const m = new THREE.Matrix4().fromArray(worldMatrixOrPose.map(Number));
+    m.decompose(g.position, g.quaternion, g.scale);
+  } else if (worldMatrixOrPose) {
+    const pose = worldMatrixOrPose;
+    g.position.set(Number(pose[0]) || 0, Number(pose[1]) || 0, Number(pose[2]) || 0);
+    if (euler) g.quaternion.copy(eulerZyxDegToQuat(Number(euler[0]) || 0, Number(euler[1]) || 0, Number(euler[2]) || 0));
+  } else {
+    return;
+  }
+  const len = active ? 55 : 40;
+  const addAxis = (dir, color) => {
+    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), dir.clone().multiplyScalar(len)]);
+    g.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color, depthTest: true })));
+  };
+  addAxis(new THREE.Vector3(1, 0, 0), kind === "user" ? 0xffaa66 : 0xff6666);
+  addAxis(new THREE.Vector3(0, 1, 0), kind === "user" ? 0xaaff66 : 0x66ff66);
+  addAxis(new THREE.Vector3(0, 0, 1), kind === "user" ? 0x66aaff : 0x6699ff);
+  const pt = new THREE.BufferGeometry();
+  pt.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0], 3));
+  g.add(
+    new THREE.Points(
+      pt,
+      new THREE.PointsMaterial({
+        color: active ? 0xffcc00 : kind === "user" ? 0x66ccff : 0x00ff88,
+        size: active ? 7 : 5,
+        sizeAttenuation: false,
+        depthTest: true,
+      })
+    )
+  );
+  frameOverlays.add(g);
+}
+
+/// 拖拽中让当前工具系叠加立刻跟罗盘，不等 IK/SSE
+function followActiveToolOverlayToDragProxy() {
+  if (!robotDragMode || !dragFlangeId) return;
+  for (const child of frameOverlays.children) {
+    if (child.userData.frameKind === "tool" && child.userData.active) {
+      child.position.copy(dragProxy.position);
+      child.quaternion.copy(dragProxy.quaternion);
+      child.scale.copy(dragProxy.scale);
+    }
+  }
+}
+
+async function refreshFrameOverlays() {
+  scrubStaleRobotRootRefs();
+  let rootId = activeSceneRootId();
+  if (!robotSceneRootIds.size || (rootId && !robotSceneRootIds.has(rootId))) {
+    clearFrameOverlayGroup();
+    return;
+  }
+  if (!rootId) {
+    clearFrameOverlayGroup();
+    return;
+  }
+  try {
+    const q = encodeURIComponent(rootId);
+    const r = await (await fetch(`/api/robot/frames/overlays?sceneRootBackendId=${q}`)).json();
+    clearFrameOverlayGroup();
+    if (!r.ok) return;
+    // 请求回来时机器人可能已被删
+    if (!robotSceneRootIds.has(rootId)) return;
+    for (const t of r.tools || []) {
+      const wm = Array.isArray(t.worldMatrix) && t.worldMatrix.length >= 16 ? t.worldMatrix : null;
+      addFrameAxisMarker(wm || t.positionMm, t.eulerDeg, !!t.active, "tool");
+    }
+    for (const u of r.users || []) {
+      const wm = Array.isArray(u.worldMatrix) && u.worldMatrix.length >= 16 ? u.worldMatrix : null;
+      addFrameAxisMarker(wm || u.positionMm, u.eulerDeg, !!u.active, "user");
+    }
+    // 拖拽空闲时罗盘直接拷贝刚画好的激活工具系，与末端 TCP 轴共点
+    if (robotDragMode && dragFlangeId && !transform.dragging) {
+      for (const child of frameOverlays.children) {
+        if (child.userData.frameKind !== "tool" || !child.userData.active) continue;
+        const wasOnProxy = transform.object === dragProxy;
+        if (wasOnProxy) transform.detach();
+        dragProxy.position.copy(child.position);
+        dragProxy.quaternion.copy(child.quaternion);
+        dragProxy.scale.set(1, 1, 1);
+        dragProxy.matrixAutoUpdate = true;
+        dragProxy.updateMatrix();
+        dragProxy.updateMatrixWorld(true);
+        transform.enabled = true;
+        transform.attach(dragProxy);
+        transform.getHelper().visible = true;
+        break;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function readSpinRigid(prefix) {
+  const el = (k) => document.querySelector(`[data-${prefix}="${k}"]`);
+  return {
+    positionMm: [Number(el("px")?.value) || 0, Number(el("py")?.value) || 0, Number(el("pz")?.value) || 0],
+    eulerDeg: [Number(el("ex")?.value) || 0, Number(el("ey")?.value) || 0, Number(el("ez")?.value) || 0],
+  };
+}
+
+function writeSpinRigid(prefix, rigid) {
+  const r = rigid || emptyRigid();
+  const pos = r.positionMm || [0, 0, 0];
+  const eu = r.eulerDeg || [0, 0, 0];
+  const set = (k, v) => {
+    const node = document.querySelector(`[data-${prefix}="${k}"]`);
+    if (node) node.value = String(Number(v) || 0);
+  };
+  set("px", pos[0]);
+  set("py", pos[1]);
+  set("pz", pos[2]);
+  set("ex", eu[0]);
+  set("ey", eu[1]);
+  set("ez", eu[2]);
+}
+
+function renderFrameLists() {
+  const f = frameState;
+  const toolUl = $("toolFrameList");
+  const userUl = $("userFrameList");
+  if (!toolUl || !userUl || !f) return;
+  frameUiBlock = true;
+  toolUl.innerHTML = "";
+  for (const t of f.toolFrames) {
+    const li = document.createElement("li");
+    if (t.id === selectedToolId) li.classList.add("sel");
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = `${t.name || t.id}${t.id === f.activeToolFrameId ? " *" : ""}`;
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = t.showInScene !== false;
+    chk.onclick = (ev) => {
+      ev.stopPropagation();
+      t.showInScene = !!chk.checked;
+      void commitFramesNow();
+    };
+    li.appendChild(nm);
+    li.appendChild(chk);
+    li.onclick = () => {
+      selectedToolId = t.id;
+      loadToolFields();
+      renderFrameLists();
+    };
+    toolUl.appendChild(li);
+  }
+  userUl.innerHTML = "";
+  for (const u of f.userFrames) {
+    const li = document.createElement("li");
+    if (u.id === selectedUserId) li.classList.add("sel");
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = `${u.name || u.id}${u.id === f.activeUserFrameId ? " *" : ""}`;
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = u.showInScene !== false;
+    chk.onclick = (ev) => {
+      ev.stopPropagation();
+      u.showInScene = !!chk.checked;
+      void commitFramesNow();
+    };
+    li.appendChild(nm);
+    li.appendChild(chk);
+    li.onclick = () => {
+      selectedUserId = u.id;
+      loadUserFields();
+      renderFrameLists();
+    };
+    userUl.appendChild(li);
+  }
+  const flangeSel = $("toolFlangeLink");
+  if (flangeSel) {
+    const curTool = f.toolFrames.find((t) => t.id === selectedToolId);
+    const cur = (curTool && curTool.flangeLinkName) || f.flangeLinkName || "";
+    flangeSel.innerHTML = "";
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = "(默认)";
+    flangeSel.appendChild(opt0);
+    for (const name of frameLinkNames) {
+      const o = document.createElement("option");
+      o.value = name;
+      o.textContent = name;
+      flangeSel.appendChild(o);
+    }
+    flangeSel.value = cur;
+  }
+  if ($("chkShowToolFrames")) $("chkShowToolFrames").checked = !!f.showToolFrame;
+  if ($("chkShowUserFrames")) $("chkShowUserFrames").checked = !!f.showUserFrames;
+  frameUiBlock = false;
+}
+
+function loadToolFields() {
+  const f = frameState;
+  if (!f) return;
+  const t = f.toolFrames.find((x) => x.id === selectedToolId) || f.toolFrames[0];
+  if (!t) return;
+  selectedToolId = t.id;
+  frameUiBlock = true;
+  writeSpinRigid("tool", t.T_flange_tool);
+  frameUiBlock = false;
+}
+
+function loadUserFields() {
+  const f = frameState;
+  if (!f) return;
+  const u = f.userFrames.find((x) => x.id === selectedUserId) || f.userFrames[0];
+  if (!u) return;
+  selectedUserId = u.id;
+  frameUiBlock = true;
+  writeSpinRigid("user", u.T_base_user);
+  frameUiBlock = false;
+}
+
+function saveToolFieldsFromUi() {
+  const f = frameState;
+  if (!f || frameUiBlock) return;
+  const t = f.toolFrames.find((x) => x.id === selectedToolId);
+  if (!t) return;
+  t.T_flange_tool = readSpinRigid("tool");
+  t.flangeLinkName = $("toolFlangeLink")?.value || "";
+}
+
+function saveUserFieldsFromUi() {
+  const f = frameState;
+  if (!f || frameUiBlock) return;
+  const u = f.userFrames.find((x) => x.id === selectedUserId);
+  if (!u) return;
+  u.T_base_user = readSpinRigid("user");
+}
+
+async function putFramesNow() {
+  const rootId = activeSceneRootId();
+  if (!rootId || !frameState) return false;
+  saveToolFieldsFromUi();
+  saveUserFieldsFromUi();
+  if ($("chkShowToolFrames")) frameState.showToolFrame = !!$("chkShowToolFrames").checked;
+  if ($("chkShowUserFrames")) frameState.showUserFrames = !!$("chkShowUserFrames").checked;
+  framesIgnoreSseReload += 1;
+  try {
+    const r = await (
+      await fetch("/api/robot/frames", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sceneRootBackendId: rootId, frames: frameState }),
+      })
+    ).json();
+    if (!r.ok) {
+      setStatus(r.error || "坐标系保存失败", "err");
+      return false;
+    }
+    await refreshFrameOverlays();
+    return true;
+  } finally {
+    setTimeout(() => {
+      framesIgnoreSseReload = Math.max(0, framesIgnoreSseReload - 1);
+    }, 300);
+  }
+}
+
+function scheduleFramesPut() {
+  if (frameUiBlock) return;
+  clearTimeout(framesPutTimer);
+  framesPutTimer = setTimeout(() => void putFramesNow(), 180);
+}
+
+function commitFramesNow() {
+  clearTimeout(framesPutTimer);
+  return putFramesNow();
+}
+
+async function mutateFrames(action, id) {
+  const rootId = activeSceneRootId();
+  if (!rootId) {
+    setStatus("无机器人实例", "err");
+    return false;
+  }
+  await putFramesNow();
+  framesIgnoreSseReload += 1;
+  try {
+    const body = { sceneRootBackendId: rootId, action };
+    if (id) body.id = id;
+    const r = await (
+      await fetch("/api/robot/frames/mutate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+    ).json();
+    if (!r.ok) {
+      setStatus(r.error || "坐标系操作失败", "err");
+      return false;
+    }
+    frameState = ensureFramesDefaults(r.frames || {});
+    if (Array.isArray(r.linkNames)) frameLinkNames = r.linkNames;
+    if (r.kind === "tool" && r.selectedId) selectedToolId = r.selectedId;
+    if (r.kind === "user" && r.selectedId) selectedUserId = r.selectedId;
+    renderFrameLists();
+    loadToolFields();
+    loadUserFields();
+    await refreshFrameOverlays();
+    return true;
+  } finally {
+    setTimeout(() => {
+      framesIgnoreSseReload = Math.max(0, framesIgnoreSseReload - 1);
+    }, 300);
+  }
+}
+
+function clearCoordinateFramesUi() {
+  frameState = null;
+  frameLinkNames = [];
+  selectedToolId = "";
+  selectedUserId = "";
+  const toolUl = $("toolFrameList");
+  const userUl = $("userFrameList");
+  if (toolUl) toolUl.innerHTML = "";
+  if (userUl) userUl.innerHTML = "";
+  const flangeSel = $("toolFlangeLink");
+  if (flangeSel) flangeSel.innerHTML = "";
+  const instSel = $("frameInstance");
+  if (instSel) instSel.innerHTML = "";
+  frameUiBlock = true;
+  writeSpinRigid("tool", emptyRigid());
+  writeSpinRigid("user", emptyRigid());
+  if ($("chkShowToolFrames")) $("chkShowToolFrames").checked = true;
+  if ($("chkShowUserFrames")) $("chkShowUserFrames").checked = true;
+  frameUiBlock = false;
+  clearFrameOverlayGroup();
+  const hint = $("frameEmptyHint");
+  const body = $("frameBody");
+  if (hint) hint.classList.remove("hidden");
+  if (body) body.classList.add("hidden");
+}
+
+/// 无机器人实例时清掉残留 root，避免 overlays 按旧 id 重画 TCP/用户系
+function scrubStaleRobotRootRefs() {
+  const rootEl = $("robotRoot");
+  const stale = rootEl?.value.trim() || "";
+  if (stale && !robotSceneRootIds.has(stale)) {
+    rootEl.value = "";
+  }
+  if (!robotSceneRootIds.size) {
+    if (rootEl) rootEl.value = "";
+    selectedRobot = null;
+    const axis = $("axisInstance");
+    if (axis) axis.innerHTML = "";
+  } else {
+    const axis = $("axisInstance");
+    if (axis && axis.value && !robotSceneRootIds.has(axis.value)) axis.value = "";
+    const frame = $("frameInstance");
+    if (frame && frame.value && !robotSceneRootIds.has(frame.value)) frame.value = "";
+  }
+}
+
+async function loadCoordinateFrames() {
+  scrubStaleRobotRootRefs();
+  const instSel = $("frameInstance");
+  const hint = $("frameEmptyHint");
+  const body = $("frameBody");
+  const prev =
+    (instSel && instSel.value) ||
+    ($("axisInstance") && $("axisInstance").value) ||
+    ($("robotRoot") && $("robotRoot").value.trim()) ||
+    "";
+  const inst = await (await fetch("/api/robot/instances")).json();
+  const objectIds = new Set(objects.map((o) => o.id));
+  const instances = (inst.instances || []).filter(
+    (it) => it.sceneRootBackendId && (!objectIds.size || objectIds.has(it.sceneRootBackendId))
+  );
+  // 与本地根集合对齐，删机后若服务端短暂残留也以空场景为准
+  if (!robotSceneRootIds.size && !instances.length) {
+    if (instSel) instSel.innerHTML = "";
+    clearCoordinateFramesUi();
+    scrubStaleRobotRootRefs();
+    return;
+  }
+  if (instSel) {
+    instSel.innerHTML = "";
+    for (const it of instances) {
+      if (robotSceneRootIds.size && !robotSceneRootIds.has(it.sceneRootBackendId)) continue;
+      const opt = document.createElement("option");
+      opt.value = it.sceneRootBackendId;
+      opt.textContent = `${it.label || it.sceneRootBackendId}`;
+      instSel.appendChild(opt);
+    }
+    if (prev && [...instSel.options].some((o) => o.value === prev)) instSel.value = prev;
+    else if (instSel.options.length) instSel.selectedIndex = 0;
+  }
+  const rootId = (instSel && instSel.value) || "";
+  if ($("robotRoot") && rootId) $("robotRoot").value = rootId;
+  if ($("axisInstance") && rootId && [...($("axisInstance").options || [])].some((o) => o.value === rootId)) {
+    $("axisInstance").value = rootId;
+  }
+  if (!rootId) {
+    clearCoordinateFramesUi();
+    scrubStaleRobotRootRefs();
+    return;
+  }
+  if (hint) hint.classList.add("hidden");
+  if (body) body.classList.remove("hidden");
+  const r = await (await fetch(`/api/robot/frames?sceneRootBackendId=${encodeURIComponent(rootId)}`)).json();
+  if (!r.ok) {
+    clearCoordinateFramesUi();
+    scrubStaleRobotRootRefs();
+    setStatus(r.error || "加载坐标系失败", "err");
+    return;
+  }
+  frameState = ensureFramesDefaults(r.frames || {});
+  frameLinkNames = Array.isArray(r.linkNames) ? r.linkNames : [];
+  if (!frameState.flangeLinkName && frameLinkNames.length) {
+    frameState.flangeLinkName = frameLinkNames[frameLinkNames.length - 1];
+  }
+  if (!selectedToolId || !frameState.toolFrames.some((t) => t.id === selectedToolId)) {
+    selectedToolId = frameState.activeToolFrameId || frameState.toolFrames[0]?.id || "";
+  }
+  if (!selectedUserId || !frameState.userFrames.some((u) => u.id === selectedUserId)) {
+    selectedUserId = frameState.activeUserFrameId || frameState.userFrames[0]?.id || "";
+  }
+  renderFrameLists();
+  loadToolFields();
+  loadUserFields();
+  await refreshFrameOverlays();
+}
+
+function wireFramePanel() {
+  $("btnFrameReload") && ($("btnFrameReload").onclick = () => void loadCoordinateFrames());
+  $("frameInstance") &&
+    ($("frameInstance").onchange = () => {
+      const v = $("frameInstance").value;
+      if ($("robotRoot")) $("robotRoot").value = v;
+      if ($("axisInstance") && [...$("axisInstance").options].some((o) => o.value === v)) {
+        $("axisInstance").value = v;
+      }
+      void loadCoordinateFrames();
+    });
+  const onToolSpin = () => {
+    if (frameUiBlock) return;
+    saveToolFieldsFromUi();
+    scheduleFramesPut();
+  };
+  const onUserSpin = () => {
+    if (frameUiBlock) return;
+    saveUserFieldsFromUi();
+    scheduleFramesPut();
+  };
+  document.querySelectorAll("[data-tool]").forEach((el) => {
+    el.addEventListener("change", onToolSpin);
+    el.addEventListener("input", onToolSpin);
+  });
+  document.querySelectorAll("[data-user]").forEach((el) => {
+    el.addEventListener("change", onUserSpin);
+    el.addEventListener("input", onUserSpin);
+  });
+  $("toolFlangeLink") &&
+    ($("toolFlangeLink").onchange = () => {
+      if (frameUiBlock) return;
+      saveToolFieldsFromUi();
+      scheduleFramesPut();
+    });
+  $("chkShowToolFrames") &&
+    ($("chkShowToolFrames").onchange = () => {
+      if (frameUiBlock || !frameState) return;
+      frameState.showToolFrame = !!$("chkShowToolFrames").checked;
+      void commitFramesNow();
+    });
+  $("chkShowUserFrames") &&
+    ($("chkShowUserFrames").onchange = () => {
+      if (frameUiBlock || !frameState) return;
+      frameState.showUserFrames = !!$("chkShowUserFrames").checked;
+      void commitFramesNow();
+    });
+
+  $("btnToolAdd") && ($("btnToolAdd").onclick = () => void mutateFrames("addTool"));
+  $("btnToolDup") &&
+    ($("btnToolDup").onclick = () => {
+      if (!selectedToolId) return;
+      void mutateFrames("duplicateTool", selectedToolId);
+    });
+  $("btnToolDel") &&
+    ($("btnToolDel").onclick = () => {
+      if (!frameState || frameState.toolFrames.length <= 1) return;
+      frameState.toolFrames = frameState.toolFrames.filter((t) => t.id !== selectedToolId);
+      if (frameState.activeToolFrameId === selectedToolId) {
+        frameState.activeToolFrameId = frameState.toolFrames[0].id;
+      }
+      selectedToolId = frameState.activeToolFrameId;
+      renderFrameLists();
+      loadToolFields();
+      void commitFramesNow();
+    });
+  $("btnToolActive") &&
+    ($("btnToolActive").onclick = () => {
+      if (!frameState || !selectedToolId) return;
+      frameState.activeToolFrameId = selectedToolId;
+      renderFrameLists();
+      void commitFramesNow();
+    });
+  $("btnToolCapture") &&
+    ($("btnToolCapture").onclick = async () => {
+      const rootId = activeSceneRootId();
+      if (!rootId) return;
+      await putFramesNow();
+      const r = await (
+        await fetch("/api/robot/frames/capture-tool", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sceneRootBackendId: rootId }),
+        })
+      ).json();
+      if (!r.ok) {
+        setStatus(r.error || "捕获工具系失败", "err");
+        return;
+      }
+      await loadCoordinateFrames();
+    });
+  $("btnToolReset") &&
+    ($("btnToolReset").onclick = async () => {
+      const rootId = activeSceneRootId();
+      if (!rootId) return;
+      await putFramesNow();
+      const r = await (
+        await fetch("/api/robot/frames/reset-tool", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sceneRootBackendId: rootId }),
+        })
+      ).json();
+      if (!r.ok) {
+        setStatus(r.error || "重置失败", "err");
+        return;
+      }
+      await loadCoordinateFrames();
+    });
+
+  $("btnUserAdd") && ($("btnUserAdd").onclick = () => void mutateFrames("addUser"));
+  $("btnUserDup") &&
+    ($("btnUserDup").onclick = () => {
+      if (!selectedUserId) return;
+      void mutateFrames("duplicateUser", selectedUserId);
+    });
+  $("btnUserDel") &&
+    ($("btnUserDel").onclick = () => {
+      if (!frameState || frameState.userFrames.length <= 1) return;
+      frameState.userFrames = frameState.userFrames.filter((u) => u.id !== selectedUserId);
+      if (frameState.activeUserFrameId === selectedUserId) {
+        frameState.activeUserFrameId = frameState.userFrames[0].id;
+      }
+      selectedUserId = frameState.activeUserFrameId;
+      renderFrameLists();
+      loadUserFields();
+      void commitFramesNow();
+    });
+  $("btnUserActive") &&
+    ($("btnUserActive").onclick = () => {
+      if (!frameState || !selectedUserId) return;
+      frameState.activeUserFrameId = selectedUserId;
+      renderFrameLists();
+      void commitFramesNow();
+    });
+  $("btnUserCapture") &&
+    ($("btnUserCapture").onclick = async () => {
+      const rootId = activeSceneRootId();
+      if (!rootId) return;
+      await putFramesNow();
+      const r = await (
+        await fetch("/api/robot/frames/capture-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sceneRootBackendId: rootId }),
+        })
+      ).json();
+      if (!r.ok) {
+        setStatus(r.error || "捕获用户系失败", "err");
+        return;
+      }
+      await loadCoordinateFrames();
+    });
+}
+wireFramePanel();
 
 (function tick() {
   controls.update();
@@ -4197,9 +5095,19 @@ es.onmessage = async (ev) => {
     if (msg.type === "RobotKinematicsApplied" || msg.type === "PoseCommitted" || msg.type === "ObjectPatched") {
       if (performance.now() < axisSyncQuietUntil) return;
       await syncObjectTransforms();
+      // 拖拽中叠加由罗盘本地跟随，避免 SSE 重刷把 TCP 拉回旧位
+      if (!(robotDragMode && transform.dragging)) void refreshFrameOverlays();
       return;
     }
-    // 选中只改属性，禁止整表 rebuild（易与拖拽/关节同步叠出鬼影）
+    if (msg.type === "RobotCoordinateFramesChanged") {
+      if (framesIgnoreSseReload > 0) {
+        void refreshFrameOverlays();
+        return;
+      }
+      if (!$("robotFrame")?.classList.contains("hidden")) void loadCoordinateFrames();
+      else void refreshFrameOverlays();
+      return;
+    }
     if (msg.type === "SelectionChanged") {
       if (selectedId) await loadDetail();
       return;
@@ -4211,9 +5119,15 @@ es.onmessage = async (ev) => {
     ) {
       await refreshObjects(msg.type === "ProjectLoaded");
       if (selectedId) await loadDetail();
-      if (msg.type === "ProjectLoaded" || msg.type === "BackendObjectRegistered") {
-        if (!$("robotJoint")?.classList.contains("hidden")) void loadAxisControl();
+      if (
+        msg.type === "ProjectLoaded" ||
+        msg.type === "BackendObjectRegistered" ||
+        msg.type === "BackendObjectRemoved"
+      ) {
+        scrubStaleRobotRootRefs();
+        void loadAxisControl();
         void loadProgramsFromServer();
+        void loadCoordinateFrames();
       }
     }
   } catch {

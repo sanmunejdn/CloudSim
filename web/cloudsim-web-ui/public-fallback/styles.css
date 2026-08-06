@@ -14,6 +14,9 @@ button{cursor:pointer}
 .menu.open .menu-drop{display:block}
 .menu-drop button,.menu-label{display:block;width:100%;text-align:left;border:0;background:transparent;padding:6px 14px;color:#222}
 .menu-drop button:hover{background:#e5f1fb}
+.menu-drop button.menu-check{padding-left:28px;position:relative}
+.menu-drop button.menu-check.on::before{content:"✓";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;color:#1a5fb4}
+.menu-sep{border:0;border-top:1px solid #ddd;margin:4px 0}
 .menu-label{display:flex;flex-direction:column;gap:4px}
 .menu-label select{width:100%}
 .menubar-spacer{flex:1}
@@ -182,6 +185,20 @@ button{cursor:pointer}
 .traj-edit-actions{gap:6px;flex-wrap:wrap}
 .traj-edit-tpl{margin-top:2px}
 .ai-out{font-size:11px;background:#fafafa;border:1px solid #ddd;padding:8px;min-height:100px;white-space:pre-wrap;overflow:auto}
+
+/* 坐标系（对齐 RobotFrameSettingsWidget） */
+.frame-group{margin:0;padding:6px 8px 8px;border:1px solid #bbb;border-radius:3px;background:#fafafa}
+.frame-group legend{padding:0 6px;font-size:12px;font-weight:600}
+.frame-list{list-style:none;margin:0;padding:0;max-height:120px;overflow:auto;border:1px solid #ccc;background:#fff;border-radius:2px}
+.frame-list li{display:flex;align-items:center;gap:6px;padding:4px 6px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:12px}
+.frame-list li:hover{background:#eef6fc}
+.frame-list li.sel{background:#d6eafc}
+.frame-list li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frame-list li input[type=checkbox]{flex-shrink:0}
+.frame-btns{flex-wrap:wrap;gap:4px}
+.frame-spins{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 6px;margin:6px 0}
+.frame-spins label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:#444}
+.frame-spins input{width:100%;padding:3px 4px;border:1px solid #aaa;border-radius:2px;box-sizing:border-box}
 
 /* —— 设备库 —— */
 .device-toolbar{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border-bottom:1px solid #ddd;align-items:flex-end}

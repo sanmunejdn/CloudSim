@@ -418,6 +418,14 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 		}
 		publishBackendObjectRemoved(*this, id);
 	}
+	// 与桌面 clearRobotSimulationIfContains 对齐：删子树后卸掉幽灵机器人实例
+	if (m_headlessRobotContext)
+	{
+		for (const QString& id : ids)
+		{
+			m_headlessRobotContext->clearRobotSimulationIfContains(id);
+		}
+	}
 	m_followReverseIndex.invalidate(); // 子树删除后 follower 拓扑可能断裂
 	return ids;
 }

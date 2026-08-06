@@ -15,6 +15,7 @@
 #include "RobotTeachIk.h"
 #include "UrdfRobotLoader.h"
 
+#include <Adapters.h>
 #include <RigidTransform.h>
 
 #include <algorithm>
@@ -61,6 +62,37 @@ void HeadlessRobotContext::clearRobotSimulationContext()
 {
 	m_robots.clear();
 	rebuildAggregates();
+}
+
+void HeadlessRobotContext::clearRobotSimulationIfContains(const QString& removedBackendId)
+{
+	if (removedBackendId.isEmpty())
+	{
+		return;
+	}
+	for (int i = 0; i < m_robots.size(); ++i)
+	{
+		const HierarchicalRobotInstance& ri = m_robots[i];
+		if (ri.sceneBackendId == removedBackendId)
+		{
+			m_robots.removeAt(i);
+			rebuildAggregates();
+			return;
+		}
+		if (!ri.perLinkBackends)
+		{
+			continue;
+		}
+		for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
+		{
+			if (it.value() == removedBackendId)
+			{
+				m_robots.removeAt(i);
+				rebuildAggregates();
+				return;
+			}
+		}
+	}
 }
 
 QVector<HeadlessRobotContext::InstanceInfo> HeadlessRobotContext::listInstances() const
@@ -352,16 +384,6 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 		return false;
 	}
 	const RobotPerLinkKinematicsSlice slice = RobotSceneKinematics::robotPerLinkSliceFromDto(dto);
-	const auto t0It = slice.fkMeshWorldT0.constFind(flangeLink);
-	const auto m0It = slice.outerWorldAtBindByBackendId.constFind(flangeId);
-	if (t0It == slice.fkMeshWorldT0.constEnd() || m0It == slice.outerWorldAtBindByBackendId.constEnd())
-	{
-		if (outError)
-		{
-			*outError = QStringLiteral("missing flange bind matrices");
-		}
-		return false;
-	}
 
 	QVector<double> seedQ = ri.lastLocalJointAnglesRad;
 	if (seedQ.size() != ri.revoluteJointNamesUnprefixed.size())
@@ -370,48 +392,29 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 	}
 
 	const BackendMat4 wm = threeJsColMajor16ToBackendMat4(threeJsColMajor16);
-	const osg::Matrixd meshWorldDesired = RobotMatrixOsg::matrixFromBackendColMajor(wm);
+	// 网页拖拽罗盘挂在当前工具 TCP（与 overlays 同空间），不再把输入当法兰 mesh
+	const osg::Matrixd tcpSceneDesired = RobotMatrixOsg::matrixFromBackendColMajor(wm);
 	const osg::Matrixd P = slice.robotBasePlacementWorld;
-	// M = M0 * inv(T0) * Tq * P → Tq
-	const osg::Matrixd TqDesired =
-		t0It.value() * osg::Matrixd::inverse(m0It.value()) * meshWorldDesired * osg::Matrixd::inverse(P);
-
-	QHash<QString, osg::Matrixd> meshCurr;
-	QHash<QString, osg::Matrixd> linkCurr;
-	QString fkErr;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(ri.urdfAbsolutePath, seedQ, meshCurr, &fkErr,
-												   ri.meshVerticesInLinkFrame) ||
-		!UrdfRobotLoader::computeLinkWorldMatrices(ri.urdfAbsolutePath, seedQ, linkCurr, &fkErr))
-	{
-		if (outError)
-		{
-			*outError = fkErr.isEmpty() ? QStringLiteral("FK for IK seed failed") : fkErr;
-		}
-		return false;
-	}
-	if (!meshCurr.contains(flangeLink) || !linkCurr.contains(flangeLink))
-	{
-		if (outError)
-		{
-			*outError = QStringLiteral("flange FK missing");
-		}
-		return false;
-	}
-	// 网格系→连杆系相对偏置随当前构型带走，目标仍落在 URDF 连杆系
-	const osg::Matrixd LDesired =
-		TqDesired * osg::Matrixd::inverse(meshCurr.value(flangeLink)) * linkCurr.value(flangeLink);
+	const osg::Matrixd tcpInBaseOsg = tcpSceneDesired * osg::Matrixd::inverse(P);
 
 	BackendMat4 toolMat = BackendMat4::identity();
+	QString flangeLinkForIk = flangeLink;
 	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(ri.coordinateFrames))
 	{
 		toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
+		const QString eff =
+			QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(ri.coordinateFrames, *tool));
+		if (!eff.isEmpty() && ri.linkNameToBackendId.contains(eff))
+		{
+			flangeLinkForIk = eff;
+			flangeId = ri.linkNameToBackendId.value(eff);
+		}
 	}
 
-	const BackendMat4 TBaseTargetBm = RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(LDesired, toolMat);
 	RobotTeachIk::TeachIkContext ctx;
 	ctx.urdfPath = ri.urdfAbsolutePath;
-	ctx.ikLinkName = flangeLink;
-	ctx.T_base_target = RobotCoordinate::rigidTransformFromBackendMat4(TBaseTargetBm);
+	ctx.ikLinkName = flangeLinkForIk;
+	ctx.T_base_target = engine::rigidTransformFromOsg(tcpInBaseOsg);
 	ctx.seedJointRad.reserve(static_cast<size_t>(seedQ.size()));
 	for (double v : seedQ)
 	{
@@ -549,6 +552,16 @@ bool HeadlessRobotContext::captureTcpPose(const QString& sceneRootBackendId, Tcp
 	T.translationMm(out.positionMm[0], out.positionMm[1], out.positionMm[2]);
 	T.eulerDegForDisplay(out.eulerDeg[0], out.eulerDeg[1], out.eulerDeg[2]);
 	out.flangeLinkName = flangeLink;
+	// 与 overlays 一致：FK 基系 TCP × 基座放置 P（OSG 后乘）
+	cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+	cloudsim::core::Mat4 basePlacement = cloudsim::core::PlanContextDto::identityMat4();
+	if (robotPerLinkKinematicsForInstance(instanceIndex, pl))
+	{
+		basePlacement = pl.robotBasePlacementWorld;
+	}
+	const osg::Matrixd tcpOsg = RobotMatrixOsg::matrixFromBackendColMajor(TBaseTargetBm);
+	const osg::Matrixd P = RobotSceneKinematics::osgMatrixFromCoreMat4(basePlacement);
+	out.worldMat = RobotMatrixOsg::backendColMajorFromMatrix(tcpOsg * P);
 	QStringList parts;
 	parts.reserve(q.size());
 	for (double v : q)

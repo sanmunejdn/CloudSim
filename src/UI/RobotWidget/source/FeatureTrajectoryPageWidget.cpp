@@ -29,6 +29,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFileDialog>
@@ -50,8 +51,10 @@
 #include <QShowEvent>
 #include <QSpinBox>
 #include <QStringList>
+#include <QStyle>
 #include <QTableView>
 #include <QTimer>
+#include <QToolTip>
 #include <QVBoxLayout>
 #include <algorithm>
 
@@ -60,6 +63,20 @@
 
 namespace
 {
+void applyBtnRole(QPushButton* btn, const char* role)
+{
+	if (!btn)
+	{
+		return;
+	}
+	btn->setProperty("btnRole", QLatin1String(role));
+	if (btn->style())
+	{
+		btn->style()->unpolish(btn);
+		btn->style()->polish(btn);
+	}
+}
+
 bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string& backendId)
 {
 	return mgr.parentsOf(backendId).empty();
@@ -157,10 +174,16 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 			[this](QAbstractButton*)
 			{
 				updatePickUiState();
+				if (m_pickStatusLabel)
+				{
+					QToolTip::showText(QCursor::pos(), m_pickStatusLabel->text(), this);
+				}
 			});
-	m_pickEdgeBtn = new QPushButton(QStringLiteral("拾取线"), this);
-	m_pickFaceBtn = new QPushButton(QStringLiteral("拾取面"), this);
-	m_cancelPickBtn = new QPushButton(QStringLiteral("取消拾取"), this);
+	applyBtnRole(m_pickModeAppendBtn, "primary");
+	applyBtnRole(m_pickModeNewBtn, "secondary");
+	applyBtnRole(m_pickEdgeBtn = new QPushButton(QStringLiteral("拾取线"), this), "secondary");
+	applyBtnRole(m_pickFaceBtn = new QPushButton(QStringLiteral("拾取面"), this), "secondary");
+	applyBtnRole(m_cancelPickBtn = new QPushButton(QStringLiteral("取消拾取"), this), "secondary");
 	pickRow->addWidget(m_pickModeAppendBtn);
 	pickRow->addWidget(m_pickModeNewBtn);
 	pickRow->addWidget(m_pickEdgeBtn);
@@ -169,6 +192,8 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	layout->addLayout(pickRow);
 
 	m_pickStatusLabel = new QLabel(this);
+	m_pickStatusLabel->setWordWrap(true);
+	m_pickStatusLabel->setStyleSheet(QStringLiteral("color: #288cf0;"));
 	layout->addWidget(m_pickStatusLabel);
 
 	auto* strategyRow = new QHBoxLayout;
@@ -1203,6 +1228,20 @@ void FeatureTrajectoryPageWidget::onPathPlanBound(const std::string& pathPlanId)
 void FeatureTrajectoryPageWidget::updatePickUiState()
 {
 	const bool hasWorkpiece = m_backendCombo && m_backendCombo->currentIndex() >= 0;
+	const bool appendMode = isAppendPickMode();
+	applyBtnRole(m_pickModeAppendBtn, appendMode ? "primary" : "secondary");
+	applyBtnRole(m_pickModeNewBtn, appendMode ? "secondary" : "primary");
+	if (m_pickModeAppendBtn)
+	{
+		m_pickModeAppendBtn->setToolTip(
+			m_chinese ? QStringLiteral("拾取结果追加到当前选中特征行")
+					  : QStringLiteral("Append pick result to the selected feature row"));
+	}
+	if (m_pickModeNewBtn)
+	{
+		m_pickModeNewBtn->setToolTip(m_chinese ? QStringLiteral("拾取结果新建一行特征")
+											  : QStringLiteral("Create a new feature row from the pick"));
+	}
 	if (m_pickEdgeBtn)
 	{
 		m_pickEdgeBtn->setEnabled(hasWorkpiece && m_pickSession == PickSessionKind::None);
@@ -1219,7 +1258,6 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 	{
 		return;
 	}
-	const bool appendMode = isAppendPickMode();
 	const int sel = m_featureModel ? m_featureModel->selectedRow() : -1;
 	if (m_pickSession == PickSessionKind::Edge)
 	{
@@ -1259,9 +1297,16 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 												 : QStringLiteral("New feature: click a face in the 3D view…"));
 		}
 	}
+	else if (appendMode)
+	{
+		m_pickStatusLabel->setText(
+			m_chinese ? QStringLiteral("写入模式：追加到选中 — 选中特征行后点「拾取线/面」")
+					  : QStringLiteral("Write mode: Append — select a row, then Pick edge/face"));
+	}
 	else
 	{
-		m_pickStatusLabel->setText(m_chinese ? QStringLiteral("3D 拾取未激活") : QStringLiteral("3D pick inactive"));
+		m_pickStatusLabel->setText(m_chinese ? QStringLiteral("写入模式：新建特征 — 点「拾取线/面」将新建一行")
+											 : QStringLiteral("Write mode: New feature — Pick edge/face creates a row"));
 	}
 }
 

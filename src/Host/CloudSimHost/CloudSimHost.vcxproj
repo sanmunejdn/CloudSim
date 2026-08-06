@@ -104,6 +104,7 @@
     <ClInclude Include="inc\adapters\RobotServiceAdapter.h" />
     <ClInclude Include="inc\IRobotUrdfImportContext.h" />
     <ClInclude Include="inc\HeadlessRobotContext.h" />
+    <ClInclude Include="inc\RobotCoordinateFrameOps.h" />
     <ClInclude Include="inc\HeadlessTrajectorySession.h" />
     <ClInclude Include="inc\HeadlessInstructionPropertyDelegate.h" />
     <ClInclude Include="inc\UrdfRobotImport.h" />
@@ -168,6 +169,7 @@
     </ClCompile>
     <ClCompile Include="source\DocumentHost.cpp" />
     <ClCompile Include="source\HeadlessRobotContext.cpp" />
+    <ClCompile Include="source\RobotCoordinateFrameOps.cpp" />
     <ClCompile Include="source\HeadlessTrajectorySession.cpp" />
     <ClCompile Include="source\HeadlessInstructionPropertyDelegate.cpp" />
     <ClCompile Include="source\HostRenderViewFactory.cpp" />

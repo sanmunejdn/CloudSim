@@ -61,6 +61,9 @@ CLOUDSIM_HOST_EXPORT bool loadRobotProgramsFromProjectJson(DocumentHost& host, c
 /// 合并程序到根
 CLOUDSIM_HOST_EXPORT void mergeRobotProgramsIntoProjectRoot(DocumentHost& host, QJsonObject& root);
 
+/// 合并运动学实例（含 coordinateFrames），字段兼容桌面 writeRobotKinematics
+CLOUDSIM_HOST_EXPORT void mergeRobotKinematicsIntoProjectRoot(DocumentHost& host, QJsonObject& root);
+
 } // namespace cloudsim::host
 
 #endif // CLOUDSIMHOST_PROJECTPACKAGEIO_H

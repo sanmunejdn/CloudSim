@@ -13,16 +13,17 @@
 
 #include <QComboBox>
 #include <QFrame>
-#include <QGroupBox>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QString>
+#include <QStyle>
+#include <QToolTip>
 #include <QVBoxLayout>
 #include <algorithm>
 #include <cmath>
@@ -30,6 +31,59 @@
 
 namespace
 {
+constexpr int kControlHeight = 30;
+constexpr int kContextLabelWidth = 40;
+constexpr int kTypeBtnMinWidth = 52;
+
+void applyBtnRole(QPushButton* btn, const char* role)
+{
+	if (!btn)
+	{
+		return;
+	}
+	btn->setProperty("btnRole", QLatin1String(role));
+	if (btn->style())
+	{
+		btn->style()->unpolish(btn);
+		btn->style()->polish(btn);
+	}
+}
+
+void configureCompactCombo(QComboBox* combo)
+{
+	if (!combo)
+	{
+		return;
+	}
+	combo->setFixedHeight(kControlHeight);
+	combo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	combo->setMaxVisibleItems(12);
+}
+
+void configureCompactButton(QPushButton* btn, int minWidth = 0)
+{
+	if (!btn)
+	{
+		return;
+	}
+	// 全局 padding 4px + 1px 边框，高度过小会裁掉下边框
+	btn->setFixedHeight(kControlHeight);
+	btn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+	if (minWidth > 0)
+	{
+		btn->setMinimumWidth(minWidth);
+	}
+}
+
+QFrame* makeHLine(QWidget* parent)
+{
+	auto* line = new QFrame(parent);
+	line->setFrameShape(QFrame::HLine);
+	line->setFrameShadow(QFrame::Sunken);
+	line->setFixedHeight(1);
+	return line;
+}
+
 QString instructionTypeLabel(RobotInstruction::Type t, bool zh)
 {
 	switch (t)
@@ -128,10 +182,9 @@ QString instructionSummary(const RobotInstruction::Base& ins, bool zh)
 SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(parent)
 {
 	auto* root = new QVBoxLayout(this);
-	root->setContentsMargins(4, 4, 4, 4);
+	root->setContentsMargins(6, 6, 6, 6);
 	root->setSpacing(4);
 
-	// 运行按钮固定在底部
 	auto* rowRun = new QHBoxLayout;
 	rowRun->setSpacing(4);
 	m_runBtn = new QPushButton(QStringLiteral("Run"));
@@ -155,105 +208,149 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	}
 	m_playbackRateCombo->setCurrentIndex(defaultRateIndex);
 	m_playbackRateCombo->setToolTip(QStringLiteral("Playback rate (does not change planned duration)"));
+	configureCompactButton(m_runBtn);
+	configureCompactButton(m_stopBtn);
+	configureCompactButton(m_exportBtn);
+	configureCompactCombo(m_playbackRateCombo);
+	m_playbackRateCombo->setMinimumWidth(64);
+	m_playbackRateCombo->setMaximumWidth(88);
+	applyBtnRole(m_runBtn, "primary");
+	applyBtnRole(m_stopBtn, "danger");
+	applyBtnRole(m_exportBtn, "secondary");
 	rowRun->addWidget(m_runBtn);
 	rowRun->addWidget(m_stopBtn);
 	rowRun->addWidget(m_playbackRateLabel);
 	rowRun->addWidget(m_playbackRateCombo);
-	rowRun->addWidget(m_exportBtn);
 	rowRun->addStretch(1);
+	rowRun->addWidget(m_exportBtn);
 	root->addLayout(rowRun);
+	root->addWidget(makeHLine(this));
 
-	// 可滚动的内容区域
-	m_scrollArea = new QScrollArea(this);
-	m_scrollArea->setWidgetResizable(true);
-	m_scrollArea->setFrameShape(QFrame::NoFrame);
-	m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-	auto* scrollContent = new QWidget();
-	auto* contentLayout = new QVBoxLayout(scrollContent);
-	contentLayout->setContentsMargins(0, 0, 0, 0);
-	contentLayout->setSpacing(4);
-
+	m_robotLabel = new QLabel(QStringLiteral("机器人"), this);
+	m_robotLabel->setFixedWidth(kContextLabelWidth);
 	m_robotCombo = new QComboBox(this);
-	contentLayout->addWidget(m_robotCombo);
+	configureCompactCombo(m_robotCombo);
+	auto* robotRow = new QHBoxLayout;
+	robotRow->setSpacing(4);
+	robotRow->addWidget(m_robotLabel);
+	robotRow->addWidget(m_robotCombo, 1);
+	root->addLayout(robotRow);
 
-	auto* tcpRow = new QHBoxLayout;
-	tcpRow->addWidget(new QLabel(QStringLiteral("TCP"), this));
+	// 界面隐藏，仍由 setTcpLinkOptions 维护 preferred
 	m_tcpLinkCombo = new QComboBox(this);
-	tcpRow->addWidget(m_tcpLinkCombo, 1);
-	contentLayout->addLayout(tcpRow);
+	m_tcpLinkCombo->hide();
 
 	auto* programRow = new QHBoxLayout;
 	programRow->setSpacing(2);
 	m_programLabel = new QLabel(QStringLiteral("程序"), this);
+	m_programLabel->setFixedWidth(kContextLabelWidth);
 	programRow->addWidget(m_programLabel);
 	m_programCombo = new QComboBox(this);
+	configureCompactCombo(m_programCombo);
 	programRow->addWidget(m_programCombo, 1);
-	m_programNewBtn = new QPushButton(QStringLiteral("+"), this);
-	m_programRenameBtn = new QPushButton(QStringLiteral("名"), this);
-	m_programDeleteBtn = new QPushButton(QStringLiteral("删"), this);
+	m_programNewBtn = new QPushButton(QStringLiteral("新建"), this);
+	m_programRenameBtn = new QPushButton(QStringLiteral("重命名"), this);
+	m_programDeleteBtn = new QPushButton(QStringLiteral("删除"), this);
+	configureCompactButton(m_programNewBtn);
+	configureCompactButton(m_programRenameBtn);
+	configureCompactButton(m_programDeleteBtn);
+	applyBtnRole(m_programNewBtn, "secondary");
+	applyBtnRole(m_programRenameBtn, "secondary");
+	applyBtnRole(m_programDeleteBtn, "danger");
 	programRow->addWidget(m_programNewBtn);
 	programRow->addWidget(m_programRenameBtn);
 	programRow->addWidget(m_programDeleteBtn);
-	contentLayout->addLayout(programRow);
+	root->addLayout(programRow);
 
-	const RobotInstruction::Type types[] = {
-		RobotInstruction::Type::PTP,	RobotInstruction::Type::LINE,	  RobotInstruction::Type::ARC,
+	const RobotInstruction::Type motionTypes[] = {
+		RobotInstruction::Type::PTP,
+		RobotInstruction::Type::LINE,
+		RobotInstruction::Type::ARC,
+	};
+	const RobotInstruction::Type logicTypes[] = {
 		RobotInstruction::Type::WAIT,	RobotInstruction::Type::IF,		  RobotInstruction::Type::WHILE,
 		RobotInstruction::Type::SET_DO, RobotInstruction::Type::SET_AO,	  RobotInstruction::Type::PathPlan,
 	};
-	m_instructionGroupBox = new QGroupBox(QStringLiteral("Instructions"), this);
-	auto* addRow = new QHBoxLayout(m_instructionGroupBox);
-	addRow->setContentsMargins(4, 2, 4, 4);
-	addRow->setSpacing(2);
-	for (const RobotInstruction::Type t : types)
-	{
-		if (t == RobotInstruction::Type::WAIT)
-		{
-			auto* sep = new QFrame(m_instructionGroupBox);
-			sep->setFrameShape(QFrame::VLine);
-			sep->setFrameShadow(QFrame::Sunken);
-			sep->setFixedWidth(1);
-			addRow->addWidget(sep);
-		}
-		addRow->addWidget(createTypeButton(t));
-	}
-	addRow->addStretch(1);
-	contentLayout->addWidget(m_instructionGroupBox);
 
-	m_functionGroupBox = new QGroupBox(QStringLiteral("Functions"), this);
-	auto* funcRow = new QHBoxLayout(m_functionGroupBox);
-	funcRow->setContentsMargins(4, 2, 4, 4);
+	auto* insertBar = new QWidget(this);
+	auto* insertOuter = new QHBoxLayout(insertBar);
+	insertOuter->setContentsMargins(0, 0, 0, 0);
+	insertOuter->setSpacing(4);
+	m_insertLabel = new QLabel(QStringLiteral("插入"), insertBar);
+	m_insertLabel->setFixedWidth(kContextLabelWidth);
+	insertOuter->addWidget(m_insertLabel, 0, Qt::AlignTop);
+
+	auto* insertBtnsHost = new QWidget(insertBar);
+	auto* insertGrid = new QGridLayout(insertBtnsHost);
+	insertGrid->setContentsMargins(0, 1, 0, 1);
+	insertGrid->setHorizontalSpacing(2);
+	insertGrid->setVerticalSpacing(4);
+	int col = 0;
+	for (const RobotInstruction::Type t : motionTypes)
+	{
+		auto* typeBtn = createTypeButton(t);
+		configureCompactButton(typeBtn, kTypeBtnMinWidth);
+		applyBtnRole(typeBtn, "secondary");
+		insertGrid->addWidget(typeBtn, 0, col++);
+	}
+	col = 0;
+	for (const RobotInstruction::Type t : logicTypes)
+	{
+		auto* typeBtn = createTypeButton(t);
+		configureCompactButton(typeBtn, kTypeBtnMinWidth);
+		applyBtnRole(typeBtn, "secondary");
+		insertGrid->addWidget(typeBtn, 1, col++);
+	}
+	insertGrid->setColumnStretch(col, 1);
+	insertOuter->addWidget(insertBtnsHost, 1);
+	root->addWidget(insertBar);
+
+	auto* editBar = new QWidget(this);
+	auto* editCol = new QVBoxLayout(editBar);
+	editCol->setContentsMargins(0, 1, 0, 1);
+	editCol->setSpacing(2);
+	auto* funcRow = new QHBoxLayout;
 	funcRow->setSpacing(2);
-	m_tcpDragTeachBtn = new QPushButton(QStringLiteral("Drag"), m_functionGroupBox);
+	m_editLabel = new QLabel(QStringLiteral("编辑"), editBar);
+	m_editLabel->setFixedWidth(kContextLabelWidth);
+	funcRow->addWidget(m_editLabel);
+	m_tcpDragTeachBtn = new QPushButton(QStringLiteral("Drag"), editBar);
 	m_tcpDragTeachBtn->setCheckable(true);
-	m_tcpDragTeachBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+	configureCompactButton(m_tcpDragTeachBtn, kTypeBtnMinWidth);
+	applyBtnRole(m_tcpDragTeachBtn, "secondary");
 	connect(m_tcpDragTeachBtn, &QPushButton::toggled, this,
 			[this](const bool checked)
 			{
 				if (m_tcpDragTeachMode == checked)
 				{
+					updateTcpDragTeachUi(checked);
 					return;
 				}
 				m_tcpDragTeachMode = checked;
+				updateTcpDragTeachUi(checked);
 				emit tcpDragTeachModeChanged(checked);
 			});
 	funcRow->addWidget(m_tcpDragTeachBtn);
-	m_removeBtn = new QPushButton(QStringLiteral("Remove"), m_functionGroupBox);
-	m_clearBtn = new QPushButton(QStringLiteral("Clear"), m_functionGroupBox);
-	m_removeBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
-	m_clearBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+	m_removeBtn = new QPushButton(QStringLiteral("Remove"), editBar);
+	m_clearBtn = new QPushButton(QStringLiteral("Clear"), editBar);
+	configureCompactButton(m_removeBtn, kTypeBtnMinWidth);
+	configureCompactButton(m_clearBtn, kTypeBtnMinWidth);
+	applyBtnRole(m_removeBtn, "danger");
+	applyBtnRole(m_clearBtn, "danger");
 	funcRow->addWidget(m_removeBtn);
 	funcRow->addWidget(m_clearBtn);
 	funcRow->addStretch(1);
-	contentLayout->addWidget(m_functionGroupBox);
+	editCol->addLayout(funcRow);
+	m_tcpDragHintLabel = new QLabel(editBar);
+	m_tcpDragHintLabel->setWordWrap(true);
+	m_tcpDragHintLabel->setVisible(false);
+	m_tcpDragHintLabel->setStyleSheet(QStringLiteral("color: #288cf0;"));
+	editCol->addWidget(m_tcpDragHintLabel);
+	root->addWidget(editBar);
+	root->addWidget(makeHLine(this));
 
 	m_tree = new InstructionProgramTreeWidget(this);
-	contentLayout->addWidget(m_tree, 1);
-
-	// 设置滚动区域
-	m_scrollArea->setWidget(scrollContent);
-	root->addWidget(m_scrollArea, 1);
+	root->addWidget(m_tree, 1);
 
 	connect(m_robotCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&SimulationCommandWidget::onRobotComboChanged);
@@ -283,10 +380,6 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 				emit playbackRateChanged(playbackRate());
 			});
 
-	UiIconDecorators::apply(m_programNewBtn, UiIconId::Add, UiIconDecorators::IconPlacement::IconOnly,
-							UiIcons::Size::Small);
-	UiIconDecorators::apply(m_programRenameBtn, UiIconId::Rename);
-	UiIconDecorators::apply(m_programDeleteBtn, UiIconId::Delete);
 	UiIconDecorators::apply(m_tcpDragTeachBtn, UiIconId::TcpDragTeach);
 	UiIconDecorators::apply(m_removeBtn, UiIconId::Delete);
 	UiIconDecorators::apply(m_clearBtn, UiIconId::Clear);
@@ -488,13 +581,13 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 {
 	m_useChinese = chinese;
 	updateProgramGroupUi();
-	if (m_instructionGroupBox)
+	if (m_insertLabel)
 	{
-		m_instructionGroupBox->setTitle(chinese ? QStringLiteral("指令") : QStringLiteral("Instructions"));
+		m_insertLabel->setText(chinese ? QStringLiteral("插入") : QStringLiteral("Insert"));
 	}
-	if (m_functionGroupBox)
+	if (m_editLabel)
 	{
-		m_functionGroupBox->setTitle(chinese ? QStringLiteral("功能") : QStringLiteral("Functions"));
+		m_editLabel->setText(chinese ? QStringLiteral("编辑") : QStringLiteral("Edit"));
 	}
 	m_removeBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
 	m_clearBtn->setText(chinese ? QStringLiteral("清空") : QStringLiteral("Clear"));
@@ -520,6 +613,7 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 			chinese ? QStringLiteral("在 3D 视图中拖动 TCP 罗盘示教（不写指令）")
 					: QStringLiteral("Drag TCP gizmo in 3D view to teach pose (does not edit program)"));
 	}
+	updateTcpDragTeachUi(m_tcpDragTeachMode);
 	updateTypeButtonLabels();
 	rebuildCommandListWidget();
 }
@@ -527,21 +621,39 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 void SimulationCommandWidget::updateProgramGroupUi()
 {
 	const bool zh = m_useChinese;
+	const int labelW = zh ? kContextLabelWidth : 56;
+	if (m_robotLabel)
+	{
+		m_robotLabel->setText(zh ? QStringLiteral("机器人") : QStringLiteral("Robot"));
+		m_robotLabel->setFixedWidth(labelW);
+	}
 	if (m_programLabel)
 	{
 		m_programLabel->setText(zh ? QStringLiteral("程序") : QStringLiteral("Program"));
+		m_programLabel->setFixedWidth(labelW);
+	}
+	if (m_insertLabel)
+	{
+		m_insertLabel->setFixedWidth(labelW);
+	}
+	if (m_editLabel)
+	{
+		m_editLabel->setFixedWidth(labelW);
 	}
 	if (m_programNewBtn)
 	{
+		m_programNewBtn->setText(zh ? QStringLiteral("新建") : QStringLiteral("New"));
 		m_programNewBtn->setToolTip(zh ? QStringLiteral("新建程序") : QStringLiteral("New program"));
 	}
 	if (m_programRenameBtn)
 	{
 		m_programRenameBtn->setText(zh ? QStringLiteral("重命名") : QStringLiteral("Rename"));
+		m_programRenameBtn->setToolTip(zh ? QStringLiteral("重命名") : QStringLiteral("Rename"));
 	}
 	if (m_programDeleteBtn)
 	{
 		m_programDeleteBtn->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
+		m_programDeleteBtn->setToolTip(zh ? QStringLiteral("删除程序") : QStringLiteral("Delete program"));
 	}
 }
 
@@ -660,6 +772,7 @@ void SimulationCommandWidget::setSimulationRunning(bool running)
 		const QSignalBlocker b(m_tcpDragTeachBtn);
 		m_tcpDragTeachBtn->setChecked(false);
 		m_tcpDragTeachMode = false;
+		updateTcpDragTeachUi(false);
 		emit tcpDragTeachModeChanged(false);
 	}
 	if (m_tcpDragTeachBtn)
@@ -679,11 +792,42 @@ void SimulationCommandWidget::setTcpDragTeachMode(const bool enabled)
 	if (m_tcpDragTeachBtn->isChecked() == enabled)
 	{
 		m_tcpDragTeachMode = enabled;
+		updateTcpDragTeachUi(enabled);
 		return;
 	}
 	const QSignalBlocker b(m_tcpDragTeachBtn);
 	m_tcpDragTeachBtn->setChecked(enabled);
 	m_tcpDragTeachMode = enabled;
+	updateTcpDragTeachUi(enabled);
+}
+
+void SimulationCommandWidget::updateTcpDragTeachUi(const bool enabled)
+{
+	if (m_tcpDragTeachBtn)
+	{
+		applyBtnRole(m_tcpDragTeachBtn, enabled ? "primary" : "secondary");
+	}
+	if (m_tcpDragHintLabel)
+	{
+		if (enabled)
+		{
+			m_tcpDragHintLabel->setText(
+				m_useChinese ? QStringLiteral("拖动示教中：在 3D 视图拖动 TCP，再次点击「拖动」退出")
+							 : QStringLiteral("TCP teach on: drag gizmo in 3D view; click Drag again to exit"));
+			m_tcpDragHintLabel->setVisible(true);
+			if (m_tcpDragTeachBtn)
+			{
+				QToolTip::showText(m_tcpDragTeachBtn->mapToGlobal(QPoint(0, m_tcpDragTeachBtn->height())),
+								   m_tcpDragHintLabel->text(), m_tcpDragTeachBtn);
+			}
+		}
+		else
+		{
+			m_tcpDragHintLabel->clear();
+			m_tcpDragHintLabel->setVisible(false);
+			QToolTip::hideText();
+		}
+	}
 }
 
 bool SimulationCommandWidget::tcpDragTeachMode() const
