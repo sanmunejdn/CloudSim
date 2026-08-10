@@ -1192,9 +1192,36 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 
 		{
 			const int total = doc->robotRevoluteJointNames().size();
-			const int oldSize = m_aggregatedJointAnglesRad.size();
-			if (m_aggregatedJointAnglesRad.size() != total)
+			// 删机再导时 DOF 常相同，旧聚合角会进轴控/罗盘 FK，而场景仍是零位
+			if (backendIds != m_syncedRobotSceneBackendIds)
 			{
+				bool overlap = false;
+				for (const QString& id : backendIds)
+				{
+					if (m_syncedRobotSceneBackendIds.contains(id))
+					{
+						overlap = true;
+						break;
+					}
+				}
+				if (!overlap)
+				{
+					m_aggregatedJointAnglesRad = QVector<double>(total, 0.0);
+				}
+				else if (m_aggregatedJointAnglesRad.size() != total)
+				{
+					const int oldSize = m_aggregatedJointAnglesRad.size();
+					m_aggregatedJointAnglesRad.resize(total);
+					for (int i = oldSize; i < total; ++i)
+					{
+						m_aggregatedJointAnglesRad[i] = 0.0;
+					}
+				}
+				m_syncedRobotSceneBackendIds = backendIds;
+			}
+			else if (m_aggregatedJointAnglesRad.size() != total)
+			{
+				const int oldSize = m_aggregatedJointAnglesRad.size();
 				m_aggregatedJointAnglesRad.resize(total);
 				for (int i = oldSize; i < total; ++i)
 				{
@@ -1220,11 +1247,24 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 	}
 	else
 	{
+		// 删机后无仿真上下文：关掉拖动示教，避免叠加罗盘残留
+		if (m_host->simulationCommandPage() && m_host->simulationCommandPage()->tcpDragTeachMode())
+		{
+			onSimulationTcpDragTeachModeChanged(false);
+			m_host->simulationCommandPage()->setTcpDragTeachMode(false);
+		}
+		else if (IRobotOsgViewHost* osg = m_host->osgView())
+		{
+			if (osg->isTcpDragTeachActive())
+			{
+				osg->endTcpDragTeach();
+			}
+		}
 		m_host->simulationCommandPage()->setRobotInstances(QStringList(), QStringList());
 		m_host->simulationCommandPage()->setRevoluteJointNames(QStringList());
 		m_host->simulationCommandPage()->setTcpLinkOptions(QStringList(), QString());
 		m_host->robotAxisControlPage()->clearJoints();
-		// 保留聚合关节角：切回机器人文档时轴控可对齐场景，勿清空后当 0 位姿
+		// 保留聚合角与 m_syncedRobotSceneBackendIds：空文档切回原机时可对齐；无交集的新机在上方清零
 		m_motionPreviewProgramStartJointRad.clear();
 		m_host->simulationCommandPage()->bindProgramTree();
 	}
@@ -1243,6 +1283,16 @@ void RobotSimulationController::restoreAggregatedJointStateAfterProjectLoad(cons
 		return;
 	}
 	m_aggregatedJointAnglesRad = allJointAnglesRad;
+	{
+		QStringList ids;
+		const int n = doc->robotKinematicInstanceCount();
+		ids.reserve(n);
+		for (int i = 0; i < n; ++i)
+		{
+			ids.append(doc->robotSceneBackendIdForInstance(i));
+		}
+		m_syncedRobotSceneBackendIds = ids;
+	}
 	const int instIdx =
 		m_host->simulationCommandPage() && m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
 			? m_host->simulationCommandPage()->currentRobotInstanceIndex()
@@ -1976,12 +2026,22 @@ void RobotSimulationController::onRobotCoordinateFramesChanged()
 			osg->isTcpDragTeachActive())
 		{
 			const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+			const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+			bool meshVerticesInLinkFrame = true;
+			cloudsim::core::RobotPerLinkKinematicsSliceDto plSlice;
+			if (doc->robotPerLinkKinematicsForInstance(instIdx, plSlice))
+			{
+				meshVerticesInLinkFrame = plSlice.meshVerticesInLinkFrame;
+			}
 			if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
 			{
+				const QString flangeQ = QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *tool));
 				osg->updateTcpDragTeachToolLocalOnFlange(RobotSimulationMath::coreMat4FromOsgMatrix(
-					RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool->T_flange_tool)));
+					RobotSimulationMath::linkFrameLocalOnMeshBackend(
+						urdfPath, flangeQ.isEmpty() ? m_tcpDragTeachFlangeLink : flangeQ,
+						RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool->T_flange_tool),
+						meshVerticesInLinkFrame)));
 			}
-			const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
 			if (!urdfPath.isEmpty())
 			{
 				QStringList revoluteChildLinks;
@@ -2174,7 +2234,6 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		}
 	}
 	const bool perLink = doc->robotUsesPerLinkBackendsForInstance(instIdx);
-	const bool worldBakedPerLink = RobotSimulationMath::perLinkUsesWorldBakedMeshVertices(doc, instIdx);
 	bool meshVerticesInLinkFrame = true;
 	if (perLink)
 	{
@@ -2223,8 +2282,8 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		RobotOsgUi::RobotFrameOverlayUpdate::ToolEntry te;
 		te.name = tool.name;
 		te.active = (tool.id == highlightToolId);
-		// Waypoint axes (refreshInstructionPoseAxes) mark instruction TCP; tool overlays use flange+T_flange_tool only.
-		if (perLink && !worldBakedPerLink)
+		// per-link：工具轴挂在法兰 mesh 上。文件系顶点时 local=T_tool*inv(visual)，使世界系落在连杆原点
+		if (perLink)
 		{
 			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
 			te.mountBackendId =
@@ -2239,27 +2298,10 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		}
 		else
 		{
-			if (perLink)
-			{
-				te.mountBackendId =
-					RobotSimulationMath::urdfRootLinkBackendIdForInstance(doc, instIdx, urdfPath, baseLinkBackendId)
-						.toStdString();
-				if (te.mountBackendId.empty())
-				{
-					continue;
-				}
-			}
-			else
-			{
-				te.mountBackendId.clear();
-			}
+			te.mountBackendId.clear();
 			const osg::Matrixd tcpInBase = RobotSimulationMath::osgMatrixFromBackendMat4(
 				RobotSimulationMath::toolTcpInBaseFromFk(urdfPath, jointQ, frames, tool));
-			const QString mountLink = urdfRootLinkName.isEmpty() ? QStringLiteral("base_link") : urdfRootLinkName;
-			te.localMatrix =
-				perLink ? RobotSimulationMath::coreMat4FromOsgMatrix(RobotSimulationMath::linkFrameLocalOnMeshBackend(
-							  urdfPath, mountLink, tcpInBase, meshVerticesInLinkFrame))
-						: RobotSimulationMath::coreMat4FromOsgMatrix(tcpInBase);
+			te.localMatrix = RobotSimulationMath::coreMat4FromOsgMatrix(tcpInBase);
 		}
 		upd.toolFrames.push_back(std::move(te));
 	}
@@ -2435,6 +2477,16 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 		m_host->robotAxisControlPage()->setJoints(jn, lower, upper);
 	}
 	syncRobotAxisControlExternalAxes(instanceIndex);
+	{
+		const int jointOffset = doc->robotJointOffsetInAggregatedVector(instanceIndex);
+		const int nj = doc->robotRevoluteJointCountForInstance(instanceIndex);
+		if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
+		{
+			const QVector<double> local = m_aggregatedJointAnglesRad.mid(jointOffset, nj);
+			QSignalBlocker blocker(m_host->robotAxisControlPage());
+			m_host->robotAxisControlPage()->setJointAnglesRad(local);
+		}
+	}
 	captureMotionPreviewProgramStartJoints();
 	m_host->invalidateInstructionPropertyCache();
 	refreshRobotCoordinateFrameOverlays();
@@ -3106,6 +3158,8 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		m_tcpDragTeachFlangeLink.clear();
 		m_tcpDragLastAppliedJointRad.clear();
 		m_lastTcpDragTargetValid = false;
+		m_tcpDragIkPosePending = false;
+		m_tcpDragIkFlushScheduled = false;
 		if (IRobotDocumentHost* docOff = m_host ? m_host->document() : nullptr)
 		{
 			docOff->setSuppressRobotFollowDirtyNotify(false);
@@ -3157,16 +3211,26 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	}
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
 	const bool perLink = doc->robotUsesPerLinkBackendsForInstance(instIdx);
-	const bool worldBakedPerLink = RobotSimulationMath::perLinkUsesWorldBakedMeshVertices(doc, instIdx);
+	bool meshVerticesInLinkFrame = true;
+	if (perLink)
+	{
+		cloudsim::core::RobotPerLinkKinematicsSliceDto plSlice;
+		if (doc->robotPerLinkKinematicsForInstance(instIdx, plSlice))
+		{
+			meshVerticesInLinkFrame = plSlice.meshVerticesInLinkFrame;
+		}
+	}
 	engine::RigidTransform targetInBase{};
 	QString flangeLinkQ;
 	if (const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames))
 	{
 		flangeLinkQ = QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *activeTool));
 	}
+	const QVector<double> axisJointQ = m_host->robotAxisControlPage()->jointAnglesRad();
+	// 目标只用连杆系 FK。装配系 mesh 的场景矩阵≠连杆系，当法兰捕获会把罗盘算到世界原点附近
 	if (!RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
-			urdfPath, m_host->robotAxisControlPage()->jointAnglesRad(), frames,
-			flangeLinkQ.isEmpty() ? fallbackFlange : flangeLinkQ, targetInBase, &flangeLinkQ, nullptr))
+			urdfPath, axisJointQ, frames, flangeLinkQ.isEmpty() ? fallbackFlange : flangeLinkQ, targetInBase,
+			&flangeLinkQ, nullptr))
 	{
 		RobotInstruction::Vec3 pose{};
 		RobotInstruction::Vec3 euler{};
@@ -3202,7 +3266,8 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	(void)modelDiag;
 	std::string mountBackendId = robotRootId.toStdString();
 	bool mountOnFlange = false;
-	if (perLink && !worldBakedPerLink && !m_tcpDragTeachFlangeLink.isEmpty())
+	// 与工具轴叠加一致：per-link 一律挂法兰 mesh，文件系顶点用 inv(visual) 对齐连杆原点
+	if (perLink && !m_tcpDragTeachFlangeLink.isEmpty())
 	{
 		const std::string flangeId =
 			RobotSimulationMath::linkMeshBackendIdForInstance(doc, instIdx, m_tcpDragTeachFlangeLink.toStdString())
@@ -3211,15 +3276,6 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		{
 			mountBackendId = flangeId;
 			mountOnFlange = true;
-		}
-	}
-	else if (perLink && worldBakedPerLink)
-	{
-		const QString rootBid = RobotSimulationMath::urdfRootLinkBackendIdForInstance(
-			doc, instIdx, urdfPath, doc->robotFrameWorldReferenceBackendId(instIdx));
-		if (!rootBid.isEmpty() && osg->hasBackendObjectBranch(rootBid.toStdString()))
-		{
-			mountBackendId = rootBid.toStdString();
 		}
 	}
 	if (!mountOnFlange && !osg->hasBackendObjectBranch(mountBackendId))
@@ -3247,41 +3303,34 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	std::function<bool(cloudsim::core::Mat4&)> resolveRobotBaseWorld;
 	cloudsim::core::Mat4 toolLocalOnFlange;
 	const cloudsim::core::Mat4* toolLocalPtr = nullptr;
+	const auto makeResolveRobotBaseWorld = [this, doc, osg, instIdx](cloudsim::core::Mat4& outWorld) -> bool
+	{
+		QVector<double> jointQ = localJointAnglesForInstance(instIdx);
+		osg::Matrixd world;
+		if (!RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, world,
+																  jointQ.isEmpty() ? nullptr : &jointQ))
+		{
+			return false;
+		}
+		outWorld = RobotSimulationMath::coreMat4FromOsgMatrix(world);
+		return true;
+	};
 	if (mountOnFlange)
 	{
-		resolveRobotBaseWorld = [this, doc, osg, instIdx](cloudsim::core::Mat4& outWorld) -> bool
-		{
-			QVector<double> jointQ = localJointAnglesForInstance(instIdx);
-			osg::Matrixd world;
-			if (!RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, world,
-																	  jointQ.isEmpty() ? nullptr : &jointQ))
-			{
-				return false;
-			}
-			outWorld = RobotSimulationMath::coreMat4FromOsgMatrix(world);
-			return true;
-		};
+		resolveRobotBaseWorld = makeResolveRobotBaseWorld;
+		osg::Matrixd toolLinkLocal;
+		toolLinkLocal.makeIdentity();
 		if (const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames))
 		{
-			toolLocalOnFlange = RobotSimulationMath::coreMat4FromOsgMatrix(
-				RobotSimulationMath::osgMatrixFromRobotRigidFrame(activeTool->T_flange_tool));
-			toolLocalPtr = &toolLocalOnFlange;
+			toolLinkLocal = RobotSimulationMath::osgMatrixFromRobotRigidFrame(activeTool->T_flange_tool);
 		}
+		toolLocalOnFlange = RobotSimulationMath::coreMat4FromOsgMatrix(RobotSimulationMath::linkFrameLocalOnMeshBackend(
+			urdfPath, m_tcpDragTeachFlangeLink, toolLinkLocal, meshVerticesInLinkFrame));
+		toolLocalPtr = &toolLocalOnFlange;
 	}
 	else if (mountBackendId != robotRootId.toStdString())
 	{
-		resolveRobotBaseWorld = [this, doc, osg, instIdx](cloudsim::core::Mat4& outWorld) -> bool
-		{
-			QVector<double> jointQ = localJointAnglesForInstance(instIdx);
-			osg::Matrixd world;
-			if (!RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, world,
-																	  jointQ.isEmpty() ? nullptr : &jointQ))
-			{
-				return false;
-			}
-			outWorld = RobotSimulationMath::coreMat4FromOsgMatrix(world);
-			return true;
-		};
+		resolveRobotBaseWorld = makeResolveRobotBaseWorld;
 	}
 	m_tcpDragLastAppliedJointRad.clear();
 	m_lastTcpDragTargetValid = false;
@@ -3289,8 +3338,13 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	{
 		const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
 		const int njInst = doc->robotRevoluteJointCountForInstance(instIdx);
+		// reconcile 必须与场景一致：用轴控角（与罗盘目标同源），勿混用删机残留的聚合角
 		QVector<double> jointQ;
-		if (njInst > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + njInst)
+		if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == njInst)
+		{
+			jointQ = m_host->robotAxisControlPage()->jointAnglesRad();
+		}
+		else if (njInst > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + njInst)
 		{
 			jointQ.resize(njInst);
 			for (int j = 0; j < njInst; ++j)
@@ -3298,12 +3352,16 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 				jointQ[j] = m_aggregatedJointAnglesRad[jointOffset + j];
 			}
 		}
-		else if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == njInst)
-		{
-			jointQ = m_host->robotAxisControlPage()->jointAnglesRad();
-		}
 		if (jointQ.size() == njInst)
 		{
+			if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
+			{
+				m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
+			}
+			for (int j = 0; j < njInst && jointOffset + j < m_aggregatedJointAnglesRad.size(); ++j)
+			{
+				m_aggregatedJointAnglesRad[jointOffset + j] = jointQ[j];
+			}
 			doc->reconcilePerLinkOuterBindFromScene(instIdx, jointQ);
 		}
 	}
@@ -3373,11 +3431,6 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	{
 		return false;
 	}
-	static constexpr int kTcpDragIkMinIntervalMs = 33;
-	if (m_tcpDragTeachIkTimer.isValid() && m_tcpDragTeachIkTimer.elapsed() < kTcpDragIkMinIntervalMs)
-	{
-		return true;
-	}
 	m_tcpDragTeachIkTimer.restart();
 	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
 	const int njInst = doc->robotRevoluteJointCountForInstance(instIdx);
@@ -3412,7 +3465,9 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	double ikEz = 0.0;
 	targetFromEmit.translationMm(ikPx, ikPy, ikPz);
 	targetFromEmit.eulerDegForDisplay(ikEx, ikEy, ikEz);
-	static constexpr double kTcpDragMaxChaseMmPerIk = 50.0;
+	// 跟手：单步追赶加大，避免罗盘已走远而臂还在小台阶上爬
+	static constexpr double kTcpDragMaxChaseMmPerIk = 220.0;
+	bool chaseClipped = false;
 	if (hadPrevTarget)
 	{
 		double tPrev[3]{};
@@ -3425,6 +3480,7 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		const double emitLen = std::sqrt(dx * dx + dy * dy + dz * dz);
 		if (emitLen > kTcpDragMaxChaseMmPerIk)
 		{
+			chaseClipped = true;
 			const double s = kTcpDragMaxChaseMmPerIk / emitLen;
 			ikPx = tPrev[0] + dx * s;
 			ikPy = tPrev[1] + dy * s;
@@ -3457,9 +3513,11 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	wrapJointAnglesTowardSeed(qClamped, seedQ);
 	const bool hasPrevDragQ = (m_tcpDragLastAppliedJointRad.size() == qClamped.size());
 	const double maxDeltaIk = hasPrevDragQ ? maxJointDeltaRad(qClamped, m_tcpDragLastAppliedJointRad) : 1.0;
-	static constexpr double kTcpDragMaxJointStepRad = 0.12;
+	static constexpr double kTcpDragMaxJointStepRad = 0.45;
+	bool jointStepClipped = false;
 	if (hasPrevDragQ)
 	{
+		jointStepClipped = (maxDeltaIk > kTcpDragMaxJointStepRad + 1e-9);
 		qClamped = clampJointStepFromPrevious(qClamped, m_tcpDragLastAppliedJointRad, kTcpDragMaxJointStepRad);
 	}
 	const double maxJointDelta = hasPrevDragQ ? maxJointDeltaRad(qClamped, m_tcpDragLastAppliedJointRad) : 1.0;
@@ -3477,8 +3535,8 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		qeNewFull = expandScalarExternalAxisQ(extSet, ikResult.externalAxisQ);
 		haveExtUpdate = true;
 	}
-	static constexpr double kTcpDragMaxExtStepMm = 40.0;
-	static constexpr double kTcpDragMaxExtStepRad = 0.2;
+	static constexpr double kTcpDragMaxExtStepMm = 120.0;
+	static constexpr double kTcpDragMaxExtStepRad = 0.45;
 	if (haveExtUpdate)
 	{
 		qeNewFull.resize(extSet.axes.size());
@@ -3639,23 +3697,81 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	}
 	m_suppressMotionPreviewStartCapture = false;
 	m_tcpDragApplyingIk = false;
-	if (RobotSimulationMath::perLinkUsesWorldBakedMeshVertices(doc, instIdx))
+	// 拖动中罗盘跟鼠标目标；松手后 overlay 帧会改跟法兰 FK，勿在此用残差把罗盘拽回去
+	osg->updateTcpDragTeachFromTarget(tcpDragRigidP0ToPeff(doc, instIdx, m_lastTcpDragTargetInBase), false);
+	static constexpr int kTcpDragOverlayMinIntervalMs = 50;
+	if (!m_tcpDragOverlayRefreshTimer.isValid() ||
+		m_tcpDragOverlayRefreshTimer.elapsed() >= kTcpDragOverlayMinIntervalMs)
 	{
-		osg->updateTcpDragTeachFromTarget(tcpDragRigidP0ToPeff(doc, instIdx, m_lastTcpDragTargetInBase), false);
+		refreshRobotCoordinateFrameOverlays();
+		m_tcpDragOverlayRefreshTimer.restart();
 	}
-	else
-	{
-		syncTcpDragTeachAnchorFromCurrentJoints();
-	}
-	refreshRobotCoordinateFrameOverlays();
 	osg->requestRedraw();
+	// 鼠标停住时仍继续追赶，避免停在 chase/关节台阶上
+	if (chaseClipped || jointStepClipped)
+	{
+		m_tcpDragIkPendingPx = pxMm;
+		m_tcpDragIkPendingPy = pyMm;
+		m_tcpDragIkPendingPz = pzMm;
+		m_tcpDragIkPendingEx = exDeg;
+		m_tcpDragIkPendingEy = eyDeg;
+		m_tcpDragIkPendingEz = ezDeg;
+		m_tcpDragIkPosePending = true;
+		if (!m_tcpDragIkFlushScheduled)
+		{
+			m_tcpDragIkFlushScheduled = true;
+			QTimer::singleShot(8, this,
+							   [this]()
+							   {
+								   m_tcpDragIkFlushScheduled = false;
+								   flushTcpDragTeachIkPending();
+							   });
+		}
+	}
 	return true;
+}
+
+void RobotSimulationController::flushTcpDragTeachIkPending()
+{
+	if (!m_tcpDragIkPosePending)
+	{
+		m_tcpDragIkFlushScheduled = false;
+		return;
+	}
+	static constexpr int kTcpDragIkMinIntervalMs = 8;
+	if (m_tcpDragTeachIkTimer.isValid() && m_tcpDragTeachIkTimer.elapsed() < kTcpDragIkMinIntervalMs)
+	{
+		if (!m_tcpDragIkFlushScheduled)
+		{
+			m_tcpDragIkFlushScheduled = true;
+			const int waitMs =
+				std::max(1, kTcpDragIkMinIntervalMs - static_cast<int>(m_tcpDragTeachIkTimer.elapsed()));
+			QTimer::singleShot(waitMs, this,
+							   [this]()
+							   {
+								   m_tcpDragIkFlushScheduled = false;
+								   flushTcpDragTeachIkPending();
+							   });
+		}
+		return;
+	}
+	m_tcpDragIkPosePending = false;
+	m_tcpDragIkFlushScheduled = false;
+	(void)applyTcpDragTeachIkFromPose(m_tcpDragIkPendingPx, m_tcpDragIkPendingPy, m_tcpDragIkPendingPz,
+									  m_tcpDragIkPendingEx, m_tcpDragIkPendingEy, m_tcpDragIkPendingEz);
 }
 
 void RobotSimulationController::onTcpDragTeachPoseChanged(const double pxMm, const double pyMm, const double pzMm,
 														  const double exDeg, const double eyDeg, const double ezDeg)
 {
-	(void)applyTcpDragTeachIkFromPose(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+	m_tcpDragIkPendingPx = pxMm;
+	m_tcpDragIkPendingPy = pyMm;
+	m_tcpDragIkPendingPz = pzMm;
+	m_tcpDragIkPendingEx = exDeg;
+	m_tcpDragIkPendingEy = eyDeg;
+	m_tcpDragIkPendingEz = ezDeg;
+	m_tcpDragIkPosePending = true;
+	flushTcpDragTeachIkPending();
 }
 
 void RobotSimulationController::syncTcpDragExitJointState()
@@ -3695,11 +3811,21 @@ void RobotSimulationController::syncTcpDragExitJointState()
 
 void RobotSimulationController::onTcpDragTeachEnded()
 {
-	if (m_host->simulationCommandPage())
+	// Esc / 删挂载节点等路径已 endTcpDragTeach，这里对齐 UI 与 pending IK
+	if (m_host && m_host->simulationCommandPage() && m_host->simulationCommandPage()->tcpDragTeachMode())
 	{
+		onSimulationTcpDragTeachModeChanged(false);
 		m_host->simulationCommandPage()->setTcpDragTeachMode(false);
 	}
-	if (m_host->simulationCommandPage() && m_host->document())
+	else
+	{
+		m_tcpDragIkPosePending = false;
+		m_tcpDragIkFlushScheduled = false;
+		m_tcpDragTeachFlangeLink.clear();
+		m_tcpDragLastAppliedJointRad.clear();
+		m_lastTcpDragTargetValid = false;
+	}
+	if (m_host && m_host->simulationCommandPage() && m_host->document())
 	{
 		const QString robotBackendId = m_host->simulationCommandPage()->currentRobotBackendId();
 		const std::vector<std::shared_ptr<RobotInstruction::Base>> program =

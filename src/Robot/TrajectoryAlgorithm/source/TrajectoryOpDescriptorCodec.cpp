@@ -184,6 +184,8 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 	}
 
 	out = algo->makeDefaultDescriptor(scope);
+	// 再次钉死 JSON 作用域，防止默认参数路径改写 kind/pointFrom/pointTo
+	out.scope = scope;
 	if (!opId.empty())
 	{
 		out.opId = std::move(opId);
@@ -202,6 +204,7 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 			return false;
 		}
 	}
+	out.scope = scope;
 	return true;
 }
 

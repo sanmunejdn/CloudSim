@@ -3,9 +3,12 @@
 
 #include "WebGateway.h"
 
+#include "BackendFileImport.h"
+#include "BackendTypeIds.h"
 #include "CloudSimHost.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
+#include "FrameBackendData.h"
 #include "HeadlessRobotContext.h"
 #include "IDataService.h"
 #include "IDocumentScope.h"
@@ -24,6 +27,8 @@
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QVariant>
+
+#include <memory>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -298,6 +303,90 @@ bool WebGateway::importObjectOnGuiThread(cloudsim::host::DocumentHost* host, con
 	return true;
 }
 
+namespace
+{
+bool readVec3Json(const QJsonValue& v, double out[3])
+{
+	if (!v.isArray())
+		return false;
+	const QJsonArray a = v.toArray();
+	if (a.size() < 3)
+		return false;
+	out[0] = a.at(0).toDouble();
+	out[1] = a.at(1).toDouble();
+	out[2] = a.at(2).toDouble();
+	return true;
+}
+} // namespace
+
+bool WebGateway::createCoordinateFrameOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body,
+												  QString* err, QString* outId)
+{
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	if (!doc.isObject() || !host)
+	{
+		if (err)
+			*err = QStringLiteral("Invalid body.");
+		return false;
+	}
+	const QJsonObject o = doc.object();
+	QString name = o.value(QStringLiteral("name")).toString().trimmed();
+	if (name.isEmpty())
+		name = QString::fromUtf8(backend_type::kCatalogCoordinateFrame);
+
+	double positionMm[3]{0.0, 0.0, 0.0};
+	double eulerDeg[3]{0.0, 0.0, 0.0};
+	if (o.contains(QStringLiteral("positionMm")) && !readVec3Json(o.value(QStringLiteral("positionMm")), positionMm))
+	{
+		if (err)
+			*err = QStringLiteral("positionMm[3] required");
+		return false;
+	}
+	if (o.contains(QStringLiteral("eulerDeg")) && !readVec3Json(o.value(QStringLiteral("eulerDeg")), eulerDeg))
+	{
+		if (err)
+			*err = QStringLiteral("eulerDeg[3] required");
+		return false;
+	}
+
+	auto frame = std::make_shared<FrameBackendData>();
+	frame->setName(name.toStdString());
+	frame->setPose(BackendVec3{positionMm[0], positionMm[1], positionMm[2]});
+	frame->setRotation(BackendVec3{eulerDeg[0], eulerDeg[1], eulerDeg[2]});
+	if (o.contains(QStringLiteral("axisLengthMm")))
+	{
+		const double axisLen = o.value(QStringLiteral("axisLengthMm")).toDouble(FrameBackendData::kDefaultAxisLengthMm);
+		frame->setAxisLengthMm(static_cast<float>(axisLen));
+	}
+
+	if (!cloudsim::host::registerAdoptedFrameAndLoadScene(
+			*host, frame, QLatin1String(backend_type::kCatalogCoordinateFrame), QString(), false, err))
+	{
+		return false;
+	}
+	const QString id = QString::fromStdString(frame->id());
+	if (outId)
+		*outId = id;
+	pushEvent(QStringLiteral("{\"type\":\"BackendObjectRegistered\",\"backendId\":\"%1\"}").arg(id));
+	return true;
+}
+
+QByteArray WebGateway::coordinateFramesJsonOnGuiThread()
+{
+	QJsonArray frames;
+	if (m_document)
+	{
+		for (const auto& snap : m_document->data().listObjectSnapshots())
+		{
+			if (snap.className != QLatin1String(backend_type::kClassFrame))
+				continue;
+			frames.append(QJsonObject{{QStringLiteral("id"), snap.id}, {QStringLiteral("name"), snap.name}});
+		}
+	}
+	return QJsonDocument(QJsonObject{{QStringLiteral("ok"), true}, {QStringLiteral("frames"), frames}})
+		.toJson(QJsonDocument::Compact);
+}
+
 bool WebGateway::deleteObjectOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, QString* err)
 {
 	if (!host)
@@ -552,7 +641,8 @@ bool WebGateway::tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJs
 		m16.append(wmArr.at(i).toDouble());
 	QVector<double> joints;
 	QString ikErr;
-	if (!host->headlessRobotContext()->applyIkFromFlangeThreeJsMatrix(flangeId, m16, &joints, &ikErr))
+	bool incomplete = false;
+	if (!host->headlessRobotContext()->applyIkFromFlangeThreeJsMatrix(flangeId, m16, &joints, &ikErr, &incomplete))
 	{
 		if (err)
 			*err = ikErr.isEmpty() ? QStringLiteral("tcp IK failed") : ikErr;
@@ -573,6 +663,7 @@ bool WebGateway::tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJs
 			ja.append(d);
 		(*out)[QStringLiteral("sceneRootBackendId")] = rootId;
 		(*out)[QStringLiteral("jointAnglesRad")] = ja;
+		(*out)[QStringLiteral("incomplete")] = incomplete;
 	}
 	QJsonArray a;
 	for (double d : joints)

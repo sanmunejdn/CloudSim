@@ -8,7 +8,9 @@
 #include "BackendFollowMath.h"
 #include "BackendSpatial.h"
 #include "DocumentHost.h"
+#include "FrameBackendData.h"
 #include "GeometryRef.h"
+#include "HeadlessRobotContext.h"
 #include "ITrajectoryOp.h"
 #include "MeshTrajectory.h"
 #include "MeshTrajectoryIngress.h"
@@ -208,24 +210,58 @@ bool HeadlessTrajectorySession::beginEdit(QString* err)
 {
 	if (!requireBound(err))
 		return false;
+	// 对齐桌面 reloadBoundPathPlanFromStore：进入修改前从 PathPlan 重载
+	reloadBoundFromStore();
 	m_featureEditActive = true;
+	m_undo.clear();
+	m_redo.clear();
 	return true;
 }
 
 void HeadlessTrajectorySession::cancelEdit()
 {
 	m_featureEditActive = false;
+	// 放弃草稿，恢复已落盘内容（不回滚已写入 PathPlan 的历史提交）
+	reloadBoundFromStore();
+	m_undo.clear();
+	m_redo.clear();
+}
+
+void HeadlessTrajectorySession::reloadBoundFromStore()
+{
+	if (m_boundPathPlanId.empty())
+		return;
+	auto* cat = catalog();
+	if (auto* pp = boundPathPlan())
+		m_ops = pp->pipeline();
+	else
+		m_ops.clear();
+	RobotInstruction::RawTrajectory raw;
+	if (cat->pathPlanRaws().load(m_boundPathPlanId, raw))
+		m_raw = std::move(raw);
+	else if (!boundPathPlan())
+		m_raw.reset();
 }
 
 bool HeadlessTrajectorySession::createPathPlan(const QString& sceneBackendId, QString* outPathPlanId, QString* err)
 {
-	if (sceneBackendId.isEmpty())
+	QString sceneRoot = sceneBackendId.trimmed();
+	if (sceneRoot.isEmpty())
+	{
+		if (auto* robotCtx = m_host.headlessRobotContext())
+		{
+			const auto instances = robotCtx->listInstances();
+			if (!instances.isEmpty())
+				sceneRoot = instances.front().sceneRootBackendId;
+		}
+	}
+	if (sceneRoot.isEmpty())
 	{
 		if (err)
-			*err = QStringLiteral("sceneRootBackendId required");
+			*err = QStringLiteral("需要机器人场景根：请先导入机器人后再创建 PathPlan（工件 alone 不够）");
 		return false;
 	}
-	m_sceneBackendId = sceneBackendId.toStdString();
+	m_sceneBackendId = sceneRoot.toStdString();
 	auto* cat = catalog();
 	auto* prog = cat->mainProgram();
 	if (!prog)
@@ -397,6 +433,18 @@ bool HeadlessTrajectorySession::transformRawToWorld(const RobotInstruction::RawT
 		// 已是世界或无工件：原样
 		return true;
 	}
+	const auto data = m_host.backend().getData(backendId);
+	if (!data)
+	{
+		if (err)
+			*err = QStringLiteral("工件世界矩阵不可用");
+		return false;
+	}
+	// 与桌面 FeaturePickTransform 同式：位置走 Backend 世界矩阵；姿态 OSG mFile*rot（勿用仅 Eigen 链替代）
+	const engine::RigidTransform T_wm = rigidFromBackendMat4(data->worldMatrix(&m_host.backend()));
+	osg::Matrixd worldMat = engine::osgMatrixFromRigidTransform(T_wm);
+	osg::Matrixd rot = worldMat;
+	rot.setTrans(0.0, 0.0, 0.0);
 	for (auto& pt : worldRaw.points)
 	{
 		double wx = 0, wy = 0, wz = 0;
@@ -409,6 +457,14 @@ bool HeadlessTrajectorySession::transformRawToWorld(const RobotInstruction::RawT
 		pt.poseMm.x = wx;
 		pt.poseMm.y = wy;
 		pt.poseMm.z = wz;
+
+		const osg::Quat qFile = engine::eulerDegToQuat(pt.eulerDeg.x, pt.eulerDeg.y, pt.eulerDeg.z);
+		const osg::Matrixd mFile = osg::Matrixd::rotate(qFile);
+		const osg::Matrixd mWorld = mFile * rot;
+		const osg::Vec3f eulerWorld = engine::quatToEulerDegVec3f(mWorld.getRotate());
+		pt.eulerDeg.x = static_cast<double>(eulerWorld.x());
+		pt.eulerDeg.y = static_cast<double>(eulerWorld.y());
+		pt.eulerDeg.z = static_cast<double>(eulerWorld.z());
 	}
 	return true;
 }
@@ -550,10 +606,12 @@ bool HeadlessTrajectorySession::pickShapeRay(const QByteArray& body, bool requir
 	}
 	else
 	{
+		// 网页 mesh 命中点 → 最近 BRep 边（与桌面 OsgSceneBrepPick 兜底一致）
 		if (haveHit)
 			ok = geoalgo::pickShapeEdgeByModelPoint(shape, geoalgo::Point3d{hitMx, hitMy, hitMz}, 5.0, pick, &pickErr) &&
 				 pick.hit;
-		if (!ok)
+		// 无三角面命中时才走射线找边，避免同路径二次踩坏边
+		if (!ok && !haveHit)
 			ok = geoalgo::pickShapeEdgeByModelRay(shape, originM, dirM, 5.0, pick, &pickErr);
 	}
 	if (!ok || !pick.hit)
@@ -961,7 +1019,7 @@ bool HeadlessTrajectorySession::discretizeMeshSpec(const QByteArray& meshSpecJso
 
 bool HeadlessTrajectorySession::setPipelineJson(const QByteArray& pipelineJson, QString* err)
 {
-	if (!requireBound(err))
+	if (!requireEdit(err) || !requireBound(err))
 		return false;
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops;
 	std::string jerr;
@@ -982,7 +1040,7 @@ bool HeadlessTrajectorySession::setPipelineJson(const QByteArray& pipelineJson, 
 
 bool HeadlessTrajectorySession::fillRecipe(const QString& recipeKind, QString* err)
 {
-	if (!requireBound(err))
+	if (!requireEdit(err) || !requireBound(err))
 		return false;
 	RobotInstruction::RecipeKind kind = RobotInstruction::RecipeKind::Weld;
 	if (recipeKind.compare(QStringLiteral("glue"), Qt::CaseInsensitive) == 0)
@@ -998,6 +1056,54 @@ QByteArray HeadlessTrajectorySession::pipelineJson() const
 {
 	const nlohmann::json j = RobotInstruction::trajectoryPipelineToJson(m_ops);
 	return QByteArray::fromStdString(j.dump());
+}
+
+void HeadlessTrajectorySession::injectWorkpieceReferenceOnEngine()
+{
+	auto& eng = m_engine->engine;
+	HeadlessRobotContext* robotCtx = m_host.headlessRobotContext();
+	if (!robotCtx)
+	{
+		eng.setWorkpieceReferenceInBase(nullptr);
+		eng.setExternalTcpFrameResolver(nullptr);
+		return;
+	}
+
+	QString sceneRoot = QString::fromStdString(m_sceneBackendId);
+	if (sceneRoot.isEmpty())
+	{
+		const auto instances = robotCtx->listInstances();
+		if (!instances.isEmpty())
+			sceneRoot = instances.front().sceneRootBackendId;
+	}
+
+	HeadlessRobotContext::TcpPoseCapture tcp{};
+	if (sceneRoot.isEmpty() || !robotCtx->captureTcpPose(sceneRoot, tcp, nullptr))
+	{
+		eng.setWorkpieceReferenceInBase(nullptr);
+	}
+	else
+	{
+		const engine::RigidTransform ref = engine::RigidTransform::fromTranslationEulerDeg(
+			tcp.positionMm[0], tcp.positionMm[1], tcp.positionMm[2], tcp.eulerDeg[0], tcp.eulerDeg[1],
+			tcp.eulerDeg[2]);
+		eng.setWorkpieceReferenceInBase(&ref);
+	}
+
+	BackendDataManager* mgr = &m_host.backend();
+	eng.setExternalTcpFrameResolver(
+		[mgr](const std::string& backendId, engine::RigidTransform& out, std::string* errMsg) -> bool
+		{
+			const std::shared_ptr<BackendDataBase> data = mgr->getData(backendId);
+			if (!data || !std::dynamic_pointer_cast<FrameBackendData>(data))
+			{
+				if (errMsg)
+					*errMsg = "external TCP frame backend not found: " + backendId;
+				return false;
+			}
+			out = rigidFromBackendMat4(data->worldMatrix(mgr));
+			return true;
+		});
 }
 
 bool HeadlessTrajectorySession::runPipelineOnWorldRaw(RobotInstruction::RawTrajectory& worldRawInOut, QString* err)
@@ -1016,6 +1122,8 @@ bool HeadlessTrajectorySession::runPipelineOnWorldRaw(RobotInstruction::RawTraje
 	if (auto* prog = catalog()->mainProgram())
 		eng.setProgramContext(prog);
 	eng.setOps(m_ops);
+	// 须在 execute 前注入：转换工件型读当前 TCP / 场景 Frame
+	injectWorkpieceReferenceOnEngine();
 	std::string perr;
 	if (!eng.executeFull(&perr))
 	{
@@ -1030,8 +1138,67 @@ bool HeadlessTrajectorySession::runPipelineOnWorldRaw(RobotInstruction::RawTraje
 	return true;
 }
 
+namespace
+{
+void fillWorldPolylineJson(const RobotInstruction::RawTrajectory& worldRaw, QJsonObject* out, bool pipelineApplied)
+{
+	if (!out)
+		return;
+	QJsonArray pts;
+	QJsonArray eulers;
+	QJsonArray axesX;
+	QJsonArray axesY;
+	QJsonArray axesZ;
+	QJsonArray segmentEnds;
+	for (const auto& p : worldRaw.points)
+	{
+		pts.append(QJsonArray{p.poseMm.x, p.poseMm.y, p.poseMm.z});
+		eulers.append(QJsonArray{p.eulerDeg.x, p.eulerDeg.y, p.eulerDeg.z});
+		// 与桌面 appendWorldPoseMarker 同式：local * makeRotate(euler)，直接给前端画轴，避免再解欧拉
+		osg::Matrixd m;
+		m.makeRotate(engine::eulerDegToQuat(p.eulerDeg.x, p.eulerDeg.y, p.eulerDeg.z));
+		const osg::Vec3d x = osg::Vec3d(1.0, 0.0, 0.0) * m;
+		const osg::Vec3d y = osg::Vec3d(0.0, 1.0, 0.0) * m;
+		const osg::Vec3d z = osg::Vec3d(0.0, 0.0, 1.0) * m;
+		axesX.append(QJsonArray{x.x(), x.y(), x.z()});
+		axesY.append(QJsonArray{y.x(), y.y(), y.z()});
+		axesZ.append(QJsonArray{z.x(), z.y(), z.z()});
+	}
+	for (const std::size_t end : worldRaw.segmentEndExclusive)
+		segmentEnds.append(static_cast<double>(end));
+	(*out)[QStringLiteral("ok")] = true;
+	(*out)[QStringLiteral("pointsMm")] = pts;
+	(*out)[QStringLiteral("eulersDeg")] = eulers;
+	(*out)[QStringLiteral("axesX")] = axesX;
+	(*out)[QStringLiteral("axesY")] = axesY;
+	(*out)[QStringLiteral("axesZ")] = axesZ;
+	(*out)[QStringLiteral("segmentEndExclusive")] = segmentEnds;
+	(*out)[QStringLiteral("pointCount")] = static_cast<int>(worldRaw.points.size());
+	(*out)[QStringLiteral("pipelineApplied")] = pipelineApplied;
+}
+} // namespace
+
+bool HeadlessTrajectorySession::previewRaw(QJsonObject* outPolylineWorld, QString* err)
+{
+	if (!requireEdit(err))
+		return false;
+	if (!hasRaw())
+	{
+		if (err)
+			*err = QStringLiteral("无 Raw 轨迹");
+		return false;
+	}
+	RobotInstruction::RawTrajectory worldRaw;
+	if (!transformRawToWorld(*m_raw, worldRaw, err))
+		return false;
+	fillWorldPolylineJson(worldRaw, outPolylineWorld, false);
+	return true;
+}
+
 bool HeadlessTrajectorySession::preview(QJsonObject* outPolylineWorld, QString* err)
 {
+	if (!requireEdit(err))
+		return false;
 	if (!hasRaw())
 	{
 		if (err)
@@ -1043,30 +1210,13 @@ bool HeadlessTrajectorySession::preview(QJsonObject* outPolylineWorld, QString* 
 		return false;
 	if (!runPipelineOnWorldRaw(worldRaw, err))
 		return false;
-	QJsonArray pts;
-	QJsonArray eulers;
-	QJsonArray segmentEnds;
-	for (const auto& p : worldRaw.points)
-	{
-		pts.append(QJsonArray{p.poseMm.x, p.poseMm.y, p.poseMm.z});
-		eulers.append(QJsonArray{p.eulerDeg.x, p.eulerDeg.y, p.eulerDeg.z});
-	}
-	for (const std::size_t end : worldRaw.segmentEndExclusive)
-		segmentEnds.append(static_cast<double>(end));
-	if (outPolylineWorld)
-	{
-		(*outPolylineWorld)[QStringLiteral("ok")] = true;
-		(*outPolylineWorld)[QStringLiteral("pointsMm")] = pts;
-		(*outPolylineWorld)[QStringLiteral("eulersDeg")] = eulers;
-		(*outPolylineWorld)[QStringLiteral("segmentEndExclusive")] = segmentEnds;
-		(*outPolylineWorld)[QStringLiteral("pointCount")] = static_cast<int>(worldRaw.points.size());
-	}
+	fillWorldPolylineJson(worldRaw, outPolylineWorld, true);
 	return true;
 }
 
 bool HeadlessTrajectorySession::apply(QString* err)
 {
-	if (!requireBound(err) || !hasRaw())
+	if (!requireEdit(err) || !requireBound(err) || !hasRaw())
 	{
 		if (err && err->isEmpty())
 			*err = QStringLiteral("无 Raw 或未绑定");
@@ -1116,7 +1266,7 @@ bool HeadlessTrajectorySession::emitRawProgram(QString* err)
 			*err = QStringLiteral("已应用后请勿再生成程序，避免覆盖应用结果");
 		return false;
 	}
-	if (!requireBound(err) || !hasRaw())
+	if (!requireEdit(err) || !requireBound(err) || !hasRaw())
 	{
 		if (err && err->isEmpty())
 			*err = QStringLiteral("无 Raw 或未绑定");
@@ -1148,6 +1298,7 @@ bool HeadlessTrajectorySession::emitRawProgram(QString* err)
 			pp->setOutputGroupId(outGroup);
 	}
 	persistRaw(nullptr);
+	m_featureEditActive = false;
 	m_emitDisabledAfterApply = true;
 	return true;
 }
@@ -1178,7 +1329,7 @@ bool HeadlessTrajectorySession::opPaletteJson(QJsonObject* out, QString* err)
 
 bool HeadlessTrajectorySession::resetPipeline(QString* err)
 {
-	if (!requireBound(err))
+	if (!requireEdit(err) || !requireBound(err))
 		return false;
 	pushUndo();
 	m_ops.clear();
@@ -1187,6 +1338,8 @@ bool HeadlessTrajectorySession::resetPipeline(QString* err)
 
 bool HeadlessTrajectorySession::undoDraft(QString* err)
 {
+	if (!requireEdit(err))
+		return false;
 	if (m_undo.empty())
 	{
 		if (err)
@@ -1205,6 +1358,8 @@ bool HeadlessTrajectorySession::undoDraft(QString* err)
 
 bool HeadlessTrajectorySession::redoDraft(QString* err)
 {
+	if (!requireEdit(err))
+		return false;
 	if (m_redo.empty())
 	{
 		if (err)

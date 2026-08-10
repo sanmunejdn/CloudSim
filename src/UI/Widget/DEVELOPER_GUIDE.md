@@ -43,7 +43,6 @@ Widget/
 │   ├── ApplicationStyle.h                 # 浅色/深色主题
 │   ├── ApplicationSettings.h              # 应用级 UI 偏好持久化
 │   ├── RunInfoPage.h                      # 运行日志面板（中央 splitter）
-│   ├── DevicePageWidget.h                 # 设备页
 │   ├── MainWindowSelectionState.h         # 选择状态
 │   ├── MainWindowSelectionService.h       # 选择服务（静态）
 │   ├── MainWindowObjectRepository.h       # 对象仓库（静态）
@@ -78,9 +77,10 @@ Widget/
     ├── WidgetOsgViewHost.cpp              # IRobotOsgViewHost 实现
     ├── ApplicationStyle.cpp               # 主题加载/应用
     ├── ApplicationSettings.cpp            # settings.ini 读写
-    ├── RunInfoPage.cpp                    # 运行日志
-    └── DevicePageWidget.cpp               # 设备页
+    └── RunInfoPage.cpp                    # 运行日志
 ```
+
+**设备页**：`DevicePageWidget` 在 **`RobotWidget`**（[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §`DevicePageWidget`），不在本目录；Property Dock「设备」Tab 经 Host 嵌入。单型号资源问题（重复预览图、末端轴）在对应 `resource/models/...` 包内处理，不改通用扫描逻辑。
 
 **编入 `CloudSimHost.vcxproj` 的源码**（路径仍为 `src/UI/Widget/`，勿在 Widget 下维护第二份副本）：
 
@@ -494,7 +494,26 @@ w.showMaximized();
 
 ---
 
-## 11. 与相关文档
+## 11. 网页端（CloudSimWeb）坐标系说明
+
+网页 UI 在 `CloudSim/web/cloudsim-web-ui/public-fallback`，经 `CloudSimWebGateway` 调 Host。勿混淆两套「坐标系」：
+
+| 概念 | 用途 |
+|------|------|
+| **FrameBackendData**（catalog `CoordinateFrame`） | 场景独立坐标系；菜单「插入 → 坐标系」创建；轨迹算子「转换工件型」外部 TCP |
+| **RobotCoordinateFrameSet**（机器人 Tab「坐标系」） | 工具系/用户系；与场景 Frame **正交**，不互相替代 |
+
+对齐桌面的关键路径：
+
+1. **创建**：`POST /api/objects/coordinate-frame` → `registerAdoptedFrameAndLoadScene`（同 `MainWindow::onCreateCoordinateFrame`）。列表：`GET /api/objects/coordinate-frames`，或从 `GET /api/objects` 按 `className=FrameBackendData` 过滤。
+2. **转换工件运行时**：`HeadlessTrajectorySession::runPipelineOnWorldRaw` 在 `executeFull` 前注入当前机器人 TCP（`setWorkpieceReferenceInBase`）与 Frame 解析器（`setExternalTcpFrameResolver`），对齐桌面 `TrajectoryEditSession::injectWorkpieceReferenceOnEngine`。无 TCP 时算子报「缺少当前机器人 TCP 参考位姿」。
+3. **前端**：插入对话框创建 Frame 并在 Three.js 中画 RGB 短轴；轨迹 op 表单对 `toWorkpiece.externalTcpBackendId` 渲染 Frame 下拉，选中后隐藏手动六自由度。
+
+构建：对 `CloudSimHost` → `CloudSimWebGateway` → `CloudSimWeb` 编 **Debug\|x64** 与 **Release\|x64**；静态资源落到 `bin\x64d\web` / `bin\x64\web`。
+
+---
+
+## 12. 与相关文档
 
 | 文档 | 内容 |
 |------|------|
@@ -507,7 +526,7 @@ w.showMaximized();
 
 ---
 
-## 12. 演进路线
+## 13. 演进路线
 
 **已完成**
 

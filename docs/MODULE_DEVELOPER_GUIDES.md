@@ -30,6 +30,7 @@
 | **CloudSimHost** | 文档宿主、`OsgWidget` 编译、Core 适配器、组合根实现 | [CloudSimHost/DEVELOPER_GUIDE.md](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) |
 | **Widget** | Qt 主窗口、文档页、属性/仿真 Dock；经 `data()`/`robot()`/`render()` 访问契约；OsgWidget 信号边界 `WidgetSceneSignalWiring`；OSG 源码由 Host 编译 | [Widget/DEVELOPER_GUIDE.md](../src/UI/Widget/DEVELOPER_GUIDE.md) |
 | **RobotWidget** | 仿真/设备 Dock UI、`RobotSimulationController`、**CAD/Mesh 轨迹生成**、**轨迹编辑**、工艺化配方 JSON | [RobotWidget/DEVELOPER_GUIDE.md](../src/UI/RobotWidget/DEVELOPER_GUIDE.md) |
+| **cloudsim-web-ui** | Vite+React 网页坞：场景/轨迹生成编辑/指令树；产物 `bin\x64*\web` | [web/cloudsim-web-ui/DEVELOPER_GUIDE.md](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)、[网页端React轨迹对齐/](网页端React轨迹对齐/) |
 | **Data** | 后端对象模型、属性、层级、跟随求解；**`geometry_backend_ops` / `GeometryRef`**；工程 **v4** 持久化 | [Data/DEVELOPER_GUIDE.md](../src/Data/Data/DEVELOPER_GUIDE.md)、[_archive/backend_persistence/](_archive/backend_persistence/) |
 | **BackendVisual** | 后端 → OSG 分支构建策略 | [BackendVisual/DEVELOPER_GUIDE.md](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) |
 | **OsgWidgetCore** | 纯 OSG 场景、拾取、gizmo、绑定索引 | [OsgWidgetCore/DEVELOPER_GUIDE.md](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |

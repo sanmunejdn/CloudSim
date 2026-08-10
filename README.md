@@ -10,7 +10,7 @@
 |----|------|
 | 桌面解决方案 | [`CloudSim.sln`](CloudSim.sln) → `CloudSim.exe` |
 | 网页解决方案 | [`CloudSimWeb.sln`](CloudSimWeb.sln) → `CloudSimWeb.exe` |
-| 双端安装包 | [`../Setup/packaging`](../Setup/packaging)（`-Product Desktop\|Web`） |
+| 双端安装包 | [`../Setup/packaging`](../Setup/packaging)（`-Product Desktop\|Web`；Web 须 Vite `bin\x64\web\assets\`） |
 | 文档索引 | [`docs/README.md`](docs/README.md) |
 | 目录布局 | [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md) |
 | 模块开发指南 | [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md) |
@@ -39,20 +39,21 @@ CloudSim/
 ├── CloudSimWeb.sln
 ├── web/cloudsim-web-ui/          # 前端（Vite + React + Three.js）
 │   ├── src/                      # TS/TSX 源码
-│   └── public-fallback/          # 无 Node 时 post-build 拷贝的兜底静态页
+│   ├── scripts/postbuild-web.cmd # VS PostBuild：npm build → $(OutDir)web
+│   └── _archive/public-fallback/ # 无 Node 时 CLOUDSIM_WEB_FALLBACK=1 的兜底页
 ├── src/App/CloudSimWeb/          # CloudSimWeb.exe：Qt 事件循环、启停 Gateway
-└── src/Web/CloudSimWebGateway/   # HTTP/WS（cpp-httplib）、REST/SSE、静态托管
+└── src/Web/CloudSimWebGateway/   # HTTP/WS（cpp-httplib）、REST/SSE、静态托管（静态库，无独立 DLL）
 ```
 
-- **Gateway**：托管 `$(OutDir)web`，对外 REST + SSE（`/api/events`）；业务经 Headless Host / Data / 轨迹等与桌面同源。
+- **Gateway**：托管 `{exe}/web`，对外 REST + SSE（`/api/events`）；业务经 Headless Host / Data / 轨迹等与桌面同源。运行时还需 `{exe}/resource/{models,trajectory,feature}`。
 - **前端构建**（有 Node 时，在 `web/cloudsim-web-ui`）：
 
 ```bash
-npm run build:debug    # → bin/x64d/web
-npm run build:release  # → bin/x64/web
+npm run build:debug    # → bin/x64d/web（含 assets/）
+npm run build:release  # → bin/x64/web（含 assets/）
 ```
 
-- **无 Node**：编译 `CloudSimWeb` 会把 `public-fallback/*` xcopy 到 `$(OutDir)web`（规则见 `CloudSimWeb.vcxproj`）。改 `public-fallback` 后须编过对应 Configuration，勿只拷到其它目录。
+- **无 Node / 临时兜底**：设置 `CLOUDSIM_WEB_FALLBACK=1` 后编译，会 xcopy `_archive/public-fallback`；**正式安装包不要用 fallback**（打包脚本默认要求 Vite `assets/*.js`）。
 
 ## 源码结构（摘要）
 

@@ -177,6 +177,9 @@ public:
 	void beginPluginRegistration(const QString& pluginId);
 	void endPluginRegistration();
 
+	/// unload 前丢掉捕获插件 this 的回调/enterFn，避免后继插件 shutdown 踩悬空
+	void prepareForPluginShutdown();
+
 private:
 	bool booleanSoupsAndRegister(const std::vector<float>& targetWorldSoup, const std::vector<float>& toolWorldSoup,
 								 PluginMeshBooleanOp op, const PluginBooleanMeshOptions& options,

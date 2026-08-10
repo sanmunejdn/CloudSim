@@ -18,6 +18,9 @@
 #include <Adapters.h>
 #include <RigidTransform.h>
 
+#include <QDir>
+#include <QFileInfo>
+
 #include <algorithm>
 #include <cmath>
 #include <osg/Matrixd>
@@ -95,6 +98,33 @@ void HeadlessRobotContext::clearRobotSimulationIfContains(const QString& removed
 	}
 }
 
+namespace
+{
+/// 与设备库瓦片一致：优先 …/型号/urdf/*.urdf 的包名，否则 URDF 主文件名
+QString robotModelLabelFromUrdfPath(const QString& urdfAbsolutePath)
+{
+	if (urdfAbsolutePath.isEmpty())
+	{
+		return {};
+	}
+	const QFileInfo fi(urdfAbsolutePath);
+	const QDir urdfDir = fi.dir();
+	if (urdfDir.dirName().compare(QStringLiteral("urdf"), Qt::CaseInsensitive) == 0)
+	{
+		QDir pkg = urdfDir;
+		if (pkg.cdUp())
+		{
+			const QString pkgName = pkg.dirName();
+			if (!pkgName.isEmpty() && pkgName != QStringLiteral(".") && pkgName != QStringLiteral(".."))
+			{
+				return pkgName;
+			}
+		}
+	}
+	return fi.completeBaseName();
+}
+} // namespace
+
 QVector<HeadlessRobotContext::InstanceInfo> HeadlessRobotContext::listInstances() const
 {
 	QVector<InstanceInfo> out;
@@ -105,8 +135,20 @@ QVector<HeadlessRobotContext::InstanceInfo> HeadlessRobotContext::listInstances(
 		info.sceneRootBackendId = ri.sceneBackendId;
 		info.urdfPath = ri.urdfAbsolutePath;
 		info.jointCount = ri.revoluteJointNamesUnprefixed.size();
+		QString model = robotModelLabelFromUrdfPath(ri.urdfAbsolutePath);
+		if (model.isEmpty() && ri.sceneBackendId.startsWith(QStringLiteral("RobotURDF_")))
+		{
+			model = ri.sceneBackendId.mid(QStringLiteral("RobotURDF_").size());
+		}
 		const QString name = m_host.data().displayName(ri.sceneBackendId);
-		info.label = name.isEmpty() ? ri.sceneBackendId : name;
+		if (!model.isEmpty())
+		{
+			info.label = model;
+		}
+		else
+		{
+			info.label = name.isEmpty() ? ri.sceneBackendId : name;
+		}
 		out.append(info);
 	}
 	return out;
@@ -301,8 +343,13 @@ bool HeadlessRobotContext::applyFkFromGizmoAnchorThreeJsMatrix(const QString& an
 
 bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeBackendId,
 														  const QVector<double>& threeJsColMajor16,
-														  QVector<double>* outJointAnglesRad, QString* outError)
+														  QVector<double>* outJointAnglesRad, QString* outError,
+														  bool* outIncomplete)
 {
+	if (outIncomplete)
+	{
+		*outIncomplete = false;
+	}
 	if (threeJsColMajor16.size() < 16)
 	{
 		if (outError)
@@ -392,8 +439,27 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 	}
 
 	const BackendMat4 wm = threeJsColMajor16ToBackendMat4(threeJsColMajor16);
-	// 网页拖拽罗盘挂在当前工具 TCP（与 overlays 同空间），不再把输入当法兰 mesh
-	const osg::Matrixd tcpSceneDesired = RobotMatrixOsg::matrixFromBackendColMajor(wm);
+	// 网页罗盘发的是工具 TCP 场景系，与 overlays/tcp-pose 一致
+	osg::Matrixd tcpSceneDesired = RobotMatrixOsg::matrixFromBackendColMajor(wm);
+	// 跟手：单步追赶加大，避免罗盘已走远而臂还在小台阶上爬
+	static constexpr double kTcpDragMaxChaseMmPerIk = 220.0;
+	bool chaseClipped = false;
+	{
+		TcpPoseCapture curPose;
+		if (captureTcpPose(ri.sceneBackendId, curPose, nullptr))
+		{
+			const osg::Matrixd curOsg = RobotMatrixOsg::matrixFromBackendColMajor(curPose.worldMat);
+			const osg::Vec3d curT = curOsg.getTrans();
+			const osg::Vec3d desT = tcpSceneDesired.getTrans();
+			const osg::Vec3d delta = desT - curT;
+			const double emitLen = delta.length();
+			if (emitLen > kTcpDragMaxChaseMmPerIk)
+			{
+				chaseClipped = true;
+				tcpSceneDesired.setTrans(curT + delta * (kTcpDragMaxChaseMmPerIk / emitLen));
+			}
+		}
+	}
 	const osg::Matrixd P = slice.robotBasePlacementWorld;
 	const osg::Matrixd tcpInBaseOsg = tcpSceneDesired * osg::Matrixd::inverse(P);
 
@@ -449,8 +515,20 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 		return false;
 	}
 	qRad = clampJointsToLimits(qRad, ri.jointLowerRad, ri.jointUpperRad);
-	static constexpr double kMaxJointStepRad = 0.12;
-	qRad = clampJointStep(qRad, seedQ, kMaxJointStepRad);
+	static constexpr double kTcpDragMaxJointStepRad = 0.45;
+	bool jointStepClipped = false;
+	{
+		const QVector<double> qBeforeStep = qRad;
+		qRad = clampJointStep(qRad, seedQ, kTcpDragMaxJointStepRad);
+		for (int i = 0; i < qRad.size(); ++i)
+		{
+			if (std::abs(qRad[i] - qBeforeStep[i]) > 1e-9)
+			{
+				jointStepClipped = true;
+				break;
+			}
+		}
+	}
 
 	QVector<double> aggregated(robotRevoluteJointNames().size(), 0.0);
 	if (!RobotSceneKinematics::applyJointAnglesForInstance(this, sink, instanceIndex, qRad, aggregated))
@@ -467,6 +545,10 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 	if (outJointAnglesRad)
 	{
 		*outJointAnglesRad = qRad;
+	}
+	if (outIncomplete)
+	{
+		*outIncomplete = chaseClipped || jointStepClipped;
 	}
 	return true;
 }

@@ -22,6 +22,7 @@ class IDocumentScope;
 namespace cloudsim::host
 {
 class DocumentHost;
+class HeadlessPointCloudBridge;
 }
 
 namespace cloudsim::web
@@ -64,6 +65,10 @@ private:
 								QString* err);
 	bool importObjectOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err,
 								 QString* outId);
+	/// 插入场景坐标系（FrameBackendData），对齐桌面「插入 → 坐标系」
+	bool createCoordinateFrameOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err,
+										  QString* outId);
+	QByteArray coordinateFramesJsonOnGuiThread();
 	bool deleteObjectOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, QString* err);
 	bool attachChildOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err);
 	bool meshSoupOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, std::vector<float>& out,
@@ -112,6 +117,7 @@ private:
 	bool trajectoryOpSchemaOnGuiThread(const QString& kind, int opIndex, QString* err, QJsonObject* out);
 	bool fillTrajectoryRecipeOnGuiThread(const QByteArray& body, QString* err);
 	bool previewTrajectoryOnGuiThread(QString* err, QJsonObject* out);
+	bool previewTrajectoryRawOnGuiThread(QString* err, QJsonObject* out);
 	bool applyTrajectoryOnGuiThread(QString* err);
 	bool emitTrajectoryRawOnGuiThread(QString* err);
 	bool trajectoryOpPaletteOnGuiThread(QString* err, QJsonObject* out);
@@ -122,6 +128,18 @@ private:
 	bool saveTrajectoryTemplateOnGuiThread(const QString& kind, const QByteArray& body, QString* err);
 	bool loadTrajectoryTemplateOnGuiThread(const QString& kind, const QString& name, QByteArray* out, QString* err);
 	bool deleteTrajectoryTemplateOnGuiThread(const QString& kind, const QString& name, QString* err);
+
+	// Point cloud (headless)
+	QByteArray pointCloudInfoJsonOnGuiThread(const QString& id);
+	QByteArray pointCloudMeasureJsonOnGuiThread(const QString& id);
+	bool pointCloudPreviewSoupOnGuiThread(const QString& id, std::size_t maxPoints, std::vector<float>& out,
+										  QString* err);
+	bool pointCloudChunkSoupOnGuiThread(const QString& id, int lod, int index, std::size_t maxPoints,
+										std::vector<float>& out, QJsonObject* meta, QString* err);
+	QByteArray pointCloudPostJsonOnGuiThread(const QByteArray& body,
+											 QJsonObject (cloudsim::host::HeadlessPointCloudBridge::*method)(
+												 const QJsonObject&));
+	void registerPointCloudRoutes(cloudsim::host::DocumentHost* host);
 
 	// P3 / P4 / P5 thin surfaces
 	QByteArray sidecarGetOnGuiThread(const QString& key);

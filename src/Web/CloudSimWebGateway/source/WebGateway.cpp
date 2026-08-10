@@ -13,6 +13,7 @@
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
 #include "HeadlessRobotContext.h"
+#include "HeadlessPointCloudBridge.h"
 #include "IRobotUrdfImportContext.h"
 #include "EventHub.h"
 #include "ICloudSimContext.h"
@@ -567,6 +568,28 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 		writeJsonOk(res, ok, err, QJsonObject{{QStringLiteral("id"), id}});
 	});
 
+	m_impl->svr.Post("/api/objects/coordinate-frame", [this, host](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		QString id;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, host, body = QByteArray::fromStdString(req.body), &err, &id, &ok]()
+			{ ok = createCoordinateFrameOnGuiThread(host, body, &err, &id); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err,
+					QJsonObject{{QStringLiteral("backendId"), id}, {QStringLiteral("id"), id}});
+	});
+
+	m_impl->svr.Get("/api/objects/coordinate-frames", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QByteArray body;
+		QMetaObject::invokeMethod(
+			this, [this, &body]() { body = coordinateFramesJsonOnGuiThread(); }, Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+
 	// P2 robot
 	m_impl->svr.Get("/api/robot/programs", [this](const httplib::Request&, httplib::Response& res)
 	{
@@ -953,6 +976,17 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 								  Qt::BlockingQueuedConnection);
 		writeJsonOk(res, ok, err, extra);
 	});
+	// 特征离散后预览：不对齐管线，只看 Raw→世界（桌面特征页）
+	m_impl->svr.Post("/api/trajectory/preview-raw", [this](const httplib::Request&, httplib::Response& res)
+	{
+		QString err;
+		QJsonObject extra;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this, [this, &err, &extra, &ok]() { ok = previewTrajectoryRawOnGuiThread(&err, &extra); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, extra);
+	});
 	m_impl->svr.Post("/api/trajectory/apply", [this](const httplib::Request&, httplib::Response& res)
 	{
 		QString err;
@@ -1100,25 +1134,18 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 	m_impl->svr.Post("/api/pointcloud/op",
 					  [this](const httplib::Request& req, httplib::Response& res)
 					  {
-						  const QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(req.body));
-						  const QString op =
-							  doc.isObject() ? doc.object().value(QStringLiteral("op")).toString() : QString();
-						  QJsonObject o;
-						  o.insert(QStringLiteral("ok"), true);
-						  o.insert(QStringLiteral("queued"), true);
-						  o.insert(QStringLiteral("op"), op);
-						  o.insert(QStringLiteral("binaryDownload"), QStringLiteral("/api/pointcloud/chunk/{id}"));
-						  pushEvent(QStringLiteral("{\"type\":\"PointCloudJobProgress\",\"op\":\"%1\",\"progress\":1.0}")
-										.arg(op));
-						  const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
-						  res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
+						  QByteArray body;
+						  QMetaObject::invokeMethod(
+							  this,
+							  [this, reqBody = QByteArray::fromStdString(req.body), &body]()
+							  {
+								  body = pointCloudPostJsonOnGuiThread(
+									  reqBody, &cloudsim::host::HeadlessPointCloudBridge::deprecatedOp);
+							  },
+							  Qt::BlockingQueuedConnection);
+						  res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
 					  });
-	m_impl->svr.Get(R"(/api/pointcloud/chunk/(.+))",
-					 [](const httplib::Request&, httplib::Response& res)
-					 {
-						 // LOD 占位：空 xyz 块，避免整云 JSON
-						 res.set_content("", "application/octet-stream");
-					 });
+	registerPointCloudRoutes(host);
 
 	// P4 modes / sidecars
 	m_impl->svr.Get("/api/modes", [this](const httplib::Request&, httplib::Response& res)
@@ -1455,6 +1482,111 @@ bool WebGateway::meshSoupOnGuiThread(cloudsim::host::DocumentHost* host, const Q
 	return cloudsim::host::exportBackendTriangleSoupMm(*host, id, out, err);
 }
 
+void WebGateway::registerPointCloudRoutes(cloudsim::host::DocumentHost*)
+{
+	auto postPc = [this](const char* path,
+						 QJsonObject (cloudsim::host::HeadlessPointCloudBridge::*method)(const QJsonObject&))
+	{
+		m_impl->svr.Post(
+			path,
+			[this, method](const httplib::Request& req, httplib::Response& res)
+			{
+				QByteArray body;
+				QMetaObject::invokeMethod(
+					this,
+					[this, reqBody = QByteArray::fromStdString(req.body), method, &body]()
+					{ body = pointCloudPostJsonOnGuiThread(reqBody, method); },
+					Qt::BlockingQueuedConnection);
+				res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+			});
+	};
+
+	m_impl->svr.Get(R"(/api/pointcloud/info/(.+))", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		const QString id = QString::fromStdString(req.matches[1]);
+		QByteArray body;
+		QMetaObject::invokeMethod(
+			this, [this, id, &body]() { body = pointCloudInfoJsonOnGuiThread(id); }, Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+
+	m_impl->svr.Get(R"(/api/pointcloud/measure/(.+))", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		const QString id = QString::fromStdString(req.matches[1]);
+		QByteArray body;
+		QMetaObject::invokeMethod(
+			this, [this, id, &body]() { body = pointCloudMeasureJsonOnGuiThread(id); }, Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+
+	m_impl->svr.Get(R"(/api/pointcloud/preview/(.+))", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		const QString id = QString::fromStdString(req.matches[1]);
+		std::size_t maxPts = cloudsim::host::HeadlessPointCloudBridge::kDefaultPreviewMaxPoints;
+		if (const auto v = req.get_param_value("maxPoints"); !v.empty())
+		{
+			const int parsed = std::atoi(v.c_str());
+			maxPts = static_cast<std::size_t>(parsed > 0 ? parsed : 0);
+		}
+		std::vector<float> soup;
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, id, maxPts, &soup, &err, &ok]() { ok = pointCloudPreviewSoupOnGuiThread(id, maxPts, soup, &err); },
+			Qt::BlockingQueuedConnection);
+		if (!ok)
+		{
+			res.status = 404;
+			res.set_content(err.toUtf8().constData(), "text/plain; charset=utf-8");
+			return;
+		}
+		res.set_content(reinterpret_cast<const char*>(soup.data()), soup.size() * sizeof(float),
+						"application/octet-stream");
+	});
+
+	m_impl->svr.Get(R"(/api/pointcloud/chunk/(.+))", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		const QString id = QString::fromStdString(req.matches[1]);
+		const int lod = req.has_param("lod") ? std::atoi(req.get_param_value("lod").c_str()) : 0;
+		const int index = req.has_param("index") ? std::atoi(req.get_param_value("index").c_str()) : 0;
+		std::size_t maxPts = cloudsim::host::HeadlessPointCloudBridge::kChunkPointCount;
+		if (const auto v = req.get_param_value("maxPoints"); !v.empty())
+		{
+			const int parsed = std::atoi(v.c_str());
+			maxPts = static_cast<std::size_t>(parsed > 0 ? parsed : 0);
+		}
+		std::vector<float> soup;
+		QJsonObject meta;
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, id, lod, index, maxPts, &soup, &meta, &err, &ok]()
+			{ ok = pointCloudChunkSoupOnGuiThread(id, lod, index, maxPts, soup, &meta, &err); },
+			Qt::BlockingQueuedConnection);
+		if (!ok)
+		{
+			res.status = 404;
+			res.set_content(err.toUtf8().constData(), "text/plain; charset=utf-8");
+			return;
+		}
+		res.set_header("X-Chunk-Meta", QJsonDocument(meta).toJson(QJsonDocument::Compact).constData());
+		res.set_content(reinterpret_cast<const char*>(soup.data()), soup.size() * sizeof(float),
+						"application/octet-stream");
+	});
+
+	postPc("/api/pointcloud/downsample", &cloudsim::host::HeadlessPointCloudBridge::downsample);
+	postPc("/api/pointcloud/crop", &cloudsim::host::HeadlessPointCloudBridge::crop);
+	postPc("/api/pointcloud/preprocess", &cloudsim::host::HeadlessPointCloudBridge::preprocess);
+	postPc("/api/pointcloud/register", &cloudsim::host::HeadlessPointCloudBridge::registerCloud);
+	postPc("/api/pointcloud/reconstruct", &cloudsim::host::HeadlessPointCloudBridge::reconstruct);
+	postPc("/api/pointcloud/mesh/post", &cloudsim::host::HeadlessPointCloudBridge::meshPost);
+	postPc("/api/pointcloud/mesh/export-ply", &cloudsim::host::HeadlessPointCloudBridge::meshExportPly);
+	postPc("/api/pointcloud/surface/run", &cloudsim::host::HeadlessPointCloudBridge::surfaceRun);
+	postPc("/api/pointcloud/surface/reset", &cloudsim::host::HeadlessPointCloudBridge::surfaceReset);
+}
+
 bool WebGateway::selectionOnGuiThread(const QByteArray& body, QString* err)
 {
 	const QJsonDocument doc = QJsonDocument::fromJson(body);
@@ -1526,14 +1658,30 @@ QByteArray WebGateway::nativeDialogOnGuiThread(const QByteArray& body)
 			return QJsonDocument(out).toJson(QJsonDocument::Compact);
 		}
 	}
+	else if (purpose == QStringLiteral("pointcloud"))
+	{
+		// 点云页导入：勿走默认 project（.pcp），与桌面「导入 PLY/XYZ」对齐
+		const QString caption = o.value(QStringLiteral("title")).toString(QStringLiteral("导入点云"));
+		const QString filter =
+			o.value(QStringLiteral("filter"))
+				.toString(QStringLiteral("点云 (*.ply *.xyz *.pcd *.las *.laz);;所有文件 (*.*)"));
+		path = QFileDialog::getOpenFileName(&dialogParent, caption, startDir, filter);
+		if (path.isEmpty())
+		{
+			out.insert(QStringLiteral("ok"), false);
+			out.insert(QStringLiteral("cancelled"), true);
+			return QJsonDocument(out).toJson(QJsonDocument::Compact);
+		}
+	}
 	else if (purpose == QStringLiteral("import") || purpose == QStringLiteral("file"))
 	{
+		const QString caption = o.value(QStringLiteral("title")).toString(QStringLiteral("选择文件"));
 		const QString filter =
 			o.value(QStringLiteral("filter"))
 				.toString(QStringLiteral(
 					"Models (*.stl *.obj *.ply *.step *.stp *.iges *.igs);;Point Clouds (*.pcd *.ply *.las "
 					"*.laz);;All Files (*.*)"));
-		path = QFileDialog::getOpenFileName(&dialogParent, QStringLiteral("选择文件"), startDir, filter);
+		path = QFileDialog::getOpenFileName(&dialogParent, caption, startDir, filter);
 		if (path.isEmpty())
 		{
 			out.insert(QStringLiteral("ok"), false);
@@ -1543,8 +1691,21 @@ QByteArray WebGateway::nativeDialogOnGuiThread(const QByteArray& body)
 	}
 	else if (purpose == QStringLiteral("urdf"))
 	{
-		path = QFileDialog::getOpenFileName(&dialogParent, QStringLiteral("选择 URDF"), startDir,
+		const QString caption = o.value(QStringLiteral("title")).toString(QStringLiteral("选择 URDF"));
+		path = QFileDialog::getOpenFileName(&dialogParent, caption, startDir,
 											QStringLiteral("URDF (*.urdf);;Xacro (*.xacro);;All Files (*.*)"));
+		if (path.isEmpty())
+		{
+			out.insert(QStringLiteral("ok"), false);
+			out.insert(QStringLiteral("cancelled"), true);
+			return QJsonDocument(out).toJson(QJsonDocument::Compact);
+		}
+	}
+	else if (purpose == QStringLiteral("saveFile") || purpose == QStringLiteral("save"))
+	{
+		const QString caption = o.value(QStringLiteral("title")).toString(QStringLiteral("保存文件"));
+		const QString filter = o.value(QStringLiteral("filter")).toString(QStringLiteral("All Files (*.*)"));
+		path = QFileDialog::getSaveFileName(&dialogParent, caption, startDir, filter);
 		if (path.isEmpty())
 		{
 			out.insert(QStringLiteral("ok"), false);
@@ -1554,8 +1715,9 @@ QByteArray WebGateway::nativeDialogOnGuiThread(const QByteArray& body)
 	}
 	else
 	{
+		const QString caption = o.value(QStringLiteral("title")).toString(QStringLiteral("打开工程"));
 		path = QFileDialog::getOpenFileName(
-			&dialogParent, QStringLiteral("打开工程"), startDir,
+			&dialogParent, caption, startDir,
 			QStringLiteral(
 				"Point Cloud Package (*.pcp);;PointCloud Project (*.pcproj.json);;JSON Files (*.json);;All Files (*.*)"));
 		if (path.isEmpty())

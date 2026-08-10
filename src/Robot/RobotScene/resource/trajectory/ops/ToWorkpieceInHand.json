@@ -25,6 +25,7 @@
         "key": "toWorkpiece.externalTcpBackendId",
         "type": "Message",
         "labelZh": "外部 TCP 坐标系",
+        "messageZh": "外部 TCP 坐标系",
         "order": 0
       },
       {

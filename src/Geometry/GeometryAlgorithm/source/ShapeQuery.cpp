@@ -1,4 +1,4 @@
-﻿/// @file ShapeQuery.cpp
+/// @file ShapeQuery.cpp
 /// @brief ShapeQuery 实现
 
 #include "ShapeQuery.h"
@@ -12,10 +12,12 @@
 #include "ShellOps.h"
 #include "WireOps.h"
 #include "detail/OccIncludes.h"
+#include "detail/OccSehCall.h"
 
 #include <BRepGProp.hxx>
 #include <BRepTools_WireExplorer.hxx>
 #include <GProp_GProps.hxx>
+#include <Standard_Failure.hxx>
 
 #include <algorithm>
 #include <cmath>
@@ -325,7 +327,7 @@ bool nativeShapeOrErr(const ShapeHandle& handle, TopoDS_Shape& out, std::string*
 		}
 		return false;
 	}
-	if (!ShapeHandleAccess::nativeShape(handle, &out))
+	if (!ShapeHandleAccess::nativeShape(handle, &out) || out.IsNull())
 	{
 		if (errMsg)
 		{
@@ -336,21 +338,165 @@ bool nativeShapeOrErr(const ShapeHandle& handle, TopoDS_Shape& out, std::string*
 	return true;
 }
 
+/// 点到边距离；退化边/坏几何返回 +inf（不用整曲线 GeomAPI，易在 TKBRep AV）
 double edgeDistanceToPointMm(const TopoDS_Edge& edge, const gp_Pnt& query, gp_Pnt& outClosest)
 {
-	BRepAdaptor_Curve curve(edge);
-	const Handle(Geom_Curve) geom = curve.Curve().Curve();
-	if (geom.IsNull())
+	outClosest = query;
+	if (edge.IsNull() || BRep_Tool::Degenerated(edge))
 	{
 		return (std::numeric_limits<double>::max)();
 	}
-	GeomAPI_ProjectPointOnCurve proj(query, geom);
-	if (proj.NbPoints() < 1)
+	try
+	{
+		BRepAdaptor_Curve curve(edge);
+		const Standard_Real u0 = curve.FirstParameter();
+		const Standard_Real u1 = curve.LastParameter();
+		if (u1 < u0)
+		{
+			return (std::numeric_limits<double>::max)();
+		}
+
+		Extrema_ExtPC ext(query, curve, u0, u1);
+		if (ext.IsDone() && ext.NbExt() > 0)
+		{
+			Standard_Real bestD2 = (std::numeric_limits<Standard_Real>::max)();
+			Standard_Integer bestI = 0;
+			for (Standard_Integer i = 1; i <= ext.NbExt(); ++i)
+			{
+				const Standard_Real d2 = ext.SquareDistance(i);
+				if (d2 < bestD2)
+				{
+					bestD2 = d2;
+					bestI = i;
+				}
+			}
+			if (bestI >= 1)
+			{
+				outClosest = ext.Point(bestI).Value();
+				return std::sqrt(static_cast<double>(bestD2));
+			}
+		}
+
+		const gp_Pnt p0 = curve.Value(u0);
+		const gp_Pnt p1 = curve.Value(u1);
+		const double d0 = query.Distance(p0);
+		const double d1 = query.Distance(p1);
+		if (d0 <= d1)
+		{
+			outClosest = p0;
+			return d0;
+		}
+		outClosest = p1;
+		return d1;
+	}
+	catch (const Standard_Failure&)
 	{
 		return (std::numeric_limits<double>::max)();
 	}
-	outClosest = proj.NearestPoint();
-	return proj.LowerDistance();
+	catch (...)
+	{
+		return (std::numeric_limits<double>::max)();
+	}
+}
+
+struct EdgeDistSehArgs
+{
+	const TopoDS_Edge* edge = nullptr;
+	gp_Pnt query{};
+	gp_Pnt closest{};
+	double dist = (std::numeric_limits<double>::max)();
+};
+
+int edgeDistanceSehBody(void* raw)
+{
+	auto* a = static_cast<EdgeDistSehArgs*>(raw);
+	if (!a || !a->edge)
+	{
+		return 0;
+	}
+	a->dist = edgeDistanceToPointMm(*a->edge, a->query, a->closest);
+	return a->dist < (std::numeric_limits<double>::max)() * 0.5 ? 1 : 0;
+}
+
+bool edgeDistanceSafe(const TopoDS_Edge& edge, const gp_Pnt& query, gp_Pnt& outClosest, double& outDist)
+{
+	EdgeDistSehArgs args;
+	args.edge = &edge;
+	args.query = query;
+	if (!detail::sehCall(&edgeDistanceSehBody, &args))
+	{
+		outDist = (std::numeric_limits<double>::max)();
+		return false;
+	}
+	outClosest = args.closest;
+	outDist = args.dist;
+	return outDist < (std::numeric_limits<double>::max)() * 0.5;
+}
+
+/// 边采样点到射线距离，供无 mesh 命中时的射线兜底
+double edgeDistanceToRayMm(const TopoDS_Edge& edge, const gp_Lin& ray, gp_Pnt& outClosestOnEdge)
+{
+	outClosestOnEdge = ray.Location();
+	if (edge.IsNull() || BRep_Tool::Degenerated(edge))
+	{
+		return (std::numeric_limits<double>::max)();
+	}
+	try
+	{
+		BRepAdaptor_Curve curve(edge);
+		const Standard_Real u0 = curve.FirstParameter();
+		const Standard_Real u1 = curve.LastParameter();
+		if (u1 < u0)
+		{
+			return (std::numeric_limits<double>::max)();
+		}
+		double best = (std::numeric_limits<double>::max)();
+		gp_Pnt bestPt;
+		constexpr int kSamples = 24;
+		for (int i = 0; i <= kSamples; ++i)
+		{
+			const Standard_Real u =
+				u0 + (u1 - u0) * (static_cast<Standard_Real>(i) / static_cast<Standard_Real>(kSamples));
+			const gp_Pnt p = curve.Value(u);
+			const Standard_Real t = ElCLib::Parameter(ray, p);
+			const gp_Pnt onRay = ElCLib::Value(t, ray);
+			const double d = p.Distance(onRay);
+			if (d < best)
+			{
+				best = d;
+				bestPt = p;
+			}
+		}
+		outClosestOnEdge = bestPt;
+		return best;
+	}
+	catch (const Standard_Failure&)
+	{
+		return (std::numeric_limits<double>::max)();
+	}
+	catch (...)
+	{
+		return (std::numeric_limits<double>::max)();
+	}
+}
+
+struct EdgeRayDistSehArgs
+{
+	const TopoDS_Edge* edge = nullptr;
+	gp_Lin ray{};
+	gp_Pnt closest{};
+	double dist = (std::numeric_limits<double>::max)();
+};
+
+int edgeDistanceToRaySehBody(void* raw)
+{
+	auto* a = static_cast<EdgeRayDistSehArgs*>(raw);
+	if (!a || !a->edge)
+	{
+		return 0;
+	}
+	a->dist = edgeDistanceToRayMm(*a->edge, a->ray, a->closest);
+	return a->dist < (std::numeric_limits<double>::max)() * 0.5 ? 1 : 0;
 }
 
 bool shapeRayParameterRange(const TopoDS_Shape& shape, const gp_Lin& line, Standard_Real& tInf, Standard_Real& tSup)
@@ -395,24 +541,67 @@ bool shapeRayParameterRange(const TopoDS_Shape& shape, const gp_Lin& line, Stand
 	return true;
 }
 
-bool pickClosestEdgeInExplorer(const TopoDS_Shape& shape, const TopExp_Explorer& edgeExpStart, const gp_Pnt& query,
-							   const double toleranceMm, int& outEdgeIdx, gp_Pnt& outClosest)
+/// 索引与 shapeEdgeAtIndex 一致（TopExp 顺序，非 MapShapes）
+bool pickClosestEdgeByPoint(const TopoDS_Shape& shape, const gp_Pnt& query, const double toleranceMm, int& outEdgeIdx,
+							gp_Pnt& outClosest)
 {
-	TopTools_IndexedMapOfShape edgeMap;
-	TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
 	double bestDist = (std::numeric_limits<double>::max)();
 	int bestIdx = -1;
 	gp_Pnt bestPt;
-	for (TopExp_Explorer exp = edgeExpStart; exp.More(); exp.Next())
+	int edgeIdx = 0;
+	for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next(), ++edgeIdx)
 	{
 		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
-		const int globalIdx = edgeMap.FindIndex(edge) - 1;
+		if (edge.IsNull() || BRep_Tool::Degenerated(edge))
+		{
+			continue;
+		}
+		gp_Pnt closest;
+		double dist = (std::numeric_limits<double>::max)();
+		if (!edgeDistanceSafe(edge, query, closest, dist))
+		{
+			continue;
+		}
+		if (dist < bestDist)
+		{
+			bestDist = dist;
+			bestIdx = edgeIdx;
+			bestPt = closest;
+		}
+	}
+	if (bestIdx < 0 || bestDist > toleranceMm)
+	{
+		return false;
+	}
+	outEdgeIdx = bestIdx;
+	outClosest = bestPt;
+	return true;
+}
+
+bool pickClosestEdgeOnFaceByPoint(const TopoDS_Shape& shape, const TopoDS_Face& face, const gp_Pnt& query,
+								  const double toleranceMm, int& outEdgeIdx, gp_Pnt& outClosest)
+{
+	double bestDist = (std::numeric_limits<double>::max)();
+	int bestIdx = -1;
+	gp_Pnt bestPt;
+	for (TopExp_Explorer exp(face, TopAbs_EDGE); exp.More(); exp.Next())
+	{
+		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
+		if (edge.IsNull() || BRep_Tool::Degenerated(edge))
+		{
+			continue;
+		}
+		const int globalIdx = edgeIndexOfEdge(shape, edge);
 		if (globalIdx < 0)
 		{
 			continue;
 		}
 		gp_Pnt closest;
-		const double dist = edgeDistanceToPointMm(edge, query, closest);
+		double dist = (std::numeric_limits<double>::max)();
+		if (!edgeDistanceSafe(edge, query, closest, dist))
+		{
+			continue;
+		}
 		if (dist < bestDist)
 		{
 			bestDist = dist;
@@ -429,54 +618,161 @@ bool pickClosestEdgeInExplorer(const TopoDS_Shape& shape, const TopExp_Explorer&
 	return true;
 }
 
+bool pickClosestEdgeByRay(const TopoDS_Shape& shape, const gp_Lin& ray, const double toleranceMm, int& outEdgeIdx,
+						  gp_Pnt& outClosest)
+{
+	double bestDist = (std::numeric_limits<double>::max)();
+	int bestIdx = -1;
+	gp_Pnt bestPt;
+	int edgeIdx = 0;
+	for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next(), ++edgeIdx)
+	{
+		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
+		if (edge.IsNull() || BRep_Tool::Degenerated(edge))
+		{
+			continue;
+		}
+		EdgeRayDistSehArgs args;
+		args.edge = &edge;
+		args.ray = ray;
+		if (!detail::sehCall(&edgeDistanceToRaySehBody, &args))
+		{
+			continue;
+		}
+		if (args.dist < bestDist)
+		{
+			bestDist = args.dist;
+			bestIdx = edgeIdx;
+			bestPt = args.closest;
+		}
+	}
+	if (bestIdx < 0 || bestDist > toleranceMm)
+	{
+		return false;
+	}
+	outEdgeIdx = bestIdx;
+	outClosest = bestPt;
+	return true;
+}
+
+struct ResolveFaceSehArgs
+{
+	const TopoDS_Shape* shape = nullptr;
+	gp_Pnt query{};
+	double toleranceMm = 0.0;
+	int outFaceIndex = -1;
+};
+
+/// 仅在 SEH 内调用；坏 STEP 上 TopExp/DistShapeShape 可能 AV
+int resolveFaceIndexSehBody(void* raw)
+{
+	auto* a = static_cast<ResolveFaceSehArgs*>(raw);
+	if (!a || !a->shape || a->shape->IsNull())
+	{
+		return 0;
+	}
+	try
+	{
+		BRepBuilderAPI_MakeVertex mkVtx(a->query);
+		if (!mkVtx.IsDone())
+		{
+			return 0;
+		}
+		const TopoDS_Vertex vtx = mkVtx.Vertex();
+		if (vtx.IsNull())
+		{
+			return 0;
+		}
+		double bestDist = (std::numeric_limits<double>::max)();
+		int bestIdx = -1;
+		int faceIdx = 0;
+		for (TopExp_Explorer exp(*a->shape, TopAbs_FACE); exp.More(); exp.Next(), ++faceIdx)
+		{
+			const TopoDS_Shape cur = exp.Current();
+			if (cur.IsNull() || cur.ShapeType() != TopAbs_FACE)
+			{
+				continue;
+			}
+			const TopoDS_Face face = TopoDS::Face(cur);
+			if (face.IsNull())
+			{
+				continue;
+			}
+			try
+			{
+				BRepExtrema_DistShapeShape faceDist(vtx, face);
+				if (!faceDist.IsDone() || faceDist.NbSolution() < 1)
+				{
+					continue;
+				}
+				const double d = faceDist.Value();
+				if (d < bestDist)
+				{
+					bestDist = d;
+					bestIdx = faceIdx;
+				}
+			}
+			catch (...)
+			{
+				continue;
+			}
+		}
+		if (bestIdx < 0 || bestDist > a->toleranceMm)
+		{
+			return 0;
+		}
+		a->outFaceIndex = bestIdx;
+		return 1;
+	}
+	catch (...)
+	{
+		return 0;
+	}
+}
+
+struct PickEdgeSehArgs
+{
+	const TopoDS_Shape* shape = nullptr;
+	gp_Pnt query{};
+	double toleranceMm = 0.0;
+	int outEdgeIdx = -1;
+	gp_Pnt outClosest{};
+};
+
+int pickClosestEdgeSehBody(void* raw)
+{
+	auto* a = static_cast<PickEdgeSehArgs*>(raw);
+	if (!a || !a->shape || a->shape->IsNull())
+	{
+		return 0;
+	}
+	try
+	{
+		return pickClosestEdgeByPoint(*a->shape, a->query, a->toleranceMm, a->outEdgeIdx, a->outClosest) ? 1 : 0;
+	}
+	catch (...)
+	{
+		return 0;
+	}
+}
+
 } // namespace
 
 bool resolveFaceIndexFromModelPoint(const ShapeHandle& shapeHandle, const Point3d& modelPointMm, int& outFaceIndex,
 									const double toleranceMm, std::string* errMsg)
 {
 	outFaceIndex = -1;
-	if (shapeHandle.isNull())
-	{
-		if (errMsg)
-		{
-			*errMsg = "null shape";
-		}
-		return false;
-	}
 	TopoDS_Shape shape;
-	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
 	{
-		if (errMsg)
-		{
-			*errMsg = "shape access failed";
-		}
 		return false;
 	}
-	const gp_Pnt query = toGpPnt(modelPointMm);
-	double bestDist = (std::numeric_limits<double>::max)();
-	int bestIdx = -1;
-	int faceIdx = 0;
-	for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next(), ++faceIdx)
-	{
-		const TopoDS_Face face = TopoDS::Face(exp.Current());
-		Handle(Geom_Surface) surf = BRep_Tool::Surface(face);
-		if (surf.IsNull())
-		{
-			continue;
-		}
-		GeomAPI_ProjectPointOnSurf proj(query, surf);
-		if (proj.NbPoints() < 1)
-		{
-			continue;
-		}
-		const double dist = proj.LowerDistance();
-		if (dist < bestDist)
-		{
-			bestDist = dist;
-			bestIdx = faceIdx;
-		}
-	}
-	if (bestIdx < 0 || bestDist > toleranceMm)
+
+	ResolveFaceSehArgs args;
+	args.shape = &shape;
+	args.query = toGpPnt(modelPointMm);
+	args.toleranceMm = toleranceMm;
+	if (!detail::sehCall(&resolveFaceIndexSehBody, &args))
 	{
 		if (errMsg)
 		{
@@ -484,8 +780,8 @@ bool resolveFaceIndexFromModelPoint(const ShapeHandle& shapeHandle, const Point3
 		}
 		return false;
 	}
-	outFaceIndex = bestIdx;
-	return true;
+	outFaceIndex = args.outFaceIndex;
+	return outFaceIndex >= 0;
 }
 
 bool resolveStepFaceIndexFromModelPoint(const std::string& stepPathUtf8, const Point3d& modelPointMm, int& outFaceIndex,
@@ -523,26 +819,9 @@ bool resolveEdgeIndexFromModelPoints(const ShapeHandle& shapeHandle, const Point
 	}
 	const gp_Pnt query(0.5 * (modelPointA.x + modelPointB.x), 0.5 * (modelPointA.y + modelPointB.y),
 					   0.5 * (modelPointA.z + modelPointB.z));
-	double bestDist = (std::numeric_limits<double>::max)();
+	gp_Pnt closest;
 	int bestIdx = -1;
-	int edgeIdx = 0;
-	for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next(), ++edgeIdx)
-	{
-		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
-		BRepAdaptor_Curve curve(edge);
-		GeomAPI_ProjectPointOnCurve proj(query, curve.Curve().Curve());
-		if (proj.NbPoints() < 1)
-		{
-			continue;
-		}
-		const double dist = proj.LowerDistance();
-		if (dist < bestDist)
-		{
-			bestDist = dist;
-			bestIdx = edgeIdx;
-		}
-	}
-	if (bestIdx < 0 || bestDist > toleranceMm)
+	if (!pickClosestEdgeByPoint(shape, query, toleranceMm, bestIdx, closest))
 	{
 		if (errMsg)
 		{
@@ -629,84 +908,89 @@ bool pickShapeEdgeByModelPoint(const ShapeHandle& shapeHandle, const Point3d& qu
 		return false;
 	}
 
-	const gp_Pnt query = toGpPnt(queryPointModelMm);
-	int faceIdx = -1;
-	const bool haveFace = resolveFaceIndexFromModelPoint(shapeHandle, queryPointModelMm, faceIdx, toleranceMm, nullptr);
-
-	int edgeIdx = -1;
-	gp_Pnt closest;
-	if (haveFace && faceIdx >= 0)
+	PickEdgeSehArgs args;
+	args.shape = &shape;
+	args.query = toGpPnt(queryPointModelMm);
+	args.toleranceMm = toleranceMm;
+	if (!detail::sehCall(&pickClosestEdgeSehBody, &args) || args.outEdgeIdx < 0)
 	{
-		TopoDS_Face face;
-		if (shapeFaceAtIndex(shape, faceIdx, face, errMsg))
+		if (errMsg)
 		{
-			if (pickClosestEdgeInExplorer(shape, TopExp_Explorer(face, TopAbs_EDGE), query, toleranceMm, edgeIdx,
-										  closest))
-			{
-				out.hit = true;
-				out.faceIndex = faceIdx;
-				out.edgeIndex = edgeIdx;
-				out.hitPointModelMm = queryPointModelMm;
-				out.edgePointModelMm = {closest.X(), closest.Y(), closest.Z()};
-				return true;
-			}
+			*errMsg = "no B-rep edge within tolerance";
 		}
+		return false;
 	}
 
-	if (pickClosestEdgeInExplorer(shape, TopExp_Explorer(shape, TopAbs_EDGE), query, toleranceMm, edgeIdx, closest))
-	{
-		out.hit = true;
-		out.edgeIndex = edgeIdx;
-		out.hitPointModelMm = queryPointModelMm;
-		out.edgePointModelMm = {closest.X(), closest.Y(), closest.Z()};
-		if (haveFace)
-		{
-			out.faceIndex = faceIdx;
-		}
-		return true;
-	}
-
-	if (errMsg)
-	{
-		*errMsg = "no B-rep edge within tolerance";
-	}
-	return false;
+	out.hit = true;
+	out.edgeIndex = args.outEdgeIdx;
+	out.faceIndex = -1;
+	out.hitPointModelMm = queryPointModelMm;
+	out.edgePointModelMm = {args.outClosest.X(), args.outClosest.Y(), args.outClosest.Z()};
+	return true;
 }
 
 bool pickShapeEdgeByModelRay(const ShapeHandle& shapeHandle, const Point3d& rayOriginMm, const Point3d& rayDirUnit,
 							 const double toleranceMm, ShapeRayPickResult& out, std::string* errMsg)
 {
+	out = ShapeRayPickResult{};
 	TopoDS_Shape shape;
 	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
 	{
 		return false;
 	}
 
-	Bnd_Box box;
-	BRepBndLib::Add(shape, box);
-	Point3d queryPoint = rayOriginMm;
-	if (!box.IsVoid())
+	const gp_Lin ray(toGpPnt(rayOriginMm), toGpDir(rayDirUnit));
+
+	// 与桌面一致：先射线打面，再在该面边界上找最近边
+	ShapeRayPickResult facePick;
+	if (pickShapeFaceByModelRay(shapeHandle, rayOriginMm, rayDirUnit, facePick, nullptr) && facePick.faceIndex >= 0)
 	{
-		Standard_Real xmin = 0.0;
-		Standard_Real ymin = 0.0;
-		Standard_Real zmin = 0.0;
-		Standard_Real xmax = 0.0;
-		Standard_Real ymax = 0.0;
-		Standard_Real zmax = 0.0;
-		box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
-		const gp_Pnt center((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
-		const gp_Pnt origin = toGpPnt(rayOriginMm);
-		const gp_Dir dir = toGpDir(rayDirUnit);
-		const gp_Vec offset(origin, center);
-		const Standard_Real t = offset.Dot(gp_Vec(dir));
-		queryPoint = {
-			rayOriginMm.x + t * dir.X(),
-			rayOriginMm.y + t * dir.Y(),
-			rayOriginMm.z + t * dir.Z(),
-		};
+		TopoDS_Face face;
+		if (shapeFaceAtIndex(shape, facePick.faceIndex, face, nullptr))
+		{
+			int edgeIdx = -1;
+			gp_Pnt closest;
+			const gp_Pnt hit = toGpPnt(facePick.hitPointModelMm);
+			if (pickClosestEdgeOnFaceByPoint(shape, face, hit, toleranceMm, edgeIdx, closest))
+			{
+				out.hit = true;
+				out.faceIndex = facePick.faceIndex;
+				out.edgeIndex = edgeIdx;
+				out.hitPointModelMm = facePick.hitPointModelMm;
+				out.edgePointModelMm = {closest.X(), closest.Y(), closest.Z()};
+				return true;
+			}
+		}
 	}
 
-	return pickShapeEdgeByModelPoint(shapeHandle, queryPoint, toleranceMm, out, errMsg);
+	int edgeIdx = -1;
+	gp_Pnt closest;
+	try
+	{
+		if (!pickClosestEdgeByRay(shape, ray, toleranceMm, edgeIdx, closest))
+		{
+			if (errMsg)
+			{
+				*errMsg = "no B-rep edge within ray tolerance";
+			}
+			return false;
+		}
+	}
+	catch (...)
+	{
+		if (errMsg)
+		{
+			*errMsg = "B-rep edge ray pick failed";
+		}
+		return false;
+	}
+
+	out.hit = true;
+	out.edgeIndex = edgeIdx;
+	out.faceIndex = -1;
+	out.hitPointModelMm = {closest.X(), closest.Y(), closest.Z()};
+	out.edgePointModelMm = out.hitPointModelMm;
+	return true;
 }
 
 bool validateShapeFaceIndex(const ShapeHandle& shapeHandle, const int faceIndex, std::string* errMsg)
@@ -789,8 +1073,6 @@ bool collectShapeFaceEdgeIndices(const ShapeHandle& shapeHandle, std::vector<std
 		}
 		return false;
 	}
-	TopTools_IndexedMapOfShape edgeMap;
-	TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
 	outFaceEdgeIndices.resize(static_cast<std::size_t>(faceCount));
 	for (int faceIdx = 0; faceIdx < faceCount; ++faceIdx)
 	{
@@ -803,7 +1085,8 @@ bool collectShapeFaceEdgeIndices(const ShapeHandle& shapeHandle, std::vector<std
 		for (TopExp_Explorer exp(face, TopAbs_EDGE); exp.More(); exp.Next())
 		{
 			const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
-			const int edgeIdx = edgeMap.FindIndex(edge) - 1;
+			// 与 shapeEdgeAtIndex / EdgeChain 同一套 Explorer 序，不用 MapShapes
+			const int edgeIdx = edgeIndexOfEdge(shape, edge);
 			if (edgeIdx >= 0)
 			{
 				edges.push_back(edgeIdx);

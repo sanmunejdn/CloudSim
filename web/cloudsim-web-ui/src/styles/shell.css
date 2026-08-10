@@ -45,22 +45,28 @@ button{cursor:pointer}
 .prop-row:nth-child(even){background:#fafafa}
 .prop-row.editable{cursor:pointer}
 .prop-row.editable:hover{background:#e5f1fb}
-.prop-row .prop-input{width:100%;padding:2px 4px;border:1px solid #aaa;border-radius:2px;font:inherit;box-sizing:border-box}
+.prop-row .prop-input{width:100%;padding:2px 4px;border:1px solid #aaa;border-radius:2px;font:inherit;box-sizing:border-box;background:#fff}
+.prop-row select.prop-input{height:24px}
 .prop-caption{padding:6px 8px;font-weight:600;background:#f3f3f3;border-bottom:1px solid #ddd}
 .prop-key{color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prop-val{color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .hint,.muted{color:#888;padding:10px;margin:0}
 .plain-list,.tree{list-style:none;margin:0;padding:4px 0}
-.tree li{padding:6px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0;display:flex;align-items:flex-start;gap:4px}
-.tree li:hover,.tree li.sel{background:#e5f1fb}
-.tree .cls{display:block;font-size:11px;color:#888}
-.tree .tree-body{flex:1;min-width:0}
-.tree .tree-name{display:block}
+/* 行内 flex；子树用嵌套 ul 纵向展开，避免子 li 被父 flex 横排 */
+.tree li{display:block;padding:0;border-bottom:1px solid #f0f0f0;cursor:default}
+.tree .tree-row{display:flex;align-items:flex-start;gap:4px;padding:6px 10px;cursor:pointer}
+.tree .tree-row:hover,.tree li.sel>.tree-row{background:#e5f1fb}
+.tree .cls{display:block;flex:1 1 100%;font-size:11px;color:#888}
+.tree .tree-body{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px;min-width:0;flex:1}
+.tree .tree-name{display:block;flex:1 1 auto;min-width:0}
+.tree .tree-vis{flex:0 0 auto;width:12px;color:#888;font-size:10px;line-height:1.35}
+.tree li.tree-hidden .tree-name,.tree li.tree-hidden .cls{opacity:.45}
 .tree .tree-twist,.tree .tree-twist-spacer{flex:0 0 14px;width:14px;padding:0;border:0;background:transparent;color:#555;font-size:10px;line-height:16px;cursor:pointer}
 .tree .tree-twist-spacer{visibility:hidden}
-.tree li.tree-child{padding-left:28px;background:#fafafa}
-.tree li.tree-child .cls{color:#999}
+.tree .tree-kids{list-style:none;margin:0;padding:0 0 0 16px;border-left:1px solid #e0e0e0;margin-left:16px}
+.tree .tree-kids .tree-row{background:#fafafa}
+.tree .tree-kids .cls{color:#999}
 .ctx-menu{position:fixed;z-index:5000;min-width:148px;background:#fff;border:1px solid #a0a0a0;box-shadow:2px 2px 6px rgba(0,0,0,.18);padding:4px 0}
 .ctx-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:6px 14px;color:#222}
 .ctx-menu button:hover{background:#e5f1fb}
@@ -73,12 +79,12 @@ button{cursor:pointer}
 .doc-close{border:0;background:transparent;color:#666;padding:0 4px;font-size:14px;line-height:1}
 .viewport{position:relative;flex:1;min-height:0;background:#e8eaed}
 .scene,#scene{position:absolute;inset:0}
-#scene canvas{display:block;width:100%;height:100%}
+#scene canvas:not(.view-cube-canvas):not(.axis-hud-canvas){display:block;width:100%;height:100%}
 .view-toolbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:rgba(255,255,255,.85);border:1px solid #999;border-radius:4px;padding:3px;z-index:2}
 .view-toolbar button{border:0;background:#f3f3f3;width:28px;height:24px;border-radius:3px}
 .view-toolbar button:hover{background:#fff}
-.view-cube{position:absolute;top:12px;right:12px;width:48px;height:48px;background:rgba(255,255,255,.9);border:1px solid #888;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:2;pointer-events:none}
-.axis-badge{position:absolute;left:10px;bottom:10px;font-size:11px;color:#333;background:rgba(255,255,255,.75);padding:2px 6px;border-radius:3px;z-index:2;pointer-events:none}
+.view-cube-canvas{position:absolute;top:10px;right:10px;width:112px;height:112px;z-index:3;pointer-events:auto;border-radius:6px;background:rgba(255,255,255,.12)}
+.axis-hud-canvas{position:absolute;left:8px;bottom:8px;width:96px;height:96px;z-index:3;pointer-events:none}
 
 /* —— 机器人指令区 —— */
 .robot-pane{flex:1;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
@@ -92,6 +98,12 @@ button{cursor:pointer}
 .inline input{width:52px;padding:3px 4px;border:1px solid #aaa;border-radius:3px}
 .field{display:flex;flex-direction:column;gap:3px}
 .field input,.field select,.dock textarea,#modeSelect{width:100%;padding:5px 6px;border:1px solid #aaa;border-radius:3px;background:#fff}
+/* 点云坞：对齐桌面 QHBoxLayout 行 */
+.pc-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.pc-row>.field{flex:1;min-width:72px}
+.pc-row>button{flex:0 0 auto;white-space:nowrap}
+.pc-row-2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pc-check{display:inline-flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
 .prog-head{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #ddd;font-weight:600}
 .section-title{font-weight:600;margin-top:2px}
 .cmd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
@@ -100,7 +112,20 @@ button{cursor:pointer}
 .cmd-grid button:hover:not(:disabled){background:#e5f1fb}
 .cmd-grid button:disabled{opacity:.45;cursor:default}
 .cmd-grid button.active{background:#2b79c2;color:#fff;border-color:#1f5f9a;font-weight:600}
-.prog-list{min-height:80px;border:1px solid #ccc;background:#fff;padding:4px 0;border-radius:3px;flex:1;overflow:auto}
+.prog-list{min-height:80px;border:1px solid #ccc;background:#fff;padding:4px 0;border-radius:3px;flex:1;overflow:auto;font-size:12px}
+.prog-list .prog-tree-node{user-select:none}
+.prog-list .prog-tree-kids{padding-left:12px}
+.prog-list .prog-tree-kids.collapsed{display:none}
+.prog-list .prog-tree-row{display:flex;align-items:flex-start;gap:2px;padding:3px 8px 3px 4px;cursor:pointer;border-bottom:1px solid #f3f3f3;line-height:1.35}
+.prog-list .prog-tree-row:hover{background:#f5f9fc}
+.prog-list .prog-tree-row.sel{background:#e5f1fb}
+.prog-list .prog-tree-row.struct{font-weight:600;color:#333;cursor:pointer}
+.prog-list .prog-tree-row.kind-waypoint,
+.prog-list .kind-waypoint > .prog-tree-row{font-weight:400;color:#555;font-size:11px}
+.prog-list .prog-tree-toggle{flex:0 0 12px;width:12px;color:#888;font-size:10px;line-height:1.35;text-align:center}
+.prog-list .prog-tree-toggle.empty{visibility:hidden}
+.prog-list .prog-tree-row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.prog-list .prog-tree-row.struct .t{font-weight:600}
 .prog-list .step{padding:5px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0}
 .prog-list .step:hover{background:#f5f9fc}
 .prog-list .step.sel{background:#e5f1fb}
@@ -112,9 +137,19 @@ button{cursor:pointer}
 .op-params-form{display:flex;flex-direction:column;gap:6px;border:1px solid #ccc;background:#fff;padding:6px;border-radius:3px;max-height:280px;overflow:auto}
 .op-params-form .op-field{display:grid;grid-template-columns:1fr 1.2fr;gap:4px;align-items:center;font-size:12px}
 .op-params-form .op-field.msg{grid-template-columns:1fr;color:#666;font-style:italic}
+.op-params-form .op-field.op-scope-hint{grid-template-columns:1fr;color:#288cf0;font-style:normal;line-height:1.35}
 .op-params-form .op-field.hidden{display:none}
 .op-params-form input,.op-params-form select{width:100%;padding:3px 4px;border:1px solid #aaa;border-radius:2px;box-sizing:border-box}
 .op-params-form .op-vec3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px}
+.op-field.op-field-frame{grid-template-columns:1fr;align-items:start;gap:4px}
+.op-field.op-field-frame>label{font-weight:600}
+.op-frame-picker{display:flex;flex-direction:column;gap:2px;max-height:140px;overflow:auto;border:1px solid #aaa;border-radius:2px;padding:4px;background:#fff}
+.op-frame-opt{display:flex;align-items:flex-start;gap:6px;font-size:11px;padding:3px 4px;cursor:pointer;border-radius:2px;line-height:1.35}
+.op-frame-opt:hover{background:#eef6fc}
+.op-frame-opt.sel{background:#d6eafc}
+.op-frame-opt input{width:auto;margin:2px 0 0;flex-shrink:0}
+.op-frame-opt span{min-width:0;word-break:break-all}
+.op-frame-empty{font-size:11px;color:#888;padding:6px 4px;line-height:1.4}
 
 /* CAD 特征表（仿桌面密度） */
 #robotTrajGen.robot-pane{padding:6px 8px;gap:6px}
@@ -124,11 +159,11 @@ button{cursor:pointer}
 .feat-table th,.feat-table td{border-bottom:1px solid #e8e8e8;padding:4px 5px;text-align:left;vertical-align:top;line-height:1.35}
 .feat-table th{background:#f0f0f0;position:sticky;top:0;z-index:1;font-weight:600;white-space:nowrap}
 .feat-table th:nth-child(1),.feat-table td:nth-child(1){width:26px;padding-left:4px;padding-right:2px}
-.feat-table th:nth-child(2),.feat-table td:nth-child(2){width:40px}
-.feat-table th:nth-child(3),.feat-table td:nth-child(3){width:38%}
+.feat-table th:nth-child(2),.feat-table td:nth-child(2){width:28%}
+.feat-table th:nth-child(3),.feat-table td:nth-child(3){width:30%}
 .feat-table th:nth-child(4),.feat-table td:nth-child(4){width:auto}
 .feat-table th:nth-child(5),.feat-table td:nth-child(5){width:48px;text-align:center;white-space:nowrap}
-.feat-table td:nth-child(3),.feat-table td:nth-child(4){overflow:hidden;word-break:break-all;white-space:normal}
+.feat-table td:nth-child(2),.feat-table td:nth-child(3),.feat-table td:nth-child(4){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .feat-table td.st-ok{color:#1b5e20}
 .feat-table td.st-err{color:#b71c1c;font-weight:600}
 .feat-table td.st-draft{color:#666}
@@ -170,6 +205,7 @@ button{cursor:pointer}
 .traj-edit-palette-col,.traj-edit-pipeline-col{display:flex;flex-direction:column;min-height:0;border:1px solid #ccc;border-radius:3px;background:#fff}
 .traj-edit-palette-col .section-title,.traj-edit-pipeline-col .section-title{padding:4px 6px;margin:0;border-bottom:1px solid #e0e0e0;background:#f3f3f3;font-size:11px}
 .traj-op-palette{display:grid;grid-template-columns:1fr;gap:2px;padding:4px;overflow:auto;flex:1;align-content:start}
+.traj-op-palette.disabled-pane,.traj-op-pipeline.disabled-pane,.op-params-form.disabled-pane{opacity:.55;pointer-events:none}
 .traj-op-palette button{padding:5px 4px;font-size:11px;text-align:center;border:1px solid #bbb;background:#fafafa;border-radius:2px}
 .traj-op-palette button:hover{background:#e5f1fb}
 .traj-op-pipeline{flex:1;overflow:auto;padding:2px 0;min-height:80px}
@@ -181,7 +217,7 @@ button{cursor:pointer}
 .traj-op-pipeline .step.disabled-op .t{color:#999}
 .traj-edit-params{border:1px solid #bbb;border-radius:3px;background:#fff;padding:0}
 .traj-edit-params>summary{padding:5px 8px;font-weight:600;cursor:pointer;background:#f3f3f3;border-bottom:1px solid #e0e0e0}
-.traj-edit-params .op-params-form{border:0;border-radius:0;max-height:180px}
+.traj-edit-params .op-params-form{border:0;border-radius:0;max-height:none;overflow:visible}
 .traj-edit-actions{gap:6px;flex-wrap:wrap}
 .traj-edit-tpl{margin-top:2px}
 .ai-out{font-size:11px;background:#fafafa;border:1px solid #ddd;padding:8px;min-height:100px;white-space:pre-wrap;overflow:auto}
@@ -220,6 +256,20 @@ button{cursor:pointer}
 .axis-row-vals input{width:100%;padding:3px 4px;border:1px solid #aaa;border-radius:2px}
 .axis-row-vals button{padding:3px 6px;font-size:11px}
 
+/* —— 简易对话框 —— */
+.dlg-mask{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:flex;align-items:center;justify-content:center}
+.dlg{background:#fff;border:1px solid #888;box-shadow:0 8px 24px rgba(0,0,0,.2);border-radius:4px;padding:14px 16px;min-width:320px;max-width:420px}
+.dlg h3{margin:0 0 8px;font-size:14px}
+.dlg-hint{margin:0 0 10px;font-size:11px;color:#666;line-height:1.4}
+.dlg-field{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;font-size:12px}
+.dlg-field input{padding:4px 6px;border:1px solid #aaa;border-radius:2px}
+.dlg-spins{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px}
+.dlg-spins label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:#444}
+.dlg-spins input{padding:3px 4px;border:1px solid #aaa;border-radius:2px}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px}
+.dlg-actions button{padding:5px 14px;border:1px solid #aaa;border-radius:2px;background:#f5f5f5}
+.dlg-actions button.primary{background:#2b79c2;border-color:#2468a8;color:#fff}
+
 /* —— 底栏日志 —— */
 .bottom{display:grid;grid-template-rows:1fr 24px;min-height:0;border-top:1px solid #bdbdbd;background:#fff}
 .log{overflow:auto;padding:6px 8px;font-family:Consolas,"Courier New",monospace;font-size:11px;background:#fafafa;border-bottom:1px solid #ddd}
@@ -229,3 +279,7 @@ button{cursor:pointer}
 .log .err{color:#c62828}
 .statusbar{display:flex;align-items:center;gap:10px;padding:0 8px;background:#e8e8e8;border-top:1px solid #ccc;font-size:11px;color:#444}
 .statusbar .path{flex:1;margin:0;border:1px solid #ccc;background:#fff;padding:2px 6px;border-radius:2px;color:#333}
+
+#root{height:100%;margin:0}
+.scene canvas:not(.view-cube-canvas):not(.axis-hud-canvas){display:block;width:100%;height:100%}
+

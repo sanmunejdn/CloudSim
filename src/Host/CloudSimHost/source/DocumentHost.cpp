@@ -17,6 +17,7 @@
 #include "HeadlessInstructionPropertyDelegate.h"
 #include "HeadlessRobotContext.h"
 #include "HeadlessTrajectorySession.h"
+#include "HeadlessPointCloudBridge.h"
 #include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
@@ -76,6 +77,7 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 		m_headlessRobotContext = std::make_unique<HeadlessRobotContext>(*this);
 		m_robotUrdfImportContext = m_headlessRobotContext.get();
 		m_headlessTrajectorySession = std::make_unique<HeadlessTrajectorySession>(*this);
+		m_headlessPointCloudBridge = std::make_unique<HeadlessPointCloudBridge>(*this);
 	}
 
 	m_dataService = std::make_unique<DataServiceAdapter>(*this);
@@ -236,6 +238,11 @@ HeadlessRobotContext* DocumentHost::headlessRobotContext() const
 HeadlessTrajectorySession* DocumentHost::headlessTrajectorySession() const
 {
 	return m_headlessTrajectorySession.get();
+}
+
+HeadlessPointCloudBridge* DocumentHost::headlessPointCloudBridge() const
+{
+	return m_headlessPointCloudBridge.get();
 }
 
 void DocumentHost::setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate)

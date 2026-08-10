@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:debug": "vite build --mode development --outDir ../../../bin/x64d/web --emptyOutDir",
-    "build:release": "vite build --outDir ../../../bin/x64/web --emptyOutDir",
+    "build:debug": "tsc --noEmit --pretty false && vite build --mode development",
+    "build:release": "tsc --noEmit --pretty false && vite build --mode production",
     "preview": "vite preview"
   },
   "dependencies": {

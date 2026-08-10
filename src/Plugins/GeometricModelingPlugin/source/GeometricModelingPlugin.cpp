@@ -152,12 +152,13 @@ void GeometricModelingPlugin::shutdown()
 {
 	clearExtrudePreviewUi();
 	m_sketch.end();
+	// 关窗路径用 softExit，避免 returnToMainWorkspace 再广播其它已 unload 插件的回调
+	softExitMode();
 	if (m_host)
 	{
-		if (m_inMode)
-			exitGeometricModeling();
-		else
-			m_host->setModeToolBar(nullptr);
+		if (m_host->currentWorkspaceMode() == pluginId())
+			m_host->claimWorkspaceMode(QString());
+		m_host->setModeToolBar(nullptr);
 	}
 	m_inMode = false;
 	m_ribbon = nullptr;

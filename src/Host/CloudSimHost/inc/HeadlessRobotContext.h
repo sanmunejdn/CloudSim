@@ -75,8 +75,10 @@ public:
 	bool applyFkFromGizmoAnchorThreeJsMatrix(const QString& anchorBackendId, const QVector<double>& threeJsColMajor16,
 											 QString* outError = nullptr);
 	/// 拖法兰：世界位姿 → 示教 IK → 更新关节（基座 P 不变）
+	/// outIncomplete：单步 chase/关节台阶未追到目标时为 true，供网页继续推同一目标
 	bool applyIkFromFlangeThreeJsMatrix(const QString& flangeBackendId, const QVector<double>& threeJsColMajor16,
-										QVector<double>* outJointAnglesRad = nullptr, QString* outError = nullptr);
+										QVector<double>* outJointAnglesRad = nullptr, QString* outError = nullptr,
+										bool* outIncomplete = nullptr);
 
 	struct TcpPoseCapture
 	{

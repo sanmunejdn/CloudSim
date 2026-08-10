@@ -127,12 +127,12 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 ### TCP 拖动 IK（`applyTcpDragTeachIkFromPose`）
 
-**进入示教**（`onSimulationTcpDragTeachModeChanged(true)`）：per-link 时先 `doc->reconcilePerLinkOuterBindFromScene(instIdx, jointQ)` 从场景反解 **M0**；`resolveRobotBaseWorld` 经 `robotBaseWorldMatrixForInstance` 取 **P**（勿用根连杆 mesh 世界矩阵）。详见 Widget §13.1。
+**进入示教**（`onSimulationTcpDragTeachModeChanged(true)`）：目标用连杆系 FK（勿把装配系 mesh 世界矩阵当法兰连杆）。per-link 罗盘挂法兰 mesh，`local=linkFrameLocalOnMeshBackend(T_tool)`；再 `reconcilePerLinkOuterBindFromScene`（关节角与轴控同源）；`resolveRobotBaseWorld` 取 **P**。删机再导若 sceneBackendId 无交集则聚合角清零。详见 Widget §13.1。
 
-1. 罗盘相对 `P_eff`；经 `tcpDragRigidPeffToP0` 得到 `T_p0`，缓存 `m_lastTcpDragTargetInBase`。
+1. 罗盘相对 `P_eff`；经 `tcpDragRigidPeffToP0` 得到 `T_p0`，缓存 `m_lastTcpDragTargetInBase`。鼠标位姿 pending 合并，IK 约 8ms 一拍；单步追赶约 220mm、关节步约 0.45rad；拖动中罗盘不跟 FK 残差回拉。
 2. `doc->solveTcpDragTeachIk`：有启用 Workpiece 时按 REP（`T_work = inv(T_p0_work)*T_p0`，外层采样工件轴，内层 RobotBase `solveTeachIkCoordinatedDrag`）；否则仅 RobotBase。
 3. 关节角按 URDF 限位 **钳位**（`clampJointAnglesToInstanceLimits`）；外轴经 `applyAxisControlExternalPose` 写回（含工件 backend）。
-4. `updateTcpDragTeachFromTarget` 用钳位后 FK 对齐罗盘（IK 残差时可能略有偏差）。
+4. 拖动中 `updateTcpDragTeachFromTarget(..., false)` 保持鼠标目标；追赶未完成则自动再拍 IK。
 5. **不**在拖动每帧更新程序起点（仅添加第一条运动指令或空程序结束拖动时可选捕获）。
 6. 落点写指令时同步 `externalAxisQCsv` 与 `workingTcp*`（REP）。
 ### 添加指令（`onSimulationAddInstructionRequested`）
@@ -360,10 +360,9 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 
 | per-link 模式 | 工具系 mount | 工具系 local |
 |---------------|--------------|--------------|
-| `meshVerticesInLinkFrame=false`（世界烘焙，**默认**） | `urdfRootLinkBackendId` | `toolTcpInBaseFromFk(urdf, q, **该 tool**)` |
-| `meshVerticesInLinkFrame=true` | 法兰 link backend | `T_flange_tool` |
+| 任意（`meshVerticesInLinkFrame` true/false） | **法兰 link** backend | `linkFrameLocalOnMeshBackend(...)`：已是 link 系顶点时为 `T_flange_tool`；文件/装配系顶点时为 `T_flange_tool * inv(visual)` |
 
-用户系挂 **URDF 根连杆**，`local = T_base_user`。多工具时 **必须** per-tool 计算 TCP（禁止共用激活工具矩阵）。TCP 拖动后须 `updateTcpDragTeachFromTarget` + IK 后 `refreshRobotCoordinateFrameOverlays`。Run 期间工具系与预览一致显示。
+用户系挂 **URDF 根连杆**，经同一 `linkFrameLocalOnMeshBackend` 校正。多工具时 **必须** per-tool 计算 TCP（禁止共用激活工具矩阵）。TCP 拖动后须 `updateTcpDragTeachFromTarget` + IK 后 `refreshRobotCoordinateFrameOverlays`。Run 期间工具系与预览一致显示。
 
 | 类 | 说明 |
 |----|------|
@@ -384,6 +383,8 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 | 数据源 | `resource/models/{Type}/{Brand}/{Package}` | 扫描与 URDF 匹配逻辑不变 |
 
 i18n：`setUseChinese` ← `MainWindow::applyLanguage`。
+
+**资源侧注意**：ABB 去掉重复 `IRB 120-3-58.bmp`。INOVANCE 两台恢复原始 `link6` 装配网格+visual。TCP 悬空根因是工具轴叠加曾挂在 `base_link`；`refreshRobotCoordinateFrameOverlays` 已改为始终挂法兰 link，并用 `inv(visual)*T_tool` 对齐文件系网格（装配系 URDF 与本地系 URDF 均适用）。
 
 TCP 拖动 OSG 实现仍在 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1。
 
@@ -600,7 +601,23 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | 拖入流水线 | `dropEvent` → `makeDefaultOp`（默认 scope，`enabled=false`）→ 写入 `m_ops` |
 | ~~Qt 默认 QListWidget 拖放~~ | **已禁用**（`dropEvent` 对未知 MIME `ignore()`）— 仅会产生无数据的「幽灵项」 |
 
-拖入/新建块的默认 scope：`defaultScopeForNewOp()` — **顶栏「分组」**非「（无）」→ `OpScope::Group`（写入 `groupId`），否则 `EntireProgram`。参数区作用域默认「分组」；顶栏分组变更会同步参数区分组下拉，**不**使用指令树选中项。
+拖入/新建块的默认 scope：`defaultScopeForNewOp()` —
+
+| 条件 | 默认作用域 |
+|------|------------|
+| Session 有 raw 且点数 N>0 | **`PointIndexRange`（P 范围）** `1…N` |
+| 否则顶栏「分组」非「（无）」 | `OpScope::Group`（写入 `groupId`） |
+| 否则 | `EntireProgram` |
+
+**作用域语义（参数区下拉，`CommonScope.json`）：**
+
+| 作用域 | 含义 |
+|--------|------|
+| 全程序 | 全部 Unified / 路点 |
+| 分组 | 指令组 `memberInstructionIds`（依赖 `sourceInstructionId`；**离散 raw 阶段无效**，会静默退化为全点——UI 会提示改用 P 范围） |
+| P 范围 | 离散点云 **1-based 数组下标** `[P起, P止]`；引擎 `resolveScopedPointIndices` 过滤 |
+
+顶栏分组变更会同步参数区分组下拉，**不**使用指令树选中项。P 起/止上限对齐当前 raw 点数。
 
 ### 预览 vs 应用（2026-06 修订）
 
@@ -712,7 +729,7 @@ flowchart TD
 
 ### 已知限制（Phase 2b）
 
-- Mirror 已实现为“轴反向”（选轴后姿态反向，位置不变）
+- Mirror 已实现为“轴反向”（参数 `mirror.axis` 为 Enum 下拉：X/Y/Z；姿态反向，位置不变）
 - Reorder 已实现为“固定姿态”（以作用域首点姿态为基准对齐全部点）
 - Delete 预览高亮、ghost 轨迹、`previewMotionWithAccess` FK 链未做
 - 预览直接改指令 `pose`，非 Run 级 FK 链（MVP 足够显示路点轴偏移）
@@ -749,7 +766,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 
 拾取写 Spec 时 UI 当前值覆盖 `buildFeatureSpecFromModelPick` 默认；离散完成后状态栏显示实际点数（如「步距 2 mm → 共 N 点」或「UV 16×16 → 共 N 点」）。
 
-**3D 拾取数据流**：轨迹页「拾取边/面」→ `IRobotOsgViewHost::setMesh*PickMode` + `setMeshPickScopeBackendId`（当前 combo backend）→ 视口左键 → `MainWindowRobotHost::notifyMeshPickCommitted` →「追加到选中」则向该 `FeatureEntry.geometry` 追加索引，「新建特征」则新建行并离散。多输入策略（交线/偏置）未齐几何时不退出拾取；右键可勾选移除单面/单边。
+**3D 拾取数据流**：轨迹页「拾取边/面」→ `IRobotOsgViewHost::setMesh*PickMode` + `setMeshPickScopeBackendId`（当前 combo backend）→ 视口左键 → `MainWindowRobotHost::notifyMeshPickCommitted` → 默认「新建特征」写入新行；切「追加到选中」则向该 `FeatureEntry.geometry` 追加索引。多输入策略（交线/偏置）未齐几何时不退出拾取；右键可勾选移除单面/单边。
 
 **坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld`：`resolvePickScopeBackendId` 后乘 `getBackendRootWorldMatrix`（统一世界坐标契约，**不**加减 `modelCenter`）。AI 特征编号 overlay 走同一路径。
 

@@ -5,7 +5,11 @@
       {
         "key": "scope.kind",
         "type": "Enum",
+        "labelEn": "Scope",
         "labelZh": "作用域",
+        "enumValues": ["0", "1", "2"],
+        "enumLabelsZh": ["全程序", "分组", "P 范围"],
+        "enumLabelsEn": ["Entire program", "Group", "Point range"],
         "defaultInt": 1,
         "group": "scope",
         "order": 0
@@ -13,6 +17,7 @@
       {
         "key": "scope.groupId",
         "type": "Enum",
+        "labelEn": "Group",
         "labelZh": "分组",
         "group": "scope",
         "order": 1,
@@ -21,8 +26,11 @@
       {
         "key": "scope.pointFrom",
         "type": "Int",
+        "labelEn": "P from",
         "labelZh": "P 起",
         "defaultInt": 1,
+        "minInt": 1,
+        "maxInt": 999999,
         "group": "scope",
         "order": 2,
         "visibleWhenScopeKind": "PointIndexRange"
@@ -30,8 +38,11 @@
       {
         "key": "scope.pointTo",
         "type": "Int",
+        "labelEn": "P to",
         "labelZh": "P 止",
         "defaultInt": 1,
+        "minInt": 1,
+        "maxInt": 999999,
         "group": "scope",
         "order": 3,
         "visibleWhenScopeKind": "PointIndexRange"

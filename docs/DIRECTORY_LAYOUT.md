@@ -12,6 +12,7 @@ CloudSim/
 ├── Directory.Build.props
 ├── .clang-format
 ├── docs/                        # 常读 + 专题；历史见 docs/_archive/
+├── web/cloudsim-web-ui/         # Vite+React 正式壳 → bin/x64*(d)/web
 ├── scripts/                     # 格式/筛选器等维护脚本
 ├── tools/                       # 验证工具、训练、维护脚本
 ├── .cursor/
@@ -103,9 +104,11 @@ CloudSim/
   - `$(CloudSimIntRoot)` → `bin/x64dmiddle/` 或 `bin/x64middle/`
 - 普通工程：`OutDir=$(CloudSimBinDir)`，`IntDir=$(CloudSimIntRoot)<工程名>/`
 - 插件输出：`$(CloudSimBinDir)plugins/<plugin.id>/`
+- 网页静态根：`$(CloudSimBinDir)web/`（`CloudSimWeb` PostBuild / `npm run build:debug|release`）
 - 第三方 SDK：`$(CloudSimRepoRoot)bin/SDK/...`（Include / Lib / 部署拷贝）
 - **生成顺序建议**：`CloudSimCore` → `Data` 等 → **`CloudSimHost`** → `Widget` → `CloudSim`
 - 模块职责与文档入口见 [`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md)
+- 网页壳开发见 [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)
 
 ### x64 运行时 DLL（与 exe 同目录）
 

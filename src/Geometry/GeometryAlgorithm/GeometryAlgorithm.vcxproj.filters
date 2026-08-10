@@ -409,6 +409,9 @@
     <ClCompile Include="source\ShapeQuery.cpp">
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
+    <ClCompile Include="source\detail\OccSehCall.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
     <ClCompile Include="source\ShellOps.cpp">
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>

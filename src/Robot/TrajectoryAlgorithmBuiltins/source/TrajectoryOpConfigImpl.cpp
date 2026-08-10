@@ -46,10 +46,22 @@ std::vector<TrajectoryOpParamField> TrajectoryOpConfigImpl::paramFields() const
 		{
 			if (b.key == o.key)
 			{
-				b.labelEn = o.labelEn;
-				b.labelZh = o.labelZh;
-				b.unit = o.unit;
-				b.group = o.group;
+				if (!o.labelEn.empty())
+				{
+					b.labelEn = o.labelEn;
+				}
+				if (!o.labelZh.empty())
+				{
+					b.labelZh = o.labelZh;
+				}
+				if (!o.unit.empty())
+				{
+					b.unit = o.unit;
+				}
+				if (!o.group.empty())
+				{
+					b.group = o.group;
+				}
 				b.order = o.order;
 				b.minValue = o.minValue;
 				b.maxValue = o.maxValue;
@@ -59,10 +71,18 @@ std::vector<TrajectoryOpParamField> TrajectoryOpConfigImpl::paramFields() const
 				b.defaultDouble = o.defaultDouble;
 				b.defaultInt = o.defaultInt;
 				b.defaultBool = o.defaultBool;
-				b.enumValues = o.enumValues;
-				b.enumLabelsZh = o.enumLabelsZh;
-				b.enumLabelsEn = o.enumLabelsEn;
-				b.visibleWhenScopeKind = o.visibleWhenScopeKind;
+				// JSON 未给枚举项时保留 C++ fallback，避免轴反向等下拉被清空
+				if (!o.enumValues.empty())
+				{
+					b.type = TrajectoryParamType::Enum;
+					b.enumValues = o.enumValues;
+					b.enumLabelsZh = o.enumLabelsZh;
+					b.enumLabelsEn = o.enumLabelsEn;
+				}
+				if (!o.visibleWhenScopeKind.empty())
+				{
+					b.visibleWhenScopeKind = o.visibleWhenScopeKind;
+				}
 				replaced = true;
 				break;
 			}

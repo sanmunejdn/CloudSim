@@ -37,6 +37,11 @@ void PluginManager::shutdownAll()
 	{
 		return;
 	}
+	// 必须先清回调再逐个 shutdown/unload：否则 A unload 后 B::shutdown→claimWorkspaceMode 仍会调到 A 的悬空 lambda
+	if (m_hostContext)
+	{
+		m_hostContext->prepareForPluginShutdown();
+	}
 	for (auto& entry : m_plugins)
 	{
 		if (entry && entry->instance)

@@ -1,4 +1,4 @@
-﻿/// @file TrajectoryOpParamAccess.cpp
+/// @file TrajectoryOpParamAccess.cpp
 /// @brief TrajectoryOpParamAccess 实现
 
 #include "TrajectoryOpParamAccess.h"
@@ -121,6 +121,15 @@ bool readJsonParamField(const nlohmann::json& params, const TrajectoryOpParamFie
 		out.kind = TrajectoryParamValue::Kind::Bool;
 		out.asBool = item.get<bool>();
 		return true;
+	case TrajectoryParamType::Message:
+		// 转换工件 externalTcpBackendId 等：Message 在 UI 上承载字符串 backendId
+		if (item.is_string())
+		{
+			out.kind = TrajectoryParamValue::Kind::String;
+			out.asString = item.get<std::string>();
+			return true;
+		}
+		return false;
 	default:
 		return false;
 	}
@@ -156,6 +165,13 @@ bool writeJsonParamField(nlohmann::json& params, const TrajectoryOpParamField& f
 			return false;
 		}
 		setTrajectoryParamBool(params, field.key.c_str(), in.asBool);
+		return true;
+	case TrajectoryParamType::Message:
+		if (in.kind != TrajectoryParamValue::Kind::String)
+		{
+			return false;
+		}
+		setTrajectoryParamString(params, field.key.c_str(), in.asString);
 		return true;
 	default:
 		return false;
@@ -257,6 +273,11 @@ void TrajectoryOpParamAccess::applyDefaults(RobotInstruction::TrajectoryOpDescri
 	for (const TrajectoryOpParamField& field : fields)
 	{
 		if (field.type == TrajectoryParamType::Message)
+		{
+			continue;
+		}
+		// 作用域由 makeDefaultDescriptor(scope) / JSON.scope 指定；此处若写 defaultInt=Group 会冲掉 P 范围
+		if (field.key.size() >= 6 && field.key.compare(0, 6, "scope.") == 0)
 		{
 			continue;
 		}

@@ -16,6 +16,7 @@
 #include "UrdfRobotLoader.h"
 
 #include <QDateTime>
+#include <QDir>
 #include <QFileInfo>
 #include <memory>
 
@@ -93,7 +94,23 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		}
 	}
 
-	const QString robotDisplayName = fileInfo.completeBaseName();
+	// 型号名：设备包目录（…/型号/urdf/x.urdf），与 DevicePage 瓦片一致
+	QString robotDisplayName = fileInfo.completeBaseName();
+	{
+		const QDir urdfDir = fileInfo.dir();
+		if (urdfDir.dirName().compare(QStringLiteral("urdf"), Qt::CaseInsensitive) == 0)
+		{
+			QDir pkg = urdfDir;
+			if (pkg.cdUp())
+			{
+				const QString pkgName = pkg.dirName();
+				if (!pkgName.isEmpty() && pkgName != QStringLiteral(".") && pkgName != QStringLiteral(".."))
+				{
+					robotDisplayName = pkgName;
+				}
+			}
+		}
+	}
 	const QString robotRootId = makeUniqueBackendId(backend, QStringLiteral("RobotURDF_%1").arg(robotDisplayName));
 
 	auto robotRoot = std::make_shared<MeshBackendData>();

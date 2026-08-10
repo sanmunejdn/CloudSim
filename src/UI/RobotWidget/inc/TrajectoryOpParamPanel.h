@@ -17,6 +17,7 @@
 
 class QComboBox;
 class QFormLayout;
+class QLabel;
 
 class ROBOTWIDGET_EXPORT TrajectoryOpParamPanel : public QWidget
 {
@@ -37,6 +38,10 @@ public:
 	bool applyTo(RobotInstruction::TrajectoryOpDescriptor& op, const trajectory_algo::ITrajectoryOp* algo,
 				 std::string* errMsg);
 
+	/// 离散点云规模；用于 P 起/止上限与切到 P 范围时默认填满
+	void setPointIndexLimit(int pointCount);
+	void setEditingRawCloud(bool editingRaw);
+
 	void clear();
 
 	bool isRebuilding() const { return m_rebuilding; }
@@ -47,6 +52,9 @@ signals:
 private:
 	void clearRows();
 	void updateFieldVisibility();
+	void applyPointIndexLimitToSpins();
+	void fillPointRangeIfNeeded();
+	void updateScopeHint();
 	std::string currentScopeKindToken() const;
 	int currentIntFieldValue(const std::string& key) const;
 
@@ -54,6 +62,9 @@ private:
 	bool m_loading = false;
 	bool m_clearingRows = false;
 	bool m_rebuilding = false;
+	bool m_editingRawCloud = false;
+	int m_pointIndexLimit = 0;
+	QLabel* m_scopeHintLabel = nullptr;
 	QComboBox* m_scopeGroupCombo = nullptr;
 	QWidget* m_scopeGroupComboParent = nullptr;
 	QComboBox* m_geometryBackendCombo = nullptr;

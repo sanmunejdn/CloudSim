@@ -803,11 +803,23 @@ void TrajectoryEditPageWidget::setPipelineAppliedState(const bool applied, const
 void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
 {
 	const bool zh = m_useChinese;
+	const bool hasRaw = m_session && m_session->hasRawTrajectory();
+	int n = 0;
+	if (hasRaw)
+	{
+		const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
+		n = traj ? static_cast<int>(traj->points.size()) : 0;
+	}
+	if (m_paramPanel)
+	{
+		m_paramPanel->setEditingRawCloud(hasRaw && n > 0);
+		m_paramPanel->setPointIndexLimit(n);
+	}
 	if (!m_rawStatusLabel)
 	{
 		return;
 	}
-	if (!m_session || !m_session->hasRawTrajectory())
+	if (!hasRaw || n <= 0)
 	{
 		m_rawStatusLabel->setText(zh ? QStringLiteral("请先在轨迹生成页离散")
 									 : QStringLiteral("Discretize on Trajectory Generation tab first"));
@@ -821,8 +833,6 @@ void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
 		}
 		return;
 	}
-	const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
-	const int n = traj ? static_cast<int>(traj->points.size()) : 0;
 	QString status = zh ? QStringLiteral("原始轨迹：%1 点").arg(n) : QStringLiteral("Raw trajectory: %1 points").arg(n);
 	if (m_pipelineAppliedSinceLastRawChange)
 	{
@@ -1384,6 +1394,18 @@ void TrajectoryEditPageWidget::schedulePreviewRun(const int delayMs, const bool 
 RobotInstruction::OpScope TrajectoryEditPageWidget::defaultScopeForNewOp() const
 {
 	RobotInstruction::OpScope scope{};
+	if (m_session && m_session->hasRawTrajectory())
+	{
+		const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
+		const int n = traj ? static_cast<int>(traj->points.size()) : 0;
+		if (n > 0)
+		{
+			scope.kind = RobotInstruction::OpScope::Kind::PointIndexRange;
+			scope.pointFrom = 1;
+			scope.pointTo = n;
+			return scope;
+		}
+	}
 	if (m_groupCombo && m_groupCombo->currentIndex() > 0)
 	{
 		scope.kind = RobotInstruction::OpScope::Kind::Group;
@@ -1515,6 +1537,18 @@ void TrajectoryEditPageWidget::loadSelectedOpToParamsImpl()
 	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
 	m_loadingParams = true;
 	m_paramPanel->setLoading(true);
+	if (m_session && m_session->hasRawTrajectory())
+	{
+		const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
+		const int n = traj ? static_cast<int>(traj->points.size()) : 0;
+		m_paramPanel->setEditingRawCloud(n > 0);
+		m_paramPanel->setPointIndexLimit(n);
+	}
+	else
+	{
+		m_paramPanel->setEditingRawCloud(false);
+		m_paramPanel->setPointIndexLimit(0);
+	}
 	m_paramPanel->rebuildForOp(op, algo);
 	m_loadingParams = false;
 	m_paramPanel->setLoading(false);

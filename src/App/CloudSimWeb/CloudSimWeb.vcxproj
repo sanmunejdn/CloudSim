@@ -75,8 +75,7 @@
       <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHost.lib;CloudSimCore.lib;Data.lib;RobotScene.lib;ws2_32.lib;osgViewer.lib;osg.lib;osgDB.lib;osgUtil.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>if not exist "$(OutDir)web" mkdir "$(OutDir)web"
-xcopy /Y /I /Q "$(ProjectDir)..\..\..\web\cloudsim-web-ui\public-fallback\*" "$(OutDir)web\"</Command>
+      <Command>call "$(ProjectDir)..\..\..\web\cloudsim-web-ui\scripts\postbuild-web.cmd" "$(OutDir)web" debug</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -93,8 +92,7 @@ xcopy /Y /I /Q "$(ProjectDir)..\..\..\web\cloudsim-web-ui\public-fallback\*" "$(
       <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHost.lib;CloudSimCore.lib;Data.lib;RobotScene.lib;ws2_32.lib;osgViewer.lib;osg.lib;osgDB.lib;osgUtil.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>if not exist "$(OutDir)web" mkdir "$(OutDir)web"
-xcopy /Y /I /Q "$(ProjectDir)..\..\..\web\cloudsim-web-ui\public-fallback\*" "$(OutDir)web\"</Command>
+      <Command>call "$(ProjectDir)..\..\..\web\cloudsim-web-ui\scripts\postbuild-web.cmd" "$(OutDir)web" release</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

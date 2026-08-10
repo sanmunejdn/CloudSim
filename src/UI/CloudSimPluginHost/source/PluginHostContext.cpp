@@ -332,6 +332,19 @@ void PluginHostContext::endPluginRegistration()
 	m_registeringPluginId.clear();
 }
 
+void PluginHostContext::prepareForPluginShutdown()
+{
+	m_languageCallbacks.clear();
+	m_docChangeCallbacks.clear();
+	m_projectSaveCallbacks.clear();
+	m_projectLoadCallbacks.clear();
+	m_parametricHistoryCallbacks.clear();
+	m_workspaceModeCallbacks.clear();
+	for (WorkspaceModeRegistration& m : m_workspaceModes)
+		m.enterFn = {};
+	m_processFlowAiBridge = nullptr;
+}
+
 int PluginHostContext::registerSidePanelTab(const char* titleUtf8, QWidget* widget)
 {
 	if (!m_mainWindowHost || !widget || !titleUtf8)

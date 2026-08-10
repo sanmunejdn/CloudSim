@@ -27,6 +27,7 @@
 #include <BSplCLib.hxx>
 #include <Bnd_Box.hxx>
 #include <ElCLib.hxx>
+#include <Extrema_ExtPC.hxx>
 #include <GCPnts_TangentialDeflection.hxx>
 #include <GCPnts_UniformAbscissa.hxx>
 #include <GCPnts_UniformDeflection.hxx>
@@ -62,6 +63,7 @@
 #include <TopoDS_Wire.hxx>
 #include <gp_Cylinder.hxx>
 #include <gp_Dir.hxx>
+#include <gp_Lin.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>

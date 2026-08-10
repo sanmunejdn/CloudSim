@@ -216,6 +216,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ShapeQuery.cpp" />
+    <ClCompile Include="source\detail\OccSehCall.cpp" />
     <ClCompile Include="source\ShapeIo.cpp" />
     <ClCompile Include="source\Discretize.cpp" />
     <ClCompile Include="source\DiscretizeEdge.cpp" />

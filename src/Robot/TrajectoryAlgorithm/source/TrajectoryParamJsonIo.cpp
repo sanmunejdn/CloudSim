@@ -212,7 +212,57 @@ std::vector<TrajectoryOpParamField> loadCommonScopeFieldsFromJson(const std::str
 	{
 		return trajectoryOpCommonScopeFields();
 	}
-	return parsed;
+	// JSON 空枚举会冲掉 C++ 作用域选项，按 key 合并保留有效 enumValues
+	std::vector<TrajectoryOpParamField> merged = trajectoryOpCommonScopeFields();
+	for (const TrajectoryOpParamField& o : parsed)
+	{
+		bool replaced = false;
+		for (TrajectoryOpParamField& b : merged)
+		{
+			if (b.key != o.key)
+			{
+				continue;
+			}
+			if (!o.labelEn.empty())
+			{
+				b.labelEn = o.labelEn;
+			}
+			if (!o.labelZh.empty())
+			{
+				b.labelZh = o.labelZh;
+			}
+			if (!o.group.empty())
+			{
+				b.group = o.group;
+			}
+			b.order = o.order;
+			b.minInt = o.minInt;
+			b.maxInt = o.maxInt;
+			b.defaultInt = o.defaultInt;
+			if (!o.enumValues.empty())
+			{
+				b.type = TrajectoryParamType::Enum;
+				b.enumValues = o.enumValues;
+				b.enumLabelsZh = o.enumLabelsZh;
+				b.enumLabelsEn = o.enumLabelsEn;
+			}
+			if (!o.visibleWhenScopeKind.empty())
+			{
+				b.visibleWhenScopeKind = o.visibleWhenScopeKind;
+			}
+			if (o.type == TrajectoryParamType::Int)
+			{
+				b.type = TrajectoryParamType::Int;
+			}
+			replaced = true;
+			break;
+		}
+		if (!replaced)
+		{
+			merged.push_back(o);
+		}
+	}
+	return merged;
 }
 
 } // namespace trajectory_algo

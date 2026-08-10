@@ -63,6 +63,8 @@ public:
 	bool opSchemaJson(const QString& kind, int opIndex, QJsonObject* out, QString* err);
 
 	bool preview(QJsonObject* outPolylineWorld, QString* err);
+	/// 仅 file→world，不跑算子管线（对齐桌面特征页 Raw 预览）
+	bool previewRaw(QJsonObject* outPolylineWorld, QString* err);
 	bool apply(QString* err);
 	/// 不经流水线：Raw → LINE（对齐桌面「生成」）
 	bool emitRawProgram(QString* err);
@@ -118,11 +120,15 @@ private:
 						   double& mz) const;
 	bool transformRawToWorld(const RobotInstruction::RawTrajectory& modelRaw,
 							 RobotInstruction::RawTrajectory& worldRaw, QString* err) const;
+	/// 对齐桌面：注入当前 TCP 参考 + FrameBackendData 解析器（转换工件型依赖）
+	void injectWorkpieceReferenceOnEngine();
 	bool runPipelineOnWorldRaw(RobotInstruction::RawTrajectory& worldRawInOut, QString* err);
 	QString templatesDir(const QString& kind) const;
 	/// 共用射线命中；includeHighlight 时附加 polylinesWorld
 	bool pickShapeRay(const QByteArray& body, bool requireEditGate, bool includeHighlight, QJsonObject* out,
 					  QString* err);
+	/// 从已绑定 PathPlan 重载 pipeline + raw（开始/取消修改）
+	void reloadBoundFromStore();
 };
 
 } // namespace cloudsim::host

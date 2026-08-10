@@ -119,6 +119,7 @@ public slots:
 	void onSimulationTcpDragTeachModeChanged(bool enabled);
 	void onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void onTcpDragTeachEnded();
+	void flushTcpDragTeachIkPending();
 	void onRobotCoordinateFramesChanged();
 	void onRobotExternalAxesChanged();
 	void onRobotCollisionSettingsChanged();
@@ -232,6 +233,8 @@ private:
 	RobotProgramExecutor m_programExecutor;
 	SimulationLogIoSink m_simulationIoSink;
 	QVector<double> m_aggregatedJointAnglesRad;
+	/// 上次已与聚合角对齐的机器人 sceneBackendId；集合无交集时丢弃旧角（删机再导）
+	QStringList m_syncedRobotSceneBackendIds;
 	/// 轴控制已应用到基座的外轴量（与 UI 滑条对应，用于差分更新 P）
 	QVector<double> m_axisControlExternalQApplied;
 	double m_axisControlExternalAxis[3]{1.0, 0.0, 0.0};
@@ -240,7 +243,16 @@ private:
 	bool m_suppressMotionPreviewStartCapture = false;
 	QString m_tcpDragTeachFlangeLink;
 	QElapsedTimer m_tcpDragTeachIkTimer;
+	QElapsedTimer m_tcpDragOverlayRefreshTimer;
 	bool m_tcpDragApplyingIk = false;
+	bool m_tcpDragIkPosePending = false;
+	bool m_tcpDragIkFlushScheduled = false;
+	double m_tcpDragIkPendingPx = 0.0;
+	double m_tcpDragIkPendingPy = 0.0;
+	double m_tcpDragIkPendingPz = 0.0;
+	double m_tcpDragIkPendingEx = 0.0;
+	double m_tcpDragIkPendingEy = 0.0;
+	double m_tcpDragIkPendingEz = 0.0;
 	QVector<double> m_tcpDragLastAppliedJointRad;
 	engine::RigidTransform m_lastTcpDragTargetInBase;
 	bool m_lastTcpDragTargetValid = false;

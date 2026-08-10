@@ -524,6 +524,38 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		}
 
 		const QString loadPath = resolveProjectObjectLoadPath(options.projectDir, sourcePath, assetRelativePath);
+
+		// URDF 层级空壳根：sourcePath 指向 .urdf，无三角面；勿当网格文件导入（否则根丢失，树顶变成 base_link）
+		const QString urdfProbePath = !loadPath.isEmpty() ? loadPath : (!sourcePath.isEmpty() ? sourcePath : assetRelativePath);
+		const bool isUrdfRobotRootShell =
+			sourceType.compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0 &&
+			QFileInfo(urdfProbePath).suffix().compare(QStringLiteral("urdf"), Qt::CaseInsensitive) == 0;
+		if (isUrdfRobotRootShell)
+		{
+			const QString parentId = options.useEdgesRelation ? QString() : legacyParentId;
+			const QString catalogType = QStringLiteral("URDF");
+			QString visualErr;
+			QString regErr;
+			if (registerEmbeddedProjectObject(host, obj, persistedId, sourcePath, catalogType, parentId, false,
+											  options.projectDir, &visualErr, &regErr))
+			{
+				if (!parentId.isEmpty() && callbacks.legacyParentFollow)
+				{
+					if (const std::shared_ptr<BackendDataBase> registered =
+							host.backend().getData(persistedId.toStdString()))
+					{
+						callbacks.legacyParentFollow(registered->id(), parentId.toStdString());
+					}
+				}
+				continue;
+			}
+			appendProjectLoadWarning(
+				outWarnings,
+				QStringLiteral("URDF robot root shell register failed (id=%1): %2")
+					.arg(persistedId, !regErr.isEmpty() ? regErr : visualErr));
+			continue;
+		}
+
 		if (loadPath.isEmpty())
 		{
 			appendProjectLoadWarning(outWarnings,
@@ -531,8 +563,10 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 										 .arg(sourcePath.isEmpty() ? assetRelativePath : sourcePath));
 			continue;
 		}
+		// sourceType 可能为空；须同时认 className，否则纯顶点 PLY 会当网格导入并失败跳过
 		const bool isPc =
-			sourceType.compare(QLatin1String(backend_type::kCatalogPointCloud), Qt::CaseInsensitive) == 0;
+			sourceType.compare(QLatin1String(backend_type::kCatalogPointCloud), Qt::CaseInsensitive) == 0 ||
+			backend_type::isPointCloudClassName(classNameUtf8);
 		const QString catalogType =
 			sourceType.isEmpty()
 				? (isPc ? QLatin1String(backend_type::kCatalogPointCloud) : QLatin1String(backend_type::kCatalogModel))

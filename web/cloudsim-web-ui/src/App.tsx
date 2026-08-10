@@ -1,134 +1,118 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  fetchHealth,
-  fetchModes,
-  fetchObjects,
-  importObject,
-  newProject,
-  openProject,
-  postSelection,
-  saveProject,
-  setWorkspaceMode,
-  type BackendObject,
-  type Health,
-} from "./api";
-import SceneView from "./SceneView";
+import { useRef, useState } from "react";
+import { AppProviders } from "./state/AppProviders";
+import MenuBar from "./shell/MenuBar";
+import LeftDock from "./shell/LeftDock";
+import RightDock from "./shell/RightDock";
+import StatusBar from "./shell/StatusBar";
+import DocTabs from "./shell/DocTabs";
+import SceneViewport, { type SceneViewportHandle } from "./scene/SceneViewport";
+import { createCoordinateFrame } from "./api";
+import { useStatus } from "./state/statusStore";
+import { useScene } from "./state/sceneStore";
+import "./styles/shell.css";
 
-export default function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [path, setPath] = useState("");
-  const [status, setStatus] = useState("");
-  const [objects, setObjects] = useState<BackendObject[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [modes, setModes] = useState<{ id: string; title: string }[]>([]);
-  const [mode, setMode] = useState("scene3d");
-
-  const refreshHealth = useCallback(async () => {
-    try {
-      setHealth(await fetchHealth());
-    } catch {
-      setHealth(null);
-    }
-  }, []);
-
-  const refreshObjects = useCallback(async () => {
-    const list = await fetchObjects();
-    setObjects(list.objects);
-    if (list.projectPath) setPath(list.projectPath);
-  }, []);
-
-  useEffect(() => {
-    void refreshHealth();
-    void fetchModes().then((m) => {
-      setModes(m.modes);
-      setMode(m.active);
-    });
-    const t = setInterval(() => void refreshHealth(), 5000);
-    const es = new EventSource("/api/events");
-    es.onmessage = () => void refreshObjects();
-    return () => {
-      clearInterval(t);
-      es.close();
-    };
-  }, [refreshHealth, refreshObjects]);
-
-  const onSelect = async (id: string | null) => {
-    setSelectedId(id);
-    if (id) await postSelection(id);
-  };
-
+function InsertFrameDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { setStatus } = useStatus();
+  const { refreshObjects } = useScene();
+  const [name, setName] = useState("Frame");
+  const [pos, setPos] = useState([0, 0, 0]);
+  const [eu, setEu] = useState([0, 0, 0]);
+  if (!open) return null;
   return (
-    <div className="app-shell">
-      <header className="menubar">
-        <strong>CloudSim Web</strong>
-        <button type="button" onClick={() => void newProject().then(refreshObjects)}>
-          新建
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            void openProject(path).then((r) => {
-              setStatus(r.ok ? `loaded ${r.objectCount}` : r.error ?? "fail");
-              void refreshObjects();
-            })
-          }
-        >
-          打开
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            void saveProject(path).then((r) => setStatus(r.ok ? `saved ${r.path}` : r.error ?? "fail"))
-          }
-        >
-          保存
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            const p = prompt("导入路径");
-            if (p) void importObject(p).then(refreshObjects);
-          }}
-        >
-          导入
-        </button>
-        <select
-          value={mode}
-          onChange={(e) => {
-            const v = e.target.value;
-            setMode(v);
-            void setWorkspaceMode(v);
-          }}
-        >
-          {modes.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.title}
-            </option>
+    <div className="dlg-mask">
+      <div className="dlg">
+        <h3>插入坐标系</h3>
+        <p className="dlg-hint">在场景中创建一个坐标系对象</p>
+        <label className="dlg-field">
+          名称
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <div className="dlg-spins">
+          {(["X", "Y", "Z"] as const).map((lab, i) => (
+            <label key={lab}>
+              {lab}
+              <input
+                type="number"
+                value={pos[i]}
+                onChange={(e) => setPos(pos.map((v, j) => (j === i ? Number(e.target.value) : v)))}
+              />
+            </label>
           ))}
-        </select>
-        <span className={`pill ${health ? "ok" : "bad"}`}>
-          {health ? `:${health.port}` : "offline"}
-        </span>
-      </header>
-      <div className="main">
-        <aside className="sidebar">
-          <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="工程路径" />
-          <p className="status">{status}</p>
-          <ul className="tree">
-            {objects.map((o) => (
-              <li
-                key={o.id}
-                className={o.id === selectedId ? "sel" : ""}
-                onClick={() => void onSelect(o.id)}
-              >
-                <span className="name">{o.name || o.id}</span>
-                <span className="cls">{o.className}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
-        <SceneView objects={objects} selectedId={selectedId} onSelect={(id) => void onSelect(id)} />
+          {(["Rx", "Ry", "Rz"] as const).map((lab, i) => (
+            <label key={lab}>
+              {lab}
+              <input
+                type="number"
+                value={eu[i]}
+                onChange={(e) => setEu(eu.map((v, j) => (j === i ? Number(e.target.value) : v)))}
+              />
+            </label>
+          ))}
+        </div>
+        <div className="dlg-actions">
+          <button type="button" onClick={onClose}>
+            取消
+          </button>
+          <button
+            type="button"
+            className="primary"
+            onClick={async () => {
+              const r = await createCoordinateFrame({ name, positionMm: pos, eulerDeg: eu });
+              setStatus(r.ok ? "坐标系已创建" : r.error || "创建失败", r.ok ? "info" : "err");
+              await refreshObjects();
+              onClose();
+            }}
+          >
+            创建
+          </button>
+        </div>
       </div>
     </div>
+  );
+}
+
+function Shell() {
+  const sceneRef = useRef<SceneViewportHandle>(null);
+  const [frameDlg, setFrameDlg] = useState(false);
+  const { requestFocus } = useScene();
+
+  return (
+    <div className="shell">
+      <MenuBar
+        onInsertFrame={() => setFrameDlg(true)}
+        onFocus={() => {
+          requestFocus();
+          sceneRef.current?.focusAll();
+        }}
+      />
+      <div className="main">
+        <LeftDock />
+        <section className="center">
+          <DocTabs />
+          <div className="viewport">
+            <SceneViewport ref={sceneRef} />
+            <div className="view-toolbar">
+              <button type="button" title="聚焦" onClick={() => sceneRef.current?.focusAll()}>
+                ⌂
+              </button>
+              <button type="button" title="主视图" onClick={() => sceneRef.current?.homeView()}>
+                ◎
+              </button>
+            </div>
+          </div>
+        </section>
+        <RightDock />
+      </div>
+      <StatusBar />
+      <InsertFrameDialog open={frameDlg} onClose={() => setFrameDlg(false)} />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProviders>
+      <Shell />
+    </AppProviders>
   );
 }

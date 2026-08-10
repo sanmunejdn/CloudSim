@@ -284,9 +284,11 @@ void ProcessFlowPlugin::shutdown()
 	{
 		m_sim->stop();
 	}
-	if (m_host && m_inProcessFlow)
+	// 关窗路径禁止走 exitProcessFlow（会弹框 + returnToMainWorkspace 广播）
+	softExitProcessFlow();
+	if (m_host && m_host->currentWorkspaceMode() == pluginId())
 	{
-		exitProcessFlow();
+		m_host->claimWorkspaceMode(QString());
 	}
 	m_pagesByDocId.clear();
 	if (m_palette)

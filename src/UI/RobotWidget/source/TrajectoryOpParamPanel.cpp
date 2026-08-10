@@ -14,6 +14,8 @@
 #include <QSpinBox>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace
 {
 std::string scopeKindToken(const RobotInstruction::OpScope::Kind kind)
@@ -60,7 +62,7 @@ TrajectoryOpParamPanel::TrajectoryOpParamPanel(QWidget* parent) : QWidget(parent
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 	auto* layout = new QVBoxLayout(this);
 	layout->setContentsMargins(0, 0, 0, 0);
-	layout->setSpacing(0);
+	layout->setSpacing(2);
 	m_form = new QFormLayout();
 	m_form->setContentsMargins(0, 0, 0, 0);
 	m_form->setSpacing(1);
@@ -69,16 +71,36 @@ TrajectoryOpParamPanel::TrajectoryOpParamPanel(QWidget* parent) : QWidget(parent
 	m_form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 	m_form->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 	layout->addLayout(m_form, 1);
+	m_scopeHintLabel = new QLabel(this);
+	m_scopeHintLabel->setWordWrap(true);
+	m_scopeHintLabel->setVisible(false);
+	m_scopeHintLabel->setStyleSheet(QStringLiteral("color: #288cf0;"));
+	layout->addWidget(m_scopeHintLabel);
 }
 
 void TrajectoryOpParamPanel::setUseChinese(const bool chinese)
 {
 	m_useChinese = chinese;
+	updateScopeHint();
 }
 
 void TrajectoryOpParamPanel::setLoading(const bool loading)
 {
 	m_loading = loading;
+}
+
+void TrajectoryOpParamPanel::setPointIndexLimit(const int pointCount)
+{
+	m_pointIndexLimit = std::max(0, pointCount);
+	applyPointIndexLimitToSpins();
+	fillPointRangeIfNeeded();
+	updateScopeHint();
+}
+
+void TrajectoryOpParamPanel::setEditingRawCloud(const bool editingRaw)
+{
+	m_editingRawCloud = editingRaw;
+	updateScopeHint();
 }
 
 void TrajectoryOpParamPanel::setScopeGroupCombo(QComboBox* combo)
@@ -337,6 +359,105 @@ void TrajectoryOpParamPanel::updateFieldVisibility()
 			row.widget->setVisible(visible);
 		}
 	}
+	if (scopeToken == "PointIndexRange")
+	{
+		fillPointRangeIfNeeded();
+	}
+	updateScopeHint();
+}
+
+void TrajectoryOpParamPanel::applyPointIndexLimitToSpins()
+{
+	const int maxN = std::max(1, m_pointIndexLimit);
+	for (trajectory_algo::TrajectoryParamBinding& row : m_rows)
+	{
+		if (row.field.key != "scope.pointFrom" && row.field.key != "scope.pointTo")
+		{
+			continue;
+		}
+		if (!row.widget)
+		{
+			continue;
+		}
+		if (auto* spin = row.widget->findChild<QSpinBox*>())
+		{
+			spin->setMinimum(1);
+			spin->setMaximum(maxN);
+			if (spin->value() > maxN)
+			{
+				spin->setValue(maxN);
+			}
+			if (spin->value() < 1)
+			{
+				spin->setValue(1);
+			}
+		}
+	}
+}
+
+void TrajectoryOpParamPanel::fillPointRangeIfNeeded()
+{
+	if (m_pointIndexLimit <= 0 || currentScopeKindToken() != "PointIndexRange")
+	{
+		return;
+	}
+	const int maxN = m_pointIndexLimit;
+	const int from = currentIntFieldValue("scope.pointFrom");
+	const int to = currentIntFieldValue("scope.pointTo");
+	const bool needFill = (to <= 1 && maxN > 1) || from < 1 || to < from || to > maxN || from > maxN;
+	if (!needFill)
+	{
+		applyPointIndexLimitToSpins();
+		return;
+	}
+	for (trajectory_algo::TrajectoryParamBinding& row : m_rows)
+	{
+		if (!row.widget || !row.write)
+		{
+			continue;
+		}
+		trajectory_algo::TrajectoryParamValue value{};
+		value.kind = trajectory_algo::TrajectoryParamValue::Kind::Int;
+		if (row.field.key == "scope.pointFrom")
+		{
+			value.asInt = 1;
+			row.write(value);
+		}
+		else if (row.field.key == "scope.pointTo")
+		{
+			value.asInt = maxN;
+			row.write(value);
+		}
+	}
+	applyPointIndexLimitToSpins();
+}
+
+void TrajectoryOpParamPanel::updateScopeHint()
+{
+	if (!m_scopeHintLabel)
+	{
+		return;
+	}
+	const std::string scopeToken = currentScopeKindToken();
+	if (m_editingRawCloud && scopeToken == "Group")
+	{
+		m_scopeHintLabel->setText(
+			m_useChinese ? QStringLiteral("离散点阶段请用「P 范围」；分组作用于生成程序后的指令组")
+						 : QStringLiteral("On discrete points use Point range; Group applies after emit to program"));
+		m_scopeHintLabel->setVisible(true);
+		return;
+	}
+	if (scopeToken == "PointIndexRange" && m_pointIndexLimit > 0)
+	{
+		m_scopeHintLabel->setText(m_useChinese
+									  ? QStringLiteral("P 范围为离散点序号 1…%1，算子仅作用于该区间")
+											.arg(m_pointIndexLimit)
+									  : QStringLiteral("Point range is 1…%1 on the discrete cloud").arg(m_pointIndexLimit));
+		m_scopeHintLabel->setVisible(true);
+		return;
+	}
+	m_scopeHintLabel->clear();
+	m_scopeHintLabel->setVisible(false);
 }
 
 void TrajectoryOpParamPanel::rebuildForOp(const RobotInstruction::TrajectoryOpDescriptor& op,
@@ -575,6 +696,9 @@ void TrajectoryOpParamPanel::rebuildForOp(const RobotInstruction::TrajectoryOpDe
 		m_rows.push_back(std::move(binding));
 	}
 	updateFieldVisibility();
+	applyPointIndexLimitToSpins();
+	fillPointRangeIfNeeded();
+	updateScopeHint();
 	m_loading = wasLoading;
 	m_rebuilding = false;
 }

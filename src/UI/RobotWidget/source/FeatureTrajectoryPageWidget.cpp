@@ -165,7 +165,7 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	m_pickModeNewBtn = new QPushButton(QStringLiteral("新建特征"), this);
 	m_pickModeAppendBtn->setCheckable(true);
 	m_pickModeNewBtn->setCheckable(true);
-	m_pickModeAppendBtn->setChecked(true);
+	m_pickModeNewBtn->setChecked(true);
 	m_pickWriteModeGroup = new QButtonGroup(this);
 	m_pickWriteModeGroup->setExclusive(true);
 	m_pickWriteModeGroup->addButton(m_pickModeAppendBtn, 0);
@@ -179,8 +179,8 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 					QToolTip::showText(QCursor::pos(), m_pickStatusLabel->text(), this);
 				}
 			});
-	applyBtnRole(m_pickModeAppendBtn, "primary");
-	applyBtnRole(m_pickModeNewBtn, "secondary");
+	applyBtnRole(m_pickModeAppendBtn, "secondary");
+	applyBtnRole(m_pickModeNewBtn, "primary");
 	applyBtnRole(m_pickEdgeBtn = new QPushButton(QStringLiteral("拾取线"), this), "secondary");
 	applyBtnRole(m_pickFaceBtn = new QPushButton(QStringLiteral("拾取面"), this), "secondary");
 	applyBtnRole(m_cancelPickBtn = new QPushButton(QStringLiteral("取消拾取"), this), "secondary");

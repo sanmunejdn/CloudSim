@@ -172,6 +172,12 @@ bool WebGateway::previewTrajectoryOnGuiThread(QString* err, QJsonObject* out)
 	return s && s->preview(out, err);
 }
 
+bool WebGateway::previewTrajectoryRawOnGuiThread(QString* err, QJsonObject* out)
+{
+	auto* s = traj(m_document.get(), err);
+	return s && s->previewRaw(out, err);
+}
+
 bool WebGateway::applyTrajectoryOnGuiThread(QString* err)
 {
 	auto* s = traj(m_document.get(), err);

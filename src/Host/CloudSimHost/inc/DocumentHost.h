@@ -42,6 +42,7 @@ class IRobotUrdfImportContext;
 class IRobotInstructionPropertyDelegate;
 class HeadlessRobotContext;
 class HeadlessTrajectorySession;
+class HeadlessPointCloudBridge;
 
 /// 单文档组合根
 class CLOUDSIM_HOST_EXPORT DocumentHost : public QWidget, public cloudsim::core::IDocumentScope
@@ -140,6 +141,7 @@ public:
 	/// Web/Headless 自建上下文；桌面 OSG 路径为 nullptr
 	HeadlessRobotContext* headlessRobotContext() const;
 	HeadlessTrajectorySession* headlessTrajectorySession() const;
+	HeadlessPointCloudBridge* headlessPointCloudBridge() const;
 
 	/// 仿真指令属性（Widget 注入，供 IRobotService 转发）
 	void setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate);
@@ -182,6 +184,7 @@ private:
 	IRobotUrdfImportContext* m_robotUrdfImportContext = nullptr;
 	std::unique_ptr<HeadlessRobotContext> m_headlessRobotContext;
 	std::unique_ptr<HeadlessTrajectorySession> m_headlessTrajectorySession;
+	std::unique_ptr<HeadlessPointCloudBridge> m_headlessPointCloudBridge;
 	IRobotInstructionPropertyDelegate* m_instructionPropertyDelegate = nullptr;
 	std::unique_ptr<IRobotInstructionPropertyDelegate> m_ownedInstructionPropertyDelegate;
 	IPerLinkKinematicsHost* m_perLinkKinematicsHost = nullptr;

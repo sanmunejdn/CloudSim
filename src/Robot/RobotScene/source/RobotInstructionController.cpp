@@ -1,4 +1,4 @@
-﻿/// @file RobotInstructionController.cpp
+/// @file RobotInstructionController.cpp
 /// @brief Sole tool handling before IK: pose/euler = T_base_target; solver input = T_base_flange only.
 
 #include "RobotInstructionController.h"
@@ -945,6 +945,57 @@ bool formatJointLimitViolations(const QString& urdfPath, const std::vector<doubl
 	return true;
 }
 
+// 同构角折回 URDF 区间：跑完后种子常落在 ±2π 外侧，二次跳转 IK 会“收敛但超限”
+void foldJointsIntoUrdfLimits(const QString& urdfPath, std::vector<double>& q)
+{
+	QStringList names;
+	QVector<double> lower;
+	QVector<double> upper;
+	if (!UrdfRobotLoader::loadRevoluteJointMeta(urdfPath, names, lower, upper, nullptr))
+	{
+		return;
+	}
+	const int n = std::min(static_cast<int>(q.size()), std::min(names.size(), std::min(lower.size(), upper.size())));
+	if (n <= 0)
+	{
+		return;
+	}
+	constexpr double kTwoPi = 6.2831853071795864769;
+	constexpr double kEpsRad = 1e-4;
+	for (int i = 0; i < n; ++i)
+	{
+		const double lo = lower[i];
+		const double hi = upper[i];
+		double qi = q[static_cast<size_t>(i)];
+		if (qi >= lo - kEpsRad && qi <= hi + kEpsRad)
+		{
+			continue;
+		}
+		bool found = false;
+		double best = qi;
+		int bestAbsK = 0;
+		for (int k = -16; k <= 16; ++k)
+		{
+			const double c = qi + static_cast<double>(k) * kTwoPi;
+			if (c < lo - kEpsRad || c > hi + kEpsRad)
+			{
+				continue;
+			}
+			const int absK = k < 0 ? -k : k;
+			if (!found || absK < bestAbsK)
+			{
+				best = c;
+				bestAbsK = absK;
+				found = true;
+			}
+		}
+		if (found)
+		{
+			q[static_cast<size_t>(i)] = best;
+		}
+	}
+}
+
 std::string formatIkResidualText(const double posErrMm, const bool useOrientation, const double rotErrRad)
 {
 	std::ostringstream oss;
@@ -1104,6 +1155,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		return {};
 	}
 	const QString urdfPath = QString::fromStdString(itUrdf->second);
+	foldJointsIntoUrdfLimits(urdfPath, q);
 	const QString ikLink = QString::fromStdString(ikLinkName);
 	IkLinkTarget linkTarget{};
 	if (!ikLinkTargetFromInstruction(cmd, linkTarget))
@@ -1597,6 +1649,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		lastRotErr = rotErr;
 		if (posErr < 1e-2 && (!useOrientation || rotErr < 0.1 * kDegToRad))
 		{
+			foldJointsIntoUrdfLimits(urdfPath, q);
 			std::string limitMsg;
 			if (formatJointLimitViolations(urdfPath, q, limitMsg))
 			{

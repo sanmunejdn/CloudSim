@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CloudSim - 主窗口</title>
-  <link rel="stylesheet" href="./styles.css?v=interact-20260806a" />
+  <link rel="stylesheet" href="./styles.css?v=frame-20260807n" />
 </head>
 <body>
   <div class="shell">
@@ -31,6 +31,7 @@
       <div class="menu"><button type="button" class="menu-btn" data-menu="insert">插入</button>
         <div class="menu-drop" id="menuInsert">
           <button type="button" id="btnUrdfMenu">导入 URDF…</button>
+          <button type="button" id="btnInsertFrame">坐标系…</button>
         </div>
       </div>
       <div class="menu"><button type="button" class="menu-btn" data-menu="settings">设置</button>
@@ -130,7 +131,7 @@
                 </label>
                 <button type="button" id="btnExport" class="btn-ghost">导出</button>
               </div>
-              <label class="field">TCP
+              <label class="field hidden">TCP
                 <select id="tcpSelect"><option value="default">default</option></select>
               </label>
               <div class="prog-head">
@@ -451,9 +452,29 @@
     </footer>
   </div>
 
+  <div id="frameDialog" class="dlg-mask hidden" role="dialog" aria-modal="true">
+    <div class="dlg">
+      <h3>新建坐标系</h3>
+      <p class="dlg-hint">场景独立坐标系（FrameBackendData），供转换工件外部 TCP 选用；与机器人「坐标系」Tab 无关。</p>
+      <label class="dlg-field">名称 <input id="frameDlgName" type="text" value="坐标系" /></label>
+      <div class="dlg-spins">
+        <label>X (mm) <input id="frameDlgX" type="number" step="0.1" value="0" /></label>
+        <label>Y (mm) <input id="frameDlgY" type="number" step="0.1" value="0" /></label>
+        <label>Z (mm) <input id="frameDlgZ" type="number" step="0.1" value="0" /></label>
+        <label>Rx (deg) <input id="frameDlgRx" type="number" step="0.1" value="0" /></label>
+        <label>Ry (deg) <input id="frameDlgRy" type="number" step="0.1" value="0" /></label>
+        <label>Rz (deg) <input id="frameDlgRz" type="number" step="0.1" value="0" /></label>
+      </div>
+      <div class="dlg-actions">
+        <button type="button" id="frameDlgCancel">取消</button>
+        <button type="button" id="frameDlgOk" class="primary">确定</button>
+      </div>
+    </div>
+  </div>
+
   <script type="importmap">
   {"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}
   </script>
-  <script type="module" src="./app.js?v=interact-20260806d"></script>
+  <script type="module" src="./app.js?v=frame-20260807n"></script>
 </body>
 </html>

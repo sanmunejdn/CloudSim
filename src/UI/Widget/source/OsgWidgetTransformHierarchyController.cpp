@@ -200,6 +200,14 @@ void OsgWidgetTransformHierarchyController::setBackendParent(OsgWidget& self, co
 
 void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(OsgWidget& self, const std::string& backendId)
 {
+	// 拖动示教罗盘 WorldPat 在场景叠加层，删挂载/祖先后须主动拆除，否则罗盘残留
+	if (self.m_tcpTeachActive && !self.m_tcpTeachMountBackendId.empty() &&
+		(backendId == self.m_tcpTeachMountBackendId ||
+		 isBackendDescendantOf(self, self.m_tcpTeachMountBackendId, backendId)))
+	{
+		self.endTcpDragTeach();
+		emit self.tcpDragTeachEnded();
+	}
 	// 先把仍挂在本节点下的子 backend 挂回场景根，避免随父节点一起从场景消失
 	const std::vector<osg::ref_ptr<osg::MatrixTransform>> children = detachChildBackendRoots(self, backendId);
 	for (const osg::ref_ptr<osg::MatrixTransform>& child : children)

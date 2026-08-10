@@ -15,6 +15,31 @@ namespace cloudsim::host
 {
 namespace
 {
+std::shared_ptr<RobotInstruction::Base>
+findInSteps(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& idUtf8)
+{
+	for (const auto& step : steps)
+	{
+		if (!step)
+		{
+			continue;
+		}
+		if (step->id() == idUtf8)
+		{
+			return step;
+		}
+		if (auto hit = findInSteps(step->nestedSteps(), idUtf8))
+		{
+			return hit;
+		}
+		if (auto hit = findInSteps(step->elseSteps(), idUtf8))
+		{
+			return hit;
+		}
+	}
+	return nullptr;
+}
+
 std::shared_ptr<RobotInstruction::Base> findInstruction(RobotProgramStore& store, const QString& instructionId)
 {
 	const std::string idUtf8 = instructionId.toStdString();
@@ -24,12 +49,9 @@ std::shared_ptr<RobotInstruction::Base> findInstruction(RobotProgramStore& store
 		RobotInstruction::RobotProgramCatalog& catalog = store.catalogFor(bid);
 		for (RobotInstruction::RobotProgram& prog : catalog.programs())
 		{
-			for (auto& step : prog.steps)
+			if (auto hit = findInSteps(prog.steps, idUtf8))
 			{
-				if (step && step->id() == idUtf8)
-				{
-					return step;
-				}
+				return hit;
 			}
 		}
 	}

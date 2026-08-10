@@ -13,6 +13,8 @@
 | [`后端对象与软件模式/`](后端对象与软件模式/) | 后端类型三键、侧车键、工作区模式 vs Data（P0 契约） |
 | [`几何建模/`](几何建模/) | 几何建模功能清单、架构、路线图 |
 | [`TopoNaming/`](TopoNaming/) | TopoNaming 对齐（进行中） |
+| [`网页端React轨迹对齐/`](网页端React轨迹对齐/) | React 轨迹生成/编辑：坐标系、高亮、应用后复位 |
+| [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md) | 网页正式壳日常开发、构建与轨迹约定 |
 
 Cursor 规则镜像：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-architecture.mdc`、`cloudsim-vcxproj-filters.mdc`。
 

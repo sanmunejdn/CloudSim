@@ -5,10 +5,15 @@
     "fields": [
       {
         "key": "mirror.axis",
-        "type": "Int",
-        "labelZh": "镜像轴",
+        "type": "Enum",
+        "labelEn": "Reverse Axis",
+        "labelZh": "反向轴",
+        "enumValues": ["0", "1", "2"],
+        "enumLabelsZh": ["X 反向", "Y 反向", "Z 反向"],
+        "enumLabelsEn": ["Axis X", "Axis Y", "Axis Z"],
         "defaultInt": 0,
-        "order": 0
+        "order": 0,
+        "group": "transform"
       }
     ]
   },

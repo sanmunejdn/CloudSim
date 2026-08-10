@@ -47,17 +47,19 @@ let featStrategyCatalog = []; // [{strategyId,displayNameZh,affinity}]
 let featSchemaCache = {}; // strategyId -> schema response
 let featParamSuppress = false;
 let autoDiscTimer = null;
+/** 对齐桌面 m_featureEditActive：未开始修改时路径只读 */
+let trajFeatureEditActive = false;
 
 const CMD_LABEL = {
-  ptp: "PTP",
+  ptp: "点到点",
   line: "直线",
   arc: "圆弧",
   wait: "等待",
   if: "条件",
   while: "循环",
-  set_do: "DO",
-  set_ao: "AO",
-  path_plan: "路径",
+  set_do: "数字输出",
+  set_ao: "模拟输出",
+  path_plan: "路径规划",
 };
 
 const VIEW_BG = 0xe8eaed;
@@ -72,6 +74,10 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping;
 sceneMount.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
+// 对齐常见 CAD：中键平移，左键旋转，滚轮缩放
+controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
+controls.mouseButtons.RIGHT = THREE.MOUSE.DOLLY;
 // r160+：TransformControls 不再是 Object3D，必须挂 getHelper() 才看得见罗盘
 const transform = new TransformControls(camera, renderer.domElement);
 transform.setSize(1.25);
@@ -252,6 +258,30 @@ function applyObjectTransform(mesh, o) {
   mesh.position.set(p[0], p[1], p[2]);
   mesh.quaternion.copy(eulerZyxDegToQuat(e[0], e[1], e[2]));
   mesh.scale.set(1, 1, 1);
+}
+
+/// 场景 FrameBackendData：客户端合成 RGB 短轴（无 mesh soup）
+function makeCoordinateFrameAxes(axisLengthMm = 100) {
+  const len = Math.max(1, Number(axisLengthMm) || 100);
+  const g = new THREE.Group();
+  const mk = (dir, color) => {
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(dir[0] * len, dir[1] * len, dir[2] * len),
+    ]);
+    return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, depthTest: true }));
+  };
+  g.add(mk([1, 0, 0], 0xe53935));
+  g.add(mk([0, 1, 0], 0x43a047));
+  g.add(mk([0, 0, 1], 0x1e88e5));
+  g.userData.isCoordinateFrame = true;
+  return g;
+}
+
+function isSceneCoordinateFrame(o) {
+  if (!o) return false;
+  const c = String(o.className || "");
+  return c === "FrameBackendData" || c === "CoordinateFrame" || c === "Frame";
 }
 
 function prepareMeshForGizmo(mesh) {
@@ -1083,7 +1113,84 @@ function activeSceneRootId() {
   );
 }
 
+/// PathPlan/轨迹会话绑定的是机器人场景根，不是工件；空时回落到首个实例
+async function resolveActiveSceneRootId() {
+  let rootId = activeSceneRootId();
+  if (!rootId) {
+    try {
+      const inst = await (await fetch("/api/robot/instances")).json();
+      const list = (inst.instances || []).filter((i) => i.sceneRootBackendId);
+      if (list.length) rootId = list[0].sceneRootBackendId;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!rootId) return "";
+  // resolve 成功时同步进本地根集合，避免尚未 refreshObjects 时 scrub 误清 robotRoot
+  robotSceneRootIds.add(rootId);
+  if ($("robotRoot")) $("robotRoot").value = rootId;
+  if ($("axisInstance") && [...($("axisInstance").options || [])].some((o) => o.value === rootId)) {
+    $("axisInstance").value = rootId;
+  }
+  if ($("frameInstance") && [...($("frameInstance").options || [])].some((o) => o.value === rootId)) {
+    $("frameInstance").value = rootId;
+  }
+  return rootId;
+}
+
+/// robotRoot 被误清、或指到空 catalog 时，改用指令最多的场景根
+function instructionCountOfEntry(entry) {
+  if (!entry) return 0;
+  const programs = entry.programs || [];
+  const prog =
+    programs.find((p) => p.id === entry.activeProgramId) || programs.find((p) => p.isMain) || programs[0];
+  return (prog && Array.isArray(prog.instructions) && prog.instructions.length) || 0;
+}
+
+function programEntryFor(sceneRootId) {
+  if (!sceneRootId) return null;
+  return programCatalogs.find((c) => c.sceneBackendId === sceneRootId) || null;
+}
+
+function preferSceneRootForPrograms() {
+  const countFor = (sid) => instructionCountOfEntry(programEntryFor(sid));
+  let rootId = activeSceneRootId();
+  if (rootId && countFor(rootId) > 0) return rootId;
+
+  let best = "";
+  let bestN = 0;
+  for (const c of programCatalogs) {
+    const sid = (c && c.sceneBackendId) || "";
+    if (!sid) continue;
+    const n = instructionCountOfEntry(c);
+    if (n > bestN) {
+      bestN = n;
+      best = sid;
+    }
+  }
+  if (best) {
+    robotSceneRootIds.add(best);
+    if ($("robotRoot")) $("robotRoot").value = best;
+    if ($("axisInstance") && [...($("axisInstance").options || [])].some((o) => o.value === best)) {
+      $("axisInstance").value = best;
+    }
+    if ($("frameInstance") && [...($("frameInstance").options || [])].some((o) => o.value === best)) {
+      $("frameInstance").value = best;
+    }
+    return best;
+  }
+  return rootId || "";
+}
+
 function ensureCatalogEntry(sceneRootId) {
+  // 空 id 只返回临时壳，禁止写入 programCatalogs，避免 PUT 整表时污染
+  if (!sceneRootId) {
+    return {
+      sceneBackendId: "",
+      activeProgramId: "main",
+      programs: [{ id: "main", name: "Main", isMain: true, instructions: [], groups: [] }],
+    };
+  }
   let entry = programCatalogs.find((c) => c.sceneBackendId === sceneRootId);
   if (!entry) {
     entry = {
@@ -1121,11 +1228,29 @@ function vec3Obj(arr) {
   return { x: Number(a[0]) || 0, y: Number(a[1]) || 0, z: Number(a[2]) || 0 };
 }
 
+let programsLoadEpoch = 0;
+let programsReloadAfterPlay = false;
+/** 运行中指令树/路点只读这份快照，避免并发 GET 把 catalog 刷空 */
+let playbackRootId = "";
+let playbackStepsSnapshot = null;
+
 async function loadProgramsFromServer() {
+  if (programPlaying) {
+    programsReloadAfterPlay = true;
+    return;
+  }
+  const epoch = ++programsLoadEpoch;
   try {
     const r = await (await fetch("/api/robot/programs")).json();
+    if (epoch !== programsLoadEpoch) return;
+    // await 期间可能已点了运行：禁止再覆盖本地 catalog
+    if (programPlaying) {
+      programsReloadAfterPlay = true;
+      return;
+    }
     programCatalogs = Array.isArray(r) ? r : r.programs || [];
   } catch {
+    if (epoch !== programsLoadEpoch || programPlaying) return;
     programCatalogs = [];
   }
   renderProgramList();
@@ -1253,21 +1378,31 @@ function collectPreviewAxisIndices(pointCount, axisInterval) {
   return [...set].sort((a, b) => a - b);
 }
 
-function addRawAxisMarker(pose, euler, axisOpts) {
+function addRawAxisMarker(pose, euler, axisOpts, axisDirs) {
   if (!pose) return;
   const g = new THREE.Group();
   g.userData.instrTag = "raw";
   g.position.set(Number(pose.x) || 0, Number(pose.y) || 0, Number(pose.z) || 0);
-  if (euler) g.quaternion.copy(eulerZyxDegToQuat(Number(euler.x) || 0, Number(euler.y) || 0, Number(euler.z) || 0));
-  // 与桌面 OSG 批点轴一致：轴长约 40mm；原点用固定像素细点（关闭衰减，避免近处变大球）
+  // 优先用服务端按桌面 OSG local*R 算出的世界轴；勿再解欧拉（易与 OSG quat 约定不一致）
+  const hasDirs = axisDirs && (axisDirs.x || axisDirs.y || axisDirs.z);
+  if (!hasDirs && euler) {
+    g.quaternion.copy(eulerZyxDegToQuat(Number(euler.x) || 0, Number(euler.y) || 0, Number(euler.z) || 0));
+  }
   const len = 40;
   const addAxis = (dir, color) => {
-    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), dir.clone().multiplyScalar(len)]);
+    const d = dir.clone().normalize().multiplyScalar(len);
+    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), d]);
     g.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color, depthTest: true })));
   };
-  if (axisOpts.x) addAxis(new THREE.Vector3(1, 0, 0), 0xe53935);
-  if (axisOpts.y) addAxis(new THREE.Vector3(0, 1, 0), 0x43a047);
-  if (axisOpts.z) addAxis(new THREE.Vector3(0, 0, 1), 0x1e88e5);
+  const localOrWorld = (worldArr, local) => {
+    if (Array.isArray(worldArr) && worldArr.length >= 3) {
+      return new THREE.Vector3(Number(worldArr[0]) || 0, Number(worldArr[1]) || 0, Number(worldArr[2]) || 0);
+    }
+    return local;
+  };
+  if (axisOpts.x) addAxis(localOrWorld(axisDirs?.x, new THREE.Vector3(1, 0, 0)), 0xe53935);
+  if (axisOpts.y) addAxis(localOrWorld(axisDirs?.y, new THREE.Vector3(0, 1, 0)), 0x43a047);
+  if (axisOpts.z) addAxis(localOrWorld(axisDirs?.z, new THREE.Vector3(0, 0, 1)), 0x1e88e5);
   const pt = new THREE.BufferGeometry();
   pt.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0], 3));
   g.add(
@@ -1338,12 +1473,20 @@ function redrawRawPreviewOverlay() {
   const axisOpts = readPreviewAxisOpts();
   if (!(axisOpts.x || axisOpts.y || axisOpts.z)) return;
   const eulers = preview.eulersDeg || [];
+  const axesX = preview.axesX || [];
+  const axesY = preview.axesY || [];
+  const axesZ = preview.axesZ || [];
   const indices = collectPreviewAxisIndices(ptsArr.length, axisOpts.interval);
   for (const i of indices) {
     const p = ptsArr[i] || [];
     const ev = eulers[i];
     const euler = Array.isArray(ev) ? { x: ev[0], y: ev[1], z: ev[2] } : { x: 0, y: 0, z: 0 };
-    addRawAxisMarker({ x: p[0], y: p[1], z: p[2] }, euler, axisOpts);
+    addRawAxisMarker(
+      { x: p[0], y: p[1], z: p[2] },
+      euler,
+      axisOpts,
+      { x: axesX[i], y: axesY[i], z: axesZ[i] }
+    );
   }
 }
 
@@ -1352,35 +1495,294 @@ function applyRawOverlayFromPreview(preview) {
   redrawRawPreviewOverlay();
 }
 
-function renderProgramList() {
+function fmtPoseXyz(pose) {
+  if (!pose || typeof pose !== "object") return "0.0, 0.0, 0.0";
+  return `${Number(pose.x || 0).toFixed(1)}, ${Number(pose.y || 0).toFixed(1)}, ${Number(pose.z || 0).toFixed(1)}`;
+}
+
+// 与桌面 renumberMotionPointIndices 一致，供 P1…Pn 标签
+function renumberMotionPointIndices(steps) {
+  let next = 1;
+  const walk = (arr) => {
+    for (const ins of arr || []) {
+      if (!ins) continue;
+      const t = String(ins.type || "").toLowerCase();
+      if (t === "ptp" || t === "line" || t === "arc") {
+        ins.pointIndex = next++;
+      } else if (t === "if") {
+        walk(ins.then);
+        walk(ins.else);
+      } else if (t === "while") {
+        walk(ins.body);
+      }
+    }
+  };
+  walk(steps);
+}
+
+function pathPlanFeatureId(ins) {
+  const sf = ins && ins.sourceFeature;
+  if (!sf) return "";
+  if (typeof sf === "object" && sf.id) return String(sf.id);
+  if (typeof sf === "string") {
+    try {
+      const o = JSON.parse(sf);
+      return o && o.id ? String(o.id) : "";
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
+function formatInstructionLabel(ins) {
+  const type = String(ins.type || "").toLowerCase();
+  const typeLabel = CMD_LABEL[type] || type;
+  if (type === "path_plan") {
+    let title = (ins.name && String(ins.name)) || "路径规划";
+    const featureId = pathPlanFeatureId(ins);
+    if (featureId) title += ` · ${featureId}`;
+    const phase = String(ins.phase || "").toLowerCase();
+    const phaseZh =
+      phase === "applied" ? "已应用" : phase === "raw_ready" || phase === "rawready" ? "已离散" : "草稿";
+    return `${title} · ${phaseZh}`;
+  }
+  if (type === "wait") {
+    return `[${typeLabel}] 时长 ${Number(ins.durationSec || 0).toFixed(2)} s`;
+  }
+  if (type === "if" || type === "while") {
+    const c = ins.condition;
+    let summary = "始终";
+    if (c && typeof c === "object") {
+      const kind = String(c.kind || "").toLowerCase();
+      if (kind === "never") summary = "永不";
+      else if (kind === "io") summary = `IO${c.ioPort}==${c.ioEquals ? 1 : 0}`;
+      else if (kind === "compare") summary = `${c.compareLeft || ""} ${c.compareOp || ""} ${c.compareRight ?? ""}`.trim();
+    }
+    return `[${typeLabel}] ${summary}`;
+  }
+  if (type === "set_do") {
+    return `[${typeLabel}] port ${ins.ioPort ?? "?"} = ${ins.ioBoolValue ? 1 : 0}`;
+  }
+  if (type === "set_ao") {
+    return `[${typeLabel}] port ${ins.ioPort ?? "?"} = ${Number(ins.ioAnalogValue || 0).toFixed(2)}`;
+  }
+  if (type === "arc") {
+    const pi = Number(ins.pointIndex) || 0;
+    return pi > 0 ? `P${pi} [${typeLabel}]` : `[${typeLabel}]`;
+  }
+  // ptp / line：对齐桌面 formatInstructionLabel
+  const pi = Number(ins.pointIndex) || 0;
+  const xyz = fmtPoseXyz(ins.pose);
+  const summary = pi > 0 ? `P${pi} · 第${pi}点 · XYZ ${xyz}` : `XYZ ${xyz}`;
+  return pi > 0 ? `P${pi} [${typeLabel}] ${summary}` : `[${typeLabel}] ${summary}`;
+}
+
+function appendProgTreeRow(parentEl, opts) {
+  const kind = opts.kind || "instr";
+  const wrap = document.createElement("div");
+  wrap.className = `prog-tree-node kind-${kind}`;
+  const row = document.createElement("div");
+  const selectable = !!opts.instrId && opts.selectable !== false;
+  row.className =
+    "prog-tree-row" +
+    (selectable && opts.instrId === selectedInstrId ? " sel" : "") +
+    (selectable ? "" : " struct");
+  const toggle = document.createElement("span");
+  toggle.className = "prog-tree-toggle";
+  toggle.textContent = opts.hasChildren ? "▾" : "";
+  if (!opts.hasChildren) toggle.classList.add("empty");
+  const text = document.createElement("span");
+  text.className = "t";
+  text.textContent = opts.label || "";
+  text.title = opts.label || "";
+  row.appendChild(toggle);
+  row.appendChild(text);
+  const kids = document.createElement("div");
+  kids.className = "prog-tree-kids";
+  if (selectable) {
+    row.onclick = (e) => {
+      e.stopPropagation();
+      void selectInstruction(opts.instrId);
+    };
+  } else if (opts.hasChildren) {
+    row.onclick = (e) => {
+      e.stopPropagation();
+      const collapsed = kids.classList.toggle("collapsed");
+      toggle.textContent = collapsed ? "▸" : "▾";
+    };
+  }
+  wrap.appendChild(row);
+  wrap.appendChild(kids);
+  parentEl.appendChild(wrap);
+  return { wrap, row, kids, toggle };
+}
+
+function appendInstructionTreeNode(parentEl, ins) {
+  if (!ins) return null;
+  const type = String(ins.type || "").toLowerCase();
+  const nested =
+    type === "arc" ||
+    type === "if" ||
+    (type === "while" && Array.isArray(ins.body) && ins.body.length > 0);
+  const node = appendProgTreeRow(parentEl, {
+    kind: "instr",
+    label: formatInstructionLabel(ins),
+    instrId: ins.id,
+    hasChildren: nested,
+  });
+  if (type === "arc") {
+    appendProgTreeRow(node.kids, {
+      kind: "waypoint",
+      label: `  途经  ${fmtPoseXyz(ins.viaPose)}`,
+      instrId: ins.id,
+      hasChildren: false,
+    });
+    appendProgTreeRow(node.kids, {
+      kind: "waypoint",
+      label: `  终点  ${fmtPoseXyz(ins.pose)}`,
+      instrId: ins.id,
+      hasChildren: false,
+    });
+  } else if (type === "if") {
+    const thenNode = appendProgTreeRow(node.kids, {
+      kind: "branch",
+      label: "Then（真）",
+      hasChildren: true,
+    });
+    for (const s of ins.then || []) appendInstructionTreeNode(thenNode.kids, s);
+    const elseNode = appendProgTreeRow(node.kids, {
+      kind: "branch",
+      label: "Else（假）",
+      hasChildren: true,
+    });
+    for (const s of ins.else || []) appendInstructionTreeNode(elseNode.kids, s);
+  } else if (type === "while") {
+    for (const s of ins.body || []) appendInstructionTreeNode(node.kids, s);
+  }
+  return node;
+}
+
+// 对齐桌面 InstructionProgramTreeWidget::rebuildFromProgram
+function renderProgramTree(listEl, steps, groups) {
+  const arr = Array.isArray(steps) ? steps : [];
+  renumberMotionPointIndices(arr);
+  const groupList = Array.isArray(groups) ? groups : [];
+  const instrToGroupId = new Map();
+  for (const g of groupList) {
+    for (const mid of g.memberIds || []) {
+      if (mid) instrToGroupId.set(String(mid), g.id);
+    }
+  }
+  const rootPathPlans = [];
+  const motionRoots = [];
+  for (const ins of arr) {
+    if (!ins) continue;
+    if (String(ins.type || "").toLowerCase() === "path_plan") rootPathPlans.push(ins);
+    else motionRoots.push(ins);
+  }
+  if (rootPathPlans.length) {
+    const section = appendProgTreeRow(listEl, {
+      kind: "planning",
+      label: "路径规划",
+      hasChildren: true,
+    });
+    for (const pp of rootPathPlans) {
+      const ppNode = appendInstructionTreeNode(section.kids, pp);
+      if (!ppNode) continue;
+      for (const g of groupList) {
+        if (
+          g.role === "path_plan_output" &&
+          g.pathPlanInstructionId === pp.id &&
+          Array.isArray(g.memberIds) &&
+          g.memberIds.length
+        ) {
+          appendProgTreeRow(ppNode.kids, {
+            kind: "output-ref",
+            label: `↳ 输出: ${g.name || g.id}（${g.memberIds.length} 点）`,
+            instrId: pp.id,
+            hasChildren: false,
+          });
+          ppNode.toggle.textContent = "▾";
+          ppNode.toggle.classList.remove("empty");
+          break;
+        }
+      }
+    }
+  }
+  const groupsRendered = new Set();
+  for (const ins of motionRoots) {
+    if (!ins) continue;
+    const groupId = instrToGroupId.get(ins.id);
+    if (groupId) {
+      if (groupsRendered.has(groupId)) continue;
+      const groupDef = groupList.find((g) => g.id === groupId);
+      if (!groupDef) {
+        appendInstructionTreeNode(listEl, ins);
+        continue;
+      }
+      const groupNode = appendProgTreeRow(listEl, {
+        kind: "group",
+        label: `分组: ${groupDef.name || groupDef.id}`,
+        hasChildren: true,
+      });
+      for (const step of motionRoots) {
+        if (!step) continue;
+        if (instrToGroupId.get(step.id) === groupId) {
+          appendInstructionTreeNode(groupNode.kids, step);
+        }
+      }
+      groupsRendered.add(groupId);
+    } else {
+      appendInstructionTreeNode(listEl, ins);
+    }
+  }
+}
+
+function renderProgramList(forcedRootId) {
   const list = $("progList");
   const title = $("progTitle");
   if (!list) return;
-  const rootId = activeSceneRootId();
   list.innerHTML = "";
+
+  // 运行中只用快照，catalog 被并发 reload 也不会把树刷空
+  if (programPlaying && Array.isArray(playbackStepsSnapshot) && playbackStepsSnapshot.length) {
+    const rootId = forcedRootId || playbackRootId || "";
+    if (title) title.textContent = rootId ? `程序 ${rootId}` : "程序";
+    list.classList.remove("muted");
+    const entry = programEntryFor(rootId);
+    const programs = (entry && entry.programs) || [];
+    const prog =
+      programs.find((p) => p.id === (entry && entry.activeProgramId)) ||
+      programs.find((p) => p.isMain) ||
+      programs[0];
+    renderProgramTree(list, playbackStepsSnapshot, (prog && prog.groups) || []);
+    return;
+  }
+
+  const rootId = forcedRootId || preferSceneRootForPrograms();
   if (!rootId) {
     list.classList.add("muted");
     list.textContent = "请先导入或选择机器人";
     if (title) title.textContent = "程序";
     return;
   }
-  const { prog } = activeProgram(rootId);
-  if (title) title.textContent = `程序 ${prog.name || prog.id}`;
-  const steps = prog.instructions || [];
+  // 只读已有 catalog，避免 render 时 ensure 出一个空壳盖住真程序
+  const entry = programEntryFor(rootId);
+  const programs = (entry && entry.programs) || [];
+  const prog =
+    programs.find((p) => p.id === (entry && entry.activeProgramId)) ||
+    programs.find((p) => p.isMain) ||
+    programs[0];
+  if (title) title.textContent = `程序 ${(prog && (prog.name || prog.id)) || "—"}`;
+  const steps = (prog && prog.instructions) || [];
   if (!steps.length) {
     list.classList.add("muted");
     list.textContent = "暂无指令";
     return;
   }
   list.classList.remove("muted");
-  steps.forEach((ins, idx) => {
-    const row = document.createElement("div");
-    row.className = "step" + (ins.id === selectedInstrId ? " sel" : "");
-    const type = (ins.type || "").toLowerCase();
-    row.innerHTML = `<span class="t">${idx + 1}. ${CMD_LABEL[type] || type}</span><span class="id">${ins.id || ""}</span>`;
-    row.onclick = () => void selectInstruction(ins.id);
-    list.appendChild(row);
-  });
+  renderProgramTree(list, steps, (prog && prog.groups) || []);
 }
 
 async function loadInstrProps(instructionId) {
@@ -1642,19 +2044,33 @@ async function runProgramPlayback() {
     await stopProgramPlayback();
     return;
   }
-  const rootId = activeSceneRootId();
+  // 优先用「有指令」的 catalog，避免 resolve 到空 root
+  let rootId = preferSceneRootForPrograms();
+  if (!rootId) rootId = await resolveActiveSceneRootId();
   if (!rootId) {
     setStatus("请先导入机器人", "warn");
     return;
   }
-  const { prog } = activeProgram(rootId);
-  const steps = prog.instructions || [];
+  const entry = programEntryFor(rootId);
+  const programs = (entry && entry.programs) || [];
+  const prog =
+    programs.find((p) => p.id === (entry && entry.activeProgramId)) ||
+    programs.find((p) => p.isMain) ||
+    programs[0];
+  const steps = [...((prog && prog.instructions) || [])];
   if (!steps.length) {
     setStatus("程序无指令", "warn");
     return;
   }
+  rawPreviewActive = false;
+  clearRawPreviewOverlay();
+  playbackRootId = rootId;
+  playbackStepsSnapshot = steps;
   programPlaying = true;
   programAbort = false;
+  programsReloadAfterPlay = false;
+  renderProgramList(rootId);
+  refreshInstructionMarkers();
   try {
     try {
       await fetch("/api/robot/run", { method: "POST" });
@@ -1665,7 +2081,7 @@ async function runProgramPlayback() {
     for (const step of steps) {
       if (programAbort) break;
       selectedInstrId = step.id;
-      renderProgramList();
+      renderProgramList(rootId);
       refreshInstructionMarkers();
       await loadInstrProps(step.id);
       const type = (step.type || "").toLowerCase();
@@ -1691,6 +2107,15 @@ async function runProgramPlayback() {
     if (!programAbort) setStatus("运行完成");
   } finally {
     programPlaying = false;
+    playbackRootId = "";
+    playbackStepsSnapshot = null;
+    if (programsReloadAfterPlay) {
+      programsReloadAfterPlay = false;
+      await loadProgramsFromServer();
+    } else {
+      renderProgramList(rootId);
+      refreshInstructionMarkers();
+    }
   }
 }
 
@@ -1931,6 +2356,13 @@ async function loadDetail() {
 }
 
 function disposeSceneMesh(mesh) {
+  if (!mesh) return;
+  if (mesh.children?.length) {
+    for (const c of [...mesh.children]) {
+      mesh.remove(c);
+      disposeSceneMesh(c);
+    }
+  }
   mesh.geometry?.dispose?.();
   const mat = mesh.material;
   if (Array.isArray(mat)) mat.forEach((m) => m.dispose?.());
@@ -1982,28 +2414,36 @@ async function rebuildScene() {
       const snapshot = objects.slice();
       for (const o of snapshot) {
         if (gen !== rebuildGen) return box;
-        if (!o.visible || !o.hasGeometry || o.geometryKind === 1) continue;
-        const r = await fetch(`/api/mesh/${encodeURIComponent(o.id)}`);
-        if (gen !== rebuildGen) return box;
-        if (!r.ok) {
-          meshFail++;
-          continue;
+        if (!o.visible) continue;
+        let mesh;
+        if (isSceneCoordinateFrame(o)) {
+          mesh = makeCoordinateFrameAxes(100);
+          mesh.userData.backendId = o.id;
+          applyObjectTransform(mesh, o);
+        } else {
+          if (!o.hasGeometry || o.geometryKind === 1) continue;
+          const r = await fetch(`/api/mesh/${encodeURIComponent(o.id)}`);
+          if (gen !== rebuildGen) return box;
+          if (!r.ok) {
+            meshFail++;
+            continue;
+          }
+          const soup = new Float32Array(await r.arrayBuffer());
+          if (gen !== rebuildGen) return box;
+          if (soup.length < 9) {
+            meshFail++;
+            continue;
+          }
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute("position", new THREE.BufferAttribute(soup, 3));
+          geo.computeVertexNormals();
+          mesh = new THREE.Mesh(
+            geo,
+            createMeshMaterial(colorFromObject(o, selectionHighlightsId(o.id)), selectionHighlightsId(o.id))
+          );
+          mesh.userData.backendId = o.id;
+          applyObjectTransform(mesh, o);
         }
-        const soup = new Float32Array(await r.arrayBuffer());
-        if (gen !== rebuildGen) return box;
-        if (soup.length < 9) {
-          meshFail++;
-          continue;
-        }
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute("position", new THREE.BufferAttribute(soup, 3));
-        geo.computeVertexNormals();
-        const mesh = new THREE.Mesh(
-          geo,
-          createMeshMaterial(colorFromObject(o, selectionHighlightsId(o.id)), selectionHighlightsId(o.id))
-        );
-        mesh.userData.backendId = o.id;
-        applyObjectTransform(mesh, o);
         const prev = idToMesh.get(o.id);
         if (prev && prev !== mesh) {
           root.remove(prev);
@@ -2076,6 +2516,8 @@ async function refreshObjects(focus) {
       if (name && docTabTitle) docTabTitle.textContent = name;
     }
     await refreshRobotSceneRoots();
+    if (!robotSceneRootIds.size) clearActiveRobotSelection();
+    else scrubStaleRobotRootRefs();
     renderTree();
     const box = await rebuildScene();
     if (epoch !== refreshObjectsEpoch) return null;
@@ -2272,7 +2714,7 @@ async function loadAxisControl() {
     axisJointsState = [];
     if ($("frameInstance")) $("frameInstance").innerHTML = "";
     clearCoordinateFramesUi();
-    scrubStaleRobotRootRefs();
+    clearActiveRobotSelection();
     return;
   }
   $("robotRoot").value = rootId;
@@ -2477,6 +2919,50 @@ $("btnUrdfMenu").onclick = () => {
   document.querySelectorAll(".menu").forEach((m) => m.classList.remove("open"));
   void importUrdf();
 };
+
+function openInsertFrameDialog() {
+  document.querySelectorAll(".menu").forEach((m) => m.classList.remove("open"));
+  const dlg = $("frameDialog");
+  if (!dlg) return;
+  if ($("frameDlgName") && !$("frameDlgName").value.trim()) $("frameDlgName").value = "坐标系";
+  dlg.classList.remove("hidden");
+}
+
+function closeInsertFrameDialog() {
+  $("frameDialog")?.classList.add("hidden");
+}
+
+async function createCoordinateFrameFromDialog() {
+  const name = ($("frameDlgName")?.value || "坐标系").trim() || "坐标系";
+  const body = {
+    name,
+    positionMm: [Number($("frameDlgX")?.value || 0), Number($("frameDlgY")?.value || 0), Number($("frameDlgZ")?.value || 0)],
+    eulerDeg: [Number($("frameDlgRx")?.value || 0), Number($("frameDlgRy")?.value || 0), Number($("frameDlgRz")?.value || 0)],
+  };
+  const r = await (
+    await fetch("/api/objects/coordinate-frame", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  ).json();
+  if (!r.ok) {
+    setStatus(r.error || "创建坐标系失败", "err");
+    return;
+  }
+  closeInsertFrameDialog();
+  setStatus(`已创建坐标系 ${r.backendId || r.id || ""}`);
+  await refreshObjects(false);
+  // 轨迹编辑若正打开转换工件型，立刻刷新外部 TCP 下拉
+  if (!$("robotTrajEdit")?.classList.contains("hidden")) void syncOpParamsEditor();
+}
+
+$("btnInsertFrame") && ($("btnInsertFrame").onclick = () => openInsertFrameDialog());
+$("frameDlgCancel") && ($("frameDlgCancel").onclick = () => closeInsertFrameDialog());
+$("frameDlgOk") && ($("frameDlgOk").onclick = () => void createCoordinateFrameFromDialog());
+$("frameDialog")?.addEventListener("click", (e) => {
+  if (e.target === $("frameDialog")) closeInsertFrameDialog();
+});
 $("btnJoints").onclick = () => void applyJointsFrom("jointsCsv");
 $("btnJoints2").onclick = () => {
   $("jointsCsv").value = $("jointsCsv2").value;
@@ -2513,17 +2999,38 @@ $("axisInstance") &&
   });
 
 function refreshInstructionMarkers() {
-  clearInstrMarkerChildren();
-  if (rawPreviewActive) {
-    // Raw 预览时隐藏指令点轴，避免双轨
+  if (rawPreviewActive && !programPlaying) {
+    // Raw 预览时隐藏指令点轴，避免双轨；运行中强制显示路点
+    clearInstrMarkerChildren();
     return;
   }
-  trajLine.visible = false;
-  rawPreviewGroup.visible = false;
-  const rootId = activeSceneRootId();
-  if (!rootId) return;
-  const { prog } = activeProgram(rootId);
-  for (const step of prog.instructions || []) {
+  if (programPlaying) {
+    rawPreviewActive = false;
+    rawPreviewGroup.visible = false;
+    trajLine.visible = false;
+  } else {
+    trajLine.visible = false;
+    rawPreviewGroup.visible = false;
+  }
+
+  let steps = null;
+  if (programPlaying && Array.isArray(playbackStepsSnapshot) && playbackStepsSnapshot.length) {
+    steps = playbackStepsSnapshot;
+  } else {
+    const rootId = preferSceneRootForPrograms();
+    if (!rootId) return;
+    const entry = programEntryFor(rootId);
+    const programs = (entry && entry.programs) || [];
+    const prog =
+      programs.find((p) => p.id === (entry && entry.activeProgramId)) ||
+      programs.find((p) => p.isMain) ||
+      programs[0];
+    steps = (prog && prog.instructions) || [];
+  }
+  if (!steps.length) return;
+  // 有可画数据后再清，避免 root 瞬时为空时把已有路点抹掉
+  clearInstrMarkerChildren();
+  for (const step of steps) {
     const type = (step.type || "").toLowerCase();
     if (!["ptp", "line", "arc"].includes(type) || !step.pose) continue;
     const sel = step.id === selectedInstrId;
@@ -2584,24 +3091,110 @@ async function reloadPathPlanSelect() {
 
 async function syncTrajSessionStatus() {
   const s = await (await fetch("/api/trajectory/session")).json();
+  trajFeatureEditActive = !!s.featureEditActive;
+  const bound = !!(s.pathPlanId || "").trim();
+  const editing = trajFeatureEditActive;
   const gate = $("trajEditGate");
-  if (gate) gate.textContent = s.featureEditActive ? "修改中：可拾取 / 离散" : "未开始修改：特征选取已锁定";
+  if (gate) {
+    gate.textContent = editing
+      ? "修改中：可拾取 / 离散 / 编辑算子"
+      : bound
+        ? "未开始修改：已规划路径只读，点「开始修改」后才能改"
+        : "未绑定 PathPlan：请先新建或选择路径规划";
+  }
   const st = $("trajRawStatus");
   if (st) st.textContent = s.hasRaw ? `Raw: ${s.rawPointCount} 点 · ${s.phase || ""}` : "Raw: —";
+  const nRaw = Math.floor(Number(s.rawPointCount) || 0);
+  window.__trajRawPointCount = s.hasRaw && nRaw > 0 ? nRaw : 0;
   const editSt = $("trajEditRawStatus");
-  if (editSt) editSt.textContent = s.rawStatusText || (s.hasRaw ? `Raw ${s.rawPointCount} 点` : "请先在轨迹生成页离散");
-  const emitBtn = $("btnTrajEmit");
-  if (emitBtn) emitBtn.disabled = !s.hasRaw || !!s.emitDisabled;
-  const pickLocked = !s.featureEditActive;
-  ["btnPickEdge", "btnPickFace", "btnFeatDiscretize", "btnMeshGenerate", "btnFeatAppend", "btnFeatNew", "btnFeatDelete"].forEach((id) => {
+  if (editSt) {
+    editSt.textContent =
+      s.rawStatusText ||
+      (window.__trajRawPointCount
+        ? `Raw ${window.__trajRawPointCount} 点 · 新建算子默认 P 范围`
+        : "请先在轨迹生成页离散");
+  }
+  const pickLocked = !editing;
+  [
+    "btnPickEdge",
+    "btnPickFace",
+    "btnFeatDiscretize",
+    "btnMeshGenerate",
+    "btnFeatAppend",
+    "btnFeatNew",
+    "btnFeatDelete",
+    "featStrategy",
+    "btnDiscTplSave",
+    "btnDiscTplLoad",
+    "btnDiscTplDelete",
+    "btnDiscTplImport",
+    "btnDiscTplExport",
+  ].forEach((id) => {
     const el = $(id);
     if (el) el.disabled = pickLocked;
   });
+  const editLocked = !editing;
+  [
+    "btnRecipeFill",
+    "btnTrajApply",
+    "btnTrajReset",
+    "btnTrajUndo",
+    "btnTrajRedo",
+    "trajPreviewOn",
+    "btnTrajPreviewRaw",
+    "pipeTplSelect",
+    "btnPipeTplSave",
+    "btnPipeTplLoad",
+    "btnPipeTplDelete",
+    "btnPipeTplImport",
+    "btnPipeTplExport",
+  ].forEach((id) => {
+    const el = $(id);
+    if (el) el.disabled = editLocked;
+  });
+  const emitBtn = $("btnTrajEmit");
+  if (emitBtn) emitBtn.disabled = !editing || !s.hasRaw || !!s.emitDisabled;
+  const applyBtn = $("btnTrajApply");
+  if (applyBtn) applyBtn.disabled = !editing || !s.hasRaw;
+  const beginBtn = $("btnTrajBeginEdit");
+  if (beginBtn) beginBtn.disabled = !bound || editing;
+  const cancelBtn = $("btnTrajCancelEdit");
+  if (cancelBtn) cancelBtn.disabled = !editing;
+  const palette = $("opPalette");
+  if (palette) palette.classList.toggle("disabled-pane", editLocked);
+  const pipe = $("opPipeline");
+  if (pipe) pipe.classList.toggle("disabled-pane", editLocked);
+  const params = $("opParamsForm");
+  if (params) params.classList.toggle("disabled-pane", editLocked);
   const u = $("btnTrajUndo");
   const r = $("btnTrajRedo");
-  if (u) u.disabled = !s.canUndo;
-  if (r) r.disabled = !s.canRedo;
+  if (u) u.disabled = editLocked || !s.canUndo;
+  if (r) r.disabled = editLocked || !s.canRedo;
   return s;
+}
+
+function clearTrajFeaturesUi() {
+  if (autoDiscTimer) {
+    clearTimeout(autoDiscTimer);
+    autoDiscTimer = null;
+  }
+  trajFeatures = [];
+  trajFeatSel = -1;
+  trajPickMode = null;
+  trajAppendMode = false;
+  syncPickModeButtons();
+  clearPickHighlight();
+  renderFeatTable();
+  void rebuildFeatParamForm();
+  updatePickStatusLabel();
+}
+
+/// 生成/应用/取消修改后：退出编辑态 UI（Host 已关 featureEditActive）
+function exitTrajEditUiAfterCommit() {
+  trajFeatureEditActive = false;
+  rawPreviewActive = false;
+  clearRawPreviewOverlay();
+  clearTrajFeaturesUi();
 }
 
 function applyFeaturesFromSession(s) {
@@ -2630,11 +3223,16 @@ function applyFeaturesFromSession(s) {
 }
 
 async function createPathPlanFromUi() {
+  const sceneRootBackendId = await resolveActiveSceneRootId();
+  if (!sceneRootBackendId) {
+    setStatus("创建 PathPlan 需要机器人：请先从设备库导入或打开含机器人的工程", "err");
+    return;
+  }
   const r = await (
     await fetch("/api/robot/path-plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sceneRootBackendId: activeSceneRootId() }),
+      body: JSON.stringify({ sceneRootBackendId }),
     })
   ).json();
   if (!r.ok) {
@@ -2653,26 +3251,61 @@ async function createPathPlanFromUi() {
   showPane("robotTrajGen", true);
   showPane("robotTrajEdit", false);
   showPane("robotFrame", false);
-  await fetch("/api/trajectory/begin-edit", { method: "POST" });
+  // 对齐桌面：新建只绑定，不自动进入修改
+  clearTrajFeaturesUi();
+  rawPreviewActive = false;
+  clearRawPreviewOverlay();
   await syncTrajSessionStatus();
+  setStatus(`已创建 PathPlan ${r.pathPlanId}，请点「开始修改」再拾取/离散`);
 }
 
 async function bindSelectedPathPlan() {
   const id = $("pathPlanSelect")?.value;
   if (!id) return;
+  const sceneRootBackendId = await resolveActiveSceneRootId();
+  if (!sceneRootBackendId) {
+    setStatus("绑定 PathPlan 需要机器人：请先导入或选择机器人", "err");
+    return;
+  }
   const r = await (
     await fetch("/api/trajectory/bind", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pathPlanId: id, sceneRootBackendId: activeSceneRootId() }),
+      body: JSON.stringify({ pathPlanId: id, sceneRootBackendId }),
     })
   ).json();
-  setStatus(r.ok ? "已绑定 PathPlan" : r.error || "绑定失败", r.ok ? "info" : "err");
-  if (!r.ok) return;
+  if (!r.ok) {
+    setStatus(r.error || "绑定失败", "err");
+    return;
+  }
+  // 对齐桌面：切换 PathPlan 只 bind，清特征表、不预览，等「开始修改」
+  clearTrajFeaturesUi();
+  rawPreviewActive = false;
+  clearRawPreviewOverlay();
+  await reloadPipelineFromServer();
+  await syncTrajSessionStatus();
+  setStatus("已绑定 PathPlan，点击「开始修改」加载特征与预览");
+}
+
+async function beginTrajEditFromUi() {
+  const r = await (await fetch("/api/trajectory/begin-edit", { method: "POST" })).json();
+  if (!r.ok) {
+    setStatus(r.error || "开始修改失败", "err");
+    return;
+  }
   const s = await syncTrajSessionStatus();
   applyFeaturesFromSession(s);
   await reloadPipelineFromServer();
-  if (s.hasRaw) void previewTrajectoryUi();
+  if (s.hasRaw) void previewTrajectoryRawUi();
+  setStatus(s.hasRaw ? "已开始修改（已加载 Raw 预览）" : "已开始修改，请拾取或导入特征");
+}
+
+async function cancelTrajEditFromUi() {
+  await fetch("/api/trajectory/cancel-edit", { method: "POST" });
+  exitTrajEditUiAfterCommit();
+  await reloadPipelineFromServer();
+  await syncTrajSessionStatus();
+  setStatus("已取消修改；特征表已清空，预览已关闭。已落盘 PathPlan 保留");
 }
 
 /// 生成/应用后刷新指令树（对齐桌面 refreshInstructionList）
@@ -2681,7 +3314,7 @@ async function refreshInstructionTreeAfterTrajectory() {
   refreshTrajEditScopeCombos();
   const cmdTab = document.querySelector('[data-robot-tab="cmd"]');
   if (cmdTab && !cmdTab.classList.contains("active")) cmdTab.click();
-  const rootId = activeSceneRootId();
+  const rootId = (await resolveActiveSceneRootId()) || preferSceneRootForPrograms();
   const { prog } = activeProgram(rootId);
   const steps = prog.instructions || [];
   const firstMotion = steps.find((s) => {
@@ -2930,10 +3563,11 @@ function defaultsFromSchema(schema) {
 }
 
 function scheduleAutoDiscretize() {
+  if (!trajFeatureEditActive) return;
   if (autoDiscTimer) clearTimeout(autoDiscTimer);
   autoDiscTimer = setTimeout(() => {
     autoDiscTimer = null;
-    if (!trajFeatures.length) return;
+    if (!trajFeatureEditActive || !trajFeatures.length) return;
     void discretizeFeaturesUi({ silent: true });
   }, 400);
 }
@@ -3139,16 +3773,31 @@ function buildFeatureListDoc() {
     if (hasEdge && !hasFace && isFaceStrategy(f.strategyId)) f.strategyId = "EdgeChain";
   }
   const wp = $("trajWorkpiece")?.value || "";
+  // 只提交契约字段，去掉 UI 用的 status 等
+  const features = trajFeatures.map((f) => ({
+    featureId: f.featureId || "",
+    strategyId: f.strategyId || "EdgeChain",
+    geometry: {
+      faceIndices: [...(f.geometry?.faceIndices || [])],
+      edgeIndices: [...(f.geometry?.edgeIndices || [])],
+      polylineXyz: [...(f.geometry?.polylineXyz || [])],
+    },
+    params: f.params && typeof f.params === "object" ? { ...f.params } : {},
+  }));
   return {
     schemaVersion: 2,
     workpiece: { backendIdUtf8: wp, stepPathUtf8: "", frameId: "workpiece" },
     defaultStrategyId: $("featStrategy")?.value || "EdgeChain",
-    features: trajFeatures,
+    features,
   };
 }
 
 async function discretizeFeaturesUi(opts = {}) {
   const silent = !!opts.silent;
+  if (!trajFeatureEditActive) {
+    if (!silent) setStatus("请先「开始修改」再离散", "warn");
+    return;
+  }
   if (!trajFeatures.length) {
     if (!silent) setStatus("无特征可离散", "warn");
     return;
@@ -3165,7 +3814,8 @@ async function discretizeFeaturesUi(opts = {}) {
     for (const f of trajFeatures) f.status = "就绪";
     renderFeatTable();
     await syncTrajSessionStatus();
-    void previewTrajectoryUi();
+    // 对齐桌面特征页：离散后只预览 Raw，不跑轨迹编辑管线
+    void previewTrajectoryRawUi();
     if (!silent) setStatus("离散完成");
   } else {
     for (const f of trajFeatures) f.status = "失败";
@@ -3174,21 +3824,33 @@ async function discretizeFeaturesUi(opts = {}) {
   }
 }
 
-async function previewTrajectoryUi() {
-  const r = await (await fetch("/api/trajectory/preview", { method: "POST" })).json();
+async function applyTrajectoryPreviewResponse(r, label) {
   if (!r.ok) {
-    setStatus(r.error || "预览失败", "err");
+    setStatus(r.error || `${label}失败`, "err");
     lastRawPreview = null;
     rawPreviewActive = false;
     clearRawPreviewOverlay();
     refreshInstructionMarkers();
-    return;
+    return false;
   }
   applyRawOverlayFromPreview(r);
   const segs = Array.isArray(r.segmentEndExclusive) ? r.segmentEndExclusive.length : 0;
-  setStatus(`预览 ${r.pointCount || 0} 点${segs ? ` · ${segs} 段` : ""}`);
+  setStatus(`${label} ${r.pointCount || 0} 点${segs ? ` · ${segs} 段` : ""}`);
   const rawEl = $("trajRawStatus");
   if (rawEl) rawEl.textContent = `Raw: ${r.pointCount || 0} 点${segs ? ` / ${segs} 段` : ""}`;
+  return true;
+}
+
+/// 特征页 / Raw：file→world，不算子
+async function previewTrajectoryRawUi() {
+  const r = await (await fetch("/api/trajectory/preview-raw", { method: "POST" })).json();
+  return applyTrajectoryPreviewResponse(r, "Raw 预览");
+}
+
+/// 轨迹编辑：file→world + 管线
+async function previewTrajectoryUi() {
+  const r = await (await fetch("/api/trajectory/preview", { method: "POST" })).json();
+  return applyTrajectoryPreviewResponse(r, "管线预览");
 }
 
 function worldRayFromPointer(ev) {
@@ -3522,8 +4184,37 @@ function readSchemaValueFromOp(op, key) {
   return op.params ? op.params[key] : undefined;
 }
 
+const TO_WORKPIECE_MANUAL_TCP_KEYS = new Set([
+  "toWorkpiece.externalTcpXMm",
+  "toWorkpiece.externalTcpYMm",
+  "toWorkpiece.externalTcpZMm",
+  "toWorkpiece.externalTcpRxDeg",
+  "toWorkpiece.externalTcpRyDeg",
+  "toWorkpiece.externalTcpRzDeg",
+]);
+
+function scopeKindToken(kind) {
+  const n = Number(kind);
+  if (n === 0) return "EntireProgram";
+  if (n === 1) return "Group";
+  if (n === 2) return "PointIndexRange";
+  if (n === 3) return "InstructionIds";
+  const s = String(kind ?? "").trim();
+  return s || "EntireProgram";
+}
+
+function defaultScopeForNewOp(rawPointCount, groupId) {
+  const n = Math.floor(Number(rawPointCount) || 0);
+  if (n > 0) return { kind: 2, pointFrom: 1, pointTo: n };
+  const gid = String(groupId || "").trim();
+  if (gid) return { kind: 1, groupId: gid };
+  return { kind: 0 };
+}
+
 function refreshOpFieldVisibility(box, fields, op) {
-  const scopeKind = String(op.scope?.kind ?? 0);
+  const token = scopeKindToken(op.scope?.kind ?? 0);
+  const kindNum = String(Number(op.scope?.kind ?? 0));
+  const externalTcpId = String(readSchemaValueFromOp(op, "toWorkpiece.externalTcpBackendId") || "").trim();
   for (const f of fields) {
     const row = [...box.querySelectorAll("[data-field-key]")].find((el) => el.dataset.fieldKey === f.key);
     if (!row) continue;
@@ -3533,14 +4224,98 @@ function refreshOpFieldVisibility(box, fields, op) {
         .split(",")
         .map((x) => x.trim())
         .filter(Boolean);
-      if (allowed.length) vis = allowed.includes(scopeKind);
+      if (allowed.length) vis = allowed.includes(token) || allowed.includes(kindNum);
     }
     if (f.visibleWhenFieldKey) {
       const other = readSchemaValueFromOp(op, f.visibleWhenFieldKey);
       vis = vis && Number(other) === Number(f.visibleWhenIntValue);
     }
+    // 选中场景 Frame 后隐藏手动六自由度（对齐桌面 TrajectoryOpParamPanel）
+    if (TO_WORKPIECE_MANUAL_TCP_KEYS.has(f.key) && externalTcpId) vis = false;
     row.classList.toggle("hidden", !vis);
   }
+}
+
+function listSceneCoordinateFrames() {
+  return (objects || []).filter((o) => isSceneCoordinateFrame(o));
+}
+
+/// 对齐桌面 populateExternalTcpFrameCombo：以 Host 登记的 FrameBackendData 为准
+async function fetchSceneCoordinateFrames() {
+  try {
+    const r = await (await fetch("/api/objects/coordinate-frames")).json();
+    if (r && r.ok && Array.isArray(r.frames) && r.frames.length) {
+      return r.frames
+        .filter((f) => f && f.id)
+        .map((f) => ({ id: String(f.id), name: String(f.name || f.id) }));
+    }
+  } catch {
+    /* 回落到本地 objects */
+  }
+  // 本地缓存可能尚未 refresh，再扫一遍 objects
+  const local = listSceneCoordinateFrames().map((o) => ({
+    id: String(o.id),
+    name: String(o.name || o.id),
+  }));
+  if (local.length) return local;
+  try {
+    const list = await (await fetch("/api/objects")).json();
+    const objs = list.objects || [];
+    return objs
+      .filter((o) => isSceneCoordinateFrame(o))
+      .map((o) => ({ id: String(o.id), name: String(o.name || o.id) }));
+  } catch {
+    return [];
+  }
+}
+
+function isExternalTcpBackendField(f) {
+  const k = (f && f.key) || "";
+  return k === "toWorkpiece.externalTcpBackendId" || /externalTcpBackendId$/i.test(k);
+}
+
+/// 不用原生 select：Qt WebEngine 下父级 overflow:auto 会裁掉弹出列表
+function buildExternalTcpFramePicker(frameOptions, curValue, onPick) {
+  const wrap = document.createElement("div");
+  wrap.className = "op-frame-picker";
+  let cur = String(curValue ?? "").trim();
+  // 误存成名称时回落到 id
+  if (cur && !frameOptions.some((f) => f.id === cur)) {
+    const byName = frameOptions.find((f) => f.name === cur);
+    if (byName) cur = byName.id;
+  }
+  const addOpt = (value, text) => {
+    const lab = document.createElement("label");
+    lab.className = "op-frame-opt" + (cur === value || (!cur && value === "") ? " sel" : "");
+    const inp = document.createElement("input");
+    inp.type = "radio";
+    inp.name = "toWorkpiece_externalTcpBackendId";
+    inp.value = value;
+    inp.checked = cur === value || (!cur && value === "");
+    inp.onchange = () => {
+      if (!inp.checked) return;
+      wrap.querySelectorAll(".op-frame-opt").forEach((el) => el.classList.remove("sel"));
+      lab.classList.add("sel");
+      onPick(value);
+    };
+    lab.appendChild(inp);
+    const span = document.createElement("span");
+    span.textContent = text;
+    lab.appendChild(span);
+    wrap.appendChild(lab);
+  };
+  addOpt("", "手动（填写下方六自由度）");
+  for (const fr of frameOptions) {
+    const text = fr.name && fr.name !== fr.id ? `${fr.name}  ·  ${fr.id}` : fr.id;
+    addOpt(fr.id, text);
+  }
+  if (!frameOptions.length) {
+    const tip = document.createElement("div");
+    tip.className = "op-frame-empty";
+    tip.textContent = "暂无场景坐标系。请菜单「插入 → 坐标系…」创建后再选。";
+    wrap.appendChild(tip);
+  }
+  return wrap;
 }
 
 async function syncOpParamsEditor() {
@@ -3571,13 +4346,30 @@ async function syncOpParamsEditor() {
     box.textContent = schema.error || "无 schema";
     return;
   }
-  const fields = schema.fields || [];
+  const fields = [...(schema.fields || [])].sort((a, b) => {
+    const ag = String(a.key || "").startsWith("scope.") ? 0 : 1;
+    const bg = String(b.key || "").startsWith("scope.") ? 0 : 1;
+    if (ag !== bg) return ag - bg;
+    return (a.order || 0) - (b.order || 0);
+  });
   const values = schema.values || {};
-  // 服务端 values 优先，缺省回落到本地 op
+  const keepScope = op.scope && Object.keys(op.scope).length > 0;
   for (const f of fields) {
     if (values[f.key] === undefined) continue;
+    if (String(f.key).startsWith("scope.") && keepScope) continue;
     applySchemaValueToOp(op, f.key, values[f.key]);
   }
+  const nPts = currentRawPointCount();
+  if (scopeKindToken(op.scope?.kind) === "PointIndexRange" && nPts > 0) {
+    const from = Number(op.scope.pointFrom);
+    const to = Number(op.scope.pointTo);
+    if (!(to > 1) || from < 1 || to < from || to > nPts || from > nPts) {
+      op.scope.pointFrom = 1;
+      op.scope.pointTo = nPts;
+    }
+  }
+  const needFrames = fields.some((f) => isExternalTcpBackendField(f));
+  const frameOptions = needFrames ? await fetchSceneCoordinateFrames() : [];
   const onChange = () => {
     refreshOpFieldVisibility(box, fields, op);
     if (ta) ta.value = JSON.stringify({ scope: op.scope || {}, params: op.params || {} }, null, 2);
@@ -3586,11 +4378,28 @@ async function syncOpParamsEditor() {
   };
   for (const f of fields) {
     const row = document.createElement("div");
-    row.className = "op-field" + (f.type === "Message" ? " msg" : "");
+    const isTcpFrame = isExternalTcpBackendField(f);
+    row.className =
+      "op-field" +
+      (f.type === "Message" && !isTcpFrame ? " msg" : "") +
+      (isTcpFrame ? " op-field-frame" : "");
     row.dataset.fieldKey = f.key;
     const label = document.createElement("label");
-    label.textContent = (f.labelZh || f.labelEn || f.key) + (f.unit ? ` (${f.unit})` : "");
+    label.textContent = isTcpFrame
+      ? "外部 TCP 坐标系"
+      : (f.labelZh || f.messageZh || f.labelEn || f.key) + (f.unit ? ` (${f.unit})` : "");
     row.appendChild(label);
+    // schema 仍为 Message；展开列表供选择（避免原生 select 被 overflow 裁掉）
+    if (isTcpFrame) {
+      const curTcp = values[f.key] !== undefined ? values[f.key] : readSchemaValueFromOp(op, f.key);
+      const picker = buildExternalTcpFramePicker(frameOptions, curTcp, (backendId) => {
+        applySchemaValueToOp(op, f.key, backendId || "");
+        onChange();
+      });
+      row.appendChild(picker);
+      box.appendChild(row);
+      continue;
+    }
     if (f.type === "Message") {
       row.textContent = f.messageZh || f.messageEn || f.key;
       box.appendChild(row);
@@ -3620,6 +4429,10 @@ async function syncOpParamsEditor() {
       ctrl.onchange = () => {
         const n = Number(ctrl.value);
         applySchemaValueToOp(op, f.key, Number.isNaN(n) ? ctrl.value : n);
+        if (f.key === "scope.kind" && Number(ctrl.value) === 2 && currentRawPointCount() > 0) {
+          op.scope.pointFrom = 1;
+          op.scope.pointTo = currentRawPointCount();
+        }
         onChange();
       };
     } else if (f.type === "Vec3") {
@@ -3651,8 +4464,14 @@ async function syncOpParamsEditor() {
       ctrl.type = "number";
       ctrl.step = f.type === "Int" ? 1 : f.step || 0.1;
       if (f.type === "Int") {
-        if (f.minInt != null) ctrl.min = f.minInt;
-        if (f.maxInt != null) ctrl.max = f.maxInt;
+        const isP = f.key === "scope.pointFrom" || f.key === "scope.pointTo";
+        if (isP) {
+          ctrl.min = 1;
+          ctrl.max = Math.max(1, currentRawPointCount() || Number(f.maxInt) || 1);
+        } else {
+          if (f.minInt != null) ctrl.min = f.minInt;
+          if (f.maxInt != null) ctrl.max = f.maxInt;
+        }
       } else {
         if (f.min != null) ctrl.min = f.min;
         if (f.max != null) ctrl.max = f.max;
@@ -3685,13 +4504,13 @@ function currentEditGroupId() {
   return $("trajEditGroup")?.value || "";
 }
 
+function currentRawPointCount() {
+  const n = Math.floor(Number(window.__trajRawPointCount) || 0);
+  return n > 0 ? n : 0;
+}
+
 function makeDefaultPipelineOp(kind) {
-  const scope = { kind: 0 };
-  const gid = currentEditGroupId();
-  if (gid) {
-    scope.kind = 1;
-    scope.groupId = gid;
-  }
+  const scope = defaultScopeForNewOp(currentRawPointCount(), currentEditGroupId());
   return { kind, enabled: false, scope, params: {} };
 }
 
@@ -3736,6 +4555,10 @@ function renderOpPalette() {
     b.textContent = entry.displayNameZh || entry.kind;
     b.title = entry.kind;
     b.onclick = () => {
+      if (!trajFeatureEditActive) {
+        setStatus("请先「开始修改」再添加算子", "warn");
+        return;
+      }
       trajPipelineOps.push(makeDefaultPipelineOp(entry.kind));
       trajOpSel = trajPipelineOps.length - 1;
       renderOpPipeline();
@@ -3773,12 +4596,21 @@ function renderOpPipeline() {
     };
     row.querySelector("input").onchange = (ev) => {
       ev.stopPropagation();
+      if (!trajFeatureEditActive) {
+        ev.target.checked = op.enabled !== false;
+        setStatus("请先「开始修改」再编辑算子", "warn");
+        return;
+      }
       op.enabled = !!ev.target.checked;
       renderOpPipeline();
       void savePipelineToServer();
     };
     row.querySelector(".rm").onclick = (ev) => {
       ev.stopPropagation();
+      if (!trajFeatureEditActive) {
+        setStatus("请先「开始修改」再编辑算子", "warn");
+        return;
+      }
       trajPipelineOps.splice(i, 1);
       if (trajOpSel >= trajPipelineOps.length) trajOpSel = trajPipelineOps.length - 1;
       renderOpPipeline();
@@ -3816,6 +4648,10 @@ function renderOpPipeline() {
 }
 
 async function savePipelineToServer() {
+  if (!trajFeatureEditActive) {
+    setStatus("请先「开始修改」再编辑算子", "warn");
+    return;
+  }
   const r = await (
     await fetch("/api/trajectory/pipeline", {
       method: "PUT",
@@ -3844,21 +4680,8 @@ $("btnClearProg").onclick = () => void clearActiveProgram();
 
 $("btnPathPlanNew") && ($("btnPathPlanNew").onclick = () => void createPathPlanFromUi());
 $("pathPlanSelect") && ($("pathPlanSelect").onchange = () => void bindSelectedPathPlan());
-$("btnTrajBeginEdit") &&
-  ($("btnTrajBeginEdit").onclick = async () => {
-    const r = await (await fetch("/api/trajectory/begin-edit", { method: "POST" })).json();
-    setStatus(r.ok ? "已开始修改" : r.error || "失败", r.ok ? "info" : "err");
-    await syncTrajSessionStatus();
-  });
-$("btnTrajCancelEdit") &&
-  ($("btnTrajCancelEdit").onclick = async () => {
-    await fetch("/api/trajectory/cancel-edit", { method: "POST" });
-    trajPickMode = null;
-    syncPickModeButtons();
-    clearPickHighlight();
-    setStatus("已取消修改");
-    await syncTrajSessionStatus();
-  });
+$("btnTrajBeginEdit") && ($("btnTrajBeginEdit").onclick = () => void beginTrajEditFromUi());
+$("btnTrajCancelEdit") && ($("btnTrajCancelEdit").onclick = () => void cancelTrajEditFromUi());
 $("btnPickEdge") &&
   ($("btnPickEdge").onclick = () => {
     trajPickMode = "edge";
@@ -4057,7 +4880,7 @@ $("btnDiscTplImport") &&
     };
     inp.click();
   });
-$("btnTrajPreviewRaw") && ($("btnTrajPreviewRaw").onclick = () => void previewTrajectoryUi());
+$("btnTrajPreviewRaw") && ($("btnTrajPreviewRaw").onclick = () => void previewTrajectoryRawUi());
 ["previewAxisX", "previewAxisY", "previewAxisZ"].forEach((id) => {
   const el = $(id);
   if (el) el.onchange = () => redrawRawPreviewOverlay();
@@ -4123,7 +4946,7 @@ $("btnMeshGenerate") &&
     setStatus(r.ok ? "Mesh Raw 已生成" : r.error || "失败", r.ok ? "info" : "err");
     if (r.ok) {
       await syncTrajSessionStatus();
-      void previewTrajectoryUi();
+      void previewTrajectoryRawUi();
     }
   });
 $("btnRecipeFill") &&
@@ -4143,7 +4966,9 @@ $("btnTrajEmit") &&
     const r = await (await fetch("/api/trajectory/emit", { method: "POST" })).json();
     setStatus(r.ok ? "已生成 → LINE" : r.error || "生成失败", r.ok ? "info" : "err");
     if (r.ok) {
+      exitTrajEditUiAfterCommit();
       await refreshInstructionTreeAfterTrajectory();
+      await reloadPipelineFromServer();
       await syncTrajSessionStatus();
     }
   });
@@ -4152,12 +4977,12 @@ $("btnTrajApply") &&
     const r = await (await fetch("/api/trajectory/apply", { method: "POST" })).json();
     setStatus(r.ok ? "已应用 → LINE" : r.error || "应用失败", r.ok ? "info" : "err");
     if (r.ok) {
-      rawPreviewActive = false;
-      clearRawPreviewOverlay();
+      exitTrajEditUiAfterCommit();
       trajPipelineOps = [];
       trajOpSel = -1;
       renderOpPipeline();
       await refreshInstructionTreeAfterTrajectory();
+      await reloadPipelineFromServer();
       await syncTrajSessionStatus();
     }
   });
@@ -4435,7 +5260,10 @@ syncInteractModeMenu();
 
 bindUiChrome();
 appendLog("CloudSim Web 就绪");
-void loadProgramsFromServer();
+void (async () => {
+  await refreshObjects(false);
+  await loadProgramsFromServer();
+})();
 
 // —— 坐标系面板（对齐 RobotFrameSettingsWidget）——
 let frameState = null;
@@ -4831,24 +5659,27 @@ function clearCoordinateFramesUi() {
   if (body) body.classList.add("hidden");
 }
 
-/// 无机器人实例时清掉残留 root，避免 overlays 按旧 id 重画 TCP/用户系
+/// 清掉不在 robotSceneRootIds 中的残留选择；集合未同步前禁止整表清空（运行首帧会 refresh overlays）
 function scrubStaleRobotRootRefs() {
+  if (!robotSceneRootIds.size) return;
   const rootEl = $("robotRoot");
   const stale = rootEl?.value.trim() || "";
   if (stale && !robotSceneRootIds.has(stale)) {
     rootEl.value = "";
   }
-  if (!robotSceneRootIds.size) {
-    if (rootEl) rootEl.value = "";
-    selectedRobot = null;
-    const axis = $("axisInstance");
-    if (axis) axis.innerHTML = "";
-  } else {
-    const axis = $("axisInstance");
-    if (axis && axis.value && !robotSceneRootIds.has(axis.value)) axis.value = "";
-    const frame = $("frameInstance");
-    if (frame && frame.value && !robotSceneRootIds.has(frame.value)) frame.value = "";
-  }
+  const axis = $("axisInstance");
+  if (axis && axis.value && !robotSceneRootIds.has(axis.value)) axis.value = "";
+  const frame = $("frameInstance");
+  if (frame && frame.value && !robotSceneRootIds.has(frame.value)) frame.value = "";
+}
+
+function clearActiveRobotSelection() {
+  if ($("robotRoot")) $("robotRoot").value = "";
+  selectedRobot = null;
+  const axis = $("axisInstance");
+  if (axis) axis.innerHTML = "";
+  const frame = $("frameInstance");
+  if (frame) frame.innerHTML = "";
 }
 
 async function loadCoordinateFrames() {
@@ -4870,7 +5701,7 @@ async function loadCoordinateFrames() {
   if (!robotSceneRootIds.size && !instances.length) {
     if (instSel) instSel.innerHTML = "";
     clearCoordinateFramesUi();
-    scrubStaleRobotRootRefs();
+    clearActiveRobotSelection();
     return;
   }
   if (instSel) {
@@ -4892,7 +5723,6 @@ async function loadCoordinateFrames() {
   }
   if (!rootId) {
     clearCoordinateFramesUi();
-    scrubStaleRobotRootRefs();
     return;
   }
   if (hint) hint.classList.add("hidden");
