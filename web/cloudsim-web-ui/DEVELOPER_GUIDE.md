@@ -9,7 +9,7 @@
 
 1. 启动 Host：`bin\x64d\CloudSimWeb.exe`（或 Release）监听 `8787`
 2. 前端热更：`cd CloudSim/web/cloudsim-web-ui && npm run dev`（5173，代理 `/api` → 8787）
-3. 或只编 Host：PostBuild 会跑 Vite，产物进 `$(OutDir)web`
+3. 或只编 Host：PostBuild 会跑 Vite，产物进 `$(CloudSimBinDir)web`（`bin\x64d\web` / `bin\x64\web`）
 4. 手工验证前端时 **Debug 与 Release 都要构建**：
 
 ```bash

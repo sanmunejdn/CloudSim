@@ -366,3 +366,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Accidental PostBuild output when MSBuild macros were not expanded
+**/$(OutDir)web/
+**/$(CloudSimBinDir)web/
