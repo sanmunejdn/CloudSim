@@ -12,6 +12,7 @@
 #include <QPoint>
 #include <QWidget>
 #include <string>
+#include <vector>
 
 namespace RobotInstruction
 {
@@ -85,6 +86,7 @@ public:
 	void restoreBoundPathPlanForEdit();
 
 	void applyRecipePresetByKind(RobotInstruction::RecipeKind kind);
+	void applyPipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops);
 
 private:
 	void rebuildPalette();

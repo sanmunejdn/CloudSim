@@ -33,6 +33,7 @@ public:
 
 signals:
 	void urdfImportRequested(const QString& urdfAbsolutePath);
+	void customDeviceCreateRequested();
 
 protected:
 	void resizeEvent(QResizeEvent* event) override;
@@ -64,6 +65,7 @@ private:
 	QComboBox* m_typeCombo = nullptr;
 	QComboBox* m_brandCombo = nullptr;
 	QPushButton* m_refreshBtn = nullptr;
+	QPushButton* m_customDeviceBtn = nullptr;
 	QScrollArea* m_modelsScroll = nullptr;
 	QWidget* m_modelsContainer = nullptr;
 	QGridLayout* m_modelsGrid = nullptr;

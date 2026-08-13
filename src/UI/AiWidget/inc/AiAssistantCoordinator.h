@@ -59,11 +59,16 @@ private:
 	void scheduleTrajectoryCatalogRetry(const QString& userText);
 	void resetFeatureSession();
 	bool tryHandleFeatureFollowUp(const QString& text);
+	/// 按上次/指定指令重新枚举并规则解析特征候选
+	bool rerunTrajectoryFeatureRecognize(const QString& userText);
 	bool shouldUseAgentRuntime(const QString& resolvedDomainId) const;
 	void startAgentTurn(const QString& text, const QString& domainId);
 	void beginUnifiedDomainConfirm(AiAgentConfirmKind kind, const QByteArray& payload, const QString& title,
 								   const QString& confirmLabel, const QString& secondaryLabel, const QString& parserVia);
 	void handleAgentEvent(const AiAgentEvent& ev);
+	/// 模态确认策略/算子后 commit；返回 true 表示已处理（含取消/返回重选）
+	bool runTrajectoryPlanConfirmAndCommit(const QByteArray& planIn, bool showRetry);
+	bool tryHandleTrajectoryPlanRevise(const QString& text);
 
 	AiAssistantDockWidget* m_dock = nullptr;
 	IAiAssistantHost* m_aiHost = nullptr;

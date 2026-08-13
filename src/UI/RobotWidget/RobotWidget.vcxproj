@@ -102,6 +102,7 @@
     <QtMoc Include="inc\SimulationCommandWidget.h" />
     <QtMoc Include="inc\RobotFrameSettingsWidget.h" />
     <QtMoc Include="inc\RobotExternalAxisSettingsWidget.h" />
+    <QtMoc Include="inc\CustomDeviceAxisEditorWidget.h" />
     <QtMoc Include="inc\RobotCollisionSettingsWidget.h" />
     <ClInclude Include="inc\BackendCollisionSync.h" />
     <QtMoc Include="inc\InstructionProgramTreeWidget.h" />
@@ -112,6 +113,7 @@
     <QtMoc Include="inc\FeatureTrajectoryPageWidget.h" />
     <QtMoc Include="inc\FeatureTableModel.h" />
     <QtMoc Include="inc\FeatureDiscretizerParamPanel.h" />
+    <QtMoc Include="inc\TrajectoryPlanConfirmDialog.h" />
     <QtMoc Include="inc\MeshTrajectoryPageWidget.h" />
     <QtMoc Include="inc\TrajectoryGenerationPageWidget.h" />
     <QtMoc Include="inc\TrajectoryOpParamPanel.h" />
@@ -131,6 +133,7 @@
     <ClCompile Include="source\SimulationCommandWidget.cpp" />
     <ClCompile Include="source\RobotFrameSettingsWidget.cpp" />
     <ClCompile Include="source\RobotExternalAxisSettingsWidget.cpp" />
+    <ClCompile Include="source\CustomDeviceAxisEditorWidget.cpp" />
     <ClCompile Include="source\RobotCollisionSettingsWidget.cpp" />
     <ClCompile Include="source\BackendCollisionSync.cpp" />
     <ClCompile Include="source\InstructionProgramTreeWidget.cpp" />
@@ -143,6 +146,7 @@
     <ClCompile Include="source\FeatureTrajectoryPageWidget.cpp" />
     <ClCompile Include="source\FeatureTableModel.cpp" />
     <ClCompile Include="source\FeatureDiscretizerParamPanel.cpp" />
+    <ClCompile Include="source\TrajectoryPlanConfirmDialog.cpp" />
     <ClCompile Include="source\MeshTrajectoryPageWidget.cpp" />
     <ClCompile Include="source\MeshTriangleSelectionUtil.cpp" />
     <ClCompile Include="source\TrajectoryGenerationPageWidget.cpp" />

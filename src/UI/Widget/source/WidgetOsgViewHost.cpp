@@ -359,6 +359,12 @@ void WidgetOsgViewHost::setFeatureCatalogOverlay(const std::vector<RobotOsgUi::F
 		d.hasEdgeSegment = item.hasEdgeSegment;
 		d.edgeAWorldMm = item.edgeAWorldMm;
 		d.edgeBWorldMm = item.edgeBWorldMm;
+		d.edgePolylineWorldMm.reserve(static_cast<int>(item.edgePolylineWorldMm.size()));
+		for (const cloudsim::core::Vec3& p : item.edgePolylineWorldMm)
+			d.edgePolylineWorldMm.push_back(p);
+		d.faceTrianglesWorldMm.reserve(static_cast<int>(item.faceTrianglesWorldMm.size()));
+		for (const cloudsim::core::Vec3& p : item.faceTrianglesWorldMm)
+			d.faceTrianglesWorldMm.push_back(p);
 		converted.push_back(d);
 	}
 	rv->setFeatureCatalogOverlay(converted);

@@ -186,12 +186,28 @@ void AiAssistantDockWidget::showTrajectoryFeatureResult(const QByteArray& planJs
 								 QString::fromStdString(c.value("summary", std::string())));
 			}
 		}
+		body += m_useChinese
+					? QStringLiteral("\n可输入「选 1 和 3」或「选 face_63」；选好后输入「确认」或「确认并离散」。")
+					: QStringLiteral("\nType selection (e.g. face_63), then say confirm.");
+		if (!selectionOnly && slice.value("truncated", false))
+		{
+			const int matched = slice.value("matchedTotal", 0);
+			const int shown = slice.value("shownCount", 0);
+			body += m_useChinese
+						? QStringLiteral("\n（列表已截断：显示 %1 / 共 %2；可用「选 face_N」点名未列出的面）")
+							  .arg(shown)
+							  .arg(matched)
+						: QStringLiteral("\n(Truncated: showing %1 / %2; use face_N to pick omitted ones.)")
+							  .arg(shown)
+							  .arg(matched);
+		}
 	}
 	catch (...)
 	{
+		body += m_useChinese
+					? QStringLiteral("\n可输入「选 1 和 3」或「选 face_63」；选好后输入「确认」或「确认并离散」。")
+					: QStringLiteral("\nType selection (e.g. face_63), then say confirm.");
 	}
-	body += m_useChinese ? QStringLiteral("\n可输入「选 1 和 3」调整，或在下方面板「确认并离散」。")
-						 : QStringLiteral("\nType selection or confirm in the panel below.");
 	appendAssistantMessage(prefixWithParser(parserVia, body));
 	(void)planJsonUtf8;
 }

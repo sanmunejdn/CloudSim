@@ -258,6 +258,9 @@ void DevicePageWidget::setupUi(QVBoxLayout* rootLayout)
 	filterRow->addWidget(m_brandCombo, 1);
 	filterRow->addWidget(m_refreshBtn);
 
+	m_customDeviceBtn = new QPushButton(this);
+	m_customDeviceBtn->setProperty("btnRole", QStringLiteral("secondary"));
+
 	m_modelsScroll = new QScrollArea(this);
 	m_modelsScroll->setWidgetResizable(true);
 	m_modelsScroll->setFrameShape(QFrame::NoFrame);
@@ -287,10 +290,12 @@ void DevicePageWidget::setupUi(QVBoxLayout* rootLayout)
 	connect(m_brandCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&DevicePageWidget::onBrandSelectionChanged);
 	connect(m_refreshBtn, &QPushButton::clicked, this, &DevicePageWidget::onRefreshClicked);
+	connect(m_customDeviceBtn, &QPushButton::clicked, this, &DevicePageWidget::customDeviceCreateRequested);
 
 	if (rootLayout)
 	{
 		rootLayout->addLayout(filterRow);
+		rootLayout->addWidget(m_customDeviceBtn);
 		rootLayout->addWidget(m_modelsScroll, 1);
 	}
 }
@@ -315,6 +320,12 @@ void DevicePageWidget::updateUiLabels()
 	if (m_refreshBtn)
 	{
 		m_refreshBtn->setToolTip(zh ? QStringLiteral("重新扫描设备包") : QStringLiteral("Rescan device packages"));
+	}
+	if (m_customDeviceBtn)
+	{
+		m_customDeviceBtn->setText(zh ? QStringLiteral("自定义设备…") : QStringLiteral("Custom Device…"));
+		m_customDeviceBtn->setToolTip(zh ? QStringLiteral("导入模型并定义平移/旋转轴")
+										 : QStringLiteral("Import model and define translate/rotate axis"));
 	}
 }
 

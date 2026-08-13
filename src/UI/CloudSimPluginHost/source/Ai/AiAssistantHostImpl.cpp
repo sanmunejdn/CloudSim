@@ -8,8 +8,11 @@
 #include "Ai/AiApiCatalogEmbedded.h"
 #include "Ai/AiCatalogKeywordMatcher.h"
 #include "Ai/AiConfigLoader.h"
+#include "Ai/AiIntentClassifier.h"
 #include "Ai/AiTrajectoryFeatureCatalog.h"
 #include "Ai/MeshComposeDomainHandler.h"
+#include "AiConfigDefaults.h"
+#include "AiDomainTypes.h"
 #include "AiIntentParser.h"
 #include "AiLlmClient.h"
 #include "AiProgressSink.h"
@@ -18,6 +21,9 @@
 #include "PluginHostContext.h"
 
 #include <json.hpp>
+
+#include <algorithm>
+#include <optional>
 
 namespace
 {
@@ -202,7 +208,25 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 
 QString AiAssistantHostImpl::resolveDomainId(const QString& requestedDomainId, const QString& userText) const
 {
-	return m_router.resolve(requestedDomainId, userText);
+	const QString req = requestedDomainId.trimmed();
+	if (!req.isEmpty() && req != AiDomainIds::autoDomain())
+		return req;
+
+	const std::optional<AiConfigDto> cfgOpt = loadConfig();
+	const AiConfigDto cfg = cfgOpt ? *cfgOpt : defaultAiConfigDto();
+	const int minScore = std::max(1, cfg.router.minScore);
+	const auto scored = AiIntentClassifier::classifyByRules(userText, minScore);
+	if (!scored.domainId.isEmpty())
+		return scored.domainId;
+
+	// 规则无把握时：local_classify 用小模型选域（失败仍返回空 → UI 澄清）
+	if (cfg.router.mode.compare(QStringLiteral("local_classify"), Qt::CaseInsensitive) == 0)
+	{
+		const auto llm = AiIntentClassifier::classifyByLocalLlm(userText, cfg);
+		if (!llm.domainId.isEmpty())
+			return llm.domainId;
+	}
+	return {};
 }
 
 AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainId, const QString& text) const

@@ -137,6 +137,7 @@
     <ClCompile Include="source\Ai\AiConfigLoader.cpp" />
     <ClCompile Include="source\Ai\AiDomainRegistryImpl.cpp" />
     <ClCompile Include="source\Ai\AiDomainRouter.cpp" />
+    <ClCompile Include="source\Ai\AiIntentClassifier.cpp" />
     <ClCompile Include="source\Ai\AiHostButtonApiDispatch.cpp" />
     <ClCompile Include="source\Ai\AiHttpsPost.cpp" />
     <ClCompile Include="source\Ai\AiIntentParser.cpp" />

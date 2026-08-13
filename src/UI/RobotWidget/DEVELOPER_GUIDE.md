@@ -370,7 +370,7 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 | `InstructionProgramTreeWidget` | 层级指令树；`NodeKind::Group` 嵌套显示分组；Ctrl 多选根层级指令 → 右键创建分组；拖放维护 `memberInstructionIds`；`instructionSelected` → 预览 |
 | `TrajectoryEditSession` | 预览三分支（raw 叠加 / overlay / 位姿写回）与 Apply（Command 落盘）；`reset` / `abandonPreview`；**并行持有** `m_rawTrajectory`（`setRawTrajectory` / `rawTrajectoryChanged`，与 Program 预览快照解耦）；见 §轨迹编辑 |
 | `ProgramEditService` | `execute` / `undo` / `redo`；`revisionChanged` → 轨迹页 `syncUiAfterProgramRevision` + 指令树刷新 |
-| `DevicePageWidget` | Property Dock「设备」Tab：类型/品牌 Combo + 自适应缩略图网格；`urdfImportRequested` |
+| `DevicePageWidget` | Property Dock「设备」Tab：类型/品牌 Combo + 自适应缩略图网格；`urdfImportRequested`；**自定义设备**按钮 → `customDeviceCreateRequested` |
 
 ### `DevicePageWidget` 布局（Property Dock）
 
@@ -379,8 +379,11 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 | 区域 | 控件 | 行为 |
 |------|------|------|
 | 筛选栏 | 类型 / 品牌 `QComboBox`、刷新 | 驱动 `m_packagesByTypeBrand`；仅 1 个品牌时隐藏品牌 Combo |
+| 自定义设备 | 按钮 | `customDeviceCreateRequested` → 非模态向导：多轴编辑（`CustomDeviceAxisEditorWidget`）、应用模型到场景、Rotate 面拾取中心（W0 局部） |
 | 型号网格 | `QScrollArea` + `QGridLayout` | 缩略图 96×88；列数随 viewport 宽度自适应；点击 → `urdfImportRequested` |
 | 数据源 | `resource/models/{Type}/{Brand}/{Package}` | 扫描与 URDF 匹配逻辑不变 |
+
+`RobotAxisControlWidget` 顶部 **目标** 下拉可在机器人实例与 `CustomDevice` 间切换；选设备时滑条驱动 `CustomDeviceKinematics::applyQ`。
 
 i18n：`setUseChinese` ← `MainWindow::applyLanguage`。
 
@@ -802,9 +805,11 @@ AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校�
 | API（`FeatureTrajectoryPageWidget`） | 说明 |
 |--------------------------------------|------|
 | `ensureFeatureCatalogEnumerated` | 对当前 combo 工件调用 `enumerateFeatureCatalog`（AI 解析前自动触发） |
-| `buildAndShowCandidatePreview` | catalog 切片 → `buildPreviewOverlayJson` → `setFeatureCatalogOverlay` |
+| `buildAndShowCandidatePreview` | catalog 切片 → `buildPreviewOverlayJson` → 边完整折线 / 选中后面片 → `setFeatureCatalogOverlay` |
 | `clearCandidatePreview` | 清除 3D 特征叠加 |
-| `commitFeaturePlanFromAi` | 计划 JSON → 多特征离散 + 写入 `TrajectoryEditSession` + 默认 pipeline |
+| `commitFeaturePlanFromAi` | 计划 JSON → 多特征离散 + 写入 `TrajectoryEditSession`；有 `pipeline[]` 则 `applyPipelineOps`，否则 recipe 回退 |
+| `proposeAndConfirmTrajectoryPlan` | enrich → `TrajectoryPlanConfirmDialog` 模态确认 |
+| `loadBoundTrajectoryPlanJson` / `reviseFeaturePlanFromAi` | 已作用 PathPlan 再编辑 |
 
 3D 叠加经 `IRobotOsgViewHost::setFeatureCatalogOverlay`（红边、黑色编号、leader 线）；锚点 `geometry_backend_ops::computeFeatureAnchor`（STEP 文件坐标）→ `buildPreviewOverlayJson` 内 `feature_pick_transform::stepModelPointToWorldMm`（见上「坐标系约定」）。
 

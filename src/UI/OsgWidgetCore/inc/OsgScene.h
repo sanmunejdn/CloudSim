@@ -264,6 +264,8 @@ public:
 		bool hasEdgeSegment = false;
 		osg::Vec3f edgeAWorldMm;
 		osg::Vec3f edgeBWorldMm;
+		std::vector<osg::Vec3f> edgePolylineWorldMm;
+		std::vector<osg::Vec3f> faceTrianglesWorldMm;
 	};
 	void setFeatureCatalogOverlay(const std::vector<FeatureCatalogOverlayItem>& items);
 	void clearFeatureCatalogOverlay();

@@ -591,7 +591,13 @@ void OsgRenderViewAdapter::setFeatureCatalogOverlay(const QVector<core::FeatureC
 		o.hasEdgeSegment = item.hasEdgeSegment;
 		o.edgeAWorldMm = item.edgeAWorldMm;
 		o.edgeBWorldMm = item.edgeBWorldMm;
-		converted.push_back(o);
+		o.edgePolylineWorldMm.reserve(static_cast<size_t>(item.edgePolylineWorldMm.size()));
+		for (const core::Vec3& p : item.edgePolylineWorldMm)
+			o.edgePolylineWorldMm.push_back(p);
+		o.faceTrianglesWorldMm.reserve(static_cast<size_t>(item.faceTrianglesWorldMm.size()));
+		for (const core::Vec3& p : item.faceTrianglesWorldMm)
+			o.faceTrianglesWorldMm.push_back(p);
+		converted.push_back(std::move(o));
 	}
 	m_widget.setFeatureCatalogOverlay(converted);
 }

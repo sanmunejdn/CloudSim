@@ -144,6 +144,7 @@
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiConfigLoader.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiDomainRegistryImpl.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiDomainRouter.h" />
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiIntentClassifier.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiHostButtonApiDispatch.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiHttpsPost.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiIntentParser.h" />
@@ -220,6 +221,7 @@
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiConfigLoader.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiDomainRegistryImpl.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiDomainRouter.cpp" />
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiIntentClassifier.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiHostButtonApiDispatch.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiHttpsPost.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiIntentParser.cpp" />

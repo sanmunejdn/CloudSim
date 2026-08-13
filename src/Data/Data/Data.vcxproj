@@ -188,6 +188,7 @@
     <ClInclude Include="inc\ParametricBrepBackendData.h" />
     <ClInclude Include="inc\ParametricBrepFeature.h" />
     <ClInclude Include="inc\FrameBackendData.h" />
+    <ClInclude Include="inc\CustomDeviceBackendData.h" />
     <ClInclude Include="inc\MeshBackendData.h" />
     <ClInclude Include="inc\PlyIo.h" />
     <ClInclude Include="inc\PointCloudBackendData.h" />
@@ -215,6 +216,7 @@
     <ClCompile Include="source\ParametricBrepBackendData.cpp" />
     <ClCompile Include="source\ParametricBrepFeature.cpp" />
     <ClCompile Include="source\FrameBackendData.cpp" />
+    <ClCompile Include="source\CustomDeviceBackendData.cpp" />
     <ClCompile Include="source\MeshBackendData_core.cpp" />
     <ClCompile Include="source\MeshBackendData_load_common.cpp" />
     <ClCompile Include="source\MeshBackendData_cgal_io.cpp" />

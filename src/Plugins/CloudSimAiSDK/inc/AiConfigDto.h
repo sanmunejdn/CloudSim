@@ -34,19 +34,25 @@ struct CLOUDSIM_AI_SDK_EXPORT AiDomainModelConfig
 
 struct CLOUDSIM_AI_SDK_EXPORT AiRouterConfig
 {
-	QString mode = QStringLiteral("explicit_ui");
+	/// explicit_ui | rules_score | local_classify
+	QString mode = QStringLiteral("rules_score");
 	QString localModel;
 	QString baseUrl = QStringLiteral("http://127.0.0.1:11434/v1");
+	/// rules_score 最低接受分；local_classify 在规则无域时再用小模型选域
+	int minScore = 2;
 };
 
 struct CLOUDSIM_AI_SDK_EXPORT AiAgentPolicyConfig
 {
 	int maxSteps = 8;
-	bool autoExecuteLowRisk = true;
+	/// 默认关闭：低风险空 schema 也不自动执行，一律确认
+	bool autoExecuteLowRisk = false;
 	bool enableTrace = true;
 	bool enablePlan = true;
 	int planMaxSteps = 8;
 	bool replanOnFailure = true;
+	/// 无 Catalog 关键词可靠命中时，不调用 LLM tool_calls，强制澄清
+	bool requireKeywordHit = true;
 };
 
 struct CLOUDSIM_AI_SDK_EXPORT AiConfigDto

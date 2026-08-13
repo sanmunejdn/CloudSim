@@ -85,6 +85,13 @@ public:
 	virtual void markActiveDocumentModified() = 0;
 	virtual void clearActiveDocumentModified() = 0;
 	virtual bool isActiveDocumentModified() const = 0;
+
+	/// 1.51.0+：模态确认离散策略/参数/管线；返回 1=接受 0=取消 2=重新识别
+	virtual int proposeAndConfirmTrajectoryPlanForAi(const std::string& planInUtf8, std::string* planOutUtf8,
+													 QString* outError, bool showRetry = true) = 0;
+	virtual bool loadBoundTrajectoryPlanForAi(std::string* planOutUtf8, QString* outError) = 0;
+	virtual bool reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QString* outSummary,
+											 QString* outError) = 0;
 };
 
 #endif // CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H

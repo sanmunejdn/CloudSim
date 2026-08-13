@@ -7,6 +7,7 @@
 #include "BackendRegistry.h"
 #include "BackendTypeIdentity.h"
 #include "BrepBackendData.h"
+#include "CustomDeviceBackendData.h"
 #include "FrameBackendData.h"
 #include "MeshBackendData.h"
 #include "ParametricBrepBackendData.h"
@@ -64,6 +65,15 @@ inline void ensureBackendBuiltinsRegistered()
 	frameMeta.supportsTransform = true;
 	frameMeta.supportsVisibility = true;
 	BackendRegistry::instance().registerType(frameMeta);
+
+	BackendMeta customDeviceMeta;
+	customDeviceMeta.className = backend_type::kClassCustomDevice;
+	customDeviceMeta.displayName = backend_type::kDisplayCustomDevice;
+	customDeviceMeta.factory = []()
+	{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<CustomDeviceBackendData>()); };
+	customDeviceMeta.supportsTransform = true;
+	customDeviceMeta.supportsVisibility = true;
+	BackendRegistry::instance().registerType(customDeviceMeta);
 }
 
 #endif // DATA_BACKENDREGISTRYBUILTINS_H

@@ -14,6 +14,9 @@
     <Filter Include="inc\Global">
       <UniqueIdentifier>{9E516D30-3363-4B14-A39F-A0A15063CEFD}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{E9CDF025-9443-4A6D-A725-12203A4B0F37}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{4C9C4EDD-FB92-4A94-9A48-5AF370C69B36}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
@@ -23,6 +26,9 @@
     </Filter>
     <Filter Include="src\Core">
       <UniqueIdentifier>{898CAE4D-3160-4445-BCA9-518C0EAFD9FC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{47F5C1D0-811F-4ABF-A8CA-587D8DF34B44}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -49,6 +55,9 @@
     </ClInclude>
     <ClInclude Include="inc\BrepBackendVisual.h">
       <Filter>inc\Backends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CustomDeviceBackendVisual.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\FrameBackendVisual.h">
       <Filter>inc\Backends</Filter>
@@ -81,6 +90,9 @@
     </ClCompile>
     <ClCompile Include="source\BrepBackendVisual.cpp">
       <Filter>src\Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceBackendVisual.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\FrameBackendVisual.cpp">
       <Filter>src\Backends</Filter>

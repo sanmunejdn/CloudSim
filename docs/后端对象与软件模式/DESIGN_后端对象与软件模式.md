@@ -11,11 +11,13 @@ flowchart TB
     Brep[BrepBackendData / BrepModel]
     Param[ParametricBrepBackendData / ParametricBrepModel]
     Frame[FrameBackendData]
+    CustomDev[CustomDeviceBackendData]
     Base --> Mesh
     Base --> PC
     Base --> Brep
     Brep --> Param
     Base --> Frame
+    Base --> CustomDev
   end
 
   subgraph lateral [横向]
@@ -69,6 +71,7 @@ flowchart TB
 | `BrepBackendData` | `BrepModel` | `BrepModel` | `BrepModel` | `isBrepWorkpieceClassName` 含本类 |
 | `ParametricBrepBackendData` | `ParametricBrepModel` | `ParametricBrepModel` | `ParametricBrepModel`（复用 Brep visual） | 几何建模 Body |
 | `FrameBackendData` | `FrameBackendData` | `CoordinateFrame` | `FrameBackendData` | 无实体几何 |
+| `CustomDeviceBackendData` | `CustomDeviceBackendData` | `CustomDevice` | `CustomDeviceBackendData` | 设备聚合根；运动在派生 JSON；几何在子件 |
 
 规则：
 

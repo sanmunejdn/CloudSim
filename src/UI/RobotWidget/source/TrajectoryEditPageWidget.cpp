@@ -939,17 +939,23 @@ void TrajectoryEditPageWidget::onRawApplyRecipe()
 void TrajectoryEditPageWidget::applyRecipePresetByKind(const RobotInstruction::RecipeKind recipeKind)
 {
 	const std::vector<RobotInstruction::TrajectoryOpDescriptor> ops = RobotInstruction::buildRecipePreset(recipeKind);
-	if (m_pipeline)
-	{
-		m_pipeline->setOps(ops);
-		syncSessionPipeline();
-		schedulePreviewRun(120, false);
-	}
+	applyPipelineOps(ops);
 	if (m_host)
 	{
 		m_host->appendRunInfo(m_useChinese ? QStringLiteral("工艺模板已填充到流水线")
 										   : QStringLiteral("Recipe preset inserted to pipeline"));
 	}
+}
+
+void TrajectoryEditPageWidget::applyPipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops)
+{
+	if (!m_pipeline)
+	{
+		return;
+	}
+	m_pipeline->setOps(std::move(ops));
+	syncSessionPipeline();
+	schedulePreviewRun(120, false);
 }
 
 void TrajectoryEditPageWidget::onRawEmitProgram()

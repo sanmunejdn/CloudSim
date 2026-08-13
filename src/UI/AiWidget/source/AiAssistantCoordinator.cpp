@@ -13,6 +13,7 @@
 #include "IAiAssistantHost.h"
 #include "IPluginHostContext.h"
 
+#include <QRegularExpression>
 #include <QTimer>
 #include <set>
 #include <vector>
@@ -120,20 +121,94 @@ AiFeatureAxis inferFeatureAxisLocal(const QString& userText)
 	return AiFeatureAxis::Ambiguous;
 }
 
+bool looksLikeFeatureSelectionAttempt(const QString& userText)
+{
+	const QString t = userText.trimmed();
+	if (t.isEmpty())
+		return false;
+	if (t.contains(QStringLiteral("选")) || t.contains(QStringLiteral("选择")))
+		return true;
+	static const QRegularExpression idRe(QStringLiteral(R"((?i)\b(?:edge|face|seam|weld)_\d+\b)"));
+	if (idRe.match(t).hasMatch())
+		return true;
+	// 纯数字短句（如「14」「1 和 3」）
+	bool anyDigit = false;
+	for (const QChar c : t)
+	{
+		if (c.isDigit())
+			anyDigit = true;
+		else if (!c.isSpace() && c != QLatin1Char(',') && c != QLatin1Char('、') && c != QLatin1Char('和') &&
+				 c != QLatin1Char('-'))
+			return false;
+	}
+	return anyDigit;
+}
+
+bool isConfirmDiscretizePhrase(const QString& userText)
+{
+	const QString t = userText.trimmed();
+	if (t.isEmpty())
+		return false;
+	if (t.compare(QStringLiteral("确认"), Qt::CaseInsensitive) == 0 ||
+		t.compare(QStringLiteral("ok"), Qt::CaseInsensitive) == 0 ||
+		t.compare(QStringLiteral("yes"), Qt::CaseInsensitive) == 0)
+		return true;
+	return t.contains(QStringLiteral("确认并离散")) || t.contains(QStringLiteral("确认离散")) ||
+		   t.contains(QStringLiteral("开始离散")) || t.contains(QStringLiteral("确认执行"));
+}
+
+bool isReRecognizePhrase(const QString& userText)
+{
+	const QString t = userText.trimmed();
+	return t.contains(QStringLiteral("重新识别")) || t.contains(QStringLiteral("再识别")) ||
+		   t.compare(QStringLiteral("重新开始识别"), Qt::CaseInsensitive) == 0 ||
+		   t.compare(QStringLiteral("retry"), Qt::CaseInsensitive) == 0;
+}
+
+bool isCancelFeatureSessionPhrase(const QString& userText)
+{
+	const QString t = userText.trimmed();
+	return t == QStringLiteral("取消") || t == QStringLiteral("放弃") || t == QStringLiteral("关闭候选") ||
+		   t.compare(QStringLiteral("cancel"), Qt::CaseInsensitive) == 0;
+}
+
+bool isNewFeatureRecognizeIntent(const QString& userText)
+{
+	const QString t = userText.trimmed();
+	return t.contains(QStringLiteral("线特征")) || t.contains(QStringLiteral("面特征")) ||
+		   t.contains(QStringLiteral("识别焊缝")) || t.contains(QStringLiteral("识别边")) ||
+		   t.contains(QStringLiteral("识别打磨")) || t.contains(QStringLiteral("打磨面")) ||
+		   t.contains(QStringLiteral("轨迹特征"));
+}
+
 bool parseDisplayIndexSelectionLocal(const QString& userText, const QByteArray& catalogSliceUtf8,
-									 std::vector<std::string>& outCandidateIds, QString* err)
+									 const QByteArray& catalogFullUtf8, std::vector<std::string>& outCandidateIds,
+									 QString* err)
 {
 	outCandidateIds.clear();
+	std::set<std::string> idHits;
 	std::set<int> indices;
 	const QString t = userText;
-	for (int i = 0; i < t.size(); ++i)
+
+	static const QRegularExpression idRe(QStringLiteral(R"((?i)\b((?:edge|face|seam|weld)_\d+)\b)"));
+	QRegularExpressionMatchIterator it = idRe.globalMatch(t);
+	QString tForDigits = t;
+	while (it.hasNext())
 	{
-		if (t[i].isDigit())
+		const QRegularExpressionMatch m = it.next();
+		idHits.insert(m.captured(1).toLower().toStdString());
+		// 避免把 face_13 里的 13 再当 displayIndex
+		tForDigits.replace(m.captured(0), QStringLiteral(" "));
+	}
+
+	for (int i = 0; i < tForDigits.size(); ++i)
+	{
+		if (tForDigits[i].isDigit())
 		{
 			int val = 0;
-			while (i < t.size() && t[i].isDigit())
+			while (i < tForDigits.size() && tForDigits[i].isDigit())
 			{
-				val = val * 10 + t[i].digitValue();
+				val = val * 10 + tForDigits[i].digitValue();
 				++i;
 			}
 			if (val > 0)
@@ -141,38 +216,81 @@ bool parseDisplayIndexSelectionLocal(const QString& userText, const QByteArray& 
 			--i;
 		}
 	}
-	if (indices.empty())
+
+	if (idHits.empty() && indices.empty())
 	{
 		if (err)
-			*err = QStringLiteral("未解析到编号，请使用如「选 1 和 3」。");
+			*err = QStringLiteral("未解析到编号，请使用如「选 1 和 3」或「选 face_13」。");
 		return false;
 	}
+
+	int maxDisplay = 0;
+	std::set<std::string> resolvedIds;
 	try
 	{
 		const nlohmann::json j = nlohmann::json::parse(catalogSliceUtf8.constData(), nullptr, true);
+		std::set<std::string> seen;
 		for (const auto& item : j["candidates"])
 		{
 			const int displayIndex = item.value("displayIndex", 0);
-			if (indices.count(displayIndex) > 0)
-				outCandidateIds.push_back(item.value("candidateId", std::string()));
+			if (displayIndex > maxDisplay)
+				maxDisplay = displayIndex;
+			const std::string cid = item.value("candidateId", std::string());
+			const std::string cidLower = QString::fromStdString(cid).toLower().toStdString();
+			const bool byId = !cidLower.empty() && idHits.count(cidLower) > 0;
+			const bool byIndex = indices.count(displayIndex) > 0;
+			if ((byId || byIndex) && seen.insert(cid).second)
+			{
+				outCandidateIds.push_back(cid);
+				resolvedIds.insert(cidLower);
+			}
 		}
 	}
 	catch (...)
 	{
 		if (err)
-			*err = QStringLiteral("Catalog slice parse failed.");
+			*err = QStringLiteral("候选列表解析失败。");
 		return false;
 	}
+
+	// 切片未收录时，仍可用 face_63 等 ID 从全量目录解析
+	if (!idHits.empty() && !catalogFullUtf8.isEmpty())
+	{
+		try
+		{
+			const nlohmann::json full = nlohmann::json::parse(catalogFullUtf8.constData(), nullptr, true);
+			for (const auto& item : full["candidates"])
+			{
+				const std::string cid = item.value("candidateId", std::string());
+				const std::string cidLower = QString::fromStdString(cid).toLower().toStdString();
+				if (cidLower.empty() || idHits.count(cidLower) == 0 || resolvedIds.count(cidLower) > 0)
+					continue;
+				outCandidateIds.push_back(cid);
+				resolvedIds.insert(cidLower);
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+
 	if (outCandidateIds.empty())
 	{
 		if (err)
-			*err = QStringLiteral("编号超出当前候选范围。");
+		{
+			if (!idHits.empty())
+				*err = QStringLiteral("未找到对应候选 ID，请对照列表中的 edge_/face_ 编号，或输入「选 face_63」。");
+			else if (maxDisplay > 0)
+				*err = QStringLiteral("编号超出范围（当前 1–%1），请重新选择。").arg(maxDisplay);
+			else
+				*err = QStringLiteral("编号超出当前候选范围。");
+		}
 		return false;
 	}
 	return true;
 }
 
-QByteArray filterCatalogSliceByCandidateIds(const QByteArray& catalogSliceUtf8,
+QByteArray filterCatalogSliceByCandidateIds(const QByteArray& catalogSliceUtf8, const QByteArray& catalogFullUtf8,
 											const std::vector<std::string>& candidateIds)
 {
 	if (candidateIds.empty())
@@ -184,18 +302,29 @@ QByteArray filterCatalogSliceByCandidateIds(const QByteArray& catalogSliceUtf8,
 		const nlohmann::json src = nlohmann::json::parse(catalogSliceUtf8.constData(), nullptr, true);
 		nlohmann::json dst = src;
 		dst["candidates"] = nlohmann::json::array();
-		if (!src.contains("candidates") || !src["candidates"].is_array())
-		{
-			return catalogSliceUtf8;
-		}
 		std::set<std::string> idSet(candidateIds.begin(), candidateIds.end());
-		for (const auto& c : src["candidates"])
+		std::set<std::string> found;
+		auto appendFrom = [&](const nlohmann::json& catalog)
 		{
-			const std::string id = c.value("candidateId", std::string());
-			if (idSet.count(id) > 0)
+			if (!catalog.contains("candidates") || !catalog["candidates"].is_array())
+				return;
+			for (const auto& c : catalog["candidates"])
 			{
-				dst["candidates"].push_back(c);
+				const std::string id = c.value("candidateId", std::string());
+				if (idSet.count(id) == 0 || found.count(id) > 0)
+					continue;
+				found.insert(id);
+				nlohmann::json row = c;
+				if (!row.contains("displayIndex"))
+					row["displayIndex"] = static_cast<int>(found.size());
+				dst["candidates"].push_back(row);
 			}
+		};
+		appendFrom(src);
+		if (found.size() < idSet.size() && !catalogFullUtf8.isEmpty())
+		{
+			const nlohmann::json full = nlohmann::json::parse(catalogFullUtf8.constData(), nullptr, true);
+			appendFrom(full);
 		}
 		return QByteArray::fromStdString(dst.dump());
 	}
@@ -241,8 +370,7 @@ QByteArray buildMinimalFeaturePlanFromSelection(const std::vector<std::string>& 
 					spec["geometry"] = c["geometry"];
 				else if (c.contains("refs") && c["refs"].is_object())
 					spec["refs"] = c["refs"];
-				spec["discretize"] = {
-					{"stepMm", 5.0}, {"linearDeflectionMm", 0.01}, {"outputTangent", true}, {"outputNormal", true}};
+				// params 由宿主 enrichTrajectoryPlanJsonInPlace 按策略默认补全
 				feats.push_back(spec);
 				break;
 			}
@@ -349,8 +477,33 @@ bool AiAssistantCoordinator::prepareTrajectoryFeatureRequest(const QString& user
 
 bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 {
-	if (m_featureSessionState == FeatureSessionState::Idle || !m_pluginHost)
+	if (!m_pluginHost)
+		return false;
+
+	if (m_featureSessionState == FeatureSessionState::Idle)
 	{
+		if (isReRecognizePhrase(text))
+		{
+			if (m_lastTrajectoryUserText.isEmpty())
+			{
+				if (m_dock)
+				{
+					m_dock->appendAssistantMessage(
+						QStringLiteral("暂无上次识别指令。请说「线特征识别」或「面特征识别」。"));
+				}
+				return true;
+			}
+			return rerunTrajectoryFeatureRecognize(m_lastTrajectoryUserText);
+		}
+		if (looksLikeFeatureSelectionAttempt(text) || isConfirmDiscretizePhrase(text))
+		{
+			if (m_dock)
+			{
+				m_dock->appendAssistantMessage(
+					QStringLiteral("当前没有特征候选。请先「线特征识别」或「面特征识别」，或「重新识别」。"));
+			}
+			return true;
+		}
 		return false;
 	}
 
@@ -404,50 +557,139 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 	if (m_featureSessionState == FeatureSessionState::PreviewCandidates ||
 		m_featureSessionState == FeatureSessionState::AwaitingSelection)
 	{
-		if (text.contains(QStringLiteral("重新")) || text.contains(QStringLiteral("retry"), Qt::CaseInsensitive))
+		if (isCancelFeatureSessionPhrase(text))
 		{
 			resetFeatureSession();
 			if (m_dock)
-			{
-				m_dock->appendSystemMessage(QStringLiteral("已重置特征识别会话，请重新描述要识别的特征。"));
-			}
+				m_dock->appendSystemMessage(QStringLiteral("已关闭特征候选。可再说「线特征识别」或「重新识别」。"));
 			return true;
 		}
-		std::vector<std::string> selectedIds;
-		QString selErr;
-		if (!parseDisplayIndexSelectionLocal(text, m_pendingCatalogSliceUtf8, selectedIds, &selErr))
+		if (isReRecognizePhrase(text))
 		{
-			return false;
+			const QString again =
+				m_lastTrajectoryUserText.isEmpty() ? QStringLiteral("面特征识别") : m_lastTrajectoryUserText;
+			return rerunTrajectoryFeatureRecognize(again);
 		}
-		const QByteArray planJson = buildMinimalFeaturePlanFromSelection(
-			selectedIds, m_pendingCatalogFullUtf8, m_pendingWorkpieceBackendId, m_pendingWorkpieceStepPath,
-			m_pendingPipelineTemplate.isEmpty() ? QStringLiteral("weld_default") : m_pendingPipelineTemplate);
-		if (planJson.isEmpty())
+		if (isNewFeatureRecognizeIntent(text))
+			return false;
+
+		if (isConfirmDiscretizePhrase(text))
 		{
+			if (m_pendingFeaturePlanJson.isEmpty())
+			{
+				if (m_dock)
+				{
+					m_dock->appendAssistantMessage(
+						QStringLiteral("请先输入「选 N」选定特征，再「确认」打开离散对话框。"));
+				}
+				return true;
+			}
+			try
+			{
+				const nlohmann::json j =
+					nlohmann::json::parse(m_pendingFeaturePlanJson.constData(), nullptr, true);
+				if (!j.contains("features") || !j["features"].is_array() || j["features"].empty())
+				{
+					if (m_dock)
+					{
+						m_dock->appendAssistantMessage(
+							QStringLiteral("当前计划尚无特征，请先「选 N」再确认。"));
+					}
+					return true;
+				}
+			}
+			catch (...)
+			{
+				if (m_dock)
+					m_dock->appendAssistantMessage(QStringLiteral("特征计划无效，请重新选择。"));
+				return true;
+			}
+			(void)runTrajectoryPlanConfirmAndCommit(m_pendingFeaturePlanJson, true);
+			return true;
+		}
+
+		if (looksLikeFeatureSelectionAttempt(text))
+		{
+			std::vector<std::string> selectedIds;
+			QString selErr;
+			if (!parseDisplayIndexSelectionLocal(text, m_pendingCatalogSliceUtf8, m_pendingCatalogFullUtf8, selectedIds,
+												&selErr))
+			{
+				if (m_dock)
+					m_dock->appendAssistantMessage(selErr);
+				return true;
+			}
+			const QByteArray planJson = buildMinimalFeaturePlanFromSelection(
+				selectedIds, m_pendingCatalogFullUtf8, m_pendingWorkpieceBackendId, m_pendingWorkpieceStepPath,
+				m_pendingPipelineTemplate.isEmpty() ? QStringLiteral("weld_default") : m_pendingPipelineTemplate);
+			if (planJson.isEmpty())
+			{
+				if (m_dock)
+					m_dock->appendAssistantMessage(QStringLiteral("无法将编号映射到特征。"));
+				return true;
+			}
+			m_pendingFeaturePlanJson = planJson;
+			m_featureSessionState = FeatureSessionState::AwaitingSelection;
+			const QByteArray selectedSlice = filterCatalogSliceByCandidateIds(
+				m_pendingCatalogSliceUtf8, m_pendingCatalogFullUtf8, selectedIds);
 			if (m_dock)
 			{
-				m_dock->appendAssistantMessage(QStringLiteral("无法将编号映射到特征。"));
+				m_dock->showTrajectoryFeatureResult(planJson, selectedSlice, QStringLiteral("Selection"));
+				m_dock->appendSystemMessage(
+					QStringLiteral("已更新选择。输入「确认」或「确认并离散」打开对话框核对策略与算子；"
+								   "也可继续「选 N」调整。"));
 			}
+			if (m_pluginHost)
+				(void)m_pluginHost->showAiFeatureCandidatePreview(selectedSlice, nullptr);
 			return true;
 		}
-		m_pendingFeaturePlanJson = planJson;
-		m_featureSessionState = FeatureSessionState::AwaitingSelection;
-		const QByteArray selectedSlice = filterCatalogSliceByCandidateIds(m_pendingCatalogSliceUtf8, selectedIds);
-		if (m_dock)
-		{
-			m_dock->showTrajectoryFeatureResult(planJson, selectedSlice, QStringLiteral("Selection"));
-			beginUnifiedDomainConfirm(AiAgentConfirmKind::TrajectoryCommit, planJson, QStringLiteral("确认并离散"),
-									  QStringLiteral("确认并离散"), QStringLiteral("重新识别"),
-									  QStringLiteral("Selection"));
-		}
-		if (m_pluginHost)
-		{
-			(void)m_pluginHost->showAiFeatureCandidatePreview(selectedSlice, nullptr);
-		}
-		return true;
+
+		return false;
 	}
 
 	return false;
+}
+
+bool AiAssistantCoordinator::rerunTrajectoryFeatureRecognize(const QString& userText)
+{
+	if (!m_dock || !m_aiHost || !m_pluginHost || userText.trimmed().isEmpty())
+		return false;
+
+	resetFeatureSession();
+	m_trajCatalogRetryUsed = false;
+	m_lastTrajectoryUserText = userText.trimmed();
+	m_dock->setBusy(true);
+	m_dock->hideAgentConfirmPanel();
+	m_dock->appendSystemMessage(QStringLiteral("正在按「%1」重新识别特征…").arg(m_lastTrajectoryUserText));
+
+	AiInferenceRequest req;
+	req.domainId = AiDomainIds::trajectoryFeature();
+	req.userText = m_lastTrajectoryUserText;
+	QString prepErr;
+	if (!prepareTrajectoryFeatureRequest(m_lastTrajectoryUserText, req, &prepErr))
+	{
+		m_dock->setBusy(false);
+		m_dock->appendAssistantMessage(prepErr);
+		emit parseFailed(prepErr, QStringLiteral("Rules"));
+		return true;
+	}
+
+	m_pendingWorkpieceBackendId = req.workpieceBackendId;
+	m_pendingWorkpieceStepPath = req.workpieceStepPathUtf8;
+	m_pendingCatalogFullUtf8 = req.catalogFullUtf8;
+	m_pendingCatalogSliceUtf8 = req.catalogSliceUtf8;
+	m_pendingFeatureAxis = inferFeatureAxisLocal(m_lastTrajectoryUserText);
+
+	const AiParseResult rules = m_aiHost->parseTrajectoryFeatureRequest(req);
+	m_dock->setBusy(false);
+	if (!rules.ok)
+	{
+		m_dock->appendAssistantMessage(prefixWithParser(rules.parserVia, rules.errorMessage));
+		emit parseFailed(rules.errorMessage, rules.parserVia);
+		return true;
+	}
+	handleTrajectoryParseResult(rules);
+	return true;
 }
 
 void AiAssistantCoordinator::handleTrajectoryParseResult(const AiParseResult& result)
@@ -497,8 +739,8 @@ void AiAssistantCoordinator::handleTrajectoryParseResult(const AiParseResult& re
 	}
 
 	m_dock->showTrajectoryFeatureResult(result.outputJsonUtf8, m_pendingCatalogSliceUtf8, result.parserVia);
-	beginUnifiedDomainConfirm(AiAgentConfirmKind::TrajectoryCommit, result.outputJsonUtf8, QStringLiteral("确认并离散"),
-							  QStringLiteral("确认并离散"), QStringLiteral("重新识别"), result.parserVia);
+	m_dock->appendSystemMessage(
+		QStringLiteral("请输入「选 N」选定特征；选好后输入「确认」打开离散对话框，或继续调整选择。"));
 	emit assistantFinished(QStringLiteral("Feature candidates ready for confirmation."), false, result.parserVia);
 }
 
@@ -591,13 +833,18 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 		return;
 	}
 
+	if (tryHandleTrajectoryPlanRevise(text))
+	{
+		return;
+	}
+
 	if (tryHandleFeatureFollowUp(text))
 	{
 		return;
 	}
 
 	m_trajCatalogRetryUsed = false;
-	m_lastTrajectoryUserText.clear();
+	// 保留 m_lastTrajectoryUserText，供 Idle「重新识别」复用
 
 	if (m_aiHost)
 		m_aiHost->cancelAgentTurn();
@@ -618,9 +865,32 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 
 	const QString resolvedDomain = m_aiHost->resolveDomainId(req.domainId, text);
 
+	// 切到非轨迹域时结束特征候选会话（仍保留上次识别原文）
+	if (!resolvedDomain.isEmpty() && resolvedDomain != AiDomainIds::trajectoryFeature() &&
+		m_featureSessionState != FeatureSessionState::Idle)
+	{
+		resetFeatureSession();
+	}
+
+	const bool domainLocked = !req.domainId.isEmpty() && req.domainId != AiDomainIds::autoDomain();
+	if (!domainLocked && resolvedDomain.isEmpty())
+	{
+		m_dock->setBusy(false);
+		const QString tip = QStringLiteral(
+			"未识别到明确意图，未执行任何操作。\n"
+			"请先在上方选择领域，或说得更具体，例如：\n"
+			"· 生成长方体 / 生成圆柱\n"
+			"· 线特征识别 / 面特征识别 / 重新识别\n"
+			"· 体素下采样 / 点云匹配\n"
+			"· 修改离散参数（已有轨迹时）");
+		m_dock->appendAssistantMessage(tip);
+		emit assistantFinished(tip, false, QStringLiteral("clarify"));
+		return;
+	}
+
 	if (shouldUseAgentRuntime(resolvedDomain))
 	{
-		startAgentTurn(text, req.domainId);
+		startAgentTurn(text, domainLocked ? req.domainId : resolvedDomain);
 		return;
 	}
 
@@ -784,33 +1054,140 @@ void AiAssistantCoordinator::onConfirmTrajectoryFeaturesClicked()
 	{
 		return;
 	}
-	m_dock->setBusy(true);
-	QString summary;
-	QString err;
-	const bool ok = m_pluginHost->commitAiTrajectoryFeatures(m_pendingFeaturePlanJson, &summary, &err);
-	m_dock->setBusy(false);
-	if (!ok)
-	{
-		const QString msg = err.isEmpty() ? QStringLiteral("离散/提交失败") : err;
-		m_dock->appendAssistantMessage(prefixWithParser(m_pendingFeatureParserVia, msg));
-		emit parseFailed(msg, m_pendingFeatureParserVia);
-		return;
-	}
-	m_dock->hideTrajectoryFeatureConfirmButtons();
-	m_dock->hideAgentConfirmPanel();
-	resetFeatureSession();
-	const QString reply = summary.isEmpty() ? QStringLiteral("轨迹特征已离散并填充默认流水线。") : summary;
-	m_dock->appendAssistantMessage(prefixWithParser(m_pendingFeatureParserVia, reply));
-	emit assistantFinished(reply, false, m_pendingFeatureParserVia);
+	(void)runTrajectoryPlanConfirmAndCommit(m_pendingFeaturePlanJson, true);
 }
 
 void AiAssistantCoordinator::onRetryTrajectoryFeaturesClicked()
 {
+	// Dock 次按钮：关闭候选；对话框「返回重选」走 Outcome::Retry，不经此路径清会话
 	resetFeatureSession();
 	if (m_dock)
 	{
-		m_dock->appendSystemMessage(QStringLiteral("已取消当前特征候选，请重新输入识别指令。"));
+		m_dock->appendSystemMessage(
+			QStringLiteral("已取消当前特征候选。可输入「重新识别」复用上次指令，或再说「线/面特征识别」。"));
 	}
+}
+
+bool AiAssistantCoordinator::runTrajectoryPlanConfirmAndCommit(const QByteArray& planIn, const bool showRetry)
+{
+	if (!m_dock || !m_pluginHost || planIn.isEmpty())
+		return false;
+	m_dock->setBusy(false);
+	m_dock->hideTrajectoryFeatureConfirmButtons();
+	m_dock->hideAgentConfirmPanel();
+	QByteArray merged;
+	QString err;
+	const int code = m_pluginHost->proposeAndConfirmTrajectoryPlan(planIn, merged, &err, showRetry);
+	if (code == 2)
+	{
+		// 返回重选：保留候选会话与当前计划
+		if (m_featureSessionState == FeatureSessionState::Idle)
+			m_featureSessionState = FeatureSessionState::AwaitingSelection;
+		if (m_pluginHost && !m_pendingFeaturePlanJson.isEmpty())
+		{
+			try
+			{
+				const nlohmann::json j =
+					nlohmann::json::parse(m_pendingFeaturePlanJson.constData(), nullptr, true);
+				std::vector<std::string> ids;
+				if (j.contains("selectedCandidateIds") && j["selectedCandidateIds"].is_array())
+				{
+					for (const auto& id : j["selectedCandidateIds"])
+					{
+						if (id.is_string())
+							ids.push_back(id.get<std::string>());
+					}
+				}
+				const QByteArray slice =
+					ids.empty() ? m_pendingCatalogSliceUtf8
+								: filterCatalogSliceByCandidateIds(m_pendingCatalogSliceUtf8, m_pendingCatalogFullUtf8,
+																   ids);
+				(void)m_pluginHost->showAiFeatureCandidatePreview(slice, nullptr);
+			}
+			catch (...)
+			{
+				(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
+			}
+		}
+		else if (m_pluginHost && !m_pendingCatalogSliceUtf8.isEmpty())
+		{
+			(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
+		}
+		m_dock->appendSystemMessage(
+			QStringLiteral("已返回特征选择。可继续「选 N」调整，或再次输入「确认」打开离散对话框。"));
+		return true;
+	}
+	if (code != 1 || merged.isEmpty())
+	{
+		if (m_dock && !err.isEmpty())
+			m_dock->appendSystemMessage(err);
+		else if (m_dock)
+			m_dock->appendSystemMessage(QStringLiteral("已取消离散确认，当前选择仍保留。"));
+		return true;
+	}
+	m_dock->setBusy(true);
+	QString summary;
+	QString commitErr;
+	const bool ok = m_pluginHost->commitAiTrajectoryFeatures(merged, &summary, &commitErr);
+	m_dock->setBusy(false);
+	if (!ok)
+	{
+		const QString msg = commitErr.isEmpty() ? QStringLiteral("离散/提交失败") : commitErr;
+		m_dock->appendAssistantMessage(prefixWithParser(m_pendingFeatureParserVia, msg));
+		emit parseFailed(msg, m_pendingFeatureParserVia);
+		return true;
+	}
+	resetFeatureSession();
+	const QString reply = summary.isEmpty() ? QStringLiteral("轨迹特征已按确认的策略与算子离散。") : summary;
+	m_dock->appendAssistantMessage(prefixWithParser(m_pendingFeatureParserVia, reply));
+	emit assistantFinished(reply, false, m_pendingFeatureParserVia);
+	return true;
+}
+
+bool AiAssistantCoordinator::tryHandleTrajectoryPlanRevise(const QString& text)
+{
+	const QString t = text.trimmed();
+	if (t.isEmpty() || !m_pluginHost || !m_dock)
+		return false;
+	// 仅明确短语，避免「修改参数」等口语误弹离散对话框
+	const bool hit = t.contains(QStringLiteral("修改离散")) || t.contains(QStringLiteral("改离散参数")) ||
+					 t.contains(QStringLiteral("调整离散参数")) || t.contains(QStringLiteral("修改离散参数")) ||
+					 t.contains(QStringLiteral("修改管线算子")) || t.contains(QStringLiteral("改管线算子")) ||
+					 t.contains(QStringLiteral("修改轨迹算子")) || t.contains(QStringLiteral("重新离散参数"));
+	if (!hit)
+		return false;
+	QByteArray plan;
+	QString err;
+	if (!m_pluginHost->loadBoundTrajectoryPlanForAi(plan, &err) || plan.isEmpty())
+	{
+		m_dock->appendAssistantMessage(err.isEmpty() ? QStringLiteral("当前无已绑定的离散结果，请先完成特征离散。")
+													 : err);
+		emit parseFailed(err, QStringLiteral("revise"));
+		return true;
+	}
+	m_dock->appendSystemMessage(QStringLiteral("请在弹出对话框中修改离散策略、参数或管线算子。"));
+	QByteArray merged;
+	const int code = m_pluginHost->proposeAndConfirmTrajectoryPlan(plan, merged, &err, false);
+	if (code != 1 || merged.isEmpty())
+	{
+		m_dock->appendSystemMessage(QStringLiteral("已取消修改。"));
+		return true;
+	}
+	m_dock->setBusy(true);
+	QString summary;
+	QString reviseErr;
+	const bool ok = m_pluginHost->reviseAiTrajectoryPlan(merged, &summary, &reviseErr);
+	m_dock->setBusy(false);
+	if (!ok)
+	{
+		const QString msg = reviseErr.isEmpty() ? QStringLiteral("更新失败") : reviseErr;
+		m_dock->appendAssistantMessage(msg);
+		emit parseFailed(msg, QStringLiteral("revise"));
+		return true;
+	}
+	m_dock->appendAssistantMessage(summary.isEmpty() ? QStringLiteral("已更新离散参数与管线算子。") : summary);
+	emit assistantFinished(summary, false, QStringLiteral("revise"));
+	return true;
 }
 
 bool AiAssistantCoordinator::shouldUseAgentRuntime(const QString& resolvedDomainId) const

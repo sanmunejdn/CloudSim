@@ -3,10 +3,12 @@
 
 #include "BackendFileImport.h"
 
+#include "BackendHierarchyFollow.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
+#include "CustomDeviceBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
@@ -424,6 +426,81 @@ bool registerAdoptedFrameAndLoadScene(DocumentHost& host, const std::shared_ptr<
 			return false;
 		}
 	}
+	return true;
+}
+
+bool registerAdoptedCustomDeviceAndLoadScene(DocumentHost& host,
+											 const std::shared_ptr<CustomDeviceBackendData>& device,
+											 const QString& catalogTypeName, const QString& parentId,
+											 const bool resetViewToHome, QString* outError)
+{
+	if (!device)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("null custom device");
+		}
+		return false;
+	}
+	const QString catalog =
+		catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogCustomDevice) : catalogTypeName;
+	if (!registerAdoptedBackendObject(host, device, QString(), catalog, parentId, outError))
+	{
+		return false;
+	}
+	if (OsgWidget* osg = osgWidgetFrom(host))
+	{
+		QString sceneErr;
+		if (!osg->loadBackendFromBackendData(*device, &sceneErr, resetViewToHome, false, false) && outError)
+		{
+			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG custom device display failed") : sceneErr;
+			return false;
+		}
+	}
+	return true;
+}
+
+bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& deviceId, const std::string& childId,
+									  QString* outError)
+{
+	if (deviceId.empty() || childId.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("empty device or child id");
+		}
+		return false;
+	}
+	if (!host.backend().contains(deviceId) || !host.backend().contains(childId))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("device or child not registered");
+		}
+		return false;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.backend().getData(deviceId));
+	if (!device)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("parent is not CustomDeviceBackendData");
+		}
+		return false;
+	}
+	if (!host.backend().setParent(childId, deviceId))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("setParent failed");
+		}
+		return false;
+	}
+	if (OsgWidget* osg = osgWidgetFrom(host))
+	{
+		osg->setBackendParent(childId, deviceId);
+	}
+	applyHierarchyFollowBinding(host, childId, deviceId);
 	return true;
 }
 

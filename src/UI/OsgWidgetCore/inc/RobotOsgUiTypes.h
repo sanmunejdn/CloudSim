@@ -56,6 +56,10 @@ struct FeatureCatalogOverlayItem
 	bool hasEdgeSegment = false;
 	cloudsim::core::Vec3 edgeAWorldMm{};
 	cloudsim::core::Vec3 edgeBWorldMm{};
+	/// 完整边折线（世界 mm）；优先于 edgeA/B 短线段
+	std::vector<cloudsim::core::Vec3> edgePolylineWorldMm;
+	/// 面三角 soup（世界 mm，每 3 点一三角）；选中后本体高亮
+	std::vector<cloudsim::core::Vec3> faceTrianglesWorldMm;
 };
 
 /// 可达域体素中心（世界 mm）+ 边长

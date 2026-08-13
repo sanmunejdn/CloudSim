@@ -96,7 +96,8 @@ private:
 	int m_generation = 0;
 	int m_maxSteps = 8;
 	int m_planMaxSteps = 8;
-	bool m_autoLowRisk = true;
+	bool m_autoLowRisk = false;
+	bool m_requireKeywordHit = true;
 	bool m_enableTrace = true;
 	bool m_enablePlan = true;
 	bool m_replanOnFailure = true;

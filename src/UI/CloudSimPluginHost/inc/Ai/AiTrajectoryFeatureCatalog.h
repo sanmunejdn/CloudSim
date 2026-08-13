@@ -29,8 +29,8 @@ bool isSelectionFollowUpText(const QString& userText);
 
 bool isAxisClarificationText(const QString& userText, AiFeatureAxis* outAxis);
 
-/// 从全量 catalog 按轴切片，写入 displayIndex 1..N
-QByteArray buildCatalogSliceJson(const geoalgo::FeatureCatalog& catalog, AiFeatureAxis axis, int maxItems = 40);
+/// 从全量 catalog 按轴切片，写入 displayIndex 1..N；maxItems<=0 表示不截断
+QByteArray buildCatalogSliceJson(const geoalgo::FeatureCatalog& catalog, AiFeatureAxis axis, int maxItems = 0);
 
 QString suggestedPipelineTemplateForAxis(AiFeatureAxis axis, const QString& userText);
 

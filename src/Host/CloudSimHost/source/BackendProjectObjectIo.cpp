@@ -12,6 +12,7 @@
 #include "BackendRegistryBuiltins.h"
 #include "BackendTypeIdentity.h"
 #include "BrepBackendData.h"
+#include "CustomDeviceBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "FollowAttachmentComponent.h"
@@ -284,6 +285,10 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 	{
 		visualOk = osg->loadBackendFromBackendData(*frame, &visualErr, true, false, false);
 	}
+	else if (const auto customDevice = std::dynamic_pointer_cast<CustomDeviceBackendData>(backendObject))
+	{
+		visualOk = osg->loadBackendFromBackendData(*customDevice, &visualErr, true, false, false);
+	}
 	else
 	{
 		if (outError)
@@ -475,13 +480,16 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		const bool isCoordinateFrame =
 			backend_type::isCoordinateFrameClassName(classNameUtf8) ||
 			sourceType.compare(QLatin1String(backend_type::kCatalogCoordinateFrame), Qt::CaseInsensitive) == 0;
+		const bool isCustomDevice =
+			backend_type::isCustomDeviceClassName(classNameUtf8) ||
+			sourceType.compare(QLatin1String(backend_type::kCatalogCustomDevice), Qt::CaseInsensitive) == 0;
 
-		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty() && !isCoordinateFrame)
+		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty() && !isCoordinateFrame && !isCustomDevice)
 		{
 			continue;
 		}
 
-		if (hasEmb || isCoordinateFrame)
+		if (hasEmb || isCoordinateFrame || isCustomDevice)
 		{
 			const QString catalogType =
 				sourceType.isEmpty() ? QString::fromStdString(backend_type::catalogTypeFromClassName(classNameUtf8))

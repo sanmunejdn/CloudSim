@@ -90,8 +90,18 @@ public:
 
 	void clearCandidatePreview();
 
-	/// 确认离散：features[] → RawTrajectory + 默认工艺流水线
+	/// 确认离散：features[] → RawTrajectory；有 pipeline[] 则写入 session，否则 recipe 回退
 	bool commitFeaturePlanFromAi(const QByteArray& planJsonUtf8, QString* summary, QString* err);
+
+	/// 补全 defaults → 模态确认对话框；Accepted 时 planOut 为合并结果
+	int proposeAndConfirmTrajectoryPlan(const QByteArray& planInUtf8, QByteArray& planOutUtf8, QString* err,
+										bool showRetry = true);
+
+	/// 从绑定 PathPlan / session 组装 revise 计划 JSON
+	bool loadBoundTrajectoryPlanJson(QByteArray& planOutUtf8, QString* err);
+
+	/// 再编辑：写回特征表 → 重离散 → 更新管线算子
+	bool reviseFeaturePlanFromAi(const QByteArray& planJsonUtf8, QString* summary, QString* err);
 
 	RobotOsgUi::RawTrajectoryPreviewOptions previewOptions() const;
 

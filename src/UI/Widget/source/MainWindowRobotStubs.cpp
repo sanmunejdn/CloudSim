@@ -80,6 +80,54 @@ bool MainWindow::commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJ
 														 outError);
 }
 
+int MainWindow::proposeAndConfirmTrajectoryPlanForAi(const std::string& planInUtf8, std::string* planOutUtf8,
+													 QString* outError, const bool showRetry)
+{
+	if (planOutUtf8)
+		planOutUtf8->clear();
+	if (!m_robotSimulation)
+	{
+		if (outError)
+			*outError = QStringLiteral("机器人仿真未就绪");
+		return 0;
+	}
+	QByteArray out;
+	const int code = m_robotSimulation->proposeAndConfirmTrajectoryPlan(QByteArray::fromStdString(planInUtf8), out,
+																		outError, showRetry);
+	if (planOutUtf8 && code == 1)
+		*planOutUtf8 = out.toStdString();
+	return code;
+}
+
+bool MainWindow::loadBoundTrajectoryPlanForAi(std::string* planOutUtf8, QString* outError)
+{
+	if (planOutUtf8)
+		planOutUtf8->clear();
+	if (!m_robotSimulation)
+	{
+		if (outError)
+			*outError = QStringLiteral("机器人仿真未就绪");
+		return false;
+	}
+	QByteArray out;
+	if (!m_robotSimulation->loadBoundTrajectoryPlanForAi(out, outError))
+		return false;
+	if (planOutUtf8)
+		*planOutUtf8 = out.toStdString();
+	return true;
+}
+
+bool MainWindow::reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QString* outSummary, QString* outError)
+{
+	if (!m_robotSimulation)
+	{
+		if (outError)
+			*outError = QStringLiteral("机器人仿真未就绪");
+		return false;
+	}
+	return m_robotSimulation->reviseAiTrajectoryPlan(QByteArray::fromStdString(planJsonUtf8), outSummary, outError);
+}
+
 void MainWindow::refreshSimulationJointListFromCurrentDoc()
 {
 	if (m_robotSimulation)

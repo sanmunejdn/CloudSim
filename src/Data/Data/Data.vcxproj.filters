@@ -35,6 +35,9 @@
     <Filter Include="inc\HierarchyFollow">
       <UniqueIdentifier>{093AEC51-8755-4B34-A18E-EE3EE1FC5564}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{2BB4EAEB-173D-4805-A1F2-8FE8B42B497D}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\SpatialPrimitive">
       <UniqueIdentifier>{C6A917B8-8A1F-4877-83CE-3EBF03E85A78}</UniqueIdentifier>
     </Filter>
@@ -53,6 +56,9 @@
     </Filter>
     <Filter Include="src\HierarchyFollow">
       <UniqueIdentifier>{4BCB60C5-BC00-4480-B820-08315E9E3605}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{F9AF5E61-75B9-4899-BA2C-2BF54AAEAD74}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\SpatialPrimitive">
       <UniqueIdentifier>{DF2B4B9A-6A37-46E5-BEC3-CFD7BBF8AFB1}</UniqueIdentifier>
@@ -91,6 +97,9 @@
     </ClInclude>
     <ClInclude Include="inc\BrepBackendData.h">
       <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CustomDeviceBackendData.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\data_global.h">
       <Filter>inc\Global</Filter>
@@ -171,6 +180,9 @@
     </ClCompile>
     <ClCompile Include="source\CloudSimCoreExport.cpp">
       <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceBackendData.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\FollowAttachmentComponent.cpp">
       <Filter>src\HierarchyFollow</Filter>

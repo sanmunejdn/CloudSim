@@ -8,7 +8,21 @@
   },
   "parser_priority": ["rules", "local", "remote"],
   "remote_llm": { "enabled": false },
-  "router": { "mode": "explicit_ui" },
+  "router": {
+    "mode": "rules_score",
+    "base_url": "http://127.0.0.1:11434/v1",
+    "local_model": "qwen2.5:3b",
+    "min_score": 2
+  },
+  "agent": {
+    "max_steps": 8,
+    "auto_execute_low_risk": false,
+    "require_keyword_hit": true,
+    "enable_trace": true,
+    "enable_plan": true,
+    "plan_max_steps": 8,
+    "replan_on_failure": true
+  },
   "domains": [
     {
       "id": "mesh.create",

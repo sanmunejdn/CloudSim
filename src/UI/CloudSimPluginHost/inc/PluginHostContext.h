@@ -114,6 +114,11 @@ public:
 	void clearAiFeatureCandidatePreview() override;
 	bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
 									QString* outError = nullptr) override;
+	int proposeAndConfirmTrajectoryPlan(const QByteArray& planInUtf8, QByteArray& planOutUtf8,
+										QString* outError = nullptr, bool showRetry = true) override;
+	bool loadBoundTrajectoryPlanForAi(QByteArray& planOutUtf8, QString* outError = nullptr) override;
+	bool reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* outSummary,
+								QString* outError = nullptr) override;
 
 	IPluginLabelingHost* labelingHost() override;
 	const IPluginLabelingHost* labelingHost() const override;

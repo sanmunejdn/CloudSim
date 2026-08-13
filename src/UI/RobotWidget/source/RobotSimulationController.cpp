@@ -30,6 +30,9 @@
 #include "RobotOsgUiTypes.h"
 #include "RobotProgramExport.h"
 #include "RobotExternalAxes.h"
+#include "CustomDeviceBackendData.h"
+#include "CustomDeviceKinematics.h"
+#include "BackendTypeIds.h"
 #include "RobotCollisionSettingsWidget.h"
 #include "BackendCollisionSync.h"
 #include "CollisionWorld.h"
@@ -829,6 +832,8 @@ void RobotSimulationController::wireSimulationSignals()
 			&RobotSimulationController::onRobotAxisJointAnglesChanged);
 	connect(axis, &RobotAxisControlWidget::externalAxisValuesChanged, this,
 			&RobotSimulationController::onRobotAxisExternalValuesChanged);
+	connect(axis, &RobotAxisControlWidget::controlTargetChanged, this,
+			&RobotSimulationController::onAxisControlTargetChanged);
 	connect(axis, &RobotAxisControlWidget::reachableWorkspaceToggled, this,
 			&RobotSimulationController::onReachableWorkspaceToggled);
 	connect(axis, &RobotAxisControlWidget::reachableWorkspaceDensityChanged, this,
@@ -1132,6 +1137,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		}
 		// ???? setRobotInstances ????????????????? activeProgram ???? backendId ?? QHash ?????????????
 		m_host->simulationCommandPage()->setRobotInstances(labels, backendIds);
+		refreshAxisControlTargets();
 
 		const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
 								? m_host->simulationCommandPage()->currentRobotInstanceIndex()
@@ -1264,6 +1270,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		m_host->simulationCommandPage()->setRevoluteJointNames(QStringList());
 		m_host->simulationCommandPage()->setTcpLinkOptions(QStringList(), QString());
 		m_host->robotAxisControlPage()->clearJoints();
+		refreshAxisControlTargets();
 		// 保留聚合角与 m_syncedRobotSceneBackendIds：空文档切回原机时可对齐；无交集的新机在上方清零
 		m_motionPreviewProgramStartJointRad.clear();
 		m_host->simulationCommandPage()->bindProgramTree();
@@ -2490,6 +2497,7 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 	captureMotionPreviewProgramStartJoints();
 	m_host->invalidateInstructionPropertyCache();
 	refreshRobotCoordinateFrameOverlays();
+	refreshAxisControlTargets();
 }
 
 void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad)
@@ -2497,6 +2505,13 @@ void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<doub
 	if (m_programExecutor.isRunning() || m_tcpDragApplyingIk)
 	{
 		return;
+	}
+	if (RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr)
+	{
+		if (axis->currentControlTarget().kind == AxisControlTargetKind::CustomDevice)
+		{
+			return;
+		}
 	}
 	const bool tcpDragActive = m_host->simulationCommandPage() && m_host->simulationCommandPage()->tcpDragTeachMode();
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
@@ -2539,6 +2554,10 @@ void RobotSimulationController::syncRobotAxisControlExternalAxes(const int insta
 	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	if (!axis || !doc || instanceIndex < 0)
+	{
+		return;
+	}
+	if (axis->currentControlTarget().kind == AxisControlTargetKind::CustomDevice)
 	{
 		return;
 	}
@@ -2758,7 +2777,35 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 		return;
 	}
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
-	if (!doc || !m_host->simulationCommandPage())
+	if (!doc)
+	{
+		return;
+	}
+	RobotAxisControlWidget* axisPage = m_host->robotAxisControlPage();
+	if (axisPage && axisPage->currentControlTarget().kind == AxisControlTargetKind::CustomDevice)
+	{
+		const QString deviceId = axisPage->currentControlTarget().id;
+		const auto device =
+			std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->backend().getData(deviceId.toStdString()));
+		if (!device)
+		{
+			return;
+		}
+		const RobotExternal::RobotExternalAxisConfigSet ext =
+			CustomDeviceKinematics::toExternalAxisConfigSet(device->axes());
+		const std::vector<double> fullQ = fullQFromEnabledValues(ext, values);
+		(void)CustomDeviceKinematics::applyQ(*device, &doc->backend(), doc->poseSink(), &fullQ);
+		if (m_host)
+		{
+			m_host->runFollowSolveAndSyncForCurrentDocument();
+		}
+		if (m_host->osgView())
+		{
+			m_host->osgView()->requestRedraw();
+		}
+		return;
+	}
+	if (!m_host->simulationCommandPage())
 	{
 		return;
 	}
@@ -2768,6 +2815,102 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 		return;
 	}
 	applyAxisControlExternalPose(instIdx, values);
+}
+
+void RobotSimulationController::refreshAxisControlTargets()
+{
+	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!axis || !doc)
+	{
+		return;
+	}
+	QVector<AxisControlTargetItem> targets;
+	const int robotCount = doc->robotKinematicInstanceCount();
+	for (int i = 0; i < robotCount; ++i)
+	{
+		AxisControlTargetItem item;
+		item.kind = AxisControlTargetKind::RobotInstance;
+		item.robotInstanceIndex = i;
+		item.id = doc->robotSceneBackendIdForInstance(i);
+		item.displayLabel = doc->robotDisplayLabelForInstance(i);
+		if (item.displayLabel.isEmpty())
+		{
+			item.displayLabel = QStringLiteral("Robot %1").arg(i + 1);
+		}
+		targets.push_back(item);
+	}
+	for (const auto& obj : doc->backend().findByClass(backend_type::kClassCustomDevice))
+	{
+		if (!obj)
+		{
+			continue;
+		}
+		AxisControlTargetItem item;
+		item.kind = AxisControlTargetKind::CustomDevice;
+		item.id = QString::fromStdString(obj->id());
+		item.displayLabel = QString::fromStdString(obj->name());
+		if (item.displayLabel.isEmpty())
+		{
+			item.displayLabel = item.id;
+		}
+		targets.push_back(item);
+	}
+	axis->setControlTargets(targets);
+}
+
+void RobotSimulationController::onAxisControlTargetChanged(const AxisControlTargetKind kind, const QString& id)
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
+	if (!doc || !axis)
+	{
+		return;
+	}
+	if (kind == AxisControlTargetKind::CustomDevice)
+	{
+		axis->clearJoints();
+		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->backend().getData(id.toStdString()));
+		if (!device)
+		{
+			axis->clearExternalAxes();
+			return;
+		}
+		device->ensureQSize();
+		const RobotExternal::RobotExternalAxisConfigSet ext =
+			CustomDeviceKinematics::toExternalAxisConfigSet(device->axes());
+		axis->setExternalAxes(ext);
+		axis->setExternalAxisValuesSilent(enabledValuesFromFullQ(ext, device->qValues()));
+		return;
+	}
+	int instIdx = -1;
+	for (int i = 0; i < doc->robotKinematicInstanceCount(); ++i)
+	{
+		if (doc->robotSceneBackendIdForInstance(i) == id)
+		{
+			instIdx = i;
+			break;
+		}
+	}
+	if (instIdx < 0 && m_host->simulationCommandPage())
+	{
+		instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	}
+	if (instIdx < 0)
+	{
+		return;
+	}
+	QVector<double> lower;
+	QVector<double> upper;
+	doc->robotJointLimitsForInstance(instIdx, lower, upper);
+	axis->setJoints(doc->robotRevoluteJointNamesForInstance(instIdx), lower, upper);
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (m_aggregatedJointAnglesRad.size() >= jointOffset + nj && nj > 0)
+	{
+		axis->setJointAnglesRadSilent(m_aggregatedJointAnglesRad.mid(jointOffset, nj));
+	}
+	syncRobotAxisControlExternalAxes(instIdx);
 }
 
 void RobotSimulationController::clearReachableWorkspaceOverlayUi()
@@ -7891,4 +8034,38 @@ bool RobotSimulationController::commitAiTrajectoryFeatures(const QByteArray& fea
 		return false;
 	}
 	return m_simulationDock->featureTrajectoryPage()->commitFeaturePlanFromAi(featurePlanJsonUtf8, summary, err);
+}
+
+int RobotSimulationController::proposeAndConfirmTrajectoryPlan(const QByteArray& planIn, QByteArray& planOut,
+															   QString* err, const bool showRetry)
+{
+	if (!m_simulationDock || !m_simulationDock->featureTrajectoryPage())
+	{
+		if (err)
+			*err = QStringLiteral("特征轨迹页不可用");
+		return 0;
+	}
+	return m_simulationDock->featureTrajectoryPage()->proposeAndConfirmTrajectoryPlan(planIn, planOut, err, showRetry);
+}
+
+bool RobotSimulationController::loadBoundTrajectoryPlanForAi(QByteArray& planOut, QString* err)
+{
+	if (!m_simulationDock || !m_simulationDock->featureTrajectoryPage())
+	{
+		if (err)
+			*err = QStringLiteral("特征轨迹页不可用");
+		return false;
+	}
+	return m_simulationDock->featureTrajectoryPage()->loadBoundTrajectoryPlanJson(planOut, err);
+}
+
+bool RobotSimulationController::reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* summary, QString* err)
+{
+	if (!m_simulationDock || !m_simulationDock->featureTrajectoryPage())
+	{
+		if (err)
+			*err = QStringLiteral("特征轨迹页不可用");
+		return false;
+	}
+	return m_simulationDock->featureTrajectoryPage()->reviseFeaturePlanFromAi(planJsonUtf8, summary, err);
 }

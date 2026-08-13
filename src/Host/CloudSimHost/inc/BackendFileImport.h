@@ -12,6 +12,7 @@
 
 class BackendDataBase;
 class BrepBackendData;
+class CustomDeviceBackendData;
 class FrameBackendData;
 class MeshBackendData;
 class PointCloudBackendData;
@@ -55,6 +56,16 @@ CLOUDSIM_HOST_EXPORT bool registerAdoptedFrameAndLoadScene(DocumentHost& host,
 														   const std::shared_ptr<FrameBackendData>& frame,
 														   const QString& catalogTypeName, const QString& parentId,
 														   bool resetViewToHome, QString* outError = nullptr);
+
+/// 注册自定义设备根并加载示意轴
+CLOUDSIM_HOST_EXPORT bool
+registerAdoptedCustomDeviceAndLoadScene(DocumentHost& host, const std::shared_ptr<CustomDeviceBackendData>& device,
+										const QString& catalogTypeName, const QString& parentId, bool resetViewToHome,
+										QString* outError = nullptr);
+
+/// 将子后端挂到自定义设备（Data 父边 + OSG + Follow）
+CLOUDSIM_HOST_EXPORT bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& deviceId,
+														   const std::string& childId, QString* outError = nullptr);
 
 /// 注册点云并加载
 CLOUDSIM_HOST_EXPORT bool

@@ -11,18 +11,35 @@
 
 #include "BackendFileImport.h"
 #include "BackendTypeIds.h"
+#include "CustomDeviceAxisEditorWidget.h"
+#include "CustomDeviceBackendData.h"
+#include "CustomDeviceKinematics.h"
+#include "DocumentImportFacade.h"
 #include "FrameBackendData.h"
+#include "IRobotBackendPoseSink.h"
+#include "IRobotOsgViewHost.h"
+#include "MainWindowRobotHost.h"
+#include "PickTypes.h"
+#include "RobotAxisControlWidget.h"
+#include "RobotSimulationController.h"
 
+#include <cmath>
+#include <memory>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QEventLoop>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QLatin1String>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QStringList>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
@@ -225,6 +242,326 @@ void MainWindow::onCreateCoordinateFrame()
 		m_runInfoPage->appendInfo(
 			i18n(QStringLiteral("Coordinate frame created: %1").arg(name),
 				 QStringLiteral("已创建坐标系：%1").arg(name)));
+	}
+}
+
+void MainWindow::onCreateCustomDevice()
+{
+	cloudsim::host::DocumentHost* host = currentDocumentHost();
+	DocumentPage* page = currentPage();
+	if (!host || !page || !renderWidgetFromPage(page))
+	{
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+			i18n(QStringLiteral("No active document / 3D view."), QStringLiteral("没有活动文档或三维视图。")));
+		return;
+	}
+
+	QDialog dialog(this);
+	dialog.setWindowTitle(i18n(QStringLiteral("Create Custom Device"), QStringLiteral("新建自定义设备")));
+	dialog.setModal(false);
+	dialog.setWindowModality(Qt::NonModal);
+	dialog.resize(420, 560);
+	auto* layout = new QVBoxLayout(&dialog);
+	auto* form = new QFormLayout();
+
+	auto* nameEdit = new QLineEdit(&dialog);
+	nameEdit->setText(i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")));
+
+	auto* modelPathEdit = new QLineEdit(&dialog);
+	modelPathEdit->setReadOnly(true);
+	auto* browseBtn = new QPushButton(i18n(QStringLiteral("Browse…"), QStringLiteral("浏览…")), &dialog);
+	auto* applySceneBtn = new QPushButton(i18n(QStringLiteral("Apply model to scene"), QStringLiteral("应用模型到场景")), &dialog);
+	auto* pathRow = new QHBoxLayout;
+	pathRow->addWidget(modelPathEdit, 1);
+	pathRow->addWidget(browseBtn);
+
+	auto* axisEditor = new CustomDeviceAxisEditorWidget(&dialog);
+	axisEditor->setUseChinese(m_useChinese);
+
+	form->addRow(i18n(QStringLiteral("Name"), QStringLiteral("名称")), nameEdit);
+	form->addRow(i18n(QStringLiteral("Model"), QStringLiteral("模型")), pathRow);
+	layout->addLayout(form);
+	layout->addWidget(applySceneBtn);
+	layout->addWidget(axisEditor, 1);
+
+	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+	layout->addWidget(buttons);
+
+	struct SceneState
+	{
+		std::shared_ptr<CustomDeviceBackendData> device;
+		QString childRootId;
+		bool attached = false;
+		bool picking = false;
+	};
+	auto state = std::make_shared<SceneState>();
+
+	auto cleanupPick = [this, state]()
+	{
+		if (!state->picking)
+		{
+			return;
+		}
+		state->picking = false;
+		if (m_robotHost)
+		{
+			m_robotHost->clearMeshPickCommittedHandler();
+			if (IRobotOsgViewHost* osg = m_robotHost->osgView())
+			{
+				osg->setMeshFacePickMode(false);
+				osg->setMeshPickScopeBackendId(std::string());
+			}
+		}
+	};
+
+	auto ensureSceneReady = [&](QString* outErr) -> bool
+	{
+		QString name = nameEdit->text().trimmed();
+		if (name.isEmpty())
+		{
+			name = i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备"));
+		}
+		const QString modelPath = modelPathEdit->text().trimmed();
+		if (modelPath.isEmpty())
+		{
+			if (outErr)
+			{
+				*outErr = i18n(QStringLiteral("Please select a model file."), QStringLiteral("请选择模型文件。"));
+			}
+			return false;
+		}
+		if (!state->device)
+		{
+			state->device = std::make_shared<CustomDeviceBackendData>();
+			state->device->setName(name.toStdString());
+			QString err;
+			if (!cloudsim::host::registerAdoptedCustomDeviceAndLoadScene(
+					*host, state->device, QLatin1String(backend_type::kCatalogCustomDevice), QString(), false, &err))
+			{
+				if (outErr)
+				{
+					*outErr = err.isEmpty() ? i18n(QStringLiteral("Failed to create device."),
+												   QStringLiteral("创建设备失败。"))
+											: err;
+				}
+				state->device.reset();
+				return false;
+			}
+		}
+		else
+		{
+			state->device->setName(name.toStdString());
+		}
+		if (!state->attached)
+		{
+			cloudsim::core::ImportOptionsDto opt;
+			opt.resetViewToHome = false;
+			QString importErr;
+			const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
+				*host, modelPath, cloudsim::host::ImportFileKind::Mesh, opt, &importErr);
+			if (!imported.ok || imported.rootBackendId.isEmpty())
+			{
+				if (outErr)
+				{
+					*outErr = importErr.isEmpty() ? i18n(QStringLiteral("Model import failed."),
+														 QStringLiteral("模型导入失败。"))
+												  : importErr;
+				}
+				return false;
+			}
+			QString err;
+			if (!cloudsim::host::attachBackendChildToCustomDevice(*host, state->device->id(),
+																 imported.rootBackendId.toStdString(), &err))
+			{
+				if (outErr)
+				{
+					*outErr = err.isEmpty() ? i18n(QStringLiteral("Failed to attach model to device."),
+												   QStringLiteral("挂接模型到设备失败。"))
+											: err;
+				}
+				return false;
+			}
+			state->childRootId = imported.rootBackendId;
+			state->attached = true;
+			state->device->captureBaseWorldW0FromCurrentWorld();
+			IRobotBackendPoseSink* sink = page->urdfImportScenePoseSink();
+			(void)CustomDeviceKinematics::applyQ(*state->device, &host->backend(), sink);
+			page->markFollowAttachmentDirtyFromBackendMove(QString::fromStdString(state->device->id()));
+			if (m_robotHost)
+			{
+				m_robotHost->runFollowSolveAndSyncForCurrentDocument();
+			}
+			refreshBackendTree();
+		}
+		return true;
+	};
+
+	QObject::connect(browseBtn, &QPushButton::clicked, &dialog, [&]()
+	{
+		const QString filter = QStringLiteral(
+			"Model Files (*.obj *.stl *.ply *.off *.dxf *.step *.stp *.igs *.iges);;All Files (*.*)");
+		const QString path = QFileDialog::getOpenFileName(
+			&dialog, i18n(QStringLiteral("Select Model"), QStringLiteral("选择模型")), QString(), filter);
+		if (!path.isEmpty())
+		{
+			modelPathEdit->setText(path);
+		}
+	});
+
+	QObject::connect(applySceneBtn, &QPushButton::clicked, &dialog, [&]()
+	{
+		QString err;
+		if (!ensureSceneReady(&err))
+		{
+			QMessageBox::warning(&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
+			return;
+		}
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendInfo(i18n(QStringLiteral("Custom device model applied to scene."),
+										   QStringLiteral("已将自定义设备模型应用到场景。")));
+		}
+	});
+
+	QObject::connect(axisEditor, &CustomDeviceAxisEditorWidget::pickOriginRequested, &dialog, [&]()
+	{
+		if (!axisEditor->currentAxisIsRotate())
+		{
+			QMessageBox::information(&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+									 i18n(QStringLiteral("Pick origin is only for rotate axes."),
+										  QStringLiteral("拾取中心仅用于旋转轴。")));
+			return;
+		}
+		QString err;
+		if (!ensureSceneReady(&err))
+		{
+			QMessageBox::warning(&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
+			return;
+		}
+		if (!m_robotHost)
+		{
+			return;
+		}
+		IRobotOsgViewHost* osg = m_robotHost->osgView();
+		if (!osg || !state->device)
+		{
+			return;
+		}
+		cleanupPick();
+		state->picking = true;
+		if (!state->childRootId.isEmpty())
+		{
+			osg->setMeshPickScopeBackendId(state->childRootId.toStdString());
+		}
+		osg->setMeshFacePickMode(true);
+		m_robotHost->setMeshPickCommittedHandler([this, state, axisEditor, cleanupPick](const PickResult& pick,
+																					   const PickKind kind)
+		{
+			if (!state->picking || kind != PickKind::MeshFace || !pick.hit || !state->device)
+			{
+				cleanupPick();
+				return;
+			}
+			state->device->captureBaseWorldW0FromCurrentWorld();
+			double local[3]{};
+			if (!CustomDeviceKinematics::worldPointToDeviceLocalMm(
+					state->device->baseWorldW0(), static_cast<double>(pick.worldPoint.x()),
+					static_cast<double>(pick.worldPoint.y()), static_cast<double>(pick.worldPoint.z()), local))
+			{
+				cleanupPick();
+				return;
+			}
+			axisEditor->applyPickedOriginLocalMm(local[0], local[1], local[2]);
+			if (axisEditor->useNormalAsAxis())
+			{
+				double dir[3]{};
+				if (CustomDeviceKinematics::worldDirectionToDeviceLocal(
+						state->device->baseWorldW0(), static_cast<double>(pick.meshNormalWorld.x()),
+						static_cast<double>(pick.meshNormalWorld.y()), static_cast<double>(pick.meshNormalWorld.z()),
+						dir))
+				{
+					axisEditor->applyPickedAxisDirection(dir[0], dir[1], dir[2]);
+				}
+			}
+			cleanupPick();
+			if (m_runInfoPage)
+			{
+				m_runInfoPage->appendInfo(
+					i18n(QStringLiteral("Rotation origin picked."), QStringLiteral("已拾取旋转中心。")));
+			}
+		});
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendInfo(
+				i18n(QStringLiteral("Click a mesh face to set rotation origin."),
+					 QStringLiteral("请在模型面上点击以设置旋转中心。")));
+		}
+	});
+
+	QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+	QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+	QObject::connect(&dialog, &QDialog::finished, &dialog, [&](int) { cleanupPick(); });
+
+	dialog.show();
+	QEventLoop loop;
+	QObject::connect(&dialog, &QDialog::finished, &loop, &QEventLoop::quit);
+	loop.exec();
+	cleanupPick();
+	if (dialog.result() != QDialog::Accepted)
+	{
+		return;
+	}
+
+	QString err;
+	if (!ensureSceneReady(&err))
+	{
+		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
+		return;
+	}
+	if (!state->device)
+	{
+		return;
+	}
+
+	CustomDeviceAxisConfigSet set = axisEditor->axes();
+	if (set.axes.empty())
+	{
+		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+							 i18n(QStringLiteral("Add at least one axis."), QStringLiteral("请至少添加一个轴。")));
+		return;
+	}
+	std::vector<double> homes;
+	homes.reserve(set.axes.size());
+	for (const CustomDeviceAxisConfig& a : set.axes)
+	{
+		homes.push_back(a.home);
+	}
+	state->device->setAxes(set);
+	state->device->setQValues(homes);
+	state->device->captureBaseWorldW0FromCurrentWorld();
+	IRobotBackendPoseSink* sink = page->urdfImportScenePoseSink();
+	(void)CustomDeviceKinematics::applyQ(*state->device, &host->backend(), sink);
+	page->markFollowAttachmentDirtyFromBackendMove(QString::fromStdString(state->device->id()));
+	if (m_robotHost)
+	{
+		m_robotHost->runFollowSolveAndSyncForCurrentDocument();
+	}
+	refreshBackendTree();
+	focusBackendInTreeAfterImport(QString::fromStdString(state->device->id()));
+	if (m_robotSimulation)
+	{
+		m_robotSimulation->refreshAxisControlTargets();
+		if (RobotAxisControlWidget* axis = m_robotHost ? m_robotHost->robotAxisControlPage() : nullptr)
+		{
+			axis->selectControlTarget(AxisControlTargetKind::CustomDevice, QString::fromStdString(state->device->id()));
+		}
+	}
+	const QString name = QString::fromStdString(state->device->name());
+	if (m_runInfoPage)
+	{
+		m_runInfoPage->appendInfo(
+			i18n(QStringLiteral("Custom device created: %1").arg(name), QStringLiteral("已创建自定义设备：%1").arg(name)));
 	}
 }
 

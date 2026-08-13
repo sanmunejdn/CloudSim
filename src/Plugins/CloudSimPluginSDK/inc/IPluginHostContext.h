@@ -211,6 +211,13 @@ public:
 	/// 1.43.0+：Parametric Body 特征史变更（AI/Host 写入后；插件可 sync 特征树）
 	virtual void onParametricBodyHistoryChanged(
 		std::function<void(const QString& documentId, const QString& backendId)> callback) = 0;
+
+	/// 1.51.0+：补全计划并弹出策略/算子确认框；返回 1=接受 0=取消 2=重新识别
+	virtual int proposeAndConfirmTrajectoryPlan(const QByteArray& planInUtf8, QByteArray& planOutUtf8,
+												QString* outError = nullptr, bool showRetry = true) = 0;
+	virtual bool loadBoundTrajectoryPlanForAi(QByteArray& planOutUtf8, QString* outError = nullptr) = 0;
+	virtual bool reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* outSummary,
+										QString* outError = nullptr) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

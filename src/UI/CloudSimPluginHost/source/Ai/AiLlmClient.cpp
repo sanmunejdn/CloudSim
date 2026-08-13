@@ -123,12 +123,12 @@ QString trajectoryFeatureSystemPrompt()
 	return QStringLiteral(
 		"你是 STEP 工件轨迹特征助手。用户会提供 feature catalog 切片（含 displayIndex、candidateId、summary）和意图。"
 		"仅回复一个 JSON 对象，不要 markdown：\n"
-		"{\"version\":1,\"featureAxis\":\"line|surface|ambiguous\",\"clarifyMessage\":\"可选\","
+		"{\"version\":2,\"featureAxis\":\"line|surface|ambiguous\",\"clarifyMessage\":\"可选\","
 		"\"selectedCandidateIds\":[\"edge_0\"],"
-		"\"features\":[{\"schemaVersion\":1,\"featureId\":\"...\",\"kind\":\"EdgeChain|FaceBoundary|FaceUVGrid\","
-		"\"workpiece\":{\"backendIdUtf8\":\"...\",\"stepPathUtf8\":\"...\"},"
-		"\"refs\":{...},\"discretize\":{\"stepMm\":5.0,\"linearDeflectionMm\":0.01}}],"
+		"\"features\":[{\"featureId\":\"...\",\"strategyId\":\"EdgeChain|FaceBoundary|FaceSection\","
+		"\"params\":{\"stepMm\":2.0}}],"
 		"\"suggestedPipelineTemplate\":\"weld_default|glue_default|grind_default\"}\n"
+		"strategyId/params 可省略，宿主会按策略默认补全；pipeline 由用户在确认对话框编辑。"
 		"若无法判断线/面特征，featureAxis=ambiguous 并填写 clarifyMessage。"
 		"selectedCandidateIds 必须从 catalog 的 candidateId 选取。");
 }
@@ -756,6 +756,62 @@ PlanJsonResult chatPlanJson(const QString& userText, const AiLlmConfig& config, 
 				step.rationale = QString::fromStdString(st["rationale"].get<std::string>());
 			out.plan.steps.append(step);
 		}
+	}
+	out.ok = true;
+	if (progress)
+		progress(1.0, QString());
+	return out;
+}
+
+TextChatResult chatText(const QString& systemPrompt, const QString& userText, const AiLlmConfig& config,
+						const AiProgressSink& progress)
+{
+	TextChatResult out;
+	if (!config.enabled || config.baseUrl.trimmed().isEmpty() || config.model.trimmed().isEmpty())
+	{
+		out.errorMessage = QStringLiteral("LLM 未配置。");
+		return out;
+	}
+	if (progress)
+		progress(0.2, QStringLiteral("Intent classify..."));
+
+	const QString authKey = resolveApiKey(config).isEmpty() ? QStringLiteral("ollama") : resolveApiKey(config);
+	nlohmann::json body;
+	body["model"] = config.model.toStdString();
+	body["temperature"] = config.temperature;
+	body["messages"] = nlohmann::json::array({
+		{{"role", "system"}, {"content", systemPrompt.toStdString()}},
+		{{"role", "user"}, {"content", userText.toStdString()}},
+	});
+	const QUrl url(chatCompletionsUrl(config.baseUrl));
+	const QByteArray payload = QByteArray::fromStdString(body.dump());
+	QList<QPair<QByteArray, QByteArray>> headers;
+	headers.append(qMakePair(QByteArray("Authorization"), QByteArray("Bearer ") + authKey.toUtf8()));
+	QByteArray raw;
+	QString httpErr;
+	if (!AiHttpsPost::post(url, payload, headers, raw, httpErr, config.timeoutMs))
+	{
+		out.errorMessage = httpErr;
+		return out;
+	}
+	try
+	{
+		const nlohmann::json resp = nlohmann::json::parse(raw.constData(), nullptr, true);
+		if (resp.contains("choices") && resp["choices"].is_array() && !resp["choices"].empty())
+		{
+			const auto& msg = resp["choices"][0].value("message", nlohmann::json::object());
+			out.assistantText = QString::fromStdString(msg.value("content", std::string()));
+		}
+	}
+	catch (...)
+	{
+		out.errorMessage = QStringLiteral("Invalid JSON from LLM API.");
+		return out;
+	}
+	if (out.assistantText.trimmed().isEmpty())
+	{
+		out.errorMessage = QStringLiteral("空回复。");
+		return out;
 	}
 	out.ok = true;
 	if (progress)

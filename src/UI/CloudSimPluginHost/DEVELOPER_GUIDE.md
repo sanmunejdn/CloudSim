@@ -278,7 +278,7 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 | API | 职责 |
 |-----|------|
 | `inferFeatureAxisFromText` | 线 / 面 / ambiguous |
-| `buildCatalogSliceJson` | 全量 catalog 按轴切片，写入 `displayIndex` 1..N |
+| `buildCatalogSliceJson` | 全量 catalog 按轴切片，写入 `displayIndex` 1..N（默认不截断；可传 maxItems） |
 | `tryParseTrajectoryFeatureRules` | rules 路径：`suggestFeaturesFromCatalog` 或前 8 项回退 |
 | `parseDisplayIndexSelection` | 「选 1 和 3」→ `candidateId[]` |
 | `buildFeaturePlanFromCandidateIds` | 编号 → 完整 `features[]` 计划 |
@@ -290,6 +290,8 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 | `resolveTrajectoryWorkpiece` | `MainWindow::resolveTrajectoryWorkpieceForAi` |
 | `buildTrajectoryFeatureCatalogSlice` | `PluginHostContext` → OCCT `enumerateFeatureCatalog` + 切片 |
 | `showAiFeatureCandidatePreview` | → `FeatureTrajectoryPageWidget::buildAndShowCandidatePreview`（overlay 坐标经 `feature_pick_transform` + `IRobotOsgViewHost` pick alias / skip-rebase） |
-| `commitAiTrajectoryFeatures` | → `commitFeaturePlanFromAi`（离散 + 默认 pipeline） |
+| `commitAiTrajectoryFeatures` | → `commitFeaturePlanFromAi`（离散 + `pipeline[]` 或 recipe 回退） |
+| `proposeAndConfirmTrajectoryPlan` | enrich + `TrajectoryPlanConfirmDialog` |
+| `loadBoundTrajectoryPlanForAi` / `reviseAiTrajectoryPlan` | 已作用再编辑 |
 
 ---

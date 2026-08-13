@@ -29,6 +29,9 @@
     <Filter Include="inc\Interfaces">
       <UniqueIdentifier>{4290FB7E-74AB-4481-BDCF-BEED447170BF}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{86564E88-40A5-4A8E-9BBD-BA8288D87807}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\RobotSettings">
       <UniqueIdentifier>{579B9504-C857-48F2-A23C-CE5A3A3E531C}</UniqueIdentifier>
     </Filter>
@@ -47,6 +50,9 @@
     </Filter>
     <Filter Include="src\Instructions">
       <UniqueIdentifier>{8CD441FB-F260-4BE4-9264-FDF0C5FE726E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{EDCE3DC3-8326-4DF7-8C2A-C1EFA740B876}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\RobotSettings">
       <UniqueIdentifier>{3CC05A63-567C-4612-BEB7-A329E98FE756}</UniqueIdentifier>
@@ -83,6 +89,9 @@
     <ClInclude Include="inc\MeshTriangleSelectionUtil.h">
       <Filter>inc\FeatureTrajectory</Filter>
     </ClInclude>
+    <ClInclude Include="inc\PipelineDraftEditStack.h">
+      <Filter>inc\TrajectoryUi</Filter>
+    </ClInclude>
     <ClInclude Include="inc\PlanResultCache.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
@@ -114,9 +123,6 @@
       <Filter>inc\TrajectoryUi</Filter>
     </ClInclude>
     <ClInclude Include="inc\UserTemplateLibrary.h">
-      <Filter>inc\TrajectoryUi</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PipelineDraftEditStack.h">
       <Filter>inc\TrajectoryUi</Filter>
     </ClInclude>
   </ItemGroup>
@@ -151,6 +157,9 @@
     <ClCompile Include="source\BrandProgramExportDialog.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
+    <ClCompile Include="source\CustomDeviceAxisEditorWidget.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\DevicePageWidget.cpp">
       <Filter>src\RobotSettings</Filter>
     </ClCompile>
@@ -177,6 +186,9 @@
     </ClCompile>
     <ClCompile Include="source\MeshTriangleSelectionUtil.cpp">
       <Filter>src\FeatureTrajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PipelineDraftEditStack.cpp">
+      <Filter>src\TrajectoryUi</Filter>
     </ClCompile>
     <ClCompile Include="source\PlanResultCache.cpp">
       <Filter>src\Instructions</Filter>
@@ -259,16 +271,19 @@
     <ClCompile Include="source\TrajectoryPipelineListWidget.cpp">
       <Filter>src\TrajectoryUi</Filter>
     </ClCompile>
-    <ClCompile Include="source\UserTemplateLibrary.cpp">
-      <Filter>src\TrajectoryUi</Filter>
+    <ClCompile Include="source\TrajectoryPlanConfirmDialog.cpp">
+      <Filter>src\FeatureTrajectory</Filter>
     </ClCompile>
-    <ClCompile Include="source\PipelineDraftEditStack.cpp">
+    <ClCompile Include="source\UserTemplateLibrary.cpp">
       <Filter>src\TrajectoryUi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="inc\BrandProgramExportDialog.h">
       <Filter>inc\Instructions</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\CustomDeviceAxisEditorWidget.h">
+      <Filter>inc\Other</Filter>
     </QtMoc>
     <QtMoc Include="inc\DevicePageWidget.h">
       <Filter>inc\RobotSettings</Filter>
@@ -332,6 +347,9 @@
     </QtMoc>
     <QtMoc Include="inc\TrajectoryPipelineListWidget.h">
       <Filter>inc\TrajectoryUi</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\TrajectoryPlanConfirmDialog.h">
+      <Filter>inc\FeatureTrajectory</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

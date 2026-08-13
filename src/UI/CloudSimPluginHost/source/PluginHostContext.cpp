@@ -1279,6 +1279,52 @@ bool PluginHostContext::commitAiTrajectoryFeatures(const QByteArray& featurePlan
 		outError);
 }
 
+int PluginHostContext::proposeAndConfirmTrajectoryPlan(const QByteArray& planInUtf8, QByteArray& planOutUtf8,
+													   QString* outError, const bool showRetry)
+{
+	planOutUtf8.clear();
+	if (!m_mainWindowHost)
+	{
+		if (outError)
+			*outError = QStringLiteral("主窗口未就绪");
+		return 0;
+	}
+	std::string out;
+	const int code = m_mainWindowHost->proposeAndConfirmTrajectoryPlanForAi(
+		std::string(planInUtf8.constData(), static_cast<std::size_t>(planInUtf8.size())), &out, outError, showRetry);
+	if (code == 1)
+		planOutUtf8 = QByteArray::fromStdString(out);
+	return code;
+}
+
+bool PluginHostContext::loadBoundTrajectoryPlanForAi(QByteArray& planOutUtf8, QString* outError)
+{
+	planOutUtf8.clear();
+	if (!m_mainWindowHost)
+	{
+		if (outError)
+			*outError = QStringLiteral("主窗口未就绪");
+		return false;
+	}
+	std::string out;
+	if (!m_mainWindowHost->loadBoundTrajectoryPlanForAi(&out, outError))
+		return false;
+	planOutUtf8 = QByteArray::fromStdString(out);
+	return true;
+}
+
+bool PluginHostContext::reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* outSummary, QString* outError)
+{
+	if (!m_mainWindowHost)
+	{
+		if (outError)
+			*outError = QStringLiteral("主窗口未就绪");
+		return false;
+	}
+	return m_mainWindowHost->reviseAiTrajectoryPlanForAi(
+		std::string(planJsonUtf8.constData(), static_cast<std::size_t>(planJsonUtf8.size())), outSummary, outError);
+}
+
 bool PluginHostContext::useChinese() const
 {
 	return m_mainWindowHost && m_mainWindowHost->useChinese();

@@ -1096,7 +1096,13 @@ void OsgWidget::setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCa
 		row.hasEdgeSegment = item.hasEdgeSegment;
 		row.edgeAWorldMm = osgVec3FromCore(item.edgeAWorldMm);
 		row.edgeBWorldMm = osgVec3FromCore(item.edgeBWorldMm);
-		converted.push_back(row);
+		row.edgePolylineWorldMm.reserve(item.edgePolylineWorldMm.size());
+		for (const cloudsim::core::Vec3& p : item.edgePolylineWorldMm)
+			row.edgePolylineWorldMm.push_back(osgVec3FromCore(p));
+		row.faceTrianglesWorldMm.reserve(item.faceTrianglesWorldMm.size());
+		for (const cloudsim::core::Vec3& p : item.faceTrianglesWorldMm)
+			row.faceTrianglesWorldMm.push_back(osgVec3FromCore(p));
+		converted.push_back(std::move(row));
 	}
 	OsgScene::setFeatureCatalogOverlay(converted);
 }

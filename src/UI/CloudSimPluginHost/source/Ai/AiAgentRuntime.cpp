@@ -111,6 +111,7 @@ void AiAgentRuntime::runTurnAsync(const AiInferenceRequest& request, const AiCon
 	m_maxSteps = std::max(1, config.agent.maxSteps);
 	m_planMaxSteps = std::max(1, config.agent.planMaxSteps);
 	m_autoLowRisk = config.agent.autoExecuteLowRisk;
+	m_requireKeywordHit = config.agent.requireKeywordHit;
 	m_enableTrace = config.agent.enableTrace;
 	m_enablePlan = config.agent.enablePlan;
 	m_replanOnFailure = config.agent.replanOnFailure;
@@ -350,10 +351,11 @@ bool AiAgentRuntime::tryBuildInitialPlan(QString* via)
 	in.sceneSnapshotUtf8 = m_snapshot;
 	in.sessionSummaryUtf8 = AiAgentMemory::sessionSummaryUtf8();
 	in.maxSteps = std::min(m_maxSteps, m_planMaxSteps);
-	in.enableLlmPlan = true;
+	// 无 keyword 策略下禁止 LLM 编造步骤；场景/工艺规则与多 keyword 仍可用
+	in.enableLlmPlan = m_enablePlan && !m_requireKeywordHit;
 	if (const AiDomainModelConfig* dm = findDomainConfig(domain))
 	{
-		in.llm.enabled = true;
+		in.llm.enabled = in.enableLlmPlan;
 		in.llm.baseUrl = dm->baseUrl;
 		in.llm.model = dm->model;
 		in.llm.timeoutMs = 120000;
@@ -390,10 +392,10 @@ bool AiAgentRuntime::tryReplanAfterFailure(const QString& failureObservation)
 	in.sceneSnapshotUtf8 = m_snapshot;
 	in.sessionSummaryUtf8 = AiAgentMemory::sessionSummaryUtf8();
 	in.maxSteps = std::min(m_maxSteps - m_step, m_planMaxSteps);
-	in.enableLlmPlan = true;
+	in.enableLlmPlan = m_enablePlan && !m_requireKeywordHit;
 	if (const AiDomainModelConfig* dm = findDomainConfig(domain))
 	{
-		in.llm.enabled = true;
+		in.llm.enabled = in.enableLlmPlan;
 		in.llm.baseUrl = dm->baseUrl;
 		in.llm.model = dm->model;
 		in.llm.timeoutMs = 120000;
@@ -714,6 +716,18 @@ bool AiAgentRuntime::proposeNextTool(QString* toolId, QByteArray* argsJson, QStr
 		if (toolCallId)
 			toolCallId->clear();
 		return true;
+	}
+
+	// 无可靠 keyword：不猜工具；场景/工艺规则规划仍可走 hasPlanRemaining
+	if (m_requireKeywordHit)
+	{
+		if (via)
+		{
+			*via = QStringLiteral(
+				"未匹配到可靠的按钮关键词，未自动调用工具。\n"
+				"请改用 Dock 按钮原文（如「体素下采样」「点云匹配」），或先选择领域后再描述。");
+		}
+		return false;
 	}
 
 	const AiDomainModelConfig* dm = findDomainConfig(domain);

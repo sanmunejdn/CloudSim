@@ -40,6 +40,7 @@
 #include <osg/NodeCallback>
 #include <osg/NodeVisitor>
 #include <osg/Point>
+#include <osg/PolygonOffset>
 #include <osg/PrimitiveSet>
 #include <osg/Shape>
 #include <osg/ShapeDrawable>
@@ -2324,6 +2325,57 @@ osg::ref_ptr<osg::Geode> makeFeatureOverlayLine(const osg::Vec3f& a, const osg::
 	return geode;
 }
 
+osg::ref_ptr<osg::Geode> makeFeatureOverlayPolyline(const std::vector<osg::Vec3f>& pts, const osg::Vec4& color,
+													float width)
+{
+	if (pts.size() < 2)
+		return {};
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	verts->assign(pts.begin(), pts.end());
+	geom->setVertexArray(verts.get());
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(color);
+	geom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(pts.size())));
+	geode->addDrawable(geom.get());
+	osg::StateSet* ss = geode->getOrCreateStateSet();
+	ss->setAttribute(new osg::LineWidth(width));
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+	ss->setRenderBinDetails(11, "RenderBin");
+	return geode;
+}
+
+osg::ref_ptr<osg::Geode> makeFeatureOverlayFaceSoup(const std::vector<osg::Vec3f>& triVerts, const osg::Vec4& color)
+{
+	if (triVerts.size() < 3 || (triVerts.size() % 3U) != 0U)
+		return {};
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	verts->assign(triVerts.begin(), triVerts.end());
+	geom->setVertexArray(verts.get());
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(color);
+	geom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(triVerts.size())));
+	geode->addDrawable(geom.get());
+	osg::StateSet* ss = geode->getOrCreateStateSet();
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	// 选中面高亮需始终可见，不被工件本体遮挡
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setAttributeAndModes(new osg::Depth(osg::Depth::ALWAYS, 0.0, 1.0, false),
+							 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	ss->setRenderBinDetails(11, "RenderBin");
+	return geode;
+}
+
 void spreadFeatureCatalogLabels(std::vector<OsgScene::FeatureCatalogOverlayItem>& items)
 {
 	if (items.empty())
@@ -2349,122 +2401,30 @@ void spreadFeatureCatalogLabels(std::vector<OsgScene::FeatureCatalogOverlayItem>
 	const float diag = extent.length();
 	const float leaderLen = std::max(48.0f, diag * 0.2f);
 	const float minSep = std::max(40.0f, diag * 0.16f);
-	const float maxLeaderLen = leaderLen * 1.75f;
+	const float maxLeaderLen = leaderLen * 2.4f;
 
-	auto clampLeader = [&](OsgScene::FeatureCatalogOverlayItem& it)
+	std::vector<osg::Vec3f> preferredDirs(items.size());
+	for (std::size_t i = 0; i < items.size(); ++i)
 	{
-		osg::Vec3f lead = it.labelWorldMm - it.anchorWorldMm;
-		const float len = lead.length();
-		if (len > maxLeaderLen && len > 1e-4f)
-		{
-			it.labelWorldMm = it.anchorWorldMm + lead * (maxLeaderLen / len);
-		}
-	};
-
-	if (items.size() == 1)
-	{
-		osg::Vec3f dir = items[0].labelWorldMm - items[0].anchorWorldMm;
+		osg::Vec3f dir = items[i].labelWorldMm - items[i].anchorWorldMm;
 		if (dir.length2() < 1e-6f)
 		{
-			dir = items[0].anchorWorldMm - centroid;
+			dir = items[i].anchorWorldMm - centroid;
 		}
 		if (dir.length2() < 1e-6f)
 		{
 			dir.set(1.0f, 0.0f, 0.0f);
 		}
 		dir.normalize();
-		items[0].labelWorldMm = items[0].anchorWorldMm + dir * leaderLen;
-		return;
+		preferredDirs[i] = dir;
+		items[i].labelWorldMm = items[i].anchorWorldMm + dir * leaderLen;
 	}
 
-	int axisA = 0;
-	int axisB = 1;
-	if (extent.y() >= extent.x() && extent.y() >= extent.z())
+	auto clampToPreferred = [&](OsgScene::FeatureCatalogOverlayItem& it, const osg::Vec3f& preferred, float len)
 	{
-		axisA = 0;
-		axisB = 2;
-	}
-	else if (extent.z() >= extent.x() && extent.z() >= extent.y())
-	{
-		axisA = 0;
-		axisB = 1;
-	}
-
-	struct LayoutSlot
-	{
-		std::size_t itemIndex = 0;
-		osg::Vec3f anchor;
-		float angle = 0.0f;
+		const float useLen = std::min(std::max(len, leaderLen * 0.75f), maxLeaderLen);
+		it.labelWorldMm = it.anchorWorldMm + preferred * useLen;
 	};
-
-	std::vector<LayoutSlot> slots;
-	slots.reserve(items.size());
-	for (std::size_t i = 0; i < items.size(); ++i)
-	{
-		osg::Vec3f outward = items[i].anchorWorldMm - centroid;
-		if (outward.length2() < 1e-8f)
-		{
-			outward.set(1.0f, 0.0f, 0.0f);
-		}
-		outward.normalize();
-		LayoutSlot slot;
-		slot.itemIndex = i;
-		slot.anchor = items[i].anchorWorldMm;
-		const float compA = axisA == 0 ? outward.x() : (axisA == 1 ? outward.y() : outward.z());
-		const float compB = axisB == 0 ? outward.x() : (axisB == 1 ? outward.y() : outward.z());
-		slot.angle = std::atan2(compB, compA);
-		slots.push_back(slot);
-	}
-
-	std::sort(slots.begin(), slots.end(),
-			  [](const LayoutSlot& lhs, const LayoutSlot& rhs) { return lhs.angle < rhs.angle; });
-
-	const float twoPi = 6.28318530718f;
-	const float slotCount = static_cast<float>(slots.size());
-	for (std::size_t k = 0; k < slots.size(); ++k)
-	{
-		const float targetAngle = twoPi * static_cast<float>(k) / slotCount;
-		osg::Vec3f dir(0.0f, 0.0f, 0.0f);
-		if (axisA == 0)
-		{
-			dir.x() = std::cos(targetAngle);
-		}
-		else if (axisA == 1)
-		{
-			dir.y() = std::cos(targetAngle);
-		}
-		else
-		{
-			dir.z() = std::cos(targetAngle);
-		}
-		if (axisB == 0)
-		{
-			dir.x() = std::sin(targetAngle);
-		}
-		else if (axisB == 1)
-		{
-			dir.y() = std::sin(targetAngle);
-		}
-		else
-		{
-			dir.z() = std::sin(targetAngle);
-		}
-
-		osg::Vec3f localOut = slots[k].anchor - centroid;
-		if (localOut.length2() > 1e-8f)
-		{
-			localOut.normalize();
-			dir = dir * 0.5f + localOut * 0.5f;
-			dir.normalize();
-		}
-		else
-		{
-			dir.normalize();
-		}
-
-		const float ring = (k % 3 == 2) ? 1.4f : ((k % 3 == 1) ? 1.2f : 1.0f);
-		items[slots[k].itemIndex].labelWorldMm = slots[k].anchor + dir * leaderLen * ring;
-	}
 
 	for (int pass = 0; pass < 24; ++pass)
 	{
@@ -2478,12 +2438,12 @@ void spreadFeatureCatalogLabels(std::vector<OsgScene::FeatureCatalogOverlayItem>
 				{
 					continue;
 				}
-				delta /= dist;
-				const float push = (minSep - dist) * 0.7f;
-				items[i].labelWorldMm -= delta * push;
-				items[j].labelWorldMm += delta * push;
-				clampLeader(items[i]);
-				clampLeader(items[j]);
+				// 避让时只拉长引线，不扭转方向，保留面法向语义
+				const float push = (minSep - dist) * 0.55f;
+				const float lenI = (items[i].labelWorldMm - items[i].anchorWorldMm).length();
+				const float lenJ = (items[j].labelWorldMm - items[j].anchorWorldMm).length();
+				clampToPreferred(items[i], preferredDirs[i], lenI + push);
+				clampToPreferred(items[j], preferredDirs[j], lenJ + push);
 			}
 		}
 	}
@@ -2515,7 +2475,23 @@ void OsgScene::setFeatureCatalogOverlay(const std::vector<FeatureCatalogOverlayI
 		osg::ref_ptr<osg::Group> itemGroup = new osg::Group;
 		itemGroup->setNodeMask(kMaskPickOverlay);
 
-		if (item.hasEdgeSegment)
+		if (!item.faceTrianglesWorldMm.empty())
+		{
+			osg::ref_ptr<osg::Geode> faceGeode =
+				makeFeatureOverlayFaceSoup(item.faceTrianglesWorldMm, osg::Vec4(1.0f, 0.72f, 0.12f, 0.42f));
+			if (faceGeode.valid())
+				itemGroup->addChild(faceGeode.get());
+		}
+
+		if (item.edgePolylineWorldMm.size() >= 2)
+		{
+			itemGroup->addChild(
+				makeFeatureOverlayPolyline(item.edgePolylineWorldMm, osg::Vec4(0.25f, 0.02f, 0.02f, 0.65f), 9.0f)
+					.get());
+			itemGroup->addChild(
+				makeFeatureOverlayPolyline(item.edgePolylineWorldMm, osg::Vec4(1.0f, 0.18f, 0.12f, 1.0f), 5.0f).get());
+		}
+		else if (item.hasEdgeSegment)
 		{
 			itemGroup->addChild(makeFeatureOverlayLine(item.edgeAWorldMm, item.edgeBWorldMm,
 													   osg::Vec4(0.25f, 0.02f, 0.02f, 0.65f), 8.0f)

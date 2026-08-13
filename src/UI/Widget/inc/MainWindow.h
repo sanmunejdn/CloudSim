@@ -120,6 +120,11 @@ public:
 	void clearAiFeatureCandidatePreviewForAi() override;
 	bool commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJsonUtf8, QString* outSummary,
 										 QString* outError) override;
+	int proposeAndConfirmTrajectoryPlanForAi(const std::string& planInUtf8, std::string* planOutUtf8,
+											 QString* outError, bool showRetry = true) override;
+	bool loadBoundTrajectoryPlanForAi(std::string* planOutUtf8, QString* outError) override;
+	bool reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QString* outSummary,
+									 QString* outError) override;
 	bool useChinese() const override;
 	QMenuBar* menuBar() override;
 	QStatusBar* statusBar() override;
@@ -235,6 +240,7 @@ private:
 	void onOpenModel();
 	void onOpenPointCloud();
 	void onCreateCoordinateFrame();
+	void onCreateCustomDevice();
 	void onOpenHelpDocumentation();
 	void onAboutCloudSim();
 	void onBackendTreeSelectionChanged();

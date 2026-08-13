@@ -122,6 +122,7 @@ std::optional<AiConfigDto> loadAiConfigDto(const QString& filePath)
 			cfg.router.localModel = QString::fromStdString(r["local_model"].get<std::string>());
 		if (r.contains("base_url"))
 			cfg.router.baseUrl = QString::fromStdString(r["base_url"].get<std::string>());
+		cfg.router.minScore = std::max(1, r.value("min_score", cfg.router.minScore));
 	}
 
 	if (j.contains("agent") && j["agent"].is_object())
@@ -133,6 +134,7 @@ std::optional<AiConfigDto> loadAiConfigDto(const QString& filePath)
 		cfg.agent.enablePlan = a.value("enable_plan", cfg.agent.enablePlan);
 		cfg.agent.planMaxSteps = std::max(1, a.value("plan_max_steps", cfg.agent.planMaxSteps));
 		cfg.agent.replanOnFailure = a.value("replan_on_failure", cfg.agent.replanOnFailure);
+		cfg.agent.requireKeywordHit = a.value("require_keyword_hit", cfg.agent.requireKeywordHit);
 	}
 
 	if (j.contains("domains") && j["domains"].is_array())
@@ -178,13 +180,15 @@ bool saveAiConfigDto(const AiConfigDto& config, const QString& filePath, QString
 					   {"temperature", config.remoteLlm.temperature}};
 	j["router"] = {{"mode", config.router.mode.toStdString()},
 				   {"local_model", config.router.localModel.toStdString()},
-				   {"base_url", config.router.baseUrl.toStdString()}};
+				   {"base_url", config.router.baseUrl.toStdString()},
+				   {"min_score", config.router.minScore}};
 	j["agent"] = {{"max_steps", config.agent.maxSteps},
 				  {"auto_execute_low_risk", config.agent.autoExecuteLowRisk},
 				  {"enable_trace", config.agent.enableTrace},
 				  {"enable_plan", config.agent.enablePlan},
 				  {"plan_max_steps", config.agent.planMaxSteps},
-				  {"replan_on_failure", config.agent.replanOnFailure}};
+				  {"replan_on_failure", config.agent.replanOnFailure},
+				  {"require_keyword_hit", config.agent.requireKeywordHit}};
 	j["domains"] = nlohmann::json::array();
 	for (const AiDomainModelConfig& d : config.domains)
 	{

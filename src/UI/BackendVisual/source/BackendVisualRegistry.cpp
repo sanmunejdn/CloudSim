@@ -14,6 +14,7 @@
 #include "BackendTypeIdentity.h"
 #include "BackendVisualRegistry.h"
 #include "BrepBackendVisual.h"
+#include "CustomDeviceBackendVisual.h"
 #include "FrameBackendVisual.h"
 #include "MeshBackendData.h"
 #include "MeshBackendVisual.h"
@@ -56,6 +57,9 @@ void registerBuiltins()
 	BackendVisualRegistry::registerType(
 		backend_type::kClassFrame,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<FrameBackendVisual>(); });
+	BackendVisualRegistry::registerType(
+		backend_type::kClassCustomDevice,
+		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<CustomDeviceBackendVisual>(); });
 }
 
 } // namespace

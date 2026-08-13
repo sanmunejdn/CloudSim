@@ -20,6 +20,9 @@
     <Filter Include="inc\KinematicsFrames">
       <UniqueIdentifier>{9679D019-AED6-405A-9FFB-942E0D19117C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{8427E89E-67F0-46FC-B50F-E51CA54FDECD}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\ProgramExport">
       <UniqueIdentifier>{6C5F959D-5C61-45C8-A6B6-E6E38B8187B2}</UniqueIdentifier>
     </Filter>
@@ -51,6 +54,9 @@
     <Filter Include="src\KinematicsFrames">
       <UniqueIdentifier>{4BC7C7AB-677C-4C3C-9CC9-A83C31EFF021}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{0D91EED6-F9A0-4809-832E-AD85CE8F62E8}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\ProgramExport">
       <UniqueIdentifier>{407A74F5-95C0-4840-AB10-7A321A2B6EA2}</UniqueIdentifier>
     </Filter>
@@ -59,6 +65,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\CustomDeviceKinematics.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ExternalAxisSearchService.h">
       <Filter>inc\KinematicsFrames</Filter>
     </ClInclude>
@@ -192,6 +201,9 @@
   <ItemGroup>
     <ClCompile Include="source\CloudSimCoreExport.cpp">
       <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceKinematics.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\ExternalAxisSearchService.cpp">
       <Filter>src\KinematicsFrames</Filter>

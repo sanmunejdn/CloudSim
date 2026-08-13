@@ -9,6 +9,7 @@
 #include "RobotExternalAxes.h"
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -27,7 +28,21 @@
 
 #include <osg/MatrixTransform>
 
-/// 机器人关节轴控制（含已启用外部轴滑条）
+enum class AxisControlTargetKind : int
+{
+	RobotInstance = 0,
+	CustomDevice = 1
+};
+
+struct ROBOTWIDGET_EXPORT AxisControlTargetItem
+{
+	AxisControlTargetKind kind = AxisControlTargetKind::RobotInstance;
+	QString id;
+	QString displayLabel;
+	int robotInstanceIndex = -1;
+};
+
+/// 机器人关节轴控制（含已启用外部轴滑条；可切换自定义设备）
 class ROBOTWIDGET_EXPORT RobotAxisControlWidget : public QWidget
 {
 	Q_OBJECT
@@ -37,6 +52,11 @@ public:
 	~RobotAxisControlWidget();
 	void setUseChinese(bool chinese);
 	void setInteractionEnabled(bool enabled);
+
+	void setControlTargets(const QVector<AxisControlTargetItem>& targets);
+	AxisControlTargetItem currentControlTarget() const;
+	void selectControlTarget(AxisControlTargetKind kind, const QString& id);
+
 	void setJoints(const QStringList& jointNames, const QVector<double>& lowerLimits,
 				   const QVector<double>& upperLimits);
 	void clearJoints();
@@ -100,6 +120,7 @@ signals:
 	void reachableWorkspaceToggled(bool enabled);
 	/// 密度滑条变更（1～100）
 	void reachableWorkspaceDensityChanged(int percent);
+	void controlTargetChanged(AxisControlTargetKind kind, const QString& id);
 
 private slots:
 	void onSliderValueChanged(int value);
@@ -112,6 +133,7 @@ private slots:
 	void onExternalResetButtonClicked();
 	void onReachableWorkspaceDensitySliderChanged(int value);
 	void emitReachableWorkspaceDensityDebounced();
+	void onControlTargetComboChanged(int index);
 
 private:
 	struct JointControl
@@ -141,7 +163,10 @@ private:
 	QHash<QString, JointControl> m_jointControls;
 	QVector<QString> m_jointOrder;
 	QVector<ExternalAxisControl> m_externalControls;
+	QVector<AxisControlTargetItem> m_controlTargets;
 
+	QLabel* m_targetLabel = nullptr;
+	QComboBox* m_targetCombo = nullptr;
 	QScrollArea* m_scrollArea = nullptr;
 	QWidget* m_contentWidget = nullptr;
 	QVBoxLayout* m_contentLayout = nullptr;

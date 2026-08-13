@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <set>
+#include <vector>
 
 #include <FeatureListDocument.h>
 #include <GeometryRef.h>
@@ -205,26 +206,29 @@ QByteArray buildCatalogSliceJson(const geoalgo::FeatureCatalog& catalog, const A
 	root["backendIdUtf8"] = catalog.backendIdUtf8;
 	root["stepPathUtf8"] = catalog.stepPathUtf8;
 	root["featureAxis"] = aiFeatureAxisToString(axis).toStdString();
-	nlohmann::json arr = nlohmann::json::array();
-	int displayIndex = 1;
+
+	std::vector<const geoalgo::FeatureCandidate*> matched;
+	matched.reserve(catalog.candidates.size());
 	for (const geoalgo::FeatureCandidate& c : catalog.candidates)
 	{
-		if (displayIndex > maxItems)
-		{
-			break;
-		}
 		const bool lineCandidate = !c.geometry.edgeIndices.empty();
 		const bool surfaceCandidate = !c.geometry.faceIndices.empty() && c.geometry.edgeIndices.empty();
 		if (axis == AiFeatureAxis::Line && !lineCandidate)
-		{
 			continue;
-		}
 		if (axis == AiFeatureAxis::Surface && !surfaceCandidate)
-		{
 			continue;
-		}
+		matched.push_back(&c);
+	}
+
+	const int matchedTotal = static_cast<int>(matched.size());
+	const int showCount =
+		(maxItems <= 0) ? matchedTotal : std::min(matchedTotal, maxItems);
+	nlohmann::json arr = nlohmann::json::array();
+	for (int i = 0; i < showCount; ++i)
+	{
+		const geoalgo::FeatureCandidate& c = *matched[static_cast<std::size_t>(i)];
 		nlohmann::json item;
-		item["displayIndex"] = displayIndex;
+		item["displayIndex"] = i + 1;
 		item["candidateId"] = c.candidateId;
 		item["suggestedStrategyId"] = c.suggestedStrategyId;
 		item["summary"] = c.summary;
@@ -235,9 +239,11 @@ QByteArray buildCatalogSliceJson(const geoalgo::FeatureCatalog& catalog, const A
 		item["areaMm2"] = c.areaMm2;
 		item["dihedralDeg"] = c.dihedralDeg;
 		arr.push_back(item);
-		++displayIndex;
 	}
 	root["candidates"] = arr;
+	root["matchedTotal"] = matchedTotal;
+	root["shownCount"] = showCount;
+	root["truncated"] = showCount < matchedTotal;
 	return QByteArray::fromStdString(root.dump(2));
 }
 

@@ -4,6 +4,7 @@
 #include "RobotAxisControlWidget.h"
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDebug>
 #include <QDoubleValidator>
 #include <QFrame>
@@ -11,6 +12,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QSlider>
 #include <QTimer>
 #include <algorithm>
@@ -28,6 +30,10 @@ RobotAxisControlWidget::~RobotAxisControlWidget() {}
 void RobotAxisControlWidget::setUseChinese(bool chinese)
 {
 	m_useChinese = chinese;
+	if (m_targetLabel)
+	{
+		m_targetLabel->setText(chinese ? QStringLiteral("目标") : QStringLiteral("Target"));
+	}
 	if (m_resetAllButton)
 	{
 		m_resetAllButton->setText(chinese ? QStringLiteral("重置所有关节") : QStringLiteral("Reset all joints"));
@@ -59,6 +65,88 @@ void RobotAxisControlWidget::setUseChinese(bool chinese)
 void RobotAxisControlWidget::setInteractionEnabled(bool enabled)
 {
 	setEnabled(enabled);
+}
+
+void RobotAxisControlWidget::setControlTargets(const QVector<AxisControlTargetItem>& targets)
+{
+	m_controlTargets = targets;
+	if (!m_targetCombo)
+	{
+		return;
+	}
+	const AxisControlTargetItem prev = currentControlTarget();
+	QSignalBlocker blocker(m_targetCombo);
+	m_targetCombo->clear();
+	for (const AxisControlTargetItem& t : m_controlTargets)
+	{
+		m_targetCombo->addItem(t.displayLabel);
+	}
+	int select = 0;
+	for (int i = 0; i < m_controlTargets.size(); ++i)
+	{
+		if (m_controlTargets[i].kind == prev.kind && m_controlTargets[i].id == prev.id)
+		{
+			select = i;
+			break;
+		}
+	}
+	if (!m_controlTargets.isEmpty())
+	{
+		m_targetCombo->setCurrentIndex(select);
+	}
+}
+
+AxisControlTargetItem RobotAxisControlWidget::currentControlTarget() const
+{
+	if (!m_targetCombo || m_controlTargets.isEmpty())
+	{
+		return {};
+	}
+	const int idx = m_targetCombo->currentIndex();
+	if (idx < 0 || idx >= m_controlTargets.size())
+	{
+		return m_controlTargets.front();
+	}
+	return m_controlTargets[idx];
+}
+
+void RobotAxisControlWidget::selectControlTarget(const AxisControlTargetKind kind, const QString& id)
+{
+	if (!m_targetCombo)
+	{
+		return;
+	}
+	for (int i = 0; i < m_controlTargets.size(); ++i)
+	{
+		if (m_controlTargets[i].kind == kind && m_controlTargets[i].id == id)
+		{
+			m_targetCombo->setCurrentIndex(i);
+			return;
+		}
+	}
+}
+
+void RobotAxisControlWidget::onControlTargetComboChanged(const int index)
+{
+	if (index < 0 || index >= m_controlTargets.size())
+	{
+		return;
+	}
+	const AxisControlTargetItem& t = m_controlTargets[index];
+	const bool isRobot = t.kind == AxisControlTargetKind::RobotInstance;
+	if (m_reachableWorkspaceCheck)
+	{
+		m_reachableWorkspaceCheck->setVisible(isRobot);
+	}
+	if (m_reachableWorkspaceDensityLabel)
+	{
+		m_reachableWorkspaceDensityLabel->setVisible(isRobot);
+	}
+	if (m_reachableWorkspaceDensitySlider)
+	{
+		m_reachableWorkspaceDensitySlider->setVisible(isRobot);
+	}
+	emit controlTargetChanged(t.kind, t.id);
 }
 
 void RobotAxisControlWidget::setJoints(const QStringList& jointNames, const QVector<double>& lowerLimits,
@@ -195,6 +283,16 @@ void RobotAxisControlWidget::createUI()
 	QVBoxLayout* mainLayout = new QVBoxLayout(this);
 	mainLayout->setContentsMargins(4, 4, 4, 4);
 	mainLayout->setSpacing(4);
+
+	auto* targetRow = new QHBoxLayout();
+	m_targetLabel = new QLabel(QStringLiteral("目标"), this);
+	m_targetCombo = new QComboBox(this);
+	m_targetCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	targetRow->addWidget(m_targetLabel);
+	targetRow->addWidget(m_targetCombo, 1);
+	mainLayout->addLayout(targetRow);
+	connect(m_targetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&RobotAxisControlWidget::onControlTargetComboChanged);
 
 	m_reachableWorkspaceCheck = new QCheckBox(this);
 	m_reachableWorkspaceCheck->setText(QStringLiteral("显示可达域"));

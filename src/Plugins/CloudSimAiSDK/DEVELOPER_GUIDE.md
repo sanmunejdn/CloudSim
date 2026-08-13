@@ -147,7 +147,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | `mesh.create` | qwen2.5:3b | ActionPlan / create_mesh v1 |
 | `mesh.compose` | qwen2.5:3b | ActionPlan v2（`steps[]` + `booleanMesh`） |
 | `geometry.recognize` | qwen2.5vl:3b | StructuredJson → 可转 ActionPlan |
-| `trajectory.feature` | qwen2.5:3b（建议） | StructuredJson：`selectedCandidateIds` + `features[]` + `suggestedPipelineTemplate` |
+| `trajectory.feature` | qwen2.5:3b（建议） | StructuredJson：`selectedCandidateIds` + `features[]` + `suggestedPipelineTemplate`；确认经模态对话框编辑 `params`/`pipeline[]` |
 | `pointcloud.ops` | qwen2.5:3b | ActionPlan：点云 Dock 按钮 API（keywords=按钮名） |
 | `document.import` | qwen2.5:3b | ActionPlan：导入文件 |
 | `geometry.ops` | qwen2.5:3b | ActionPlan：几何 Dock 按钮 API |

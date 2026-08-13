@@ -6,6 +6,7 @@
 #include "BackendDataManager.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
+#include "BrepImportArtifacts.h"
 #include "FeatureDiscretizerParamPanel.h"
 #include "FeaturePickTransform.h"
 #include "FeatureTableModel.h"
@@ -20,6 +21,8 @@
 #include "RobotSimulationDockWidget.h"
 #include "TrajectoryEditPageWidget.h"
 #include "TrajectoryEditSession.h"
+#include "TrajectoryOpBridge.h"
+#include "TrajectoryPlanConfirmDialog.h"
 #include "UiIconDecorators.h"
 #include "UserTemplateLibrary.h"
 
@@ -57,6 +60,8 @@
 #include <QToolTip>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <memory>
+#include <unordered_map>
 
 #include <ShapeHandle.h>
 #include <json.hpp>
@@ -137,6 +142,26 @@ bool readGeometryFromCandidateJson(const nlohmann::json& candidate, geoalgo::Fea
 	}
 	return !out.edgeIndices.empty() || !out.faceIndices.empty();
 }
+
+void appendModelXyzToWorldPolyline(IRobotOsgViewHost* osg, const std::string& backendId, const std::vector<float>& xyz,
+								   std::vector<cloudsim::core::Vec3>& outWorld)
+{
+	if (!osg || xyz.size() < 6 || (xyz.size() % 3U) != 0U)
+		return;
+	outWorld.reserve(outWorld.size() + xyz.size() / 3U);
+	for (std::size_t i = 0; i + 2 < xyz.size(); i += 3)
+	{
+		const geoalgo::Point3d modelPt{xyz[i], xyz[i + 1], xyz[i + 2]};
+		osg::Vec3f worldPt;
+		if (!feature_pick_transform::stepModelPointToWorldMm(osg, backendId, modelPt, worldPt, nullptr))
+			worldPt.set(static_cast<float>(modelPt.x), static_cast<float>(modelPt.y), static_cast<float>(modelPt.z));
+		outWorld.push_back({static_cast<double>(worldPt.x()), static_cast<double>(worldPt.y()),
+							static_cast<double>(worldPt.z())});
+	}
+}
+
+/// 全量候选仅标号；选中后（条目少）再叠边折线/面片，避免几十个面同时染色
+constexpr int kFeatureBodyHighlightMaxCandidates = 16;
 
 } // namespace
 
@@ -2379,6 +2404,10 @@ bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray&
 		return false;
 	}
 
+	QString backendId;
+	QString stepPath;
+	(void)currentWorkpiece(backendId, stepPath);
+
 	try
 	{
 		const nlohmann::json preview = nlohmann::json::parse(previewJson.constData(), nullptr, true);
@@ -2406,6 +2435,68 @@ bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray&
 			}
 			items.push_back(o);
 		}
+
+		// 边：始终叠完整折线；面：仅选中后（条目少）叠半透明面片，避免全量候选染色
+		const bool highlightFaceBodies =
+			static_cast<int>(items.size()) > 0 && static_cast<int>(items.size()) <= kFeatureBodyHighlightMaxCandidates;
+		if (!backendId.isEmpty())
+		{
+			geoalgo::ShapeHandle shape;
+			geoalgo::WorkpieceRef wp;
+			if (resolveWorkpieceShapeForBackend(backendId, shape, wp, nullptr) && !shape.isNull())
+			{
+				std::string artErr;
+				const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
+					geoalgo::getOrBuildBrepImportArtifacts(shape, &artErr);
+				if (artifacts)
+				{
+					(void)geoalgo::ensureBrepImportPickArtifacts(shape, *artifacts, nullptr);
+					const nlohmann::json slice =
+						nlohmann::json::parse(catalogSliceUtf8.constData(), nullptr, true);
+					std::unordered_map<int, geoalgo::FeatureGeometry> geomByDisplay;
+					if (slice.contains("candidates") && slice["candidates"].is_array())
+					{
+						for (const auto& c : slice["candidates"])
+						{
+							geoalgo::FeatureGeometry geometry;
+							if (!readGeometryFromCandidateJson(c, geometry))
+								continue;
+							geomByDisplay[c.value("displayIndex", 0)] = std::move(geometry);
+						}
+					}
+					const std::string backendStd = backendId.toStdString();
+					for (RobotOsgUi::FeatureCatalogOverlayItem& o : items)
+					{
+						const auto it = geomByDisplay.find(o.displayIndex);
+						if (it == geomByDisplay.end())
+							continue;
+						const geoalgo::FeatureGeometry& geometry = it->second;
+						if (!geometry.edgeIndices.empty() && !artifacts->edgePolylines.empty())
+						{
+							const int edgeIdx = geometry.edgeIndices.front();
+							if (edgeIdx >= 0 &&
+								static_cast<std::size_t>(edgeIdx) < artifacts->edgePolylines.size())
+							{
+								appendModelXyzToWorldPolyline(osg, backendStd,
+															  artifacts->edgePolylines[static_cast<std::size_t>(edgeIdx)],
+															  o.edgePolylineWorldMm);
+							}
+						}
+						if (highlightFaceBodies && !geometry.faceIndices.empty() && !artifacts->faceSoups.empty())
+						{
+							const int faceIdx = geometry.faceIndices.front();
+							if (faceIdx >= 0 && static_cast<std::size_t>(faceIdx) < artifacts->faceSoups.size())
+							{
+								appendModelXyzToWorldPolyline(osg, backendStd,
+															  artifacts->faceSoups[static_cast<std::size_t>(faceIdx)],
+															  o.faceTrianglesWorldMm);
+							}
+						}
+					}
+				}
+			}
+		}
+
 		osg->setFeatureCatalogOverlay(items);
 		osg->requestRedraw();
 		setStatus(m_chinese ? QStringLiteral("已在 3D 视口显示 %1 个编号特征").arg(items.size())
@@ -2554,20 +2645,38 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 			return false;
 		}
 
+		const bool hasPipeline = plan.contains("pipeline") && plan["pipeline"].is_array() && !plan["pipeline"].empty();
 		if (m_simController && m_simController->simulationDock())
 		{
 			if (TrajectoryEditPageWidget* edit = m_simController->simulationDock()->trajectoryEditPage())
 			{
-				RobotInstruction::RecipeKind recipeKind = RobotInstruction::RecipeKind::Weld;
-				if (pipelineTemplate.find("glue") != std::string::npos)
+				if (hasPipeline)
 				{
-					recipeKind = RobotInstruction::RecipeKind::Glue;
+					std::vector<RobotInstruction::TrajectoryOpDescriptor> ops;
+					std::string codecErr;
+					if (!RobotInstruction::trajectoryPipelineFromJson(plan["pipeline"], ops, &codecErr))
+					{
+						if (err)
+						{
+							*err = QString::fromStdString(codecErr.empty() ? "pipeline 无效" : codecErr);
+						}
+						return false;
+					}
+					edit->applyPipelineOps(std::move(ops));
 				}
-				else if (pipelineTemplate.find("grind") != std::string::npos)
+				else
 				{
-					recipeKind = RobotInstruction::RecipeKind::Grind;
+					RobotInstruction::RecipeKind recipeKind = RobotInstruction::RecipeKind::Weld;
+					if (pipelineTemplate.find("glue") != std::string::npos)
+					{
+						recipeKind = RobotInstruction::RecipeKind::Glue;
+					}
+					else if (pipelineTemplate.find("grind") != std::string::npos)
+					{
+						recipeKind = RobotInstruction::RecipeKind::Grind;
+					}
+					edit->applyRecipePresetByKind(recipeKind);
 				}
-				edit->applyRecipePresetByKind(recipeKind);
 				m_simController->simulationDock()->tabWidget()->setCurrentIndex(
 					RobotSimulationDockWidget::kTabIndexTrajectoryEdit);
 			}
@@ -2575,8 +2684,8 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 
 		if (summary)
 		{
-			*summary = m_chinese ? QStringLiteral("已离散特征并填充默认工艺流水线，请到轨迹编辑页预览。")
-								 : QStringLiteral("Feature discretized; default recipe pipeline filled.");
+			*summary = m_chinese ? QStringLiteral("已离散特征并写入管线算子，请到轨迹编辑页预览。")
+								 : QStringLiteral("Feature discretized; pipeline ops applied.");
 		}
 		return true;
 	}
@@ -2586,6 +2695,125 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 		{
 			*err = QStringLiteral("特征计划 JSON 无效");
 		}
+		return false;
+	}
+}
+
+int FeatureTrajectoryPageWidget::proposeAndConfirmTrajectoryPlan(const QByteArray& planInUtf8, QByteArray& planOutUtf8,
+																QString* err, const bool showRetry)
+{
+	planOutUtf8.clear();
+	try
+	{
+		nlohmann::json plan = nlohmann::json::parse(planInUtf8.constData(), nullptr, true);
+		QString enrichErr;
+		if (!enrichTrajectoryPlanJsonInPlace(plan, &enrichErr))
+		{
+			if (err)
+				*err = enrichErr.isEmpty() ? QStringLiteral("无法补全离散计划") : enrichErr;
+			return static_cast<int>(TrajectoryPlanConfirmDialog::Outcome::Cancelled);
+		}
+		TrajectoryPlanConfirmDialog dlg(this);
+		dlg.setUseChinese(m_chinese);
+		dlg.setShowRetry(showRetry);
+		QString loadErr;
+		if (!dlg.loadPlan(QByteArray::fromStdString(plan.dump()), &loadErr))
+		{
+			if (err)
+				*err = loadErr;
+			return static_cast<int>(TrajectoryPlanConfirmDialog::Outcome::Cancelled);
+		}
+		dlg.exec();
+		const auto outcome = dlg.outcome();
+		if (outcome == TrajectoryPlanConfirmDialog::Outcome::Accepted)
+			planOutUtf8 = dlg.resultPlanJson();
+		return static_cast<int>(outcome);
+	}
+	catch (...)
+	{
+		if (err)
+			*err = QStringLiteral("特征计划 JSON 无效");
+		return static_cast<int>(TrajectoryPlanConfirmDialog::Outcome::Cancelled);
+	}
+}
+
+bool FeatureTrajectoryPageWidget::loadBoundTrajectoryPlanJson(QByteArray& planOutUtf8, QString* err)
+{
+	planOutUtf8.clear();
+	if (!m_session)
+	{
+		if (err)
+			*err = m_chinese ? QStringLiteral("轨迹会话未就绪") : QStringLiteral("Session not ready");
+		return false;
+	}
+	const std::string src = m_session->boundSourceFeatureJson();
+	if (src.empty())
+	{
+		if (err)
+			*err = m_chinese ? QStringLiteral("当前 PathPlan 无特征离散数据，请先完成离散")
+							: QStringLiteral("No sourceFeatureJson on bound PathPlan");
+		return false;
+	}
+	try
+	{
+		geoalgo::FeatureListDocument doc;
+		std::string parseErr;
+		if (!geometry_backend_ops::featureListFromJson(src, doc, &parseErr) || doc.features.empty())
+		{
+			if (err)
+				*err = parseErr.empty() ? QStringLiteral("无法解析 sourceFeatureJson") : QString::fromStdString(parseErr);
+			return false;
+		}
+		nlohmann::json plan;
+		plan["version"] = 2;
+		plan["mode"] = "revise";
+		plan["schemaVersion"] = doc.schemaVersion;
+		plan["defaultStrategyId"] = doc.defaultStrategyId;
+		plan["workpiece"] = {{"backendIdUtf8", doc.workpiece.backendIdUtf8},
+							 {"stepPathUtf8", doc.workpiece.stepPathUtf8}};
+		nlohmann::json feats = nlohmann::json::array();
+		for (const auto& entry : doc.features)
+		{
+			nlohmann::json f;
+			f["featureId"] = entry.featureId;
+			f["strategyId"] = entry.strategyId;
+			f["kind"] = entry.strategyId;
+			f["params"] = entry.params;
+			f["geometry"] = {{"faceIndices", entry.geometry.faceIndices}, {"edgeIndices", entry.geometry.edgeIndices}};
+			feats.push_back(std::move(f));
+		}
+		plan["features"] = feats;
+		plan["pipeline"] = RobotInstruction::trajectoryPipelineToJson(m_session->pipelineOps());
+		planOutUtf8 = QByteArray::fromStdString(plan.dump());
+		return true;
+	}
+	catch (...)
+	{
+		if (err)
+			*err = QStringLiteral("组装 revise 计划失败");
+		return false;
+	}
+}
+
+bool FeatureTrajectoryPageWidget::reviseFeaturePlanFromAi(const QByteArray& planJsonUtf8, QString* summary, QString* err)
+{
+	try
+	{
+		const nlohmann::json plan = nlohmann::json::parse(planJsonUtf8.constData(), nullptr, true);
+		if (!commitFeaturePlanFromAi(planJsonUtf8, summary, err))
+			return false;
+		if (summary)
+		{
+			*summary = m_chinese ? QStringLiteral("已按确认结果重离散并更新管线算子。")
+								 : QStringLiteral("Re-discretized and pipeline updated.");
+		}
+		(void)plan;
+		return true;
+	}
+	catch (...)
+	{
+		if (err)
+			*err = QStringLiteral("特征计划 JSON 无效");
 		return false;
 	}
 }

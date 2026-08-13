@@ -473,6 +473,7 @@ void MainWindow::setupDockWidgets()
 	m_propertyDock->setWidget(m_propertyDockTabs);
 	hideDockTitleBar(m_propertyDock);
 	connect(m_devicePage, &DevicePageWidget::urdfImportRequested, this, &MainWindow::onUrdfImportRequested);
+	connect(m_devicePage, &DevicePageWidget::customDeviceCreateRequested, this, &MainWindow::onCreateCustomDevice);
 	addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
 	// 左侧属性面板宽度：240px
 	resizeDocks({m_propertyDock}, {240}, Qt::Horizontal);

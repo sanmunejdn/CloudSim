@@ -10,13 +10,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
+#include <vector>
 
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepClass_FaceClassifier.hxx>
 #include <BRepGProp.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
+#include <Precision.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
@@ -293,9 +297,8 @@ void copyGpPnt(const gp_Pnt& p, double out[3])
 	out[2] = p.Z();
 }
 
-gp_Vec labelOutwardFromBbox(const TopoDS_Shape& shape, const gp_Pnt& anchor, const gp_Vec& fallback)
+double leaderLengthFromBboxMm(const TopoDS_Shape& shape)
 {
-	gp_Pnt center;
 	double diagonal = 50.0;
 	Bnd_Box box;
 	BRepBndLib::Add(shape, box);
@@ -308,11 +311,29 @@ gp_Vec labelOutwardFromBbox(const TopoDS_Shape& shape, const gp_Pnt& anchor, con
 		Standard_Real ymax = 0.0;
 		Standard_Real zmax = 0.0;
 		box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
-		center = gp_Pnt((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
 		const double dx = xmax - xmin;
 		const double dy = ymax - ymin;
 		const double dz = zmax - zmin;
 		diagonal = std::sqrt(dx * dx + dy * dy + dz * dz);
+	}
+	return std::clamp(diagonal * 0.12, 18.0, 55.0);
+}
+
+gp_Vec labelOutwardFromBbox(const TopoDS_Shape& shape, const gp_Pnt& anchor, const gp_Vec& fallback)
+{
+	gp_Pnt center(0.0, 0.0, 0.0);
+	Bnd_Box box;
+	BRepBndLib::Add(shape, box);
+	if (!box.IsVoid())
+	{
+		Standard_Real xmin = 0.0;
+		Standard_Real ymin = 0.0;
+		Standard_Real zmin = 0.0;
+		Standard_Real xmax = 0.0;
+		Standard_Real ymax = 0.0;
+		Standard_Real zmax = 0.0;
+		box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+		center = gp_Pnt((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
 	}
 	gp_Vec outward(anchor.X() - center.X(), anchor.Y() - center.Y(), anchor.Z() - center.Z());
 	if (outward.SquareMagnitude() < 1e-12)
@@ -324,9 +345,129 @@ gp_Vec labelOutwardFromBbox(const TopoDS_Shape& shape, const gp_Pnt& anchor, con
 		}
 	}
 	outward.Normalize();
-	const double dist = std::clamp(diagonal * 0.12, 18.0, 55.0);
-	outward *= dist;
+	outward *= leaderLengthFromBboxMm(shape);
 	return outward;
+}
+
+gp_Vec labelAlongDirection(const TopoDS_Shape& shape, const gp_Vec& dir)
+{
+	gp_Vec outward = dir;
+	if (outward.SquareMagnitude() < 1e-12)
+		outward = gp_Vec(0.0, 0.0, 1.0);
+	outward.Normalize();
+	outward *= leaderLengthFromBboxMm(shape);
+	return outward;
+}
+
+/// 面心易落在孔洞外；取 UV 域内且分类为 IN/ON 的点，保证锚点贴在面上
+bool pickFaceAnchorOnSurface(const TopoDS_Face& face, gp_Pnt& outAnchor, gp_Vec& outNormal)
+{
+	BRepAdaptor_Surface surf(face);
+	const double u0 = surf.FirstUParameter();
+	const double u1 = surf.LastUParameter();
+	const double v0 = surf.FirstVParameter();
+	const double v1 = surf.LastVParameter();
+	const double uSpan = u1 - u0;
+	const double vSpan = v1 - v0;
+	if (std::abs(uSpan) < Precision::PConfusion() || std::abs(vSpan) < Precision::PConfusion())
+		return false;
+
+	const double um = 0.5 * (u0 + u1);
+	const double vm = 0.5 * (v0 + v1);
+	const double classTol = std::max(Precision::Confusion(), 1e-4);
+
+	auto evalUv = [&](const double u, const double v, gp_Pnt& p, gp_Vec& n) -> bool
+	{
+		BRepClass_FaceClassifier classifier;
+		classifier.Perform(face, gp_Pnt2d(u, v), classTol);
+		const TopAbs_State st = classifier.State();
+		if (st != TopAbs_IN && st != TopAbs_ON)
+			return false;
+		gp_Vec du;
+		gp_Vec dv;
+		surf.D1(u, v, p, du, dv);
+		n = du.Crossed(dv);
+		if (face.Orientation() == TopAbs_REVERSED)
+			n.Reverse();
+		if (n.Magnitude() > 1e-9)
+			n.Normalize();
+		else
+			n = gp_Vec(0.0, 0.0, 1.0);
+		return true;
+	};
+
+	gp_Pnt p;
+	gp_Vec n;
+	if (evalUv(um, vm, p, n))
+	{
+		outAnchor = p;
+		outNormal = n;
+		return true;
+	}
+
+	// 带孔面：UV 中心常在孔内；对面内采样点取 3D 质心，再选最近面内点
+	constexpr int kGrid = 16;
+	double sumX = 0.0;
+	double sumY = 0.0;
+	double sumZ = 0.0;
+	int insideCount = 0;
+	gp_Pnt bestP;
+	gp_Vec bestN;
+	bool hasSample = false;
+	double bestToCentroid2 = 1e300;
+	std::vector<std::pair<gp_Pnt, gp_Vec>> insideSamples;
+	insideSamples.reserve(static_cast<std::size_t>((kGrid + 1) * (kGrid + 1)));
+	for (int i = 0; i <= kGrid; ++i)
+	{
+		const double u = u0 + uSpan * (static_cast<double>(i) / static_cast<double>(kGrid));
+		for (int j = 0; j <= kGrid; ++j)
+		{
+			const double v = v0 + vSpan * (static_cast<double>(j) / static_cast<double>(kGrid));
+			if (!evalUv(u, v, p, n))
+				continue;
+			insideSamples.emplace_back(p, n);
+			sumX += p.X();
+			sumY += p.Y();
+			sumZ += p.Z();
+			++insideCount;
+		}
+	}
+	if (insideCount > 0)
+	{
+		const gp_Pnt centroid(sumX / insideCount, sumY / insideCount, sumZ / insideCount);
+		for (const auto& sample : insideSamples)
+		{
+			const double d2 = sample.first.SquareDistance(centroid);
+			if (!hasSample || d2 < bestToCentroid2)
+			{
+				bestToCentroid2 = d2;
+				bestP = sample.first;
+				bestN = sample.second;
+				hasSample = true;
+			}
+		}
+	}
+	if (hasSample)
+	{
+		outAnchor = bestP;
+		outNormal = bestN;
+		return true;
+	}
+
+	// 兜底：参数中心强制求值（可能落在修剪域外，仅避免锚点失败）
+	gp_Vec du;
+	gp_Vec dv;
+	surf.D1(um, vm, p, du, dv);
+	n = du.Crossed(dv);
+	if (face.Orientation() == TopAbs_REVERSED)
+		n.Reverse();
+	if (n.Magnitude() > 1e-9)
+		n.Normalize();
+	else
+		n = gp_Vec(0.0, 0.0, 1.0);
+	outAnchor = p;
+	outNormal = n;
+	return true;
 }
 
 } // namespace
@@ -688,31 +829,19 @@ bool computeFeatureAnchor(const WorkpieceRef& workpiece, const ShapeHandle& shap
 			}
 			return false;
 		}
-		GProp_GProps props;
-		BRepGProp::SurfaceProperties(face, props);
-		const gp_Pnt center = props.CentreOfMass();
+		gp_Pnt center;
+		gp_Vec normal;
+		if (!pickFaceAnchorOnSurface(face, center, normal))
+		{
+			if (errMsg)
+			{
+				*errMsg = "face anchor pick failed";
+			}
+			return false;
+		}
 		copyGpPnt(center, out.anchorXyzMm);
-		BRepAdaptor_Surface surf(face);
-		const double uMid = (surf.FirstUParameter() + surf.LastUParameter()) * 0.5;
-		const double vMid = (surf.FirstVParameter() + surf.LastVParameter()) * 0.5;
-		gp_Pnt ps;
-		gp_Vec du;
-		gp_Vec dv;
-		surf.D1(uMid, vMid, ps, du, dv);
-		gp_Vec normal = du.Crossed(dv);
-		if (face.Orientation() == TopAbs_REVERSED)
-		{
-			normal.Reverse();
-		}
-		if (normal.Magnitude() > 1e-9)
-		{
-			normal.Normalize();
-		}
-		else
-		{
-			normal = gp_Vec(0.0, 0.0, 1.0);
-		}
-		const gp_Vec outward = labelOutwardFromBbox(shape, center, normal);
+		// 面引线沿面法向，避免 bbox 外向与法向相反时看不出是哪一面
+		const gp_Vec outward = labelAlongDirection(shape, normal);
 		copyGpPnt(center.Translated(outward), out.labelOffsetXyzMm);
 		out.candidateId = "face_" + std::to_string(faceIdx);
 		return true;

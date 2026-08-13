@@ -217,6 +217,8 @@ struct FeatureCatalogOverlayItemDto
 	bool hasEdgeSegment = false;
 	Vec3 edgeAWorldMm;
 	Vec3 edgeBWorldMm;
+	QVector<Vec3> edgePolylineWorldMm;
+	QVector<Vec3> faceTrianglesWorldMm;
 };
 
 struct RobotFrameOverlayUpdateDto

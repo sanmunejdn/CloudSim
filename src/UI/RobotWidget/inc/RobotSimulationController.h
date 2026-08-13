@@ -28,6 +28,8 @@
 class BackendDataBase;
 class IRobotMotionClient;
 
+enum class AxisControlTargetKind : int;
+
 class RobotSimulationDockWidget;
 class QtProperty;
 class ProgramEditService;
@@ -116,6 +118,7 @@ public slots:
 	void onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId);
 	void onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad);
 	void onRobotAxisExternalValuesChanged(const QVector<double>& values);
+	void onAxisControlTargetChanged(AxisControlTargetKind kind, const QString& id);
 	void onSimulationTcpDragTeachModeChanged(bool enabled);
 	void onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void onTcpDragTeachEnded();
@@ -155,6 +158,7 @@ public slots:
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
 	void syncRobotExternalAxisSettingsFromDocument(int instanceIndex);
 	void syncRobotAxisControlExternalAxes(int instanceIndex);
+	void refreshAxisControlTargets();
 	void applyAxisControlExternalPose(int instanceIndex, const QVector<double>& values);
 	/// 规划/示教结果驱动外轴；无外轴量则忽略
 	/// progress01<1 时按段起点（完整配置对齐）插值；默认 1 直接落到目标
@@ -176,6 +180,10 @@ public slots:
 	bool showAiFeatureCandidatePreview(const QByteArray& catalogSliceUtf8, QString* err = nullptr);
 	void clearAiFeatureCandidatePreview();
 	bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* summary, QString* err);
+	int proposeAndConfirmTrajectoryPlan(const QByteArray& planIn, QByteArray& planOut, QString* err,
+										bool showRetry = true);
+	bool loadBoundTrajectoryPlanForAi(QByteArray& planOut, QString* err);
+	bool reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* summary, QString* err);
 
 private:
 	void applyProgramStartPoseAfterProjectLoadImpl();

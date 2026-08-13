@@ -70,6 +70,17 @@ AIBACKEND_EXPORT PlanJsonResult chatPlanJson(const QString& userText, const AiLl
 											 const AiProgressSink& progress, const QByteArray& catalogJsonUtf8,
 											 const QString& domainId, const QByteArray& sceneSnapshotUtf8 = QByteArray(),
 											 const QByteArray& sessionSummaryUtf8 = QByteArray());
+
+struct TextChatResult
+{
+	bool ok = false;
+	QString assistantText;
+	QString errorMessage;
+};
+
+/// 纯文本多轮（意图分类等）；无 tools
+AIBACKEND_EXPORT TextChatResult chatText(const QString& systemPrompt, const QString& userText, const AiLlmConfig& config,
+										 const AiProgressSink& progress = {});
 } // namespace AiLlmClient
 
 #endif

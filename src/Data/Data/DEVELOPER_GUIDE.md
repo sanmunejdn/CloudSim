@@ -145,6 +145,7 @@
 | `BrepBackendData` | `BrepModel` | `BrepModel` | 同 className |
 | `ParametricBrepBackendData` | `ParametricBrepModel` | `ParametricBrepModel` | 同 className（复用 Brep visual） |
 | `FrameBackendData` | `FrameBackendData` | `CoordinateFrame` | 同 className |
+| `CustomDeviceBackendData` | `CustomDeviceBackendData` | `CustomDevice` | 同 className（设备根示意轴；几何在子件） |
 
 侧车根键：`kProjectKeyProcessFlow` / `kProjectKeyGeometricModeling`。`backend_type::isBrepWorkpieceClassName` 等助手优先于手写比较。Property schema id（如 `backend.mesh`）为另一命名空间，勿与 className 混用。
 
