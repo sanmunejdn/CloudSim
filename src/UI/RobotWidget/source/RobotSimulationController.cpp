@@ -1929,7 +1929,7 @@ void RobotSimulationController::syncRobotExternalAxisSettingsFromDocument(const 
 		return;
 	}
 	QStringList backendIds;
-	for (const std::shared_ptr<BackendDataBase>& data : doc->backend().listData())
+	for (const std::shared_ptr<BackendDataBase>& data : doc->listObjects())
 	{
 		if (!data)
 		{
@@ -2786,7 +2786,7 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 	{
 		const QString deviceId = axisPage->currentControlTarget().id;
 		const auto device =
-			std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->backend().getData(deviceId.toStdString()));
+			std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(deviceId.toStdString()));
 		if (!device)
 		{
 			return;
@@ -2817,47 +2817,7 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 	applyAxisControlExternalPose(instIdx, values);
 }
 
-void RobotSimulationController::refreshAxisControlTargets()
-{
-	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
-	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
-	if (!axis || !doc)
-	{
-		return;
-	}
-	QVector<AxisControlTargetItem> targets;
-	const int robotCount = doc->robotKinematicInstanceCount();
-	for (int i = 0; i < robotCount; ++i)
-	{
-		AxisControlTargetItem item;
-		item.kind = AxisControlTargetKind::RobotInstance;
-		item.robotInstanceIndex = i;
-		item.id = doc->robotSceneBackendIdForInstance(i);
-		item.displayLabel = doc->robotDisplayLabelForInstance(i);
-		if (item.displayLabel.isEmpty())
-		{
-			item.displayLabel = QStringLiteral("Robot %1").arg(i + 1);
-		}
-		targets.push_back(item);
-	}
-	for (const auto& obj : doc->backend().findByClass(backend_type::kClassCustomDevice))
-	{
-		if (!obj)
-		{
-			continue;
-		}
-		AxisControlTargetItem item;
-		item.kind = AxisControlTargetKind::CustomDevice;
-		item.id = QString::fromStdString(obj->id());
-		item.displayLabel = QString::fromStdString(obj->name());
-		if (item.displayLabel.isEmpty())
-		{
-			item.displayLabel = item.id;
-		}
-		targets.push_back(item);
-	}
-	axis->setControlTargets(targets);
-}
+// refreshAxisControlTargets -> RobotSimulationController_AxisTargets.cpp
 
 void RobotSimulationController::onAxisControlTargetChanged(const AxisControlTargetKind kind, const QString& id)
 {
@@ -2870,7 +2830,7 @@ void RobotSimulationController::onAxisControlTargetChanged(const AxisControlTarg
 	if (kind == AxisControlTargetKind::CustomDevice)
 	{
 		axis->clearJoints();
-		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->backend().getData(id.toStdString()));
+		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(id.toStdString()));
 		if (!device)
 		{
 			axis->clearExternalAxes();

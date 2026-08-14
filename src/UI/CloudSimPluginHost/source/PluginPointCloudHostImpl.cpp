@@ -12,6 +12,7 @@
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
 #include "DocumentPointCloudOps.h"
+#include "IDataService.h"
 #include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
@@ -48,8 +49,7 @@ QString makeUniqueBrepDisplayName(cloudsim::host::DocumentHost& page, const QStr
 	int suffix = 2;
 	for (;;)
 	{
-		const std::vector<std::shared_ptr<BackendDataBase>> found = page.backend().findByName(candidate.toStdString());
-		if (found.empty())
+		if (page.data().findByName(candidate).isEmpty())
 		{
 			return candidate;
 		}
@@ -420,7 +420,7 @@ std::shared_ptr<BrepBackendData> resolveBrep(cloudsim::host::DocumentHost* page,
 		}
 		return nullptr;
 	}
-	const auto obj = page->backend().getData(backendIdUtf8);
+	const auto obj = page->findObject(backendIdUtf8);
 	if (!obj)
 	{
 		if (outError)

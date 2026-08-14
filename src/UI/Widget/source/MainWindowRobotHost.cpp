@@ -47,6 +47,10 @@ public:
 	const RobotProgramStore& robotProgramStore() const override { return m_page->robotProgramStore(); }
 	IRobotBackendPoseSink* poseSink() override { return m_page->sceneFacade().poseSink(); }
 	BackendDataManager& backend() override { return m_page->backend(); }
+	cloudsim::core::IDataService& documentData() override { return m_page->documentData(); }
+	const cloudsim::core::IDataService& documentData() const override { return m_page->documentData(); }
+	std::shared_ptr<BackendDataBase> findObject(const std::string& id) const override { return m_page->findObject(id); }
+	std::vector<std::shared_ptr<BackendDataBase>> listObjects() const override { return m_page->listObjects(); }
 	BackendDataManager* robotBackendManagerForKinematics() override
 	{
 		return m_page->robotBackendManagerForKinematics();

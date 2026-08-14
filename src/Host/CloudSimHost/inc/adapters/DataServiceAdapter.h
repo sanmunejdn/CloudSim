@@ -62,6 +62,7 @@ public:
 	void requestFollowSolveForced() override;
 	bool runFollowSolveAndSync(const core::FollowSolveContextDto& ctx, QString* outError = nullptr) override;
 	core::ObjectId followTargetId(const core::ObjectId& followerId) const override;
+	QVector<core::ObjectId> findByClassName(const QString& className) const override;
 
 private:
 	DocumentHost& m_host;

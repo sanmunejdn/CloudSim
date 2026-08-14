@@ -7,6 +7,7 @@
 #include "widget_global.h"
 
 #include "DocumentHost.h"
+#include "IDataService.h"
 #include "IPerLinkRobotStateAccessor.h"
 #include "IRobotUrdfImportContext.h"
 
@@ -127,6 +128,14 @@ public:
 	BackendDataManager* robotBackendManagerForKinematics() override { return &DocumentHost::backend(); }
 	/// 存量白名单：运动学 / URDF 导入 / mesh 几何仍需 BackendDataManager；新 UI 走 DocumentHost::data()
 	BackendDataManager& backend() override { return DocumentHost::backend(); }
+	/// 供 IRobotDocumentHost 适配层转发（DocumentPage 本身不继承 IRobotDocumentHost）
+	cloudsim::core::IDataService& documentData() { return DocumentHost::data(); }
+	const cloudsim::core::IDataService& documentData() const
+	{
+		return const_cast<DocumentPage*>(this)->DocumentHost::data();
+	}
+	using DocumentHost::findObject;
+	using DocumentHost::listObjects;
 
 	void notifyRobotKinematicsAppliedToScene() override;
 

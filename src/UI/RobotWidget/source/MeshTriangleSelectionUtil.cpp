@@ -31,7 +31,7 @@ bool collectTrianglesByPolyline(IRobotDocumentHost* doc, IRobotOsgViewHost* osg,
 		}
 		return false;
 	}
-	auto data = doc->backend().getData(backendIdUtf8);
+	auto data = doc->findObject(backendIdUtf8);
 	auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data);
 	if (!mesh || !mesh->hasGeometry())
 	{

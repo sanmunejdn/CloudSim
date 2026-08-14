@@ -175,8 +175,7 @@ void bindTrajectoryGeometryResolver(IRobotDocumentHost* document, IRobotOsgViewH
 		[document, osg](const std::string& backendId, RobotInstruction::TrajectoryGeometrySnapshot& out,
 						std::string* errMsg) -> bool
 		{
-			BackendDataManager& mgr = document->backend();
-			const std::shared_ptr<BackendDataBase> base = mgr.getData(backendId);
+			const std::shared_ptr<BackendDataBase> base = document->findObject(backendId);
 			if (!base || !base->hasGeometry())
 			{
 				if (errMsg)

@@ -447,7 +447,7 @@ void PluginGeometryHostImpl::discretizeBackendFaceEdgesToPolylines(IPluginDocume
 		onFinished(false, QStringLiteral("Invalid face ref for boundary edges"), {});
 		return;
 	}
-	auto brep = std::dynamic_pointer_cast<BrepBackendData>(page->backend().getData(faceRef.backendIdUtf8));
+	auto brep = std::dynamic_pointer_cast<BrepBackendData>(page->findObject(faceRef.backendIdUtf8));
 	if (!brep || brep->worldShape().isNull())
 	{
 		onFinished(false, QStringLiteral("B-rep backend unavailable"), {});
@@ -616,7 +616,7 @@ bool PluginGeometryHostImpl::listComputableBackends(IPluginDocument* doc,
 		return false;
 	}
 
-	const std::vector<std::shared_ptr<BackendDataBase>> all = page->backend().listData();
+	const std::vector<std::shared_ptr<BackendDataBase>> all = page->listObjects();
 	BackendDataManager& mgr = page->backend();
 	QVector<ComputableBackendCandidate> candidates;
 	candidates.reserve(static_cast<int>(all.size()));
@@ -784,7 +784,7 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 			std::shared_ptr<BrepBackendData> inMemoryBrep;
 			if (!stepFile)
 			{
-				inMemoryBrep = std::dynamic_pointer_cast<BrepBackendData>(page->backend().getData(backendId));
+				inMemoryBrep = std::dynamic_pointer_cast<BrepBackendData>(page->findObject(backendId));
 				if (!inMemoryBrep || !inMemoryBrep->hasGeometry())
 				{
 					complete(false, QStringLiteral("STEP source path unavailable"), {});
@@ -997,7 +997,7 @@ std::shared_ptr<ParametricBrepBackendData> parametricBodyWithTip(cloudsim::host:
 			*errOut = QStringLiteral("Empty targetParametricBackendId");
 		return nullptr;
 	}
-	auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(page->backend().getData(backendId));
+	auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(page->findObject(backendId));
 	if (!body)
 	{
 		if (errOut)
@@ -1128,7 +1128,7 @@ bool PluginGeometryHostImpl::queryFaceSketchPlane(IPluginDocument* doc, const Pl
 
 	if (!faceRef.backendIdUtf8.empty())
 	{
-		auto brep = std::dynamic_pointer_cast<BrepBackendData>(page->backend().getData(faceRef.backendIdUtf8));
+		auto brep = std::dynamic_pointer_cast<BrepBackendData>(page->findObject(faceRef.backendIdUtf8));
 		if (tryBrep(brep))
 			return true;
 		if (outError && outError->isEmpty())
@@ -1509,7 +1509,7 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 				const bool stepFile = isStepPath(stepPath);
 				if (!stepFile)
 				{
-					auto inMemoryBrep = std::dynamic_pointer_cast<BrepBackendData>(page->backend().getData(backendId));
+					auto inMemoryBrep = std::dynamic_pointer_cast<BrepBackendData>(page->findObject(backendId));
 					if (!inMemoryBrep || !inMemoryBrep->hasGeometry())
 						return;
 				}
@@ -1649,7 +1649,7 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 	if (needBase && !params.targetParametricBackendIdUtf8.empty())
 	{
 		auto body =
-			std::dynamic_pointer_cast<ParametricBrepBackendData>(page->backend().getData(params.targetParametricBackendIdUtf8));
+			std::dynamic_pointer_cast<ParametricBrepBackendData>(page->findObject(params.targetParametricBackendIdUtf8));
 		if (body && !body->worldShape().isNull())
 		{
 			baseOwned = body->worldShape();
@@ -1728,7 +1728,7 @@ void PluginGeometryHostImpl::extrudeSketchProfileToBrep(IPluginDocument* doc,
 	}
 	else
 	{
-		auto obj = page->backend().getData(params.targetParametricBackendIdUtf8);
+		auto obj = page->findObject(params.targetParametricBackendIdUtf8);
 		body = std::dynamic_pointer_cast<ParametricBrepBackendData>(obj);
 		if (!body)
 		{
@@ -1837,7 +1837,7 @@ bool PluginGeometryHostImpl::queryParametricBodyHistoryJson(IPluginDocument* doc
 			*outError = QStringLiteral("No document");
 		return false;
 	}
-	auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(page->backend().getData(backendIdUtf8));
+	auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(page->findObject(backendIdUtf8));
 	if (!body)
 	{
 		if (outError)
@@ -1861,7 +1861,7 @@ void PluginGeometryHostImpl::setParametricBodyHistoryJson(IPluginDocument* doc, 
 		onFinished(false, QStringLiteral("No document"), {});
 		return;
 	}
-	auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(page->backend().getData(backendIdUtf8));
+	auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(page->findObject(backendIdUtf8));
 	if (!body)
 	{
 		onFinished(false, QStringLiteral("Parametric Body not found"), {});
@@ -1911,7 +1911,7 @@ bool PluginGeometryHostImpl::listParametricBodyIds(IPluginDocument* doc, std::ve
 			*outError = QStringLiteral("No document");
 		return false;
 	}
-	for (const auto& data : page->backend().listData())
+	for (const auto& data : page->listObjects())
 	{
 		if (!data)
 			continue;
@@ -1946,7 +1946,7 @@ void PluginGeometryHostImpl::pickParametricFeatureForEdit(IPluginDocument* doc,
 			}
 			cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 			auto body = page ? std::dynamic_pointer_cast<ParametricBrepBackendData>(
-								   page->backend().getData(ref.backendIdUtf8))
+								   page->findObject(ref.backendIdUtf8))
 							 : nullptr;
 			if (!body)
 			{
@@ -1995,7 +1995,7 @@ bool PluginGeometryHostImpl::previewSketchSweep(IPluginDocument* doc, const std:
 	if (!params.targetParametricBackendIdUtf8.empty())
 	{
 		auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(
-			page->backend().getData(params.targetParametricBackendIdUtf8));
+			page->findObject(params.targetParametricBackendIdUtf8));
 		if (body && !body->worldShape().isNull())
 		{
 			baseOwned = body->worldShape();
@@ -2092,7 +2092,7 @@ void PluginGeometryHostImpl::sweepSketchProfileToBrep(IPluginDocument* doc,
 	else
 	{
 		body = std::dynamic_pointer_cast<ParametricBrepBackendData>(
-			page->backend().getData(params.targetParametricBackendIdUtf8));
+			page->findObject(params.targetParametricBackendIdUtf8));
 		if (!body)
 		{
 			onFinished(false, QStringLiteral("Parametric Body not found"), {});
@@ -2420,7 +2420,7 @@ bool PluginGeometryHostImpl::previewSketchRevolve(IPluginDocument* doc, const st
 	if (!params.targetParametricBackendIdUtf8.empty())
 	{
 		auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(
-			page->backend().getData(params.targetParametricBackendIdUtf8));
+			page->findObject(params.targetParametricBackendIdUtf8));
 		if (body && !body->worldShape().isNull())
 		{
 			baseOwned = body->worldShape();
@@ -2487,7 +2487,7 @@ void PluginGeometryHostImpl::revolveSketchProfileToBrep(IPluginDocument* doc,
 	else
 	{
 		body = std::dynamic_pointer_cast<ParametricBrepBackendData>(
-			page->backend().getData(params.targetParametricBackendIdUtf8));
+			page->findObject(params.targetParametricBackendIdUtf8));
 		if (!body)
 		{
 			onFinished(false, QStringLiteral("Parametric Body not found"), {});
@@ -2782,7 +2782,7 @@ bool PluginGeometryHostImpl::previewSketchLoft(IPluginDocument* doc, const std::
 	if (!params.targetParametricBackendIdUtf8.empty())
 	{
 		auto body = std::dynamic_pointer_cast<ParametricBrepBackendData>(
-			page->backend().getData(params.targetParametricBackendIdUtf8));
+			page->findObject(params.targetParametricBackendIdUtf8));
 		if (body && !body->worldShape().isNull())
 		{
 			baseOwned = body->worldShape();
@@ -2844,7 +2844,7 @@ void PluginGeometryHostImpl::loftSketchProfilesToBrep(IPluginDocument* doc,
 	else
 	{
 		body = std::dynamic_pointer_cast<ParametricBrepBackendData>(
-			page->backend().getData(params.targetParametricBackendIdUtf8));
+			page->findObject(params.targetParametricBackendIdUtf8));
 		if (!body)
 		{
 			onFinished(false, QStringLiteral("Parametric Body not found"), {});

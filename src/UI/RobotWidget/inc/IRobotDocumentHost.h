@@ -14,6 +14,11 @@
 #include "RobotProgramStore.h"
 
 #include "CoreTypes.h"
+#include "IDataService.h"
+
+#include <memory>
+#include <string>
+#include <vector>
 
 #include <QHash>
 #include <QString>
@@ -37,6 +42,12 @@ public:
 
 	virtual IRobotBackendPoseSink* poseSink() = 0;
 	virtual BackendDataManager& backend() = 0;
+	/// 契约数据面（新代码优先；减少 backend()）
+	virtual cloudsim::core::IDataService& documentData() = 0;
+	virtual const cloudsim::core::IDataService& documentData() const = 0;
+	/// 对象查询（替代 backend().getData / listData；运动学等仍可走 backend()）
+	virtual std::shared_ptr<BackendDataBase> findObject(const std::string& id) const = 0;
+	virtual std::vector<std::shared_ptr<BackendDataBase>> listObjects() const = 0;
 
 	virtual QString robotSceneBackendIdForInstance(int instanceIndex) const = 0;
 	virtual QString robotFrameWorldReferenceBackendId(int instanceIndex) const = 0;

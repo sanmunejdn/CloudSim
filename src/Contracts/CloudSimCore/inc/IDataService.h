@@ -68,6 +68,9 @@ public:
 
 	/// 启用中的 Follow 目标 id；无组件或未启用返回空（vtable 末尾追加）
 	virtual ObjectId followTargetId(const ObjectId& followerId) const = 0;
+
+	/// 按 className 枚举对象 id（替代 UI 直调 BackendDataManager::findByClass）
+	virtual QVector<ObjectId> findByClassName(const QString& className) const = 0;
 };
 
 } // namespace cloudsim::core

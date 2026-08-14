@@ -3,6 +3,10 @@
 
 #include "HostRenderViewFactory.h"
 
+#include "NullCoreServices.h"
+
+#ifndef CLOUDSIM_HOST_HEADLESS_ONLY
+
 #include "OsgWidget.h"
 #include "adapters/OsgRenderViewAdapter.h"
 
@@ -26,3 +30,22 @@ std::unique_ptr<core::IRenderView> HostRenderViewFactory::createView(QWidget* pa
 }
 
 } // namespace cloudsim::host
+
+#else
+
+namespace cloudsim::host
+{
+std::unique_ptr<core::IRenderView> wrapOsgWidgetAsRenderView(OsgWidget& widget)
+{
+	(void)widget;
+	return core::makeNullRenderViewFactory()->createView(nullptr);
+}
+
+std::unique_ptr<core::IRenderView> HostRenderViewFactory::createView(QWidget* parent)
+{
+	return core::makeNullRenderViewFactory()->createView(parent);
+}
+
+} // namespace cloudsim::host
+
+#endif

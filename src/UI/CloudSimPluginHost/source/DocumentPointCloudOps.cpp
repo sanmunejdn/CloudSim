@@ -121,7 +121,7 @@ std::shared_ptr<PointCloudBackendData> resolvePointCloud(cloudsim::host::Documen
 		}
 		return nullptr;
 	}
-	const auto obj = page->backend().getData(backendIdUtf8);
+	const auto obj = page->findObject(backendIdUtf8);
 	if (!obj)
 	{
 		if (outError)
@@ -153,7 +153,7 @@ std::shared_ptr<MeshBackendData> resolveMesh(cloudsim::host::DocumentHost* page,
 		}
 		return nullptr;
 	}
-	const auto obj = page->backend().getData(backendIdUtf8);
+	const auto obj = page->findObject(backendIdUtf8);
 	if (!obj)
 	{
 		if (outError)
@@ -484,9 +484,9 @@ void logRegistrationOverlapDiagnostic(cloudsim::host::DocumentHost* page, const 
 	{
 		return;
 	}
-	const auto scanObj = page ? page->backend().getData(scanBackendIdUtf8) : nullptr;
+	const auto scanObj = page ? page->findObject(scanBackendIdUtf8) : nullptr;
 	const auto templateBrep =
-		std::dynamic_pointer_cast<BrepBackendData>(page ? page->backend().getData(templateBackendIdUtf8) : nullptr);
+		std::dynamic_pointer_cast<BrepBackendData>(page ? page->findObject(templateBackendIdUtf8) : nullptr);
 	if (!scanObj || !templateBrep)
 	{
 		return;
@@ -536,9 +536,9 @@ void logRegistrationCentroidDiagnostic(cloudsim::host::DocumentHost* page, const
 	{
 		return;
 	}
-	const auto scanObj = page->backend().getData(scanBackendIdUtf8);
+	const auto scanObj = page->findObject(scanBackendIdUtf8);
 	const auto templateBrep =
-		std::dynamic_pointer_cast<BrepBackendData>(page->backend().getData(templateBackendIdUtf8));
+		std::dynamic_pointer_cast<BrepBackendData>(page->findObject(templateBackendIdUtf8));
 	if (!scanObj || !templateBrep)
 	{
 		return;
@@ -672,7 +672,7 @@ bool inheritBrepVisualPoseFromSourceMesh(cloudsim::host::DocumentHost* page, con
 		}
 		return false;
 	}
-	const auto sourceObj = page->backend().getData(sourceMeshBackendIdUtf8);
+	const auto sourceObj = page->findObject(sourceMeshBackendIdUtf8);
 	if (const auto* sourceMesh = dynamic_cast<const MeshBackendData*>(sourceObj.get()))
 	{
 		newBrep.setPose(sourceMesh->pose());
@@ -725,7 +725,7 @@ bool applyTemplateRegistrationToVisual(cloudsim::host::DocumentHost* page, const
 		}
 		return false;
 	}
-	const auto obj = page->backend().getData(templateBackendIdUtf8);
+	const auto obj = page->findObject(templateBackendIdUtf8);
 	if (!obj)
 	{
 		if (outError)
@@ -758,7 +758,7 @@ bool applyTemplateRegistrationToVisual(cloudsim::host::DocumentHost* page, const
 	std::shared_ptr<BrepBackendData> displayBrep = brep;
 	if (visualId != templateBackendIdUtf8)
 	{
-		const auto visualObj = page->backend().getData(visualId);
+		const auto visualObj = page->findObject(visualId);
 		displayBrep = std::dynamic_pointer_cast<BrepBackendData>(visualObj);
 	}
 	if (!displayBrep)
@@ -813,7 +813,7 @@ bool restoreTemplateShapeFromStep(cloudsim::host::DocumentHost* page, const std:
 		}
 		return false;
 	}
-	const auto obj = page->backend().getData(templateBackendIdUtf8);
+	const auto obj = page->findObject(templateBackendIdUtf8);
 	auto brep = std::dynamic_pointer_cast<BrepBackendData>(obj);
 	if (!brep)
 	{
@@ -848,7 +848,7 @@ bool restoreTemplateShapeFromStep(cloudsim::host::DocumentHost* page, const std:
 	std::shared_ptr<BrepBackendData> displayBrep = brep;
 	if (visualId != templateBackendIdUtf8)
 	{
-		displayBrep = std::dynamic_pointer_cast<BrepBackendData>(page->backend().getData(visualId));
+		displayBrep = std::dynamic_pointer_cast<BrepBackendData>(page->findObject(visualId));
 	}
 	if (!displayBrep)
 	{
@@ -1186,7 +1186,7 @@ bool exportBrepToStep(cloudsim::host::DocumentHost* page, const std::string& bac
 		}
 		return false;
 	}
-	const auto obj = page->backend().getData(backendIdUtf8);
+	const auto obj = page->findObject(backendIdUtf8);
 	if (!obj)
 	{
 		if (outError)

@@ -921,7 +921,7 @@ bool DocumentPage::applyPerLinkRobotFkFromGizmoAnchor(const int instanceIndex, c
 	{
 		return false;
 	}
-	const std::shared_ptr<BackendDataBase> rootData = backend().getData(ri.sceneBackendId.toStdString());
+	const std::shared_ptr<BackendDataBase> rootData = findObject(ri.sceneBackendId.toStdString());
 	if (rootData && rootData->hasPoseProperty())
 	{
 		osg::Vec3d trans;

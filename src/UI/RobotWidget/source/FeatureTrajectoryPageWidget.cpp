@@ -1818,7 +1818,7 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		return;
 	}
 	BackendDataManager& mgr = doc->backend();
-	const auto all = mgr.listData();
+	const auto all = doc->listObjects();
 	QVector<WorkpieceComboCandidate> candidates;
 	candidates.reserve(static_cast<int>(all.size()));
 	for (const auto& data : all)
@@ -2266,7 +2266,7 @@ bool FeatureTrajectoryPageWidget::currentWorkpiece(QString& backendId, QString& 
 	}
 	if (m_host && m_host->document())
 	{
-		if (const auto data = m_host->document()->backend().getData(backendId.toStdString()))
+		if (const auto data = m_host->document()->findObject(backendId.toStdString()))
 		{
 			if (isBrepWorkpieceClassName(data->className()) && data->hasGeometry())
 			{

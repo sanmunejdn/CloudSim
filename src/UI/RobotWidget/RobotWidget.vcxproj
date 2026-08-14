@@ -160,6 +160,7 @@
     <ClCompile Include="source\RobotCommPageWidget.cpp" />
     <ClCompile Include="source\RobotSimulationController.cpp" />
     <ClCompile Include="source\RobotSimulationController_robotComm.cpp" />
+    <ClCompile Include="source\RobotSimulationController_AxisTargets.cpp" />
     <ClCompile Include="source\PlanResultCache.cpp" />
     <ClCompile Include="source\RobotSimulationDockWidget.cpp" />
     <ClCompile Include="source\RobotSimulationMath.cpp" />

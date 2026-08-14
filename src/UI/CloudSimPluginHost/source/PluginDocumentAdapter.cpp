@@ -45,7 +45,7 @@ std::size_t PluginDocumentAdapter::backendObjectCount() const
 	{
 		return 0U;
 	}
-	return m_host->backend().listData().size();
+	return m_host->listObjects().size();
 }
 
 std::vector<std::string> PluginDocumentAdapter::backendIds() const
@@ -55,7 +55,7 @@ std::vector<std::string> PluginDocumentAdapter::backendIds() const
 	{
 		return ids;
 	}
-	const auto list = m_host->backend().listData();
+	const auto list = m_host->listObjects();
 	ids.reserve(list.size());
 	for (const auto& obj : list)
 	{
@@ -69,7 +69,7 @@ std::vector<std::string> PluginDocumentAdapter::backendIds() const
 
 bool PluginDocumentAdapter::containsBackend(const std::string& backendId) const
 {
-	return m_host && m_host->backend().contains(backendId);
+	return m_host && m_host->data().isValid(QString::fromStdString(backendId));
 }
 
 std::string PluginDocumentAdapter::backendDisplayName(const std::string& backendId) const
@@ -78,8 +78,7 @@ std::string PluginDocumentAdapter::backendDisplayName(const std::string& backend
 	{
 		return std::string();
 	}
-	const auto obj = m_host->backend().getData(backendId);
-	return obj ? obj->name() : std::string();
+	return m_host->data().displayName(QString::fromStdString(backendId)).toStdString();
 }
 
 std::string PluginDocumentAdapter::backendClassName(const std::string& backendId) const
@@ -88,8 +87,7 @@ std::string PluginDocumentAdapter::backendClassName(const std::string& backendId
 	{
 		return std::string();
 	}
-	const auto obj = m_host->backend().getData(backendId);
-	return obj ? obj->className() : std::string();
+	return m_host->data().className(QString::fromStdString(backendId)).toStdString();
 }
 
 std::string PluginDocumentAdapter::documentId() const

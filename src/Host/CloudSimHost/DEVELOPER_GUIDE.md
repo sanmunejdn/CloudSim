@@ -28,6 +28,8 @@
 
 ## 2. 目录与编译单元
 
+> **功能域索引（路径 B）**：[`docs/HostOptimization/INTERFACE_CATALOG.md`](../../../docs/HostOptimization/INTERFACE_CATALOG.md)；`backend()` 清单见同目录 `BACKEND_CALLSITE_INVENTORY.md`。
+
 ```text
 CloudSimHost/
 ├── inc/
@@ -35,25 +37,24 @@ CloudSimHost/
 │   ├── widget_global.h           # Host 编 OSG 时 WIDGET_EXPORT / OSG_WIDGET_API → export
 │   ├── CloudSimHost.h            # createDocumentHost / createHostRenderViewFactory
 │   ├── DocumentHost.h            # QtMoc；勿与 ClInclude 重复登记
+│   ├── DocumentProjectSidecar.h  # 工程旁路表
+│   ├── DocumentFollowState.h     # Follow 脏集/门闩
 │   ├── HostRenderViewFactory.h
-│   ├── BackendFileImport.h
-│   ├── BackendHierarchyFollow.h
-│   ├── HierarchyMeshImport.h
-│   ├── BackendProjectObjectIo.h
-│   ├── DocumentHostEvents.h
+│   ├── import/ …                 # 导入（扁平 shim 仍在 inc/ 根）
+│   ├── project/ …
+│   ├── robot/ …
+│   ├── headless/ …
+│   ├── follow/ …
 │   └── adapters/
 │       ├── DataServiceAdapter.h
 │       ├── OsgRenderViewAdapter.h
 │       └── RobotServiceAdapter.h
-│   ├── IPerLinkKinematicsHost.h          # per-link 机器人运动学宿主接口（2026）
-│   ├── IPerLinkRobotStateAccessor.h      # 状态快照访问器 + DTO（2026）
-│   └── PerLinkKinematicsHostImpl.h       # Host 实现类声明
 └── source/
     ├── DocumentHost.cpp
-    ├── CloudSimApplicationContext.cpp   # cloudsimCreateApplicationContext
-    ├── CloudSimHostExport.cpp           # cloudsimCreateRenderViewFactory (C ABI)
-    ├── adapters/*.cpp
-    └── PerLinkKinematicsHostImpl.cpp     # Host 实现类（调用 RobotSceneKinematics/UrdfRobotLoader）
+    ├── CloudSimApplicationContext.cpp
+    ├── CloudSimHostExport.cpp
+    ├── import|project|robot|headless|follow/
+    └── adapters/*.cpp
 ```
 
 **自 `Widget` 编入本工程的源码**（路径仍为 `src/UI/Widget/`，勿在 Host 下维护第二份副本）：

@@ -502,4 +502,21 @@ core::ObjectId DataServiceAdapter::followTargetId(const core::ObjectId& follower
 	return QString::fromStdString(tid);
 }
 
+QVector<core::ObjectId> DataServiceAdapter::findByClassName(const QString& className) const
+{
+	QVector<core::ObjectId> out;
+	if (className.isEmpty())
+	{
+		return out;
+	}
+	for (const auto& obj : backendOf(m_host).findByClass(className.toStdString()))
+	{
+		if (obj)
+		{
+			out.append(QString::fromStdString(obj->id()));
+		}
+	}
+	return out;
+}
+
 } // namespace cloudsim::host

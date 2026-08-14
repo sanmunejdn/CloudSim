@@ -15,6 +15,7 @@
 | [`TopoNaming/`](TopoNaming/) | TopoNaming 对齐（进行中） |
 | [`自定义设备/`](自定义设备/) | CustomDevice 聚合根、单轴运动、轴控切换（进行中） |
 | [`网页端React轨迹对齐/`](网页端React轨迹对齐/) | React 轨迹生成/编辑：坐标系、高亮、应用后复位 |
+| [`HostOptimization/`](HostOptimization/) | Host 接口目录、backend 清单、路径 B；WebH2 Phase1（`CloudSimHostHeadless`）已验收 |
 | [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md) | 网页正式壳日常开发、构建与轨迹约定 |
 
 Cursor 规则镜像：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-architecture.mdc`、`cloudsim-vcxproj-filters.mdc`。

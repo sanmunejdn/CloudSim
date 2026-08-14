@@ -11,10 +11,10 @@ namespace cloudsim::host
 {
 using ::OsgWidget;
 
-QJsonArray buildAnnotationsJsonFromOsg(OsgWidget& osg, QJsonObject& inOutRootExtras)
+QJsonArray buildAnnotationsJsonFromOsg(OsgWidget& osgWidget, QJsonObject& inOutRootExtras)
 {
 	QJsonArray annArray;
-	const auto snapshots = osg.annotationSnapshots();
+	const auto snapshots = osgWidget.annotationSnapshots();
 	for (const auto& s : snapshots)
 	{
 		QJsonObject a;
@@ -37,7 +37,7 @@ QJsonArray buildAnnotationsJsonFromOsg(OsgWidget& osg, QJsonObject& inOutRootExt
 		a.insert(QStringLiteral("visible"), s.visible);
 		annArray.push_back(a);
 	}
-	const QString camFollow = QString::fromStdString(osg.cameraFollowBackendId());
+	const QString camFollow = QString::fromStdString(osgWidget.cameraFollowBackendId());
 	if (!camFollow.isEmpty())
 	{
 		inOutRootExtras.insert(QStringLiteral("cameraFollowBackendId"), camFollow);
@@ -45,7 +45,7 @@ QJsonArray buildAnnotationsJsonFromOsg(OsgWidget& osg, QJsonObject& inOutRootExt
 	return annArray;
 }
 
-void applyAnnotationsFromProjectJson(OsgWidget& osg, const QJsonObject& root)
+void applyAnnotationsFromProjectJson(OsgWidget& osgWidget, const QJsonObject& root)
 {
 	QList<OsgWidget::AnnotationSnapshot> snapshots;
 	const QJsonArray annArray = root.value(QStringLiteral("annotations")).toArray();
@@ -75,8 +75,8 @@ void applyAnnotationsFromProjectJson(OsgWidget& osg, const QJsonObject& root)
 		s.visible = a.value(QStringLiteral("visible")).toBool(true);
 		snapshots.push_back(s);
 	}
-	osg.restoreAnnotations(snapshots);
-	osg.setCameraFollowBackendId(root.value(QStringLiteral("cameraFollowBackendId")).toString().toStdString());
+	osgWidget.restoreAnnotations(snapshots);
+	osgWidget.setCameraFollowBackendId(root.value(QStringLiteral("cameraFollowBackendId")).toString().toStdString());
 }
 
 } // namespace cloudsim::host

@@ -74,8 +74,7 @@ void populateGeometryBackendCombo(QComboBox* combo, IRobotMainWindowHost* host, 
 	combo->clear();
 	if (host && host->document())
 	{
-		BackendDataManager& mgr = host->document()->backend();
-		for (const std::shared_ptr<BackendDataBase>& data : mgr.listData())
+		for (const std::shared_ptr<BackendDataBase>& data : host->document()->listObjects())
 		{
 			if (!data || !data->hasGeometry())
 			{
@@ -123,8 +122,7 @@ void populateExternalTcpFrameCombo(QComboBox* combo, IRobotMainWindowHost* host,
 	combo->addItem(useChinese ? QStringLiteral("手动") : QStringLiteral("Manual"), QString());
 	if (host && host->document())
 	{
-		BackendDataManager& mgr = host->document()->backend();
-		for (const std::shared_ptr<BackendDataBase>& data : mgr.listData())
+		for (const std::shared_ptr<BackendDataBase>& data : host->document()->listObjects())
 		{
 			if (!data || !std::dynamic_pointer_cast<FrameBackendData>(data))
 			{

@@ -22,10 +22,13 @@ if /I "!CLOUDSIM_WEB_SKIP_BUILD!"=="1" (
   echo [cloudsim-web] SKIP_BUILD=1, leave !OUT_WEB! unchanged
   exit /b 0
 )
-if not exist "!OUT_WEB!" mkdir "!OUT_WEB!"
-if errorlevel 1 (
-  echo [cloudsim-web] mkdir failed: !OUT_WEB!
-  exit /b 1
+REM findstr 未命中时 ERRORLEVEL=1，不可在「目录已存在跳过 mkdir」后直接 if errorlevel
+if not exist "!OUT_WEB!" (
+  mkdir "!OUT_WEB!"
+  if errorlevel 1 (
+    echo [cloudsim-web] mkdir failed: !OUT_WEB!
+    exit /b 1
+  )
 )
 if /I "!CLOUDSIM_WEB_FALLBACK!"=="1" (
   echo [cloudsim-web] FALLBACK=1, xcopy _archive\public-fallback

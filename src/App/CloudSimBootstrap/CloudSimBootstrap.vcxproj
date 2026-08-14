@@ -80,11 +80,9 @@
     <ClCompile Include="source\CloudSimApplicationContext.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <!-- 仅依赖 Core：桌面链 CloudSimHost、Web 链 CloudSimHostHeadless，勿在此绑死某一 Host -->
     <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
       <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Host\CloudSimHost\CloudSimHost.vcxproj">
-      <Project>{c1d2e3f4-a5b6-7890-cdef-1234567890ab}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

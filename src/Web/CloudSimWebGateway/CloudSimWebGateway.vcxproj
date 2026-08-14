@@ -90,8 +90,8 @@
     <ClInclude Include="inc\cloudsim_web_gateway_global.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Host\CloudSimHost\CloudSimHost.vcxproj">
-      <Project>{c1d2e3f4-a5b6-7890-cdef-1234567890ab}</Project>
+    <ProjectReference Include="..\..\Host\CloudSimHost\CloudSimHostHeadless.vcxproj">
+      <Project>{c1d2e3f4-a5b6-7890-cdef-1234567890ac}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
       <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>

@@ -9,6 +9,8 @@
 #include "IDocumentScope.h"
 #include "IPerLinkKinematicsHost.h"
 #include "IPerLinkRobotStateAccessor.h"
+#include "DocumentFollowState.h"
+#include "DocumentProjectSidecar.h"
 
 #include <QHash>
 #include <QMap>
@@ -16,7 +18,9 @@
 #include <QVector>
 #include <QWidget>
 #include <memory>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
 namespace cloudsim::core
 {
@@ -77,9 +81,13 @@ public:
 	void restoreRenderWidget();
 	bool isRenderWidgetEmbedded() const { return m_osgEmbedded; }
 
-	/// 存量 backend 入口（新代码优先 `data()`；勿在 UI 层继续扩散 BackendDataManager 头）
+	/// 存量 backend 入口（新代码优先 `data()` / `findObject`；勿在 UI 层继续扩散 BackendDataManager 头）
 	BackendDataManager& backend();
 	const BackendDataManager& backend() const;
+	/// 按 id 取对象（替代 UI 直调 backend().getData）
+	std::shared_ptr<BackendDataBase> findObject(const std::string& id) const;
+	/// 枚举全部对象（替代 UI 直调 backend().listData）
+	std::vector<std::shared_ptr<BackendDataBase>> listObjects() const;
 	RobotProgramStore& robotProgramStore();
 	BackendHierarchyModel& hierarchyModel();
 	const BackendHierarchyModel& hierarchyModel() const;
@@ -173,14 +181,8 @@ private:
 	QWidget* m_centralAlternate = nullptr;
 	bool m_osgEmbedded = false;
 	QWidget* m_osgEmbedSlot = nullptr;
-	QMap<QString, QString> m_backendSourcePath;
-	QMap<QString, QString> m_backendSourceType;
-	QMap<QString, QString> m_backendParentId;
-	QString m_projectFilePath;
-	std::unordered_set<std::string> m_followDirtyBackendIds;
-	bool m_followSolveForced = false;
-	bool m_suppressRobotFollowDirtyNotify = false;
-	bool m_deferPropertyPanelVisualFullSync = false;
+	DocumentProjectSidecar m_projectSidecar;
+	DocumentFollowState m_followState;
 	IRobotUrdfImportContext* m_robotUrdfImportContext = nullptr;
 	std::unique_ptr<HeadlessRobotContext> m_headlessRobotContext;
 	std::unique_ptr<HeadlessTrajectorySession> m_headlessTrajectorySession;

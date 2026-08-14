@@ -117,6 +117,7 @@ public:
 		return false;
 	}
 	ObjectId followTargetId(const ObjectId&) const override { return {}; }
+	QVector<ObjectId> findByClassName(const QString&) const override { return {}; }
 };
 
 class NullRobotService final : public IRobotService

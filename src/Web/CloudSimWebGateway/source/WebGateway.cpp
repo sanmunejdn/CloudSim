@@ -1454,7 +1454,7 @@ QByteArray WebGateway::objectsJsonOnGuiThread()
 		// 导出 Three.js/OpenGL 列主序，避免把 BackendMat4/OSG 布局直接塞给 fromArray
 		if (host)
 		{
-			if (const auto obj = host->backend().getData(snap.id.toStdString()))
+			if (const auto obj = host->findObject(snap.id.toStdString()))
 			{
 				o.insert(QStringLiteral("worldMatrix"), worldMatrixForThreeJs(obj->worldMatrix()));
 				if (obj->hasColorProperty())

@@ -27,7 +27,9 @@
 #include "PointCloudBackendData.h"
 #include "RobotProgramStore.h"
 #include "adapters/DataServiceAdapter.h"
+#ifndef CLOUDSIM_HOST_HEADLESS_ONLY
 #include "adapters/OsgRenderViewAdapter.h"
+#endif
 #include "adapters/RobotServiceAdapter.h"
 
 #include <Qt>
@@ -54,6 +56,7 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 	m_robotProgramStore = std::make_unique<RobotProgramStore>();
 	m_hierarchyModel = std::make_unique<BackendHierarchyModel>(*m_backend);
 
+#if !defined(CLOUDSIM_HOST_HEADLESS_ONLY)
 	if (enableOsgView)
 	{
 		// OSG 直挂 layout：勿用 QStackedWidget 包 OpenGL，Windows 上会拖视图卡顿
@@ -63,6 +66,7 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 		m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget, *this);
 	}
 	else
+#endif
 	{
 		m_osgWidget = nullptr;
 		m_sceneBridge.setOsgWidget(nullptr);
@@ -318,6 +322,24 @@ const BackendDataManager& DocumentHost::backend() const
 	return *m_backend;
 }
 
+std::shared_ptr<BackendDataBase> DocumentHost::findObject(const std::string& id) const
+{
+	if (id.empty() || !m_backend)
+	{
+		return {};
+	}
+	return m_backend->getData(id);
+}
+
+std::vector<std::shared_ptr<BackendDataBase>> DocumentHost::listObjects() const
+{
+	if (!m_backend)
+	{
+		return {};
+	}
+	return m_backend->listData();
+}
+
 RobotProgramStore& DocumentHost::robotProgramStore()
 {
 	return *m_robotProgramStore;
@@ -416,9 +438,9 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 	for (const QString& id : ids)
 	{
 		m_backend->unregisterData(id.toStdString());
-		m_backendParentId.remove(id);
-		m_backendSourcePath.remove(id);
-		m_backendSourceType.remove(id);
+		m_projectSidecar.parentId().remove(id);
+		m_projectSidecar.sourcePath().remove(id);
+		m_projectSidecar.sourceType().remove(id);
 		if (m_osgWidget)
 		{
 			m_osgWidget->removeBackendObjectVisual(id.toStdString());
@@ -439,17 +461,17 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 
 void DocumentHost::setProjectFilePath(const QString& path)
 {
-	m_projectFilePath = path;
+	m_projectSidecar.setProjectFilePath(path);
 }
 
 const QString& DocumentHost::projectFilePath() const
 {
-	return m_projectFilePath;
+	return m_projectSidecar.projectFilePath();
 }
 
 std::unordered_set<std::string>& DocumentHost::followDirtyBackendIds()
 {
-	return m_followDirtyBackendIds;
+	return m_followState.dirtyBackendIds();
 }
 
 void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& seed)
@@ -496,7 +518,7 @@ void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& s
 		{
 			continue;
 		}
-		m_followDirtyBackendIds.insert(u);
+		m_followState.dirtyBackendIds().insert(u);
 		const auto itF = targetToFollowers.find(u);
 		if (itF != targetToFollowers.end())
 		{
@@ -519,30 +541,28 @@ void DocumentHost::invalidateFollowReverseIndex()
 
 void DocumentHost::clearFollowDirtyBackendIds()
 {
-	m_followDirtyBackendIds.clear();
+	m_followState.clearDirtyBackendIds();
 }
 
 void DocumentHost::requestFollowSolveForced()
 {
-	m_followSolveForced = true;
+	m_followState.requestSolveForced();
 }
 
 bool DocumentHost::takeFollowSolveForced()
 {
-	const bool v = m_followSolveForced;
-	m_followSolveForced = false;
-	return v;
+	return m_followState.takeSolveForced();
 }
 
 bool DocumentHost::followSolveForcedPending() const
 {
-	return m_followSolveForced;
+	return m_followState.solveForcedPending();
 }
 
 bool DocumentHost::isKinematicsOwnedBackend(const std::string& backendId) const
 {
 	const QString id = QString::fromStdString(backendId);
-	return m_backendSourceType.value(id).compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0;
+	return m_projectSidecar.sourceType().value(id).compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0;
 }
 
 void DocumentHost::stripKinematicsOwnedFollowAttachments()
@@ -569,22 +589,22 @@ void DocumentHost::stripKinematicsOwnedFollowAttachments()
 
 void DocumentHost::setSuppressRobotFollowDirtyNotify(const bool suppress)
 {
-	m_suppressRobotFollowDirtyNotify = suppress;
+	m_followState.setSuppressRobotDirtyNotify(suppress);
 }
 
 bool DocumentHost::suppressRobotFollowDirtyNotify() const
 {
-	return m_suppressRobotFollowDirtyNotify;
+	return m_followState.suppressRobotDirtyNotify();
 }
 
 void DocumentHost::setDeferPropertyPanelVisualFullSync(const bool defer)
 {
-	m_deferPropertyPanelVisualFullSync = defer;
+	m_followState.setDeferPropertyPanelVisualFullSync(defer);
 }
 
 bool DocumentHost::deferPropertyPanelVisualFullSync() const
 {
-	return m_deferPropertyPanelVisualFullSync;
+	return m_followState.deferPropertyPanelVisualFullSync();
 }
 
 void DocumentHost::ensureSelectionVisualForBackend(const std::string& backendId, const bool urdfLinkMesh)
@@ -612,32 +632,32 @@ bool DocumentHost::syncOuterPatFromBackendId(const std::string& backendId)
 
 QMap<QString, QString>& DocumentHost::backendSourcePath()
 {
-	return m_backendSourcePath;
+	return m_projectSidecar.sourcePath();
 }
 
 const QMap<QString, QString>& DocumentHost::backendSourcePath() const
 {
-	return m_backendSourcePath;
+	return m_projectSidecar.sourcePath();
 }
 
 QMap<QString, QString>& DocumentHost::backendSourceType()
 {
-	return m_backendSourceType;
+	return m_projectSidecar.sourceType();
 }
 
 const QMap<QString, QString>& DocumentHost::backendSourceType() const
 {
-	return m_backendSourceType;
+	return m_projectSidecar.sourceType();
 }
 
 QMap<QString, QString>& DocumentHost::backendParentId()
 {
-	return m_backendParentId;
+	return m_projectSidecar.parentId();
 }
 
 const QMap<QString, QString>& DocumentHost::backendParentId() const
 {
-	return m_backendParentId;
+	return m_projectSidecar.parentId();
 }
 
 std::unique_ptr<core::IDocumentScope> createDocumentHost(QWidget* parent, core::EventHub& events,
@@ -658,7 +678,11 @@ std::unique_ptr<core::IDocumentScope> createHeadlessDocumentHost(core::EventHub&
 
 std::unique_ptr<core::IRenderViewFactory> createHostRenderViewFactory()
 {
+#if defined(CLOUDSIM_HOST_HEADLESS_ONLY)
+	return core::makeNullRenderViewFactory();
+#else
 	return std::make_unique<HostRenderViewFactory>();
+#endif
 }
 
 DocumentHost* documentHostFromScope(core::IDocumentScope* scope)

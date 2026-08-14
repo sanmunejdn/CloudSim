@@ -380,7 +380,7 @@ void MeshTrajectoryPageWidget::refreshBackendCombo()
 		return;
 	}
 	BackendDataManager& mgr = m_host->document()->backend();
-	for (const auto& data : mgr.listData())
+	for (const auto& data : m_host->document()->listObjects())
 	{
 		if (!data || data->className() != std::string("Model"))
 		{
@@ -416,7 +416,7 @@ void MeshTrajectoryPageWidget::reloadMeshSession()
 		return;
 	}
 	const std::string backendId = m_backendCombo->currentData().toString().toStdString();
-	auto data = m_host->document()->backend().getData(backendId);
+	auto data = m_host->document()->findObject(backendId);
 	auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data);
 	if (!mesh)
 	{
@@ -560,7 +560,7 @@ void MeshTrajectoryPageWidget::syncSelectionHighlight()
 		return;
 	}
 	const std::string backendId = m_meshSession->backendIdUtf8();
-	auto data = m_host->document()->backend().getData(backendId);
+	auto data = m_host->document()->findObject(backendId);
 	auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data);
 	if (!mesh)
 	{
