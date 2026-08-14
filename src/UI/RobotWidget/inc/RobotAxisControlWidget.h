@@ -136,6 +136,9 @@ private slots:
 	void onControlTargetComboChanged(int index);
 
 private:
+	void updateTargetDependentChrome(const AxisControlTargetItem& t);
+	void notifyCurrentControlTargetApplied();
+
 	struct JointControl
 	{
 		QString name;

@@ -234,6 +234,7 @@ public:
 	void beginTcpDragTeach(const ObjectId&, const Mat4&, float, RobotBaseWorldResolver, const Mat4*) override {}
 	void updateTcpDragTeachFromTarget(const Mat4&, bool) override {}
 	void updateTcpDragTeachToolLocalOnFlange(const Mat4&) override {}
+	Mat4 tcpDragTeachTargetInBase() const override { return PlanContextDto::identityMat4(); }
 
 	void setInstructionPoseAxes(const QVector<InstructionPoseAxisDto>&) override {}
 	void setRawTrajectoryOverlay(const QVector<RawTrajectoryOverlayVertexDto>&) override {}

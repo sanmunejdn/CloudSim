@@ -57,6 +57,7 @@ class QActionGroup;
 class MainWindowImportCaptureRenderController;
 class JobSystem;
 class DevicePageWidget;
+class IoSignalPageWidget;
 class RobotSimulationController;
 class MainWindowRobotHost;
 class MainWindowInstructionPropertyUiHost;
@@ -399,6 +400,7 @@ protected:
 	QDockWidget* m_propertyDock = nullptr;
 	QTabWidget* m_propertyDockTabs = nullptr;
 	DevicePageWidget* m_devicePage = nullptr;
+	IoSignalPageWidget* m_ioSignalPage = nullptr;
 	QDockWidget* m_unitDock = nullptr;
 	QTabWidget* m_unitDockTabs = nullptr;
 	QDockWidget* m_processFlowLeftDock = nullptr;

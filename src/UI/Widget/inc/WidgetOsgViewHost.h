@@ -70,6 +70,7 @@ public:
 	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target,
 									  bool syncTargetInBase = true) override;
 	void updateTcpDragTeachToolLocalOnFlange(const cloudsim::core::Mat4& toolLocalOnFlange) override;
+	engine::RigidTransform tcpDragTeachTargetInBase() const override;
 
 	void setMeshLinePickMode(bool enabled) override;
 	void setMeshFacePickMode(bool enabled) override;

@@ -126,4 +126,46 @@ QByteArray buildOpenAiToolsFromCatalog(const QByteArray& catalogJsonUtf8, const 
 	}
 	return QByteArray::fromStdString(tools.dump());
 }
+
+bool missingRequiredArgs(const nlohmann::json& argsSchema, const nlohmann::json& args, QString* outError)
+{
+	if (!argsSchema.is_array() || argsSchema.empty())
+		return false;
+	QStringList missing;
+	auto isPresent = [&](const std::string& key) -> bool
+	{
+		if (!args.is_object() || !args.contains(key))
+			return false;
+		const auto& v = args[key];
+		if (v.is_null())
+			return false;
+		if (v.is_string())
+			return !v.get<std::string>().empty();
+		return true;
+	};
+	for (const auto& f : argsSchema)
+	{
+		if (!f.is_object() || !f.value("required", false))
+			continue;
+		const std::string type = f.value("type", "string");
+		if (type == "backend_pair")
+		{
+			if (!isPresent("source_backend_id"))
+				missing << QStringLiteral("source_backend_id");
+			if (!isPresent("target_backend_id"))
+				missing << QStringLiteral("target_backend_id");
+			continue;
+		}
+		if (!f.contains("name") || !f["name"].is_string())
+			continue;
+		const std::string name = f["name"].get<std::string>();
+		if (!isPresent(name))
+			missing << QString::fromStdString(name);
+	}
+	if (missing.isEmpty())
+		return false;
+	if (outError)
+		*outError = QStringLiteral("缺少必填参数：%1").arg(missing.join(QStringLiteral(", ")));
+	return true;
+}
 } // namespace AiArgsSchema

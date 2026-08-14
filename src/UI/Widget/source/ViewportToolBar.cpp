@@ -505,7 +505,7 @@ void ViewportToolBar::updateLeftPanelChrome(const bool visible)
 								  : (m_useChinese ? QStringLiteral("\u663e\u793a\u5de6\u4fa7\u9762\u677f")
 												  : QStringLiteral("Show left panel")),
 						  m_useChinese ? QStringLiteral("\u5c5e\u6027\u3001\u8bbe\u5907")
-									   : QStringLiteral("Property, Devices"));
+									   : QStringLiteral("Property, Devices, Signals"));
 }
 
 void ViewportToolBar::updateRightPanelChrome(const bool visible)

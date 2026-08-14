@@ -826,8 +826,15 @@ private:
 
 MainWindowRobotHost::MainWindowRobotHost(MainWindow* mw) : m_mw(mw) {}
 
+MainWindowRobotHost::~MainWindowRobotHost() = default;
+
 IRobotDocumentHost* MainWindowRobotHost::document()
 {
+	if (!m_mw)
+	{
+		m_docHost.reset();
+		return nullptr;
+	}
 	if (DocumentPage* p = m_mw->currentPage())
 	{
 		if (!m_docHost || m_docHost->page() != p)

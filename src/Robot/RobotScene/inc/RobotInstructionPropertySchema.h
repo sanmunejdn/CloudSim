@@ -280,7 +280,15 @@ inline const property_core::PropertySchema& waitInstructionPropertySchema()
 
 		s.descriptors = {
 
-			{"logic.wait.durationSec", "Duration (s)", PropertyType::Double, 1.0}
+			detail::makeEnumDescriptor("logic.condition.kind", "Wait mode", "io", {"always", "io"}),
+
+			{"logic.condition.signalName", "Signal name", PropertyType::String, std::string()},
+
+			{"logic.condition.port", "IO port", PropertyType::Double, 0.0},
+
+			detail::makeEnumDescriptor("logic.condition.equals", "Equals (0/1)", "1", {"0", "1"}),
+
+			{"logic.wait.durationSec", "Duration/Timeout (s)", PropertyType::Double, 0.0}
 
 		};
 
@@ -304,6 +312,8 @@ inline const property_core::PropertySchema& setDoInstructionPropertySchema()
 		s.schemaVersion = 1;
 
 		s.descriptors = {
+
+			{"logic.io.signalName", "Signal name", PropertyType::String, std::string()},
 
 			{"logic.io.port", "Port", PropertyType::Double, 0.0},
 
@@ -332,6 +342,8 @@ inline const property_core::PropertySchema& setAoInstructionPropertySchema()
 
 		s.descriptors = {
 
+			{"logic.io.signalName", "Signal name", PropertyType::String, std::string()},
+
 			{"logic.io.port", "Port", PropertyType::Double, 0.0},
 
 			{"logic.io.analogValue", "Analog value", PropertyType::Double, 0.0}
@@ -341,6 +353,25 @@ inline const property_core::PropertySchema& setAoInstructionPropertySchema()
 		return s;
 	}();
 
+	return schema;
+}
+
+inline const property_core::PropertySchema& deviceAxisInstructionPropertySchema()
+{
+	using namespace property_core;
+	static const PropertySchema schema = []()
+	{
+		PropertySchema s;
+		s.objectTypeId = "robot_instruction.device_axis";
+		s.schemaVersion = 1;
+		s.descriptors = {
+			{"logic.device.backendId", "Device id", PropertyType::String, std::string()},
+			{"logic.device.axisIndex", "Axis index", PropertyType::Double, 0.0},
+			{"logic.device.targetQ", "Target q", PropertyType::Double, 0.0},
+			{"logic.device.durationSec", "Duration (s)", PropertyType::Double, 0.0},
+		};
+		return s;
+	}();
 	return schema;
 }
 
@@ -389,6 +420,10 @@ inline const property_core::PropertySchema& schemaForInstructionType(const Type 
 	case Type::SET_AO:
 
 		return setAoInstructionPropertySchema();
+
+	case Type::DeviceAxis:
+
+		return deviceAxisInstructionPropertySchema();
 
 	case Type::PathPlan:
 
@@ -441,7 +476,19 @@ inline const property_core::PropertyDescriptor* findInstructionPropertyDescripto
 		return descriptor;
 	}
 
-	return setAoInstructionPropertySchema().find(key);
+	if (const auto* descriptor = setAoInstructionPropertySchema().find(key))
+
+	{
+		return descriptor;
+	}
+
+	if (const auto* descriptor = deviceAxisInstructionPropertySchema().find(key))
+
+	{
+		return descriptor;
+	}
+
+	return pathPlanInstructionPropertySchema().find(key);
 }
 
 } // namespace RobotInstruction

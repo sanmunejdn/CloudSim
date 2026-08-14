@@ -79,6 +79,7 @@ public:
 	virtual void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target,
 											  bool syncTargetInBase = true) = 0;
 	virtual void updateTcpDragTeachToolLocalOnFlange(const cloudsim::core::Mat4& toolLocalOnFlange) = 0;
+	virtual engine::RigidTransform tcpDragTeachTargetInBase() const = 0;
 
 	virtual void setMeshLinePickMode(bool enabled) = 0;
 	virtual void setMeshFacePickMode(bool enabled) = 0;

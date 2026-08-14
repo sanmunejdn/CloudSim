@@ -104,6 +104,8 @@ QString instructionTypeLabel(RobotInstruction::Type t, bool zh)
 		return zh ? QStringLiteral("AO") : QStringLiteral("SET_AO");
 	case RobotInstruction::Type::PathPlan:
 		return zh ? QStringLiteral("路径") : QStringLiteral("PATH");
+	case RobotInstruction::Type::DeviceAxis:
+		return zh ? QStringLiteral("设备轴") : QStringLiteral("DEV_AXIS");
 	case RobotInstruction::Type::PTP:
 	default:
 		return zh ? QStringLiteral("PTP") : QStringLiteral("PTP");
@@ -131,6 +133,11 @@ QString conditionSummary(const RobotInstruction::Condition& c, bool zh)
 	case ConditionKind::Never:
 		return zh ? QStringLiteral("永不") : QStringLiteral("never");
 	case ConditionKind::Io:
+		if (!c.signalName.empty())
+		{
+			return zh ? QStringLiteral("%1==%2").arg(QString::fromStdString(c.signalName)).arg(c.ioEquals ? 1 : 0)
+					  : QStringLiteral("%1==%2").arg(QString::fromStdString(c.signalName)).arg(c.ioEquals ? 1 : 0);
+		}
 		return zh ? QStringLiteral("IO%1==%2").arg(c.ioPort).arg(c.ioEquals ? 1 : 0)
 				  : QStringLiteral("IO%1==%2").arg(c.ioPort).arg(c.ioEquals ? 1 : 0);
 	case ConditionKind::Compare:
@@ -146,17 +153,59 @@ QString instructionSummary(const RobotInstruction::Base& ins, bool zh)
 	switch (ins.type())
 	{
 	case RobotInstruction::Type::WAIT:
+	{
+		const RobotInstruction::Condition& c = ins.condition();
+		if (c.kind == RobotInstruction::ConditionKind::Io)
+		{
+			const QString sig = !c.signalName.empty() ? QString::fromStdString(c.signalName)
+													 : QStringLiteral("IO%1").arg(c.ioPort);
+			const QString cond = QStringLiteral("%1==%2").arg(sig).arg(c.ioEquals ? 1 : 0);
+			if (ins.durationSec() > 1e-9)
+			{
+				return zh ? QStringLiteral("等 %1（超时 %2 s）").arg(cond).arg(ins.durationSec(), 0, 'f', 2)
+						  : QStringLiteral("wait %1 (timeout %2 s)").arg(cond).arg(ins.durationSec(), 0, 'f', 2);
+			}
+			return zh ? QStringLiteral("等 %1").arg(cond) : QStringLiteral("wait %1").arg(cond);
+		}
 		return zh ? QStringLiteral("时长 %1 s").arg(ins.durationSec(), 0, 'f', 2)
 				  : QStringLiteral("duration %1 s").arg(ins.durationSec(), 0, 'f', 2);
+	}
 	case RobotInstruction::Type::IF:
 	case RobotInstruction::Type::WHILE:
 		return conditionSummary(ins.condition(), zh);
 	case RobotInstruction::Type::SET_DO:
+		if (!ins.ioSignalName().empty())
+		{
+			return zh ? QStringLiteral("%1 = %2")
+							.arg(QString::fromStdString(ins.ioSignalName()))
+							.arg(ins.ioBoolValue() ? 1 : 0)
+					  : QStringLiteral("%1 = %2")
+							.arg(QString::fromStdString(ins.ioSignalName()))
+							.arg(ins.ioBoolValue() ? 1 : 0);
+		}
 		return zh ? QStringLiteral("端口 %1 = %2").arg(ins.ioPort()).arg(ins.ioBoolValue() ? 1 : 0)
 				  : QStringLiteral("port %1 = %2").arg(ins.ioPort()).arg(ins.ioBoolValue() ? 1 : 0);
 	case RobotInstruction::Type::SET_AO:
+		if (!ins.ioSignalName().empty())
+		{
+			return zh ? QStringLiteral("%1 = %2")
+							.arg(QString::fromStdString(ins.ioSignalName()))
+							.arg(ins.ioAnalogValue(), 0, 'f', 2)
+					  : QStringLiteral("%1 = %2")
+							.arg(QString::fromStdString(ins.ioSignalName()))
+							.arg(ins.ioAnalogValue(), 0, 'f', 2);
+		}
 		return zh ? QStringLiteral("端口 %1 = %2").arg(ins.ioPort()).arg(ins.ioAnalogValue(), 0, 'f', 2)
 				  : QStringLiteral("port %1 = %2").arg(ins.ioPort()).arg(ins.ioAnalogValue(), 0, 'f', 2);
+	case RobotInstruction::Type::DeviceAxis:
+		return zh ? QStringLiteral("%1 轴%2 → %3")
+						.arg(QString::fromStdString(ins.deviceBackendId()))
+						.arg(ins.deviceAxisIndex())
+						.arg(ins.deviceAxisTargetQ(), 0, 'g', 6)
+				  : QStringLiteral("%1 axis%2 -> %3")
+						.arg(QString::fromStdString(ins.deviceBackendId()))
+						.arg(ins.deviceAxisIndex())
+						.arg(ins.deviceAxisTargetQ(), 0, 'g', 6);
 	case RobotInstruction::Type::PTP:
 	case RobotInstruction::Type::LINE:
 	case RobotInstruction::Type::ARC:
@@ -268,8 +317,9 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 		RobotInstruction::Type::ARC,
 	};
 	const RobotInstruction::Type logicTypes[] = {
-		RobotInstruction::Type::WAIT,	RobotInstruction::Type::IF,		  RobotInstruction::Type::WHILE,
-		RobotInstruction::Type::SET_DO, RobotInstruction::Type::SET_AO,	  RobotInstruction::Type::PathPlan,
+		RobotInstruction::Type::WAIT,		 RobotInstruction::Type::IF,		 RobotInstruction::Type::WHILE,
+		RobotInstruction::Type::SET_DO,		 RobotInstruction::Type::SET_AO,	 RobotInstruction::Type::DeviceAxis,
+		RobotInstruction::Type::PathPlan,
 	};
 
 	auto* insertBar = new QWidget(this);
@@ -697,20 +747,24 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 							: QStringLiteral("ARC two-step teach: capture Via, then End"));
 			break;
 		case RobotInstruction::Type::WAIT:
-			tip = zh ? QStringLiteral("插入等待指令") : QStringLiteral("Insert WAIT");
+			tip = zh ? QStringLiteral("插入等待：延时，或等到 DI 信号（可设超时）")
+					 : QStringLiteral("Insert WAIT: delay or wait for DI signal (optional timeout)");
 			break;
 		case RobotInstruction::Type::IF:
-			tip =
-				zh ? QStringLiteral("插入条件分支（Then/Else）") : QStringLiteral("Insert IF with Then/Else branches");
+			tip = zh ? QStringLiteral("插入条件分支（可按 DI 信号）")
+					 : QStringLiteral("Insert IF with Then/Else (DI signal supported)");
 			break;
 		case RobotInstruction::Type::WHILE:
-			tip = zh ? QStringLiteral("插入循环体") : QStringLiteral("Insert WHILE loop body");
+			tip = zh ? QStringLiteral("插入循环（可按 DI 信号）") : QStringLiteral("Insert WHILE (DI signal supported)");
 			break;
 		case RobotInstruction::Type::SET_DO:
 			tip = zh ? QStringLiteral("插入数字量输出") : QStringLiteral("Insert digital output");
 			break;
 		case RobotInstruction::Type::SET_AO:
 			tip = zh ? QStringLiteral("插入模拟量输出") : QStringLiteral("Insert analog output");
+			break;
+		case RobotInstruction::Type::DeviceAxis:
+			tip = zh ? QStringLiteral("插入自定义设备轴运动") : QStringLiteral("Insert custom device axis motion");
 			break;
 		case RobotInstruction::Type::PathPlan:
 			tip = zh ? QStringLiteral("插入路径规划（流水线与离散 raw）")
@@ -1176,18 +1230,38 @@ std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendInstructi
 		break;
 	case RobotInstruction::Type::WAIT:
 		ins = std::make_shared<RobotInstruction::WaitInstruction>();
+		{
+			RobotInstruction::Condition c;
+			c.kind = RobotInstruction::ConditionKind::Io;
+			c.ioEquals = true;
+			ins->setCondition(c);
+			ins->setDurationSec(0.0);
+		}
 		break;
 	case RobotInstruction::Type::IF:
 		ins = std::make_shared<RobotInstruction::IfInstruction>();
+		{
+			RobotInstruction::Condition c;
+			c.kind = RobotInstruction::ConditionKind::Io;
+			ins->setCondition(c);
+		}
 		break;
 	case RobotInstruction::Type::WHILE:
 		ins = std::make_shared<RobotInstruction::WhileInstruction>();
+		{
+			RobotInstruction::Condition c;
+			c.kind = RobotInstruction::ConditionKind::Io;
+			ins->setCondition(c);
+		}
 		break;
 	case RobotInstruction::Type::SET_DO:
 		ins = std::make_shared<RobotInstruction::SetDigitalOutputInstruction>();
 		break;
 	case RobotInstruction::Type::SET_AO:
 		ins = std::make_shared<RobotInstruction::SetAnalogOutputInstruction>();
+		break;
+	case RobotInstruction::Type::DeviceAxis:
+		ins = std::make_shared<RobotInstruction::DeviceAxisInstruction>();
 		break;
 	case RobotInstruction::Type::PathPlan:
 	{

@@ -7,8 +7,11 @@
 #include "../RobotWidget/inc/InstructionPropertyPanel.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
+#include "BackendDataManager.h"
+#include "BackendTypeIds.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
+#include "NamedSignalTable.h"
 #include "RunInfoPage.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
@@ -188,4 +191,61 @@ void MainWindowInstructionPropertyUiHost::scheduleDeferredFeasibleAxisProbe(
 	{
 		m_mw.m_robotSimulation->scheduleDeferredFeasibleAxisProbe(instruction);
 	}
+}
+
+QStringList MainWindowInstructionPropertyUiHost::namedIoSignalNames(const QString& kindFilter) const
+{
+	QStringList out;
+	if (!m_mw.m_robotSimulation)
+	{
+		return out;
+	}
+	RobotIo::SignalKind kind = RobotIo::SignalKind::DI;
+	const bool filter = !kindFilter.isEmpty() &&
+						RobotIo::NamedSignalTable::kindFromString(kindFilter.toStdString(), kind);
+	for (const RobotIo::SignalDef& s : m_mw.m_robotSimulation->namedSignalTable().entries())
+	{
+		if (filter && s.kind != kind)
+		{
+			continue;
+		}
+		if (!s.name.empty())
+		{
+			out << QString::fromStdString(s.name);
+		}
+	}
+	return out;
+}
+
+int MainWindowInstructionPropertyUiHost::resolveNamedIoSignalPort(const QString& signalName) const
+{
+	if (!m_mw.m_robotSimulation || signalName.isEmpty())
+	{
+		return -1;
+	}
+	if (const RobotIo::SignalDef* s =
+			m_mw.m_robotSimulation->namedSignalTable().findByName(signalName.toStdString()))
+	{
+		return s->port;
+	}
+	return -1;
+}
+
+QStringList MainWindowInstructionPropertyUiHost::customDeviceBackendIds() const
+{
+	QStringList out;
+	IRobotDocumentHost* doc =
+		m_mw.m_robotHost ? m_mw.m_robotHost->document() : nullptr;
+	if (!doc)
+	{
+		return out;
+	}
+	for (const auto& data : doc->backend().findByClass(backend_type::kClassCustomDevice))
+	{
+		if (data)
+		{
+			out << QString::fromStdString(data->id());
+		}
+	}
+	return out;
 }

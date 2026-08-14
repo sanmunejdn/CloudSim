@@ -3,6 +3,7 @@
 
 #include "../RobotWidget/inc/IRobotDocumentHost.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "../RobotWidget/inc/IoSignalPageWidget.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotProjectIoAdapter.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
@@ -162,6 +163,18 @@ void MainWindow::onSaveProject()
 			}
 			RobotProjectIo::writeRobotKinematics(root, robotDoc, jointAngles);
 			cloudsim::host::mergeRobotProgramsIntoProjectRoot(*doc, root);
+			if (m_robotSimulation)
+			{
+				const QJsonObject ioSignals = m_robotSimulation->ioSignalsToJson();
+				if (!ioSignals.isEmpty())
+				{
+					root.insert(QLatin1String(backend_type::kProjectKeyIoSignals), ioSignals);
+				}
+				else
+				{
+					root.remove(QLatin1String(backend_type::kProjectKeyIoSignals));
+				}
+			}
 			{
 				nlohmann::json colJ;
 				RobotCollision::writeSettingsToJson(robotDoc->robotCollisionSettings(), colJ);
@@ -394,6 +407,30 @@ void MainWindow::onOpenProjectFile()
 		{
 			// setRobotInstances 内已 refreshInstructionList，勿重复触发 renumber/rebuild
 			refreshSimulationJointListFromCurrentDoc();
+		}
+	}
+
+	if (m_robotSimulation)
+	{
+		const QJsonValue ioVal = root.value(QLatin1String(backend_type::kProjectKeyIoSignals));
+		if (ioVal.isObject())
+		{
+			QString ioErr;
+			if (!m_robotSimulation->ioSignalsFromJson(ioVal.toObject(), &ioErr) && m_runInfoPage && !ioErr.isEmpty())
+			{
+				m_runInfoPage->appendWarning(ioErr);
+			}
+		}
+		else
+		{
+			m_robotSimulation->namedSignalTable().clear();
+			m_robotSimulation->simulationIoSink().resetRuntimeFromTable(false);
+		}
+		if (m_ioSignalPage)
+		{
+			m_ioSignalPage->setSignalTable(&m_robotSimulation->namedSignalTable());
+			m_ioSignalPage->setIoSink(&m_robotSimulation->simulationIoSink());
+			m_ioSignalPage->refreshFromModel();
 		}
 	}
 

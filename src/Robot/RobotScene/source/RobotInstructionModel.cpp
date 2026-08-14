@@ -11,6 +11,7 @@
 namespace RobotInstruction
 {
 const Condition Base::s_emptyCondition{};
+const std::string Base::s_emptyString{};
 
 bool isPathPlanType(const Type t)
 {
@@ -59,6 +60,8 @@ std::string typeToString(const Type t)
 		return "set_ao";
 	case Type::PathPlan:
 		return "path_plan";
+	case Type::DeviceAxis:
+		return "device_axis";
 	default:
 		return "unknown";
 	}
@@ -111,6 +114,11 @@ bool typeFromString(const std::string& s, Type& out)
 		out = Type::PathPlan;
 		return true;
 	}
+	if (s == "device_axis" || s == "DeviceAxis" || s == "DEVICE_AXIS")
+	{
+		out = Type::DeviceAxis;
+		return true;
+	}
 	return false;
 }
 
@@ -124,6 +132,16 @@ std::string makeInstructionId()
 const Condition& Base::condition() const
 {
 	return s_emptyCondition;
+}
+
+const std::string& Base::ioSignalName() const
+{
+	return s_emptyString;
+}
+
+const std::string& Base::deviceBackendId() const
+{
+	return s_emptyString;
 }
 
 static const std::vector<std::shared_ptr<Base>> s_emptySteps;
@@ -242,27 +260,242 @@ WaitInstruction::WaitInstruction()
 {
 	setType(Type::WAIT);
 	setName("Wait");
+	m_condition.kind = ConditionKind::Io;
+	m_condition.ioEquals = true;
+	m_durationSec = 0.0;
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty(); },
+		[](const Base& b)
+		{
+			switch (b.condition().kind)
+			{
+			case ConditionKind::Never:
+				return std::string("never");
+			case ConditionKind::Io:
+				return std::string("io");
+			case ConditionKind::Compare:
+				return std::string("compare");
+			case ConditionKind::Always:
+			default:
+				return std::string("always");
+			}
+		},
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			if (v == "never")
+			{
+				c.kind = ConditionKind::Never;
+			}
+			else if (v == "io")
+			{
+				c.kind = ConditionKind::Io;
+			}
+			else if (v == "compare")
+			{
+				c.kind = ConditionKind::Compare;
+			}
+			else
+			{
+				c.kind = ConditionKind::Always;
+			}
+			b.setCondition(c);
+		},
+		"logic.condition.kind", "Wait mode"));
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return b.condition().signalName; },
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			c.signalName = v;
+			b.setCondition(c);
+		},
+		"logic.condition.signalName", "Signal name"));
+	addAttribute(makeScalarDoubleAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return static_cast<double>(b.condition().ioPort); },
+		[](Base& b, const double& v)
+		{
+			Condition c = b.condition();
+			c.ioPort = static_cast<int>(v);
+			b.setCondition(c);
+		},
+		"logic.condition.port", "IO port"));
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return b.condition().ioEquals ? std::string("1") : std::string("0"); },
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			c.ioEquals = (v == "1" || v == "true" || v == "on");
+			b.setCondition(c);
+		},
+		"logic.condition.equals", "Equals (0/1)"));
+	// Io 模式下表示超时；Always 模式下表示延时
 	addAttribute(makeScalarDoubleAttribute(
 		[](const Base& b) { return b.hasDurationProperty(); }, [](const Base& b) { return b.durationSec(); },
-		[](Base& b, const double& v) { b.setDurationSec(v); }, "logic.wait.durationSec", "Duration (s)"));
+		[](Base& b, const double& v) { b.setDurationSec(v); }, "logic.wait.durationSec", "Duration/Timeout (s)"));
 }
 
 IfInstruction::IfInstruction()
 {
 	setType(Type::IF);
 	setName("If");
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty(); },
+		[](const Base& b)
+		{
+			switch (b.condition().kind)
+			{
+			case ConditionKind::Never:
+				return std::string("never");
+			case ConditionKind::Io:
+				return std::string("io");
+			case ConditionKind::Compare:
+				return std::string("compare");
+			case ConditionKind::Always:
+			default:
+				return std::string("always");
+			}
+		},
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			const std::string k = v;
+			if (k == "never")
+			{
+				c.kind = ConditionKind::Never;
+			}
+			else if (k == "io")
+			{
+				c.kind = ConditionKind::Io;
+			}
+			else if (k == "compare")
+			{
+				c.kind = ConditionKind::Compare;
+			}
+			else
+			{
+				c.kind = ConditionKind::Always;
+			}
+			b.setCondition(c);
+		},
+		"logic.condition.kind", "Condition kind"));
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return b.condition().signalName; },
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			c.signalName = v;
+			b.setCondition(c);
+		},
+		"logic.condition.signalName", "Signal name"));
+	addAttribute(makeScalarDoubleAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return static_cast<double>(b.condition().ioPort); },
+		[](Base& b, const double& v)
+		{
+			Condition c = b.condition();
+			c.ioPort = static_cast<int>(v);
+			b.setCondition(c);
+		},
+		"logic.condition.port", "IO port"));
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return b.condition().ioEquals ? std::string("1") : std::string("0"); },
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			c.ioEquals = (v == "1" || v == "true" || v == "on");
+			b.setCondition(c);
+		},
+		"logic.condition.equals", "Equals (0/1)"));
 }
 
 WhileInstruction::WhileInstruction()
 {
 	setType(Type::WHILE);
 	setName("While");
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty(); },
+		[](const Base& b)
+		{
+			switch (b.condition().kind)
+			{
+			case ConditionKind::Never:
+				return std::string("never");
+			case ConditionKind::Io:
+				return std::string("io");
+			case ConditionKind::Compare:
+				return std::string("compare");
+			case ConditionKind::Always:
+			default:
+				return std::string("always");
+			}
+		},
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			if (v == "never")
+			{
+				c.kind = ConditionKind::Never;
+			}
+			else if (v == "io")
+			{
+				c.kind = ConditionKind::Io;
+			}
+			else if (v == "compare")
+			{
+				c.kind = ConditionKind::Compare;
+			}
+			else
+			{
+				c.kind = ConditionKind::Always;
+			}
+			b.setCondition(c);
+		},
+		"logic.condition.kind", "Condition kind"));
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return b.condition().signalName; },
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			c.signalName = v;
+			b.setCondition(c);
+		},
+		"logic.condition.signalName", "Signal name"));
+	addAttribute(makeScalarDoubleAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return static_cast<double>(b.condition().ioPort); },
+		[](Base& b, const double& v)
+		{
+			Condition c = b.condition();
+			c.ioPort = static_cast<int>(v);
+			b.setCondition(c);
+		},
+		"logic.condition.port", "IO port"));
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasConditionProperty() && b.condition().kind == ConditionKind::Io; },
+		[](const Base& b) { return b.condition().ioEquals ? std::string("1") : std::string("0"); },
+		[](Base& b, const std::string& v)
+		{
+			Condition c = b.condition();
+			c.ioEquals = (v == "1" || v == "true" || v == "on");
+			b.setCondition(c);
+		},
+		"logic.condition.equals", "Equals (0/1)"));
 }
 
 SetDigitalOutputInstruction::SetDigitalOutputInstruction()
 {
 	setType(Type::SET_DO);
 	setName("Set DO");
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasIoSignalNameProperty(); }, [](const Base& b) { return b.ioSignalName(); },
+		[](Base& b, const std::string& v) { b.setIoSignalName(v); }, "logic.io.signalName", "Signal name"));
 	addAttribute(makeScalarDoubleAttribute([](const Base& b) { return b.hasIoPortProperty(); },
 										   [](const Base& b) { return static_cast<double>(b.ioPort()); },
 										   [](Base& b, const double& v) { b.setIoPort(static_cast<int>(v)); },
@@ -282,6 +515,16 @@ const PathPlanInstruction* asPathPlan(const Base& ins)
 	return ins.type() == Type::PathPlan ? dynamic_cast<const PathPlanInstruction*>(&ins) : nullptr;
 }
 
+DeviceAxisInstruction* asDeviceAxis(Base& ins)
+{
+	return ins.type() == Type::DeviceAxis ? dynamic_cast<DeviceAxisInstruction*>(&ins) : nullptr;
+}
+
+const DeviceAxisInstruction* asDeviceAxis(const Base& ins)
+{
+	return ins.type() == Type::DeviceAxis ? dynamic_cast<const DeviceAxisInstruction*>(&ins) : nullptr;
+}
+
 PathPlanInstruction::PathPlanInstruction()
 {
 	setType(Type::PathPlan);
@@ -293,6 +536,9 @@ SetAnalogOutputInstruction::SetAnalogOutputInstruction()
 {
 	setType(Type::SET_AO);
 	setName("Set AO");
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasIoSignalNameProperty(); }, [](const Base& b) { return b.ioSignalName(); },
+		[](Base& b, const std::string& v) { b.setIoSignalName(v); }, "logic.io.signalName", "Signal name"));
 	addAttribute(makeScalarDoubleAttribute([](const Base& b) { return b.hasIoPortProperty(); },
 										   [](const Base& b) { return static_cast<double>(b.ioPort()); },
 										   [](Base& b, const double& v) { b.setIoPort(static_cast<int>(v)); },
@@ -300,6 +546,26 @@ SetAnalogOutputInstruction::SetAnalogOutputInstruction()
 	addAttribute(makeScalarDoubleAttribute(
 		[](const Base& b) { return true; }, [](const Base& b) { return b.ioAnalogValue(); },
 		[](Base& b, const double& v) { b.setIoAnalogValue(v); }, "logic.io.analogValue", "Analog value"));
+}
+
+DeviceAxisInstruction::DeviceAxisInstruction()
+{
+	setType(Type::DeviceAxis);
+	setName("Device Axis");
+	addAttribute(makeEnumAttribute(
+		[](const Base& b) { return b.hasDeviceAxisProperty(); }, [](const Base& b) { return b.deviceBackendId(); },
+		[](Base& b, const std::string& v) { b.setDeviceBackendId(v); }, "logic.device.backendId", "Device id"));
+	addAttribute(makeScalarDoubleAttribute(
+		[](const Base& b) { return b.hasDeviceAxisProperty(); },
+		[](const Base& b) { return static_cast<double>(b.deviceAxisIndex()); },
+		[](Base& b, const double& v) { b.setDeviceAxisIndex(static_cast<int>(v)); }, "logic.device.axisIndex",
+		"Axis index"));
+	addAttribute(makeScalarDoubleAttribute(
+		[](const Base& b) { return b.hasDeviceAxisProperty(); }, [](const Base& b) { return b.deviceAxisTargetQ(); },
+		[](Base& b, const double& v) { b.setDeviceAxisTargetQ(v); }, "logic.device.targetQ", "Target q"));
+	addAttribute(makeScalarDoubleAttribute(
+		[](const Base& b) { return b.hasDurationProperty(); }, [](const Base& b) { return b.durationSec(); },
+		[](Base& b, const double& v) { b.setDurationSec(v); }, "logic.device.durationSec", "Duration (s)"));
 }
 
 } // namespace RobotInstruction

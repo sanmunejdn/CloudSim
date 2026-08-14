@@ -411,6 +411,19 @@ osg::Matrixd osgMatFromCore(const core::Mat4& columnMajor)
 	return m;
 }
 
+core::Mat4 mat4FromOsg(const osg::Matrixd& m)
+{
+	core::Mat4 out{};
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			out[static_cast<size_t>(c * 4 + r)] = m(r, c);
+		}
+	}
+	return out;
+}
+
 RobotOsgUi::InstructionPoseAxis instructionAxisToRobotOsgUi(const core::InstructionPoseAxisDto& d)
 {
 	RobotOsgUi::InstructionPoseAxis o;
@@ -495,6 +508,11 @@ void OsgRenderViewAdapter::updateTcpDragTeachFromTarget(const core::Mat4& target
 void OsgRenderViewAdapter::updateTcpDragTeachToolLocalOnFlange(const core::Mat4& toolLocalOnFlangeColumnMajor)
 {
 	m_widget.updateTcpDragTeachToolLocalOnFlange(osgMatFromCore(toolLocalOnFlangeColumnMajor));
+}
+
+core::Mat4 OsgRenderViewAdapter::tcpDragTeachTargetInBase() const
+{
+	return mat4FromOsg(engine::osgMatrixFromRigidTransform(m_widget.tcpDragTeachTargetInBase()));
 }
 
 void OsgRenderViewAdapter::setInstructionPoseAxes(const QVector<core::InstructionPoseAxisDto>& axes)

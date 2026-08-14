@@ -145,6 +145,10 @@ private:
 
 		const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const;
 
+	void syncLogicBranchesFromTreeItem(
+		QTreeWidgetItem* item,
+		const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const;
+
 	void readProgramFromTree(
 
 		std::vector<std::shared_ptr<RobotInstruction::Base>>& root,

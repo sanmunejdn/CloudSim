@@ -263,6 +263,10 @@ std::shared_ptr<Base> createFromJson(const nlohmann::json& j, std::string* errMs
 	{
 		auto p = std::make_shared<WaitInstruction>();
 		p->setDurationSec(j.value("durationSec", 1.0));
+		if (j.contains("condition"))
+		{
+			p->setCondition(conditionFromJson(j.value("condition", nlohmann::json::object())));
+		}
 		ins = p;
 		break;
 	}
@@ -297,6 +301,7 @@ std::shared_ptr<Base> createFromJson(const nlohmann::json& j, std::string* errMs
 		auto p = std::make_shared<SetDigitalOutputInstruction>();
 		p->setIoPort(j.value("port", 0));
 		p->setIoBoolValue(j.value("value", false));
+		p->setIoSignalName(j.value("signalName", std::string()));
 		ins = p;
 		break;
 	}
@@ -305,6 +310,17 @@ std::shared_ptr<Base> createFromJson(const nlohmann::json& j, std::string* errMs
 		auto p = std::make_shared<SetAnalogOutputInstruction>();
 		p->setIoPort(j.value("port", 0));
 		p->setIoAnalogValue(j.value("value", 0.0));
+		p->setIoSignalName(j.value("signalName", std::string()));
+		ins = p;
+		break;
+	}
+	case Type::DeviceAxis:
+	{
+		auto p = std::make_shared<DeviceAxisInstruction>();
+		p->setDeviceBackendId(j.value("deviceBackendId", std::string()));
+		p->setDeviceAxisIndex(j.value("axisIndex", 0));
+		p->setDeviceAxisTargetQ(j.value("targetQ", 0.0));
+		p->setDurationSec(j.value("durationSec", 0.0));
 		ins = p;
 		break;
 	}
@@ -424,6 +440,10 @@ nlohmann::json toJson(const Base& ins)
 		break;
 	case Type::WAIT:
 		j["durationSec"] = ins.durationSec();
+		if (ins.hasConditionProperty() && ins.condition().kind != ConditionKind::Always)
+		{
+			j["condition"] = conditionToJson(ins.condition());
+		}
 		break;
 	case Type::IF:
 	{
@@ -465,10 +485,24 @@ nlohmann::json toJson(const Base& ins)
 	case Type::SET_DO:
 		j["port"] = ins.ioPort();
 		j["value"] = ins.ioBoolValue();
+		if (!ins.ioSignalName().empty())
+		{
+			j["signalName"] = ins.ioSignalName();
+		}
 		break;
 	case Type::SET_AO:
 		j["port"] = ins.ioPort();
 		j["value"] = ins.ioAnalogValue();
+		if (!ins.ioSignalName().empty())
+		{
+			j["signalName"] = ins.ioSignalName();
+		}
+		break;
+	case Type::DeviceAxis:
+		j["deviceBackendId"] = ins.deviceBackendId();
+		j["axisIndex"] = ins.deviceAxisIndex();
+		j["targetQ"] = ins.deviceAxisTargetQ();
+		j["durationSec"] = ins.durationSec();
 		break;
 	case Type::PathPlan:
 	{

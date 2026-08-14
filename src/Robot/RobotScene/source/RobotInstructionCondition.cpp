@@ -35,6 +35,7 @@ Condition conditionFromJson(const nlohmann::json& j)
 		c.kind = ConditionKind::Io;
 		c.ioPort = j.value("port", 0);
 		c.ioEquals = j.value("equals", false);
+		c.signalName = j.value("signalName", std::string());
 	}
 	else if (k == "compare")
 	{
@@ -62,6 +63,10 @@ nlohmann::json conditionToJson(const Condition& c)
 		j["kind"] = "io";
 		j["port"] = c.ioPort;
 		j["equals"] = c.ioEquals;
+		if (!c.signalName.empty())
+		{
+			j["signalName"] = c.signalName;
+		}
 		break;
 	case ConditionKind::Compare:
 		j["kind"] = "compare";

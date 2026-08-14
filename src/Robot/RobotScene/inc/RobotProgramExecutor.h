@@ -7,6 +7,7 @@
 #include "robot_scene_global.h"
 
 #include "IRobotIoSink.h"
+#include "RobotInstructionCondition.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionPlaybackEngine.h"
 
@@ -64,6 +65,10 @@ private:
 	bool advanceProgramStep(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
 	bool startMotionSegment(const RobotInstruction::Base& ins);
 	bool tickMotionSegment(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
+	bool tickDeviceAxisSegment(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
+	bool tickWaitForSignal();
+	bool applyDeviceAxisQ(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, const std::string& deviceId,
+						  int axisIndex, double q);
 	bool applyJointAngles(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
 	const RobotInstruction::PlanResult* planForMotion(const RobotInstruction::Base& ins) const;
 	void resetVirtualClock();
@@ -91,6 +96,15 @@ private:
 	double m_lastWallSec = 0.0;
 	QVector<double> m_segStartJointAngles;
 	const RobotInstruction::Base* m_activeMotion = nullptr;
+
+	bool m_inDeviceAxis = false;
+	std::string m_deviceAxisBackendId;
+	int m_deviceAxisIndex = 0;
+	double m_deviceAxisQ0 = 0.0;
+	double m_deviceAxisQ1 = 0.0;
+
+	bool m_inWaitForSignal = false;
+	RobotInstruction::Condition m_waitCondition{};
 
 	QHash<QString, osg::Matrixd> m_fkMeshWorldT0;
 	std::unordered_map<std::string, osg::Matrixd> m_outerWorldAtStart;

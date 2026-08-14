@@ -25,6 +25,8 @@ struct ROBOT_SCENE_API Condition
 	ConditionKind kind = ConditionKind::Always;
 	int ioPort = 0;
 	bool ioEquals = false;
+	/// 优先于 ioPort；空则仍用端口号
+	std::string signalName;
 	std::string compareLeft;
 	std::string compareOp; // eq, ne, lt, le, gt, ge
 	double compareRight = 0.0;

@@ -15,6 +15,7 @@
 #include <QListWidgetItem>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -179,6 +180,7 @@ void CustomDeviceAxisEditorWidget::setAxes(const CustomDeviceAxisConfigSet& axes
 	rebuildList();
 	if (!m_axes.axes.empty())
 	{
+		const QSignalBlocker blocker(m_list);
 		m_list->setCurrentRow(0);
 	}
 	loadFieldsFromSelection();
@@ -248,6 +250,7 @@ void CustomDeviceAxisEditorWidget::applyPickedAxisDirection(const double x, cons
 void CustomDeviceAxisEditorWidget::rebuildList()
 {
 	const int row = m_list->currentRow();
+	const QSignalBlocker blocker(m_list);
 	m_list->clear();
 	for (const CustomDeviceAxisConfig& a : m_axes.axes)
 	{
@@ -355,8 +358,6 @@ void CustomDeviceAxisEditorWidget::onListSelectionChanged()
 	{
 		return;
 	}
-	saveFieldsToSelection();
-	rebuildList();
 	loadFieldsFromSelection();
 }
 
@@ -376,7 +377,10 @@ void CustomDeviceAxisEditorWidget::onAddAxis()
 	cfg.jointName = "device_joint_" + std::to_string(m_axes.axes.size() + 1);
 	m_axes.axes.push_back(cfg);
 	rebuildList();
-	m_list->setCurrentRow(m_list->count() - 1);
+	{
+		const QSignalBlocker blocker(m_list);
+		m_list->setCurrentRow(m_list->count() - 1);
+	}
 	loadFieldsFromSelection();
 	scheduleChanged();
 	refreshEmptyHint();
@@ -393,6 +397,7 @@ void CustomDeviceAxisEditorWidget::onRemoveAxis()
 	rebuildList();
 	if (!m_axes.axes.empty())
 	{
+		const QSignalBlocker blocker(m_list);
 		m_list->setCurrentRow(std::min(row, m_list->count() - 1));
 	}
 	loadFieldsFromSelection();
@@ -407,8 +412,8 @@ void CustomDeviceAxisEditorWidget::onFieldChanged()
 		return;
 	}
 	saveFieldsToSelection();
-	rebuildList();
 	refreshMotionDependentUi();
+	rebuildList();
 	scheduleChanged();
 }
 

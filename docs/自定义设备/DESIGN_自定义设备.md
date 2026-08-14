@@ -29,6 +29,7 @@ flowchart TB
 - `CustomDeviceBackendData::axes()` / `setAxes` / `qValues` / `setQValues` / `baseWorldW0` / `setBaseWorldW0`
 - `CustomDeviceKinematics::applyQ(device, mgr, poseSink)`：漂移 unbake → 合成 → `setWorldMatrix` + poseSink
 - `attachChildToCustomDevice(host, deviceId, childId)`：setParent + OSG parent + Follow
+- 新建向导组件列表：`从场景选择`（已加载 Mesh/Brep）与 `导入文件` 均可挂为多子件；`移除` 时 detach + 清 hierarchy Follow
 - `RobotAxisControlWidget` / Controller：目标枚举含自定义设备 id
 
 ## 异常

@@ -85,6 +85,7 @@ public:
 						   const core::Mat4* toolLocalOnFlangeColumnMajor) override;
 	void updateTcpDragTeachFromTarget(const core::Mat4& targetInBaseColumnMajor, bool syncTargetInBase) override;
 	void updateTcpDragTeachToolLocalOnFlange(const core::Mat4& toolLocalOnFlangeColumnMajor) override;
+	core::Mat4 tcpDragTeachTargetInBase() const override;
 
 	void setInstructionPoseAxes(const QVector<core::InstructionPoseAxisDto>& axes) override;
 	void setRawTrajectoryOverlay(const QVector<core::RawTrajectoryOverlayVertexDto>& points) override;

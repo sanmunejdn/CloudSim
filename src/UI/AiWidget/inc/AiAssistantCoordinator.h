@@ -66,8 +66,9 @@ private:
 	void beginUnifiedDomainConfirm(AiAgentConfirmKind kind, const QByteArray& payload, const QString& title,
 								   const QString& confirmLabel, const QString& secondaryLabel, const QString& parserVia);
 	void handleAgentEvent(const AiAgentEvent& ev);
-	/// 模态确认策略/算子后 commit；返回 true 表示已处理（含取消/返回重选）
-	bool runTrajectoryPlanConfirmAndCommit(const QByteArray& planIn, bool showRetry);
+	/// 模态离散对话框（经 Runtime TrajectoryCommit）；返回重选保留会话
+	void openTrajectoryDiscretizeDialog(const QString& pendingId, const QByteArray& planIn, bool showRetry);
+	void restoreTrajectoryCandidatePreview();
 	bool tryHandleTrajectoryPlanRevise(const QString& text);
 
 	AiAssistantDockWidget* m_dock = nullptr;

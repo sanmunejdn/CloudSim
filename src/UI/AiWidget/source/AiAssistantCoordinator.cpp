@@ -604,7 +604,9 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 					m_dock->appendAssistantMessage(QStringLiteral("特征计划无效，请重新选择。"));
 				return true;
 			}
-			(void)runTrajectoryPlanConfirmAndCommit(m_pendingFeaturePlanJson, true);
+			beginUnifiedDomainConfirm(AiAgentConfirmKind::TrajectoryCommit, m_pendingFeaturePlanJson,
+									  QStringLiteral("确认并离散"), QStringLiteral("确认并离散"),
+									  QStringLiteral("返回重选"), m_pendingFeatureParserVia);
 			return true;
 		}
 
@@ -1054,7 +1056,9 @@ void AiAssistantCoordinator::onConfirmTrajectoryFeaturesClicked()
 	{
 		return;
 	}
-	(void)runTrajectoryPlanConfirmAndCommit(m_pendingFeaturePlanJson, true);
+	beginUnifiedDomainConfirm(AiAgentConfirmKind::TrajectoryCommit, m_pendingFeaturePlanJson,
+							  QStringLiteral("确认并离散"), QStringLiteral("确认并离散"),
+							  QStringLiteral("返回重选"), m_pendingFeatureParserVia);
 }
 
 void AiAssistantCoordinator::onRetryTrajectoryFeaturesClicked()
@@ -1068,10 +1072,47 @@ void AiAssistantCoordinator::onRetryTrajectoryFeaturesClicked()
 	}
 }
 
-bool AiAssistantCoordinator::runTrajectoryPlanConfirmAndCommit(const QByteArray& planIn, const bool showRetry)
+void AiAssistantCoordinator::restoreTrajectoryCandidatePreview()
 {
-	if (!m_dock || !m_pluginHost || planIn.isEmpty())
-		return false;
+	if (!m_pluginHost)
+		return;
+	if (m_featureSessionState == FeatureSessionState::Idle)
+		m_featureSessionState = FeatureSessionState::AwaitingSelection;
+	if (!m_pendingFeaturePlanJson.isEmpty())
+	{
+		try
+		{
+			const nlohmann::json j = nlohmann::json::parse(m_pendingFeaturePlanJson.constData(), nullptr, true);
+			std::vector<std::string> ids;
+			if (j.contains("selectedCandidateIds") && j["selectedCandidateIds"].is_array())
+			{
+				for (const auto& id : j["selectedCandidateIds"])
+				{
+					if (id.is_string())
+						ids.push_back(id.get<std::string>());
+				}
+			}
+			const QByteArray slice =
+				ids.empty() ? m_pendingCatalogSliceUtf8
+							: filterCatalogSliceByCandidateIds(m_pendingCatalogSliceUtf8, m_pendingCatalogFullUtf8, ids);
+			(void)m_pluginHost->showAiFeatureCandidatePreview(slice, nullptr);
+		}
+		catch (...)
+		{
+			(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
+		}
+	}
+	else if (!m_pendingCatalogSliceUtf8.isEmpty())
+	{
+		(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
+	}
+}
+
+void AiAssistantCoordinator::openTrajectoryDiscretizeDialog(const QString& pendingId, const QByteArray& planIn,
+															const bool showRetry)
+{
+	if (!m_dock || !m_pluginHost || !m_aiHost || planIn.isEmpty() || pendingId.isEmpty())
+		return;
 	m_dock->setBusy(false);
 	m_dock->hideTrajectoryFeatureConfirmButtons();
 	m_dock->hideAgentConfirmPanel();
@@ -1080,68 +1121,20 @@ bool AiAssistantCoordinator::runTrajectoryPlanConfirmAndCommit(const QByteArray&
 	const int code = m_pluginHost->proposeAndConfirmTrajectoryPlan(planIn, merged, &err, showRetry);
 	if (code == 2)
 	{
-		// 返回重选：保留候选会话与当前计划
-		if (m_featureSessionState == FeatureSessionState::Idle)
-			m_featureSessionState = FeatureSessionState::AwaitingSelection;
-		if (m_pluginHost && !m_pendingFeaturePlanJson.isEmpty())
-		{
-			try
-			{
-				const nlohmann::json j =
-					nlohmann::json::parse(m_pendingFeaturePlanJson.constData(), nullptr, true);
-				std::vector<std::string> ids;
-				if (j.contains("selectedCandidateIds") && j["selectedCandidateIds"].is_array())
-				{
-					for (const auto& id : j["selectedCandidateIds"])
-					{
-						if (id.is_string())
-							ids.push_back(id.get<std::string>());
-					}
-				}
-				const QByteArray slice =
-					ids.empty() ? m_pendingCatalogSliceUtf8
-								: filterCatalogSliceByCandidateIds(m_pendingCatalogSliceUtf8, m_pendingCatalogFullUtf8,
-																   ids);
-				(void)m_pluginHost->showAiFeatureCandidatePreview(slice, nullptr);
-			}
-			catch (...)
-			{
-				(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
-			}
-		}
-		else if (m_pluginHost && !m_pendingCatalogSliceUtf8.isEmpty())
-		{
-			(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
-		}
-		m_dock->appendSystemMessage(
-			QStringLiteral("已返回特征选择。可继续「选 N」调整，或再次输入「确认」打开离散对话框。"));
-		return true;
+		m_aiHost->secondaryAgentConfirm(pendingId);
+		return;
 	}
 	if (code != 1 || merged.isEmpty())
 	{
+		m_aiHost->cancelAgentConfirm(pendingId);
 		if (m_dock && !err.isEmpty())
 			m_dock->appendSystemMessage(err);
 		else if (m_dock)
 			m_dock->appendSystemMessage(QStringLiteral("已取消离散确认，当前选择仍保留。"));
-		return true;
+		return;
 	}
 	m_dock->setBusy(true);
-	QString summary;
-	QString commitErr;
-	const bool ok = m_pluginHost->commitAiTrajectoryFeatures(merged, &summary, &commitErr);
-	m_dock->setBusy(false);
-	if (!ok)
-	{
-		const QString msg = commitErr.isEmpty() ? QStringLiteral("离散/提交失败") : commitErr;
-		m_dock->appendAssistantMessage(prefixWithParser(m_pendingFeatureParserVia, msg));
-		emit parseFailed(msg, m_pendingFeatureParserVia);
-		return true;
-	}
-	resetFeatureSession();
-	const QString reply = summary.isEmpty() ? QStringLiteral("轨迹特征已按确认的策略与算子离散。") : summary;
-	m_dock->appendAssistantMessage(prefixWithParser(m_pendingFeatureParserVia, reply));
-	emit assistantFinished(reply, false, m_pendingFeatureParserVia);
-	return true;
+	m_aiHost->submitAgentConfirm(pendingId, merged);
 }
 
 bool AiAssistantCoordinator::tryHandleTrajectoryPlanRevise(const QString& text)
@@ -1245,6 +1238,18 @@ void AiAssistantCoordinator::handleAgentEvent(const AiAgentEvent& ev)
 	{
 	case AiAgentEventKind::NeedConfirm:
 		m_dock->setBusy(false);
+		if (ev.confirmKind == AiAgentConfirmKind::TrajectoryCommit)
+		{
+			const QByteArray plan =
+				!ev.proposedArgsJson.isEmpty() && ev.proposedArgsJson != QByteArrayLiteral("{}")
+					? ev.proposedArgsJson
+					: m_pendingFeaturePlanJson;
+			m_dock->appendSystemMessage(ev.message.isEmpty()
+											? QStringLiteral("请在对话框中确认离散策略与管线算子。")
+											: ev.message);
+			openTrajectoryDiscretizeDialog(ev.pendingId, plan, !ev.secondaryLabel.isEmpty());
+			break;
+		}
 		m_dock->appendSystemMessage(ev.message.isEmpty() ? QStringLiteral("请确认参数后执行。") : ev.message);
 		m_dock->showAgentConfirmPanel(ev.pendingId, ev.title, ev.risk, ev.argsSchemaJson, ev.proposedArgsJson,
 									  ev.sceneSnapshotJson, ev.confirmLabel, ev.secondaryLabel);
@@ -1262,12 +1267,25 @@ void AiAssistantCoordinator::handleAgentEvent(const AiAgentEvent& ev)
 			m_pendingRecognitionJson.clear();
 		if (ev.toolId == QStringLiteral("trajectory.feature.commit") ||
 			ev.confirmKind == AiAgentConfirmKind::TrajectoryCommit)
+		{
+			const QString via = m_pendingFeatureParserVia;
 			resetFeatureSession();
+			emit assistantFinished(ev.message, false, via.isEmpty() ? QStringLiteral("Agent") : via);
+			break;
+		}
 		emit assistantFinished(ev.message, false, QStringLiteral("Agent"));
 		break;
 	case AiAgentEventKind::Error:
 		m_dock->hideAgentConfirmPanel();
 		m_dock->setBusy(false);
+		// 离散对话框取消：保留特征会话，不当作解析失败
+		if (ev.message == QStringLiteral("已取消。") &&
+			(m_featureSessionState == FeatureSessionState::PreviewCandidates ||
+			 m_featureSessionState == FeatureSessionState::AwaitingSelection))
+		{
+			m_dock->appendSystemMessage(QStringLiteral("已取消离散确认，当前选择仍保留。"));
+			break;
+		}
 		m_dock->appendAssistantMessage(ev.message);
 		emit parseFailed(ev.message, QStringLiteral("Agent"));
 		break;
@@ -1275,7 +1293,11 @@ void AiAssistantCoordinator::handleAgentEvent(const AiAgentEvent& ev)
 		m_dock->hideAgentConfirmPanel();
 		m_dock->setBusy(false);
 		if (ev.toolId == QStringLiteral("trajectory.feature.commit"))
-			onRetryTrajectoryFeaturesClicked();
+		{
+			restoreTrajectoryCandidatePreview();
+			m_dock->appendSystemMessage(
+				QStringLiteral("已返回特征选择。可继续「选 N」调整，或再次输入「确认」打开离散对话框。"));
+		}
 		break;
 	}
 }

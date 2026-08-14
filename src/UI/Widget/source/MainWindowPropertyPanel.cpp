@@ -113,7 +113,9 @@ int propertyEditorTypeForKey(const QString& key, bool editable)
 		}
 	}
 	if (key == QStringLiteral("motion.tool.frameId") || key == QStringLiteral("motion.user.frameId") ||
-		key == QStringLiteral("motion.target.frame"))
+		key == QStringLiteral("motion.target.frame") || key == QStringLiteral("logic.io.signalName") ||
+		key == QStringLiteral("logic.condition.signalName") || key == QStringLiteral("logic.condition.kind") ||
+		key == QStringLiteral("logic.condition.equals") || key == QStringLiteral("logic.device.backendId"))
 	{
 		return QtVariantPropertyManager::enumTypeId();
 	}
@@ -209,6 +211,24 @@ QString axisConfigEnumDisplayName(const QString& propertyKey, const QString& tok
 		if (token == QStringLiteral("AUTO"))
 			return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
 		return chinese ? QStringLiteral("转 %1").arg(token) : QStringLiteral("Turn %1").arg(token);
+	}
+	if (propertyKey == QStringLiteral("logic.condition.kind"))
+	{
+		if (token == QStringLiteral("always"))
+			return chinese ? QStringLiteral("延时") : QStringLiteral("Delay");
+		if (token == QStringLiteral("io"))
+			return chinese ? QStringLiteral("等待信号") : QStringLiteral("Wait signal");
+		if (token == QStringLiteral("never"))
+			return chinese ? QStringLiteral("永不") : QStringLiteral("Never");
+		if (token == QStringLiteral("compare"))
+			return chinese ? QStringLiteral("比较") : QStringLiteral("Compare");
+	}
+	if (propertyKey == QStringLiteral("logic.condition.equals"))
+	{
+		if (token == QStringLiteral("0"))
+			return chinese ? QStringLiteral("为 0") : QStringLiteral("Equals 0");
+		if (token == QStringLiteral("1"))
+			return chinese ? QStringLiteral("为 1") : QStringLiteral("Equals 1");
 	}
 	return token;
 }
@@ -574,6 +594,38 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	if (key == QStringLiteral("motion.user.frameId"))
 	{
 		return tr(QStringLiteral("User frame"), QStringLiteral("用户坐标系"));
+	}
+	if (key == QStringLiteral("logic.io.signalName") || key == QStringLiteral("logic.condition.signalName"))
+	{
+		return tr(QStringLiteral("Signal name"), QStringLiteral("信号名"));
+	}
+	if (key == QStringLiteral("logic.condition.kind"))
+	{
+		return tr(QStringLiteral("Wait mode"), QStringLiteral("等待方式"));
+	}
+	if (key == QStringLiteral("logic.condition.port"))
+	{
+		return tr(QStringLiteral("IO port"), QStringLiteral("IO 端口"));
+	}
+	if (key == QStringLiteral("logic.condition.equals"))
+	{
+		return tr(QStringLiteral("Equals (0/1)"), QStringLiteral("目标值 (0/1)"));
+	}
+	if (key == QStringLiteral("logic.device.backendId"))
+	{
+		return tr(QStringLiteral("Device id"), QStringLiteral("设备 ID"));
+	}
+	if (key == QStringLiteral("logic.device.axisIndex"))
+	{
+		return tr(QStringLiteral("Axis index"), QStringLiteral("轴下标"));
+	}
+	if (key == QStringLiteral("logic.device.targetQ"))
+	{
+		return tr(QStringLiteral("Target q"), QStringLiteral("目标 q"));
+	}
+	if (key == QStringLiteral("logic.device.durationSec") || key == QStringLiteral("logic.wait.durationSec"))
+	{
+		return tr(QStringLiteral("Duration/Timeout (s)"), QStringLiteral("时长/超时 (s)"));
 	}
 	if (key == QStringLiteral("motion.target.pose.x"))
 	{

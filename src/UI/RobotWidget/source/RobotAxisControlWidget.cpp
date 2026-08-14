@@ -75,24 +75,31 @@ void RobotAxisControlWidget::setControlTargets(const QVector<AxisControlTargetIt
 		return;
 	}
 	const AxisControlTargetItem prev = currentControlTarget();
-	QSignalBlocker blocker(m_targetCombo);
-	m_targetCombo->clear();
-	for (const AxisControlTargetItem& t : m_controlTargets)
 	{
-		m_targetCombo->addItem(t.displayLabel);
-	}
-	int select = 0;
-	for (int i = 0; i < m_controlTargets.size(); ++i)
-	{
-		if (m_controlTargets[i].kind == prev.kind && m_controlTargets[i].id == prev.id)
+		const QSignalBlocker blocker(m_targetCombo);
+		m_targetCombo->clear();
+		for (const AxisControlTargetItem& t : m_controlTargets)
 		{
-			select = i;
-			break;
+			m_targetCombo->addItem(t.displayLabel);
+		}
+		int select = 0;
+		for (int i = 0; i < m_controlTargets.size(); ++i)
+		{
+			if (m_controlTargets[i].kind == prev.kind && m_controlTargets[i].id == prev.id)
+			{
+				select = i;
+				break;
+			}
+		}
+		if (!m_controlTargets.isEmpty())
+		{
+			m_targetCombo->setCurrentIndex(select);
 		}
 	}
+	// blocker 下改索引不会发信号；自定义设备轴依赖本信号重建滑条
 	if (!m_controlTargets.isEmpty())
 	{
-		m_targetCombo->setCurrentIndex(select);
+		notifyCurrentControlTargetApplied();
 	}
 }
 
@@ -120,19 +127,21 @@ void RobotAxisControlWidget::selectControlTarget(const AxisControlTargetKind kin
 	{
 		if (m_controlTargets[i].kind == kind && m_controlTargets[i].id == id)
 		{
-			m_targetCombo->setCurrentIndex(i);
+			if (m_targetCombo->currentIndex() == i)
+			{
+				notifyCurrentControlTargetApplied();
+			}
+			else
+			{
+				m_targetCombo->setCurrentIndex(i);
+			}
 			return;
 		}
 	}
 }
 
-void RobotAxisControlWidget::onControlTargetComboChanged(const int index)
+void RobotAxisControlWidget::updateTargetDependentChrome(const AxisControlTargetItem& t)
 {
-	if (index < 0 || index >= m_controlTargets.size())
-	{
-		return;
-	}
-	const AxisControlTargetItem& t = m_controlTargets[index];
 	const bool isRobot = t.kind == AxisControlTargetKind::RobotInstance;
 	if (m_reachableWorkspaceCheck)
 	{
@@ -146,7 +155,26 @@ void RobotAxisControlWidget::onControlTargetComboChanged(const int index)
 	{
 		m_reachableWorkspaceDensitySlider->setVisible(isRobot);
 	}
+}
+
+void RobotAxisControlWidget::notifyCurrentControlTargetApplied()
+{
+	if (m_controlTargets.isEmpty())
+	{
+		return;
+	}
+	const AxisControlTargetItem t = currentControlTarget();
+	updateTargetDependentChrome(t);
 	emit controlTargetChanged(t.kind, t.id);
+}
+
+void RobotAxisControlWidget::onControlTargetComboChanged(const int index)
+{
+	if (index < 0 || index >= m_controlTargets.size())
+	{
+		return;
+	}
+	notifyCurrentControlTargetApplied();
 }
 
 void RobotAxisControlWidget::setJoints(const QStringList& jointNames, const QVector<double>& lowerLimits,

@@ -5,15 +5,20 @@
 
 #include "IRobotBackendPoseSink.h"
 #include "IRobotSimulationDocument.h"
+#include "CustomDeviceBackendData.h"
+#include "CustomDeviceKinematics.h"
 #include "RobotInstructionProgram.h"
 #include "RobotSceneKinematics.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
+#include "BackendDataManager.h"
+
 #include <QByteArray>
 #include <QString>
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 namespace
 {
@@ -41,6 +46,13 @@ void RobotProgramExecutor::stop()
 	m_simElapsedSec = 0.0;
 	m_lastWallSec = 0.0;
 	m_segDurationSec = 0.0;
+	m_inDeviceAxis = false;
+	m_deviceAxisBackendId.clear();
+	m_deviceAxisIndex = 0;
+	m_deviceAxisQ0 = 0.0;
+	m_deviceAxisQ1 = 0.0;
+	m_inWaitForSignal = false;
+	m_waitCondition = {};
 }
 
 void RobotProgramExecutor::setPlaybackRate(double rate)
@@ -80,7 +92,8 @@ bool RobotProgramExecutor::evaluateCondition(const RobotInstruction::Condition& 
 		if (m_io)
 		{
 			bool v = false;
-			if (m_io->getDigitalInput(c.ioPort, &v))
+			const int port = m_io->resolveNamedPort(c.signalName, c.ioPort);
+			if (m_io->getDigitalInput(port, &v))
 			{
 				return v == c.ioEquals;
 			}
@@ -341,6 +354,26 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 		{
 			m_inMotion = false;
 			m_activeMotion = nullptr;
+			m_inDeviceAxis = false;
+			const RobotInstruction::Condition& c = ins->condition();
+			if (c.kind == RobotInstruction::ConditionKind::Io || c.kind == RobotInstruction::ConditionKind::Compare)
+			{
+				// 已满足则不阻塞；否则进入等信号（duration=超时，0=无限）
+				if (evaluateCondition(c))
+				{
+					continue;
+				}
+				m_inWaitForSignal = true;
+				m_waitCondition = c;
+				m_segDurationSec = std::max(0.0, ins->durationSec());
+				resetVirtualClock();
+				return true;
+			}
+			if (c.kind == RobotInstruction::ConditionKind::Never)
+			{
+				continue;
+			}
+			m_inWaitForSignal = false;
 			m_segDurationSec = std::max(0.0, ins->durationSec());
 			resetVirtualClock();
 			return true;
@@ -348,7 +381,8 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 		case RobotInstruction::Type::SET_DO:
 			if (m_io)
 			{
-				m_io->setDigitalOutput(ins->ioPort(), ins->ioBoolValue());
+				const int port = m_io->resolveNamedPort(ins->ioSignalName(), ins->ioPort());
+				m_io->setDigitalOutput(port, ins->ioBoolValue());
 			}
 			RunLogger::info(
 				qToUtf8Std(QStringLiteral("Set DO port %1 = %2").arg(ins->ioPort()).arg(ins->ioBoolValue())));
@@ -356,11 +390,51 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 		case RobotInstruction::Type::SET_AO:
 			if (m_io)
 			{
-				m_io->setAnalogOutput(ins->ioPort(), ins->ioAnalogValue());
+				const int port = m_io->resolveNamedPort(ins->ioSignalName(), ins->ioPort());
+				m_io->setAnalogOutput(port, ins->ioAnalogValue());
 			}
 			RunLogger::info(
 				qToUtf8Std(QStringLiteral("Set AO port %1 = %2").arg(ins->ioPort()).arg(ins->ioAnalogValue())));
 			continue;
+		case RobotInstruction::Type::DeviceAxis:
+		{
+			const std::string deviceId = ins->deviceBackendId();
+			const int axisIndex = ins->deviceAxisIndex();
+			const double targetQ = ins->deviceAxisTargetQ();
+			const double duration = std::max(0.0, ins->durationSec());
+			double q0 = targetQ;
+			if (BackendDataManager* mgr = doc ? doc->robotBackendManagerForKinematics() : nullptr)
+			{
+				if (auto data = mgr->getData(deviceId))
+				{
+					if (auto* device = dynamic_cast<CustomDeviceBackendData*>(data.get()))
+					{
+						device->ensureQSize();
+						const auto& qv = device->qValues();
+						if (axisIndex >= 0 && static_cast<size_t>(axisIndex) < qv.size())
+						{
+							q0 = qv[static_cast<size_t>(axisIndex)];
+						}
+					}
+				}
+			}
+			if (duration <= 1e-9)
+			{
+				(void)applyDeviceAxisQ(doc, osg, deviceId, axisIndex, targetQ);
+				continue;
+			}
+			m_inMotion = false;
+			m_activeMotion = nullptr;
+			m_inDeviceAxis = true;
+			m_deviceAxisBackendId = deviceId;
+			m_deviceAxisIndex = axisIndex;
+			m_deviceAxisQ0 = q0;
+			m_deviceAxisQ1 = targetQ;
+			m_segDurationSec = duration;
+			resetVirtualClock();
+			(void)applyDeviceAxisQ(doc, osg, deviceId, axisIndex, q0);
+			return true;
+		}
 		case RobotInstruction::Type::PathPlan:
 			continue;
 		case RobotInstruction::Type::IF:
@@ -397,6 +471,83 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 		}
 	}
 	return false;
+}
+
+bool RobotProgramExecutor::applyDeviceAxisQ(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg,
+											const std::string& deviceId, const int axisIndex, const double q)
+{
+	if (!doc || deviceId.empty() || axisIndex < 0)
+	{
+		return false;
+	}
+	BackendDataManager* mgr = doc->robotBackendManagerForKinematics();
+	if (!mgr)
+	{
+		return false;
+	}
+	auto data = mgr->getData(deviceId);
+	auto* device = data ? dynamic_cast<CustomDeviceBackendData*>(data.get()) : nullptr;
+	if (!device)
+	{
+		RunLogger::warn(std::string("DeviceAxis: custom device not found: ") + deviceId);
+		return false;
+	}
+	device->ensureQSize();
+	std::vector<double> qv = device->qValues();
+	if (static_cast<size_t>(axisIndex) >= qv.size())
+	{
+		RunLogger::warn("DeviceAxis: axis index out of range");
+		return false;
+	}
+	qv[static_cast<size_t>(axisIndex)] = q;
+	return CustomDeviceKinematics::applyQ(*device, mgr, osg, &qv);
+}
+
+bool RobotProgramExecutor::tickWaitForSignal()
+{
+	if (!m_inWaitForSignal)
+	{
+		return true;
+	}
+	if (evaluateCondition(m_waitCondition))
+	{
+		m_inWaitForSignal = false;
+		m_segDurationSec = 0.0;
+		return true;
+	}
+	advanceVirtualClock();
+	// durationSec 作为超时；0 表示一直等到信号
+	if (m_segDurationSec > 1e-9 && m_simElapsedSec >= m_segDurationSec)
+	{
+		RunLogger::warn("RobotProgramExecutor: WAIT for signal timed out.");
+		m_inWaitForSignal = false;
+		m_segDurationSec = 0.0;
+		return true;
+	}
+	return true;
+}
+
+bool RobotProgramExecutor::tickDeviceAxisSegment(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
+{
+	if (!m_inDeviceAxis)
+	{
+		return true;
+	}
+	advanceVirtualClock();
+	double u = 1.0;
+	if (m_segDurationSec > 1e-9)
+	{
+		u = std::clamp(m_simElapsedSec / m_segDurationSec, 0.0, 1.0);
+	}
+	const double q = m_deviceAxisQ0 + (m_deviceAxisQ1 - m_deviceAxisQ0) * u;
+	(void)applyDeviceAxisQ(doc, osg, m_deviceAxisBackendId, m_deviceAxisIndex, q);
+	if (u >= 1.0 - 1e-9)
+	{
+		(void)applyDeviceAxisQ(doc, osg, m_deviceAxisBackendId, m_deviceAxisIndex, m_deviceAxisQ1);
+		m_inDeviceAxis = false;
+		m_segDurationSec = 0.0;
+	}
+	return true;
 }
 
 bool RobotProgramExecutor::tryStart(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, IRobotIoSink* io,
@@ -470,6 +621,8 @@ bool RobotProgramExecutor::tryStart(IRobotSimulationDocument* doc, IRobotBackend
 	m_stack.push_back(std::move(root));
 	m_running = true;
 	m_inMotion = false;
+	m_inDeviceAxis = false;
+	m_inWaitForSignal = false;
 	RunLogger::info("RobotProgramExecutor started.");
 	return true;
 }
@@ -499,7 +652,30 @@ RobotInstructionPlaybackTickResult RobotProgramExecutor::tick(IRobotSimulationDo
 		}
 	}
 
-	if (!m_activeMotion && m_segDurationSec > 1e-9 && !m_inMotion && m_segmentTimer.isValid())
+	if (m_inDeviceAxis)
+	{
+		if (!tickDeviceAxisSegment(doc, osg))
+		{
+			stop();
+			return RobotInstructionPlaybackTickResult::Aborted;
+		}
+		if (m_inDeviceAxis)
+		{
+			return RobotInstructionPlaybackTickResult::Continue;
+		}
+	}
+
+	if (m_inWaitForSignal)
+	{
+		(void)tickWaitForSignal();
+		if (m_inWaitForSignal)
+		{
+			return RobotInstructionPlaybackTickResult::Continue;
+		}
+	}
+
+	if (!m_activeMotion && m_segDurationSec > 1e-9 && !m_inMotion && !m_inDeviceAxis && !m_inWaitForSignal &&
+		m_segmentTimer.isValid())
 	{
 		advanceVirtualClock();
 		if (m_simElapsedSec < m_segDurationSec)

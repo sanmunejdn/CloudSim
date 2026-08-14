@@ -103,6 +103,8 @@ public:
 								   const Mat4* toolLocalOnFlangeColumnMajor = nullptr) = 0;
 	virtual void updateTcpDragTeachFromTarget(const Mat4& targetInBaseColumnMajor, bool syncTargetInBase = true) = 0;
 	virtual void updateTcpDragTeachToolLocalOnFlange(const Mat4& toolLocalOnFlangeColumnMajor) = 0;
+	/// 示教目标（基座系，四元数真值；避免欧拉往返改姿态）
+	virtual Mat4 tcpDragTeachTargetInBase() const = 0;
 
 	virtual void setInstructionPoseAxes(const QVector<InstructionPoseAxisDto>& axes) = 0;
 	virtual void setRawTrajectoryOverlay(const QVector<RawTrajectoryOverlayVertexDto>& points) = 0;

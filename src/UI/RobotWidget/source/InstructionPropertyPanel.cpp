@@ -421,6 +421,39 @@ void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
 	const QString presetAfter = snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.preset"));
 	const bool customAxisModeAfter = presetAfter.compare(QStringLiteral("CUSTOM"), Qt::CaseInsensitive) == 0;
 
+	std::vector<std::string> doSignalTokens;
+	std::vector<std::string> diSignalTokens;
+	std::vector<std::string> aoSignalTokens;
+	std::vector<std::string> deviceIdTokens;
+	static const std::vector<std::string> conditionKindTokens = {"always", "never", "io", "compare"};
+	static const std::vector<std::string> waitModeTokens = {"always", "io"};
+	static const std::vector<std::string> equalsTokens = {"0", "1"};
+	{
+		const QStringList doNames = host.namedIoSignalNames(QStringLiteral("DO"));
+		const QStringList diNames = host.namedIoSignalNames(QStringLiteral("DI"));
+		const QStringList aoNames = host.namedIoSignalNames(QStringLiteral("AO"));
+		const QStringList deviceIds = host.customDeviceBackendIds();
+		doSignalTokens.push_back(std::string());
+		diSignalTokens.push_back(std::string());
+		aoSignalTokens.push_back(std::string());
+		for (const QString& n : doNames)
+		{
+			doSignalTokens.push_back(n.toStdString());
+		}
+		for (const QString& n : diNames)
+		{
+			diSignalTokens.push_back(n.toStdString());
+		}
+		for (const QString& n : aoNames)
+		{
+			aoSignalTokens.push_back(n.toStdString());
+		}
+		for (const QString& id : deviceIds)
+		{
+			deviceIdTokens.push_back(id.toStdString());
+		}
+	}
+
 	if (instruction->hasPoseProperty())
 	{
 		const auto& ext = instruction->extensionProperties();
@@ -612,6 +645,34 @@ void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
 			{
 				enumOverride = &feasibleAxis.turnJ6Tokens;
 			}
+			else if (key == QStringLiteral("logic.io.signalName"))
+			{
+				if (instruction->type() == RobotInstruction::Type::SET_AO)
+				{
+					enumOverride = &aoSignalTokens;
+				}
+				else
+				{
+					enumOverride = &doSignalTokens;
+				}
+			}
+			else if (key == QStringLiteral("logic.condition.signalName"))
+			{
+				enumOverride = &diSignalTokens;
+			}
+			else if (key == QStringLiteral("logic.condition.kind"))
+			{
+				enumOverride = (instruction->type() == RobotInstruction::Type::WAIT) ? &waitModeTokens
+																					 : &conditionKindTokens;
+			}
+			else if (key == QStringLiteral("logic.condition.equals"))
+			{
+				enumOverride = &equalsTokens;
+			}
+			else if (key == QStringLiteral("logic.device.backendId") && !deviceIdTokens.empty())
+			{
+				enumOverride = &deviceIdTokens;
+			}
 			host.appendPropertyBrowserRow(key, label, QString::fromStdString(valueStr), editable, enumOverride);
 		}
 	}
@@ -797,6 +858,25 @@ bool InstructionPropertyPanel::handleVariantPropertyValueChanged(IRobotInstructi
 		{
 			host.scheduleInstructionPropertyRefresh(instruction, true);
 			return true;
+		}
+		if (propertyKey == QStringLiteral("logic.io.signalName") && !valueText.isEmpty())
+		{
+			const int port = host.resolveNamedIoSignalPort(valueText);
+			if (port >= 0)
+			{
+				instruction->setIoPort(port);
+			}
+		}
+		else if (propertyKey == QStringLiteral("logic.condition.signalName") && !valueText.isEmpty())
+		{
+			const int port = host.resolveNamedIoSignalPort(valueText);
+			if (port >= 0)
+			{
+				RobotInstruction::Condition c = instruction->condition();
+				c.ioPort = port;
+				c.signalName = valueText.toStdString();
+				instruction->setCondition(c);
+			}
 		}
 	}
 	if (host.simulationCommandPage())

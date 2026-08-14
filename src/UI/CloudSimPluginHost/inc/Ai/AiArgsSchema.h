@@ -20,6 +20,9 @@ nlohmann::json toOpenAiTool(const nlohmann::json& api);
 
 QByteArray buildOpenAiToolsFromCatalog(const QByteArray& catalogJsonUtf8, const QString& domainId,
 									   const QStringList& excludeApiIds = {});
+
+/// 检查提案 args 是否缺 Catalog args_schema 中 required 字段；缺则写 outError 并返回 true
+bool missingRequiredArgs(const nlohmann::json& argsSchema, const nlohmann::json& args, QString* outError);
 } // namespace AiArgsSchema
 
 #endif

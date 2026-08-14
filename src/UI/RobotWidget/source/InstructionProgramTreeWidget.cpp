@@ -292,6 +292,8 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 			return chinese ? QStringLiteral("模拟输出") : QStringLiteral("SET_AO");
 		case RobotInstruction::Type::PathPlan:
 			return chinese ? QStringLiteral("路径规划") : QStringLiteral("PATH_PLAN");
+		case RobotInstruction::Type::DeviceAxis:
+			return chinese ? QStringLiteral("设备轴") : QStringLiteral("DEVICE_AXIS");
 		case RobotInstruction::Type::PTP:
 		default:
 			return chinese ? QStringLiteral("点到点") : QStringLiteral("PTP");
@@ -328,9 +330,26 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 	switch (ins.type())
 	{
 	case RobotInstruction::Type::WAIT:
-		summary = chinese ? QStringLiteral("时长 %1 s").arg(ins.durationSec(), 0, 'f', 2)
-						  : QStringLiteral("duration %1 s").arg(ins.durationSec(), 0, 'f', 2);
+	{
+		const RobotInstruction::Condition& c = ins.condition();
+		if (c.kind == RobotInstruction::ConditionKind::Io)
+		{
+			const QString sig = !c.signalName.empty() ? QString::fromStdString(c.signalName)
+													 : QStringLiteral("IO%1").arg(c.ioPort);
+			summary = QStringLiteral("%1==%2").arg(sig).arg(c.ioEquals ? 1 : 0);
+			if (ins.durationSec() > 1e-9)
+			{
+				summary += chinese ? QStringLiteral(" 超时%1s").arg(ins.durationSec(), 0, 'f', 1)
+								   : QStringLiteral(" t/o %1s").arg(ins.durationSec(), 0, 'f', 1);
+			}
+		}
+		else
+		{
+			summary = chinese ? QStringLiteral("时长 %1 s").arg(ins.durationSec(), 0, 'f', 2)
+							  : QStringLiteral("duration %1 s").arg(ins.durationSec(), 0, 'f', 2);
+		}
 		break;
+	}
 	case RobotInstruction::Type::IF:
 	case RobotInstruction::Type::WHILE:
 	{
@@ -341,7 +360,14 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 			summary = chinese ? QStringLiteral("永不") : QStringLiteral("never");
 			break;
 		case RobotInstruction::ConditionKind::Io:
-			summary = QStringLiteral("IO%1==%2").arg(c.ioPort).arg(c.ioEquals ? 1 : 0);
+			if (!c.signalName.empty())
+			{
+				summary = QStringLiteral("%1==%2").arg(QString::fromStdString(c.signalName)).arg(c.ioEquals ? 1 : 0);
+			}
+			else
+			{
+				summary = QStringLiteral("IO%1==%2").arg(c.ioPort).arg(c.ioEquals ? 1 : 0);
+			}
 			break;
 		case RobotInstruction::ConditionKind::Compare:
 			summary = QString::fromStdString(c.compareLeft + " " + c.compareOp + " " + std::to_string(c.compareRight));
@@ -353,10 +379,24 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 		break;
 	}
 	case RobotInstruction::Type::SET_DO:
-		summary = QStringLiteral("port %1 = %2").arg(ins.ioPort()).arg(ins.ioBoolValue() ? 1 : 0);
+		summary = !ins.ioSignalName().empty()
+					  ? QStringLiteral("%1 = %2")
+							.arg(QString::fromStdString(ins.ioSignalName()))
+							.arg(ins.ioBoolValue() ? 1 : 0)
+					  : QStringLiteral("port %1 = %2").arg(ins.ioPort()).arg(ins.ioBoolValue() ? 1 : 0);
 		break;
 	case RobotInstruction::Type::SET_AO:
-		summary = QStringLiteral("port %1 = %2").arg(ins.ioPort()).arg(ins.ioAnalogValue(), 0, 'f', 2);
+		summary = !ins.ioSignalName().empty()
+					  ? QStringLiteral("%1 = %2")
+							.arg(QString::fromStdString(ins.ioSignalName()))
+							.arg(ins.ioAnalogValue(), 0, 'f', 2)
+					  : QStringLiteral("port %1 = %2").arg(ins.ioPort()).arg(ins.ioAnalogValue(), 0, 'f', 2);
+		break;
+	case RobotInstruction::Type::DeviceAxis:
+		summary = QStringLiteral("%1[%2]=%3")
+					  .arg(QString::fromStdString(ins.deviceBackendId()))
+					  .arg(ins.deviceAxisIndex())
+					  .arg(ins.deviceAxisTargetQ(), 0, 'g', 6);
 		break;
 	case RobotInstruction::Type::ARC:
 	{
@@ -642,10 +682,12 @@ void InstructionProgramTreeWidget::readStepsFromChildren(
 	QTreeWidgetItem* container, std::vector<std::shared_ptr<RobotInstruction::Base>>& out,
 	const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const
 {
+	out.clear();
 	if (!container)
 	{
 		return;
 	}
+	std::unordered_set<RobotInstruction::Base*> seen;
 	for (int i = 0; i < container->childCount(); ++i)
 	{
 		QTreeWidgetItem* ch = container->child(i);
@@ -654,10 +696,92 @@ void InstructionProgramTreeWidget::readStepsFromChildren(
 			continue;
 		}
 		RobotInstruction::Base* raw = instructionRaw(ch);
+		if (!raw || seen.count(raw) != 0)
+		{
+			continue;
+		}
 		const auto it = ptrMap.find(raw);
 		if (it != ptrMap.end())
 		{
+			seen.insert(raw);
 			out.push_back(it->second);
+		}
+	}
+}
+
+void InstructionProgramTreeWidget::syncLogicBranchesFromTreeItem(
+	QTreeWidgetItem* item,
+	const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const
+{
+	if (!item || nodeKind(item) != NodeKind::Instruction)
+	{
+		return;
+	}
+	RobotInstruction::Base* raw = instructionRaw(item);
+	if (!raw)
+	{
+		return;
+	}
+	const auto it = ptrMap.find(raw);
+	if (it == ptrMap.end() || !it->second)
+	{
+		return;
+	}
+	std::shared_ptr<RobotInstruction::Base> ins = it->second;
+	if (ins->type() == RobotInstruction::Type::IF)
+	{
+		auto* ifIns = dynamic_cast<RobotInstruction::IfInstruction*>(ins.get());
+		if (!ifIns || item->childCount() < 2)
+		{
+			return;
+		}
+		readStepsFromChildren(item->child(0), ifIns->thenSteps(), ptrMap);
+		readStepsFromChildren(item->child(1), ifIns->elseStepsMut(), ptrMap);
+		for (int branch = 0; branch < 2; ++branch)
+		{
+			QTreeWidgetItem* hdr = item->child(branch);
+			if (!hdr)
+			{
+				continue;
+			}
+			for (int c = 0; c < hdr->childCount(); ++c)
+			{
+				syncLogicBranchesFromTreeItem(hdr->child(c), ptrMap);
+			}
+		}
+	}
+	else if (ins->type() == RobotInstruction::Type::WHILE)
+	{
+		auto* whileIns = dynamic_cast<RobotInstruction::WhileInstruction*>(ins.get());
+		if (!whileIns)
+		{
+			return;
+		}
+		std::vector<std::shared_ptr<RobotInstruction::Base>> body;
+		std::unordered_set<RobotInstruction::Base*> seenBody;
+		for (int c = 0; c < item->childCount(); ++c)
+		{
+			QTreeWidgetItem* ch = item->child(c);
+			if (nodeKind(ch) != NodeKind::Instruction)
+			{
+				continue;
+			}
+			RobotInstruction::Base* rawChild = instructionRaw(ch);
+			if (!rawChild || seenBody.count(rawChild) != 0)
+			{
+				continue;
+			}
+			const auto itChild = ptrMap.find(rawChild);
+			if (itChild != ptrMap.end())
+			{
+				seenBody.insert(rawChild);
+				body.push_back(itChild->second);
+			}
+		}
+		whileIns->bodySteps() = std::move(body);
+		for (int c = 0; c < item->childCount(); ++c)
+		{
+			syncLogicBranchesFromTreeItem(item->child(c), ptrMap);
 		}
 	}
 }
@@ -718,39 +842,7 @@ void InstructionProgramTreeWidget::readProgramFromTree(
 		}
 		std::shared_ptr<RobotInstruction::Base> ins = it->second;
 		root.push_back(ins);
-
-		if (ins->type() == RobotInstruction::Type::IF)
-		{
-			auto* ifIns = dynamic_cast<RobotInstruction::IfInstruction*>(ins.get());
-			if (ifIns && item->childCount() >= 2)
-			{
-				readStepsFromChildren(item->child(0), ifIns->thenSteps(), ptrMap);
-				readStepsFromChildren(item->child(1), ifIns->elseStepsMut(), ptrMap);
-			}
-		}
-		else if (ins->type() == RobotInstruction::Type::WHILE)
-		{
-			auto* whileIns = dynamic_cast<RobotInstruction::WhileInstruction*>(ins.get());
-			if (whileIns)
-			{
-				std::vector<std::shared_ptr<RobotInstruction::Base>> body;
-				for (int c = 0; c < item->childCount(); ++c)
-				{
-					QTreeWidgetItem* ch = item->child(c);
-					if (nodeKind(ch) != NodeKind::Instruction)
-					{
-						continue;
-					}
-					RobotInstruction::Base* rawChild = instructionRaw(ch);
-					const auto itChild = ptrMap.find(rawChild);
-					if (itChild != ptrMap.end())
-					{
-						body.push_back(itChild->second);
-					}
-				}
-				whileIns->bodySteps() = std::move(body);
-			}
-		}
+		syncLogicBranchesFromTreeItem(item, ptrMap);
 	}
 }
 

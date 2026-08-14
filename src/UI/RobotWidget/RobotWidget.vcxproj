@@ -121,6 +121,8 @@
     <ClInclude Include="inc\UserTemplateLibrary.h" />
     <ClInclude Include="inc\PipelineDraftEditStack.h" />
     <ClInclude Include="inc\SimulationLogIoSink.h" />
+    <QtMoc Include="inc\NamedSignalIoSink.h" />
+    <QtMoc Include="inc\IoSignalPageWidget.h" />
     <ClInclude Include="inc\PythonScriptCaller.h" />
     <QtMoc Include="inc\BrandProgramExportDialog.h" />
     <QtMoc Include="inc\RobotAxisControlWidget.h" />
@@ -156,6 +158,8 @@
     <ClCompile Include="source\UserTemplateLibrary.cpp" />
     <ClCompile Include="source\PipelineDraftEditStack.cpp" />
     <ClCompile Include="source\SimulationLogIoSink.cpp" />
+    <ClCompile Include="source\NamedSignalIoSink.cpp" />
+    <ClCompile Include="source\IoSignalPageWidget.cpp" />
     <ClCompile Include="source\RobotAxisControlWidget.cpp" />
     <ClCompile Include="source\RobotCommPageWidget.cpp" />
     <ClCompile Include="source\RobotSimulationController.cpp" />

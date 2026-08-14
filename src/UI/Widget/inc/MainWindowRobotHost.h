@@ -22,6 +22,7 @@ class MainWindowRobotHost : public IRobotMainWindowHost, public cloudsim::host::
 {
 public:
 	explicit MainWindowRobotHost(MainWindow* mw);
+	~MainWindowRobotHost() override;
 
 	IRobotDocumentHost* document() override;
 	const IRobotDocumentHost* document() const override;

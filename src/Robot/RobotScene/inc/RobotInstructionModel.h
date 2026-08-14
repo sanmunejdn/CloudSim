@@ -36,7 +36,8 @@ enum class ROBOT_SCENE_API Type
 	WHILE,
 	SET_DO,
 	SET_AO,
-	PathPlan
+	PathPlan,
+	DeviceAxis
 };
 
 enum class ROBOT_SCENE_API Category
@@ -134,12 +135,24 @@ public:
 	virtual int ioPort() const { return 0; }
 	virtual void setIoPort(int p) { (void)p; }
 
+	virtual bool hasIoSignalNameProperty() const { return false; }
+	virtual const std::string& ioSignalName() const;
+	virtual void setIoSignalName(const std::string& name) { (void)name; }
+
 	virtual bool hasIoValueProperty() const { return false; }
 	virtual bool ioBoolValue() const { return false; }
 	virtual void setIoBoolValue(bool v) { (void)v; }
 
 	virtual double ioAnalogValue() const { return 0.0; }
 	virtual void setIoAnalogValue(double v) { (void)v; }
+
+	virtual bool hasDeviceAxisProperty() const { return false; }
+	virtual const std::string& deviceBackendId() const;
+	virtual void setDeviceBackendId(const std::string& id) { (void)id; }
+	virtual int deviceAxisIndex() const { return 0; }
+	virtual void setDeviceAxisIndex(int index) { (void)index; }
+	virtual double deviceAxisTargetQ() const { return 0.0; }
+	virtual void setDeviceAxisTargetQ(double q) { (void)q; }
 
 	virtual const std::vector<std::shared_ptr<Base>>& nestedSteps() const;
 	virtual const std::vector<std::shared_ptr<Base>>& elseSteps() const;
@@ -156,6 +169,7 @@ protected:
 
 private:
 	static const Condition s_emptyCondition;
+	static const std::string s_emptyString;
 
 	std::string m_id;
 	std::string m_controllerId;
@@ -306,8 +320,14 @@ public:
 	double durationSec() const override { return m_durationSec; }
 	void setDurationSec(double v) override { m_durationSec = v; }
 
+	/// Always=纯延时；Io=等到信号（durationSec>0 为超时秒，0=一直等）
+	bool hasConditionProperty() const override { return true; }
+	const Condition& condition() const override { return m_condition; }
+	void setCondition(const Condition& c) override { m_condition = c; }
+
 private:
-	double m_durationSec = 1.0;
+	double m_durationSec = 0.0;
+	Condition m_condition{};
 };
 
 class ROBOT_SCENE_API IfInstruction final : public Base
@@ -358,6 +378,10 @@ public:
 	int ioPort() const override { return m_port; }
 	void setIoPort(int p) override { m_port = p; }
 
+	bool hasIoSignalNameProperty() const override { return true; }
+	const std::string& ioSignalName() const override { return m_signalName; }
+	void setIoSignalName(const std::string& name) override { m_signalName = name; }
+
 	bool hasIoValueProperty() const override { return true; }
 	bool ioBoolValue() const override { return m_value; }
 	void setIoBoolValue(bool v) override { m_value = v; }
@@ -365,6 +389,7 @@ public:
 private:
 	int m_port = 0;
 	bool m_value = false;
+	std::string m_signalName;
 };
 
 class ROBOT_SCENE_API SetAnalogOutputInstruction final : public Base
@@ -376,12 +401,41 @@ public:
 	int ioPort() const override { return m_port; }
 	void setIoPort(int p) override { m_port = p; }
 
+	bool hasIoSignalNameProperty() const override { return true; }
+	const std::string& ioSignalName() const override { return m_signalName; }
+	void setIoSignalName(const std::string& name) override { m_signalName = name; }
+
 	double ioAnalogValue() const override { return m_value; }
 	void setIoAnalogValue(double v) override { m_value = v; }
 
 private:
 	int m_port = 0;
 	double m_value = 0.0;
+	std::string m_signalName;
+};
+
+class ROBOT_SCENE_API DeviceAxisInstruction final : public Base
+{
+public:
+	DeviceAxisInstruction();
+
+	bool hasDurationProperty() const override { return true; }
+	double durationSec() const override { return m_durationSec; }
+	void setDurationSec(double v) override { m_durationSec = v; }
+
+	bool hasDeviceAxisProperty() const override { return true; }
+	const std::string& deviceBackendId() const override { return m_deviceBackendId; }
+	void setDeviceBackendId(const std::string& id) override { m_deviceBackendId = id; }
+	int deviceAxisIndex() const override { return m_axisIndex; }
+	void setDeviceAxisIndex(int index) override { m_axisIndex = index; }
+	double deviceAxisTargetQ() const override { return m_targetQ; }
+	void setDeviceAxisTargetQ(double q) override { m_targetQ = q; }
+
+private:
+	std::string m_deviceBackendId;
+	int m_axisIndex = 0;
+	double m_targetQ = 0.0;
+	double m_durationSec = 0.0;
 };
 
 class ROBOT_SCENE_API PathPlanInstruction final : public Base
@@ -425,6 +479,8 @@ private:
 
 ROBOT_SCENE_API PathPlanInstruction* asPathPlan(Base& ins);
 ROBOT_SCENE_API const PathPlanInstruction* asPathPlan(const Base& ins);
+ROBOT_SCENE_API DeviceAxisInstruction* asDeviceAxis(Base& ins);
+ROBOT_SCENE_API const DeviceAxisInstruction* asDeviceAxis(const Base& ins);
 
 ROBOT_SCENE_API std::string makeInstructionId();
 

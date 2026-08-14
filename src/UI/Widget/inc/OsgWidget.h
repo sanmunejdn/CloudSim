@@ -378,9 +378,9 @@ public:
 	void applyTcpTeachRotationWorld(int axisIndex, double deltaRad);
 	void applyTcpTeachRotationBody(int axisIndex, double deltaRad);
 	void syncTcpTeachCompassAttitude();
-	/// 从 \c m_tcpTeachMountPat 同步 \c m_tcpTeachWorldPat（overlay 不随机器人子树光照）
+	/// 从 \c m_tcpTeachMountPat 同步 \c m_tcpTeachWorldPat（兜底；示教 overlay 优先 FromTarget）
 	void syncTcpTeachWorldPatFromMount();
-	/// 拖动中按 T_base_target·P 刷新罗盘世界位姿（法兰挂载时 mount 仍跟 FK）
+	/// 按 T_base_target·P 刷新罗盘世界位姿（法兰挂载时 mount 仍跟 FK，overlay 跟目标）
 	void syncTcpTeachWorldPatFromTarget();
 	bool tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const;
 	bool tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const;

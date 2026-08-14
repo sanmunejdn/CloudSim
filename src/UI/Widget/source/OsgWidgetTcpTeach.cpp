@@ -61,12 +61,6 @@ bool tcpTeachMountPatWorldMatrix(const osg::MatrixTransform* mountPat, osg::Matr
 	return true;
 }
 
-osg::Quat rigidRotationToOsgQuat(const engine::RigidTransform& rt)
-{
-	const Eigen::Quaterniond q = rt.rotation().normalized();
-	return osg::Quat(q.x(), q.y(), q.z(), q.w());
-}
-
 } // namespace
 
 bool OsgWidget::tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const
@@ -173,9 +167,7 @@ void OsgWidget::beginTcpDragTeach(const std::string& mountBackendId, const engin
 	}
 
 	updateTcpDragTeachFromTarget(T_base_target);
-	syncTcpTeachWorldPatFromMount();
-	syncTcpTeachCompassAttitude();
-	updateTcpTeachCompassScale();
+	syncTcpTeachWorldPatFromTarget();
 	m_tcpTeachCompassTransform->setNodeMask(0xffffffffu);
 	requestRedraw();
 }
@@ -228,9 +220,8 @@ void OsgWidget::updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLoca
 	}
 	m_tcpTeachToolLocalOnFlange = toolLocalOnFlange;
 	m_tcpTeachMountPat->setMatrix(m_tcpTeachToolLocalOnFlange);
-	syncTcpTeachWorldPatFromMount();
-	syncTcpTeachCompassAttitude();
-	updateTcpTeachCompassScale();
+	// mount 仍跟法兰；overlay 跟目标，避免刷新工具系时把罗盘拧向 FK
+	syncTcpTeachWorldPatFromTarget();
 	requestRedraw();
 }
 
@@ -279,17 +270,7 @@ void OsgWidget::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_bas
 	if (m_tcpTeachUseFlangeLocalPlacement)
 	{
 		m_tcpTeachMountPat->setMatrix(m_tcpTeachToolLocalOnFlange);
-		// 拖动中 overlay 跟目标；静止跟法兰由 requestRedraw→FromMount
-		if (m_tcpTeachDragging || m_tcpTeachRotating)
-		{
-			syncTcpTeachWorldPatFromTarget();
-		}
-		else
-		{
-			syncTcpTeachWorldPatFromMount();
-			syncTcpTeachCompassAttitude();
-			updateTcpTeachCompassScale();
-		}
+		syncTcpTeachWorldPatFromTarget();
 		requestRedraw();
 		return;
 	}
@@ -461,22 +442,7 @@ bool OsgWidget::tcpTeachCompassUnitAxisWorld(const DragAxis axis, osg::Vec3d& ou
 	{
 		return false;
 	}
-	if (transformGizmoFrame() == TransformGizmoFrame::World)
-	{
-		if (axis == DragAxis::X)
-		{
-			outAxisWorld.set(1.0, 0.0, 0.0);
-		}
-		else if (axis == DragAxis::Y)
-		{
-			outAxisWorld.set(0.0, 1.0, 0.0);
-		}
-		else
-		{
-			outAxisWorld.set(0.0, 0.0, 1.0);
-		}
-		return true;
-	}
+	// 示教罗盘固定末端 TCP 轴；View 菜单 World/Local 只作用于物体 gizmo
 	osg::Matrixd baseWorldOsg;
 	if (!tcpTeachResolveBaseWorld(baseWorldOsg))
 	{
@@ -492,7 +458,7 @@ bool OsgWidget::tcpTeachCompassUnitAxisWorld(const DragAxis axis, osg::Vec3d& ou
 	{
 		localAxis = Eigen::Vector3d::UnitY();
 	}
-	// 屏幕标定轴须与 IK 基座目标一致；勿用场景 FK 的 toolW.rotation()（X/Z 可能与 Y 符号相反）
+	// 与目标姿态同源；勿用场景 FK（X/Z 可能与 Y 符号相反）
 	const Eigen::Vector3d w = baseW.rotation() * m_tcpTeachTargetInBase.rotation() * localAxis;
 	const double len = w.norm();
 	if (len < 1e-12)
@@ -753,22 +719,17 @@ void OsgWidget::applyTcpTeachTranslationWorld(const int axisIndex, const double 
 			axisW.set(0.0, 1.0, 0.0);
 		}
 	}
-	osg::Matrixd toolWorldOsg;
-	if (!tcpTeachToolWorldMatrix(toolWorldOsg))
-	{
-		return;
-	}
-	engine::RigidTransform toolW = engine::rigidTransformFromOsg(toolWorldOsg);
-	Eigen::Vector3d t = toolW.translationMm();
-	t += Eigen::Vector3d(axisW.x(), axisW.y(), axisW.z()) * dsWorld;
-	toolW.setTranslationMm(t);
 	osg::Matrixd baseWorldOsg;
 	if (!tcpTeachResolveBaseWorld(baseWorldOsg))
 	{
 		return;
 	}
+	// 只改进基座系平移，避免 OSG 往返改姿态
 	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(baseWorldOsg);
-	m_tcpTeachTargetInBase = baseW.inverse().composeColumn(toolW);
+	const Eigen::Vector3d axisEigen(axisW.x(), axisW.y(), axisW.z());
+	Eigen::Vector3d t = m_tcpTeachTargetInBase.translationMm();
+	t += baseW.rotation().conjugate() * (axisEigen * dsWorld);
+	m_tcpTeachTargetInBase.setTranslationMm(t);
 	syncTcpTeachWorldPatFromTarget();
 }
 
@@ -800,11 +761,13 @@ void OsgWidget::applyTcpTeachRotationWorld(const int axisIndex, const double del
 	{
 		return;
 	}
-	osg::Matrixd toolWorld;
-	if (!tcpTeachToolWorldMatrix(toolWorld))
+	osg::Matrixd baseWorldOsg;
+	if (!tcpTeachResolveBaseWorld(baseWorldOsg))
 	{
 		return;
 	}
+	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(baseWorldOsg);
+	engine::RigidTransform toolW = baseW.composeColumn(m_tcpTeachTargetInBase);
 	Eigen::Vector3d axisW = Eigen::Vector3d::UnitZ();
 	if (axisIndex == 0)
 	{
@@ -815,24 +778,8 @@ void OsgWidget::applyTcpTeachRotationWorld(const int axisIndex, const double del
 		axisW = Eigen::Vector3d::UnitY();
 	}
 	const Eigen::AngleAxisd aa(deltaRad, axisW.normalized());
-	const Eigen::Matrix3d Rdelta = aa.toRotationMatrix();
-	Eigen::Matrix3d Rtool = Eigen::Matrix3d::Identity();
-	for (int r = 0; r < 3; ++r)
-	{
-		for (int c = 0; c < 3; ++c)
-		{
-			Rtool(r, c) = toolWorld(r, c);
-		}
-	}
-	const Eigen::Matrix3d Rnew = Rdelta * Rtool;
-	for (int r = 0; r < 3; ++r)
-	{
-		for (int c = 0; c < 3; ++c)
-		{
-			toolWorld(r, c) = Rnew(r, c);
-		}
-	}
-	tcpTeachSetTargetFromToolWorld(toolWorld);
+	toolW.setRotation(Eigen::Quaterniond(aa) * toolW.rotation());
+	m_tcpTeachTargetInBase = baseW.inverse().composeColumn(toolW);
 	syncTcpTeachWorldPatFromTarget();
 }
 
@@ -842,15 +789,8 @@ void OsgWidget::syncTcpTeachCompassAttitude()
 	{
 		return;
 	}
-	const osg::Quat bodyQ = rigidRotationToOsgQuat(m_tcpTeachTargetInBase);
-	if (transformGizmoFrame() == TransformGizmoFrame::World)
-	{
-		m_tcpTeachCompassTransform->setAttitude(bodyQ.inverse());
-	}
-	else
-	{
-		m_tcpTeachCompassTransform->setAttitude(osg::Quat());
-	}
+	// 示教罗盘始终跟 TCP；物体 gizmo 的 World/Local 不在此切换
+	m_tcpTeachCompassTransform->setAttitude(osg::Quat());
 }
 
 void OsgWidget::applyTcpTeachRotationBody(const int axisIndex, const double deltaRad)

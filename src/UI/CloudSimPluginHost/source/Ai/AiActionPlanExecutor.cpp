@@ -7,6 +7,7 @@
 #include "Ai/AiHostButtonApiDispatch.h"
 #include "Ai/AiMeshDefaults.h"
 #include "Ai/FeatureComposeDomainHandler.h"
+#include "Ai/MeshComposeDomainHandler.h"
 #include "AiCommandSchema.h"
 #include "PluginHostContext.h"
 #include "PluginPrimitiveTypes.h"
@@ -504,6 +505,16 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 		{
 			if (outError)
 				*outError = planErr.isEmpty() ? QStringLiteral("feature.compose 计划校验失败。") : planErr;
+			return false;
+		}
+	}
+	if (root.value("domain", "") == "mesh.compose")
+	{
+		QString planErr;
+		if (!MeshComposeDomainHandler::validatePlanJson(root, &planErr))
+		{
+			if (outError)
+				*outError = planErr.isEmpty() ? QStringLiteral("mesh.compose 计划校验失败。") : planErr;
 			return false;
 		}
 	}

@@ -87,6 +87,11 @@ public:
 	virtual bool deferPropertyPanelVisualFullSync(const QString& contextId) const = 0;
 	virtual void clearPropertyKeyVariantMap() = 0;
 	virtual void scheduleDeferredFeasibleAxisProbe(const std::shared_ptr<RobotInstruction::Base>& instruction) = 0;
+
+	/// kind: "DI"/"DO"/"AI"/"AO"；空表示全部
+	virtual QStringList namedIoSignalNames(const QString& kindFilter) const = 0;
+	virtual int resolveNamedIoSignalPort(const QString& signalName) const = 0;
+	virtual QStringList customDeviceBackendIds() const = 0;
 };
 
 #endif // ROBOTWIDGET_IROBOTINSTRUCTIONPROPERTYUIHOST_H

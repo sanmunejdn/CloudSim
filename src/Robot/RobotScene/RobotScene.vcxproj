@@ -185,6 +185,7 @@
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h" />
     <ClInclude Include="inc\IRobotIoSink.h" />
+    <ClInclude Include="inc\NamedSignalTable.h" />
     <ClInclude Include="inc\IRobotSimulationDocument.h" />
     <ClInclude Include="inc\RobotPerLinkKinematicsSliceOsg.h" />
     <ClInclude Include="inc\RobotInstructionAxisConfiguration.h" />
@@ -257,6 +258,7 @@
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
     <ClCompile Include="source\RobotInstructionAttribute.cpp" />
     <ClCompile Include="source\RobotInstructionCondition.cpp" />
+    <ClCompile Include="source\NamedSignalTable.cpp" />
     <ClCompile Include="source\RobotCoordinateFrames.cpp" />
     <ClCompile Include="source\RobotExternalAxes.cpp" />
     <ClCompile Include="source\CustomDeviceKinematics.cpp" />

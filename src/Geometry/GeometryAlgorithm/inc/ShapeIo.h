@@ -18,8 +18,8 @@ namespace geoalgo
 {
 /**
  * 读 STEP → TopoDS_Shape
- * @param pathLocal Qt encodeName 窄字节
- * @return false：OCCT 读/transfer 失败或空 shape
+ * @param pathLocal UTF-8 或系统窄路径（如 QFile::encodeName）；流式读取以支持中文路径
+ * @return false：打开失败 / OCCT 读/transfer 失败或空 shape
  */
 GEOMETRY_ALGORITHM_API bool readStepShape(const std::string& pathLocal, TopoDS_Shape& outShape, std::string* errMsg);
 

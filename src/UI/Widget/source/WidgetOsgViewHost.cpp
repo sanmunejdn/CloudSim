@@ -439,6 +439,15 @@ void WidgetOsgViewHost::updateTcpDragTeachToolLocalOnFlange(const cloudsim::core
 	}
 }
 
+engine::RigidTransform WidgetOsgViewHost::tcpDragTeachTargetInBase() const
+{
+	if (cloudsim::core::IRenderView* rv = renderView())
+	{
+		return engine::rigidTransformFromOsg(osgMatFromCore(rv->tcpDragTeachTargetInBase()));
+	}
+	return engine::RigidTransform::identity();
+}
+
 void WidgetOsgViewHost::setMeshLinePickMode(const bool enabled)
 {
 	if (cloudsim::core::IRenderView* rv = renderView())

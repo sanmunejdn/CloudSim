@@ -13,6 +13,7 @@
 #include "DevicePageWidget.h"
 #include "DocumentPage.h"
 #include "EventHub.h"
+#include "IoSignalPageWidget.h"
 #include "JobSystem.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
@@ -470,6 +471,8 @@ void MainWindow::setupDockWidgets()
 	m_propertyDockTabs->addTab(m_propertyBrowser, QStringLiteral("Property"));
 	m_devicePage = new DevicePageWidget(m_propertyDockTabs);
 	m_propertyDockTabs->addTab(m_devicePage, QStringLiteral("Devices"));
+	m_ioSignalPage = new IoSignalPageWidget(m_propertyDockTabs);
+	m_propertyDockTabs->addTab(m_ioSignalPage, QStringLiteral("Signals"));
 	m_propertyDock->setWidget(m_propertyDockTabs);
 	hideDockTitleBar(m_propertyDock);
 	connect(m_devicePage, &DevicePageWidget::urdfImportRequested, this, &MainWindow::onUrdfImportRequested);
@@ -499,6 +502,20 @@ void MainWindow::setupDockWidgets()
 	m_unitDockTabs->addTab(m_backendTree, QStringLiteral("Units"));
 	m_unitDockTabs->addTab(m_robotSimulation->simulationDock(), QStringLiteral("Simulation"));
 	m_robotSimulation->wireSimulationSignals();
+	if (m_ioSignalPage)
+	{
+		m_ioSignalPage->setSignalTable(&m_robotSimulation->namedSignalTable());
+		m_ioSignalPage->setIoSink(&m_robotSimulation->simulationIoSink());
+		connect(m_ioSignalPage, &IoSignalPageWidget::signalTableEdited, this,
+				[this]()
+				{
+					m_robotSimulation->simulationIoSink().resetRuntimeFromTable(true);
+					if (m_activeInstructionForProperty)
+					{
+						updateInstructionPropertyPanel(m_activeInstructionForProperty, false);
+					}
+				});
+	}
 	m_osgSceneTree = new QTreeWidget();
 	m_osgSceneTree->setColumnCount(2);
 	m_osgSceneTree->setHeaderHidden(false);

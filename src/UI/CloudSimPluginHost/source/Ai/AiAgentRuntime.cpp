@@ -62,6 +62,32 @@ QString stateName(AiAgentState s)
 	}
 	return QStringLiteral("?");
 }
+
+QStringList backendIdsInSnapshot(const QByteArray& snap)
+{
+	QStringList ids;
+	const nlohmann::json j = parseObj(snap);
+	if (!j.contains("objects") || !j["objects"].is_array())
+		return ids;
+	for (const auto& o : j["objects"])
+	{
+		if (o.is_object() && o.contains("id") && o["id"].is_string())
+			ids << QString::fromStdString(o["id"].get<std::string>());
+	}
+	return ids;
+}
+
+QStringList newBackendIdsAfter(const QByteArray& beforeSnap, const QByteArray& afterSnap)
+{
+	const QStringList before = backendIdsInSnapshot(beforeSnap);
+	QStringList added;
+	for (const QString& id : backendIdsInSnapshot(afterSnap))
+	{
+		if (!before.contains(id))
+			added << id;
+	}
+	return added;
+}
 } // namespace
 
 AiAgentRuntime::AiAgentRuntime(PluginHostContext* host, AiAssistantHostImpl* assistant)
@@ -139,7 +165,11 @@ void AiAgentRuntime::beginDomainConfirm(const AiDomainConfirmRequest& request, c
 	m_pending->confirmLabel = request.confirmLabel;
 	m_pending->secondaryLabel = request.secondaryLabel;
 	m_pending->schemaJson = QByteArrayLiteral("[]");
-	m_pending->proposedArgs = QByteArrayLiteral("{}");
+	// TrajectoryCommit：把特征计划放进 proposedArgs，供 Coordinator 弹离散对话框
+	m_pending->proposedArgs =
+		request.kind == AiAgentConfirmKind::TrajectoryCommit && !request.payloadUtf8.isEmpty()
+			? request.payloadUtf8
+			: QByteArrayLiteral("{}");
 	m_pending->stepIndex = 0;
 	if (request.kind == AiAgentConfirmKind::RecognizeCreate)
 		m_pending->toolId = QStringLiteral("geometry.recognize.create");
@@ -258,7 +288,9 @@ void AiAgentRuntime::emitNeedConfirm()
 	ev.confirmLabel = m_pending->confirmLabel;
 	ev.secondaryLabel = m_pending->secondaryLabel;
 	ev.confirmKind = m_pending->confirmKind;
-	ev.message = QStringLiteral("请确认参数后执行。");
+	ev.message = m_pending->confirmKind == AiAgentConfirmKind::TrajectoryCommit
+					 ? QStringLiteral("请在对话框中确认离散策略与管线算子。")
+					 : QStringLiteral("请确认参数后执行。");
 	m_onEvent(ev);
 }
 
@@ -555,6 +587,7 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 	const QString toolCallId = m_pending->lastToolCallId;
 
 	AiToolResult result;
+	const QByteArray snapBefore = m_snapshot;
 	m_objectsBeforeStep = objectCountInSnapshot(m_snapshot);
 
 	if (kind == AiAgentConfirmKind::RecognizeCreate)
@@ -572,13 +605,29 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 		QString summary;
 		QString err;
 		result.handled = true;
-		result.ok = m_host->commitAiTrajectoryFeatures(domainPayload, &summary, &err);
+		// 对话框 Accept 后传入 merged 计划；无则回退 beginDomainConfirm 时的 payload
+		const QByteArray commitPayload = argsJson.trimmed().isEmpty() || argsJson == QByteArrayLiteral("{}")
+											 ? domainPayload
+											 : argsJson;
+		result.ok = m_host->commitAiTrajectoryFeatures(commitPayload, &summary, &err);
 		result.summary = summary;
 		result.error = err;
 	}
 	else
 	{
-		result = executeCatalogTool(toolId, parseObj(argsJson));
+		const nlohmann::json args = parseObj(argsJson);
+		QString missErr;
+		const nlohmann::json api = parseObj(apiEntryJson(toolId));
+		if (AiArgsSchema::missingRequiredArgs(api.value("args_schema", nlohmann::json::array()), args, &missErr))
+		{
+			result.handled = true;
+			result.ok = false;
+			result.error = missErr;
+		}
+		else
+		{
+			result = executeCatalogTool(toolId, args);
+		}
 	}
 
 	if (!result.ok)
@@ -645,6 +694,8 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 	}
 
 	m_snapshot = AiSceneSnapshotBuilder::buildJson(*m_host);
+	if (result.newBackendIds.isEmpty())
+		result.newBackendIds = newBackendIdsAfter(snapBefore, m_snapshot);
 	const QString observation =
 		kind == AiAgentConfirmKind::CatalogTool
 			? formatObservation(toolId, argsJson, result)

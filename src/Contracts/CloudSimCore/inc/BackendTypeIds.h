@@ -37,6 +37,7 @@ inline constexpr const char* kDisplayCustomDevice = "CustomDevice";
 inline constexpr const char* kProjectKeyProcessFlow = "processFlow";
 inline constexpr const char* kProjectKeyGeometricModeling = "geometricModeling";
 inline constexpr const char* kProjectKeyEngineeringDrawing = "engineeringDrawing";
+inline constexpr const char* kProjectKeyIoSignals = "ioSignals";
 
 inline bool isBrepWorkpieceClassName(const std::string& className)
 {

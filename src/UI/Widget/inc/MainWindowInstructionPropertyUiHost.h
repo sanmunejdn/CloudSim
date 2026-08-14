@@ -68,6 +68,10 @@ public:
 
 	void scheduleDeferredFeasibleAxisProbe(const std::shared_ptr<RobotInstruction::Base>& instruction) override;
 
+	QStringList namedIoSignalNames(const QString& kindFilter) const override;
+	int resolveNamedIoSignalPort(const QString& signalName) const override;
+	QStringList customDeviceBackendIds() const override;
+
 private:
 	MainWindow& m_mw;
 };

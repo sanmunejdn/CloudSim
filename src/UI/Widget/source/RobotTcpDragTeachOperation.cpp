@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include <Eigen/Geometry>
 #include <osg/Vec3d>
 
 namespace
@@ -35,37 +34,13 @@ int dragAxisToIndex(OsgWidget::DragAxis axis)
 
 osg::Vec3d tcpTeachWorldUnitAxis(OsgWidget* owner, OsgWidget::DragAxis axis)
 {
-	using DA = OsgWidget::DragAxis;
-	if (owner->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::World)
+	// 与拾取/屏幕标定同一套轴向（含基座），避免 Local 旋转拖拽缺 R_base
+	osg::Vec3d out(0.0, 0.0, 1.0);
+	if (owner->tcpTeachCompassUnitAxisWorld(axis, out))
 	{
-		if (axis == DA::X)
-		{
-			return osg::Vec3d(1.0, 0.0, 0.0);
-		}
-		if (axis == DA::Y)
-		{
-			return osg::Vec3d(0.0, 1.0, 0.0);
-		}
-		return osg::Vec3d(0.0, 0.0, 1.0);
+		return out;
 	}
-	const Eigen::Quaterniond q = owner->m_tcpTeachTargetInBase.rotation().normalized();
-	osg::Vec3d local(0.0, 0.0, 1.0);
-	if (axis == DA::X)
-	{
-		local.set(1.0, 0.0, 0.0);
-	}
-	else if (axis == DA::Y)
-	{
-		local.set(0.0, 1.0, 0.0);
-	}
-	const Eigen::Vector3d w = q * Eigen::Vector3d(local.x(), local.y(), local.z());
-	osg::Vec3d wd(w.x(), w.y(), w.z());
-	const double len = wd.length();
-	if (len < 1e-12)
-	{
-		return osg::Vec3d(0.0, 0.0, 1.0);
-	}
-	return wd / len;
+	return osg::Vec3d(0.0, 0.0, 1.0);
 }
 
 bool rayPlaneIntersect(const osg::Vec3d& rayOrigin, const osg::Vec3d& rayDirUnit, const osg::Vec3d& planePoint,
@@ -198,14 +173,8 @@ bool RobotTcpDragTeachOperation::handleEvent(QObject* watched, QEvent* event)
 			m_owner->m_lastMousePos = pos;
 			if (std::abs(dsWorld) > 1e-10)
 			{
-				if (m_owner->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::World)
-				{
-					m_owner->applyTcpTeachTranslationWorld(ax, dsWorld);
-				}
-				else
-				{
-					m_owner->applyTcpTeachTranslationBody(ax, dsWorld);
-				}
+				// 示教平移固定沿 TCP 轴；勿跟 View 菜单切到世界系
+				m_owner->applyTcpTeachTranslationBody(ax, dsWorld);
 				m_sessionModified = true;
 				m_owner->emitTcpDragTeachPoseChanged();
 			}
@@ -247,14 +216,8 @@ bool RobotTcpDragTeachOperation::handleEvent(QObject* watched, QEvent* event)
 			if (std::abs(deltaRad) > 1e-8)
 			{
 				const int ax = dragAxisToIndex(m_owner->m_tcpTeachDragAxis);
-				if (m_owner->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::World)
-				{
-					m_owner->applyTcpTeachRotationWorld(ax, deltaRad);
-				}
-				else
-				{
-					m_owner->applyTcpTeachRotationBody(ax, deltaRad);
-				}
+				// 示教旋转固定绕 TCP 轴
+				m_owner->applyTcpTeachRotationBody(ax, deltaRad);
 				m_sessionModified = true;
 				m_owner->emitTcpDragTeachPoseChanged();
 			}

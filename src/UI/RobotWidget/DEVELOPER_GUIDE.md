@@ -179,7 +179,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | 规划时机 | 每次选中当场算，**不缓存** | 启动急算前缀；其余 `lazyPending` 段前/lookahead 补算；失败则播到该点前停止 |
 | 机器人动作 | **一帧到位** | **定时器插值** |
 | 写回指令 | `backup/restoreInstructionPose`，**不改** `motion.durationSec` | 可写 `motion.durationSec`；`PlanResult` 供播放 |
-| 程序逻辑 | 不执行 WAIT / IF / WHILE / IO | `RobotProgramExecutor::advanceProgramStep` |
+| 程序逻辑 | 选中预览不执行 WAIT / IF / WHILE / IO | 运行时 `advanceProgramStep` 执行 WAIT / IF / WHILE / SET_DO / SET_AO / DeviceAxis（经 `IRobotIoSink` / `CustomDeviceKinematics`） |
 | 运行中 | `m_programExecutor.isRunning()` 时预览 **直接 return**；选中路径只刷属性，跳过链式种子与路点轴重建 | tick 内更新指令树选中 +（非拖窗时）并行预读 |
 
 直观理解：**预览 = 用与 Run 相同语义的链式种子，对选中点单次 IK（或示教 CSV）并瞬间摆过去**；**运行 = 急算前缀 `PlanResult` + 播放中懒补算，再插值播放**。屏幕上的当前关节角**不参与**预览 IK 种子（`localJointAnglesForInstance` 仅用于添加指令、TCP 拖动等其它路径）。
@@ -420,7 +420,7 @@ Dock **机器人** → 子 Tab **指令**。排版变更不得改信号名与 Co
 | 机器人 | `m_robotLabel` + `m_robotCombo` | 全宽下拉 |
 | TCP | `m_tcpLinkCombo` | **界面隐藏**；API 保留；示教 TCP 以「坐标系」工具系为准 |
 | 程序 | 下拉 + 新建 / 重命名 / 删除 | 纯文字按钮，高度与程序下拉对齐（30px） |
-| 插入（`m_insertLabel`） | PTP、LINE、ARC / WAIT、IF、WHILE、SET_DO、SET_AO、PathPlan | **两行网格**，避免窄 Dock 裁切 |
+| 插入（`m_insertLabel`） | PTP、LINE、ARC / WAIT、IF、WHILE、SET_DO、SET_AO、DeviceAxis、PathPlan | **两行网格**，避免窄 Dock 裁切 |
 | 编辑（`m_editLabel`） | 末端拖动、删除、清空 | 删除/清空=`danger`；拖动按下=`primary` + 提示行，再点退出 |
 | 指令树 | `InstructionProgramTreeWidget` | 占剩余高度；不在整页 ScrollArea 内 |
 

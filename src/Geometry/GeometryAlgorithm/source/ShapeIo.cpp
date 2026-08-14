@@ -9,12 +9,123 @@
 #include <BRepTools.hxx>
 #include <gp_Trsf.hxx>
 
+#include <filesystem>
+#include <fstream>
+#include <string>
+
 namespace geoalgo
 {
+namespace
+{
+bool tryOpenInput(const std::filesystem::path& path, std::ifstream& outStream)
+{
+	outStream.close();
+	outStream.clear();
+	outStream.open(path, std::ios::in | std::ios::binary);
+	return static_cast<bool>(outStream);
+}
+
+bool tryOpenOutput(const std::filesystem::path& path, std::ofstream& outStream)
+{
+	outStream.close();
+	outStream.clear();
+	outStream.open(path, std::ios::out | std::ios::binary | std::ios::trunc);
+	return static_cast<bool>(outStream);
+}
+
+/// OCCT 窄路径 API 不吃中文；用 filesystem 宽路径开流再走 Stream 接口
+bool openInputBinary(const std::string& pathBytes, std::ifstream& outStream, std::string* errMsg)
+{
+	std::filesystem::path utf8Path;
+	bool haveUtf8 = false;
+	try
+	{
+		utf8Path = std::filesystem::u8path(pathBytes);
+		haveUtf8 = true;
+	}
+	catch (...)
+	{
+	}
+	const std::filesystem::path nativePath(pathBytes);
+
+	if (haveUtf8 && tryOpenInput(utf8Path, outStream))
+	{
+		return true;
+	}
+	if (tryOpenInput(nativePath, outStream))
+	{
+		return true;
+	}
+	if (errMsg)
+	{
+		*errMsg = "cannot open STEP/BREP file (path encoding?)";
+	}
+	return false;
+}
+
+bool openOutputBinary(const std::string& pathBytes, std::ofstream& outStream, std::string* errMsg)
+{
+	std::filesystem::path utf8Path;
+	bool haveUtf8 = false;
+	try
+	{
+		utf8Path = std::filesystem::u8path(pathBytes);
+		haveUtf8 = true;
+	}
+	catch (...)
+	{
+	}
+	const std::filesystem::path nativePath(pathBytes);
+
+	if (haveUtf8 && tryOpenOutput(utf8Path, outStream))
+	{
+		return true;
+	}
+	if (tryOpenOutput(nativePath, outStream))
+	{
+		return true;
+	}
+	if (errMsg)
+	{
+		*errMsg = "cannot create STEP/BREP file (path encoding?)";
+	}
+	return false;
+}
+
+std::string streamLabel(const std::string& pathBytes)
+{
+	try
+	{
+		std::filesystem::path p;
+		try
+		{
+			p = std::filesystem::u8path(pathBytes);
+		}
+		catch (...)
+		{
+			p = std::filesystem::path(pathBytes);
+		}
+		const auto name = p.filename().u8string();
+		return name.empty() ? std::string("model") : std::string(name.begin(), name.end());
+	}
+	catch (...)
+	{
+		return "model";
+	}
+}
+} // namespace
+
 bool readStepShape(const std::string& pathLocal, TopoDS_Shape& outShape, std::string* errMsg)
 {
+	std::ifstream in;
+	if (!openInputBinary(pathLocal, in, errMsg))
+	{
+		return false;
+	}
+
 	STEPControl_Reader reader;
-	const IFSelect_ReturnStatus status = reader.ReadFile(pathLocal.c_str());
+	const std::string label = streamLabel(pathLocal);
+	const IFSelect_ReturnStatus status = reader.ReadStream(label.c_str(), in);
 	if (status != IFSelect_RetDone)
 	{
 		if (errMsg)
@@ -57,10 +168,15 @@ bool readStepIntoHandle(const std::string& pathLocal, ShapeHandle& outShape, std
 bool readBrepFile(const std::string& pathLocal, ShapeHandle& outShape, std::string* errMsg)
 {
 	outShape = ShapeHandle{};
+	std::ifstream in;
+	if (!openInputBinary(pathLocal, in, errMsg))
+	{
+		return false;
+	}
 	TopoDS_Shape shape;
 	BRep_Builder builder;
-	const Standard_Boolean ok = BRepTools::Read(shape, pathLocal.c_str(), builder);
-	if (!ok || shape.IsNull())
+	BRepTools::Read(shape, in, builder);
+	if (shape.IsNull())
 	{
 		if (errMsg)
 		{
@@ -91,8 +207,13 @@ bool writeBrepFile(const std::string& pathLocal, const ShapeHandle& shape, std::
 		}
 		return false;
 	}
-	const Standard_Boolean ok = BRepTools::Write(native, pathLocal.c_str());
-	if (!ok)
+	std::ofstream out;
+	if (!openOutputBinary(pathLocal, out, errMsg))
+	{
+		return false;
+	}
+	BRepTools::Write(native, out);
+	if (!out)
 	{
 		if (errMsg)
 		{
@@ -132,8 +253,13 @@ bool writeStepFile(const std::string& pathLocal, const ShapeHandle& shape, std::
 		}
 		return false;
 	}
-	const IFSelect_ReturnStatus writeStatus = writer.Write(pathLocal.c_str());
-	if (writeStatus != IFSelect_RetDone)
+	std::ofstream out;
+	if (!openOutputBinary(pathLocal, out, errMsg))
+	{
+		return false;
+	}
+	const IFSelect_ReturnStatus writeStatus = writer.WriteStream(out);
+	if (writeStatus != IFSelect_RetDone || !out)
 	{
 		if (errMsg)
 		{

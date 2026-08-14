@@ -7,13 +7,15 @@
 #include "robotwidget_global.h"
 
 #include "IRobotMainWindowHost.h"
+#include "NamedSignalIoSink.h"
+#include "NamedSignalTable.h"
 #include "PlanResultCache.h"
 #include "RobotInstructionController.h"
 #include "RobotProgramExecutor.h"
-#include "SimulationLogIoSink.h"
 
 #include <QElapsedTimer>
 #include <QHash>
+#include <QJsonObject>
 #include <QObject>
 #include <QSet>
 #include <QTimer>
@@ -76,7 +78,14 @@ public:
 
 	RobotInstruction::Controller& instructionController() { return m_instructionController; }
 	RobotProgramExecutor& programExecutor() { return m_programExecutor; }
-	SimulationLogIoSink& simulationIoSink() { return m_simulationIoSink; }
+	NamedSignalIoSink& simulationIoSink() { return m_simulationIoSink; }
+	RobotIo::NamedSignalTable& namedSignalTable() { return m_namedSignalTable; }
+	const RobotIo::NamedSignalTable& namedSignalTable() const { return m_namedSignalTable; }
+
+	QJsonObject ioSignalsToJson() const;
+	bool ioSignalsFromJson(const QJsonObject& root, QString* outError = nullptr);
+	QStringList ioSignalNames(RobotIo::SignalKind kind) const;
+	void setIoSinkBackend(RobotIoSinkBackend backend);
 
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions
 	feasibleMotionAxisConfigurationOptionsForInstruction(const std::shared_ptr<RobotInstruction::Base>& instruction,
@@ -240,6 +249,7 @@ private:
 	quint64 m_poseAxesRefreshToken = 0;
 	RobotProgramExecutor m_programExecutor;
 	SimulationLogIoSink m_simulationIoSink;
+	RobotIo::NamedSignalTable m_namedSignalTable;
 	QVector<double> m_aggregatedJointAnglesRad;
 	/// 上次已与聚合角对齐的机器人 sceneBackendId；集合无交集时丢弃旧角（删机再导）
 	QStringList m_syncedRobotSceneBackendIds;

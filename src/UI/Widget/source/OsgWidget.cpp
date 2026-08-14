@@ -162,17 +162,10 @@ OsgWidget::OsgWidget(QWidget* parent) : QWidget(parent)
 	setRequestRedraw(
 		[this]()
 		{
-			if (m_tcpTeachActive)
+			if (m_tcpTeachActive && m_tcpTeachResolveRobotBaseWorld)
 			{
-				// 拖动中跟目标；静止跟法兰，避免 requestRedraw 把罗盘拽回旧位
-				if (m_tcpTeachDragging || m_tcpTeachRotating)
-				{
-					syncTcpTeachWorldPatFromTarget();
-				}
-				else
-				{
-					syncTcpTeachWorldPatFromMount();
-				}
+				// 罗盘始终跟示教目标：松手后 IK 追赶期间若跟法兰 FK，Local 姿态会闪成近似世界系再跳回 TCP
+				syncTcpTeachWorldPatFromTarget();
 			}
 			emit sceneRedrawRequested();
 			if (m_glWidget)
@@ -193,11 +186,14 @@ OsgWidget::~OsgWidget()
 	// 先停事件与定时器：基类析构 m_viewer 会 close GL，否则会重入已销毁的 operation 成员
 	m_frameTimer.stop();
 	m_idleRenderTimer.stop();
+	// 切断重绘：hide/end 会 requestRedraw，否则仍会 sync 示教并回调已销毁的 DocumentHost
+	setRequestRedraw({});
 	if (m_glWidget)
 	{
 		m_glWidget->removeEventFilter(this);
 	}
 
+	endTcpDragTeach();
 	hideMeshSectionPlane();
 	clearMeshFittedSurfacePreview();
 

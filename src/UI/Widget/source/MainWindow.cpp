@@ -25,6 +25,7 @@
 #include "DevicePageWidget.h"
 #include "DocumentHostEvents.h"
 #include "DocumentPage.h"
+#include "IoSignalPageWidget.h"
 #include "IDataService.h"
 #include "IRenderView.h"
 #include "IRobotBackendPoseSink.h"
@@ -255,10 +256,18 @@ void MainWindow::applyLanguage()
 	{
 		m_propertyDockTabs->setTabText(0, i18n(QStringLiteral("Property"), QStringLiteral("属性")));
 		m_propertyDockTabs->setTabText(1, i18n(QStringLiteral("Devices"), QStringLiteral("设备")));
+		if (m_propertyDockTabs->count() >= 3)
+		{
+			m_propertyDockTabs->setTabText(2, i18n(QStringLiteral("Signals"), QStringLiteral("信号")));
+		}
 	}
 	if (m_devicePage)
 	{
 		m_devicePage->setUseChinese(m_useChinese);
+	}
+	if (m_ioSignalPage)
+	{
+		m_ioSignalPage->setUseChinese(m_useChinese);
 	}
 	if (m_unitDock)
 	{
