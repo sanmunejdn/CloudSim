@@ -39,6 +39,7 @@ class BackendSceneDocumentFacade;
 
 #include "BackendFollowReverseIndex.h"
 #include "OsgWidgetSceneBridge.h"
+#include "NamedSignalTable.h"
 
 namespace cloudsim::host
 {
@@ -151,6 +152,10 @@ public:
 	HeadlessTrajectorySession* headlessTrajectorySession() const;
 	HeadlessPointCloudBridge* headlessPointCloudBridge() const;
 
+	/// 命名 IO 信号定义表（网页/Headless 与工程侧车 ioSignals）
+	RobotIo::NamedSignalTable& namedSignalTable();
+	const RobotIo::NamedSignalTable& namedSignalTable() const;
+
 	/// 仿真指令属性（Widget 注入，供 IRobotService 转发）
 	void setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate);
 	IRobotInstructionPropertyDelegate* instructionPropertyDelegate() const;
@@ -187,6 +192,7 @@ private:
 	std::unique_ptr<HeadlessRobotContext> m_headlessRobotContext;
 	std::unique_ptr<HeadlessTrajectorySession> m_headlessTrajectorySession;
 	std::unique_ptr<HeadlessPointCloudBridge> m_headlessPointCloudBridge;
+	RobotIo::NamedSignalTable m_namedSignalTable;
 	IRobotInstructionPropertyDelegate* m_instructionPropertyDelegate = nullptr;
 	std::unique_ptr<IRobotInstructionPropertyDelegate> m_ownedInstructionPropertyDelegate;
 	IPerLinkKinematicsHost* m_perLinkKinematicsHost = nullptr;

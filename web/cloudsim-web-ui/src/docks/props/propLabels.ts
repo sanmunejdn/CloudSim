@@ -31,6 +31,14 @@ const LABEL_ZH: Record<string, string> = {
   "rotation.z": "旋转 Z (°)",
   "core.class": "类型",
   color: "颜色",
+  "logic.io.signalName": "信号名",
+  "logic.condition.signalName": "信号名",
+  "logic.condition.kind": "等待方式",
+  "logic.condition.port": "IO 端口",
+  "logic.condition.equals": "目标值 (0/1)",
+  "logic.io.port": "IO 端口",
+  "logic.io.boolValue": "输出值 (0/1)",
+  "logic.io.analogValue": "模拟量",
 };
 
 export function propertyDisplayLabel(key: string, fallback?: string) {
@@ -57,8 +65,22 @@ export const AXIS_ENUM_OPTS: Record<string, string[]> = {
   "motion.axisConfig.turn.j4": ["AUTO", "-2", "-1", "0", "1", "2", "3"],
   "motion.axisConfig.turn.j6": ["AUTO", "-2", "-1", "0", "1", "2", "3"],
   "motion.target.frame": ["base", "user"],
+  "logic.condition.equals": ["0", "1"],
+  "logic.condition.kind": ["always", "never", "io", "compare"],
+  "logic.io.boolValue": ["0", "1"],
 };
 
 export function enumOptionsForKey(key: string): string[] | null {
   return AXIS_ENUM_OPTS[key] || null;
+}
+
+/** 对齐桌面 InstructionPropertyPanel：条件用 DI，SET_DO 用 DO，SET_AO 用 AO */
+export function ioSignalKindForInstrProp(key: string, instrType?: string): "DI" | "DO" | "AO" | null {
+  if (key === "logic.condition.signalName") return "DI";
+  if (key === "logic.io.signalName") {
+    const t = String(instrType || "").toLowerCase();
+    if (t === "set_ao" || t === "setao") return "AO";
+    return "DO";
+  }
+  return null;
 }

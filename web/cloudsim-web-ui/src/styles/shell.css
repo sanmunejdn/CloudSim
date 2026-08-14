@@ -51,6 +51,15 @@ button{cursor:pointer}
 .prop-key{color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prop-val{color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+.signal-toolbar{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border-bottom:1px solid #ddd;background:#fafafa}
+.signal-table-wrap{overflow:auto;flex:1;min-height:0}
+.signal-table{width:100%;border-collapse:collapse;font-size:12px}
+.signal-table th,.signal-table td{border-bottom:1px solid #eee;padding:4px 6px;text-align:left;vertical-align:middle}
+.signal-table th{background:#f0f0f0;position:sticky;top:0;z-index:1;font-weight:600}
+.signal-table tr.sel{background:#e5f1fb}
+.signal-table .prop-input{width:100%;min-width:0;box-sizing:border-box}
+.signal-force{text-align:center;width:40px}
+
 .hint,.muted{color:#888;padding:10px;margin:0}
 .plain-list,.tree{list-style:none;margin:0;padding:4px 0}
 /* 行内 flex；子树用嵌套 ul 纵向展开，避免子 li 被父 flex 横排 */

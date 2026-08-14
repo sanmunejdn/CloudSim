@@ -4,6 +4,7 @@ import {
   fetchInstructionProperties,
   patchObject,
   patchInstruction,
+  fetchIoSignalNames,
   type PropRow,
   type Instruction,
 } from "../../api";
@@ -11,7 +12,8 @@ import { useScene } from "../../state/sceneStore";
 import { useRobotProgram } from "../../state/robotProgramStore";
 import { useStatus } from "../../state/statusStore";
 import { propertyDisplayLabel } from "./propLabels";
-import { buildInstrPropView, type InstrPropViewRow } from "./instrPropView";
+import { buildInstrPropView, type InstrPropViewRow, type SignalNameOptions } from "./instrPropView";
+import { eventHub } from "../../sse/EventHub";
 
 function findInstruction(steps: Instruction[] | undefined, id: string | null): Instruction | null {
   if (!steps || !id) return null;
@@ -31,6 +33,7 @@ export default function PropsPanel() {
   const [caption, setCaption] = useState("未选中");
   const [mode, setMode] = useState<"object" | "instr" | "empty">("empty");
   const [reloadTick, setReloadTick] = useState(0);
+  const [signalOpts, setSignalOpts] = useState<SignalNameOptions>({ di: [], do: [], ao: [] });
 
   const instruction = useMemo(
     () => findInstruction(activeProgram?.instructions, selectedInstrId),
@@ -39,14 +42,39 @@ export default function PropsPanel() {
 
   const viewRows: InstrPropViewRow[] = useMemo(() => {
     if (mode === "instr" && selectedInstrId) {
-      return buildInstrPropView(rawProps, selectedInstrId, instruction);
+      return buildInstrPropView(rawProps, selectedInstrId, instruction, signalOpts);
     }
     return rawProps.map((p) => ({
       ...p,
       label: propertyDisplayLabel(p.key, p.label),
       kind: "text" as const,
     }));
-  }, [mode, selectedInstrId, rawProps, instruction]);
+  }, [mode, selectedInstrId, rawProps, instruction, signalOpts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadNames = async () => {
+      const [di, dout, ao] = await Promise.all([
+        fetchIoSignalNames("DI"),
+        fetchIoSignalNames("DO"),
+        fetchIoSignalNames("AO"),
+      ]);
+      if (cancelled) return;
+      setSignalOpts({
+        di: (di.names || []).map(String),
+        do: (dout.names || []).map(String),
+        ao: (ao.names || []).map(String),
+      });
+    };
+    void loadNames();
+    const off = eventHub.on("IoSignalsChanged", () => {
+      void loadNames();
+    });
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,8 +174,8 @@ export default function PropsPanel() {
                           <option value={p.value}>{p.value}</option>
                         )}
                         {p.options.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
+                          <option key={opt || "__empty"} value={opt}>
+                            {opt || "（空）"}
                           </option>
                         ))}
                       </select>

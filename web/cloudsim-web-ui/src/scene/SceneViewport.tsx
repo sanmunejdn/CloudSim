@@ -32,6 +32,7 @@ import {
   createMeshMaterial,
   disposeObject3D,
   localMatrixArray,
+  poseFromMatrix4Elements,
   prepareMeshForGizmo,
   snapProxyFromWorldMatrix,
   snapProxyToMesh,
@@ -132,7 +133,7 @@ type RobotMeta = {
 
 const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, ref) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const { objects, selectedId, selectObject, interactMode, robotDragMode, gizmoTransformMode, focusRequest, refreshObjects, setGizmoTransformMode } =
+  const { objects, selectedId, selectObject, interactMode, robotDragMode, gizmoTransformMode, focusRequest, refreshObjects, setGizmoTransformMode, setRobotDragTeachPose } =
     useScene();
   const { setStatus } = useStatus();
   const { pickMode, featureEditActive, workpieceId, setWorkpieceId } = useTrajectory();
@@ -176,6 +177,8 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       m: string,
       k?: "info" | "err" | "warn",
     ) => void,
+    setRobotDragTeachPose: ((_p: ReturnType<typeof poseFromMatrix4Elements> & { jointRadCsv?: string } | null) =>
+      {}) as (p: (ReturnType<typeof poseFromMatrix4Elements> & { jointRadCsv?: string }) | null) => void,
   });
   instrStepsRef.current = activeProgram?.instructions || [];
   selectedInstrRef.current = selectedInstrId;
@@ -189,6 +192,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     activeRootId,
     refreshObjects,
     setStatus,
+    setRobotDragTeachPose,
   };
 
   useImperativeHandle(ref, () => ({
@@ -679,6 +683,9 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     let tcpIkTimer: ReturnType<typeof setTimeout> | null = null;
     const kTcpIkMinIntervalMs = 8;
     const kMeshRefreshMinIntervalMs = 50;
+    const translateOriLock = new THREE.Quaternion();
+    let translateOriLocked = false;
+    let translateOriArming = false;
 
     const snapTcpProxy = async () => {
       const ctx = gizmoCtxRef.current;
@@ -730,14 +737,34 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
           return;
         }
         proxy.updateMatrix();
+        // 平移锁 FK 姿态（开拖已 snap）；未就绪则等
+        const translateOnly = ctx.gizmoTransformMode === "translate";
+        if (translateOnly) {
+          if (!translateOriLocked) {
+            if (!translateOriArming) scheduleTcpIkFlush(16);
+            return;
+          }
+          proxy.quaternion.copy(translateOriLock);
+          proxy.updateMatrix();
+        } else {
+          translateOriLocked = false;
+          translateOriArming = false;
+        }
         const wm = localMatrixArray(proxy);
         lastTcpIkAt = performance.now();
-        const r = await tcpIk({ flangeBackendId: flangeId, worldMatrix: wm });
+        const r = await tcpIk({ flangeBackendId: flangeId, worldMatrix: wm, translateOnly });
         if (!r.ok) {
           ctx.setStatus(r.error || "末端 IK 失败", "err");
           tcpIkContinue = false;
           return;
         }
+        // 示教落点跟罗盘真值，勿用 FK 欧拉（对齐桌面 m_lastTcpDragTarget）
+        const snap = poseFromMatrix4Elements(wm);
+        const joints = Array.isArray(r.jointAnglesRad) ? r.jointAnglesRad.map(Number) : [];
+        ctx.setRobotDragTeachPose({
+          ...snap,
+          jointRadCsv: joints.length ? joints.map((v) => v.toFixed(6)).join(",") : undefined,
+        });
         // 拖动中罗盘跟鼠标目标；松手后再贴 FK，勿用残差拽回罗盘
         const now = performance.now();
         if (now - lastMeshRefreshAt >= kMeshRefreshMinIntervalMs || !transform.dragging) {
@@ -812,11 +839,33 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       const dragging = !!ev.value;
       controls.enabled = !dragging;
       if (dragging) {
+        translateOriLocked = false;
+        translateOriArming = false;
         if (gizmoCtxRef.current.robotDragMode) {
-          syncActiveToolOverlayFromProxy(frameOverlayRef.current, proxy);
+          if (gizmoCtxRef.current.gizmoTransformMode === "translate") {
+            // 先贴 FK 再锁姿，与后端 tcpDragOri 同源
+            translateOriArming = true;
+            void (async () => {
+              await snapTcpProxy();
+              translateOriLock.copy(proxy.quaternion);
+              translateOriLocked = true;
+              translateOriArming = false;
+              syncActiveToolOverlayFromProxy(frameOverlayRef.current, proxy);
+              posePushPending = true;
+              void flush();
+            })();
+          } else {
+            syncActiveToolOverlayFromProxy(frameOverlayRef.current, proxy);
+          }
         }
         return;
       }
+      translateOriArming = false;
+      const keepTranslateOri =
+        gizmoCtxRef.current.robotDragMode && gizmoCtxRef.current.gizmoTransformMode === "translate"
+          ? translateOriLock.clone()
+          : null;
+      translateOriLocked = false;
       void (async () => {
         posePushPending = true;
         await flush();
@@ -828,6 +877,10 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
         if (ctx.robotDragMode) {
           await ctx.refreshObjects();
           await snapTcpProxy();
+          if (keepTranslateOri) {
+            proxy.quaternion.copy(keepTranslateOri);
+            proxy.updateMatrix();
+          }
           transform.enabled = true;
           transform.attach(proxy);
           transform.getHelper().visible = true;
@@ -844,6 +897,10 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     const onObjectChange = () => {
       const ctx = gizmoCtxRef.current;
       if (ctx.robotDragMode) {
+        if (ctx.gizmoTransformMode === "translate" && translateOriLocked) {
+          proxy.quaternion.copy(translateOriLock);
+          proxy.updateMatrix();
+        }
         syncActiveToolOverlayFromProxy(frameOverlayRef.current, proxy);
         posePushPending = true;
         void flush();

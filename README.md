@@ -31,6 +31,7 @@
 | 入口 | `src/App/CloudSim/` | `src/App/CloudSimWeb/` |
 | 宿主 | 完整 Qt/OSG UI | Headless Host + HTTP/WS 网关 |
 | 默认访问 | 桌面窗口 | `http://127.0.0.1:8787`（可用 `--port=` 改端口） |
+| TCP 拖动示教 | 末端局部轴；目标姿态用四元数真值，避免欧拉往返 | 同源：`TransformControls` 固定 `local`；`/api/robot/tcp-ik` 追赶只截断平移；落点优先罗盘矩阵 |
 
 两套 sln **互不引入**对方的 UI/Web 工程；桌面用 `CloudSimHost`，网页用 `CloudSimHostHeadless`；共享 `CloudSimCore` / `Data` / 机器人与几何等后端 DLL。
 

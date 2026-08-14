@@ -102,6 +102,39 @@ def external_filter(include: str) -> str:
 	if i >= len(parts):
 		return "External"
 	remain = "\\".join(parts[i:])
+	# PluginHost Ai：与磁盘侧 Ai 功能桶对齐
+	m_ai = re.match(r"(?i)^UI\\CloudSimPluginHost\\(inc|source)\\Ai\\([^\\]+)$", remain)
+	if m_ai:
+		root = m_ai.group(1)
+		stem = Path(m_ai.group(2)).stem
+		ai = "Core"
+		if re.match(r"(?i)^(AiAgent|AiAssistant|AiActionPlan|CatalogActionPlan)", stem):
+			ai = "Agent"
+		elif re.match(r"(?i)^(AiLlm|AiHttps|AiConfig|AiIntent|AiArgs|AiCommand|AiProgress)", stem):
+			ai = "Llm"
+		elif re.search(r"(?i)(DomainHandler|AiDomain)", stem):
+			ai = "Domains"
+		elif re.search(r"(?i)(Catalog|AiApiCatalog|AiTrajectoryFeatureCatalog)", stem):
+			ai = "Catalog"
+		elif re.search(
+			r"(?i)(AiScene|AiMesh|AiProcessFlow|GeometryRecognize|MeshCompose|MeshCreate|TrajectoryFeature|AiFeatureCompose)",
+			stem,
+		):
+			ai = "Rules"
+		return f"External\\UI\\CloudSimPluginHost\\{root}\\Ai\\{ai}"
+	# Host 编入的 Widget OSG 视口：按功能再分
+	m_w = re.match(r"(?i)^UI\\Widget\\(inc|source)\\([^\\]+)$", remain)
+	if m_w:
+		root = m_w.group(1)
+		stem = Path(m_w.group(2)).stem
+		bucket = "Other"
+		if re.match(r"(?i)^OsgWidget", stem) or stem in ("GraphicsWindowQt1", "QWidgetViewer"):
+			bucket = "OsgView"
+		elif re.search(r"(?i)Operation$", stem):
+			bucket = "Operations"
+		elif re.match(r"(?i)^(BackendScene|BackendFollow|ViewportGesture)", stem):
+			bucket = "SceneFacade"
+		return f"External\\UI\\Widget\\{root}\\{bucket}"
 	parent = str(Path(remain).parent)
 	if parent in (".", ""):
 		return "External"
@@ -506,22 +539,41 @@ def functional_bucket(project: str, stem: str) -> str:
 			(["RobotCollision*", "RobotSceneGeometry*"], "CollisionGeometry"),
 		],
 		"CloudSimHost": [
-			(["DocumentHost*", "CloudSimHost*", "CloudSimApplication*"], "DocumentHost"),
 			(
 				[
-					"*Import*",
-					"ProjectPackage*",
-					"Annotation*",
-					"HierarchyMesh*",
-					"BackendProject*",
-					"BackendFile*",
+					"DocumentHost",
+					"DocumentHostAccess*",
+					"CloudSimHost*",
+					"CloudSimApplication*",
+					"DocumentFollow*",
+					"DocumentProject*",
+				],
+				"DocumentHost",
+			),
+			(["Headless*"], "headless"),
+			(
+				[
 					"BackendFollow*",
 					"BackendHierarchy*",
+					"BackendVisual*",
+					"DocumentHostEvents*",
+					"SelectionVisual*",
+					"Selection*",
 				],
-				"ImportIo",
+				"follow",
 			),
-			(["Robot*", "Urdf*", "PerLink*", "IPerLink*", "IRobot*"], "Robot"),
-			(["BackendVisual*", "Selection*", "HostRender*"], "Visual"),
+			(["*Import*", "HierarchyMesh*", "BackendFile*"], "import"),
+			(
+				[
+					"ProjectPackage*",
+					"Annotation*",
+					"BackendProject*",
+					"RobotProject*",
+				],
+				"project",
+			),
+			(["Robot*", "Urdf*", "PerLink*", "IPerLink*", "IRobot*"], "robot"),
+			(["HostRender*"], "Visual"),
 			(["*Adapter*"], "adapters"),
 		],
 		"PointCloudAlgorithm": [
@@ -622,6 +674,8 @@ def functional_bucket(project: str, stem: str) -> str:
 	}
 
 	rules = table.get(project)
+	if rules is None and project == "CloudSimHostHeadless":
+		rules = table.get("CloudSimHost")
 	if rules is not None:
 		for patterns, bucket in rules:
 			if match_any(stem, patterns):
@@ -810,13 +864,27 @@ def discover_projects(only: list[str] | None) -> list[Path]:
 			)
 			if m:
 				paths.append((ROOT / m.group(1).replace("/", "\\")).resolve())
-	# extras not always in sln
+	# extras not always in CloudSim.sln
 	for extra in (
 		ROOT / "src/UI/CloudSimPluginHost/CloudSimPluginHost.vcxproj",
 		ROOT / "src/Plugins/HelloAiPlugin/HelloAiPlugin.vcxproj",
+		ROOT / "src/Host/CloudSimHost/CloudSimHostHeadless.vcxproj",
 	):
 		if extra.exists() and extra.resolve() not in paths:
 			paths.append(extra.resolve())
+
+	# CloudSimWeb.sln 上的 Web 专用工程
+	web_sln = ROOT / "CloudSimWeb.sln"
+	if web_sln.exists():
+		for line in web_sln.read_text(encoding="utf-8", errors="replace").splitlines():
+			m = re.search(
+				r'Project\("\{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942\}"\)\s*=\s*"[^"]+",\s*"([^"]+\.vcxproj)"',
+				line,
+			)
+			if m:
+				p = (ROOT / m.group(1).replace("/", "\\")).resolve()
+				if p.exists() and p not in paths:
+					paths.append(p)
 
 	# fallback: rglob
 	if not paths:

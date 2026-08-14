@@ -6,3 +6,4 @@ export * from "./trajectory";
 export * from "./frames";
 export * from "./devices";
 export * from "./pointcloud";
+export * from "./ioSignals";

@@ -25,6 +25,7 @@ let suppressPosePush = false;
 let selectedRobot = null; // { sceneRootBackendId, anchorBackendId, flangeBackendId } | null
 let posePushInFlight = false;
 let posePushPending = false;
+let tcpIkIncomplete = false;
 let robotDragMode = false;
 let dragFlangeId = null; // 拖拽罗盘锚定的法兰 backendId（IK 实例解析用）
 
@@ -82,31 +83,64 @@ controls.mouseButtons.RIGHT = THREE.MOUSE.DOLLY;
 const transform = new TransformControls(camera, renderer.domElement);
 transform.setSize(1.25);
 transform.setMode("translate");
-transform.setSpace("world");
+transform.setSpace("local");
 transform.enabled = false;
 transform.addEventListener("dragging-changed", (e) => {
   controls.enabled = !e.value;
-  if (!e.value) {
-    posePushPending = true;
-    void (async () => {
-      await flushPosePush();
-      if (robotDragMode && dragFlangeId) {
-        await refreshFrameOverlays();
-        transform.enabled = true;
-        transform.attach(dragProxy);
-        transform.getHelper().visible = true;
-      } else if (sceneInteractMode === "select" && isRobotSceneSelection(selectedId)) {
-        snapPlaceProxyToAnchor();
-        transform.enabled = true;
-        transform.attach(dragProxy);
-        transform.getHelper().visible = true;
-      }
-    })();
+  if (e.value) {
+    window.__tcpTranslateOriLock = null;
+    window.__tcpTranslateOriArming = false;
+    if (robotDragMode && transform.getMode() === "translate") {
+      window.__tcpTranslateOriArming = true;
+      void (async () => {
+        if (selectedRobot?.sceneRootBackendId) {
+          try {
+            const pose = await (
+              await fetch(
+                `/api/robot/tcp-pose?sceneRootBackendId=${encodeURIComponent(selectedRobot.sceneRootBackendId)}`
+              )
+            ).json();
+            if (pose.ok) applyDragProxyFromWorldMatrix16(pose.worldMatrix);
+          } catch (_) {}
+        }
+        window.__tcpTranslateOriLock = dragProxy.quaternion.clone();
+        window.__tcpTranslateOriArming = false;
+        followActiveToolOverlayToDragProxy();
+        posePushPending = true;
+        void flushPosePush();
+      })();
+    }
+    return;
   }
+  void (async () => {
+    posePushPending = true;
+    await flushPosePush();
+    for (let i = 0; i < 60 && tcpIkIncomplete; ++i) {
+      posePushPending = true;
+      await flushPosePush();
+    }
+    window.__tcpTranslateOriLock = null;
+    window.__tcpTranslateOriArming = false;
+    if (robotDragMode && dragFlangeId) {
+      await refreshFrameOverlays();
+      transform.enabled = true;
+      transform.attach(dragProxy);
+      transform.getHelper().visible = true;
+    } else if (sceneInteractMode === "select" && isRobotSceneSelection(selectedId)) {
+      snapPlaceProxyToAnchor();
+      transform.enabled = true;
+      transform.attach(dragProxy);
+      transform.getHelper().visible = true;
+    }
+  })();
 });
 transform.addEventListener("objectChange", () => {
   if (suppressPosePush) return;
   if (robotDragMode && dragFlangeId) {
+    if (transform.getMode() === "translate" && window.__tcpTranslateOriLock) {
+      dragProxy.quaternion.copy(window.__tcpTranslateOriLock);
+      dragProxy.updateMatrix();
+    }
     followActiveToolOverlayToDragProxy();
     posePushPending = true;
     void flushPosePush();
@@ -795,7 +829,8 @@ async function attachDragCompass(flangeId) {
   transform.enabled = true;
   transform.attach(dragProxy);
   transform.setMode("translate");
-  transform.setSpace("world");
+  // 末端拖动固定 TCP 局部轴，对齐桌面示教
+  transform.setSpace("local");
   transform.getHelper().visible = true;
   return true;
 }
@@ -838,6 +873,18 @@ async function pushSelectedPoseOnce() {
   // 拖拽模式：末端世界位姿 → IK 更新关节
   if (robotDragMode && dragFlangeId) {
     dragProxy.updateMatrix();
+    // 平移锁姿态，松手不拧朝向
+    if (transform.getMode() === "translate") {
+      if (window.__tcpTranslateOriArming) return;
+      if (!window.__tcpTranslateOriLock) {
+        window.__tcpTranslateOriLock = dragProxy.quaternion.clone();
+      } else {
+        dragProxy.quaternion.copy(window.__tcpTranslateOriLock);
+        dragProxy.updateMatrix();
+      }
+    } else {
+      window.__tcpTranslateOriLock = null;
+    }
     const worldMatrix = meshLocalMatrixArray(dragProxy);
     const r = await (
       await fetch("/api/robot/tcp-ik", {
@@ -846,6 +893,7 @@ async function pushSelectedPoseOnce() {
         body: JSON.stringify({
           flangeBackendId: dragFlangeId,
           worldMatrix,
+          translateOnly: transform.getMode() === "translate",
         }),
       })
     ).json();
@@ -855,6 +903,12 @@ async function pushSelectedPoseOnce() {
     }
     axisSyncQuietUntil = performance.now() + 120;
     applyAxisAnglesFromServer(r.jointAnglesRad);
+    tcpIkIncomplete = !!r.incomplete;
+    // incomplete 时继续追赶（对齐 React / 桌面）
+    if (tcpIkIncomplete && transform.dragging) {
+      posePushPending = true;
+      setTimeout(() => void flushPosePush(), 8);
+    }
     await syncObjectTransforms();
     if (transform.dragging) {
       followActiveToolOverlayToDragProxy();
@@ -2157,7 +2211,27 @@ async function teachAddInstruction(cmdType) {
 
   if (type === "ptp" || type === "line") {
     try {
-      const pose = await fetchTcpPose(rootId);
+      let pose = await fetchTcpPose(rootId);
+      // 拖动示教中用罗盘代理位姿，避免 FK 欧拉漂移
+      if (robotDragMode && dragFlangeId && dragProxy) {
+        dragProxy.updateMatrix();
+        const els = meshLocalMatrixArray(dragProxy);
+        const m = new THREE.Matrix4().fromArray(els.map(Number));
+        const p = new THREE.Vector3();
+        const q = new THREE.Quaternion();
+        const s = new THREE.Vector3();
+        m.decompose(p, q, s);
+        const e = new THREE.Euler().setFromQuaternion(q, "ZYX");
+        pose = {
+          ...pose,
+          positionMm: [p.x, p.y, p.z],
+          eulerDeg: [
+            THREE.MathUtils.radToDeg(e.x),
+            THREE.MathUtils.radToDeg(e.y),
+            THREE.MathUtils.radToDeg(e.z),
+          ],
+        };
+      }
       prog.instructions.push(motionStepFromPose(type, pose));
       selectedInstrId = prog.instructions[prog.instructions.length - 1].id;
       if (!(await saveProgramsToServer())) return;

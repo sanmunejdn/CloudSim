@@ -83,6 +83,27 @@ export function localMatrixArray(obj: THREE.Object3D): number[] {
   return Array.from(obj.matrix.elements);
 }
 
+/** 列主序 4×4 → 位姿（ZYX 欧拉仅示教落盘） */
+export function poseFromMatrix4Elements(elements: number[]): {
+  positionMm: [number, number, number];
+  eulerDeg: [number, number, number];
+} {
+  const m = new THREE.Matrix4().fromArray(elements.map(Number));
+  const p = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const s = new THREE.Vector3();
+  m.decompose(p, q, s);
+  const e = new THREE.Euler().setFromQuaternion(q, "ZYX");
+  return {
+    positionMm: [p.x, p.y, p.z],
+    eulerDeg: [
+      THREE.MathUtils.radToDeg(e.x),
+      THREE.MathUtils.radToDeg(e.y),
+      THREE.MathUtils.radToDeg(e.z),
+    ],
+  };
+}
+
 /** 把代理对齐到目标 mesh 在 root（Z-up）下的局部位姿 */
 export function snapProxyToMesh(root: THREE.Object3D, proxy: THREE.Object3D, mesh: THREE.Object3D) {
   mesh.updateMatrixWorld(true);

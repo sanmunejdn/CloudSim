@@ -18,16 +18,19 @@
 #include "RobotCoordinateFrames.h"
 #include "StoreZipExtract.h"
 #include "WebGatewaySidecars.h"
+#include "NamedSignalTable.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QVariant>
 
+#include <json.hpp>
 #include <memory>
 
 #ifdef _WIN32
@@ -49,6 +52,126 @@ struct SidecarStore
 	QString workspaceMode = QStringLiteral("scene3d");
 };
 SidecarStore g_sidecars;
+
+struct IoRuntimeStore
+{
+	QHash<int, bool> di;
+	QHash<int, bool> digitalOut;
+	QHash<int, double> ai;
+	QHash<int, double> ao;
+	QHash<int, bool> diForced;
+};
+IoRuntimeStore g_ioRuntime;
+
+void resetIoRuntimeFromTable(const RobotIo::NamedSignalTable& table, const bool keepForcedDi)
+{
+	QHash<int, bool> keptForced;
+	if (keepForcedDi)
+		keptForced = g_ioRuntime.diForced;
+	g_ioRuntime = IoRuntimeStore{};
+	if (keepForcedDi)
+		g_ioRuntime.diForced = keptForced;
+	for (const RobotIo::SignalDef& s : table.entries())
+	{
+		switch (s.kind)
+		{
+		case RobotIo::SignalKind::DI:
+			if (g_ioRuntime.diForced.contains(s.port))
+				g_ioRuntime.di.insert(s.port, g_ioRuntime.diForced.value(s.port));
+			else
+				g_ioRuntime.di.insert(s.port, s.defaultBool);
+			break;
+		case RobotIo::SignalKind::DO:
+			g_ioRuntime.digitalOut.insert(s.port, s.defaultBool);
+			break;
+		case RobotIo::SignalKind::AI:
+			g_ioRuntime.ai.insert(s.port, s.defaultAnalog);
+			break;
+		case RobotIo::SignalKind::AO:
+			g_ioRuntime.ao.insert(s.port, s.defaultAnalog);
+			break;
+		}
+	}
+}
+
+QJsonObject namedSignalTableToQJson(const RobotIo::NamedSignalTable& table)
+{
+	const nlohmann::json j = table.toJson();
+	return QJsonDocument::fromJson(QByteArray::fromStdString(j.dump())).object();
+}
+
+bool namedSignalTableFromQJson(RobotIo::NamedSignalTable& table, const QJsonObject& obj, QString* err)
+{
+	std::string e;
+	const QByteArray raw = QJsonDocument(obj).toJson(QJsonDocument::Compact);
+	nlohmann::json j;
+	try
+	{
+		j = nlohmann::json::parse(raw.constData(), nullptr, true);
+	}
+	catch (...)
+	{
+		if (err)
+			*err = QStringLiteral("ioSignals JSON invalid");
+		return false;
+	}
+	if (!table.fromJson(j, &e))
+	{
+		if (err)
+			*err = QString::fromStdString(e);
+		return false;
+	}
+	return true;
+}
+
+bool readDiValue(const int port, const bool defaultBool)
+{
+	if (g_ioRuntime.diForced.contains(port))
+		return g_ioRuntime.diForced.value(port);
+	return g_ioRuntime.di.value(port, defaultBool);
+}
+
+QJsonObject ioSignalsPayloadWithRuntime(const RobotIo::NamedSignalTable& table)
+{
+	QJsonObject root = namedSignalTableToQJson(table);
+	QJsonArray signalsArr = root.value(QStringLiteral("signals")).toArray();
+	QJsonArray enriched;
+	for (const QJsonValue& v : signalsArr)
+	{
+		QJsonObject o = v.toObject();
+		const QString kind = o.value(QStringLiteral("kind")).toString();
+		const int port = o.value(QStringLiteral("port")).toInt();
+		bool forced = false;
+		QString valueText = QStringLiteral("-");
+		if (kind == QLatin1String("DI"))
+		{
+			forced = g_ioRuntime.diForced.contains(port);
+			valueText = readDiValue(port, o.value(QStringLiteral("defaultBool")).toBool()) ? QStringLiteral("1")
+																							: QStringLiteral("0");
+		}
+		else if (kind == QLatin1String("DO"))
+		{
+			valueText = g_ioRuntime.digitalOut.value(port, o.value(QStringLiteral("defaultBool")).toBool())
+							? QStringLiteral("1")
+							: QStringLiteral("0");
+		}
+		else if (kind == QLatin1String("AI"))
+		{
+			valueText = QString::number(g_ioRuntime.ai.value(port, o.value(QStringLiteral("defaultAnalog")).toDouble()),
+										'g', 6);
+		}
+		else if (kind == QLatin1String("AO"))
+		{
+			valueText = QString::number(g_ioRuntime.ao.value(port, o.value(QStringLiteral("defaultAnalog")).toDouble()),
+										'g', 6);
+		}
+		o.insert(QStringLiteral("value"), valueText);
+		o.insert(QStringLiteral("forced"), forced);
+		enriched.append(o);
+	}
+	root.insert(QStringLiteral("signals"), enriched);
+	return root;
+}
 
 QString jsonEscapeApi(const QString& s)
 {
@@ -112,6 +235,8 @@ bool WebGateway::newProjectOnGuiThread(cloudsim::host::DocumentHost* host, QStri
 	if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
 		hrc->clearRobotSimulationContext();
 	host->setProjectFilePath(QString());
+	host->namedSignalTable().clear();
+	g_ioRuntime = IoRuntimeStore{};
 	g_sidecars = SidecarStore{};
 	pushEvent(QStringLiteral("{\"type\":\"ProjectLoaded\",\"path\":\"\",\"objectCount\":0}"));
 	return true;
@@ -162,6 +287,7 @@ bool WebGateway::saveProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 	cloudsim::host::mergeRobotProgramsIntoProjectRoot(*host, built.root);
 	cloudsim::host::mergeRobotKinematicsIntoProjectRoot(*host, built.root);
 	webGatewayMergeSidecarsIntoProject(built.root);
+	built.root.insert(QStringLiteral("ioSignals"), namedSignalTableToQJson(host->namedSignalTable()));
 
 	QFile out(jsonPath);
 	if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate))
@@ -639,10 +765,12 @@ bool WebGateway::tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJs
 	m16.reserve(16);
 	for (int i = 0; i < 16; ++i)
 		m16.append(wmArr.at(i).toDouble());
+	const bool translateOnly = o.value(QStringLiteral("translateOnly")).toBool(false);
 	QVector<double> joints;
 	QString ikErr;
 	bool incomplete = false;
-	if (!host->headlessRobotContext()->applyIkFromFlangeThreeJsMatrix(flangeId, m16, &joints, &ikErr, &incomplete))
+	if (!host->headlessRobotContext()->applyIkFromFlangeThreeJsMatrix(flangeId, m16, &joints, &ikErr, &incomplete,
+																	  translateOnly))
 	{
 		if (err)
 			*err = ikErr.isEmpty() ? QStringLiteral("tcp IK failed") : ikErr;
@@ -1269,6 +1397,135 @@ QByteArray WebGateway::aiStatusJson() const
 {
 	return QByteArrayLiteral(
 		"{\"ok\":true,\"endpoint\":\"/api/ai/chat\",\"note\":\"P5 stub: configure ai_config.json for desktop LLM\"}");
+}
+
+QByteArray WebGateway::ioSignalsJsonOnGuiThread(cloudsim::host::DocumentHost* host)
+{
+	QJsonObject root;
+	if (!host)
+	{
+		root.insert(QStringLiteral("ok"), false);
+		root.insert(QStringLiteral("error"), QStringLiteral("No host."));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	root = ioSignalsPayloadWithRuntime(host->namedSignalTable());
+	root.insert(QStringLiteral("ok"), true);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::ioSignalsPutOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	QJsonObject obj = doc.object();
+	if (doc.isArray())
+		obj = QJsonObject{{QStringLiteral("signals"), doc.array()}};
+	if (!namedSignalTableFromQJson(host->namedSignalTable(), obj, err))
+		return false;
+	resetIoRuntimeFromTable(host->namedSignalTable(), false);
+	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\"}"));
+	return true;
+}
+
+QByteArray WebGateway::ioSignalNamesJsonOnGuiThread(cloudsim::host::DocumentHost* host, const QString& kindFilter)
+{
+	QJsonObject root{{QStringLiteral("ok"), true}};
+	QJsonArray names;
+	names.append(QString());
+	if (host)
+	{
+		RobotIo::SignalKind want = RobotIo::SignalKind::DI;
+		const bool filter = RobotIo::NamedSignalTable::kindFromString(kindFilter.toStdString(), want);
+		for (const RobotIo::SignalDef& s : host->namedSignalTable().entries())
+		{
+			if (filter && s.kind != want)
+				continue;
+			if (!s.name.empty())
+				names.append(QString::fromStdString(s.name));
+		}
+	}
+	root.insert(QStringLiteral("names"), names);
+	root.insert(QStringLiteral("kind"), kindFilter);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::ioSignalRuntimePatchOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body,
+												 QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const QJsonObject o = QJsonDocument::fromJson(body).object();
+	const QString kind = o.value(QStringLiteral("kind")).toString();
+	const int port = o.value(QStringLiteral("port")).toInt();
+	const bool hasForced = o.contains(QStringLiteral("forced"));
+	const bool forced = o.value(QStringLiteral("forced")).toBool();
+	const QString valueText = o.value(QStringLiteral("value")).toString().trimmed();
+	auto parseBool = [](const QString& t) {
+		return t == QLatin1String("1") || t.compare(QLatin1String("true"), Qt::CaseInsensitive) == 0 ||
+			   t.compare(QLatin1String("on"), Qt::CaseInsensitive) == 0;
+	};
+	if (kind == QLatin1String("DI"))
+	{
+		const bool v = parseBool(valueText);
+		if (hasForced && forced)
+		{
+			g_ioRuntime.diForced.insert(port, v);
+			g_ioRuntime.di.insert(port, v);
+		}
+		else if (hasForced && !forced)
+		{
+			g_ioRuntime.diForced.remove(port);
+			g_ioRuntime.di.insert(port, v);
+		}
+		else
+		{
+			g_ioRuntime.di.insert(port, v);
+			if (g_ioRuntime.diForced.contains(port))
+				g_ioRuntime.diForced.insert(port, v);
+		}
+	}
+	else if (kind == QLatin1String("DO"))
+	{
+		g_ioRuntime.digitalOut.insert(port, parseBool(valueText));
+	}
+	else if (kind == QLatin1String("AI"))
+	{
+		g_ioRuntime.ai.insert(port, valueText.toDouble());
+	}
+	else if (kind == QLatin1String("AO"))
+	{
+		g_ioRuntime.ao.insert(port, valueText.toDouble());
+	}
+	else
+	{
+		if (err)
+			*err = QStringLiteral("Unknown kind.");
+		return false;
+	}
+	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\"}"));
+	return true;
+}
+
+bool WebGateway::ioSignalRuntimeResetOnGuiThread(cloudsim::host::DocumentHost* host, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	resetIoRuntimeFromTable(host->namedSignalTable(), false);
+	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\"}"));
+	return true;
 }
 
 } // namespace cloudsim::web

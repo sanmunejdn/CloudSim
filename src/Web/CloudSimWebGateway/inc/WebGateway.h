@@ -148,6 +148,12 @@ private:
 	QByteArray helpIndexJson() const;
 	QByteArray aiStatusJson() const;
 
+	QByteArray ioSignalsJsonOnGuiThread(cloudsim::host::DocumentHost* host);
+	bool ioSignalsPutOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err);
+	QByteArray ioSignalNamesJsonOnGuiThread(cloudsim::host::DocumentHost* host, const QString& kindFilter);
+	bool ioSignalRuntimePatchOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err);
+	bool ioSignalRuntimeResetOnGuiThread(cloudsim::host::DocumentHost* host, QString* err);
+
 	cloudsim::core::ICloudSimContext& m_context;
 	WebGatewayConfig m_config;
 	std::unique_ptr<cloudsim::core::IDocumentScope> m_document;

@@ -1,7 +1,9 @@
 import type { Instruction, PropRow } from "../../api";
-import { enumOptionsForKey, propertyDisplayLabel } from "./propLabels";
+import { enumOptionsForKey, ioSignalKindForInstrProp, propertyDisplayLabel } from "./propLabels";
 
 export type InstrPropViewRow = PropRow & { kind?: "text" | "enum"; options?: string[] };
+
+export type SignalNameOptions = { di: string[]; do: string[]; ao: string[] };
 
 const NUMERIC_KEYS = new Set([
   "motion.target.pose.x",
@@ -37,13 +39,28 @@ function formatPointIndex(ins?: Instruction | null) {
   return `P${pi}（第 ${pi} 点）`;
 }
 
+function withEmpty(names: string[]) {
+  return names[0] === "" ? names : ["", ...names.filter(Boolean)];
+}
+
+function signalOptionsForKey(key: string, instrType: string | undefined, signalOpts?: SignalNameOptions) {
+  if (!signalOpts) return null;
+  const kind = ioSignalKindForInstrProp(key, instrType);
+  if (kind === "DI") return withEmpty(signalOpts.di);
+  if (kind === "AO") return withEmpty(signalOpts.ao);
+  if (kind === "DO") return withEmpty(signalOpts.do);
+  return null;
+}
+
 /** 对齐桌面 InstructionPropertyPanel 的字段集合与中文标签 */
 export function buildInstrPropView(
   apiRows: PropRow[],
   instructionId: string,
   instruction?: Instruction | null,
+  signalOpts?: SignalNameOptions,
 ): InstrPropViewRow[] {
   const byKey = new Map(apiRows.map((r) => [r.key, r]));
+  const instrType = String(instruction?.type || "");
 
   const out: InstrPropViewRow[] = [
     {
@@ -62,7 +79,7 @@ export function buildInstrPropView(
     },
   ];
 
-  const type = String(instruction?.type || "").toLowerCase();
+  const type = instrType.toLowerCase();
   if (["ptp", "line", "arc"].includes(type) || byKey.has("motion.target.pose.x")) {
     out.push({
       key: "motion.pointIndex",
@@ -121,13 +138,24 @@ export function buildInstrPropView(
     "motion.axisConfig.turn.j1",
     "motion.axisConfig.turn.j4",
     "motion.axisConfig.turn.j6",
+    "logic.condition.kind",
+    "logic.condition.signalName",
+    "logic.condition.port",
+    "logic.condition.equals",
+    "logic.io.signalName",
+    "logic.io.port",
+    "logic.io.boolValue",
+    "logic.io.analogValue",
   ];
 
   const emit = (r: PropRow) => {
     const key = r.key;
     if (isSkippedKey(key)) return;
     if (out.some((x) => x.key === key)) return;
-    const opts = enumOptionsForKey(key);
+    let opts = signalOptionsForKey(key, instrType, signalOpts) || enumOptionsForKey(key);
+    if (key === "logic.condition.kind" && type === "wait") {
+      opts = ["always", "io"];
+    }
     const value = fmtValue(key, r.value);
     out.push({
       key,

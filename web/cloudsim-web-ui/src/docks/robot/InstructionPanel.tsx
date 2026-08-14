@@ -48,7 +48,7 @@ export default function InstructionPanel() {
     setPlaying,
     reloadPrograms,
   } = useRobotProgram();
-  const { robotDragMode, setRobotDragMode, refreshObjects } = useScene();
+  const { robotDragMode, setRobotDragMode, refreshObjects, robotDragTeachPose } = useScene();
   const { setStatus } = useStatus();
   const { goTrajGen } = useDockNav();
   const { bindPlan, reloadPathPlans, setFeatures } = useTrajectory();
@@ -109,16 +109,22 @@ export default function InstructionPanel() {
       return;
     }
     const pose = await tcpPose(activeRootId);
+    const fromDrag = robotDragMode && robotDragTeachPose;
+    const pos = fromDrag ? robotDragTeachPose.positionMm : pose.positionMm;
+    const eu = fromDrag ? robotDragTeachPose.eulerDeg : pose.eulerDeg;
+    const jointCsv = fromDrag
+      ? robotDragTeachPose.jointRadCsv || pose.jointRadCsv
+      : pose.jointRadCsv;
     const ins: Instruction = {
       id: newId(),
       type,
       name: (CMD_LABEL[type] || type).toUpperCase(),
-      pose: { x: pose.positionMm?.[0] || 0, y: pose.positionMm?.[1] || 0, z: pose.positionMm?.[2] || 0 },
-      eulerDeg: { x: pose.eulerDeg?.[0] || 0, y: pose.eulerDeg?.[1] || 0, z: pose.eulerDeg?.[2] || 0 },
+      pose: { x: pos?.[0] || 0, y: pos?.[1] || 0, z: pos?.[2] || 0 },
+      eulerDeg: { x: eu?.[0] || 0, y: eu?.[1] || 0, z: eu?.[2] || 0 },
       speed: type === "ptp" ? 100 : 200,
       accel: type === "ptp" ? 100 : 200,
       blendRadius: type === "line" || type === "arc" ? 0 : undefined,
-      extensions: pose.jointRadCsv ? { "context.currentJointRadCsv": pose.jointRadCsv } : undefined,
+      extensions: jointCsv ? { "context.currentJointRadCsv": jointCsv } : undefined,
     };
     await updateActiveProgram((p) => ({ ...p, instructions: [...(p.instructions || []), ins] }));
     setSelectedInstrId(ins.id);

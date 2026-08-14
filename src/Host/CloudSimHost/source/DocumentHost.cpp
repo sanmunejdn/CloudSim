@@ -345,6 +345,16 @@ RobotProgramStore& DocumentHost::robotProgramStore()
 	return *m_robotProgramStore;
 }
 
+RobotIo::NamedSignalTable& DocumentHost::namedSignalTable()
+{
+	return m_namedSignalTable;
+}
+
+const RobotIo::NamedSignalTable& DocumentHost::namedSignalTable() const
+{
+	return m_namedSignalTable;
+}
+
 BackendHierarchyModel& DocumentHost::hierarchyModel()
 {
 	return *m_hierarchyModel;

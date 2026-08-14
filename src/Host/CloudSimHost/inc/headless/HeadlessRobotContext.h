@@ -76,9 +76,10 @@ public:
 											 QString* outError = nullptr);
 	/// 拖法兰：世界位姿 → 示教 IK → 更新关节（基座 P 不变）
 	/// outIncomplete：单步 chase/关节台阶未追到目标时为 true，供网页继续推同一目标
+	/// translateOnly：FK 锁姿 + 笛卡尔追赶；禁用关节 lerp，避免拧 TCP / 拖不动
 	bool applyIkFromFlangeThreeJsMatrix(const QString& flangeBackendId, const QVector<double>& threeJsColMajor16,
 										QVector<double>* outJointAnglesRad = nullptr, QString* outError = nullptr,
-										bool* outIncomplete = nullptr);
+										bool* outIncomplete = nullptr, bool translateOnly = false);
 
 	struct TcpPoseCapture
 	{
@@ -157,6 +158,14 @@ private:
 		RobotCoordinate::RobotCoordinateFrameSet coordinateFrames;
 		RobotExternal::RobotExternalAxisConfigSet externalAxes;
 		QVector<double> lastLocalJointAnglesRad;
+		// TCP 拖动追赶：上一拍目标平移（场景系），避免每拍从 FK 起算掺姿态残差
+		bool tcpDragChaseValid = false;
+		double tcpDragChaseTx = 0.0;
+		double tcpDragChaseTy = 0.0;
+		double tcpDragChaseTz = 0.0;
+		// 纯平移：冻结开拖时的 TCP 姿态，防止罗盘噪声/IK 改朝向
+		bool tcpDragOriLocked = false;
+		double tcpDragOriQuatXyzw[4]{0.0, 0.0, 0.0, 1.0};
 	};
 
 	void rebuildAggregates();

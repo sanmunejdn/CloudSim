@@ -1218,6 +1218,76 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 						const QByteArray out = QJsonDocument(catalog).toJson(QJsonDocument::Compact);
 						res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
 					});
+	m_impl->svr.Get("/api/io/signals",
+					[this, host](const httplib::Request&, httplib::Response& res)
+					{
+						QByteArray body;
+						QMetaObject::invokeMethod(
+							this, [this, host, &body]() { body = ioSignalsJsonOnGuiThread(host); },
+							Qt::BlockingQueuedConnection);
+						res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+					});
+	m_impl->svr.Put("/api/io/signals",
+					[this, host](const httplib::Request& req, httplib::Response& res)
+					{
+						QString err;
+						bool ok = false;
+						const QByteArray reqBody = QByteArray::fromStdString(req.body);
+						QMetaObject::invokeMethod(
+							this,
+							[this, host, reqBody, &err, &ok]() { ok = ioSignalsPutOnGuiThread(host, reqBody, &err); },
+							Qt::BlockingQueuedConnection);
+						QJsonObject o{{QStringLiteral("ok"), ok}};
+						if (!ok)
+							o.insert(QStringLiteral("error"), err);
+						const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
+						res.status = ok ? 200 : 400;
+						res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
+					});
+	m_impl->svr.Get("/api/io/signals/names",
+					[this, host](const httplib::Request& req, httplib::Response& res)
+					{
+						const QString kind = QString::fromStdString(req.get_param_value("kind"));
+						QByteArray body;
+						QMetaObject::invokeMethod(
+							this, [this, host, kind, &body]() { body = ioSignalNamesJsonOnGuiThread(host, kind); },
+							Qt::BlockingQueuedConnection);
+						res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+					});
+	m_impl->svr.Post("/api/io/signals/runtime",
+					 [this, host](const httplib::Request& req, httplib::Response& res)
+					 {
+						 QString err;
+						 bool ok = false;
+						 const QByteArray reqBody = QByteArray::fromStdString(req.body);
+						 QMetaObject::invokeMethod(
+							 this,
+							 [this, host, reqBody, &err, &ok]() {
+								 ok = ioSignalRuntimePatchOnGuiThread(host, reqBody, &err);
+							 },
+							 Qt::BlockingQueuedConnection);
+						 QJsonObject o{{QStringLiteral("ok"), ok}};
+						 if (!ok)
+							 o.insert(QStringLiteral("error"), err);
+						 const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
+						 res.status = ok ? 200 : 400;
+						 res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
+					 });
+	m_impl->svr.Post("/api/io/signals/reset-runtime",
+					 [this, host](const httplib::Request&, httplib::Response& res)
+					 {
+						 QString err;
+						 bool ok = false;
+						 QMetaObject::invokeMethod(
+							 this, [this, host, &err, &ok]() { ok = ioSignalRuntimeResetOnGuiThread(host, &err); },
+							 Qt::BlockingQueuedConnection);
+						 QJsonObject o{{QStringLiteral("ok"), ok}};
+						 if (!ok)
+							 o.insert(QStringLiteral("error"), err);
+						 const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
+						 res.status = ok ? 200 : 400;
+						 res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
+					 });
 	m_impl->svr.Get("/api/devices/thumbnail",
 					[](const httplib::Request& req, httplib::Response& res)
 					{
@@ -1410,6 +1480,11 @@ bool WebGateway::openProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 		}
 	}
 	webGatewayLoadSidecarsFromProject(root);
+	{
+		QString ioErr;
+		const QJsonObject ioObj = root.value(QStringLiteral("ioSignals")).toObject();
+		(void)ioSignalsPutOnGuiThread(host, QJsonDocument(ioObj).toJson(QJsonDocument::Compact), &ioErr);
+	}
 
 	host->setProjectFilePath(openPath);
 	m_impl->projectPath = openPath;

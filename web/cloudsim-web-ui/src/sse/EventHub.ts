@@ -9,7 +9,16 @@ export class EventHub {
   start(url = "/api/events") {
     this.stop();
     this.es = new EventSource(url);
-    this.es.onmessage = (ev) => this.dispatch("message", ev.data);
+    // Gateway 仅推 data: JSON（无 event: 名）；按 payload.type 再 fan-out
+    this.es.onmessage = (ev) => {
+      this.dispatch("message", ev.data);
+      try {
+        const t = (JSON.parse(ev.data) as { type?: string }).type;
+        if (typeof t === "string" && t) this.dispatch(t, ev.data);
+      } catch {
+        /* 非 JSON keepalive 忽略 */
+      }
+    };
     this.es.addEventListener("RobotKinematicsApplied", (ev) =>
       this.dispatch("RobotKinematicsApplied", (ev as MessageEvent).data),
     );
@@ -32,6 +41,9 @@ export class EventHub {
     );
     this.es.addEventListener("WorkspaceModeChanged", (ev) =>
       this.dispatch("WorkspaceModeChanged", (ev as MessageEvent).data),
+    );
+    this.es.addEventListener("IoSignalsChanged", (ev) =>
+      this.dispatch("IoSignalsChanged", (ev as MessageEvent).data),
     );
   }
 

@@ -188,6 +188,8 @@ void HeadlessRobotContext::recordJointAnglesForSceneRoot(const QString& sceneRoo
 		return;
 	}
 	m_robots[idx].lastLocalJointAnglesRad = localAnglesRad;
+	m_robots[idx].tcpDragChaseValid = false;
+	m_robots[idx].tcpDragOriLocked = false;
 }
 
 int HeadlessRobotContext::robotInstanceIndexForBackendId(const QString& backendId, bool* outIsSceneRoot) const
@@ -344,7 +346,7 @@ bool HeadlessRobotContext::applyFkFromGizmoAnchorThreeJsMatrix(const QString& an
 bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeBackendId,
 														  const QVector<double>& threeJsColMajor16,
 														  QVector<double>* outJointAnglesRad, QString* outError,
-														  bool* outIncomplete)
+														  bool* outIncomplete, const bool translateOnly)
 {
 	if (outIncomplete)
 	{
@@ -368,6 +370,10 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 		return false;
 	}
 	HierarchicalRobotInstance& ri = m_robots[instanceIndex];
+	if (!translateOnly)
+	{
+		ri.tcpDragOriLocked = false;
+	}
 	if (!ri.perLinkBackends || ri.urdfAbsolutePath.isEmpty())
 	{
 		if (outError)
@@ -441,28 +447,65 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 	const BackendMat4 wm = threeJsColMajor16ToBackendMat4(threeJsColMajor16);
 	// 网页罗盘发的是工具 TCP 场景系，与 overlays/tcp-pose 一致
 	osg::Matrixd tcpSceneDesired = RobotMatrixOsg::matrixFromBackendColMajor(wm);
-	// 跟手：单步追赶加大，避免罗盘已走远而臂还在小台阶上爬
-	static constexpr double kTcpDragMaxChaseMmPerIk = 220.0;
-	bool chaseClipped = false;
+	if (translateOnly)
+	{
+		// 锁当前 FK 姿态：与 seed 一致，避免纠姿大步导致拖不动/关节 lerp 拧 TCP
+		if (!ri.tcpDragOriLocked)
+		{
+			osg::Quat q = tcpSceneDesired.getRotate();
+			TcpPoseCapture curPose;
+			if (captureTcpPose(ri.sceneBackendId, curPose, nullptr))
+			{
+				q = RobotMatrixOsg::matrixFromBackendColMajor(curPose.worldMat).getRotate();
+			}
+			ri.tcpDragOriQuatXyzw[0] = q.x();
+			ri.tcpDragOriQuatXyzw[1] = q.y();
+			ri.tcpDragOriQuatXyzw[2] = q.z();
+			ri.tcpDragOriQuatXyzw[3] = q.w();
+			ri.tcpDragOriLocked = true;
+		}
+		const osg::Vec3d tOnly = tcpSceneDesired.getTrans();
+		tcpSceneDesired = osg::Matrixd::rotate(osg::Quat(ri.tcpDragOriQuatXyzw[0], ri.tcpDragOriQuatXyzw[1],
+														 ri.tcpDragOriQuatXyzw[2], ri.tcpDragOriQuatXyzw[3]));
+		tcpSceneDesired.setTrans(tOnly);
+	}
+
+	const osg::Vec3d tDesiredFull = tcpSceneDesired.getTrans();
+	osg::Vec3d chaseFrom = tDesiredFull;
+	bool haveChaseFrom = false;
+	if (ri.tcpDragChaseValid)
+	{
+		chaseFrom.set(ri.tcpDragChaseTx, ri.tcpDragChaseTy, ri.tcpDragChaseTz);
+		haveChaseFrom = true;
+	}
+	else
 	{
 		TcpPoseCapture curPose;
 		if (captureTcpPose(ri.sceneBackendId, curPose, nullptr))
 		{
-			const osg::Matrixd curOsg = RobotMatrixOsg::matrixFromBackendColMajor(curPose.worldMat);
-			const osg::Vec3d curT = curOsg.getTrans();
-			const osg::Vec3d desT = tcpSceneDesired.getTrans();
-			const osg::Vec3d delta = desT - curT;
-			const double emitLen = delta.length();
-			if (emitLen > kTcpDragMaxChaseMmPerIk)
-			{
-				chaseClipped = true;
-				tcpSceneDesired.setTrans(curT + delta * (kTcpDragMaxChaseMmPerIk / emitLen));
-			}
+			chaseFrom = RobotMatrixOsg::matrixFromBackendColMajor(curPose.worldMat).getTrans();
+			haveChaseFrom = true;
 		}
 	}
-	const osg::Matrixd P = slice.robotBasePlacementWorld;
-	const osg::Matrixd tcpInBaseOsg = tcpSceneDesired * osg::Matrixd::inverse(P);
 
+	// 只截断平移、保留目标姿态；追赶基点用上一拍目标而非 FK
+	static constexpr double kTcpDragMaxChaseMmPerIk = 120.0;
+	static constexpr double kTcpDragMaxJointStepRad = 0.45;
+	bool chaseClipped = false;
+	osg::Vec3d tStep = tDesiredFull;
+	if (haveChaseFrom)
+	{
+		const osg::Vec3d delta = tDesiredFull - chaseFrom;
+		const double emitLen = delta.length();
+		if (emitLen > kTcpDragMaxChaseMmPerIk)
+		{
+			chaseClipped = true;
+			tStep = chaseFrom + delta * (kTcpDragMaxChaseMmPerIk / emitLen);
+		}
+	}
+	tcpSceneDesired.setTrans(tStep);
+
+	const osg::Matrixd P = slice.robotBasePlacementWorld;
 	BackendMat4 toolMat = BackendMat4::identity();
 	QString flangeLinkForIk = flangeLink;
 	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(ri.coordinateFrames))
@@ -477,47 +520,99 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 		}
 	}
 
-	RobotTeachIk::TeachIkContext ctx;
-	ctx.urdfPath = ri.urdfAbsolutePath;
-	ctx.ikLinkName = flangeLinkForIk;
-	ctx.T_base_target = engine::rigidTransformFromOsg(tcpInBaseOsg);
-	ctx.seedJointRad.reserve(static_cast<size_t>(seedQ.size()));
-	for (double v : seedQ)
-	{
-		ctx.seedJointRad.push_back(v);
-	}
-	ctx.useOrientation = true;
-	ctx.T_flange_tool = toolMat;
-	ctx.maxIkIterations = 22;
-
-	const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
-	if (!ik.ok || ik.jointRad.empty())
-	{
-		if (outError)
+	auto solveIkAtSceneTrans = [&](const osg::Vec3d& t, QVector<double>* outQ, QString* solveErr) -> bool {
+		osg::Matrixd tcpScene = tcpSceneDesired;
+		tcpScene.setTrans(t);
+		const osg::Matrixd tcpInBaseOsg = tcpScene * osg::Matrixd::inverse(P);
+		RobotTeachIk::TeachIkContext ctx;
+		ctx.urdfPath = ri.urdfAbsolutePath;
+		ctx.ikLinkName = flangeLinkForIk;
+		ctx.T_base_target = engine::rigidTransformFromOsg(tcpInBaseOsg);
+		ctx.seedJointRad.clear();
+		ctx.seedJointRad.reserve(static_cast<size_t>(seedQ.size()));
+		for (double v : seedQ)
 		{
-			*outError = ik.error.empty() ? QStringLiteral("IK failed") : QString::fromStdString(ik.error);
+			ctx.seedJointRad.push_back(v);
 		}
-		return false;
-	}
+		ctx.useOrientation = true;
+		ctx.T_flange_tool = toolMat;
+		ctx.maxIkIterations = translateOnly ? 40 : 22;
+		const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
+		if (!ik.ok || ik.jointRad.empty())
+		{
+			if (solveErr)
+			{
+				*solveErr = ik.error.empty() ? QStringLiteral("IK failed") : QString::fromStdString(ik.error);
+			}
+			return false;
+		}
+		QVector<double> qRad;
+		qRad.reserve(static_cast<int>(ik.jointRad.size()));
+		for (double v : ik.jointRad)
+		{
+			qRad.push_back(v);
+		}
+		if (qRad.size() != ri.revoluteJointNamesUnprefixed.size())
+		{
+			if (solveErr)
+			{
+				*solveErr = QStringLiteral("IK joint count mismatch");
+			}
+			return false;
+		}
+		*outQ = clampJointsToLimits(qRad, ri.jointLowerRad, ri.jointUpperRad);
+		return true;
+	};
 
 	QVector<double> qRad;
-	qRad.reserve(static_cast<int>(ik.jointRad.size()));
-	for (double v : ik.jointRad)
-	{
-		qRad.push_back(v);
-	}
-	if (qRad.size() != ri.revoluteJointNamesUnprefixed.size())
-	{
-		if (outError)
-		{
-			*outError = QStringLiteral("IK joint count mismatch");
-		}
-		return false;
-	}
-	qRad = clampJointsToLimits(qRad, ri.jointLowerRad, ri.jointUpperRad);
-	static constexpr double kTcpDragMaxJointStepRad = 0.45;
+	QString ikErr;
 	bool jointStepClipped = false;
+	if (translateOnly)
 	{
+		// 不用关节 lerp（会拧姿）；也不因步长门控冻住——笛卡尔追赶限幅即可
+		if (!solveIkAtSceneTrans(tStep, &qRad, &ikErr))
+		{
+			// 整步失败则缩半再试，仍失败才停本拍（位置不动）
+			bool recovered = false;
+			for (int attempt = 0; attempt < 6; ++attempt)
+			{
+				tStep = chaseFrom + (tStep - chaseFrom) * 0.5;
+				if ((tStep - chaseFrom).length() < 0.5)
+				{
+					break;
+				}
+				chaseClipped = true;
+				if (solveIkAtSceneTrans(tStep, &qRad, &ikErr))
+				{
+					recovered = true;
+					break;
+				}
+			}
+			if (!recovered)
+			{
+				if (outError)
+				{
+					*outError = ikErr;
+				}
+				return false;
+			}
+		}
+		tcpSceneDesired.setTrans(tStep);
+		if ((tDesiredFull - tStep).length() > 0.5)
+		{
+			chaseClipped = true;
+		}
+	}
+	else
+	{
+		if (!solveIkAtSceneTrans(tStep, &qRad, &ikErr))
+		{
+			if (outError)
+			{
+				*outError = ikErr;
+			}
+			return false;
+		}
 		const QVector<double> qBeforeStep = qRad;
 		qRad = clampJointStep(qRad, seedQ, kTcpDragMaxJointStepRad);
 		for (int i = 0; i < qRad.size(); ++i)
@@ -540,6 +635,13 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 		return false;
 	}
 	ri.lastLocalJointAnglesRad = qRad;
+	{
+		const osg::Vec3d stepT = tcpSceneDesired.getTrans();
+		ri.tcpDragChaseTx = stepT.x();
+		ri.tcpDragChaseTy = stepT.y();
+		ri.tcpDragChaseTz = stepT.z();
+		ri.tcpDragChaseValid = true;
+	}
 	rebuildAggregates();
 	notifyRobotKinematicsAppliedToScene();
 	if (outJointAnglesRad)

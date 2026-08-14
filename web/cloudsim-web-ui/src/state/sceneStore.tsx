@@ -22,17 +22,25 @@ import { useStatus } from "./statusStore";
 export type InteractMode = "view" | "select";
 export type GizmoTransformMode = "translate" | "rotate";
 
+export type RobotDragTeachPose = {
+  positionMm: [number, number, number];
+  eulerDeg: [number, number, number];
+  jointRadCsv?: string;
+};
+
 type SceneCtx = {
   objects: BackendObject[];
   selectedId: string | null;
   interactMode: InteractMode;
   robotDragMode: boolean;
   gizmoTransformMode: GizmoTransformMode;
+  robotDragTeachPose: RobotDragTeachPose | null;
   refreshObjects: () => Promise<void>;
   selectObject: (id: string | null) => Promise<void>;
   setInteractMode: (m: InteractMode) => void;
   setRobotDragMode: (v: boolean) => void;
   setGizmoTransformMode: (m: GizmoTransformMode) => void;
+  setRobotDragTeachPose: (p: RobotDragTeachPose | null) => void;
   doImport: () => Promise<void>;
   focusRequest: number;
   requestFocus: () => void;
@@ -46,11 +54,17 @@ export function SceneProvider({ children }: { children: ReactNode }) {
   const [objects, setObjects] = useState<BackendObject[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [interactMode, setInteractMode] = useState<InteractMode>("view");
-  const [robotDragMode, setRobotDragMode] = useState(false);
+  const [robotDragMode, setRobotDragModeState] = useState(false);
   const [gizmoTransformMode, setGizmoTransformMode] = useState<GizmoTransformMode>("translate");
+  const [robotDragTeachPose, setRobotDragTeachPose] = useState<RobotDragTeachPose | null>(null);
   const [focusRequest, setFocusRequest] = useState(0);
   const robotDragModeRef = useRef(false);
   robotDragModeRef.current = robotDragMode;
+
+  const setRobotDragMode = useCallback((v: boolean) => {
+    setRobotDragModeState(v);
+    if (!v) setRobotDragTeachPose(null);
+  }, []);
 
   const refreshObjects = useCallback(async () => {
     const list = await fetchObjects();
@@ -115,11 +129,13 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       interactMode,
       robotDragMode,
       gizmoTransformMode,
+      robotDragTeachPose,
       refreshObjects,
       selectObject,
       setInteractMode,
       setRobotDragMode,
       setGizmoTransformMode,
+      setRobotDragTeachPose,
       doImport,
       focusRequest,
       requestFocus,
@@ -130,8 +146,10 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       interactMode,
       robotDragMode,
       gizmoTransformMode,
+      robotDragTeachPose,
       refreshObjects,
       selectObject,
+      setRobotDragMode,
       doImport,
       focusRequest,
       requestFocus,
