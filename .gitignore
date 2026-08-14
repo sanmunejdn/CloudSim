@@ -370,3 +370,6 @@ FodyWeavers.xsd
 # Accidental PostBuild output when MSBuild macros were not expanded
 **/$(OutDir)web/
 **/$(CloudSimBinDir)web/
+
+# Cursor IDE local rules / skills（不进远程）
+.cursor/
