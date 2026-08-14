@@ -6,6 +6,32 @@
 |:------:|:------:|
 | ![桌面端界面](docs/images/desktop-ui.png) | ![网页端界面](docs/images/web-ui.png) |
 
+## 快速入口
+
+| 项 | 路径 |
+|----|------|
+| 桌面解决方案 | [`CloudSim.sln`](CloudSim.sln) → `CloudSim.exe` |
+| 网页解决方案 | [`CloudSimWeb.sln`](CloudSimWeb.sln) → `CloudSimWeb.exe` |
+| 双端安装包 | [`../Setup/packaging`](../Setup/packaging)（`-Product Desktop\|Web`；Web 须 Vite `bin\x64\web\assets\`） |
+| 文档索引 | [`docs/README.md`](docs/README.md) |
+| 目录布局 | [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md) |
+| 模块开发指南 | [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md) |
+| 源码约定 | [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md) |
+| 世界坐标契约 | [`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md) |
+| 网页 API（归档） | [`docs/_archive/网页端/API_网页端.md`](docs/_archive/网页端/API_网页端.md) |
+
+构建产物：Debug → 仓库根 `bin\x64d\`，Release → `bin\x64\`（见 `Directory.Build.props`）。网页静态资源在同目录 `web\`。
+
+## 桌面 vs 网页
+
+| | 桌面 | 网页 |
+|--|------|------|
+| 解决方案 | `CloudSim.sln` | `CloudSimWeb.sln`（仅 Web 依赖链，不含 Widget UI） |
+| 进程 | `CloudSim.exe` | `CloudSimWeb.exe`（独立，不监听桌面端口） |
+| 入口 | `src/App/CloudSim/` | `src/App/CloudSimWeb/` |
+| 宿主 | 完整 Qt/OSG UI | Headless Host + HTTP/WS 网关 |
+| 默认访问 | 桌面窗口 | `http://127.0.0.1:8787`（可用 `--port=` 改端口） |
+
 两套 sln **互不引入**对方的 UI/Web 工程；共享 `CloudSimCore` / `CloudSimHost` / `Data` / 机器人与几何等后端 DLL。
 
 ## 网页版源码
