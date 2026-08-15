@@ -260,6 +260,10 @@ void DevicePageWidget::setupUi(QVBoxLayout* rootLayout)
 
 	m_customDeviceBtn = new QPushButton(this);
 	m_customDeviceBtn->setProperty("btnRole", QStringLiteral("secondary"));
+	m_editCustomDeviceBtn = new QPushButton(this);
+	m_editCustomDeviceBtn->setProperty("btnRole", QStringLiteral("secondary"));
+	m_exportCustomDeviceUrdfBtn = new QPushButton(this);
+	m_exportCustomDeviceUrdfBtn->setProperty("btnRole", QStringLiteral("secondary"));
 
 	m_modelsScroll = new QScrollArea(this);
 	m_modelsScroll->setWidgetResizable(true);
@@ -291,11 +295,15 @@ void DevicePageWidget::setupUi(QVBoxLayout* rootLayout)
 			&DevicePageWidget::onBrandSelectionChanged);
 	connect(m_refreshBtn, &QPushButton::clicked, this, &DevicePageWidget::onRefreshClicked);
 	connect(m_customDeviceBtn, &QPushButton::clicked, this, &DevicePageWidget::customDeviceCreateRequested);
+	connect(m_editCustomDeviceBtn, &QPushButton::clicked, this, &DevicePageWidget::customDeviceEditRequested);
+	connect(m_exportCustomDeviceUrdfBtn, &QPushButton::clicked, this, &DevicePageWidget::customDeviceExportUrdfRequested);
 
 	if (rootLayout)
 	{
 		rootLayout->addLayout(filterRow);
 		rootLayout->addWidget(m_customDeviceBtn);
+		rootLayout->addWidget(m_editCustomDeviceBtn);
+		rootLayout->addWidget(m_exportCustomDeviceUrdfBtn);
 		rootLayout->addWidget(m_modelsScroll, 1);
 	}
 }
@@ -323,9 +331,22 @@ void DevicePageWidget::updateUiLabels()
 	}
 	if (m_customDeviceBtn)
 	{
-		m_customDeviceBtn->setText(zh ? QStringLiteral("自定义设备…") : QStringLiteral("Custom Device…"));
-		m_customDeviceBtn->setToolTip(zh ? QStringLiteral("导入模型并定义平移/旋转轴")
-										 : QStringLiteral("Import model and define translate/rotate axis"));
+		m_customDeviceBtn->setText(zh ? QStringLiteral("新建自定义设备…") : QStringLiteral("New Custom Device…"));
+		m_customDeviceBtn->setToolTip(zh ? QStringLiteral("导入模型并在画布上定义运动副")
+										 : QStringLiteral("Import models and define joints on canvas"));
+	}
+	if (m_editCustomDeviceBtn)
+	{
+		m_editCustomDeviceBtn->setText(zh ? QStringLiteral("编辑自定义设备…") : QStringLiteral("Edit Custom Device…"));
+		m_editCustomDeviceBtn->setToolTip(zh ? QStringLiteral("打开已有设备的组装画布继续修改")
+											: QStringLiteral("Reopen assembly canvas for an existing device"));
+	}
+	if (m_exportCustomDeviceUrdfBtn)
+	{
+		m_exportCustomDeviceUrdfBtn->setText(zh ? QStringLiteral("导出 URDF…") : QStringLiteral("Export URDF…"));
+		m_exportCustomDeviceUrdfBtn->setToolTip(
+			zh ? QStringLiteral("导出为带 package.xml 的 ROS 包，可用导入 URDF 回灌")
+			   : QStringLiteral("Export a ROS package with package.xml for URDF re-import"));
 	}
 }
 

@@ -38,6 +38,8 @@ inline constexpr const char* kProjectKeyProcessFlow = "processFlow";
 inline constexpr const char* kProjectKeyGeometricModeling = "geometricModeling";
 inline constexpr const char* kProjectKeyEngineeringDrawing = "engineeringDrawing";
 inline constexpr const char* kProjectKeyIoSignals = "ioSignals";
+/// 每台机器人信号表 + 跨 Owner DO→DI 接线（设备表在 CustomDevice 对象内）
+inline constexpr const char* kProjectKeyIoSignalNetwork = "ioSignalNetwork";
 
 inline bool isBrepWorkpieceClassName(const std::string& className)
 {

@@ -194,6 +194,7 @@
     <ClInclude Include="inc\RobotCoordinateFrames.h" />
     <ClInclude Include="inc\RobotExternalAxes.h" />
     <ClInclude Include="inc\CustomDeviceKinematics.h" />
+    <ClInclude Include="inc\CustomDeviceAssemblyCommit.h" />
     <ClInclude Include="inc\RobotCollisionSettings.h" />
     <ClInclude Include="inc\ExternalAxisSearchService.h" />
     <ClInclude Include="inc\RobotInstructionController.h" />
@@ -262,6 +263,7 @@
     <ClCompile Include="source\RobotCoordinateFrames.cpp" />
     <ClCompile Include="source\RobotExternalAxes.cpp" />
     <ClCompile Include="source\CustomDeviceKinematics.cpp" />
+    <ClCompile Include="source\CustomDeviceAssemblyCommit.cpp" />
     <ClCompile Include="source\RobotCollisionSettings.cpp" />
     <ClCompile Include="source\ExternalAxisSearchService.cpp" />
     <ClCompile Include="source\RobotInstructionController.cpp" />

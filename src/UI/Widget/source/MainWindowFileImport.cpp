@@ -12,24 +12,14 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
-#include "BackendHierarchyFollow.h"
 #include "BackendTypeIds.h"
-#include "CustomDeviceAxisEditorWidget.h"
+#include "CustomDeviceAssemblyDialog.h"
 #include "CustomDeviceBackendData.h"
-#include "CustomDeviceKinematics.h"
 #include "DocumentImportFacade.h"
 #include "FrameBackendData.h"
-#include "IRobotBackendPoseSink.h"
-#include "IRobotOsgViewHost.h"
 #include "MainWindowRobotHost.h"
-#include "OsgWidget.h"
-#include "PickTypes.h"
-#include "RobotAxisControlWidget.h"
-#include "RobotSimulationController.h"
 
-#include <cmath>
 #include <memory>
-#include <unordered_set>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -38,17 +28,11 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
-#include <QGroupBox>
-#include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
 #include <QLatin1String>
 #include <QLineEdit>
-#include <QListWidget>
 #include <QMessageBox>
-#include <QPushButton>
-#include <QStringList>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
 #include <QVBoxLayout>
 
 using namespace mainwindow_detail;
@@ -118,8 +102,9 @@ void MainWindow::onOpenModel()
 {
 	const QString filter = QStringLiteral(
 		"Model Files (*.obj *.stl *.ply *.off *.dxf *.dae *.3ds *.fbx *.step *.stp *.igs *.iges);;All Files (*.*)");
-	const QString filePath = QFileDialog::getOpenFileName(this, QStringLiteral("Open Model"), QString(), filter);
-	if (filePath.isEmpty())
+	const QStringList filePaths =
+		QFileDialog::getOpenFileNames(this, QStringLiteral("Open Model"), QString(), filter);
+	if (filePaths.isEmpty())
 	{
 		return;
 	}
@@ -130,16 +115,40 @@ void MainWindow::onOpenModel()
 		return;
 	}
 
-	const int quality = promptMeshImportQuality(*this, filePath);
-	if (quality < 0)
+	QString qualityProbePath;
+	for (const QString& path : filePaths)
 	{
-		return;
+		if (isMeshQualityPromptExtension(QFileInfo(path).suffix().toLower()))
+		{
+			qualityProbePath = path;
+			break;
+		}
+	}
+	if (!qualityProbePath.isEmpty())
+	{
+		const int quality = promptMeshImportQuality(*this, qualityProbePath);
+		if (quality < 0)
+		{
+			return;
+		}
 	}
 
-	registerBackendObject(filePath, QLatin1String(backend_type::kCatalogModel), false);
-	if (m_runInfoPage)
+	int opened = 0;
+	for (const QString& filePath : filePaths)
 	{
-		m_runInfoPage->appendInfo(QStringLiteral("Model opened: %1").arg(filePath));
+		if (!registerBackendObject(filePath, QLatin1String(backend_type::kCatalogModel), false))
+		{
+			continue;
+		}
+		++opened;
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendInfo(QStringLiteral("Model opened: %1").arg(filePath));
+		}
+	}
+	if (opened == 0 && !filePaths.isEmpty())
+	{
+		QMessageBox::warning(this, QStringLiteral("Import Model"), QStringLiteral("Failed to import selected models."));
 	}
 }
 
@@ -253,9 +262,13 @@ void MainWindow::onCreateCoordinateFrame()
 
 void MainWindow::onCreateCustomDevice()
 {
+	openCustomDeviceAssemblyDialog(QString());
+}
+
+void MainWindow::onEditCustomDevice()
+{
 	cloudsim::host::DocumentHost* host = currentDocumentHost();
-	DocumentPage* page = currentPage();
-	if (!host || !page || !renderWidgetFromPage(page))
+	if (!host)
 	{
 		QMessageBox::warning(
 			this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
@@ -263,476 +276,145 @@ void MainWindow::onCreateCustomDevice()
 		return;
 	}
 
-	QDialog dialog(this);
-	dialog.setWindowTitle(i18n(QStringLiteral("Create Custom Device"), QStringLiteral("新建自定义设备")));
-	dialog.setModal(false);
-	dialog.setWindowModality(Qt::NonModal);
-	dialog.resize(460, 620);
-	auto* layout = new QVBoxLayout(&dialog);
-	auto* form = new QFormLayout();
-
-	auto* nameEdit = new QLineEdit(&dialog);
-	nameEdit->setText(i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")));
-
-	auto* childList = new QListWidget(&dialog);
-	childList->setMinimumHeight(96);
-	auto* fromSceneBtn =
-		new QPushButton(i18n(QStringLiteral("From scene…"), QStringLiteral("从场景选择…")), &dialog);
-	auto* importFileBtn =
-		new QPushButton(i18n(QStringLiteral("Import file…"), QStringLiteral("导入文件…")), &dialog);
-	auto* removeChildBtn = new QPushButton(i18n(QStringLiteral("Remove"), QStringLiteral("移除")), &dialog);
-	auto* childBtnRow = new QHBoxLayout;
-	childBtnRow->addWidget(fromSceneBtn);
-	childBtnRow->addWidget(importFileBtn);
-	childBtnRow->addWidget(removeChildBtn);
-	childBtnRow->addStretch(1);
-
-	auto* axisEditor = new CustomDeviceAxisEditorWidget(&dialog);
-	axisEditor->setUseChinese(m_useChinese);
-
-	form->addRow(i18n(QStringLiteral("Name"), QStringLiteral("名称")), nameEdit);
-	layout->addLayout(form);
-	layout->addWidget(new QLabel(i18n(QStringLiteral("Components (Mesh / STEP)"), QStringLiteral("组件（网格 / STEP）")),
-								 &dialog));
-	layout->addWidget(childList);
-	layout->addLayout(childBtnRow);
-	layout->addWidget(axisEditor, 1);
-
-	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-	layout->addWidget(buttons);
-
-	struct SceneState
+	QStringList labels;
+	QStringList ids;
+	for (const auto& data : host->backend().listData())
 	{
-		std::shared_ptr<CustomDeviceBackendData> device;
-		QStringList childRootIds;
-		bool picking = false;
-	};
-	auto state = std::make_shared<SceneState>();
-
-	auto cleanupPick = [this, state]()
+		if (!data || !backend_type::isCustomDeviceClassName(data->className()))
+		{
+			continue;
+		}
+		const QString id = QString::fromStdString(data->id());
+		const QString name = QString::fromStdString(data->name().empty() ? data->id() : data->name());
+		labels << QStringLiteral("%1 [%2]").arg(name, id);
+		ids << id;
+	}
+	if (labels.isEmpty())
 	{
-		if (!state->picking)
-		{
-			return;
-		}
-		state->picking = false;
-		if (m_robotHost)
-		{
-			m_robotHost->clearMeshPickCommittedHandler();
-			if (IRobotOsgViewHost* osg = m_robotHost->osgView())
-			{
-				osg->setMeshFacePickMode(false);
-				osg->setMeshPickScopeBackendId(std::string());
-			}
-		}
-	};
+		QMessageBox::information(
+			this, i18n(QStringLiteral("Edit Custom Device"), QStringLiteral("编辑自定义设备")),
+			i18n(QStringLiteral("No custom device to edit."), QStringLiteral("当前文档没有可编辑的自定义设备。")));
+		return;
+	}
 
-	auto refreshChildListUi = [childList, state, host]()
+	bool ok = false;
+	const QString picked = QInputDialog::getItem(
+		this,
+		i18n(QStringLiteral("Edit Custom Device"), QStringLiteral("编辑自定义设备")),
+		i18n(QStringLiteral("Select device:"), QStringLiteral("选择要修改的设备：")),
+		labels,
+		0,
+		false,
+		&ok);
+	if (!ok || picked.isEmpty())
 	{
-		childList->clear();
-		for (const QString& id : state->childRootIds)
-		{
-			QString label = id;
-			if (const auto data = host->backend().getData(id.toStdString()))
-			{
-				label = QStringLiteral("%1 [%2] (%3)")
-							.arg(QString::fromStdString(data->name()), id,
-								 QString::fromStdString(data->className()));
-			}
-			auto* item = new QListWidgetItem(label);
-			item->setData(Qt::UserRole, id);
-			childList->addItem(item);
-		}
-	};
-
-	auto syncDeviceAfterChildrenChange = [this, host, page, state]()
+		return;
+	}
+	const int idx = labels.indexOf(picked);
+	if (idx < 0 || idx >= ids.size())
 	{
-		if (!state->device)
-		{
-			return;
-		}
-		state->device->captureBaseWorldW0FromCurrentWorld();
-		IRobotBackendPoseSink* sink = page->urdfImportScenePoseSink();
-		(void)CustomDeviceKinematics::applyQ(*state->device, &host->backend(), sink);
-		page->markFollowAttachmentDirtyFromBackendMove(QString::fromStdString(state->device->id()));
-		if (m_robotHost)
-		{
-			m_robotHost->runFollowSolveAndSyncForCurrentDocument();
-		}
-		refreshBackendTree();
-	};
+		return;
+	}
+	openCustomDeviceAssemblyDialog(ids.at(idx));
+}
 
-	auto ensureDevice = [&](QString* outErr) -> bool
+void MainWindow::onExportCustomDeviceUrdf()
+{
+	(void)exportCustomDeviceUrdfInteractive(QString());
+}
+
+bool MainWindow::exportCustomDeviceUrdfInteractive(const QString& deviceBackendId)
+{
+	cloudsim::host::DocumentHost* host = currentDocumentHost();
+	if (!host)
 	{
-		QString name = nameEdit->text().trimmed();
-		if (name.isEmpty())
-		{
-			name = i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备"));
-		}
-		if (!state->device)
-		{
-			state->device = std::make_shared<CustomDeviceBackendData>();
-			state->device->setName(name.toStdString());
-			QString err;
-			if (!cloudsim::host::registerAdoptedCustomDeviceAndLoadScene(
-					*host, state->device, QLatin1String(backend_type::kCatalogCustomDevice), QString(), false, &err))
-			{
-				if (outErr)
-				{
-					*outErr = err.isEmpty() ? i18n(QStringLiteral("Failed to create device."),
-												   QStringLiteral("创建设备失败。"))
-											: err;
-				}
-				state->device.reset();
-				return false;
-			}
-		}
-		else
-		{
-			state->device->setName(name.toStdString());
-		}
-		return true;
-	};
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
+			i18n(QStringLiteral("No active document / 3D view."), QStringLiteral("没有活动文档或三维视图。")));
+		return false;
+	}
 
-	auto attachChildId = [&](const QString& childId, QString* outErr) -> bool
+	QString deviceId = deviceBackendId.trimmed();
+	if (deviceId.isEmpty())
 	{
-		if (childId.isEmpty())
-		{
-			if (outErr)
-			{
-				*outErr = i18n(QStringLiteral("Empty component id."), QStringLiteral("组件 id 为空。"));
-			}
-			return false;
-		}
-		if (state->childRootIds.contains(childId))
-		{
-			if (outErr)
-			{
-				*outErr = i18n(QStringLiteral("Component already attached."), QStringLiteral("该组件已挂接。"));
-			}
-			return false;
-		}
-		if (!ensureDevice(outErr))
-		{
-			return false;
-		}
-		if (childId.toStdString() == state->device->id())
-		{
-			if (outErr)
-			{
-				*outErr = i18n(QStringLiteral("Cannot attach the device to itself."),
-							   QStringLiteral("不能把设备挂到自身下。"));
-			}
-			return false;
-		}
-		QString err;
-		if (!cloudsim::host::attachBackendChildToCustomDevice(*host, state->device->id(), childId.toStdString(), &err))
-		{
-			if (outErr)
-			{
-				*outErr = err.isEmpty() ? i18n(QStringLiteral("Failed to attach component."),
-											   QStringLiteral("挂接组件失败。"))
-										: err;
-			}
-			return false;
-		}
-		state->childRootIds.append(childId);
-		refreshChildListUi();
-		syncDeviceAfterChildrenChange();
-		return true;
-	};
-
-	auto ensureHasComponents = [&](QString* outErr) -> bool
-	{
-		if (!ensureDevice(outErr))
-		{
-			return false;
-		}
-		if (state->childRootIds.isEmpty())
-		{
-			if (outErr)
-			{
-				*outErr = i18n(QStringLiteral("Add at least one component from scene or file."),
-							   QStringLiteral("请从场景选择或导入至少一个组件。"));
-			}
-			return false;
-		}
-		return true;
-	};
-
-	QObject::connect(fromSceneBtn, &QPushButton::clicked, &dialog, [&]()
-	{
-		std::unordered_set<std::string> already;
-		for (const QString& id : state->childRootIds)
-		{
-			already.insert(id.toStdString());
-		}
-		if (state->device)
-		{
-			already.insert(state->device->id());
-		}
-
-		QDialog pickDlg(&dialog);
-		pickDlg.setWindowTitle(i18n(QStringLiteral("Select Component"), QStringLiteral("选择组件")));
-		auto* pickLayout = new QVBoxLayout(&pickDlg);
-		pickLayout->addWidget(
-			new QLabel(i18n(QStringLiteral("Choose a loaded Mesh / STEP object:"),
-						   QStringLiteral("选择已加载的网格 / STEP 对象：")),
-					   &pickDlg));
-		auto* combo = new QComboBox(&pickDlg);
+		QStringList labels;
+		QStringList ids;
 		for (const auto& data : host->backend().listData())
 		{
-			if (!data)
-			{
-				continue;
-			}
-			const std::string& cn = data->className();
-			if (!backend_type::isMeshClassName(cn) && !backend_type::isBrepWorkpieceClassName(cn))
-			{
-				continue;
-			}
-			if (already.count(data->id()) > 0)
+			if (!data || !backend_type::isCustomDeviceClassName(data->className()))
 			{
 				continue;
 			}
 			const QString id = QString::fromStdString(data->id());
-			const QString label = QStringLiteral("%1 [%2] (%3)")
-									  .arg(QString::fromStdString(data->name()), id,
-										   QString::fromStdString(cn));
-			combo->addItem(label, id);
+			const QString name = QString::fromStdString(data->name().empty() ? data->id() : data->name());
+			labels << QStringLiteral("%1 [%2]").arg(name, id);
+			ids << id;
 		}
-		if (combo->count() == 0)
+		if (labels.isEmpty())
 		{
 			QMessageBox::information(
-				&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-				i18n(QStringLiteral("No available Mesh / STEP objects in the scene."),
-					 QStringLiteral("场景中没有可挂接的网格 / STEP 对象。")));
-			return;
+				this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
+				i18n(QStringLiteral("No custom device to export."), QStringLiteral("当前文档没有可导出的自定义设备。")));
+			return false;
 		}
-		pickLayout->addWidget(combo);
-		auto* pickButtons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &pickDlg);
-		pickLayout->addWidget(pickButtons);
-		QObject::connect(pickButtons, &QDialogButtonBox::accepted, &pickDlg, &QDialog::accept);
-		QObject::connect(pickButtons, &QDialogButtonBox::rejected, &pickDlg, &QDialog::reject);
-		if (pickDlg.exec() != QDialog::Accepted)
+		bool ok = false;
+		const QString picked = QInputDialog::getItem(
+			this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
+			i18n(QStringLiteral("Select device:"), QStringLiteral("选择要导出的设备：")), labels, 0, false, &ok);
+		if (!ok || picked.isEmpty())
 		{
-			return;
+			return false;
 		}
-		QString err;
-		if (!attachChildId(combo->currentData().toString(), &err))
+		const int idx = labels.indexOf(picked);
+		if (idx < 0 || idx >= ids.size())
 		{
-			QMessageBox::warning(&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
-			return;
+			return false;
 		}
-		if (m_runInfoPage)
-		{
-			m_runInfoPage->appendInfo(
-				i18n(QStringLiteral("Component attached from scene."), QStringLiteral("已从场景挂接组件。")));
-		}
-	});
+		deviceId = ids.at(idx);
+	}
 
-	QObject::connect(importFileBtn, &QPushButton::clicked, &dialog, [&]()
+	const QString parentDir = QFileDialog::getExistingDirectory(
+		this, i18n(QStringLiteral("Select export folder"), QStringLiteral("选择导出目录")));
+	if (parentDir.isEmpty())
 	{
-		const QString filter = QStringLiteral(
-			"Model Files (*.obj *.stl *.ply *.off *.dxf *.step *.stp *.igs *.iges);;All Files (*.*)");
-		const QString path = QFileDialog::getOpenFileName(
-			&dialog, i18n(QStringLiteral("Select Model"), QStringLiteral("选择模型")), QString(), filter);
-		if (path.isEmpty())
-		{
-			return;
-		}
-		QString err;
-		if (!ensureDevice(&err))
-		{
-			QMessageBox::warning(&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
-			return;
-		}
-		cloudsim::core::ImportOptionsDto opt;
-		opt.resetViewToHome = false;
-		QString importErr;
-		const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
-			*host, path, cloudsim::host::ImportFileKind::Mesh, opt, &importErr);
-		if (!imported.ok || imported.rootBackendId.isEmpty())
-		{
-			QMessageBox::warning(
-				&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-				importErr.isEmpty() ? i18n(QStringLiteral("Model import failed."), QStringLiteral("模型导入失败。"))
-									: importErr);
-			return;
-		}
-		if (!attachChildId(imported.rootBackendId, &err))
-		{
-			QMessageBox::warning(&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
-			return;
-		}
-		if (m_runInfoPage)
-		{
-			m_runInfoPage->appendInfo(
-				i18n(QStringLiteral("Component imported and attached."), QStringLiteral("已导入并挂接组件。")));
-		}
-	});
+		return false;
+	}
 
-	QObject::connect(removeChildBtn, &QPushButton::clicked, &dialog, [&]()
+	QString urdfPath;
+	QString packageRoot;
+	QString err;
+	if (!cloudsim::host::exportCustomDeviceUrdfPackage(*host, deviceId.toStdString(), parentDir, &urdfPath, &packageRoot,
+													   &err))
 	{
-		QListWidgetItem* item = childList->currentItem();
-		if (!item)
-		{
-			return;
-		}
-		const QString childId = item->data(Qt::UserRole).toString();
-		if (childId.isEmpty())
-		{
-			return;
-		}
-		host->backend().detachAllParents(childId.toStdString());
-		if (OsgWidget* osg = host->osgWidget())
-		{
-			osg->setBackendParent(childId.toStdString(), std::string());
-		}
-		cloudsim::host::applyHierarchyFollowBinding(*host, childId.toStdString(), std::string());
-		state->childRootIds.removeAll(childId);
-		refreshChildListUi();
-		syncDeviceAfterChildrenChange();
-	});
+		QMessageBox::warning(this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")), err);
+		return false;
+	}
 
-	QObject::connect(axisEditor, &CustomDeviceAxisEditorWidget::pickOriginRequested, &dialog, [&]()
+	if (m_runInfoPage)
 	{
-		if (!axisEditor->currentAxisIsRotate())
-		{
-			QMessageBox::information(&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-									 i18n(QStringLiteral("Pick origin is only for rotate axes."),
-										  QStringLiteral("拾取中心仅用于旋转轴。")));
-			return;
-		}
-		QString err;
-		if (!ensureHasComponents(&err))
-		{
-			QMessageBox::warning(&dialog, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
-			return;
-		}
-		if (!m_robotHost)
-		{
-			return;
-		}
-		IRobotOsgViewHost* osg = m_robotHost->osgView();
-		if (!osg || !state->device)
-		{
-			return;
-		}
-		cleanupPick();
-		state->picking = true;
-		if (!state->childRootIds.isEmpty())
-		{
-			osg->setMeshPickScopeBackendId(state->childRootIds.front().toStdString());
-		}
-		osg->setMeshFacePickMode(true);
-		m_robotHost->setMeshPickCommittedHandler([this, state, axisEditor, cleanupPick](const PickResult& pick,
-																					   const PickKind kind)
-		{
-			if (!state->picking || kind != PickKind::MeshFace || !pick.hit || !state->device)
-			{
-				cleanupPick();
-				return;
-			}
-			state->device->captureBaseWorldW0FromCurrentWorld();
-			double local[3]{};
-			if (!CustomDeviceKinematics::worldPointToDeviceLocalMm(
-					state->device->baseWorldW0(), static_cast<double>(pick.worldPoint.x()),
-					static_cast<double>(pick.worldPoint.y()), static_cast<double>(pick.worldPoint.z()), local))
-			{
-				cleanupPick();
-				return;
-			}
-			axisEditor->applyPickedOriginLocalMm(local[0], local[1], local[2]);
-			if (axisEditor->useNormalAsAxis())
-			{
-				double dir[3]{};
-				if (CustomDeviceKinematics::worldDirectionToDeviceLocal(
-						state->device->baseWorldW0(), static_cast<double>(pick.meshNormalWorld.x()),
-						static_cast<double>(pick.meshNormalWorld.y()), static_cast<double>(pick.meshNormalWorld.z()),
-						dir))
-				{
-					axisEditor->applyPickedAxisDirection(dir[0], dir[1], dir[2]);
-				}
-			}
-			cleanupPick();
-			if (m_runInfoPage)
-			{
-				m_runInfoPage->appendInfo(
-					i18n(QStringLiteral("Rotation origin picked."), QStringLiteral("已拾取旋转中心。")));
-			}
-		});
-		if (m_runInfoPage)
-		{
-			m_runInfoPage->appendInfo(
-				i18n(QStringLiteral("Click a mesh face to set rotation origin."),
-					 QStringLiteral("请在模型面上点击以设置旋转中心。")));
-		}
-	});
+		m_runInfoPage->appendInfo(i18n(QStringLiteral("URDF exported: %1").arg(urdfPath),
+									   QStringLiteral("已导出 URDF：%1").arg(urdfPath)));
+	}
+	QMessageBox::information(
+		this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
+		i18n(QStringLiteral("Package written to:\n%1\n\nURDF:\n%2").arg(packageRoot, urdfPath),
+			 QStringLiteral("已写出 ROS 包：\n%1\n\nURDF：\n%2").arg(packageRoot, urdfPath)));
+	return true;
+}
 
-	QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-	QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-	QObject::connect(&dialog, &QDialog::finished, &dialog, [&](int) { cleanupPick(); });
+void MainWindow::openCustomDeviceAssemblyDialog(const QString& existingDeviceBackendId)
+{
+	if (!m_robotHost || !currentDocumentHost() || !currentPage() || !renderWidgetFromPage(currentPage()))
+	{
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+			i18n(QStringLiteral("No active document / 3D view."), QStringLiteral("没有活动文档或三维视图。")));
+		return;
+	}
 
+	CustomDeviceAssemblyDialog dialog(m_robotHost.get(), existingDeviceBackendId, this);
 	dialog.show();
 	QEventLoop loop;
 	QObject::connect(&dialog, &QDialog::finished, &loop, &QEventLoop::quit);
 	loop.exec();
-	cleanupPick();
-	if (dialog.result() != QDialog::Accepted)
-	{
-		return;
-	}
-
-	QString err;
-	if (!ensureHasComponents(&err))
-	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
-		return;
-	}
-	if (!state->device)
-	{
-		return;
-	}
-
-	CustomDeviceAxisConfigSet set = axisEditor->axes();
-	if (set.axes.empty())
-	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-							 i18n(QStringLiteral("Add at least one axis."), QStringLiteral("请至少添加一个轴。")));
-		return;
-	}
-	std::vector<double> homes;
-	homes.reserve(set.axes.size());
-	for (const CustomDeviceAxisConfig& a : set.axes)
-	{
-		homes.push_back(a.home);
-	}
-	state->device->setAxes(set);
-	state->device->setQValues(homes);
-	state->device->captureBaseWorldW0FromCurrentWorld();
-	IRobotBackendPoseSink* sink = page->urdfImportScenePoseSink();
-	(void)CustomDeviceKinematics::applyQ(*state->device, &host->backend(), sink);
-	page->markFollowAttachmentDirtyFromBackendMove(QString::fromStdString(state->device->id()));
-	if (m_robotHost)
-	{
-		m_robotHost->runFollowSolveAndSyncForCurrentDocument();
-	}
-	refreshBackendTree();
-	focusBackendInTreeAfterImport(QString::fromStdString(state->device->id()));
-	if (m_robotSimulation)
-	{
-		m_robotSimulation->refreshAxisControlTargets();
-		if (RobotAxisControlWidget* axis = m_robotHost ? m_robotHost->robotAxisControlPage() : nullptr)
-		{
-			axis->selectControlTarget(AxisControlTargetKind::CustomDevice, QString::fromStdString(state->device->id()));
-		}
-	}
-	const QString name = QString::fromStdString(state->device->name());
-	if (m_runInfoPage)
-	{
-		m_runInfoPage->appendInfo(
-			i18n(QStringLiteral("Custom device created: %1").arg(name), QStringLiteral("已创建自定义设备：%1").arg(name)));
-	}
 }
-

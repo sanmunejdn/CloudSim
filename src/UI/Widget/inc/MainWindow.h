@@ -242,6 +242,12 @@ private:
 	void onOpenPointCloud();
 	void onCreateCoordinateFrame();
 	void onCreateCustomDevice();
+	void onEditCustomDevice();
+	void onExportCustomDeviceUrdf();
+	/// existingDeviceBackendId 空=新建；非空=打开已有设备画布再改
+	void openCustomDeviceAssemblyDialog(const QString& existingDeviceBackendId);
+	/// 弹出目录选择并导出；deviceId 空则先选设备
+	bool exportCustomDeviceUrdfInteractive(const QString& deviceBackendId);
 	void onOpenHelpDocumentation();
 	void onAboutCloudSim();
 	void onBackendTreeSelectionChanged();

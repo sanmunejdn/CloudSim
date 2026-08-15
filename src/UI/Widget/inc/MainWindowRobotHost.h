@@ -5,6 +5,7 @@
 /// @brief MainWindow 的 IRobotMainWindowHost + 指令属性 IRobotService 委托实现
 
 #include "../RobotWidget/inc/IRobotMainWindowHost.h"
+#include "../RobotWidget/inc/ICustomDeviceAssemblyHost.h"
 #include "IRobotInstructionPropertyDelegate.h"
 
 #include <functional>
@@ -13,12 +14,15 @@
 class MainWindow;
 class DocumentPage;
 class WidgetOsgViewHost;
+class CustomDeviceBackendData;
 
 struct PickResult;
 enum class PickKind;
 
-/// MainWindow 的 IRobotMainWindowHost + 指令属性 IRobotService 委托实现
-class MainWindowRobotHost : public IRobotMainWindowHost, public cloudsim::host::IRobotInstructionPropertyDelegate
+/// MainWindow 的 IRobotMainWindowHost + 组装宿主 + 指令属性委托
+class MainWindowRobotHost : public IRobotMainWindowHost,
+							public ICustomDeviceAssemblyHost,
+							public cloudsim::host::IRobotInstructionPropertyDelegate
 {
 public:
 	explicit MainWindowRobotHost(MainWindow* mw);
@@ -83,8 +87,18 @@ public:
 	void notifyMeshTriangleLabelingPolyline(const QVector<float>& polylineScreenXy, const QVector<double>& mvpMatrix,
 											int viewportWidth, int viewportHeight);
 
-	/// 文档页 OSG Qt 信号 → MainWindow 槽（Widget 协调层不直接 include OsgWidget）
 	void wireDocumentPageSceneSignals(DocumentPage* page);
+
+	// ICustomDeviceAssemblyHost
+	bool registerCustomDevice(const std::shared_ptr<CustomDeviceBackendData>& device, QString* outError) override;
+	bool attachChildToCustomDevice(const std::string& deviceId, const std::string& childId,
+								   QString* outError) override;
+	QStringList importModelsForAssembly(QWidget* parent, const QStringList& paths, QStringList* outErrors) override;
+	bool exportCustomDeviceUrdfInteractive(const QString& deviceBackendId) override;
+	void markFollowAttachmentDirty(const QString& deviceBackendId) override;
+	void focusBackendInTree(const QString& backendId) override;
+	void runFollowSolveAndSync() override;
+	void onCustomDeviceAssemblyCommitted(const QString& deviceBackendId) override;
 
 	QVector<cloudsim::core::PropertyRowDto> instructionPropertyRows(const QString& instructionId) override;
 	bool applyInstructionPropertyChange(const QString& instructionId, const QString& key, const QString& value,

@@ -2677,8 +2677,7 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 					}
 					edit->applyRecipePresetByKind(recipeKind);
 				}
-				m_simController->simulationDock()->tabWidget()->setCurrentIndex(
-					RobotSimulationDockWidget::kTabIndexTrajectoryEdit);
+				m_simController->showRobotDockTab(RobotSimulationDockWidget::kTabIndexTrajectoryEdit);
 			}
 		}
 

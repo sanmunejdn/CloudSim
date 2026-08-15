@@ -3,12 +3,16 @@
 
 #include "IoSignalPageWidget.h"
 
+#include "IoSignalNetworkService.h"
 #include "NamedSignalIoSink.h"
+#include "SignalConnectionStationWidget.h"
 
 #include <QAbstractItemView>
 #include <QComboBox>
+#include <QDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QLabel>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QTableWidget>
@@ -39,6 +43,14 @@ void IoSignalPageWidget::setupUi()
 	root->setContentsMargins(6, 6, 6, 6);
 	root->setSpacing(6);
 
+	auto* ownerRow = new QHBoxLayout;
+	auto* ownerLabel = new QLabel(this);
+	ownerLabel->setObjectName(QStringLiteral("ioOwnerLabel"));
+	m_ownerCombo = new QComboBox(this);
+	ownerRow->addWidget(ownerLabel);
+	ownerRow->addWidget(m_ownerCombo, 1);
+	root->addLayout(ownerRow);
+
 	m_tableWidget = new QTableWidget(this);
 	m_tableWidget->setColumnCount(ColCount);
 	m_tableWidget->horizontalHeader()->setStretchLastSection(true);
@@ -54,15 +66,20 @@ void IoSignalPageWidget::setupUi()
 	m_addBtn = new QPushButton(this);
 	m_removeBtn = new QPushButton(this);
 	m_resetBtn = new QPushButton(this);
+	m_stationBtn = new QPushButton(this);
 	btnRow->addWidget(m_addBtn);
 	btnRow->addWidget(m_removeBtn);
 	btnRow->addWidget(m_resetBtn);
+	btnRow->addWidget(m_stationBtn);
 	btnRow->addStretch(1);
 	root->addLayout(btnRow);
 
+	connect(m_ownerCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&IoSignalPageWidget::onOwnerChanged);
 	connect(m_addBtn, &QPushButton::clicked, this, &IoSignalPageWidget::onAddClicked);
 	connect(m_removeBtn, &QPushButton::clicked, this, &IoSignalPageWidget::onRemoveClicked);
 	connect(m_resetBtn, &QPushButton::clicked, this, &IoSignalPageWidget::onResetDefaultsClicked);
+	connect(m_stationBtn, &QPushButton::clicked, this, &IoSignalPageWidget::onOpenStationClicked);
 	connect(m_tableWidget, &QTableWidget::cellChanged, this, &IoSignalPageWidget::onCellChanged);
 }
 
@@ -71,36 +88,121 @@ void IoSignalPageWidget::setUseChinese(const bool chinese)
 	m_useChinese = chinese;
 	updateUiLabels();
 	rebuildTable();
+	if (m_stationDialog && m_stationWidget)
+	{
+		m_stationDialog->setWindowTitle(chinese ? QStringLiteral("信号连接站") : QStringLiteral("Signal station"));
+		m_stationWidget->setUseChinese(chinese);
+	}
 }
 
-void IoSignalPageWidget::setSignalTable(RobotIo::NamedSignalTable* table)
+void IoSignalPageWidget::setNetwork(IoSignalNetworkService* network)
 {
-	m_table = table;
-	rebuildTable();
+	if (m_network)
+	{
+		disconnect(m_network, nullptr, this, nullptr);
+	}
+	m_network = network;
+	if (m_network)
+	{
+		connect(m_network, &IoSignalNetworkService::networkChanged, this, &IoSignalPageWidget::onNetworkChanged);
+	}
+	refreshOwners();
 }
 
-void IoSignalPageWidget::setIoSink(NamedSignalIoSink* sink)
+void IoSignalPageWidget::setCurrentOwnerId(const QString& ownerId)
+{
+	const int idx = m_ownerCombo->findData(ownerId);
+	if (idx >= 0)
+	{
+		m_ownerCombo->setCurrentIndex(idx);
+	}
+}
+
+QString IoSignalPageWidget::currentOwnerId() const
+{
+	return m_ownerCombo->currentData().toString();
+}
+
+void IoSignalPageWidget::refreshOwners()
+{
+	const QString keep = currentOwnerId();
+	m_ownerCombo->blockSignals(true);
+	m_ownerCombo->clear();
+	if (m_network)
+	{
+		for (const QString& id : m_network->ownerIds())
+		{
+			const QString kindTag = m_network->ownerKind(id) == IoSignalOwnerKind::Device
+										? (m_useChinese ? QStringLiteral("设备") : QStringLiteral("Device"))
+										: (m_useChinese ? QStringLiteral("机器人") : QStringLiteral("Robot"));
+			const QString label = QStringLiteral("%1 [%2]").arg(m_network->displayName(id), kindTag);
+			m_ownerCombo->addItem(label, id);
+		}
+	}
+	const int fi = m_ownerCombo->findData(keep);
+	m_ownerCombo->setCurrentIndex(fi >= 0 ? fi : (m_ownerCombo->count() > 0 ? 0 : -1));
+	m_ownerCombo->blockSignals(false);
+	bindCurrentOwner();
+}
+
+void IoSignalPageWidget::refreshFromModel()
+{
+	refreshOwners();
+}
+
+void IoSignalPageWidget::onNetworkChanged()
+{
+	refreshOwners();
+}
+
+void IoSignalPageWidget::onOwnerChanged(int)
+{
+	bindCurrentOwner();
+	emit currentOwnerChanged(currentOwnerId());
+}
+
+void IoSignalPageWidget::bindCurrentOwner()
 {
 	if (m_sink)
 	{
 		disconnect(m_sink, nullptr, this, nullptr);
 	}
-	m_sink = sink;
-	if (m_sink)
+	m_table = nullptr;
+	m_sink = nullptr;
+	const QString id = currentOwnerId();
+	if (m_network && !id.isEmpty())
 	{
-		connect(m_sink, &NamedSignalIoSink::ioValuesChanged, this, &IoSignalPageWidget::onSinkValuesChanged);
+		m_table = m_network->table(id);
+		m_sink = m_network->sink(id);
+		if (m_sink)
+		{
+			connect(m_sink, &NamedSignalIoSink::ioValuesChanged, this, &IoSignalPageWidget::onSinkValuesChanged);
+		}
 	}
-	syncValueColumnsFromSink();
+	rebuildTable();
 }
 
-void IoSignalPageWidget::refreshFromModel()
+void IoSignalPageWidget::flushDeviceIfNeeded()
 {
-	rebuildTable();
+	if (!m_network)
+	{
+		return;
+	}
+	const QString id = currentOwnerId();
+	if (id.isEmpty() || m_network->ownerKind(id) != IoSignalOwnerKind::Device)
+	{
+		return;
+	}
+	// 设备表由 Controller flushDeviceIoTablesToDocument 在保存时写回；编辑时先更新内存 table
 }
 
 void IoSignalPageWidget::updateUiLabels()
 {
 	const bool zh = m_useChinese;
+	if (QLabel* ownerLabel = findChild<QLabel*>(QStringLiteral("ioOwnerLabel")))
+	{
+		ownerLabel->setText(zh ? QStringLiteral("所属") : QStringLiteral("Owner"));
+	}
 	m_tableWidget->setHorizontalHeaderLabels({
 		zh ? QStringLiteral("名称") : QStringLiteral("Name"),
 		zh ? QStringLiteral("类型") : QStringLiteral("Kind"),
@@ -111,6 +213,7 @@ void IoSignalPageWidget::updateUiLabels()
 	m_addBtn->setText(zh ? QStringLiteral("添加") : QStringLiteral("Add"));
 	m_removeBtn->setText(zh ? QStringLiteral("删除") : QStringLiteral("Remove"));
 	m_resetBtn->setText(zh ? QStringLiteral("重置默认") : QStringLiteral("Reset defaults"));
+	m_stationBtn->setText(zh ? QStringLiteral("信号连接站") : QStringLiteral("Signal station"));
 }
 
 RobotIo::SignalKind IoSignalPageWidget::kindFromComboText(const QString& text) const
@@ -275,7 +378,6 @@ void IoSignalPageWidget::applyValueCellToSink(const int row)
 		const bool forced = forceItem && forceItem->checkState() == Qt::Checked;
 		if (forced || s.simForceable)
 		{
-			// 仿真面板改 DI 即写入；可勾强制钉住，供 WAIT/IF 读取
 			m_sink->setDigitalInputForced(s.port, v);
 			if (forceItem)
 			{
@@ -315,6 +417,7 @@ void IoSignalPageWidget::applyRowToModel(const int row)
 	{
 		return;
 	}
+	const QString oldName = QString::fromStdString(m_table->entries()[static_cast<size_t>(row)].name);
 	RobotIo::SignalDef& s = m_table->entriesMut()[static_cast<size_t>(row)];
 	if (QTableWidgetItem* nameItem = m_tableWidget->item(row, ColName))
 	{
@@ -330,6 +433,11 @@ void IoSignalPageWidget::applyRowToModel(const int row)
 		s.port = portItem->text().toInt();
 	}
 	syncForceItemFlags(row);
+	if (m_network && oldName != QString::fromStdString(s.name))
+	{
+		m_network->removeWiresTouchingSignal(currentOwnerId(), oldName);
+	}
+	flushDeviceIfNeeded();
 	emit signalTableEdited();
 }
 
@@ -399,7 +507,12 @@ void IoSignalPageWidget::onAddClicked()
 	s.port = static_cast<int>(m_table->entries().size());
 	s.simForceable = true;
 	m_table->entriesMut().push_back(std::move(s));
+	if (m_sink)
+	{
+		m_sink->resetRuntimeFromTable(true);
+	}
 	rebuildTable();
+	flushDeviceIfNeeded();
 	emit signalTableEdited();
 }
 
@@ -414,8 +527,18 @@ void IoSignalPageWidget::onRemoveClicked()
 	{
 		return;
 	}
+	const QString name = QString::fromStdString(m_table->entries()[static_cast<size_t>(row)].name);
 	m_table->entriesMut().erase(m_table->entriesMut().begin() + row);
+	if (m_network)
+	{
+		m_network->removeWiresTouchingSignal(currentOwnerId(), name);
+	}
+	if (m_sink)
+	{
+		m_sink->resetRuntimeFromTable(true);
+	}
 	rebuildTable();
+	flushDeviceIfNeeded();
 	emit signalTableEdited();
 }
 
@@ -426,6 +549,32 @@ void IoSignalPageWidget::onResetDefaultsClicked()
 		m_sink->resetRuntimeFromTable(false);
 	}
 	syncValueColumnsFromSink();
+}
+
+void IoSignalPageWidget::onOpenStationClicked()
+{
+	if (!m_stationDialog)
+	{
+		m_stationDialog = new QDialog(window());
+		m_stationDialog->setAttribute(Qt::WA_DeleteOnClose);
+		m_stationDialog->setWindowFlags(m_stationDialog->windowFlags() | Qt::WindowMinMaxButtonsHint);
+		auto* layout = new QVBoxLayout(m_stationDialog);
+		layout->setContentsMargins(8, 8, 8, 8);
+		m_stationWidget = new SignalConnectionStationWidget(m_stationDialog);
+		layout->addWidget(m_stationWidget, 1);
+		m_stationDialog->resize(960, 640);
+		connect(m_stationDialog, &QObject::destroyed, this, [this]() { m_stationWidget = nullptr; });
+	}
+	m_stationDialog->setWindowTitle(m_useChinese ? QStringLiteral("信号连接站") : QStringLiteral("Signal station"));
+	if (m_stationWidget)
+	{
+		m_stationWidget->setUseChinese(m_useChinese);
+		m_stationWidget->setNetwork(m_network);
+		m_stationWidget->refreshFromNetwork();
+	}
+	m_stationDialog->show();
+	m_stationDialog->raise();
+	m_stationDialog->activateWindow();
 }
 
 void IoSignalPageWidget::onSinkValuesChanged()

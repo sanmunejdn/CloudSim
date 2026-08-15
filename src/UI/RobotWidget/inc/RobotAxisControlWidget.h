@@ -100,6 +100,8 @@ public:
 	bool isReachableWorkspaceChecked() const;
 	/// 计算中改文案；保持可取消勾选
 	void setReachableWorkspaceBusy(bool busy);
+	/// 自定义设备模式等场景关闭可达域入口
+	void setReachableWorkspaceFeatureEnabled(bool enabled);
 	/// 可达点密度 1～100，默认 50
 	int reachableWorkspaceDensityPercent() const;
 
@@ -137,6 +139,7 @@ private slots:
 
 private:
 	void updateTargetDependentChrome(const AxisControlTargetItem& t);
+	void updateReachableWorkspaceChrome();
 	void notifyCurrentControlTargetApplied();
 
 	struct JointControl
@@ -180,6 +183,7 @@ private:
 	QPushButton* m_resetAllButton = nullptr;
 	bool m_useChinese = true;
 	bool m_reachableWorkspaceBusy = false;
+	bool m_reachableWorkspaceFeatureEnabled = true;
 
 	/// 滑块精度：弧度×1000 映射整数
 	static constexpr double SLIDER_SCALE = 1000.0;

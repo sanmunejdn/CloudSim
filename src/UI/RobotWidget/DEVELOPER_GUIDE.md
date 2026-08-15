@@ -18,8 +18,11 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 
 | Area | Location |
 |------|----------|
-| Simulation dock (Instructions / Axis / Frames / **External Axes** / **Trajectory Generation** / **Trajectory Edit** / **机器人通讯**) | `RobotSimulationDockWidget`, page widgets |
-| Orchestration | `RobotSimulationController` |
+| Simulation dock（工作区 **设备**：顶栏「机器人 / 自定义设备」；子页含轴控制；机器人：指令/轴控/…；自定义设备：设备指令/轴控） | `RobotSimulationDockWidget`, page widgets |
+| **自定义设备组装** | `CustomDeviceAssemblyDialog` + `CustomDeviceAssemblyCanvasWidget`；提交内核 `CustomDeviceAssemblyCommit`（RobotScene）；宿主 `ICustomDeviceAssemblyHost`（Widget/`MainWindowRobotHost`） |
+| **设备指令（姿态库 + DI 信号驱动）** | `DeviceCommandPageWidget` + `CustomDeviceSimService`；姿态/`poseSignalBindings`/`signals` 在 `CustomDeviceBackendData`；DI 来自本设备信号表 |
+| **IO 网络 / 连接站** | `IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站对话框 |
+| Orchestration | `RobotSimulationController`（门面；含 `IoSignalNetworkService` 等小服务） |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
 | FK / matrix helpers | `RobotSimulationMath` |
@@ -379,11 +382,20 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 | 区域 | 控件 | 行为 |
 |------|------|------|
 | 筛选栏 | 类型 / 品牌 `QComboBox`、刷新 | 驱动 `m_packagesByTypeBrand`；仅 1 个品牌时隐藏品牌 Combo |
-| 自定义设备 | 按钮 | `customDeviceCreateRequested` → 非模态向导：多轴编辑（`CustomDeviceAxisEditorWidget`）、应用模型到场景、Rotate 面拾取中心（W0 局部） |
+| 自定义设备 | 按钮 | `customDeviceCreateRequested` / 编辑 / 导出 → `MainWindow` 薄转发 → `CustomDeviceAssemblyDialog`（组装画布）；提交经 `CustomDeviceAssemblyCommit` |
 | 型号网格 | `QScrollArea` + `QGridLayout` | 缩略图 96×88；列数随 viewport 宽度自适应；点击 → `urdfImportRequested` |
 | 数据源 | `resource/models/{Type}/{Brand}/{Package}` | 扫描与 URDF 匹配逻辑不变 |
 
-`RobotAxisControlWidget` 顶部 **目标** 下拉可在机器人实例与 `CustomDevice` 间切换；选设备时滑条驱动 `CustomDeviceKinematics::applyQ`。
+`RobotAxisControlWidget` 顶部 **目标** 下拉可在机器人实例与 `CustomDevice` 间切换；选设备时滑条驱动 `CustomDeviceKinematics::applyQ`。**轴控为跨模式单例**（`placeAxisTab` 在机器人/设备 Tab 间挂载同一页）；子 Tab **不可拖动**，索引常量才稳定。导航请用 `RobotSimulationController::showRobotDockTab` / `showDeviceDockTab`，页面勿直接 `setDockMode`。
+
+#### 自定义设备数据契约
+
+| 条件 | 真相 |
+|------|------|
+| 有 Link/Joint 图 | 持久化唯一源；`axes`/`q` 由 `syncAxesFromJoints` 投影 |
+| 无图（旧扁平工程） | 不加载 `deviceAxes`；需在组装画布重新定义后方可轴控/导出 |
+
+轴控、姿态库、`DeviceAxisInstruction` 只消费投影后的扁平接口；新功能优先挂图。
 
 i18n：`setUseChinese` ← `MainWindow::applyLanguage`。
 
@@ -393,7 +405,7 @@ TCP 拖动 OSG 实现仍在 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER
 
 ### `SimulationCommandWidget` 布局（指令子页）
 
-Dock **机器人** → 子 Tab **指令**。排版变更不得改信号名与 Controller 接线；属性仍在 Property Dock。
+Dock **设备** → 子 Tab **指令**（机器人程序，与「设备指令」隔离）。排版变更不得改信号名与 Controller 接线；属性仍在 Property Dock。
 
 **参考 UI：**
 
@@ -426,6 +438,21 @@ Dock **机器人** → 子 Tab **指令**。排版变更不得改信号名与 Co
 
 **本页样式比例（局部，不改 `ApplicationStyle`）：** 控件高 **30px**（容纳全局 padding + 边框，避免下边框被裁）；页边距 6；chrome 段间距 4；工具条内 spacing 2；上下文标签定宽对齐；插入钮 `min-width`≈52。
 
+### 设备指令页（`DeviceCommandPageWidget`）
+
+与机器人「指令」页 / `RobotProgramExecutor` **隔离**：
+
+| 能力 | 说明 |
+|------|------|
+| 姿态库 | `CustomDeviceBackendData::namedPoses`（全轴 `q` 快照）；示教取当前 `qValues()` |
+| 信号绑定 | `poseSignalBindings`：`signalName` = **本设备**信号表 DI；上升沿 → `DevicePoseMotionPlayer` → `CustomDeviceKinematics::applyQ` |
+| 触发源 | 每设备 `NamedSignalTable` + sink（经 `IoSignalNetworkService`）；跨设备用连接站 DO→DI |
+| 连接站 | 「信号」页按钮打开对话框：`SignalConnectionStationWidget`；Owner 节点，仅 DO→DI；侧车 `ioSignalNetwork.wires` |
+| 同 DI 多绑定 | 每个设备取**第一条启用**绑定；多设备可同时响应 |
+| 页签索引 | 顶栏「机器人 / 自定义设备」；机器人子 Tab：`Instructions=0`、`Axis=1` … `RobotComm=7`；设备子 Tab：`DeviceCommands=0`、`Axis=1`（两侧共用同一轴控实例） |
+
+机器人程序内既有 `DeviceAxisInstruction`（单轴）保留，本页不依赖。
+
 ### 品牌程序导出
 
 流程：`Export` → `BrandProgramExportDialog` 选程序（当前机器人 catalog 下全部，含 main）与品牌 → `QFileDialog` 选最终程序路径 → Canonical v1（**紧凑**临时 JSON，**不做万级全量 IK**；品牌脚本只用笛卡尔位姿）→ `PythonScriptCaller` 调用 `resource/Python/ExportPython/{Brand}Export.py`。
@@ -449,7 +476,7 @@ Dock **机器人** → 子 Tab **指令**。排版变更不得改信号名与 Co
 
 ## 轨迹编辑（Trajectory Edit）
 
-Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签为 **机器人** / Robot（原「指令仿真」）。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese` / `featureTrajectoryPage()->setUseChinese`；页签索引见 `RobotSimulationDockWidget::kTabIndexTrajectoryGeneration` / `kTabIndexTrajectoryEdit`。
+Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签为 **设备** / Devices。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese` / `featureTrajectoryPage()->setUseChinese`；页签索引见 `RobotSimulationDockWidget::kTabIndexTrajectoryGeneration` / `kTabIndexTrajectoryEdit`。
 
 ### 管道引擎与 Observer（2026 升级）
 

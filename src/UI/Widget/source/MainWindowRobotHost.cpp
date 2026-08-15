@@ -5,9 +5,14 @@
 
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
+#include "BackendFileImport.h"
 #include "BackendSceneDocumentFacade.h"
+#include "BackendTypeIds.h"
 #include "CoreTypes.h"
+#include "CustomDeviceBackendData.h"
+#include "DocumentImportFacade.h"
 #include "DocumentPage.h"
 #include "IDataService.h"
 #include "IRenderView.h"
@@ -35,6 +40,13 @@
 #include <algorithm>
 
 #include <Adapters.h>
+
+#include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFileInfo>
+#include <QFormLayout>
+#include <QVBoxLayout>
 
 class MainWindowRobotHost::DocumentHost : public IRobotDocumentHost
 {
@@ -1244,4 +1256,150 @@ cloudsim::core::FeasibleMotionAxisOptionsDto MainWindowRobotHost::cachedFeasible
 		return {};
 	}
 	return toFeasibleAxisDto(m_mw->robotSimulation()->cachedFeasibleAxisConfigurationOptions());
+}
+
+bool MainWindowRobotHost::registerCustomDevice(const std::shared_ptr<CustomDeviceBackendData>& device,
+											   QString* outError)
+{
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host || !device)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("No active document.");
+		}
+		return false;
+	}
+	return cloudsim::host::registerAdoptedCustomDeviceAndLoadScene(
+		*host, device, QLatin1String(backend_type::kCatalogCustomDevice), QString(), false, outError);
+}
+
+bool MainWindowRobotHost::attachChildToCustomDevice(const std::string& deviceId, const std::string& childId,
+													QString* outError)
+{
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("No active document.");
+		}
+		return false;
+	}
+	return cloudsim::host::attachBackendChildToCustomDevice(*host, deviceId, childId, outError);
+}
+
+QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const QStringList& paths,
+														 QStringList* outErrors)
+{
+	Q_UNUSED(parent);
+	QStringList roots;
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host || !m_mw || paths.isEmpty())
+	{
+		return roots;
+	}
+
+	auto isMeshQualityExt = [](const QString& extLower) {
+		return extLower == QLatin1String("obj") || extLower == QLatin1String("stl") ||
+			   extLower == QLatin1String("ply") || extLower == QLatin1String("off");
+	};
+
+	QString qualityProbePath;
+	for (const QString& path : paths)
+	{
+		if (isMeshQualityExt(QFileInfo(path).suffix().toLower()))
+		{
+			qualityProbePath = path;
+			break;
+		}
+	}
+	int quality = m_mw->meshImportQuality();
+	if (!qualityProbePath.isEmpty())
+	{
+		QDialog dialog(m_mw);
+		dialog.setWindowTitle(QStringLiteral("Mesh Import Quality"));
+		auto* layout = new QVBoxLayout(&dialog);
+		auto* form = new QFormLayout();
+		auto* qualityCombo = new QComboBox(&dialog);
+		qualityCombo->addItem(QStringLiteral("Coarse"), 0);
+		qualityCombo->addItem(QStringLiteral("Medium"), 1);
+		qualityCombo->addItem(QStringLiteral("Fine"), 2);
+		const int idx = qualityCombo->findData(quality);
+		qualityCombo->setCurrentIndex(idx >= 0 ? idx : 1);
+		form->addRow(QStringLiteral("Triangle density:"), qualityCombo);
+		layout->addLayout(form);
+		auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+		layout->addWidget(buttons);
+		QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+		QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+		if (dialog.exec() != QDialog::Accepted)
+		{
+			return roots;
+		}
+		quality = qualityCombo->currentData().toInt();
+		m_mw->setMeshImportQuality(quality);
+	}
+
+	cloudsim::core::ImportOptionsDto opt;
+	opt.resetViewToHome = false;
+	opt.quietUi = true;
+	opt.catalogTypeName = QLatin1String(backend_type::kCatalogModel);
+	opt.meshImportQuality = quality;
+	for (const QString& path : paths)
+	{
+		QString importErr;
+		const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
+			*host, path, cloudsim::host::ImportFileKind::Mesh, opt, &importErr);
+		if (!imported.ok || imported.rootBackendId.isEmpty())
+		{
+			if (outErrors)
+			{
+				outErrors->append(importErr.isEmpty() ? QStringLiteral("Model import failed: %1").arg(path)
+													  : importErr);
+			}
+			continue;
+		}
+		roots.append(imported.rootBackendId);
+	}
+	return roots;
+}
+
+bool MainWindowRobotHost::exportCustomDeviceUrdfInteractive(const QString& deviceBackendId)
+{
+	return m_mw ? m_mw->exportCustomDeviceUrdfInteractive(deviceBackendId) : false;
+}
+
+void MainWindowRobotHost::markFollowAttachmentDirty(const QString& deviceBackendId)
+{
+	if (DocumentPage* page = m_mw ? m_mw->currentPage() : nullptr)
+	{
+		page->markFollowAttachmentDirtyFromBackendMove(deviceBackendId);
+	}
+}
+
+void MainWindowRobotHost::focusBackendInTree(const QString& backendId)
+{
+	if (m_mw)
+	{
+		m_mw->focusBackendInTreeAfterImport(backendId);
+	}
+}
+
+void MainWindowRobotHost::runFollowSolveAndSync()
+{
+	runFollowSolveAndSyncForCurrentDocument();
+}
+
+void MainWindowRobotHost::onCustomDeviceAssemblyCommitted(const QString& deviceBackendId)
+{
+	if (!m_mw || !m_mw->m_robotSimulation)
+	{
+		return;
+	}
+	m_mw->m_robotSimulation->refreshAxisControlTargets();
+	if (RobotAxisControlWidget* axis = robotAxisControlPage())
+	{
+		axis->selectControlTarget(AxisControlTargetKind::CustomDevice, deviceBackendId);
+	}
 }

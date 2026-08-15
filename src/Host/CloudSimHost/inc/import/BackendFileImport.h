@@ -67,6 +67,11 @@ registerAdoptedCustomDeviceAndLoadScene(DocumentHost& host, const std::shared_pt
 CLOUDSIM_HOST_EXPORT bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& deviceId,
 														   const std::string& childId, QString* outError = nullptr);
 
+/// 导出自定义设备为 ROS 包（package.xml + urdf + meshes/cad）；成功时 outUrdfPath 为 .urdf 绝对路径
+CLOUDSIM_HOST_EXPORT bool exportCustomDeviceUrdfPackage(DocumentHost& host, const std::string& deviceId,
+														const QString& packageParentDir, QString* outUrdfPath = nullptr,
+														QString* outPackageRoot = nullptr, QString* outError = nullptr);
+
 /// 注册点云并加载
 CLOUDSIM_HOST_EXPORT bool
 registerAdoptedPointCloudAndLoadScene(DocumentHost& host, const std::shared_ptr<PointCloudBackendData>& pointCloud,

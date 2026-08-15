@@ -33,6 +33,12 @@ class IRobotMotionClient;
 enum class AxisControlTargetKind : int;
 
 class RobotSimulationDockWidget;
+class CustomDeviceSimService;
+class DockNavigationService;
+class AxisControlTargetService;
+class DevicePoseMotionPlayer;
+class DevicePoseSignalDriver;
+class IoSignalNetworkService;
 class QtProperty;
 class ProgramEditService;
 class TrajectoryEditSession;
@@ -78,14 +84,26 @@ public:
 
 	RobotInstruction::Controller& instructionController() { return m_instructionController; }
 	RobotProgramExecutor& programExecutor() { return m_programExecutor; }
-	NamedSignalIoSink& simulationIoSink() { return m_simulationIoSink; }
-	RobotIo::NamedSignalTable& namedSignalTable() { return m_namedSignalTable; }
-	const RobotIo::NamedSignalTable& namedSignalTable() const { return m_namedSignalTable; }
+	IoSignalNetworkService* ioSignalNetwork() const { return m_ioNetwork; }
+	/// 属性「信号」页当前 Owner；空则无表
+	QString ioUiOwnerId() const { return m_ioUiOwnerId; }
+	void setIoUiOwnerId(const QString& ownerId);
+	NamedSignalIoSink* simulationIoSinkForOwner(const QString& ownerId);
+	NamedSignalIoSink* simulationIoSink();
+	RobotIo::NamedSignalTable* namedSignalTableForOwner(const QString& ownerId);
+	const RobotIo::NamedSignalTable* namedSignalTableForOwner(const QString& ownerId) const;
+	RobotIo::NamedSignalTable& namedSignalTable();
+	const RobotIo::NamedSignalTable& namedSignalTable() const;
 
-	QJsonObject ioSignalsToJson() const;
-	bool ioSignalsFromJson(const QJsonObject& root, QString* outError = nullptr);
+	QJsonObject ioSignalNetworkToJson() const;
+	bool ioSignalNetworkFromJson(const QJsonObject& root, QString* outError = nullptr);
 	QStringList ioSignalNames(RobotIo::SignalKind kind) const;
+	QStringList ioSignalNamesForOwner(const QString& ownerId, RobotIo::SignalKind kind) const;
 	void setIoSinkBackend(RobotIoSinkBackend backend);
+	void syncIoOwnersFromDocument();
+	void flushDeviceIoTablesToDocument();
+	DevicePoseMotionPlayer* devicePoseMotionPlayer() const;
+	DevicePoseSignalDriver* devicePoseSignalDriver() const;
 
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions
 	feasibleMotionAxisConfigurationOptionsForInstruction(const std::shared_ptr<RobotInstruction::Base>& instruction,
@@ -168,6 +186,8 @@ public slots:
 	void syncRobotExternalAxisSettingsFromDocument(int instanceIndex);
 	void syncRobotAxisControlExternalAxes(int instanceIndex);
 	void refreshAxisControlTargets();
+	void showRobotDockTab(int tabIndex);
+	void showDeviceDockTab(int tabIndex);
 	void applyAxisControlExternalPose(int instanceIndex, const QVector<double>& values);
 	/// 规划/示教结果驱动外轴；无外轴量则忽略
 	/// progress01<1 时按段起点（完整配置对齐）插值；默认 1 直接落到目标
@@ -248,8 +268,11 @@ private:
 	QString m_cachedInstructionDhUrdfPath;
 	quint64 m_poseAxesRefreshToken = 0;
 	RobotProgramExecutor m_programExecutor;
-	SimulationLogIoSink m_simulationIoSink;
-	RobotIo::NamedSignalTable m_namedSignalTable;
+	IoSignalNetworkService* m_ioNetwork = nullptr;
+	QString m_ioUiOwnerId;
+	CustomDeviceSimService* m_customDeviceSim = nullptr;
+	DockNavigationService* m_dockNavigation = nullptr;
+	AxisControlTargetService* m_axisControlTargets = nullptr;
 	QVector<double> m_aggregatedJointAnglesRad;
 	/// 上次已与聚合角对齐的机器人 sceneBackendId；集合无交集时丢弃旧角（删机再导）
 	QStringList m_syncedRobotSceneBackendIds;
@@ -343,6 +366,9 @@ private:
 	void commitPlaybackPlan(const RobotInstruction::Base* motion, size_t motionIndex,
 							RobotInstruction::PlanResult plan);
 	static void stripPlanTrajectory(RobotInstruction::PlanResult& plan);
+
+signals:
+	void customDeviceCatalogChanged();
 };
 
 #endif // ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H

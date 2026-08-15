@@ -1,6 +1,7 @@
 ﻿/// @file BackendFileImport.cpp
 /// @brief BackendFileImport 实现
 
+#include "CustomDeviceUrdfExporter.h"
 #include "BackendFileImport.h"
 
 #include "BackendHierarchyFollow.h"
@@ -640,6 +641,46 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 	}
 	publishBackendObjectRegistered(host, toId, QString::fromStdString(obj->className()));
 	return toId;
+}
+
+bool exportCustomDeviceUrdfPackage(DocumentHost& host, const std::string& deviceId, const QString& packageParentDir,
+								   QString* outUrdfPath, QString* outPackageRoot, QString* outError)
+{
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.backend().getData(deviceId));
+	if (!device)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("未找到自定义设备。");
+		}
+		return false;
+	}
+
+	CustomDeviceUrdfExportOptions opt;
+	opt.packageParentDir = packageParentDir;
+	for (auto it = host.backendSourcePath().constBegin(); it != host.backendSourcePath().constEnd(); ++it)
+	{
+		opt.sourcePathByBackendId.insert(it.key(), it.value());
+	}
+
+	const CustomDeviceUrdfExportResult exported = ::exportCustomDeviceUrdfPackage(*device, host.backend(), opt);
+	if (!exported.ok)
+	{
+		if (outError)
+		{
+			*outError = exported.error.isEmpty() ? QStringLiteral("URDF 导出失败。") : exported.error;
+		}
+		return false;
+	}
+	if (outUrdfPath)
+	{
+		*outUrdfPath = exported.urdfPath;
+	}
+	if (outPackageRoot)
+	{
+		*outPackageRoot = exported.packageRoot;
+	}
+	return true;
 }
 
 } // namespace cloudsim::host

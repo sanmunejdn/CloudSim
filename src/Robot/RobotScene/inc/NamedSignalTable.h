@@ -2,7 +2,7 @@
 #define ROBOTSCENE_NAMEDSIGNALTABLE_H
 
 /// @file NamedSignalTable.h
-/// @brief 命名 IO 信号定义表（工程侧车 ioSignals；与 IRobotIoSink 端口解耦）
+/// @brief 命名 IO 信号定义表（Owner 自持；与 IRobotIoSink 端口解耦）
 
 #include "robot_scene_global.h"
 

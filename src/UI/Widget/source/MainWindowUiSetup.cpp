@@ -2,6 +2,7 @@
 /// @brief 内容区已有 QTabWidget 时隐藏 Dock 自带标题栏，避免与页签重复。
 
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "../RobotWidget/inc/DeviceCommandPageWidget.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "AiAssistantCoordinator.h"
@@ -14,6 +15,8 @@
 #include "DocumentPage.h"
 #include "EventHub.h"
 #include "IoSignalPageWidget.h"
+#include "IoSignalNetworkService.h"
+#include "NamedSignalIoSink.h"
 #include "JobSystem.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
@@ -477,6 +480,8 @@ void MainWindow::setupDockWidgets()
 	hideDockTitleBar(m_propertyDock);
 	connect(m_devicePage, &DevicePageWidget::urdfImportRequested, this, &MainWindow::onUrdfImportRequested);
 	connect(m_devicePage, &DevicePageWidget::customDeviceCreateRequested, this, &MainWindow::onCreateCustomDevice);
+	connect(m_devicePage, &DevicePageWidget::customDeviceEditRequested, this, &MainWindow::onEditCustomDevice);
+	connect(m_devicePage, &DevicePageWidget::customDeviceExportUrdfRequested, this, &MainWindow::onExportCustomDeviceUrdf);
 	addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
 	// 左侧属性面板宽度：240px
 	resizeDocks({m_propertyDock}, {240}, Qt::Horizontal);
@@ -504,12 +509,26 @@ void MainWindow::setupDockWidgets()
 	m_robotSimulation->wireSimulationSignals();
 	if (m_ioSignalPage)
 	{
-		m_ioSignalPage->setSignalTable(&m_robotSimulation->namedSignalTable());
-		m_ioSignalPage->setIoSink(&m_robotSimulation->simulationIoSink());
+		m_ioSignalPage->setNetwork(m_robotSimulation->ioSignalNetwork());
+		connect(m_ioSignalPage, &IoSignalPageWidget::currentOwnerChanged, this,
+				[this](const QString& ownerId) { m_robotSimulation->setIoUiOwnerId(ownerId); });
 		connect(m_ioSignalPage, &IoSignalPageWidget::signalTableEdited, this,
 				[this]()
 				{
-					m_robotSimulation->simulationIoSink().resetRuntimeFromTable(true);
+					if (NamedSignalIoSink* sink = m_robotSimulation->simulationIoSink())
+					{
+						sink->resetRuntimeFromTable(true);
+					}
+					if (IoSignalNetworkService* net = m_robotSimulation->ioSignalNetwork())
+					{
+						net->propagateFrom(m_robotSimulation->ioUiOwnerId());
+					}
+					m_robotSimulation->flushDeviceIoTablesToDocument();
+					if (m_robotSimulation->simulationDock() &&
+						m_robotSimulation->simulationDock()->deviceCommandPage())
+					{
+						m_robotSimulation->simulationDock()->deviceCommandPage()->refreshDiSignalOptions();
+					}
 					if (m_activeInstructionForProperty)
 					{
 						updateInstructionPropertyPanel(m_activeInstructionForProperty, false);

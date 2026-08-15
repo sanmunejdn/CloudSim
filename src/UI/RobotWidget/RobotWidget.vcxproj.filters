@@ -74,6 +74,9 @@
     <ClInclude Include="inc\IRobotDocumentHost.h">
       <Filter>inc\Interfaces</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ICustomDeviceAssemblyHost.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
     <ClInclude Include="inc\IRobotInstructionPropertyUiHost.h">
       <Filter>inc\Interfaces</Filter>
     </ClInclude>
@@ -157,11 +160,23 @@
     <ClCompile Include="source\BrandProgramExportDialog.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
-    <ClCompile Include="source\CustomDeviceAxisEditorWidget.cpp">
+    <ClCompile Include="source\CustomDeviceAssemblyCanvasWidget.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceAssemblyDialog.cpp">
       <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\DevicePageWidget.cpp">
       <Filter>src\RobotSettings</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DeviceCommandPageWidget.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DevicePoseMotionPlayer.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DevicePoseSignalDriver.cpp">
+      <Filter>src\Simulation</Filter>
     </ClCompile>
     <ClCompile Include="source\FeatureDiscretizerParamPanel.cpp">
       <Filter>src\FeatureTrajectory</Filter>
@@ -180,6 +195,18 @@
     </ClCompile>
     <ClCompile Include="source\InstructionPropertyPanel.cpp">
       <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IoSignalPageWidget.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IoSignalNetworkService.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SignalConnectionStationWidget.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\NamedSignalIoSink.cpp">
+      <Filter>src\Simulation</Filter>
     </ClCompile>
     <ClCompile Include="source\MeshTrajectoryPageWidget.cpp">
       <Filter>src\FeatureTrajectory</Filter>
@@ -227,6 +254,15 @@
       <Filter>src\Simulation</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotSimulationController_robotComm.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceSimService.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DockNavigationService.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\AxisControlTargetService.cpp">
       <Filter>src\Simulation</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotSimulationDockWidget.cpp">
@@ -282,11 +318,32 @@
     <QtMoc Include="inc\BrandProgramExportDialog.h">
       <Filter>inc\Instructions</Filter>
     </QtMoc>
-    <QtMoc Include="inc\CustomDeviceAxisEditorWidget.h">
+    <QtMoc Include="inc\CustomDeviceAssemblyCanvasWidget.h">
       <Filter>inc\Other</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\CustomDeviceAssemblyDialog.h">
+      <Filter>inc\Other</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\CustomDeviceSimService.h">
+      <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DeviceCommandPageWidget.h">
+      <Filter>inc\Simulation</Filter>
     </QtMoc>
     <QtMoc Include="inc\DevicePageWidget.h">
       <Filter>inc\RobotSettings</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DevicePoseMotionPlayer.h">
+      <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DevicePoseSignalDriver.h">
+      <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DockNavigationService.h">
+      <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\AxisControlTargetService.h">
+      <Filter>inc\Simulation</Filter>
     </QtMoc>
     <QtMoc Include="inc\FeatureDiscretizerParamPanel.h">
       <Filter>inc\FeatureTrajectory</Filter>
@@ -299,6 +356,18 @@
     </QtMoc>
     <QtMoc Include="inc\InstructionProgramTreeWidget.h">
       <Filter>inc\Instructions</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\IoSignalPageWidget.h">
+      <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\IoSignalNetworkService.h">
+      <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\SignalConnectionStationWidget.h">
+      <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\NamedSignalIoSink.h">
+      <Filter>inc\Simulation</Filter>
     </QtMoc>
     <QtMoc Include="inc\MeshTrajectoryPageWidget.h">
       <Filter>inc\FeatureTrajectory</Filter>

@@ -3,11 +3,13 @@
 
 #include "MainWindow.h"
 
+#include "../RobotWidget/inc/DeviceCommandPageWidget.h"
 #include "../RobotWidget/inc/FeatureTrajectoryPageWidget.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
 #include "../RobotWidget/inc/RobotCollisionSettingsWidget.h"
+#include "../RobotWidget/inc/RobotCommPageWidget.h"
 #include "../RobotWidget/inc/RobotFrameSettingsWidget.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
@@ -307,7 +309,7 @@ void MainWindow::applyLanguage()
 	if (m_unitDockTabs && m_unitDockTabs->count() >= 3)
 	{
 		m_unitDockTabs->setTabText(0, i18n(QStringLiteral("Units"), QStringLiteral("单元部件")));
-		m_unitDockTabs->setTabText(1, i18n(QStringLiteral("Robot"), QStringLiteral("机器人")));
+		m_unitDockTabs->setTabText(1, i18n(QStringLiteral("Devices"), QStringLiteral("设备")));
 		m_unitDockTabs->setTabText(2, i18n(QStringLiteral("Scene graph"), QStringLiteral("场景层级")));
 	}
 	if (simulationCommandPage())
@@ -316,9 +318,14 @@ void MainWindow::applyLanguage()
 	}
 	if (RobotSimulationDockWidget* simDock = m_robotSimulation ? m_robotSimulation->simulationDock() : nullptr)
 	{
+		simDock->setUseChinese(m_useChinese);
 		if (RobotAxisControlWidget* axis = simDock->axisPage())
 		{
 			axis->setUseChinese(m_useChinese);
+		}
+		if (DeviceCommandPageWidget* deviceCmd = simDock->deviceCommandPage())
+		{
+			deviceCmd->setUseChinese(m_useChinese);
 		}
 		if (RobotFrameSettingsWidget* frame = simDock->framePage())
 		{
@@ -340,38 +347,9 @@ void MainWindow::applyLanguage()
 		{
 			gen->setUseChinese(m_useChinese);
 		}
-		QTabWidget* tabs = simDock->tabWidget();
-		if (tabs && tabs->count() >= 2)
+		if (RobotCommPageWidget* comm = simDock->robotCommPage())
 		{
-			tabs->setTabText(RobotSimulationDockWidget::kTabIndexInstructions,
-							 i18n(QStringLiteral("Instructions"), QStringLiteral("指令")));
-			tabs->setTabText(RobotSimulationDockWidget::kTabIndexAxisControl,
-							 i18n(QStringLiteral("Axis control"), QStringLiteral("轴控制")));
-			if (tabs->count() > RobotSimulationDockWidget::kTabIndexFrames)
-			{
-				tabs->setTabText(RobotSimulationDockWidget::kTabIndexFrames,
-								 i18n(QStringLiteral("Frames"), QStringLiteral("坐标系")));
-			}
-			if (tabs->count() > RobotSimulationDockWidget::kTabIndexExternalAxes)
-			{
-				tabs->setTabText(RobotSimulationDockWidget::kTabIndexExternalAxes,
-								 i18n(QStringLiteral("External Axes"), QStringLiteral("外部轴")));
-			}
-			if (tabs->count() > RobotSimulationDockWidget::kTabIndexCollision)
-			{
-				tabs->setTabText(RobotSimulationDockWidget::kTabIndexCollision,
-								 i18n(QStringLiteral("Collision"), QStringLiteral("碰撞检测")));
-			}
-			if (tabs->count() > RobotSimulationDockWidget::kTabIndexTrajectoryGeneration)
-			{
-				tabs->setTabText(RobotSimulationDockWidget::kTabIndexTrajectoryGeneration,
-								 i18n(QStringLiteral("Trajectory Generation"), QStringLiteral("轨迹生成")));
-			}
-			if (tabs->count() > RobotSimulationDockWidget::kTabIndexTrajectoryEdit)
-			{
-				tabs->setTabText(RobotSimulationDockWidget::kTabIndexTrajectoryEdit,
-								 i18n(QStringLiteral("Trajectory Edit"), QStringLiteral("轨迹编辑")));
-			}
+			comm->setUseChinese(m_useChinese);
 		}
 	}
 	refreshSimulationJointListFromCurrentDoc();

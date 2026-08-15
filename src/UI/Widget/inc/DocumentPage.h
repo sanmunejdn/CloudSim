@@ -99,6 +99,8 @@ public:
 	osg::Group* robotSceneRoot() const { return nullptr; }
 
 	void clearRobotSimulationContext();
+	/// 打开工程覆盖当前页前：Backend + OSG + 跟随脏集 + 碰撞默认，避免旧场景节点残留
+	void clearContentForProjectOpen();
 	void clearRobotSimulationIfContains(const QString& removedBackendId);
 	bool hasRobotSimulationContext() const override;
 	bool hasRobotKinematicsBind() const override;

@@ -750,6 +750,23 @@ void DocumentPage::clearRobotSimulationContext()
 	rebuildHierarchicalRobotAggregates();
 }
 
+void DocumentPage::clearContentForProjectOpen()
+{
+	if (OsgWidget* ow = osgWidget())
+	{
+		ow->clearImportedContent();
+	}
+	data().clear();
+	clearRobotSimulationContext();
+	backendSourcePath().clear();
+	backendSourceType().clear();
+	backendParentId().clear();
+	render().clearAllAnnotations();
+	invalidateFollowReverseIndex();
+	clearFollowDirtyBackendIds();
+	m_robotCollisionSettings = RobotCollision::Settings{};
+}
+
 void DocumentPage::clearRobotSimulationIfContains(const QString& removedBackendId)
 {
 	for (int i = 0; i < m_hierarchicalRobots.size(); ++i)

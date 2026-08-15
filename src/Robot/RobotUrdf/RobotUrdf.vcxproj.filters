@@ -29,9 +29,15 @@
     <ClInclude Include="inc\UrdfRobotLoader.h">
       <Filter>inc\Loader</Filter>
     </ClInclude>
+    <ClInclude Include="inc\CustomDeviceUrdfExporter.h">
+      <Filter>inc\Loader</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\UrdfRobotLoader.cpp">
+      <Filter>src\Loader</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceUrdfExporter.cpp">
       <Filter>src\Loader</Filter>
     </ClCompile>
   </ItemGroup>

@@ -200,20 +200,27 @@ QStringList MainWindowInstructionPropertyUiHost::namedIoSignalNames(const QStrin
 	{
 		return out;
 	}
+	QString ownerId = m_mw.m_robotSimulation->ioUiOwnerId();
+	IRobotDocumentHost* doc = m_mw.m_robotHost ? m_mw.m_robotHost->document() : nullptr;
+	if (doc && m_mw.simulationCommandPage())
+	{
+		const int inst = m_mw.simulationCommandPage()->currentRobotInstanceIndex();
+		if (inst >= 0)
+		{
+			ownerId = doc->robotSceneBackendIdForInstance(inst);
+		}
+	}
 	RobotIo::SignalKind kind = RobotIo::SignalKind::DI;
 	const bool filter = !kindFilter.isEmpty() &&
 						RobotIo::NamedSignalTable::kindFromString(kindFilter.toStdString(), kind);
-	for (const RobotIo::SignalDef& s : m_mw.m_robotSimulation->namedSignalTable().entries())
+	if (filter)
 	{
-		if (filter && s.kind != kind)
-		{
-			continue;
-		}
-		if (!s.name.empty())
-		{
-			out << QString::fromStdString(s.name);
-		}
+		return m_mw.m_robotSimulation->ioSignalNamesForOwner(ownerId, kind);
 	}
+	out += m_mw.m_robotSimulation->ioSignalNamesForOwner(ownerId, RobotIo::SignalKind::DI);
+	out += m_mw.m_robotSimulation->ioSignalNamesForOwner(ownerId, RobotIo::SignalKind::DO);
+	out += m_mw.m_robotSimulation->ioSignalNamesForOwner(ownerId, RobotIo::SignalKind::AI);
+	out += m_mw.m_robotSimulation->ioSignalNamesForOwner(ownerId, RobotIo::SignalKind::AO);
 	return out;
 }
 
@@ -223,10 +230,22 @@ int MainWindowInstructionPropertyUiHost::resolveNamedIoSignalPort(const QString&
 	{
 		return -1;
 	}
-	if (const RobotIo::SignalDef* s =
-			m_mw.m_robotSimulation->namedSignalTable().findByName(signalName.toStdString()))
+	QString ownerId = m_mw.m_robotSimulation->ioUiOwnerId();
+	IRobotDocumentHost* doc = m_mw.m_robotHost ? m_mw.m_robotHost->document() : nullptr;
+	if (doc && m_mw.simulationCommandPage())
 	{
-		return s->port;
+		const int inst = m_mw.simulationCommandPage()->currentRobotInstanceIndex();
+		if (inst >= 0)
+		{
+			ownerId = doc->robotSceneBackendIdForInstance(inst);
+		}
+	}
+	if (const RobotIo::NamedSignalTable* table = m_mw.m_robotSimulation->namedSignalTableForOwner(ownerId))
+	{
+		if (const RobotIo::SignalDef* s = table->findByName(signalName.toStdString()))
+		{
+			return s->port;
+		}
 	}
 	return -1;
 }

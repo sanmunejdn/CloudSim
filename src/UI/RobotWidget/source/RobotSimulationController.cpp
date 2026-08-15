@@ -21,6 +21,8 @@
 #include "BrandProgramExportDialog.h"
 #include "PythonScriptCaller.h"
 #include "RobotFrameSettingsWidget.h"
+#include "RobotExternalAxisSettingsWidget.h"
+#include "RobotCommPageWidget.h"
 
 #include <json.hpp>
 #include "RobotInstructionPlanningHelpers.h"
@@ -33,7 +35,15 @@
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceKinematics.h"
 #include "BackendTypeIds.h"
+#include "AxisControlTargetService.h"
+#include "CustomDeviceSimService.h"
+#include "DeviceCommandPageWidget.h"
+#include "DevicePoseMotionPlayer.h"
+#include "DevicePoseSignalDriver.h"
+#include "DockNavigationService.h"
+#include "IoSignalNetworkService.h"
 #include "RobotCollisionSettingsWidget.h"
+#include "RobotSimulationDockWidget.h"
 #include "BackendCollisionSync.h"
 #include "CollisionWorld.h"
 #include "RobotSceneKinematics.h"
@@ -736,8 +746,7 @@ bool shouldLog(const std::string&)
 RobotSimulationController::RobotSimulationController(QObject* parent)
 	: QObject(parent), m_collisionWorld(std::make_unique<collision::CollisionWorld>())
 {
-	m_simulationIoSink.setSignalTable(&m_namedSignalTable);
-	m_simulationIoSink.resetRuntimeFromTable(false);
+	m_ioNetwork = new IoSignalNetworkService(this);
 }
 
 RobotSimulationController::~RobotSimulationController()
@@ -753,47 +762,90 @@ RobotSimulationController::~RobotSimulationController()
 	}
 }
 
-QJsonObject RobotSimulationController::ioSignalsToJson() const
+QJsonObject RobotSimulationController::ioSignalNetworkToJson() const
 {
-	const nlohmann::json j = m_namedSignalTable.toJson();
-	const QByteArray raw = QByteArray::fromStdString(j.dump());
-	const QJsonDocument doc = QJsonDocument::fromJson(raw);
-	return doc.isObject() ? doc.object() : QJsonObject();
+	return m_ioNetwork ? m_ioNetwork->toProjectJson() : QJsonObject();
 }
 
-bool RobotSimulationController::ioSignalsFromJson(const QJsonObject& root, QString* outError)
+bool RobotSimulationController::ioSignalNetworkFromJson(const QJsonObject& root, QString* outError)
 {
-	const QByteArray raw = QJsonDocument(root).toJson(QJsonDocument::Compact);
-	try
+	if (!m_ioNetwork)
 	{
-		const nlohmann::json j = nlohmann::json::parse(raw.constData(), raw.constData() + raw.size());
-		std::string err;
-		if (!m_namedSignalTable.fromJson(j, &err))
-		{
-			if (outError)
-			{
-				*outError = QString::fromStdString(err);
-			}
-			return false;
-		}
-	}
-	catch (const std::exception& ex)
-	{
-		if (outError)
-		{
-			*outError = QString::fromUtf8(ex.what());
-		}
 		return false;
 	}
-	m_simulationIoSink.setSignalTable(&m_namedSignalTable);
-	m_simulationIoSink.resetRuntimeFromTable(false);
+	if (!m_ioNetwork->fromProjectJson(root, outError))
+	{
+		return false;
+	}
+	if (m_host && m_host->document())
+	{
+		m_ioNetwork->syncOwnersFromDocument(m_host->document());
+	}
 	return true;
 }
 
-QStringList RobotSimulationController::ioSignalNames(const RobotIo::SignalKind kind) const
+void RobotSimulationController::setIoUiOwnerId(const QString& ownerId)
+{
+	m_ioUiOwnerId = ownerId;
+}
+
+NamedSignalIoSink* RobotSimulationController::simulationIoSinkForOwner(const QString& ownerId)
+{
+	return m_ioNetwork ? m_ioNetwork->sink(ownerId) : nullptr;
+}
+
+NamedSignalIoSink* RobotSimulationController::simulationIoSink()
+{
+	return simulationIoSinkForOwner(m_ioUiOwnerId);
+}
+
+RobotIo::NamedSignalTable* RobotSimulationController::namedSignalTableForOwner(const QString& ownerId)
+{
+	return m_ioNetwork ? m_ioNetwork->table(ownerId) : nullptr;
+}
+
+const RobotIo::NamedSignalTable* RobotSimulationController::namedSignalTableForOwner(const QString& ownerId) const
+{
+	return m_ioNetwork ? m_ioNetwork->table(ownerId) : nullptr;
+}
+
+RobotIo::NamedSignalTable& RobotSimulationController::namedSignalTable()
+{
+	if (RobotIo::NamedSignalTable* t = namedSignalTableForOwner(m_ioUiOwnerId))
+	{
+		return *t;
+	}
+	static RobotIo::NamedSignalTable sEmpty;
+	return sEmpty;
+}
+
+const RobotIo::NamedSignalTable& RobotSimulationController::namedSignalTable() const
+{
+	if (m_ioNetwork)
+	{
+		if (const RobotIo::NamedSignalTable* t = m_ioNetwork->table(m_ioUiOwnerId))
+		{
+			return *t;
+		}
+	}
+	static RobotIo::NamedSignalTable sEmpty;
+	return sEmpty;
+}
+
+QStringList RobotSimulationController::ioSignalNamesForOwner(const QString& ownerId,
+															 const RobotIo::SignalKind kind) const
 {
 	QStringList out;
-	for (const RobotIo::SignalDef& s : m_namedSignalTable.entries())
+	if (!m_ioNetwork)
+	{
+		return out;
+	}
+	const RobotIo::NamedSignalTable* table = m_ioNetwork->table(ownerId);
+	if (!table)
+	{
+		return out;
+	}
+	for (const RobotIo::SignalDef& s : table->entries())
 	{
 		if (s.kind == kind && !s.name.empty())
 		{
@@ -803,15 +855,47 @@ QStringList RobotSimulationController::ioSignalNames(const RobotIo::SignalKind k
 	return out;
 }
 
+QStringList RobotSimulationController::ioSignalNames(const RobotIo::SignalKind kind) const
+{
+	return ioSignalNamesForOwner(m_ioUiOwnerId, kind);
+}
+
 void RobotSimulationController::setIoSinkBackend(const RobotIoSinkBackend backend)
 {
-	m_simulationIoSink.setIoSinkBackend(backend);
+	if (m_ioNetwork)
+	{
+		m_ioNetwork->setIoSinkBackend(backend);
+	}
+}
+
+void RobotSimulationController::syncIoOwnersFromDocument()
+{
+	if (m_ioNetwork && m_host)
+	{
+		m_ioNetwork->syncOwnersFromDocument(m_host->document());
+	}
+}
+
+void RobotSimulationController::flushDeviceIoTablesToDocument()
+{
+	if (m_ioNetwork && m_host)
+	{
+		m_ioNetwork->flushDeviceTablesToDocument(m_host->document());
+	}
 }
 
 
 void RobotSimulationController::setHost(IRobotMainWindowHost* host)
 {
 	m_host = host;
+	if (m_customDeviceSim)
+	{
+		m_customDeviceSim->setHost(host);
+	}
+	if (m_axisControlTargets)
+	{
+		m_axisControlTargets->setHost(host);
+	}
 }
 
 void RobotSimulationController::initializePlanners()
@@ -824,6 +908,23 @@ void RobotSimulationController::createSimulationDock(QWidget* parentForTabs)
 	m_simulationDock = new RobotSimulationDockWidget(parentForTabs);
 	m_programEditService = new ProgramEditService(this);
 	m_trajectoryEditSession = new TrajectoryEditSession(this);
+	m_customDeviceSim = new CustomDeviceSimService(this);
+	m_dockNavigation = new DockNavigationService(this);
+	m_dockNavigation->setDock(m_simulationDock);
+	m_axisControlTargets = new AxisControlTargetService(this);
+	m_axisControlTargets->setSimulationController(this);
+	connect(m_axisControlTargets, &AxisControlTargetService::catalogChanged, this,
+			&RobotSimulationController::customDeviceCatalogChanged);
+}
+
+DevicePoseMotionPlayer* RobotSimulationController::devicePoseMotionPlayer() const
+{
+	return m_customDeviceSim ? m_customDeviceSim->motionPlayer() : nullptr;
+}
+
+DevicePoseSignalDriver* RobotSimulationController::devicePoseSignalDriver() const
+{
+	return m_customDeviceSim ? m_customDeviceSim->signalDriver() : nullptr;
 }
 
 void RobotSimulationController::wireSimulationSignals()
@@ -919,10 +1020,16 @@ void RobotSimulationController::wireSimulationSignals()
 			[this](const std::string&) { refreshPathPlanPreviewForActiveTab(); });
 	connect(m_trajectoryEditSession, &TrajectoryEditSession::rawTrajectoryChanged, this,
 			[this]() { refreshPathPlanPreviewForActiveTab(); });
-	if (QTabWidget* tabs = m_simulationDock->tabWidget())
+	if (QTabWidget* tabs = m_simulationDock->robotTabWidget())
 	{
 		connect(tabs, &QTabWidget::currentChanged, this, &RobotSimulationController::onSimulationDockTabChanged);
 	}
+	if (QTabWidget* deviceTabs = m_simulationDock->deviceTabWidget())
+	{
+		connect(deviceTabs, &QTabWidget::currentChanged, this, &RobotSimulationController::onSimulationDockTabChanged);
+	}
+	connect(m_simulationDock, &RobotSimulationDockWidget::dockModeChanged, this,
+			[this](SimulationDockMode) { refreshPathPlanPreviewForActiveTab(); });
 	if (m_programEditService)
 	{
 		connect(m_programEditService, &ProgramEditService::revisionChanged, this,
@@ -953,6 +1060,21 @@ void RobotSimulationController::wireSimulationSignals()
 			connect(m_robotCommPollTimer, &QTimer::timeout, this, &RobotSimulationController::onRobotCommPollTick);
 		}
 		m_robotCommPollTimer->setInterval(comm->pollIntervalMs());
+	}
+
+	if (m_axisControlTargets)
+	{
+		m_axisControlTargets->setHost(m_host);
+	}
+	if (m_customDeviceSim)
+	{
+		m_customDeviceSim->wire(m_host, m_ioNetwork,
+								m_simulationDock ? m_simulationDock->deviceCommandPage() : nullptr);
+	}
+	if (DeviceCommandPageWidget* deviceCmd = m_simulationDock->deviceCommandPage())
+	{
+		connect(this, &RobotSimulationController::customDeviceCatalogChanged, deviceCmd,
+				&DeviceCommandPageWidget::refreshDevices);
 	}
 }
 
@@ -1197,6 +1319,14 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		// ???? setRobotInstances ????????????????? activeProgram ???? backendId ?? QHash ?????????????
 		m_host->simulationCommandPage()->setRobotInstances(labels, backendIds);
 		refreshAxisControlTargets();
+		if (m_customDeviceSim)
+		{
+			m_customDeviceSim->resetEdgeState();
+		}
+		if (m_simulationDock && m_simulationDock->deviceCommandPage())
+		{
+			m_simulationDock->deviceCommandPage()->refreshDevices();
+		}
 
 		const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
 								? m_host->simulationCommandPage()->currentRobotInstanceIndex()
@@ -2876,60 +3006,40 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 	applyAxisControlExternalPose(instIdx, values);
 }
 
-// refreshAxisControlTargets -> RobotSimulationController_AxisTargets.cpp
+// refreshAxisControlTargets / dock tabs / axis target → services
+
+void RobotSimulationController::refreshAxisControlTargets()
+{
+	if (m_axisControlTargets)
+	{
+		m_axisControlTargets->refreshTargets();
+	}
+	// 组装提交等只刷轴目标时，信号 Owner 下拉也需跟上文档里的自定义设备
+	syncIoOwnersFromDocument();
+}
+
+void RobotSimulationController::showRobotDockTab(const int tabIndex)
+{
+	if (m_dockNavigation)
+	{
+		m_dockNavigation->showRobotDockTab(tabIndex);
+	}
+}
+
+void RobotSimulationController::showDeviceDockTab(const int tabIndex)
+{
+	if (m_dockNavigation)
+	{
+		m_dockNavigation->showDeviceDockTab(tabIndex);
+	}
+}
 
 void RobotSimulationController::onAxisControlTargetChanged(const AxisControlTargetKind kind, const QString& id)
 {
-	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
-	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
-	if (!doc || !axis)
+	if (m_axisControlTargets)
 	{
-		return;
+		m_axisControlTargets->onTargetChanged(kind, id);
 	}
-	if (kind == AxisControlTargetKind::CustomDevice)
-	{
-		axis->clearJoints();
-		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(id.toStdString()));
-		if (!device)
-		{
-			axis->clearExternalAxes();
-			return;
-		}
-		device->ensureQSize();
-		const RobotExternal::RobotExternalAxisConfigSet ext =
-			CustomDeviceKinematics::toExternalAxisConfigSet(device->axes());
-		axis->setExternalAxes(ext);
-		axis->setExternalAxisValuesSilent(enabledValuesFromFullQ(ext, device->qValues()));
-		return;
-	}
-	int instIdx = -1;
-	for (int i = 0; i < doc->robotKinematicInstanceCount(); ++i)
-	{
-		if (doc->robotSceneBackendIdForInstance(i) == id)
-		{
-			instIdx = i;
-			break;
-		}
-	}
-	if (instIdx < 0 && m_host->simulationCommandPage())
-	{
-		instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
-	}
-	if (instIdx < 0)
-	{
-		return;
-	}
-	QVector<double> lower;
-	QVector<double> upper;
-	doc->robotJointLimitsForInstance(instIdx, lower, upper);
-	axis->setJoints(doc->robotRevoluteJointNamesForInstance(instIdx), lower, upper);
-	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
-	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
-	if (m_aggregatedJointAnglesRad.size() >= jointOffset + nj && nj > 0)
-	{
-		axis->setJointAnglesRadSilent(m_aggregatedJointAnglesRad.mid(jointOffset, nj));
-	}
-	syncRobotAxisControlExternalAxes(instIdx);
 }
 
 void RobotSimulationController::clearReachableWorkspaceOverlayUi()
@@ -4932,10 +5042,9 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(
 			}
 			if (const RobotInstruction::PathPlanInstruction* pp = RobotInstruction::asPathPlan(*instruction))
 			{
-				if (!pp->sourceFeatureJson().empty() && m_simulationDock && m_simulationDock->tabWidget())
+				if (!pp->sourceFeatureJson().empty() && m_simulationDock)
 				{
-					m_simulationDock->tabWidget()->setCurrentIndex(
-						RobotSimulationDockWidget::kTabIndexTrajectoryGeneration);
+					showRobotDockTab(RobotSimulationDockWidget::kTabIndexTrajectoryGeneration);
 				}
 			}
 		}
@@ -5625,11 +5734,16 @@ bool RobotSimulationController::isPathPlanRawVisible(const std::string& pathPlan
 
 bool RobotSimulationController::isTrajectoryGenerationTabActive() const
 {
-	if (!m_simulationDock || !m_simulationDock->tabWidget())
+	if (!m_simulationDock || !m_simulationDock->robotTabWidget())
 	{
 		return false;
 	}
-	return m_simulationDock->tabWidget()->currentIndex() == RobotSimulationDockWidget::kTabIndexTrajectoryGeneration;
+	if (m_simulationDock->dockMode() != SimulationDockMode::Robot)
+	{
+		return false;
+	}
+	return m_simulationDock->robotTabWidget()->currentIndex() ==
+		   RobotSimulationDockWidget::kTabIndexTrajectoryGeneration;
 }
 
 bool RobotSimulationController::shouldShowTrajectoryGenerationPreview() const
@@ -6187,8 +6301,15 @@ void RobotSimulationController::onSimulationStartTriggered()
 	m_playbackSegmentExternalAxisStart =
 		doc ? toQVector(doc->robotExternalAxisQ(instIdx)) : QVector<double>();
 	m_playbackExtInterpMotion = nullptr;
-	if (!poseSink || !m_programExecutor.tryStart(doc, poseSink, &m_simulationIoSink, instIdx, instructions, planResults,
-												 playbackStartAngles, &err))
+	IRobotIoSink* ioSink = nullptr;
+	if (m_ioNetwork && doc)
+	{
+		const QString robotId = doc->robotSceneBackendIdForInstance(instIdx);
+		ioSink = m_ioNetwork->sink(robotId);
+	}
+	if (!poseSink || !ioSink ||
+		!m_programExecutor.tryStart(doc, poseSink, ioSink, instIdx, instructions, planResults, playbackStartAngles,
+									&err))
 	{
 		if (m_host->runInfoPage())
 		{
@@ -8011,10 +8132,7 @@ bool RobotSimulationController::showAiFeatureCandidatePreview(const QByteArray& 
 		}
 		return false;
 	}
-	if (m_simulationDock->tabWidget())
-	{
-		m_simulationDock->tabWidget()->setCurrentIndex(RobotSimulationDockWidget::kTabIndexTrajectoryGeneration);
-	}
+	showRobotDockTab(RobotSimulationDockWidget::kTabIndexTrajectoryGeneration);
 	return true;
 }
 

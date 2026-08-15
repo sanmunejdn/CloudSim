@@ -68,6 +68,9 @@
     <ClInclude Include="inc\CustomDeviceKinematics.h">
       <Filter>inc\Other</Filter>
     </ClInclude>
+    <ClInclude Include="inc\CustomDeviceAssemblyCommit.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ExternalAxisSearchService.h">
       <Filter>inc\KinematicsFrames</Filter>
     </ClInclude>
@@ -85,6 +88,9 @@
     </ClInclude>
     <ClInclude Include="inc\MeshTrajectoryIngress.h">
       <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\NamedSignalTable.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\ProcessFlowPresetLoader.h">
       <Filter>inc\ProgramExport</Filter>
@@ -205,6 +211,9 @@
     <ClCompile Include="source\CustomDeviceKinematics.cpp">
       <Filter>src\Other</Filter>
     </ClCompile>
+    <ClCompile Include="source\CustomDeviceAssemblyCommit.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\ExternalAxisSearchService.cpp">
       <Filter>src\KinematicsFrames</Filter>
     </ClCompile>
@@ -213,6 +222,9 @@
     </ClCompile>
     <ClCompile Include="source\MeshTrajectoryIngress.cpp">
       <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\NamedSignalTable.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\PathPlanRawStore.cpp">
       <Filter>src\Trajectory</Filter>

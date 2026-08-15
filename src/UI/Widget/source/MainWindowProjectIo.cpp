@@ -5,9 +5,11 @@
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/IoSignalPageWidget.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
+#include "../RobotWidget/inc/RobotCollisionSettingsWidget.h"
 #include "../RobotWidget/inc/RobotProjectIoAdapter.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/IoSignalNetworkService.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 #include "RobotCollisionSettings.h"
 
@@ -26,6 +28,7 @@
 #include "MainWindow.h"
 #include "RunLogger.h"
 #include "MainWindowRobotHost.h"
+#include "MainWindowSelectionService.h"
 #include "PluginManager.h"
 #include "PluginHostContext.h"
 #include "ProjectPackageIo.h"
@@ -165,15 +168,17 @@ void MainWindow::onSaveProject()
 			cloudsim::host::mergeRobotProgramsIntoProjectRoot(*doc, root);
 			if (m_robotSimulation)
 			{
-				const QJsonObject ioSignals = m_robotSimulation->ioSignalsToJson();
-				if (!ioSignals.isEmpty())
+				m_robotSimulation->flushDeviceIoTablesToDocument();
+				const QJsonObject ioNet = m_robotSimulation->ioSignalNetworkToJson();
+				if (!ioNet.isEmpty())
 				{
-					root.insert(QLatin1String(backend_type::kProjectKeyIoSignals), ioSignals);
+					root.insert(QLatin1String(backend_type::kProjectKeyIoSignalNetwork), ioNet);
 				}
 				else
 				{
-					root.remove(QLatin1String(backend_type::kProjectKeyIoSignals));
+					root.remove(QLatin1String(backend_type::kProjectKeyIoSignalNetwork));
 				}
+				root.remove(QLatin1String(backend_type::kProjectKeyIoSignals));
 			}
 			{
 				nlohmann::json colJ;
@@ -286,23 +291,7 @@ void MainWindow::onOpenProjectFile()
 		return;
 	}
 
-	page->data().clear();
-	page->clearRobotSimulationContext();
-	page->backendSourcePath().clear();
-	page->backendSourceType().clear();
-	page->backendParentId().clear();
-	page->render().clearAllAnnotations();
-	if (IRobotOsgViewHost* view = activeOsgViewHost())
-	{
-		view->setCameraFollowBackendId(std::string());
-	}
-
-	const bool hasRenderWidget = activeOsgViewHost() != nullptr;
-
 	const QJsonObject root = jsonDoc.object();
-	bool projectHadPrograms = false;
-	bool projectRobotKinematicsRestored = false;
-	QVector<double> projectLoadedJointAngles;
 	const int projectVersion = root.value(QStringLiteral("version")).toInt(0);
 	if (projectVersion != 4)
 	{
@@ -319,6 +308,33 @@ void MainWindow::onOpenProjectFile()
 		}
 		return;
 	}
+
+	// 打开覆盖当前 DocumentHost：须先停仿真并清空 OSG，否则旧工程模型会残留在新工程场景
+	if (m_robotSimulation)
+	{
+		m_robotSimulation->stopRobotSimulation();
+		if (IoSignalNetworkService* net = m_robotSimulation->ioSignalNetwork())
+		{
+			net->clear();
+		}
+	}
+	MainWindowSelectionService::clearSelection(*this, true);
+	page->clearContentForProjectOpen();
+	if (IRobotOsgViewHost* view = activeOsgViewHost())
+	{
+		view->setCameraFollowBackendId(std::string());
+	}
+	if (m_robotSimulation && m_robotSimulation->simulationDock() &&
+		m_robotSimulation->simulationDock()->collisionPage())
+	{
+		m_robotSimulation->simulationDock()->collisionPage()->setSettings(page->robotCollisionSettings());
+	}
+
+	const bool hasRenderWidget = activeOsgViewHost() != nullptr;
+
+	bool projectHadPrograms = false;
+	bool projectRobotKinematicsRestored = false;
+	QVector<double> projectLoadedJointAngles;
 	const QVector<cloudsim::host::ProjectHierarchyEdge> pendingEdges =
 		cloudsim::host::parseProjectEdgesJson(root.value(QStringLiteral("edges")).toArray());
 	const bool useEdgesRelation = !pendingEdges.isEmpty();
@@ -412,27 +428,31 @@ void MainWindow::onOpenProjectFile()
 
 	if (m_robotSimulation)
 	{
-		const QJsonValue ioVal = root.value(QLatin1String(backend_type::kProjectKeyIoSignals));
+		const QJsonValue ioVal = root.value(QLatin1String(backend_type::kProjectKeyIoSignalNetwork));
 		if (ioVal.isObject())
 		{
 			QString ioErr;
-			if (!m_robotSimulation->ioSignalsFromJson(ioVal.toObject(), &ioErr) && m_runInfoPage && !ioErr.isEmpty())
+			if (!m_robotSimulation->ioSignalNetworkFromJson(ioVal.toObject(), &ioErr) && m_runInfoPage &&
+				!ioErr.isEmpty())
 			{
 				m_runInfoPage->appendWarning(ioErr);
 			}
 		}
-		else
+		else if (m_robotSimulation->ioSignalNetwork())
 		{
-			m_robotSimulation->namedSignalTable().clear();
-			m_robotSimulation->simulationIoSink().resetRuntimeFromTable(false);
+			m_robotSimulation->ioSignalNetwork()->clear();
 		}
+		m_robotSimulation->syncIoOwnersFromDocument();
 		if (m_ioSignalPage)
 		{
-			m_ioSignalPage->setSignalTable(&m_robotSimulation->namedSignalTable());
-			m_ioSignalPage->setIoSink(&m_robotSimulation->simulationIoSink());
+			m_ioSignalPage->setNetwork(m_robotSimulation->ioSignalNetwork());
 			m_ioSignalPage->refreshFromModel();
+			m_robotSimulation->setIoUiOwnerId(m_ioSignalPage->currentOwnerId());
 		}
 	}
+
+	// 无机器人/无程序的工程也要刷掉上一工程残留的关节/指令 UI
+	refreshSimulationJointListFromCurrentDoc();
 
 	if (const QJsonValue cv = root.value(QStringLiteral("robotCollision")); cv.isObject())
 	{

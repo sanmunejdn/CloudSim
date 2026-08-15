@@ -140,21 +140,43 @@ void RobotAxisControlWidget::selectControlTarget(const AxisControlTargetKind kin
 	}
 }
 
-void RobotAxisControlWidget::updateTargetDependentChrome(const AxisControlTargetItem& t)
+void RobotAxisControlWidget::updateTargetDependentChrome(const AxisControlTargetItem&)
 {
-	const bool isRobot = t.kind == AxisControlTargetKind::RobotInstance;
+	updateReachableWorkspaceChrome();
+}
+
+void RobotAxisControlWidget::updateReachableWorkspaceChrome()
+{
+	const bool isRobot = currentControlTarget().kind == AxisControlTargetKind::RobotInstance;
+	const bool show = m_reachableWorkspaceFeatureEnabled && isRobot;
 	if (m_reachableWorkspaceCheck)
 	{
-		m_reachableWorkspaceCheck->setVisible(isRobot);
+		m_reachableWorkspaceCheck->setVisible(show);
 	}
 	if (m_reachableWorkspaceDensityLabel)
 	{
-		m_reachableWorkspaceDensityLabel->setVisible(isRobot);
+		m_reachableWorkspaceDensityLabel->setVisible(show);
 	}
 	if (m_reachableWorkspaceDensitySlider)
 	{
-		m_reachableWorkspaceDensitySlider->setVisible(isRobot);
+		m_reachableWorkspaceDensitySlider->setVisible(show);
 	}
+	if (!show && isReachableWorkspaceChecked())
+	{
+		setReachableWorkspaceChecked(false);
+		emit reachableWorkspaceToggled(false);
+	}
+}
+
+void RobotAxisControlWidget::setReachableWorkspaceFeatureEnabled(const bool enabled)
+{
+	if (m_reachableWorkspaceFeatureEnabled == enabled)
+	{
+		updateReachableWorkspaceChrome();
+		return;
+	}
+	m_reachableWorkspaceFeatureEnabled = enabled;
+	updateReachableWorkspaceChrome();
 }
 
 void RobotAxisControlWidget::notifyCurrentControlTargetApplied()
