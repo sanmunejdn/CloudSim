@@ -384,5 +384,9 @@
         <file alias="dark/dock_float_24.png">icons/dark/dock_float_24.png</file>
         <file alias="dark/dock_float_32.png">icons/dark/dock_float_32.png</file>
         <file alias="dark/dock_float_48.png">icons/dark/dock_float_48.png</file>
+        <file alias="light/tree_branch_closed_12.png">icons/light/tree_branch_closed_12.png</file>
+        <file alias="light/tree_branch_open_12.png">icons/light/tree_branch_open_12.png</file>
+        <file alias="dark/tree_branch_closed_12.png">icons/dark/tree_branch_closed_12.png</file>
+        <file alias="dark/tree_branch_open_12.png">icons/dark/tree_branch_open_12.png</file>
     </qresource>
 </RCC>

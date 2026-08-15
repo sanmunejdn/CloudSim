@@ -270,6 +270,19 @@ void OsgWidget::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_bas
 	if (m_tcpTeachUseFlangeLocalPlacement)
 	{
 		m_tcpTeachMountPat->setMatrix(m_tcpTeachToolLocalOnFlange);
+		// 跳点后网格已在 TCP，但 robotBasePlacement 常与外绑/场景不一致；FK×P 会把罗盘甩到默认位
+		if (syncTargetInBase)
+		{
+			osg::Matrixd toolW;
+			if (tcpTeachMountPatWorldMatrix(m_tcpTeachMountPat.get(), toolW))
+			{
+				tcpTeachSetTargetFromToolWorld(toolW);
+			}
+			else
+			{
+				m_tcpTeachTargetInBase = T_base_target;
+			}
+		}
 		syncTcpTeachWorldPatFromTarget();
 		requestRedraw();
 		return;

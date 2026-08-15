@@ -483,8 +483,13 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		const bool isCustomDevice =
 			backend_type::isCustomDeviceClassName(classNameUtf8) ||
 			sourceType.compare(QLatin1String(backend_type::kCatalogCustomDevice), Qt::CaseInsensitive) == 0;
+		// URDF 空壳根常无内嵌几何；勿因缺 sourcePath 直接跳过
+		const bool isUrdfRobotShellHint =
+			sourceType.compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0 ||
+			persistedId.startsWith(QStringLiteral("RobotURDF_"));
 
-		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty() && !isCoordinateFrame && !isCustomDevice)
+		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty() && !isCoordinateFrame && !isCustomDevice &&
+			!isUrdfRobotShellHint)
 		{
 			continue;
 		}
@@ -533,11 +538,13 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 
 		const QString loadPath = resolveProjectObjectLoadPath(options.projectDir, sourcePath, assetRelativePath);
 
-		// URDF 层级空壳根：sourcePath 指向 .urdf，无三角面；勿当网格文件导入（否则根丢失，树顶变成 base_link）
-		const QString urdfProbePath = !loadPath.isEmpty() ? loadPath : (!sourcePath.isEmpty() ? sourcePath : assetRelativePath);
+		// URDF 层级空壳根：无三角面；勿当网格文件导入（否则根丢失，树顶变成 base_link）
+		const QString urdfProbePath =
+			!loadPath.isEmpty() ? loadPath : (!sourcePath.isEmpty() ? sourcePath : assetRelativePath);
 		const bool isUrdfRobotRootShell =
-			sourceType.compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0 &&
-			QFileInfo(urdfProbePath).suffix().compare(QStringLiteral("urdf"), Qt::CaseInsensitive) == 0;
+			isUrdfRobotShellHint &&
+			(urdfProbePath.isEmpty() ||
+			 QFileInfo(urdfProbePath).suffix().compare(QStringLiteral("urdf"), Qt::CaseInsensitive) == 0);
 		if (isUrdfRobotRootShell)
 		{
 			const QString parentId = options.useEdgesRelation ? QString() : legacyParentId;

@@ -107,7 +107,7 @@
 
 - 每台机器人独立 **`jointKeyPrefix`**（如 `RobotURDF_M-20iD-35::`）。
 - `DocumentPage::appendHierarchicalRobotSimulationContext` **追加**实例，二次导入不清空。
-- robot root id：`RobotURDF_<模型基名>`；link id：`rootId + "_" + linkName`。
+- robot root id：`RobotURDF_<模型基名>`（**空壳**，无三角；工程重开依赖 Host 空壳注册，见 Host §4.2c）；link id：`rootId + "_" + linkName`。
 
 ---
 

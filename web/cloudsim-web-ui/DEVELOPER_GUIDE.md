@@ -3,7 +3,7 @@
 正式静态根：`CloudSimWeb.exe` 旁的 `web/`（仓库 `bin\x64d\web` / `bin\x64\web`）。  
 行为以 `_archive/public-fallback/` 为金标对照；默认部署产物来自本目录源码，**不要**只改 fallback 或只拷到 `CloudSim\bin\...\web`。
 
-专题进度见 [`docs/网页端React轨迹对齐/`](../../docs/网页端React轨迹对齐/)。
+专题进度见 [`docs/_archive/网页端React轨迹对齐/`](../../docs/_archive/网页端React轨迹对齐/)。
 
 ## 日常开发
 

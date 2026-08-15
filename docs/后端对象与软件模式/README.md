@@ -1,10 +1,7 @@
 # 后端对象与软件模式
 
-| 文档 | 说明 |
-|------|------|
-| [ALIGNMENT](ALIGNMENT_后端对象与软件模式.md) | 边界与决策 |
-| [CONSENSUS](CONSENSUS_后端对象与软件模式.md) | 验收与方案摘要 |
-| [DESIGN](DESIGN_后端对象与软件模式.md) | 三键表、侧车注册表、Mode vs Backend |
-| [ACCEPTANCE](ACCEPTANCE_后端对象与软件模式.md) | P0 验收 |
+P0 契约（三键、侧车键、工作区模式 vs Data）的**日常入口**为本 README + [`Data/DEVELOPER_GUIDE.md`](../../src/Data/Data/DEVELOPER_GUIDE.md) §4.0。
 
-权威日常入口：[文档索引](../README.md)、[`Data/DEVELOPER_GUIDE.md` §4.0](../../src/Data/Data/DEVELOPER_GUIDE.md)。
+6A 过程稿（ALIGNMENT / CONSENSUS / DESIGN / ACCEPTANCE）已迁入 [`../_archive/后端对象与软件模式/`](../_archive/后端对象与软件模式/)。
+
+权威索引：[文档索引](../README.md)。

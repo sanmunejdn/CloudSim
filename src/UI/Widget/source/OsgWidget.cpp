@@ -3634,6 +3634,12 @@ void OsgWidget::clearImportedContent()
 	if (m_trajectoryOverlayGroup.valid())
 	{
 		m_trajectoryOverlayGroup->removeChildren(0, m_trajectoryOverlayGroup->getNumChildren());
+		// Tcp 拖动罗盘挂在此持久子组上；整组被摘掉后 beginTcpDragTeach 仍往游离节点挂，视图里无罗盘
+		if (m_tcpTeachSceneOverlayGroup.valid())
+		{
+			m_tcpTeachSceneOverlayGroup->removeChildren(0, m_tcpTeachSceneOverlayGroup->getNumChildren());
+			m_trajectoryOverlayGroup->addChild(m_tcpTeachSceneOverlayGroup.get());
+		}
 	}
 	clearPointAnnotations();
 	m_litMeshBackendIds.clear();

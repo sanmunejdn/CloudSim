@@ -263,7 +263,7 @@ UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syn
 3. **RMB 旋转** → `cacheRotatePivot`（世界枢轴）→ `beginGizmoScreenRotate` → `gizmoScreenRotateDeltaRad` → `adjustCenterPlusPoseForRotationDelta` → `applyToOuter` → `selectedObjectRotationChanged`
 4. 拖动中 → `MainWindow::syncPropertyPanelGizmoLiveValues` 从 gizmo 直写属性行；释放 → `writeActiveBackendPoseFromOsg` → `transformGizmoCommitted` → 全量 `updatePropertyPanel`
 
-详见 [文档索引](../../../docs/README.md) §6.2.0。
+详见 [文档索引](../../../docs/README.md)「近期热点」与 Widget §13.1（TCP 示教）。
 
 ---
 
@@ -278,6 +278,6 @@ UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syn
 ## 8. 相关文档
 
 - 可视化构建：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)
-- Qt / Host 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（对象罗盘 §6.3.1–§6.3.2；TCP 示教 §13.1；属性/EventHub §12a）
+- Qt / Host 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（TCP 示教 §13.1；Units/主题 §4.6、§5.3）
 - per-link FK / **M0·P**：[`../../Robot/RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §8
 - Host 组合根：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md)

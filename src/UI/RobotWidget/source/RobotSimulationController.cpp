@@ -1462,7 +1462,6 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		refreshAxisControlTargets();
 		// 保留聚合角与 m_syncedRobotSceneBackendIds：空文档切回原机时可对齐；无交集的新机在上方清零
 		m_motionPreviewProgramStartJointRad.clear();
-		m_host->simulationCommandPage()->bindProgramTree();
 	}
 }
 
@@ -3655,8 +3654,8 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Failed to attach TCP drag gizmo."), QStringLiteral("无法挂载 TCP 拖动示教罗盘。")));
 		}
 	}
-	// gizmo 用 P_eff；缓存目标用 P0（与示教/IK 一致）
-	m_lastTcpDragTargetInBase = tcpDragRigidPeffToP0(doc, instIdx, targetInBase);
+	// 法兰路径会按场景挂载点校准 T_base；缓存须读回，勿用进入前的纯 FK
+	m_lastTcpDragTargetInBase = tcpDragRigidPeffToP0(doc, instIdx, osg->tcpDragTeachTargetInBase());
 	m_lastTcpDragTargetValid = true;
 	m_tcpDragTeachIkTimer.start();
 }
@@ -3687,7 +3686,7 @@ void RobotSimulationController::syncTcpDragTeachAnchorFromCurrentJoints()
 		return;
 	}
 	osg->updateTcpDragTeachFromTarget(fkTarget, true);
-	m_lastTcpDragTargetInBase = tcpDragRigidPeffToP0(doc, instIdx, fkTarget);
+	m_lastTcpDragTargetInBase = tcpDragRigidPeffToP0(doc, instIdx, osg->tcpDragTeachTargetInBase());
 	m_lastTcpDragTargetValid = true;
 	m_tcpDragLastAppliedJointRad = localJointAnglesForInstance(instIdx);
 }

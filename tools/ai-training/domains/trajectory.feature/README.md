@@ -2,7 +2,7 @@
 
 **场景：** 轨迹生成页已选 STEP 工件 + 用户文本 + catalog 切片 JSON → 线/面意图与候选编号 → **模态对话框确认策略/参数/管线算子** → 离散。
 
-**运行时开发文档：** [`../../../docs/轨迹离散AI确认对话框/`](../../../docs/轨迹离散AI确认对话框/) 与 [`../../../docs/_archive/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md)
+**运行时开发文档：** [`../../../docs/_archive/轨迹离散AI确认对话框/`](../../../docs/_archive/轨迹离散AI确认对话框/) 与 [`../../../docs/_archive/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md)
 
 | 项目 | 值 |
 |------|-----|

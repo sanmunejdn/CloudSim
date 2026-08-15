@@ -32,6 +32,8 @@ outer (osg::MatrixTransform)     ← backend worldMatrix → osgMatrixFromBacken
 
 **已移除**：`MeshVisualOptions::skipInnerModelCenterRebase` 及 inner `-modelCenter` 主路径。世界烘焙导入（URDF q0、DXF 分件、装配 STEP）依赖顶点坐标 + `pose`，而非内层去心。
 
+**空壳 mesh**：`triangleSoup` 为空且无 overlay 线时，`buildMeshDisplayNodeImpl` 返回名为 `EmptyMeshShell` 的空 `Group`（供 URDF 机器人根工程重开建枝；见 Host §4.2c）。
+
 ---
 
 ## 3. 核心类型

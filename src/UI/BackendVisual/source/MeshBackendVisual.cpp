@@ -116,11 +116,10 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 	const bool hasSoup = soup.size() >= 9U && (soup.size() % 9U) == 0U;
 	if (!hasSoup && !data.hasOverlayLineSegments())
 	{
-		if (errorMessage)
-		{
-			*errorMessage = "Invalid mesh buffer in backend data.";
-		}
-		return nullptr;
+		// URDF 机器人空壳根等：无三角也要能建枝，否则工程重开后根节点丢失
+		osg::ref_ptr<osg::Group> emptyShell = new osg::Group;
+		emptyShell->setName("EmptyMeshShell");
+		return emptyShell;
 	}
 	osg::ref_ptr<osg::Group> grp = new osg::Group;
 	if (hasSoup)

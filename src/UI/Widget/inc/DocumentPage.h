@@ -12,6 +12,7 @@
 #include "IRobotUrdfImportContext.h"
 
 #include <QHash>
+#include <QJsonObject>
 #include <QMap>
 #include <QStringList>
 #include <QVector>
@@ -196,6 +197,11 @@ public:
 	RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) override;
 	RobotCollision::Settings& robotCollisionSettings() { return m_robotCollisionSettings; }
 	const RobotCollision::Settings& robotCollisionSettings() const { return m_robotCollisionSettings; }
+
+	/// 切 Tab 时暂存/恢复；打开/保存工程与侧车 ioSignalNetwork 对齐
+	void setIoSignalNetworkCache(const QJsonObject& root) { m_ioSignalNetworkCache = root; }
+	const QJsonObject& ioSignalNetworkCache() const { return m_ioSignalNetworkCache; }
+
 	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const;
 
 private:
@@ -240,6 +246,7 @@ private:
 	QVector<HierarchicalRobotInstance> m_hierarchicalRobots;
 
 	RobotCollision::Settings m_robotCollisionSettings;
+	QJsonObject m_ioSignalNetworkCache;
 
 	QString m_robotUrdfAbsolutePath;
 	QStringList m_robotRevoluteJointNames;

@@ -217,18 +217,18 @@ OsgWidget 信号的**唯一边界**。所有 OsgWidget 的 Qt 信号（拾取、
 
 | API | 说明 |
 |-----|------|
-| `applyTheme(QApplication*, Theme)` | 加载 QSS 并应用 |
+| `applyTheme(QApplication*, Theme)` | 加载 QSS、应用 `CloudSimTreeBranchStyle`、刷新 `UiIcons` |
 | `loadSavedTheme()` | 从 `QSettings` 读取 |
 | `saveTheme(Theme)` | 写入 `QSettings` |
 | `usesDarkTheme()` | 当前是否深色 |
 
-**按钮角色（QSS 属性）**：`QPushButton` 设置 `btnRole` 为 `primary` / `secondary` / `danger`，主题切换后仍生效。主操作（如应用）用 `primary`，次要用 `secondary`，清空类用 `danger`。
+**树展开三角**：全局 QSS 若写过 `QTreeWidget::branch` 会吃掉 Fusion 默认三角，且 Qt5 的 SVG `data:` URI 不可靠。现用 `CloudSimTreeBranchStyle`（`QProxyStyle`）在 `PE_IndicatorBranch` 上绘制 ▸/▾；有子节点才画。Units 树另设 `setRootIsDecorated(true)`。
 
-**运行日志布局**：`RunInfoPage` 挂在中央区竖向 `QSplitter`（文档页上方、日志下方），**不再**使用 `BottomDockWidget`。左右 Dock 通高，日志只占 3D 列，避免与右侧工作区/AI 助手叠层遮挡。
+**按钮角色（QSS 属性）**：`QPushButton` 设置 `btnRole` 为 `primary` / `secondary` / `danger`，主题切换后仍生效。
 
-**QComboBox**：全局 QSS 闭合高度约 24–26px；弹层 `item` 设 `min-height` 并允许滚动。
+**运行日志布局**：`RunInfoPage` 挂在中央区竖向 `QSplitter`（文档页上方、日志下方），**不再**使用 `BottomDockWidget`。
 
-**圆角策略**：仅小控件（按钮/单行输入/Combo/Spin/滚动条把手等）保留 `border-radius`。`QTabWidget::pane`、树/列表、多行文本、`QGroupBox`、菜单弹层等大面积区域强制直角，避免 Qt 无法裁切视口导致「圆角描边 + 直角内容漏角」。
+**圆角策略**：仅小控件保留 `border-radius`；树/列表/大面积面板强制直角。
 
 ### 4.7 `ApplicationSettings`
 
@@ -299,20 +299,18 @@ loadPlugins 完成 → 先恢复工作区模式，再 applySavedViewLayout()（�
 
 ### 5.3 Units 后端对象树（显示框架）
 
-目标语义（实现以专题为准；编码前见方案审批）：
-
 | 约定 | 说明 |
 |------|------|
 | 文档根 | 每个打开的 `DocumentPage` 一个 top-level 根（标题 = Tab） |
-| 对象节点 | 1 对象 1 节点；主父投影；无 `(ref)` |
-| Annotations | 挂在对应文档根下的分组 |
-| 索引 | `(documentId, backendId) → item` |
-| 刷新 | DisplayForest + **文档作用域** rebuild/补丁；禁止跨文档全局 `takeChildren` |
-| 与 OSG 调试树 | Units = 多文档投影；OSG Scene 树 = 仅活动文档 |
+| 对象节点 | 1 对象 1 节点；主父投影（`parentIds.front()`）；无 `(ref)` |
+| Annotations | 挂在对应文档根下的「注释」分组 |
+| 绑定器 | `BackendUnitsTreeBinder`：`syncDocument` / `showOnlyDocument` / `patchObjectVisible` / 注解增删 |
+| 森林 | `BackendUnitsDisplayForest::buildDocument` 由 `listObjectSnapshots()` 投影 |
+| 与 OSG 调试树 | Units = 多文档投影；「场景层级」= 仅活动文档 OSG 快照 |
 
-专题：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)。**P0 已落地**：`BackendUnitsDisplayForest` + `BackendUnitsTreeBinder`；多文档根、主父投影、文档作用域 `rebuildUnitsDocument`；无 `(ref)`。
+**多文档 Tab**：开工程优先新 Tab（空白未命名可复用）；同路径切已有 Tab。切 Tab 时 stash/restore 该文档的 `ioSignalNetworkCache`。关 Tab 调 `removeDocument`。
 
-选中 / 可见性 / 右键 / focus 为 **document-scoped**（非活动文档对象先激活 Tab）。可见性真源见 [`backend_visibility`](../../../docs/backend_visibility/DESIGN_backend_visibility.md)。
+过程稿（已归档）：[`docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)。可见性真源：[`docs/_archive/backend_visibility/`](../../../docs/_archive/backend_visibility/)。
 
 ### 5.4 后端树批量刷新抑制
 
@@ -348,21 +346,19 @@ onSaveProject()
 
 ```
 onOpenProjectFile()
-  → QFileDialog::getOpenFileName()
-  → [可选] project_package_zip::extractZipArchive()
-  → QJsonDocument::fromJson()
-  → page->data().clear()
+  → 校验 version 后再 clear（`clearContentForProjectOpen`：Data + OSG）
+  → 新 Tab 打开（空白未命名可复用；同路径切 Tab）
   → loadProjectObjectsFromJson(objects[])
-       → loadFromJson 恢复 visible 等公共字段
-       → 建 OSG 视觉后 setBackendObjectVisible(id, data.isVisible())
   → finalizeProjectHierarchyAfterObjects(edges[])
   → restoreRobotKinematicsFromProjectJson()
   → loadRobotProgramsFromProjectJson()
   → finalizeProjectLoadFollowAndViewport()
-  → refreshBackendTree()  // 勾选态读 BackendObjectDto.visible；迁移后为该文档 rebuildDocument
+  → refreshBackendTree()
 ```
 
-**显示/隐藏**：树勾选 / 右键 → 按 item 的 `documentId` 解析 `DocumentPage` → `setBackendVisible` / `IDataService::setVisible`（Data 真源）+ OSG NodeMask。保存时经 `saveToJson` 写出 `objects[].visible`。详见 [`backend_visibility`](../../../docs/backend_visibility/DESIGN_backend_visibility.md)。
+**URDF 空壳根**：`RobotURDF_*` 无三角面；加载须走空壳注册（见 Host §4.2c / §4.4.4），否则树顶只剩 `base_link`。
+
+**显示/隐藏**：树勾选 → `setBackendVisible` / Data 真源 + OSG NodeMask。详见 [`_archive/backend_visibility`](../../../docs/_archive/backend_visibility/)。
 ---
 
 ## 7. 插件集成
@@ -521,8 +517,21 @@ w.showMaximized();
 | [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) | 文档宿主、Core 适配器、组合根 |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | 契约接口与 DTO |
 | [`RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) | 仿真 UI、轨迹编辑 |
-| [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md) | 插件宿主（编入 Widget） |
-| [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md) | 场景核心、gizmo、拾取 |
+| [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md) | 插件宿主（**编入 `CloudSimHost.dll`**） |
+| [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md) | 场景核心、gizmo、拾取、示教罗盘几何 |
+
+### 13.1 TCP 拖动示教（OSG 侧，与 RobotWidget 协作）
+
+编排在 `RobotSimulationController`；OSG 在 `OsgWidgetTcpTeach` / `RobotTcpDragTeachOperation`。
+
+| 要点 | 约定 |
+|------|------|
+| 进入示教 | FK 目标 + 法兰挂载 `toolLocalOnFlange`；`reconcilePerLinkOuterBindFromScene` 后 `beginTcpDragTeach` |
+| 罗盘位姿 | overlay 跟 `T_base_target × P`；法兰路径在 `syncTargetInBase` 时用挂载点世界位姿反推 `T_base`，避免 P 与外绑不一致时罗盘落在默认位 |
+| 重绘 | 示教激活期间 `requestRedraw` 走 `syncTcpTeachWorldPatFromTarget`（勿在 IK 追赶时切 `FromMount`，否则 Local 轴闪跳） |
+| 轨迹叠加 | `clearImportedContent` 后须把 `m_tcpTeachSceneOverlayGroup` 挂回 `m_trajectoryOverlayGroup`，否则罗盘游离不可见 |
+
+详见 [`RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)「TCP 拖动 IK」。
 
 ---
 

@@ -13,6 +13,7 @@
 #include "../RobotWidget/inc/RobotFrameSettingsWidget.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/IoSignalNetworkService.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 #include "../RobotWidget/inc/TrajectoryEditPageWidget.h"
 #include "../RobotWidget/inc/TrajectoryGenerationPageWidget.h"
@@ -58,7 +59,9 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QHeaderView>
+#include <QJsonObject>
 #include <QList>
 #include <QMenu>
 #include <QMenuBar>
@@ -1873,14 +1876,11 @@ void MainWindow::onNewDocument()
 	{
 		return;
 	}
-	auto* page = new DocumentPage(m_documentTabs, m_appEvents);
-	wireDocumentPageSignals(page);
-	page->render().setViewerBackgroundForDarkUi(viewerUsesDarkBackground());
-	page->setViewportToolBarDarkTheme(viewerUsesDarkBackground());
-	const QString title = nextUntitledDocumentTitle();
-	m_documentTabs->addTab(page, title);
-	// setCurrentWidget → currentChanged → onDocumentTabChanged，勿再手动 rebuild/回调
-	m_documentTabs->setCurrentWidget(page);
+	DocumentPage* page = createDocumentPageTab();
+	if (!page)
+	{
+		return;
+	}
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(
@@ -1888,22 +1888,141 @@ void MainWindow::onNewDocument()
 	}
 }
 
+DocumentPage* MainWindow::createDocumentPageTab(const QString& title)
+{
+	if (!m_documentTabs)
+	{
+		return nullptr;
+	}
+	auto* page = new DocumentPage(m_documentTabs, m_appEvents);
+	wireDocumentPageSignals(page);
+	page->render().setViewerBackgroundForDarkUi(viewerUsesDarkBackground());
+	page->setViewportToolBarDarkTheme(viewerUsesDarkBackground());
+	const QString tabTitle = title.isEmpty() ? nextUntitledDocumentTitle() : title;
+	m_documentTabs->addTab(page, tabTitle);
+	m_documentTabs->setCurrentWidget(page);
+	return page;
+}
+
+bool MainWindow::isReusableBlankDocument(const DocumentPage* page) const
+{
+	if (!page)
+	{
+		return false;
+	}
+	if (!page->projectFilePath().isEmpty())
+	{
+		return false;
+	}
+	if (m_modifiedDocumentIds.contains(page->documentId()))
+	{
+		return false;
+	}
+	if (page->hasRobotSimulationContext())
+	{
+		return false;
+	}
+	return page->documentData().listAll().isEmpty();
+}
+
+DocumentPage* MainWindow::findDocumentPageByProjectPath(const QString& projectPath) const
+{
+	if (!m_documentTabs || projectPath.isEmpty())
+	{
+		return nullptr;
+	}
+	const QString want = QFileInfo(projectPath).absoluteFilePath();
+	for (int i = 0; i < m_documentTabs->count(); ++i)
+	{
+		auto* page = qobject_cast<DocumentPage*>(m_documentTabs->widget(i));
+		if (!page || page->projectFilePath().isEmpty())
+		{
+			continue;
+		}
+		if (QFileInfo(page->projectFilePath()).absoluteFilePath() == want)
+		{
+			return page;
+		}
+	}
+	return nullptr;
+}
+
+void MainWindow::stashIoNetworkToDocument(DocumentPage* page)
+{
+	if (!page || !m_robotSimulation)
+	{
+		return;
+	}
+	page->setIoSignalNetworkCache(m_robotSimulation->ioSignalNetworkToJson());
+}
+
+void MainWindow::restoreIoNetworkFromDocument(DocumentPage* page)
+{
+	if (!m_robotSimulation)
+	{
+		return;
+	}
+	m_ioBoundDocumentPage = page;
+	if (!page)
+	{
+		if (IoSignalNetworkService* net = m_robotSimulation->ioSignalNetwork())
+		{
+			net->clear();
+		}
+		return;
+	}
+	const QJsonObject cached = page->ioSignalNetworkCache();
+	if (!cached.isEmpty())
+	{
+		QString err;
+		(void)m_robotSimulation->ioSignalNetworkFromJson(cached, &err);
+	}
+	else if (IoSignalNetworkService* net = m_robotSimulation->ioSignalNetwork())
+	{
+		net->clear();
+		m_robotSimulation->syncIoOwnersFromDocument();
+	}
+	if (m_ioSignalPage)
+	{
+		m_ioSignalPage->setNetwork(m_robotSimulation->ioSignalNetwork());
+		m_ioSignalPage->refreshFromModel();
+		m_robotSimulation->setIoUiOwnerId(m_ioSignalPage->currentOwnerId());
+	}
+}
+
+void MainWindow::syncCollisionUiFromDocument(DocumentPage* page)
+{
+	if (!page || !m_robotSimulation || !m_robotSimulation->simulationDock() ||
+		!m_robotSimulation->simulationDock()->collisionPage())
+	{
+		return;
+	}
+	m_robotSimulation->simulationDock()->collisionPage()->setSettings(page->robotCollisionSettings());
+}
+
 void MainWindow::onDocumentTabChanged(int)
 {
+	DocumentPage* next = currentPage();
+	if (m_ioBoundDocumentPage && m_ioBoundDocumentPage != next)
+	{
+		stashIoNetworkToDocument(m_ioBoundDocumentPage);
+	}
 	if (m_robotSimulation && m_robotSimulation->programExecutor().isRunning())
 	{
 		stopRobotSimulation();
 	}
 	// 先换树再清选中，避免对旧文档节点发 selection/itemChanged 写可见性
-	if (DocumentPage* cur = currentPage())
+	if (next)
 	{
-		rebuildUnitsDocument(cur->documentId());
+		rebuildUnitsDocument(next->documentId());
 	}
 	else if (m_unitsTreeBinder)
 	{
 		m_unitsTreeBinder->showOnlyDocument(QString());
 	}
 	MainWindowSelectionService::clearSelection(*this, true);
+	restoreIoNetworkFromDocument(next);
+	syncCollisionUiFromDocument(next);
 	refreshOsgSceneTree();
 	syncViewModeActionsFromCurrentOsg();
 	refreshSimulationJointListFromCurrentDoc();
@@ -1966,6 +2085,10 @@ void MainWindow::closeDocumentTab(int index)
 	}
 
 	const QString closingDocId = page->documentId();
+	if (m_ioBoundDocumentPage == page)
+	{
+		m_ioBoundDocumentPage = nullptr;
+	}
 	m_documentTabs->removeTab(index);
 	if (m_unitsTreeBinder)
 	{

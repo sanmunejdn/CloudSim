@@ -4,7 +4,7 @@
 2. **P2 回放编排**：`/run`/`/stop` 与万级轨迹二进制帧通道（对齐桌面批绘 / `RobotProgramExecutor`）。  
 3. **P5 AI**：`/api/ai/chat` 转发现有 AiLlmClient / 分域 Handler（读 `ai_config.json`）。  
 4. **H2 链接期去 OSG**：Host 拆可选渲染后，Web 进程可不链 `OsgWidgetCore` DLL（现已运行期无 OsgWidget）。在拆分完成前 **勿** 从 `CloudSimWeb.sln` 移除 BackendVisual/OsgWidgetCore，否则 VS 会把 ProjectReference 解析到 Win32/`bin\x86d`。  
-5. **前端 npm 构建**：本机有 Node 时对 `web/cloudsim-web-ui` 跑 `npm run build:debug|release` 替换 fallback。React 轨迹约定见 [`docs/网页端React轨迹对齐/`](../网页端React轨迹对齐/) 与 [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)。  
+5. **前端 npm 构建**：本机有 Node 时对 `web/cloudsim-web-ui` 跑 `npm run build:debug|release` 替换 fallback。React 轨迹约定见 [`../网页端React轨迹对齐/`](../网页端React轨迹对齐/) 与 [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)。  
 6. ~~设备库（URDF）+ 轴控制页~~：**已完成**（`HeadlessRobotContext`、`/api/devices/catalog`、`/api/robot/instances|joints` GET、左坞瓦片、右坞轴控制滑条）。  
 7. **PLC / 工业相机**：仍为 stub，与设备库无关。  
 8. ~~指令程序编辑器（基础）~~：**已完成**（示教 PTP/LINE/ARC、GET/PUT programs、选中规划预览、属性 GET/PATCH；Run/导出仍 stub）。  

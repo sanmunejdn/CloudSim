@@ -430,7 +430,7 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 | `BackendHierarchyChange` | P1 起供 Units 文档作用域增量；P0 可用 `listObjectSnapshots` 按文档 rebuild |
 | Follow / 属性仍读全图 | 树上看不见的次父边不影响属性与求解 |
 
-专题：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)。
+专题：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)。
 
 ---
 

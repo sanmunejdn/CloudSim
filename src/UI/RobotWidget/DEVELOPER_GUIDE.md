@@ -21,7 +21,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | Simulation dock（工作区 **设备**：顶栏「机器人 / 自定义设备」；子页含轴控制；机器人：指令/轴控/…；自定义设备：设备指令/轴控） | `RobotSimulationDockWidget`, page widgets |
 | **自定义设备组装** | `CustomDeviceAssemblyDialog` + `CustomDeviceAssemblyCanvasWidget`；提交内核 `CustomDeviceAssemblyCommit`（RobotScene）；宿主 `ICustomDeviceAssemblyHost`（Widget/`MainWindowRobotHost`） |
 | **设备指令（姿态库 + DI 信号驱动）** | `DeviceCommandPageWidget` + `CustomDeviceSimService`；姿态/`poseSignalBindings`/`signals` 在 `CustomDeviceBackendData`；DI 来自本设备信号表 |
-| **IO 网络 / 连接站** | `IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站对话框 |
+| **IO 网络 / 连接站** | `IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站对话框；Tab 切换 stash/restore `ioSignalNetworkCache`；过程稿 [`docs/_archive/IO信号与流程/`](../../../docs/_archive/IO信号与流程/) |
 | Orchestration | `RobotSimulationController`（门面；含 `IoSignalNetworkService` 等小服务） |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
@@ -130,7 +130,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 ### TCP 拖动 IK（`applyTcpDragTeachIkFromPose`）
 
-**进入示教**（`onSimulationTcpDragTeachModeChanged(true)`）：目标用连杆系 FK（勿把装配系 mesh 世界矩阵当法兰连杆）。per-link 罗盘挂法兰 mesh，`local=linkFrameLocalOnMeshBackend(T_tool)`；再 `reconcilePerLinkOuterBindFromScene`（关节角与轴控同源）；`resolveRobotBaseWorld` 取 **P**。删机再导若 sceneBackendId 无交集则聚合角清零。详见 Widget §13.1。
+**进入示教**（`onSimulationTcpDragTeachModeChanged(true)`）：目标用连杆系 FK（勿把装配系 mesh 世界矩阵当法兰连杆）。per-link 罗盘挂法兰 mesh，`local=linkFrameLocalOnMeshBackend(T_tool)`；再 `reconcilePerLinkOuterBindFromScene`（关节角与轴控同源）；`resolveRobotBaseWorld` 取 **P**。法兰路径在 `syncTargetInBase` 时用挂载点场景位姿反推 `T_base`，避免 P 与外绑不一致时罗盘落在默认位。删机再导若 sceneBackendId 无交集则聚合角清零。详见 Widget §13.1。
 
 1. 罗盘相对 `P_eff`；经 `tcpDragRigidPeffToP0` 得到 `T_p0`，缓存 `m_lastTcpDragTargetInBase`。鼠标位姿 pending 合并，IK 约 8ms 一拍；单步追赶约 220mm、关节步约 0.45rad；拖动中罗盘不跟 FK 残差回拉。
 2. `doc->solveTcpDragTeachIk`：有启用 Workpiece 时按 REP（`T_work = inv(T_p0_work)*T_p0`，外层采样工件轴，内层 RobotBase `solveTeachIkCoordinatedDrag`）；否则仅 RobotBase。
@@ -932,6 +932,7 @@ MVP 桩 `importTubularGrindingPointsToRawTrajectory` 返回 `false`，`errMsg = 
 - 总架构：[文档索引](../../../docs/README.md)
 - 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../docs/MODULE_DEVELOPER_GUIDES.md)
 - Host 工程包 / kinematics：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.2c
-- Widget 宿主 / TCP / 保存流程：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)
+- Widget 宿主 / TCP / 保存流程：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6、§13.1
+- 自定义设备过程稿：[`docs/_archive/自定义设备/`](../../../docs/_archive/自定义设备/)
 - 指令/执行器：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
 - 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)

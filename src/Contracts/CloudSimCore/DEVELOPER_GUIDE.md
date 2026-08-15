@@ -22,7 +22,7 @@ Units 后端对象树是 **UI 显示投影**，不是 Data DAG 的完整镜像�
 - Data 多父边全集（次父仅真源保留，见 Data 指南「Units 显示投影」）
 
 目标框架（实现见专题）：DisplayForest + DocumentScopedBinder。  
-专题：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)。
+专题：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)。
 
 ### 树构建相关 API（`IDataService`）
 
@@ -53,4 +53,4 @@ Units 后端对象树是 **UI 显示投影**，不是 Data DAG 的完整镜像�
 
 - Data SSOT：[`../../Data/Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md)
 - Widget Units：[`../../UI/Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md)
-- 显示树专题：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)
+- 显示树专题：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)

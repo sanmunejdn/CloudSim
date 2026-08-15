@@ -184,6 +184,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | `loadRobotProgramsFromProjectJson` / `mergeRobotProgramsIntoProjectRoot` | 程序 JSON 读写 |
 | `buildAnnotationsJsonFromOsg` / `applyAnnotationsFromProjectJson` | 注释 snapshot ↔ JSON（`AnnotationProjectIo`） |
 
+**URDF 空壳根（保存再开）**：导入时 `RobotURDF_<型号>` 注册为**无三角**的 `MeshBackendData`，`sourceType=URDF`。重开时若按普通网格加载会失败并丢弃，Units 树只剩 `base_link`。`BackendProjectObjectIo` 识别 `sourceType=URDF` / id 前缀 `RobotURDF_` 为空壳，经 `registerEmbeddedProjectObject` 建枝；`MeshBackendVisual` 对空 soup 返回 `EmptyMeshShell` 组。edges 再挂连杆父子。
+
 `DocumentHostEvents`：`publishProjectLoaded`、`publishSelectionChanged`、`publishPoseCommitted`（gizmo 松手、属性提交经 `publishPoseCommittedFromBackend` / **`publishPoseCommittedFromBackendId`**）。**订阅**：`MainWindowUiSetup` 已订阅 `SelectionChanged` / `PoseCommitted` 刷新属性面板；`BackendObjectRegistered/Removed` 刷新树。
 
 ---
@@ -395,8 +397,9 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 | FK bind | `computeMeshWorldMatrices(urdf, q0, Tbind, …, false)` |
 | 顶点烘焙 | `osgMatrixToColumnMajor16(Tbind)` **转置** → `transformVerticesColumnMajorHomogeneous4x4` |
 | **禁止** | `linkMeshFileToLinkColumnMajor16` + 全量 `Tbind`（visual 双重烘焙） |
-| 后端 | `pose=0`；`setRobotPerLinkKinematicsBinding(..., meshVerticesInLinkFrame=false)` |
+| 后端 | 另注册空壳根 `RobotURDF_<型号>`（无 mesh）；连杆 `rootId_linkName`；`setRobotPerLinkKinematicsBinding(..., meshVerticesInLinkFrame=false)` |
 | FK 运行时 | `M = M0·inv(T0)·Tq·P`；q0 时 **M0=I**、outer=I |
+| 工程重开 | 空壳根须按 §4.2c 空壳路径注册，否则父子边失效、树顶变 `base_link` |
 
 详见 [`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §5。
 

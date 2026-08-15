@@ -10,11 +10,60 @@
 #include <QApplication>
 #include <QColor>
 #include <QFont>
+#include <QPainter>
 #include <QPalette>
+#include <QPolygonF>
+#include <QProxyStyle>
 #include <QStyleFactory>
+#include <QStyleOption>
+#include <QtGlobal>
 
 namespace
 {
+/// 样式表一旦写过 ::branch 就会吃掉默认三角；用代理绘制保证有子节点可见开合符
+class CloudSimTreeBranchStyle final : public QProxyStyle
+{
+public:
+	CloudSimTreeBranchStyle() : QProxyStyle(QStyleFactory::create(QStringLiteral("Fusion"))) {}
+
+	void drawPrimitive(PrimitiveElement element, const QStyleOption* option, QPainter* painter,
+					   const QWidget* widget = nullptr) const override
+	{
+		if (element == PE_IndicatorBranch && option && painter)
+		{
+			if (!(option->state & State_Children))
+			{
+				return;
+			}
+			painter->save();
+			painter->setRenderHint(QPainter::Antialiasing, true);
+			QColor fill = option->palette.color(QPalette::Text);
+			fill.setAlpha(200);
+			painter->setPen(Qt::NoPen);
+			painter->setBrush(fill);
+			const QRectF r = option->rect;
+			const qreal cx = r.center().x();
+			const qreal cy = r.center().y();
+			const qreal s = qMin(r.width(), r.height()) * 0.32;
+			QPolygonF poly;
+			if (option->state & State_Open)
+			{
+				poly << QPointF(cx - s, cy - s * 0.55) << QPointF(cx + s, cy - s * 0.55)
+					 << QPointF(cx, cy + s * 0.85);
+			}
+			else
+			{
+				poly << QPointF(cx - s * 0.55, cy - s) << QPointF(cx + s * 0.85, cy)
+					 << QPointF(cx - s * 0.55, cy + s);
+			}
+			painter->drawPolygon(poly);
+			painter->restore();
+			return;
+		}
+		QProxyStyle::drawPrimitive(element, option, painter, widget);
+	}
+};
+
 // 亮色主题：带微妙冷色调的专业配色
 QPalette makeLightPalette()
 {
@@ -246,10 +295,6 @@ QTreeWidget::item:selected, QTreeView::item:selected {
 
 QTreeWidget::item:hover, QTreeView::item:hover {
 	background-color: #3a3a3c;
-}
-
-QTreeWidget::branch, QTreeView::branch {
-	background-color: transparent;
 }
 
 /* 按钮（默认=次要；btnRole 区分主次） */
@@ -723,10 +768,6 @@ QTreeWidget::item:hover, QTreeView::item:hover {
 	background-color: #e8e9ec;
 }
 
-QTreeWidget::branch, QTreeView::branch {
-	background-color: transparent;
-}
-
 /* 按钮（默认=次要；btnRole 区分主次） */
 QPushButton {
 	background-color: #f0f1f3;
@@ -1051,7 +1092,7 @@ void applyTheme(QApplication* app, Theme theme)
 	{
 		return;
 	}
-	app->setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+	app->setStyle(new CloudSimTreeBranchStyle());
 	// 应用字体配置
 	applyFontConfiguration(app);
 	// 应用调色板

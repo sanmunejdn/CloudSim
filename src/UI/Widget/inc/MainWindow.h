@@ -276,6 +276,12 @@ private:
 	void onNewDocument();
 	void onDocumentTabChanged(int index);
 	void closeDocumentTab(int index);
+	DocumentPage* createDocumentPageTab(const QString& title = QString());
+	bool isReusableBlankDocument(const DocumentPage* page) const;
+	DocumentPage* findDocumentPageByProjectPath(const QString& projectPath) const;
+	void stashIoNetworkToDocument(DocumentPage* page);
+	void restoreIoNetworkFromDocument(DocumentPage* page);
+	void syncCollisionUiFromDocument(DocumentPage* page);
 	void onPointPickFeedback(const QString& text);
 	void onMeshPickFeedback(const QString& text);
 	void onOsgBackendObjectPicked(const QString& backendId);
@@ -430,6 +436,8 @@ protected:
 	int m_processFlowRightSavedWidth = 320;
 	std::unique_ptr<RobotSimulationController> m_robotSimulation;
 	std::unique_ptr<MainWindowRobotHost> m_robotHost;
+	/// 当前绑定到共享 IoSignalNetwork 的文档；切 Tab 时先 stash 再 restore
+	QPointer<DocumentPage> m_ioBoundDocumentPage;
 	MainWindowInstructionPropertyUiHost m_instructionPropertyUiHost;
 	QTimer m_robotSimTimer;
 	QTimer m_followTargetNameDebounceTimer;

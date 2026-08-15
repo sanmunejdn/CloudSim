@@ -170,6 +170,7 @@ void MainWindow::onSaveProject()
 			{
 				m_robotSimulation->flushDeviceIoTablesToDocument();
 				const QJsonObject ioNet = m_robotSimulation->ioSignalNetworkToJson();
+				stashIoNetworkToDocument(doc);
 				if (!ioNet.isEmpty())
 				{
 					root.insert(QLatin1String(backend_type::kProjectKeyIoSignalNetwork), ioNet);
@@ -231,8 +232,7 @@ void MainWindow::onSaveProject()
 
 void MainWindow::onOpenProjectFile()
 {
-	DocumentPage* page = currentPage();
-	if (!page)
+	if (!m_documentTabs)
 	{
 		return;
 	}
@@ -242,6 +242,16 @@ void MainWindow::onOpenProjectFile()
 			"Point Cloud Package (*.pcp);;PointCloud Project (*.pcproj.json);;JSON Files (*.json);;All Files (*.*)"));
 	if (openPath.isEmpty())
 	{
+		return;
+	}
+
+	if (DocumentPage* existing = findDocumentPageByProjectPath(openPath))
+	{
+		m_documentTabs->setCurrentWidget(existing);
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendInfo(QStringLiteral("Project already open: %1").arg(openPath));
+		}
 		return;
 	}
 
@@ -309,7 +319,17 @@ void MainWindow::onOpenProjectFile()
 		return;
 	}
 
-	// 打开覆盖当前 DocumentHost：须先停仿真并清空 OSG，否则旧工程模型会残留在新工程场景
+	// 有内容的当前文档保留；空白未命名页可复用，否则新开 Tab
+	DocumentPage* page = currentPage();
+	if (!isReusableBlankDocument(page))
+	{
+		page = createDocumentPageTab(QFileInfo(openPath).fileName());
+	}
+	if (!page)
+	{
+		return;
+	}
+
 	if (m_robotSimulation)
 	{
 		m_robotSimulation->stopRobotSimulation();
@@ -320,15 +340,12 @@ void MainWindow::onOpenProjectFile()
 	}
 	MainWindowSelectionService::clearSelection(*this, true);
 	page->clearContentForProjectOpen();
+	page->setIoSignalNetworkCache(QJsonObject());
 	if (IRobotOsgViewHost* view = activeOsgViewHost())
 	{
 		view->setCameraFollowBackendId(std::string());
 	}
-	if (m_robotSimulation && m_robotSimulation->simulationDock() &&
-		m_robotSimulation->simulationDock()->collisionPage())
-	{
-		m_robotSimulation->simulationDock()->collisionPage()->setSettings(page->robotCollisionSettings());
-	}
+	syncCollisionUiFromDocument(page);
 
 	const bool hasRenderWidget = activeOsgViewHost() != nullptr;
 
@@ -449,6 +466,8 @@ void MainWindow::onOpenProjectFile()
 			m_ioSignalPage->refreshFromModel();
 			m_robotSimulation->setIoUiOwnerId(m_ioSignalPage->currentOwnerId());
 		}
+		stashIoNetworkToDocument(page);
+		m_ioBoundDocumentPage = page;
 	}
 
 	// 无机器人/无程序的工程也要刷掉上一工程残留的关节/指令 UI

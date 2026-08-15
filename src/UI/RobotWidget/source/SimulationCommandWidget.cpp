@@ -510,6 +510,12 @@ void SimulationCommandWidget::setRobotInstances(const QStringList& labels, const
 	{
 		onRobotComboChanged(0);
 	}
+	else
+	{
+		// 无实例时不会走 onRobotComboChanged，须主动清空指令树（切到空文档/新建）
+		refreshProgramCombo();
+		refreshInstructionList();
+	}
 }
 
 int SimulationCommandWidget::currentRobotInstanceIndex() const

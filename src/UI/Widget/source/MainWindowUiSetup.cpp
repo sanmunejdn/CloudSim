@@ -493,7 +493,10 @@ void MainWindow::setupDockWidgets()
 	setupDockTabWidget(m_unitDockTabs);
 	m_backendTree = new QTreeWidget();
 	m_backendTree->setHeaderHidden(true);
-	m_backendTree->setIndentation(16);
+	m_backendTree->setRootIsDecorated(true);
+	m_backendTree->setItemsExpandable(true);
+	m_backendTree->setExpandsOnDoubleClick(true);
+	m_backendTree->setIndentation(20);
 	m_backendTree->setAnimated(true);
 	m_unitsTreeBinder = std::make_unique<BackendUnitsTreeBinder>(m_backendTree);
 	m_unitsTreeBinder->setAnnotationGroupLabel(QStringLiteral("Annotations"));
