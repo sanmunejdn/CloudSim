@@ -154,6 +154,34 @@ private:
 	bool ioSignalRuntimePatchOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err);
 	bool ioSignalRuntimeResetOnGuiThread(cloudsim::host::DocumentHost* host, QString* err);
 
+	QByteArray ioNetworkJsonOnGuiThread(cloudsim::host::DocumentHost* host);
+	bool ioNetworkOwnerSignalsPutOnGuiThread(cloudsim::host::DocumentHost* host, const QString& ownerId,
+											 const QByteArray& body, QString* err);
+	bool ioNetworkWirePostOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err);
+	bool ioNetworkWireDeleteOnGuiThread(cloudsim::host::DocumentHost* host, const QString& wireId, QString* err);
+	bool ioNetworkOwnerLayoutPatchOnGuiThread(cloudsim::host::DocumentHost* host, const QString& ownerId,
+											  const QByteArray& body, QString* err);
+	bool ioNetworkRuntimePatchOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err);
+	bool ioNetworkRuntimeResetOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err);
+
+	QByteArray customDevicesListJsonOnGuiThread(cloudsim::host::DocumentHost* host);
+	QByteArray customDeviceDetailJsonOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id);
+	bool customDevicePutOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
+									QString* err);
+	bool customDeviceApplyQOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
+									   QString* err);
+	bool customDeviceGotoPoseOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
+										 QString* err);
+	bool customDeviceAssemblyPostOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err,
+											 QString* outId);
+	QByteArray customDeviceAssemblyCandidatesJsonOnGuiThread(cloudsim::host::DocumentHost* host);
+	bool customDeviceEnsureOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err,
+									   QString* outId);
+	bool customDeviceAttachOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
+									   QString* err);
+	bool customDeviceExportUrdfOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
+										   QString* err, QString* outDir);
+
 	cloudsim::core::ICloudSimContext& m_context;
 	WebGatewayConfig m_config;
 	std::unique_ptr<cloudsim::core::IDocumentScope> m_document;

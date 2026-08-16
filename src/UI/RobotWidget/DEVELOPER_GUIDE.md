@@ -21,7 +21,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | Simulation dock（工作区 **设备**：顶栏「机器人 / 自定义设备」；子页含轴控制；机器人：指令/轴控/…；自定义设备：设备指令/轴控） | `RobotSimulationDockWidget`, page widgets |
 | **自定义设备组装** | `CustomDeviceAssemblyDialog` + `CustomDeviceAssemblyCanvasWidget`；提交内核 `CustomDeviceAssemblyCommit`（RobotScene）；宿主 `ICustomDeviceAssemblyHost`（Widget/`MainWindowRobotHost`） |
 | **设备指令（姿态库 + DI 信号驱动）** | `DeviceCommandPageWidget` + `CustomDeviceSimService`；姿态/`poseSignalBindings`/`signals` 在 `CustomDeviceBackendData`；DI 来自本设备信号表 |
-| **IO 网络 / 连接站** | `IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站对话框；Tab 切换 stash/restore `ioSignalNetworkCache`；过程稿 [`docs/_archive/IO信号与流程/`](../../../docs/_archive/IO信号与流程/) |
+| **IO 网络 / 连接站** | 桌面：`IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站；Tab stash `ioSignalNetworkCache`。网页/Headless：Host `IoSignalNetwork`（同侧车 JSON）+ Gateway `/api/io/network*`，见 [`docs/网页端信号网络与自定义设备/`](../../../docs/网页端信号网络与自定义设备/)。过程稿 [`docs/_archive/IO信号与流程/`](../../../docs/_archive/IO信号与流程/) |
 | Orchestration | `RobotSimulationController`（门面；含 `IoSignalNetworkService` 等小服务） |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |

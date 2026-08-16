@@ -6,12 +6,14 @@
 #include "BackendFileImport.h"
 #include "BackendTypeIds.h"
 #include "CloudSimHost.h"
+#include "io/CustomDeviceHostOps.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
 #include "FrameBackendData.h"
 #include "HeadlessRobotContext.h"
 #include "IDataService.h"
 #include "IDocumentScope.h"
+#include "io/IoSignalNetwork.h"
 #include "IRobotService.h"
 #include "ProjectPackageIo.h"
 #include "RobotCoordinateFrameOps.h"
@@ -53,47 +55,6 @@ struct SidecarStore
 };
 SidecarStore g_sidecars;
 
-struct IoRuntimeStore
-{
-	QHash<int, bool> di;
-	QHash<int, bool> digitalOut;
-	QHash<int, double> ai;
-	QHash<int, double> ao;
-	QHash<int, bool> diForced;
-};
-IoRuntimeStore g_ioRuntime;
-
-void resetIoRuntimeFromTable(const RobotIo::NamedSignalTable& table, const bool keepForcedDi)
-{
-	QHash<int, bool> keptForced;
-	if (keepForcedDi)
-		keptForced = g_ioRuntime.diForced;
-	g_ioRuntime = IoRuntimeStore{};
-	if (keepForcedDi)
-		g_ioRuntime.diForced = keptForced;
-	for (const RobotIo::SignalDef& s : table.entries())
-	{
-		switch (s.kind)
-		{
-		case RobotIo::SignalKind::DI:
-			if (g_ioRuntime.diForced.contains(s.port))
-				g_ioRuntime.di.insert(s.port, g_ioRuntime.diForced.value(s.port));
-			else
-				g_ioRuntime.di.insert(s.port, s.defaultBool);
-			break;
-		case RobotIo::SignalKind::DO:
-			g_ioRuntime.digitalOut.insert(s.port, s.defaultBool);
-			break;
-		case RobotIo::SignalKind::AI:
-			g_ioRuntime.ai.insert(s.port, s.defaultAnalog);
-			break;
-		case RobotIo::SignalKind::AO:
-			g_ioRuntime.ao.insert(s.port, s.defaultAnalog);
-			break;
-		}
-	}
-}
-
 QJsonObject namedSignalTableToQJson(const RobotIo::NamedSignalTable& table)
 {
 	const nlohmann::json j = table.toJson();
@@ -122,55 +83,6 @@ bool namedSignalTableFromQJson(RobotIo::NamedSignalTable& table, const QJsonObje
 		return false;
 	}
 	return true;
-}
-
-bool readDiValue(const int port, const bool defaultBool)
-{
-	if (g_ioRuntime.diForced.contains(port))
-		return g_ioRuntime.diForced.value(port);
-	return g_ioRuntime.di.value(port, defaultBool);
-}
-
-QJsonObject ioSignalsPayloadWithRuntime(const RobotIo::NamedSignalTable& table)
-{
-	QJsonObject root = namedSignalTableToQJson(table);
-	QJsonArray signalsArr = root.value(QStringLiteral("signals")).toArray();
-	QJsonArray enriched;
-	for (const QJsonValue& v : signalsArr)
-	{
-		QJsonObject o = v.toObject();
-		const QString kind = o.value(QStringLiteral("kind")).toString();
-		const int port = o.value(QStringLiteral("port")).toInt();
-		bool forced = false;
-		QString valueText = QStringLiteral("-");
-		if (kind == QLatin1String("DI"))
-		{
-			forced = g_ioRuntime.diForced.contains(port);
-			valueText = readDiValue(port, o.value(QStringLiteral("defaultBool")).toBool()) ? QStringLiteral("1")
-																							: QStringLiteral("0");
-		}
-		else if (kind == QLatin1String("DO"))
-		{
-			valueText = g_ioRuntime.digitalOut.value(port, o.value(QStringLiteral("defaultBool")).toBool())
-							? QStringLiteral("1")
-							: QStringLiteral("0");
-		}
-		else if (kind == QLatin1String("AI"))
-		{
-			valueText = QString::number(g_ioRuntime.ai.value(port, o.value(QStringLiteral("defaultAnalog")).toDouble()),
-										'g', 6);
-		}
-		else if (kind == QLatin1String("AO"))
-		{
-			valueText = QString::number(g_ioRuntime.ao.value(port, o.value(QStringLiteral("defaultAnalog")).toDouble()),
-										'g', 6);
-		}
-		o.insert(QStringLiteral("value"), valueText);
-		o.insert(QStringLiteral("forced"), forced);
-		enriched.append(o);
-	}
-	root.insert(QStringLiteral("signals"), enriched);
-	return root;
 }
 
 QString jsonEscapeApi(const QString& s)
@@ -235,8 +147,7 @@ bool WebGateway::newProjectOnGuiThread(cloudsim::host::DocumentHost* host, QStri
 	if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
 		hrc->clearRobotSimulationContext();
 	host->setProjectFilePath(QString());
-	host->namedSignalTable().clear();
-	g_ioRuntime = IoRuntimeStore{};
+	host->ioSignalNetwork().clear();
 	g_sidecars = SidecarStore{};
 	pushEvent(QStringLiteral("{\"type\":\"ProjectLoaded\",\"path\":\"\",\"objectCount\":0}"));
 	return true;
@@ -287,7 +198,9 @@ bool WebGateway::saveProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 	cloudsim::host::mergeRobotProgramsIntoProjectRoot(*host, built.root);
 	cloudsim::host::mergeRobotKinematicsIntoProjectRoot(*host, built.root);
 	webGatewayMergeSidecarsIntoProject(built.root);
-	built.root.insert(QStringLiteral("ioSignals"), namedSignalTableToQJson(host->namedSignalTable()));
+	host->ioSignalNetwork().flushDeviceTablesToDocument(*host);
+	built.root.insert(QStringLiteral("ioSignalNetwork"), host->ioSignalNetwork().toProjectJson());
+	built.root.remove(QStringLiteral("ioSignals"));
 
 	QFile out(jsonPath);
 	if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate))
@@ -847,6 +760,7 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 	cloudsim::core::MotionInstructionDto instr;
 	instr.instructionType = o.value(QStringLiteral("instructionType")).toString(QStringLiteral("PTP"));
 	instr.jointRadCsv = o.value(QStringLiteral("jointRadCsv")).toString();
+	instr.taughtJointRadCsv = o.value(QStringLiteral("taughtJointRadCsv")).toString();
 	instr.axisConfiguration = o.value(QStringLiteral("axisConfiguration")).toObject();
 	instr.extensions = o.value(QStringLiteral("extensions")).toObject();
 	if (o.contains(QStringLiteral("targetPose")))
@@ -858,7 +772,7 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		ctx.extensions.insert(QStringLiteral("sceneRootBackendId"), sceneRoot);
 	if (o.contains(QStringLiteral("urdfPath")))
 		ctx.urdfPath = o.value(QStringLiteral("urdfPath")).toString();
-	// prepareMotionInstructionForHostPlanning 用 seed 覆盖 taught CSV
+	// jointRadCsv = 链式种子；示教目标走 taughtJointRadCsv，勿混用
 	if (!instr.jointRadCsv.isEmpty())
 	{
 		const QStringList parts = instr.jointRadCsv.split(QLatin1Char(','), Qt::SkipEmptyParts);
@@ -1408,8 +1322,10 @@ QByteArray WebGateway::ioSignalsJsonOnGuiThread(cloudsim::host::DocumentHost* ho
 		root.insert(QStringLiteral("error"), QStringLiteral("No host."));
 		return QJsonDocument(root).toJson(QJsonDocument::Compact);
 	}
-	root = ioSignalsPayloadWithRuntime(host->namedSignalTable());
+	const QString oid = host->ioSignalNetwork().primaryRobotOwnerId();
+	root = host->ioSignalNetwork().ownerSignalsPayloadWithRuntime(oid);
 	root.insert(QStringLiteral("ok"), true);
+	root.insert(QStringLiteral("ownerId"), oid);
 	return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }
 
@@ -1427,8 +1343,9 @@ bool WebGateway::ioSignalsPutOnGuiThread(cloudsim::host::DocumentHost* host, con
 		obj = QJsonObject{{QStringLiteral("signals"), doc.array()}};
 	if (!namedSignalTableFromQJson(host->namedSignalTable(), obj, err))
 		return false;
-	resetIoRuntimeFromTable(host->namedSignalTable(), false);
+	host->ioSignalNetwork().resetRuntime(host->ioSignalNetwork().primaryRobotOwnerId(), false);
 	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\"}"));
+	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
 	return true;
 }
 
@@ -1464,54 +1381,20 @@ bool WebGateway::ioSignalRuntimePatchOnGuiThread(cloudsim::host::DocumentHost* h
 		return false;
 	}
 	const QJsonObject o = QJsonDocument::fromJson(body).object();
-	const QString kind = o.value(QStringLiteral("kind")).toString();
-	const int port = o.value(QStringLiteral("port")).toInt();
-	const bool hasForced = o.contains(QStringLiteral("forced"));
-	const bool forced = o.value(QStringLiteral("forced")).toBool();
-	const QString valueText = o.value(QStringLiteral("value")).toString().trimmed();
-	auto parseBool = [](const QString& t) {
-		return t == QLatin1String("1") || t.compare(QLatin1String("true"), Qt::CaseInsensitive) == 0 ||
-			   t.compare(QLatin1String("on"), Qt::CaseInsensitive) == 0;
-	};
-	if (kind == QLatin1String("DI"))
-	{
-		const bool v = parseBool(valueText);
-		if (hasForced && forced)
-		{
-			g_ioRuntime.diForced.insert(port, v);
-			g_ioRuntime.di.insert(port, v);
-		}
-		else if (hasForced && !forced)
-		{
-			g_ioRuntime.diForced.remove(port);
-			g_ioRuntime.di.insert(port, v);
-		}
-		else
-		{
-			g_ioRuntime.di.insert(port, v);
-			if (g_ioRuntime.diForced.contains(port))
-				g_ioRuntime.diForced.insert(port, v);
-		}
-	}
-	else if (kind == QLatin1String("DO"))
-	{
-		g_ioRuntime.digitalOut.insert(port, parseBool(valueText));
-	}
-	else if (kind == QLatin1String("AI"))
-	{
-		g_ioRuntime.ai.insert(port, valueText.toDouble());
-	}
-	else if (kind == QLatin1String("AO"))
-	{
-		g_ioRuntime.ao.insert(port, valueText.toDouble());
-	}
-	else
-	{
-		if (err)
-			*err = QStringLiteral("Unknown kind.");
+	QString ownerId = o.value(QStringLiteral("ownerId")).toString();
+	if (ownerId.isEmpty())
+		ownerId = host->ioSignalNetwork().primaryRobotOwnerId();
+	if (!host->ioSignalNetwork().setRuntime(ownerId, o.value(QStringLiteral("kind")).toString(),
+											o.value(QStringLiteral("port")).toInt(),
+											o.value(QStringLiteral("value")).toString().trimmed(),
+											o.contains(QStringLiteral("forced")), o.value(QStringLiteral("forced")).toBool(),
+											err))
 		return false;
-	}
-	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\"}"));
+	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\",\"ownerId\":\"%1\"}").arg(ownerId));
+	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
+	// DO 可能经接线触发设备姿态；插值过程中也会继续 visualSceneDirty
+	if (o.value(QStringLiteral("kind")).toString() == QLatin1String("DO"))
+		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
 	return true;
 }
 
@@ -1523,9 +1406,270 @@ bool WebGateway::ioSignalRuntimeResetOnGuiThread(cloudsim::host::DocumentHost* h
 			*err = QStringLiteral("No host.");
 		return false;
 	}
-	resetIoRuntimeFromTable(host->namedSignalTable(), false);
+	// 先清边沿再复位 runtime，避免复位过程中的采样被随后 clear 抹掉
+	cloudsim::host::clearCustomDevicePoseEdgeMemory(host);
+	host->ioSignalNetwork().resetRuntime(QString(), false);
+	cloudsim::host::primeCustomDevicePoseEdgeMemory(host->ioSignalNetwork());
+	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\"}"));
+	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
+	return true;
+}
+
+QByteArray WebGateway::ioNetworkJsonOnGuiThread(cloudsim::host::DocumentHost* host)
+{
+	QJsonObject root;
+	if (!host)
+	{
+		root.insert(QStringLiteral("ok"), false);
+		root.insert(QStringLiteral("error"), QStringLiteral("No host."));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	host->ioSignalNetwork().syncOwnersFromDocument(*host);
+	root = host->ioSignalNetwork().networkPayloadWithRuntime();
+	root.insert(QStringLiteral("ok"), true);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::ioNetworkOwnerSignalsPutOnGuiThread(cloudsim::host::DocumentHost* host, const QString& ownerId,
+													 const QByteArray& body, QString* err)
+{
+	if (!host || ownerId.isEmpty())
+	{
+		if (err)
+			*err = QStringLiteral("No host/owner.");
+		return false;
+	}
+	RobotIo::NamedSignalTable* table = host->ioSignalNetwork().table(ownerId);
+	if (!table)
+	{
+		if (err)
+			*err = QStringLiteral("unknown owner");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	QJsonObject obj = doc.object();
+	if (doc.isArray())
+		obj = QJsonObject{{QStringLiteral("signals"), doc.array()}};
+	if (!namedSignalTableFromQJson(*table, obj, err))
+		return false;
+	host->ioSignalNetwork().resetRuntime(ownerId, false);
+	host->ioSignalNetwork().flushDeviceTablesToDocument(*host);
+	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
+	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\",\"ownerId\":\"%1\"}").arg(ownerId));
+	return true;
+}
+
+bool WebGateway::ioNetworkWirePostOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const QJsonObject o = QJsonDocument::fromJson(body).object();
+	cloudsim::host::IoSignalWire w;
+	w.id = o.value(QStringLiteral("id")).toString();
+	w.fromOwnerId = o.value(QStringLiteral("fromOwnerId")).toString();
+	w.fromSignal = o.value(QStringLiteral("fromSignal")).toString();
+	w.toOwnerId = o.value(QStringLiteral("toOwnerId")).toString();
+	w.toSignal = o.value(QStringLiteral("toSignal")).toString();
+	if (!host->ioSignalNetwork().addWire(w, err))
+		return false;
+	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
+	return true;
+}
+
+bool WebGateway::ioNetworkWireDeleteOnGuiThread(cloudsim::host::DocumentHost* host, const QString& wireId, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	if (!host->ioSignalNetwork().removeWire(wireId))
+	{
+		if (err)
+			*err = QStringLiteral("wire not found");
+		return false;
+	}
+	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
+	return true;
+}
+
+bool WebGateway::ioNetworkOwnerLayoutPatchOnGuiThread(cloudsim::host::DocumentHost* host, const QString& ownerId,
+													  const QByteArray& body, QString* err)
+{
+	if (!host || ownerId.isEmpty())
+	{
+		if (err)
+			*err = QStringLiteral("No host/owner.");
+		return false;
+	}
+	const QJsonObject o = QJsonDocument::fromJson(body).object();
+	host->ioSignalNetwork().setCanvasPos(ownerId, o.value(QStringLiteral("canvasX")).toDouble(),
+										 o.value(QStringLiteral("canvasY")).toDouble());
+	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
+	return true;
+}
+
+bool WebGateway::ioNetworkRuntimePatchOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body,
+												  QString* err)
+{
+	return ioSignalRuntimePatchOnGuiThread(host, body, err);
+}
+
+bool WebGateway::ioNetworkRuntimeResetOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body,
+												  QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const QJsonObject o = QJsonDocument::fromJson(body).object();
+	host->ioSignalNetwork().resetRuntime(o.value(QStringLiteral("ownerId")).toString(), false);
+	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
 	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\"}"));
 	return true;
+}
+
+QByteArray WebGateway::customDevicesListJsonOnGuiThread(cloudsim::host::DocumentHost* host)
+{
+	if (!host)
+		return QByteArrayLiteral("{\"ok\":false,\"error\":\"No host.\"}");
+	return QJsonDocument(cloudsim::host::listCustomDevicesJson(*host)).toJson(QJsonDocument::Compact);
+}
+
+QByteArray WebGateway::customDeviceDetailJsonOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id)
+{
+	if (!host)
+		return QByteArrayLiteral("{\"ok\":false,\"error\":\"No host.\"}");
+	return QJsonDocument(cloudsim::host::customDeviceDetailJson(*host, id)).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::customDevicePutOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
+											QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	return cloudsim::host::putCustomDeviceRuntimeFields(*host, id, QJsonDocument::fromJson(body).object(), err);
+}
+
+bool WebGateway::customDeviceApplyQOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id,
+											   const QByteArray& body, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const bool ok = cloudsim::host::applyCustomDeviceQ(*host, id, QJsonDocument::fromJson(body).object(), err);
+	if (ok)
+		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
+	return ok;
+}
+
+bool WebGateway::customDeviceGotoPoseOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id,
+												 const QByteArray& body, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const bool ok = cloudsim::host::gotoCustomDevicePose(*host, id, QJsonDocument::fromJson(body).object(), err);
+	if (ok)
+		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
+	return ok;
+}
+
+bool WebGateway::customDeviceAssemblyPostOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body,
+													 QString* err, QString* outId)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const bool ok =
+		cloudsim::host::commitCustomDeviceAssembly(*host, QJsonDocument::fromJson(body).object(), err, outId);
+	if (ok)
+	{
+		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
+		pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
+	}
+	return ok;
+}
+
+QByteArray WebGateway::customDeviceAssemblyCandidatesJsonOnGuiThread(cloudsim::host::DocumentHost* host)
+{
+	if (!host)
+		return QByteArrayLiteral("{\"ok\":false,\"error\":\"No host.\"}");
+	return QJsonDocument(cloudsim::host::listAssemblyGeometryCandidatesJson(*host)).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::customDeviceEnsureOnGuiThread(cloudsim::host::DocumentHost* host, const QByteArray& body, QString* err,
+											   QString* outId)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const bool ok = cloudsim::host::ensureCustomDevice(*host, QJsonDocument::fromJson(body).object(), err, outId);
+	if (ok)
+	{
+		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
+		pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
+	}
+	return ok;
+}
+
+bool WebGateway::customDeviceAttachOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id,
+											   const QByteArray& body, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const QJsonObject o = QJsonDocument::fromJson(body).object();
+	const bool ok = cloudsim::host::attachCustomDeviceChildren(*host, id, o.value(QStringLiteral("childIds")).toArray(), err);
+	if (ok)
+		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
+	return ok;
+}
+
+bool WebGateway::customDeviceExportUrdfOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id,
+												   const QByteArray& body, QString* err, QString* outDir)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const QJsonObject o = QJsonDocument::fromJson(body).object();
+	const QString parentDir = o.value(QStringLiteral("packageParentDir")).toString();
+	if (parentDir.isEmpty())
+	{
+		if (err)
+			*err = QStringLiteral("packageParentDir required");
+		return false;
+	}
+	return cloudsim::host::exportCustomDeviceUrdfZip(*host, id, parentDir, err, outDir);
 }
 
 } // namespace cloudsim::web

@@ -582,6 +582,12 @@
     <QtMoc Include="inc\DocumentHost.h">
       <Filter>inc\DocumentHost</Filter>
     </QtMoc>
+    <QtMoc Include="inc\io\IoSignalNetwork.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\io\CustomDevicePoseMotionHost.h">
+      <Filter>inc</Filter>
+    </QtMoc>
     <QtMoc Include="inc\headless_stub\OsgWidget.h">
       <Filter>inc\headless_stub</Filter>
     </QtMoc>

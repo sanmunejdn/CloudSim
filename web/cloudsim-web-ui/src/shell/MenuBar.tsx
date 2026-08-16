@@ -12,7 +12,7 @@ type Props = {
 
 export default function MenuBar({ onInsertFrame, onFocus }: Props) {
   const { health, modes, mode, setMode, doNew, doOpen, doOpenFolder, doSave } = useProject();
-  const { interactMode, setInteractMode, doImport, requestFocus } = useScene();
+  const { interactMode, setInteractMode, doImport, doOpenModel, requestFocus } = useScene();
   const { setStatus } = useStatus();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
@@ -33,6 +33,9 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
           </button>
           <button type="button" onClick={() => void doOpenFolder()}>
             打开文件夹…
+          </button>
+          <button type="button" onClick={() => void doOpenModel()}>
+            打开模型…
           </button>
           <button type="button" onClick={() => void doSave()}>
             保存

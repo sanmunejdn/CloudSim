@@ -82,6 +82,14 @@ int propertyEditorTypeForKey(const QString& key, bool editable)
 	{
 		return QVariant::String;
 	}
+	// 动态枚举优先：schema 里仍是 String，但面板用本机信号表做下拉
+	if (key == QStringLiteral("motion.tool.frameId") || key == QStringLiteral("motion.user.frameId") ||
+		key == QStringLiteral("motion.target.frame") || key == QStringLiteral("logic.io.signalName") ||
+		key == QStringLiteral("logic.condition.signalName") || key == QStringLiteral("logic.condition.kind") ||
+		key == QStringLiteral("logic.condition.equals") || key == QStringLiteral("logic.device.backendId"))
+	{
+		return QtVariantPropertyManager::enumTypeId();
+	}
 	if (const property_core::PropertyDescriptor* descriptor = instructionPropertyDescriptorForKey(key))
 	{
 		switch (descriptor->type)
@@ -111,13 +119,6 @@ int propertyEditorTypeForKey(const QString& key, bool editable)
 		default:
 			return QVariant::String;
 		}
-	}
-	if (key == QStringLiteral("motion.tool.frameId") || key == QStringLiteral("motion.user.frameId") ||
-		key == QStringLiteral("motion.target.frame") || key == QStringLiteral("logic.io.signalName") ||
-		key == QStringLiteral("logic.condition.signalName") || key == QStringLiteral("logic.condition.kind") ||
-		key == QStringLiteral("logic.condition.equals") || key == QStringLiteral("logic.device.backendId"))
-	{
-		return QtVariantPropertyManager::enumTypeId();
 	}
 	return QVariant::String;
 }

@@ -30,3 +30,7 @@ export function patchJson<T>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
 }
+
+export function deleteJson<T>(url: string): Promise<T> {
+  return apiJson<T>(url, { method: "DELETE" });
+}

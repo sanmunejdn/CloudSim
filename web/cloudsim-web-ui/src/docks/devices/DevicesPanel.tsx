@@ -4,11 +4,13 @@ import { importUrdf } from "../../api/robot";
 import { useStatus } from "../../state/statusStore";
 import { useScene } from "../../state/sceneStore";
 import { useRobotProgram } from "../../state/robotProgramStore";
+import CustomDevicesSection from "./CustomDevicesSection";
 
 export default function DevicesPanel() {
   const { setStatus } = useStatus();
   const { refreshObjects } = useScene();
   const { reloadPrograms } = useRobotProgram();
+  const [tab, setTab] = useState<"custom" | "catalog">("custom");
   const [types, setTypes] = useState<string[]>([]);
   const [brandsByType, setBrands] = useState<Record<string, string[]>>({});
   const [packages, setPackages] = useState<DevicePackage[]>([]);
@@ -46,50 +48,72 @@ export default function DevicesPanel() {
 
   return (
     <div className="dock-body" id="leftDevices">
-      <div className="device-toolbar">
-        <label className="field compact">
-          类型
-          <select value={type} onChange={(e) => setType(e.target.value)}>
-            {types.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field compact">
-          品牌
-          <select value={brand} onChange={(e) => setBrand(e.target.value)}>
-            {brands.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="btn-ghost" onClick={() => void load()}>
-          刷新
+      <div className="signal-toolbar">
+        <button
+          type="button"
+          className={tab === "custom" ? "btn-ghost active" : "btn-ghost"}
+          onClick={() => setTab("custom")}
+        >
+          自定义设备
+        </button>
+        <button
+          type="button"
+          className={tab === "catalog" ? "btn-ghost active" : "btn-ghost"}
+          onClick={() => setTab("catalog")}
+        >
+          URDF 目录
         </button>
       </div>
-      <div className="device-grid">
-        {tiles.map((p) => (
-          <button
-            key={`${p.brand}-${p.name}-${p.urdfPath}`}
-            type="button"
-            className="device-tile"
-            onClick={async () => {
-              const r = await importUrdf(p.urdfPath);
-              setStatus(r.ok ? `已导入 ${p.name}` : r.error || "导入失败", r.ok ? "info" : "err");
-              await refreshObjects();
-              await reloadPrograms();
-            }}
-          >
-            {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" /> : <div className="ph">R</div>}
-            <span className="name">{p.name}</span>
-          </button>
-        ))}
-      </div>
-      <p className="hint">{hint}</p>
+      {tab === "custom" ? (
+        <CustomDevicesSection onOpenCatalog={() => setTab("catalog")} />
+      ) : (
+        <>
+          <div className="device-toolbar">
+            <label className="field compact">
+              类型
+              <select value={type} onChange={(e) => setType(e.target.value)}>
+                {types.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field compact">
+              品牌
+              <select value={brand} onChange={(e) => setBrand(e.target.value)}>
+                {brands.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="btn-ghost" onClick={() => void load()}>
+              刷新
+            </button>
+          </div>
+          <div className="device-grid">
+            {tiles.map((p) => (
+              <button
+                key={`${p.brand}-${p.name}-${p.urdfPath}`}
+                type="button"
+                className="device-tile"
+                onClick={async () => {
+                  const r = await importUrdf(p.urdfPath);
+                  setStatus(r.ok ? `已导入 ${p.name}` : r.error || "导入失败", r.ok ? "info" : "err");
+                  await refreshObjects();
+                  await reloadPrograms();
+                }}
+              >
+                {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" /> : <div className="ph">R</div>}
+                <span className="name">{p.name}</span>
+              </button>
+            ))}
+          </div>
+          <p className="hint">{hint}</p>
+        </>
+      )}
     </div>
   );
 }

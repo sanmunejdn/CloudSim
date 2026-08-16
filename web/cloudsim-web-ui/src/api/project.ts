@@ -23,6 +23,7 @@ export type DialogOpenOpts = {
   purpose?:
     | "project"
     | "import"
+    | "model"
     | "file"
     | "pointcloud"
     | "urdf"
@@ -37,15 +38,34 @@ export type DialogOpenOpts = {
   directory?: boolean;
 };
 
+export type DialogOpenResult = {
+  ok: boolean;
+  path?: string;
+  /** 多选时返回；缺省时用 path 兜底成单元素 */
+  paths?: string[];
+  error?: string;
+  cancelled?: boolean;
+  folder?: string;
+};
+
 export const dialogOpen = (opts: DialogOpenOpts = {}) => {
   const purpose = opts.directory ? "directory" : opts.purpose ?? "project";
   const filter = opts.filter ?? opts.filters;
-  return postJson<{ ok: boolean; path?: string; error?: string; cancelled?: boolean }>("/api/dialog/open", {
+  return postJson<DialogOpenResult>("/api/dialog/open", {
     title: opts.title,
     purpose,
     filter,
   });
 };
+
+/** 统一取出对话框路径列表（兼容仅返回 path） */
+export function dialogPaths(d: DialogOpenResult): string[] {
+  if (Array.isArray(d.paths) && d.paths.length) {
+    return d.paths.map(String).filter(Boolean);
+  }
+  if (d.path) return [d.path];
+  return [];
+}
 
 export const newProject = () => postJson<ApiOk>("/api/project/new");
 export const openProject = (path: string) =>

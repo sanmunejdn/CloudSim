@@ -100,7 +100,10 @@ struct MotionInstructionDto
 {
 	QString instructionType;
 	PoseDto targetPose;
+	/// IK 链式种子（当前/前序点关节）；与示教目标关节分开
 	QString jointRadCsv;
+	/// 示教落点关节（PTP 优先直出，避免罗盘位姿与钳制关节不一致时再解 IK）
+	QString taughtJointRadCsv;
 	QJsonObject axisConfiguration;
 	QJsonObject extensions;
 };

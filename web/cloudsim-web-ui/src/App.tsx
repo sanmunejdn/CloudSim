@@ -5,6 +5,8 @@ import LeftDock from "./shell/LeftDock";
 import RightDock from "./shell/RightDock";
 import StatusBar from "./shell/StatusBar";
 import DocTabs from "./shell/DocTabs";
+import DockSplitter from "./shell/DockSplitter";
+import { useResizableDocks } from "./shell/useResizableDocks";
 import SceneViewport, { type SceneViewportHandle } from "./scene/SceneViewport";
 import { createCoordinateFrame } from "./api";
 import { useStatus } from "./state/statusStore";
@@ -75,6 +77,7 @@ function Shell() {
   const sceneRef = useRef<SceneViewportHandle>(null);
   const [frameDlg, setFrameDlg] = useState(false);
   const { requestFocus } = useScene();
+  const docks = useResizableDocks();
 
   return (
     <div className="shell">
@@ -85,8 +88,14 @@ function Shell() {
           sceneRef.current?.focusAll();
         }}
       />
-      <div className="main">
+      <div className="main" style={docks.mainStyle}>
         <LeftDock />
+        <DockSplitter
+          title="拖动调整左侧栏宽度"
+          onDragStart={docks.beginLeftDrag}
+          onDrag={docks.onLeftDrag}
+          onDragEnd={docks.persistLeftEnd}
+        />
         <section className="center">
           <DocTabs />
           <div className="viewport">
@@ -101,6 +110,12 @@ function Shell() {
             </div>
           </div>
         </section>
+        <DockSplitter
+          title="拖动调整右侧栏宽度"
+          onDragStart={docks.beginRightDrag}
+          onDrag={docks.onRightDrag}
+          onDragEnd={docks.persistRightEnd}
+        />
         <RightDock />
       </div>
       <StatusBar />

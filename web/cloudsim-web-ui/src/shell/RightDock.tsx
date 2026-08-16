@@ -4,12 +4,24 @@ import JointAxesPanel from "../docks/robot/JointAxesPanel";
 import TrajectoryGenPanel from "../docks/robot/TrajectoryGenPanel";
 import TrajectoryEditPanel from "../docks/robot/TrajectoryEditPanel";
 import FramesPanel from "../docks/robot/FramesPanel";
+import DeviceCommandPanel from "../docks/devices/DeviceCommandPanel";
 import AiPanel from "../docks/ai/AiPanel";
 import PointCloudPanel from "../docks/cloud/PointCloudPanel";
 import { useDockNav } from "../state/dockNavStore";
 
 export default function RightDock() {
-  const { primary, setPrimary, ws, setWs, robot, setRobot } = useDockNav();
+  const {
+    primary,
+    setPrimary,
+    ws,
+    setWs,
+    deviceMode,
+    setDeviceMode,
+    robot,
+    setRobot,
+    deviceTab,
+    setDeviceTab,
+  } = useDockNav();
 
   return (
     <aside className="right dock">
@@ -33,8 +45,8 @@ export default function RightDock() {
             <button type="button" className={`tab ${ws === "units" ? "active" : ""}`} onClick={() => setWs("units")}>
               单元部件
             </button>
-            <button type="button" className={`tab ${ws === "robot" ? "active" : ""}`} onClick={() => setWs("robot")}>
-              机器人
+            <button type="button" className={`tab ${ws === "devices" ? "active" : ""}`} onClick={() => setWs("devices")}>
+              设备
             </button>
           </div>
           {ws === "units" ? (
@@ -43,31 +55,72 @@ export default function RightDock() {
             </div>
           ) : (
             <div className="dock-body">
-              <div className="dock-tabs tertiary">
-                {(
-                  [
-                    ["cmd", "指令"],
-                    ["joint", "轴控制"],
-                    ["trajGen", "轨迹生成"],
-                    ["trajEdit", "轨迹编辑"],
-                    ["frame", "坐标系"],
-                  ] as const
-                ).map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    className={`tab ${robot === k ? "active" : ""}`}
-                    onClick={() => setRobot(k)}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div className="dock-tabs tertiary mode-bar">
+                <button
+                  type="button"
+                  className={`tab ${deviceMode === "robot" ? "active" : ""}`}
+                  onClick={() => setDeviceMode("robot")}
+                >
+                  机器人
+                </button>
+                <button
+                  type="button"
+                  className={`tab ${deviceMode === "customDevice" ? "active" : ""}`}
+                  onClick={() => setDeviceMode("customDevice")}
+                >
+                  自定义设备
+                </button>
               </div>
-              {robot === "cmd" && <InstructionPanel />}
-              {robot === "joint" && <JointAxesPanel />}
-              {robot === "trajGen" && <TrajectoryGenPanel />}
-              {robot === "trajEdit" && <TrajectoryEditPanel />}
-              {robot === "frame" && <FramesPanel />}
+              {deviceMode === "robot" ? (
+                <>
+                  <div className="dock-tabs tertiary">
+                    {(
+                      [
+                        ["cmd", "指令"],
+                        ["joint", "轴控制"],
+                        ["trajGen", "轨迹生成"],
+                        ["trajEdit", "轨迹编辑"],
+                        ["frame", "坐标系"],
+                      ] as const
+                    ).map(([k, label]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        className={`tab ${robot === k ? "active" : ""}`}
+                        onClick={() => setRobot(k)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {robot === "cmd" && <InstructionPanel />}
+                  {robot === "joint" && <JointAxesPanel />}
+                  {robot === "trajGen" && <TrajectoryGenPanel />}
+                  {robot === "trajEdit" && <TrajectoryEditPanel />}
+                  {robot === "frame" && <FramesPanel />}
+                </>
+              ) : (
+                <>
+                  <div className="dock-tabs tertiary">
+                    <button
+                      type="button"
+                      className={`tab ${deviceTab === "cmd" ? "active" : ""}`}
+                      onClick={() => setDeviceTab("cmd")}
+                    >
+                      设备指令
+                    </button>
+                    <button
+                      type="button"
+                      className={`tab ${deviceTab === "joint" ? "active" : ""}`}
+                      onClick={() => setDeviceTab("joint")}
+                    >
+                      轴控制
+                    </button>
+                  </div>
+                  {deviceTab === "cmd" && <DeviceCommandPanel />}
+                  {deviceTab === "joint" && <JointAxesPanel preferCustomDevice />}
+                </>
+              )}
             </div>
           )}
         </div>

@@ -6,6 +6,8 @@ import {
   tcpPose,
   importUrdf,
   postJoints,
+  patchIoNetworkRuntime,
+  fetchIoNetwork,
   type Instruction,
 } from "../../api";
 import { dialogOpen } from "../../api/project";
@@ -21,6 +23,60 @@ import {
 } from "../../robot/playback";
 import InstructionTree, { CMD_LABEL } from "./InstructionTree";
 
+type IoStepFields = Instruction & {
+  port?: number;
+  value?: boolean | number | string;
+  signalName?: string;
+  ioPort?: number;
+  digitalValue?: boolean | number | string;
+  analogValue?: number;
+  ioBoolValue?: boolean;
+  ioAnalogValue?: number;
+};
+
+async function resolveIoPort(
+  step: IoStepFields,
+  kind: "DO" | "AO",
+): Promise<{ ownerId: string; port: number }> {
+  const net = await fetchIoNetwork();
+  const ownerId = net.primaryOwnerId || Object.keys(net.owners || {})[0] || "";
+  const signals = (ownerId && net.owners?.[ownerId]?.signals) || [];
+  const name = String(step.signalName || "").trim();
+  if (name) {
+    const hit = signals.find((s) => s.kind === kind && s.name === name);
+    if (hit) return { ownerId, port: Number(hit.port) || 0 };
+  }
+  const raw = step.port ?? step.ioPort;
+  const port = Number(raw);
+  return { ownerId, port: Number.isFinite(port) ? port : 0 };
+}
+
+function doValueText(step: IoStepFields): string {
+  const raw = step.value ?? step.digitalValue ?? step.ioBoolValue;
+  if (raw === false || raw === 0 || raw === "0" || raw === "false") return "0";
+  if (raw === true || raw === 1 || raw === "1" || raw === "true") return "1";
+  // Host 默认写 true；缺省按拉高处理
+  return "1";
+}
+
+async function waitIoCondition(step: Instruction, abort: () => boolean): Promise<boolean> {
+  const cond = step.condition;
+  if (!cond || cond.kind !== "io") return true;
+  const port = Number(cond.port ?? cond.ioPort);
+  const name = cond.signalName || "";
+  for (let i = 0; i < 600; i++) {
+    if (abort()) return false;
+    const net = await fetchIoNetwork();
+    const oid = net.primaryOwnerId || "";
+    const signals = (oid && net.owners?.[oid]?.signals) || [];
+    const hit = signals.find(
+      (s) => s.kind === "DI" && ((name && s.name === name) || (Number.isFinite(port) && s.port === port)),
+    );
+    if (hit && hit.value === "1") return true;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return false;
+}
 function newId() {
   return `INS_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -102,6 +158,11 @@ export default function InstructionPanel() {
         then: type === "if" ? [] : undefined,
         else: type === "if" ? [] : undefined,
         body: type === "while" ? [] : undefined,
+        ...(type === "set_do"
+          ? { port: 0, value: true, signalName: "" }
+          : type === "set_ao"
+            ? { port: 0, value: 0, signalName: "" }
+            : {}),
       };
       await updateActiveProgram((p) => ({ ...p, instructions: [...(p.instructions || []), ins] }));
       setSelectedInstrId(ins.id);
@@ -186,6 +247,7 @@ export default function InstructionPanel() {
     }
     setPlaying(true);
     abortRef.current = false;
+    // 与桌面一致：不清 IO，靠程序 SET_DO 产生 DI 上升沿
     try {
       await runProgram();
     } catch {
@@ -197,8 +259,45 @@ export default function InstructionPanel() {
       setSelectedInstrId(step.id);
       const type = String(step.type || "").toLowerCase();
       if (type === "wait") {
+        const cond = (step as { condition?: { kind?: string } }).condition;
+        if (cond?.kind === "io") {
+          const ok = await waitIoCondition(step, () => abortRef.current);
+          if (!ok && !abortRef.current) setStatus(`WAIT(IO) 超时: ${step.id}`, "warn");
+          continue;
+        }
         const sec = Number(step.durationSec) || 1;
         await new Promise((r) => setTimeout(r, (sec * 1000) / Math.max(0.1, simRate)));
+        continue;
+      }
+      if (type === "set_do") {
+        const s = step as IoStepFields;
+        const { ownerId, port } = await resolveIoPort(s, "DO");
+        const r = await patchIoNetworkRuntime({
+          ownerId: ownerId || undefined,
+          kind: "DO",
+          port,
+          value: doValueText(s),
+        });
+        if (!r.ok) {
+          setStatus(r.error || `SET_DO 失败: ${step.id}`, "err");
+          break;
+        }
+        continue;
+      }
+      if (type === "set_ao") {
+        const s = step as IoStepFields;
+        const { ownerId, port } = await resolveIoPort(s, "AO");
+        const raw = s.value ?? s.analogValue ?? s.ioAnalogValue ?? 0;
+        const r = await patchIoNetworkRuntime({
+          ownerId: ownerId || undefined,
+          kind: "AO",
+          port,
+          value: String(raw),
+        });
+        if (!r.ok) {
+          setStatus(r.error || `SET_AO 失败: ${step.id}`, "err");
+          break;
+        }
         continue;
       }
       if (!["ptp", "line", "arc"].includes(type)) continue;

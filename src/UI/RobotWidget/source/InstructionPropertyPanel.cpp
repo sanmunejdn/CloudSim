@@ -425,10 +425,14 @@ void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
 	std::vector<std::string> diSignalTokens;
 	std::vector<std::string> aoSignalTokens;
 	std::vector<std::string> deviceIdTokens;
+	QStringList doSignalNames;
+	QStringList diSignalNames;
+	QStringList aoSignalNames;
 	static const std::vector<std::string> conditionKindTokens = {"always", "never", "io", "compare"};
 	static const std::vector<std::string> waitModeTokens = {"always", "io"};
 	static const std::vector<std::string> equalsTokens = {"0", "1"};
 	{
+		const QString noneLabel = host.i18n(QStringLiteral("(none)"), QStringLiteral("（无）"));
 		const QStringList doNames = host.namedIoSignalNames(QStringLiteral("DO"));
 		const QStringList diNames = host.namedIoSignalNames(QStringLiteral("DI"));
 		const QStringList aoNames = host.namedIoSignalNames(QStringLiteral("AO"));
@@ -436,17 +440,23 @@ void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
 		doSignalTokens.push_back(std::string());
 		diSignalTokens.push_back(std::string());
 		aoSignalTokens.push_back(std::string());
+		doSignalNames << noneLabel;
+		diSignalNames << noneLabel;
+		aoSignalNames << noneLabel;
 		for (const QString& n : doNames)
 		{
 			doSignalTokens.push_back(n.toStdString());
+			doSignalNames << n;
 		}
 		for (const QString& n : diNames)
 		{
 			diSignalTokens.push_back(n.toStdString());
+			diSignalNames << n;
 		}
 		for (const QString& n : aoNames)
 		{
 			aoSignalTokens.push_back(n.toStdString());
+			aoSignalNames << n;
 		}
 		for (const QString& id : deviceIds)
 		{
@@ -617,6 +627,7 @@ void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
 				}
 			}
 			const std::vector<std::string>* enumOverride = nullptr;
+			const QStringList* enumNamesOverride = nullptr;
 			if (key == QStringLiteral("motion.axisConfig.preset") && !feasibleAxis.presetTokens.empty())
 			{
 				enumOverride = &feasibleAxis.presetTokens;
@@ -650,15 +661,18 @@ void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
 				if (instruction->type() == RobotInstruction::Type::SET_AO)
 				{
 					enumOverride = &aoSignalTokens;
+					enumNamesOverride = &aoSignalNames;
 				}
 				else
 				{
 					enumOverride = &doSignalTokens;
+					enumNamesOverride = &doSignalNames;
 				}
 			}
 			else if (key == QStringLiteral("logic.condition.signalName"))
 			{
 				enumOverride = &diSignalTokens;
+				enumNamesOverride = &diSignalNames;
 			}
 			else if (key == QStringLiteral("logic.condition.kind"))
 			{
@@ -673,7 +687,8 @@ void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
 			{
 				enumOverride = &deviceIdTokens;
 			}
-			host.appendPropertyBrowserRow(key, label, QString::fromStdString(valueStr), editable, enumOverride);
+			host.appendPropertyBrowserRow(key, label, QString::fromStdString(valueStr), editable, enumOverride,
+										  enumNamesOverride);
 		}
 	}
 

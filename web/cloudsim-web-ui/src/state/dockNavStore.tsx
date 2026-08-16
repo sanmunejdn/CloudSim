@@ -1,44 +1,74 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 export type PrimaryTab = "workspace" | "ai" | "cloud";
-export type WsTab = "units" | "robot";
+export type WsTab = "units" | "devices";
+export type DeviceMode = "robot" | "customDevice";
 export type RobotTab = "cmd" | "joint" | "trajGen" | "trajEdit" | "frame";
+export type DeviceTab = "cmd" | "joint";
 
 type DockNav = {
   primary: PrimaryTab;
   ws: WsTab;
+  deviceMode: DeviceMode;
   robot: RobotTab;
+  deviceTab: DeviceTab;
   setPrimary: (v: PrimaryTab) => void;
   setWs: (v: WsTab) => void;
+  setDeviceMode: (v: DeviceMode) => void;
   setRobot: (v: RobotTab) => void;
-  /** 对齐旧版：选中/新建 PathPlan 时切到轨迹生成 */
+  setDeviceTab: (v: DeviceTab) => void;
   goTrajGen: () => void;
-  /** 生成/应用后回到指令树 */
   goCmd: () => void;
+  goDeviceCmd: () => void;
 };
 
 const Ctx = createContext<DockNav | null>(null);
 
 export function DockNavProvider({ children }: { children: ReactNode }) {
   const [primary, setPrimary] = useState<PrimaryTab>("workspace");
-  const [ws, setWs] = useState<WsTab>("robot");
+  const [ws, setWs] = useState<WsTab>("devices");
+  const [deviceMode, setDeviceMode] = useState<DeviceMode>("robot");
   const [robot, setRobot] = useState<RobotTab>("cmd");
+  const [deviceTab, setDeviceTab] = useState<DeviceTab>("cmd");
 
   const goTrajGen = useCallback(() => {
     setPrimary("workspace");
-    setWs("robot");
+    setWs("devices");
+    setDeviceMode("robot");
     setRobot("trajGen");
   }, []);
 
   const goCmd = useCallback(() => {
     setPrimary("workspace");
-    setWs("robot");
+    setWs("devices");
+    setDeviceMode("robot");
     setRobot("cmd");
   }, []);
 
+  const goDeviceCmd = useCallback(() => {
+    setPrimary("workspace");
+    setWs("devices");
+    setDeviceMode("customDevice");
+    setDeviceTab("cmd");
+  }, []);
+
   const value = useMemo(
-    () => ({ primary, ws, robot, setPrimary, setWs, setRobot, goTrajGen, goCmd }),
-    [primary, ws, robot, goTrajGen, goCmd],
+    () => ({
+      primary,
+      ws,
+      deviceMode,
+      robot,
+      deviceTab,
+      setPrimary,
+      setWs,
+      setDeviceMode,
+      setRobot,
+      setDeviceTab,
+      goTrajGen,
+      goCmd,
+      goDeviceCmd,
+    }),
+    [primary, ws, deviceMode, robot, deviceTab, goTrajGen, goCmd, goDeviceCmd],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

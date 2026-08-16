@@ -18,6 +18,40 @@ function fmtXyz(pose?: { x?: number; y?: number; z?: number }) {
   return `${Number(pose.x || 0).toFixed(1)}, ${Number(pose.y || 0).toFixed(1)}, ${Number(pose.z || 0).toFixed(1)}`;
 }
 
+function fmtBool(v: unknown): "0" | "1" {
+  if (v === false || v === 0 || v === "0" || v === "false") return "0";
+  return "1";
+}
+
+/** 对齐桌面 InstructionProgramTreeWidget：IO/条件摘要，避免信号指令误显示 XYZ */
+function fmtCondition(c?: Instruction["condition"]): string {
+  if (!c) return "始终";
+  const kind = String(c.kind || "").toLowerCase();
+  if (kind === "never") return "永不";
+  if (kind === "io") {
+    const port = Number(c.port ?? c.ioPort);
+    const sig = (c.signalName || "").trim() || (Number.isFinite(port) ? `IO${port}` : "IO");
+    const eq = c.ioEquals === false ? 0 : 1;
+    return `${sig}==${eq}`;
+  }
+  if (kind === "compare") {
+    return `${c.compareLeft || "?"} ${c.compareOp || "=="} ${c.compareRight ?? 0}`;
+  }
+  return "始终";
+}
+
+function fmtSignalIo(ins: Instruction, analog: boolean): string {
+  const name = String(ins.signalName || "").trim();
+  const port = Number(ins.port ?? ins.ioPort);
+  const left = name || `port ${Number.isFinite(port) ? port : 0}`;
+  if (analog) {
+    const raw = ins.value ?? ins.ioAnalogValue ?? 0;
+    return `${left} = ${Number(raw).toFixed(2)}`;
+  }
+  const raw = ins.value ?? ins.ioBoolValue;
+  return `${left} = ${fmtBool(raw)}`;
+}
+
 function renumber(steps: Instruction[]) {
   let next = 1;
   const walk = (arr?: Instruction[]) => {
@@ -42,15 +76,36 @@ function labelOf(ins: Instruction) {
     const phaseZh = phase === "applied" ? "已应用" : phase === "raw_ready" ? "已离散" : "草稿";
     return `${title} · ${phaseZh}`;
   }
-  if (type === "wait") return `[${typeLabel}] 时长 ${Number(ins.durationSec || 0).toFixed(2)} s`;
+  if (type === "wait") {
+    const cond = ins.condition;
+    if (cond && String(cond.kind || "").toLowerCase() === "io") {
+      let summary = fmtCondition(cond);
+      const t = Number(ins.durationSec) || 0;
+      if (t > 1e-9) summary += ` 超时${t.toFixed(1)}s`;
+      return `[${typeLabel}] ${summary}`;
+    }
+    return `[${typeLabel}] 时长 ${Number(ins.durationSec || 0).toFixed(2)} s`;
+  }
+  if (type === "if" || type === "while") {
+    return `[${typeLabel}] ${fmtCondition(ins.condition)}`;
+  }
+  if (type === "set_do") {
+    return `[${typeLabel}] ${fmtSignalIo(ins, false)}`;
+  }
+  if (type === "set_ao") {
+    return `[${typeLabel}] ${fmtSignalIo(ins, true)}`;
+  }
   if (type === "arc") {
     const pi = Number(ins.pointIndex) || 0;
     return pi > 0 ? `P${pi} [${typeLabel}]` : `[${typeLabel}]`;
   }
-  const pi = Number(ins.pointIndex) || 0;
-  const xyz = fmtXyz(ins.pose);
-  const summary = pi > 0 ? `P${pi} · 第${pi}点 · XYZ ${xyz}` : `XYZ ${xyz}`;
-  return pi > 0 ? `P${pi} [${typeLabel}] ${summary}` : `[${typeLabel}] ${summary}`;
+  if (type === "ptp" || type === "line") {
+    const pi = Number(ins.pointIndex) || 0;
+    const xyz = fmtXyz(ins.pose);
+    const summary = pi > 0 ? `P${pi} · 第${pi}点 · XYZ ${xyz}` : `XYZ ${xyz}`;
+    return pi > 0 ? `P${pi} [${typeLabel}] ${summary}` : `[${typeLabel}] ${summary}`;
+  }
+  return `[${typeLabel}]`;
 }
 
 type Props = {

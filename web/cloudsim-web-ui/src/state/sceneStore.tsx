@@ -14,7 +14,7 @@ import {
   importObject,
   type BackendObject,
 } from "../api";
-import { dialogOpen } from "../api/project";
+import { dialogOpen, dialogPaths } from "../api/project";
 import { eventHub } from "../sse/EventHub";
 import { useProject } from "./projectStore";
 import { useStatus } from "./statusStore";
@@ -42,6 +42,7 @@ type SceneCtx = {
   setGizmoTransformMode: (m: GizmoTransformMode) => void;
   setRobotDragTeachPose: (p: RobotDragTeachPose | null) => void;
   doImport: () => Promise<void>;
+  doOpenModel: () => Promise<void>;
   focusRequest: number;
   requestFocus: () => void;
 };
@@ -86,6 +87,7 @@ export function SceneProvider({ children }: { children: ReactNode }) {
         type === "ObjectPatched" ||
         type === "PoseCommitted" ||
         type === "RobotKinematicsApplied" ||
+        type === "SceneChanged" ||
         type === "BackendObjectCreated" ||
         type === "BackendObjectRegistered" ||
         type === "BackendObjectRemoved" ||
@@ -112,15 +114,55 @@ export function SceneProvider({ children }: { children: ReactNode }) {
 
   const doImport = useCallback(async () => {
     const d = await dialogOpen({ purpose: "import", title: "导入模型/点云" });
-    if (!d.ok || !d.path) return;
-    const lower = d.path.toLowerCase();
-    const isPc = [".pcd", ".ply", ".las", ".laz", ".xyz"].some((x) => lower.endsWith(x));
-    const r = await importObject(d.path, isPc);
-    setStatus(r.ok ? "导入成功" : r.error || "导入失败", r.ok ? "info" : "err");
+    if (!d.ok) return;
+    const paths = dialogPaths(d);
+    if (!paths.length) return;
+    let okN = 0;
+    let lastErr = "";
+    for (const p of paths) {
+      const lower = p.toLowerCase();
+      const isPc = [".pcd", ".ply", ".las", ".laz", ".xyz"].some((x) => lower.endsWith(x));
+      const r = await importObject(p, isPc);
+      if (r.ok) ++okN;
+      else lastErr = r.error || "导入失败";
+    }
+    setStatus(
+      okN === paths.length
+        ? `已导入 ${okN} 个文件`
+        : okN > 0
+          ? `已导入 ${okN}/${paths.length}；失败：${lastErr}`
+          : lastErr || "导入失败",
+      okN > 0 ? "info" : "err",
+    );
     await refreshObjects();
   }, [refreshObjects, setStatus]);
 
   const requestFocus = useCallback(() => setFocusRequest((n) => n + 1), []);
+
+  // 对齐桌面「打开模型」：多选；始终按网格/CAD 导入
+  const doOpenModel = useCallback(async () => {
+    const d = await dialogOpen({ purpose: "model", title: "打开模型" });
+    if (!d.ok) return;
+    const paths = dialogPaths(d);
+    if (!paths.length) return;
+    let okN = 0;
+    let lastErr = "";
+    for (const p of paths) {
+      const r = await importObject(p, false);
+      if (r.ok) ++okN;
+      else lastErr = r.error || "打开模型失败";
+    }
+    setStatus(
+      okN === paths.length
+        ? `已打开 ${okN} 个模型`
+        : okN > 0
+          ? `已打开 ${okN}/${paths.length}；失败：${lastErr}`
+          : lastErr || "打开模型失败",
+      okN > 0 ? "info" : "err",
+    );
+    await refreshObjects();
+    if (okN > 0) requestFocus();
+  }, [refreshObjects, setStatus, requestFocus]);
 
   const value = useMemo(
     () => ({
@@ -137,6 +179,7 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       setGizmoTransformMode,
       setRobotDragTeachPose,
       doImport,
+      doOpenModel,
       focusRequest,
       requestFocus,
     }),
@@ -151,6 +194,7 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       selectObject,
       setRobotDragMode,
       doImport,
+      doOpenModel,
       focusRequest,
       requestFocus,
     ],

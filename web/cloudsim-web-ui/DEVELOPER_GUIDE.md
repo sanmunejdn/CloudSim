@@ -3,7 +3,31 @@
 正式静态根：`CloudSimWeb.exe` 旁的 `web/`（仓库 `bin\x64d\web` / `bin\x64\web`）。  
 行为以 `_archive/public-fallback/` 为金标对照；默认部署产物来自本目录源码，**不要**只改 fallback 或只拷到 `CloudSim\bin\...\web`。
 
-专题进度见 [`docs/_archive/网页端React轨迹对齐/`](../../docs/_archive/网页端React轨迹对齐/)。
+专题进度见 [`docs/网页端信号网络与自定义设备/`](../../docs/网页端信号网络与自定义设备/)、[`docs/网页端设备页桌面同步/`](../../docs/网页端设备页桌面同步/)；旧单表 IO 对等见 [`docs/_archive/网页端IO信号对等/`](../../docs/_archive/网页端IO信号对等/)。
+
+## IO / 自定义设备（网页）
+
+- 工程侧车：`ioSignalNetwork`（多 Owner + wires）；旧 `ioSignals` 打开时迁入主机器人 Owner
+- API：`/api/io/network*`、`/api/custom-devices*`；旧 `/api/io/signals*` 薄封装到主机器人
+- **右栏「设备」**：顶栏「机器人 | 自定义设备」；机器人侧指令/轴/轨迹/坐标系；自定义设备侧「设备指令」（姿态库 + DI→姿态绑定）与「轴控制」
+- **左栏「设备」**：URDF 目录 + 组装入口（运行面在右栏）
+- 程序 Run：客户端编排对 `SET_DO` / `SET_AO` / `WAIT(IO)` 写同一网络 runtime
+- 导航：`dockNavStore`（`ws=devices`、`deviceMode`、`deviceTab`）；选中设备：`deviceRuntimeStore`
+
+## 自定义设备组装（对齐桌面）
+
+对照：[`docs/网页端设备页桌面同步/ASSEMBLY_桌面对照.md`](../../docs/网页端设备页桌面同步/ASSEMBLY_桌面对照.md)。
+
+- UI：`CustomDeviceAssemblyDialog` — 从场景 / 导入模型、设固定、关节属性（移动/旋转、限位、轴、旋转中心）、Apply
+- API：`ensure` / `attach` / `assembly-candidates` / `POST /api/custom-devices`（提交前 Host 挂父子再 `commitGraph`）/ `export-urdf`
+- 左栏「新建/组装」传空 id；「编辑组装」传选中设备 id
+
+## 打开模型
+
+- 菜单 **文件 → 打开模型…**（视口工具条「模型」同入口）：`dialogOpen({ purpose: "model" })` → 多选 `paths[]` → 逐个 `/api/objects/import` 且 **`isPointCloud: false`**
+- 过滤器对齐桌面：obj/stl/ply/off/dxf/dae/3ds/fbx/step/stp/igs/iges
+- 组装对话框「导入模型…」同样多选
+- 与「导入…」区分：后者也可多选，并按扩展名走点云；打开模型始终走网格/CAD 路径
 
 ## 日常开发
 
@@ -33,9 +57,11 @@ npm run build:release  # → 仓库根 bin/x64/web
 ```text
 src/
   api/          # REST 封装（objects / robot / trajectory …）
-  docks/robot/  # 指令树、轴、轨迹生成、轨迹编辑、坐标系
+  docks/robot/  # 机器人：指令树、轴、轨迹、坐标系
+  docks/devices/# 左栏目录/组装；右栏 DeviceCommandPanel
+  docks/signals/# Owner 信号表 + 连接站
   scene/        # Three 视口、mesh、帧轴、Raw 预览、拾取高亮
-  state/        # scene / trajectory / robotProgram / dockNav …
+  state/        # scene / trajectory / robotProgram / dockNav / deviceRuntime …
   shell/        # 左右坞壳
   styles/       # shell.css（对齐 fallback）
 _archive/public-fallback/   # 旧单文件壳，对照用，不参与默认部署

@@ -81,6 +81,11 @@ nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 		j["context"] = nlohmann::json::object();
 		j["context"]["currentJointRadCsv"] = instruction.jointRadCsv.toStdString();
 	}
+	if (!instruction.taughtJointRadCsv.isEmpty())
+	{
+		j["context"] = j.contains("context") && j["context"].is_object() ? j["context"] : nlohmann::json::object();
+		j["context"]["taughtJointRadCsv"] = instruction.taughtJointRadCsv.toStdString();
+	}
 	if (!instruction.extensions.isEmpty())
 	{
 		const QByteArray raw = QJsonDocument(instruction.extensions).toJson(QJsonDocument::Compact);
@@ -124,9 +129,16 @@ core::MotionInstructionDto motionDtoFromInstructionJson(const nlohmann::json& j)
 			dto.axisConfiguration = axisDoc.object();
 		}
 	}
-	if (j.contains("context") && j["context"].is_object() && j["context"].contains("currentJointRadCsv"))
+	if (j.contains("context") && j["context"].is_object())
 	{
-		dto.jointRadCsv = QString::fromStdString(j["context"]["currentJointRadCsv"].get<std::string>());
+		if (j["context"].contains("currentJointRadCsv"))
+		{
+			dto.jointRadCsv = QString::fromStdString(j["context"]["currentJointRadCsv"].get<std::string>());
+		}
+		if (j["context"].contains("taughtJointRadCsv"))
+		{
+			dto.taughtJointRadCsv = QString::fromStdString(j["context"]["taughtJointRadCsv"].get<std::string>());
+		}
 	}
 	QJsonObject extObj;
 	for (auto it = j.begin(); it != j.end(); ++it)
@@ -184,6 +196,24 @@ int resolveInstanceIndex(const core::PlanContextDto& context, IRobotUrdfImportCo
 	return instIdx < 0 ? 0 : instIdx;
 }
 
+QVector<double> parseJointCsv(const QString& csv)
+{
+	QVector<double> out;
+	const QStringList parts = csv.split(QLatin1Char(','), Qt::SkipEmptyParts);
+	out.reserve(parts.size());
+	for (const QString& p : parts)
+	{
+		bool ok = false;
+		const double v = p.trimmed().toDouble(&ok);
+		if (!ok)
+		{
+			return {};
+		}
+		out.append(v);
+	}
+	return out;
+}
+
 } // namespace
 
 bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstructionDto& instruction,
@@ -231,7 +261,22 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 		tcpLink = "tool0";
 	}
 	RobotCoordinate::RobotCoordinateFrameSet& frames = ctx.robotCoordinateFramesForInstance(instIdx);
+	// prepare 会用 seed 覆盖 currentJointRadCsv；示教目标须事先取出
+	const QVector<double> taughtQ = parseJointCsv(instruction.taughtJointRadCsv);
 	prepareMotionInstructionForHostPlanning(*ins, context.seedJointRad, urdfPath, tcpLink, &frames);
+
+	const QString typeLower = instruction.instructionType.trimmed().toLower();
+	const bool ptpTaught = (typeLower == QStringLiteral("ptp")) && !taughtQ.isEmpty();
+	if (ptpTaught && !RobotExternal::hasEnabledExternalAxes(ctx.robotExternalAxesForInstance(instIdx)))
+	{
+		out.ok = true;
+		out.error = QStringLiteral("Use taughtJointRadCsv from teach capture");
+		out.hasExternalAxisQ = false;
+		out.externalAxisQ = 0.0;
+		out.jointTargetsRad = taughtQ;
+		return true;
+	}
+
 	RobotInstruction::Controller controller;
 	controller.buildDefaultPlanners();
 	// PTP/LINE 主路径在此建 Controller；未注入则外轴联立永远不生效

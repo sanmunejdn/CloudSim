@@ -21,7 +21,22 @@ export type Instruction = {
   then?: Instruction[];
   else?: Instruction[];
   body?: Instruction[];
-  condition?: { kind?: string; ioPort?: number; ioEquals?: boolean; compareLeft?: string; compareOp?: string; compareRight?: number };
+  condition?: {
+    kind?: string;
+    /** @deprecated 仅兼容旧工程；新写入用 port */
+    ioPort?: number;
+    port?: number;
+    ioEquals?: boolean;
+    signalName?: string;
+    compareLeft?: string;
+    compareOp?: string;
+    compareRight?: number;
+  };
+  /** 与 Host RobotInstructionFactory 一致 */
+  port?: number;
+  value?: boolean | number | string;
+  signalName?: string;
+  /** @deprecated 仅兼容读旧前端字段 */
   ioPort?: number;
   ioBoolValue?: boolean;
   ioAnalogValue?: number;

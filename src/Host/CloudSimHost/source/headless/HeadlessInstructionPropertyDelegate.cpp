@@ -4,6 +4,7 @@
 #include "HeadlessInstructionPropertyDelegate.h"
 
 #include "DocumentHost.h"
+#include "io/IoSignalNetwork.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionPropertyDto.h"
 #include "RobotProgramCatalog.h"
@@ -93,16 +94,16 @@ bool HeadlessInstructionPropertyDelegate::applyInstructionPropertyChange(const Q
 		}
 		return false;
 	}
-	// 对齐桌面：选信号名时同步解析端口
+	// 对齐桌面：选信号名时同步解析端口（主机器人 Owner）
 	if (key == QStringLiteral("logic.io.signalName") && !value.isEmpty())
 	{
-		const int port = m_host.namedSignalTable().resolvePort(value.toStdString(), -1);
+		const int port = m_host.ioSignalNetwork().resolveNamedPort(value.toStdString(), -1);
 		if (port >= 0 && ins->hasIoPortProperty())
 			ins->setIoPort(port);
 	}
 	else if (key == QStringLiteral("logic.condition.signalName") && !value.isEmpty())
 	{
-		const int port = m_host.namedSignalTable().resolvePort(value.toStdString(), -1);
+		const int port = m_host.ioSignalNetwork().resolveNamedPort(value.toStdString(), -1);
 		if (port >= 0)
 		{
 			RobotInstruction::Condition c = ins->condition();

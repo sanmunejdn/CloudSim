@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  fetchIoSignals,
-  putIoSignals,
-  patchIoSignalRuntime,
-  resetIoSignalRuntime,
+  fetchIoNetwork,
+  putOwnerSignals,
+  patchIoNetworkRuntime,
+  resetIoNetworkRuntime,
+  type IoNetworkOwner,
   type IoSignalRow,
 } from "../../api";
 import { eventHub } from "../../sse/EventHub";
 import { useStatus } from "../../state/statusStore";
 import { useProject } from "../../state/projectStore";
+import SignalsConnectionStationDialog from "./SignalsConnectionStationDialog";
 
 const KINDS = ["DI", "DO", "AI", "AO"] as const;
 
@@ -32,33 +34,55 @@ function defForPut(rows: IoSignalRow[]): IoSignalRow[] {
 export default function SignalsPanel() {
   const { setStatus } = useStatus();
   const { onProjectChanged } = useProject();
+  const [owners, setOwners] = useState<Record<string, IoNetworkOwner>>({});
+  const [ownerId, setOwnerId] = useState("");
   const [rows, setRows] = useState<IoSignalRow[]>([]);
   const [selected, setSelected] = useState(-1);
   const [busy, setBusy] = useState(false);
+  const [stationOpen, setStationOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const r = await fetchIoSignals();
+    const r = await fetchIoNetwork();
     if (!r.ok) {
-      setStatus(r.error || "信号表加载失败", "err");
+      setStatus(r.error || "信号网加载失败", "err");
       return;
     }
-    setRows(r.signals || []);
-  }, [setStatus]);
+    const own = r.owners || {};
+    setOwners(own);
+    const ids = Object.keys(own);
+    const prefer = ownerId && own[ownerId] ? ownerId : r.primaryOwnerId || ids[0] || "";
+    setOwnerId(prefer);
+    setRows(prefer && own[prefer] ? own[prefer].signals || [] : []);
+  }, [setStatus, ownerId]);
 
   useEffect(() => {
     void load();
-  }, [load, onProjectChanged]);
+  }, [onProjectChanged]);
 
   useEffect(() => {
-    const off = eventHub.on("IoSignalsChanged", () => {
+    const off1 = eventHub.on("IoSignalsChanged", () => {
       void load();
     });
-    return off;
+    const off2 = eventHub.on("IoNetworkChanged", () => {
+      void load();
+    });
+    return () => {
+      off1();
+      off2();
+    };
   }, [load]);
 
+  useEffect(() => {
+    if (ownerId && owners[ownerId]) setRows(owners[ownerId].signals || []);
+  }, [ownerId, owners]);
+
   const persistDefs = async (next: IoSignalRow[]) => {
+    if (!ownerId) {
+      setStatus("无 Owner，请先导入机器人或自定义设备", "warn");
+      return;
+    }
     setBusy(true);
-    const r = await putIoSignals(defForPut(next));
+    const r = await putOwnerSignals(ownerId, defForPut(next));
     setBusy(false);
     if (!r.ok) {
       setStatus(r.error || "信号表保存失败", "err");
@@ -70,25 +94,45 @@ export default function SignalsPanel() {
 
   const patchRuntime = async (row: IoSignalRow, value: string, forced?: boolean) => {
     setBusy(true);
-    const body: { kind: string; port: number; value: string; forced?: boolean } = {
+    const body: { ownerId: string; kind: string; port: number; value: string; forced?: boolean } = {
+      ownerId,
       kind: String(row.kind),
       port: Number(row.port) || 0,
       value,
     };
     if (forced !== undefined) body.forced = forced;
-    const r = await patchIoSignalRuntime(body);
+    const r = await patchIoNetworkRuntime(body);
     setBusy(false);
     if (!r.ok) setStatus(r.error || "运行时更新失败", "err");
     else await load();
   };
 
+  const ownerEntries = Object.entries(owners);
+
   return (
     <div className="dock-body" id="leftSignals">
       <div className="signal-toolbar">
+        <label className="field compact">
+          Owner
+          <select
+            value={ownerId}
+            disabled={busy || ownerEntries.length === 0}
+            onChange={(e) => setOwnerId(e.target.value)}
+          >
+            {ownerEntries.map(([id, o]) => (
+              <option key={id} value={id}>
+                {o.displayName || id} ({o.kind})
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="btn-ghost" disabled={busy} onClick={() => setStationOpen(true)}>
+          信号连接站
+        </button>
         <button
           type="button"
           className="btn-ghost"
-          disabled={busy}
+          disabled={busy || !ownerId}
           onClick={() => {
             const next: IoSignalRow[] = [
               ...rows,
@@ -126,7 +170,7 @@ export default function SignalsPanel() {
           disabled={busy}
           onClick={async () => {
             setBusy(true);
-            const r = await resetIoSignalRuntime();
+            const r = await resetIoNetworkRuntime(ownerId || undefined);
             setBusy(false);
             if (!r.ok) setStatus(r.error || "重置失败", "err");
             else {
@@ -142,109 +186,127 @@ export default function SignalsPanel() {
         </button>
       </div>
       <div className="signal-table-wrap">
-        <table className="signal-table">
-          <thead>
-            <tr>
-              <th>名称</th>
-              <th>类型</th>
-              <th>端口</th>
-              <th>值</th>
-              <th>强制</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => {
-              const canForce = row.kind === "DI" && row.simForceable !== false;
-              return (
-                <tr
-                  key={row.id || `${row.name}-${i}`}
-                  className={selected === i ? "sel" : ""}
-                  onClick={() => setSelected(i)}
-                >
-                  <td>
-                    <input
-                      className="prop-input"
-                      value={row.name}
+        <div className="signal-grid" role="table" aria-label="信号表">
+          <div className="signal-grid-row head" role="row">
+            <div className="col-name" role="columnheader">
+              名称
+            </div>
+            <div className="col-kind" role="columnheader">
+              类型
+            </div>
+            <div className="col-port" role="columnheader">
+              端口
+            </div>
+            <div className="col-value" role="columnheader">
+              值
+            </div>
+            <div className="col-force" role="columnheader" title="强制">
+              强
+            </div>
+          </div>
+          {rows.map((row, i) => {
+            const canForce = row.kind === "DI" && row.simForceable !== false;
+            return (
+              <div
+                key={row.id || `${row.name}-${i}`}
+                className={`signal-grid-row ${selected === i ? "sel" : ""}`}
+                role="row"
+                onClick={() => setSelected(i)}
+              >
+                <div className="col-name" role="cell">
+                  <input
+                    className="prop-input"
+                    value={row.name}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setRows((prev) => prev.map((r, j) => (j === i ? { ...r, name } : r)));
+                    }}
+                    onBlur={() => void persistDefs(rows)}
+                  />
+                </div>
+                <div className="col-kind" role="cell">
+                  <select
+                    className="prop-input"
+                    value={row.kind}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const kind = e.target.value;
+                      const next = rows.map((r, j) =>
+                        j === i
+                          ? {
+                              ...r,
+                              kind,
+                              simForceable: kind === "DI",
+                            }
+                          : r,
+                      );
+                      void persistDefs(next);
+                    }}
+                  >
+                    {KINDS.map((k) => (
+                      <option key={k} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-port" role="cell">
+                  <input
+                    className="prop-input"
+                    type="number"
+                    value={row.port}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const port = Number(e.target.value) || 0;
+                      setRows((prev) => prev.map((r, j) => (j === i ? { ...r, port } : r)));
+                    }}
+                    onBlur={() => void persistDefs(rows)}
+                  />
+                </div>
+                <div className="col-value" role="cell">
+                  {row.kind === "DI" || row.kind === "DO" ? (
+                    <button
+                      type="button"
+                      className="btn-ghost"
                       disabled={busy}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setRows((prev) => prev.map((r, j) => (j === i ? { ...r, name } : r)));
-                      }}
-                      onBlur={() => void persistDefs(rows)}
-                    />
-                  </td>
-                  <td>
-                    <select
-                      className="prop-input"
-                      value={row.kind}
-                      disabled={busy}
-                      onChange={(e) => {
-                        const kind = e.target.value;
-                        const next = rows.map((r, j) =>
-                          j === i
-                            ? {
-                                ...r,
-                                kind,
-                                simForceable: kind === "DI",
-                              }
-                            : r,
-                        );
-                        void persistDefs(next);
-                      }}
+                      onClick={() => void patchRuntime(row, row.value === "1" ? "0" : "1")}
                     >
-                      {KINDS.map((k) => (
-                        <option key={k} value={k}>
-                          {k}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      className="prop-input"
-                      value={String(row.port ?? 0)}
-                      disabled={busy}
-                      onChange={(e) => {
-                        const port = Number(e.target.value) || 0;
-                        setRows((prev) => prev.map((r, j) => (j === i ? { ...r, port } : r)));
-                      }}
-                      onBlur={() => void persistDefs(rows)}
-                    />
-                  </td>
-                  <td>
+                      {row.value ?? "-"}
+                    </button>
+                  ) : (
                     <input
                       className="prop-input"
                       value={row.value ?? ""}
                       disabled={busy}
+                      onBlur={(e) => void patchRuntime(row, e.target.value)}
                       onChange={(e) => {
                         const value = e.target.value;
                         setRows((prev) => prev.map((r, j) => (j === i ? { ...r, value } : r)));
                       }}
-                      onBlur={(e) => {
-                        if (e.target.value !== (row.value ?? "")) {
-                          void patchRuntime(row, e.target.value, canForce ? !!row.forced : undefined);
-                        }
-                      }}
                     />
-                  </td>
-                  <td className="signal-force">
+                  )}
+                </div>
+                <div className="col-force signal-force" role="cell">
+                  {canForce ? (
                     <input
                       type="checkbox"
                       checked={!!row.forced}
-                      disabled={busy || !canForce}
-                      onChange={(e) => {
-                        const forced = e.target.checked;
-                        void patchRuntime(row, row.value ?? "0", forced);
-                      }}
+                      disabled={busy}
+                      onChange={(e) =>
+                        void patchRuntime(row, row.value === "1" ? "1" : "0", e.target.checked)
+                      }
                     />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {!rows.length && <p className="muted">无信号定义。点击「添加」创建。</p>}
+                  ) : (
+                    "-"
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+      <SignalsConnectionStationDialog open={stationOpen} onClose={() => setStationOpen(false)} />
     </div>
   );
 }

@@ -13,7 +13,9 @@
 | [`后端对象与软件模式/README.md`](后端对象与软件模式/README.md) | 后端类型三键、侧车键、工作区模式 vs Data |
 | [`几何建模/`](几何建模/) | 几何建模功能清单、架构、路线图 |
 | [`HostOptimization/`](HostOptimization/) | 接口目录、backend 调用清单、Headless 运维（6A 过程稿已归档） |
-| [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md) | 网页正式壳：构建、场景、轨迹 |
+| [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md) | 网页正式壳：构建、场景、轨迹、IO 网络与自定义设备 |
+| [`网页端信号网络与自定义设备/`](网页端信号网络与自定义设备/) | 网页多 Owner 连接站 + 自定义设备 API/运行面 |
+| [`网页端设备页桌面同步/`](网页端设备页桌面同步/) | 右栏「设备」模式切换 + 设备指令页对齐桌面 |
 
 Cursor 规则：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-architecture.mdc`、`cloudsim-vcxproj-filters.mdc`、`vs-build-configurations.mdc`。
 
@@ -25,7 +27,7 @@ Cursor 规则：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-archite
 | 多文档 Tab 开工程 / IO 网络缓存 | [`Widget/DEVELOPER_GUIDE.md`](../src/UI/Widget/DEVELOPER_GUIDE.md) §6、§5.3 |
 | URDF 空壳根保存再开 | [`CloudSimHost/DEVELOPER_GUIDE.md`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.4 / §4.2c |
 | TCP 拖动示教与罗盘 | [`RobotWidget/DEVELOPER_GUIDE.md`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)、[`OsgWidgetCore`](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |
-| IO 信号网络 / 连接站 / 自定义设备绑定 | [`RobotWidget/DEVELOPER_GUIDE.md`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)；过程稿 [`_archive/IO信号与流程/`](_archive/IO信号与流程/) |
+| IO 信号网络 / 连接站 / 自定义设备绑定 | 桌面：[`RobotWidget/DEVELOPER_GUIDE.md`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)；网页：[`网页端信号网络与自定义设备/`](网页端信号网络与自定义设备/)；过程稿 [`_archive/IO信号与流程/`](_archive/IO信号与流程/) |
 
 ## 进行中专题
 

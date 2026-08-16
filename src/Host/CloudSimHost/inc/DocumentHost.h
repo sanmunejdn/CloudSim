@@ -48,6 +48,7 @@ class IRobotInstructionPropertyDelegate;
 class HeadlessRobotContext;
 class HeadlessTrajectorySession;
 class HeadlessPointCloudBridge;
+class IoSignalNetwork;
 
 /// 单文档组合根
 class CLOUDSIM_HOST_EXPORT DocumentHost : public QWidget, public cloudsim::core::IDocumentScope
@@ -152,7 +153,10 @@ public:
 	HeadlessTrajectorySession* headlessTrajectorySession() const;
 	HeadlessPointCloudBridge* headlessPointCloudBridge() const;
 
-	/// 命名 IO 信号定义表（网页/Headless 与工程侧车 ioSignals）
+	/// 多 Owner IO 网（工程侧车 ioSignalNetwork）；旧 API 经 primary 表兼容
+	IoSignalNetwork& ioSignalNetwork();
+	const IoSignalNetwork& ioSignalNetwork() const;
+	/// 主机器人 Owner 信号表（兼容旧 /api/io/signals）
 	RobotIo::NamedSignalTable& namedSignalTable();
 	const RobotIo::NamedSignalTable& namedSignalTable() const;
 
@@ -169,6 +173,10 @@ public:
 	/// per-link 机器人状态访问器注入（由 DocumentPage 实现，供 Host 实现类访问状态）
 	void setPerLinkRobotStateAccessor(IPerLinkRobotStateAccessor* accessor);
 	IPerLinkRobotStateAccessor* perLinkRobotStateAccessor() const;
+
+signals:
+	/// 自定义设备等改写了 Backend worldMatrix，网页需拉 objects
+	void visualSceneDirty();
 
 private:
 	QString m_documentId;
@@ -192,7 +200,7 @@ private:
 	std::unique_ptr<HeadlessRobotContext> m_headlessRobotContext;
 	std::unique_ptr<HeadlessTrajectorySession> m_headlessTrajectorySession;
 	std::unique_ptr<HeadlessPointCloudBridge> m_headlessPointCloudBridge;
-	RobotIo::NamedSignalTable m_namedSignalTable;
+	std::unique_ptr<IoSignalNetwork> m_ioSignalNetwork;
 	IRobotInstructionPropertyDelegate* m_instructionPropertyDelegate = nullptr;
 	std::unique_ptr<IRobotInstructionPropertyDelegate> m_ownedInstructionPropertyDelegate;
 	IPerLinkKinematicsHost* m_perLinkKinematicsHost = nullptr;

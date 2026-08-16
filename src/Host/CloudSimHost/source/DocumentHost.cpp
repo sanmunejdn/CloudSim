@@ -3,6 +3,8 @@
 
 #include "DocumentHost.h"
 #include "CloudSimHost.h"
+#include "io/CustomDeviceHostOps.h"
+#include "io/IoSignalNetwork.h"
 #include "HeadlessRobotContext.h"
 
 #include "BackendDataBase.h"
@@ -83,6 +85,25 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 		m_headlessTrajectorySession = std::make_unique<HeadlessTrajectorySession>(*this);
 		m_headlessPointCloudBridge = std::make_unique<HeadlessPointCloudBridge>(*this);
 	}
+
+	m_ioSignalNetwork = std::make_unique<IoSignalNetwork>(this);
+	QObject::connect(m_ioSignalNetwork.get(), &IoSignalNetwork::ownerIoChanged, this,
+					 [this](const QString& ownerId) {
+						 if (m_ioSignalNetwork->ownerKind(ownerId) == IoSignalOwnerKind::Device)
+						 {
+							 processCustomDevicePoseRisingEdges(*this, *m_ioSignalNetwork, ownerId);
+							 return;
+						 }
+						 // 机器人 DO 变更时再扫设备，与 propagate 发出的设备事件互补
+						 for (const QString& id : m_ioSignalNetwork->ownerIds())
+						 {
+							 if (m_ioSignalNetwork->ownerKind(id) == IoSignalOwnerKind::Device)
+								 processCustomDevicePoseRisingEdges(*this, *m_ioSignalNetwork, id);
+						 }
+					 });
+	QObject::connect(m_ioSignalNetwork.get(), &IoSignalNetwork::networkChanged, this, [this]() {
+		primeCustomDevicePoseEdgeMemory(*m_ioSignalNetwork);
+	});
 
 	m_dataService = std::make_unique<DataServiceAdapter>(*this);
 	m_robotService = std::make_unique<RobotServiceAdapter>(*this, *m_robotProgramStore);
@@ -345,14 +366,24 @@ RobotProgramStore& DocumentHost::robotProgramStore()
 	return *m_robotProgramStore;
 }
 
+IoSignalNetwork& DocumentHost::ioSignalNetwork()
+{
+	return *m_ioSignalNetwork;
+}
+
+const IoSignalNetwork& DocumentHost::ioSignalNetwork() const
+{
+	return *m_ioSignalNetwork;
+}
+
 RobotIo::NamedSignalTable& DocumentHost::namedSignalTable()
 {
-	return m_namedSignalTable;
+	return m_ioSignalNetwork->primaryTable();
 }
 
 const RobotIo::NamedSignalTable& DocumentHost::namedSignalTable() const
 {
-	return m_namedSignalTable;
+	return m_ioSignalNetwork->primaryTable();
 }
 
 BackendHierarchyModel& DocumentHost::hierarchyModel()
