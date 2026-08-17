@@ -1,4 +1,4 @@
-# CloudSimPluginSDK 开发指南
+﻿# CloudSimPluginSDK 开发指南
 
 ## 定位
 
@@ -91,7 +91,7 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `deformPointCloudTpsFromControls` / `deformPointCloudTpsFitAndDeform` | TPS 形变 |
 | `reconstructMeshPoisson/PoissonAuto/ScaleSpace` | 重建 mesh 并 `registerAdoptedMesh` |
 | `registerScanToCadTemplate` | **v2** 世界系反向 ICP；只更新模板 `worldMatrix`；cache 存 `icpRmseMm` + `templateWorldMatrixAtRegister` |
-| `updateTemplateBrepFromAlignedScan` | **1.8.0+** 基于缓存逐面重构 → 新 `BrepModel`；`selectedFaceIndices` 空=全部面（见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)） |
+| `updateTemplateBrepFromAlignedScan` | **1.8.0+** 基于缓存逐面重构 → 新 `BrepModel`；`selectedFaceIndices` 空=全部面（见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)） |
 | `queryMeshInfo` | **1.9.0+** 查询网格面数/顶点数（UI 线程） |
 | `simplifyMesh` | **1.9.0+** quadric-edge-collapse 简化，创建新 mesh |
 | `smoothMesh` | **1.9.0+** Laplacian / Implicit Fairing 平滑 |

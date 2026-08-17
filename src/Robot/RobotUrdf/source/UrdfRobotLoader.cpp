@@ -913,7 +913,79 @@ struct UrdfFkModelData
 	QString urdfDir;
 	QString packageRoot;
 	std::unordered_map<QString, std::vector<UrdfJoint>> jointsByParent;
+	/// 热路径索图：避免 Jacobian BFS 拷贝 QString
+	QStringList linkNames;
+	std::unordered_map<QString, int> linkNameToIndex;
+	std::vector<std::vector<int>> childJointIndices;
 };
+
+static void buildFkIndexGraph(UrdfFkModelData& data)
+{
+	data.linkNames.clear();
+	data.linkNameToIndex.clear();
+	data.childJointIndices.clear();
+
+	std::queue<QString> q;
+	if (!data.rootLink.isEmpty())
+	{
+		q.push(data.rootLink);
+	}
+	while (!q.empty())
+	{
+		const QString link = q.front();
+		q.pop();
+		if (data.linkNameToIndex.find(link) != data.linkNameToIndex.end())
+		{
+			continue;
+		}
+		const int id = data.linkNames.size();
+		data.linkNames.append(link);
+		data.linkNameToIndex.emplace(link, id);
+		const auto jit = data.jointsByParent.find(link);
+		if (jit == data.jointsByParent.end())
+		{
+			continue;
+		}
+		for (const UrdfJoint& j : jit->second)
+		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
+			if (data.linkNameToIndex.find(j.child) == data.linkNameToIndex.end())
+			{
+				q.push(j.child);
+			}
+		}
+	}
+	for (const UrdfJoint& j : data.joints)
+	{
+		if (data.linkNameToIndex.find(j.parent) == data.linkNameToIndex.end())
+		{
+			const int id = data.linkNames.size();
+			data.linkNames.append(j.parent);
+			data.linkNameToIndex.emplace(j.parent, id);
+		}
+		if (data.linkNameToIndex.find(j.child) == data.linkNameToIndex.end())
+		{
+			const int id = data.linkNames.size();
+			data.linkNames.append(j.child);
+			data.linkNameToIndex.emplace(j.child, id);
+		}
+	}
+
+	data.childJointIndices.assign(static_cast<size_t>(data.linkNames.size()), {});
+	for (int ji = 0; ji < static_cast<int>(data.joints.size()); ++ji)
+	{
+		const UrdfJoint& j = data.joints[static_cast<size_t>(ji)];
+		const auto pit = data.linkNameToIndex.find(j.parent);
+		if (pit == data.linkNameToIndex.end())
+		{
+			continue;
+		}
+		data.childJointIndices[static_cast<size_t>(pit->second)].push_back(ji);
+	}
+}
 
 struct UrdfModelCacheEntry
 {
@@ -972,6 +1044,7 @@ bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const Urd
 	{
 		data->jointsByParent[j.parent].push_back(j);
 	}
+	buildFkIndexGraph(*data);
 
 	out = data;
 	UrdfModelCacheEntry ent;
@@ -1413,6 +1486,19 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 														  const bool includeOrientation,
 														  const double orientationWeight, QString* errorMessage)
 {
+	return computeLinkPoseAndGeometricJacobian(urdfFilePath, jointAnglesRad, linkName, outPosMm, outQuatXyzw,
+											   outJ_rowMajor, includeOrientation, orientationWeight, errorMessage,
+											   nullptr);
+}
+
+bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFilePath,
+														  const QVector<double>& jointAnglesRad,
+														  const QString& linkName, double outPosMm[3],
+														  double* outQuatXyzw, std::vector<double>& outJ_rowMajor,
+														  const bool includeOrientation,
+														  const double orientationWeight, QString* errorMessage,
+														  UrdfKinematicsWorkspace* wsIn)
+{
 	outJ_rowMajor.clear();
 	if (!outPosMm || linkName.isEmpty())
 	{
@@ -1427,51 +1513,62 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 	{
 		return false;
 	}
-
-	struct JointJacCol
+	const auto lit = model->linkNameToIndex.find(linkName);
+	if (lit == model->linkNameToIndex.end())
 	{
-		bool prismatic = false;
-		double px = 0.0;
-		double py = 0.0;
-		double pz = 0.0;
-		double zx = 0.0;
-		double zy = 0.0;
-		double zz = 1.0;
-	};
-	std::vector<JointJacCol> cols;
-	cols.reserve(static_cast<size_t>(jointAnglesRad.size()));
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Link '%1' not found in URDF.").arg(linkName);
+		}
+		return false;
+	}
+	const int targetLinkId = lit->second;
+
+	UrdfKinematicsWorkspace& ws = wsIn ? *wsIn : threadLocalKinematicsWorkspace();
+	const int nLinks = model->linkNames.size();
+	ws.ensureCapacity(jointAnglesRad.size(), nLinks, includeOrientation ? 6 : 3);
+	ws.jacCols.clear();
+	ws.jacCols.reserve(static_cast<size_t>(jointAnglesRad.size()));
 
 	struct QueueItem
 	{
-		QString link;
+		int linkId = -1;
 		Mat4 worldFromLink;
 	};
-	std::queue<QueueItem> q;
+	std::vector<QueueItem> queue;
+	queue.reserve(static_cast<size_t>(nLinks));
 	QueueItem start{};
-	start.link = model->rootLink;
+	const auto rootIt = model->linkNameToIndex.find(model->rootLink);
+	if (rootIt == model->linkNameToIndex.end())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("URDF root link missing from index graph.");
+		}
+		return false;
+	}
+	start.linkId = rootIt->second;
 	start.worldFromLink = matIdentity();
-	q.push(start);
+	queue.push_back(start);
 	int qIndex = 0;
 	bool foundLink = false;
 	Mat4 targetWorldUrdf = matIdentity();
-
-	while (!q.empty())
+	size_t qi = 0;
+	while (qi < queue.size())
 	{
-		const QueueItem cur = q.front();
-		q.pop();
-		if (cur.link == linkName)
+		const QueueItem cur = queue[qi++];
+		if (cur.linkId == targetLinkId)
 		{
 			foundLink = true;
 			targetWorldUrdf = cur.worldFromLink;
 		}
-
-		const auto jit = model->jointsByParent.find(cur.link);
-		if (jit == model->jointsByParent.end())
+		if (cur.linkId < 0 || cur.linkId >= static_cast<int>(model->childJointIndices.size()))
 		{
 			continue;
 		}
-		for (const UrdfJoint& j : jit->second)
+		for (const int jointIdx : model->childJointIndices[static_cast<size_t>(cur.linkId)])
 		{
+			const UrdfJoint& j = model->joints[static_cast<size_t>(jointIdx)];
 			if (!jointConnectsDistinctLinks(j))
 			{
 				continue;
@@ -1484,7 +1581,7 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 				const Mat4 T_origin = jointOriginFixedTransform(j);
 				const Mat4 worldJointUrdf = matMul(cur.worldFromLink, T_origin);
 				const Mat4 worldJointOsg = osgWorldFromUrdfMeshFrame(worldJointUrdf);
-				JointJacCol col{};
+				UrdfJacCol col{};
 				col.prismatic = isPri;
 				col.px = worldJointOsg.m[12];
 				col.py = worldJointOsg.m[13];
@@ -1502,13 +1599,18 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 					col.zy /= zn;
 					col.zz /= zn;
 				}
-				cols.push_back(col);
+				ws.jacCols.push_back(col);
 			}
 			const Mat4 jointFromChild = jointChildTransformForFk(j, jointAnglesRad, qIndex);
+			const auto cit = model->linkNameToIndex.find(j.child);
+			if (cit == model->linkNameToIndex.end())
+			{
+				continue;
+			}
 			QueueItem nxt{};
-			nxt.link = j.child;
+			nxt.linkId = cit->second;
 			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
-			q.push(nxt);
+			queue.push_back(nxt);
 		}
 	}
 
@@ -1536,16 +1638,15 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 		outQuatXyzw[3] = rq.w();
 	}
 
-	const int n = static_cast<int>(cols.size());
+	const int n = static_cast<int>(ws.jacCols.size());
 	const int taskDim = includeOrientation ? 6 : 3;
 	outJ_rowMajor.assign(static_cast<size_t>(taskDim * n), 0.0);
 	const double pee[3] = {outPosMm[0], outPosMm[1], outPosMm[2]};
 	for (int j = 0; j < n; ++j)
 	{
-		const JointJacCol& c = cols[static_cast<size_t>(j)];
+		const UrdfJacCol& c = ws.jacCols[static_cast<size_t>(j)];
 		if (c.prismatic)
 		{
-			// q 为米，FK 内乘 1000→mm，与有限差分量纲一致
 			outJ_rowMajor[static_cast<size_t>(0 * n + j)] = c.zx * kUrdfOriginXyzMetersToInternalMm;
 			outJ_rowMajor[static_cast<size_t>(1 * n + j)] = c.zy * kUrdfOriginXyzMetersToInternalMm;
 			outJ_rowMajor[static_cast<size_t>(2 * n + j)] = c.zz * kUrdfOriginXyzMetersToInternalMm;

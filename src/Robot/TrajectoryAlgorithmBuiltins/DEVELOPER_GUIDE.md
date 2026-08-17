@@ -1,4 +1,4 @@
-# TrajectoryAlgorithmBuiltins 模块开发文档
+﻿# TrajectoryAlgorithmBuiltins 模块开发文档
 
 ## 1. 模块定位
 
@@ -257,6 +257,6 @@ std::unique_ptr<IOpParamConfig> makeFooOpConfig()
 
 - 框架库：[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)
 - 管道引擎 / Command：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §13
-- UI 预览分支：[`../UI/RobotWidget/DEVELOPER_GUIDE.md`](../UI/RobotWidget/DEVELOPER_GUIDE.md) §轨迹编辑
+- UI 预览分支：[`../UI/RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §轨迹编辑
 - JSON 资源：[`../RobotScene/resource/trajectory/README.md`](../RobotScene/resource/trajectory/README.md)
-- 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../docs/MODULE_DEVELOPER_GUIDES.md)
+- 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../../docs/MODULE_DEVELOPER_GUIDES.md)

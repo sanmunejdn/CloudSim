@@ -19,6 +19,9 @@
 | `ui_layout_style_fix/` | UI 布局与样式 |
 | `vcglib_integration/` | vcglib / VcgAlgorithms |
 | `WorkspaceModeSwitcher/` | 工作区模式切换 |
+| `robot-kinematics-workspace/` | Robot 运动学 Workspace（图 + 6A；指南见 RobotUrdf/Scene） |
+| `网页端信号网络与自定义设备/` | 网页 IO 网络 + 自定义设备（指南见 web-ui DEVELOPER_GUIDE） |
+| `网页端设备页桌面同步/` | 网页设备页对齐桌面 |
 | `三点圆弧指令/` | 三点圆弧 |
 | `仿真倍率/` | 仿真倍率 |
 | `仿真日志中文乱码/` | 仿真日志中文乱码 |

@@ -1,4 +1,4 @@
-# CloudSimAiSDK 开发指南
+﻿# CloudSimAiSDK 开发指南
 
 ## 1. 定位
 
@@ -55,8 +55,8 @@ flowchart TB
 ### 4.1 配置文件位置
 
 - 路径：**与 `CloudSim.exe` 同目录** 的 `ai_config.json`
-- 模板：[`src/App/CloudSim/ai_config.defaults.json`](../App/CloudSim/ai_config.defaults.json)
-- 字段详解：[`tools/ai-training/CONFIGURATION.md`](../../tools/ai-training/CONFIGURATION.md)
+- 模板：[`src/App/CloudSim/ai_config.defaults.json`](../../App/CloudSim/ai_config.defaults.json)
+- 字段详解：[`tools/ai-training/CONFIGURATION.md`](../../../tools/ai-training/CONFIGURATION.md)
 
 ### 4.2 快速开始（8GB 显存 + Ollama）
 
@@ -101,7 +101,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 
 训练 **不在 CloudSim 内执行**，统一在仓库外完成：
 
-**[`tools/ai-training/README.md`](../../tools/ai-training/README.md)**
+**[`tools/ai-training/README.md`](../../../tools/ai-training/README.md)**
 
 摘要步骤：
 
@@ -113,9 +113,9 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | 4 | `ai_config.json` → `domains[].model = "<name>"` |
 | 5 | CloudSim 验证 |
 
-**训练集是否删除？** 不要删除 `tools/ai-training/domains/<id>/dataset.jsonl`（版本化金标，便于复训与 `build_dataset.py` 校验）。仅清理训练机上的 `saves/`、临时 GGUF 等产物。详见 [`tools/ai-training/README.md`](../../tools/ai-training/README.md) §2.1。
+**训练集是否删除？** 不要删除 `tools/ai-training/domains/<id>/dataset.jsonl`（版本化金标，便于复训与 `build_dataset.py` 校验）。仅清理训练机上的 `saves/`、临时 GGUF 等产物。详见 [`tools/ai-training/README.md`](../../../tools/ai-training/README.md) §2.1。
 
-**mesh.create 缺省尺寸：** 运行时由 `AiMeshDefaults` + `ai_config.json` 的 `mesh_create_defaults` 补全；训练样本中「无尺寸」句的 `output` 须写出完整 `dimensions_mm`（与默认表一致）。专模部署见 [`domains/mesh.create/README.md`](../../tools/ai-training/domains/mesh.create/README.md)。
+**mesh.create 缺省尺寸：** 运行时由 `AiMeshDefaults` + `ai_config.json` 的 `mesh_create_defaults` 补全；训练样本中「无尺寸」句的 `output` 须写出完整 `dimensions_mm`（与默认表一致）。专模部署见 [`domains/mesh.create/README.md`](../../../tools/ai-training/domains/mesh.create/README.md)。
 
 数据集 `output` 格式：
 
@@ -158,7 +158,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 
 ### Host 按钮关键词（rules）
 
-- Catalog 真源：`AiAssistantHostImpl::apiCatalogJson()`（嵌入）与 [`tools/ai-training/catalog/full_api_catalog.json`](../../tools/ai-training/catalog/full_api_catalog.json) 同步
+- Catalog 真源：`AiAssistantHostImpl::apiCatalogJson()`（嵌入）与 [`tools/ai-training/catalog/full_api_catalog.json`](../../../tools/ai-training/catalog/full_api_catalog.json) 同步
 - 每条 API 可带 `"keywords":["体素下采样","Voxel downsample"]`，**等于 Dock/菜单调用按钮中英文文案**
 - `AiCatalogKeywordMatcher`：最长关键词优先 → ActionPlan v2
 - 执行：`AiHostButtonApiDispatch` 经 `pointCloudHost` / `geometryHost` / `labelingHost` / `importFileIntoActiveDocument` / 场景位姿与删除 真调 Host；异步 API 在 UI 线程 `QEventLoop` 等待
@@ -179,7 +179,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 
 流程：用户句 → **Plan（可选）** → rules 或 tool_calls → Dock 确认（标题可含「计划 i/n」）→ Dispatch → 观测；失败可 `replan_on_failure` 一次。  
 `ai_config.agent`：`max_steps` / `auto_execute_low_risk` / `enable_trace` / `enable_plan` / `plan_max_steps` / `replan_on_failure`。  
-`scene.ops` 验收口语：删除选中/全部；沿轴移动；绕轴旋转；**「先沿 X 移动 10mm 再沿 Y 移动 5mm」**（同 api 两步）。详见 [`docs/ai_agent_runtime/`](../../../docs/ai_agent_runtime/)。
+`scene.ops` 验收口语：删除选中/全部；沿轴移动；绕轴旋转；**「先沿 X 移动 10mm 再沿 Y 移动 5mm」**（同 api 两步）。详见 [`docs/ai_agent_runtime/`](../../../docs/_archive/ai_agent_runtime/)。
 
 ### Agent 缺参对话框（遗留兜底）
 
@@ -206,8 +206,8 @@ Agent 主路径参数由 Dock 面板收集，**不再**依赖整窗模态。
 | `pointnet.segment` | PointNetPlugin | ONNX（PointNet++） | StructuredJson：`labels[]` + `class_statistics` |
 
 **PointNet++ 插件（`com.cloudsim.pointnet`）：**
-- 源码：`src/Plugins/PointNetPlugin/`，开发指南：[`PointNetPlugin/DEVELOPER_GUIDE.md`](../Plugins/PointNetPlugin/DEVELOPER_GUIDE.md)
-- 训练工程：`tools/pointnet-training/`，详见 [`tools/pointnet-training/README.md`](../../tools/pointnet-training/README.md)
+- 源码：`src/Plugins/PointNetPlugin/`，开发指南：[`PointNetPlugin/DEVELOPER_GUIDE.md`](../PointNetPlugin/DEVELOPER_GUIDE.md)
+- 训练工程：`tools/pointnet-training/`，详见 [`tools/pointnet-training/README.md`](../../../tools/pointnet-training/README.md)
 - 使用 ONNX Runtime 进行本地推理（不依赖 Ollama）
 - 支持点云/网格分类（5 类：box/cylinder/sphere/cone/complex）和语义分割
 
@@ -231,7 +231,7 @@ Agent 主路径参数由 Dock 面板收集，**不再**依赖整窗模态。
 6. 面板确认 → `commitAiTrajectoryFeatures` → `discretizeFeature` + 默认工艺 pipeline 写入 `TrajectoryEditSession`。
 7. catalog 为空或 LLM 未收到 catalog 时，Coordinator **一次** rules 自动重试。
 
-**详细架构、状态机、源文件索引：** [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md)
+**详细架构、状态机、源文件索引：** [`docs/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md)
 
 **trajectory.feature 契约示例：**
 
@@ -280,8 +280,8 @@ LLM grounding：`catalogSliceUtf8` 中 `displayIndex` / `candidateId` / `summary
 
 | 文档 | 内容 |
 |------|------|
-| [`tools/ai-training/CONFIGURATION.md`](../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 全字段 |
-| [`tools/ai-training/README.md`](../../tools/ai-training/README.md) | 训练、LLaMA-Factory、Ollama 导出 |
+| [`tools/ai-training/CONFIGURATION.md`](../../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 全字段 |
+| [`tools/ai-training/README.md`](../../../tools/ai-training/README.md) | 训练、LLaMA-Factory、Ollama 导出 |
 | [文档索引](../../../docs/README.md) §6.1.1 | 产品级流程说明 |
-| [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md) | AI 轨迹特征端到端、状态机、验收 |
+| [`docs/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md) | AI 轨迹特征端到端、状态机、验收 |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 宿主 API 与插件 |

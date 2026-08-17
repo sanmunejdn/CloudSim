@@ -22,9 +22,9 @@
 | `com.cloudsim.pointcloud` | PointCloudPlugin | [DEVELOPER_GUIDE](../../src/Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) |
 | `com.cloudsim.plccomm` | PlcCommPlugin (+ SDK/UI) | [Plugin](../../src/Plugins/PlcCommPlugin/DEVELOPER_GUIDE.md)、[SDK](../../src/Plugins/PlcCommSDK/DEVELOPER_GUIDE.md)、[UI](../../src/Plugins/PlcCommUI/DEVELOPER_GUIDE.md) |
 | `com.cloudsim.industrialcamera` | IndustrialCameraPlugin (+ SDK) | [Plugin](../../src/Plugins/IndustrialCameraPlugin/DEVELOPER_GUIDE.md)、[SDK](../../src/Plugins/IndustrialCameraSDK/DEVELOPER_GUIDE.md) |
-| `com.cloudsim.labeling` | LabelingPlugin (+ LabelingSDK) | [CloudSimLabelingSDK](../../src/Plugins/CloudSimLabelingSDK/DEVELOPER_GUIDE.md) |
+| `com.cloudsim.labeling` | LabelingPlugin (+ LabelingSDK) | [README](../../src/Plugins/LabelingPlugin/README.md)、[SDK](../../src/Plugins/CloudSimLabelingSDK/DEVELOPER_GUIDE.md) |
 | `com.cloudsim.pointnet` | PointNetPlugin | [DEVELOPER_GUIDE](../../src/Plugins/PointNetPlugin/DEVELOPER_GUIDE.md) |
-| `com.cloudsim.helloai` | HelloAiPlugin | 示例 AI 插件（见 AiSDK 指南） |
+| `com.cloudsim.helloai` | HelloAiPlugin | [README](../../src/Plugins/HelloAiPlugin/README.md) |
 
 ## SDK / 非独立侧栏
 

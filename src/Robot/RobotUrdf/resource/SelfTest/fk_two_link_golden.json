@@ -1,0 +1,6 @@
+{
+  "fixture": "two_link.urdf",
+  "link": "link2",
+  "note": "z at any q equals 100mm (j1 origin); SelfTest asserts that + FD Jacobian + DLS loop",
+  "golden_z_mm": 100.0
+}

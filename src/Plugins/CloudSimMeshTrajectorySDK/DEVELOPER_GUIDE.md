@@ -1,4 +1,4 @@
-# CloudSimMeshTrajectorySDK 开发指南
+﻿# CloudSimMeshTrajectorySDK 开发指南
 
 ## 定位
 
@@ -8,8 +8,8 @@
 
 ## 消费者
 
-- [`TrajectoryGenerationPageWidget`](../UI/RobotWidget/inc/TrajectoryGenerationPageWidget.h) — Dock **轨迹生成** 子页 **Mesh**
-- [`MeshTrajectoryPageWidget`](../UI/RobotWidget/inc/MeshTrajectoryPageWidget.h) — 方法/参数 UI 与预览同步
+- [`TrajectoryGenerationPageWidget`](../../UI/RobotWidget/inc/TrajectoryGenerationPageWidget.h) — Dock **轨迹生成** 子页 **Mesh**
+- [`MeshTrajectoryPageWidget`](../../UI/RobotWidget/inc/MeshTrajectoryPageWidget.h) — 方法/参数 UI 与预览同步
 
 ## 头文件
 

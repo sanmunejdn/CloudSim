@@ -1,4 +1,4 @@
-# GeometryEngine 模块开发文档
+﻿# GeometryEngine 模块开发文档
 
 ## 1. 模块定位
 
@@ -126,6 +126,6 @@ flowchart LR
 
 - [`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1（pose/rotation 基础语义）
 - [`CONVENTIONS.md`](CONVENTIONS.md)
-- [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §8.3
-- [`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md) §10
+- [`../RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §8.3
+- [`../RobotUrdf/DEVELOPER_GUIDE.md`](../../Robot/RobotUrdf/DEVELOPER_GUIDE.md) §10
 - [文档索引](../../../docs/README.md) §6.4

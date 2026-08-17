@@ -1,4 +1,4 @@
-# PointCloudAlgorithm 模块开发文档
+﻿# PointCloudAlgorithm 模块开发文档
 
 ## 1. 模块定位
 
@@ -16,14 +16,14 @@
 
 **Breaking v2**：ICP/RANSAC 输入应为**同一坐标系**下两组 `xyz`（推荐世界系，由 Data/Host 经 `worldMatrix` 变换后传入）。本库不感知 `worldMatrix`。
 
-与 [`PointCloudBackendData`](../Data/inc/PointCloudBackendData.h) 对齐：
+与 [`PointCloudBackendData`](../../Data/Data/inc/PointCloudBackendData.h) 对齐：
 
 | 缓冲 | 布局 |
 |------|------|
 | 点云 xyz | `3*N` float，单位 **mm** |
 | 顶点 rgba | 可选 `4*N`，0..1 |
 | 法线 | `3*N`，与 xyz 同序 |
-| 网格 soup | `9*T` float，每三角 3 顶点 xyz（同 [`MeshBackendData`](../Data/inc/MeshBackendData.h)） |
+| 网格 soup | `9*T` float，每三角 3 顶点 xyz（同 [`MeshBackendData`](../../Data/Data/inc/MeshBackendData.h)） |
 
 矩阵一律 **Eigen**；刚体变换为列向量语义 `p' = T * p`（与 `GeometryEngine::composeColumn` 一致）。
 
@@ -204,13 +204,13 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 | `RigidRegisterRansacParams` | `featureVoxelMm`、`inlierDistanceMm`、`minInliers`、`maxIterations` 等；0 表示按 modelDiag 自动 |
 | 失败 | 不阻断流水线，继续粗 ICP |
 
-预对齐插件路径**跳过** RANSAC；见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)。
+预对齐插件路径**跳过** RANSAC；见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)。
 
 ### 3.5 SPARE 非刚性配准（`RegistrationSpare.h`）
 
 移植自 [SPARE: Symmetrized Point-to-Plane Distance](https://arxiv.org/abs/2405.20188) 核心求解器（研究用途；源码专利声明见 `bin/SDK/spare-main-extracted/spare-main/README.md`）。基础设施复用本库 CGAL/`KdTreePointSet`/ICP/下采样；**不依赖** OpenMesh 或 `GeometryAlgorithm.dll`。
 
-**原理通俗说明**（对称点-面、粗/细阶段、Welsch、ARAP、调参与流水线）：见 [`docs/spare_nonrigid_registration.md`](../../docs/spare_nonrigid_registration.md)。
+**原理通俗说明**（对称点-面、粗/细阶段、Welsch、ARAP、调参与流水线）：见 [`docs/spare_nonrigid_registration.md`](../../../docs/_archive/spare_nonrigid_registration.md)。
 
 | 入口 | 说明 |
 |------|------|
@@ -242,7 +242,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 ## 4. Data 薄包装
 
-[`PointCloudBackendOps.h`](../Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、**SDF/DDF**、Poisson/Scale-space 重建。
+[`PointCloudBackendOps.h`](../../Data/Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、**SDF/DDF**、Poisson/Scale-space 重建。
 
 常用入口：
 
@@ -286,7 +286,7 @@ const int threads = pclalgo::ParallelUtils::getThreadCount();
 | 各向同性重网格 | `VcgAlgorithms` | 均匀三角形分布 |
 | 重建+后处理管线 | `VcgAlgorithms` | `reconstructAndPostProcess` 调用本模块 Poisson + vcglib 后处理 |
 
-**曲面重构（网格 → NURBS B-rep）** 不在本模块，而在 [`GeometryAlgorithm/MeshSurfaceReconstruction`](../GeometryAlgorithm/inc/MeshSurfaceReconstruction.h)（AMRTO 式调和 UV 栅格 + NURBS 最小二乘拟合）。插件侧栏「曲面重构」经 Data → `geoalgo::reconstructBrepFromMeshSoup` 调用。详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
+**曲面重构（网格 → NURBS B-rep）** 不在本模块，而在 [`GeometryAlgorithm/MeshSurfaceReconstruction`](../GeometryAlgorithm/inc/MeshSurfaceReconstruction.h)（AMRTO 式调和 UV 栅格 + NURBS 最小二乘拟合）。插件侧栏「曲面重构」经 Data → `geoalgo::reconstructBrepFromMeshSoup` 调用。详见 [`docs/mesh_surface_reconstruction.md`](../../../docs/_archive/mesh_surface_reconstruction.md)。
 
 `Data.dll` 的 `PointCloudBackendOps` 暴露统一 soup-based 接口，运行时 `LoadLibrary("VcgAlgorithms.dll")` 调用。
 
@@ -294,9 +294,9 @@ const int threads = pclalgo::ParallelUtils::getThreadCount();
 
 ## 7. 相关文档
 
-- 后端数据：[`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md)
+- 后端数据：[`../Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md)
 - 刚体矩阵：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)
 - vcglib 网格后处理：[`../VcgAlgorithms/DEVELOPER_GUIDE.md`](../VcgAlgorithms/DEVELOPER_GUIDE.md)
-- 模板 B-rep 配准：[`../../docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)
-- 性能优化方案：[`../../docs/mesh_reconstruction_optimization/`](../../docs/mesh_reconstruction_optimization/)
-- vcglib 集成方案：[`../../docs/vcglib_integration/`](../../docs/vcglib_integration/)
+- 模板 B-rep 配准：[`../../docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
+- 性能优化方案：[`../../docs/mesh_reconstruction_optimization/`](../../../docs/_archive/mesh_reconstruction_optimization/)
+- vcglib 集成方案：[`../../docs/vcglib_integration/`](../../../docs/_archive/vcglib_integration/)

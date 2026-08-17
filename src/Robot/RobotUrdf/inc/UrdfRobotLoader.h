@@ -4,6 +4,7 @@
 /// @file UrdfRobotLoader.h
 /// @brief URDF 层级场景：关节 MatrixTransform + 连杆几何，内部长度 mm（origin xyz 米→mm）
 
+#include "UrdfKinematicsWorkspace.h"
 #include "robot_urdf_global.h"
 
 #include "BackendDataBase.h"
@@ -72,6 +73,14 @@ ROBOT_URDF_API bool computeLinkPoseAndGeometricJacobian(const QString& urdfFileP
 														std::vector<double>& outJ_rowMajor, bool includeOrientation,
 														double orientationWeight = 300.0,
 														QString* errorMessage = nullptr);
+
+/// 同上，复用 Workspace（热路径）；ws 为空则用 thread_local
+ROBOT_URDF_API bool computeLinkPoseAndGeometricJacobian(const QString& urdfFilePath,
+														const QVector<double>& jointAnglesRad, const QString& linkName,
+														double outPosMm[3], double* outQuatXyzw,
+														std::vector<double>& outJ_rowMajor, bool includeOrientation,
+														double orientationWeight, QString* errorMessage,
+														UrdfKinematicsWorkspace* ws);
 
 /// 同上，输出 engine::RigidTransform（mm，四元数真值）
 ROBOT_URDF_API bool computeLinkWorldRigidTransforms(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,

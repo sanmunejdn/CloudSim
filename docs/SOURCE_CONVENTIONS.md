@@ -1,6 +1,6 @@
 ﻿# CloudSim 源码格式约定
 
-> **权威约定**（2026-07 起）。与 `.cursor/rules/cloudsim-cpp-conventions.mdc`、[`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md) 保持一致。验收记录见 [`code_format_cleanup/ACCEPTANCE_code_format_cleanup.md`](code_format_cleanup/ACCEPTANCE_code_format_cleanup.md)。
+> **权威约定**（2026-07 起）。与 `.cursor/rules/cloudsim-cpp-conventions.mdc`、[`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md) 保持一致。验收记录见 [`_archive/code_format_cleanup/ACCEPTANCE_code_format_cleanup.md`](_archive/code_format_cleanup/ACCEPTANCE_code_format_cleanup.md)。
 
 适用范围：`src/` 下自研 `*.h` / `*.hpp` / `*.cpp` / `*.cxx` / `*.cc`。  
 **排除**：`ThirdParty`、`vcglib`、InstantMeshes 第三方树、`bin/`、moc/uic 生成物。

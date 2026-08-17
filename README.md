@@ -15,7 +15,8 @@
 | 双端安装包 | [`../Setup/packaging`](../Setup/packaging)（`-Product Desktop\|Web`；Web 须 Vite `bin\x64\web\assets\`） |
 | 文档索引 | [`docs/README.md`](docs/README.md)（含**按模式 / 按插件**导航） |
 | 主程序 / 几何建模 / 工艺流程 / 工程图 | [`docs/主程序/`](docs/主程序/)、[`几何建模/`](docs/几何建模/)、[`工艺流程/`](docs/工艺流程/)、[`工程图/`](docs/工程图/) |
-| 插件类型索引 | [`docs/插件/`](docs/插件/) |
+| 插件类型索引 | [`docs/插件/`](docs/插件/)、[`src/Plugins/README.md`](src/Plugins/README.md) |
+| `src/` 文档总览 | [`src/README.md`](src/README.md) |
 | 目录布局 | [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md) |
 | 模块开发指南 | [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md) |
 | 源码约定 | [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md) |

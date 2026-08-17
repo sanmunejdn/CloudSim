@@ -12,6 +12,8 @@
 #include "RobotMatrixOsgBridge.h"
 #include "RobotTeachIk.h"
 #include "RunLogger.h"
+#include "UrdfIkSolverOptions.h"
+#include "UrdfNumericalIk.h"
 #include "UrdfRobotLoader.h"
 
 #include <QHash>
@@ -1561,163 +1563,30 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		return {};
 	}
 
-	const double targetNormMm = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
-	if (targetNormMm > 50000.0)
+	UrdfRobotLoader::UrdfPoseIkTarget poseTarget{};
+	poseTarget.posMm[0] = target[0];
+	poseTarget.posMm[1] = target[1];
+	poseTarget.posMm[2] = target[2];
+	poseTarget.hasOrientation = useOrientation;
+	if (useOrientation)
 	{
-		if (failReason)
-		{
-			*failReason = "目标距离异常(>50m)，请检查单位";
-		}
-		return {};
+		poseTarget.quatXyzw[0] = targetQuat.x();
+		poseTarget.quatXyzw[1] = targetQuat.y();
+		poseTarget.quatXyzw[2] = targetQuat.z();
+		poseTarget.quatXyzw[3] = targetQuat.w();
 	}
-
-	double pos[3] = {0.0, 0.0, 0.0};
-	osg::Quat curQuat;
-	if (!tcpPositionFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
+	UrdfRobotLoader::UrdfIkSolverOptions opt{};
+	std::string ikFail;
+	std::vector<double> qSolved =
+		UrdfRobotLoader::solveArmPoseDampedLeastSquares(urdfPath, ikLink, poseTarget, q, opt, &ikFail);
+	if (!qSolved.empty())
 	{
-		if (failReason)
-		{
-			*failReason = "正向运动学失败(连杆/关节不匹配)";
-		}
-		return {};
+		foldJointsIntoUrdfLimits(urdfPath, qSolved);
+		return qSolved;
 	}
-	const double initialErr =
-		std::sqrt((target[0] - pos[0]) * (target[0] - pos[0]) + (target[1] - pos[1]) * (target[1] - pos[1]) +
-				  (target[2] - pos[2]) * (target[2] - pos[2]));
-	if (initialErr > 10000.0)
-	{
-		if (failReason)
-		{
-			*failReason = "初始误差过大(" + formatIkResidualText(initialErr, false, 0.0) + ")，目标可能不可达";
-		}
-		return {};
-	}
-
-	const double lambda = 1e-2;
-	const int maxIters = 180;
-	const int taskDim = useOrientation ? 6 : 3;
-	// 位置 mm、姿态 rad 量纲差大，姿态残差加权避免数值淹没
-	const double orientationWeight = useOrientation ? 300.0 : 1.0;
-	double lastPosErr = initialErr;
-	double lastRotErr = 0.0;
-	bool linearSolveFailed = false;
-	const int n = static_cast<int>(q.size());
-	std::vector<double> J(static_cast<size_t>(taskDim * std::max(n, 1)), 0.0);
-	std::vector<double> jtj(static_cast<size_t>(std::max(n, 1) * std::max(n, 1)), 0.0);
-	std::vector<double> jte(static_cast<size_t>(std::max(n, 1)), 0.0);
-	std::vector<double> e(static_cast<size_t>(taskDim), 0.0);
-	QVector<double> qQt(n);
-	for (int iter = 0; iter < maxIters; ++iter)
-	{
-		for (int j = 0; j < n; ++j)
-		{
-			qQt[j] = q[static_cast<size_t>(j)];
-		}
-		double quatXyZw[4] = {0.0, 0.0, 0.0, 1.0};
-		if (!UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(
-				urdfPath, qQt, ikLink, pos, useOrientation ? quatXyZw : nullptr, J, useOrientation, orientationWeight,
-				nullptr) ||
-			static_cast<int>(J.size()) < taskDim * n)
-		{
-			if (failReason)
-			{
-				*failReason = "正向运动学失败(迭代中)";
-			}
-			return {};
-		}
-		if (useOrientation)
-		{
-			curQuat.set(quatXyZw[0], quatXyZw[1], quatXyZw[2], quatXyZw[3]);
-			normalizeQuatSafe(curQuat);
-		}
-		e.assign(static_cast<size_t>(taskDim), 0.0);
-		e[0] = target[0] - pos[0];
-		e[1] = target[1] - pos[1];
-		e[2] = target[2] - pos[2];
-		double posErr = std::sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]);
-		double rotErr = 0.0;
-		if (useOrientation)
-		{
-			double eRot[3] = {0.0, 0.0, 0.0};
-			quatErrorAxisAngle(curQuat, targetQuat, eRot);
-			e[3] = eRot[0] * orientationWeight;
-			e[4] = eRot[1] * orientationWeight;
-			e[5] = eRot[2] * orientationWeight;
-			rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
-		}
-		lastPosErr = posErr;
-		lastRotErr = rotErr;
-		if (posErr < 1e-2 && (!useOrientation || rotErr < 0.1 * kDegToRad))
-		{
-			foldJointsIntoUrdfLimits(urdfPath, q);
-			std::string limitMsg;
-			if (formatJointLimitViolations(urdfPath, q, limitMsg))
-			{
-				// 位姿已收敛但解非法：此时超限才是主因
-				if (failReason)
-				{
-					*failReason = limitMsg + "（位姿已收敛）";
-				}
-				return {};
-			}
-			return q;
-		}
-
-		jtj.assign(static_cast<size_t>(n * n), 0.0);
-		jte.assign(static_cast<size_t>(n), 0.0);
-		for (int r = 0; r < taskDim; ++r)
-		{
-			for (int c = 0; c < n; ++c)
-			{
-				jte[static_cast<size_t>(c)] += J[static_cast<size_t>(r * n + c)] * e[static_cast<size_t>(r)];
-			}
-		}
-		for (int r = 0; r < n; ++r)
-		{
-			for (int c = 0; c < n; ++c)
-			{
-				double s = 0.0;
-				for (int k = 0; k < taskDim; ++k)
-				{
-					s += J[static_cast<size_t>(k * n + r)] * J[static_cast<size_t>(k * n + c)];
-				}
-				jtj[static_cast<size_t>(r * n + c)] = s;
-			}
-		}
-		for (int i = 0; i < n; ++i)
-		{
-			jtj[static_cast<size_t>(i * n + i)] += lambda * lambda;
-		}
-		if (!solveLinearSystem(jtj, jte, n))
-		{
-			linearSolveFailed = true;
-			break;
-		}
-		for (int j = 0; j < n; ++j)
-		{
-			jte[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, jte[static_cast<size_t>(j)]));
-			q[static_cast<size_t>(j)] += jte[static_cast<size_t>(j)];
-		}
-	}
-
 	if (failReason)
 	{
-		// 未收敛时最后一次 q 超限只是搜索副作用，主因仍是不可达/残差
-		const std::string residualText = formatIkResidualText(lastPosErr, useOrientation, lastRotErr);
-		std::string limitMsg;
-		const bool overLimitAtEnd = formatJointLimitViolations(urdfPath, q, limitMsg);
-		if (linearSolveFailed)
-		{
-			*failReason = "雅可比奇异/线性求解失败；" + residualText;
-		}
-		else
-		{
-			*failReason = "目标不可达/IK未收敛；" + residualText;
-		}
-		if (overLimitAtEnd)
-		{
-			*failReason += "（迭代末曾" + limitMsg + "，非主因）";
-		}
+		*failReason = ikFail.empty() ? std::string("目标不可达/IK未收敛") : ikFail;
 	}
 	return {};
 }

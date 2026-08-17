@@ -1,8 +1,8 @@
-# RobotKinematics 模块开发文档
+﻿# RobotKinematics 模块开发文档
 
 ## 1. 模块定位
 
-`RobotKinematics` 提供**串联机械臂**的修正 DH（Craig）正运动学（FK）与**仅位置**的阻尼最小二乘逆运动学（IK）。与 Qt/OSG/URDF 无关，被 `RobotScene::RobotInstructionController` 在缺少 URDF TCP 上下文时作为回退路径调用。
+`RobotKinematics` 提供：① **CircularArcGeometry**（圆弧采样，与 DH 无关）；② **SerialLinkKinematics** 修正 DH FK + **仅位置** DLS（**legacy**：仅无 URDF 时回退）。有 URDF 时生产路径保持空 `dhRows`，IK 走 `RobotUrdf::UrdfNumericalIk` / `RobotTeachIk`。
 
 | 属性 | 说明 |
 |------|------|
@@ -11,6 +11,8 @@
 | x64 输出 | `RobotKinematics.dll` |
 | 导出 | `ROBOT_KINEMATICS_API`（`robot_kinematics_global.h`） |
 | 构建定义 | x64：`ROBOT_KINEMATICS_LIB`；Win32：`ROBOT_KINEMATICS_STATIC` |
+
+架构图：[`../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html`](../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html)
 
 ---
 
@@ -81,5 +83,5 @@
 
 - [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
 - [`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
-- [`../../../docs/三点圆弧指令/CONSENSUS_三点圆弧指令.md`](../../../docs/三点圆弧指令/CONSENSUS_三点圆弧指令.md)
-- [`../../../docs/外部轴联动求解/FINAL_外部轴联动求解.md`](../../../docs/外部轴联动求解/FINAL_外部轴联动求解.md)
+- [`../../../docs/三点圆弧指令/CONSENSUS_三点圆弧指令.md`](../../../docs/_archive/三点圆弧指令/CONSENSUS_三点圆弧指令.md)
+- [`../../../docs/外部轴联动求解/FINAL_外部轴联动求解.md`](../../../docs/_archive/外部轴联动求解/FINAL_外部轴联动求解.md)

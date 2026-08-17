@@ -12,6 +12,7 @@
 
 #include <BackendDataBase.h>
 #include <RigidTransform.h>
+#include <UrdfIkSolverOptions.h>
 
 namespace RobotTeachIk
 {
@@ -69,6 +70,8 @@ struct ROBOT_SCENE_API TeachIkContext
 	BackendMat4 T_flange_tool = BackendMat4::identity();
 	/// 0=全迭代默认180；拖动示教宜 8–12，小步收敛防跳解
 	int maxIkIterations = 0;
+	/// 求解器容差/阻尼（与 maxIkIterations 合并进 options.maxIterations）
+	UrdfRobotLoader::UrdfIkSolverOptions options{};
 	/// 兼容单轴；externalAxes 非空时优先
 	TeachIkExternalAxis externalAxis{};
 	TeachIkExternalAxisDof externalAxes{};

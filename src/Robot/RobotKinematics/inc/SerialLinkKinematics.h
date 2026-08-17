@@ -2,7 +2,7 @@
 #define ROBOTKINEMATICS_SERIALLINKKINEMATICS_H
 
 /// @file SerialLinkKinematics.h
-/// @brief 单节改进 DH（Craig）：FK + 位置 DLS IK（支持棱柱外轴）
+/// @brief 单节改进 DH（Craig）：FK + 位置 DLS IK（legacy：仅无 URDF 时回退；生产有 URDF 走 RobotUrdf）
 
 #include "robot_kinematics_global.h"
 
@@ -14,6 +14,7 @@ namespace robot_kinematics
 /// 单节改进 DH（Craig《机器人学导论》）：\n
 /// 旋转：θ_i = thetaOffset + q[jointIndex]；棱柱：d_i = d + q[jointIndex]\n
 /// jointIndex < 0 表示该节无关节变量
+/// @deprecated 有 URDF 时勿新建 DH 行；请用 UrdfRobotLoader / UrdfNumericalIk
 struct DhRow
 {
 	double a = 0.0;

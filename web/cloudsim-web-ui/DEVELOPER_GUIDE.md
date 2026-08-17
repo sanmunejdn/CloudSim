@@ -1,9 +1,9 @@
-# CloudSim Web UI（Vite + React）
+﻿# CloudSim Web UI（Vite + React）
 
 正式静态根：`CloudSimWeb.exe` 旁的 `web/`（仓库 `bin\x64d\web` / `bin\x64\web`）。  
 行为以 `_archive/public-fallback/` 为金标对照；默认部署产物来自本目录源码，**不要**只改 fallback 或只拷到 `CloudSim\bin\...\web`。
 
-专题进度见 [`docs/网页端信号网络与自定义设备/`](../../docs/网页端信号网络与自定义设备/)、[`docs/网页端设备页桌面同步/`](../../docs/网页端设备页桌面同步/)；旧单表 IO 对等见 [`docs/_archive/网页端IO信号对等/`](../../docs/_archive/网页端IO信号对等/)。
+专题进度见 [`docs/_archive/网页端信号网络与自定义设备/`](../../docs/_archive/网页端信号网络与自定义设备/)、[`docs/_archive/网页端设备页桌面同步/`](../../docs/_archive/网页端设备页桌面同步/)；旧单表 IO 对等见 [`docs/_archive/网页端IO信号对等/`](../../docs/_archive/网页端IO信号对等/)。
 
 ## IO / 自定义设备（网页）
 
@@ -16,7 +16,7 @@
 
 ## 自定义设备组装（对齐桌面）
 
-对照：[`docs/网页端设备页桌面同步/ASSEMBLY_桌面对照.md`](../../docs/网页端设备页桌面同步/ASSEMBLY_桌面对照.md)。
+对照：[`docs/_archive/网页端设备页桌面同步/ASSEMBLY_桌面对照.md`](../../docs/_archive/网页端设备页桌面同步/ASSEMBLY_桌面对照.md)。
 
 - UI：`CustomDeviceAssemblyDialog` — 从场景 / 导入模型、设固定、关节属性（移动/旋转、限位、轴、旋转中心）、Apply
 - API：`ensure` / `attach` / `assembly-candidates` / `POST /api/custom-devices`（提交前 Host 挂父子再 `commitGraph`）/ `export-urdf`

@@ -1,4 +1,4 @@
-# CloudSim 可执行入口开发文档
+﻿# CloudSim 可执行入口开发文档
 
 ## 1. 模块定位
 
@@ -8,7 +8,7 @@
 |------|------|
 | 输出 | `CloudSim.exe` |
 | x64 直接链接 | `Widget.lib`、`Data.lib`（import lib） |
-| 运行时依赖 | exe 同目录下全部产品 DLL（见 [`docs/DIRECTORY_LAYOUT.md`](../docs/DIRECTORY_LAYOUT.md)「x64 运行时 DLL」） |
+| 运行时依赖 | exe 同目录下全部产品 DLL（见 [`docs/DIRECTORY_LAYOUT.md`](../../../docs/DIRECTORY_LAYOUT.md)「x64 运行时 DLL」） |
 | 源码 | `CloudSim/main.cpp` |
 
 ---
@@ -114,4 +114,4 @@ return ret;
 ## 5. 相关文档
 
 - 总览：[文档索引](../../../docs/README.md)
-- 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../docs/MODULE_DEVELOPER_GUIDES.md)
+- 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../../docs/MODULE_DEVELOPER_GUIDES.md)

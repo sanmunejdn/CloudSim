@@ -1,4 +1,4 @@
-# BackendVisual 模块开发文档
+﻿# BackendVisual 模块开发文档
 
 > **空间契约 v2**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — outer 来自 `data.worldMatrix()`（`osgMatrixFromBackendWorldMatrix`）；inner PAT 恒 `(0,0,0)`；geometry 为文件出生坐标。
 
@@ -217,6 +217,6 @@ sequenceDiagram
 ## 11. 相关文档
 
 - 场景与拾取：[`../OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md)
-- 网格/点云数据：[`../Data/DEVELOPER_GUIDE.md`](../Data/Data/DEVELOPER_GUIDE.md)
-- Host 导入/属性同步：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.2a–4.2b
-- Core 契约：[`../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../Contracts/CloudSimCore/DEVELOPER_GUIDE.md)
+- 网格/点云数据：[`../Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md)
+- Host 导入/属性同步：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.2a–4.2b
+- Core 契约：[`../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md)

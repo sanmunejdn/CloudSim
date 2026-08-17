@@ -1,4 +1,4 @@
-# CloudSimPluginHost 开发文档
+﻿# CloudSimPluginHost 开发文档
 
 ## 1. 模块定位
 
@@ -110,7 +110,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 
 大文件 **ply 点云** 异步 Job 仍在 `MainWindowImportCaptureRenderController`；插件处理已导入点云请用 **`pointCloudHost()`**（snapshot → Job → UI 写回 + `loadPointCloudFromBackendData`）。
 
-`importFileIntoActiveDocument(..., isPointCloud=true)` 且扩展名为 `.ply` 时：若头含 `element face`（`PlyIo::plyFileHasTriangleFaces`），Host `importPointCloudFile` 自动改 `importMeshFile`，注册为 `Model` 网格而非点云。行为与菜单「打开点云」一致；磁盘路径使用 Qt 本地编码（`QFile::encodeName`），见 [`Data/Data/DEVELOPER_GUIDE.md`](../Data/Data/DEVELOPER_GUIDE.md) §4.0。
+`importFileIntoActiveDocument(..., isPointCloud=true)` 且扩展名为 `.ply` 时：若头含 `element face`（`PlyIo::plyFileHasTriangleFaces`），Host `importPointCloudFile` 自动改 `importMeshFile`，注册为 `Model` 网格而非点云。行为与菜单「打开点云」一致；磁盘路径使用 Qt 本地编码（`QFile::encodeName`），见 [`Data/Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md) §4.0。
 
 | 路径 | 说明 |
 |------|------|
@@ -119,7 +119,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 
 ### 3.7 模板 B-rep 更新（点云 → CAD 面拟合）
 
-**专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md)
+**专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
 
 | API | 说明 |
 |-----|------|
@@ -243,10 +243,10 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService`、`EventHub` |
 | [`Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) | `MainWindow` 实现 `IPluginMainWindowHost`、JobSystem |
 | [文档索引](../../../docs/README.md) §10 | 插件运行时与目录约定 |
-| [`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md) | 模板 B-rep + 点云配准与面更新 |
+| [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) | 模板 B-rep + 点云配准与面更新 |
 | [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI 助手、`ai_config`、训练索引 |
-| [`tools/ai-training/CONFIGURATION.md`](../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 字段 |
-| [`tools/ai-training/README.md`](../../tools/ai-training/README.md) | 离线训练与 Ollama 部署 |
+| [`tools/ai-training/CONFIGURATION.md`](../../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 字段 |
+| [`tools/ai-training/README.md`](../../../tools/ai-training/README.md) | 离线训练与 Ollama 部署 |
 
 ### AI 实现位置（`source/Ai/`）
 
@@ -264,7 +264,7 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 
 ### `TrajectoryFeatureDomainHandler`（`trajectory.feature`）
 
-**完整流程、会话状态、3D 叠加与验收清单见 [`docs/trajectory_feature_ai.md`](../../../docs/trajectory_feature_ai.md)。**
+**完整流程、会话状态、3D 叠加与验收清单见 [`docs/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md)。**
 
 | 项 | 说明 |
 |----|------|

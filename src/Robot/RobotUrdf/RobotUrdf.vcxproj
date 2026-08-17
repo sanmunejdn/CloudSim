@@ -181,10 +181,20 @@
     <ClInclude Include="inc\RobotSimulationTypes.h" />
     <ClInclude Include="inc\UrdfRobotLoader.h" />
     <ClInclude Include="inc\CustomDeviceUrdfExporter.h" />
+    <ClInclude Include="inc\UrdfKinematicsWorkspace.h" />
+    <ClInclude Include="inc\UrdfIkSolverOptions.h" />
+    <ClInclude Include="inc\UrdfNumericalIk.h" />
+    <ClInclude Include="inc\SelfTest.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\UrdfRobotLoader.cpp" />
     <ClCompile Include="source\CustomDeviceUrdfExporter.cpp" />
+    <ClCompile Include="source\UrdfKinematicsWorkspace.cpp" />
+    <ClCompile Include="source\UrdfNumericalIk.cpp" />
+    <ClCompile Include="source\SelfTest.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resource\SelfTest\fk_two_link_golden.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Geometry\GeometryEngine\GeometryEngine.vcxproj">

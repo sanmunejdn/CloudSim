@@ -48,7 +48,7 @@
 | **CloudSimMeshTrajectorySDK** | Mesh 轨迹会话、区域选择、`generateRawPath`；由 RobotWidget 直连 | [CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md) |
 | **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、`PluginHostContext`；**编入 `CloudSimHost.dll`**；UI 经 `IPluginMainWindowHost` | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)、[文档索引](README.md) |
 | **插件开发示例** | 参见 CloudSimPluginSDK 开发指南中的插件模块示例工程 | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
-| **CloudSimAiSDK** | AI 插件 ABI、分域专模、`ai_config` 与训练文档入口 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)、[配置](../../tools/ai-training/CONFIGURATION.md)、[训练](../../tools/ai-training/README.md)、[**AI 轨迹特征**](_archive/trajectory_feature_ai.md) |
+| **CloudSimAiSDK** | AI 插件 ABI、分域专模、`ai_config` 与训练文档入口 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)、[配置](../tools/ai-training/CONFIGURATION.md)、[训练](../tools/ai-training/README.md)、[**AI 轨迹特征**](_archive/trajectory_feature_ai.md) |
 | **AiWidget** | AI 助手 Dock、`AiAssistantCoordinator`、与 `trajectory.feature` 会话 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)、[trajectory_feature_ai.md](_archive/trajectory_feature_ai.md) |
 | **PointCloudAlgorithm** | 点云算法静态库（链入 Data） | [PointCloudAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/PointCloudAlgorithm/DEVELOPER_GUIDE.md) |
 | **VcgAlgorithms** | vcglib 网格后处理 DLL | [VcgAlgorithms/DEVELOPER_GUIDE.md](../src/Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md) |
@@ -58,6 +58,11 @@
 | **IndustrialCameraSDK** / **IndustrialCameraPlugin** | 工业相机 SDK + 单侧栏（相机/手眼 Tab）；二期梅卡/OpenCV | [IndustrialCameraSDK](../src/Plugins/IndustrialCameraSDK/DEVELOPER_GUIDE.md)、[IndustrialCameraPlugin](../src/Plugins/IndustrialCameraPlugin/DEVELOPER_GUIDE.md) |
 | **PointNetPlugin** | PointNet++ 分类插件 | [PointNetPlugin/DEVELOPER_GUIDE.md](../src/Plugins/PointNetPlugin/DEVELOPER_GUIDE.md) |
 | **GeometryPlugin** / **PointCloudPlugin** | 几何/点云侧栏插件 | [GeometryPlugin](../src/Plugins/GeometryPlugin/DEVELOPER_GUIDE.md)、[PointCloudPlugin](../src/Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) |
+| **GeometricModelingPlugin** | 几何建模工作区 | [README](../src/Plugins/GeometricModelingPlugin/README.md)、[docs/几何建模/](几何建模/) |
+| **ProcessFlowPlugin** | 工艺流程工作区 | [README](../src/Plugins/ProcessFlowPlugin/README.md)、[docs/工艺流程/](工艺流程/) |
+| **EngineeringDrawingPlugin** | 工程图工作区 | [README](../src/Plugins/EngineeringDrawingPlugin/README.md)、[docs/工程图/](工程图/) |
+| **HelloAiPlugin** / **LabelingPlugin** | 示例 AI / 标注侧栏 | [HelloAi](../src/Plugins/HelloAiPlugin/README.md)、[Labeling](../src/Plugins/LabelingPlugin/README.md) |
+| **Plugins 目录** | 插件总览 | [src/Plugins/README.md](../src/Plugins/README.md)、[docs/插件/](插件/) |
 
 ## 依赖方向（简图）
 

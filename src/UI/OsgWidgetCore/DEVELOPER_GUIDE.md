@@ -1,4 +1,4 @@
-# OsgWidgetCore 模块开发文档
+﻿# OsgWidgetCore 模块开发文档
 
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — gizmo 读写总位姿；内旋 ZYX 存盘；Gizmo World/Local 仅交互方式不同；`modelCenter` 仅聚焦与外包络。
 
@@ -280,4 +280,4 @@ UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syn
 - 可视化构建：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)
 - Qt / Host 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（TCP 示教 §13.1；Units/主题 §4.6、§5.3）
 - per-link FK / **M0·P**：[`../../Robot/RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §8
-- Host 组合根：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md)
+- Host 组合根：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md)

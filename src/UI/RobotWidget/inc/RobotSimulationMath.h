@@ -39,6 +39,7 @@ ROBOTWIDGET_EXPORT cloudsim::core::Mat4 coreMat4FromOsgMatrix(const osg::Matrixd
 ROBOTWIDGET_EXPORT bool getBackendRootWorldMatrixOsg(IRobotOsgViewHost* view, const std::string& backendId,
 													 osg::Matrixd& outWorld);
 
+/// @deprecated 有 URDF 勿再生成 DH；生产路径保持空 dhRows，IK 走 TeachIk/UrdfNumericalIk
 ROBOTWIDGET_EXPORT bool buildDhRowsFromUrdf(const QString& urdfPath, std::vector<robot_kinematics::DhRow>& outRows,
 											QString* errMsg = nullptr);
 

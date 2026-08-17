@@ -1,4 +1,4 @@
-# PointCloudPlugin 示例
+﻿# PointCloudPlugin 示例
 
 点云处理插件，演示 **1.2.0+** SDK：`IPluginPointCloudHost` + 侧栏 UI。
 
@@ -38,11 +38,11 @@
 2. 3D 视图手动对齐点云/网格与 CAD
 3. 侧栏「CAD 模板 B-rep 更新」：**扫描数据** 下拉选点云或网格；选择模板 B-rep；可选 **选择面…**（`geometryHost()->pickStepElementFromViewport`）累积面索引，空列表=全部面
 4. **匹配 (ICP)** → `registerScanToCadTemplate`
-5. **面重构** → `updateTemplateBrepFromAlignedScan`（须先匹配）；详见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)
+5. **面重构** → `updateTemplateBrepFromAlignedScan`（须先匹配）；详见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
 
 ## SPARE 非刚性配准（1.16.0+）
 
-原理与调参通俗说明见 [`docs/spare_nonrigid_registration.md`](../../../docs/spare_nonrigid_registration.md)。
+原理与调参通俗说明见 [`docs/spare_nonrigid_registration.md`](../../../docs/_archive/spare_nonrigid_registration.md)。
 
 侧栏「配准」区：**方法** 下拉可选 **刚性 ICP**、**SPARE 非刚性**（**1.16.0+**）或 **SDF/DDF 非刚性**（**1.17.0+**）。
 
@@ -143,7 +143,7 @@
 
 菜单：**Tools → 点云 → 曲面重构**（触发全流程）
 
-详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
+详见 [`docs/mesh_surface_reconstruction.md`](../../../docs/_archive/mesh_surface_reconstruction.md)。
 
 ## 特征构建（1.15.0+，管状铸件打磨 MVP）
 
@@ -330,5 +330,5 @@ Host 可视化（Centerline 阶段完成后）：
 
 - SDK：[`../CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - 宿主：[`../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
-- 模板 B-rep 更新：[`../../docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)
+- 模板 B-rep 更新：[`../../docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
 - VcgAlgorithms：[`../../Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md`](../../Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md)

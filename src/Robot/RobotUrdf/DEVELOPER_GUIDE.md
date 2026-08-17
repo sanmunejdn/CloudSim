@@ -1,12 +1,14 @@
-# RobotUrdf 模块开发文档
+﻿# RobotUrdf 模块开发文档
 
 ## 1. 模块定位
 
-`RobotUrdf` 负责 **URDF 解析**、**OSG 层级机器人场景**构建、**每连杆 Mesh 后端**批量创建，以及 FK 所需的 link/joint 元数据。长度内部统一 **mm**（URDF origin 由米转换）。
+`RobotUrdf` 负责 **URDF 解析**、**OSG 层级机器人场景**构建、**每连杆 Mesh 后端**批量创建，以及 **运动学真源**：link/joint 元数据、FK、几何雅可比、`UrdfKinematicsWorkspace`、`UrdfNumericalIk` 位姿 DLS。长度内部统一 **mm**（URDF origin 由米转换）。
 
 | 依赖 | `Data.dll`、`GeometryEngine.dll`、`RunLogger.dll`、`BackendVisual.dll` |
 | x64 输出 | `RobotUrdf.dll` |
 | 导出 | `ROBOT_URDF_API`（x64 构建：`ROBOT_URDF_LIB`） |
+
+示教外轴/联立代价在 `RobotScene::TeachIk`；纯臂 DLS 在本库。框架图见文末。
 
 ---
 
@@ -32,8 +34,10 @@
 | `computeLinkWorldMatrices(urdf, angles, out, err)` | 各 link **坐标系**世界矩阵（OSG） |
 | `computeLinkWorldRigidTransforms(urdf, angles, out, err)` | 同上，输出 `engine::RigidTransform`（推荐机器人/IK 边界） |
 | `computeMeshWorldMatrices(urdf, angles, out, err, meshVerticesAlreadyInLinkFrame)` | 各 link **网格**世界矩阵；末参 `true` 时 visual 为单位（顶点已在连杆系） |
-| `computeLinkPoseAndGeometricJacobian(...)` | 一次 FK + 几何雅可比（数值 IK 用，替代 n+1 有限差分） |
-| `linkMeshFileToLinkColumnMajor16(urdf, linkName, out16, err)` | mesh 文件系 → 连杆系 4×4（列主序），供导入烘焙顶点 |
+| `computeLinkPoseAndGeometricJacobian(...)` | 一次 FK + 几何雅可比（可传 `UrdfKinematicsWorkspace*`） |
+| `solveArmPoseDampedLeastSquares` | `UrdfNumericalIk`：位姿 DLS + `UrdfIkSolverOptions` |
+| `runSelfTest` | FK / 有限差分 J / DLS 闭环 |
+| `linkMeshFileToLinkColumnMajor16(urdf, linkName, out16, err)` | mesh 文件系→连杆系 4×4（列主序），供烘焙顶点后 FK |
 
 ---
 
@@ -136,7 +140,7 @@
 - 默认终端 link：`loadPrimaryTerminalLinkName` / 最深子 link，供 `makeDefaultFrameSet(flangeLinkName)` 与示教捕获。
 - FK：`computeLinkWorldMatrices` 输出各 link 的 `osg::Matrixd`（`mat4ToOsg`：URDF 列主序 → OSG 行向量）。
 - **工具偏移**：`T_base_tool = toolOriginFromFlange(rigidTransformFromOsg(T_base_flange), T_flange_tool)`（`GeometryEngine`，**`composeColumn`**）。业务层勿写 `linkWorld[flange] * toolMat` 代替上述 API（会与 Eigen 工具矩阵约定不一致，导致法兰系平移被当成基座轴平移）。
-- `T_flange_tool.positionMm` 在 **法兰连杆轴** 下定义（见 [`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) §3）。
+- `T_flange_tool.positionMm` 在 **法兰连杆轴** 下定义（见 [`../GeometryEngine/DEVELOPER_GUIDE.md`](../../Geometry/GeometryEngine/DEVELOPER_GUIDE.md) §3）。
 
 ## 10.1 外部轴（prismatic / revolute）
 
@@ -158,5 +162,13 @@ CAD 轨迹的外部轴上下文写入 [`RawTrajectory::TrajectoryContext::extern
 
 - 空间契约：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)
 - 场景 FK 写回：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
-- UI 导入：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §`registerUrdfRobot`
+- UI 导入：[`../Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) §`registerUrdfRobot`
 - 架构 §6.1：[文档索引](../../../docs/README.md)
+
+## 12. 架构图与演进文档
+
+- [target-architecture.html](../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html)
+- [drag-hotpath-dataflow.html](../../../docs/_archive/robot-kinematics-workspace/diagrams/drag-hotpath-dataflow.html)
+- [`../../../docs/_archive/robot-kinematics-workspace/`](../../../docs/_archive/robot-kinematics-workspace/)
+
+filters：`inc|src\Global` / `Loader` / `Kinematics` / `SelfTest`。

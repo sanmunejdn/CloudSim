@@ -1,4 +1,4 @@
-# VcgAlgorithms 模块开发文档
+﻿# VcgAlgorithms 模块开发文档
 
 ## 1. 模块定位
 
@@ -187,5 +187,5 @@ const bool ok = vcgalgo::runSelfTest(failures);
 - [`PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)
 - [`GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)
 - [文档索引](../../../docs/README.md)
-- [`docs/vcglib_integration/`](../../docs/vcglib_integration/)
+- [`docs/vcglib_integration/`](../../../docs/_archive/vcglib_integration/)
 - vcglib 仓库：https://github.com/cnr-isti-vclab/vcglib

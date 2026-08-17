@@ -1,4 +1,4 @@
-# CloudSimLabelingSDK 开发指南
+﻿# CloudSimLabelingSDK 开发指南
 
 ## 定位
 
@@ -19,9 +19,9 @@
 
 ## 导出格式
 
-与 [`tools/pointnet-training/README.md`](../../tools/pointnet-training/README.md) 一致：`dataset.jsonl` + `data/*.ply` + `*_labels.npy`。
+与 [`tools/pointnet-training/README.md`](../../../tools/pointnet-training/README.md) 一致：`dataset.jsonl` + `data/*.ply` + `*_labels.npy`。
 
 ## 相关文档
 
 - [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../CloudSimPluginSDK/DEVELOPER_GUIDE.md) — `labelingHost()`
-- [`LabelingPlugin`](../../LabelingPlugin/) — 交互 UI 与训练 Tab
+- [`LabelingPlugin`](../LabelingPlugin/) — 交互 UI 与训练 Tab

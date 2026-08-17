@@ -1,4 +1,4 @@
-# CloudSimHost 模块开发文档
+﻿# CloudSimHost 模块开发文档
 
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；URDF 导入、层级 mesh/BREP、配准写回须走 `BackendWorldPose` / `osgMatrixFromRigidTransform` 单一路径。
 
@@ -361,7 +361,7 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 
 **AI ActionPlan（按钮关键词）**：`AiHostButtonApiDispatch` 经 `PluginHostContext` 调用 `pointCloudHost()` / `geometryHost()` / `labelingHost()` 与导入 API，与 PointCloud/Geometry/Labeling Dock 按钮同一套 Host 公共接口；keywords 见 [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) §6。
 
-**AI Agent Runtime**：`AiAgentRuntime` + `AiAgentPlanBuilder`（需求拆分）+ Dock `AiConfirmPanel`；`scene.ops` 经 `removeBackendObject` / `PluginDocumentAdapter::applyWorldPoseMm`。见 [`docs/ai_agent_runtime/`](../../../docs/ai_agent_runtime/) 与 AiSDK DEVELOPER_GUIDE「Agent 运行时」。
+**AI Agent Runtime**：`AiAgentRuntime` + `AiAgentPlanBuilder`（需求拆分）+ Dock `AiConfirmPanel`；`scene.ops` 经 `removeBackendObject` / `PluginDocumentAdapter::applyWorldPoseMm`。见 [`docs/ai_agent_runtime/`](../../../docs/_archive/ai_agent_runtime/) 与 AiSDK DEVELOPER_GUIDE「Agent 运行时」。
 
 **规划**：`RobotSimulationController` 经 `IRobotMainWindowHost::planRobotMotionInstruction` → `planRobotInstruction` → `planMotionInstruction`（与 `IRobotService::planInstruction` 同 Host 路径）。Run 中并行预读经 `enqueueBackgroundJob` → Widget `JobSystem`（结果回 UI 写 `PlanResultCache`）。
 
@@ -568,7 +568,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | [`Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) | 主窗口与 `DocumentPage`（UI 仍描述 OsgWidget 行为，实现位于 Host） |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 动态插件宿主（**编入 Host**）、`PluginHostContext` 与 Facade 接线 |
 | [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI Domain、Catalog keywords、Agent Runtime / ConfirmPanel |
-| [`docs/ai_agent_runtime/`](../../../docs/ai_agent_runtime/) | Full Agent Runtime 6A |
+| [`docs/ai_agent_runtime/`](../../../docs/_archive/ai_agent_runtime/) | Full Agent Runtime 6A |
 | [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) | 场景核心、gizmo、拾取索引、HiDPI 屏幕坐标约定 |
 
 ### 变更历史（2026-06）

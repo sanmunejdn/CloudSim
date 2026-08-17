@@ -1,4 +1,4 @@
-# GeometryAlgorithm 模块开发文档
+﻿# GeometryAlgorithm 模块开发文档
 
 编码约定见 [`CONVENTIONS.md`](CONVENTIONS.md)。
 
@@ -222,7 +222,7 @@ Widget JobSystem（可选）
 
 ### 3.3 模板 B-rep 面更新（`TemplateBrepUpdate.h`）
 
-扫描点云（STEP 模型坐标 mm）驱动模板 shape 逐面调整。编排与 ICP 在 `Data/GeometryBackendOps.cpp`；**完整流程与守卫逻辑**见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md) §4。
+扫描点云（STEP 模型坐标 mm）驱动模板 shape 逐面调整。编排与 ICP 在 `Data/GeometryBackendOps.cpp`；**完整流程与守卫逻辑**见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) §4。
 
 | API | 说明 |
 |-----|------|
@@ -288,7 +288,7 @@ Widget JobSystem（可选）
 | `passesSampleQuality` | `diagRatio ≥ 0.75` 且 `unique ≥ 0.65` |
 | `buildSamplePointsCloud` | 合并各 patch 采样点为场景点云 |
 
-详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
+详见 [`docs/mesh_surface_reconstruction.md`](../../../docs/_archive/mesh_surface_reconstruction.md)。
 
 ### 3.5 管状铸件特征构建（`TubularGrinding.h`，1.15.0+）
 
@@ -620,7 +620,7 @@ OTLC 参数（`OtLcParams`，由 `buildOtLcParams` 从 `TubularGrindingParams` �
 
 入口：`createTubularGrindingSession` → `runTubularGrindingStage`。
 
-**Data 转发**：`geometry_backend_ops::createTubularGrindingSession`、`buildTubularGrindingRingColoredMeshSoup`、`buildTubularGrindingFaceNormalAxisLineSegments`、`buildTubularGrindingCenterlinePolylineXyz` 等（[`GeometryBackendOps.h`](../Data/inc/GeometryBackendOps.h)）。
+**Data 转发**：`geometry_backend_ops::createTubularGrindingSession`、`buildTubularGrindingRingColoredMeshSoup`、`buildTubularGrindingFaceNormalAxisLineSegments`、`buildTubularGrindingCenterlinePolylineXyz` 等（[`GeometryBackendOps.h`](../../Data/Data/inc/GeometryBackendOps.h)）。
 
 **调参提示**：分割过碎时优先增大 `ringRayConvergenceEpsMm`（常见 8–25 mm）或 `ringCenterClusterEpsMm`；交汇误判可增大 `junctionAxisSpreadDeg`。中心线失败时优先降低收缩强度或 `sectionSpacingMm`。
 
@@ -630,11 +630,11 @@ OTLC 参数（`OtLcParams`，由 `buildOtLcParams` 从 `TubularGrindingParams` �
 
 ## 4. Data 薄包装
 
-[`GeometryBackendOps.h`](../Data/inc/GeometryBackendOps.h)（`geometry_backend_ops`）转发 STEP 路径级 API，供 `CloudSimPluginHost` 调用。STEP 导入仍经 `MeshBackendData::loadFromFile` → `geoalgo::tessellateStepFile`。
+[`GeometryBackendOps.h`](../../Data/Data/inc/GeometryBackendOps.h)（`geometry_backend_ops`）转发 STEP 路径级 API，供 `CloudSimPluginHost` 调用。STEP 导入仍经 `MeshBackendData::loadFromFile` → `geoalgo::tessellateStepFile`。
 
-**模板 B-rep 更新**另含 `registerScanToCadTemplate` / `updateBrepFromAlignedScan`（见 [`Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md) §4.6）。
+**模板 B-rep 更新**另含 `registerScanToCadTemplate` / `updateBrepFromAlignedScan`（见 [`Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md) §4.6）。
 
-特征轨迹 API 另见 [`GeometryRef.h`](../Data/inc/GeometryRef.h)：`resolveGeometryRef`、`discretizeFeature`、`enumerateFeatureCatalog` 等（`geometry_backend_ops` 命名空间）。
+特征轨迹 API 另见 [`GeometryRef.h`](../../Data/Data/inc/GeometryRef.h)：`resolveGeometryRef`、`discretizeFeature`、`enumerateFeatureCatalog` 等（`geometry_backend_ops` 命名空间）。
 
 ## 5. 插件 SDK（1.5.0+）
 
@@ -654,6 +654,6 @@ const bool ok = geoalgo::runSelfTest(&err);
 - [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../../Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) — 特征构建 UI 与调参
-- [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)
-- [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)
+- [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
+- [`docs/mesh_surface_reconstruction.md`](../../../docs/_archive/mesh_surface_reconstruction.md)
 - [`RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §14 — `RawTrajectory` 编辑流水线；`TubularGrindingTrajectoryIngress`（桩）

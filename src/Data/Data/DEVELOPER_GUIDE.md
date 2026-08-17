@@ -1,4 +1,4 @@
-# Data 模块开发文档
+﻿# Data 模块开发文档
 
 > **空间契约 v2**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — **Breaking**：JSON 仅 `worldMatrix`（16 元）；`pose`/`rotation` 为分解视图；`p_world = p_geometry × worldMatrix`。
 
@@ -270,7 +270,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 ### 4.6 CAD 模板 + 扫描点云 B-rep 更新
 
-**专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md)
+**专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
 
 | API（`geometry_backend_ops`） | 说明 |
 |-------------------------------|------|
@@ -282,7 +282,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 配准在 Data 层将扫描/模板 soup 变换到世界系（`worldMatrix`）后 ICP；面归属前 `scanPointsToTemplateModelFrame` 变到模板文件系。
 
-面更新算法见 [`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md) §3。
+面更新算法见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) §3。
 
 | `TemplateBrepUpdateParams`（常用） | 说明 |
 |-----------------------------------|------|
@@ -297,7 +297,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 ### 4.7 管状铸件特征构建（1.15.0+）
 
-`geometry_backend_ops` 转发 `geoalgo::TubularGrinding*`（[`GeometryBackendOps.cpp`](source/GeometryBackendOps.cpp) / [`GeometryBackendOps.h`](../inc/GeometryBackendOps.h)）：
+`geometry_backend_ops` 转发 `geoalgo::TubularGrinding*`（[`GeometryBackendOps.cpp`](source/GeometryBackendOps.cpp) / [`GeometryBackendOps.h`](inc/GeometryBackendOps.h)）：
 
 | API | 说明 |
 |-----|------|
@@ -461,10 +461,10 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 | 上层 | 如何使用 Data |
 |------|----------------|
 | `Widget` / `MainWindow` | 属性：`doc->data().applyPropertyChange`；注册/导入：Host `DocumentImportFacade`；场景：`BackendSceneDocumentFacade` |
-| `CloudSimPluginHost` | 插件经 SDK；宿主内 `unregisterSubtree`、`importFileIntoActiveDocument`、`registerAdoptedMesh`（见 [`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)） |
+| `CloudSimPluginHost` | 插件经 SDK；宿主内 `unregisterSubtree`、`importFileIntoActiveDocument`、`registerAdoptedMesh`（见 [`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)） |
 | `BackendVisual` | 读几何缓冲建 OSG |
-| `PointCloudAlgorithm` | 经 `PointCloudBackendOps` 做点云下采样/裁剪/配准/重建等（见 [`../PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)）；插件经 SDK `IPluginPointCloudHost` 间接调用 |
-| `VcgAlgorithms` | 经 `PointCloudBackendOps` 做网格后处理：简化/平滑/修复/重网格（运行时加载 `VcgAlgorithms.dll`；见 [`../VcgAlgorithms/DEVELOPER_GUIDE.md`](../VcgAlgorithms/DEVELOPER_GUIDE.md)） |
+| `PointCloudAlgorithm` | 经 `PointCloudBackendOps` 做点云下采样/裁剪/配准/重建等（见 [`../PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/PointCloudAlgorithm/DEVELOPER_GUIDE.md)）；插件经 SDK `IPluginPointCloudHost` 间接调用 |
+| `VcgAlgorithms` | 经 `PointCloudBackendOps` 做网格后处理：简化/平滑/修复/重网格（运行时加载 `VcgAlgorithms.dll`；见 [`../VcgAlgorithms/DEVELOPER_GUIDE.md`](../../Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md)） |
 | `RobotUrdf` | 每连杆 `MeshBackendData` |
 | `RobotScene` | 读关节/连杆 id，写 `worldMatrix` |
 
@@ -476,9 +476,9 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 
 ## 12. 相关文档
 
-- 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
-- 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§11；插件宿主：[`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)
+- 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../../UI/BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
+- 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) §6.1、§11；插件宿主：[`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - Units 显示树：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)；契约：[`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) §2
 - 文档索引：[`../../../docs/README.md`](../../../docs/README.md)
-- 后端类型三键 / 侧车 / 工作区模式：[`../../docs/后端对象与软件模式/`](../../docs/后端对象与软件模式/)
-- 持久化设计/任务/回归：[`../../docs/_archive/backend_persistence/`](../../docs/_archive/backend_persistence/)
+- 后端类型三键 / 侧车 / 工作区模式：[`../../docs/后端对象与软件模式/`](../../../docs/后端对象与软件模式/)
+- 持久化设计/任务/回归：[`../../docs/_archive/backend_persistence/`](../../../docs/_archive/backend_persistence/)

@@ -14,6 +14,7 @@
 | 后端对象 | [`Data/DEVELOPER_GUIDE.md`](../../src/Data/Data/DEVELOPER_GUIDE.md)、[`后端对象与软件模式/`](../后端对象与软件模式/) |
 | 世界坐标契约 | [`spatial_contract_world_pose.md`](../spatial_contract_world_pose.md) |
 | 网页端 | [`cloudsim-web-ui`](../../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)、[`CloudSimWebGateway`](../../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) |
+| 插件 | [`src/Plugins/README.md`](../../src/Plugins/README.md)、[`docs/插件/`](../插件/) |
 
 模块总表见 [`MODULE_DEVELOPER_GUIDES.md`](../MODULE_DEVELOPER_GUIDES.md)。模式切换机制见 [`_archive/WorkspaceModeSwitcher/`](../_archive/WorkspaceModeSwitcher/)。
 

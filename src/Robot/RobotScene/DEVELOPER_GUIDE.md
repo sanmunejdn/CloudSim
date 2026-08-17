@@ -1,4 +1,4 @@
-# RobotScene 模块开发文档
+﻿# RobotScene 模块开发文档
 
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — per-link FK：`M = M0·inv(T0)·Tq·P`（§8.1）；**P** 与 **M0** 分离，禁止把场景 **W** 写入 **M0**。
 
@@ -149,9 +149,9 @@
 
 ### 5.5 IK 解析顺序（运动指令）
 
-1. 有 TCP → URDF 数值 IK（有欧拉则含姿态）
+1. 有 TCP → URDF 数值 IK（`UrdfNumericalIk` / TeachIk；有欧拉则含姿态）
 2. 有 `MotionAxisConfiguration` 约束 → `solveIkWithAxisConfiguration`（无解且显式约束 → **失败，不回退**）
-3. DH `ikPositionDampedLeastSquares`（`hasDhRows()`）
+3. DH `ikPositionDampedLeastSquares`（**legacy**，仅 `hasDhRows()`；有 URDF 时生产保持空表）
 4. URDF 重试 / legacy 单关节增量
 
 **失败原因（`PlanResult` / `errMsg`）**会区分：
@@ -198,7 +198,7 @@
 
 私有：`While` 最大迭代 `kMaxWhileIterations = 10000`。
 
-`motionPlanResults` 由 UI 在 **Run 启动时** 急算前缀段并对其余填 `lazyPending`（或失败占位）；播放中由 Widget `ensurePlaybackPlansReady` / lookahead 经 `updateMotionPlanResult` 补齐。任一点规划失败时写入 `ok=false`，**至少一段成功则仍 `tryStart`**，播放至失败点前停止。`lazyPending` 须在进入该段前被消掉，否则视为停机。指令树选中预览在 Widget 层 **单次** `plan`、**不**经过本 executor。Run 期间 Widget 用 `currentInstruction()` 高亮指令树。预览与 Run 的差异见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。
+`motionPlanResults` 由 UI 在 **Run 启动时** 急算前缀段并对其余填 `lazyPending`（或失败占位）；播放中由 Widget `ensurePlaybackPlansReady` / lookahead 经 `updateMotionPlanResult` 补齐。任一点规划失败时写入 `ok=false`，**至少一段成功则仍 `tryStart`**，播放至失败点前停止。`lazyPending` 须在进入该段前被消掉，否则视为停机。指令树选中预览在 Widget 层 **单次** `plan`、**不**经过本 executor。Run 期间 Widget 用 `currentInstruction()` 高亮指令树。预览与 Run 的差异见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。
 
 播放插值：`jointTrajectoryRad.size() >= 2` 时优先按轨迹（含段起点）插值；否则对 `jointTargetsRad` 起止 lerp。段进度与 WAIT 均用虚拟时钟（`m_simElapsedSec`）。外轴不在 Executor 内驱动，由 Widget tick 用 `motionSegmentProgress01()` 对 `externalAxisQs`（兼容标量）插值后写文档 Q 再 FK。
 
@@ -303,7 +303,7 @@ M_link = M0 · inv(T0) · Tq · P
 
 持久化：`robotKinematicsInstances[].externalAxes`。联动搜索：`ExternalAxisSearchService` + `TeachIk` 多轴 DOF；未启用时 `ExternalAxisSearch` Op 为 no-op。
 
-**存储契约**：`basePlacementWorld` = P0；运行态 `externalAxisQ[]`（兼容 `externalAxisQMm`）；工件零位 `workpieceBasePlacementWorld[backendId]=W0`；工作架偏置 `workpieceWorkingFrameOffsetByBackend`（W0 局部）。FK：`composeBasePlacementWithExternalAxis` → `P_eff`；`composeWorkpiecePlacementWithExternalAxis` → `W_eff`；`composeWorkpieceWorkingFrameInRobotP0` → `T_p0_work`。Mat4 平移在 `[3,7,11]`。专题：[`docs/外部轴类型拓宽/`](../../../docs/外部轴类型拓宽/)、[`docs/外部轴联动求解/`](../../../docs/外部轴联动求解/)。
+**存储契约**：`basePlacementWorld` = P0；运行态 `externalAxisQ[]`（兼容 `externalAxisQMm`）；工件零位 `workpieceBasePlacementWorld[backendId]=W0`；工作架偏置 `workpieceWorkingFrameOffsetByBackend`（W0 局部）。FK：`composeBasePlacementWithExternalAxis` → `P_eff`；`composeWorkpiecePlacementWithExternalAxis` → `W_eff`；`composeWorkpieceWorkingFrameInRobotP0` → `T_p0_work`。Mat4 平移在 `[3,7,11]`。专题：[`docs/外部轴类型拓宽/`](../../../docs/_archive/外部轴类型拓宽/)、[`docs/外部轴联动求解/`](../../../docs/_archive/外部轴联动求解/)。
 
 **REP（启用 Workpiece）**：示教/规划 TCP 相对工作架 `T_work`；外层采样工件轴 → `T_p0_goal = T_p0_work(q_w)*T_work`；内层仅 RobotBase TeachIk。Host 经 `Controller::WorkpieceIkFrameContext`（及 `PlanJobPayload`）注入 P0/W0/Offset。
 
@@ -355,7 +355,7 @@ M_link = M0 · inv(T0) · Tq · P
 | `flatMotionSequence` | DFS 运动叶索引，与仿真顺序一致 |
 | `coordinateFrames` | 完整 tool/user 帧定义 |
 
-仿真 **Export…** 写 Canonical 临时文件，再经 RobotWidget `PythonScriptCaller` 调用 `resource/Python/ExportPython/*Export.py` 生成品牌程序（用户对话框选择最终路径）。离线 stub 仍见 `CloudSim/src/UI/RobotWidget/tools/robot_postprocess/`；正式路径以 resource + pybind 为准。详见 [`docs/机器人程序品牌导出/`](../../docs/机器人程序品牌导出/)。
+仿真 **Export…** 写 Canonical 临时文件，再经 RobotWidget `PythonScriptCaller` 调用 `resource/Python/ExportPython/*Export.py` 生成品牌程序（用户对话框选择最终路径）。离线 stub 仍见 `CloudSim/src/UI/RobotWidget/tools/robot_postprocess/`；正式路径以 resource + pybind 为准。详见 [`docs/机器人程序品牌导出/`](../../../docs/_archive/机器人程序品牌导出/)。
 
 ### 遗留（`RobotProgramExport.h`）
 
@@ -429,18 +429,25 @@ flowchart LR
   E --> F[IRobotBackendPoseSink]
 ```
 
-**预览**（非运行）：`applyRobotPoseForInstructionPreview` 经链式种子对选中点单次 `plan`（或 `shouldUseTaughtJointCsv` + 残差门控）。**坐标系页**添加未激活工具系不触发全程序 reachability；切换激活工具会同步 `active` 路点 context 并失效示教关节。轴配置可行列表经 `queryFeasibleMotionAxisConfigurationOptions`（`RobotSimulationController` 缓存 + **后台 Job** 刷新枚举，见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
+**预览**（非运行）：`applyRobotPoseForInstructionPreview` 经链式种子对选中点单次 `plan`（或 `shouldUseTaughtJointCsv` + 残差门控）。**坐标系页**添加未激活工具系不触发全程序 reachability；切换激活工具会同步 `active` 路点 context 并失效示教关节。轴配置可行列表经 `queryFeasibleMotionAxisConfigurationOptions`（`RobotSimulationController` 缓存 + **后台 Job** 刷新枚举，见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md)）。
 
-**运行**：`onSimulationStartTriggered` 急算前缀 `PlanResult`（其余 `lazyPending`）；播放中 `ensurePlaybackPlansReady` / `tickLookaheadPlanning` 补齐；任一点失败则播到该点前 `Aborted`；tick 内 `currentInstruction()` 驱动指令树高亮。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
+**运行**：`onSimulationStartTriggered` 急算前缀 `PlanResult`（其余 `lazyPending`）；播放中 `ensurePlaybackPlansReady` / `tickLookaheadPlanning` 补齐；任一点失败则播到该点前 `Aborted`；tick 内 `currentInstruction()` 驱动指令树高亮。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md)）。
 
-**末端拖动示教**（非运行、不写指令）：进入前 per-link 调用 `reconcilePerLinkOuterBindFromScene`；屏幕空间平移更新 `T_base_target` → `RobotTeachIk` → 关节钳位 → `applyJointAnglesForInstance`；基座世界取 **P**（`robotBaseWorldMatrixForInstance`）。添加指令时用罗盘位姿 + `currentJointRadCsv` 落盘。见 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1、§6.3.2（**M0**/**P**）、[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
+**末端拖动示教**（非运行、不写指令）：进入前 per-link 调用 `reconcilePerLinkOuterBindFromScene`；屏幕空间平移更新 `T_base_target` → `RobotTeachIk` → 关节钳位 → `applyJointAnglesForInstance`；基座世界取 **P**（`robotBaseWorldMatrixForInstance`）。添加指令时用罗盘位姿 + `currentJointRadCsv` 落盘。见 [`../Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) §13.1、§6.3.2（**M0**/**P**）、[`../RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md)。
 
 ### 11.1 `RobotTeachIk`
 
+示教策略层：外轴 bake/unbake、联立多候选代价。**臂位姿 DLS** 在 `RobotUrdf::solveArmPoseDampedLeastSquares`（`UrdfIkSolverOptions` / Workspace）。
+
 | API | 说明 |
 |-----|------|
-| `TeachIkContext` | `urdfPath`、`ikLinkName`、`T_base_target`、`seedJointRad`、`T_flange_tool` |
+| `TeachIkContext` | `urdfPath`、`ikLinkName`、`T_base_target`、`seedJointRad`、`T_flange_tool`、`options` |
 | `solveTeachIk` | 交互示教 IK；法兰目标经 `engine::flangeFromToolOrigin` |
+| `solveTeachIkCoordinatedDrag` | 拖动联立多候选 |
+
+架构图：[`../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html`](../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html) · 热路径：[drag-hotpath-dataflow.html](../../../docs/_archive/robot-kinematics-workspace/diagrams/drag-hotpath-dataflow.html)
+
+DH：`setDhRows` 仅 **无 URDF** legacy；有 URDF 时保持 `clearDhRows`。
 
 ---
 
@@ -526,7 +533,7 @@ UI 侧：Apply 成功后禁用「生成程序」、`onRawEmitProgram` 硬门禁�
 
 撤销/重做后流水线 scope 与程序分组可能不一致（例如撤销「创建分组」）；UI 层 `TrajectoryEditPageWidget::reconcilePipelineScopes` 在 Preview/Apply 与 `revisionChanged` 时回退失效的 `Group` scope，详见 RobotWidget §轨迹编辑。
 
-业务编排与 UI 绑定见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §轨迹编辑。
+业务编排与 UI 绑定见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §轨迹编辑。
 
 ---
 
@@ -573,9 +580,9 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 - 轨迹框架：[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)
 - 内置原子块：[`../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md)
-- 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) · [`../GeometryEngine/CONVENTIONS.md`](../GeometryEngine/CONVENTIONS.md)
+- 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../../Geometry/GeometryEngine/DEVELOPER_GUIDE.md) · [`../GeometryEngine/CONVENTIONS.md`](../../Geometry/GeometryEngine/CONVENTIONS.md)
 - URDF：[`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
 - DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)
-- 特征离散：[`../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md`](../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1
-- UI 轨迹生成：[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成
+- 特征离散：[`../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1
+- UI 轨迹生成：[`../RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成
 - 轴配置详解：[文档索引](../../../docs/README.md) §4.8.1–4.8.3
