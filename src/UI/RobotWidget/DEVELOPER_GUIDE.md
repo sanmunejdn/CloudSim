@@ -777,7 +777,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 | 选 PathPlan | 顶栏 `m_pathPlanCombo` → `TrajectoryEditSession::bindPathPlan` |
 | 开始修改 | `beginEditBoundPathPlan()` — 特征表 + 离散参数 + 算子流程 + 预览 |
 | 取消修改 | `cancelEditBoundPathPlan()` — 退出编辑态、清表/预览；已落盘 PathPlan 保留 |
-| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；`Model` 需 `.step`/`.stp`；`BrepModel` 需内存 shape（含 AI `createPrimitiveMesh`）；真实 STEP 路径去重，虚拟/`BrepModel` 按 id 保留；切页/`showEvent` 会 `refreshWorkpieces`（`blockSignals` + 恢复原 backendId，**仅工件真正变化才清空特征表**） |
+| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；`Model` 需 `.step`/`.stp`；`BrepModel` 需内存 shape（含 AI `createPrimitiveMesh`）；真实 STEP 路径去重，虚拟/`BrepModel` 按 id 保留；切页/`showEvent` 会 `refreshWorkpieces`（`blockSignals` + 恢复原 backendId，**仅工件真正变化才清空特征表**）。空列表时 `emptyWorkpieceHint` 仅写 `m_pickStatusLabel`，**不**因刷新刷 RunInfo；拾取/离散等操作失败仍 `setStatus` → RunInfo |
 | **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → 由互斥按钮「追加到选中 / 新建特征」决定写入方式（当前模式 `btnRole=primary` 高亮 + 状态行提示；追加须表有选中行）；`FaceIntersection` 需同行 ≥2 面、`FaceOffsetCurve` 需同行面+边，几何未齐时保持/切换拾取态；右键「移除面/边…」勾选剔除索引 |
 | 离散策略 | 拾取前下拉（面/线 affinity 过滤）；`resolveStrategyIdForPick` 严格匹配；`normalizeEntryStrategyForGeometry` 纠正策略/几何不一致 |
 | 离散参数模板 | 策略行下方命名模板：保存/加载/删除/导入/导出（`UserTemplateLibrary` · Discretize；仅 `strategyId`+`params`） |

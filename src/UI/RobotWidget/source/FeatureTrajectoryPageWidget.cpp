@@ -1283,6 +1283,11 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 	{
 		return;
 	}
+	if (!hasWorkpiece)
+	{
+		m_pickStatusLabel->setText(emptyWorkpieceHint());
+		return;
+	}
 	const int sel = m_featureModel ? m_featureModel->selectedRow() : -1;
 	if (m_pickSession == PickSessionKind::Edge)
 	{
@@ -1350,6 +1355,7 @@ void FeatureTrajectoryPageWidget::onPickEdge()
 {
 	if (!m_host || m_backendCombo->currentIndex() < 0)
 	{
+		setStatus(emptyWorkpieceHint());
 		return;
 	}
 	IRobotOsgViewHost* osg = m_host->osgView();
@@ -1384,6 +1390,7 @@ void FeatureTrajectoryPageWidget::onPickFace()
 {
 	if (!m_host || m_backendCombo->currentIndex() < 0)
 	{
+		setStatus(emptyWorkpieceHint());
 		return;
 	}
 	IRobotOsgViewHost* osg = m_host->osgView();
@@ -1809,12 +1816,14 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 	if (!m_host)
 	{
 		m_lastWorkpieceBackendId.clear();
+		updatePickUiState();
 		return;
 	}
 	IRobotDocumentHost* doc = m_host->document();
 	if (!doc)
 	{
 		m_lastWorkpieceBackendId.clear();
+		updatePickUiState();
 		return;
 	}
 	BackendDataManager& mgr = doc->backend();
@@ -1916,8 +1925,6 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 	if (stepCount == 0)
 	{
 		m_lastWorkpieceBackendId.clear();
-		setStatus(m_chinese ? QStringLiteral("请导入 STEP 或用 AI 创建基本体（CAD/BREP 工件）")
-							: QStringLiteral("Import STEP or create an AI primitive (CAD/BREP workpiece)"));
 	}
 	else
 	{
@@ -2009,8 +2016,7 @@ bool FeatureTrajectoryPageWidget::autoEnumerateCatalogForCurrentWorkpiece(const 
 	{
 		if (err)
 		{
-			*err = m_chinese ? QStringLiteral("请先在轨迹生成页选择 STEP 工件")
-							 : QStringLiteral("Select a STEP workpiece on Trajectory Generation tab");
+			*err = emptyWorkpieceHint();
 		}
 		return false;
 	}
@@ -2049,6 +2055,12 @@ void FeatureTrajectoryPageWidget::setStatus(const QString& text)
 	{
 		m_host->appendRunInfo(text);
 	}
+}
+
+QString FeatureTrajectoryPageWidget::emptyWorkpieceHint() const
+{
+	return m_chinese ? QStringLiteral("请导入 STEP 或用 AI 创建基本体（CAD/BREP 工件）")
+					 : QStringLiteral("Import STEP or create an AI primitive (CAD/BREP workpiece)");
 }
 
 std::string FeatureTrajectoryPageWidget::resolvePreviewBackendId(const RobotInstruction::RawTrajectory& traj) const
@@ -2091,7 +2103,7 @@ bool FeatureTrajectoryPageWidget::buildFeatureListDocument(geoalgo::FeatureListD
 	{
 		if (err)
 		{
-			*err = m_chinese ? QStringLiteral("请选择工件") : QStringLiteral("Select a workpiece");
+			*err = emptyWorkpieceHint();
 		}
 		return false;
 	}

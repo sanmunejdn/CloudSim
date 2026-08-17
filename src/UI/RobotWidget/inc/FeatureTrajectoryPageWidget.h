@@ -180,6 +180,9 @@ private:
 
 	void setStatus(const QString& text);
 
+	/// 无 STEP/Brep 时的页内引导文案（勿在 refresh 时刷 RunInfo）
+	QString emptyWorkpieceHint() const;
+
 	void setFeatureEditActive(bool active);
 
 	void exitPickMode();
