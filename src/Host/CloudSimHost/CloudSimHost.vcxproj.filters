@@ -1,20 +1,115 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="External">
       <UniqueIdentifier>{BBE0E3B5-D227-413F-A7FF-019D5C62B44E}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc">
+      <UniqueIdentifier>{3F154F73-8BAB-4E98-AB6A-B8D957154445}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{5786FE43-7F1A-416C-AB85-A2E8AC7D546F}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
     <Filter Include="External\UI">
       <UniqueIdentifier>{8EED2B5E-F066-4FFD-A647-0D9707D320EB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\adapters">
+      <UniqueIdentifier>{2D876BB4-33AD-490F-86E0-32338263A1E7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\DocumentHost">
+      <UniqueIdentifier>{E539C08E-48CB-4844-B29C-5565D01F3949}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\follow">
+      <UniqueIdentifier>{7BBD6433-AC94-456A-8AFB-96553D55555A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{BC3247B9-F407-41A4-912A-FB3DDDAD8B5D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\headless">
+      <UniqueIdentifier>{0DE626FC-E25F-422E-824B-39DD39652A00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\import">
+      <UniqueIdentifier>{FD1AF6C5-07CD-4E97-B2F8-84296FB65D41}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\io">
+      <UniqueIdentifier>{A21ECA5A-DDC0-4724-A02E-99447111B96A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\project">
+      <UniqueIdentifier>{AAE65494-A8A4-47B3-B3BC-694E7E015001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\robot">
+      <UniqueIdentifier>{F57A13CB-3DB8-434E-ADA3-14504A771686}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Visual">
+      <UniqueIdentifier>{7B1C8909-FB3D-42C7-8B14-3B893CF4078F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\adapters">
+      <UniqueIdentifier>{F8E32EF5-ECD9-4767-8491-85897EF982CC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\DocumentHost">
+      <UniqueIdentifier>{570088B3-8754-4D47-B275-D6B5D61F2545}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\follow">
+      <UniqueIdentifier>{57EEBE29-706B-4BC0-85AC-C5F4F7D089E9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Global">
+      <UniqueIdentifier>{C07878A4-66F3-4B4D-B071-8D474924925E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\headless">
+      <UniqueIdentifier>{E207727F-C58D-4B2A-A076-2E572E6CB874}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\import">
+      <UniqueIdentifier>{01F9F990-8249-4DCE-9855-8E293732FE2B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\io">
+      <UniqueIdentifier>{F4596DC2-FD8E-4AAD-8847-29324F867C62}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\project">
+      <UniqueIdentifier>{5233C3ED-2466-4B46-8C98-375E28D7DCB1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\robot">
+      <UniqueIdentifier>{705B5397-175B-4892-A1E6-90BBD8C08516}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Visual">
+      <UniqueIdentifier>{AD9890D6-EB74-467F-8A7F-947E88642C4C}</UniqueIdentifier>
     </Filter>
     <Filter Include="External\UI\CloudSimPluginHost">
       <UniqueIdentifier>{1011108F-ACE9-4310-9A33-FCE5D3056CF6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="External\UI\Widget">
+      <UniqueIdentifier>{E5E9F046-4FDE-4A08-8982-08E43F0392DF}</UniqueIdentifier>
+    </Filter>
     <Filter Include="External\UI\CloudSimPluginHost\inc">
       <UniqueIdentifier>{5672EE3D-80C9-466E-8291-FCF95DF0BEEA}</UniqueIdentifier>
     </Filter>
+    <Filter Include="External\UI\CloudSimPluginHost\source">
+      <UniqueIdentifier>{5A6CA161-DEF2-4B3B-9C86-0C0A1A93A4D1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\UI\Widget\inc">
+      <UniqueIdentifier>{68D20AE2-8188-4500-9BB2-F56CFB03D3B7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\UI\Widget\source">
+      <UniqueIdentifier>{3920EC60-9672-4FEF-A399-4E6E9F113A84}</UniqueIdentifier>
+    </Filter>
     <Filter Include="External\UI\CloudSimPluginHost\inc\Ai">
       <UniqueIdentifier>{1935F4E6-ED41-4C20-BA33-0EB922D0077F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\UI\CloudSimPluginHost\source\Ai">
+      <UniqueIdentifier>{395DF90C-B559-49BA-897D-61E7E2427BA1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\UI\Widget\inc\OsgView">
+      <UniqueIdentifier>{AAF17362-3DEA-451A-865E-487B989EE1A5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\UI\Widget\source\Operations">
+      <UniqueIdentifier>{1F0E9086-7587-40D5-9CFF-5288231161AE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\UI\Widget\source\OsgView">
+      <UniqueIdentifier>{58531BD2-ED7E-4CD2-BB05-3A00FDAAA655}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\UI\Widget\source\SceneFacade">
+      <UniqueIdentifier>{58FFB452-1626-4CA6-905C-DE31E994166A}</UniqueIdentifier>
     </Filter>
     <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Agent">
       <UniqueIdentifier>{B71F1A01-4C2E-4D91-9A11-111111111101}</UniqueIdentifier>
@@ -34,12 +129,6 @@
     <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Rules">
       <UniqueIdentifier>{B71F1A01-4C2E-4D91-9A11-111111111106}</UniqueIdentifier>
     </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source">
-      <UniqueIdentifier>{5A6CA161-DEF2-4B3B-9C86-0C0A1A93A4D1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source\Ai">
-      <UniqueIdentifier>{395DF90C-B559-49BA-897D-61E7E2427BA1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="External\UI\CloudSimPluginHost\source\Ai\Agent">
       <UniqueIdentifier>{B71F1A01-4C2E-4D91-9A11-111111111111}</UniqueIdentifier>
     </Filter>
@@ -57,89 +146,6 @@
     </Filter>
     <Filter Include="External\UI\CloudSimPluginHost\source\Ai\Rules">
       <UniqueIdentifier>{B71F1A01-4C2E-4D91-9A11-111111111116}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget">
-      <UniqueIdentifier>{E5E9F046-4FDE-4A08-8982-08E43F0392DF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget\inc">
-      <UniqueIdentifier>{68D20AE2-8188-4500-9BB2-F56CFB03D3B7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget\inc\OsgView">
-      <UniqueIdentifier>{AAF17362-3DEA-451A-865E-487B989EE1A5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget\source">
-      <UniqueIdentifier>{3920EC60-9672-4FEF-A399-4E6E9F113A84}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget\source\Operations">
-      <UniqueIdentifier>{1F0E9086-7587-40D5-9CFF-5288231161AE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget\source\OsgView">
-      <UniqueIdentifier>{58531BD2-ED7E-4CD2-BB05-3A00FDAAA655}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget\source\SceneFacade">
-      <UniqueIdentifier>{58FFB452-1626-4CA6-905C-DE31E994166A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc">
-      <UniqueIdentifier>{3F154F73-8BAB-4E98-AB6A-B8D957154445}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\DocumentHost">
-      <UniqueIdentifier>{E539C08E-48CB-4844-B29C-5565D01F3949}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{BC3247B9-F407-41A4-912A-FB3DDDAD8B5D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Visual">
-      <UniqueIdentifier>{7B1C8909-FB3D-42C7-8B14-3B893CF4078F}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\adapters">
-      <UniqueIdentifier>{2D876BB4-33AD-490F-86E0-32338263A1E7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\follow">
-      <UniqueIdentifier>{7BBD6433-AC94-456A-8AFB-96553D55555A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\headless">
-      <UniqueIdentifier>{0DE626FC-E25F-422E-824B-39DD39652A00}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\import">
-      <UniqueIdentifier>{FD1AF6C5-07CD-4E97-B2F8-84296FB65D41}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\project">
-      <UniqueIdentifier>{AAE65494-A8A4-47B3-B3BC-694E7E015001}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\robot">
-      <UniqueIdentifier>{F57A13CB-3DB8-434E-ADA3-14504A771686}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{5786FE43-7F1A-416C-AB85-A2E8AC7D546F}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="src\DocumentHost">
-      <UniqueIdentifier>{570088B3-8754-4D47-B275-D6B5D61F2545}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Global">
-      <UniqueIdentifier>{C07878A4-66F3-4B4D-B071-8D474924925E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Visual">
-      <UniqueIdentifier>{AD9890D6-EB74-467F-8A7F-947E88642C4C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\adapters">
-      <UniqueIdentifier>{F8E32EF5-ECD9-4767-8491-85897EF982CC}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\follow">
-      <UniqueIdentifier>{57EEBE29-706B-4BC0-85AC-C5F4F7D089E9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\headless">
-      <UniqueIdentifier>{E207727F-C58D-4B2A-A076-2E572E6CB874}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\import">
-      <UniqueIdentifier>{01F9F990-8249-4DCE-9855-8E293732FE2B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\project">
-      <UniqueIdentifier>{5233C3ED-2466-4B46-8C98-375E28D7DCB1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\robot">
-      <UniqueIdentifier>{705B5397-175B-4892-A1E6-90BBD8C08516}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -226,6 +232,12 @@
     </ClInclude>
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\CatalogActionPlanDomainHandler.h">
       <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\DesignPartsCatalog.h">
+      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Catalog</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\DesignPartsDomainHandler.h">
+      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\FeatureComposeDomainHandler.h">
       <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
@@ -329,6 +341,9 @@
     <ClInclude Include="inc\HostRenderViewFactory.h">
       <Filter>inc\Visual</Filter>
     </ClInclude>
+    <ClInclude Include="inc\io\CustomDeviceHostOps.h">
+      <Filter>inc\io</Filter>
+    </ClInclude>
     <ClInclude Include="inc\IRobotUrdfImportContext.h">
       <Filter>inc\import</Filter>
     </ClInclude>
@@ -348,7 +363,7 @@
       <Filter>inc\project</Filter>
     </ClInclude>
     <ClInclude Include="inc\UrdfRobotImport.h">
-      <Filter>inc\import</Filter>
+      <Filter>inc\robot</Filter>
     </ClInclude>
     <ClInclude Include="inc\widget_global.h">
       <Filter>inc\Global</Filter>
@@ -435,6 +450,12 @@
     </ClCompile>
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\CatalogActionPlanDomainHandler.cpp">
       <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\DesignPartsCatalog.cpp">
+      <Filter>External\UI\CloudSimPluginHost\source\Ai\Catalog</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\DesignPartsDomainHandler.cpp">
+      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\FeatureComposeDomainHandler.cpp">
       <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
@@ -610,6 +631,15 @@
     <ClCompile Include="source\import\HierarchyMeshImport.cpp">
       <Filter>src\import</Filter>
     </ClCompile>
+    <ClCompile Include="source\io\CustomDeviceHostOps.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\CustomDevicePoseMotionHost.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\IoSignalNetwork.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
     <ClCompile Include="source\pch.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
@@ -660,11 +690,11 @@
     <QtMoc Include="inc\DocumentHost.h">
       <Filter>inc\DocumentHost</Filter>
     </QtMoc>
-    <QtMoc Include="inc\io\IoSignalNetwork.h">
-      <Filter>inc</Filter>
-    </QtMoc>
     <QtMoc Include="inc\io\CustomDevicePoseMotionHost.h">
-      <Filter>inc</Filter>
+      <Filter>inc\io</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\io\IoSignalNetwork.h">
+      <Filter>inc\io</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

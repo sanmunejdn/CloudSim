@@ -157,7 +157,7 @@
 | `Ai/AiAssistantHostImpl.h` | `AiAssistantHostImpl` → `IAiAssistantHost` | PluginHostContext | **Internal**（SDK 面 Stable） |
 | `Ai/AiActionPlanExecutor.h`, `AiHostButtonApiDispatch.h` | ActionPlan / 按钮 keyword 分发 | AI Dock | **Internal** |
 | `Ai/AiAgentRuntime.h`, `AiAgentPlanBuilder.h`, `AiAgentMemory.h`, `AiAgentTrace.h`, `AiAgentPickDialog.h` | Agent 运行时 | AI ConfirmPanel | **Internal** |
-| Domain handlers | `CatalogActionPlan*`, `MeshCreate*`, `MeshCompose*`, `FeatureCompose*`, `GeometryRecognize*`, `TrajectoryFeature*` | DomainRouter | **Internal** |
+| Domain handlers | `CatalogActionPlan*`, `MeshCreate*`, `MeshCompose*`, `FeatureCompose*`, `GeometryRecognize*`, `TrajectoryFeature*`, `DesignParts*` | DomainRouter | **Internal** |
 | LLM/config | `AiLlmClient`, `AiConfigLoader`, `AiIntent*`, `AiDomainRegistryImpl`, `AiSceneSnapshotBuilder`, … | AI 管线 | **Internal** |
 
 插件/AI **对外 Stable** = PluginSDK / AiSDK 接口；Host 内实现类不进 Stable ABI 白名单。
@@ -185,6 +185,7 @@
 | `DocumentHostEvents.h`, `BackendFollowSolve.h`, `BackendHierarchyFollow.h`, `BackendVisualSync.h` | E |
 | `IRobotUrdfImportContext.h`, `UrdfRobotImport.h`, `RobotPlanInstruction.h`, `RobotProgramJsonIo.h`, `RobotCoordinateFrameOps.h`, `IRobotInstructionPropertyDelegate.h`, `RobotInstructionPropertyDto.h`, `IPerLinkKinematicsHost.h`, `IPerLinkRobotStateAccessor.h`, `PerLinkKinematicsHostImpl.h` | F |
 | `HeadlessRobotContext.h`, `HeadlessTrajectorySession.h`, `HeadlessPointCloudBridge.h`, `HeadlessInstructionPropertyDelegate.h` | G |
+| `io/IoSignalNetwork.h`, `io/CustomDevicePoseMotionHost.h`, `io/CustomDeviceHostOps.h` | IO / 自定义设备 |
 
 Plugin/AI/Osg 见 §H（不在 `CloudSimHost/inc`，但同 DLL）。
 

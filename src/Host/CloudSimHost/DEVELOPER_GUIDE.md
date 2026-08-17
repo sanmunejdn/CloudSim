@@ -35,7 +35,7 @@ CloudSimHost/
 ├── inc/
 │   ├── cloudsim_host_global.h    # CLOUDSIM_HOST_EXPORT
 │   ├── widget_global.h           # Host 编 OSG 时 WIDGET_EXPORT / OSG_WIDGET_API → export
-│   ├── CloudSimHost.h            # createDocumentHost / createHostRenderViewFactory
+│   ├── CloudSimHost.h            # createDocumentHost / createHeadlessDocumentHost / createHostRenderViewFactory
 │   ├── DocumentHost.h            # QtMoc；勿与 ClInclude 重复登记
 │   ├── DocumentProjectSidecar.h  # 工程旁路表
 │   ├── DocumentFollowState.h     # Follow 脏集/门闩
@@ -45,6 +45,7 @@ CloudSimHost/
 │   ├── robot/ …
 │   ├── headless/ …
 │   ├── follow/ …
+│   ├── io/                       # IoSignalNetwork / CustomDevice*
 │   └── adapters/
 │       ├── DataServiceAdapter.h
 │       ├── OsgRenderViewAdapter.h
@@ -53,9 +54,11 @@ CloudSimHost/
     ├── DocumentHost.cpp
     ├── CloudSimApplicationContext.cpp
     ├── CloudSimHostExport.cpp
-    ├── import|project|robot|headless|follow/
+    ├── import|project|robot|headless|follow|io/
     └── adapters/*.cpp
 ```
+
+VS 筛选器（`CloudSimHost.vcxproj.filters`）与上表同域：`inc|src` 下按 `DocumentHost / Global / Visual / adapters / import / project / robot / headless / follow / io`；编入的 Widget / PluginHost 源在 `External\UI\…`。**全量 API 表见 §10**。
 
 **自 `Widget` 编入本工程的源码**（路径仍为 `src/UI/Widget/`，勿在 Host 下维护第二份副本）：
 
@@ -107,22 +110,27 @@ flowchart TB
 | 场景门面 | `sceneFacade()` 返回 `BackendSceneDocumentFacade`（插件 `PluginSceneBridgeAdapter` 亦经此访问） |
 | 事件协作 | 与 `MainWindow` 帧回调配合，处理跟随脏集、场景刷新与选择同步 |
 
-常用 API 说明：
+常用 API 说明（完整清单见 §10）：
 
 | API | 说明 |
 |-----|------|
-| `data()` / `robot()` / `render()` | Core 主入口；实际调用分别落到三个适配器 |
-| `osgWidget()` | 返回文档内 `OsgWidget*`；**须在 `m_osgWidget` 构造之后**再建 `OsgRenderViewAdapter`（构造顺序：`new OsgWidget` → `OsgRenderViewAdapter(*m_osgWidget, *this)`） |
+| `data()` / `robot()` / `render()` / `events()` | Core 主入口；分别落到三适配器与 EventHub |
+| `osgWidget()` | 文档内 `OsgWidget*`；**须在 `m_osgWidget` 构造之后**再建 `OsgRenderViewAdapter` |
+| `findObject` / `listObjects` | 按 id / 全量枚举 Backend 对象（替代 UI 直调 `backend().getData/listData`） |
 | `sceneFacade()` | 场景实体、选择视觉、`ensureSelectionVisualForBackend` |
-| `sceneBridge()` / `followReverseIndex()` | 返回场景桥接与跟随索引对象，用于主界面联动 |
+| `sceneBridge()` / `followReverseIndex()` | 场景桥接与跟随反向索引 |
+| `ioSignalNetwork()` / `namedSignalTable()` | 多 Owner IO 网 / 主机器人信号表兼容入口 |
 | `loadMeshFromBackendIntoScene(...)` | 将 Data 树节点加载为 OSG 分支 |
 | `removeBackendSubtree(...)` | 删除后端子树并同步场景节点移除 |
-| `followDirtyBackendIds()` 等 | 提供跟随求解脏集，供外层按帧处理 |
+| `followDirtyBackendIds()` 等 | 跟随求解脏集，供外层按帧处理 |
+| `headlessRobotContext()` 等 | Headless 路径下的机器人/轨迹/点云会话 |
+| `embedRenderWidget` / `setCentralAlternateWidget` | 建模页中区嵌入 / 中央 alternate |
 
 工厂：
 
 ```cpp
 std::unique_ptr<core::IDocumentScope> createDocumentHost(QWidget* parent, core::EventHub& events, const QString& documentId);
+std::unique_ptr<core::IDocumentScope> createHeadlessDocumentHost(core::EventHub& events, const QString& documentId);
 DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_cast 包装
 ```
 
@@ -176,7 +184,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 |-----|------|
 | `buildProjectSaveRoot` | 生成 v4 的 objects/edges/annotations/camera；点云保存前 `ensurePointCloudGeometryForSave`（scene→staging→sourcePath 重读），写 `objects/{id}.ply`；无坐标时 `abortMessage` |
 | `mergeRobotProgramsIntoProjectRoot` | 保存前写入 `robotPrograms` |
-| （已移除）`mergeRobotKinematicsIntoProjectRoot` | Widget 直接调 `RobotProjectIo::writeRobotKinematics`，Host 不再依赖 RobotWidget 写 kinematics |
+| `mergeRobotKinematicsIntoProjectRoot` | 保存前写入 `robotKinematicsInstances`（含 coordinateFrames；字段兼容桌面） |
 | `applyProjectViewportFromJson` | 恢复标注与 `cameraFollowBackendId`（经 `AnnotationProjectIo`） |
 | `finalizeProjectLoadFollowAndViewport` | OSG 父链、edges 跟随、视口、强制 Follow 求解、末尾 `focusCameraOnAllVisibleBackends` |
 | `restoreRobotKinematicsFromProjectJson` | 工程 robotKinematics* 恢复（perLink） |
@@ -217,24 +225,16 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | `robotProgramsJson` / `setRobotProgramsJson` | → `RobotProgramJsonIo` + `RobotProgramStore` |
 | `planInstruction` | → `RobotPlanInstruction::planMotionInstruction`（`RobotInstruction::Controller::plan`） |
 
-**`IRobotDocumentHost` 新增方法**（阶段 1.1-1.5 已完成，由 `MainWindowRobotHost::DocumentHost` 实现）：
+**指令属性 / 可行轴（已接线）**：经 `IRobotService` + `IRobotInstructionPropertyDelegate`（桌面由 Widget 注入；Headless 用 `HeadlessInstructionPropertyDelegate`）。
 
-| API | 说明 | 状态 |
-|-----|------|------|
-| `applyJointAnglesRad(instanceIdx, angles, aggregated)` | 应用关节角并更新聚合向量 | **已完成** |
-| `captureToolFrameFromTcp(instanceIdx, T_base_tcp, joints, flangeLink, frames)` | 从 TCP 位姿捕获工具坐标系 | **已完成** |
-| `captureUserFrameFromTcp(instanceIdx, pos, euler, frames)` | 从 TCP 位姿捕获用户坐标系 | **已完成** |
-| `resetToolFrame(instanceIdx, frames)` | 重置活动工具帧为法兰原点 | **已完成** |
-| `solveTcpDragTeachIk(instanceIdx, pose, seed, ikLink)` | TCP 拖拽示教 IK 求解 | **已完成** |
-| `planForExport(instanceIdx, instructions, seed, urdf, tcp, plans)` | 导出程序规划 | 框架已建 |
+| API（`doc->robot()`） | 说明 |
+|----------------------|------|
+| `instructionPropertyRows` | 指令属性行 |
+| `applyInstructionPropertyChange` | 写回指令属性 |
+| `feasibleMotionAxisConfigTokens` | 可行轴配置 token 列表 |
+| `queryFeasibleMotionAxisOptions` / `cachedFeasibleMotionAxisOptions` | 可行轴选项 DTO |
 
-**计划新增 API**（阶段 5，需 RobotWidget 链接 CloudSimCore）：
-
-| API | 说明 |
-|-----|------|
-| `getInstructionPropertyRows(instructionId)` | 获取指令属性行（替代 Widget 直连） |
-| `applyInstructionPropertyChange(instructionId, key, value)` | 应用指令属性变更 |
-| `queryFeasibleAxisConfigs(instructionId, pose)` | 查询可行轴配置 |
+**坐标系捕获**（`RobotCoordinateFrameOps`，双端共路）：`captureToolFrameFromTcpPose` / `captureUserFrameFromTcpPose` / `resetActiveToolFrame` / `buildFrameOverlaySnapshot` / `addToolFrame` / `addUserFrame` 等，见 §11.9。
 
 ### 4.4.1 `BackendFileImport` 注册（`registerAdopted*`）
 
@@ -616,7 +616,255 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 ---
 
-## 10. 常见问题
+## 10. Host API 全量参考
+
+> **索引**：契约实现细节仍以 [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) 为准；稳定面白名单见 [`docs/HostOptimization/INTERFACE_CATALOG.md`](../../../docs/HostOptimization/INTERFACE_CATALOG.md)。  
+> 本节按**调用入口**列出 Host 当前支持的全部对外 API（含 Core 三件套经 Adapter 落地的方法）。插件/AI 的 SDK 面见 PluginHost / AiSDK 指南；下表只列同 DLL 内 Host 侧入口。
+
+### 10.0 入口分层
+
+| 层级 | 如何拿到 | 推荐调用方 |
+|------|----------|------------|
+| C / Bootstrap | `cloudsimCreateApplicationContext` 等 | `CloudSim.exe` / Web `main` |
+| 工厂 | `CloudSimHost.h` | App / Gateway / 测试 |
+| 文档组合根 | `DocumentHost` / `IDocumentScope` | Widget `DocumentPage`、Headless |
+| Core 契约 | `doc->data()` / `robot()` / `render()` / `events()` | **新代码首选** |
+| Host 编排自由函数 | `DocumentImportFacade` / `ProjectPackageIo` / … | Widget 工程 IO、Gateway |
+| Headless 会话 | `headless*()` | WebGateway |
+| IO / 自定义设备 | `ioSignalNetwork()` + `CustomDeviceHostOps` | Gateway / 桌面 IO 画布 |
+
+---
+
+### 10.1 工厂与 C ABI
+
+| API | 头文件 | 说明 |
+|-----|--------|------|
+| `createDocumentHost(parent, events, documentId)` | `CloudSimHost.h` | 桌面文档宿主（建 `OsgWidget`） |
+| `createHeadlessDocumentHost(events, documentId)` | 同上 | Web/无 UI：不建 OSG，`render()` 为 Null |
+| `createHostRenderViewFactory()` | 同上 | `IRenderViewFactory` |
+| `documentHostFromScope(scope)` | 同上 | `IDocumentScope*` → `DocumentHost*` |
+| `cloudsimCreateRenderViewFactory(apiVersion)` | C ABI | 校验 Core API 版本后返回工厂 |
+| `cloudsimCreateApplicationContext()` | Bootstrap（实现于 Host） | 进程级上下文 + 工厂 |
+| `cloudsimCreateHeadlessApplicationContext()` | 同上 | Headless 进程 |
+| `cloudsimSetApplicationContext` / `cloudsimApplicationContext` | 同上 | 进程单例读写 |
+
+---
+
+### 10.2 `DocumentHost`（组合根）
+
+**Core 投影**
+
+| API | 说明 |
+|-----|------|
+| `documentId()` | 文档 id |
+| `data()` | → `IDataService`（`DataServiceAdapter`） |
+| `robot()` | → `IRobotService`（`RobotServiceAdapter`） |
+| `render()` | → `IRenderView`（`OsgRenderViewAdapter` 或 Null） |
+| `events()` | → `EventHub` |
+
+**视口 / 布局**
+
+| API | 说明 |
+|-----|------|
+| `osgWidget()` | 内部 OSG 壳（构造期可用） |
+| `setCentralAlternateWidget` / `showCentralScene3D` / `showCentralAlternate` / `isShowingCentralAlternate` / `centralAlternateWidget` | 中央 3D ↔ alternate |
+| `embedRenderWidget` / `restoreRenderWidget` / `isRenderWidgetEmbedded` | 把视口 reparent 到外部槽 |
+
+**数据 / 场景基础设施**
+
+| API | 说明 |
+|-----|------|
+| `backend()` | 存量 `BackendDataManager&`（新代码优先 `data()` / `findObject`） |
+| `findObject` / `listObjects` | 按 id / 全量对象 |
+| `robotProgramStore()` | 程序存储 |
+| `hierarchyModel()` | 层级模型 |
+| `followReverseIndex()` / `sceneBridge()` / `sceneFacade()` | 跟随索引 / 场景桥 / 门面 |
+| `loadMeshFromBackendIntoScene` / `loadUrdfLinkMeshIntoScene` | 网格上屏 |
+| `clearStagingGeometry` / `syncSceneBackendParent` / `focusSceneCameraOnBackend` | 暂存清理 / 父链 / 相机 |
+| `backendSourcePath/Type/ParentId` | 工程旁路表 |
+| `removeBackendSubtree` | 删子树（Data+旁路+OSG） |
+| `setProjectFilePath` / `projectFilePath` | 当前工程路径 |
+
+**Follow / 选择视觉**
+
+| API | 说明 |
+|-----|------|
+| `followDirtyBackendIds` / `markFollowAttachmentDirtyFromBackendMove` / `invalidateFollowReverseIndex` / `clearFollowDirtyBackendIds` | 脏集 |
+| `requestFollowSolveForced` / `takeFollowSolveForced` / `followSolveForcedPending` | 强制求解门闩 |
+| `isKinematicsOwnedBackend` / `stripKinematicsOwnedFollowAttachments` | URDF 位姿所有权 |
+| `setSuppressRobotFollowDirtyNotify` / `setDeferPropertyPanelVisualFullSync` | FK/属性编辑门闩 |
+| `ensureSelectionVisualForBackend` / `syncOuterPatFromBackendId` | 选择视觉 / outer PAT |
+
+**注入与 Headless / IO**
+
+| API | 说明 |
+|-----|------|
+| `setRobotUrdfImportContext` / `robotUrdfImportContext` | URDF 导入上下文 |
+| `headlessRobotContext` / `headlessTrajectorySession` / `headlessPointCloudBridge` | Headless 会话 |
+| `ioSignalNetwork` / `namedSignalTable` | IO 网 / 主机器人表 |
+| `setInstructionPropertyDelegate` / `setOwnedInstructionPropertyDelegate` | 指令属性委托 |
+| `setPerLinkKinematicsHost` / `setPerLinkRobotStateAccessor` | per-link FK 注入 |
+| 信号 `visualSceneDirty` | 自定义设备等改写 worldMatrix 后通知网页拉 objects |
+
+---
+
+### 10.3 `IDataService`（`doc->data()`）
+
+实现：`DataServiceAdapter`。
+
+| API | 说明 |
+|-----|------|
+| `isValid` / `clear` | 有效性 / 清空文档数据 |
+| `registerObject` / `unregisterSubtree` | 注册元数据对象 / 删子树 |
+| `findByName` / `findByClassName` / `className` / `displayName` | 查询 |
+| `listChildren` / `attachChild` / `topoOrder` / `listAll` / `parentsOf` | 拓扑 |
+| `propertyRows` / `applyPropertyChange` | 属性读写（写后走 `BackendVisualSync`） |
+| `applyWorldPoseMm` / `applyColor` / `worldPoseMm` | 世界位姿 / 颜色 |
+| `isVisible` / `setVisible` | 可见性 |
+| `boundingBox` / `hasVisualBranch` / `geometryKind` / `hasComponent` | 几何元信息 |
+| `objectSnapshot` / `listObjectSnapshots` | 对象快照 DTO |
+| `saveObjectToJson` / `loadObjectFromJson` | 单对象 JSON（load 委托工程 IO） |
+| `importFromFile` | → `DocumentImportFacade::importFileIntoDocument` |
+| `applyFollowTargetByName` / `markFollowDirtyFromMove` / `requestFollowSolveForced` / `runFollowSolveAndSync` / `followTargetId` | Follow |
+
+---
+
+### 10.4 `IRobotService`（`doc->robot()`）
+
+实现：`RobotServiceAdapter`。
+
+| API | 说明 |
+|-----|------|
+| `registerUrdfRobot` | → `importUrdfRobot`（per-link、q0 烘焙） |
+| `applyJointAnglesRad` | FK 写场景；发 `RobotKinematicsApplied` |
+| `planInstruction` | → `RobotPlanInstruction::planMotionInstruction` |
+| `robotProgramsJson` / `setRobotProgramsJson` | 程序 JSON ↔ `RobotProgramStore` |
+| `instructionPropertyRows` / `applyInstructionPropertyChange` | 经 `IRobotInstructionPropertyDelegate` |
+| `feasibleMotionAxisConfigTokens` | 可行轴 token |
+| `queryFeasibleMotionAxisOptions` / `cachedFeasibleMotionAxisOptions` | 可行轴 DTO |
+
+---
+
+### 10.5 `IRenderView`（`doc->render()`）
+
+实现：`OsgRenderViewAdapter`（Headless 为 Null，无 OSG 能力）。
+
+| 分组 | API |
+|------|-----|
+| 视口 | `widget` / `requestRedraw` / `setViewerBackgroundForDarkUi` / `setPerFrameHook` / `captureViewportPng` / `pointCloudPluginReport` |
+| 矩阵/可见 | `setWorldMatrix` / `getWorldMatrix` / `setVisible` / `removeVisual` / `hasVisualBranch` / `tryGetModelCenterMm` |
+| 拾取 | `setPickHandler` / `clearPickHandler` / `setObjectSelectionMode` / `setPointPickMode` / `setMeshLinePickMode` / `setMeshFacePickMode` / `syncSelectionForBackend` / `resolvePickScopeBackendId` |
+| 选择/标注 | `setSelectionActive` / `ensureSelectionVisualForBackend` / `selectedPosition` / `selectedRotationEulerDeg` / `setAnnotationVisible` / `removeAnnotation` / `clearAllAnnotations` / `annotationSnapshots` |
+| 相机/父链 | `focusCameraOnBackend` / `setBackendLogicalParent` / `setCameraFollowBackendId` / `clearCameraFollowBackendId` |
+| Gizmo/TCP | `setTransformGizmoFrame` / `transformGizmoFrame` / `commitGizmoPoseToBackend` / `isTransformGizmoDragging` / `beginTcpDragTeach` / `endTcpDragTeach` / `updateTcpDragTeach*` / `tcpDragTeachTargetInBase` / `isTcpDragTeachActive` |
+| 叠加 | `setInstructionPoseAxes` / `clearInstructionPoseAxes` / `setRawTrajectoryOverlay*` / `clearRawTrajectoryOverlay*` / `setRobotFrameOverlays` / `clearRobotFrameOverlays` / `setFeatureCatalogOverlay` / `clearFeatureCatalogOverlay` |
+| 其它 | `sceneGraphSnapshot` / `syncOuterPatFromBackend` / `geometryKindForBackend` / `hasImportedContent` / `backendSkipsInnerModelCenterRebase` / `activeBackendId` / `setRobotObjectGizmoSyncHook` / `setRobotObjectGizmoFkRefreshHook` |
+
+工厂：`IRenderViewFactory::createView`（`HostRenderViewFactory`）。
+
+---
+
+### 10.6 导入
+
+| API | 头文件 | 说明 |
+|-----|--------|------|
+| `importFileIntoDocument` | `DocumentImportFacade` | 统一路由 mesh/点云/层级 |
+| `registerAdoptedMesh` / `registerAdoptedPointCloud` | 同上 | 已构造几何注册 + 上屏 + 事件 |
+| `PointCloudBackgroundLoadState::{executeLoad,adoptIntoDocument}` | 同上 | 点云后台 Job |
+| `ModelBackgroundLoadState::{executeLoad,finishIntoDocument,needsPickArtifactWarm,warmPickArtifacts}` | 同上 | STEP/Mesh/BREP 后台 Job |
+| `importMeshFile` / `importPointCloudFile` | `BackendFileImport` | 简单文件导入 |
+| `registerAdoptedBackendObject` / `registerAdoptedMeshAndLoadScene` / `registerAdoptedPointCloudAndLoadScene` / `registerAdoptedFrameAndLoadScene` / `registerAdoptedBrepAndLoadScene` | 同上 | 采纳注册变体 |
+| `attachBackendChildToCustomDevice` / `exportCustomDeviceUrdfPackage` / `rekeyBackendObject` | 同上 | 设备挂载 / URDF 包 / 改 id |
+| `importMeshHierarchyParts` / `importBrepHierarchyParts` / `importMeshFileExtended` | `HierarchyMeshImport` | DXF/STEP/OSG 层级 |
+
+---
+
+### 10.7 工程 I/O
+
+| API | 头文件 | 说明 |
+|-----|--------|------|
+| `buildProjectSaveRoot` | `ProjectPackageIo` | 保存根 objects/edges/annotations/camera |
+| `applyProjectViewportFromJson` / `finalizeProjectLoadFollowAndViewport` | 同上 | 视口/Follow 收尾 |
+| `restoreRobotKinematicsFromProjectJson` / `applyRestoredJointAnglesToScene` | 同上 | 运动学恢复 |
+| `loadRobotProgramsFromProjectJson` / `mergeRobotProgramsIntoProjectRoot` / `mergeRobotKinematicsIntoProjectRoot` | 同上 | 程序/运动学 JSON |
+| `saveProjectObject` / `decodeBackendObjectFromProjectJson` / `registerEmbeddedProjectObject` / `importProjectObjectFromFile` | `BackendProjectObjectIo` | 单对象读写 |
+| `parseProjectEdgesJson` / `applyProjectEdgesToBackend` / `applyProjectEdgesFollowBindingAndSolve` | 同上 | edges |
+| `syncOsgBackendParentsFromBackend` / `rebuildBackendParentIdMirror` / `loadProjectObjectsFromJson` / `finalizeProjectHierarchyAfterObjects` | 同上 | 层级收尾 |
+| `applyPointCloudPoseFromProjectJson` / `exportBackendTriangleSoupMm` 等 | 同上 | 点云/几何辅助 |
+| `buildAnnotationsJsonFromOsg` / `applyAnnotationsFromProjectJson` | `AnnotationProjectIo` | 标注 |
+| `collectRobotLinkMeshBackendIds` / `restorePerLinkRobotKinematicsFromProjectJson` | `RobotProjectKinematicsRestore` | per-link 恢复 |
+| `exportPointCloudToPly` / `exportBrepToStep` | PluginHost `DocumentPointCloudOps` | 树右键导出（同 DLL） |
+
+---
+
+### 10.8 Follow / 事件 / 视觉同步
+
+| API | 头文件 | 说明 |
+|-----|--------|------|
+| `runBackendFollowSolveAndSync` / `afterFollowPropertyEdited` | `BackendFollowSolve` | Follow 求解 + outer PAT 同步 |
+| `applyHierarchyFollowBinding` | `BackendHierarchyFollow` | 写 FollowAttachment（跳过 URDF） |
+| `propertyKeyNeedsVisualSync` / `propertyKeyCommitsPose` / `syncVisualAfterPropertyChange*` / `afterDataServicePropertyChange` | `BackendVisualSync` | 属性后 OSG/事件 |
+| `publishBackendObjectRegistered` / `Removed` / `publishRobotKinematicsApplied` / `publishProjectLoaded` / `publishSelectionChanged` / `publishPoseCommitted*` | `DocumentHostEvents` | EventHub 出口 |
+
+---
+
+### 10.9 机器人辅助
+
+| API | 头文件 | 说明 |
+|-----|--------|------|
+| `importUrdfRobot` | `UrdfRobotImport` | URDF 每连杆导入 |
+| `planMotionInstruction` / `planRobotInstruction` | `RobotPlanInstruction` | 规划 |
+| `robotProgramsToJson` / `robotProgramsFromJson` | `RobotProgramJsonIo` | 程序序列化（优先经 `robot()`） |
+| `captureToolFrameFromTcpPose` / `captureUserFrameFromTcpPose` / `resetActiveToolFrame` | `RobotCoordinateFrameOps` | 工具/用户系 |
+| `buildFrameOverlaySnapshot` / `syncProgramToolContextAfterFrameChange` | 同上 | 叠加与程序工具上下文 |
+| `coordinateFrameSetToQJson` / `FromQJson` / `addToolFrame` / `addUserFrame` / `duplicate*` / `remove*` 等 | 同上 | 坐标系 CRUD |
+| `IPerLinkKinematicsHost::{applyPerLinkRobotFkFromGizmoAnchor,reconcilePerLinkOuterBindFromScene}` | `IPerLinkKinematicsHost` | gizmo FK |
+| `IPerLinkRobotStateAccessor` / `PerLinkKinematicsHostImpl` | 对应头 | 状态访问 + Host 实现 |
+| `IRobotUrdfImportContext` | 同名 | URDF 导入边界（`DocumentPage` / `HeadlessRobotContext` 实现） |
+| `IRobotInstructionPropertyDelegate` | 同名 | 指令属性委托边界 |
+
+---
+
+### 10.10 Headless（Gateway）
+
+| 类型 | 主要 API |
+|------|----------|
+| `HeadlessRobotContext` | `listInstances` / `jointMetaForSceneRoot` / `applyFkFromGizmoAnchor*` / `applyIkFromFlangeThreeJsMatrix` / `captureTcpPose`；兼 `IRobotUrdfImportContext` + 仿真文档能力 |
+| `HeadlessTrajectorySession` | `beginEdit`/`cancelEdit`；`createPathPlan`/`bindPathPlan`；`pickMeshElement`/`pickHover`；`featureCatalogJson`/`setFeaturesAndDiscretize`；`setPipelineJson`/`preview`/`previewRaw`/`apply`/`emitRawProgram`；模板 CRUD；undo/redo |
+| `HeadlessPointCloudBridge` | `infoJson`/`measureJson`/`previewSoup`/`chunkSoup`；`downsample`/`crop`/`preprocess`/`registerCloud`/`reconstruct`/`meshPost`/`meshExportPly`/`surfaceRun`/`surfaceReset` |
+| `HeadlessInstructionPropertyDelegate` | 实现 `IRobotInstructionPropertyDelegate`（供 `robot()` 转发） |
+
+---
+
+### 10.11 IO 信号网与自定义设备
+
+| API | 头文件 | 说明 |
+|-----|--------|------|
+| `IoSignalNetwork::{ensureOwner,removeOwner,table,primaryTable,addWire,removeWire,propagate*,syncOwnersFromDocument,flushDeviceTablesToDocument,to/fromProjectJson,setRuntime,…}` | `io/IoSignalNetwork.h` | 多 Owner DO→DI 网；实现 `IRobotIoSink` |
+| `CustomDevicePoseMotionHost::{start,stopDevice,stopAll,forHost}` | `io/CustomDevicePoseMotionHost.h` | 设备姿态插值播放 |
+| `listCustomDevicesJson` / `customDeviceDetailJson` / `putCustomDeviceRuntimeFields` | `io/CustomDeviceHostOps.h` | 设备列表/详情/运行时字段 |
+| `applyCustomDeviceQ` / `gotoCustomDevicePose` | 同上 | 关节/命名姿态 |
+| `processCustomDevicePoseRisingEdges` / `primeCustomDevicePoseEdgeMemory` / `clearCustomDevicePoseEdgeMemory` | 同上 | DI 边沿 → 姿态 |
+| `commitCustomDeviceAssembly` / `ensureCustomDevice` / `attachCustomDeviceChildren` | 同上 | 组装提交 |
+| `listAssemblyGeometryCandidatesJson` / `exportCustomDeviceUrdfZip` | 同上 | 候选几何 / URDF zip |
+
+---
+
+### 10.12 插件宿主 / AI（同 DLL，对外走 SDK）
+
+| 入口 | 说明 |
+|------|------|
+| `PluginManager` | `loadAllFromPluginsDirectory` / `shutdownAll` / 工程保存/加载钩子 |
+| `PluginHostContext` | 实现 `IPluginHostContext`（插件只链 PluginSDK） |
+| `pointCloudHost` / `geometryHost` / `labelingHost` | Domain Host Impl |
+| `AiAssistantHostImpl` / `AiHostButtonApiDispatch` / `AiAgentRuntime` + Domain Handlers | AI 管线；含 `DesignPartsCatalog` / `DesignPartsDomainHandler` |
+| OsgWidget 壳 + Controllers | 契约出口仍为 `IRenderView` |
+
+细节：[`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)、[`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)。
+
+---
+
+## 11. 常见问题
 
 | 现象 | 处理 |
 |------|------|
