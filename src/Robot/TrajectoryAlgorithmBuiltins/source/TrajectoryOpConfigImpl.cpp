@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpConfigImpl.cpp
-/// @brief TrajectoryOpConfigImpl 实现
+/// @brief 算子配置实现
 
 // TrajectoryOpConfigImpl 实现
 #include "TrajectoryOpConfigImpl.h"

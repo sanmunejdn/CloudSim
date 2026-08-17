@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetCameraFocusController.cpp
-/// @brief OsgWidgetCameraFocusController 实现
+/// @brief OsgWidgetCameraFocus 控制
 
 #include "OsgWidgetCameraFocusController.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file PointNetDomainHandler.cpp
-/// @brief 从场景对象导出点云到临时 PLY 并读取 xyz 坐标
+/// @brief PointNet 分类与分割 AI 域处理
 
 #include "PointNetDomainHandler.h"
 
@@ -16,15 +16,9 @@
 
 #include <json.hpp>
 
-// ============================================================
-// 辅助函数
-// ============================================================
-
 namespace
 {
-/// 从场景对象导出点云到临时 PLY 并读取 xyz 坐标
-/// 注意：当前插件 SDK 不直接暴露原始顶点数据，
-/// 这里通过 exportMeshToPly + 解析 PLY 获取坐标
+/// SDK 无原始顶点接口，经 exportMeshToPly 再解析 PLY 取 xyz
 bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& backendId, std::vector<float>& outPoints,
 								  int& outCount)
 {
@@ -32,12 +26,10 @@ bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& b
 	if (!doc)
 		return false;
 
-	// 获取对象类名以判断类型
 	std::string className = doc->backendClassName(backendId);
 	if (className.empty())
 		return false;
 
-	// 使用临时文件中转
 	QString tmpPath = QDir::tempPath() + QStringLiteral("/pointnet_tmp_export.ply");
 	std::string tmpPathUtf8 = tmpPath.toUtf8().constData();
 
@@ -48,15 +40,12 @@ bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& b
 	}
 	else if (backend_type::isPointCloudClassName(className))
 	{
-		// 点云也可尝试导出为 PLY
 		exported = doc->exportMeshToPly(backendId, tmpPathUtf8, nullptr);
 	}
 
 	if (!exported)
 		return false;
 
-	// 解析 PLY 文件提取 xyz
-	// 简易 PLY 解析：读取 ASCII 或二进制格式的顶点坐标
 	std::ifstream file(tmpPath.toStdString(), std::ios::binary);
 	if (!file.is_open())
 		return false;
@@ -106,20 +95,18 @@ bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& b
 
 	if (!isBinary)
 	{
-		// ASCII PLY
 		for (int i = 0; i < vertexCount; ++i)
 		{
 			if (!std::getline(file, line))
 				break;
 			std::istringstream iss(line);
 			iss >> outPoints[i * 3 + 0] >> outPoints[i * 3 + 1] >> outPoints[i * 3 + 2];
-			// 跳过其他属性（颜色、法线等）
+			// 忽略颜色/法线等附加列
 		}
 	}
 	else
 	{
-		// Binary PLY: 每个顶点有 propertiesRead 个 float 属性
-		// 假设前 3 个是 x, y, z
+		// 二进制顶点按 float 属性块读，仅取前三列 xyz
 		const int bytesPerVertex = propertiesRead * sizeof(float);
 		std::vector<char> buf(bytesPerVertex);
 		for (int i = 0; i < vertexCount; ++i)
@@ -138,7 +125,6 @@ bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& b
 	return outCount > 0;
 }
 
-/// 从 JSON 中读取 backendId
 std::string readBackendId(const nlohmann::json& j)
 {
 	if (j.contains("backend_id") && j["backend_id"].is_string())
@@ -147,10 +133,6 @@ std::string readBackendId(const nlohmann::json& j)
 }
 
 } // namespace
-
-// ============================================================
-// PointNetClassifyDomainHandler
-// ============================================================
 
 PointNetClassifyDomainHandler::PointNetClassifyDomainHandler(PointNetInference* inference) : m_inference(inference) {}
 
@@ -180,7 +162,6 @@ bool PointNetClassifyDomainHandler::validateOutput(const QByteArray& jsonUtf8, Q
 		return false;
 	}
 
-	// 分类结果只需 class_id 或 class_name
 	if (!j.contains("class_id") && !j.contains("class_name"))
 	{
 		if (err)
@@ -218,7 +199,6 @@ bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginH
 	std::string backendId = readBackendId(j);
 	if (backendId.empty())
 	{
-		// 尝试从活动文档获取选中对象
 		IPluginDocument* doc = host ? host->activeDocument() : nullptr;
 		if (!doc)
 		{
@@ -236,7 +216,6 @@ bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginH
 		backendId = ids.front();
 	}
 
-	// 提取点云数据
 	std::vector<float> points;
 	int numPoints = 0;
 	if (!extractPointsFromSceneObject(host, backendId, points, numPoints))
@@ -246,7 +225,6 @@ bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginH
 		return false;
 	}
 
-	// 执行推理
 	PointNetClassifyResult result = m_inference->classify(points, numPoints);
 	if (result.classId < 0)
 	{
@@ -255,7 +233,6 @@ bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginH
 		return false;
 	}
 
-	// 构造结果 JSON
 	nlohmann::json out;
 	out["version"] = 1;
 	out["domain"] = "pointnet.classify";
@@ -273,10 +250,6 @@ bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginH
 
 	return true;
 }
-
-// ============================================================
-// PointNetSegmentDomainHandler
-// ============================================================
 
 PointNetSegmentDomainHandler::PointNetSegmentDomainHandler(PointNetInference* inference) : m_inference(inference) {}
 
@@ -306,7 +279,6 @@ bool PointNetSegmentDomainHandler::validateOutput(const QByteArray& jsonUtf8, QS
 		return false;
 	}
 
-	// 分割结果需要 backend_id
 	if (!j.contains("backend_id") || !j["backend_id"].is_string())
 	{
 		if (err)
@@ -361,7 +333,6 @@ bool PointNetSegmentDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHo
 		backendId = ids.front();
 	}
 
-	// 提取点云数据
 	std::vector<float> points;
 	int numPoints = 0;
 	if (!extractPointsFromSceneObject(host, backendId, points, numPoints))
@@ -371,7 +342,6 @@ bool PointNetSegmentDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHo
 		return false;
 	}
 
-	// 执行推理
 	PointNetSegmentResult result = m_inference->segment(points, numPoints);
 	if (result.labels.empty())
 	{
@@ -380,7 +350,6 @@ bool PointNetSegmentDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHo
 		return false;
 	}
 
-	// 统计各类别点数
 	std::vector<int> classCounts(result.numClasses, 0);
 	for (int label : result.labels)
 	{
@@ -388,7 +357,6 @@ bool PointNetSegmentDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHo
 			++classCounts[label];
 	}
 
-	// 构造结果 JSON
 	nlohmann::json out;
 	out["version"] = 1;
 	out["domain"] = "pointnet.segment";
@@ -397,7 +365,6 @@ bool PointNetSegmentDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHo
 	out["num_classes"] = result.numClasses;
 	out["labels"] = result.labels;
 
-	// 输出各类别统计
 	nlohmann::json stats = nlohmann::json::array();
 	for (int c = 0; c < result.numClasses; ++c)
 	{

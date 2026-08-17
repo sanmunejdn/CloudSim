@@ -1,5 +1,5 @@
-/// @file CustomDeviceBackendData.cpp
-/// @brief CustomDeviceBackendData 实现
+﻿/// @file CustomDeviceBackendData.cpp
+/// @brief 自定义设备后端
 
 #include "CustomDeviceBackendData.h"
 

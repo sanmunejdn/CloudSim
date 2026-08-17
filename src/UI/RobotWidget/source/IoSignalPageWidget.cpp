@@ -1,5 +1,5 @@
 ﻿/// @file IoSignalPageWidget.cpp
-/// @brief IoSignalPageWidget 实现
+/// @brief IO 信号页
 
 #include "IoSignalPageWidget.h"
 

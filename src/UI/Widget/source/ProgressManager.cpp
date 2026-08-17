@@ -1,5 +1,5 @@
 ﻿/// @file ProgressManager.cpp
-/// @brief ProgressManager 实现
+/// @brief Progress 管理
 
 #include "ProgressManager.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowPlugins.cpp
-/// @brief MainWindowPlugins 实现
+/// @brief 插件扫描加载
 
 #include "MainWindow.h"
 #include "ApplicationSettings.h"

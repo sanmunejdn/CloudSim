@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionTransform.cpp
-/// @brief RobotInstructionTransform 实现
+/// @brief 指令变换
 
 #include "RobotInstructionTransform.h"
 

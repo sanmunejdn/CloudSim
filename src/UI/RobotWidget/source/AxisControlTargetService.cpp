@@ -1,5 +1,5 @@
-/// @file AxisControlTargetService.cpp
-/// @brief AxisControlTargetService 实现
+﻿/// @file AxisControlTargetService.cpp
+/// @brief 轴控双目标
 
 #include "AxisControlTargetService.h"
 

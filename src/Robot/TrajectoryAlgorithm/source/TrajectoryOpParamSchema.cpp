@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpParamSchema.cpp
-/// @brief TrajectoryOpParamSchema 实现
+/// @brief 算子参数 schema
 
 #include "TrajectoryOpParamSchema.h"
 

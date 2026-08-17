@@ -1,5 +1,5 @@
 ﻿/// @file PointCloudBackendOps.cpp
-/// @brief PointCloudBackendOps 实现
+/// @brief 点云后端算子
 
 #include "PointCloudBackendOps.h"
 

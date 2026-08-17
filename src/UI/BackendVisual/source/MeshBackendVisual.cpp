@@ -1,5 +1,5 @@
 ﻿/// @file MeshBackendVisual.cpp
-/// @brief MeshBackendVisual 实现
+/// @brief 网格后端视觉分支
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN

@@ -1,5 +1,5 @@
 ﻿/// @file UnifiedTrajectorySemanticMath.cpp
-/// @brief UnifiedTrajectorySemanticMath 实现
+/// @brief 统一轨迹语义数学
 
 #include "UnifiedTrajectorySemanticMath.h"
 

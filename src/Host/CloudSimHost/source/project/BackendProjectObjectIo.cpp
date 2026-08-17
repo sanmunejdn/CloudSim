@@ -1,5 +1,5 @@
 ﻿/// @file BackendProjectObjectIo.cpp
-/// @brief BackendProjectObjectIo 实现
+/// @brief 工程对象 JSON IO
 
 #include "BackendProjectObjectIo.h"
 

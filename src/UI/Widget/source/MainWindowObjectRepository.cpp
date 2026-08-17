@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowObjectRepository.cpp
-/// @brief MainWindowObjectRepository 实现
+/// @brief 主窗口对象仓储
 
 #include "MainWindowObjectRepository.h"
 

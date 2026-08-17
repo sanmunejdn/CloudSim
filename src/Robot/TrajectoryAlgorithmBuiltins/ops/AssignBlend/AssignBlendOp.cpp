@@ -1,5 +1,5 @@
 ﻿/// @file AssignBlendOp.cpp
-/// @brief AssignBlendOp 实现
+/// @brief AssignBlend 轨迹算子
 
 // AssignBlend 原子块：为路径点写入 blend 半径
 #include "AssignBlendOp.h"

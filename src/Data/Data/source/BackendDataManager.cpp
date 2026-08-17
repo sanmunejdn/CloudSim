@@ -1,5 +1,5 @@
 ﻿/// @file BackendDataManager.cpp
-/// @brief BackendDataManager 实现
+/// @brief BackendData 管理
 
 #include "BackendDataManager.h"
 

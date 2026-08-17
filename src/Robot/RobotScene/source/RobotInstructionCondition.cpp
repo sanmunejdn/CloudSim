@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionCondition.cpp
-/// @brief RobotInstructionCondition 实现
+/// @brief 指令条件
 
 #include "RobotInstructionCondition.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionPlaybackEngine.cpp
-/// @brief RobotInstructionPlaybackEngine 实现
+/// @brief 指令回放引擎
 
 #include "RobotInstructionPlaybackEngine.h"
 

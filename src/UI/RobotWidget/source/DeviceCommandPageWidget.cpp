@@ -1,5 +1,5 @@
-/// @file DeviceCommandPageWidget.cpp
-/// @brief DeviceCommandPageWidget 实现
+﻿/// @file DeviceCommandPageWidget.cpp
+/// @brief 设备指令页
 
 #include "DeviceCommandPageWidget.h"
 

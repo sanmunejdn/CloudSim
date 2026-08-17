@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidget.cpp
-/// @brief OsgWidget 实现
+/// @brief OSG 视口与场景加载
 
 #include "OsgWidget.h"
 
@@ -469,19 +469,23 @@ osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(float axisLengthMm, bool
 	geode->setNodeMask(OsgScene::kMaskPickOverlay);
 
 	osg::StateSet* ss = geode->getOrCreateStateSet();
-	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	// 挂在 lit mesh outer 下时父级 LIGHTING ON|OVERRIDE，须 PROTECTED 才能保住 RGB 顶点色
+	const auto on = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+	const auto off = osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+	ss->setMode(GL_LIGHTING, off);
+	ss->setMode(GL_COLOR_MATERIAL, off);
 	if (alwaysVisible)
 	{
-		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ss->setMode(GL_DEPTH_TEST, off);
 		ss->setRenderBinDetails(100, "RenderBin");
 	}
 	else
 	{
-		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+		ss->setMode(GL_DEPTH_TEST, on);
 	}
-	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+	ss->setMode(GL_BLEND, on);
 	osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(2.5f);
-	ss->setAttributeAndModes(lw.get(), osg::StateAttribute::ON);
+	ss->setAttributeAndModes(lw.get(), on);
 	return geode;
 }
 

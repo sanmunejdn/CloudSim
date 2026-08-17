@@ -1,5 +1,5 @@
 ﻿/// @file MeshBackendData_core.cpp
-/// @brief MeshBackendData_core 实现
+/// @brief 网格后端核心
 
 #include "pch.h"
 

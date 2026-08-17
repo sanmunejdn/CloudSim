@@ -1,5 +1,5 @@
 ﻿/// @file PointPickOperation.cpp
-/// @brief PointPickOperation 实现
+/// @brief PointPick 操作
 
 #include "PointPickOperation.h"
 

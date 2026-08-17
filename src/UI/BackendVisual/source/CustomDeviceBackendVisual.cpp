@@ -1,5 +1,5 @@
-/// @file CustomDeviceBackendVisual.cpp
-/// @brief CustomDeviceBackendVisual 实现
+﻿/// @file CustomDeviceBackendVisual.cpp
+/// @brief CustomDevice 后端视觉
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -60,10 +60,14 @@ osg::ref_ptr<osg::Geode> createRgbAxisGeode(const float axisLengthMm)
 	geode->setName("customDeviceAxes");
 	geode->addDrawable(geom.get());
 	osg::StateSet* ss = geode->getOrCreateStateSet();
-	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
-	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
-	ss->setAttributeAndModes(new osg::LineWidth(2.5f), osg::StateAttribute::ON);
+	// 与工具/用户系轴一致：父级 lit OVERRIDE 时须 PROTECTED，否则线段随视角变黑
+	const auto on = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+	const auto off = osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+	ss->setMode(GL_LIGHTING, off);
+	ss->setMode(GL_COLOR_MATERIAL, off);
+	ss->setMode(GL_DEPTH_TEST, on);
+	ss->setMode(GL_BLEND, on);
+	ss->setAttributeAndModes(new osg::LineWidth(2.5f), on);
 	return geode;
 }
 } // namespace

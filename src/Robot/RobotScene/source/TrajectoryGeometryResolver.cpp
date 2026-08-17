@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryGeometryResolver.cpp
-/// @brief TrajectoryGeometryResolver 实现
+/// @brief 轨迹几何解析
 
 #include "TrajectoryGeometryResolver.h"
 

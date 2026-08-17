@@ -1,5 +1,5 @@
 ﻿/// @file CloudSimApplicationContext.cpp
-/// @brief CloudSimApplicationContext 实现
+/// @brief 应用上下文组合根
 
 #include "CloudSimBootstrap.h"
 #include "CloudSimHost.h"

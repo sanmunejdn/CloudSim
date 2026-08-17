@@ -1,5 +1,5 @@
 ﻿/// @file FeatureTrajectoryPageWidget.cpp
-/// @brief FeatureTrajectoryPageWidget 实现
+/// @brief 特征轨迹页
 
 #include "FeatureTrajectoryPageWidget.h"
 

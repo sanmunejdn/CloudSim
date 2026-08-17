@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetTransformHierarchyController.cpp
-/// @brief OsgWidgetTransformHierarchyController 实现
+/// @brief OsgWidgetTransformHierarchy 控制
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN

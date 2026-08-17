@@ -1,5 +1,5 @@
 ﻿/// @file RecipeBlueprint.cpp
-/// @brief RecipeBlueprint 实现
+/// @brief 配方蓝图
 
 #include "RecipeBlueprint.h"
 

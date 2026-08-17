@@ -1,5 +1,5 @@
 ﻿/// @file SmoothPoseOpConfig.cpp
-/// @brief SmoothPoseOpConfig 实现
+/// @brief SmoothPose 算子配置
 
 // SmoothPose 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "SmoothPoseOpConfig.h"

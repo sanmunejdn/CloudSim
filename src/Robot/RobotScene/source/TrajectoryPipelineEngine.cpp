@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryPipelineEngine.cpp
-/// @brief TrajectoryPipelineEngine 实现
+/// @brief 轨迹流水线引擎
 
 #include "TrajectoryPipelineEngine.h"
 

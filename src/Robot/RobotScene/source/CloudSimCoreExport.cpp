@@ -1,5 +1,5 @@
 ﻿/// @file CloudSimCoreExport.cpp
-/// @brief CloudSimCoreExport 实现
+/// @brief CloudSimCore导出
 
 #include "robot_scene_global.h"
 

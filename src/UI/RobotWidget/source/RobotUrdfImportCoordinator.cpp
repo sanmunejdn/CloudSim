@@ -1,5 +1,5 @@
 ﻿/// @file RobotUrdfImportCoordinator.cpp
-/// @brief RobotUrdfImportCoordinator 实现
+/// @brief URDF 导入协调
 
 #include "RobotUrdfImportCoordinator.h"
 

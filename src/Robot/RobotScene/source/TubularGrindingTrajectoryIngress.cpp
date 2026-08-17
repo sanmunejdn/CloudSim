@@ -1,5 +1,5 @@
 ﻿/// @file TubularGrindingTrajectoryIngress.cpp
-/// @brief TubularGrindingTrajectoryIngress 实现
+/// @brief 管状打磨轨迹入口
 
 #include "TubularGrindingTrajectoryIngress.h"
 

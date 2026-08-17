@@ -1,5 +1,5 @@
 ﻿/// @file ITrajectoryOp.cpp
-/// @brief ITrajectoryOp 实现
+/// @brief 轨迹算子接口
 
 // processPath 默认空实现，仅 Pose 变换块可不覆写
 #include "ITrajectoryOp.h"

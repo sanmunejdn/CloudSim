@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowRobotStubs.cpp
-/// @brief MainWindowRobotStubs 实现
+/// @brief 主窗口机器人桩
 
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"

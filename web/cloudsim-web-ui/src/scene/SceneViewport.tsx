@@ -937,7 +937,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     }
   }, [focusRequest]);
 
-  // click select + traj pick
+  // 点选 + 轨迹拾取
   useEffect(() => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
@@ -952,7 +952,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      // origin/dir in Z-up model via inverse of zUpToYUp on camera ray
+      // 相机射线经 zUpToYUp 逆变换到模型 Z-up
       const originY = raycaster.ray.origin.clone();
       const dirY = raycaster.ray.direction.clone();
       const inv = zUpToYUp.clone().invert();
@@ -1185,7 +1185,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     });
   }, [activeProgram?.instructions, selectedInstrId, playing, activeRootId]);
 
-  // overlay events
+  // 叠加层事件
   useEffect(() => {
     const onHl = (ev: Event) => {
       const d = (ev as CustomEvent).detail as {
@@ -1199,7 +1199,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       if (d?.clear) return;
       const mat = new THREE.LineBasicMaterial({ color: 0xff9800 });
       for (const poly of d.polys || []) {
-        // poly may be flat or array of points — support both from host
+        // Host 可能给扁平数组或点对象数组
         let points: THREE.Vector3[] = [];
         if (Array.isArray(poly) && poly.length && typeof poly[0] === "number") {
           const flat = poly as unknown as number[];

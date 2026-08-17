@@ -1,5 +1,5 @@
 ﻿/// @file ApproachOp.cpp
-/// @brief ApproachOp 实现
+/// @brief Approach 轨迹算子
 
 // Approach 原子块：在路径首端插入进刀点
 #include "ApproachOp.h"

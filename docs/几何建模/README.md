@@ -23,12 +23,12 @@
 
 | 路径 | 说明 |
 |------|------|
-| [草图硬化/](../草图硬化/) | 命名参数面 + 椭圆 GCS + Convert 保型 + 样条双模式 |
-| [SW差距续期/](../SW差距续期/) | 椭圆/Offset/Convert/扫描硬化/终止条件/Draft 等已交付 |
-| [硬化基准面/](../硬化基准面/) | Convert/UpToVertex/Offset/DatumPlane/特征级 Pattern 等 |
-| [特征史AI/](../特征史AI/) | `feature.compose` → Parametric + 特征树 sync |
-| [WorkspaceModeSwitcher/](../WorkspaceModeSwitcher/) | 顶栏主程序/几何建模/工艺/工程图切换 |
 | [后端对象与软件模式/](../后端对象与软件模式/) | Parametric Body 与侧车键 |
+| [_archive/草图硬化/](../_archive/草图硬化/) | 命名参数面 + 椭圆 GCS + Convert 保弧 + 样条双模式 |
+| [_archive/SW差距续期/](../_archive/SW差距续期/) | 椭圆/Offset/Convert/扫描硬化/终止条件/Draft 等已交付 |
+| [_archive/硬化基准面/](../_archive/硬化基准面/) | Convert/UpToVertex/Offset/DatumPlane/特征级 Pattern 等 |
+| [_archive/特征史AI/](../_archive/特征史AI/) | `feature.compose` → Parametric + 特征树 sync |
+| [_archive/WorkspaceModeSwitcher/](../_archive/WorkspaceModeSwitcher/) | 顶栏主程序/几何建模/工艺/工程图切换 |
 | [_archive/几何建模/](../_archive/几何建模/) | 一期 6A 历史（CONSENSUS 等；部分表述已过时） |
 
 ## 构建提示

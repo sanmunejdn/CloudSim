@@ -1,5 +1,5 @@
-/// @file SignalConnectionStationWidget.cpp
-/// @brief SignalConnectionStationWidget 实现
+﻿/// @file SignalConnectionStationWidget.cpp
+/// @brief 信号连接站
 
 #include "SignalConnectionStationWidget.h"
 
@@ -225,10 +225,20 @@ void SignalConnectionStationWidget::paintEvent(QPaintEvent*)
 
 	for (const NodeVisual& n : m_nodes)
 	{
-		p.setPen(QPen(QColor(70, 70, 70), 1.2));
+		// 标题色块须裁在圆角内，否则直角 fillRect 会顶穿上沿
+		constexpr double kRadius = 6.0;
+		QPainterPath card;
+		card.addRoundedRect(n.rect, kRadius, kRadius);
+		p.setPen(Qt::NoPen);
 		p.setBrush(QColor(255, 255, 255));
-		p.drawRoundedRect(n.rect, 6, 6);
+		p.drawPath(card);
+		p.save();
+		p.setClipPath(card);
 		p.fillRect(QRectF(n.rect.left(), n.rect.top(), n.rect.width(), kHeaderH), QColor(230, 236, 245));
+		p.restore();
+		p.setPen(QPen(QColor(70, 70, 70), 1.2));
+		p.setBrush(Qt::NoBrush);
+		p.drawPath(card);
 		const QString title = m_network ? m_network->displayName(n.ownerId) : n.ownerId;
 		p.drawText(QRectF(n.rect.left() + 8, n.rect.top(), n.rect.width() - 16, kHeaderH),
 				   Qt::AlignVCenter | Qt::AlignLeft, title);

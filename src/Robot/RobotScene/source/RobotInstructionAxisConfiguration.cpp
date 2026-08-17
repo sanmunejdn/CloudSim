@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionAxisConfiguration.cpp
-/// @brief RobotInstructionAxisConfiguration 实现
+/// @brief 指令轴配置
 
 #include "RobotInstructionAxisConfiguration.h"
 

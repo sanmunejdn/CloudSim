@@ -1,5 +1,5 @@
 ﻿/// @file UnifiedTrajectoryPathMath.cpp
-/// @brief UnifiedTrajectoryPathMath 实现
+/// @brief 统一轨迹路径数学
 
 // UnifiedTrajectoryPathMath 实现
 #include "UnifiedTrajectoryPathMath.h"

@@ -1,5 +1,5 @@
 ﻿/// @file BackendSceneDocumentFacade.cpp
-/// @brief BackendSceneDocumentFacade 实现
+/// @brief BackendSceneDocument 门面
 
 #include "BackendSceneDocumentFacade.h"
 

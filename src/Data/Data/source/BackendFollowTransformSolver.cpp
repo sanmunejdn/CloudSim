@@ -1,5 +1,5 @@
 ﻿/// @file BackendFollowTransformSolver.cpp
-/// @brief BackendFollowTransformSolver 实现
+/// @brief Follow 变换求解
 
 #include "BackendFollowTransformSolver.h"
 

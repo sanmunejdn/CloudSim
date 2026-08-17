@@ -1,5 +1,5 @@
 ﻿/// @file DocumentHostEvents.cpp
-/// @brief DocumentHostEvents 实现
+/// @brief 文档宿主事件协作
 
 #include "DocumentHostEvents.h"
 

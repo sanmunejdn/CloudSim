@@ -1,5 +1,5 @@
 ﻿/// @file WidgetOsgViewHost.cpp
-/// @brief WidgetOsgViewHost 实现
+/// @brief WidgetOsgView 宿主
 
 #include "WidgetOsgViewHost.h"
 

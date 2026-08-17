@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowPropertyPanel.cpp
-/// @brief MainWindowPropertyPanel 实现
+/// @brief 属性面板绑定
 
 #include "../RobotWidget/inc/InstructionPropertyPanel.h"
 #include "BackendPropertyRow.h"

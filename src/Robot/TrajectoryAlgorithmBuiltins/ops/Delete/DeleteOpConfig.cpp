@@ -1,5 +1,5 @@
 ﻿/// @file DeleteOpConfig.cpp
-/// @brief DeleteOpConfig 实现
+/// @brief Delete 算子配置
 
 // Delete 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "DeleteOpConfig.h"

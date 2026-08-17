@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "meta": {
+    "design_calc": "worm.geometry",
+    "blank_only": true,
+    "A_mm": 50.0
+  },
+  "steps": [
+    {
+      "id": "worm_blank",
+      "api": "revolveSketchProfileToBrep",
+      "args": {
+        "mode": "boss",
+        "profile": "rectangle",
+        "length_mm": 12.0,
+        "width_mm": 19.0,
+        "angle_deg": 360.0,
+        "axis_dx": 0.0,
+        "axis_dy": 1.0,
+        "axis_dz": 0.0,
+        "name": "WormBlank"
+      }
+    },
+    {
+      "id": "worm_wheel_blank",
+      "api": "revolveSketchProfileToBrep",
+      "args": {
+        "mode": "boss",
+        "profile": "rectangle",
+        "length_mm": 42.0,
+        "width_mm": 15.0,
+        "angle_deg": 360.0,
+        "axis_dx": 0.0,
+        "axis_dy": 1.0,
+        "axis_dz": 0.0,
+        "name": "WormWheelBlank"
+      }
+    }
+  ]
+}

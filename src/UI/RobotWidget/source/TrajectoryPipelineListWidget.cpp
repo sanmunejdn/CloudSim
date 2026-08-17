@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryPipelineListWidget.cpp
-/// @brief TrajectoryPipelineListWidget 实现
+/// @brief TrajectoryPipelineList 控件
 
 #include "TrajectoryPipelineListWidget.h"
 

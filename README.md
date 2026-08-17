@@ -13,7 +13,9 @@
 | 桌面解决方案 | [`CloudSim.sln`](CloudSim.sln) → `CloudSim.exe` |
 | 网页解决方案 | [`CloudSimWeb.sln`](CloudSimWeb.sln) → `CloudSimWeb.exe` |
 | 双端安装包 | [`../Setup/packaging`](../Setup/packaging)（`-Product Desktop\|Web`；Web 须 Vite `bin\x64\web\assets\`） |
-| 文档索引 | [`docs/README.md`](docs/README.md) |
+| 文档索引 | [`docs/README.md`](docs/README.md)（含**按模式 / 按插件**导航） |
+| 主程序 / 几何建模 / 工艺流程 / 工程图 | [`docs/主程序/`](docs/主程序/)、[`几何建模/`](docs/几何建模/)、[`工艺流程/`](docs/工艺流程/)、[`工程图/`](docs/工程图/) |
+| 插件类型索引 | [`docs/插件/`](docs/插件/) |
 | 目录布局 | [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md) |
 | 模块开发指南 | [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md) |
 | 源码约定 | [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md) |
@@ -32,6 +34,7 @@
 | 宿主 | 完整 Qt/OSG UI | Headless Host + HTTP/WS 网关 |
 | 默认访问 | 桌面窗口 | `http://127.0.0.1:8787`（可用 `--port=` 改端口） |
 | TCP 拖动示教 | 末端局部轴；目标姿态用四元数真值，避免欧拉往返 | 同源：`TransformControls` 固定 `local`；`/api/robot/tcp-ik` 追赶只截断平移；落点优先罗盘矩阵 |
+| 架构图 | [`docs/architecture/desktop.html`](docs/architecture/desktop.html) | [`docs/architecture/web.html`](docs/architecture/web.html) |
 
 两套 sln **互不引入**对方的 UI/Web 工程；桌面用 `CloudSimHost`，网页用 `CloudSimHostHeadless`；共享 `CloudSimCore` / `Data` / 机器人与几何等后端 DLL。
 

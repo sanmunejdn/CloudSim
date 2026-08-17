@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "meta": {
+    "part_id": "gear.spur_blank",
+    "blank_only": true,
+    "m_mm": "{{m_mm}}",
+    "Z": "{{Z}}"
+  },
+  "steps": [
+    {
+      "id": "blank",
+      "api": "revolveSketchProfileToBrep",
+      "args": {
+        "mode": "boss",
+        "profile": "rectangle",
+        "length_mm": "{{radius_mm}}",
+        "width_mm": "{{b_mm}}",
+        "angle_deg": 360,
+        "axis_dx": 0,
+        "axis_dy": 1,
+        "axis_dz": 0,
+        "name": "SpurGearBlank"
+      }
+    }
+  ]
+}

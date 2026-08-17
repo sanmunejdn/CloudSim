@@ -1,5 +1,5 @@
 ﻿/// @file RetractOpConfig.cpp
-/// @brief RetractOpConfig 实现
+/// @brief Retract 算子配置
 
 // Retract 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "RetractOpConfig.h"

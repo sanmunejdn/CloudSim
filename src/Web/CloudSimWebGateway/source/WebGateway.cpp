@@ -594,7 +594,7 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
 	});
 
-	// P2 robot
+	// 机器人 API
 	m_impl->svr.Get("/api/robot/programs", [this](const httplib::Request&, httplib::Response& res)
 	{
 		QByteArray body;
@@ -1117,7 +1117,7 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 						  res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
 					  });
 
-	// P3 geometry / point cloud (capability surface; heavy work via Host algorithms when linked)
+	// 几何 / 点云作业面（重活在 Host）
 	m_impl->svr.Post("/api/geometry/op",
 					  [this](const httplib::Request& req, httplib::Response& res)
 					  {
@@ -1151,7 +1151,7 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 					  });
 	registerPointCloudRoutes(host);
 
-	// P4 modes / sidecars
+	// 模式 / 侧车
 	m_impl->svr.Get("/api/modes", [this](const httplib::Request&, httplib::Response& res)
 	{
 		const QByteArray body = modesCatalogJson();
@@ -1178,7 +1178,7 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 		writeJsonOk(res, ok, err, QJsonObject{});
 	});
 
-	// P5 AI / help / devices
+	// AI / 帮助 / 设备
 	m_impl->svr.Get("/api/ai/status", [this](const httplib::Request&, httplib::Response& res)
 	{
 		const QByteArray body = aiStatusJson();

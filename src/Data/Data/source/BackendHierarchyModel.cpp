@@ -1,5 +1,5 @@
 ﻿/// @file BackendHierarchyModel.cpp
-/// @brief BackendHierarchyModel 实现
+/// @brief 后端层级模型
 
 #include "BackendHierarchyModel.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetGizmoController.cpp
-/// @brief OsgWidgetGizmoController 实现
+/// @brief OsgWidgetGizmo 控制
 
 #include "OsgWidgetGizmoController.h"
 

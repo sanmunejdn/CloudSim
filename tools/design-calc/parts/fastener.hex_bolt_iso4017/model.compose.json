@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "meta": {
+    "part_id": "fastener.hex_bolt_iso4017",
+    "blank_only": true,
+    "note": "C++/Python instantiate 对 hex_bolt 生成一体旋转毛坯，不读本模板"
+  },
+  "steps": []
+}

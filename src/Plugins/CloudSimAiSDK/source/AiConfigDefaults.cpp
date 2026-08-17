@@ -45,6 +45,11 @@ AiConfigDto defaultAiConfigDto()
 	processFlow.model = QStringLiteral("qwen2.5:3b");
 	processFlow.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 
-	cfg.domains = {mesh, compose, geom, traj, scene, processFlow};
+	AiDomainModelConfig designParts;
+	designParts.id = AiDomainIds::designParts();
+	designParts.model = QStringLiteral("qwen2.5:3b");
+	designParts.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local")};
+
+	cfg.domains = {mesh, compose, geom, traj, scene, processFlow, designParts};
 	return cfg;
 }

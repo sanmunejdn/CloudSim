@@ -1,5 +1,5 @@
 ﻿/// @file RobotSimulationMath.cpp
-/// @brief RobotSimulationMath 实现
+/// @brief 仿真数学
 
 #include "RobotSimulationMath.h"
 

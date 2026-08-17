@@ -1,5 +1,5 @@
 ﻿/// @file OffsetLateralOpConfig.cpp
-/// @brief OffsetLateralOpConfig 实现
+/// @brief OffsetLateral 算子配置
 
 // OffsetLateral 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "OffsetLateralOpConfig.h"

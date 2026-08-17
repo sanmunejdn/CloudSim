@@ -604,7 +604,19 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 ---
 
-## 9. 常见问题
+## 9. Headless 轨迹会话与缓存
+
+`HeadlessTrajectorySession`（网页轨迹编辑 / 拾取）持有：
+
+| 成员 | 说明 |
+|------|------|
+| `m_faceHighlightSoup` | 按 `workpiece#faceIndex` 缓存面高亮 `QJsonArray`；命中可避免重复离散 |
+
+**已知风险（行为修复待审）：** 当前未见在 `beginEdit` / `cancelEdit` / 析构路径统一 `clear`；长时间悬停多面可能涨内存。修前勿假定会话级缓存有界。SSE 队列边界见 [`CloudSimWebGateway/DEVELOPER_GUIDE.md`](../../Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) §2。
+
+---
+
+## 10. 常见问题
 
 | 现象 | 处理 |
 |------|------|

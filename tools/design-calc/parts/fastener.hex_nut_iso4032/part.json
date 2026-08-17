@@ -1,0 +1,19 @@
+{
+  "id": "fastener.hex_nut_iso4032",
+  "kind": "standard_part",
+  "display_name": "六角螺母（ISO 4032 近似毛坯）",
+  "keywords": ["螺母", "六角螺母", "hex nut", "nut"],
+  "model_ref": "model.compose.json",
+  "model_fidelity": "blank",
+  "note": "六角垫 + 通孔；无内螺纹。",
+  "params_schema": {
+    "thread": { "type": "string", "enum": ["M6", "M8", "M10", "M12"] }
+  },
+  "specs": [
+    { "thread": "M6", "d_mm": 6, "s_mm": 10, "m_mm": 5.2 },
+    { "thread": "M8", "d_mm": 8, "s_mm": 13, "m_mm": 6.8 },
+    { "thread": "M10", "d_mm": 10, "s_mm": 16, "m_mm": 8.4 },
+    { "thread": "M12", "d_mm": 12, "s_mm": 18, "m_mm": 10.8 }
+  ],
+  "defaults": { "thread": "M8" }
+}

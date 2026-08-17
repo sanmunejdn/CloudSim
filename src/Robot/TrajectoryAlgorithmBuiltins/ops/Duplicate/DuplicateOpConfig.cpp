@@ -1,5 +1,5 @@
 ﻿/// @file DuplicateOpConfig.cpp
-/// @brief DuplicateOpConfig 实现
+/// @brief Duplicate 算子配置
 
 // Duplicate 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "DuplicateOpConfig.h"

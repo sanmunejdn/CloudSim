@@ -1,5 +1,5 @@
 ﻿/// @file InstructionProgramDocument.cpp
-/// @brief InstructionProgramDocument 实现
+/// @brief 指令程序文档
 
 #include "InstructionProgramDocument.h"
 

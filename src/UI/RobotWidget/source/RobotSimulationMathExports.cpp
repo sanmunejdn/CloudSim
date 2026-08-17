@@ -1,5 +1,5 @@
 /// @file RobotSimulationMathExports.cpp
-/// @brief RobotSimulationMathExports ???
+/// @brief 仿真数学导出（文档宿主侧）
 
 #include "IRobotDocumentHost.h"
 #include "IRobotOsgViewHost.h"
@@ -228,7 +228,7 @@ bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgViewHost*
 		return false;
 	}
 	outWorld.makeIdentity();
-	// per-link??????????????? basePlacementWorld???????? mesh ??????????????
+	// per-link：基座用 basePlacementWorld，勿用 mesh 节点世界矩阵
 	if (doc->robotUsesPerLinkBackendsForInstance(instIdx))
 	{
 		cloudsim::core::RobotPerLinkKinematicsSliceDto slice;

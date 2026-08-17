@@ -1,5 +1,5 @@
-/// @file ToWorkpieceInHandOpConfig.cpp
-/// @brief ToWorkpieceInHandOpConfig 实现
+﻿/// @file ToWorkpieceInHandOpConfig.cpp
+/// @brief ToWorkpieceInHand 算子配置
 
 #include "ToWorkpieceInHandOpConfig.h"
 

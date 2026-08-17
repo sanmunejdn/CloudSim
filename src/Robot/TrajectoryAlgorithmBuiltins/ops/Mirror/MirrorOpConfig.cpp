@@ -1,5 +1,5 @@
 ﻿/// @file MirrorOpConfig.cpp
-/// @brief MirrorOpConfig 实现
+/// @brief Mirror 算子配置
 
 // Mirror 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "MirrorOpConfig.h"

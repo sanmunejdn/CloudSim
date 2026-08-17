@@ -1,5 +1,5 @@
 ﻿/// @file PathPlanRawStore.cpp
-/// @brief PathPlanRawStore 实现
+/// @brief PathPlan Raw 存储
 
 #include "RobotProgramCatalog.h"
 

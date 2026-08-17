@@ -1,5 +1,5 @@
 ﻿/// @file RobotMatrixOsgBridge.cpp
-/// @brief RobotMatrixOsgBridge 实现
+/// @brief RobotMatrixOsg 桥接
 
 #include "RobotMatrixOsgBridge.h"
 

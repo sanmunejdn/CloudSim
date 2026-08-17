@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowAiAssistant.cpp
-/// @brief MainWindowAiAssistant 实现
+/// @brief 主窗口 AI 助手接线
 
 #include "AiAssistantCoordinator.h"
 #include "AiAssistantDockWidget.h"

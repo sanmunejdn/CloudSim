@@ -1,5 +1,5 @@
 ﻿/// @file DeleteOp.cpp
-/// @brief DeleteOp 实现
+/// @brief Delete 轨迹算子
 
 // Delete 原子块：删除 scope 内路点
 #include "DeleteOp.h"

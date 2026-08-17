@@ -1,5 +1,5 @@
 ﻿/// @file NamedSignalTable.cpp
-/// @brief NamedSignalTable 实现
+/// @brief 命名信号表
 
 #include "NamedSignalTable.h"
 

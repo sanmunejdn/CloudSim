@@ -1,5 +1,5 @@
 ﻿/// @file RobotProjectIoAdapter.cpp
-/// @brief RobotProjectIoAdapter 实现
+/// @brief RobotProjectIo 适配
 
 #include "RobotProjectIoAdapter.h"
 

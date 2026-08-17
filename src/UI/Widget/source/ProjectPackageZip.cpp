@@ -1,5 +1,5 @@
 ﻿/// @file ProjectPackageZip.cpp
-/// @brief ProjectPackageZip 实现
+/// @brief 工程包 zip
 
 #include "ProjectPackageZip.h"
 

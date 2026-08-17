@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpParamPanel.cpp
-/// @brief TrajectoryOpParamPanel 实现
+/// @brief TrajectoryOpParam 面板
 
 #include "TrajectoryOpParamPanel.h"
 

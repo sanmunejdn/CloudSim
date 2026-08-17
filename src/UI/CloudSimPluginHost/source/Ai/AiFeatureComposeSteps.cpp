@@ -570,9 +570,11 @@ bool executeExtrude(PluginHostContext& host, const nlohmann::json& args, const s
 	}
 
 	PluginGeometryJobResult job;
+	const double planeOz = args.value("plane_oz", args.value("sketch_z_mm", 0.0));
+	const PluginSketchPlane sketchPlane = xyPlaneAtZ(planeOz);
 	if (!waitGeomJobResult(
 			[&](PluginGeometryFinishedFn cb)
-			{ geo->extrudeSketchProfileToBrep(doc, profile.polyline, defaultXyPlane(), p, std::move(cb)); },
+			{ geo->extrudeSketchProfileToBrep(doc, profile.polyline, sketchPlane, p, std::move(cb)); },
 			&job, outError))
 		return false;
 

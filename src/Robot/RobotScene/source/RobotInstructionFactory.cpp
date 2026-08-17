@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionFactory.cpp
-/// @brief RobotInstructionFactory 实现
+/// @brief RobotInstruction 工厂
 
 #include "RobotInstructionFactory.h"
 

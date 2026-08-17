@@ -1,5 +1,5 @@
 ﻿/// @file ResampleOpConfig.cpp
-/// @brief ResampleOpConfig 实现
+/// @brief Resample 算子配置
 
 // Resample 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "ResampleOpConfig.h"

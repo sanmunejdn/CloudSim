@@ -1,5 +1,5 @@
 ﻿/// @file ReachabilityFilterOp.cpp
-/// @brief ReachabilityFilterOp 实现
+/// @brief ReachabilityFilter 轨迹算子
 
 // ReachabilityFilter 原子块：剔除不可达路径点
 #include "ReachabilityFilterOp.h"

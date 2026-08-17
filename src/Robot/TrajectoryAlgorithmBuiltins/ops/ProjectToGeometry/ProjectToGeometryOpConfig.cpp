@@ -1,5 +1,5 @@
 ﻿/// @file ProjectToGeometryOpConfig.cpp
-/// @brief ProjectToGeometryOpConfig 实现
+/// @brief ProjectToGeometry 算子配置
 
 #include "ProjectToGeometryOpConfig.h"
 

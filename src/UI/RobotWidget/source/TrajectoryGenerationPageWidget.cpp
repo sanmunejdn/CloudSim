@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryGenerationPageWidget.cpp
-/// @brief TrajectoryGenerationPageWidget 实现
+/// @brief TrajectoryGenerationPage 控件
 
 #include "TrajectoryGenerationPageWidget.h"
 

@@ -129,7 +129,7 @@ flowchart TB
 | 维度 | 说明 |
 |------|------|
 | 职责边界 | 菜单栏、Dock 布局、文档标签页、属性面板、后端树、仿真协调、插件加载 |
-| 生命周期 | `main.cpp` 构造，`showMaximized()`，进程内单例；关窗/`~MainWindow` 调用 `shutdownRuntimeWorkers`（停仿真定时器 + `JobSystem::shutdown`：清排队、限时 wait，超时弃池以免卡死）再 `pluginManager->shutdownAll` |
+| 生命周期 | `main.cpp` 构造，`showMaximized()`，进程内单例；关窗/`~MainWindow` 调用 `shutdownRuntimeWorkers`（停仿真定时器 + `JobSystem::shutdown`）再 `pluginManager->shutdownAll` |
 | 对外契约 | 通过 `currentPage()` 获取当前 `DocumentPage*`，再经 `data()` / `robot()` / `render()` 访问契约 |
 | 事件协作 | 订阅 `EventHub` 事件刷新树/属性面板；`WidgetSceneSignalWiring` 桥接 OsgWidget 信号 |
 
@@ -535,7 +535,21 @@ w.showMaximized();
 
 ---
 
-## 13. 演进路线
+## 13. `JobSystem` 关闭语义
+
+实现：`JobSystem.cpp`。关窗路径经 `MainWindow::shutdownRuntimeWorkers` → `JobSystem::shutdown`。
+
+| 步骤 | 行为 |
+|------|------|
+| 清排队 | 丢弃未开跑任务 |
+| `waitForDone` | 限时等待（约 1.5s） |
+| 超时 | `m_pool.release()` **故意弃池**，避免 `~QThreadPool` 无限阻塞；进程退出由 OS 回收线程 |
+
+进度回调宜用 `QPointer`；作业内勿假设 UI 对象在超时弃池后仍存活。属已知退出权衡，行为变更（取消令牌 / 更长等待）另审。
+
+---
+
+## 14. 演进路线
 
 **已完成**
 

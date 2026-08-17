@@ -74,26 +74,14 @@ public:
 	void setExternalAxisValues(const QVector<double>& values);
 	void setExternalAxisValuesSilent(const QVector<double>& values);
 
-	/// 初始化关节控制界面
-	/// @param jointNames 关节名称列表（按顺序）
-	/// @param lowerLimits 各关节下限（弧度）
-	/// @param upperLimits 各关节上限（弧度）
-	/// @param jointTransforms 关节 OSG 变换节点
 	void setupJointControls(const QStringList& jointNames, const QVector<double>& lowerLimits,
 							const QVector<double>& upperLimits,
 							const QHash<QString, osg::MatrixTransform*>& jointTransforms);
 
-	/// 设置指定关节的角度
-	/// @param jointName 关节名称
-	/// @param angleRad 角度（弧度）
 	void setJointAngle(const QString& jointName, double angleRad);
 
-	/// 获取指定关节的当前角度
-	/// @param jointName 关节名称
-	/// @return 当前角度（弧度）
 	double getJointAngle(const QString& jointName) const;
 
-	/// 重置所有关节到零位
 	void resetAllJoints();
 
 	void setReachableWorkspaceChecked(bool checked);
@@ -106,13 +94,8 @@ public:
 	int reachableWorkspaceDensityPercent() const;
 
 signals:
-	/// 单关节角度变更
-	/// @param jointName 关节名称
-	/// @param angleRad 新角度（弧度）
 	void jointAngleChanged(const QString& jointName, double angleRad);
 
-	/// 所有单关节角度变更（批量更新）
-	/// @param angles 各关节角度（弧度）
 	void allJointAnglesChanged(const QVector<double>& angles);
 
 	/// 外部轴数值变更（平移 mm / 旋转 rad，UI 可显示 deg）

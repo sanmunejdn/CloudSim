@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryParamJsonIo.cpp
-/// @brief TrajectoryParamJsonIo 实现
+/// @brief TrajectoryParamJson读写
 
 // TrajectoryParamJsonIo 实现
 #include "TrajectoryParamJsonIo.h"

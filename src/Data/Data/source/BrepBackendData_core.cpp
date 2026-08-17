@@ -1,5 +1,5 @@
 ﻿/// @file BrepBackendData_core.cpp
-/// @brief BrepBackendData_core 实现
+/// @brief B-rep 后端核心
 
 #include "pch.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file RobotPlanInstruction.cpp
-/// @brief RobotPlanInstruction 实现
+/// @brief 规划指令 Host 路径
 
 #include "RobotPlanInstruction.h"
 

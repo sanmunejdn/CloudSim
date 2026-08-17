@@ -1,5 +1,5 @@
 ﻿/// @file RetractOp.cpp
-/// @brief RetractOp 实现
+/// @brief Retract 轨迹算子
 
 // Retract 原子块：在路径尾端插入退刀点
 #include "RetractOp.h"

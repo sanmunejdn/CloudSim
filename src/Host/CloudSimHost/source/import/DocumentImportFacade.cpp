@@ -1,5 +1,5 @@
 ﻿/// @file DocumentImportFacade.cpp
-/// @brief DocumentImportFacade 实现
+/// @brief DocumentImport 门面
 
 #include "DocumentImportFacade.h"
 

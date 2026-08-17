@@ -1,5 +1,5 @@
 ﻿/// @file UrdfLinkBackendManager.cpp
-/// @brief UrdfLinkBackendManager 实现
+/// @brief URDF 连杆 Mesh 后端与 OSG 可视节点
 
 #include "UrdfLinkBackendManager.h"
 
@@ -15,7 +15,6 @@
 #include <osg/Group.h>
 #include <osg/MatrixTransform.h>
 
-// 默认开启后端加载
 bool UrdfLinkBackendManager::s_useBackendLoading = true;
 
 UrdfLinkBackendManager::UrdfLinkBackendManager() : m_robotName("URDF_Robot") {}
@@ -34,7 +33,6 @@ bool UrdfLinkBackendManager::hasLinkBackend(const QString& linkName) const
 
 std::string UrdfLinkBackendManager::generateBackendId(const QString& linkName) const
 {
-	// 生成格式: URDF_{RobotName}_{LinkName}_{Counter}
 	static int s_counter = 0;
 	return "URDF_" + m_robotName.toStdString() + "_" + linkName.toStdString() + "_" + std::to_string(++s_counter);
 }
@@ -50,7 +48,6 @@ UrdfLinkBackendManager::createLinkBackend(const QString& linkName, const QString
 		return nullptr;
 	}
 
-	// 检查是否已存在
 	auto it = m_linkNameToBackend.find(linkName);
 	if (it != m_linkNameToBackend.end())
 	{
@@ -58,23 +55,19 @@ UrdfLinkBackendManager::createLinkBackend(const QString& linkName, const QString
 		return it->second;
 	}
 
-	// 创建新的后端对象
 	auto backend = std::make_shared<MeshBackendData>();
 	backend->setName(linkName.toStdString());
 
 	std::string backendId = generateBackendId(linkName);
 	backend->setId(backendId);
 
-	// 计时开始
 	QElapsedTimer timer;
 	timer.start();
 
-	// 加载mesh文件
 	std::string nativePath = meshPath.toStdString();
 	std::string loadErr;
 	bool loaded = backend->loadFromFile(nativePath, &loadErr);
 
-	// 记录加载时间
 	double elapsedMs = timer.elapsed();
 	m_loadTimes.push_back(elapsedMs);
 
@@ -88,11 +81,10 @@ UrdfLinkBackendManager::createLinkBackend(const QString& linkName, const QString
 		}
 		qWarning() << "[UrdfLinkBackendManager] Failed to load mesh:" << meshPath
 				   << "Error:" << QString::fromStdString(loadErr);
-		// 创建一个空的后端对象（允许无几何的连杆）
+		// mesh 加载失败仍保留空几何连杆
 		backend->clearGeometry();
 	}
 
-	// 设置默认颜色（淡蓝色）
 	BackendColor color;
 	color.r = 0.65f;
 	color.g = 0.82f;
@@ -100,23 +92,19 @@ UrdfLinkBackendManager::createLinkBackend(const QString& linkName, const QString
 	color.a = 1.0f;
 	backend->setColor(color);
 
-	// 如果有visual origin，转换为后端的位置/旋转
 	if (visualOriginMatrix.size() == 16)
 	{
-		// 提取平移部分作为位置
 		BackendVec3 pos;
-		pos.x = static_cast<float>(visualOriginMatrix[12]); // m[3][0] in column-major
+		pos.x = static_cast<float>(visualOriginMatrix[12]); // 列主序 m[3][0]
 		pos.y = static_cast<float>(visualOriginMatrix[13]); // m[3][1]
 		pos.z = static_cast<float>(visualOriginMatrix[14]); // m[3][2]
 		backend->setPose(pos);
 
-		// 从矩阵提取欧拉角（简化版本，实际可能需要更复杂的分解）
-		// 这里仅作为示例，实际应使用mat4ToEuler函数
+		// 旋转未分解，仅占位；完整实现需 mat4ToEuler
 		BackendVec3 rot{0.0f, 0.0f, 0.0f};
 		backend->setRotation(rot);
 	}
 
-	// 存储映射
 	m_linkNameToBackend[linkName] = backend;
 	m_linkNameToBackendId[linkName] = backendId;
 
@@ -139,7 +127,6 @@ osg::ref_ptr<osg::Node> UrdfLinkBackendManager::createLinkVisualNode(const QStri
 		return nullptr;
 	}
 
-	// 通过BackendVisualRegistry创建OSG节点
 	std::string err;
 	osg::ref_ptr<osg::Node> visualNode = BackendVisualRegistry::buildMeshDisplayNode(*backend, options, &err);
 
@@ -152,7 +139,6 @@ osg::ref_ptr<osg::Node> UrdfLinkBackendManager::createLinkVisualNode(const QStri
 		return nullptr;
 	}
 
-	// 设置节点名称便于调试
 	visualNode->setName(linkName.toStdString() + "_Visual");
 
 	return visualNode;

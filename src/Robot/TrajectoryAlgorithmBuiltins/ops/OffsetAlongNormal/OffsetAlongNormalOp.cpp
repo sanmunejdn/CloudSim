@@ -1,5 +1,5 @@
 ﻿/// @file OffsetAlongNormalOp.cpp
-/// @brief OffsetAlongNormalOp 实现
+/// @brief OffsetAlongNormal 轨迹算子
 
 // OffsetAlongNormal 原子块：沿法向偏移路径点
 #include "OffsetAlongNormalOp.h"

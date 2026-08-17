@@ -1,5 +1,5 @@
 ﻿/// @file ExternalAxisSearchOpConfig.cpp
-/// @brief ExternalAxisSearchOpConfig 实现
+/// @brief ExternalAxisSearch 算子配置
 
 // ExternalAxisSearch 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "ExternalAxisSearchOpConfig.h"

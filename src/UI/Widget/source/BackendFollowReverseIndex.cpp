@@ -1,5 +1,5 @@
 ﻿/// @file BackendFollowReverseIndex.cpp
-/// @brief BackendFollowReverseIndex 实现
+/// @brief Follow 反向索引
 
 #include "BackendFollowReverseIndex.h"
 

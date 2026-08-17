@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpDescriptorCodec.cpp
-/// @brief TrajectoryOpDescriptorCodec 实现
+/// @brief 算子描述编解码
 
 #include "TrajectoryOpDescriptorCodec.h"
 

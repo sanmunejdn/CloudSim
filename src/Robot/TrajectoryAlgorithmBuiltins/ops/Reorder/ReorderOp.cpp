@@ -1,5 +1,5 @@
 ﻿/// @file ReorderOp.cpp
-/// @brief ReorderOp 实现
+/// @brief Reorder 轨迹算子
 
 // Reorder 原子块：按 scope 统一姿态
 #include "ReorderOp.h"

@@ -1,5 +1,5 @@
 ﻿/// @file BackendVisualRegistry.cpp
-/// @brief BackendVisualRegistry 实现
+/// @brief BackendVisual 注册表
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN

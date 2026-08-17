@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpParamsParse.cpp
-/// @brief TrajectoryOpParamsParse 实现
+/// @brief 算子参数解析
 
 #include "TrajectoryOpParamsParse.h"
 

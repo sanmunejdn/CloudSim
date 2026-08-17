@@ -1,5 +1,5 @@
-/// @file CustomDeviceAssemblyDialog.cpp
-/// @brief CustomDeviceAssemblyDialog 实现
+﻿/// @file CustomDeviceAssemblyDialog.cpp
+/// @brief 自定义设备组装对话框
 
 #include "CustomDeviceAssemblyDialog.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file ProcessFlowPresetLoader.cpp
-/// @brief ProcessFlowPresetLoader 实现
+/// @brief 工艺流程预设加载
 
 #include "ProcessFlowPresetLoader.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file DuplicateOp.cpp
-/// @brief DuplicateOp 实现
+/// @brief Duplicate 轨迹算子
 
 // Duplicate 原子块：复制 scope 内路点
 #include "DuplicateOp.h"

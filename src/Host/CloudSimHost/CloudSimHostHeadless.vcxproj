@@ -166,6 +166,8 @@
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\TrajectoryFeatureDomainHandler.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\MeshComposeDomainHandler.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\FeatureComposeDomainHandler.h" />
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\DesignPartsCatalog.h" />
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\DesignPartsDomainHandler.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiFeatureComposeSteps.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\MeshCreateDomainHandler.h" />
   </ItemGroup>
@@ -247,6 +249,8 @@
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\TrajectoryFeatureDomainHandler.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\MeshComposeDomainHandler.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\FeatureComposeDomainHandler.cpp" />
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\DesignPartsCatalog.cpp" />
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\DesignPartsDomainHandler.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiFeatureComposeSteps.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\MeshCreateDomainHandler.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\BackendFollowReverseIndex.cpp" />

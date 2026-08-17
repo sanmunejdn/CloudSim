@@ -1,5 +1,5 @@
 ﻿/// @file FeaturePickTransform.cpp
-/// @brief FeaturePickTransform ?��
+/// @brief 特征拾取坐标系变换
 
 #include "FeaturePickTransform.h"
 

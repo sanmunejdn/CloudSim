@@ -1,5 +1,5 @@
 ﻿/// @file AssignSpeedZoneOp.cpp
-/// @brief AssignSpeedZoneOp 实现
+/// @brief AssignSpeedZone 轨迹算子
 
 // AssignSpeedZone 原子块：为路径点写入速度区
 #include "AssignSpeedZoneOp.h"

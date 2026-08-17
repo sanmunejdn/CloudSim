@@ -1,5 +1,5 @@
 ﻿/// @file MeshTrajectoryPageWidget.cpp
-/// @brief MeshTrajectoryPageWidget 实现
+/// @brief MeshTrajectoryPage 控件
 
 #include "MeshTrajectoryPageWidget.h"
 

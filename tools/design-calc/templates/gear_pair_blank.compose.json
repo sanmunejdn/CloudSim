@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "meta": {
+    "design_calc": "gear.spur_helical_shift",
+    "A_mm": 60.0,
+    "m_mm": 2.0,
+    "blank_only": true
+  },
+  "steps": [
+    {
+      "id": "pinion_blank",
+      "api": "revolveSketchProfileToBrep",
+      "args": {
+        "mode": "boss",
+        "profile": "rectangle",
+        "length_mm": 22.0,
+        "width_mm": 20.0,
+        "angle_deg": 360.0,
+        "axis_dx": 0.0,
+        "axis_dy": 1.0,
+        "axis_dz": 0.0,
+        "name": "PinionBlank"
+      }
+    },
+    {
+      "id": "gear_blank",
+      "api": "revolveSketchProfileToBrep",
+      "args": {
+        "mode": "boss",
+        "profile": "rectangle",
+        "length_mm": 42.0,
+        "width_mm": 20.0,
+        "angle_deg": 360.0,
+        "axis_dx": 0.0,
+        "axis_dy": 1.0,
+        "axis_dz": 0.0,
+        "name": "GearBlank"
+      }
+    }
+  ]
+}

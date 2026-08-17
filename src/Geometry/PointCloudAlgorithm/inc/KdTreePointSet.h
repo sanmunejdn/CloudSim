@@ -73,14 +73,11 @@ public:
 		}
 	}
 
-	// 检查是否已构建
 	bool empty() const { return !tree_ || tree_->empty(); }
 
-	// 返回点数
 	std::size_t size() const { return points_.size(); }
 
-	// 查找最近邻（带距离上限）
-	// 返回原始索引，如果没有找到则返回 -1
+	/// 最近邻；未命中返回 size_t(-1)
 	std::size_t findNearest(double qx, double qy, double qz, double maxDistSq, double& outDistSq) const
 	{
 		if (empty())

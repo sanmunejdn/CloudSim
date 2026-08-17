@@ -1,5 +1,5 @@
-/// @file DevicePoseSignalDriver.cpp
-/// @brief DevicePoseSignalDriver 实现
+﻿/// @file DevicePoseSignalDriver.cpp
+/// @brief 设备姿态信号驱动
 
 #include "DevicePoseSignalDriver.h"
 

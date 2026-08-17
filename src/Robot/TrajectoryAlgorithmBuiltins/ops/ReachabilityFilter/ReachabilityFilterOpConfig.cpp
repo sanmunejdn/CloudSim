@@ -1,5 +1,5 @@
 ﻿/// @file ReachabilityFilterOpConfig.cpp
-/// @brief ReachabilityFilterOpConfig 实现
+/// @brief ReachabilityFilter 算子配置
 
 // ReachabilityFilter 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "ReachabilityFilterOpConfig.h"

@@ -1,5 +1,5 @@
 ﻿/// @file NonRigidRegistrationOpConfig.cpp
-/// @brief NonRigidRegistrationOpConfig 实现
+/// @brief NonRigidRegistration 算子配置
 
 #include "NonRigidRegistrationOpConfig.h"
 

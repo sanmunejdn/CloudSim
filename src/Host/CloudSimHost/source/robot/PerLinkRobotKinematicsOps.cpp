@@ -1,5 +1,5 @@
 ﻿/// @file PerLinkRobotKinematicsOps.cpp
-/// @brief PerLinkRobotKinematicsOps 实现
+/// @brief per-link 运动学运算
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"

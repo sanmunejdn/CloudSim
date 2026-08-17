@@ -1,5 +1,5 @@
 ﻿/// @file RobotServiceAdapter.cpp
-/// @brief RobotServiceAdapter 实现
+/// @brief 机器人到 IRobotService
 
 #include "adapters/RobotServiceAdapter.h"
 

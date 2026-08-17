@@ -1,5 +1,5 @@
 ﻿/// @file FollowAttachmentComponent.cpp
-/// @brief FollowAttachmentComponent 实现
+/// @brief Follow 附着组件
 
 #include "FollowAttachmentComponent.h"
 

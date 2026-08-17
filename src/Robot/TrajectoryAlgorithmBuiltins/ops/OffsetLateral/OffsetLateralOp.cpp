@@ -1,5 +1,5 @@
 ﻿/// @file OffsetLateralOp.cpp
-/// @brief OffsetLateralOp 实现
+/// @brief OffsetLateral 轨迹算子
 
 // OffsetLateral 原子块：沿横向偏移路径点
 #include "OffsetLateralOp.h"

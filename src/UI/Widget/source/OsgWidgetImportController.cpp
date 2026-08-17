@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetImportController.cpp
-/// @brief OsgWidgetImportController 实现
+/// @brief OsgWidgetImport 控制
 
 #include "OsgWidgetImportController.h"
 

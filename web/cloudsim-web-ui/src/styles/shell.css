@@ -108,21 +108,38 @@ body.dock-resizing *{cursor:col-resize!important}
 .io-station-canvas{flex:1;min-height:0;background:#f4f6f9}
 .io-station-canvas .react-flow__controls{box-shadow:0 2px 8px rgba(40,60,90,.12);border:1px solid #d0d8e2;border-radius:6px;overflow:hidden}
 .io-station-canvas .react-flow__minimap{border:1px solid #d0d8e2;border-radius:6px;overflow:hidden;box-shadow:0 2px 8px rgba(40,60,90,.1)}
-.io-station-node{min-width:188px;background:#fff;border:1.5px solid #b8c4d4;border-radius:8px;padding:10px 12px;font-size:12px;box-shadow:0 2px 8px rgba(40,60,90,.08)}
-.io-station-node.kind-robot{border-color:#7aa8d4}
-.io-station-node.kind-device{border-color:#7aba9a}
-.io-station-node-title{font-weight:650;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;color:#1e2d3d}
+/* 去掉 RF 默认节点壳，避免与自定义圆角双重描边/裁切不全 */
+.io-station-canvas .react-flow__node{
+  padding:0!important;border:none!important;background:transparent!important;
+  box-shadow:none!important;border-radius:0!important;width:auto!important;
+}
+.io-station-canvas .react-flow__node.selected .io-station-node-card{
+  box-shadow:0 0 0 2px #2b79c2,0 2px 10px rgba(40,60,90,.14);
+}
+.io-station-node{min-width:188px;padding:0;background:transparent;border:none;box-shadow:none;overflow:visible}
+/* 圆角由卡片统一裁切：标题色块无法顶穿四角 */
+.io-station-node-card{
+  min-width:188px;background:#fff;border:1.5px solid #b8c4d4;border-radius:10px;
+  overflow:hidden;font-size:12px;box-shadow:0 2px 8px rgba(40,60,90,.08);
+}
+.io-station-node.kind-robot .io-station-node-card{border-color:#7aa8d4}
+.io-station-node.kind-device .io-station-node-card{border-color:#7aba9a}
+.io-station-node-title{
+  font-weight:650;margin:0;padding:8px 12px;display:flex;justify-content:space-between;
+  align-items:center;gap:8px;color:#1e2d3d;background:#eaf3fb;border-bottom:1px solid #d5e4f2;
+}
+.io-station-node.kind-device .io-station-node-title{background:#eaf6f0;border-bottom-color:#cfe6da}
 .io-station-label{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .io-station-kind{flex-shrink:0;font-weight:600;font-size:10px;padding:1px 7px;border-radius:4px;background:#eef3f8;color:#4a5d70}
 .io-station-node.kind-device .io-station-kind{background:#e8f5ef;color:#2a6b4f}
-.io-station-ports{display:flex;gap:14px;justify-content:space-between}
+.io-station-ports{display:flex;gap:14px;justify-content:space-between;padding:10px 12px}
 .io-station-col{display:flex;flex-direction:column;gap:5px;min-width:78px}
 .io-station-port{position:relative;padding:4px 8px;background:#f3f6fa;border-radius:5px;border:1px solid #e2e8f0;color:#334155}
 .io-station-port.out{text-align:right;background:#eef5fb;border-color:#c5d8eb}
 .io-station-port.in{background:#f0faf5;border-color:#c5e0d2}
 .io-station-empty{font-size:11px;color:#9aa8b6;padding:2px 4px}
 .io-station-empty.right{text-align:right}
-.io-station-handle{width:10px!important;height:10px!important;background:#2b79c2!important;border:2px solid #fff!important}
+.io-station-handle{width:10px!important;height:10px!important;background:#2b79c2!important;border:2px solid #fff!important;z-index:2}
 .io-station-node.kind-device .io-station-handle{background:#2a9a6a!important}
 .assembly-modal{width:min(1120px,96vw);height:min(760px,92vh);display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:10px;box-shadow:0 16px 48px rgba(30,55,85,.22)}
 .assembly-header{align-items:flex-start;padding:14px 16px 10px;border-bottom:1px solid #e4e8ee}

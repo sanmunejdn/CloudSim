@@ -1,5 +1,5 @@
 ﻿/// @file ProjectToGeometryOp.cpp
-/// @brief ProjectToGeometryOp 实现
+/// @brief ProjectToGeometry 轨迹算子
 
 // ProjectToGeometry 原子块：沿方向投影到点云/mesh/BREP
 #include "ProjectToGeometryOp.h"

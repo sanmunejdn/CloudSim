@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowBackendTree.cpp
-/// @brief MainWindowBackendTree 实现
+/// @brief 后端对象树
 
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "BackendHierarchyModel.h"

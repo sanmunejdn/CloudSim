@@ -1,5 +1,5 @@
 ﻿/// @file ViewportToolBar.cpp
-/// @brief ViewportToolBar 实现
+/// @brief 视口工具条
 
 #include "ViewportToolBar.h"
 

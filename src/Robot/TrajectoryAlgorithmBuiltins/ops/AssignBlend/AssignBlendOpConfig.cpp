@@ -1,5 +1,5 @@
 ﻿/// @file AssignBlendOpConfig.cpp
-/// @brief AssignBlendOpConfig 实现
+/// @brief AssignBlend 算子配置
 
 // AssignBlend 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "AssignBlendOpConfig.h"

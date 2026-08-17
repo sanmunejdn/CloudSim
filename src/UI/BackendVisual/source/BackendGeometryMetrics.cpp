@@ -1,5 +1,5 @@
 ﻿/// @file BackendGeometryMetrics.cpp
-/// @brief BackendGeometryMetrics 实现
+/// @brief 后端几何度量
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN

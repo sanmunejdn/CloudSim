@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowFileImport.cpp
-/// @brief MainWindowFileImport 实现
+/// @brief 模型与点云导入
 
 #include "DocumentPage.h"
 #include "MainWindow.h"

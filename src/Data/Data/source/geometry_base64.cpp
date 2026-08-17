@@ -1,5 +1,5 @@
 ﻿/// @file geometry_base64.cpp
-/// @brief geometry_base64 实现
+/// @brief 几何 Base64 编解码
 
 #include "geometry_base64.h"
 

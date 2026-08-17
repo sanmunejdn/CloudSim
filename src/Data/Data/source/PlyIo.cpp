@@ -1,5 +1,5 @@
 ﻿/// @file PlyIo.cpp
-/// @brief PlyIo 实现
+/// @brief Ply读写
 
 #include "pch.h"
 

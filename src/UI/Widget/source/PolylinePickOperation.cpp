@@ -1,5 +1,5 @@
 ﻿/// @file PolylinePickOperation.cpp
-/// @brief PolylinePickOperation 实现
+/// @brief PolylinePick 操作
 
 #include "PolylinePickOperation.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowInstructionPropertyUiHost.cpp
-/// @brief MainWindowInstructionPropertyUiHost 实现
+/// @brief 指令属性 UI 宿主
 
 #include "MainWindowInstructionPropertyUiHost.h"
 

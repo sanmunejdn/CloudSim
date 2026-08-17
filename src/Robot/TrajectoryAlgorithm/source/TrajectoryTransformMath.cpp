@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryTransformMath.cpp
-/// @brief TrajectoryTransformMath 实现
+/// @brief 轨迹变换数学
 
 #include "TrajectoryTransformMath.h"
 

@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "meta": {
+    "part_id": "fastener.plain_washer_iso7089",
+    "blank_only": true,
+    "thread": "{{thread}}"
+  },
+  "steps": [
+    {
+      "id": "disk",
+      "api": "extrudeSketchProfileToBrep",
+      "args": {
+        "mode": "pad",
+        "profile": "circle",
+        "diameter_mm": "{{d_outer_mm}}",
+        "extrude_mm": "{{thickness_mm}}",
+        "name": "WasherDisk"
+      }
+    },
+    {
+      "id": "hole",
+      "api": "extrudeSketchProfileToBrep",
+      "args": {
+        "mode": "pocket",
+        "profile": "circle",
+        "diameter_mm": "{{d_inner_mm}}",
+        "end_condition": "through_all",
+        "extrude_mm": "{{thickness_mm}}",
+        "target": "$disk",
+        "name": "WasherHole"
+      }
+    }
+  ]
+}

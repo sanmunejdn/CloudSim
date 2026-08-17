@@ -1,0 +1,218 @@
+{
+  "source": {
+    "file": "非标设计最强自动计算.xls",
+    "version_label": "V16.SP2 (2016.05.03)",
+    "sheet_count": 75,
+    "scanned_at": "2026-08-17"
+  },
+  "modules": [
+    "motor",
+    "reducer",
+    "gear",
+    "worm",
+    "belt_chain",
+    "shaft_joint",
+    "actuator",
+    "motion",
+    "fastener",
+    "material",
+    "util"
+  ],
+  "assets": [
+    {
+      "id": "motor.power",
+      "source_sheet": 30,
+      "source_name": "电机功率确定程序",
+      "kind": "calc",
+      "priority": "P0",
+      "wave": "A",
+      "difficulty": "L1",
+      "cad_coupling": "none",
+      "status": "implemented",
+      "impl": "tools/design-calc/design_calc/motor.py"
+    },
+    {
+      "id": "motor.y_series_lookup",
+      "source_sheet": 58,
+      "source_name": "常用Y系列电机型号参数表",
+      "kind": "lookup",
+      "priority": "P0",
+      "wave": "A",
+      "difficulty": "L1",
+      "cad_coupling": "none",
+      "status": "implemented",
+      "impl": "tools/design-calc/tables/y_series_motors.csv"
+    },
+    {
+      "id": "reducer.rated_power",
+      "source_sheet": 9,
+      "source_name": "减速机公称功率",
+      "kind": "calc",
+      "priority": "P0",
+      "wave": "A",
+      "difficulty": "L1",
+      "cad_coupling": "none",
+      "status": "implemented"
+    },
+    {
+      "id": "load.torque",
+      "source_sheet": 61,
+      "source_name": "负载转矩计算",
+      "kind": "calc",
+      "priority": "P0",
+      "wave": "A",
+      "difficulty": "L2",
+      "cad_coupling": "none",
+      "status": "implemented",
+      "note": "ballscrew subset"
+    },
+    {
+      "id": "inertia.shape",
+      "source_sheet": 62,
+      "source_name": "惯量计算",
+      "kind": "calc",
+      "priority": "P0",
+      "wave": "A",
+      "difficulty": "L2",
+      "cad_coupling": "none",
+      "status": "implemented",
+      "note": "cylinder"
+    },
+    {
+      "id": "servo.select",
+      "source_sheet": 25,
+      "source_name": "伺服电机选型自动版",
+      "kind": "calc",
+      "priority": "P0",
+      "wave": "D",
+      "difficulty": "L3",
+      "cad_coupling": "none",
+      "status": "planned"
+    },
+    {
+      "id": "gear.spur_helical_shift",
+      "source_sheet": 31,
+      "source_name": "变位圆柱",
+      "kind": "geometry_dim",
+      "priority": "P0",
+      "wave": "B",
+      "difficulty": "L2",
+      "cad_coupling": "geom",
+      "status": "implemented",
+      "compose": "gear_pair_to_feature_compose"
+    },
+    {
+      "id": "gear.rack",
+      "source_sheet": 32,
+      "source_name": "齿轮齿条",
+      "kind": "geometry_dim",
+      "priority": "P0",
+      "wave": "B",
+      "difficulty": "L1",
+      "cad_coupling": "geom",
+      "status": "implemented",
+      "compose": "gear_rack_to_feature_compose"
+    },
+    {
+      "id": "gear.materials",
+      "source_sheet": 51,
+      "source_name": "齿轮常用材料及其力学性能",
+      "kind": "lookup",
+      "priority": "P0",
+      "wave": "B",
+      "difficulty": "L1",
+      "cad_coupling": "none",
+      "status": "implemented"
+    },
+    {
+      "id": "gear.high_shift_dims",
+      "source_sheet": 56,
+      "source_name": "高变位齿轮尺寸计算",
+      "kind": "geometry_dim",
+      "priority": "P0",
+      "wave": "B",
+      "difficulty": "L2",
+      "cad_coupling": "geom",
+      "status": "implemented"
+    },
+    {
+      "id": "gear.bevel_design",
+      "source_sheet": 59,
+      "source_name": "锥齿轮传动设计计算",
+      "kind": "geometry_dim",
+      "priority": "P1",
+      "wave": "D",
+      "difficulty": "L3",
+      "cad_coupling": "geom",
+      "status": "deferred_rewrite"
+    },
+    {
+      "id": "gear.rack_design",
+      "source_sheet": 50,
+      "source_name": "齿轮齿条传动设计计算",
+      "kind": "geometry_dim",
+      "priority": "P1",
+      "wave": "D",
+      "difficulty": "L3",
+      "cad_coupling": "geom",
+      "status": "deferred_rewrite"
+    },
+    {
+      "id": "worm.geometry",
+      "source_sheet": 34,
+      "source_name": "圆柱蜗杆传动基本几何尺寸计算公式",
+      "kind": "geometry_dim",
+      "priority": "P1",
+      "wave": "C",
+      "difficulty": "L2",
+      "cad_coupling": "geom",
+      "status": "implemented",
+      "compose": "worm_to_feature_compose"
+    },
+    {
+      "id": "key.strength",
+      "source_sheet": 14,
+      "source_name": "键的强度计算",
+      "kind": "calc",
+      "priority": "P1",
+      "wave": "C",
+      "difficulty": "L1",
+      "cad_coupling": "none",
+      "status": "implemented"
+    },
+    {
+      "id": "belt.v_length",
+      "source_sheet": 37,
+      "source_name": "三角皮带长度计算",
+      "kind": "calc",
+      "priority": "P1",
+      "wave": "C",
+      "difficulty": "L1",
+      "cad_coupling": "none",
+      "status": "implemented"
+    },
+    {
+      "id": "chain.sprocket",
+      "source_sheet": 10,
+      "source_name": "链轮计算",
+      "kind": "calc",
+      "priority": "P1",
+      "wave": "C",
+      "difficulty": "L2",
+      "cad_coupling": "geom",
+      "status": "implemented",
+      "note": "pitch diameter core"
+    },
+    {
+      "id": "util.unit_convert",
+      "source_sheet": 17,
+      "source_name": "单位换算",
+      "kind": "calc",
+      "priority": "P0",
+      "wave": "A",
+      "difficulty": "L1",
+      "cad_coupling": "none",
+      "status": "planned"
+    }
+  ]
+}

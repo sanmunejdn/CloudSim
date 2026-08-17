@@ -1,5 +1,5 @@
 ﻿/// @file SimulationCommandWidget.cpp
-/// @brief SimulationCommandWidget 实现
+/// @brief 仿真指令坞
 
 #include "SimulationCommandWidget.h"
 

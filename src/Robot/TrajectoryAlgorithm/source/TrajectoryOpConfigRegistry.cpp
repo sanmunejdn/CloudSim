@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpConfigRegistry.cpp
-/// @brief TrajectoryOpConfigRegistry 实现
+/// @brief TrajectoryOpConfig 注册表
 
 // TrajectoryOpConfigRegistry 实现
 #include "TrajectoryOpConfigRegistry.h"

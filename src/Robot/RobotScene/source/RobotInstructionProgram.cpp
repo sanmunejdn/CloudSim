@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionProgram.cpp
-/// @brief RobotInstructionProgram 实现
+/// @brief 机器人指令程序
 
 #include "RobotInstructionProgram.h"
 

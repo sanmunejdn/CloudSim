@@ -1,5 +1,5 @@
 ﻿/// @file MeshEdgeFacePickOperation.cpp
-/// @brief MeshEdgeFacePickOperation 实现
+/// @brief MeshEdgeFacePick 操作
 
 #include "MeshEdgeFacePickOperation.h"
 

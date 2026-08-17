@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryEditSession.cpp
-/// @brief TrajectoryEditSession 实现
+/// @brief TrajectoryEdit会话
 
 #include "TrajectoryEditSession.h"
 

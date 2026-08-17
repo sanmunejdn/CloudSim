@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowRobotHost.cpp
-/// @brief MainWindowRobotHost 实现
+/// @brief 机器人文档宿主适配
 
 #include "MainWindowRobotHost.h"
 

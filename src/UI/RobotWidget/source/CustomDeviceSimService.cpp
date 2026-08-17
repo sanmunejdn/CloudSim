@@ -1,5 +1,5 @@
-/// @file CustomDeviceSimService.cpp
-/// @brief CustomDeviceSimService 实现
+﻿/// @file CustomDeviceSimService.cpp
+/// @brief 自定义设备仿真服务
 
 #include "CustomDeviceSimService.h"
 

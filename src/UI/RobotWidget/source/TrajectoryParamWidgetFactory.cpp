@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryParamWidgetFactory.cpp
-/// @brief TrajectoryParamWidgetFactory 实现
+/// @brief TrajectoryParamWidget 工厂
 
 #include "TrajectoryParamWidgetFactory.h"
 

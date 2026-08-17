@@ -1,5 +1,5 @@
-/// @file ToWorkpieceInHandOp.cpp
-/// @brief ToWorkpieceInHandOp 实现
+﻿/// @file ToWorkpieceInHandOp.cpp
+/// @brief ToWorkpieceInHand 轨迹算子
 
 // 工具型末端轨迹 → 工件型（对固定外部 TCP）
 #include "ToWorkpieceInHandOp.h"

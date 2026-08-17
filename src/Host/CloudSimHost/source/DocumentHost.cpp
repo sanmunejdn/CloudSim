@@ -1,5 +1,5 @@
 ﻿/// @file DocumentHost.cpp
-/// @brief DocumentHost 实现
+/// @brief 文档宿主与场景桥接
 
 #include "DocumentHost.h"
 #include "CloudSimHost.h"

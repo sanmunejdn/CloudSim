@@ -1,5 +1,5 @@
 ﻿/// @file NamedSignalIoSink.cpp
-/// @brief NamedSignalIoSink 实现
+/// @brief 命名信号 IO 汇
 
 #include "NamedSignalIoSink.h"
 

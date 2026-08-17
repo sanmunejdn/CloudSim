@@ -1,5 +1,5 @@
 ﻿/// @file BackendVisualSync.cpp
-/// @brief BackendVisualSync 实现
+/// @brief 后端到 OSG 视觉同步
 
 #include "BackendVisualSync.h"
 

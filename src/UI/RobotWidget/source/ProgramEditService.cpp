@@ -1,5 +1,5 @@
 ﻿/// @file ProgramEditService.cpp
-/// @brief ProgramEditService 实现
+/// @brief ProgramEdit 服务
 
 #include "ProgramEditService.h"
 

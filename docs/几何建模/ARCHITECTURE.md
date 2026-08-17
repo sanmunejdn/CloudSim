@@ -90,5 +90,5 @@ CloudSimPluginSDK → GeometryAlgorithm → Data → CloudSimHost → GeometricM
 - 功能清单：[FEATURES.md](FEATURES.md)
 - 路线图：[ROADMAP.md](ROADMAP.md)
 - Body / 模式语义：[后端对象与软件模式](../后端对象与软件模式/)
-- AI 写特征史：[特征史AI](../特征史AI/)
+- AI 写特征史：[_archive/特征史AI](../_archive/特征史AI/)
 - 历史设计（部分过时）：[_archive/几何建模](../_archive/几何建模/)

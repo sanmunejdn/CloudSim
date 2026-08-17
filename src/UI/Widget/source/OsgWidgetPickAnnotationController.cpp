@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetPickAnnotationController.cpp
-/// @brief Smaller than compass gizmo. Pure linear-in-diagonal matches large scenes; the old
+/// @brief 拾取标注 gizmo（对角线性尺度，适配大场景）
 
 #include "OsgWidgetPickAnnotationController.h"
 
@@ -37,15 +37,15 @@ static void backendOuterLocalPosQuat(const osg::MatrixTransform* mt, osg::Vec3f&
 	pos.set(static_cast<float>(t.x()), static_cast<float>(t.y()), static_cast<float>(t.z()));
 }
 
-/// Smaller than compass gizmo. Pure linear-in-diagonal matches large scenes; the old
-/// max(12, diagonal*k)/220 collapsed almost all small diagonals to the same tiny min clamp.
+/// 比罗盘 gizmo 小；对角线性尺度适配大场景
+/// 旧式 max(12, diagonal*k)/220 会把小对角压成同一下限
 float annotationScaleForDiagonal(float diagonal)
 {
 	if (!(diagonal > 0.0f) || diagonal != diagonal)
 	{
 		diagonal = 1.0f;
 	}
-	// Linear in diagonal; floor is for tiny scenes where linear term is still unreadably small.
+	// 对角线性；下限兜底极小场景
 	const float s = diagonal * 0.00014f;
 	return std::max(0.38f, std::min(2.5f, s));
 }

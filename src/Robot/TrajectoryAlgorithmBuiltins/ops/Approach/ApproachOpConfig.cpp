@@ -1,5 +1,5 @@
 ﻿/// @file ApproachOpConfig.cpp
-/// @brief ApproachOpConfig 实现
+/// @brief Approach 算子配置
 
 // Approach 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "ApproachOpConfig.h"

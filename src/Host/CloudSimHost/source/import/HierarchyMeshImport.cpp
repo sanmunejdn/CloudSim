@@ -1,5 +1,5 @@
 ﻿/// @file HierarchyMeshImport.cpp
-/// @brief HierarchyMeshImport 实现
+/// @brief 层级网格导入
 
 #include "HierarchyMeshImport.h"
 

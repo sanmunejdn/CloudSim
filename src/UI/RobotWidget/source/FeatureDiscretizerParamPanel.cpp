@@ -1,5 +1,5 @@
 ﻿/// @file FeatureDiscretizerParamPanel.cpp
-/// @brief FeatureDiscretizerParamPanel 实现
+/// @brief FeatureDiscretizerParam 面板
 
 #include "FeatureDiscretizerParamPanel.h"
 

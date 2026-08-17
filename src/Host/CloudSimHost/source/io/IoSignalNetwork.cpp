@@ -1,5 +1,5 @@
-/// @file IoSignalNetwork.cpp
-/// @brief Headless/Web IoSignalNetwork 实现
+﻿/// @file IoSignalNetwork.cpp
+/// @brief Headless/Web IO 信号网络
 
 #include "IoSignalNetwork.h"
 

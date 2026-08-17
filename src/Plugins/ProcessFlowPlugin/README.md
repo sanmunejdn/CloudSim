@@ -60,7 +60,7 @@ CloudSim 动态插件：在三维场景之外提供 **工艺流程图编辑 + DE
 
 助手经 Host 桥接（`IProcessFlowAiBridge`）整图写入画布并同步跑 DES，确认后聊天返回 Makespan/吞吐/瓶颈等摘要。复杂场景可启用 remote LLM；短口语由规则模板兜底。
 
-详见 [`docs/工艺流程AI助手/`](../../../docs/工艺流程AI助手/)。
+详见 [`docs/_archive/工艺流程AI助手/`](../../../docs/_archive/工艺流程AI助手/)。
 
 ### DES 仿真与调度
 
@@ -72,7 +72,7 @@ CloudSim 动态插件：在三维场景之外提供 **工艺流程图编辑 + DE
 - **优化后仿真**：`PriorityListScheduler` 推荐策略后再跑 DES
 - 节点 **AGV**（车队容量 + 运输时间）；工位可填 binding（Preview 执行器可记录）
 
-详见 [`docs/工艺流程_一期_体验闭环/`](../../../docs/工艺流程_一期_体验闭环/)、[`docs/工艺流程_二期_工业加深/`](../../../docs/工艺流程_二期_工业加深/)、[`docs/工艺流程_三期_执行智能/`](../../../docs/工艺流程_三期_执行智能/)。
+详见 [`docs/_archive/工艺流程_一期_体验闭环/`](../../../docs/_archive/工艺流程_一期_体验闭环/)、[`docs/_archive/工艺流程_二期_工业加深/`](../../../docs/_archive/工艺流程_二期_工业加深/)、[`docs/_archive/工艺流程_三期_执行智能/`](../../../docs/_archive/工艺流程_三期_执行智能/)。
 
 ### 结果与回放
 
@@ -161,10 +161,11 @@ bin/x64d/   或   bin/x64/
 
 | 文档 | 说明 |
 |------|------|
-| [`docs/工艺流程仿真插件/DESIGN_工艺流程仿真插件.md`](../../../docs/工艺流程仿真插件/DESIGN_工艺流程仿真插件.md) | UI / 模块设计 |
-| [`docs/工艺流程仿真插件/DESIGN_DES引擎.md`](../../../docs/工艺流程仿真插件/DESIGN_DES引擎.md) | DES 引擎设计 |
-| [`docs/工艺流程仿真插件/ACCEPTANCE_工艺流程仿真插件.md`](../../../docs/工艺流程仿真插件/ACCEPTANCE_工艺流程仿真插件.md) | 分阶段验收 |
-| [`docs/工艺流程仿真插件/TODO_工艺流程仿真插件.md`](../../../docs/工艺流程仿真插件/TODO_工艺流程仿真插件.md) | 后续待办 |
+| [`docs/工艺流程/`](../../../docs/工艺流程/) | 活跃入口（模式导航） |
+| [`docs/_archive/工艺流程仿真插件/DESIGN_工艺流程仿真插件.md`](../../../docs/_archive/工艺流程仿真插件/DESIGN_工艺流程仿真插件.md) | UI / 模块设计 |
+| [`docs/_archive/工艺流程仿真插件/DESIGN_DES引擎.md`](../../../docs/_archive/工艺流程仿真插件/DESIGN_DES引擎.md) | DES 引擎设计 |
+| [`docs/_archive/工艺流程仿真插件/ACCEPTANCE_工艺流程仿真插件.md`](../../../docs/_archive/工艺流程仿真插件/ACCEPTANCE_工艺流程仿真插件.md) | 分阶段验收 |
+| [`docs/_archive/工艺流程仿真插件/TODO_工艺流程仿真插件.md`](../../../docs/_archive/工艺流程仿真插件/TODO_工艺流程仿真插件.md) | 后续待办 |
 | [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../CloudSimPluginSDK/DEVELOPER_GUIDE.md) | 插件 SDK |
 | [文档索引](../../../docs/README.md) | 宿主插件架构 |
 

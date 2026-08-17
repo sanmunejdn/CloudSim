@@ -1,5 +1,5 @@
 ﻿/// @file DataServiceAdapter.cpp
-/// @brief DataServiceAdapter 实现
+/// @brief Backend 数据到 IDataService
 
 #include "adapters/DataServiceAdapter.h"
 

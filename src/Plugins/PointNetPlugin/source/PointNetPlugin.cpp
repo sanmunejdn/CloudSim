@@ -1,5 +1,5 @@
 ﻿/// @file PointNetPlugin.cpp
-/// @brief PointNetPlugin 实现
+/// @brief PointNet++ 插件入口与 AI 域注册
 
 #include "PointNetPlugin.h"
 
@@ -53,7 +53,6 @@ bool PointNetPlugin::initializeAi(IPluginHostContext* host, IAiAssistantHost* ai
 	m_host = host;
 	m_aiHost = aiHost;
 
-	// 加载配置
 	QString configErr;
 	if (!loadConfig(&configErr))
 	{
@@ -61,17 +60,15 @@ bool PointNetPlugin::initializeAi(IPluginHostContext* host, IAiAssistantHost* ai
 			m_host->logWarn(QStringLiteral("[PointNet] 配置加载失败: %1").arg(configErr));
 	}
 
-	// 注册分类域（推理类域，直接对选中对象执行，无需 LLM 解析）
+	// 推理类域由 UI 直接 execute，不经 LLM 解析链
 	m_clsHandler = std::make_unique<PointNetClassifyDomainHandler>(m_inference.get());
 	AiDomainDescriptor clsDesc;
 	clsDesc.domainId = QStringLiteral("pointnet.classify");
 	clsDesc.displayName = QStringLiteral("PointNet++ 分类");
 	clsDesc.outputKind = AiDomainOutputKind::StructuredJson;
 	clsDesc.supportsMultimodal = false;
-	// 空 parserPriority：此域由 UI 直接触发 execute，不经过 LLM 解析链
 	m_aiHost->domainRegistry()->registerDomain(clsDesc, m_clsHandler.get());
 
-	// 注册分割域
 	m_segHandler = std::make_unique<PointNetSegmentDomainHandler>(m_inference.get());
 	AiDomainDescriptor segDesc;
 	segDesc.domainId = QStringLiteral("pointnet.segment");
@@ -95,14 +92,11 @@ void PointNetPlugin::shutdownAi()
 
 bool PointNetPlugin::loadConfig(QString* err)
 {
-	// 配置文件搜索顺序：
-	// 1. 插件目录下的 pointnet_config.json
-	// 2. exe 同目录下的 pointnet_config.json（即 plugins/ 的父目录）
+	// 依次搜：exe 目录、plugins/com.cloudsim.pointnet、上级 bin、上级 com.cloudsim.pointnet
 	QString pluginDir;
 	if (m_host)
 		pluginDir = m_host->applicationDirPath();
 
-	// 候选路径：exe 目录、plugins/com.cloudsim.pointnet、bin/com.cloudsim.pointnet
 	QStringList searchPaths;
 	if (!pluginDir.isEmpty())
 	{
@@ -157,12 +151,10 @@ bool PointNetPlugin::loadConfig(QString* err)
 		return false;
 	}
 
-	// 解析推理设置
 	QString provider = QStringLiteral("cpu");
 	if (cfg.contains("inference") && cfg["inference"].contains("provider"))
 		provider = QString::fromStdString(cfg["inference"]["provider"].get<std::string>());
 
-	// 解析分类模型
 	if (cfg.contains("models") && cfg["models"].contains("classify"))
 	{
 		auto& cls = cfg["models"]["classify"];
@@ -173,7 +165,7 @@ bool PointNetPlugin::loadConfig(QString* err)
 		if (cls.contains("path"))
 		{
 			modelPath = QString::fromStdString(cls["path"].get<std::string>());
-			// 相对路径相对于配置文件所在目录
+			// 模型 path 相对配置文件目录
 			if (QFileInfo(modelPath).isRelative())
 			{
 				QString baseDir = QFileInfo(configPath).absolutePath();
@@ -199,7 +191,6 @@ bool PointNetPlugin::loadConfig(QString* err)
 		}
 	}
 
-	// 解析分割模型
 	if (cfg.contains("models") && cfg["models"].contains("segment"))
 	{
 		auto& seg = cfg["models"]["segment"];

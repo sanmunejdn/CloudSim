@@ -1,5 +1,5 @@
 ﻿// @file FrameBackendData.cpp
-/// @brief FrameBackendData 实现
+/// @brief Frame 后端数据
 
 #include "FrameBackendData.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file BackendDataBase.cpp
-/// @brief BackendDataBase 实现
+/// @brief 后端数据
 
 #include "BackendDataBase.h"
 

@@ -1,5 +1,5 @@
-/// @file CustomDeviceAssemblyCommit.cpp
-/// @brief CustomDeviceAssemblyCommit 实现
+﻿/// @file CustomDeviceAssemblyCommit.cpp
+/// @brief 自定义设备组装提交
 
 #include "CustomDeviceAssemblyCommit.h"
 

@@ -76,6 +76,18 @@ _archive/public-fallback/   # 旧单文件壳，对照用，不参与默认部�
 - TCP / 用户系叠加：`GET /api/robot/frames/overlays`。
 - URDF 导入体字段：`urdfPath`（不是 `path`）。
 
+### WebGL 生命周期（`SceneViewport`）
+
+集合变化时对 `content` 子节点走 `disposeObject3D` 再重建；FK 仅同步 `worldMatrix`。
+
+| 路径 | 现状 |
+|------|------|
+| 几何签名变化重建 | 遍历 `content.children` → `disposeObject3D`；清 `idToMesh` |
+| effect unmount | dispose controls / HUD / `renderer`；**未**遍历场景 mesh 图 |
+| React `StrictMode` | 开发态双挂载会放大未 dispose 的 GPU 缓冲风险 |
+
+**已知风险（行为修复待审）：** unmount 与 rebuild 的 dispose 应对齐。网关 SSE 见 [`CloudSimWebGateway/DEVELOPER_GUIDE.md`](../../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) §2。
+
 ## 轨迹生成（`TrajectoryGenPanel`）
 
 | 能力 | 说明 |

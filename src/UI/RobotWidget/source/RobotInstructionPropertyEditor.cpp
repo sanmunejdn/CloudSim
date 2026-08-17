@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionPropertyEditor.cpp
-/// @brief RobotInstructionPropertyEditor 实现
+/// @brief 指令属性编辑
 
 #include "RobotInstructionPropertyEditor.h"
 

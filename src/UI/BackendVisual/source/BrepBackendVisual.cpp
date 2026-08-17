@@ -1,5 +1,5 @@
 ﻿/// @file BrepBackendVisual.cpp
-/// @brief BrepBackendVisual 实现
+/// @brief Brep 后端视觉
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN

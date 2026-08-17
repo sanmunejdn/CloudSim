@@ -1,5 +1,5 @@
 ﻿/// @file RawTrajectoryMath.cpp
-/// @brief RawTrajectoryMath 实现
+/// @brief Raw 轨迹数学
 
 #include "RawTrajectoryMath.h"
 

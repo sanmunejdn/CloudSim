@@ -1,5 +1,5 @@
 ﻿/// @file WeaveOp.cpp
-/// @brief WeaveOp 实现
+/// @brief Weave 轨迹算子
 
 // Weave 原子块：在路径上叠加摆动
 #include "WeaveOp.h"

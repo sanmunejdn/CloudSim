@@ -1,5 +1,5 @@
 ﻿/// @file PerLinkKinematicsHostImpl.cpp
-/// @brief PerLinkKinematicsHostImpl 实现
+/// @brief per-link 运动学宿主
 
 #include "PerLinkKinematicsHostImpl.h"
 

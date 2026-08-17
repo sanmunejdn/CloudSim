@@ -1,6 +1,6 @@
 ﻿# CloudSim 各子模块开发文档索引
 
-本文档列出各 Visual Studio 子工程（模块）的 **DEVELOPER_GUIDE.md** 入口；总架构与业务流程见 [文档索引](README.md)；目录说明见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)；**源码格式（编码/头卫/clang-format/筛选器）见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md)**；文档总索引见 [`README.md`](README.md)。
+本文档列出各 Visual Studio 子工程（模块）的 **DEVELOPER_GUIDE.md** 入口；总架构与业务流程见 [文档索引](README.md)（含**按软件模式 / 按插件类型**）；目录说明见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)；**源码格式（编码/头卫/clang-format/筛选器）见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md)**。
 
 ---
 
@@ -30,6 +30,7 @@
 | **CloudSimHost** | 文档宿主、`OsgWidget` 编译、Core 适配器、组合根实现 | [CloudSimHost/DEVELOPER_GUIDE.md](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) |
 | **Widget** | Qt 主窗口、文档页、属性/仿真 Dock；经 `data()`/`robot()`/`render()` 访问契约；OsgWidget 信号边界 `WidgetSceneSignalWiring`；OSG 源码由 Host 编译 | [Widget/DEVELOPER_GUIDE.md](../src/UI/Widget/DEVELOPER_GUIDE.md) |
 | **RobotWidget** | 仿真/设备 Dock UI、`RobotSimulationController`、**CAD/Mesh 轨迹生成**、**轨迹编辑**、工艺化配方 JSON | [RobotWidget/DEVELOPER_GUIDE.md](../src/UI/RobotWidget/DEVELOPER_GUIDE.md) |
+| **CloudSimWebGateway** | 网页 HTTP/REST + SSE；静态托管；链入 `CloudSimWeb.exe` | [CloudSimWebGateway/DEVELOPER_GUIDE.md](../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) |
 | **cloudsim-web-ui** | Vite+React 网页坞：场景/轨迹生成编辑/指令树；产物 `bin\x64*\web` | [web/cloudsim-web-ui/DEVELOPER_GUIDE.md](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)；过程稿 [_archive/网页端React轨迹对齐/](_archive/网页端React轨迹对齐/) |
 | **Data** | 后端对象模型、属性、层级、跟随求解；**`geometry_backend_ops` / `GeometryRef`**；工程 **v4** 持久化 | [Data/DEVELOPER_GUIDE.md](../src/Data/Data/DEVELOPER_GUIDE.md)、[_archive/backend_persistence/](_archive/backend_persistence/) |
 | **BackendVisual** | 后端 → OSG 分支构建策略 | [BackendVisual/DEVELOPER_GUIDE.md](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) |
@@ -149,10 +150,22 @@ python scripts/generate_vcxproj_filters.py --full
 ## 源码注释约定（code-comment）
 
 - 只写 **Why**：业务背景、非显然算法、边界兜底、危险操作；不写「这段代码做什么」。
-- 每个文件顶部：`/// @file` + `/// @brief`（中文短句）；公开 API / 复杂类型另用 `///`，约 5–15 字；`@param` 仅在有非显然约束时写。
-- 实现文件用自然中文 `//`；单行注释尽量 ≤ 80 字。
+- 每个文件顶部：`/// @file` + `/// @brief`（中文短句职责）；禁止 `@brief Foo 实现` / 纯英文类名复述。
+- 公开 API / 复杂类型另用 `///`，约 5–15 字；`@param` 仅在有非显然约束时写。
+- 实现文件用自然中文 `//`；单行注释尽量 ≤ 80 字；分区标签用中文短句。
 - 避免「用于」「调用方法」等空泛句；优先动词或名词短语作末 `//` 短句。
 - 批量清理历史「中文。」标签等：`python scripts/apply_code_comment_style.py`（慎用，改后看 diff）。
+
+## 资源生命周期（已知风险，行为修复待审）
+
+改相关代码前先看对应 `DEVELOPER_GUIDE`；落地前勿假定已有界。
+
+| 区域 | 文档 |
+|------|------|
+| SSE `eventQueue` / `start` 重连 | [`CloudSimWebGateway`](../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) §2 |
+| `m_faceHighlightSoup` | [`CloudSimHost`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) §9 |
+| `JobSystem` 超时弃池 | [`Widget`](../src/UI/Widget/DEVELOPER_GUIDE.md) §13 |
+| Three.js unmount dispose | [`cloudsim-web-ui`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)「WebGL 生命周期」 |
 
 ## 头文件约定
 

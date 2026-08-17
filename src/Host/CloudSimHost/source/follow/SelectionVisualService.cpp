@@ -1,5 +1,5 @@
 ﻿/// @file SelectionVisualService.cpp
-/// @brief SelectionVisualService 实现
+/// @brief SelectionVisual 服务
 
 #include "SelectionVisualService.h"
 

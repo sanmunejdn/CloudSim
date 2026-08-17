@@ -1,5 +1,5 @@
 ﻿/// @file HostRenderViewFactory.cpp
-/// @brief HostRenderViewFactory 实现
+/// @brief HostRenderView 工厂
 
 #include "HostRenderViewFactory.h"
 

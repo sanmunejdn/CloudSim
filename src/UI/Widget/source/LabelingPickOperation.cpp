@@ -1,5 +1,5 @@
 ﻿/// @file LabelingPickOperation.cpp
-/// @brief LabelingPickOperation 实现
+/// @brief LabelingPick 操作
 
 #include "LabelingPickOperation.h"
 

@@ -96,6 +96,13 @@ Result classifyByRules(const QString& userText, const int minScore)
 	if (hasAny(t, {"工艺流程", "产线", "工位", "节拍", "JobSet", "process flow", "processflow"}, Qt::CaseInsensitive))
 		addScore(scores, AiDomainIds::processFlow(), 3);
 
+	if (hasAny(t, {"标准件", "六角螺栓", "六角螺母", "平垫", "垫圈", "圆柱销", "齿轮毛坯", "hex bolt", "hex nut",
+				   "washer", "dowel"},
+			   Qt::CaseInsensitive) ||
+		(hasAny(t, {"螺栓", "螺母", "垫圈", "销"}) && hasAny(t, {"创建", "生成", "来一个", "做一个", "M"})) ||
+		(hasAny(t, {"齿轮"}) && hasAny(t, {"模数", "齿数", "毛坯"})))
+		addScore(scores, AiDomainIds::designParts(), 4);
+
 	const bool sceneVerb = hasAny(t, {"删除全部", "清空场景", "删除对象", "删除选中", "删掉选中"}) ||
 						   hasAny(t, {"Delete all", "Clear scene"}, Qt::CaseInsensitive);
 	const bool sceneMove = (hasAny(t, {"平移", "移动", "旋转", "位姿"}) ||
@@ -138,7 +145,7 @@ Result classifyByLocalLlm(const QString& userText, const AiConfigDto& config)
 
 	const QString system = QStringLiteral(
 		"你是 CloudSim 意图分类器。只输出一个 domain id，不要解释。可选：\n"
-		"mesh.create, mesh.compose, feature.compose, geometry.recognize, trajectory.feature,\n"
+		"mesh.create, mesh.compose, feature.compose, design.parts, geometry.recognize, trajectory.feature,\n"
 		"pointcloud.ops, document.import, geometry.ops, feature.build, labeling.annot,\n"
 		"scene.ops, process.flow\n"
 		"若无法判断，输出 unknown。");

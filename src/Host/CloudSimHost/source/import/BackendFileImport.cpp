@@ -1,5 +1,5 @@
 ﻿/// @file BackendFileImport.cpp
-/// @brief BackendFileImport 实现
+/// @brief 后端文件导入注册
 
 #include "CustomDeviceUrdfExporter.h"
 #include "BackendFileImport.h"

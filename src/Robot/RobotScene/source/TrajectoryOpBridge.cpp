@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpBridge.cpp
-/// @brief TrajectoryOpBridge 实现
+/// @brief TrajectoryOp 桥接
 
 #include "TrajectoryOpBridge.h"
 

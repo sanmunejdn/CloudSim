@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpBuiltinsRegister.cpp
-/// @brief TrajectoryOpBuiltinsRegister 实现
+/// @brief 内置算子注册
 
 // 启动时注册全部内置原子块到 OpRegistry / ConfigRegistry
 #include "ApproachOp.h"

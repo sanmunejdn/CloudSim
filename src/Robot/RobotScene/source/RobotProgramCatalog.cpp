@@ -1,5 +1,5 @@
 ﻿/// @file RobotProgramCatalog.cpp
-/// @brief RobotProgramCatalog 实现
+/// @brief 程序目录
 
 #include "RobotProgramCatalog.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryUnifiedScope.cpp
-/// @brief TrajectoryUnifiedScope 实现
+/// @brief 统一轨迹作用域
 
 // TrajectoryUnifiedScope 实现
 #include "TrajectoryUnifiedScope.h"

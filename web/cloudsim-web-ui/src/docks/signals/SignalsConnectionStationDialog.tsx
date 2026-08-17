@@ -37,28 +37,30 @@ function OwnerNode({ data }: NodeProps) {
   const kindLabel = d.kind === "device" ? "设备" : d.kind === "robot" ? "机器人" : d.kind;
   return (
     <div className={`io-station-node kind-${d.kind === "device" ? "device" : "robot"}`}>
-      <div className="io-station-node-title">
-        <span className="io-station-label">{d.label}</span>
-        <span className="io-station-kind">{kindLabel}</span>
-      </div>
-      <div className="io-station-ports">
-        <div className="io-station-col">
-          {d.di.length === 0 ? <div className="io-station-empty">无 DI</div> : null}
-          {d.di.map((name) => (
-            <div key={`di-${name}`} className="io-station-port in">
-              <Handle type="target" position={Position.Left} id={`DI:${name}`} className="io-station-handle" />
-              <span>DI {name}</span>
-            </div>
-          ))}
+      <div className="io-station-node-card">
+        <div className="io-station-node-title">
+          <span className="io-station-label">{d.label}</span>
+          <span className="io-station-kind">{kindLabel}</span>
         </div>
-        <div className="io-station-col">
-          {d.do.length === 0 ? <div className="io-station-empty right">无 DO</div> : null}
-          {d.do.map((name) => (
-            <div key={`do-${name}`} className="io-station-port out">
-              <span>DO {name}</span>
-              <Handle type="source" position={Position.Right} id={`DO:${name}`} className="io-station-handle" />
-            </div>
-          ))}
+        <div className="io-station-ports">
+          <div className="io-station-col">
+            {d.di.length === 0 ? <div className="io-station-empty">无 DI</div> : null}
+            {d.di.map((name) => (
+              <div key={`di-${name}`} className="io-station-port in">
+                <Handle type="target" position={Position.Left} id={`DI:${name}`} className="io-station-handle" />
+                <span>DI {name}</span>
+              </div>
+            ))}
+          </div>
+          <div className="io-station-col">
+            {d.do.length === 0 ? <div className="io-station-empty right">无 DO</div> : null}
+            {d.do.map((name) => (
+              <div key={`do-${name}`} className="io-station-port out">
+                <span>DO {name}</span>
+                <Handle type="source" position={Position.Right} id={`DO:${name}`} className="io-station-handle" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

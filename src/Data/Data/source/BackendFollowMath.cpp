@@ -1,5 +1,5 @@
 ﻿/// @file BackendFollowMath.cpp
-/// @brief BackendFollowMath 实现
+/// @brief Follow 矩阵数学
 
 #include "BackendFollowMath.h"
 

@@ -1,0 +1,20 @@
+{
+  "id": "fastener.hex_bolt_iso4017",
+  "kind": "standard_part",
+  "display_name": "六角头螺栓（ISO 4017 近似毛坯）",
+  "keywords": ["螺栓", "六角螺栓", "hex bolt", "bolt", "M螺栓"],
+  "model_ref": "model.compose.json",
+  "model_fidelity": "blank",
+  "note": "无螺纹牙型；头为六角拉伸，杆为圆柱。真螺纹待 Host 能力后换 model_ref。",
+  "params_schema": {
+    "thread": { "type": "string", "enum": ["M6", "M8", "M10", "M12"] },
+    "length_mm": { "type": "number" }
+  },
+  "specs": [
+    { "thread": "M6", "d_mm": 6, "s_mm": 10, "k_mm": 4, "length_series_mm": [16, 20, 25, 30, 40] },
+    { "thread": "M8", "d_mm": 8, "s_mm": 13, "k_mm": 5.3, "length_series_mm": [16, 20, 25, 30, 40, 50] },
+    { "thread": "M10", "d_mm": 10, "s_mm": 16, "k_mm": 6.4, "length_series_mm": [20, 25, 30, 40, 50, 60] },
+    { "thread": "M12", "d_mm": 12, "s_mm": 18, "k_mm": 7.5, "length_series_mm": [25, 30, 40, 50, 60, 70] }
+  ],
+  "defaults": { "thread": "M8", "length_mm": 30 }
+}

@@ -1,5 +1,5 @@
 ﻿/// @file WidgetSceneSignalWiring.cpp
-/// @brief WidgetSceneSignalWiring 实现
+/// @brief OsgWidget 信号接线
 
 #include "WidgetSceneSignalWiring.h"
 

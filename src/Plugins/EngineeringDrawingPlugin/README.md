@@ -28,7 +28,7 @@ Visual Studio 生成 **EngineeringDrawingPlugin**（须同时 Debug|x64 与 Rele
 - BYBLOCK 与属性上图；DXF 圆/弧/ATTDEF；粗糙度与 GD&T 轻量框  
 - 捕捉与选择高亮  
 
-后置项见 [`docs/_archive/工程图纸/TODO_工程图纸.md`](../../../docs/_archive/工程图纸/TODO_工程图纸.md)。
+活跃入口见 [`docs/工程图/`](../../../docs/工程图/)。后置项见 [`docs/_archive/工程图纸/TODO_工程图纸.md`](../../../docs/_archive/工程图纸/TODO_工程图纸.md)。
 
 ## 持久化
 

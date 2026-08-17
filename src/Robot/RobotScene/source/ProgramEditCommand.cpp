@@ -1,5 +1,5 @@
 ﻿/// @file ProgramEditCommand.cpp
-/// @brief ProgramEditCommand 实现
+/// @brief 程序编辑命令
 
 #include "ProgramEditCommand.h"
 

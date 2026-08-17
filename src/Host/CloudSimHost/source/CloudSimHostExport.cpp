@@ -1,5 +1,5 @@
 ﻿/// @file CloudSimHostExport.cpp
-/// @brief CloudSimHostExport 实现
+/// @brief Host 导出入口
 
 #include "CloudSimCoreVersion.h"
 #include "CloudSimHost.h"

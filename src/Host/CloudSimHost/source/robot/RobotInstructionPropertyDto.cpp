@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionPropertyDto.cpp
-/// @brief RobotInstructionPropertyDto 实现
+/// @brief 指令属性 DTO
 
 #include "RobotInstructionPropertyDto.h"
 

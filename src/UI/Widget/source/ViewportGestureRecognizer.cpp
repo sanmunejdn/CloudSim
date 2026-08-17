@@ -1,5 +1,5 @@
 ﻿/// @file ViewportGestureRecognizer.cpp
-/// @brief ViewportGestureRecognizer 实现
+/// @brief 视口手势识别
 
 #include "ViewportGestureRecognizer.h"
 

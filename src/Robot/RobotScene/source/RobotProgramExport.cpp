@@ -1,5 +1,5 @@
 ﻿/// @file RobotProgramExport.cpp
-/// @brief RobotProgramExport 实现
+/// @brief RobotProgram导出
 
 #include "RobotProgramExport.h"
 

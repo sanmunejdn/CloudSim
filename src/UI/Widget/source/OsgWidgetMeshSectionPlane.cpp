@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetMeshSectionPlane.cpp
-/// @brief OsgWidgetMeshSectionPlane 实现
+/// @brief 网格剖切平面
 
 #include "../../OsgWidgetCore/inc/OsgCompassGeometry.h"
 #include "../../OsgWidgetCore/inc/OsgCompassRender.h"

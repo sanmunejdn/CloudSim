@@ -32,6 +32,16 @@ inline QString featureCompose()
 {
 	return QStringLiteral("feature.compose");
 }
+/// 标准件库：检索规格 + 填模 → feature.compose（毛坯可换 model_ref）
+inline QString designParts()
+{
+	return QStringLiteral("design.parts");
+}
+/// 设计计算（公式资产）；与 design.parts 并列，运行时可后续接线
+inline QString designCalc()
+{
+	return QStringLiteral("design.calc");
+}
 inline QString documentImport()
 {
 	return QStringLiteral("document.import");

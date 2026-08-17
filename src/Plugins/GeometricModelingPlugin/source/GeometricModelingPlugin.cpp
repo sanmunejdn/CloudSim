@@ -641,7 +641,7 @@ void GeometricModelingPlugin::refreshVisibleSketchOverlays(GeometricModelingPage
 	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
 	if (!doc || !geo || !page)
 		return;
-	// ??????????????? background provider ????????
+	// 草图编辑中：只刷当前 background provider 叠加
 	if (m_sketch.active())
 	{
 		m_sketch.refreshOverlay();
@@ -3045,7 +3045,7 @@ void GeometricModelingPlugin::rebuildDownstreamAfterSketch(GeometricModelingPage
 		GeomodelingFeature* feature = page->features().find(fid);
 		if (!feature)
 			continue;
-		// ????????/??????? pathSegments ?????
+		// 从轮廓草图回填 profile；无 pathSegments 时兜底
 		if (GeomodelingFeature* profileSk = page->features().find(feature->sketchRefId))
 		{
 			QString err;

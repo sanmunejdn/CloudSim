@@ -1,5 +1,5 @@
 ﻿/// @file AssignSpeedZoneOpConfig.cpp
-/// @brief AssignSpeedZoneOpConfig 实现
+/// @brief AssignSpeedZone 算子配置
 
 // AssignSpeedZone 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "AssignSpeedZoneOpConfig.h"

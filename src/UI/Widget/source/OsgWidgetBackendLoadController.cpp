@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetBackendLoadController.cpp
-/// @brief OsgWidgetBackendLoadController 实现
+/// @brief OsgWidgetBackendLoad 控制
 
 #include "OsgWidgetBackendLoadController.h"
 

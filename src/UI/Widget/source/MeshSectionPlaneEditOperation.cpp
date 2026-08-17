@@ -1,5 +1,5 @@
 ﻿/// @file MeshSectionPlaneEditOperation.cpp
-/// @brief MeshSectionPlaneEditOperation 实现
+/// @brief MeshSectionPlaneEdit 操作
 
 #include "MeshSectionPlaneEditOperation.h"
 

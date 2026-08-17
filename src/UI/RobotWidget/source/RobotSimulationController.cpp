@@ -1,5 +1,5 @@
 ﻿/// @file RobotSimulationController.cpp
-/// @brief ??????? URDF ???? + ???????????????? TCP????????????????????
+/// @brief 机器人仿真编排（URDF/程序/TCP 示教）
 
 #include "RobotSimulationController.h"
 
@@ -1084,7 +1084,7 @@ void RobotSimulationController::attachPlaybackTimer(QTimer* externalTimer)
 	m_ownsPlaybackTimer = false;
 	if (m_playbackTimer)
 	{
-		// Coarse?????????????????????????? Precise ????????
+		// CoarseTimer：回放不必 Precise，省唤醒开销
 		m_playbackTimer->setTimerType(Qt::CoarseTimer);
 		connect(m_playbackTimer, &QTimer::timeout, this, &RobotSimulationController::onRobotSimulationTick);
 	}
@@ -1316,7 +1316,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 			labels.append(doc->robotDisplayLabelForInstance(i));
 			backendIds.append(doc->robotSceneBackendIdForInstance(i));
 		}
-		// ???? setRobotInstances ????????????????? activeProgram ???? backendId ?? QHash ?????????????
+		// 先刷实例列表再读 currentIndex；否则 activeProgram 的 backendId 映射会错位
 		m_host->simulationCommandPage()->setRobotInstances(labels, backendIds);
 		refreshAxisControlTargets();
 		if (m_customDeviceSim)
@@ -1629,7 +1629,7 @@ void RobotSimulationController::applyProgramStartPoseAfterProjectLoadImpl()
 		}
 		if (hasSavedWorld)
 		{
-			// ???????????????????????????????robotBaseWorld ?????????????????
+			// 已有世界系 TCP 缓存则跳过；避免用加载时 robotBaseWorld 再乘一次
 			continue;
 		}
 		if (itSavedLocal != ext.end() && !itSavedLocal->second.empty())
@@ -2516,7 +2516,7 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 					: RobotSimulationMath::coreMat4FromOsgMatrix(userLinkLocal);
 		if (perLink)
 		{
-			// per-link ?? robot root ?? OSG ?????? URDF ???????FK ???????????
+			// per-link：用户系挂根 link mesh；FK 刷新 root worldMatrix
 			if (!urdfRootLinkName.isEmpty())
 			{
 				const QString rootBackendId =
@@ -3714,7 +3714,7 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	const int njInst = doc->robotRevoluteJointCountForInstance(instIdx);
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
 
-	// ???????????????????????????
+	// IK 种子取当前实例在聚合角中的切片
 	QVector<double> seedQ;
 	if (njInst > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + njInst)
 	{
@@ -4167,7 +4167,7 @@ void RobotSimulationController::onSimulationExportRequested()
 		return;
 	}
 
-	// ???????/???/??????????????????????
+	// 品牌/脚本/程序选择对话框
 	RobotWidget::BrandProgramExportDialog brandDlg(programItems, activeProgramId);
 	if (brandDlg.exec() != QDialog::Accepted)
 	{
@@ -4256,7 +4256,7 @@ void RobotSimulationController::onSimulationExportRequested()
 
 	RobotCanonicalExport::CanonicalProgramExportV1 exportDoc;
 	std::string buildErr;
-	// ??????????????????????????? IK??playback ????????
+	// 导出走 canonical 树；不做 IK/playback 求解
 	if (!RobotCanonicalExport::buildCanonicalExportV1(*exportProg, ctx,
 													  RobotCanonicalExport::CanonicalExportLayout::NestedTree, false,
 													  nullptr, exportDoc, &buildErr))
@@ -4418,7 +4418,7 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 	bool capturedFromScene = false;
 	BackendMat4 capturedTargetInBase{};
 	bool hasCapturedTargetInBase = false;
-	// ???? URDF ???? FK?????????per-link ???? PAT ??????????????????? SceneFlangeBackend
+	// 优先 URDF 法兰 FK+工具；避免 per-link PAT/SceneFlange 双重偏置
 	if (hasLinkFk)
 	{
 		if (RobotSimulationMath::targetInBaseFromUrdfFlangeFk(urdfPath, q, frames, fallbackFlangeLink,
@@ -4515,10 +4515,10 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 		return false;
 	}
 
-	// tcpLocal??URDF ????? T_base_target??????????
+	// tcpLocal 已是基座系 T_base_target（非仅局部）
 	const osg::Matrixd tcpWorld = tcpLocal;
 	const osg::Matrixd renderWorld = capturedFromScene ? tcpRenderWorld : (tcpWorld * robotBaseWorld);
-	// ?? pose/euler???? URDF FK ? ??????RigidTransform?? IK/?????????
+	// pose/euler 与 URDF FK 的 RigidTransform 对齐，供 IK/捕获
 	if (hasCapturedTargetInBase && hasLinkFk)
 	{
 		engine::RigidTransform target{};
@@ -5253,7 +5253,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(
 
 namespace
 {
-/// ??????? URDF ???? + ???????????????? TCP????????????????????
+/// 示教关节经 URDF FK+工具得到 TCP 世界矩阵
 bool instructionTcpWorldMat4FromTaughtJoints(IRobotDocumentHost* doc, int instIdx, const RobotInstruction::Base& ins,
 											 const QVector<double>& taughtQ, osg::Matrixd& outTcpWorld)
 {
@@ -5309,7 +5309,7 @@ osg::Matrixd tcpLocalFromPoseFields(const RobotInstruction::Base& ins)
 	return osg::Matrixd();
 }
 
-/// ????? T_base_target??pose/euler ?? BackendMat4 ?? OSG???? capture/IK ??????????
+/// 指令 pose/euler → 局部 TCP；供 capture/IK
 bool instructionTcpLocalMatrix(const RobotInstruction::Base& ins, osg::Matrixd& outTcpLocal)
 {
 	outTcpLocal = tcpLocalFromPoseFields(ins);
@@ -5456,7 +5456,7 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(
 	const bool hasCartesianTarget =
 		itTargetQ != ext.end() && itTargetT != ext.end() && !itTargetQ->second.empty() && !itTargetT->second.empty();
 	QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*instruction);
-	// ?????/????? pose ????????????????????????? FK ? world ????
+	// 无笛卡尔目标时用示教角 FK 刷 world 路点
 	const bool usedTaughtFk = !hasCartesianTarget && taughtQ.size() == nj &&
 							  instructionTcpWorldMat4FromTaughtJoints(doc, instIdx, *instruction, taughtQ, tcpWorld);
 	if (usedTaughtFk)
@@ -5465,7 +5465,7 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(
 	}
 	else
 	{
-		// ?????????????????????????????????????????????????????????????????
+		// 笛卡尔目标但关节维不齐：已有 world 缓存则直接返回
 		const auto itWorld = ext.find("render.tcpWorldMat4");
 		if (hasCartesianTarget && taughtQ.size() != nj && itWorld != ext.end() && !itWorld->second.empty())
 		{
@@ -5477,7 +5477,7 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(
 		}
 		if (hasCartesianTarget && taughtQ.size() != nj)
 		{
-			// ??????????????? world ?????????????? pose ????????????????????????????????
+			// 维不齐时退回把 tcpLocal 写入 world 缓存，避免坏 FK
 			instruction->setExtensionProperty("render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpLocal));
 			return;
 		}
@@ -5784,7 +5784,7 @@ void RobotSimulationController::refreshPathPlanPreviewForActiveTab(const RobotIn
 	else
 	{
 		refreshPathPlanRawOverlays();
-		// Applied ???? raw ????????????????????????????
+		// Applied 后若未开 raw 预览则刷指令路点轴
 		if (!m_rawTrajectoryPreviewActive)
 		{
 			refreshInstructionPoseAxes(false);
@@ -5928,7 +5928,7 @@ void RobotSimulationController::refreshPathPlanRawOverlays()
 		{
 			continue;
 		}
-		// Apply ??????????????????????pathPlanRaws ????? CAD ??????????????????
+		// Applied 阶段不再叠 pathPlanRaws（CAD 预览已提交）
 		if (pp->phase() == RobotInstruction::PathPlanPhase::Applied)
 		{
 			continue;
@@ -6055,7 +6055,7 @@ void RobotSimulationController::refreshInstructionPoseAxes(const bool computeRea
 
 	if (computeReachability)
 	{
-		// ?????????????????????? Job ?????????
+		// 先空可达性刷新 UI，再丢 Job 异步算
 		m_motionReachabilityCache.clear();
 		refreshInstructionPoseAxesWithReachability(QHash<QString, bool>{});
 		scheduleAsyncMotionReachabilityRefresh();
@@ -6156,7 +6156,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 	size_t firstFailedMotionIndex = motions.size();
 	QString firstFailedMotionLabel;
 	QString firstFailedReason;
-	// ??????????????????? lazyPending???????????? IK
+	// 前 16 段急切规划；其余 lazyPending，回放时再 IK
 	constexpr size_t kEagerPlanCount = 16;
 	for (size_t mi = 0; mi < motions.size(); ++mi)
 	{
@@ -6171,7 +6171,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 			return;
 		}
 
-		// ???????????????? ok=false ????? motions ????
+		// 先前失败后：后续段 ok=false 占位，仍对齐 motions
 		if (planningStoppedAfterFailure)
 		{
 			RobotInstruction::PlanResult skipped{};
@@ -6182,7 +6182,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 			continue;
 		}
 
-		// ?????????????????/???? plan
+		// 超出急切窗口：写入 lazyPending，延后规划
 		if (mi >= kEagerPlanCount)
 		{
 			RobotInstruction::PlanResult pending{};
@@ -6420,8 +6420,8 @@ void RobotSimulationController::onRobotSimulationTick()
 	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
 	IRobotBackendPoseSink* poseSink = doc ? doc->poseSink() : nullptr;
 	const bool uiBusy = isPlaybackUiInteractionBusy();
-	// ????????????????? lazyPending?????? Executor ????????
-	// ?????????? tick ???????????????uiBusy ????????/lookahead????????
+	// tick 前补齐 lazyPending，再交给 Executor
+	// uiBusy 时仍 tick（lookahead/补规划），避免拖动时规划饿死
 	ensurePlaybackPlansReady();
 	const RobotInstructionPlaybackTickResult r = m_programExecutor.tick(doc, poseSink);
 	m_aggregatedJointAnglesRad = m_programExecutor.jointAnglesRad();
@@ -6673,7 +6673,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		return false;
 	};
 
-	// ????????????AUTO ??????????????????????????????
+	// 种子序：示教 → 链式 → 程序起点（去重）
 	QVector<QVector<double>> seedOrder;
 	auto pushSeed = [&](const QVector<double>& s)
 	{
@@ -6700,7 +6700,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 	bool planned = false;
 	QVector<double> resultQ;
 
-	// LINE???? lite ???????Preview/Run ??????????
+	// LINE 可走 lite；与 Preview/Run 种子策略一致
 	auto trySeedPass = [&](const bool useLite) -> bool
 	{
 		for (const QVector<double>& trySeed : seedOrder)
@@ -6948,7 +6948,7 @@ bool seedsDifferPlan(const QVector<double>& a, const QVector<double>& b)
 	return false;
 }
 
-/// Worker ???? Preview/Run ?????????? ?? ?????? IK ?? ???????LINE lite ???????????
+/// Worker：对齐 Preview/Run 多种子 IK；LINE 可 lite
 bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::Controller& workerCtrl,
 								 const QVector<double>& chainSeedQ, const QVector<double>& programStartQ,
 								 const QString& urdfPath, const QString& tcpLinkName,
@@ -7506,7 +7506,7 @@ bool RobotSimulationController::trySeedJointRadForMotionIndex(const size_t targe
 	{
 		return false;
 	}
-	// ????????????????? O(??)??????? 0 ??? N
+	// rolling 种子未就绪时从 0..N 重算（O(段数)）
 	if (m_playbackRollingSeedQ.size() != jointCount)
 	{
 		outSeedQ = programStartQ;

@@ -1,5 +1,5 @@
 ﻿/// @file MeshTriangleSelectionUtil.cpp
-/// @brief MeshTriangleSelectionUtil ?��
+/// @brief 网格三角面选择工具
 
 #include "MeshTriangleSelectionUtil.h"
 

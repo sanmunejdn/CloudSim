@@ -1,5 +1,5 @@
 ﻿/// @file RunInfoPage.cpp
-/// @brief RunInfoPage 实现
+/// @brief 运行信息页
 
 #include "RunInfoPage.h"
 

@@ -161,6 +161,15 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 	}
 	{
 		AiDomainDescriptor d;
+		d.domainId = AiDomainIds::designParts();
+		d.displayName = QStringLiteral("Standard parts library");
+		d.outputKind = AiDomainOutputKind::ActionPlan;
+		d.supportsMultimodal = false;
+		d.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local")};
+		m_registry.registerDomain(d, &m_designPartsHandler);
+	}
+	{
+		AiDomainDescriptor d;
 		d.domainId = AiDomainIds::geometryRecognize();
 		d.displayName = QStringLiteral("Geometry recognize");
 		d.outputKind = AiDomainOutputKind::StructuredJson;
@@ -316,6 +325,25 @@ AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainI
 			r.errorMessage = pr.errorMessage;
 			r.hintMessage = pr.hintMessage;
 			r.parserVia = QStringLiteral("Rules");
+		}
+		return r;
+	}
+	if (d == AiDomainIds::designParts())
+	{
+		QByteArray plan;
+		QString hint, err;
+		r.ok = m_designPartsHandler.tryParseUserText(text, &plan, &hint, &err);
+		r.outputKind = AiDomainOutputKind::ActionPlan;
+		r.parserVia = QStringLiteral("Rules");
+		if (r.ok)
+		{
+			r.outputJsonUtf8 = plan;
+			r.hintMessage = hint;
+		}
+		else
+		{
+			r.errorMessage = err;
+			r.hintMessage = hint;
 		}
 		return r;
 	}
@@ -486,6 +514,9 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 						return;
 					}
 					*result = rr;
+					// 标准件禁止 LLM 瞎编几何（否则常只剩六角头）
+					if (domainId == AiDomainIds::designParts())
+						return;
 				}
 				else if (step == QStringLiteral("local") && dm)
 				{

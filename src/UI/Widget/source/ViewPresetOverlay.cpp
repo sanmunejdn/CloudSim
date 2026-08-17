@@ -1,5 +1,5 @@
 ﻿/// @file ViewPresetOverlay.cpp
-/// @brief ViewPresetOverlay 实现
+/// @brief 视角预设叠加
 
 #include "ViewPresetOverlay.h"
 

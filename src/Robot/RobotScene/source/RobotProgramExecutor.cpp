@@ -1,5 +1,5 @@
 ﻿/// @file RobotProgramExecutor.cpp
-/// @brief RobotProgramExecutor 实现
+/// @brief 程序执行器
 
 #include "RobotProgramExecutor.h"
 

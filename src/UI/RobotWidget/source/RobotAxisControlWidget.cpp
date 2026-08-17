@@ -1,5 +1,5 @@
 ﻿/// @file RobotAxisControlWidget.cpp
-/// @brief RobotAxisControlWidget 实现
+/// @brief RobotAxisControl 控件
 
 #include "RobotAxisControlWidget.h"
 

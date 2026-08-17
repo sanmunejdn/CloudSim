@@ -1,5 +1,5 @@
 ﻿/// @file PlanResultCache.cpp
-/// @brief PlanResultCache 实现
+/// @brief 规划结果缓存
 
 #include "PlanResultCache.h"
 

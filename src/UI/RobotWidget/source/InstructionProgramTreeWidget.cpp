@@ -1,5 +1,5 @@
 ﻿/// @file InstructionProgramTreeWidget.cpp
-/// @brief InstructionProgramTreeWidget 实现
+/// @brief InstructionProgramTree 控件
 
 #include "InstructionProgramTreeWidget.h"
 

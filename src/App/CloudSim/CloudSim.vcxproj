@@ -207,6 +207,14 @@
       <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
     </ProjectReference>
   </ItemGroup>
+  <Target Name="CopyDesignParts" AfterTargets="Build">
+    <PropertyGroup>
+      <_DesignPartsSrc>$(CloudSimRepoRoot)CloudSim\tools\design-calc\parts</_DesignPartsSrc>
+      <_DesignPartsDst>$(OutDir)resource\design-parts</_DesignPartsDst>
+    </PropertyGroup>
+    <MakeDir Directories="$(_DesignPartsDst)" Condition="Exists('$(_DesignPartsSrc)')" />
+    <Exec Condition="Exists('$(_DesignPartsSrc)')" Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;Copy-Item -Path '$(_DesignPartsSrc)\*' -Destination '$(_DesignPartsDst)' -Recurse -Force&quot;" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />
   <ImportGroup Label="ExtensionTargets">

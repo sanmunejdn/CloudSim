@@ -1,5 +1,5 @@
 ﻿/// @file InstructionPropertyPanel.cpp
-/// @brief InstructionPropertyPanel 实现
+/// @brief 指令属性面板
 
 #include "InstructionPropertyPanel.h"
 

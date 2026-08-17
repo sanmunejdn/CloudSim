@@ -1,5 +1,5 @@
 ﻿/// @file RotateOpConfig.cpp
-/// @brief RotateOpConfig 实现
+/// @brief Rotate 算子配置
 
 // Rotate 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "RotateOpConfig.h"

@@ -1,5 +1,5 @@
 ﻿/// @file RobotTeachIk.cpp
-/// @brief RobotTeachIk 实现
+/// @brief 示教 IK
 
 #include "RobotTeachIk.h"
 

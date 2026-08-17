@@ -1,5 +1,5 @@
 ﻿/// @file RobotSimulationDockWidget.cpp
-/// @brief RobotSimulationDockWidget 实现
+/// @brief 机器人仿真 Dock
 
 #include "RobotSimulationDockWidget.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionPlanningHelpers.cpp
-/// @brief RobotInstructionPlanningHelpers 实现
+/// @brief 指令规划辅助
 
 #include "RobotInstructionPlanningHelpers.h"
 

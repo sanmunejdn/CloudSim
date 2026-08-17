@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "parts": [
+    {
+      "id": "fastener.hex_bolt_iso4017",
+      "display_name": "六角头螺栓（ISO 4017 近似毛坯）",
+      "keywords": [
+        "螺栓",
+        "六角螺栓",
+        "hex bolt",
+        "bolt",
+        "M螺栓"
+      ],
+      "model_fidelity": "blank",
+      "defaults": {
+        "thread": "M8",
+        "length_mm": 30
+      }
+    },
+    {
+      "id": "fastener.hex_nut_iso4032",
+      "display_name": "六角螺母（ISO 4032 近似毛坯）",
+      "keywords": [
+        "螺母",
+        "六角螺母",
+        "hex nut",
+        "nut"
+      ],
+      "model_fidelity": "blank",
+      "defaults": {
+        "thread": "M8"
+      }
+    },
+    {
+      "id": "fastener.plain_washer_iso7089",
+      "display_name": "平垫圈（ISO 7089 近似毛坯）",
+      "keywords": [
+        "垫圈",
+        "平垫",
+        "washer"
+      ],
+      "model_fidelity": "blank",
+      "defaults": {
+        "thread": "M8"
+      }
+    },
+    {
+      "id": "gear.spur_blank",
+      "display_name": "直齿圆柱齿轮毛坯",
+      "keywords": [
+        "齿轮",
+        "直齿轮",
+        "gear",
+        "spur gear",
+        "齿轮毛坯"
+      ],
+      "model_fidelity": "blank",
+      "defaults": {
+        "m_mm": 2,
+        "Z": 20,
+        "b_mm": 20,
+        "bore_mm": 0
+      }
+    },
+    {
+      "id": "pin.cylindrical_iso2338",
+      "display_name": "圆柱销（ISO 2338 近似毛坯）",
+      "keywords": [
+        "销",
+        "圆柱销",
+        "pin",
+        "dowel"
+      ],
+      "model_fidelity": "blank",
+      "defaults": {
+        "d_mm": 6,
+        "length_mm": 20
+      }
+    }
+  ]
+}

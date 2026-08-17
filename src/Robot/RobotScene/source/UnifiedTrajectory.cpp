@@ -1,5 +1,5 @@
 ﻿/// @file UnifiedTrajectory.cpp
-/// @brief UnifiedTrajectory 实现
+/// @brief 统一轨迹
 
 #include "UnifiedTrajectory.h"
 

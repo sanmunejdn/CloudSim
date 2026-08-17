@@ -1,5 +1,5 @@
 ﻿/// @file RobotTcpDragTeachOperation.cpp
-/// @brief RobotTcpDragTeachOperation 实现
+/// @brief RobotTcpDragTeach 操作
 
 #include "RobotTcpDragTeachOperation.h"
 

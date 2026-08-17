@@ -1,5 +1,5 @@
 ﻿/// @file MeshBoolean.cpp
-/// @brief MeshBoolean 实现
+/// @brief 网格布尔
 
 #include "pch.h"
 

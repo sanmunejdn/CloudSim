@@ -49,13 +49,11 @@ bool simplifyQuadricEdgeCollapse(const std::vector<float>& triangleSoup, std::ve
 		return false;
 	}
 
-	// 更新拓扑和边界标记
 	vcg::tri::UpdateTopology<VcgMesh>::FaceFace(mesh);
 	vcg::tri::UpdateTopology<VcgMesh>::VertexFace(mesh);
 	vcg::tri::UpdateFlags<VcgMesh>::FaceBorderFromFF(mesh);
 	vcg::tri::UpdateFlags<VcgMesh>::VertexBorderFromFaceBorder(mesh);
 
-	// 设置 quadric 简化参数
 	vcg::tri::TriEdgeCollapseQuadricParameter qParams;
 	qParams.QualityThr = params.qualityThreshold;
 	qParams.PreserveBoundary = params.preserveBoundary;
@@ -65,7 +63,6 @@ bool simplifyQuadricEdgeCollapse(const std::vector<float>& triangleSoup, std::ve
 	qParams.OptimalPlacement = true;
 	qParams.ScaleIndependent = true;
 
-	// 执行简化
 	vcg::LocalOptimization<VcgMesh> optimization(mesh, &qParams);
 	optimization.Init<VcgEdgeCollapser>();
 	optimization.SetTargetSimplices(static_cast<size_t>(targetFaces));

@@ -1,5 +1,5 @@
 ﻿/// @file RobotFrameSettingsWidget.cpp
-/// @brief RobotFrameSettingsWidget 实现
+/// @brief RobotFrameSettings 控件
 
 #include "RobotFrameSettingsWidget.h"
 

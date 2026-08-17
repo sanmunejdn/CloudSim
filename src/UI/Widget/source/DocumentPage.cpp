@@ -1,5 +1,5 @@
 ﻿/// @file DocumentPage.cpp
-/// @brief DocumentPage 实现
+/// @brief 文档页与仿真文档绑定
 
 #include "DocumentPage.h"
 

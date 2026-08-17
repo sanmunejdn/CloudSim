@@ -1,5 +1,5 @@
-/// @file RobotCollisionSettingsWidget.cpp
-/// @brief RobotCollisionSettingsWidget 实现
+﻿/// @file RobotCollisionSettingsWidget.cpp
+/// @brief RobotCollisionSettings 控件
 
 #include "RobotCollisionSettingsWidget.h"
 

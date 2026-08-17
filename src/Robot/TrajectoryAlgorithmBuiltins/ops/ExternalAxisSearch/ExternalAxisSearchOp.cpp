@@ -1,5 +1,5 @@
 ﻿/// @file ExternalAxisSearchOp.cpp
-/// @brief ExternalAxisSearchOp 实现
+/// @brief ExternalAxisSearch 轨迹算子
 
 #include "ExternalAxisSearchOp.h"
 

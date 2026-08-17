@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowSelectionService.cpp
-/// @brief MainWindowSelectionService 实现
+/// @brief 选择与 gizmo 联动
 
 #include "MainWindowSelectionService.h"
 

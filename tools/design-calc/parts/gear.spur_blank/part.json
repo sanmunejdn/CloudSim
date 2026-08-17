@@ -1,0 +1,27 @@
+{
+  "id": "gear.spur_blank",
+  "kind": "standard_part",
+  "display_name": "直齿圆柱齿轮毛坯",
+  "keywords": ["齿轮", "直齿轮", "gear", "spur gear", "齿轮毛坯"],
+  "model_ref": "model.compose.json",
+  "model_fidelity": "blank",
+  "note": "按模数/齿数生成齿顶圆毛坯；无渐开线齿廓。可与 design.calc 输出对接。",
+  "params_schema": {
+    "m_mm": { "type": "number" },
+    "Z": { "type": "integer" },
+    "b_mm": { "type": "number" },
+    "bore_mm": { "type": "number", "default": 0 }
+  },
+  "specs": [
+    { "m_mm": 1.5, "Z": 20, "b_mm": 15, "bore_mm": 0 },
+    { "m_mm": 2, "Z": 20, "b_mm": 20, "bore_mm": 0 },
+    { "m_mm": 2, "Z": 40, "b_mm": 20, "bore_mm": 0 },
+    { "m_mm": 2.5, "Z": 30, "b_mm": 25, "bore_mm": 0 }
+  ],
+  "defaults": { "m_mm": 2, "Z": 20, "b_mm": 20, "bore_mm": 0 },
+  "derived": {
+    "d_mm": "m_mm * Z",
+    "da_mm": "m_mm * (Z + 2)",
+    "radius_mm": "da_mm / 2"
+  }
+}

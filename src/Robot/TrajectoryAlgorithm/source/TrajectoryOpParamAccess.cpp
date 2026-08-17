@@ -1,5 +1,5 @@
-/// @file TrajectoryOpParamAccess.cpp
-/// @brief TrajectoryOpParamAccess 实现
+﻿/// @file TrajectoryOpParamAccess.cpp
+/// @brief 算子参数访问
 
 #include "TrajectoryOpParamAccess.h"
 

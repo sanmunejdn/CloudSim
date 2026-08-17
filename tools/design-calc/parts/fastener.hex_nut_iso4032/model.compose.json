@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "meta": {
+    "part_id": "fastener.hex_nut_iso4032",
+    "blank_only": true,
+    "thread": "{{thread}}"
+  },
+  "steps": [
+    {
+      "id": "body",
+      "api": "extrudeSketchProfileToBrep",
+      "args": {
+        "mode": "pad",
+        "profile": "polygon",
+        "sides": 6,
+        "radius_mm": "{{head_r_mm}}",
+        "extrude_mm": "{{m_mm}}",
+        "name": "NutBody"
+      }
+    },
+    {
+      "id": "bore",
+      "api": "extrudeSketchProfileToBrep",
+      "args": {
+        "mode": "pocket",
+        "profile": "circle",
+        "diameter_mm": "{{d_mm}}",
+        "end_condition": "through_all",
+        "extrude_mm": "{{m_mm}}",
+        "target": "$body",
+        "name": "NutBore"
+      }
+    }
+  ]
+}

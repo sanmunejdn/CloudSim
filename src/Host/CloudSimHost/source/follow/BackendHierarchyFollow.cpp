@@ -1,5 +1,5 @@
 ﻿/// @file BackendHierarchyFollow.cpp
-/// @brief BackendHierarchyFollow 实现
+/// @brief 层级 Follow 绑定
 
 #include "BackendHierarchyFollow.h"
 

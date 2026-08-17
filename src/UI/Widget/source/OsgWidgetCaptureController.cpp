@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetCaptureController.cpp
-/// @brief OsgWidgetCaptureController 实现
+/// @brief OsgWidgetCapture 控制
 
 #include "OsgWidgetCaptureController.h"
 

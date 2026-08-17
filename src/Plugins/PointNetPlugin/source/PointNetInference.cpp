@@ -1,5 +1,5 @@
 ﻿/// @file PointNetInference.cpp
-/// @brief PointNetInference 实现
+/// @brief PointNet ONNX 推理与点云预处理
 
 #include "PointNetInference.h"
 
@@ -185,16 +185,11 @@ bool PointNetInference::loadSegmentModel(const QString& onnxPath, int numPoints,
 std::vector<float> PointNetInference::preprocessPoints(const std::vector<float>& rawPoints, int srcCount,
 													   int targetCount) const
 {
-	// rawPoints: [x0,y0,z0, x1,y1,z1, ...] 展平
-	// 输出: 目标点数的归一化 xyz
-
 	std::vector<float> result;
 	result.resize(static_cast<size_t>(targetCount) * 3);
 
-	// 步骤1：选取有效点（采样或填充）
 	if (srcCount >= targetCount)
 	{
-		// 均匀采样
 		const float step = static_cast<float>(srcCount) / static_cast<float>(targetCount);
 		for (int i = 0; i < targetCount; ++i)
 		{
@@ -208,7 +203,6 @@ std::vector<float> PointNetInference::preprocessPoints(const std::vector<float>&
 	}
 	else
 	{
-		// 复制已有 + 随机重复填充
 		for (int i = 0; i < srcCount; ++i)
 		{
 			const int srcOff = i * 3;
@@ -217,7 +211,7 @@ std::vector<float> PointNetInference::preprocessPoints(const std::vector<float>&
 			result[dstOff + 1] = rawPoints[srcOff + 1];
 			result[dstOff + 2] = rawPoints[srcOff + 2];
 		}
-		for (int i = srcCount; i < targetCount; ++i)
+		for (int i = srcCount; i < targetCount; ++i) // 点数不足时循环复用
 		{
 			const int srcIdx = i % srcCount;
 			const int srcOff = srcIdx * 3;
@@ -228,7 +222,6 @@ std::vector<float> PointNetInference::preprocessPoints(const std::vector<float>&
 		}
 	}
 
-	// 步骤2：中心化（减质心）
 	float cx = 0.0f, cy = 0.0f, cz = 0.0f;
 	for (int i = 0; i < targetCount; ++i)
 	{
@@ -251,7 +244,6 @@ std::vector<float> PointNetInference::preprocessPoints(const std::vector<float>&
 		maxDist = std::max(maxDist, d);
 	}
 
-	// 步骤3：归一化到单位球
 	if (maxDist > 1e-8f)
 	{
 		for (auto& v : result)
@@ -269,16 +261,13 @@ PointNetClassifyResult PointNetInference::classify(const std::vector<float>& poi
 
 	try
 	{
-		// 预处理
 		std::vector<float> input = preprocessPoints(points, numPoints, m_clsNumPoints);
 
-		// 构造 ONNX 输入张量: [1, N, 3]
 		std::vector<int64_t> inputShape = {1, m_clsNumPoints, 3};
 		auto memInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 		auto inputTensor =
 			Ort::Value::CreateTensor<float>(memInfo, input.data(), input.size(), inputShape.data(), inputShape.size());
 
-		// 获取输入输出名称
 		Ort::AllocatorWithDefaultOptions allocator;
 		auto inputName = m_clsSession->GetInputNameAllocated(0, allocator);
 		auto outputName = m_clsSession->GetOutputNameAllocated(0, allocator);
@@ -288,12 +277,10 @@ PointNetClassifyResult PointNetInference::classify(const std::vector<float>& poi
 
 		auto outputs = m_clsSession->Run(Ort::RunOptions{nullptr}, inputNames, &inputTensor, 1, outputNames, 1);
 
-		// 解析输出: [1, numClasses] softmax 概率
 		const float* logits = outputs[0].GetTensorData<float>();
 		auto outShape = outputs[0].GetTensorTypeAndShapeInfo().GetShape();
 		int numClasses = static_cast<int>(outShape.back());
 
-		// softmax
 		std::vector<float> probs(numClasses);
 		float maxLogit = *std::max_element(logits, logits + numClasses);
 		float sumExp = 0.0f;
@@ -305,7 +292,6 @@ PointNetClassifyResult PointNetInference::classify(const std::vector<float>& poi
 		for (auto& p : probs)
 			p /= sumExp;
 
-		// 取最大概率
 		auto maxIt = std::max_element(probs.begin(), probs.end());
 		result.classId = static_cast<int>(std::distance(probs.begin(), maxIt));
 		result.confidence = *maxIt;
@@ -316,7 +302,6 @@ PointNetClassifyResult PointNetInference::classify(const std::vector<float>& poi
 	}
 	catch (const Ort::Exception&)
 	{
-		// 推理失败，返回空结果
 	}
 
 	return result;
@@ -330,10 +315,8 @@ PointNetSegmentResult PointNetInference::segment(const std::vector<float>& point
 
 	try
 	{
-		// 预处理
 		std::vector<float> input = preprocessPoints(points, numPoints, m_segNumPoints);
 
-		// 构造 ONNX 输入张量: [1, N, 3]
 		std::vector<int64_t> inputShape = {1, m_segNumPoints, 3};
 		auto memInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 		auto inputTensor =
@@ -348,7 +331,6 @@ PointNetSegmentResult PointNetInference::segment(const std::vector<float>& point
 
 		auto outputs = m_segSession->Run(Ort::RunOptions{nullptr}, inputNames, &inputTensor, 1, outputNames, 1);
 
-		// 解析输出: [1, N, numClasses]
 		const float* logits = outputs[0].GetTensorData<float>();
 		auto outShape = outputs[0].GetTensorTypeAndShapeInfo().GetShape();
 		int numClasses = static_cast<int>(outShape.back());
@@ -361,7 +343,6 @@ PointNetSegmentResult PointNetInference::segment(const std::vector<float>& point
 		{
 			const float* clsLogits = logits + i * numClasses;
 
-			// argmax + softmax 置信度
 			int bestCls = 0;
 			float bestVal = clsLogits[0];
 			for (int c = 1; c < numClasses; ++c)
@@ -373,7 +354,6 @@ PointNetSegmentResult PointNetInference::segment(const std::vector<float>& point
 				}
 			}
 
-			// softmax for confidence
 			float maxL = *std::max_element(clsLogits, clsLogits + numClasses);
 			float sumExp = 0.0f;
 			for (int c = 0; c < numClasses; ++c)
@@ -386,7 +366,6 @@ PointNetSegmentResult PointNetInference::segment(const std::vector<float>& point
 	}
 	catch (const Ort::Exception&)
 	{
-		// 推理失败，返回空结果
 	}
 
 	return result;

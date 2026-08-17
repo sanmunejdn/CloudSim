@@ -1,5 +1,5 @@
 ﻿/// @file MainWindow.cpp
-/// @brief MainWindow 实现
+/// @brief 主窗口编排
 
 #include "MainWindow.h"
 

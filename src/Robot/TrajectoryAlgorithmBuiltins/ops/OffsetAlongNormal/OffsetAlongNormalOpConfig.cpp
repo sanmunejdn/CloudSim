@@ -1,5 +1,5 @@
 ﻿/// @file OffsetAlongNormalOpConfig.cpp
-/// @brief OffsetAlongNormalOpConfig 实现
+/// @brief OffsetAlongNormal 算子配置
 
 // OffsetAlongNormal 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "OffsetAlongNormalOpConfig.h"

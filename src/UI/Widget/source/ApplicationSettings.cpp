@@ -1,5 +1,5 @@
-/// @file ApplicationSettings.cpp
-/// @brief ApplicationSettings 实现
+﻿/// @file ApplicationSettings.cpp
+/// @brief 应用设置
 
 #include "ApplicationSettings.h"
 

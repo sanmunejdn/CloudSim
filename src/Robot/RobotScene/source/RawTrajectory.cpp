@@ -1,5 +1,5 @@
-/// @file RawTrajectory.cpp
-/// @brief RawTrajectory 实现
+﻿/// @file RawTrajectory.cpp
+/// @brief Raw 轨迹
 
 #include "RawTrajectory.h"
 

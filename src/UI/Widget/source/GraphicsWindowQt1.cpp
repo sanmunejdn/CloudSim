@@ -1,5 +1,5 @@
 ﻿/// @file GraphicsWindowQt1.cpp
-/// @brief GraphicsWindowQt1 实现
+/// @brief Qt-OSG 图形窗口
 
 #include "GraphicsWindowQt1.h"
 

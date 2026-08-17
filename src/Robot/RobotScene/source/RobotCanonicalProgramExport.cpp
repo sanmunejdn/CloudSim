@@ -1,5 +1,5 @@
 ﻿/// @file RobotCanonicalProgramExport.cpp
-/// @brief RobotCanonicalProgramExport 实现
+/// @brief RobotCanonicalProgram导出
 
 #include "RobotCanonicalProgramExport.h"
 

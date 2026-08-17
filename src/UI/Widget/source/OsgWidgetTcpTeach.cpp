@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetTcpTeach.cpp
-/// @brief OsgWidgetTcpTeach 实现
+/// @brief TCP 拖动示教 OSG 侧
 
 #include "../../OsgWidgetCore/inc/OsgCompassGeometry.h"
 #include "../../OsgWidgetCore/inc/OsgCompassRender.h"

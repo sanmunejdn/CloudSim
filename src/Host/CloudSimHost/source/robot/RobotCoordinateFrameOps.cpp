@@ -1,5 +1,5 @@
-/// @file RobotCoordinateFrameOps.cpp
-/// @brief RobotCoordinateFrameOps 实现
+﻿/// @file RobotCoordinateFrameOps.cpp
+/// @brief 机器人坐标系运算
 
 #include "RobotCoordinateFrameOps.h"
 

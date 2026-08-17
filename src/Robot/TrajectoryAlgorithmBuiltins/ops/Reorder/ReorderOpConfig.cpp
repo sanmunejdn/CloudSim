@@ -1,5 +1,5 @@
 ﻿/// @file ReorderOpConfig.cpp
-/// @brief ReorderOpConfig 实现
+/// @brief Reorder 算子配置
 
 // Reorder 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "ReorderOpConfig.h"

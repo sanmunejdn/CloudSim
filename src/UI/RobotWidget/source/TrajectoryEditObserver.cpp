@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryEditObserver.cpp
-/// @brief TrajectoryEditObserver 实现
+/// @brief 轨迹编辑观察者
 
 #include "TrajectoryEditObserver.h"
 

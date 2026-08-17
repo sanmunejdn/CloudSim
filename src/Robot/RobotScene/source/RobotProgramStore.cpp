@@ -1,5 +1,5 @@
 ﻿/// @file RobotProgramStore.cpp
-/// @brief RobotProgramStore 实现
+/// @brief 程序存储
 
 #include "RobotProgramStore.h"
 

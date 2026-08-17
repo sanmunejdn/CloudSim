@@ -1,5 +1,5 @@
 ﻿/// @file BackendFollowSolve.cpp
-/// @brief BackendFollowSolve 实现
+/// @brief Follow 脏集求解
 
 #include "BackendFollowSolve.h"
 

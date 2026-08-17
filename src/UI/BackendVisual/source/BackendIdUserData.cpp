@@ -1,5 +1,5 @@
 ﻿/// @file BackendIdUserData.cpp
-/// @brief BackendIdUserData 实现
+/// @brief 后端 ID 用户数据
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN

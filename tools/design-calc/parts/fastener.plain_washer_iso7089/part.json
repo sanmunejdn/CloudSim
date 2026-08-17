@@ -1,0 +1,18 @@
+{
+  "id": "fastener.plain_washer_iso7089",
+  "kind": "standard_part",
+  "display_name": "平垫圈（ISO 7089 近似毛坯）",
+  "keywords": ["垫圈", "平垫", "washer"],
+  "model_ref": "model.compose.json",
+  "model_fidelity": "blank",
+  "params_schema": {
+    "thread": { "type": "string", "enum": ["M6", "M8", "M10", "M12"] }
+  },
+  "specs": [
+    { "thread": "M6", "d_inner_mm": 6.4, "d_outer_mm": 12, "thickness_mm": 1.6 },
+    { "thread": "M8", "d_inner_mm": 8.4, "d_outer_mm": 16, "thickness_mm": 1.6 },
+    { "thread": "M10", "d_inner_mm": 10.5, "d_outer_mm": 20, "thickness_mm": 2.0 },
+    { "thread": "M12", "d_inner_mm": 13, "d_outer_mm": 24, "thickness_mm": 2.5 }
+  ],
+  "defaults": { "thread": "M8" }
+}

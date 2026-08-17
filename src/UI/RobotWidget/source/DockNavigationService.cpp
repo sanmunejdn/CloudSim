@@ -1,5 +1,5 @@
-/// @file DockNavigationService.cpp
-/// @brief DockNavigationService 实现
+﻿/// @file DockNavigationService.cpp
+/// @brief 坞导航服务
 
 #include "DockNavigationService.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file BackendObjectAttribute.cpp
-/// @brief BackendObjectAttribute 实现
+/// @brief 后端对象属性
 
 #include "BackendObjectAttribute.h"
 

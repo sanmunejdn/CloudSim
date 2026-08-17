@@ -1,5 +1,5 @@
 ﻿/// @file FeatureTableModel.cpp
-/// @brief FeatureTableModel 实现
+/// @brief 特征表模型
 
 #include "FeatureTableModel.h"
 

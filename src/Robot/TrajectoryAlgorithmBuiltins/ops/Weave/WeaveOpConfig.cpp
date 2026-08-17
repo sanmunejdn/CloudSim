@@ -1,5 +1,5 @@
 ﻿/// @file WeaveOpConfig.cpp
-/// @brief WeaveOpConfig 实现
+/// @brief Weave 算子配置
 
 // Weave 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "WeaveOpConfig.h"

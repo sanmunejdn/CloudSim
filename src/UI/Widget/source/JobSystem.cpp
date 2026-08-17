@@ -1,5 +1,5 @@
 ﻿/// @file JobSystem.cpp
-/// @brief JobSystem 实现
+/// @brief 后台作业线程池
 
 #include "JobSystem.h"
 

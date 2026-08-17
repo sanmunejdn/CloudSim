@@ -1,5 +1,5 @@
 ﻿/// @file TranslateOp.cpp
-/// @brief TranslateOp 实现
+/// @brief Translate 轨迹算子
 
 // Translate 原子块：程序路点位姿平移
 #include "TranslateOp.h"

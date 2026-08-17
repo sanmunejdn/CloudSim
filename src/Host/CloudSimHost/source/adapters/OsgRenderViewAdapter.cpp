@@ -1,5 +1,5 @@
 ﻿/// @file OsgRenderViewAdapter.cpp
-/// @brief OsgRenderViewAdapter 实现
+/// @brief OSG 到 IRenderView
 
 #include "adapters/OsgRenderViewAdapter.h"
 

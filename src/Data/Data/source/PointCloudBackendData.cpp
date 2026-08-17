@@ -1,5 +1,5 @@
 ﻿/// @file PointCloudBackendData.cpp
-/// @brief PointCloudBackendData 实现
+/// @brief PointCloud 后端数据
 
 #include "PointCloudBackendData.h"
 

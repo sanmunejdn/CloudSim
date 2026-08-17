@@ -1,5 +1,5 @@
 ﻿/// @file UrdfRobotImport.cpp
-/// @brief UrdfRobotImport 实现
+/// @brief URDF 每连杆导入
 
 #include "UrdfRobotImport.h"
 

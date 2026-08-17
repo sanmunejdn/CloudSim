@@ -1,5 +1,5 @@
 ﻿/// @file AnnotationProjectIo.cpp
-/// @brief AnnotationProjectIo 实现
+/// @brief 注释工程 IO
 
 #include "AnnotationProjectIo.h"
 

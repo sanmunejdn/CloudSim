@@ -1,5 +1,5 @@
 ﻿/// @file ResampleOp.cpp
-/// @brief ResampleOp 实现
+/// @brief Resample 轨迹算子
 
 // Resample 原子块：按步长重采样 UnifiedTrajectory 折线
 #include "ResampleOp.h"

@@ -1,5 +1,5 @@
 ﻿/// @file BackendPoseOsg.cpp
-/// @brief BackendPoseOsg 实现
+/// @brief 后端姿态 OSG 适配
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN

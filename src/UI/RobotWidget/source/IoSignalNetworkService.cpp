@@ -1,5 +1,5 @@
-/// @file IoSignalNetworkService.cpp
-/// @brief IoSignalNetworkService 实现
+﻿/// @file IoSignalNetworkService.cpp
+/// @brief IO 信号网络（桌面）
 
 #include "IoSignalNetworkService.h"
 

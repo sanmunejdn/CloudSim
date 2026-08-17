@@ -1,5 +1,5 @@
 ﻿/// @file RobotInstructionAttribute.cpp
-/// @brief RobotInstructionAttribute 实现
+/// @brief 指令属性
 
 #include "RobotInstructionAttribute.h"
 

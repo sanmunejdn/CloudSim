@@ -144,7 +144,6 @@ static bool indexedMeshToVcgMesh(const IndexedMesh& in, VcgMesh& mesh)
 	mesh.vert.reserve(vertCount);
 	mesh.face.reserve(faceCount);
 
-	// 添加顶点
 	for (std::size_t i = 0; i < vertCount; ++i)
 	{
 		auto vi = vcg::tri::Allocator<VcgMesh>::AddVertex(
@@ -152,7 +151,6 @@ static bool indexedMeshToVcgMesh(const IndexedMesh& in, VcgMesh& mesh)
 		(void)vi;
 	}
 
-	// 添加面
 	for (std::size_t f = 0; f < faceCount; ++f)
 	{
 		const int i0 = in.faces[f * 3];

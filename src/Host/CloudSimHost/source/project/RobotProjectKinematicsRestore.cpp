@@ -1,5 +1,5 @@
 ﻿/// @file RobotProjectKinematicsRestore.cpp
-/// @brief RobotProjectKinematicsRestore 实现
+/// @brief 工程运动学恢复
 
 #include "RobotProjectKinematicsRestore.h"
 

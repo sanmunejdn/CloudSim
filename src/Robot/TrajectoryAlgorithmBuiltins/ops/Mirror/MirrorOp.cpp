@@ -1,5 +1,5 @@
 ﻿/// @file MirrorOp.cpp
-/// @brief MirrorOp 实现
+/// @brief Mirror 轨迹算子
 
 // Mirror 原子块：按 scope 对路点做轴反向
 #include "MirrorOp.h"

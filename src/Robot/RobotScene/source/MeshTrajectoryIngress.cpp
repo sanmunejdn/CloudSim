@@ -1,5 +1,5 @@
 ﻿/// @file MeshTrajectoryIngress.cpp
-/// @brief MeshTrajectoryIngress 实现
+/// @brief 网格轨迹入口
 
 #include "MeshTrajectoryIngress.h"
 

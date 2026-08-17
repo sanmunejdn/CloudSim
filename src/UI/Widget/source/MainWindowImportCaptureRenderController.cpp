@@ -1,5 +1,5 @@
 ﻿/// @file MainWindowImportCaptureRenderController.cpp
-/// @brief MainWindowImportCaptureRenderController 实现
+/// @brief MainWindowImportCaptureRender 控制
 
 #include "MainWindowImportCaptureRenderController.h"
 

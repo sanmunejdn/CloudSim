@@ -1,5 +1,5 @@
 ﻿/// @file SmoothPoseOp.cpp
-/// @brief SmoothPoseOp 实现
+/// @brief SmoothPose 轨迹算子
 
 // SmoothPose 原子块：平滑路径点位姿
 #include "SmoothPoseOp.h"

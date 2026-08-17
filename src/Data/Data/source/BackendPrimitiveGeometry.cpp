@@ -1,5 +1,5 @@
 ﻿/// @file BackendPrimitiveGeometry.cpp
-/// @brief BackendPrimitiveGeometry 实现
+/// @brief 后端原始几何
 
 #include "BackendPrimitiveGeometry.h"
 

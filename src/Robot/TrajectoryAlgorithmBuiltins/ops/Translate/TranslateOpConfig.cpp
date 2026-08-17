@@ -1,5 +1,5 @@
 ﻿/// @file TranslateOpConfig.cpp
-/// @brief TranslateOpConfig 实现
+/// @brief Translate 算子配置
 
 // Translate 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "TranslateOpConfig.h"

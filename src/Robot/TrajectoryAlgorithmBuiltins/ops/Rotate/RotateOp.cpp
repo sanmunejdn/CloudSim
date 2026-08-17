@@ -1,5 +1,5 @@
 ﻿/// @file RotateOp.cpp
-/// @brief RotateOp 实现
+/// @brief Rotate 轨迹算子
 
 // Rotate 原子块：程序路点位姿旋转
 #include "RotateOp.h"

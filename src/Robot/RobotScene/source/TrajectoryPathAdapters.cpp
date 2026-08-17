@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryPathAdapters.cpp
-/// @brief TrajectoryPathAdapters 实现
+/// @brief 轨迹路径适配
 
 #include "TrajectoryPathAdapters.h"
 

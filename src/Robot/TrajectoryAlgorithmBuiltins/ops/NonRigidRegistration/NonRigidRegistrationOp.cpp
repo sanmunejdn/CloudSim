@@ -1,5 +1,5 @@
 ﻿/// @file NonRigidRegistrationOp.cpp
-/// @brief NonRigidRegistrationOp 实现
+/// @brief NonRigidRegistration 轨迹算子
 
 // 非刚性配准轨迹纠正：绑定源几何 + SPARE 变形写回
 #include "NonRigidRegistrationOp.h"

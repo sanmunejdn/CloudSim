@@ -1,5 +1,5 @@
 ﻿/// @file QWidgetViewer.cpp
-/// @brief QWidgetViewer 实现
+/// @brief Qt OpenGL 视口
 
 #include "QWidgetViewer.h"
 

@@ -1,5 +1,5 @@
 ﻿/// @file ApplicationStyle.cpp
-/// @brief ApplicationStyle 实现
+/// @brief 应用样式
 
 #include "ApplicationStyle.h"
 

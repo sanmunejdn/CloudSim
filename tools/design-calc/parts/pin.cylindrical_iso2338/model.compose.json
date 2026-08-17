@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "domain": "feature.compose",
+  "meta": {
+    "part_id": "pin.cylindrical_iso2338",
+    "blank_only": true
+  },
+  "steps": [
+    {
+      "id": "pin",
+      "api": "revolveSketchProfileToBrep",
+      "args": {
+        "mode": "boss",
+        "profile": "rectangle",
+        "length_mm": "{{radius_mm}}",
+        "width_mm": "{{length_mm}}",
+        "angle_deg": 360,
+        "axis_dx": 0,
+        "axis_dy": 1,
+        "axis_dz": 0,
+        "name": "CylindricalPin"
+      }
+    }
+  ]
+}

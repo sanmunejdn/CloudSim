@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetSceneBridge.cpp
-/// @brief OsgWidgetSceneBridge 实现
+/// @brief OsgWidgetScene 桥接
 
 #include "OsgWidgetSceneBridge.h"
 

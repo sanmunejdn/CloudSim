@@ -1,5 +1,5 @@
 ﻿/// @file TrajectoryOpFormat.cpp
-/// @brief TrajectoryOpFormat 实现
+/// @brief 算子格式
 
 // TrajectoryOpFormat 实现
 #include "TrajectoryOpFormat.h"

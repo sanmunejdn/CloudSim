@@ -1,5 +1,5 @@
 ﻿/// @file BackendSpatial.cpp
-/// @brief BackendSpatial 实现
+/// @brief 后端空间变换
 
 #include "BackendSpatial.h"
 

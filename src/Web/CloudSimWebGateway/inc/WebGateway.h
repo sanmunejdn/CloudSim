@@ -77,7 +77,7 @@ private:
 	/// 原生对话框选路径（浏览器拿不到本机绝对路径）
 	QByteArray nativeDialogOnGuiThread(const QByteArray& body);
 
-	// P2 robot
+	// 机器人 API
 	QByteArray robotProgramsJsonOnGuiThread();
 	bool setRobotProgramsOnGuiThread(const QByteArray& body, QString* err);
 	bool applyJointsOnGuiThread(const QByteArray& body, QString* err);
@@ -99,7 +99,7 @@ private:
 	bool registerUrdfOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
 	bool planInstructionOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
 
-	// Trajectory / feature pick (headless)
+	// 轨迹 / 特征拾取（无头）
 	QByteArray trajectorySessionJsonOnGuiThread();
 	QByteArray trajectoryPathPlansJsonOnGuiThread(const QString& sceneRootBackendId);
 	bool createPathPlanOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
@@ -129,7 +129,7 @@ private:
 	bool loadTrajectoryTemplateOnGuiThread(const QString& kind, const QString& name, QByteArray* out, QString* err);
 	bool deleteTrajectoryTemplateOnGuiThread(const QString& kind, const QString& name, QString* err);
 
-	// Point cloud (headless)
+	// 点云（无头）
 	QByteArray pointCloudInfoJsonOnGuiThread(const QString& id);
 	QByteArray pointCloudMeasureJsonOnGuiThread(const QString& id);
 	bool pointCloudPreviewSoupOnGuiThread(const QString& id, std::size_t maxPoints, std::vector<float>& out,
@@ -141,7 +141,7 @@ private:
 												 const QJsonObject&));
 	void registerPointCloudRoutes(cloudsim::host::DocumentHost* host);
 
-	// P3 / P4 / P5 thin surfaces
+	// 几何 / 模式 / AI 薄面
 	QByteArray sidecarGetOnGuiThread(const QString& key);
 	bool sidecarPutOnGuiThread(const QString& key, const QByteArray& body, QString* err);
 	QByteArray modesCatalogJson() const;

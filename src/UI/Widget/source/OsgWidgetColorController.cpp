@@ -1,5 +1,5 @@
 ﻿/// @file OsgWidgetColorController.cpp
-/// @brief OsgWidgetColorController 实现
+/// @brief OsgWidgetColor 控制
 
 #include "OsgWidgetColorController.h"
 

@@ -1,5 +1,5 @@
-/// @file DevicePoseMotionPlayer.cpp
-/// @brief DevicePoseMotionPlayer 实现
+﻿/// @file DevicePoseMotionPlayer.cpp
+/// @brief 设备姿态运动播放
 
 #include "DevicePoseMotionPlayer.h"
 
