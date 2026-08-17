@@ -19,7 +19,9 @@ void smoothPoseUnified(RobotInstruction::UnifiedTrajectory& traj);
 void assignBlendUnified(RobotInstruction::UnifiedTrajectory& traj, double blendRadiusMm);
 void assignSpeedUnified(RobotInstruction::UnifiedTrajectory& traj, double speedMmPerSec);
 void weaveUnified(RobotInstruction::UnifiedTrajectory& traj, double amplitudeMm, double periodMm);
-void reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj);
+/// 委托 ctx.reachabilityProbe；未注入返回 false
+bool reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+							   bool useOrientation, double residualTolMm, std::string* errMsg);
 /// 无配置时为 no-op；有配置时委托 ctx.externalAxisSearch
 void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj,
 							   const TrajectoryOpExecutionContext& ctx);
@@ -38,8 +40,10 @@ void assignSpeedUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const 
 							   const RobotInstruction::RobotProgram* program, double speedMmPerSec);
 void weaveUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
 						 const RobotInstruction::RobotProgram* program, double amplitudeMm, double periodMm);
-void reachabilityFilterUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
-									  const RobotInstruction::RobotProgram* program);
+bool reachabilityFilterUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+									  const RobotInstruction::RobotProgram* program,
+									  const TrajectoryOpExecutionContext& ctx, bool useOrientation,
+									  double residualTolMm, std::string* errMsg);
 
 } // namespace trajectory_algo
 

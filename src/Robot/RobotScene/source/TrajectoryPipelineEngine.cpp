@@ -63,6 +63,7 @@ void TrajectoryPipelineEngine::clear()
 	m_externalTcpFrameResolver = {};
 	m_externalAxisSearch = nullptr;
 	m_externalAxisConfigs.clear();
+	m_reachabilityProbe = nullptr;
 	m_ops.clear();
 	m_steps.clear();
 	m_result = {};
@@ -116,6 +117,11 @@ void TrajectoryPipelineEngine::setExternalAxisSearchService(const trajectory_alg
 void TrajectoryPipelineEngine::setExternalAxisConfigs(std::vector<trajectory_algo::ExternalAxisSearchConfigDto> configs)
 {
 	m_externalAxisConfigs = std::move(configs);
+}
+
+void TrajectoryPipelineEngine::setReachabilityProbe(const trajectory_algo::ITrajectoryReachabilityProbe* probe)
+{
+	m_reachabilityProbe = probe;
 }
 
 void TrajectoryPipelineEngine::setUnifiedBaseline(UnifiedTrajectory baseline)
@@ -219,6 +225,7 @@ bool TrajectoryPipelineEngine::applyGeometryOp(const TrajectoryOpDescriptor& op,
 	ctx.workpieceReferenceInBase = m_workpieceReferenceInBase;
 	ctx.externalAxisConfigs = m_externalAxisConfigs;
 	ctx.externalAxisSearch = m_externalAxisSearch;
+	ctx.reachabilityProbe = m_reachabilityProbe;
 	if (op.kind == TrajectoryOpKind::ToWorkpieceInHand && m_externalTcpFrameResolver)
 	{
 		const RobotInstruction::ToWorkpieceInHandParams params =

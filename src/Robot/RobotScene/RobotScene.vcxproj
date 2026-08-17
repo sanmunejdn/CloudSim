@@ -197,6 +197,7 @@
     <ClInclude Include="inc\CustomDeviceAssemblyCommit.h" />
     <ClInclude Include="inc\RobotCollisionSettings.h" />
     <ClInclude Include="inc\ExternalAxisSearchService.h" />
+    <ClInclude Include="inc\TrajectoryReachabilityProbeService.h" />
     <ClInclude Include="inc\RobotInstructionController.h" />
     <ClInclude Include="inc\RobotInstructionFactory.h" />
     <ClInclude Include="inc\RobotInstructionModel.h" />
@@ -266,6 +267,7 @@
     <ClCompile Include="source\CustomDeviceAssemblyCommit.cpp" />
     <ClCompile Include="source\RobotCollisionSettings.cpp" />
     <ClCompile Include="source\ExternalAxisSearchService.cpp" />
+    <ClCompile Include="source\TrajectoryReachabilityProbeService.cpp" />
     <ClCompile Include="source\RobotInstructionController.cpp" />
     <ClCompile Include="source\RobotInstructionFactory.cpp" />
     <ClCompile Include="source\RobotInstructionModel.cpp" />

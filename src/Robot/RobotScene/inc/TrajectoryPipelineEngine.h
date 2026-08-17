@@ -13,6 +13,7 @@
 #include "UnifiedTrajectory.h"
 
 #include <IExternalAxisSearchService.h>
+#include <ITrajectoryReachabilityProbe.h>
 #include <RigidTransform.h>
 
 #include <cstddef>
@@ -56,6 +57,7 @@ public:
 
 	void setExternalAxisSearchService(const trajectory_algo::IExternalAxisSearchService* service);
 	void setExternalAxisConfigs(std::vector<trajectory_algo::ExternalAxisSearchConfigDto> configs);
+	void setReachabilityProbe(const trajectory_algo::ITrajectoryReachabilityProbe* probe);
 
 	void setUnifiedBaseline(UnifiedTrajectory baseline);
 	void setOps(std::vector<TrajectoryOpDescriptor> ops);
@@ -90,6 +92,7 @@ private:
 	ExternalTcpFrameResolveFn m_externalTcpFrameResolver;
 	const trajectory_algo::IExternalAxisSearchService* m_externalAxisSearch = nullptr;
 	std::vector<trajectory_algo::ExternalAxisSearchConfigDto> m_externalAxisConfigs;
+	const trajectory_algo::ITrajectoryReachabilityProbe* m_reachabilityProbe = nullptr;
 	std::vector<TrajectoryOpDescriptor> m_ops;
 	std::vector<PipelineStep> m_steps;
 	UnifiedTrajectory m_result{};

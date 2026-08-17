@@ -2,12 +2,36 @@
   "version": 1,
   "kind": "ReachabilityFilter",
   "schema": {
-    "fields": []
+    "fields": [
+      {
+        "key": "reachability.useOrientation",
+        "type": "Bool",
+        "labelEn": "Use orientation",
+        "labelZh": "约束姿态",
+        "defaultBool": true,
+        "order": 0
+      },
+      {
+        "key": "reachability.residualTolMm",
+        "type": "Double",
+        "labelEn": "Position tol",
+        "labelZh": "位置容差",
+        "unit": "mm",
+        "min": 0.1,
+        "max": 100.0,
+        "step": 0.1,
+        "defaultDouble": 5.0,
+        "order": 1
+      }
+    ]
   },
   "defaults": {
     "scope": {
       "kind": 1
     },
-    "params": {}
+    "params": {
+      "reachability.useOrientation": true,
+      "reachability.residualTolMm": 5.0
+    }
   }
 }

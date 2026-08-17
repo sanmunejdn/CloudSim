@@ -191,6 +191,9 @@
     <ClInclude Include="inc\IExternalAxisSearchService.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ITrajectoryReachabilityProbe.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ITrajectoryOp.h">
 
       <Filter>inc</Filter>

@@ -14,6 +14,7 @@
 | `geometryProjection` | RobotScene 适配器 | ProjectToGeometry |
 | `nonRigidTrajectoryWarp` | RobotScene 适配器 | NonRigidRegistration |
 | `workpieceReferenceInBase` | Session 捕获当前 TCP 后 Engine setter | ToWorkpieceInHand |
+| `reachabilityProbe` | Session 注入 TeachIk 服务 | ReachabilityFilter |
 
 Builtins **不得**依赖 RobotWidget；机器人状态只经 Context / Engine 注入。
 

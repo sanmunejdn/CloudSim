@@ -572,7 +572,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 **与 `TrajectoryAlgorithm` 的关系**：全部 `TrajectoryOpKind` 由 Builtins 实现 `processPath`；Session/Builder 仅编排 Ingress、引擎重放与 Egress，不再维护 Pose 预览链或 Recipe 复合块。
 
-**Phase 说明**：`ReachabilityFilter` 仍为轻量启发式；`ExternalAxisSearch` 已接入对象外轴配置门禁与 `ExternalAxisSearchService`（需 UI 管道注入 URDF/种子）。
+**Phase 说明**：`ReachabilityFilter` 经 `ITrajectoryReachabilityProbe`（`TrajectoryReachabilityProbeService` + TeachIk）写 `reachable`；未注入时 processPath 失败。`ExternalAxisSearch` 已接入对象外轴配置门禁与 `ExternalAxisSearchService`（需 UI 管道注入 URDF/种子）。
 
 ---
 

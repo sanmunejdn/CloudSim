@@ -195,6 +195,18 @@ bool pipelineHasNonRigidRegistration(const std::vector<RobotInstruction::Traject
 	return false;
 }
 
+bool pipelineHasReachabilityFilter(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops)
+{
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
+	{
+		if (op.enabled && op.kind == RobotInstruction::TrajectoryOpKind::ReachabilityFilter)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool pipelineNeedsPoseScopePreview(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops)
 {
 	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
@@ -337,6 +349,7 @@ void TrajectoryEditSession::injectWorkpieceReferenceOnEngine() const
 		m_pipelineEngine.setWorkpieceReferenceInBase(nullptr);
 		m_pipelineEngine.setExternalTcpFrameResolver(nullptr);
 		m_pipelineEngine.setExternalAxisSearchService(nullptr);
+		m_pipelineEngine.setReachabilityProbe(nullptr);
 		m_pipelineEngine.setExternalAxisConfigs({});
 		return;
 	}
@@ -382,6 +395,7 @@ void TrajectoryEditSession::injectWorkpieceReferenceOnEngine() const
 			return true;
 		});
 	injectExternalAxisSearchOnEngine();
+	injectReachabilityProbeOnEngine();
 }
 
 void TrajectoryEditSession::injectExternalAxisSearchOnEngine() const
@@ -450,6 +464,53 @@ void TrajectoryEditSession::injectExternalAxisSearchOnEngine() const
 	m_pipelineEngine.setExternalAxisSearchService(&m_externalAxisSearchService);
 }
 
+void TrajectoryEditSession::injectReachabilityProbeOnEngine() const
+{
+	if (!m_simController || !m_simController->host())
+	{
+		m_pipelineEngine.setReachabilityProbe(nullptr);
+		return;
+	}
+	IRobotDocumentHost* doc = m_simController->host()->document();
+	SimulationCommandWidget* cmdPage = m_simController->host()->simulationCommandPage();
+	if (!doc || !cmdPage)
+	{
+		m_pipelineEngine.setReachabilityProbe(nullptr);
+		return;
+	}
+	const int instIdx = cmdPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		m_pipelineEngine.setReachabilityProbe(nullptr);
+		return;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		m_pipelineEngine.setReachabilityProbe(nullptr);
+		return;
+	}
+	const QString comboTcp = cmdPage->selectedTcpLink();
+	const QString tcp = RobotSimulationMath::defaultTcpLinkNameForUrdf(urdfPath, comboTcp);
+	const QVector<double> agg = m_simController->aggregatedJointAnglesRad();
+	const int offset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (nj <= 0)
+	{
+		m_pipelineEngine.setReachabilityProbe(nullptr);
+		return;
+	}
+	std::vector<double> seed;
+	seed.reserve(static_cast<size_t>(nj));
+	for (int j = 0; j < nj; ++j)
+	{
+		const int idx = offset + j;
+		seed.push_back((idx >= 0 && idx < agg.size()) ? agg[idx] : 0.0);
+	}
+	m_reachabilityProbeService.setRobotContext(urdfPath, tcp, seed);
+	m_pipelineEngine.setReachabilityProbe(&m_reachabilityProbeService);
+}
+
 void TrajectoryEditSession::reportProjectionMissesIfAny() const
 {
 	if (!pipelineHasProjectToGeometry(m_ops) || !m_simController)
@@ -502,6 +563,35 @@ void TrajectoryEditSession::reportNonRigidStatsIfAny() const
 		msg += QStringLiteral("（缓存）");
 	}
 	host->appendRunInfo(msg);
+}
+
+void TrajectoryEditSession::reportReachabilityStatsIfAny() const
+{
+	if (!pipelineHasReachabilityFilter(m_ops) || !m_simController)
+	{
+		return;
+	}
+	IRobotMainWindowHost* host = m_simController->host();
+	if (!host)
+	{
+		return;
+	}
+	const RobotInstruction::ReachabilityProbeLastStats stats = RobotInstruction::trajectoryReachabilityLastStats();
+	if (!stats.valid)
+	{
+		return;
+	}
+	const QString msg = QStringLiteral("可达性过滤：探测 %1 点，不可达 %2 点")
+							.arg(static_cast<qulonglong>(stats.probedCount))
+							.arg(static_cast<qulonglong>(stats.unreachableCount));
+	if (stats.unreachableCount > 0)
+	{
+		host->appendRunWarning(msg);
+	}
+	else
+	{
+		host->appendRunInfo(msg);
+	}
 }
 
 void TrajectoryEditSession::updatePipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops,
@@ -864,6 +954,7 @@ bool TrajectoryEditSession::previewUnifiedFromProgramPipeline(QString* outError)
 	}
 	reportProjectionMissesIfAny();
 	reportNonRigidStatsIfAny();
+	reportReachabilityStatsIfAny();
 	unified = m_pipelineEngine.result();
 	const bool lightweight = unified.points.size() > kLightweightPreviewGuardThreshold;
 	updateLightweightPreviewState(lightweight);
@@ -1116,6 +1207,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 		}
 		reportProjectionMissesIfAny();
 		reportNonRigidStatsIfAny();
+		reportReachabilityStatsIfAny();
 		unified = m_pipelineEngine.result();
 		rawWorking = m_pipelineEngine.rawWorking();
 		m_bakedWorldRaw.reset();
@@ -1168,6 +1260,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 		}
 		reportProjectionMissesIfAny();
 		reportNonRigidStatsIfAny();
+		reportReachabilityStatsIfAny();
 		unified = m_pipelineEngine.result();
 	}
 	RobotInstruction::RobotProgram replacement = *activeProgram;
@@ -1677,6 +1770,7 @@ bool TrajectoryEditSession::runPipelineEngineFull(QString* outError)
 	}
 	reportProjectionMissesIfAny();
 	reportNonRigidStatsIfAny();
+	reportReachabilityStatsIfAny();
 	return true;
 }
 
@@ -1722,6 +1816,7 @@ bool TrajectoryEditSession::buildRawPreviewWithPipeline(
 	}
 	reportProjectionMissesIfAny();
 	reportNonRigidStatsIfAny();
+	reportReachabilityStatsIfAny();
 	RobotInstruction::RawTrajectory worldPreview{};
 	if (!RobotInstruction::unifiedTrajectoryToRaw(m_pipelineEngine.result(), worldPreview, &err))
 	{

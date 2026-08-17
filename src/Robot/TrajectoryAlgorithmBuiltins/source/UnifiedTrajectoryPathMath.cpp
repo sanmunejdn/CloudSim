@@ -146,12 +146,18 @@ void weaveUnified(RobotInstruction::UnifiedTrajectory& traj, const double amplit
 	}
 }
 
-void reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj)
+bool reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+							   const bool useOrientation, const double residualTolMm, std::string* errMsg)
 {
-	for (RobotInstruction::UnifiedTrajectoryPoint& tp : traj.points)
+	if (!ctx.reachabilityProbe)
 	{
-		tp.reachable = tp.poseMm.z > -5000.0;
+		if (errMsg)
+		{
+			*errMsg = "reachability probe not injected";
+		}
+		return false;
 	}
+	return ctx.reachabilityProbe->probe(traj, {}, useOrientation, residualTolMm, errMsg);
 }
 
 void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj,
@@ -308,11 +314,21 @@ void weaveUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotI
 	}
 }
 
-void reachabilityFilterUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
-									  const RobotInstruction::RobotProgram* program)
+bool reachabilityFilterUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+									  const RobotInstruction::RobotProgram* program,
+									  const TrajectoryOpExecutionContext& ctx, const bool useOrientation,
+									  const double residualTolMm, std::string* errMsg)
 {
-	forEachScopedPoint(traj, scope, program,
-					   [](RobotInstruction::UnifiedTrajectoryPoint& tp) { tp.reachable = tp.poseMm.z > -5000.0; });
+	if (!ctx.reachabilityProbe)
+	{
+		if (errMsg)
+		{
+			*errMsg = "reachability probe not injected";
+		}
+		return false;
+	}
+	const std::vector<std::size_t> indices = resolveScopedPointIndices(traj, scope, program);
+	return ctx.reachabilityProbe->probe(traj, indices, useOrientation, residualTolMm, errMsg);
 }
 
 } // namespace trajectory_algo

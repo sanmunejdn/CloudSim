@@ -74,6 +74,9 @@
     <ClInclude Include="inc\ExternalAxisSearchService.h">
       <Filter>inc\KinematicsFrames</Filter>
     </ClInclude>
+    <ClInclude Include="inc\TrajectoryReachabilityProbeService.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
     <ClInclude Include="inc\InstructionProgramDocument.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
@@ -215,6 +218,9 @@
       <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\ExternalAxisSearchService.cpp">
+      <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryReachabilityProbeService.cpp">
       <Filter>src\KinematicsFrames</Filter>
     </ClCompile>
     <ClCompile Include="source\InstructionProgramDocument.cpp">

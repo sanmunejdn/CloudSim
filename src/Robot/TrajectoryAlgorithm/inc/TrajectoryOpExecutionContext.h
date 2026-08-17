@@ -8,6 +8,7 @@
 
 #include "INonRigidTrajectoryWarp.h"
 #include "IExternalAxisSearchService.h"
+#include "ITrajectoryReachabilityProbe.h"
 #include "TrajectoryPipelineTypes.h"
 
 #include <RigidTransform.h>
@@ -51,6 +52,8 @@ struct TRAJECTORY_ALGORITHM_API TrajectoryOpExecutionContext
 	std::vector<ExternalAxisSearchConfigDto> externalAxisConfigs;
 	const IExternalAxisSearchService* externalAxisSearch = nullptr;
 	bool externalAxisAllowCoupledRefine = true;
+	/// 未注入时 ReachabilityFilter 失败（不再用 z 启发式）
+	const ITrajectoryReachabilityProbe* reachabilityProbe = nullptr;
 };
 
 } // namespace trajectory_algo

@@ -9,6 +9,7 @@
 #include "ProgramEditService.h"
 #include "RawTrajectory.h"
 #include "ExternalAxisSearchService.h"
+#include "TrajectoryReachabilityProbeService.h"
 #include "RobotProgramStore.h"
 #include "TrajectoryPipelineEngine.h"
 #include "TrajectoryPipelineTypes.h"
@@ -125,15 +126,18 @@ private:
 	void ensureGeometryResolverBound() const;
 	void reportProjectionMissesIfAny() const;
 	void reportNonRigidStatsIfAny() const;
+	void reportReachabilityStatsIfAny() const;
 	/// 捕获当前 TCP 并注入管道（失败则清除，算子侧报错）
 	void injectWorkpieceReferenceOnEngine() const;
 	void injectExternalAxisSearchOnEngine() const;
+	void injectReachabilityProbeOnEngine() const;
 
 	RobotProgramStore* m_store = nullptr;
 	ProgramEditService* m_editService = nullptr;
 	RobotSimulationController* m_simController = nullptr;
 	mutable RobotInstruction::TrajectoryPipelineEngine m_pipelineEngine;
 	mutable RobotInstruction::ExternalAxisSearchService m_externalAxisSearchService;
+	mutable RobotInstruction::TrajectoryReachabilityProbeService m_reachabilityProbeService;
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> m_ops;
 	std::string m_contextProgramId;
 	std::string m_defaultGroupId;
