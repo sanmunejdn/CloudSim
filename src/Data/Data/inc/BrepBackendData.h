@@ -1,4 +1,4 @@
-﻿#ifndef DATA_BREPBACKENDDATA_H
+#ifndef DATA_BREPBACKENDDATA_H
 #define DATA_BREPBACKENDDATA_H
 
 /// @file BrepBackendData.h
@@ -62,7 +62,7 @@ public:
 	geoalgo::ShapeHandle worldShape() const;
 
 	static bool loadStepHierarchyFromFile(const std::string& path, std::vector<BrepHierarchyPart>& outParts,
-										  std::string* errMsg = nullptr);
+										  std::string* errMsg = nullptr, geoalgo::ShapeHandle* outAssembly = nullptr);
 
 	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,

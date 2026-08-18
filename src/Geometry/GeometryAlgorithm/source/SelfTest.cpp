@@ -1,4 +1,4 @@
-﻿/// @file SelfTest.cpp
+/// @file SelfTest.cpp
 /// @brief SelfTest 实现
 
 #include "SelfTest.h"
@@ -36,6 +36,7 @@
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
+#include <TopoDS_Compound.hxx>
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <Eigen/Geometry>
@@ -1314,6 +1315,45 @@ bool runSelfTest(std::vector<std::string>& failures)
 		if (!generateMeshTrajectory(bspec, fanSoup, serpPath, &err) || serpPath.points.size() != 36U)
 		{
 			fail("meshTrajectoryBsplineUSerpentine", err.empty() ? "serpentine count" : err);
+		}
+	}
+
+	{
+		BRep_Builder builder;
+		TopoDS_Compound compound;
+		builder.MakeCompound(compound);
+		const TopoDS_Shape boxA = BRepPrimAPI_MakeBox(10.0, 10.0, 10.0).Shape();
+		const TopoDS_Shape boxB = BRepPrimAPI_MakeBox(gp_Pnt(30.0, 0.0, 0.0), 10.0, 10.0, 10.0).Shape();
+		builder.Add(compound, boxA);
+		builder.Add(compound, boxB);
+		std::vector<ShapeHierarchyPart> parts;
+		std::string err;
+		if (!collectBrepSolidParts(ShapeHandleAccess::fromNativeShape(&compound), parts, &err) || parts.size() != 2U)
+		{
+			fail("collectBrepSolidPartsCompound", err.empty() ? "expected 2 solids" : err);
+		}
+		parts.clear();
+		if (!collectBrepSolidParts(ShapeHandleAccess::fromNativeShape(&boxA), parts, &err) || parts.size() != 1U)
+		{
+			fail("collectBrepSolidPartsSolid", err.empty() ? "expected 1 solid" : err);
+		}
+		geoalgo::ShapeHandle extracted;
+		geoalgo::ShapeHandle remain;
+		if (!extractSolidByFaceIndex(ShapeHandleAccess::fromNativeShape(&compound), 0, extracted, remain, &err) ||
+			extracted.isNull() || remain.isNull())
+		{
+			fail("extractSolidByFaceIndex", err.empty() ? "expected split" : err);
+		}
+		std::vector<ShapeHierarchyPart> remainParts;
+		if (!collectBrepSolidParts(remain, remainParts, &err) || remainParts.size() != 1U)
+		{
+			fail("extractSolidByFaceIndexRemain", err.empty() ? "expected 1 remaining solid" : err);
+		}
+		std::vector<MeshHierarchyPart> topoParts;
+		if (!collectShapeHierarchyTopology(ShapeHandleAccess::fromNativeShape(&compound), topoParts, &err) ||
+			topoParts.size() != 2U)
+		{
+			fail("collectShapeHierarchyTopologyCompound", err.empty() ? "expected 2 leaves" : err);
 		}
 	}
 

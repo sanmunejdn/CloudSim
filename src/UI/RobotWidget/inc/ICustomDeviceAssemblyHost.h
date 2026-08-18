@@ -6,6 +6,7 @@
 
 #include "robotwidget_global.h"
 
+#include <functional>
 #include <memory>
 
 #include <QString>
@@ -29,6 +30,9 @@ public:
 										   QString* outError) = 0;
 	/// 导入模型并返回各文件根 backendId；失败项写入 outErrors
 	virtual QStringList importModelsForAssembly(QWidget* parent, const QStringList& paths, QStringList* outErrors) = 0;
+	/// 进入视口点面抽 Solid；可连点多次，关闭对话框须 end
+	virtual void beginPickSolidInView(std::function<void(const QString& partId)> onPartPicked) = 0;
+	virtual void endPickSolidInView() = 0;
 	virtual bool exportCustomDeviceUrdfInteractive(const QString& deviceBackendId) = 0;
 
 	virtual void markFollowAttachmentDirty(const QString& deviceBackendId) = 0;

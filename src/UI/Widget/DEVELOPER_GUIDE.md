@@ -149,7 +149,7 @@ flowchart TB
 | `MainWindowSelectionService.cpp` | 选择状态管理、gizmo 联动 |
 | `MainWindowPropertyPanel.cpp` | 属性面板 `QtTreePropertyBrowser`、防抖提交 |
 | `MainWindowAiAssistant.cpp` | AI 助手 Dock 集成 |
-| `MainWindowImportCaptureRenderController.cpp` | 导入/捕获/渲染控制器 |
+| `MainWindowImportCaptureRenderController.cpp` | Open Model：Job `executeLoad`（Phase1）→ UI `finishIntoDocument`；**不** enqueue `BREP pick warm`；结束后 `refreshSimulationJointListFromCurrentDoc`（轨迹页 combo 刷新但不枚举特征目录） |
 | `MainWindowSceneInteractionCoordinator.cpp` | 场景交互模式切换 |
 | `MainWindowObjectRepository.cpp` | 对象仓库管理 |
 | `MainWindowInstructionPropertyUiHost.cpp` | 仿真指令属性 UI |

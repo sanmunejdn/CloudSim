@@ -35,6 +35,7 @@ public:
 
 private slots:
 	void onFromScene();
+	void onPickSolidToggled(bool on);
 	void onImportModels();
 	void onExportUrdf();
 	void onApplyAccepted();
@@ -69,6 +70,7 @@ private:
 	QDoubleSpinBox* m_axisZ = nullptr;
 	QComboBox* m_centerFrameCombo = nullptr;
 	QPushButton* m_connectBtn = nullptr;
+	QPushButton* m_pickSolidBtn = nullptr;
 };
 
 #endif // ROBOTWIDGET_CUSTOMDEVICEASSEMBLYDIALOG_H

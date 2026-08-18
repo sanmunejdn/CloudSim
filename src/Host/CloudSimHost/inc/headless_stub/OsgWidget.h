@@ -318,6 +318,18 @@ public:
 	}
 	void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay) { (void)overlay; }
 	void clearReachableWorkspaceOverlay() {}
+	void setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor) { (void)cursor; }
+	void clearPlaybackCursorOverlay() {}
+	void setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels) { (void)labels; }
+	void clearWaypointIndexLabels() {}
+	void setInstructionWaypointPickMode(bool enabled) { (void)enabled; }
+	bool instructionWaypointPickMode() const { return false; }
+	void setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
+											std::function<void()> onCanceled)
+	{
+		(void)onPicked;
+		(void)onCanceled;
+	}
 
 	void showMeshSectionPlane(const std::string& backendIdUtf8, const double originModelMm[3],
 							  const double normalModel[3])

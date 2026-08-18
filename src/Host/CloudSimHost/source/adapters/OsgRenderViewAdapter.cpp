@@ -431,6 +431,7 @@ RobotOsgUi::InstructionPoseAxis instructionAxisToRobotOsgUi(const core::Instruct
 	o.eulerDeg = d.eulerDeg;
 	o.lineMotion = d.lineMotion;
 	o.reachable = d.reachable;
+	o.instructionId = d.instructionId.toStdString();
 	o.robotBackendId = d.robotBackendId.toStdString();
 	o.backendId = d.backendId.toStdString();
 	if (o.robotBackendId.empty())

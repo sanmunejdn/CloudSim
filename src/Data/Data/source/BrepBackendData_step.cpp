@@ -1,4 +1,4 @@
-﻿/// @file BrepBackendData_step.cpp
+/// @file BrepBackendData_step.cpp
 /// @brief Brep 后端数据
 
 #include "pch.h"
@@ -22,7 +22,7 @@ bool BrepBackendData::loadFromStepFile(const std::string& path, std::string* err
 }
 
 bool BrepBackendData::loadStepHierarchyFromFile(const std::string& path, std::vector<BrepHierarchyPart>& outParts,
-												std::string* errMsg)
+												std::string* errMsg, geoalgo::ShapeHandle* outAssembly)
 {
 	outParts.clear();
 	geoalgo::ShapeHandle assembly;
@@ -30,33 +30,25 @@ bool BrepBackendData::loadStepHierarchyFromFile(const std::string& path, std::ve
 	{
 		return false;
 	}
-	std::vector<geoalgo::MeshHierarchyPart> meshParts;
-	if (!geoalgo::collectShapeHierarchyTopology(assembly, meshParts, errMsg))
+	if (outAssembly)
+	{
+		*outAssembly = assembly;
+	}
+	std::vector<geoalgo::ShapeHierarchyPart> solids;
+	if (!geoalgo::collectBrepSolidParts(assembly, solids, errMsg))
 	{
 		return false;
 	}
-	if (meshParts.empty())
+	outParts.reserve(solids.size());
+	for (const geoalgo::ShapeHierarchyPart& sp : solids)
 	{
-		BrepHierarchyPart root;
-		root.partPath = "0";
-		root.parentPartPath.clear();
-		root.displayName = "Solid_0";
-		root.shapeRef = assembly;
-		outParts.push_back(std::move(root));
+		BrepHierarchyPart bp;
+		bp.partPath = sp.partPath;
+		bp.parentPartPath = sp.parentPartPath;
+		bp.displayName = sp.displayName;
+		bp.shapeRef = sp.shape;
+		outParts.push_back(std::move(bp));
 	}
-	else
-	{
-		outParts.reserve(meshParts.size());
-		for (const geoalgo::MeshHierarchyPart& mp : meshParts)
-		{
-			BrepHierarchyPart bp;
-			bp.partPath = mp.partPath;
-			bp.parentPartPath = mp.parentPartPath;
-			bp.displayName = mp.displayName;
-			bp.shapeRef = assembly;
-			outParts.push_back(std::move(bp));
-		}
-	}
-	RunLogger::info("[BrepBackendData] STEP hierarchy loaded (shared assembly shape).");
+	RunLogger::info("[BrepBackendData] STEP hierarchy loaded (per-solid shapes).");
 	return true;
 }

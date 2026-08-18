@@ -26,10 +26,10 @@
 
 | 头文件 | 功能 |
 |--------|------|
-| `Discretize.h` | Edge/Wire/Shape 折线与三角 soup；STEP 单件/层级 |
+| `Discretize.h` | Edge/Wire/Shape 折线与三角 soup；`collectBrepSolidParts` 按 Solid 抽出 |
 | `BrepImportArtifacts.h` | BREP 导入预处理：显示 soup、面/边离散、按 `ShapeHandle` 共享缓存 |
 | `MeshDiscretize.h` | 自适应/UV 网格/线管带网格；质量预设 |
-| `ShapeIo.h` / `ShapeQuery.h` | STEP 读入；按索引求交/离散编排 |
+| `ShapeIo.h` / `ShapeQuery.h` | STEP 读入；按索引求交/离散；`extractSolidByFaceIndex` |
 | `Intersection.h` | 线线、线面、面面、形体截面 |
 | `BrepBoolean.h` | OCC Fuse/Common/Cut → Shape 或 mesh |
 | `WireOps.h` / `ShellOps.h` | 线融合、面缝合 |
@@ -178,8 +178,11 @@ buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
 
 | 入口 | 说明 |
 |------|------|
-| `discretizeShapeToSoupPerFace(shape, params, soup, triFaceIndex, faceSoups?)` | **整件** `meshShapeIncremental` 一次（`InParallel=true`），再按 `shapeFaceAtIndex` 顺序逐面提取；替代旧版逐面重复 `BRepMesh` |
+| `meshShapeIncremental` | `BRepMesh_IncrementalMesh`，**`theInParallel=false`**（复合体开并行会空转，装配 STEP 表现为假死） |
+| `discretizeShapeToSoupPerFace(shape, params, soup, triFaceIndex, faceSoups?)` | `Clean` 后整件网格一次，再 `TopExp_Explorer(FACE)` 按面抽三角；勿对装配体用 0.01mm 绝对偏差 |
 | `tessellateShapePerFaceMedium(shape, …)` | 固定 Medium：`linearDeflectionMm=0.01`、`angularDeflectionDeg=0.5`；内部调用 `discretizeShapeToSoupPerFace` |
+| `collectBrepSolidParts` | 按 `TopAbs_SOLID` 抽出独立 `ShapeHandle`；无 Solid 时整件一块 |
+| `extractSolidByFaceIndex`（`ShapeQuery.h`） | 面索引 → 所属 Solid；从装配体去掉该 Solid（仅一块时 `outRemaining` 空） |
 
 特征离散（`discretizeFeature`）仍从精确 BREP/STEP 计算，**不依赖** display soup。
 
@@ -187,9 +190,9 @@ buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
 
 | API | 说明 |
 |-----|------|
-| `buildBrepImportArtifactsDisplay(shape, out[, timings])` | **Phase1**：display soup + `triangleFaceIndex` + `faceSoups` + 预计算 `displayNormals` |
+| `buildBrepImportArtifactsDisplay(shape, out[, timings])` | **Phase1**：相对包围盒 deflection **0.002** + 0.5°（勿用 Medium 绝对 0.01mm） |
 | `buildBrepImportArtifactsPick(shape, out[, timings])` | **Phase2**：`collectShapeFaceEdgeIndices` + 边线框（0.05mm / 1°） |
-| `ensureBrepImportPickArtifacts(shape, artifacts)` | Phase2 懒构建（`pickReady` + mutex；bind/线框/拾取时） |
+| `ensureBrepImportPickArtifacts(shape, artifacts)` | Phase2 懒构建（`pickReady` + mutex；**首次边拾取/线框**，非导入 bind） |
 | `buildBrepImportArtifacts(shape, out)` | Phase1 + Phase2 全量（兼容旧调用） |
 | `getOrBuildBrepImportArtifacts(shape[, err, timings])` | 按 `ShapeHandle::isSame()` 缓存 **Phase1**；返回 `shared_ptr<BrepImportArtifacts>` |
 | `clearBrepImportArtifactsCache()` | 测试或工程切换时清空 |
@@ -201,12 +204,12 @@ buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
 ```text
 Worker executeLoad
   ├─ 读 STEP/BREP
-  └─ getOrBuildBrepImportArtifacts（仅 Phase1）
+  └─ getOrBuildBrepImportArtifacts（仅 Phase1 显示网格）
 UI finishIntoDocument
-  ├─ registerAdoptedBrep… + loadBackend（showWireOutline=false，useSceneLighting=true）
+  ├─ registerAdoptedBrep… + loadBackend（showWireOutline=false）
   └─ 树/相机/选中
-Widget JobSystem（可选）
-  └─ warmPickArtifacts → buildBrepImportArtifactsPick（Phase2 预热）
+Phase2（边折线）
+  └─ 首次边拾取 / 线框时 ensureBrepImportPickArtifacts；Open Model 不再排队 warmPickArtifacts
 ```
 
 | `BrepImportArtifacts` 字段 | 用途 |
@@ -216,7 +219,7 @@ Widget JobSystem（可选）
 | `edgePolylines` / `faceEdgeIndices` | 边线框与面-边拓扑（Phase2） |
 | `pickReady` | Phase2 是否已构建 |
 
-**层级拓扑（无 tessellation）**：`collectShapeHierarchyTopology(shape, outParts)` 仅遍历 OCCT 装配树，输出 `MeshHierarchyPart` 路径/显示名；**不**填充 `triangleSoup`。Data 层 `BrepBackendData::loadStepHierarchyFromFile` 将其转为 `BrepHierarchyPart` 并为各零件共享同一 `assembly` `ShapeHandle`。
+**层级拓扑（无 tessellation）**：`collectShapeHierarchyTopology` 仍遍历装配树路径（mesh 回退）。B-rep 按 Solid 拆件用 `collectBrepSolidParts`（每块独立 `ShapeHandle`）。Open Model **不**自动炸开，见 Host §4.4.1b。
 
 带 tessellation 的 `collectShapeHierarchy` 仍供网格路径（DXF/旧 STEP mesh 回退）使用。
 

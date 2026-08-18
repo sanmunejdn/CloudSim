@@ -60,6 +60,14 @@ public:
 
 	void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay) override;
 	void clearReachableWorkspaceOverlay() override;
+	void setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor) override;
+	void clearPlaybackCursorOverlay() override;
+	void setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels) override;
+	void clearWaypointIndexLabels() override;
+	void setInstructionWaypointPickMode(bool enabled) override;
+	bool instructionWaypointPickMode() const override;
+	void setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
+											 std::function<void()> onCanceled) override;
 
 	bool isTcpDragTeachActive() const override;
 	void endTcpDragTeach() override;

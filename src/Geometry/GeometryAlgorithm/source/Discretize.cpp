@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <string>
 
 namespace geoalgo
 {
@@ -83,6 +84,12 @@ bool shapeHasChildren(const TopoDS_Shape& shape)
 	return it.More();
 }
 
+bool isAssemblyGroup(const TopoDS_Shape& shape)
+{
+	const TopAbs_ShapeEnum t = shape.ShapeType();
+	return (t == TopAbs_COMPOUND || t == TopAbs_COMPSOLID) && shapeHasChildren(shape);
+}
+
 std::string shapeTypeName(const TopAbs_ShapeEnum t)
 {
 	switch (t)
@@ -111,9 +118,8 @@ std::string shapeTypeName(const TopAbs_ShapeEnum t)
 void collectHierarchyRecursive(const TopoDS_Shape& shape, const std::string& path, const std::string& parentPath,
 							   const TessellateParams& params, std::vector<MeshHierarchyPart>& outParts)
 {
-	// Solid 及以下层级（Solid/Shell/Face/Edge/Vertex）作为叶子零件，
-	// 不再递归到 Face/Edge 级别，避免产生大量无意义碎片。
-	if (shape.ShapeType() <= TopAbs_SOLID || !shapeHasChildren(shape))
+	// Compound/CompSolid 才往下拆；Solid 起当叶子，避免拆到 Face
+	if (!isAssemblyGroup(shape))
 	{
 		MeshHierarchyPart part;
 		part.partPath = path;
@@ -140,8 +146,7 @@ void collectHierarchyRecursive(const TopoDS_Shape& shape, const std::string& pat
 void collectHierarchyTopologyRecursive(const TopoDS_Shape& shape, const std::string& path,
 									   const std::string& parentPath, std::vector<MeshHierarchyPart>& outParts)
 {
-	// Solid 及以下层级作为叶子零件，不再递归到 Face/Edge 级别。
-	if (shape.ShapeType() <= TopAbs_SOLID || !shapeHasChildren(shape))
+	if (!isAssemblyGroup(shape))
 	{
 		MeshHierarchyPart part;
 		part.partPath = path;
@@ -197,7 +202,8 @@ bool meshShapeIncremental(const TopoDS_Shape& shape, const TessellateParams& par
 	const Standard_Real linDef = params.linearDeflectionMm;
 	const Standard_Boolean isRelative = params.linearDeflectionRelative ? Standard_True : Standard_False;
 	const Standard_Real angDef = params.angularDeflectionDeg;
-	BRepMesh_IncrementalMesh mesher(shape, linDef, isRelative, angDef, Standard_True);
+	// 复合体上开并行网格会空转，装配 STEP 表现为假死
+	BRepMesh_IncrementalMesh mesher(shape, linDef, isRelative, angDef, Standard_False);
 	(void)mesher;
 	return true;
 }
@@ -257,36 +263,23 @@ bool discretizeShapeToSoupPerFace(const TopoDS_Shape& shape, const TessellatePar
 		return false;
 	}
 	TopoDS_Shape copy = shape;
+	BRepTools::Clean(copy);
 	if (!meshShapeIncremental(copy, params, errMsg))
 	{
 		return false;
 	}
-	const int faceCount = shapeFaceCount(copy);
-	if (faceCount <= 0)
+	int faceIdx = 0;
+	for (TopExp_Explorer exp(copy, TopAbs_FACE); exp.More(); exp.Next(), ++faceIdx)
 	{
-		detail::setErr(errMsg, "shape has no faces");
-		return false;
-	}
-	if (outFaceSoups)
-	{
-		outFaceSoups->resize(static_cast<std::size_t>(faceCount));
-	}
-	for (int faceIdx = 0; faceIdx < faceCount; ++faceIdx)
-	{
-		TopoDS_Face face;
-		if (!shapeFaceAtIndex(copy, faceIdx, face, errMsg))
-		{
-			return false;
-		}
 		std::vector<float> faceSoup;
-		detail::appendFaceTriangles(face, params, faceSoup);
+		detail::appendFaceTriangles(TopoDS::Face(exp.Current()), params, faceSoup);
+		if (outFaceSoups)
+		{
+			outFaceSoups->push_back(faceSoup);
+		}
 		if (faceSoup.size() < 9U || (faceSoup.size() % 9U) != 0U)
 		{
 			continue;
-		}
-		if (outFaceSoups)
-		{
-			(*outFaceSoups)[static_cast<std::size_t>(faceIdx)] = faceSoup;
 		}
 		const std::size_t triCount = faceSoup.size() / 9U;
 		outTriangleFaceIndex.insert(outTriangleFaceIndex.end(), triCount, faceIdx);
@@ -397,6 +390,38 @@ bool collectShapeHierarchyTopology(const ShapeHandle& shape, std::vector<MeshHie
 		return false;
 	}
 	return collectShapeHierarchyTopology(native, outParts, errMsg);
+}
+
+bool collectBrepSolidParts(const ShapeHandle& shape, std::vector<ShapeHierarchyPart>& outParts, std::string* errMsg)
+{
+	outParts.clear();
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native) || native.IsNull())
+	{
+		detail::setErr(errMsg, "null shape");
+		return false;
+	}
+	int solidIndex = 0;
+	for (TopExp_Explorer exp(native, TopAbs_SOLID); exp.More(); exp.Next(), ++solidIndex)
+	{
+		const TopoDS_Shape solid = exp.Current();
+		ShapeHierarchyPart part;
+		part.partPath = "solid/" + std::to_string(solidIndex);
+		part.parentPartPath.clear();
+		part.displayName = "Solid_" + std::to_string(solidIndex);
+		part.shape = ShapeHandleAccess::fromNativeShape(&solid);
+		outParts.push_back(std::move(part));
+	}
+	if (outParts.empty())
+	{
+		ShapeHierarchyPart part;
+		part.partPath = "0";
+		part.parentPartPath.clear();
+		part.displayName = detail::shapeTypeName(native.ShapeType()) + "_0";
+		part.shape = shape;
+		outParts.push_back(std::move(part));
+	}
+	return true;
 }
 
 bool discretizeShapeFaceByIndex(const ShapeHandle& shapeHandle, const int faceIndex, const TessellateParams& params,

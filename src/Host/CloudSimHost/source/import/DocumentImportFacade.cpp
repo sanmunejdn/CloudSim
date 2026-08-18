@@ -103,16 +103,20 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 		else if (result.hierarchyDetail.lastRegisteredBrep)
 		{
 			result.rootBackendId = QString::fromStdString(result.hierarchyDetail.lastRegisteredBrep->id());
-			QString homeErr;
-			(void)osg->loadBackendFromBackendData(*result.hierarchyDetail.lastRegisteredBrep, &homeErr,
-												  options.resetViewToHome);
+			if (options.resetViewToHome)
+			{
+				osg->focusCameraOnBackend(result.hierarchyDetail.lastRegisteredBrep->id());
+			}
+			osg->requestRedraw();
 		}
 		else if (result.hierarchyDetail.lastRegisteredMesh)
 		{
 			result.rootBackendId = QString::fromStdString(result.hierarchyDetail.lastRegisteredMesh->id());
-			QString homeErr;
-			(void)osg->loadMeshFromBackendData(*result.hierarchyDetail.lastRegisteredMesh, &homeErr,
-											   options.resetViewToHome);
+			if (options.resetViewToHome)
+			{
+				osg->focusCameraOnBackend(result.hierarchyDetail.lastRegisteredMesh->id());
+			}
+			osg->requestRedraw();
 		}
 	}
 	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0);
@@ -335,6 +339,7 @@ struct ModelBackgroundLoadState::Impl
 	std::shared_ptr<BrepBackendData> brep;
 	std::shared_ptr<MeshBackendData> mesh;
 	std::vector<BrepHierarchyPart> brepHierarchyParts;
+	geoalgo::ShapeHandle brepHierarchyAssembly;
 };
 
 ModelBackgroundLoadState::ModelBackgroundLoadState(const QString& filePath, const QString& displayName,
@@ -376,19 +381,7 @@ bool ModelBackgroundLoadState::executeLoad(
 	if (ext == QLatin1String("step") || ext == QLatin1String("stp"))
 	{
 		report(0.05, QStringLiteral("Reading STEP..."));
-		std::vector<BrepHierarchyPart> parts;
 		std::string stepErr;
-		if (BrepBackendData::loadStepHierarchyFromFile(nativePath, parts, &stepErr) && parts.size() > 1U)
-		{
-			m_impl->kind = ModelLoadKind::BrepHierarchy;
-			m_impl->brepHierarchyParts = std::move(parts);
-			if (!warmBrepImportArtifactsDisplayOnly(m_impl->brepHierarchyParts.front().shapeRef, report, 0.25, 1.0,
-													outError))
-			{
-				return false;
-			}
-			return true;
-		}
 		m_impl->brep = std::make_shared<BrepBackendData>();
 		m_impl->brep->setName(m_impl->displayName.toStdString());
 		report(0.15, QStringLiteral("Reading STEP..."));
@@ -401,7 +394,9 @@ bool ModelBackgroundLoadState::executeLoad(
 			return false;
 		}
 		m_impl->kind = ModelLoadKind::SimpleBrep;
-		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.35, 1.0, outError))
+		// IncrementalMesh 已关并行；放后台才能在进度到 100% 前继续重绘
+		report(0.4, QStringLiteral("Meshing B-rep..."));
+		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.9, 1.0, outError))
 		{
 			return false;
 		}
@@ -423,7 +418,8 @@ bool ModelBackgroundLoadState::executeLoad(
 			return false;
 		}
 		m_impl->kind = ModelLoadKind::SimpleBrep;
-		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.35, 1.0, outError))
+		report(0.4, QStringLiteral("Meshing B-rep..."));
+		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.9, 1.0, outError))
 		{
 			return false;
 		}
@@ -481,7 +477,7 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(DocumentHost& host
 	{
 		if (!importBrepHierarchyParts(host, m_impl->filePath, m_impl->catalogTypeName, m_impl->brepHierarchyParts,
 									  fileInfo.completeBaseName(), followBinding, result.hierarchyDetail, outError,
-									  fileInfo.fileName()))
+									  fileInfo.fileName(), m_impl->brepHierarchyAssembly))
 		{
 			if (outError && outError->isEmpty())
 			{
@@ -563,7 +559,14 @@ bool ModelBackgroundLoadState::warmPickArtifacts(QString* outError)
 	geoalgo::ShapeHandle shape;
 	if (m_impl->kind == ModelLoadKind::BrepHierarchy && !m_impl->brepHierarchyParts.empty())
 	{
-		shape = m_impl->brepHierarchyParts.front().shapeRef;
+		for (const BrepHierarchyPart& p : m_impl->brepHierarchyParts)
+		{
+			if (!warmBrepImportPickArtifactsForShape(p.shapeRef, outError))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 	else if (m_impl->kind == ModelLoadKind::SimpleBrep && m_impl->brep)
 	{

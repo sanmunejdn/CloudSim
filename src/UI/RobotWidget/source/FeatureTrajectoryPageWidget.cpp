@@ -1941,10 +1941,8 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		{
 			m_lastWorkpieceBackendId = m_backendCombo->currentData().toString();
 		}
-		if (m_backendCombo->currentIndex() >= 0)
-		{
-			QTimer::singleShot(0, this, [this]() { (void)autoEnumerateCatalogForCurrentWorkpiece(true, nullptr); });
-		}
+		// Open Model 后 bindHost 会刷新 combo；全量边/面目录含二面角，大型装配可达数分钟，不能排队到导入路径上
+		// 目录在用户切换工件或 AI 调用 ensureFeatureCatalogEnumerated 时再算
 	}
 	updatePickUiState();
 }

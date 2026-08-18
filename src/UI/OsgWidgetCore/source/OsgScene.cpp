@@ -714,6 +714,11 @@ void OsgScene::cachePickablePointsFromNode(osg::Node* node)
 				importPickSpatialIndexForActiveBackend(bundle->pointIndex);
 				return;
 			}
+			// B-rep 面拾取已有索引，显示三角顶点灌 KD 会拖死装配体
+			if (!bundle->brepIndex.empty())
+			{
+				return;
+			}
 		}
 	}
 	if (!node)

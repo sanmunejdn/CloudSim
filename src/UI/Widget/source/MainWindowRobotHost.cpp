@@ -1,4 +1,4 @@
-﻿/// @file MainWindowRobotHost.cpp
+/// @file MainWindowRobotHost.cpp
 /// @brief 机器人文档宿主适配
 
 #include "MainWindowRobotHost.h"
@@ -14,6 +14,7 @@
 #include "CustomDeviceBackendData.h"
 #include "DocumentImportFacade.h"
 #include "DocumentPage.h"
+#include "HierarchyMeshImport.h"
 #include "IDataService.h"
 #include "IRenderView.h"
 #include "IRobotService.h"
@@ -22,6 +23,7 @@
 #include "MainWindowImportCaptureRenderController.h"
 #include "MainWindowSelectionService.h"
 #include "OsgWidget.h"
+#include "PickTypes.h"
 #include "RobotInstructionPropertyDto.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPlanInstruction.h"
@@ -1126,6 +1128,29 @@ void MainWindowRobotHost::clearMeshPickCommittedHandler()
 
 void MainWindowRobotHost::notifyMeshPickCommitted(const PickResult& pick, const PickKind kind)
 {
+	if (m_solidPickCallback && kind == PickKind::MeshFace && pick.hit && pick.brepNativePick &&
+		pick.brepFaceIndex >= 0 && !pick.backendId.empty())
+	{
+		cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+		if (!host)
+		{
+			return;
+		}
+		QString partId;
+		QString err;
+		if (!cloudsim::host::extractBrepSolidByFace(*host, pick.backendId, pick.brepFaceIndex, &partId, &err) ||
+			partId.isEmpty())
+		{
+			if (!err.isEmpty())
+			{
+				appendRunInfo(err);
+			}
+			return;
+		}
+		refreshBackendTree();
+		m_solidPickCallback(partId);
+		return;
+	}
 	if (m_meshPickHandler)
 	{
 		m_meshPickHandler(pick, kind);
@@ -1361,8 +1386,41 @@ QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const 
 			continue;
 		}
 		roots.append(imported.rootBackendId);
+		if (imported.hierarchyImport && !imported.hierarchyDetail.partBackendIds.isEmpty())
+		{
+			roots.removeLast();
+			roots.append(imported.hierarchyDetail.partBackendIds);
+		}
 	}
 	return roots;
+}
+
+void MainWindowRobotHost::beginPickSolidInView(std::function<void(const QString& partId)> onPartPicked)
+{
+	m_solidPickCallback = std::move(onPartPicked);
+	clearBackendObjectSelection(true);
+	DocumentPage* page = m_mw ? m_mw->currentPage() : nullptr;
+	OsgWidget* osg = page ? page->osgWidget() : nullptr;
+	if (!osg)
+	{
+		return;
+	}
+	osg->setObjectSelectionMode(false);
+	osg->setMeshLinePickMode(false);
+	osg->setMeshFacePickMode(true);
+	osg->syncSelectionForBackendId(std::string());
+	osg->setSelectionActive(false);
+}
+
+void MainWindowRobotHost::endPickSolidInView()
+{
+	m_solidPickCallback = {};
+	DocumentPage* page = m_mw ? m_mw->currentPage() : nullptr;
+	OsgWidget* osg = page ? page->osgWidget() : nullptr;
+	if (osg)
+	{
+		osg->setMeshFacePickMode(false);
+	}
 }
 
 bool MainWindowRobotHost::exportCustomDeviceUrdfInteractive(const QString& deviceBackendId)

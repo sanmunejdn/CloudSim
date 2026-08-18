@@ -290,6 +290,14 @@ public:
 	void clearFeatureCatalogOverlay();
 	void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay);
 	void clearReachableWorkspaceOverlay();
+	void setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor);
+	void clearPlaybackCursorOverlay();
+	void setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels);
+	void clearWaypointIndexLabels();
+	void setInstructionWaypointPickMode(bool enabled);
+	bool instructionWaypointPickMode() const { return m_instructionWaypointPickMode; }
+	void setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
+											 std::function<void()> onCanceled);
 
 	/// TCP 末端拖动示教：场景 overlay 罗盘，拖动发位姿信号（不写指令）
 	bool isTcpDragTeachActive() const { return m_tcpTeachActive; }
@@ -476,6 +484,8 @@ signals:
 	/// TCP 示教拖动中位姿更新（基座系 mm + 欧拉 deg）
 	void tcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void tcpDragTeachEnded();
+	void instructionWaypointPicked(const QString& instructionId);
+	void instructionWaypointPickCanceled();
 	void backendObjectPicked(const QString& backendId);
 	void activeAxisChanged(const QString& axisName);
 	void selectionCanceledByEsc();
@@ -600,6 +610,18 @@ private:
 	osg::ref_ptr<osg::Geode> m_sketchLineOverlayGeode;
 	osg::ref_ptr<osg::Group> m_rawTrajectoryFramesGroup;
 	osg::ref_ptr<osg::Geode> m_reachableWorkspaceOverlayGeode;
+	osg::ref_ptr<osg::MatrixTransform> m_playbackCursorMt;
+	osg::ref_ptr<osg::Group> m_waypointIndexLabelsGroup;
+	bool m_instructionWaypointPickMode = false;
+	struct InstructionWaypointPickTarget
+	{
+		std::string instructionId;
+		cloudsim::core::Vec3 positionMm{};
+	};
+	std::vector<InstructionWaypointPickTarget> m_instructionWaypointPickTargets;
+	std::function<void(const std::string&)> m_instructionWaypointPicked;
+	std::function<void()> m_instructionWaypointPickCanceled;
+	bool tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string& outInstructionId) const;
 	bool m_rawTrajShowAxisX = true;
 	bool m_rawTrajShowAxisY = true;
 	bool m_rawTrajShowAxisZ = true;

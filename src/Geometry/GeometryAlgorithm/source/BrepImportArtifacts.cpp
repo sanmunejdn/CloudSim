@@ -43,7 +43,11 @@ bool buildBrepImportArtifactsDisplay(const ShapeHandle& shape, BrepImportArtifac
 	out.pickReady.store(false, std::memory_order_release);
 	out.pickShapeKey = shape;
 	const auto t0 = std::chrono::steady_clock::now();
-	if (!tessellateShapePerFaceMedium(shape, out.displaySoup, out.triangleFaceIndex, &out.faceSoups, errMsg))
+	TessellateParams disc;
+	disc.linearDeflectionRelative = true;
+	disc.linearDeflectionMm = 0.002; // 相对包围盒；0.01mm 绝对会把装配体打爆
+	disc.angularDeflectionDeg = 0.5;
+	if (!discretizeShapeToSoupPerFace(shape, disc, out.displaySoup, out.triangleFaceIndex, &out.faceSoups, errMsg))
 	{
 		return false;
 	}
@@ -112,7 +116,8 @@ bool ensureBrepImportPickArtifacts(const ShapeHandle& shape, BrepImportArtifacts
 		return true;
 	}
 	const ShapeHandle source = artifacts.pickShapeKey.isNull() ? shape : artifacts.pickShapeKey;
-	return buildBrepImportArtifactsPick(source, artifacts, nullptr, errMsg);
+	const bool ok = buildBrepImportArtifactsPick(source, artifacts, nullptr, errMsg);
+	return ok;
 }
 
 bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out, std::string* errMsg)

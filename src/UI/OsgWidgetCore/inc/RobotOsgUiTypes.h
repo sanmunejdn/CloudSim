@@ -17,6 +17,8 @@ struct InstructionPoseAxis
 	cloudsim::core::Vec3 eulerDeg{};
 	bool lineMotion = false;
 	bool reachable = true;
+	/// 对应指令 id；3D 拾取跳树用，空则不可点
+	std::string instructionId;
 	std::string robotBackendId;
 	bool mountTcpOnPatRoot = false;
 	bool hasLocalMatrix = false;
@@ -67,6 +69,20 @@ struct ReachableWorkspaceOverlay
 {
 	std::vector<cloudsim::core::Vec3> voxelCentersMm;
 	double cellSizeMm = 60.0;
+};
+
+/// 播放游标：当前运动指令 TCP（世界 mm）；只改 MatrixTransform，勿整批重建路点轴
+struct PlaybackCursorOverlay
+{
+	cloudsim::core::Vec3 positionMm{};
+	cloudsim::core::Vec3 eulerDeg{};
+};
+
+/// 路点序号（1-based displayIndex）；邻域/抽稀后传入，避免全量编号叠字
+struct WaypointIndexLabel
+{
+	int displayIndex = 0;
+	cloudsim::core::Vec3 positionMm{};
 };
 
 struct RobotFrameOverlayUpdate

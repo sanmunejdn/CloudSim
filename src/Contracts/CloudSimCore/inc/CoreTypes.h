@@ -191,6 +191,7 @@ struct InstructionPoseAxisDto
 	Vec3 eulerDeg;
 	bool lineMotion = false;
 	bool reachable = true;
+	QString instructionId;
 	QString robotBackendId;
 	QString backendId;
 	bool mountTcpOnPatRoot = false;

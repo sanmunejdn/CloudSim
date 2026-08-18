@@ -119,6 +119,16 @@ public:
 
 	virtual void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay) = 0;
 	virtual void clearReachableWorkspaceOverlay() = 0;
+
+	virtual void setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor) = 0;
+	virtual void clearPlaybackCursorOverlay() = 0;
+	virtual void setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels) = 0;
+	virtual void clearWaypointIndexLabels() = 0;
+
+	virtual void setInstructionWaypointPickMode(bool enabled) = 0;
+	virtual bool instructionWaypointPickMode() const = 0;
+	virtual void setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
+													 std::function<void()> onCanceled) = 0;
 };
 
 #endif // ROBOTWIDGET_IROBOTOSGVIEWHOST_H

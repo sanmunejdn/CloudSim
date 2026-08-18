@@ -1,4 +1,4 @@
-﻿#ifndef WIDGET_MAINWINDOWROBOTHOST_H
+#ifndef WIDGET_MAINWINDOWROBOTHOST_H
 #define WIDGET_MAINWINDOWROBOTHOST_H
 
 /// @file MainWindowRobotHost.h
@@ -94,6 +94,8 @@ public:
 	bool attachChildToCustomDevice(const std::string& deviceId, const std::string& childId,
 								   QString* outError) override;
 	QStringList importModelsForAssembly(QWidget* parent, const QStringList& paths, QStringList* outErrors) override;
+	void beginPickSolidInView(std::function<void(const QString& partId)> onPartPicked) override;
+	void endPickSolidInView() override;
 	bool exportCustomDeviceUrdfInteractive(const QString& deviceBackendId) override;
 	void markFollowAttachmentDirty(const QString& deviceBackendId) override;
 	void focusBackendInTree(const QString& backendId) override;
@@ -114,6 +116,7 @@ private:
 	std::unique_ptr<WidgetOsgViewHost> m_osgHost;
 	DocumentPage* m_osgHostPage = nullptr;
 	std::function<void(const PickResult&, PickKind)> m_meshPickHandler;
+	std::function<void(const QString&)> m_solidPickCallback;
 	IRobotMainWindowHost::MeshTriangleLabelingPickHandlers m_meshTriangleLabelingHandlers;
 };
 

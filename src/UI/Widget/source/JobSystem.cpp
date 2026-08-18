@@ -62,7 +62,7 @@ public:
 		const quint64 id = m_jobId;
 		auto onFinished = std::move(m_onFinished);
 		pm->queueOnMainThread(
-			[pm, id, threw, throwMsg, onFinished = std::move(onFinished)]() mutable
+			[pm, id, threw, throwMsg, onFinished = std::move(onFinished)]()
 			{
 				if (onFinished)
 				{

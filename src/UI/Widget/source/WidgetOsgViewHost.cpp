@@ -55,6 +55,7 @@ cloudsim::core::InstructionPoseAxisDto instructionAxisToDto(const RobotOsgUi::In
 	d.eulerDeg = a.eulerDeg;
 	d.lineMotion = a.lineMotion;
 	d.reachable = a.reachable;
+	d.instructionId = QString::fromStdString(a.instructionId);
 	d.robotBackendId = QString::fromStdString(a.robotBackendId);
 	d.backendId = QString::fromStdString(a.backendId);
 	d.mountTcpOnPatRoot = a.mountTcpOnPatRoot;
@@ -391,6 +392,64 @@ void WidgetOsgViewHost::clearReachableWorkspaceOverlay()
 	if (OsgWidget* osg = osgWidget())
 	{
 		osg->clearReachableWorkspaceOverlay();
+	}
+}
+
+void WidgetOsgViewHost::setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setPlaybackCursorOverlay(cursor);
+	}
+}
+
+void WidgetOsgViewHost::clearPlaybackCursorOverlay()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->clearPlaybackCursorOverlay();
+	}
+}
+
+void WidgetOsgViewHost::setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setWaypointIndexLabels(labels);
+	}
+}
+
+void WidgetOsgViewHost::clearWaypointIndexLabels()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->clearWaypointIndexLabels();
+	}
+}
+
+void WidgetOsgViewHost::setInstructionWaypointPickMode(bool enabled)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setInstructionWaypointPickMode(enabled);
+	}
+}
+
+bool WidgetOsgViewHost::instructionWaypointPickMode() const
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		return osg->instructionWaypointPickMode();
+	}
+	return false;
+}
+
+void WidgetOsgViewHost::setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
+														   std::function<void()> onCanceled)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setInstructionWaypointPickCallbacks(std::move(onPicked), std::move(onCanceled));
 	}
 }
 

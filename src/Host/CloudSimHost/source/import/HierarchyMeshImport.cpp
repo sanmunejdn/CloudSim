@@ -1,9 +1,10 @@
-﻿/// @file HierarchyMeshImport.cpp
+/// @file HierarchyMeshImport.cpp
 /// @brief 层级网格导入
 
 #include "HierarchyMeshImport.h"
 
 #include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "BackendFileImport.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
@@ -20,7 +21,9 @@
 #include <QHash>
 #include <QLatin1String>
 
+#include <Discretize.h>
 #include <ShapeHandle.h>
+#include <ShapeQuery.h>
 
 namespace cloudsim::host
 {
@@ -77,6 +80,7 @@ bool registerHierarchyPartMeshes(DocumentHost& host, const QString& sourceFilePa
 		(void)onParentFollow;
 		pathToBackendId[partPath] = selfId;
 		lastLoadedMesh = partMesh;
+		out.partBackendIds.append(selfId);
 		++registered;
 	}
 	if (registered == 0)
@@ -152,7 +156,8 @@ bool registerCapturedHierarchyParts(DocumentHost& host, const QString& sourceFil
 bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
 									 const QString& defaultBaseName, const QString& importParentDisplayName,
 									 const std::vector<BrepHierarchyPart>& parts,
-									 const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
+									 const HierarchyFollowBindingFn& onParentFollow,
+									 const geoalgo::ShapeHandle& assemblyShape, HierarchyMeshImportResult& out,
 									 QString* outError)
 {
 	if (parts.empty())
@@ -162,9 +167,9 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 	auto importParent = std::make_shared<BrepBackendData>();
 	const QString parentLabel = importParentDisplayName.isEmpty() ? defaultBaseName : importParentDisplayName;
 	importParent->setName(parentLabel.toStdString());
-	if (!parts.front().shapeRef.isNull())
+	if (!assemblyShape.isNull())
 	{
-		importParent->setShape(parts.front().shapeRef);
+		importParent->setShape(assemblyShape);
 	}
 	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath, QLatin1String(backend_type::kCatalogBrepModel), QString(),
 									  outError))
@@ -172,19 +177,6 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 		return false;
 	}
 	const QString importParentId = QString::fromStdString(importParent->id());
-	const std::string importParentStdId = importParent->id();
-	if (importParent->hasGeometry())
-	{
-		if (OsgWidget* osg = osgWidgetFrom(host))
-		{
-			QString sceneErr;
-			if (!osg->loadBackendFromBackendData(*importParent, &sceneErr, false, false, true) && outError)
-			{
-				*outError = sceneErr.isEmpty() ? QStringLiteral("OSG B-rep assembly display failed.") : sceneErr;
-				return false;
-			}
-		}
-	}
 	QHash<QString, QString> pathToBackendId;
 	std::shared_ptr<BrepBackendData> lastLoaded;
 	int registered = 0;
@@ -204,7 +196,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 			pathToBackendId.contains(parentPartPath) ? pathToBackendId.value(parentPartPath) : importParentId;
 		QString regErr;
 		if (!registerAdoptedBrepAndLoadScene(host, partBrep, sourceFilePath, QLatin1String(backend_type::kCatalogBrepModel), parentId,
-											 false, &regErr, true, false))
+											 false, &regErr, false, true))
 		{
 			if (outError)
 			{
@@ -212,14 +204,11 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 			}
 			return false;
 		}
-		if (OsgWidget* osg = osgWidgetFrom(host))
-		{
-			osg->setPickVisualAlias(partBrep->id(), importParentStdId);
-		}
 		const QString selfId = QString::fromStdString(partBrep->id());
 		(void)onParentFollow;
 		pathToBackendId[partPath] = selfId;
 		lastLoaded = partBrep;
+		out.partBackendIds.append(selfId);
 		++registered;
 	}
 	if (registered == 0)
@@ -238,17 +227,102 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 bool importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
 							  const std::vector<BrepHierarchyPart>& parts, const QString& defaultBaseName,
 							  const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
-							  QString* outError, const QString& importParentDisplayName)
+							  QString* outError, const QString& importParentDisplayName,
+							  const geoalgo::ShapeHandle& assemblyShape)
 {
 	out = {};
 	if (!registerBrepHierarchyPartMeshes(host, sourceFilePath, catalogTypeName, defaultBaseName,
-										 importParentDisplayName, parts, onParentFollow, out, outError))
+										 importParentDisplayName, parts, onParentFollow, assemblyShape, out, outError))
 	{
 		if (outError && outError->isEmpty())
 		{
 			*outError = QStringLiteral("No B-rep parts were registered.");
 		}
 		return false;
+	}
+	return true;
+}
+
+bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const int faceIndex, QString* outPartId,
+							QString* outError)
+{
+	if (outPartId)
+	{
+		outPartId->clear();
+	}
+	const auto brep = std::dynamic_pointer_cast<BrepBackendData>(host.findObject(brepId));
+	if (!brep || brep->shapeRef().isNull())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("Not a B-rep object.");
+		}
+		return false;
+	}
+
+	geoalgo::ShapeHandle solid;
+	geoalgo::ShapeHandle remaining;
+	std::string extractErr;
+	if (!geoalgo::extractSolidByFaceIndex(brep->shapeRef(), faceIndex, solid, remaining, &extractErr) || solid.isNull())
+	{
+		if (outError)
+		{
+			*outError = extractErr.empty() ? QStringLiteral("Failed to resolve Solid from face.")
+										   : QString::fromStdString(extractErr);
+		}
+		return false;
+	}
+	if (remaining.isNull())
+	{
+		if (outPartId)
+		{
+			*outPartId = QString::fromStdString(brepId);
+		}
+		return true;
+	}
+
+	osg::Matrixd world;
+	bool haveWorld = false;
+	if (OsgWidget* osg = osgWidgetFrom(host))
+	{
+		haveWorld = osg->getBackendRootWorldMatrix(brepId, world);
+	}
+	const BackendMat4 parentWorld = brep->worldMatrix();
+	brep->setShape(remaining);
+	if (OsgWidget* osg = osgWidgetFrom(host))
+	{
+		osg->removeBackendObjectVisual(brepId);
+		QString visErr;
+		(void)osg->loadBackendFromBackendData(*brep, &visErr, false, false, true);
+	}
+
+	auto partBrep = std::make_shared<BrepBackendData>();
+	partBrep->setShape(solid);
+	partBrep->setWorldMatrix(parentWorld);
+	partBrep->setColor(brep->color());
+	const QString partName = QStringLiteral("%1 Solid").arg(QString::fromStdString(brep->name()));
+	partBrep->setName(partName.toStdString());
+	const QString sourcePath = host.backendSourcePath().value(QString::fromStdString(brepId));
+	QString regErr;
+	if (!registerAdoptedBrepAndLoadScene(host, partBrep, sourcePath, QLatin1String(backend_type::kCatalogBrepModel),
+										 QString::fromStdString(brepId), false, &regErr, false, true))
+	{
+		if (outError)
+		{
+			*outError = regErr.isEmpty() ? QStringLiteral("Failed to register extracted Solid.") : regErr;
+		}
+		return false;
+	}
+	if (haveWorld)
+	{
+		if (OsgWidget* osg = osgWidgetFrom(host))
+		{
+			osg->setBackendRootWorldMatrixFromWorld(partBrep->id(), world);
+		}
+	}
+	if (outPartId)
+	{
+		*outPartId = QString::fromStdString(partBrep->id());
 	}
 	return true;
 }
@@ -305,22 +379,8 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 	}
 	if (ext == QLatin1String("step") || ext == QLatin1String("stp"))
 	{
-		std::vector<BrepHierarchyPart> brepParts;
+		// 导入保持整件；拆件改由视口点面抽出
 		std::string stepErr;
-		if (BrepBackendData::loadStepHierarchyFromFile(nativePath, brepParts, &stepErr) && brepParts.size() > 1U)
-		{
-			if (importBrepHierarchyParts(host, filePath, catalogTypeName, brepParts, defaultBaseName, onParentFollow,
-										 out, outError, fileInfo.fileName()))
-			{
-				return true;
-			}
-			out.ok = false;
-			if (outError && outError->isEmpty())
-			{
-				*outError = QStringLiteral("STEP hierarchy import produced no registrable B-rep parts.");
-			}
-			return true;
-		}
 		auto brep = std::make_shared<BrepBackendData>();
 		brep->setName(fileInfo.fileName().toStdString());
 		if (brep->loadFromStepFile(nativePath, &stepErr) && brep->hasGeometry())

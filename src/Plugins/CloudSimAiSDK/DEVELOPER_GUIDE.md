@@ -224,7 +224,7 @@ Agent 主路径参数由 Dock 面板收集，**不再**依赖整窗模态。
 **trajectory.feature 运行时（V1）：**
 
 1. 用户在 AI 面板选「轨迹特征」；**须**在轨迹生成页 combo 已选 STEP 工件。
-2. `AiAssistantCoordinator::prepareTrajectoryFeatureRequest` 注入 `catalogFullUtf8` / `catalogSliceUtf8`；轨迹页自动 `ensureFeatureCatalogEnumerated`。
+2. `AiAssistantCoordinator::prepareTrajectoryFeatureRequest` 注入 `catalogFullUtf8` / `catalogSliceUtf8`；此时才 `ensureFeatureCatalogEnumerated`（导入 STEP 不预热全量边/面目录）。
 3. 解析链 `["rules","local"]`（可选 `remote`）：rules 走 `parseTrajectoryFeatureRequest`；LLM user 消息含 catalog 切片 JSON。
 4. 成功 → 3D **全部**候选编号高亮（`showAiFeatureCandidatePreview`）+ Dock **`AiConfirmPanel`「确认并离散」**（遗留按钮已隐藏）。叠加坐标：`buildPreviewOverlayJson` → `feature_pick_transform::stepModelPointToWorldMm`（pick alias + `getBackendRootWorldMatrix`，见 [`spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)）。
 5. 用户「选 1 和 3」→ `filterCatalogSliceByCandidateIds` → 3D **仅**选中项高亮；可多次调整编号。

@@ -37,7 +37,7 @@ void bindBrepPickIndex(BrepPickIndex& brepIndex, const BackendIdUserData* meta,
 	std::string err;
 	if (brepArtifacts)
 	{
-		(void)geoalgo::ensureBrepImportPickArtifacts(meta->brepShape(), *brepArtifacts, &err);
+		// 边离散放到首次边拾取；导入时做会把装配体拖死
 		(void)brepIndex.buildFromArtifacts(*brepArtifacts, &err);
 		return;
 	}

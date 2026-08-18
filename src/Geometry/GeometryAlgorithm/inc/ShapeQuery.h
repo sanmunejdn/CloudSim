@@ -1,4 +1,4 @@
-﻿#ifndef GEOMETRYALGORITHM_SHAPEQUERY_H
+#ifndef GEOMETRYALGORITHM_SHAPEQUERY_H
 #define GEOMETRYALGORITHM_SHAPEQUERY_H
 
 /// @file ShapeQuery.h
@@ -158,6 +158,13 @@ GEOMETRY_ALGORITHM_API bool pickShapeEdgeByModelPoint(const ShapeHandle& shape, 
  */
 GEOMETRY_ALGORITHM_API bool validateShapeFaceIndex(const ShapeHandle& shape, int faceIndex,
 												   std::string* errMsg = nullptr);
+
+/**
+ * 按面索引抽出所属 Solid，并从装配体中去掉该 Solid
+ * 仅一块 Solid 时 outRemaining 为空，outSolid 为整件
+ */
+GEOMETRY_ALGORITHM_API bool extractSolidByFaceIndex(const ShapeHandle& assembly, int faceIndex, ShapeHandle& outSolid,
+													ShapeHandle& outRemaining, std::string* errMsg = nullptr);
 
 /** 校验 edgeIndex */
 GEOMETRY_ALGORITHM_API bool validateShapeEdgeIndex(const ShapeHandle& shape, int edgeIndex,

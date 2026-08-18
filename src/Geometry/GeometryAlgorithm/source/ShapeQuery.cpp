@@ -23,6 +23,8 @@
 #include <cmath>
 #include <limits>
 
+#include <TopoDS_Compound.hxx>
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -1002,6 +1004,77 @@ bool validateShapeFaceIndex(const ShapeHandle& shapeHandle, const int faceIndex,
 	}
 	TopoDS_Face face;
 	return shapeFaceAtIndex(shape, faceIndex, face, errMsg);
+}
+
+bool extractSolidByFaceIndex(const ShapeHandle& assembly, const int faceIndex, ShapeHandle& outSolid,
+							 ShapeHandle& outRemaining, std::string* errMsg)
+{
+	outSolid = {};
+	outRemaining = {};
+	TopoDS_Shape native;
+	if (!nativeShapeOrErr(assembly, native, errMsg))
+	{
+		return false;
+	}
+	TopoDS_Face face;
+	if (!shapeFaceAtIndex(native, faceIndex, face, errMsg))
+	{
+		return false;
+	}
+
+	TopoDS_Shape hitSolid;
+	int solidCount = 0;
+	for (TopExp_Explorer sol(native, TopAbs_SOLID); sol.More(); sol.Next())
+	{
+		++solidCount;
+		const TopoDS_Shape s = sol.Current();
+		TopTools_IndexedMapOfShape faces;
+		TopExp::MapShapes(s, TopAbs_FACE, faces);
+		if (hitSolid.IsNull() && faces.Contains(face))
+		{
+			hitSolid = s;
+		}
+	}
+	if (solidCount <= 1)
+	{
+		outSolid = assembly;
+		return true;
+	}
+	if (hitSolid.IsNull())
+	{
+		if (errMsg)
+		{
+			*errMsg = "face is not on a Solid";
+		}
+		return false;
+	}
+
+	outSolid = ShapeHandleAccess::fromNativeShape(&hitSolid).clone();
+	BRep_Builder builder;
+	TopoDS_Compound remaining;
+	builder.MakeCompound(remaining);
+	int remainCount = 0;
+	TopoDS_Shape lastRemain;
+	for (TopExp_Explorer sol(native, TopAbs_SOLID); sol.More(); sol.Next())
+	{
+		const TopoDS_Shape s = sol.Current();
+		if (s.IsSame(hitSolid))
+		{
+			continue;
+		}
+		builder.Add(remaining, s);
+		lastRemain = s;
+		++remainCount;
+	}
+	if (remainCount == 1)
+	{
+		outRemaining = ShapeHandleAccess::fromNativeShape(&lastRemain);
+	}
+	else if (remainCount > 1)
+	{
+		outRemaining = ShapeHandleAccess::fromNativeShape(&remaining);
+	}
+	return true;
 }
 
 bool validateShapeEdgeIndex(const ShapeHandle& shapeHandle, const int edgeIndex, std::string* errMsg)

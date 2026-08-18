@@ -1,4 +1,4 @@
-﻿#ifndef GEOMETRYALGORITHM_DISCRETIZE_H
+#ifndef GEOMETRYALGORITHM_DISCRETIZE_H
 #define GEOMETRYALGORITHM_DISCRETIZE_H
 
 /// @file Discretize.h
@@ -119,11 +119,26 @@ GEOMETRY_ALGORITHM_API bool collectShapeHierarchy(const ShapeHandle& shape, cons
 
 /**
  * 仅遍历 OCCT 装配树输出路径/显示名，不填充 triangleSoup
- * 供 BREP 装配导入；各零件共享同一 assembly ShapeHandle
+ * Compound/CompSolid 继续展开，Solid 及以下为叶子
  */
 GEOMETRY_ALGORITHM_API bool collectShapeHierarchyTopology(const ShapeHandle& shape,
 														  std::vector<MeshHierarchyPart>& outParts,
 														  std::string* errMsg = nullptr);
+
+/// 装配体按 Solid 抽出的独立子形状（可各自 tessellate / 变换）
+struct ShapeHierarchyPart
+{
+	std::string partPath;
+	std::string parentPartPath;
+	std::string displayName;
+	ShapeHandle shape;
+};
+
+/**
+ * 按 TopAbs_SOLID 炸开；无 Solid 时整件作为一块
+ */
+GEOMETRY_ALGORITHM_API bool collectBrepSolidParts(const ShapeHandle& shape, std::vector<ShapeHierarchyPart>& outParts,
+												  std::string* errMsg = nullptr);
 
 /**
  * BRepMesh_IncrementalMesh 整件三角化（不写 soup，供后续按面提取）

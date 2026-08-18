@@ -1,4 +1,4 @@
-﻿/// @file CustomDeviceAssemblyDialog.cpp
+/// @file CustomDeviceAssemblyDialog.cpp
 /// @brief 自定义设备组装对话框
 
 #include "CustomDeviceAssemblyDialog.h"
@@ -116,6 +116,12 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	toolRow->setSpacing(6);
 	auto* fromSceneBtn =
 		new QPushButton(i18n(QStringLiteral("From scene…"), QStringLiteral("从场景选择…")), header);
+	m_pickSolidBtn =
+		new QPushButton(i18n(QStringLiteral("Pick solid in 3D"), QStringLiteral("3D 选择零件")), header);
+	m_pickSolidBtn->setCheckable(true);
+	m_pickSolidBtn->setToolTip(
+		i18n(QStringLiteral("Click a face on an assembly in the 3D view to extract that Solid as a link."),
+			 QStringLiteral("在视口中点击装配体的一个面，抽出该 Solid 作为独立连杆。")));
 	auto* importFileBtn =
 		new QPushButton(i18n(QStringLiteral("Import model…"), QStringLiteral("导入模型…")), header);
 	m_connectBtn = new QPushButton(i18n(QStringLiteral("Connect"), QStringLiteral("连接")), header);
@@ -124,12 +130,13 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	auto* setFixedBtn = new QPushButton(i18n(QStringLiteral("Set Fixed"), QStringLiteral("设为固定")), header);
 	auto* exportUrdfBtn =
 		new QPushButton(i18n(QStringLiteral("Export URDF…"), QStringLiteral("导出 URDF…")), header);
-	for (QPushButton* b : {fromSceneBtn, importFileBtn, m_connectBtn, setFixedBtn, exportUrdfBtn})
+	for (QPushButton* b : {fromSceneBtn, m_pickSolidBtn, importFileBtn, m_connectBtn, setFixedBtn, exportUrdfBtn})
 	{
 		b->setProperty("btnRole", QStringLiteral("secondary"));
 	}
 	removeBtn->setProperty("btnRole", QStringLiteral("danger"));
 	toolRow->addWidget(fromSceneBtn);
+	toolRow->addWidget(m_pickSolidBtn);
 	toolRow->addWidget(importFileBtn);
 	toolRow->addWidget(m_connectBtn);
 	toolRow->addWidget(removeBtn);
@@ -237,9 +244,20 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	connect(setFixedBtn, &QPushButton::clicked, this, [this]() { m_canvas->setSelectedFixed(true); });
 	connect(exportUrdfBtn, &QPushButton::clicked, this, &CustomDeviceAssemblyDialog::onExportUrdf);
 	connect(fromSceneBtn, &QPushButton::clicked, this, &CustomDeviceAssemblyDialog::onFromScene);
+	connect(m_pickSolidBtn, &QPushButton::toggled, this, &CustomDeviceAssemblyDialog::onPickSolidToggled);
 	connect(importFileBtn, &QPushButton::clicked, this, &CustomDeviceAssemblyDialog::onImportModels);
 	connect(buttons, &QDialogButtonBox::accepted, this, &CustomDeviceAssemblyDialog::onApplyAccepted);
 	connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+	connect(this, &QDialog::finished, this, [this]() {
+		if (m_pickSolidBtn)
+		{
+			m_pickSolidBtn->setChecked(false);
+		}
+		if (m_host)
+		{
+			m_host->endPickSolidInView();
+		}
+	});
 }
 
 QString CustomDeviceAssemblyDialog::i18n(const QString& en, const QString& zh) const
@@ -635,6 +653,40 @@ void CustomDeviceAssemblyDialog::onFromScene()
 		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
 							 errors.join(QLatin1Char('\n')));
 	}
+}
+
+void CustomDeviceAssemblyDialog::onPickSolidToggled(const bool on)
+{
+	if (!m_host)
+	{
+		return;
+	}
+	if (!on)
+	{
+		m_host->endPickSolidInView();
+		return;
+	}
+	QString err;
+	if (!ensureDevice(&err))
+	{
+		m_pickSolidBtn->blockSignals(true);
+		m_pickSolidBtn->setChecked(false);
+		m_pickSolidBtn->blockSignals(false);
+		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
+		return;
+	}
+	m_host->beginPickSolidInView([this](const QString& partId) {
+		if (partId.isEmpty() || m_childRootIds.contains(partId))
+		{
+			return;
+		}
+		QString attachErr;
+		if (!attachChildId(partId, &attachErr) && !attachErr.isEmpty())
+		{
+			QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+								 attachErr);
+		}
+	});
 }
 
 void CustomDeviceAssemblyDialog::onImportModels()

@@ -147,6 +147,8 @@ public slots:
 	void onRobotAxisExternalValuesChanged(const QVector<double>& values);
 	void onAxisControlTargetChanged(AxisControlTargetKind kind, const QString& id);
 	void onSimulationTcpDragTeachModeChanged(bool enabled);
+	void onInstructionWaypointPickModeChanged(bool enabled);
+	void onInstructionWaypointPicked(const std::string& instructionId);
 	void onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void onTcpDragTeachEnded();
 	void flushTcpDragTeachIkPending();
@@ -198,6 +200,8 @@ public slots:
 	refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr,
 										const QVector<double>* jointAnglesRadLocal = nullptr);
 	void refreshRobotCoordinateFrameOverlaysForPlayback();
+	void refreshPlaybackPathOverlays(const std::shared_ptr<RobotInstruction::Base>& highlightInstruction);
+	void clearPlaybackPathOverlays();
 	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction,
 											 const PrecomputedChainSeed* precomputedChainSeed = nullptr);
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
@@ -353,6 +357,8 @@ private:
 	const RobotInstruction::Base* m_playbackExtInterpMotion = nullptr;
 	/// 播放叠加高亮：避免每 tick 扫 instructionList
 	std::shared_ptr<RobotInstruction::Base> m_playbackOverlayHighlight;
+	/// 路点编号 overlay 指纹（focusId|enabled|running），相同则跳过重建
+	std::string m_waypointLabelOverlayFingerprint;
 	QString m_overlayCachedUrdfPath;
 	QString m_overlayCachedUrdfRootLink;
 

@@ -376,11 +376,38 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 					updateTcpDragTeachUi(checked);
 					return;
 				}
+				if (checked && m_waypointPickMode)
+				{
+					setInstructionWaypointPickMode(false);
+					emit instructionWaypointPickModeChanged(false);
+				}
 				m_tcpDragTeachMode = checked;
 				updateTcpDragTeachUi(checked);
 				emit tcpDragTeachModeChanged(checked);
 			});
 	funcRow->addWidget(m_tcpDragTeachBtn);
+	m_waypointPickBtn = new QPushButton(QStringLiteral("Pick"), editBar);
+	m_waypointPickBtn->setCheckable(true);
+	configureCompactButton(m_waypointPickBtn, kTypeBtnMinWidth);
+	applyBtnRole(m_waypointPickBtn, "secondary");
+	connect(m_waypointPickBtn, &QPushButton::toggled, this,
+			[this](const bool checked)
+			{
+				if (m_waypointPickMode == checked)
+				{
+					updateWaypointPickUi(checked);
+					return;
+				}
+				if (checked && m_tcpDragTeachMode)
+				{
+					setTcpDragTeachMode(false);
+					emit tcpDragTeachModeChanged(false);
+				}
+				m_waypointPickMode = checked;
+				updateWaypointPickUi(checked);
+				emit instructionWaypointPickModeChanged(checked);
+			});
+	funcRow->addWidget(m_waypointPickBtn);
 	m_removeBtn = new QPushButton(QStringLiteral("Remove"), editBar);
 	m_clearBtn = new QPushButton(QStringLiteral("Clear"), editBar);
 	configureCompactButton(m_removeBtn, kTypeBtnMinWidth);
@@ -431,6 +458,7 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 			});
 
 	UiIconDecorators::apply(m_tcpDragTeachBtn, UiIconId::TcpDragTeach);
+	UiIconDecorators::apply(m_waypointPickBtn, UiIconId::PickFace);
 	UiIconDecorators::apply(m_removeBtn, UiIconId::Delete);
 	UiIconDecorators::apply(m_clearBtn, UiIconId::Clear);
 	UiIconDecorators::apply(m_runBtn, UiIconId::Run, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Medium);
@@ -578,6 +606,10 @@ void SimulationCommandWidget::setTypeButtonsEnabled(const bool enabled)
 	{
 		m_tcpDragTeachBtn->setEnabled(enabled && !m_simulationRunning);
 	}
+	if (m_waypointPickBtn)
+	{
+		m_waypointPickBtn->setEnabled(enabled && !m_simulationRunning);
+	}
 }
 
 void SimulationCommandWidget::setTcpLinkOptions(const QStringList& linkNames, const QString& preferredLink)
@@ -669,7 +701,14 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 			chinese ? QStringLiteral("在 3D 视图中拖动 TCP 罗盘示教（不写指令）")
 					: QStringLiteral("Drag TCP gizmo in 3D view to teach pose (does not edit program)"));
 	}
+	if (m_waypointPickBtn)
+	{
+		m_waypointPickBtn->setText(chinese ? QStringLiteral("拾取") : QStringLiteral("Pick"));
+		m_waypointPickBtn->setToolTip(chinese ? QStringLiteral("在 3D 中点击路点，指令树跳转到该指令")
+											 : QStringLiteral("Click a waypoint in 3D to select it in the tree"));
+	}
 	updateTcpDragTeachUi(m_tcpDragTeachMode);
+	updateWaypointPickUi(m_waypointPickMode);
 	updateTypeButtonLabels();
 	rebuildCommandListWidget();
 }
@@ -835,9 +874,21 @@ void SimulationCommandWidget::setSimulationRunning(bool running)
 		updateTcpDragTeachUi(false);
 		emit tcpDragTeachModeChanged(false);
 	}
+	if (running && m_waypointPickBtn && m_waypointPickBtn->isChecked())
+	{
+		const QSignalBlocker b(m_waypointPickBtn);
+		m_waypointPickBtn->setChecked(false);
+		m_waypointPickMode = false;
+		updateWaypointPickUi(false);
+		emit instructionWaypointPickModeChanged(false);
+	}
 	if (m_tcpDragTeachBtn)
 	{
 		m_tcpDragTeachBtn->setEnabled(!running && m_hasRobotContext);
+	}
+	if (m_waypointPickBtn)
+	{
+		m_waypointPickBtn->setEnabled(!running && m_hasRobotContext);
 	}
 	updateRunStopButtons();
 }
@@ -867,32 +918,81 @@ void SimulationCommandWidget::updateTcpDragTeachUi(const bool enabled)
 	{
 		applyBtnRole(m_tcpDragTeachBtn, enabled ? "primary" : "secondary");
 	}
-	if (m_tcpDragHintLabel)
+	refreshEditModeHint();
+}
+
+void SimulationCommandWidget::setInstructionWaypointPickMode(const bool enabled)
+{
+	if (!m_waypointPickBtn)
 	{
-		if (enabled)
-		{
-			m_tcpDragHintLabel->setText(
-				m_useChinese ? QStringLiteral("拖动示教中：在 3D 视图拖动 TCP，再次点击「拖动」退出")
-							 : QStringLiteral("TCP teach on: drag gizmo in 3D view; click Drag again to exit"));
-			m_tcpDragHintLabel->setVisible(true);
-			if (m_tcpDragTeachBtn)
-			{
-				QToolTip::showText(m_tcpDragTeachBtn->mapToGlobal(QPoint(0, m_tcpDragTeachBtn->height())),
-								   m_tcpDragHintLabel->text(), m_tcpDragTeachBtn);
-			}
-		}
-		else
-		{
-			m_tcpDragHintLabel->clear();
-			m_tcpDragHintLabel->setVisible(false);
-			QToolTip::hideText();
-		}
+		m_waypointPickMode = enabled;
+		return;
 	}
+	if (m_waypointPickBtn->isChecked() == enabled)
+	{
+		m_waypointPickMode = enabled;
+		updateWaypointPickUi(enabled);
+		return;
+	}
+	const QSignalBlocker b(m_waypointPickBtn);
+	m_waypointPickBtn->setChecked(enabled);
+	m_waypointPickMode = enabled;
+	updateWaypointPickUi(enabled);
+}
+
+void SimulationCommandWidget::updateWaypointPickUi(const bool enabled)
+{
+	if (m_waypointPickBtn)
+	{
+		applyBtnRole(m_waypointPickBtn, enabled ? "primary" : "secondary");
+	}
+	refreshEditModeHint();
+}
+
+void SimulationCommandWidget::refreshEditModeHint()
+{
+	if (!m_tcpDragHintLabel)
+	{
+		return;
+	}
+	if (m_tcpDragTeachMode)
+	{
+		m_tcpDragHintLabel->setText(
+			m_useChinese ? QStringLiteral("拖动示教中：在 3D 视图拖动 TCP，再次点击「拖动」退出")
+						 : QStringLiteral("TCP teach on: drag gizmo in 3D view; click Drag again to exit"));
+		m_tcpDragHintLabel->setVisible(true);
+		if (m_tcpDragTeachBtn)
+		{
+			QToolTip::showText(m_tcpDragTeachBtn->mapToGlobal(QPoint(0, m_tcpDragTeachBtn->height())),
+							   m_tcpDragHintLabel->text(), m_tcpDragTeachBtn);
+		}
+		return;
+	}
+	if (m_waypointPickMode)
+	{
+		m_tcpDragHintLabel->setText(m_useChinese ? QStringLiteral("拾取路点：在 3D 中点击路径点，Esc 退出")
+												 : QStringLiteral("Pick waypoint: click a path point in 3D; Esc to exit"));
+		m_tcpDragHintLabel->setVisible(true);
+		if (m_waypointPickBtn)
+		{
+			QToolTip::showText(m_waypointPickBtn->mapToGlobal(QPoint(0, m_waypointPickBtn->height())),
+							   m_tcpDragHintLabel->text(), m_waypointPickBtn);
+		}
+		return;
+	}
+	m_tcpDragHintLabel->clear();
+	m_tcpDragHintLabel->setVisible(false);
+	QToolTip::hideText();
 }
 
 bool SimulationCommandWidget::tcpDragTeachMode() const
 {
 	return m_tcpDragTeachMode;
+}
+
+bool SimulationCommandWidget::instructionWaypointPickMode() const
+{
+	return m_waypointPickMode;
 }
 
 void SimulationCommandWidget::rebuildCommandListWidget()

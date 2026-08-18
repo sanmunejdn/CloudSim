@@ -81,6 +81,8 @@
 #include <osg/PolygonOffset>
 #include <osg/PositionAttitudeTransform>
 #include <osg/PrimitiveSet>
+#include <osg/Shape>
+#include <osg/ShapeDrawable>
 #include <osg/StateAttribute>
 #include <osg/StateSet>
 #include <osg/Transform>
@@ -737,6 +739,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 
 	if (axes.empty())
 	{
+		m_instructionWaypointPickTargets.clear();
 		requestRedraw();
 		return;
 	}
@@ -750,10 +753,17 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 	lineVerts->reserve(axes.size() * 6U);
 	lineColors->reserve(axes.size() * 6U);
 	constexpr float kAxisLenMm = 40.0f;
+	m_instructionWaypointPickTargets.clear();
+	m_instructionWaypointPickTargets.reserve(axes.size());
 	for (const RobotOsgUi::InstructionPoseAxis& a : axes)
 	{
 		appendWorldPoseMarker(*pointVerts, *pointColors, *lineVerts, *lineColors, osgVec3FromCore(a.positionMm),
 							  osgVec3FromCore(a.eulerDeg), a.reachable, kAxisLenMm, true, true, true);
+		if (!a.instructionId.empty())
+		{
+			m_instructionWaypointPickTargets.push_back(
+				InstructionWaypointPickTarget{a.instructionId, a.positionMm});
+		}
 	}
 	m_instructionPoseAxesGroup->addChild(
 		createBatchedPoseMarkersGeode(pointVerts, pointColors, lineVerts, lineColors).get());
@@ -762,6 +772,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 
 void OsgWidget::clearInstructionPoseAxes()
 {
+	m_instructionWaypointPickTargets.clear();
 	if (m_instructionPoseAxesGroup.valid())
 	{
 		m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
@@ -915,6 +926,220 @@ void OsgWidget::clearReachableWorkspaceOverlay()
 		m_reachableWorkspaceOverlayGeode->removeDrawables(0, m_reachableWorkspaceOverlayGeode->getNumDrawables());
 	}
 	requestRedraw();
+}
+
+void OsgWidget::setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor)
+{
+	if (!m_trajectoryOverlayGroup.valid())
+	{
+		return;
+	}
+	if (!m_playbackCursorMt.valid())
+	{
+		m_playbackCursorMt = new osg::MatrixTransform;
+		m_playbackCursorMt->setName("PlaybackCursor");
+		m_playbackCursorMt->setNodeMask(OsgScene::kMaskPickOverlay);
+
+		osg::ref_ptr<osg::Group> content = new osg::Group;
+		osg::ref_ptr<osg::Geode> marker = new osg::Geode;
+		osg::ref_ptr<osg::ShapeDrawable> sphere =
+			new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 8.0f));
+		sphere->setColor(osg::Vec4(1.0f, 0.45f, 0.12f, 0.95f));
+		marker->addDrawable(sphere.get());
+		content->addChild(marker.get());
+		content->addChild(createInstructionPoseAxisGeode(55.0f, true, true, true, true).get());
+		osg::StateSet* ss = content->getOrCreateStateSet();
+		const auto off = osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+		ss->setMode(GL_LIGHTING, off);
+		ss->setMode(GL_DEPTH_TEST, off);
+		ss->setRenderBinDetails(110, "RenderBin");
+		m_playbackCursorMt->addChild(content.get());
+		m_trajectoryOverlayGroup->addChild(m_playbackCursorMt.get());
+	}
+	else if (m_playbackCursorMt->getNumParents() == 0)
+	{
+		m_trajectoryOverlayGroup->addChild(m_playbackCursorMt.get());
+	}
+
+	osg::Matrixd m;
+	m.makeRotate(OsgScene::eulerDegToQuat(
+		osg::Vec3f(static_cast<float>(cursor.eulerDeg.x), static_cast<float>(cursor.eulerDeg.y),
+				   static_cast<float>(cursor.eulerDeg.z))));
+	m.setTrans(cursor.positionMm.x, cursor.positionMm.y, cursor.positionMm.z);
+	m_playbackCursorMt->setMatrix(m);
+	m_playbackCursorMt->setNodeMask(OsgScene::kMaskPickOverlay);
+	requestRedraw();
+}
+
+void OsgWidget::clearPlaybackCursorOverlay()
+{
+	if (m_playbackCursorMt.valid())
+	{
+		m_playbackCursorMt->setNodeMask(0);
+	}
+	requestRedraw();
+}
+
+void OsgWidget::setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels)
+{
+	if (!m_trajectoryOverlayGroup.valid())
+	{
+		return;
+	}
+	if (!m_waypointIndexLabelsGroup.valid())
+	{
+		m_waypointIndexLabelsGroup = new osg::Group;
+		m_waypointIndexLabelsGroup->setName("WaypointIndexLabels");
+		m_waypointIndexLabelsGroup->setNodeMask(OsgScene::kMaskPickOverlay);
+		m_trajectoryOverlayGroup->addChild(m_waypointIndexLabelsGroup.get());
+	}
+	else if (m_waypointIndexLabelsGroup->getNumParents() == 0)
+	{
+		m_trajectoryOverlayGroup->addChild(m_waypointIndexLabelsGroup.get());
+	}
+	m_waypointIndexLabelsGroup->removeChildren(0, m_waypointIndexLabelsGroup->getNumChildren());
+	for (const RobotOsgUi::WaypointIndexLabel& lab : labels)
+	{
+		if (lab.displayIndex <= 0)
+		{
+			continue;
+		}
+		const osg::Vec3 pos(static_cast<float>(lab.positionMm.x), static_cast<float>(lab.positionMm.y),
+							static_cast<float>(lab.positionMm.z));
+		osg::ref_ptr<osg::AutoTransform> labelXform = new osg::AutoTransform;
+		labelXform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
+		labelXform->setAutoScaleToScreen(true);
+		labelXform->setAutoScaleTransitionWidthRatio(0.25f);
+		labelXform->setMinimumScale(0.5f);
+		labelXform->setMaximumScale(3.0f);
+		// 避开橙球中心，落到可读位置
+		labelXform->setPosition(pos);
+		osg::ref_ptr<osgText::Text> text = new osgText::Text;
+		text->setText(std::to_string(lab.displayIndex));
+		text->setCharacterSize(22.0f);
+		text->setFontResolution(96, 96);
+		text->setAxisAlignment(osgText::TextBase::SCREEN);
+		text->setAlignment(osgText::Text::LEFT_CENTER);
+		text->setPosition(osg::Vec3(14.0f, 0.0f, 0.0f));
+		// 黑字叠在法兰/橙球上几乎看不见
+		text->setColor(osg::Vec4(1.0f, 0.35f, 0.05f, 1.0f));
+		text->setBackdropType(osgText::Text::NONE);
+		osg::ref_ptr<osg::Geode> textGeode = new osg::Geode;
+		textGeode->addDrawable(text.get());
+		osg::StateSet* textSs = textGeode->getOrCreateStateSet();
+		textSs->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		textSs->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+		depth->setFunction(osg::Depth::ALWAYS);
+		depth->setWriteMask(false);
+		textSs->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		textSs->setRenderBinDetails(120, "RenderBin");
+		labelXform->addChild(textGeode.get());
+		m_waypointIndexLabelsGroup->addChild(labelXform.get());
+	}
+	requestRedraw();
+}
+
+void OsgWidget::clearWaypointIndexLabels()
+{
+	if (m_waypointIndexLabelsGroup.valid())
+	{
+		m_waypointIndexLabelsGroup->removeChildren(0, m_waypointIndexLabelsGroup->getNumChildren());
+	}
+	requestRedraw();
+}
+
+void OsgWidget::setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
+												   std::function<void()> onCanceled)
+{
+	m_instructionWaypointPicked = std::move(onPicked);
+	m_instructionWaypointPickCanceled = std::move(onCanceled);
+}
+
+void OsgWidget::setInstructionWaypointPickMode(bool enabled)
+{
+	if (m_instructionWaypointPickMode == enabled)
+	{
+		return;
+	}
+	m_instructionWaypointPickMode = enabled;
+	if (enabled)
+	{
+		m_objectSelectionMode = false;
+		m_pointPickMode = false;
+		m_polylinePickMode = false;
+		m_meshLinePickMode = false;
+		m_meshFacePickMode = false;
+		m_dragging = false;
+		m_rotating = false;
+		m_dragAxis = DragAxis::None;
+		updateCompassHighlight(DragAxis::None);
+		emit activeAxisChanged(QStringLiteral("None"));
+		resetNavigationInputQueues();
+		if (m_glWidget)
+		{
+			m_lastViewportCursor = Qt::CrossCursor;
+			m_glWidget->setCursor(Qt::CrossCursor);
+		}
+	}
+	else if (m_glWidget)
+	{
+		m_lastViewportCursor = Qt::ArrowCursor;
+		m_glWidget->setCursor(Qt::ArrowCursor);
+	}
+	syncCameraManipulatorForModes();
+	refreshCompassDrawVisibility();
+}
+
+bool OsgWidget::tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string& outInstructionId) const
+{
+	if (!m_viewer.valid() || !m_viewer->getCamera() || m_instructionWaypointPickTargets.empty())
+	{
+		return false;
+	}
+	const osg::Matrixd mvp = m_viewer->getCamera()->getViewMatrix() * m_viewer->getCamera()->getProjectionMatrix();
+	const double vw = static_cast<double>(viewportWidth());
+	const double vh = static_cast<double>(viewportHeight());
+	if (vw <= 1.0 || vh <= 1.0)
+	{
+		return false;
+	}
+	const double hitR2 = kPointPickHitRadiusPx * kPointPickHitRadiusPx;
+	bool found = false;
+	double bestD2 = hitR2;
+	double bestDepth = (std::numeric_limits<double>::max)();
+	for (const InstructionWaypointPickTarget& t : m_instructionWaypointPickTargets)
+	{
+		if (t.instructionId.empty())
+		{
+			continue;
+		}
+		const osg::Vec3d clip =
+			osg::Vec3d(t.positionMm.x, t.positionMm.y, t.positionMm.z) * mvp;
+		if (clip.z() < -1.0 || clip.z() > 1.0)
+		{
+			continue;
+		}
+		const double sx = (clip.x() * 0.5 + 0.5) * vw;
+		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * vh;
+		const double dx = sx - static_cast<double>(mouseX);
+		const double dy = sy - static_cast<double>(mouseY);
+		const double d2 = dx * dx + dy * dy;
+		if (d2 > hitR2)
+		{
+			continue;
+		}
+		constexpr double kDepthTie = 1e-4;
+		if (!found || clip.z() + kDepthTie < bestDepth ||
+			(std::abs(clip.z() - bestDepth) <= kDepthTie && d2 < bestD2))
+		{
+			found = true;
+			bestD2 = d2;
+			bestDepth = clip.z();
+			outInstructionId = t.instructionId;
+		}
+	}
+	return found;
 }
 
 void OsgWidget::setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ)
@@ -3482,18 +3707,36 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 				requestRedraw();
 				return true;
 			}
+			if (m_instructionWaypointPickMode && mouseEvent->button() == Qt::LeftButton)
+			{
+				std::string instructionId;
+				if (tryPickInstructionWaypointAt(mouseEvent->x(), mouseEvent->y(), instructionId))
+				{
+					emit instructionWaypointPicked(QString::fromStdString(instructionId));
+					if (m_instructionWaypointPicked)
+					{
+						m_instructionWaypointPicked(instructionId);
+					}
+				}
+				return true;
+			}
 		}
 		// 基面拾取期间光标由 applyOriginPlaneHover 维护，避免被 ViewCube 逻辑盖掉
 		if (type == QEvent::MouseMove && !m_originPlanePickActive)
 		{
 			const auto* mouseEvent = static_cast<QMouseEvent*>(event);
-			// 拖视图跳过 ViewCube 拾取；光标仅在形状变化时 set，避免样式表反复 polish
 			if (mouseEvent->buttons() == Qt::NoButton)
 			{
-				const Qt::CursorShape want =
-					isMouseOverViewCube(static_cast<double>(mouseEvent->x()), static_cast<double>(mouseEvent->y()))
-						? Qt::PointingHandCursor
-						: Qt::ArrowCursor;
+				Qt::CursorShape want = Qt::ArrowCursor;
+				if (m_instructionWaypointPickMode)
+				{
+					want = Qt::CrossCursor;
+				}
+				else if (isMouseOverViewCube(static_cast<double>(mouseEvent->x()),
+											 static_cast<double>(mouseEvent->y())))
+				{
+					want = Qt::PointingHandCursor;
+				}
 				if (want != m_lastViewportCursor)
 				{
 					m_lastViewportCursor = want;
@@ -3527,6 +3770,17 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 				{
 					endTcpDragTeach();
 					emit tcpDragTeachEnded();
+					requestRedraw();
+					return true;
+				}
+				if (m_instructionWaypointPickMode)
+				{
+					setInstructionWaypointPickMode(false);
+					emit instructionWaypointPickCanceled();
+					if (m_instructionWaypointPickCanceled)
+					{
+						m_instructionWaypointPickCanceled();
+					}
 					requestRedraw();
 					return true;
 				}

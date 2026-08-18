@@ -138,9 +138,9 @@ m_stagingGroup（导入预览）
 | 方法 | 说明 |
 |------|------|
 | `PickSpatialIndex` | `bindBackendVisualRoot` 时从 Geode 构建 KD（**BREP 域跳过**） |
-| `BackendPickIndexRegistry` | `backendId → { pointIndex, brepIndex, generation }`；BREP 仅建 `brepIndex`；bind 前 `ensureBrepImportPickArtifacts`（Phase2） |
-| `BrepPickIndex` | 面/边射线拾取；`buildFromArtifacts` 复用 `BrepImportArtifacts`；无 artifacts 时 `build()` 仍会全量 tessellate（应避免） |
-| `cachePickablePointsFromNode` | 优先从 registry 导入，避免选中时重扫 Geode |
+| `BackendPickIndexRegistry` | `backendId → { pointIndex, brepIndex, generation }`；BREP 仅建 `brepIndex`（`buildFromArtifacts`，导入时**不**跑 Phase2 边离散） |
+| `BrepPickIndex` | 面拾取复用 Phase1；边折线延到首次边拾取 `ensureBrepImportPickArtifacts` |
+| `cachePickablePointsFromNode` | 优先 registry；`brepIndex` 非空则**跳过**显示顶点 KD（装配体会卡死） |
 | `pickPointAtScreenPos` / `pickNearestPointAtScreenPos` | 屏幕最近点（legacy，内部仍可用） |
 | `pickPointByRayIntersection` | 射线拾取 |
 
@@ -194,6 +194,9 @@ m_stagingGroup（导入预览）
 | `setRawTrajectoryOverlay(..., segmentEndExclusive)` | 每段独立 `LINE_STRIP` + 全点 POINTS；空 segment 列表时单条折线 |
 | `setInstructionPoseAxes` / `setRawTrajectoryOverlayFrames` | 实现于 `Widget/source/OsgWidget.cpp`：可见路点**合并为 1 个 Geode**（`POINTS` 原点 + `LINES` XYZ），勿再为每点建 `MatrixTransform`+`ShapeDrawable` 球；增删指令靠编排层全量 `set*` 重建 |
 | `setReachableWorkspaceOverlay` / `clearReachableWorkspaceOverlay` | 半透明体素方块（可达域）；独立 Geode，勿与轨迹 overlay 混用 |
+| `setPlaybackCursorOverlay` / `clearPlaybackCursorOverlay` | 选中路点游标：单 `MatrixTransform`（橙球+短轴） |
+| `setWaypointIndexLabels` / `clearWaypointIndexLabels` | 选中路点序号（通常仅 1 个） |
+| `setInstructionWaypointPickMode` | 左键屏幕最近邻拾取路点（`instructionId`），勿为每点建可拾取节点 |
 
 UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syncSectionPlanePreview` / `syncBsplineSurfacePreview`）。
 

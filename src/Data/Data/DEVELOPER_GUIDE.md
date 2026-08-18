@@ -221,7 +221,7 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 
 **现象与约定**：`BackendVisual` 在 `useSceneLighting=true` 时，无法线缓冲则用法线 `n = (p1-p0)×(p2-p0)`。绕序局部不一致会导致**部分或整面发黑**；带 `vn` 的 CAD/Max OBJ 必须走文件法线路径。
 
-**Widget 导入**：STEP 优先 `BrepBackendData::loadStepHierarchyFromFile`（B-rep 装配，见 §4.4）；单件 STEP/BREP 走 `BrepBackendData::loadFromStepFile` / `loadFromBrepFile`。网格路径仍可用 `MeshBackendData::loadStepHierarchyFromFile`（tessellated 分件）。`.obj` 等不走 OSG `importModelFile` fallback（见该控制器注释）。
+**Widget 导入**：STEP 走 `BrepBackendData::loadFromStepFile`（**整件** `BrepModel`，见 Host §4.4.1b）；拆件用 `extractBrepSolidByFace`。`loadStepHierarchyFromFile` 仍按 Solid 列出独立 shape，Open Model 不调用。网格路径仍可用 `MeshBackendData::loadStepHierarchyFromFile`（tessellated 分件）。`.obj` 等不走 OSG `importModelFile` fallback（见该控制器注释）。
 
 ### 4.3 `struct MeshHierarchyPart`
 
@@ -239,14 +239,14 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 | `setShape` / `shapeRef()` | 持有 `geoalgo::ShapeHandle`；显示与特征离散共用 |
 | `shareShapeFrom(other)` | 装配子零件共享 assembly shape |
 | `loadFromStepFile` / `loadFromBrepFile` / `writeBrepFile` | STEP/BREP 文件 I/O |
-| `loadStepHierarchyFromFile` | 静态；`collectShapeHierarchyTopology` → `BrepHierarchyPart[]`（**无 tessellation**） |
+| `loadStepHierarchyFromFile` | 静态；`collectBrepSolidParts` → 每 Solid 独立 `shapeRef`；可选 `outAssembly` |
 | `setBrepSidecarRelativePath` | 工程内嵌 `.brep` 相对路径 |
 
 | `BrepHierarchyPart` 字段 | 说明 |
 |-------------------------|------|
 | `partPath` / `parentPartPath` | 装配树路径（与 mesh 层级相同约定） |
 | `displayName` | 树节点显示名 |
-| `shapeRef` | 当前实现为共享整件 assembly shape |
+| `shapeRef` | 该 Solid 的独立 `ShapeHandle`（非共享整件） |
 
 显示 tessellation 在 `GeometryAlgorithm::getOrBuildBrepImportArtifacts`（Phase1/2 分阶段）；Data 层只持久化 BREP shape + 工程 `.brep` sidecar，**不**持久化 display soup。
 

@@ -1,4 +1,4 @@
-﻿#ifndef CLOUDSIMHOST_HIERARCHYMESHIMPORT_H
+#ifndef CLOUDSIMHOST_HIERARCHYMESHIMPORT_H
 #define CLOUDSIMHOST_HIERARCHYMESHIMPORT_H
 
 /// @file HierarchyMeshImport.h
@@ -7,10 +7,13 @@
 #include "cloudsim_host_global.h"
 
 #include <QString>
+#include <QStringList>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <ShapeHandle.h>
 
 class BackendDataBase;
 class BrepBackendData;
@@ -29,6 +32,7 @@ struct HierarchyMeshImportResult
 	std::shared_ptr<MeshBackendData> lastRegisteredMesh;
 	std::shared_ptr<BrepBackendData> lastRegisteredBrep;
 	int registeredPartCount = 0;
+	QStringList partBackendIds;
 };
 
 using HierarchyFollowBindingFn =
@@ -46,7 +50,12 @@ CLOUDSIM_HOST_EXPORT bool
 importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
 						 const std::vector<BrepHierarchyPart>& parts, const QString& defaultBaseName,
 						 const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
-						 QString* outError = nullptr, const QString& importParentDisplayName = QString());
+						 QString* outError = nullptr, const QString& importParentDisplayName = QString(),
+						 const geoalgo::ShapeHandle& assemblyShape = {});
+
+/// 3D 点到的面所属 Solid 抽成独立 B-rep；仅一块时返回原对象
+CLOUDSIM_HOST_EXPORT bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, int faceIndex,
+												 QString* outPartId, QString* outError = nullptr);
 
 /// 扩展网格导入
 CLOUDSIM_HOST_EXPORT bool importMeshFileExtended(DocumentHost& host, const QString& filePath,

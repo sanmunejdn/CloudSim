@@ -42,8 +42,8 @@ struct GEOMETRY_ALGORITHM_API BrepImportBuildTimings
 };
 
 /**
- * Phase1：Medium 精度整件离散 + tri→face 映射 + displayNormals
- * 内部 tessellateShapePerFaceMedium（linear 0.01mm，角 0.5°）
+ * Phase1：显示离散 + tri→face 映射 + displayNormals
+ * 相对包围盒偏差，避免装配体 0.01mm 绝对网格卡死
  * @return false：null shape 或 mesh 为空
  */
 GEOMETRY_ALGORITHM_API bool buildBrepImportArtifactsDisplay(const ShapeHandle& shape, BrepImportArtifacts& out,

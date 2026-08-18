@@ -19,7 +19,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | Area | Location |
 |------|----------|
 | Simulation dock（工作区 **设备**：顶栏「机器人 / 自定义设备」；子页含轴控制；机器人：指令/轴控/…；自定义设备：设备指令/轴控） | `RobotSimulationDockWidget`, page widgets |
-| **自定义设备组装** | `CustomDeviceAssemblyDialog` + `CustomDeviceAssemblyCanvasWidget`；提交内核 `CustomDeviceAssemblyCommit`（RobotScene）；宿主 `ICustomDeviceAssemblyHost`（Widget/`MainWindowRobotHost`） |
+| **自定义设备组装** | `CustomDeviceAssemblyDialog`；「3D 选择零件」→ `beginPickSolidInView` / `extractBrepSolidByFace`；提交 `CustomDeviceAssemblyCommit` |
 | **设备指令（姿态库 + DI 信号驱动）** | `DeviceCommandPageWidget` + `CustomDeviceSimService`；姿态/`poseSignalBindings`/`signals` 在 `CustomDeviceBackendData`；DI 来自本设备信号表 |
 | **IO 网络 / 连接站** | 桌面：`IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站；Tab stash `ioSignalNetworkCache`。网页/Headless：Host `IoSignalNetwork`（同侧车 JSON）+ Gateway `/api/io/network*`，见 [`docs/网页端信号网络与自定义设备/`](../../../docs/网页端信号网络与自定义设备/)。过程稿 [`docs/_archive/IO信号与流程/`](../../../docs/_archive/IO信号与流程/) |
 | Orchestration | `RobotSimulationController`（门面；含 `IoSignalNetworkService` 等小服务） |
@@ -171,6 +171,8 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | 点击指令树 | `InstructionProgramTreeWidget::instructionSelected` → `SimulationCommandWidget::instructionSelectionChanged` → `onSimulationInstructionSelectionChanged` →（非 TCP 拖动）`applyRobotPoseForInstructionPreview` |
 | 点 Run | `runRequested` → `onSimulationStartTriggered` → `tryStart` + 同步 `playbackRate` + `QTimer` → `onRobotSimulationTick` → `ensurePlaybackPlansReady` → `tick` + `tickLookaheadPlanning` |
 | 仿真倍率 | Instructions 页 `Sim Rate` 下拉 → `playbackRateChanged` → `RobotProgramExecutor::setPlaybackRate`；虚拟时钟缩放播放，**不改** `plan.durationSec` |
+| 选中路点高亮 | 指令树选中有位姿指令 → 3D 橙游标 + 该点序号；运行中树跟播时同步同一套（tick 内补刷，因 SignalBlocker） |
+| 3D 拾取路点 | Instructions「拾取」→ 点击可见路点（屏幕 32px 最近邻）→ `selectInstructionByRaw` 跳树；与「拖动」互斥，运行中禁用 |
 
 `emitSelection=false` 重建树时不发 `instructionSelected`，避免在工具扩展写入前触发预览/IK（见 `InstructionProgramTreeWidget`）。
 
@@ -382,7 +384,7 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 | 区域 | 控件 | 行为 |
 |------|------|------|
 | 筛选栏 | 类型 / 品牌 `QComboBox`、刷新 | 驱动 `m_packagesByTypeBrand`；仅 1 个品牌时隐藏品牌 Combo |
-| 自定义设备 | 按钮 | `customDeviceCreateRequested` / 编辑 / 导出 → `MainWindow` 薄转发 → `CustomDeviceAssemblyDialog`（组装画布）；提交经 `CustomDeviceAssemblyCommit` |
+| 自定义设备 | 按钮 | `customDeviceCreateRequested` / 编辑 / 导出 → `CustomDeviceAssemblyDialog`；组装页「3D 选择零件」点面抽 Solid（`extractBrepSolidByFace`） |
 | 型号网格 | `QScrollArea` + `QGridLayout` | 缩略图 96×88；列数随 viewport 宽度自适应；点击 → `urdfImportRequested` |
 | 数据源 | `resource/models/{Type}/{Brand}/{Package}` | 扫描与 URDF 匹配逻辑不变 |
 
@@ -777,7 +779,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 | 选 PathPlan | 顶栏 `m_pathPlanCombo` → `TrajectoryEditSession::bindPathPlan` |
 | 开始修改 | `beginEditBoundPathPlan()` — 特征表 + 离散参数 + 算子流程 + 预览 |
 | 取消修改 | `cancelEditBoundPathPlan()` — 退出编辑态、清表/预览；已落盘 PathPlan 保留 |
-| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；`Model` 需 `.step`/`.stp`；`BrepModel` 需内存 shape（含 AI `createPrimitiveMesh`）；真实 STEP 路径去重，虚拟/`BrepModel` 按 id 保留；切页/`showEvent` 会 `refreshWorkpieces`（`blockSignals` + 恢复原 backendId，**仅工件真正变化才清空特征表**）。空列表时 `emptyWorkpieceHint` 仅写 `m_pickStatusLabel`，**不**因刷新刷 RunInfo；拾取/离散等操作失败仍 `setStatus` → RunInfo |
+| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；切页/`showEvent` 会 `refreshWorkpieces`（`blockSignals` + 恢复原 backendId）。**不**在 `refreshBackendCombo` 里排队全量特征目录（Open Model 后 `bindHost` 会走到这里，大装配含二面角可达数分钟）。目录在用户切换 combo 或 AI `ensureFeatureCatalogEnumerated` 时再算 |
 | **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → 由互斥按钮「追加到选中 / 新建特征」决定写入方式（当前模式 `btnRole=primary` 高亮 + 状态行提示；追加须表有选中行）；`FaceIntersection` 需同行 ≥2 面、`FaceOffsetCurve` 需同行面+边，几何未齐时保持/切换拾取态；右键「移除面/边…」勾选剔除索引 |
 | 离散策略 | 拾取前下拉（面/线 affinity 过滤）；`resolveStrategyIdForPick` 严格匹配；`normalizeEntryStrategyForGeometry` 纠正策略/几何不一致 |
 | 离散参数模板 | 策略行下方命名模板：保存/加载/删除/导入/导出（`UserTemplateLibrary` · Discretize；仅 `strategyId`+`params`） |
@@ -831,7 +833,7 @@ AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校�
 
 | API（`FeatureTrajectoryPageWidget`） | 说明 |
 |--------------------------------------|------|
-| `ensureFeatureCatalogEnumerated` | 对当前 combo 工件调用 `enumerateFeatureCatalog`（AI 解析前自动触发） |
+| `ensureFeatureCatalogEnumerated` | 对当前 combo 工件调用 `enumerateFeatureCatalog`（AI 解析前触发；**不**在导入/combo 刷新时预热） |
 | `buildAndShowCandidatePreview` | catalog 切片 → `buildPreviewOverlayJson` → 边完整折线 / 选中后面片 → `setFeatureCatalogOverlay` |
 | `clearCandidatePreview` | 清除 3D 特征叠加 |
 | `commitFeaturePlanFromAi` | 计划 JSON → 多特征离散 + 写入 `TrajectoryEditSession`；有 `pipeline[]` 则 `applyPipelineOps`，否则 recipe 回退 |

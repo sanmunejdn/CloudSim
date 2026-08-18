@@ -54,6 +54,10 @@ public:
 
 	bool tcpDragTeachMode() const;
 
+	void setInstructionWaypointPickMode(bool enabled);
+
+	bool instructionWaypointPickMode() const;
+
 	void setRobotInstances(const QStringList& labels, const QStringList& backendIds);
 
 	int currentRobotInstanceIndex() const;
@@ -126,6 +130,8 @@ signals:
 
 	void tcpDragTeachModeChanged(bool enabled);
 
+	void instructionWaypointPickModeChanged(bool enabled);
+
 private:
 	void rebuildCommandListWidget();
 
@@ -168,6 +174,10 @@ private:
 	void refreshArcTeachButtonLabels();
 
 	void updateTcpDragTeachUi(bool enabled);
+
+	void updateWaypointPickUi(bool enabled);
+
+	void refreshEditModeHint();
 
 	QPushButton* createTypeButton(RobotInstruction::Type type);
 
@@ -222,9 +232,13 @@ private:
 
 	QPushButton* m_tcpDragTeachBtn = nullptr;
 
+	QPushButton* m_waypointPickBtn = nullptr;
+
 	QLabel* m_tcpDragHintLabel = nullptr;
 
 	bool m_tcpDragTeachMode = false;
+
+	bool m_waypointPickMode = false;
 
 	bool m_arcTeachPending = false;
 };
