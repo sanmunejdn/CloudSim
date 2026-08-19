@@ -368,11 +368,12 @@ void BackendDataBase::setPose(const BackendVec3& position)
 	{
 		return;
 	}
-	BackendVec3 p{};
-	BackendVec3 r{};
-	backend_pose_euler_from_world_mat(m_worldMatrix, p, r);
-	p = position;
-	m_worldMatrix = backend_world_mat_from_pose(p, r);
+	const BackendVec3 cur = pose();
+	if (maxAbsVec3Diff(cur, position) <= 5e-4)
+	{
+		return;
+	}
+	m_worldMatrix = backend_world_mat_replace_translation(m_worldMatrix, position);
 }
 
 BackendVec3 BackendDataBase::rotation() const
@@ -396,8 +397,12 @@ void BackendDataBase::setRotation(const BackendVec3& eulerDeg)
 	BackendVec3 p{};
 	BackendVec3 r{};
 	backend_pose_euler_from_world_mat(m_worldMatrix, p, r);
-	r = eulerDeg;
-	m_worldMatrix = backend_world_mat_from_pose(p, r);
+	const BackendMat4 proposed = backend_world_mat_from_pose(p, eulerDeg);
+	if (backend_mat4_nearly_equal(m_worldMatrix, proposed, 1e-5))
+	{
+		return;
+	}
+	m_worldMatrix = proposed;
 }
 
 void BackendDataBase::applyBackendWorldPose(const BackendVec3& centerWorld, const BackendVec3& eulerDegWorld)
@@ -406,7 +411,12 @@ void BackendDataBase::applyBackendWorldPose(const BackendVec3& centerWorld, cons
 	{
 		return;
 	}
-	m_worldMatrix = backend_world_mat_from_pose(centerWorld, eulerDegWorld);
+	const BackendMat4 proposed = backend_world_mat_from_pose(centerWorld, eulerDegWorld);
+	if (backend_mat4_nearly_equal(m_worldMatrix, proposed, 1e-5))
+	{
+		return;
+	}
+	m_worldMatrix = proposed;
 }
 
 BackendPoseReferenceFrame BackendDataBase::poseReferenceFrame() const

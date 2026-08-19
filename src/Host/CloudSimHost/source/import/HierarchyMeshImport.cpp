@@ -21,6 +21,7 @@
 #include <QHash>
 #include <QLatin1String>
 
+#include <BrepImportArtifacts.h>
 #include <Discretize.h>
 #include <ShapeHandle.h>
 #include <ShapeQuery.h>
@@ -167,10 +168,8 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 	auto importParent = std::make_shared<BrepBackendData>();
 	const QString parentLabel = importParentDisplayName.isEmpty() ? defaultBaseName : importParentDisplayName;
 	importParent->setName(parentLabel.toStdString());
-	if (!assemblyShape.isNull())
-	{
-		importParent->setShape(assemblyShape);
-	}
+	// 空壳父：勿挂整装配 Shape，否则选中根节点会 ensureSelectionVisual 把整件再上屏，子件勾选隐藏无效
+	(void)assemblyShape;
 	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath, QLatin1String(backend_type::kCatalogBrepModel), QString(),
 									  outError))
 	{
@@ -224,6 +223,103 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 
 } // namespace
 
+bool warmBrepHierarchyPartsDisplayFromAssembly(
+	const geoalgo::ShapeHandle& assembly, const std::vector<BrepHierarchyPart>& parts,
+	const std::function<void(double progress01, const QString& status)>& progress, QString* outError)
+{
+	auto report = [&](const double p, const QString& status)
+	{
+		if (progress)
+		{
+			progress(p, status);
+		}
+	};
+	if (parts.empty())
+	{
+		report(1.0, QString());
+		return true;
+	}
+
+	auto warmOne = [&](const geoalgo::ShapeHandle& shape, const double pEnd) -> bool
+	{
+		if (shape.isNull())
+		{
+			return true;
+		}
+		geoalgo::BrepImportBuildTimings timings;
+		std::string artifactErr;
+		const auto artifacts = geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr, &timings);
+		if (!artifacts)
+		{
+			if (outError)
+			{
+				*outError = artifactErr.empty() ? QStringLiteral("B-rep tessellation failed.")
+												: QString::fromStdString(artifactErr);
+			}
+			return false;
+		}
+		(void)timings;
+		report(pEnd, QStringLiteral("Meshing B-rep..."));
+		return true;
+	};
+
+	if (assembly.isNull())
+	{
+		const std::size_t n = parts.size();
+		for (std::size_t i = 0; i < n; ++i)
+		{
+			const double p1 = 0.4 + 0.5 * (static_cast<double>(i + 1) / static_cast<double>(n));
+			report(0.4 + 0.5 * (static_cast<double>(i) / static_cast<double>(n)), QStringLiteral("Meshing B-rep parts..."));
+			if (!warmOne(parts[i].shapeRef, p1))
+			{
+				return false;
+			}
+		}
+		report(1.0, QString());
+		return true;
+	}
+
+	report(0.4, QStringLiteral("Meshing B-rep assembly..."));
+	geoalgo::BrepImportBuildTimings timings;
+	std::string artifactErr;
+	const auto assemblyArt = geoalgo::getOrBuildBrepImportArtifacts(assembly, &artifactErr, &timings);
+	if (!assemblyArt)
+	{
+		if (outError)
+		{
+			*outError = artifactErr.empty() ? QStringLiteral("B-rep tessellation failed.")
+											: QString::fromStdString(artifactErr);
+		}
+		return false;
+	}
+	(void)timings;
+	report(0.7, QStringLiteral("Slicing B-rep parts..."));
+
+	const std::size_t n = parts.size();
+	for (std::size_t i = 0; i < n; ++i)
+	{
+		const geoalgo::ShapeHandle& partShape = parts[i].shapeRef;
+		if (partShape.isNull())
+		{
+			continue;
+		}
+		std::string sliceErr;
+		auto sliced = geoalgo::sliceBrepImportArtifactsForShape(assembly, *assemblyArt, partShape, &sliceErr);
+		if (sliced)
+		{
+			geoalgo::putBrepImportArtifacts(partShape, std::move(sliced));
+		}
+		else if (!warmOne(partShape, 0.7 + 0.25 * (static_cast<double>(i + 1) / static_cast<double>(n))))
+		{
+			return false;
+		}
+		report(0.7 + 0.25 * (static_cast<double>(i + 1) / static_cast<double>(n)),
+			   QStringLiteral("Slicing B-rep parts..."));
+	}
+	report(1.0, QString());
+	return true;
+}
+
 bool importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
 							  const std::vector<BrepHierarchyPart>& parts, const QString& defaultBaseName,
 							  const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
@@ -231,6 +327,11 @@ bool importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath,
 							  const geoalgo::ShapeHandle& assemblyShape)
 {
 	out = {};
+	// 同步导入无 Worker 预热时在此补一次；异步路径缓存命中几乎无开销
+	if (!warmBrepHierarchyPartsDisplayFromAssembly(assemblyShape, parts, {}, outError))
+	{
+		return false;
+	}
 	if (!registerBrepHierarchyPartMeshes(host, sourceFilePath, catalogTypeName, defaultBaseName,
 										 importParentDisplayName, parts, onParentFollow, assemblyShape, out, outError))
 	{
@@ -281,6 +382,21 @@ bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const
 		return true;
 	}
 
+	const geoalgo::ShapeHandle origShape = brep->shapeRef();
+	std::string artErr;
+	// 复用装配三角网；拆掉再重剖会把剩余件显示掏空
+	if (const auto origArt = geoalgo::getOrBuildBrepImportArtifacts(origShape, &artErr))
+	{
+		if (auto remainArt = geoalgo::sliceBrepImportArtifactsForShape(origShape, *origArt, remaining, &artErr))
+		{
+			geoalgo::putBrepImportArtifacts(remaining, std::move(remainArt));
+		}
+		if (auto solidArt = geoalgo::sliceBrepImportArtifactsForShape(origShape, *origArt, solid, &artErr))
+		{
+			geoalgo::putBrepImportArtifacts(solid, std::move(solidArt));
+		}
+	}
+
 	osg::Matrixd world;
 	bool haveWorld = false;
 	if (OsgWidget* osg = osgWidgetFrom(host))
@@ -291,9 +407,16 @@ bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const
 	brep->setShape(remaining);
 	if (OsgWidget* osg = osgWidgetFrom(host))
 	{
-		osg->removeBackendObjectVisual(brepId);
 		QString visErr;
-		(void)osg->loadBackendFromBackendData(*brep, &visErr, false, false, true);
+		if (!osg->loadBackendFromBackendData(*brep, &visErr, false, false, true))
+		{
+			brep->setShape(origShape);
+			if (outError)
+			{
+				*outError = visErr.isEmpty() ? QStringLiteral("剩余件显示重建失败") : visErr;
+			}
+			return false;
+		}
 	}
 
 	auto partBrep = std::make_shared<BrepBackendData>();
@@ -379,34 +502,55 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 	}
 	if (ext == QLatin1String("step") || ext == QLatin1String("stp"))
 	{
-		// 导入保持整件；拆件改由视口点面抽出
+		// 根 Compound 只拆一层子装配；单件仍整件导入
+		std::vector<BrepHierarchyPart> brepParts;
+		geoalgo::ShapeHandle assembly;
 		std::string stepErr;
-		auto brep = std::make_shared<BrepBackendData>();
-		brep->setName(fileInfo.fileName().toStdString());
-		if (brep->loadFromStepFile(nativePath, &stepErr) && brep->hasGeometry())
+		if (BrepBackendData::loadStepHierarchyFromFile(nativePath, brepParts, &stepErr, &assembly) &&
+			brepParts.size() > 1U)
 		{
-			QString regErr;
-			if (!registerAdoptedBrepAndLoadScene(host, brep, filePath, QLatin1String(backend_type::kCatalogBrepModel), QString(), true,
-												 &regErr))
+			if (importBrepHierarchyParts(host, filePath, catalogTypeName, brepParts, defaultBaseName, onParentFollow,
+										 out, outError, fileInfo.fileName(), assembly))
 			{
-				if (outError)
-				{
-					*outError = regErr.isEmpty() ? QStringLiteral("Failed to register B-rep.") : regErr;
-				}
-				out.ok = false;
 				return true;
 			}
-			out.ok = true;
-			out.lastRegisteredBrep = brep;
-			out.registeredPartCount = 1;
+			out.ok = false;
+			if (outError && outError->isEmpty())
+			{
+				*outError = QStringLiteral("STEP hierarchy import produced no registrable B-rep parts.");
+			}
 			return true;
 		}
-		if (outError)
+		auto brep = std::make_shared<BrepBackendData>();
+		brep->setName(fileInfo.fileName().toStdString());
+		if (brepParts.size() == 1U && !brepParts.front().shapeRef.isNull())
 		{
-			*outError =
-				QString::fromStdString(stepErr.empty() ? std::string("Failed to load STEP as B-rep.") : stepErr);
+			brep->setShape(brepParts.front().shapeRef);
 		}
-		out.ok = false;
+		else if (!brep->loadFromStepFile(nativePath, &stepErr) || !brep->hasGeometry())
+		{
+			if (outError)
+			{
+				*outError =
+					QString::fromStdString(stepErr.empty() ? std::string("Failed to load STEP as B-rep.") : stepErr);
+			}
+			out.ok = false;
+			return true;
+		}
+		QString regErr;
+		if (!registerAdoptedBrepAndLoadScene(host, brep, filePath, QLatin1String(backend_type::kCatalogBrepModel),
+											 QString(), true, &regErr))
+		{
+			if (outError)
+			{
+				*outError = regErr.isEmpty() ? QStringLiteral("Failed to register B-rep.") : regErr;
+			}
+			out.ok = false;
+			return true;
+		}
+		out.ok = true;
+		out.lastRegisteredBrep = brep;
+		out.registeredPartCount = 1;
 		return true;
 	}
 

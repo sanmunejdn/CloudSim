@@ -298,6 +298,9 @@ public:
 		(void)cWorld;
 	}
 	void hideMeshElementHighlight() {}
+	void showPinnedMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld) { (void)vertsWorld; }
+	void hidePinnedMeshFaceHighlight() {}
+	void setCrossObjectMeshPick(bool) {}
 	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld)
 	{
 		(void)triangleVertsWorld;

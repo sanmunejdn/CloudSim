@@ -30,6 +30,7 @@ void OsgScene::cacheSelectionGizmoPose()
 	m_lastGizmoCenterPlusPose = f.centerPlusPose();
 	m_lastGizmoAttitude = f.attitude();
 	m_hasLastSelectionPose = true;
+	m_lastGizmoBackendId = m_activeBackendId;
 }
 
 void OsgScene::syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging)
@@ -44,14 +45,16 @@ void OsgScene::syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur,
 		m_lastGizmoCenterPlusPose = cur.centerPlusPose();
 		m_lastGizmoAttitude = cur.attitude();
 		m_hasLastSelectionPose = true;
+		m_lastGizmoBackendId = m_activeBackendId;
 		return;
 	}
-	if (!m_hasLastSelectionPose)
+	// 换选/首次：只记下本件当前姿态。用上一件的 last pose 当增量会把逻辑子件拖走
+	if (!m_hasLastSelectionPose || m_lastGizmoBackendId != m_activeBackendId)
 	{
 		m_lastGizmoCenterPlusPose = cur.centerPlusPose();
 		m_lastGizmoAttitude = cur.attitude();
 		m_hasLastSelectionPose = true;
-		m_activeBackendOuterPat->setMatrix(ObjectGizmoFrame::outerLocalMatrix(cur.centerPlusPose(), cur.attitude()));
+		m_lastGizmoBackendId = m_activeBackendId;
 		return;
 	}
 
@@ -93,6 +96,7 @@ void OsgScene::syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur,
 	m_lastGizmoCenterPlusPose = curPos;
 	m_lastGizmoAttitude = curAtt;
 	m_hasLastSelectionPose = true;
+	m_lastGizmoBackendId = m_activeBackendId;
 }
 
 void OsgScene::setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId)

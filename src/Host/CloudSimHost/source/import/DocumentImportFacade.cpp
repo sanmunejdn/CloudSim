@@ -382,10 +382,36 @@ bool ModelBackgroundLoadState::executeLoad(
 	{
 		report(0.05, QStringLiteral("Reading STEP..."));
 		std::string stepErr;
+		std::vector<BrepHierarchyPart> hierarchyParts;
+		geoalgo::ShapeHandle assembly;
+		report(0.15, QStringLiteral("Reading STEP..."));
+		if (!BrepBackendData::loadStepHierarchyFromFile(nativePath, hierarchyParts, &stepErr, &assembly))
+		{
+			if (outError)
+			{
+				*outError = stepErr.empty() ? QStringLiteral("Failed to load STEP.") : QString::fromStdString(stepErr);
+			}
+			return false;
+		}
+		if (hierarchyParts.size() > 1U)
+		{
+			m_impl->brepHierarchyParts = std::move(hierarchyParts);
+			m_impl->brepHierarchyAssembly = assembly;
+			m_impl->kind = ModelLoadKind::BrepHierarchy;
+			return warmBrepHierarchyPartsDisplayFromAssembly(m_impl->brepHierarchyAssembly, m_impl->brepHierarchyParts,
+															 report, outError);
+		}
 		m_impl->brep = std::make_shared<BrepBackendData>();
 		m_impl->brep->setName(m_impl->displayName.toStdString());
-		report(0.15, QStringLiteral("Reading STEP..."));
-		if (!m_impl->brep->loadFromStepFile(nativePath, &stepErr))
+		if (hierarchyParts.size() == 1U && !hierarchyParts.front().shapeRef.isNull())
+		{
+			m_impl->brep->setShape(hierarchyParts.front().shapeRef);
+		}
+		else if (!assembly.isNull())
+		{
+			m_impl->brep->setShape(assembly);
+		}
+		else if (!m_impl->brep->loadFromStepFile(nativePath, &stepErr))
 		{
 			if (outError)
 			{
@@ -394,7 +420,6 @@ bool ModelBackgroundLoadState::executeLoad(
 			return false;
 		}
 		m_impl->kind = ModelLoadKind::SimpleBrep;
-		// IncrementalMesh 已关并行；放后台才能在进度到 100% 前继续重绘
 		report(0.4, QStringLiteral("Meshing B-rep..."));
 		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.9, 1.0, outError))
 		{

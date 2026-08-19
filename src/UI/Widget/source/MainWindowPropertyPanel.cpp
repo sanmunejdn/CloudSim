@@ -23,6 +23,7 @@
 #include <QColor>
 #include <QEvent>
 #include <QList>
+#include <QTimer>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QWidget>
@@ -251,9 +252,57 @@ bool isColorComponentKey(const QString& key)
 		   key == QStringLiteral("color.a");
 }
 
+QString propertyRowValue(DocumentPage& doc, const QString& backendId, const QString& key)
+{
+	const QVector<cloudsim::core::PropertyRowDto> rows = doc.data().propertyRows(backendId);
+	for (const cloudsim::core::PropertyRowDto& r : rows)
+	{
+		if (r.key == key)
+		{
+			return r.value;
+		}
+	}
+	return QString();
+}
+
 double clampUnitInterval(const double v)
 {
 	return std::clamp(v, 0.0, 1.0);
+}
+
+bool poseDtoNearlyEqual(const cloudsim::core::PoseDto& a, const cloudsim::core::PoseDto& b)
+{
+	// 勿用 near：windows.h 会把它宏成空
+	const auto within = [](double x, double y) { return std::abs(x - y) <= 1e-3; };
+	return within(a.positionMm.x, b.positionMm.x) && within(a.positionMm.y, b.positionMm.y) &&
+		   within(a.positionMm.z, b.positionMm.z) && within(a.eulerDeg.x, b.eulerDeg.x) &&
+		   within(a.eulerDeg.y, b.eulerDeg.y) && within(a.eulerDeg.z, b.eulerDeg.z);
+}
+
+bool propertyNumericValuesEqual(const QVariant& editorValue, const QString& rowText)
+{
+	bool okRow = false;
+	const double row = rowText.toDouble(&okRow);
+	if (!okRow)
+	{
+		return false;
+	}
+	bool okEd = false;
+	double ed = 0.0;
+	if (editorValue.type() == QVariant::Double)
+	{
+		ed = editorValue.toDouble();
+		okEd = true;
+	}
+	else
+	{
+		ed = editorValue.toString().toDouble(&okEd);
+	}
+	if (!okEd)
+	{
+		return false;
+	}
+	return std::abs(ed - row) <= 5e-4;
 }
 
 bool colorFromPropertyRows(const QVector<cloudsim::core::PropertyRowDto>& rows, QColor* outColor)
@@ -1069,6 +1118,26 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
 	return QMainWindow::eventFilter(watched, event);
 }
 
+void MainWindow::beginPropertyBrowserProgrammaticUpdate()
+{
+	++m_propertyBrowserUpdateGuardGeneration;
+	m_updatingPropertyBrowser = true;
+}
+
+void MainWindow::endPropertyBrowserProgrammaticUpdate()
+{
+	const int gen = m_propertyBrowserUpdateGuardGeneration;
+	QTimer::singleShot(0, this,
+					   [this, gen]()
+					   {
+						   if (gen != m_propertyBrowserUpdateGuardGeneration)
+						   {
+							   return;
+						   }
+						   m_updatingPropertyBrowser = false;
+					   });
+}
+
 void MainWindow::updatePropertyPanel(const QString& backendId)
 {
 	if (!m_propertyBrowser || !m_variantManager)
@@ -1109,19 +1178,19 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 		m_followTargetNameDebounceBackendId.clear();
 		m_followTargetNameDebounceText.clear();
 	}
-	m_updatingPropertyBrowser = true;
+	beginPropertyBrowserProgrammaticUpdate();
 	clearPropertyKeyVariantMap();
 	m_variantManager->clear();
 	if (backendId.isEmpty())
 	{
-		m_updatingPropertyBrowser = false;
+		endPropertyBrowserProgrammaticUpdate();
 		return;
 	}
 
 	DocumentPage* docPage = currentPage();
 	if (!docPage || !docPage->data().isValid(backendId))
 	{
-		m_updatingPropertyBrowser = false;
+		endPropertyBrowserProgrammaticUpdate();
 		return;
 	}
 	const QVector<cloudsim::core::PropertyRowDto> rows = docPage->data().propertyRows(backendId);
@@ -1155,7 +1224,7 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 								 m_activeAxisName, false);
 	}
 
-	m_updatingPropertyBrowser = false;
+	endPropertyBrowserProgrammaticUpdate();
 }
 
 void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVariant& value)
@@ -1189,6 +1258,10 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	}
 
 	const QString propertyKey = property->whatsThis();
+	if (m_propertyKeyToVariant.value(propertyKey) != property)
+	{
+		return; // 上一对象编辑器残留
+	}
 	if (propertyKey == QStringLiteral("color"))
 	{
 		QColor qc = qvariant_cast<QColor>(value);
@@ -1217,8 +1290,18 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	}
 	if (propertyKey == QStringLiteral("follow.targetName"))
 	{
+		const QString text = variantValueToString(value);
+		if (text == propertyRowValue(*docPage, backendId, propertyKey))
+		{
+			return;
+		}
+		if (text.trimmed().isEmpty() &&
+			!docPage->data().hasComponent(backendId, QStringLiteral("FollowAttachment")))
+		{
+			return;
+		}
 		m_followTargetNameDebounceBackendId = backendId;
-		m_followTargetNameDebounceText = variantValueToString(value);
+		m_followTargetNameDebounceText = text;
 		m_followTargetNameDebounceTimer.start(400);
 		return;
 	}
@@ -1227,26 +1310,27 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		return;
 	}
 	const QString valueText = variantValueToString(value);
-
+	const QString currentText = propertyRowValue(*docPage, backendId, propertyKey);
+	if (valueText == currentText)
+	{
+		return;
+	}
 	const bool isPoseRotEdit = isPoseComponentKey(propertyKey) || isRotationComponentKey(propertyKey);
+	if (isPoseRotEdit && propertyNumericValuesEqual(value, currentText))
+	{
+		return;
+	}
+
+	cloudsim::core::PoseDto poseBefore{};
 	if (isPoseRotEdit)
 	{
-		beginPropertyPanelNumericEdit(backendId, propertyKey);
+		poseBefore = docPage->data().worldPoseMm(backendId);
 	}
 
 	QString dsErr;
 	const bool applyOk = docPage->data().applyPropertyChange(backendId, propertyKey, valueText, &dsErr);
 	if (!applyOk)
 	{
-		if (isPoseRotEdit)
-		{
-			m_propertyPanelActiveEditKey.clear();
-			m_propertyPanelActiveEditContextId.clear();
-			m_propertyPanelDeferFullRebuild = false;
-			m_propertyVisualPreviewTimer.stop();
-			m_propertyVisualPreviewBackendId.clear();
-			docPage->setDeferPropertyPanelVisualFullSync(false);
-		}
 		updatePropertyPanel(backendId);
 		return;
 	}
@@ -1256,8 +1340,13 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	{
 		afterBackendFollowPropertyEdited(propertyKey, valueText);
 	}
-	else
+	else if (isPoseRotEdit)
 	{
+		if (poseDtoNearlyEqual(poseBefore, docPage->data().worldPoseMm(backendId)))
+		{
+			return;
+		}
+		beginPropertyPanelNumericEdit(backendId, propertyKey);
 		docPage->markFollowAttachmentDirtyFromBackendMove(backendId);
 	}
 
@@ -1300,6 +1389,13 @@ void MainWindow::flushFollowTargetNamePropertyEdit()
 		RunLogger::debug(std::string("[PropertyCommitDBG] skip follow name commit without document page id=") +
 						 backendId.toStdString());
 		RunLogger::flush();
+		m_followTargetNameDebounceBackendId.clear();
+		m_followTargetNameDebounceText.clear();
+		return;
+	}
+	if (m_followTargetNameDebounceText.trimmed().isEmpty() &&
+		!docPage->data().hasComponent(backendId, QStringLiteral("FollowAttachment")))
+	{
 		m_followTargetNameDebounceBackendId.clear();
 		m_followTargetNameDebounceText.clear();
 		return;

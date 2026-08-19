@@ -3,6 +3,7 @@
 
 #include "SelfTest.h"
 
+#include "AssemblyMate.h"
 #include "SketchExtrude.h"
 
 #include "BrepBoolean.h"
@@ -85,6 +86,70 @@ double maxSampledPairDistanceMm(const std::vector<float>& aXyz, const std::vecto
 		maxDist = std::max(maxDist, std::sqrt(bestSq));
 	}
 	return maxDist;
+}
+
+Eigen::Vector3d mateAxis(const FaceMateGeom& g)
+{
+	return {g.axisUnit.x, g.axisUnit.y, g.axisUnit.z};
+}
+
+Eigen::Vector3d mateOrigin(const FaceMateGeom& g)
+{
+	return {g.originMm.x, g.originMm.y, g.originMm.z};
+}
+
+FaceMateGeom xformMateGeom(const FaceMateGeom& g, const Eigen::Isometry3d& d)
+{
+	FaceMateGeom o = g;
+	const Eigen::Vector3d p = d * mateOrigin(g);
+	const Eigen::Vector3d a = d.linear() * mateAxis(g);
+	o.originMm = {p.x(), p.y(), p.z()};
+	o.axisUnit = {a.x(), a.y(), a.z()};
+	return o;
+}
+
+bool findFaceByKindAxis(const ShapeHandle& h, const FaceMateSurfaceKind kind, const Eigen::Vector3d* axisWant,
+						FaceMateGeom& out, std::string* err)
+{
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(h, &native) || native.IsNull())
+	{
+		if (err)
+		{
+			*err = "null shape";
+		}
+		return false;
+	}
+	const int n = shapeFaceCount(native);
+	for (int i = 0; i < n; ++i)
+	{
+		FaceMateGeom g;
+		std::string qerr;
+		if (!queryFaceMateGeom(h, i, nullptr, g, &qerr) || g.kind != kind)
+		{
+			continue;
+		}
+		if (axisWant)
+		{
+			Eigen::Vector3d a = mateAxis(g);
+			if (a.norm() < 1e-9)
+			{
+				continue;
+			}
+			a.normalize();
+			if (a.dot(*axisWant) < 0.98)
+			{
+				continue;
+			}
+		}
+		out = g;
+		return true;
+	}
+	if (err)
+	{
+		*err = "face not found";
+	}
+	return false;
 }
 
 bool soupBoundingBoxDiagonal(const std::vector<float>& soup, double& outDiagonal)
@@ -1326,9 +1391,10 @@ bool runSelfTest(std::vector<std::string>& failures)
 		const TopoDS_Shape boxB = BRepPrimAPI_MakeBox(gp_Pnt(30.0, 0.0, 0.0), 10.0, 10.0, 10.0).Shape();
 		builder.Add(compound, boxA);
 		builder.Add(compound, boxB);
+		const auto assemblyHandle = ShapeHandleAccess::fromNativeShape(&compound);
 		std::vector<ShapeHierarchyPart> parts;
 		std::string err;
-		if (!collectBrepSolidParts(ShapeHandleAccess::fromNativeShape(&compound), parts, &err) || parts.size() != 2U)
+		if (!collectBrepSolidParts(assemblyHandle, parts, &err) || parts.size() != 2U)
 		{
 			fail("collectBrepSolidPartsCompound", err.empty() ? "expected 2 solids" : err);
 		}
@@ -1337,10 +1403,35 @@ bool runSelfTest(std::vector<std::string>& failures)
 		{
 			fail("collectBrepSolidPartsSolid", err.empty() ? "expected 1 solid" : err);
 		}
+		{
+			BRep_Builder nestedBuilder;
+			TopoDS_Compound inner;
+			nestedBuilder.MakeCompound(inner);
+			nestedBuilder.Add(inner, boxA);
+			nestedBuilder.Add(inner, boxB);
+			const TopoDS_Shape boxC = BRepPrimAPI_MakeBox(gp_Pnt(60.0, 0.0, 0.0), 10.0, 10.0, 10.0).Shape();
+			TopoDS_Compound outer;
+			nestedBuilder.MakeCompound(outer);
+			nestedBuilder.Add(outer, inner);
+			nestedBuilder.Add(outer, boxC);
+			const auto nestedHandle = ShapeHandleAccess::fromNativeShape(&outer);
+			std::vector<ShapeHierarchyPart> topParts;
+			if (!collectBrepTopLevelShapeParts(nestedHandle, topParts, &err) || topParts.size() != 2U)
+			{
+				fail("collectBrepTopLevelShapeParts", err.empty() ? "expected 2 top-level children" : err);
+			}
+			std::vector<ShapeHierarchyPart> flatSolids;
+			if (!collectBrepSolidParts(nestedHandle, flatSolids, &err) || flatSolids.size() != 3U)
+			{
+				fail("collectBrepSolidPartsNested", err.empty() ? "expected 3 solids under nest" : err);
+			}
+		}
+		std::string artErr;
+		const auto origArt = getOrBuildBrepImportArtifacts(assemblyHandle, &artErr);
 		geoalgo::ShapeHandle extracted;
 		geoalgo::ShapeHandle remain;
-		if (!extractSolidByFaceIndex(ShapeHandleAccess::fromNativeShape(&compound), 0, extracted, remain, &err) ||
-			extracted.isNull() || remain.isNull())
+		if (!extractSolidByFaceIndex(assemblyHandle, 0, extracted, remain, &err) || extracted.isNull() ||
+			remain.isNull())
 		{
 			fail("extractSolidByFaceIndex", err.empty() ? "expected split" : err);
 		}
@@ -1348,6 +1439,32 @@ bool runSelfTest(std::vector<std::string>& failures)
 		if (!collectBrepSolidParts(remain, remainParts, &err) || remainParts.size() != 1U)
 		{
 			fail("extractSolidByFaceIndexRemain", err.empty() ? "expected 1 remaining solid" : err);
+		}
+		if (!origArt || !origArt->hasDisplayData())
+		{
+			fail("extractSliceArtifactsSource", artErr.empty() ? "assembly artifacts" : artErr);
+		}
+		else if (!extracted.isNull() && !remain.isNull())
+		{
+			const auto remainArt = sliceBrepImportArtifactsForShape(assemblyHandle, *origArt, remain, &artErr);
+			if (!remainArt || !remainArt->hasDisplayData())
+			{
+				fail("sliceBrepImportArtifactsRemain", artErr.empty() ? "remaining slice empty" : artErr);
+			}
+			else
+			{
+				putBrepImportArtifacts(remain, remainArt);
+				const auto cachedRemain = getOrBuildBrepImportArtifacts(remain, &artErr);
+				if (!cachedRemain || cachedRemain.get() != remainArt.get())
+				{
+					fail("putBrepImportArtifactsRemain", "remaining artifacts cache miss");
+				}
+			}
+			const auto solidArt = sliceBrepImportArtifactsForShape(assemblyHandle, *origArt, extracted, &artErr);
+			if (!solidArt || !solidArt->hasDisplayData())
+			{
+				fail("sliceBrepImportArtifactsSolid", artErr.empty() ? "solid slice empty" : artErr);
+			}
 		}
 		std::vector<MeshHierarchyPart> topoParts;
 		if (!collectShapeHierarchyTopology(ShapeHandleAccess::fromNativeShape(&compound), topoParts, &err) ||
@@ -1380,6 +1497,186 @@ bool runSelfTest(std::vector<std::string>& failures)
 			path.points.size() < 2U)
 		{
 			fail("featureDiscretizeEdgeChain", err.empty() ? "too few points" : err);
+		}
+	}
+
+	{
+		const TopoDS_Shape boxNative = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape();
+		const ShapeHandle box = ShapeHandleAccess::fromNativeShape(&boxNative);
+		FaceMateGeom planeG;
+		std::string err;
+		const Eigen::Vector3d zPlus = Eigen::Vector3d::UnitZ();
+		if (!findFaceByKindAxis(box, FaceMateSurfaceKind::Plane, &zPlus, planeG, &err))
+		{
+			fail("queryFaceMateGeomBox", err);
+		}
+		else if (std::abs(mateAxis(planeG).normalized().z() - 1.0) > 1e-6)
+		{
+			fail("queryFaceMateGeomBox", "expected +Z plane");
+		}
+
+		const TopoDS_Shape cylNative = BRepPrimAPI_MakeCylinder(25.0, 80.0).Shape();
+		const ShapeHandle cyl = ShapeHandleAccess::fromNativeShape(&cylNative);
+		FaceMateGeom cylG;
+		if (!findFaceByKindAxis(cyl, FaceMateSurfaceKind::Cylinder, nullptr, cylG, &err))
+		{
+			fail("queryFaceMateGeomCyl", err);
+		}
+		else if (std::abs(cylG.radiusMm - 25.0) > 1e-6)
+		{
+			fail("queryFaceMateGeomCyl", "radius");
+		}
+
+		const TopoDS_Shape boxBNative = BRepPrimAPI_MakeBox(gp_Pnt(0.0, 0.0, 150.0), 100.0, 100.0, 100.0).Shape();
+		const ShapeHandle boxB = ShapeHandleAccess::fromNativeShape(&boxBNative);
+		FaceMateGeom gnd;
+		FaceMateGeom mov;
+		const Eigen::Vector3d zMinus(0.0, 0.0, -1.0);
+		if (!findFaceByKindAxis(box, FaceMateSurfaceKind::Plane, &zPlus, gnd, &err) ||
+			!findFaceByKindAxis(boxB, FaceMateSurfaceKind::Plane, &zMinus, mov, &err))
+		{
+			fail("assemblyMateCoincidentFaces", err);
+		}
+		else
+		{
+			AssemblyMateParams p;
+			p.kind = AssemblyMateKind::Coincident;
+			p.alignment = AssemblyMateAlignment::AntiAligned;
+			Eigen::Isometry3d delta = Eigen::Isometry3d::Identity();
+			if (!computeAssemblyMateDelta(gnd, mov, p, delta, &err))
+			{
+				fail("assemblyMateCoincident", err);
+			}
+			else
+			{
+				const FaceMateGeom after = xformMateGeom(mov, delta);
+				const double dist = (mateOrigin(after) - mateOrigin(gnd)).dot(mateAxis(gnd).normalized());
+				const double nd = mateAxis(after).normalized().dot(mateAxis(gnd).normalized());
+				if (std::abs(dist) > 1e-5 || nd > -0.999)
+				{
+					fail("assemblyMateCoincident", "planes not coincident/anti-aligned");
+				}
+			}
+
+			p.kind = AssemblyMateKind::Distance;
+			p.distanceMm = 12.0;
+			if (!computeAssemblyMateDelta(gnd, mov, p, delta, &err))
+			{
+				fail("assemblyMateDistance", err);
+			}
+			else
+			{
+				const FaceMateGeom after = xformMateGeom(mov, delta);
+				const double dist = (mateOrigin(after) - mateOrigin(gnd)).dot(mateAxis(gnd).normalized());
+				if (std::abs(dist - 12.0) > 1e-5)
+				{
+					fail("assemblyMateDistance", "expected 12mm");
+				}
+			}
+
+			p.kind = AssemblyMateKind::Parallel;
+			Eigen::Isometry3d tilt = Eigen::Isometry3d::Identity();
+			tilt.rotate(Eigen::AngleAxisd(20.0 * 3.14159265358979323846 / 180.0, Eigen::Vector3d::UnitX()));
+			const FaceMateGeom tilted = xformMateGeom(mov, tilt);
+			if (!computeAssemblyMateDelta(gnd, tilted, p, delta, &err))
+			{
+				fail("assemblyMateParallel", err);
+			}
+			else
+			{
+				const FaceMateGeom after = xformMateGeom(tilted, delta);
+				const double cr = mateAxis(after).normalized().cross(mateAxis(gnd).normalized()).norm();
+				if (cr > 1e-5)
+				{
+					fail("assemblyMateParallel", "normals not parallel");
+				}
+			}
+
+			p.kind = AssemblyMateKind::Perpendicular;
+			if (!computeAssemblyMateDelta(gnd, mov, p, delta, &err))
+			{
+				fail("assemblyMatePerpendicular", err);
+			}
+			else
+			{
+				const FaceMateGeom after = xformMateGeom(mov, delta);
+				if (std::abs(mateAxis(after).normalized().dot(mateAxis(gnd).normalized())) > 1e-5)
+				{
+					fail("assemblyMatePerpendicular", "normals not perpendicular");
+				}
+			}
+
+			p.kind = AssemblyMateKind::Lock;
+			if (!computeAssemblyMateDelta(gnd, mov, p, delta, &err) ||
+				!delta.matrix().isApprox(Eigen::Isometry3d::Identity().matrix(), 1e-12))
+			{
+				fail("assemblyMateLock", err.empty() ? "delta not identity" : err);
+			}
+		}
+
+		FaceMateGeom gndCyl;
+		Eigen::Isometry3d cylShift = Eigen::Isometry3d::Identity();
+		cylShift.translation() = Eigen::Vector3d(40.0, 0.0, 0.0);
+		const ShapeHandle cylB = transformShape(cyl, cylShift);
+		FaceMateGeom movCyl;
+		if (!findFaceByKindAxis(cyl, FaceMateSurfaceKind::Cylinder, nullptr, gndCyl, &err) ||
+			!findFaceByKindAxis(cylB, FaceMateSurfaceKind::Cylinder, nullptr, movCyl, &err))
+		{
+			fail("assemblyMateConcentricFaces", err);
+		}
+		else
+		{
+			AssemblyMateParams p;
+			p.kind = AssemblyMateKind::Concentric;
+			Eigen::Isometry3d delta = Eigen::Isometry3d::Identity();
+			if (!computeAssemblyMateDelta(gndCyl, movCyl, p, delta, &err))
+			{
+				fail("assemblyMateConcentric", err);
+			}
+			else
+			{
+				const FaceMateGeom after = xformMateGeom(movCyl, delta);
+				Eigen::Vector3d ag = mateAxis(gndCyl).normalized();
+				const Eigen::Vector3d d = mateOrigin(after) - mateOrigin(gndCyl);
+				const double axisDist = (d - d.dot(ag) * ag).norm();
+				const double ang = mateAxis(after).normalized().cross(ag).norm();
+				if (axisDist > 1e-4 || ang > 1e-5)
+				{
+					fail("assemblyMateConcentric", "axes not coincident");
+				}
+			}
+		}
+
+		if (!findFaceByKindAxis(box, FaceMateSurfaceKind::Plane, &zPlus, gnd, &err) ||
+			!findFaceByKindAxis(cyl, FaceMateSurfaceKind::Cylinder, nullptr, cylG, &err))
+		{
+			fail("assemblyMateTangentFaces", err);
+		}
+		else
+		{
+			AssemblyMateParams p;
+			p.kind = AssemblyMateKind::Tangent;
+			Eigen::Isometry3d delta = Eigen::Isometry3d::Identity();
+			if (!computeAssemblyMateDelta(gnd, cylG, p, delta, &err))
+			{
+				fail("assemblyMateTangent", err);
+			}
+			else
+			{
+				const FaceMateGeom after = xformMateGeom(cylG, delta);
+				Eigen::Vector3d n = mateAxis(gnd).normalized();
+				const double dist = std::abs((mateOrigin(after) - mateOrigin(gnd)).dot(n));
+				if (std::abs(dist - after.radiusMm) > 1e-4)
+				{
+					fail("assemblyMateTangent", "axis-plane distance != radius");
+				}
+			}
+
+			p.kind = AssemblyMateKind::Coincident;
+			if (computeAssemblyMateDelta(gnd, cylG, p, delta, &err))
+			{
+				fail("assemblyMateIllegal", "plane-cyl coincident should fail");
+			}
 		}
 	}
 

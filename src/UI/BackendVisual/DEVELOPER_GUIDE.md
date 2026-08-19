@@ -121,7 +121,7 @@ outer (osg::MatrixTransform)     ← backend worldMatrix → osgMatrixFromBacken
 
 **视口线框模式**（工具栏「线框」）：与导入 `showWireOutline` 解耦。`applyBrepViewportWireframe(outer, enabled)` — ON 时隐藏填充 Geode，显示拓扑边（复用已有 `brepWireOverlay` 或挂 `brepViewportWireframe`）；OFF 时恢复填充并移除 `brepViewportWireframe`。Mesh 等非 BRep 仍由 `OsgWidget` 对该分支设 `PolygonMode::LINE`。
 
-**装配显示约定**：层级 STEP 仅在 `importParent` 上 `loadBackendFromBackendData(...)` 建一次 OSG 分支；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)` + `setPickVisualAlias(partId → importParentId)`（见 Host §4.4.1b、OsgWidgetCore §5.7a）。
+**装配显示约定**：一层子装配导入时，**空壳父不挂 Shape、不建 OSG**；每个子 `BrepModel` 独立 `loadBackendFromBackendData`。父若挂整装配 Shape，选中根节点会经 `ensureSelectionVisual` 再上屏整件，子勾选隐藏会失效。
 
 ---
 

@@ -397,7 +397,7 @@ Widget 实现此接口，供插件宿主（编入 Host）访问 UI 能力：
 
 | 菜单 | 要点 |
 |------|------|
-| Insert（插入） | `Coordinate Frame…` → `onCreateCoordinateFrame`：对话框填名称+位姿，注册 `FrameBackendData`（`catalogTypeName=CoordinateFrame`）并加载轴可视化 |
+| Insert（插入） | `Coordinate Frame…` → `onCreateCoordinateFrame`：对话框填名称+位姿，注册 `FrameBackendData`（`catalogTypeName=CoordinateFrame`）并加载轴可视化。**配合…** → `AssemblyMatePanel`：跨对象面拾取（`setCrossObjectMeshPick`），整件刚体写动件 `worldMatrix`（不抽 Solid）。不走 `beginPickSolidInView`（无面索引）。Open Model 仍不炸开。 |
 | Help（帮助） | `Documentation` → `onOpenHelpDocumentation`：内嵌 `HelpBrowserDialog` 打开 `applicationDirPath()/help/{zh\|en}/index.html`；`About CloudSim` → `QMessageBox::about`。源资源在仓库 `CloudSim/help/`，由 `CloudSim.vcxproj` PostBuild 拷到 `$(CloudSimBinDir)help\` |
 
 ---

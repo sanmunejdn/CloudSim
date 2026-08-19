@@ -191,6 +191,9 @@
     <ClInclude Include="inc\SketchPlane.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
+    <ClInclude Include="inc\AssemblyMate.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
     <ClInclude Include="inc\SketchSweep.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
@@ -441,6 +444,9 @@
     </ClCompile>
     <ClCompile Include="source\SketchPlane.cpp">
       <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\AssemblyMate.cpp">
+      <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchSweep.cpp">
       <Filter>src\Sketch</Filter>

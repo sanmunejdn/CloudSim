@@ -1,4 +1,4 @@
-﻿/// @file OsgScenePick.cpp
+/// @file OsgScenePick.cpp
 /// @brief OsgScenePick 实现
 
 #include "pch.h"
@@ -111,7 +111,7 @@ PickResult OsgScene::queryPick(const PickQuery& queryIn)
 	{
 		query.scopeBackendId = resolvePickScopeBackendId(query.scopeBackendId);
 	}
-	else if (!m_activeBackendId.empty())
+	else if (!m_crossObjectMeshPick && !m_activeBackendId.empty())
 	{
 		query.scopeBackendId = resolvePickScopeBackendId(m_activeBackendId);
 	}

@@ -1049,7 +1049,8 @@ bool extractSolidByFaceIndex(const ShapeHandle& assembly, const int faceIndex, S
 		return false;
 	}
 
-	outSolid = ShapeHandleAccess::fromNativeShape(&hitSolid).clone();
+	// 不 clone：抽件显示按 IsSame 复用原装配三角网
+	outSolid = ShapeHandleAccess::fromNativeShape(&hitSolid);
 	BRep_Builder builder;
 	TopoDS_Compound remaining;
 	builder.MakeCompound(remaining);

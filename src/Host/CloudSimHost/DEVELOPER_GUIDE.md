@@ -271,7 +271,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | API | 说明 |
 |-----|------|
 | `importMeshHierarchyParts` | 空壳父节点 + 按 `MeshHierarchyPart` 分件 `registerAdoptedMeshAndLoadScene` |
-| `importMeshFileExtended` | dxf → `loadDxfHierarchyFromFile`；**step 走整件** `loadFromStepFile`（见 §4.4.1b）；失败则 CGAL 单件或 OSG 捕获层级 |
+| `importMeshFileExtended` | dxf → `loadDxfHierarchyFromFile`；**step 一层子装配**（`collectBrepTopLevelShapeParts`）；单件整件；失败则 CGAL/OSG |
 
 **DXF/STEP 分件约定（勿与工程 `edges` 跟随混用）**
 
@@ -282,28 +282,30 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 `HierarchyFollowBindingFn onParentFollow` 参数保留供 API 稳定；当前分件路径内为 no-op。
 
-### 4.4.1b STEP B-rep（整件导入 + 按需拆 Solid）
+### 4.4.1b STEP B-rep（一层子装配导入 + 按需抽 Solid）
 
-Open Model / `importMeshFileExtended` 对 STEP **保持整件** `BrepModel`（`loadFromStepFile`），**不**按装配树或 Solid 自动炸开。自定义设备「3D 选择零件」再按面抽出独立 B-rep。
+Open Model / `importMeshFileExtended`：`loadStepHierarchyFromFile` → `collectBrepTopLevelShapeParts`。根 Compound **只拆直接子 Shape**（子装配内多个 Solid 仍绑在同一子件上）；仅 1 块时整件 `BrepModel`。Insert「配合」仍按当前选中件整件刚体定位；自定义设备「3D 选择零件」可再 `extractBrepSolidByFace`。
 
 | API | 说明 |
 |-----|------|
 | `registerAdoptedBrepAndLoadScene(..., loadScene)` | 注册 `BrepModel`；`loadScene=false` 时仅 Data/逻辑树，不建 OSG |
-| `extractBrepSolidByFace(host, brepId, faceIndex, outPartId)` | `extractSolidByFaceIndex`：点中的面所属 Solid 注册为子 `BrepModel`，原对象留下 remaining；仅一块 Solid 时返回原 id |
-| `importBrepHierarchyParts` | 仍可用：`loadStepHierarchyFromFile`（`collectBrepSolidParts`，每 Solid 独立 shape）批量注册 |
-| `loadStepHierarchyFromFile(..., outAssembly?)` | Data 静态 API；Open Model 主路径不调用 |
+| `importBrepHierarchyParts` | **空壳父（无 Shape）** + 各顶层子 Shape 独立 `BrepModel` 上屏；父勿挂整装配，否则选中根会再上屏整件导致子勾选隐藏无效 |
+| `warmBrepHierarchyPartsDisplayFromAssembly` | 装配一次 mesh，再 `sliceBrepImportArtifactsForShape` 写入各子件缓存 |
+| `extractBrepSolidByFace(host, brepId, faceIndex, outPartId)` | 点面所属 Solid 抽成子件；仅一块时返回原 id |
+| `resolveAssemblyMatePick` / `applyAssemblyMate`（`AssemblyMateApply.h`） | 配合拾取：整件 `faceIndex`；确认时左乘动件 `worldMatrix`（同 ICP） |
+| `loadStepHierarchyFromFile(..., outAssembly?)` | Data：一层子装配 → `BrepHierarchyPart[]` |
 
-**显示网格（Phase1）**：Worker `executeLoad` 内 `getOrBuildBrepImportArtifacts`；相对 deflection **0.002**、`IncrementalMesh` **串行**。工程 sidecar `.brep` 不缓存 display soup，重开仍会 tessellate。
+**显示网格（Phase1）**：Worker 对每个顶层子件 `getOrBuildBrepImportArtifacts`（相对 deflection **0.002**、串行 `IncrementalMesh`）。工程 sidecar `.brep` 不缓存 display soup。
 
 **异步导入（`ModelBackgroundLoadState` + Widget `JobSystem`）**
 
 | 阶段 | 线程 | 行为 |
 |------|------|------|
-| `executeLoad` | Worker | 读 STEP/BREP/Mesh + BREP Phase1；进度 `Reading STEP` → `Meshing B-rep` |
-| `finishIntoDocument` | UI | 注册整件 + 上屏；**不**投递 `BREP pick warm` |
+| `executeLoad` | Worker | 读 STEP；`parts.size()>1` → `BrepHierarchy`：**装配 Phase1 一次 + 切片到子件缓存**；否则 `SimpleBrep` |
+| `finishIntoDocument` | UI | `importBrepHierarchyParts`（空壳父无 Shape，子件各自上屏）或整件注册；**不**投递 `BREP pick warm` |
 | Phase2 边折线 | 首次边拾取 / 线框 | `ensureBrepImportPickArtifacts` |
 
-`warmPickArtifacts` API 仍在，Open Model 回调不再 enqueue。无 `JobSystem` 时同步 `importFileIntoDocument`。
+`warmPickArtifacts` API 仍在，Open Model 回调不再 enqueue。无 `JobSystem` 时同步 `importFileIntoDocument` / `importMeshFileExtended`。
 
 ### 4.4.2 `DocumentHostEvents`
 
@@ -333,7 +335,7 @@ Open Model / `importMeshFileExtended` 对 STEP **保持整件** `BrepModel`（`l
 | 加载内嵌几何 | `registerEmbeddedProjectObject`（由 load 编排调用） |
 | 工程文件回退 | `importProjectObjectFromFile`（网格 `importMeshFile`；点云 ply/xyz `importPointCloudFile`） |
 | 点云 ply/xyz/las/laz | `importPointCloudFile`（路径 `encodeName`；ply/xyz=CGAL 顶点；**ply 含 face**→`importMeshFile`/`Model`；las/laz=OsgWidget+capture）；大文件**纯顶点** ply 可走 Job 异步（Widget） |
-| STEP/BREP/Mesh 模型 | `ModelBackgroundLoadState` + Widget `JobSystem`（Worker Phase1 → UI `finishIntoDocument`）；无 Job 时同步 `importFileIntoDocument`；STEP 整件，拆件走 `extractBrepSolidByFace` |
+| STEP/BREP/Mesh 模型 | `ModelBackgroundLoadState` + Widget `JobSystem`（STEP 一层子装配或整件 → UI `finishIntoDocument`）；拆 Solid 走 `extractBrepSolidByFace` |
 | `parseProjectEdgesJson` / `applyProjectEdgesToBackend` | 恢复 `edges[]` → `BackendDataManager::attachChild` |
 | `syncOsgBackendParentsFromBackend` | Data 父子 → `OsgWidget::setBackendParent` |
 | `rebuildBackendParentIdMirror` | edges 后重建 `backendParentId` 旁路表 |
@@ -343,7 +345,7 @@ Open Model / `importMeshFileExtended` 对 STEP **保持整件** `BrepModel`（`l
 | `rekeyBackendObject` | Data/OSG/旁路表迁移 + remove/register 事件 |
 | 删除子树 | `page->data().unregisterSubtree()` |
 | DXF 层级网格 | `importMeshFileExtended` / `importMeshHierarchyParts` |
-| STEP 整件 / 抽 Solid | `loadFromStepFile` / `extractBrepSolidByFace` |
+| STEP 一层子装配 / 抽 Solid | `loadStepHierarchyFromFile` / `extractBrepSolidByFace` |
 | 层级跟随（仅组件，不求解） | `applyHierarchyFollowBinding` |
 
 **插件**：`IPluginDocument::removeBackendObject` → `unregisterSubtree`；`IPluginHostContext::importFileIntoActiveDocument` → `DocumentImportFacade`；网格注册 → `registerAdoptedMesh`。
@@ -366,7 +368,7 @@ Open Model / `importMeshFileExtended` 对 STEP **保持整件** `BrepModel`（`l
 | 工程稳定 id | `rekeyBackendObject` 或导入前 `setId` | |
 | 删子树 | `page->data().unregisterSubtree` | |
 | DXF 层级 / CGAL+OSG 回退 | `importMeshFileExtended` / `importMeshHierarchyParts` | 世界坐标分件 + `setBackendLogicalParent`；导入时不做 Follow |
-| STEP 整件 / 抽 Solid | `loadFromStepFile` / `extractBrepSolidByFace` | Open Model 不炸开；点面抽出独立 B-rep |
+| STEP 一层子装配 / 抽 Solid | `collectBrepTopLevelShapeParts` / `extractBrepSolidByFace` | Open Model 拆根 Compound 直接子件；点面再抽 Solid |
 | 跟随（层级边 / legacy parentId） | `applyHierarchyFollowBinding`（Host） | 工程加载 edges 批量绑定后一次 `runBackendFollowSolveAndSync`；属性编辑仍经 `MainWindow::applyHierarchyFollowBinding` |
 
 **已删除（勿再引用）**
@@ -765,7 +767,8 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | `importMeshFile` / `importPointCloudFile` | `BackendFileImport` | 简单文件导入 |
 | `registerAdoptedBackendObject` / `registerAdoptedMeshAndLoadScene` / `registerAdoptedPointCloudAndLoadScene` / `registerAdoptedFrameAndLoadScene` / `registerAdoptedBrepAndLoadScene` | 同上 | 采纳注册变体 |
 | `attachBackendChildToCustomDevice` / `exportCustomDeviceUrdfPackage` / `rekeyBackendObject` | 同上 | 设备挂载 / URDF 包 / 改 id |
-| `importMeshHierarchyParts` / `importBrepHierarchyParts` / `importMeshFileExtended` / `extractBrepSolidByFace` | `HierarchyMeshImport` | DXF 层级；STEP 整件导入 + 按面抽 Solid |
+| `importMeshHierarchyParts` / `importBrepHierarchyParts` / `importMeshFileExtended` / `extractBrepSolidByFace` | `HierarchyMeshImport` | DXF 层级；STEP 一层子装配 + 按面抽 Solid |
+| `resolveAssemblyMatePick` / `applyAssemblyMate` | `AssemblyMateApply` | 配合不抽件；动件整件 `worldMatrix` 左乘 |
 
 ---
 

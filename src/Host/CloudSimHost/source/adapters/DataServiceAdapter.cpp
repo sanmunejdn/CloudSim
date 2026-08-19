@@ -1,4 +1,4 @@
-﻿/// @file DataServiceAdapter.cpp
+/// @file DataServiceAdapter.cpp
 /// @brief Backend 数据到 IDataService
 
 #include "adapters/DataServiceAdapter.h"
@@ -150,12 +150,29 @@ bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QSt
 			*outError = QStringLiteral("invalid object id");
 		return false;
 	}
+	const bool hadFollow = obj->hasComponent(FollowAttachmentComponent::typeKeyStatic());
+	const bool poseLikeKey = key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation."));
+	const BackendMat4 worldBefore = obj->worldMatrix();
 	std::string err;
 	if (!obj->applyPropertyChange(key.toStdString(), value.toStdString(), &err, &backendOf(m_host)))
 	{
 		if (outError)
 			*outError = QString::fromStdString(err);
 		return false;
+	}
+	// 无 Follow 对象的空 targetName 是面板换选误触发，不能 syncOuterPat / 置脏
+	if (key == QStringLiteral("follow.targetName") && !hadFollow &&
+		!obj->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
+	{
+		return true;
+	}
+	if (poseLikeKey && backend_mat4_nearly_equal(worldBefore, obj->worldMatrix(), 1e-5))
+	{
+		return true;
+	}
+	if (poseLikeKey)
+	{
+		bakeFollowLocalAfterManualPoseEdit(m_host, id.toStdString());
 	}
 	afterDataServicePropertyChange(m_host, *obj, key);
 	if (key.startsWith(QStringLiteral("follow.")))
@@ -178,6 +195,11 @@ bool DataServiceAdapter::applyWorldPoseMm(const core::ObjectId& id, const core::
 	}
 	BackendVec3 pos{pose.positionMm.x, pose.positionMm.y, pose.positionMm.z};
 	BackendVec3 euler{pose.eulerDeg.x, pose.eulerDeg.y, pose.eulerDeg.z};
+	const BackendMat4 worldBefore = obj->worldMatrix();
+	if (backend_mat4_nearly_equal(worldBefore, backend_world_mat_from_pose(pos, euler), 1e-5))
+	{
+		return true;
+	}
 	if (obj->supportsBackendTransform())
 	{
 		obj->applyBackendWorldPose(pos, euler);
@@ -187,6 +209,7 @@ bool DataServiceAdapter::applyWorldPoseMm(const core::ObjectId& id, const core::
 		obj->setPose(pos);
 		obj->setRotation(euler);
 	}
+	bakeFollowLocalAfterManualPoseEdit(m_host, id.toStdString());
 	afterDataServicePropertyChange(m_host, *obj, QStringLiteral("pose.x"));
 	return true;
 }

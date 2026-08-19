@@ -1,4 +1,4 @@
-﻿#ifndef DATA_BACKENDFOLLOWMATH_H
+#ifndef DATA_BACKENDFOLLOWMATH_H
 #define DATA_BACKENDFOLLOWMATH_H
 
 /// @file BackendFollowMath.h
@@ -45,5 +45,10 @@ inline void decomposeWorldMatrix(const BackendMat4& world, BackendVec3& outPose,
 /// 无模型中心项的 T(trans)*R(euler)，提取平移与欧拉角
 DATA_EXPORT void backend_trans_euler_from_rigid_mat(const BackendMat4& m, BackendVec3& outTrans,
 													BackendVec3& outEulerDeg);
+
+DATA_EXPORT bool backend_mat4_nearly_equal(const BackendMat4& a, const BackendMat4& b, double absEps = 1e-7);
+
+/// 只换平移，旋转保持原矩阵（pose.x 提交不得欧拉重写姿态）
+DATA_EXPORT BackendMat4 backend_world_mat_replace_translation(const BackendMat4& world, const BackendVec3& pose);
 
 #endif // DATA_BACKENDFOLLOWMATH_H

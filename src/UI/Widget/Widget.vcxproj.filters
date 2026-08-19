@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="External">
@@ -229,6 +229,9 @@
     <ClCompile Include="source\MainWindowUiSetup.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
+    <ClCompile Include="source\AssemblyMatePanel.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
     <ClCompile Include="source\pch.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
@@ -271,6 +274,9 @@
       <Filter>inc\MainWindow</Filter>
     </QtMoc>
     <QtMoc Include="inc\ViewportToolBar.h">
+      <Filter>inc\MainWindow</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\AssemblyMatePanel.h">
       <Filter>inc\MainWindow</Filter>
     </QtMoc>
   </ItemGroup>

@@ -1,4 +1,4 @@
-﻿/// @file FollowAttachmentComponent.cpp
+/// @file FollowAttachmentComponent.cpp
 /// @brief Follow 附着组件
 
 #include "FollowAttachmentComponent.h"
@@ -90,8 +90,7 @@ bool tryWorldMatForData(const BackendDataBase& data,
 	{
 		return false;
 	}
-	const BackendMat4 w = backend_world_mat_from_pose(data.pose(), data.rotation());
-	outWorld = w;
+	outWorld = data.worldMatrix();
 	return true;
 }
 } // namespace

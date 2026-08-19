@@ -591,10 +591,11 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 	osg::MatrixTransform* mt = it->second.get();
 	osg::Matrixd parentWorld;
 	parentWorld.makeIdentity();
-	// Prefer backend hierarchy parent world (matches FK / RobotKinematicsDBG parentBackendId).
-	// Scene-node parent paths can disagree after reparent (flat group vs per-link outer PAT chain).
+	// 仅当 OSG 真挂在逻辑父下才用父世界（URDF）；抽件扁平时用场景父，否则 local 被错除
 	const auto parentRel = m_backendParentIds.find(backendId);
-	if (parentRel != m_backendParentIds.end() && !parentRel->second.empty())
+	const bool underLogicalParent = parentRel != m_backendParentIds.end() && !parentRel->second.empty() &&
+									backendOuterPatIsUnderOuterPatInSceneGraph(backendId, parentRel->second);
+	if (underLogicalParent)
 	{
 		if (!getBackendRootWorldMatrix(parentRel->second, parentWorld))
 		{
@@ -619,10 +620,7 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 	// Row-vector OSG convention (see ObjectGizmoFrame): p_world = p_local * local * parentWorld.
 	// Hence local = worldMat * inv(parentWorld). Column-order inv(P)*W only matches when P is identity.
 	mt->setMatrix(worldMat * invPw);
-	if (m_viewer.valid())
-	{
-		m_viewer->setSceneData(m_root.get());
-	}
+	// 勿每帧 setSceneData：Follow sync 会刷无关件，看起来像瞬间跳变
 	requestRedraw();
 }
 
@@ -2361,6 +2359,7 @@ void OsgWidget::setSelectionActive(bool active)
 		m_gizmoReferenceDistance = -1.0;
 		m_gizmoReferenceScale = 1.0;
 		m_hasLastSelectionPose = false;
+		m_lastGizmoBackendId.clear();
 	}
 	updateCompassHighlight(DragAxis::None);
 	emit activeAxisChanged(QStringLiteral("None"));
@@ -3907,6 +3906,7 @@ void OsgWidget::clearImportedContent()
 	m_backendModelCenters.clear();
 	m_backendVisibility.clear();
 	m_hasLastSelectionPose = false;
+	m_lastGizmoBackendId.clear();
 	m_activeBackendId.clear();
 	m_activeBackendOuterPat = nullptr;
 	m_pickablePointsLocal.clear();

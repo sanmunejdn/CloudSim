@@ -1,4 +1,4 @@
-﻿#ifndef OSGWIDGETCORE_OSGSCENE_H
+#ifndef OSGWIDGETCORE_OSGSCENE_H
 #define OSGWIDGETCORE_OSGSCENE_H
 
 /// @file OsgScene.h
@@ -244,6 +244,10 @@ public:
 	void showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld);
 	void showMeshEdgeHighlight(const std::vector<osg::Vec3f>& polylineWorld);
 	void hideMeshElementHighlight();
+	void showPinnedMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld);
+	void hidePinnedMeshFaceHighlight();
+	void setCrossObjectMeshPick(bool enabled) { m_crossObjectMeshPick = enabled; }
+	bool crossObjectMeshPick() const { return m_crossObjectMeshPick; }
 
 	/// Mesh 轨迹 B 样条拟合曲面预览（世界坐标三角顶点）
 	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld);
@@ -342,6 +346,7 @@ public:
 	bool m_polylinePickMode = false;
 	bool m_meshLinePickMode = false;
 	bool m_meshFacePickMode = false;
+	bool m_crossObjectMeshPick = false;
 	bool m_labelingClickPickMode = false;
 	bool m_labelingBrushPickMode = false;
 	bool m_labelingMeshFaceMode = false;
@@ -371,6 +376,8 @@ public:
 	float m_activeModelDiagonal = 1.0f;
 	bool m_darkUiTheme = false;
 	bool m_hasLastSelectionPose = false;
+	/// 上次增量基准所属对象；换选时 last pose 不能当本件增量
+	std::string m_lastGizmoBackendId;
 	/// 上次提交的 center+pose 与姿态，供子孙传播
 	osg::Vec3f m_lastGizmoCenterPlusPose = osg::Vec3f(0.0f, 0.0f, 0.0f);
 	osg::Quat m_lastGizmoAttitude;
@@ -390,13 +397,17 @@ public:
 	int m_annotationCounter = 0;
 
 	osg::ref_ptr<osg::Group> m_meshPickOverlayGroup;
+	osg::ref_ptr<osg::Group> m_meshPinnedFaceOverlayGroup;
 	osg::ref_ptr<osg::Group> m_featureCatalogOverlayGroup;
 	osg::ref_ptr<osg::Geometry> m_meshPickedFaceGeom;
 	osg::ref_ptr<osg::Geometry> m_meshPickedEdgeGeom;
+	osg::ref_ptr<osg::Geometry> m_meshPinnedFaceGeom;
 	osg::ref_ptr<osg::Vec3Array> m_meshPickedFaceVertices;
 	osg::ref_ptr<osg::Vec3Array> m_meshPickedEdgeVertices;
+	osg::ref_ptr<osg::Vec3Array> m_meshPinnedFaceVertices;
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedFaceColors;
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedEdgeColors;
+	osg::ref_ptr<osg::Vec4Array> m_meshPinnedFaceColors;
 
 	osg::ref_ptr<osg::Group> m_meshFittedSurfaceOverlayGroup;
 	osg::ref_ptr<osg::Geometry> m_meshFittedSurfaceGeom;

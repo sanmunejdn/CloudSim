@@ -180,6 +180,7 @@
     <ClInclude Include="inc\SketchLoft.h" />
     <ClInclude Include="inc\SketchShell.h" />
     <ClInclude Include="inc\SketchPlane.h" />
+    <ClInclude Include="inc\AssemblyMate.h" />
     <ClInclude Include="inc\WireOps.h" />
     <ClInclude Include="inc\ShellOps.h" />
     <ClInclude Include="inc\GeoMeshBoolean.h" />
@@ -237,6 +238,7 @@
     <ClCompile Include="source\SketchLoft.cpp" />
     <ClCompile Include="source\SketchShell.cpp" />
     <ClCompile Include="source\SketchPlane.cpp" />
+    <ClCompile Include="source\AssemblyMate.cpp" />
     <ClCompile Include="source\WireOps.cpp" />
     <ClCompile Include="source\ShellOps.cpp" />
     <ClCompile Include="source\MeshBoolean.cpp" />

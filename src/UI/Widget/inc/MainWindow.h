@@ -1,4 +1,4 @@
-﻿#ifndef WIDGET_MAINWINDOW_H
+#ifndef WIDGET_MAINWINDOW_H
 #define WIDGET_MAINWINDOW_H
 
 /// @file MainWindow.h
@@ -36,6 +36,7 @@ class QWidget;
 class QToolBar;
 class QColor;
 class DocumentPage;
+class AssemblyMatePanel;
 namespace osg
 {
 class Matrixd;
@@ -185,6 +186,7 @@ private:
 	friend class MainWindowObjectRepository;
 	friend class PluginHostContext;
 	friend class MainWindowRobotHost;
+	friend class AssemblyMatePanel;
 	friend void wireMainWindowDocumentSceneSignals(MainWindow& mw, DocumentPage* page, MainWindowRobotHost* robotHost);
 	void setupMenuBar();
 	void setupDockWidgets();
@@ -241,6 +243,7 @@ private:
 	void onOpenModel();
 	void onOpenPointCloud();
 	void onCreateCoordinateFrame();
+	void onAssemblyMate();
 	void onCreateCustomDevice();
 	void onEditCustomDevice();
 	void onExportCustomDeviceUrdf();
@@ -337,6 +340,8 @@ private:
 	bool sidePanelTabSavedVisible(const QString& key, bool defaultVisible) const;
 	bool viewerUsesDarkBackground() const;
 	bool shouldDeferPropertyPanelRebuild(const QString& contextId) const;
+	void beginPropertyBrowserProgrammaticUpdate();
+	void endPropertyBrowserProgrammaticUpdate();
 	void beginPropertyPanelNumericEdit(const QString& contextId, const QString& propertyKey);
 	void endPropertyPanelNumericEdit();
 	void flushPropertyPanelRefresh(const QString& contextId);
@@ -406,6 +411,9 @@ protected:
 	QMenu* m_languageMenu = nullptr;
 	QMenu* m_appearanceMenu = nullptr;
 	QAction* m_createCoordinateFrameAction = nullptr;
+	QAction* m_assemblyMateAction = nullptr;
+	QDockWidget* m_assemblyMateDock = nullptr;
+	AssemblyMatePanel* m_assemblyMatePanel = nullptr;
 	QAction* m_lightThemeAction = nullptr;
 	QAction* m_darkThemeAction = nullptr;
 	QActionGroup* m_themeActionGroup = nullptr;
@@ -471,6 +479,8 @@ protected:
 	ApplicationSettings::UiPreferences m_uiPreferences;
 	QSet<QString> m_modifiedDocumentIds;
 	bool m_updatingPropertyBrowser = false;
+	/// 挡住换选后编辑器回灌；与 singleShot(0) 配对，避免误写 pose/Follow
+	int m_propertyBrowserUpdateGuardGeneration = 0;
 	MainWindowSelectionState m_selectionState;
 	JobSystem* m_jobSystem = nullptr;
 	int m_meshImportQuality = 1;

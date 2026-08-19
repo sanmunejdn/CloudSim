@@ -233,10 +233,10 @@ void BackendFollowTransformSolver::solve(BackendDataManager& mgr, const WorldMat
 		{
 			continue;
 		}
-		BackendVec3 newPose{};
-		BackendVec3 newEuler{};
-		backend_pose_euler_from_world_mat(wF, newPose, newEuler);
-		follower->setPose(newPose);
-		follower->setRotation(newEuler);
+		if (backend_mat4_nearly_equal(follower->worldMatrix(), wF))
+		{
+			continue;
+		}
+		follower->setWorldMatrix(wF);
 	}
 }

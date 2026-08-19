@@ -53,6 +53,11 @@ importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath, cons
 						 QString* outError = nullptr, const QString& importParentDisplayName = QString(),
 						 const geoalgo::ShapeHandle& assemblyShape = {});
 
+/// 装配 Phase1 一次再切片到各子 Shape 缓存；Worker / 同步导入共用
+CLOUDSIM_HOST_EXPORT bool warmBrepHierarchyPartsDisplayFromAssembly(
+	const geoalgo::ShapeHandle& assembly, const std::vector<BrepHierarchyPart>& parts,
+	const std::function<void(double progress01, const QString& status)>& progress, QString* outError = nullptr);
+
 /// 3D 点到的面所属 Solid 抽成独立 B-rep；仅一块时返回原对象
 CLOUDSIM_HOST_EXPORT bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, int faceIndex,
 												 QString* outPartId, QString* outError = nullptr);

@@ -49,6 +49,8 @@ public:
 
 private:
 	static QString selectionRootBackendId(MainWindow& mainWindow, const QString& backendId);
+	static QString resolveObjectSelectionBackendId(MainWindow& mainWindow, const QString& backendId,
+												   cloudsim::core::SelectionSource source);
 	static void applyBackendSelection(MainWindow& mainWindow, const QString& backendId,
 									  cloudsim::core::SelectionSource source, bool rowVisible);
 };

@@ -1,4 +1,4 @@
-﻿#ifndef GEOMETRYALGORITHM_BREPIMPORTARTIFACTS_H
+#ifndef GEOMETRYALGORITHM_BREPIMPORTARTIFACTS_H
 #define GEOMETRYALGORITHM_BREPIMPORTARTIFACTS_H
 
 /// @file BrepImportArtifacts.h
@@ -76,6 +76,22 @@ GEOMETRY_ALGORITHM_API bool buildBrepImportArtifacts(const ShapeHandle& shape, B
 GEOMETRY_ALGORITHM_API std::shared_ptr<BrepImportArtifacts>
 getOrBuildBrepImportArtifacts(const ShapeHandle& shape, std::string* errMsg = nullptr,
 							  BrepImportBuildTimings* timings = nullptr);
+
+/**
+ * 把已有 Phase1 写入缓存，供抽件后的 remaining/solid 免重剖
+ * shape 空或 artifacts 无显示数据时忽略
+ */
+GEOMETRY_ALGORITHM_API void putBrepImportArtifacts(const ShapeHandle& shape,
+												   std::shared_ptr<BrepImportArtifacts> artifacts);
+
+/**
+ * 按 dest 面序从 source 的 faceSoups 切片；面用 IsSame（clone 后 TShape 变了则失败）
+ * 抽件后重剖会 Clean 装配共享三角网，剩余件网格经常空掉
+ * @return nullptr：对不上面或切片后无三角
+ */
+GEOMETRY_ALGORITHM_API std::shared_ptr<BrepImportArtifacts>
+sliceBrepImportArtifactsForShape(const ShapeHandle& sourceShape, const BrepImportArtifacts& source,
+								 const ShapeHandle& destShape, std::string* errMsg = nullptr);
 
 /** 测试或工程切换时清空缓存 */
 GEOMETRY_ALGORITHM_API void clearBrepImportArtifactsCache();

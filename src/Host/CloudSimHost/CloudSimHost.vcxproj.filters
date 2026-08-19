@@ -338,6 +338,9 @@
     <ClInclude Include="inc\HierarchyMeshImport.h">
       <Filter>inc\import</Filter>
     </ClInclude>
+    <ClInclude Include="inc\AssemblyMateApply.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
     <ClInclude Include="inc\HostRenderViewFactory.h">
       <Filter>inc\Visual</Filter>
     </ClInclude>
@@ -629,6 +632,9 @@
       <Filter>src\import</Filter>
     </ClCompile>
     <ClCompile Include="source\import\HierarchyMeshImport.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\AssemblyMateApply.cpp">
       <Filter>src\import</Filter>
     </ClCompile>
     <ClCompile Include="source\io\CustomDeviceHostOps.cpp">

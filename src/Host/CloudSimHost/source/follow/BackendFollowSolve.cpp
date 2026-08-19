@@ -35,7 +35,8 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 	const bool forced = page.takeFollowSolveForced();
 	auto& dirty = page.followDirtyBackendIds();
 	const bool gizmoDrag = osg && osg->isTransformGizmoDragging();
-	if (!forced && dirty.empty() && !gizmoDrag)
+	// gizmo 拖动不能单独当全量解：否则无关件每帧 syncOuterPat（日志里 A 被反复刷）
+	if (!forced && dirty.empty())
 	{
 		return;
 	}
@@ -52,8 +53,13 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 	{
 		skipId = gizmoDragSelectedId;
 	}
+	// 拖 follower 时同步烘焙 local，松手求解才不会用旧偏移拽回
+	if (!skipId.empty())
+	{
+		bakeFollowLocalAfterManualPoseEdit(page, skipId);
+	}
 
-	// 无 OSG 时 query 失败 → solver 回落 BackendData pose（Web FK 已写连杆矩阵）
+	// OSG 有件时优先场景矩阵（与 FK/gizmo 一致）；无 OSG 才回落 backend worldMatrix
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid,
 																		 BackendMat4& out) -> bool
 	{
@@ -76,8 +82,8 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		return true;
 	};
 
-	// 脏集模式：求解仍走全拓扑，仅对脏 id 写回 pose，避免链式 follower 矩阵陈旧
-	const bool usePoseLimit = !forced && !gizmoDrag && !dirty.empty();
+	// 有脏集时只写脏 follower；forced 仍全量
+	const bool usePoseLimit = !forced && !dirty.empty();
 	const std::unordered_set<std::string>* limitPtr = usePoseLimit ? &dirty : nullptr;
 	BackendFollowTransformSolver::solve(mgr, worldQuery, skipId, limitPtr);
 
@@ -133,6 +139,11 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 		}
 		return;
 	}
+	if (!data->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
+	{
+		host.invalidateFollowReverseIndex();
+		return;
+	}
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid,
 																		   BackendMat4& out) -> bool
 	{
@@ -156,6 +167,40 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 	}
 	host.markFollowAttachmentDirtyFromBackendMove(id);
 	host.invalidateFollowReverseIndex();
+}
+
+void bakeFollowLocalAfterManualPoseEdit(DocumentHost& host, const std::string& backendId)
+{
+	if (backendId.empty() || host.isKinematicsOwnedBackend(backendId))
+	{
+		return;
+	}
+	const auto data = host.backend().getData(backendId);
+	if (!data)
+	{
+		return;
+	}
+	const auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+		data->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+	if (!comp || !comp->enabled() || comp->targetBackendId().empty())
+	{
+		return;
+	}
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid,
+																		   BackendMat4& out) -> bool
+	{
+		cloudsim::core::Mat4 mat;
+		if (!host.render().getWorldMatrix(QString::fromStdString(bid), mat))
+		{
+			return false;
+		}
+		for (int i = 0; i < 16; ++i)
+		{
+			out.v[i] = mat[static_cast<size_t>(i)];
+		}
+		return true;
+	};
+	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *data, nullptr);
 }
 
 } // namespace cloudsim::host

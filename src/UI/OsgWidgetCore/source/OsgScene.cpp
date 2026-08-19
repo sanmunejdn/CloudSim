@@ -427,6 +427,35 @@ void OsgScene::initScene()
 	overlayGeode->setNodeMask(kMaskHelper);
 	m_meshPickOverlayGroup->addChild(overlayGeode.get());
 
+	m_meshPinnedFaceOverlayGroup = new osg::Group;
+	m_meshPinnedFaceOverlayGroup->setNodeMask(0u);
+	m_root->addChild(m_meshPinnedFaceOverlayGroup.get());
+	m_meshPinnedFaceGeom = new osg::Geometry;
+	m_meshPinnedFaceVertices = new osg::Vec3Array;
+	m_meshPinnedFaceVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPinnedFaceVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPinnedFaceVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPinnedFaceGeom->setVertexArray(m_meshPinnedFaceVertices.get());
+	m_meshPinnedFaceGeom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3));
+	m_meshPinnedFaceColors = new osg::Vec4Array;
+	m_meshPinnedFaceColors->push_back(osg::Vec4(0.15f, 0.92f, 0.38f, 0.55f));
+	m_meshPinnedFaceGeom->setColorArray(m_meshPinnedFaceColors.get(), osg::Array::BIND_OVERALL);
+	m_meshPinnedFaceGeom->getOrCreateStateSet()->setMode(GL_LIGHTING,
+														osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshPinnedFaceGeom->getOrCreateStateSet()->setMode(GL_CULL_FACE,
+														osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshPinnedFaceGeom->getOrCreateStateSet()->setMode(GL_DEPTH_TEST,
+														osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshPinnedFaceGeom->getOrCreateStateSet()->setMode(GL_BLEND,
+														osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	m_meshPinnedFaceGeom->getOrCreateStateSet()->setAttributeAndModes(
+		new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+	m_meshPinnedFaceGeom->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	osg::ref_ptr<osg::Geode> pinnedGeode = new osg::Geode;
+	pinnedGeode->addDrawable(m_meshPinnedFaceGeom.get());
+	pinnedGeode->setNodeMask(kMaskHelper);
+	m_meshPinnedFaceOverlayGroup->addChild(pinnedGeode.get());
+
 	m_meshFittedSurfaceOverlayGroup = new osg::Group;
 	m_meshFittedSurfaceOverlayGroup->setName("MeshFittedSurfacePreview");
 	m_meshFittedSurfaceOverlayGroup->setNodeMask(0u);
@@ -457,6 +486,7 @@ void OsgScene::initScene()
 	m_gizmoReferenceDistance = -1.0;
 	m_gizmoReferenceScale = 1.0;
 	m_hasLastSelectionPose = false;
+	m_lastGizmoBackendId.clear();
 }
 
 void OsgScene::initWorldAxesHud()
@@ -2037,6 +2067,59 @@ void OsgScene::hideMeshElementHighlight()
 		return;
 	}
 	m_meshPickOverlayGroup->setNodeMask(0u);
+	requestRedraw();
+}
+
+void OsgScene::showPinnedMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld)
+{
+	if (vertsWorld.size() < 3U || (vertsWorld.size() % 3U) != 0U)
+	{
+		return;
+	}
+	if (!m_meshPinnedFaceOverlayGroup.valid() || !m_meshPinnedFaceVertices.valid())
+	{
+		return;
+	}
+	constexpr unsigned int kMaskHelper = 0x2u;
+	m_meshPinnedFaceOverlayGroup->setNodeMask(kMaskHelper);
+	m_meshPinnedFaceVertices->clear();
+	m_meshPinnedFaceVertices->reserve(vertsWorld.size());
+	for (const osg::Vec3f& v : vertsWorld)
+	{
+		m_meshPinnedFaceVertices->push_back(osg::Vec3(v.x(), v.y(), v.z()));
+	}
+	if (m_meshPinnedFaceGeom->getNumPrimitiveSets() > 0)
+	{
+		osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*>(m_meshPinnedFaceGeom->getPrimitiveSet(0));
+		if (da)
+		{
+			da->setFirst(0);
+			da->setCount(static_cast<GLsizei>(vertsWorld.size()));
+		}
+		else
+		{
+			m_meshPinnedFaceGeom->removePrimitiveSet(0u, 1u);
+			m_meshPinnedFaceGeom->addPrimitiveSet(
+				new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertsWorld.size())));
+		}
+	}
+	else
+	{
+		m_meshPinnedFaceGeom->addPrimitiveSet(
+			new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertsWorld.size())));
+	}
+	m_meshPinnedFaceGeom->dirtyDisplayList();
+	m_meshPinnedFaceGeom->dirtyBound();
+	requestRedraw();
+}
+
+void OsgScene::hidePinnedMeshFaceHighlight()
+{
+	if (!m_meshPinnedFaceOverlayGroup.valid())
+	{
+		return;
+	}
+	m_meshPinnedFaceOverlayGroup->setNodeMask(0u);
 	requestRedraw();
 }
 

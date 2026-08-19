@@ -1,4 +1,4 @@
-﻿/// @file MainWindow.cpp
+/// @file MainWindow.cpp
 /// @brief 主窗口编排
 
 #include "MainWindow.h"
@@ -20,6 +20,7 @@
 #include "AiAssistantDockWidget.h"
 #include "ApplicationStyle.h"
 #include "ApplicationSettings.h"
+#include "AssemblyMatePanel.h"
 #include "BackendFollowSolve.h"
 #include "BackendHierarchyFollow.h"
 #include "BackendSceneDocumentFacade.h"
@@ -181,6 +182,18 @@ void MainWindow::applyLanguage()
 	{
 		m_createCoordinateFrameAction->setText(
 			i18n(QStringLiteral("Coordinate Frame..."), QStringLiteral("坐标系...")));
+	}
+	if (m_assemblyMateAction)
+	{
+		m_assemblyMateAction->setText(i18n(QStringLiteral("Mate..."), QStringLiteral("配合...")));
+	}
+	if (m_assemblyMateDock)
+	{
+		m_assemblyMateDock->setWindowTitle(i18n(QStringLiteral("Mate"), QStringLiteral("配合")));
+	}
+	if (m_assemblyMatePanel)
+	{
+		m_assemblyMatePanel->applyLanguage();
 	}
 	if (m_resetLayoutAction)
 	{
@@ -562,6 +575,8 @@ void MainWindow::onTransformGizmoCommitted()
 	}
 	(void)doc->render().commitGizmoPoseToBackend(backendId);
 	syncRobotKinematicsAfterPoseEdit(backendId);
+	// follower 手动拖完要烘焙 local，否则松手 Follow 会用旧偏移写回
+	cloudsim::host::bakeFollowLocalAfterManualPoseEdit(*doc, backendId.toStdString());
 	doc->data().markFollowDirtyFromMove(backendId);
 	updatePropertyPanel(backendId);
 	cloudsim::host::publishPoseCommittedFromBackendId(*doc, backendId);
@@ -647,11 +662,21 @@ void MainWindow::onActiveAxisChanged(const QString& axisName)
 		return;
 	}
 	m_activeAxisName = axisName;
-	if (!m_selectionState.hasBackendSelection())
+	// 换选会 emit None；不可清掉换选重建的 update 守卫
+	if (!m_variantManager)
 	{
 		return;
 	}
-	updatePropertyPanel(m_selectionState.selectedBackendId());
+	QtProperty* prop = m_propertyKeyToVariant.value(QStringLiteral("ui.active_axis"));
+	if (!prop)
+	{
+		return;
+	}
+	const QSignalBlocker blocker(m_variantManager);
+	const bool wasUpdating = m_updatingPropertyBrowser;
+	m_updatingPropertyBrowser = true;
+	m_variantManager->setValue(prop, axisName);
+	m_updatingPropertyBrowser = wasUpdating;
 }
 
 namespace
@@ -678,6 +703,10 @@ void MainWindow::onViewModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
+	if (m_assemblyMatePanel)
+	{
+		m_assemblyMatePanel->interruptPicking();
+	}
 	resetInteractionPickModes(*view);
 }
 
@@ -694,6 +723,10 @@ void MainWindow::onObjectModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
+	if (m_assemblyMatePanel)
+	{
+		m_assemblyMatePanel->interruptPicking();
+	}
 	view->setObjectSelectionMode(true);
 	view->setPointPickMode(false);
 	view->setMeshLinePickMode(false);
@@ -720,6 +753,10 @@ void MainWindow::onPointPickModeTriggered()
 	m_pointPickModeAction->setChecked(true);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
+	if (m_assemblyMatePanel)
+	{
+		m_assemblyMatePanel->interruptPicking();
+	}
 	view->setObjectSelectionMode(false);
 	view->setPointPickMode(true);
 	view->setMeshLinePickMode(false);
@@ -741,6 +778,10 @@ void MainWindow::onMeshLinePickModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(true);
 	m_meshFacePickModeAction->setChecked(false);
+	if (m_assemblyMatePanel)
+	{
+		m_assemblyMatePanel->interruptPicking();
+	}
 	view->setObjectSelectionMode(false);
 	view->setPointPickMode(false);
 	view->setMeshLinePickMode(true);
@@ -761,6 +802,10 @@ void MainWindow::onMeshFacePickModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(true);
+	if (m_assemblyMatePanel)
+	{
+		m_assemblyMatePanel->interruptPicking();
+	}
 	view->setObjectSelectionMode(false);
 	view->setPointPickMode(false);
 	view->setMeshLinePickMode(false);
@@ -1756,9 +1801,9 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 				return;
 			}
 			cloudsim::core::IRenderView& rv = page->render();
-			// FK 路径已在 notify 内同步求解并清空脏集；此处只处理 gizmo 拖动 / 属性 dirty / forced
-			if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() &&
-				!rv.isTransformGizmoDragging())
+			(void)rv;
+			// 仅脏集 / forced；gizmo 拖动靠 markFollowDirty 填脏，勿对无关 follower 空转
+			if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending())
 			{
 				return;
 			}

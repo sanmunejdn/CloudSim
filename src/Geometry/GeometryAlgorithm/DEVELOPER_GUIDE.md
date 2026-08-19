@@ -26,7 +26,7 @@
 
 | 头文件 | 功能 |
 |--------|------|
-| `Discretize.h` | Edge/Wire/Shape 折线与三角 soup；`collectBrepSolidParts` 按 Solid 抽出 |
+| `Discretize.h` | Edge/Wire/Shape 折线与三角 soup；`collectBrepTopLevelShapeParts` / `collectBrepSolidParts` |
 | `BrepImportArtifacts.h` | BREP 导入预处理：显示 soup、面/边离散、按 `ShapeHandle` 共享缓存 |
 | `MeshDiscretize.h` | 自适应/UV 网格/线管带网格；质量预设 |
 | `ShapeIo.h` / `ShapeQuery.h` | STEP 读入；按索引求交/离散；`extractSolidByFaceIndex` |
@@ -37,6 +37,7 @@
 | `FeatureSpec.h` | **CAD 轨迹特征 v2**：`FeatureListDocument` / `RawPath` / `FeatureCatalog`；见 `FeatureDiscretizerBridge.h` |
 | `MeshTrajectory.h` | **Mesh 轨迹**：截面法平面求交、B 样条区域拟合；见 §3.2 |
 | `TemplateBrepUpdate.h` | **扫描驱动 B-rep 更新**：面采样、点面归属、特征类型驱动面调整（Plane/Cylinder/Cone/Sphere/Toroid/BSpline） |
+| `AssemblyMate.h` | **装配一次定位**：`queryFaceMateGeom` / `computeAssemblyMateDelta`；`faceIndex` 相对传入 `ShapeHandle`（整件 STEP 为装配序） |
 | `SelfTest.h` | `runSelfTest` |
 
 ### 网格离散模式（`MeshDiscretizeMode`）
@@ -182,7 +183,9 @@ buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
 | `discretizeShapeToSoupPerFace(shape, params, soup, triFaceIndex, faceSoups?)` | `Clean` 后整件网格一次，再 `TopExp_Explorer(FACE)` 按面抽三角；勿对装配体用 0.01mm 绝对偏差 |
 | `tessellateShapePerFaceMedium(shape, …)` | 固定 Medium：`linearDeflectionMm=0.01`、`angularDeflectionDeg=0.5`；内部调用 `discretizeShapeToSoupPerFace` |
 | `collectBrepSolidParts` | 按 `TopAbs_SOLID` 抽出独立 `ShapeHandle`；无 Solid 时整件一块 |
+| `collectBrepTopLevelShapeParts` | **只拆一层**：根 Compound/CompSolid 的直接子 Shape；Open Model 用此路径 |
 | `extractSolidByFaceIndex`（`ShapeQuery.h`） | 面索引 → 所属 Solid；从装配体去掉该 Solid（仅一块时 `outRemaining` 空） |
+| `queryFaceMateGeom` / `computeAssemblyMateDelta`（`AssemblyMate.h`） | 面几何（平面/柱/锥/球/环）与 8 种一次定位增量；Host 传 `worldShape()`，不持有 `worldMatrix` |
 
 特征离散（`discretizeFeature`）仍从精确 BREP/STEP 计算，**不依赖** display soup。
 
@@ -219,7 +222,7 @@ Phase2（边折线）
 | `edgePolylines` / `faceEdgeIndices` | 边线框与面-边拓扑（Phase2） |
 | `pickReady` | Phase2 是否已构建 |
 
-**层级拓扑（无 tessellation）**：`collectShapeHierarchyTopology` 仍遍历装配树路径（mesh 回退）。B-rep 按 Solid 拆件用 `collectBrepSolidParts`（每块独立 `ShapeHandle`）。Open Model **不**自动炸开，见 Host §4.4.1b。
+**层级拓扑（无 tessellation）**：`collectShapeHierarchyTopology` 仍递归装配树。导入拆件用 `collectBrepTopLevelShapeParts`（一层子装配）；`collectBrepSolidParts` 供点面抽 Solid。见 Host §4.4.1b。
 
 带 tessellation 的 `collectShapeHierarchy` 仍供网格路径（DXF/旧 STEP mesh 回退）使用。
 

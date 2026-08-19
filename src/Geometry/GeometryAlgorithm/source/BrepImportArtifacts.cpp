@@ -1,4 +1,4 @@
-﻿/// @file BrepImportArtifacts.cpp
+/// @file BrepImportArtifacts.cpp
 /// @brief BrepImportArtifacts 实现
 
 #include "BrepImportArtifacts.h"
@@ -6,10 +6,13 @@
 #include "Discretize.h"
 #include "ShapeQuery.h"
 #include "ViewTessellate.h"
+#include "detail/OccIncludes.h"
 
 #include <chrono>
 #include <mutex>
 #include <vector>
+
+#include <TopTools_DataMapOfShapeInteger.hxx>
 
 namespace geoalgo
 {
@@ -176,6 +179,123 @@ std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(const ShapeHa
 		g_cacheEntries.push_back(std::move(entry));
 	}
 	return artifacts;
+}
+
+void putBrepImportArtifacts(const ShapeHandle& shape, std::shared_ptr<BrepImportArtifacts> artifacts)
+{
+	if (shape.isNull() || !artifacts || !artifacts->hasDisplayData())
+	{
+		return;
+	}
+	std::lock_guard<std::mutex> lock(g_cacheMutex);
+	for (CacheEntry& entry : g_cacheEntries)
+	{
+		if (entry.artifacts && shape.isSame(entry.shapeKey))
+		{
+			entry.artifacts = std::move(artifacts);
+			return;
+		}
+	}
+	CacheEntry entry;
+	entry.shapeKey = shape;
+	entry.artifacts = std::move(artifacts);
+	if (g_cacheEntries.size() >= kMaxBrepArtifactsCacheEntries)
+	{
+		g_cacheEntries.erase(g_cacheEntries.begin());
+	}
+	g_cacheEntries.push_back(std::move(entry));
+}
+
+std::shared_ptr<BrepImportArtifacts> sliceBrepImportArtifactsForShape(const ShapeHandle& sourceShape,
+																	  const BrepImportArtifacts& source,
+																	  const ShapeHandle& destShape, std::string* errMsg)
+{
+	TopoDS_Shape srcNative;
+	TopoDS_Shape dstNative;
+	if (!ShapeHandleAccess::nativeShape(sourceShape, &srcNative) ||
+		!ShapeHandleAccess::nativeShape(destShape, &dstNative))
+	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return {};
+	}
+	if (!source.hasDisplayData())
+	{
+		if (errMsg)
+		{
+			*errMsg = "source artifacts have no display soup";
+		}
+		return {};
+	}
+
+	TopTools_DataMapOfShapeInteger srcFaceIndex;
+	int srcIdx = 0;
+	for (TopExp_Explorer exp(srcNative, TopAbs_FACE); exp.More(); exp.Next(), ++srcIdx)
+	{
+		const TopoDS_Shape face = exp.Current();
+		if (!srcFaceIndex.IsBound(face))
+		{
+			srcFaceIndex.Bind(face, srcIdx);
+		}
+	}
+	if (srcIdx <= 0 || source.faceSoups.size() != static_cast<std::size_t>(srcIdx))
+	{
+		if (errMsg)
+		{
+			*errMsg = "source faceSoups size mismatch";
+		}
+		return {};
+	}
+
+	auto out = std::make_shared<BrepImportArtifacts>();
+	out->pickShapeKey = destShape;
+	int dstIdx = 0;
+	for (TopExp_Explorer exp(dstNative, TopAbs_FACE); exp.More(); exp.Next(), ++dstIdx)
+	{
+		const TopoDS_Shape destFace = exp.Current();
+		int mapped = -1;
+		if (srcFaceIndex.IsBound(destFace))
+		{
+			mapped = srcFaceIndex.Find(destFace);
+		}
+		else
+		{
+			int probe = 0;
+			for (TopExp_Explorer srcExp(srcNative, TopAbs_FACE); srcExp.More(); srcExp.Next(), ++probe)
+			{
+				if (srcExp.Current().IsPartner(destFace))
+				{
+					mapped = probe;
+					break;
+				}
+			}
+		}
+		std::vector<float> faceSoup;
+		if (mapped >= 0 && static_cast<std::size_t>(mapped) < source.faceSoups.size())
+		{
+			faceSoup = source.faceSoups[static_cast<std::size_t>(mapped)];
+		}
+		out->faceSoups.push_back(faceSoup);
+		if (faceSoup.size() < 9U || (faceSoup.size() % 9U) != 0U)
+		{
+			continue;
+		}
+		const std::size_t triCount = faceSoup.size() / 9U;
+		out->triangleFaceIndex.insert(out->triangleFaceIndex.end(), triCount, dstIdx);
+		out->displaySoup.insert(out->displaySoup.end(), faceSoup.begin(), faceSoup.end());
+	}
+	if (dstIdx <= 0 || !out->hasDisplayData())
+	{
+		if (errMsg)
+		{
+			*errMsg = "sliced artifacts empty";
+		}
+		return {};
+	}
+	computeTriangleSoupNormals(out->displaySoup, out->displayNormals);
+	return out;
 }
 
 void clearBrepImportArtifactsCache()

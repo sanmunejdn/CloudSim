@@ -34,13 +34,13 @@ bool BrepBackendData::loadStepHierarchyFromFile(const std::string& path, std::ve
 	{
 		*outAssembly = assembly;
 	}
-	std::vector<geoalgo::ShapeHierarchyPart> solids;
-	if (!geoalgo::collectBrepSolidParts(assembly, solids, errMsg))
+	std::vector<geoalgo::ShapeHierarchyPart> topParts;
+	if (!geoalgo::collectBrepTopLevelShapeParts(assembly, topParts, errMsg))
 	{
 		return false;
 	}
-	outParts.reserve(solids.size());
-	for (const geoalgo::ShapeHierarchyPart& sp : solids)
+	outParts.reserve(topParts.size());
+	for (const geoalgo::ShapeHierarchyPart& sp : topParts)
 	{
 		BrepHierarchyPart bp;
 		bp.partPath = sp.partPath;
@@ -49,6 +49,6 @@ bool BrepBackendData::loadStepHierarchyFromFile(const std::string& path, std::ve
 		bp.shapeRef = sp.shape;
 		outParts.push_back(std::move(bp));
 	}
-	RunLogger::info("[BrepBackendData] STEP hierarchy loaded (per-solid shapes).");
+	RunLogger::info("[BrepBackendData] STEP hierarchy loaded (top-level shape parts).");
 	return true;
 }

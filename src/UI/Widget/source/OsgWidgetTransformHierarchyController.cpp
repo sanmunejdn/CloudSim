@@ -261,7 +261,7 @@ void OsgWidgetTransformHierarchyController::finalizeSelectionSync(OsgWidget& sel
 {
 	self.refreshAnnotationTexts();
 	self.setSelectionActive(true);
-	if (self.m_viewer.valid())
+	if (self.m_viewer.valid() && self.m_viewer->getSceneData() != self.m_root.get())
 	{
 		self.m_viewer->setSceneData(self.m_root.get());
 	}

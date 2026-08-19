@@ -1,4 +1,4 @@
-﻿/// @file BackendFollowMath.cpp
+/// @file BackendFollowMath.cpp
 /// @brief Follow 矩阵数学
 
 #include "BackendFollowMath.h"
@@ -8,6 +8,8 @@
 #include <Adapters.h>
 #include <BackendWorldPose.h>
 #include <RigidTransform.h>
+
+#include <cmath>
 
 namespace
 {
@@ -89,4 +91,23 @@ void backend_pose_euler_from_world_mat(const BackendMat4& world, BackendVec3& ou
 void backend_trans_euler_from_rigid_mat(const BackendMat4& m, BackendVec3& outTrans, BackendVec3& outEulerDeg)
 {
 	backend_pose_euler_from_world_mat(m, outTrans, outEulerDeg);
+}
+
+bool backend_mat4_nearly_equal(const BackendMat4& a, const BackendMat4& b, double absEps)
+{
+	for (int i = 0; i < 16; ++i)
+	{
+		if (std::abs(a.v[i] - b.v[i]) > absEps)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+BackendMat4 backend_world_mat_replace_translation(const BackendMat4& world, const BackendVec3& pose)
+{
+	engine::RigidTransform rt = rigidFromBackendMat4(world);
+	rt.setTranslationMm(Eigen::Vector3d(pose.x, pose.y, pose.z));
+	return backendMat4FromRigid(rt);
 }

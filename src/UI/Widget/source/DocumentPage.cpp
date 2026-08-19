@@ -5,6 +5,7 @@
 
 #include "BackendDataManager.h"
 #include "BackendSceneDocumentFacade.h"
+#include "CoreEvents.h"
 #include "CoreTypes.h"
 #include "EventHub.h"
 #include "IDataService.h"
@@ -872,6 +873,87 @@ QString DocumentPage::selectionRootBackendId(const QString& backendId) const
 		return backendId;
 	}
 	return m_hierarchicalRobots[instanceIndex].sceneBackendId;
+}
+
+namespace
+{
+QString hierarchyTopParentId(const cloudsim::core::IDataService& data, const QString& backendId)
+{
+	if (backendId.isEmpty() || !data.isValid(backendId))
+	{
+		return backendId;
+	}
+	QString cur = backendId;
+	for (int depth = 0; depth < 2048; ++depth)
+	{
+		const QVector<QString> parents = data.parentsOf(cur);
+		if (parents.isEmpty())
+		{
+			return cur;
+		}
+		cur = parents.first();
+	}
+	return cur;
+}
+
+bool isUnderOrEqualHierarchyRoot(const cloudsim::core::IDataService& data, const QString& backendId,
+								 const QString& rootId)
+{
+	if (backendId.isEmpty() || rootId.isEmpty())
+	{
+		return false;
+	}
+	if (backendId == rootId)
+	{
+		return true;
+	}
+	QString cur = backendId;
+	for (int depth = 0; depth < 2048; ++depth)
+	{
+		const QVector<QString> parents = data.parentsOf(cur);
+		if (parents.isEmpty())
+		{
+			return false;
+		}
+		for (const QString& p : parents)
+		{
+			if (p == rootId)
+			{
+				return true;
+			}
+		}
+		cur = parents.first();
+	}
+	return false;
+}
+} // namespace
+
+QString DocumentPage::resolveObjectSelectionBackendId(const QString& backendId,
+													  const cloudsim::core::SelectionSource source,
+													  const QString& currentSelectedId) const
+{
+	const QString robotResolved = selectionRootBackendId(backendId);
+	if (robotResolved != backendId)
+	{
+		return robotResolved;
+	}
+	// 视口拾取：STEP/装配分件默认选空壳根；树已点中同装配子件时保持子件
+	if (source != cloudsim::core::SelectionSource::OsgPick)
+	{
+		return robotResolved;
+	}
+	const cloudsim::core::IDataService& ds = documentData();
+	const QString hierarchyRoot = hierarchyTopParentId(ds, robotResolved);
+	if (hierarchyRoot.isEmpty() || hierarchyRoot == robotResolved)
+	{
+		return robotResolved;
+	}
+	if (!currentSelectedId.isEmpty() && currentSelectedId != hierarchyRoot &&
+		isUnderOrEqualHierarchyRoot(ds, currentSelectedId, hierarchyRoot))
+	{
+		return robotResolved;
+	}
+	return hierarchyRoot;
 }
 
 QString DocumentPage::robotGizmoAnchorBackendId(const QString& backendId) const

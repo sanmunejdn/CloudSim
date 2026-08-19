@@ -141,6 +141,13 @@ GEOMETRY_ALGORITHM_API bool collectBrepSolidParts(const ShapeHandle& shape, std:
 												  std::string* errMsg = nullptr);
 
 /**
+ * 只拆根 Compound/CompSolid 的直接子 Shape（一层子装配）；非装配根则整件一块
+ */
+GEOMETRY_ALGORITHM_API bool collectBrepTopLevelShapeParts(const ShapeHandle& shape,
+														  std::vector<ShapeHierarchyPart>& outParts,
+														  std::string* errMsg = nullptr);
+
+/**
  * BRepMesh_IncrementalMesh 整件三角化（不写 soup，供后续按面提取）
  * @return false：null shape
  */

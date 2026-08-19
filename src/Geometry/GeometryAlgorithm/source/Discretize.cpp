@@ -424,6 +424,54 @@ bool collectBrepSolidParts(const ShapeHandle& shape, std::vector<ShapeHierarchyP
 	return true;
 }
 
+bool collectBrepTopLevelShapeParts(const ShapeHandle& shape, std::vector<ShapeHierarchyPart>& outParts,
+								   std::string* errMsg)
+{
+	outParts.clear();
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native) || native.IsNull())
+	{
+		detail::setErr(errMsg, "null shape");
+		return false;
+	}
+	// 只拆一层：子装配内多个 Solid 仍绑在同一子 Shape 上，供自定义设备作单 Link
+	if (!detail::isAssemblyGroup(native))
+	{
+		ShapeHierarchyPart part;
+		part.partPath = "0";
+		part.parentPartPath.clear();
+		part.displayName = detail::shapeTypeName(native.ShapeType()) + "_0";
+		part.shape = shape;
+		outParts.push_back(std::move(part));
+		return true;
+	}
+	int childIndex = 0;
+	for (TopoDS_Iterator it(native); it.More(); it.Next(), ++childIndex)
+	{
+		const TopoDS_Shape child = it.Value();
+		if (child.IsNull())
+		{
+			continue;
+		}
+		ShapeHierarchyPart part;
+		part.partPath = std::to_string(childIndex);
+		part.parentPartPath.clear();
+		part.displayName = detail::shapeTypeName(child.ShapeType()) + "_" + part.partPath;
+		part.shape = ShapeHandleAccess::fromNativeShape(&child);
+		outParts.push_back(std::move(part));
+	}
+	if (outParts.empty())
+	{
+		ShapeHierarchyPart part;
+		part.partPath = "0";
+		part.parentPartPath.clear();
+		part.displayName = detail::shapeTypeName(native.ShapeType()) + "_0";
+		part.shape = shape;
+		outParts.push_back(std::move(part));
+	}
+	return true;
+}
+
 bool discretizeShapeFaceByIndex(const ShapeHandle& shapeHandle, const int faceIndex, const TessellateParams& params,
 								std::vector<float>& soup, std::string* errMsg)
 {

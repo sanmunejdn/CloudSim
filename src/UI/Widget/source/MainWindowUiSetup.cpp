@@ -1,4 +1,4 @@
-﻿/// @file MainWindowUiSetup.cpp
+/// @file MainWindowUiSetup.cpp
 /// @brief 内容区已有 QTabWidget 时隐藏 Dock 自带标题栏，避免与页签重复。
 
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
@@ -10,6 +10,7 @@
 #include "AppIcon.h"
 #include "ApplicationStyle.h"
 #include "ApplicationSettings.h"
+#include "AssemblyMatePanel.h"
 #include "CoreEvents.h"
 #include "DevicePageWidget.h"
 #include "DocumentPage.h"
@@ -392,6 +393,8 @@ void MainWindow::setupMenuBar()
 	m_insertMenu = menuBar()->addMenu(QStringLiteral("Insert"));
 	m_createCoordinateFrameAction = m_insertMenu->addAction(
 		QStringLiteral("Coordinate Frame..."), this, &MainWindow::onCreateCoordinateFrame);
+	m_assemblyMateAction =
+		m_insertMenu->addAction(QStringLiteral("Mate..."), this, &MainWindow::onAssemblyMate);
 
 	m_settingsMenu = menuBar()->addMenu(QStringLiteral("Settings"));
 	m_workspaceModeMenu = m_settingsMenu->addMenu(QStringLiteral("Mode Switch"));
@@ -483,6 +486,21 @@ void MainWindow::setupDockWidgets()
 	connect(m_devicePage, &DevicePageWidget::customDeviceEditRequested, this, &MainWindow::onEditCustomDevice);
 	connect(m_devicePage, &DevicePageWidget::customDeviceExportUrdfRequested, this, &MainWindow::onExportCustomDeviceUrdf);
 	addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
+	m_assemblyMatePanel = new AssemblyMatePanel(this);
+	m_assemblyMateDock = new QDockWidget(QStringLiteral("Mate"), this);
+	m_assemblyMateDock->setObjectName(QStringLiteral("AssemblyMateDock"));
+	m_assemblyMateDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+	m_assemblyMateDock->setWidget(m_assemblyMatePanel);
+	addDockWidget(Qt::LeftDockWidgetArea, m_assemblyMateDock);
+	m_assemblyMateDock->hide();
+	connect(m_assemblyMateDock, &QDockWidget::visibilityChanged, this,
+			[this](bool visible)
+			{
+				if (!visible && m_assemblyMatePanel)
+				{
+					m_assemblyMatePanel->endSession();
+				}
+			});
 	// 左侧属性面板宽度：240px
 	resizeDocks({m_propertyDock}, {240}, Qt::Horizontal);
 
@@ -639,4 +657,15 @@ void MainWindow::shutdownApplicationLogging()
 {
 	RunLogger::info("Application shutdown.");
 	RunLogger::shutdown();
+}
+
+void MainWindow::onAssemblyMate()
+{
+	if (!m_assemblyMateDock || !m_assemblyMatePanel)
+	{
+		return;
+	}
+	m_assemblyMatePanel->beginSession();
+	m_assemblyMateDock->show();
+	m_assemblyMateDock->raise();
 }

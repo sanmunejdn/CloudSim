@@ -21,6 +21,7 @@
 namespace cloudsim::core
 {
 class EventHub;
+enum class SelectionSource;
 }
 #include "IRobotSimulationDocument.h"
 #include "RobotCoordinateFrames.h"
@@ -115,8 +116,11 @@ public:
 
 	QString robotImportParentId() const;
 	QStringList robotLinkBackendIds() const;
-	/// 树/OSG 选择：per-link 连杆 id 归并到机器人 scene 根 id
+	/// 树选：per-link 连杆归并到机器人 scene 根；STEP/装配空壳父不在此处理
 	QString selectionRootBackendId(const QString& backendId) const;
+	/// 对象选择目标：机器人归并 + 视口拾取默认选装配根，树已选同装配子件时保留子件
+	QString resolveObjectSelectionBackendId(const QString& backendId, cloudsim::core::SelectionSource source,
+											const QString& currentSelectedId) const;
 	/// per-link 机器人 gizmo 挂在根连杆 mesh（scene 根无 OSG 分支）
 	QString robotGizmoAnchorBackendId(const QString& backendId) const;
 	/// 按当前场景位姿反解 bind 表 M0（M = M0·inv(T0)·Tq·P，勿把含 P 的世界矩阵直接写入 M0）

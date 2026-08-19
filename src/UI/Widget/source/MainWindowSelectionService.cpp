@@ -59,6 +59,17 @@ QString MainWindowSelectionService::selectionRootBackendId(MainWindow& mainWindo
 	return doc->selectionRootBackendId(backendId);
 }
 
+QString MainWindowSelectionService::resolveObjectSelectionBackendId(MainWindow& mainWindow, const QString& backendId,
+																	const cloudsim::core::SelectionSource source)
+{
+	DocumentPage* doc = mainWindow.currentPage();
+	if (!doc)
+	{
+		return backendId;
+	}
+	return doc->resolveObjectSelectionBackendId(backendId, source, mainWindow.m_selectionState.selectedBackendId());
+}
+
 void MainWindowSelectionService::applyBackendSelection(MainWindow& mainWindow, const QString& backendId,
 													   const cloudsim::core::SelectionSource source,
 													   const bool rowVisible)
@@ -68,7 +79,7 @@ void MainWindowSelectionService::applyBackendSelection(MainWindow& mainWindow, c
 		return;
 	}
 	(void)rowVisible; // 选中不改写可见性；可见性仅由树勾选/Data 驱动
-	const QString effectiveId = selectionRootBackendId(mainWindow, backendId);
+	const QString effectiveId = resolveObjectSelectionBackendId(mainWindow, backendId, source);
 	mainWindow.m_selectionState.setSelectedBackendId(effectiveId);
 	DocumentPage* doc = mainWindow.currentPage();
 	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
@@ -299,7 +310,7 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	}
 
 	applyBackendSelection(mainWindow, id, cloudsim::core::SelectionSource::Tree, rowVisible);
-	const QString effectiveId = selectionRootBackendId(mainWindow, id);
+	const QString effectiveId = resolveObjectSelectionBackendId(mainWindow, id, cloudsim::core::SelectionSource::Tree);
 	if (effectiveId != id)
 	{
 		const QSignalBlocker guard(mainWindow.m_backendTree);
@@ -409,7 +420,8 @@ void MainWindowSelectionService::handleOsgBackendObjectPicked(MainWindow& mainWi
 	{
 		return;
 	}
-	const QString effectiveId = selectionRootBackendId(mainWindow, backendId);
+	const QString effectiveId =
+		resolveObjectSelectionBackendId(mainWindow, backendId, cloudsim::core::SelectionSource::OsgPick);
 	const bool sameSelection = mainWindow.m_selectionState.selectedBackendId() == effectiveId;
 
 	if (!sameSelection)

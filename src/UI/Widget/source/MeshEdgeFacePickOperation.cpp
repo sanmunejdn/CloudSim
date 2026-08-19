@@ -1,4 +1,4 @@
-﻿/// @file MeshEdgeFacePickOperation.cpp
+/// @file MeshEdgeFacePickOperation.cpp
 /// @brief MeshEdgeFacePick 操作
 
 #include "MeshEdgeFacePickOperation.h"
@@ -55,7 +55,7 @@ PickQuery MeshEdgeFacePickOperation::makePickQuery(const QPoint& pos) const
 	query.screenY = pos.y();
 	query.hoverPick = true;
 	query.kind = m_owner->m_meshFacePickMode ? PickKind::MeshFace : PickKind::MeshEdge;
-	if (!m_owner->m_activeBackendId.empty())
+	if (!m_owner->m_crossObjectMeshPick && !m_owner->m_activeBackendId.empty())
 	{
 		query.scopeBackendId = m_owner->m_activeBackendId;
 	}
