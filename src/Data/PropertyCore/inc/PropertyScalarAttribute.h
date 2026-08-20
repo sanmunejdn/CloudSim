@@ -1,7 +1,8 @@
-﻿#ifndef PROPERTYCORE_PROPERTYSCALARATTRIBUTE_H
+#ifndef PROPERTYCORE_PROPERTYSCALARATTRIBUTE_H
 #define PROPERTYCORE_PROPERTYSCALARATTRIBUTE_H
 
 /// @file PropertyScalarAttribute.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 标量属性行（bool/int/double/string）
 
 #include "PropertyAttributeHelpers.h"

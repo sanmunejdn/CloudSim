@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H
+#ifndef GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H
 #define GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H
 
 /// @file TemplateBrepUpdate.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 扫描点云驱动模板 B-rep 逐面调整（Plane/Cylinder/Cone/Sphere/Toroid/BSpline）
 
 #include "geometry_algorithm_global.h"

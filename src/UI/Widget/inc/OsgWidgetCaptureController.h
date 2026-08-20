@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_OSGWIDGETCAPTURECONTROLLER_H
+#ifndef WIDGET_OSGWIDGETCAPTURECONTROLLER_H
 #define WIDGET_OSGWIDGETCAPTURECONTROLLER_H
 
 /// @file OsgWidgetCaptureController.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 从当前 OSG 场景或导入结果中抓取几何，写入后端数据结构（保存或下游业务）
 
 #include <QString>

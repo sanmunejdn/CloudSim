@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINPOINTCLOUDHOST_H
+#ifndef CLOUDSIMPLUGINSDK_IPLUGINPOINTCLOUDHOST_H
 #define CLOUDSIMPLUGINSDK_IPLUGINPOINTCLOUDHOST_H
 
 /// @file IPluginPointCloudHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 点云算法宿主 API（1.2.0+）；插件经 IPluginHostContext::pointCloudHost() 获取
 
 #include "cloudsim_plugin_sdk_global.h"

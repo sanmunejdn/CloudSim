@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_IOSIGNALPAGEWIDGET_H
 
 /// @file IoSignalPageWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 按 Owner 编辑自持信号表（Property Dock）
 
 #include "robotwidget_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef DATA_POINTCLOUDBACKENDDATA_H
+#ifndef DATA_POINTCLOUDBACKENDDATA_H
 #define DATA_POINTCLOUDBACKENDDATA_H
 
 /// @file PointCloudBackendData.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 点云后端：交错 xyz 浮点缓冲与可选每顶点 RGBA，支持 PLY 等加载与工程内嵌序列化
 
 #include "BackendDataBase.h"

@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWCANVASWIDGET_H
 
 /// @file ProcessFlowCanvasWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自研流程画布（参考 NodeFlowDemo 交互，无外部库依赖）
 
 #include "ProcessFlowNodeProps.h"

@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_ASSEMBLYMATE_H
 
 /// @file AssemblyMate.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 装配一次定位：面几何查询与刚体增量（同坐标系 mm）
 
 #include "geometry_algorithm_global.h"

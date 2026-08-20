@@ -2,6 +2,7 @@
 #define POINTCLOUDALGORITHM_SDF_DEFORMSOLVER_H
 
 /// @file SdfDeformSolver.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 粗：DDF/SDF 场 + 平滑；细：点-面 / 场
 
 #include "RegistrationSdf.h"

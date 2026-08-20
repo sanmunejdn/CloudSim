@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPPARAMSPARSE_H
+#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPPARAMSPARSE_H
 #define TRAJECTORYALGORITHM_TRAJECTORYOPPARAMSPARSE_H
 
 /// @file TrajectoryOpParamsParse.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 平移/旋转插值后写回 params
 
 #include "trajectory_algorithm_global.h"

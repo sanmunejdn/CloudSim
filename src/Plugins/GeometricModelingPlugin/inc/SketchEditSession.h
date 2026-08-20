@@ -1,4 +1,5 @@
 /// @file SketchEditSession.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 草图编辑会话：平面、工具、尺寸、overlay、求解诊断
 
 #ifndef GEOMETRICMODELINGPLUGIN_SKETCHEDITSESSION_H

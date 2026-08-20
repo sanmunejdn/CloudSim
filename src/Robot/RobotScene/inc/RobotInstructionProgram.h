@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPROGRAM_H
+#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPROGRAM_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONPROGRAM_H
 
 /// @file RobotInstructionProgram.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 深度优先收集运动指令（顺序与规划结果向量一致）
 
 #include "robot_scene_global.h"

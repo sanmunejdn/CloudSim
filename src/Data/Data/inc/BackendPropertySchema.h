@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDPROPERTYSCHEMA_H
+#ifndef DATA_BACKENDPROPERTYSCHEMA_H
 #define DATA_BACKENDPROPERTYSCHEMA_H
 
 /// @file BackendPropertySchema.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端对象属性 schema 拼装与语义位标注
 
 #include "../../PropertyCore/inc/PropertySchema.h"

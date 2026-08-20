@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_CUSTOMDEVICEASSEMBLYCANVASWIDGET_H
 
 /// @file CustomDeviceAssemblyCanvasWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自定义设备组装画布：Link 块 + 运动副连线
 
 #include "robotwidget_global.h"

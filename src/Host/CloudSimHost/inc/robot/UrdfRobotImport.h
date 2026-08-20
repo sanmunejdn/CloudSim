@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_URDFROBOTIMPORT_H
+#ifndef CLOUDSIMHOST_URDFROBOTIMPORT_H
 #define CLOUDSIMHOST_URDFROBOTIMPORT_H
 
 /// @file UrdfRobotImport.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief URDF 导入注册
 
 #include "cloudsim_host_global.h"

@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
 
 /// @file RobotSimulationController.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 指令选中时链式种子，供 feasible 与 preview 共用，避免重复 IK
 
 #include "robotwidget_global.h"
@@ -213,7 +214,8 @@ public slots:
 	void refreshPlaybackPathOverlays(const std::shared_ptr<RobotInstruction::Base>& highlightInstruction);
 	void clearPlaybackPathOverlays();
 	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction,
-											 const PrecomputedChainSeed* precomputedChainSeed = nullptr);
+											 const PrecomputedChainSeed* precomputedChainSeed = nullptr,
+											 bool forceCartesianIk = false);
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	/// 路点 pose 已是世界系（CAD/Unified Apply）时，直接用位姿写 render.tcpWorldMat4，避免按当前机器人基座重算导致轴错位
 	void syncInstructionRenderMatricesFromWorldPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
@@ -255,13 +257,15 @@ private:
 
 	/// 预览与 Run 共用：示教 CSV → 示教种子 IK → 链式种子 IK → 程序起点 IK
 	/// gateTaughtResidual：Run/可达性保持 FK 门控；点击预览可关以省掉双次 FK
+	/// skipTaughtShortCircuit：属性改位姿时禁止示教短路，但仍用旧关节作 IK 种子保构型
 	bool planMotionConsistentWithPreview(RobotInstruction::Base& instruction, const QVector<double>& chainSeedQ,
 										 const QVector<double>& programStartQ, int instanceIndex,
 										 const QString& urdfPath, const QString& defaultTcpLinkName,
 										 const QString& sceneRootBackendId,
 										 const RobotCoordinate::RobotCoordinateFrameSet& frames,
 										 RobotInstruction::PlanResult& outPlan, std::string* planErr,
-										 bool persistTaughtOnSuccess, bool gateTaughtResidual = true);
+										 bool persistTaughtOnSuccess, bool gateTaughtResidual = true,
+										 bool skipTaughtShortCircuit = false);
 
 	void ensureInstructionControllerKinematics(IRobotDocumentHost* doc, int instanceIndex, const QString& urdfPath);
 	void scheduleInstructionPoseAxesRefresh(bool computeReachability = false);

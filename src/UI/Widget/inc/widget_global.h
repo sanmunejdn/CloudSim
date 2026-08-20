@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_WIDGET_GLOBAL_H
+#ifndef WIDGET_WIDGET_GLOBAL_H
 #define WIDGET_WIDGET_GLOBAL_H
 
 /// @file widget_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Widget 导出宏与 UTF-8 执行字符集
 
 /// Widget 导出宏与 UTF-8 执行字符集

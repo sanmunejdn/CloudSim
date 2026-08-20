@@ -1,7 +1,8 @@
-﻿#ifndef AIWIDGET_AIWIDGET_GLOBAL_H
+#ifndef AIWIDGET_AIWIDGET_GLOBAL_H
 #define AIWIDGET_AIWIDGET_GLOBAL_H
 
 /// @file aiwidget_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief AiWidget 导出宏
 
 #include <QtCore/qglobal.h>

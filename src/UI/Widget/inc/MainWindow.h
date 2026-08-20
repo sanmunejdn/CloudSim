@@ -2,6 +2,7 @@
 #define WIDGET_MAINWINDOW_H
 
 /// @file MainWindow.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 协调入口
 
 #include "ApplicationSettings.h"
@@ -167,7 +168,8 @@ public:
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
 	void refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& instruction = nullptr);
-	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
+	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction,
+											 bool forceCartesianIk = false);
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void refreshInstructionPoseAxes();
 	void stopRobotSimulation();

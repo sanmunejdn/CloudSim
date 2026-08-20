@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_SIM_PLANTGRAPH_H
 
 /// @file PlantGraph.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 画布拓扑（设备/缓冲）
 
 #include <QHash>

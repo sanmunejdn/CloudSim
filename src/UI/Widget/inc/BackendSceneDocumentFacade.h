@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_BACKENDSCENEDOCUMENTFACADE_H
+#ifndef WIDGET_BACKENDSCENEDOCUMENTFACADE_H
 #define WIDGET_BACKENDSCENEDOCUMENTFACADE_H
 
 /// @file BackendSceneDocumentFacade.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端 id 与场景/数据管理器轻量句柄
 
 #include "widget_global.h"

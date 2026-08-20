@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_TRAJECTORYEDITPAGEWIDGET_H
+#ifndef ROBOTWIDGET_TRAJECTORYEDITPAGEWIDGET_H
 #define ROBOTWIDGET_TRAJECTORYEDITPAGEWIDGET_H
 
 /// @file TrajectoryEditPageWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轨迹编辑 Dock 子页：流水线 Preview/Apply
 
 #include "robotwidget_global.h"

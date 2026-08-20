@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_VIEWTESSELLATE_H
+#ifndef GEOMETRYALGORITHM_VIEWTESSELLATE_H
 #define GEOMETRYALGORITHM_VIEWTESSELLATE_H
 
 /// @file ViewTessellate.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 视口自适应与 Medium 固定精度 B-rep 离散，供显示与 BrepImport Phase1
 
 #include "geometry_algorithm_global.h"

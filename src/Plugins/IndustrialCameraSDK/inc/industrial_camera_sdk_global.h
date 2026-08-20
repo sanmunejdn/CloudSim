@@ -2,6 +2,7 @@
 #define INDUSTRIALCAMERASDK_INDUSTRIAL_CAMERA_SDK_GLOBAL_H
 
 /// @file industrial_camera_sdk_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief IndustrialCameraSDK 导出与 ABI 版本
 
 #if defined(INDUSTRIAL_CAMERA_SDK_STATIC) || defined(BUILD_STATIC)

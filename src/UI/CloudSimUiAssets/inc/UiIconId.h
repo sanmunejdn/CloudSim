@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMUIASSETS_UIICONID_H
+#ifndef CLOUDSIMUIASSETS_UIICONID_H
 #define CLOUDSIMUIASSETS_UIICONID_H
 
 /// @file UiIconId.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 语义化 UI 图标 ID，与 qrc basename 映射见 UiIcons.cpp
 
 #include "uiassets_global.h"

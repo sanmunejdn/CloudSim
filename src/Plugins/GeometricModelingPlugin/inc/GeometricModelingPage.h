@@ -2,6 +2,7 @@
 #define GEOMETRICMODELINGPLUGIN_GEOMETRICMODELINGPAGE_H
 
 /// @file GeometricModelingPage.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 建模会话数据 + 左侧特征树/属性（3D 公用主视口，本页不展示）
 
 #include "CommandStack.h"

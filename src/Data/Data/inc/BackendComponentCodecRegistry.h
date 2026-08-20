@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDCOMPONENTCODECREGISTRY_H
+#ifndef DATA_BACKENDCOMPONENTCODECREGISTRY_H
 #define DATA_BACKENDCOMPONENTCODECREGISTRY_H
 
 /// @file BackendComponentCodecRegistry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 组件 JSON 编解码注册（工程保存/加载）
 
 #include "BackendComponent.h"

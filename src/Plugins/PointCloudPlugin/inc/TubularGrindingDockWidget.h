@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDPLUGIN_TUBULARGRINDINGDOCKWIDGET_H
+#ifndef POINTCLOUDPLUGIN_TUBULARGRINDINGDOCKWIDGET_H
 #define POINTCLOUDPLUGIN_TUBULARGRINDINGDOCKWIDGET_H
 
 /// @file TubularGrindingDockWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TubularGrindingDockWidget 接口
 
 #include "PluginPointCloudTypes.h"

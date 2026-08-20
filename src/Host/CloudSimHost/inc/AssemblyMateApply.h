@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_ASSEMBLYMATEAPPLY_H
 
 /// @file AssemblyMateApply.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 装配一次定位：整件面索引、世界系查询、worldMatrix 左乘
 
 #include "cloudsim_host_global.h"

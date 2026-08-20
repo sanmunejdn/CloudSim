@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_OBJECTTRANSFORMOPERATION_H
+#ifndef WIDGET_OBJECTTRANSFORMOPERATION_H
 #define WIDGET_OBJECTTRANSFORMOPERATION_H
 
 /// @file ObjectTransformOperation.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 对象变换模式：在选中对象且显示坐标轴时：左键平移、右键旋转拖拽。
 
 #include "SelectionOperation.h"

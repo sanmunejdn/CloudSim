@@ -1,7 +1,8 @@
-﻿#ifndef PLCCOMMPLUGIN_PLCCOMMPLUGIN_H
+#ifndef PLCCOMMPLUGIN_PLCCOMMPLUGIN_H
 #define PLCCOMMPLUGIN_PLCCOMMPLUGIN_H
 
 /// @file PlcCommPlugin.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PlcCommPlugin 接口
 
 #include "ICloudSimPlugin.h"

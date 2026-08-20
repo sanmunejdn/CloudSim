@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_IROBOTOSGVIEWHOST_H
+#ifndef ROBOTWIDGET_IROBOTOSGVIEWHOST_H
 #define ROBOTWIDGET_IROBOTOSGVIEWHOST_H
 
 /// @file IRobotOsgViewHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器人 UI 的 OSG/三维操作（OsgWidget 实现）
 
 #include "robotwidget_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYPLUGIN_GEOMETRYPLUGIN_H
+#ifndef GEOMETRYPLUGIN_GEOMETRYPLUGIN_H
 #define GEOMETRYPLUGIN_GEOMETRYPLUGIN_H
 
 /// @file GeometryPlugin.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief GeometryPlugin 接口
 
 #include "ICloudSimPlugin.h"

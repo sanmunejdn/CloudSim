@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_PICKTYPES_H
+#ifndef OSGWIDGETCORE_PICKTYPES_H
 #define OSGWIDGETCORE_PICKTYPES_H
 
 /// @file PickTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PickTypes 接口
 
 #include <cstdint>

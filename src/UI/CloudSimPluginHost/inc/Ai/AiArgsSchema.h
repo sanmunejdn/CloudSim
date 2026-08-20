@@ -2,6 +2,7 @@
 #define CLOUDSIMPLUGINHOST_AIARGSSCHEMA_H
 
 /// @file AiArgsSchema.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Catalog args_schema → JSON Schema / OpenAI tool parameters（单源）
 
 #include <QByteArray>

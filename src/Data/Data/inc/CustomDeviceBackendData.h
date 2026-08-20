@@ -2,6 +2,7 @@
 #define DATA_CUSTOMDEVICEBACKENDDATA_H
 
 /// @file CustomDeviceBackendData.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自定义设备聚合根：Link/Joint 图为唯一持久化源；axes/q 为运行时投影
 
 #include "BackendDataBase.h"

@@ -2,6 +2,7 @@
 #define CLOUDSIMPLUGINHOST_DESIGNPARTSDOMAINHANDLER_H
 
 /// @file DesignPartsDomainHandler.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief design.parts：标准件检索实例化 → feature.compose 执行
 
 #include "Ai/DesignPartsCatalog.h"

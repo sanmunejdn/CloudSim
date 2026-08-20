@@ -2,6 +2,7 @@
 #define ROBOTPATHPLANNING_ROBOTPATHPLANNING_H
 
 /// @file RobotPathPlanning.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 关节空间避障路径规划（MoveIt/OMPL 风格，CloudSim 适配）
 
 #include "robot_path_planning_global.h"

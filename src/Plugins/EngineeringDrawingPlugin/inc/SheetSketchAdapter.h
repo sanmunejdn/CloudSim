@@ -2,6 +2,7 @@
 #define ENGINEERINGDRAWINGPLUGIN_SHEETSKETCHADAPTER_H
 
 /// @file SheetSketchAdapter.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 图幅场景坐标驱动草图内核（UV=mm，无 OCC/OSG）
 
 #include "SketchGeom.h"

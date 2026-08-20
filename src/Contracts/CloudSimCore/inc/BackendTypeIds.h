@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMCORE_BACKENDTYPEIDS_H
+#ifndef CLOUDSIMCORE_BACKENDTYPEIDS_H
 #define CLOUDSIMCORE_BACKENDTYPEIDS_H
 
 /// @file BackendTypeIds.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端类型三键与工程侧车键（契约层唯一真源）
 
 #include <string>

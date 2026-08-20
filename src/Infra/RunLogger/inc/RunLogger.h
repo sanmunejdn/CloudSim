@@ -1,7 +1,8 @@
-﻿#ifndef RUNLOGGER_RUNLOGGER_H
+#ifndef RUNLOGGER_RUNLOGGER_H
 #define RUNLOGGER_RUNLOGGER_H
 
 /// @file RunLogger.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 默认 Info；POINTCLOUD_PROCESS_DEBUG=1 开 debug
 
 #include "run_logger_global.h"

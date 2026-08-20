@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPLAYBACKENGINE_H
+#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPLAYBACKENGINE_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONPLAYBACKENGINE_H
 
 /// @file RobotInstructionPlaybackEngine.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Joint-space command queue playback: interpolates per segment and updates OSG using bind snapshots.
 
 #include "robot_scene_global.h"

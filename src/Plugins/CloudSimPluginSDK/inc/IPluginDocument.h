@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINDOCUMENT_H
+#ifndef CLOUDSIMPLUGINSDK_IPLUGINDOCUMENT_H
 #define CLOUDSIMPLUGINSDK_IPLUGINDOCUMENT_H
 
 /// @file IPluginDocument.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 插件可见的单文档页 API
 
 #include "cloudsim_plugin_sdk_global.h"

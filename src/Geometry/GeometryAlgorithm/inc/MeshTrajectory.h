@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_MESHTRAJECTORY_H
+#ifndef GEOMETRYALGORITHM_MESHTRAJECTORY_H
 #define GEOMETRYALGORITHM_MESHTRAJECTORY_H
 
 /// @file MeshTrajectory.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 三角 soup 上生成机器人 RawPath：截面法平面求交或 B 样条区域 UV 采样
 
 #include "geometry_algorithm_global.h"

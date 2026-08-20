@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_BRANDPROGRAMEXPORTDIALOG_H
 
 /// @file BrandProgramExportDialog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 品牌程序导出：选择程序与机器人品牌
 
 #include "robotwidget_global.h"

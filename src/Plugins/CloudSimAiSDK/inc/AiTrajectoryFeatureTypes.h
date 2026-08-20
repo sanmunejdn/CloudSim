@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMAISDK_AITRAJECTORYFEATURETYPES_H
+#ifndef CLOUDSIMAISDK_AITRAJECTORYFEATURETYPES_H
 #define CLOUDSIMAISDK_AITRAJECTORYFEATURETYPES_H
 
 /// @file AiTrajectoryFeatureTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轨迹生成页当前 STEP 工件上下文
 
 #include "cloudsim_ai_sdk_global.h"

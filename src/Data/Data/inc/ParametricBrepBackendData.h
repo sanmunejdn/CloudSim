@@ -2,6 +2,7 @@
 #define DATA_PARAMETRICBREPBACKENDDATA_H
 
 /// @file ParametricBrepBackendData.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 参数化工件：B-rep + 草图/Pad/Pocket 创建过程
 
 #include "BrepBackendData.h"

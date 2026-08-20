@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_CUSTOMDEVICEPOSEMOTIONHOST_H
 
 /// @file CustomDevicePoseMotionHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Web/Headless：DI 绑定姿态插值（对齐桌面 DevicePoseMotionPlayer）
 
 #include "cloudsim_host_global.h"

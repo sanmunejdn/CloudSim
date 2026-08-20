@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_MEASURE_H
+#ifndef POINTCLOUDALGORITHM_MEASURE_H
 #define POINTCLOUDALGORITHM_MEASURE_H
 
 /// @file Measure.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 点云度量：包围盒、质心、平均点距
 
 #include "point_cloud_algorithm_global.h"

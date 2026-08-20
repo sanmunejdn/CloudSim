@@ -2,6 +2,7 @@
 #define ROBOTKINEMATICS_CIRCULARARCGEOMETRY_H
 
 /// @file CircularArcGeometry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 三点定圆与按弦长弧采样（mm，与 URDF/Qt 无关）
 
 #include "robot_kinematics_global.h"

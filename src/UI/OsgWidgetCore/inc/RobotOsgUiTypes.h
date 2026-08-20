@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_ROBOTOSGUITYPES_H
+#ifndef OSGWIDGETCORE_ROBOTOSGUITYPES_H
 #define OSGWIDGETCORE_ROBOTOSGUITYPES_H
 
 /// @file RobotOsgUiTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器人视口叠加数据结构（无 osg；渲染边界再转 OSG）
 
 #include "CoreTypes.h"

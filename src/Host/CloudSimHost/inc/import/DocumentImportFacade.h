@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H
+#ifndef CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H
 #define CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H
 
 /// @file DocumentImportFacade.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 统一导入路由
 
 #include "cloudsim_host_global.h"

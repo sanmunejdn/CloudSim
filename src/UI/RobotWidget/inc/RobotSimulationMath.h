@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_ROBOTSIMULATIONMATH_H
+#ifndef ROBOTWIDGET_ROBOTSIMULATIONMATH_H
 #define ROBOTWIDGET_ROBOTSIMULATIONMATH_H
 
 /// @file RobotSimulationMath.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief per-link 且顶点已烘焙到世界系（meshVerticesInLinkFrame=false）时，法兰 OSG 外矩阵仅为 FK 增量，工具轴须走 FK 基系矩阵
 
 #include "robotwidget_global.h"

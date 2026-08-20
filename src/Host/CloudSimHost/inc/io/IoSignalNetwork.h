@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_IOSIGNALNETWORK_H
 
 /// @file IoSignalNetwork.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Headless/Web 多 Owner IO 网：与桌面 ioSignalNetwork 侧车同形
 
 #include "cloudsim_host_global.h"

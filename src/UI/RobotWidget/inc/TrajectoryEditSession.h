@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_TRAJECTORYEDITSESSION_H
 
 /// @file TrajectoryEditSession.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轨迹编辑流水线编排（Preview 三分支 + Apply 走 Command）
 
 #include "robotwidget_global.h"

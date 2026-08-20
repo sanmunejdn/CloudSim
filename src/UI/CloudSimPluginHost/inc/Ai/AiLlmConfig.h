@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_AILLMCONFIG_H
+#ifndef CLOUDSIMPLUGINHOST_AILLMCONFIG_H
 #define CLOUDSIMPLUGINHOST_AILLMCONFIG_H
 
 /// @file AiLlmConfig.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 从可执行文件旁 ai_config.json 加载
 
 #include "aibackend_global.h"

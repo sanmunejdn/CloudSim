@@ -1,7 +1,8 @@
-﻿#ifndef POINTNETPLUGIN_POINTNETPLUGIN_H
+#ifndef POINTNETPLUGIN_POINTNETPLUGIN_H
 #define POINTNETPLUGIN_POINTNETPLUGIN_H
 
 /// @file PointNetPlugin.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PointNet++ 插件主类：注册 pointnet.classify / pointnet.segment 两个 AI 域
 
 #include "ICloudSimAiPlugin.h"

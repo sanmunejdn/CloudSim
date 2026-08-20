@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYPATHMATH_H
+#ifndef TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYPATHMATH_H
 #define TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYPATHMATH_H
 
 /// @file UnifiedTrajectoryPathMath.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief UnifiedTrajectoryPathMath 接口
 
 // UnifiedTrajectory 路径几何原语，供原子块复用

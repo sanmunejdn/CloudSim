@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWRESULTDIALOG_H
 
 /// @file ProcessFlowResultDialog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 甘特 / Trace / 策略对比（含可选多策略甘特）
 
 #include "sim/SimStatistics.h"

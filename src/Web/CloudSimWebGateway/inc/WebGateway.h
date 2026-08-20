@@ -2,6 +2,7 @@
 #define CLOUDSIMWEBGATEWAY_WEBGATEWAY_H
 
 /// @file WebGateway.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 独立进程 HTTP/SSE 网关（P1–P5 能力面）
 
 #include "cloudsim_web_gateway_global.h"

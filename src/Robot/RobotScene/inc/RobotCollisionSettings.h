@@ -2,6 +2,7 @@
 #define ROBOTSCENE_ROBOTCOLLISIONSETTINGS_H
 
 /// @file RobotCollisionSettings.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 文档级碰撞：开关、余量、黑白名单
 
 #include "robot_scene_global.h"

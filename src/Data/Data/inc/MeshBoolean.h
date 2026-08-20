@@ -1,7 +1,8 @@
-﻿#ifndef DATA_MESHBOOLEAN_H
+#ifndef DATA_MESHBOOLEAN_H
 #define DATA_MESHBOOLEAN_H
 
 /// @file MeshBoolean.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 两三角 soup（世界坐标 mm，9 float/三角）布尔运算；输出新 soup
 
 #include "data_global.h"

@@ -2,6 +2,7 @@
 #define ROBOTURDF_CUSTOMDEVICEURDFEXPORTER_H
 
 /// @file CustomDeviceUrdfExporter.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自定义设备 → ROS 包（package.xml + urdf + meshes/cad）
 
 #include "robot_urdf_global.h"

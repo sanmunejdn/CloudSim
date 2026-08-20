@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_AIDOMAINREGISTRYIMPL_H
+#ifndef CLOUDSIMPLUGINHOST_AIDOMAINREGISTRYIMPL_H
 #define CLOUDSIMPLUGINHOST_AIDOMAINREGISTRYIMPL_H
 
 /// @file AiDomainRegistryImpl.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief AiDomainRegistryImpl 接口
 
 #include "IAiDomainHandler.h"

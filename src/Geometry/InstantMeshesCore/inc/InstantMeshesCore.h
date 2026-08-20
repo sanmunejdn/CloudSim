@@ -1,7 +1,8 @@
-﻿#ifndef INSTANTMESHESCORE_INSTANTMESHESCORE_H
+#ifndef INSTANTMESHESCORE_INSTANTMESHESCORE_H
 #define INSTANTMESHESCORE_INSTANTMESHESCORE_H
 
 /// @file InstantMeshesCore.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief InstantMeshesCore 接口
 
 #include "instant_meshes_core_global.h"

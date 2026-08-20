@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_IROBOTMAINWINDOWHOST_H
+#ifndef ROBOTWIDGET_IROBOTMAINWINDOWHOST_H
 #define ROBOTWIDGET_IROBOTMAINWINDOWHOST_H
 
 /// @file IRobotMainWindowHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器人编排所需主窗口服务（Widget 实现）
 
 #include "robotwidget_global.h"

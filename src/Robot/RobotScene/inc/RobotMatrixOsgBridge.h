@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTMATRIXOSGBRIDGE_H
+#ifndef ROBOTSCENE_ROBOTMATRIXOSGBRIDGE_H
 #define ROBOTSCENE_ROBOTMATRIXOSGBRIDGE_H
 
 /// @file RobotMatrixOsgBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief BackendMat4（列主序、列向量）与 osg::Matrixd（行向量 v'=v*M）之间的刚体变换桥接。
 
 #include "robot_scene_global.h"

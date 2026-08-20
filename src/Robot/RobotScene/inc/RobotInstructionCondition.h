@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONCONDITION_H
+#ifndef ROBOTSCENE_ROBOTINSTRUCTIONCONDITION_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONCONDITION_H
 
 /// @file RobotInstructionCondition.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief RobotInstructionCondition 接口
 
 #include "robot_scene_global.h"

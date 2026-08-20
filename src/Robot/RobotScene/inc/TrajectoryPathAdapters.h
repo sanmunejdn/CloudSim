@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_TRAJECTORYPATHADAPTERS_H
+#ifndef ROBOTSCENE_TRAJECTORYPATHADAPTERS_H
 #define ROBOTSCENE_TRAJECTORYPATHADAPTERS_H
 
 /// @file TrajectoryPathAdapters.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief raw 转 unified 时由调用方注入世界系变换（Session 持有 OSG 上下文）
 
 #include "robot_scene_global.h"

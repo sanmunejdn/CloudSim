@@ -2,6 +2,7 @@
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGSHEETMODEL_H
 
 /// @file DrawingSheetModel.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 图纸几何与场景坐标 QPainterPath 缓存（画布只读渲染）
 
 #include "DrawingSheetCanvasWidget.h"

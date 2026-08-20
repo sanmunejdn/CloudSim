@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_ROBOTPROGRAMJSONIO_H
+#ifndef CLOUDSIMHOST_ROBOTPROGRAMJSONIO_H
 #define CLOUDSIMHOST_ROBOTPROGRAMJSONIO_H
 
 /// @file RobotProgramJsonIo.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器人程序 JSON
 
 #include "cloudsim_host_global.h"

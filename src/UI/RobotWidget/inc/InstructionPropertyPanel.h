@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_INSTRUCTIONPROPERTYPANEL_H
+#ifndef ROBOTWIDGET_INSTRUCTIONPROPERTYPANEL_H
 #define ROBOTWIDGET_INSTRUCTIONPROPERTYPANEL_H
 
 /// @file InstructionPropertyPanel.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 仿真指令 Qt 属性浏览器（实现位于 RobotWidget，Widget 不 include RobotScene）
 
 #include "robotwidget_global.h"

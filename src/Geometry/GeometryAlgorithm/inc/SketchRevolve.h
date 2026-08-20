@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_SKETCHREVOLVE_H
 
 /// @file SketchRevolve.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 闭合轮廓绕轴旋转凸台/切除
 
 #include "geometry_algorithm_global.h"

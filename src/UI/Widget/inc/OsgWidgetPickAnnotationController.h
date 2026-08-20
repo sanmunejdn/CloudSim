@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_OSGWIDGETPICKANNOTATIONCONTROLLER_H
+#ifndef WIDGET_OSGWIDGETPICKANNOTATIONCONTROLLER_H
 #define WIDGET_OSGWIDGETPICKANNOTATIONCONTROLLER_H
 
 /// @file OsgWidgetPickAnnotationController.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 点选标记与三维文字标注的增删改、刷新与按后端恢复，自 OsgWidget 拆出
 
 #include "OsgWidget.h"

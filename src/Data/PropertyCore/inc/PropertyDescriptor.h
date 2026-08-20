@@ -1,7 +1,8 @@
-﻿#ifndef PROPERTYCORE_PROPERTYDESCRIPTOR_H
+#ifndef PROPERTYCORE_PROPERTYDESCRIPTOR_H
 #define PROPERTYCORE_PROPERTYDESCRIPTOR_H
 
 /// @file PropertyDescriptor.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 双精度滑条范围（enabled 才生效）
 
 #include "PropertyTypes.h"

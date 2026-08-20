@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWPAGEWIDGET_H
 
 /// @file ProcessFlowPageWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 中央流程页：顶栏工具 + 画布
 
 #include <QWidget>

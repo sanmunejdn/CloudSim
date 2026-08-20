@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWNODEPROPS_H
 
 /// @file ProcessFlowNodeProps.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 工艺流程节点类型与扩展属性
 
 #include <QJsonObject>

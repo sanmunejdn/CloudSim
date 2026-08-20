@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_DRAWINGENGINES_H
 
 /// @file DrawingEngines.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Exact / Mesh 双引擎 HLR（内部；对外仍经 HlrProject 折线 ABI）
 
 #include "geometry_algorithm_global.h"

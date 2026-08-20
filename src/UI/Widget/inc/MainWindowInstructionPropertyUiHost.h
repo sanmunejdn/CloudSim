@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_MAINWINDOWINSTRUCTIONPROPERTYUIHOST_H
+#ifndef WIDGET_MAINWINDOWINSTRUCTIONPROPERTYUIHOST_H
 #define WIDGET_MAINWINDOWINSTRUCTIONPROPERTYUIHOST_H
 
 /// @file MainWindowInstructionPropertyUiHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief MainWindow 作为仿真指令属性面板宿主
 
 #include "IRobotInstructionPropertyUiHost.h"
@@ -56,7 +57,8 @@ public:
 
 	void refreshInstructionPoseAxes() override;
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction) override;
-	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction) override;
+	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction,
+											 bool forceCartesianIk = false) override;
 	void refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& instruction) override;
 
 	void scheduleInstructionPropertyRefresh(const std::shared_ptr<RobotInstruction::Base>& instruction,

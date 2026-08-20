@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMCORE_EVENTHUB_H
+#ifndef CLOUDSIMCORE_EVENTHUB_H
 #define CLOUDSIMCORE_EVENTHUB_H
 
 /// @file EventHub.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief UI 线程事件总线
 
 #include "cloudsim_core_global.h"

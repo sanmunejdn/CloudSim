@@ -1,4 +1,5 @@
 /// @file SketchTools.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 直线/弧/圆/矩形/尺寸/几何约束/构造线/裁剪镜像
 
 #ifndef GEOMETRICMODELINGPLUGIN_SKETCHTOOLS_H

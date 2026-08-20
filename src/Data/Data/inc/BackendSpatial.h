@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDSPATIAL_H
+#ifndef DATA_BACKENDSPATIAL_H
 #define DATA_BACKENDSPATIAL_H
 
 /// @file BackendSpatial.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 世界点 = objectWorldMatrix × v_stored
 
 #include "data_global.h"

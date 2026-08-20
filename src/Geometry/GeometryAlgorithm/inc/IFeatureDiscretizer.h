@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_IFEATUREDISCRETIZER_H
+#ifndef GEOMETRYALGORITHM_IFEATUREDISCRETIZER_H
 #define GEOMETRYALGORITHM_IFEATUREDISCRETIZER_H
 
 /// @file IFeatureDiscretizer.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 特征离散策略插件接口（strategyId / mergePolicy / discretize）
 
 #include "geometry_algorithm_global.h"

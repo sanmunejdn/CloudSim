@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_SIM_DISPATCHPOLICIES_H
 
 /// @file DispatchPolicies.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief FIFO / SPT / LPT / EDD / CR
 
 #include "IDispatchPolicy.h"

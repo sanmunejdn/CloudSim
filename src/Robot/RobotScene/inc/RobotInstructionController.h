@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONCONTROLLER_H
+#ifndef ROBOTSCENE_ROBOTINSTRUCTIONCONTROLLER_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONCONTROLLER_H
 
 /// @file RobotInstructionController.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 当前指令上下文中通过 IK+姿态约束的轴配置枚举
 
 #include "robot_scene_global.h"

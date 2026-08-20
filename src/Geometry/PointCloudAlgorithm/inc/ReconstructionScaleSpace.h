@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_RECONSTRUCTIONSCALESPACE_H
+#ifndef POINTCLOUDALGORITHM_RECONSTRUCTIONSCALESPACE_H
 #define POINTCLOUDALGORITHM_RECONSTRUCTIONSCALESPACE_H
 
 /// @file ReconstructionScaleSpace.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Scale-space 重建：仅坐标点云 → 三角 soup（mm），不依赖法线
 
 #include "point_cloud_algorithm_global.h"

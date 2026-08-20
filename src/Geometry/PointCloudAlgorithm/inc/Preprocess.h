@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_PREPROCESS_H
+#ifndef POINTCLOUDALGORITHM_PREPROCESS_H
 #define POINTCLOUDALGORITHM_PREPROCESS_H
 
 /// @file Preprocess.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 点云预处理：法线估计/定向、离群剔除、双边平滑、重建前管线
 
 #include "point_cloud_algorithm_global.h"

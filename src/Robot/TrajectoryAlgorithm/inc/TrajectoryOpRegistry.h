@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPREGISTRY_H
+#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPREGISTRY_H
 #define TRAJECTORYALGORITHM_TRAJECTORYOPREGISTRY_H
 
 /// @file TrajectoryOpRegistry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TrajectoryOpRegistry 接口
 
 #include "trajectory_algorithm_global.h"

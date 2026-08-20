@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYPARAMJSONIO_H
+#ifndef TRAJECTORYALGORITHM_TRAJECTORYPARAMJSONIO_H
 #define TRAJECTORYALGORITHM_TRAJECTORYPARAMJSONIO_H
 
 /// @file TrajectoryParamJsonIo.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TrajectoryParamJsonIo 接口
 
 // 从 resource/trajectory 加载并解析参数 schema JSON

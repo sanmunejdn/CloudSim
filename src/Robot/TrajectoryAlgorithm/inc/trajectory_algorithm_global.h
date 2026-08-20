@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORY_ALGORITHM_GLOBAL_H
+#ifndef TRAJECTORYALGORITHM_TRAJECTORY_ALGORITHM_GLOBAL_H
 #define TRAJECTORYALGORITHM_TRAJECTORY_ALGORITHM_GLOBAL_H
 
 /// @file trajectory_algorithm_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TrajectoryAlgorithm 导出宏
 
 #if defined(TRAJECTORY_ALGORITHM_STATIC) || defined(BUILD_STATIC)

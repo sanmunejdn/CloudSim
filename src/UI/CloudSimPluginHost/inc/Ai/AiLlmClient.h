@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_AILLMCLIENT_H
+#ifndef CLOUDSIMPLUGINHOST_AILLMCLIENT_H
 #define CLOUDSIMPLUGINHOST_AILLMCLIENT_H
 
 /// @file AiLlmClient.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 阻塞式 OpenAI 兼容对话；含 tools/tool_calls 多轮
 
 #include "aibackend_global.h"

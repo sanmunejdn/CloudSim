@@ -2,6 +2,7 @@
 #define INDUSTRIALCAMERASDK_CAMERATYPES_H
 
 /// @file CameraTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 工业相机公共类型（含 GigE IP）
 
 #include "industrial_camera_sdk_global.h"

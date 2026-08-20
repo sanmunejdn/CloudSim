@@ -2,6 +2,7 @@
 #define DATA_PARAMETRICBREPFEATURE_H
 
 /// @file ParametricBrepFeature.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 参数化 Body 特征链 DTO（与插件 GeomodelingFeature 语义对齐，不依赖 Qt）
 
 #include <string>

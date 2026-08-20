@@ -2,6 +2,7 @@
 #define ROBOTCOMMSDK_IROBOTMOTIONCLIENT_H
 
 /// @file IRobotMotionClient.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 经 RobotCommBridge 访问真实机器人反馈（不直连厂商协议）
 
 #include "robot_comm_sdk_global.h"

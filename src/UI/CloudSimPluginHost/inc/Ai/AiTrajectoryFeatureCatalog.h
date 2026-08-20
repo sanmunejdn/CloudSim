@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_AITRAJECTORYFEATURECATALOG_H
+#ifndef CLOUDSIMPLUGINHOST_AITRAJECTORYFEATURECATALOG_H
 #define CLOUDSIMPLUGINHOST_AITRAJECTORYFEATURECATALOG_H
 
 /// @file AiTrajectoryFeatureCatalog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief trajectory.feature 规则解析、catalog 切片与编号映射
 
 #include "AiParseTypes.h"

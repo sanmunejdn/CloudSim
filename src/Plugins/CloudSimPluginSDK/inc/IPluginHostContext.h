@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H
+#ifndef CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H
 #define CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H
 
 /// @file IPluginHostContext.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief IPluginHostContext 接口
 
 #include "cloudsim_plugin_sdk_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef DATA_PROPERTYBAG_H
+#ifndef DATA_PROPERTYBAG_H
 #define DATA_PROPERTYBAG_H
 
 /// @file PropertyBag.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 运行时属性袋：name+type 键，variant 值
 
 #include <array>

@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_TRAJECTORYOPPARAMPANEL_H
+#ifndef ROBOTWIDGET_TRAJECTORYOPPARAMPANEL_H
 #define ROBOTWIDGET_TRAJECTORYOPPARAMPANEL_H
 
 /// @file TrajectoryOpParamPanel.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TrajectoryOpParamPanel 接口
 
 #include "robotwidget_global.h"

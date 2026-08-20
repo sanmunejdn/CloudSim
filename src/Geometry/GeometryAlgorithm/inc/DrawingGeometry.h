@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_DRAWINGGEOMETRY_H
 
 /// @file DrawingGeometry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 工程图原生图元模型与 Edge→图元工厂（HLR 内部用，对外仍可折线 ABI）
 
 #include "geometry_algorithm_global.h"

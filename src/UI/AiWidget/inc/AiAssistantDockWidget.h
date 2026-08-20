@@ -1,7 +1,8 @@
-﻿#ifndef AIWIDGET_AIASSISTANTDOCKWIDGET_H
+#ifndef AIWIDGET_AIASSISTANTDOCKWIDGET_H
 #define AIWIDGET_AIASSISTANTDOCKWIDGET_H
 
 /// @file AiAssistantDockWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief AI 助手面板：对话 + Agent 确认表单
 
 #include "aiwidget_global.h"

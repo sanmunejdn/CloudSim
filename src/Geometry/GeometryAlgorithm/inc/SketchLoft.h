@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_SKETCHLOFT_H
 
 /// @file SketchLoft.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 两截面放样凸台/切除（OCC ThruSections）
 
 #include "geometry_algorithm_global.h"

@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_ICUSTOMDEVICEASSEMBLYHOST_H
 
 /// @file ICustomDeviceAssemblyHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 组装对话框所需宿主能力（Widget 实现，避免 Dialog 依赖 CloudSimHost）
 
 #include "robotwidget_global.h"

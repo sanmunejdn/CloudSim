@@ -2,6 +2,7 @@
 #define CLOUDSIMPLUGINHOST_AIAGENTRUNTIME_H
 
 /// @file AiAgentRuntime.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Agent 状态机：规划 → 确认 → 执行 → 观测回灌
 
 #include "AiAgentTypes.h"

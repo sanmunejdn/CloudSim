@@ -2,6 +2,7 @@
 #define GEOMETRICMODELINGPLUGIN_GEOMETRICMODELINGRIBBONBAR_H
 
 /// @file GeometricModelingRibbonBar.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 几何建模模式 Ribbon：强分组、可勾选绘制/尺寸工具、主题跟随宿主
 
 #include <QWidget>

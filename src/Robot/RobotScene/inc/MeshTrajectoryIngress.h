@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_MESHTRAJECTORYINGRESS_H
+#ifndef ROBOTSCENE_MESHTRAJECTORYINGRESS_H
 #define ROBOTSCENE_MESHTRAJECTORYINGRESS_H
 
 /// @file MeshTrajectoryIngress.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief mesh 模型系 RawPath → RawTrajectory（sourceFeatureJson 为 MeshTrajectorySpec JSON）
 
 #include "robot_scene_global.h"

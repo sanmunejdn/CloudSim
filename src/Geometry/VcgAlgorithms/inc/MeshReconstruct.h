@@ -1,7 +1,8 @@
-﻿#ifndef VCGALGORITHMS_MESHRECONSTRUCT_H
+#ifndef VCGALGORITHMS_MESHRECONSTRUCT_H
 #define VCGALGORITHMS_MESHRECONSTRUCT_H
 
 /// @file MeshReconstruct.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 重建后处理管线：简化 → 修复 → 可选平滑（输入已是 soup）
 
 #include "vcg_algorithms_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_TUBULARGRINDING_H
+#ifndef GEOMETRYALGORITHM_TUBULARGRINDING_H
 #define GEOMETRYALGORITHM_TUBULARGRINDING_H
 
 /// @file TubularGrinding.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 管状铸件：中心线 → 模板轨迹点 → 表面投影（网格/点云双源，会话式分阶段）
 
 #include "geometry_algorithm_global.h"

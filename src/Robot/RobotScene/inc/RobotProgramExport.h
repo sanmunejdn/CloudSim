@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTPROGRAMEXPORT_H
+#ifndef ROBOTSCENE_ROBOTPROGRAMEXPORT_H
 #define ROBOTSCENE_ROBOTPROGRAMEXPORT_H
 
 /// @file RobotProgramExport.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Build export rows from motion instructions and matching plan results (same order as collectMotionInstructions).
 
 #include "robot_scene_global.h"

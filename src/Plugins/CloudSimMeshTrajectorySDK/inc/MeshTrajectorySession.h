@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYSESSION_H
+#ifndef CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYSESSION_H
 #define CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYSESSION_H
 
 /// @file MeshTrajectorySession.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief MeshTrajectorySession 接口
 
 #include "mesh_trajectory_sdk_global.h"

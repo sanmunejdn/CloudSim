@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_SKETCHSHELL_H
 
 /// @file SketchShell.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 选面开壳（OCC MakeThickSolid）
 
 #include "geometry_algorithm_global.h"

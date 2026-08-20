@@ -2,6 +2,7 @@
 #define TRAJECTORYALGORITHM_IEXTERNALAXISSEARCHSERVICE_H
 
 /// @file IExternalAxisSearchService.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 外部轴搜索服务：由 RobotScene/UI 注入；无配置时 Op 直接跳过
 
 #include "trajectory_algorithm_global.h"

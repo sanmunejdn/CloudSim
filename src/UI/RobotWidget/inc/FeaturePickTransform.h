@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_FEATUREPICKTRANSFORM_H
+#ifndef ROBOTWIDGET_FEATUREPICKTRANSFORM_H
 #define ROBOTWIDGET_FEATUREPICKTRANSFORM_H
 
 /// @file FeaturePickTransform.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 追加一条 raw 到已有 overlay（多 PathPlan 叠加预览）
 
 #include "robotwidget_global.h"

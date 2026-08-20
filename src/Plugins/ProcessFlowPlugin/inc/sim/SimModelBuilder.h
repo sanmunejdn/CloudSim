@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_SIM_SIMMODELBUILDER_H
 
 /// @file SimModelBuilder.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief processFlow JSON → PlantGraph + 自动 JobTemplate
 
 #include "JobSet.h"

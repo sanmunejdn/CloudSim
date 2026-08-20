@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_TRAJECTORYEDITOBSERVER_H
+#ifndef ROBOTWIDGET_TRAJECTORYEDITOBSERVER_H
 #define ROBOTWIDGET_TRAJECTORYEDITOBSERVER_H
 
 /// @file TrajectoryEditObserver.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轨迹编辑 Observer：收敛 Page 对 Session/管道的调用
 
 #include "robotwidget_global.h"

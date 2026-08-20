@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMLABELINGSDK_LABELING_SDK_GLOBAL_H
+#ifndef CLOUDSIMLABELINGSDK_LABELING_SDK_GLOBAL_H
 #define CLOUDSIMLABELINGSDK_LABELING_SDK_GLOBAL_H
 
 /// @file labeling_sdk_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief CloudSimLabelingSDK 导出宏
 
 #if defined(LABELING_SDK_STATIC) || defined(BUILD_STATIC)

@@ -2,6 +2,7 @@
 #define INDUSTRIALCAMERASDK_IROBOTPOSESOURCE_H
 
 /// @file IRobotPoseSource.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 手眼标定用机器人末端位姿源
 
 #include "CameraTypes.h"

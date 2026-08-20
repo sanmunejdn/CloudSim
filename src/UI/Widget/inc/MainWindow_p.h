@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_MAINWINDOW_P_H
+#ifndef WIDGET_MAINWINDOW_P_H
 #define WIDGET_MAINWINDOW_P_H
 
 /// @file MainWindow_p.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 主窗口树形控件 ItemDataRole / 条目类型
 
 #include <Qt>

@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTPROGRAMEXECUTOR_H
+#ifndef ROBOTSCENE_ROBOTPROGRAMEXECUTOR_H
 #define ROBOTSCENE_ROBOTPROGRAMEXECUTOR_H
 
 /// @file RobotProgramExecutor.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 单运动学实例执行机器人程序（运动+逻辑）
 
 #include "robot_scene_global.h"

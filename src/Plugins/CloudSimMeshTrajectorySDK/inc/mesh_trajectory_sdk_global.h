@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMMESHTRAJECTORYSDK_MESH_TRAJECTORY_SDK_GLOBAL_H
+#ifndef CLOUDSIMMESHTRAJECTORYSDK_MESH_TRAJECTORY_SDK_GLOBAL_H
 #define CLOUDSIMMESHTRAJECTORYSDK_MESH_TRAJECTORY_SDK_GLOBAL_H
 
 /// @file mesh_trajectory_sdk_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief CloudSimMeshTrajectorySDK 导出宏
 
 #if defined(MESH_TRAJECTORY_SDK_STATIC) || defined(BUILD_STATIC)

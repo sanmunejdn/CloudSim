@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_BREPBOOLEAN_H
+#ifndef GEOMETRYALGORITHM_BREPBOOLEAN_H
 #define GEOMETRYALGORITHM_BREPBOOLEAN_H
 
 /// @file BrepBoolean.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief OCC Fuse/Common/Cut 布尔 → Shape 或离散 mesh
 
 #include "geometry_algorithm_global.h"

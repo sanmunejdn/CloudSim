@@ -1,7 +1,8 @@
-﻿#ifndef DATA_DATA_GLOBAL_H
+#ifndef DATA_DATA_GLOBAL_H
 #define DATA_DATA_GLOBAL_H
 
 /// @file data_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Data 模块 DLL 导出宏
 
 /// Data 模块 DLL 导出宏

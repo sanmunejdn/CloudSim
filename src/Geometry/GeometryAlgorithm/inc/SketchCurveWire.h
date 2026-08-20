@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_SKETCHCURVEWIRE_H
 
 /// @file SketchCurveWire.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 草图曲线段类型（轮廓/路径共用）；OCC wire 构建见 detail/SketchCurveWireOcc.h
 
 #include "geometry_algorithm_global.h"

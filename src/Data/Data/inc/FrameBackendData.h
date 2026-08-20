@@ -2,6 +2,7 @@
 #define DATA_FRAMEBACKENDDATA_H
 
 /// @file FrameBackendData.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 命名坐标系后端：仅世界位姿 + 轴长，无实体网格
 
 #include "BackendDataBase.h"

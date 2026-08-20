@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_AICOMMANDSCHEMA_H
+#ifndef CLOUDSIMPLUGINHOST_AICOMMANDSCHEMA_H
 #define CLOUDSIMPLUGINHOST_AICOMMANDSCHEMA_H
 
 /// @file AiCommandSchema.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 校验 create_mesh 并填充 mesh 参数
 
 #include "aibackend_global.h"

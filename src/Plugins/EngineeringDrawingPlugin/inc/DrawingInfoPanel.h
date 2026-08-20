@@ -2,6 +2,7 @@
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGINFOPANEL_H
 
 /// @file DrawingInfoPanel.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 右侧特性面板：图层/色/线型/线宽（ByLayer 或覆盖）
 
 #include "DrawingSheetCanvasWidget.h"

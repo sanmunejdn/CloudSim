@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_IPERLINKROBOTSTATEACCESSOR_H
+#ifndef CLOUDSIMHOST_IPERLINKROBOTSTATEACCESSOR_H
 #define CLOUDSIMHOST_IPERLINKROBOTSTATEACCESSOR_H
 
 /// @file IPerLinkRobotStateAccessor.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief per-link 机器人状态快照（Mat4 版本，供 Host 实现类操作）
 
 #include "cloudsim_host_global.h"

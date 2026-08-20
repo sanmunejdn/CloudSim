@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_CLOUDSIM_HOST_GLOBAL_H
+#ifndef CLOUDSIMHOST_CLOUDSIM_HOST_GLOBAL_H
 #define CLOUDSIMHOST_CLOUDSIM_HOST_GLOBAL_H
 
 /// @file cloudsim_host_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Host DLL 导出宏
 
 #include <QtCore/qglobal.h>

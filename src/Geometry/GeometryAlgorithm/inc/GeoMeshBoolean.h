@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_GEOMESHBOOLEAN_H
+#ifndef GEOMETRYALGORITHM_GEOMESHBOOLEAN_H
 #define GEOMETRYALGORITHM_GEOMESHBOOLEAN_H
 
 /// @file GeoMeshBoolean.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief CGAL 三角 soup 布尔（差/并/交）
 
 #include "geometry_algorithm_global.h"

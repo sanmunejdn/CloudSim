@@ -2,6 +2,7 @@
 #define CLOUDSIMWEBGATEWAY_STOREZIPEXTRACT_H
 
 /// @file StoreZipExtract.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief STORE-only zip 解压（与桌面 .pcp 约定一致，不链 Widget）
 
 #include "cloudsim_web_gateway_global.h"

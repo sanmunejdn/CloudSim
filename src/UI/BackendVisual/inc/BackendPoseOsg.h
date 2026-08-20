@@ -1,7 +1,8 @@
-﻿#ifndef BACKENDVISUAL_BACKENDPOSEOSG_H
+#ifndef BACKENDVISUAL_BACKENDPOSEOSG_H
 #define BACKENDVISUAL_BACKENDPOSEOSG_H
 
 /// @file BackendPoseOsg.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief backend.pose/rotation ↔ OSG 世界刚体矩阵（pose=模型原点世界坐标；权威 engine::BackendWorldPose）
 
 #include "backendvisual_global.h"

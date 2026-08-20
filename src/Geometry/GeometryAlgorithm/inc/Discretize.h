@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_DISCRETIZE_H
 
 /// @file Discretize.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Edge/Wire/Shape 折线与三角 soup 离散；STEP 单件/层级
 
 #include "geometry_algorithm_global.h"

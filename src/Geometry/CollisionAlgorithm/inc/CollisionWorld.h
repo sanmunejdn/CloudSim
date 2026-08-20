@@ -2,6 +2,7 @@
 #define COLLISIONALGORITHM_COLLISIONWORLD_H
 
 /// @file CollisionWorld.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 多体网格碰撞：模型系 soup + 世界 Mat4，ACM 排除对
 
 #include "collision_algorithm_global.h"

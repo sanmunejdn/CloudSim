@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_IROBOTBACKENDPOSESINK_H
+#ifndef ROBOTSCENE_IROBOTBACKENDPOSESINK_H
 #define ROBOTSCENE_IROBOTBACKENDPOSESINK_H
 
 /// @file IRobotBackendPoseSink.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端根位姿读写（无 osg；矩阵为列主序 Mat4）
 
 #include "robot_scene_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMAISDK_AIDOMAINTYPES_H
+#ifndef CLOUDSIMAISDK_AIDOMAINTYPES_H
 #define CLOUDSIMAISDK_AIDOMAINTYPES_H
 
 /// @file AiDomainTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 领域输出：通用步骤计划或领域自定义 JSON
 
 #include "cloudsim_ai_sdk_global.h"

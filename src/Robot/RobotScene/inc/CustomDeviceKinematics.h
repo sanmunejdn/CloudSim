@@ -2,6 +2,7 @@
 #define ROBOTSCENE_CUSTOMDEVICEKINEMATICS_H
 
 /// @file CustomDeviceKinematics.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自定义设备 W0*T(q) 合成；转调 RobotExternal 数学
 
 #include "robot_scene_global.h"

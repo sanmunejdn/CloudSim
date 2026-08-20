@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_TRAJECTORYPIPELINELISTWIDGET_H
+#ifndef ROBOTWIDGET_TRAJECTORYPIPELINELISTWIDGET_H
 #define ROBOTWIDGET_TRAJECTORYPIPELINELISTWIDGET_H
 
 /// @file TrajectoryPipelineListWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轨迹操作流水线列表，支持拖放排序；行末「启用」勾选控制是否参与引擎
 
 #include "robotwidget_global.h"

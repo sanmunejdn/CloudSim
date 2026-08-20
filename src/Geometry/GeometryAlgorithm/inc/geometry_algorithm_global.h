@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_GEOMETRY_ALGORITHM_GLOBAL_H
+#ifndef GEOMETRYALGORITHM_GEOMETRY_ALGORITHM_GLOBAL_H
 #define GEOMETRYALGORITHM_GEOMETRY_ALGORITHM_GLOBAL_H
 
 /// @file geometry_algorithm_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief GeometryAlgorithm DLL 导出宏（GEOMETRY_ALGORITHM_API）
 
 #if defined(GEOMETRY_ALGORITHM_STATIC) || defined(BUILD_STATIC)

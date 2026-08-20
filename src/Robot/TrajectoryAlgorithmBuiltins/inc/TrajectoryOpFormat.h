@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPFORMAT_H
+#ifndef TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPFORMAT_H
 #define TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPFORMAT_H
 
 /// @file TrajectoryOpFormat.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TrajectoryOpFormat 接口
 
 // 轨迹块参数在 JSON/UI 中的字段格式化

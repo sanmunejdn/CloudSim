@@ -2,6 +2,7 @@
 #define POINTCLOUDALGORITHM_REGISTRATIONSDF_H
 
 /// @file RegistrationSdf.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief SDF/DDF 混合非刚性配准：粗阶段场残差 + 细阶段默认点-面（独立于 SPARE）
 
 #include "point_cloud_algorithm_global.h"

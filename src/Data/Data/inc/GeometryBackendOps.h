@@ -1,7 +1,8 @@
-﻿#ifndef DATA_GEOMETRYBACKENDOPS_H
+#ifndef DATA_GEOMETRYBACKENDOPS_H
 #define DATA_GEOMETRYBACKENDOPS_H
 
 /// @file GeometryBackendOps.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 从三角 soup 均匀采样顶点（与 B-rep display soup 提取策略一致），供模板面重构 mesh 输入
 
 #include "data_global.h"

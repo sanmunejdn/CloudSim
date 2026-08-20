@@ -1,7 +1,8 @@
-﻿#ifndef INSTANTMESHESCORE_IMBATCHBRIDGE_H
+#ifndef INSTANTMESHESCORE_IMBATCHBRIDGE_H
 #define INSTANTMESHESCORE_IMBATCHBRIDGE_H
 
 /// @file ImBatchBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief ImBatchBridge 接口
 
 #include "InstantMeshesCore.h"

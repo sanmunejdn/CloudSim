@@ -2,6 +2,7 @@
 #define ROBOTSCENE_ROBOTEXTERNALAXES_H
 
 /// @file RobotExternalAxes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器人实例外部轴：平移/旋转 × 机器人基座/工件；多轴链式合成
 
 #include "robot_scene_global.h"

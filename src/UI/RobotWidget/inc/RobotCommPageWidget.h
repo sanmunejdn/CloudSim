@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_ROBOTCOMMPAGEWIDGET_H
 
 /// @file RobotCommPageWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器人通讯页：Bridge/真机连接、镜像开关、反馈显示
 
 #include "robotwidget_global.h"

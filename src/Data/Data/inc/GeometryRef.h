@@ -1,7 +1,8 @@
-﻿#ifndef DATA_GEOMETRYREF_H
+#ifndef DATA_GEOMETRYREF_H
 #define DATA_GEOMETRYREF_H
 
 /// @file GeometryRef.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief GeometryRef 接口
 
 #include "data_global.h"

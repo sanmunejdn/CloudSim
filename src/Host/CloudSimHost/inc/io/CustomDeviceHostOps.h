@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_CUSTOMDEVICEHOSTOPS_H
 
 /// @file CustomDeviceHostOps.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Web/Headless：自定义设备列表、姿态绑定、applyQ、组装提交
 
 #include "cloudsim_host_global.h"

@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_BACKENDFOLLOWSOLVE_H
 
 /// @file BackendFollowSolve.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Follow 求解上下文
 
 #include "cloudsim_host_global.h"

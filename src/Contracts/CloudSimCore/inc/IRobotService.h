@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMCORE_IROBOTSERVICE_H
+#ifndef CLOUDSIMCORE_IROBOTSERVICE_H
 #define CLOUDSIMCORE_IROBOTSERVICE_H
 
 /// @file IRobotService.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 文档机器人服务
 
 #include "cloudsim_core_global.h"

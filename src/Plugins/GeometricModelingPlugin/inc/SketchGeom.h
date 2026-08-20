@@ -1,4 +1,5 @@
 /// @file SketchGeom.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 草图平面 UV 几何（对齐 OneCAD 语义，无 OCC 依赖）
 
 #ifndef GEOMETRICMODELINGPLUGIN_SKETCHGEOM_H

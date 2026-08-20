@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_IFEATUREDISCRETIZERCONFIG_H
+#ifndef GEOMETRYALGORITHM_IFEATUREDISCRETIZERCONFIG_H
 #define GEOMETRYALGORITHM_IFEATUREDISCRETIZERCONFIG_H
 
 /// @file IFeatureDiscretizerConfig.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 外置 JSON 离散策略参数模板接口
 
 #include "geometry_algorithm_global.h"

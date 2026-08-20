@@ -1,7 +1,8 @@
-﻿#ifndef POINTNETPLUGIN_POINTNETINFERENCE_H
+#ifndef POINTNETPLUGIN_POINTNETINFERENCE_H
 #define POINTNETPLUGIN_POINTNETINFERENCE_H
 
 /// @file PointNetInference.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief ONNX Runtime 推理封装，支持 PointNet++ 分类与分割
 
 #include "PointNetTypes.h"

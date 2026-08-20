@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTTEACHIK_H
+#ifndef ROBOTSCENE_ROBOTTEACHIK_H
 #define ROBOTSCENE_ROBOTTEACHIK_H
 
 /// @file RobotTeachIk.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 示教 IK：T_base_target + 可选外轴（1～N DOF）→ URDF 数值 IK
 
 #include "robot_scene_global.h"

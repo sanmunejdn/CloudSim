@@ -1,7 +1,8 @@
-﻿#ifndef PROPERTYCORE_PROPERTYVEC3ATTRIBUTE_H
+#ifndef PROPERTYCORE_PROPERTYVEC3ATTRIBUTE_H
 #define PROPERTYCORE_PROPERTYVEC3ATTRIBUTE_H
 
 /// @file PropertyVec3Attribute.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Vec3 属性行（位姿分量等）
 
 #include "PropertyAttributeHelpers.h"

@@ -2,6 +2,7 @@
 #define WIDGET_BACKENDUNITSTREEBINDER_H
 
 /// @file BackendUnitsTreeBinder.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 将 DisplayForest 单文档子树绑定到 QTreeView+Model（文档作用域）
 
 #include "widget_global.h"

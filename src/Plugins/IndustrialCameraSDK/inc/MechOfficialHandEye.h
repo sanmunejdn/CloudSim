@@ -2,6 +2,7 @@
 #define INDUSTRIALCAMERASDK_MECHOFFICIALHANDEYE_H
 
 /// @file MechOfficialHandEye.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 梅卡官方手眼会话（采集期累加，求解时出候选）
 
 #include "HandEyeTypes.h"

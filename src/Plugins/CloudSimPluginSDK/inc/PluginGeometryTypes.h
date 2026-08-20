@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
+#ifndef CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
 #define CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
 
 /// @file PluginGeometryTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief STEP 内拓扑元素引用（edge/face 索引从 0 起）
 
 #include "cloudsim_plugin_sdk_global.h"

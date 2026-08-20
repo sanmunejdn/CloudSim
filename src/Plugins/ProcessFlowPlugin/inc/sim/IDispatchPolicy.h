@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_SIM_IDISPATCHPOLICY_H
 
 /// @file IDispatchPolicy.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器空闲时的派工策略
 
 #include <QVector>

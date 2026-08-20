@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_ROBOTCOORDINATEFRAMEOPS_H
 
 /// @file RobotCoordinateFrameOps.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Headless/Web：工具/用户系捕获、重置、叠加与程序工具上下文同步
 
 #include "cloudsim_host_global.h"

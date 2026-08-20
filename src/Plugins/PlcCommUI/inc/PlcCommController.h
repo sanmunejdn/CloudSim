@@ -1,7 +1,8 @@
-﻿#ifndef PLCCOMMUI_PLCCOMMCONTROLLER_H
+#ifndef PLCCOMMUI_PLCCOMMCONTROLLER_H
 #define PLCCOMMUI_PLCCOMMCONTROLLER_H
 
 /// @file PlcCommController.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief UI 与 Worker 线程桥接
 
 #include "PlcCommTypes.h"

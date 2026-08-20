@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_UNIFIEDTRAJECTORY_H
+#ifndef ROBOTSCENE_UNIFIEDTRAJECTORY_H
 #define ROBOTSCENE_UNIFIEDTRAJECTORY_H
 
 /// @file UnifiedTrajectory.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 仅导入指定 PathPlan 的 PathPlanOutput 成员路点（顺序与分组一致）
 
 #include "robot_scene_global.h"

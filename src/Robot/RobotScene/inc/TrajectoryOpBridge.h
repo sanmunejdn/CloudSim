@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_TRAJECTORYOPBRIDGE_H
+#ifndef ROBOTSCENE_TRAJECTORYOPBRIDGE_H
 #define ROBOTSCENE_TRAJECTORYOPBRIDGE_H
 
 /// @file TrajectoryOpBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轨迹算法统一入口：实现驻留 RobotScene，UI 经此访问避免重复链接 TrajectoryAlgorithm
 
 #include "robot_scene_global.h"

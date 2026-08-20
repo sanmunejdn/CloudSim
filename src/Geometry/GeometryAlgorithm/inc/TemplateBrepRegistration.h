@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_TEMPLATEBREPREGISTRATION_H
+#ifndef GEOMETRYALGORITHM_TEMPLATEBREPREGISTRATION_H
 #define GEOMETRYALGORITHM_TEMPLATEBREPREGISTRATION_H
 
 /// @file TemplateBrepRegistration.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 反向点-面 ICP：固定扫描点，迭代变换模板 shape 贴齐扫描
 
 #include "geometry_algorithm_global.h"

@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_HIERARCHYMESHIMPORT_H
 
 /// @file HierarchyMeshImport.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 分件网格导入
 
 #include "cloudsim_host_global.h"

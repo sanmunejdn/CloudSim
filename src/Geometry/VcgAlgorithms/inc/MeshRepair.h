@@ -1,7 +1,8 @@
-﻿#ifndef VCGALGORITHMS_MESHREPAIR_H
+#ifndef VCGALGORITHMS_MESHREPAIR_H
 #define VCGALGORITHMS_MESHREPAIR_H
 
 /// @file MeshRepair.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 网格修复：去退化/重复/非流形、可选填孔
 
 #include "vcg_algorithms_global.h"

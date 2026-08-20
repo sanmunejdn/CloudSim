@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_IBACKENDSCENEBRIDGE_H
+#ifndef WIDGET_IBACKENDSCENEBRIDGE_H
 #define WIDGET_IBACKENDSCENEBRIDGE_H
 
 /// @file IBackendSceneBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Scene-side operations for one backend id (OSG branch), without coupling \c Data to OSG headers.
 
 #include "widget_global.h"

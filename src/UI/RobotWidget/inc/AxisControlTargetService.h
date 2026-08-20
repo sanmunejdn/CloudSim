@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_AXISCONTROLTARGETSERVICE_H
 
 /// @file AxisControlTargetService.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轴控目标列表与切换时滑条填充
 
 #include "robotwidget_global.h"

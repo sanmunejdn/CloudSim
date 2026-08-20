@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_GRAPHICSWINDOWQT1_H
+#ifndef WIDGET_GRAPHICSWINDOWQT1_H
 #define WIDGET_GRAPHICSWINDOWQT1_H
 
 /// @file GraphicsWindowQt1.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QOpenGLWidget 同步尺寸与事件
 
 #include "widget_global.h"

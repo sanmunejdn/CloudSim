@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_SKETCHEXTRUDE_H
 
 /// @file SketchExtrude.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 闭合轮廓沿法向棱柱 + Fuse/Cut（移植自 FreeCAD PartDesign Extrude/Pad/Pocket）
 /// 公开头不暴露 OCCT，供 Host/插件侧包含
 

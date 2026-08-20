@@ -2,6 +2,7 @@
 #define ROBOTSCENE_EXTERNALAXISSEARCHSERVICE_H
 
 /// @file ExternalAxisSearchService.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 地轨 1D 搜索 + 可选联立微调（依赖 TeachIk）
 
 #include "robot_scene_global.h"

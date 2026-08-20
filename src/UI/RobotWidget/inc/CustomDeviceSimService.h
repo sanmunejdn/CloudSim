@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_CUSTOMDEVICESIMSERVICE_H
 
 /// @file CustomDeviceSimService.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 设备姿态播放 / DI 沿驱动生命周期与接线
 
 #include "robotwidget_global.h"

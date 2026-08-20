@@ -2,6 +2,7 @@
 #define CLOUDSIMPLUGINHOST_AIAGENTMEMORY_H
 
 /// @file AiAgentMemory.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 会话步骤 + 按文档/api 记忆常用参数
 
 #include <QByteArray>

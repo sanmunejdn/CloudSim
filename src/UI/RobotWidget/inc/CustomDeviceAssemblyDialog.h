@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_CUSTOMDEVICEASSEMBLYDIALOG_H
 
 /// @file CustomDeviceAssemblyDialog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自定义设备组装对话框（画布 + 运动副属性）
 
 #include "robotwidget_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef PROPERTYCORE_PROPERTYTYPES_H
+#ifndef PROPERTYCORE_PROPERTYTYPES_H
 #define PROPERTYCORE_PROPERTYTYPES_H
 
 /// @file PropertyTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 属性提交后语义位：OSG 选中、follow 图、撤销钩子等
 
 #include <array>

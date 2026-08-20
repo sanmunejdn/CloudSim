@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_BACKENDVISUALBINDINGINDEX_H
+#ifndef OSGWIDGETCORE_BACKENDVISUALBINDINGINDEX_H
 #define OSGWIDGETCORE_BACKENDVISUALBINDINGINDEX_H
 
 /// @file BackendVisualBindingIndex.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端 id 与场景根节点绑定索引
 
 #include "osgwidgetcore_global.h"

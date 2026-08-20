@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_BACKENDCOLLISIONSYNC_H
 
 /// @file BackendCollisionSync.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 从文档后端填充 CollisionWorld；同实例连杆不做自碰（无 SRDF），检对场景
 
 #include "robotwidget_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef VCGALGORITHMS_MESHNORMALSMOOTH_H
+#ifndef VCGALGORITHMS_MESHNORMALSMOOTH_H
 #define VCGALGORITHMS_MESHNORMALSMOOTH_H
 
 /// @file MeshNormalSmooth.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 法矢 Kuwahara + 拉普拉斯光顺后回写顶点（论文 Ch2）
 
 #include "vcg_algorithms_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTSCENEKINEMATICS_H
+#ifndef ROBOTSCENE_ROBOTSCENEKINEMATICS_H
 #define ROBOTSCENE_ROBOTSCENEKINEMATICS_H
 
 /// @file RobotSceneKinematics.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 用文档绑定姿 T0/外支 PAT 将关节角应用到 OSG 场景
 
 #include "robot_scene_global.h"

@@ -2,6 +2,7 @@
 #define DATA_BACKENDFOLLOWMATH_H
 
 /// @file BackendFollowMath.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 列主序 4×4（与 osg::Matrixd 同序）；新链路优先 engine::RigidTransform
 
 #include "data_global.h"

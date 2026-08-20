@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_CROP_H
+#ifndef POINTCLOUDALGORITHM_CROP_H
 #define POINTCLOUDALGORITHM_CROP_H
 
 /// @file Crop.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 点云裁剪：AABB / 球 / 屏幕多边形
 
 #include "point_cloud_algorithm_global.h"

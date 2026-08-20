@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDPROPERTYROW_H
+#ifndef DATA_BACKENDPROPERTYROW_H
 #define DATA_BACKENDPROPERTYROW_H
 
 /// @file BackendPropertyRow.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 属性面板 JSON 行字段约定
 
 #include <string>

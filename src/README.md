@@ -1,5 +1,8 @@
 # CloudSim `src/` 开发文档
 
+> **用途声明：** 本目录下所有自研代码仅供研究学习使用，不得用于商业用途。如需商用，请联系：921857463@qq.com。  
+> 完整许可见 [`../LICENSE`](../LICENSE)。
+
 各子工程旁的 **`DEVELOPER_GUIDE.md` / `README.md`** 是模块级真源；总导航在 [`../docs/README.md`](../docs/README.md)。
 
 | 域 | 路径 | 说明 |

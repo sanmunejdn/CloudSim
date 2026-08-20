@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_OSGWIDGETBACKENDLOADCONTROLLER_H
+#ifndef WIDGET_OSGWIDGETBACKENDLOADCONTROLLER_H
 #define WIDGET_OSGWIDGETBACKENDLOADCONTROLLER_H
 
 /// @file OsgWidgetBackendLoadController.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 将后端数据（点云或网格）构建为 OSG 场景节点并挂接到当前视图，负责数据到渲染的转换。
 
 #include <QString>

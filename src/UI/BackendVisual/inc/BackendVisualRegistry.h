@@ -1,7 +1,8 @@
-﻿#ifndef BACKENDVISUAL_BACKENDVISUALREGISTRY_H
+#ifndef BACKENDVISUAL_BACKENDVISUALREGISTRY_H
 #define BACKENDVISUAL_BACKENDVISUALREGISTRY_H
 
 /// @file BackendVisualRegistry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 按 BackendDataBase::className 注册 IBackendVisual 工厂
 
 #include "backendvisual_global.h"

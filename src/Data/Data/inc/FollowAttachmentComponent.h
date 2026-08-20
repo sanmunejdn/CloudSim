@@ -1,7 +1,8 @@
-﻿#ifndef DATA_FOLLOWATTACHMENTCOMPONENT_H
+#ifndef DATA_FOLLOWATTACHMENTCOMPONENT_H
 #define DATA_FOLLOWATTACHMENTCOMPONENT_H
 
 /// @file FollowAttachmentComponent.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 可选刚体跟随：follower 外支路世界 = targetWorld * localTransform
 
 #include "data_global.h"

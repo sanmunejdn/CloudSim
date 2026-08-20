@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_PROCESSFLOWPRESETLOADER_H
+#ifndef ROBOTSCENE_PROCESSFLOWPRESETLOADER_H
 #define ROBOTSCENE_PROCESSFLOWPRESETLOADER_H
 
 /// @file ProcessFlowPresetLoader.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief ProcessFlowPresetLoader 接口
 
 #include "robot_scene_global.h"

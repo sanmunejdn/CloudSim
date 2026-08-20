@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINSCENEBRIDGEADAPTER_H
+#ifndef CLOUDSIMPLUGINHOST_PLUGINSCENEBRIDGEADAPTER_H
 #define CLOUDSIMPLUGINHOST_PLUGINSCENEBRIDGEADAPTER_H
 
 /// @file PluginSceneBridgeAdapter.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PluginSceneBridgeAdapter 接口
 
 #include "IPluginSceneBridge.h"

@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHM_IOPPARAMCONFIG_H
+#ifndef TRAJECTORYALGORITHM_IOPPARAMCONFIG_H
 #define TRAJECTORYALGORITHM_IOPPARAMCONFIG_H
 
 /// @file IOpParamConfig.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief IOpParamConfig 接口
 
 // 原子块参数 schema 与默认描述符接口，对应 resource/trajectory JSON

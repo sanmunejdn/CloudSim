@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_PIPELINEDRAFTEDITSTACK_H
 
 /// @file PipelineDraftEditStack.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轨迹流水线草稿撤销栈（与 ProgramEditStack 分离）
 
 #include "robotwidget_global.h"

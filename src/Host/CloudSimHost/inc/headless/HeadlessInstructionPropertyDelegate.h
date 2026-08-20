@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_HEADLESSINSTRUCTIONPROPERTYDELEGATE_H
 
 /// @file HeadlessInstructionPropertyDelegate.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Web/Headless：从 RobotProgramStore 读写指令属性（无 Widget）
 
 #include "cloudsim_host_global.h"

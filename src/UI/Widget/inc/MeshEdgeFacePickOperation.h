@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_MESHEDGEFACEPICKOPERATION_H
+#ifndef WIDGET_MESHEDGEFACEPICKOPERATION_H
 #define WIDGET_MESHEDGEFACEPICKOPERATION_H
 
 /// @file MeshEdgeFacePickOperation.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 网格线面拾取模式：悬停高亮边或面，点击确认，支持中键辅助移动视图。
 
 #include "../../OsgWidgetCore/inc/PickTypes.h"

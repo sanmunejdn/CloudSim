@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_DEVICEPOSESIGNALDRIVER_H
 
 /// @file DevicePoseSignalDriver.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 设备本地 DI 上升沿 → 命名姿态
 
 #include "robotwidget_global.h"

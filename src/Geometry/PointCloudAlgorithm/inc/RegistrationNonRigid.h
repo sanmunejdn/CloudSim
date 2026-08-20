@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_REGISTRATIONNONRIGID_H
+#ifndef POINTCLOUDALGORITHM_REGISTRATIONNONRIGID_H
 #define POINTCLOUDALGORITHM_REGISTRATIONNONRIGID_H
 
 /// @file RegistrationNonRigid.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 非刚性 TPS 形变（控制点位移 / 对应点拟合）
 
 #include "point_cloud_algorithm_global.h"

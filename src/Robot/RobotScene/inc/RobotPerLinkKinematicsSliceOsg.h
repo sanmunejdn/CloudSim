@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTPERLINKKINEMATICSSLICEOSG_H
+#ifndef ROBOTSCENE_ROBOTPERLINKKINEMATICSSLICEOSG_H
 #define ROBOTSCENE_ROBOTPERLINKKINEMATICSSLICEOSG_H
 
 /// @file RobotPerLinkKinematicsSliceOsg.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief per-link FK 切片的 OSG 形态（仅 RobotScene / Host 适配内使用）
 
 #include "robot_scene_global.h"

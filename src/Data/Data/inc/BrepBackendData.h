@@ -2,6 +2,7 @@
 #define DATA_BREPBACKENDDATA_H
 
 /// @file BrepBackendData.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief STEP B-rep 工件：场景显示与轨迹特征共用同一 ShapeHandle
 
 #include "BackendDataBase.h"

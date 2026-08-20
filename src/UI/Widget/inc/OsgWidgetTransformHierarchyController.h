@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_OSGWIDGETTRANSFORMHIERARCHYCONTROLLER_H
+#ifndef WIDGET_OSGWIDGETTRANSFORMHIERARCHYCONTROLLER_H
 #define WIDGET_OSGWIDGETTRANSFORMHIERARCHYCONTROLLER_H
 
 /// @file OsgWidgetTransformHierarchyController.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端父子层级与联动变换控制（自 OsgWidget 拆出
 
 #include <osg/MatrixTransform>

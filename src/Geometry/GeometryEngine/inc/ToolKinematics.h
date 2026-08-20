@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYENGINE_TOOLKINEMATICS_H
+#ifndef GEOMETRYENGINE_TOOLKINEMATICS_H
 #define GEOMETRYENGINE_TOOLKINEMATICS_H
 
 /// @file ToolKinematics.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief T_base_tool = T_base_flange * T_flange_tool（法兰轴系下工具偏移）
 
 #include "geometry_engine_global.h"

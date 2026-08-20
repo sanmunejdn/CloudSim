@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPDESCRIPTORCODEC_H
+#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPDESCRIPTORCODEC_H
 #define TRAJECTORYALGORITHM_TRAJECTORYOPDESCRIPTORCODEC_H
 
 /// @file TrajectoryOpDescriptorCodec.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TrajectoryOpDescriptorCodec 接口
 
 #include "trajectory_algorithm_global.h"

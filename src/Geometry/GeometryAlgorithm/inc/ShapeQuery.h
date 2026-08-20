@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_SHAPEQUERY_H
 
 /// @file ShapeQuery.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Shape 拓扑查询、STEP 路径编排、模型坐标拾取与面/边索引解析
 
 #include "geometry_algorithm_global.h"

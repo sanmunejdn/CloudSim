@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINGEOMETRYHOSTIMPL_H
+#ifndef CLOUDSIMPLUGINHOST_PLUGINGEOMETRYHOSTIMPL_H
 #define CLOUDSIMPLUGINHOST_PLUGINGEOMETRYHOSTIMPL_H
 
 /// @file PluginGeometryHostImpl.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief IPluginGeometryHost 实现（编入 CloudSimHost）
 
 #include "IPluginGeometryHost.h"

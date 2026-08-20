@@ -2,6 +2,7 @@
 #define CLOUDSIMPLUGINHOST_AIAGENTPICKDIALOG_H
 
 /// @file AiAgentPickDialog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief AI 执行缺参时弹出：选后端对象 / 选文件路径
 
 #include <QString>

@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_PICKSPATIALINDEX_H
+#ifndef OSGWIDGETCORE_PICKSPATIALINDEX_H
 #define OSGWIDGETCORE_PICKSPATIALINDEX_H
 
 /// @file PickSpatialIndex.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 点云拾取空间索引：绑定 Visual 时构建，选中切换时只读引用
 
 #include "osgwidgetcore_global.h"

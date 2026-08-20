@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_HEADLESSTRAJECTORYSESSION_H
 
 /// @file HeadlessTrajectorySession.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Web/Headless 轨迹会话：PathPlan 绑定、特征离散、管线预览/应用（无 OSG）
 
 #include "cloudsim_host_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef BACKENDVISUAL_POINTCLOUDBACKENDVISUAL_H
+#ifndef BACKENDVISUAL_POINTCLOUDBACKENDVISUAL_H
 #define BACKENDVISUAL_POINTCLOUDBACKENDVISUAL_H
 
 /// @file PointCloudBackendVisual.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PointCloudBackendVisual 接口
 
 #include "backendvisual_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_SHAPEIO_H
+#ifndef GEOMETRYALGORITHM_SHAPEIO_H
 #define GEOMETRYALGORITHM_SHAPEIO_H
 
 /// @file ShapeIo.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief STEP/BREP 读写与 ShapeHandle 刚体变换
 
 #include "geometry_algorithm_global.h"

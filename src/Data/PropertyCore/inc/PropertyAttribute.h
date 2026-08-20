@@ -1,7 +1,8 @@
-﻿#ifndef PROPERTYCORE_PROPERTYATTRIBUTE_H
+#ifndef PROPERTYCORE_PROPERTYATTRIBUTE_H
 #define PROPERTYCORE_PROPERTYATTRIBUTE_H
 
 /// @file PropertyAttribute.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 属性面板行生成与 apply 插件基类
 
 #include <memory>

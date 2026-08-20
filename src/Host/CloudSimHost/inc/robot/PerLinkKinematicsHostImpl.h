@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_PERLINKKINEMATICSHOSTIMPL_H
+#ifndef CLOUDSIMHOST_PERLINKKINEMATICSHOSTIMPL_H
 #define CLOUDSIMHOST_PERLINKKINEMATICSHOSTIMPL_H
 
 /// @file PerLinkKinematicsHostImpl.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief per-link 机器人运动学宿主实现（Host 编译单元，可安全依赖 RobotSceneKinematics / UrdfRobotLoader）
 
 #include "cloudsim_host_global.h"

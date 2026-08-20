@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMUIASSETS_UIASSETS_GLOBAL_H
+#ifndef CLOUDSIMUIASSETS_UIASSETS_GLOBAL_H
 #define CLOUDSIMUIASSETS_UIASSETS_GLOBAL_H
 
 /// @file uiassets_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief CloudSimUiAssets 导出宏
 
 #include <QtCore/qglobal.h>

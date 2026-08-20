@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_DOCUMENTPAGE_H
+#ifndef WIDGET_DOCUMENTPAGE_H
 #define WIDGET_DOCUMENTPAGE_H
 
 /// @file DocumentPage.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 单文档页：宿主层 DocumentHost + 机器人仿真元数据（IRobotSimulationDocument）
 
 #include "widget_global.h"

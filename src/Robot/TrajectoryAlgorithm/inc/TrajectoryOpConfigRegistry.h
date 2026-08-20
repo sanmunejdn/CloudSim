@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPCONFIGREGISTRY_H
+#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPCONFIGREGISTRY_H
 #define TRAJECTORYALGORITHM_TRAJECTORYOPCONFIGREGISTRY_H
 
 /// @file TrajectoryOpConfigRegistry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TrajectoryOpConfigRegistry 接口
 
 // 集中注册各块 schema，懒加载 trajectory 资源目录

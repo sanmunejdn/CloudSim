@@ -2,6 +2,7 @@
 #define WIDGET_STYLEDDOCKTITLEBAR_H
 
 /// @file StyledDockTitleBar.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自定义 Dock 标题栏：可读标题 + 美化后的悬浮/关闭按钮
 
 #include <QWidget>

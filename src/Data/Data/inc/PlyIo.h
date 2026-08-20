@@ -1,7 +1,8 @@
-﻿#ifndef DATA_PLYIO_H
+#ifndef DATA_PLYIO_H
 #define DATA_PLYIO_H
 
 /// @file PlyIo.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PLY 头扫描（点云/网格分流共用）
 
 #include "data_global.h"

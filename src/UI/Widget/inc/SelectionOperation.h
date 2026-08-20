@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_SELECTIONOPERATION_H
+#ifndef WIDGET_SELECTIONOPERATION_H
 #define WIDGET_SELECTIONOPERATION_H
 
 /// @file SelectionOperation.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 选择交互基类：在 OsgWidget 的 eventFilter 中统一接收 Qt 事件，
 
 #include <QEvent>

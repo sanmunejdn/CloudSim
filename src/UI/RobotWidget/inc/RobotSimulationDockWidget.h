@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_ROBOTSIMULATIONDOCKWIDGET_H
+#ifndef ROBOTWIDGET_ROBOTSIMULATIONDOCKWIDGET_H
 #define ROBOTWIDGET_ROBOTSIMULATIONDOCKWIDGET_H
 
 /// @file RobotSimulationDockWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 仿真 Dock：模式切换 + 分模式子页（轴控跨模式单例 Tab）
 
 #include "robotwidget_global.h"

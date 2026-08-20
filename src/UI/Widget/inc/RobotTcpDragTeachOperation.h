@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_ROBOTTCPDRAGTEACHOPERATION_H
+#ifndef WIDGET_ROBOTTCPDRAGTEACHOPERATION_H
 #define WIDGET_ROBOTTCPDRAGTEACHOPERATION_H
 
 /// @file RobotTcpDragTeachOperation.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TCP 示教罗盘交互：拾取轴、平移/旋转拖拽，经 \c OsgWidget 发示教位姿信号
 
 #include "SelectionOperation.h"

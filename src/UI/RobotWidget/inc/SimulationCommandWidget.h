@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_SIMULATIONCOMMANDWIDGET_H
+#ifndef ROBOTWIDGET_SIMULATIONCOMMANDWIDGET_H
 #define ROBOTWIDGET_SIMULATIONCOMMANDWIDGET_H
 
 /// @file SimulationCommandWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief SimulationCommandWidget 接口
 
 #include "robotwidget_global.h"

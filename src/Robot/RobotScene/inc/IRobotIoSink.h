@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_IROBOTIOSINK_H
+#ifndef ROBOTSCENE_IROBOTIOSINK_H
 #define ROBOTSCENE_IROBOTIOSINK_H
 
 /// @file IRobotIoSink.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Digital/analog IO sink for robot program execution (simulation or hardware).
 
 #include "robot_scene_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_TYPES_H
+#ifndef GEOMETRYALGORITHM_TYPES_H
 #define GEOMETRYALGORITHM_TYPES_H
 
 /// @file Types.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 几何算法公共类型：点/折线/离散与求交参数
 
 #include "geometry_algorithm_global.h"

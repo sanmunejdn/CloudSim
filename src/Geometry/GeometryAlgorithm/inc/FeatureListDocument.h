@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
+#ifndef GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
 #define GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
 
 /// @file FeatureListDocument.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief CAD 轨迹特征 v2 文档类型：FeatureListDocument / RawPath / 策略参数契约
 
 #include "geometry_algorithm_global.h"

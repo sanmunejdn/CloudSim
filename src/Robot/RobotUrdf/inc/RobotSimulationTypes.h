@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTURDF_ROBOTSIMULATIONTYPES_H
+#ifndef ROBOTURDF_ROBOTSIMULATIONTYPES_H
 #define ROBOTURDF_ROBOTSIMULATIONTYPES_H
 
 /// @file RobotSimulationTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 单条指令：在 durationSec 内将某一旋转关节转动 angleDeg（度）
 
 #include "robot_urdf_global.h"

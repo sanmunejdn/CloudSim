@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_POINTPICKOPERATION_H
+#ifndef WIDGET_POINTPICKOPERATION_H
 #define WIDGET_POINTPICKOPERATION_H
 
 /// @file PointPickOperation.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 点云点选模式：悬停预览、点击拾取最近点并生成标注，左键拖动仍交给相机漫游。
 
 #include "../../OsgWidgetCore/inc/PickTypes.h"

@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_RECONSTRUCTIONCONFIG_H
+#ifndef POINTCLOUDALGORITHM_RECONSTRUCTIONCONFIG_H
 #define POINTCLOUDALGORITHM_RECONSTRUCTIONCONFIG_H
 
 /// @file ReconstructionConfig.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 重建质量档位与带配置入口（Poisson / Scale-space）
 
 #include "point_cloud_algorithm_global.h"

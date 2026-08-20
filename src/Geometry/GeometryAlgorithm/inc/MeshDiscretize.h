@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_MESHDISCRETIZE_H
+#ifndef GEOMETRYALGORITHM_MESHDISCRETIZE_H
 #define GEOMETRYALGORITHM_MESHDISCRETIZE_H
 
 /// @file MeshDiscretize.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自适应/UV/线管带网格离散；质量预设与 TargetEdgeLength/TargetTriangleCount 密度控制
 
 #include "geometry_algorithm_global.h"

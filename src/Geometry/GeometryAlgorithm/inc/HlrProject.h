@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_HLRPROJECT_H
 
 /// @file HlrProject.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief B-rep 隐线消除投影为图面折线（工程图三视图）
 
 #include "geometry_algorithm_global.h"

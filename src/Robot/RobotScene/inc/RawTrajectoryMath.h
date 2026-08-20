@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_RAWTRAJECTORYMATH_H
+#ifndef ROBOTSCENE_RAWTRAJECTORYMATH_H
 #define ROBOTSCENE_RAWTRAJECTORYMATH_H
 
 /// @file RawTrajectoryMath.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief RawTrajectoryMath 接口
 
 #include "RawTrajectory.h"

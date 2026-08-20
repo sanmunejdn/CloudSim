@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWSIMCONTROLLER_H
 
 /// @file ProcessFlowSimController.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 仿真启停、对比、优化启发式与后台运行
 
 #include "sim/SimRunConfig.h"

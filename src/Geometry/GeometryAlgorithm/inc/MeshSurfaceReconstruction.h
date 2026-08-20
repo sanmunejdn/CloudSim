@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTION_H
+#ifndef GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTION_H
 #define GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTION_H
 
 /// @file MeshSurfaceReconstruction.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 三角 soup → 分块 B 样条 B-rep 曲面重构（会话式分阶段或一键全流程）
 
 #include "geometry_algorithm_global.h"

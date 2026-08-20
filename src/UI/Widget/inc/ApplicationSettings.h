@@ -2,6 +2,7 @@
 #define WIDGET_APPLICATIONSETTINGS_H
 
 /// @file ApplicationSettings.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 应用级 UI 偏好持久化（语言、主题、面板可见性、工作区模式）
 
 #include "ApplicationStyle.h"

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H
+#ifndef CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H
 #define CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H
 
 /// @file IPluginGeometryHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 几何算法宿主 API（1.5.0+）；插件经 IPluginHostContext::geometryHost() 获取
 
 #include "cloudsim_plugin_sdk_global.h"

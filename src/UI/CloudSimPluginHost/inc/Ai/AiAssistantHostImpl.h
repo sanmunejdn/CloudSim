@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
+#ifndef CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
 #define CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
 
 /// @file AiAssistantHostImpl.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief AiAssistantHostImpl 接口
 
 #include "Ai/AiDomainRegistryImpl.h"

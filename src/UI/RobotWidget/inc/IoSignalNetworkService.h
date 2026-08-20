@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_IOSIGNALNETWORKSERVICE_H
 
 /// @file IoSignalNetworkService.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 每 Owner 信号表/sink + DO→DI 接线图
 
 #include "robotwidget_global.h"

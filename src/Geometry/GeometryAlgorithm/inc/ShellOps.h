@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_SHELLOPS_H
+#ifndef GEOMETRYALGORITHM_SHELLOPS_H
 #define GEOMETRYALGORITHM_SHELLOPS_H
 
 /// @file ShellOps.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 多 Face 缝合为 Shell/Shape 或离散 mesh
 
 #include "geometry_algorithm_global.h"

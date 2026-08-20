@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_BREPPICKINDEX_H
+#ifndef OSGWIDGETCORE_BREPPICKINDEX_H
 #define OSGWIDGETCORE_BREPPICKINDEX_H
 
 /// @file BrepPickIndex.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief BREP 拾取索引：导入时构建，hover 查表 + 屏幕空间边距离
 
 #include "osgwidgetcore_global.h"

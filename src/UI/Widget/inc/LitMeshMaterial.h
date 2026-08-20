@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_LITMESHMATERIAL_H
+#ifndef WIDGET_LITMESHMATERIAL_H
 #define WIDGET_LITMESHMATERIAL_H
 
 /// @file LitMeshMaterial.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Fixed-pipeline plastic / painted-metal look for lit triangle meshes (aligned with scene light 0 in OsgScene).
 
 #include <osg/Material>

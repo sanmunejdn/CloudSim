@@ -1,4 +1,5 @@
-﻿/// @file PlanResultCache.h
+/// @file PlanResultCache.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PlanResult / 可行轴缓存，key = instructionId + fingerprint；仅 UI 线程访问；有界淘汰
 
 #ifndef ROBOTWIDGET_PLANRESULTCACHE_H

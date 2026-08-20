@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_POINTFEATURES_H
+#ifndef POINTCLOUDALGORITHM_POINTFEATURES_H
 #define POINTCLOUDALGORITHM_POINTFEATURES_H
 
 /// @file PointFeatures.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief SPFH / FPFH 局部特征（供 RANSAC 全局配准）
 
 #include "point_cloud_algorithm_global.h"

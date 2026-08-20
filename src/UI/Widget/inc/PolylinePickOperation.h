@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_POLYLINEPICKOPERATION_H
+#ifndef WIDGET_POLYLINEPICKOPERATION_H
 #define WIDGET_POLYLINEPICKOPERATION_H
 
 /// @file PolylinePickOperation.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 多边形线框拾取：左键加点，右键/双击闭合，Esc 取消
 
 #include "SelectionOperation.h"

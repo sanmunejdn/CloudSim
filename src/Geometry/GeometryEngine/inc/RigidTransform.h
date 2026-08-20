@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYENGINE_RIGIDTRANSFORM_H
+#ifndef GEOMETRYENGINE_RIGIDTRANSFORM_H
 #define GEOMETRYENGINE_RIGIDTRANSFORM_H
 
 /// @file RigidTransform.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 基座/场景链刚体变换，平移 mm
 
 #include "geometry_engine_global.h"

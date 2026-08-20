@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_HEADLESSPOINTCLOUDBRIDGE_H
 
 /// @file HeadlessPointCloudBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Web/Headless 点云：同步 Host 作业与预览 soup（无 PluginHostContext 作业队列）
 
 #include "cloudsim_host_global.h"

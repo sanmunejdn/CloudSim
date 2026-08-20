@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_DOCUMENTPROJECTSIDECAR_H
 
 /// @file DocumentProjectSidecar.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 工程旁路表（与 Data SSOT 分离的文档级镜像）
 
 #include "cloudsim_host_global.h"

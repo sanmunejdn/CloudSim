@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_WIDGETRENDERACCESS_H
+#ifndef WIDGET_WIDGETRENDERACCESS_H
 #define WIDGET_WIDGETRENDERACCESS_H
 
 /// @file WidgetRenderAccess.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief WidgetRenderAccess 接口
 
 #include "DocumentHost.h"

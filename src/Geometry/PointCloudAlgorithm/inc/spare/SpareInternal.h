@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_SPAREINTERNAL_H
+#ifndef POINTCLOUDALGORITHM_SPAREINTERNAL_H
 #define POINTCLOUDALGORITHM_SPAREINTERNAL_H
 
 /// @file SpareInternal.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief SpareInternal 接口
 
 // SPARE 非刚性配准内部类型（移植自 yaoyx689/spare，研究用途）

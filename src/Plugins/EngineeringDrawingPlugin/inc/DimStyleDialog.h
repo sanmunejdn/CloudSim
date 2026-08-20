@@ -2,6 +2,7 @@
 #define ENGINEERINGDRAWINGPLUGIN_DIMSTYLEDIALOG_H
 
 /// @file DimStyleDialog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 标注样式编辑对话框
 
 #include "DrawingSheetCanvasWidget.h"

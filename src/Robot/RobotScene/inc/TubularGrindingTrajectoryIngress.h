@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_TUBULARGRINDINGTRAJECTORYINGRESS_H
+#ifndef ROBOTSCENE_TUBULARGRINDINGTRAJECTORYINGRESS_H
 #define ROBOTSCENE_TUBULARGRINDINGTRAJECTORYINGRESS_H
 
 /// @file TubularGrindingTrajectoryIngress.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 预留：管状打磨投影点位 → RawTrajectory（Phase 5 进给/工具轴时再补全）
 
 #include "robot_scene_global.h"

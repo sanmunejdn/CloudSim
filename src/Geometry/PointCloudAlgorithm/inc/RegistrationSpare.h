@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_REGISTRATIONSPARE_H
+#ifndef POINTCLOUDALGORITHM_REGISTRATIONSPARE_H
 #define POINTCLOUDALGORITHM_REGISTRATIONSPARE_H
 
 /// @file RegistrationSpare.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief SPARE 非刚性配准：对称点-面 + 变形图 + ARAP
 
 #include "point_cloud_algorithm_global.h"

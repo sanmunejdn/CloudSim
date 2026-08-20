@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDDATAMANAGER_H
+#ifndef DATA_BACKENDDATAMANAGER_H
 #define DATA_BACKENDDATAMANAGER_H
 
 /// @file BackendDataManager.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好
 
 #include "data_global.h"

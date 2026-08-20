@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_DEVICEPAGEWIDGET_H
+#ifndef ROBOTWIDGET_DEVICEPAGEWIDGET_H
 #define ROBOTWIDGET_DEVICEPAGEWIDGET_H
 
 /// @file DevicePageWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 设备页：顶栏类型/品牌 Combo + 自适应缩略图网格，数据来自 resource/models
 
 #include "robotwidget_global.h"

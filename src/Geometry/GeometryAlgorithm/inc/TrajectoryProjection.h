@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_TRAJECTORYPROJECTION_H
+#ifndef GEOMETRYALGORITHM_TRAJECTORYPROJECTION_H
 #define GEOMETRYALGORITHM_TRAJECTORYPROJECTION_H
 
 /// @file TrajectoryProjection.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 沿射线将轨迹点投影到三角 soup 或点云（世界坐标 mm）
 
 #include "geometry_algorithm_global.h"

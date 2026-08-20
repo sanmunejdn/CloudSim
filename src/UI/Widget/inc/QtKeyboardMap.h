@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_QTKEYBOARDMAP_H
+#ifndef WIDGET_QTKEYBOARDMAP_H
 #define WIDGET_QTKEYBOARDMAP_H
 
 /// @file QtKeyboardMap.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Qt 键值到 osgGA::GUIEventAdapter 键码的映射表，Qt 键值映射 osgGA 键码
 
 #include <QInputEvent>

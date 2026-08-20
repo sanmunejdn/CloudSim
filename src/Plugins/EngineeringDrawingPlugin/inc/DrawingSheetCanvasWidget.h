@@ -2,6 +2,7 @@
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGSHEETCANVASWIDGET_H
 
 /// @file DrawingSheetCanvasWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 工程图图幅：多视图、草图、图框、标注、局部放大
 
 #include "SheetSketchAdapter.h"

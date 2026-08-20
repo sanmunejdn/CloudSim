@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYENGINE_ADAPTERS_H
+#ifndef GEOMETRYENGINE_ADAPTERS_H
 #define GEOMETRYENGINE_ADAPTERS_H
 
 /// @file Adapters.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 16 double 列主序（兼容 BackendMat4::v）
 
 #include "geometry_engine_global.h"

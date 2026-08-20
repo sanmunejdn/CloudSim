@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMCORE_NULLCORESERVICES_H
+#ifndef CLOUDSIMCORE_NULLCORESERVICES_H
 #define CLOUDSIMCORE_NULLCORESERVICES_H
 
 /// @file NullCoreServices.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 空实现桩
 
 #include "cloudsim_core_global.h"

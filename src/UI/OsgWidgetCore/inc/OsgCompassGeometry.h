@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_OSGCOMPASSGEOMETRY_H
+#ifndef OSGWIDGETCORE_OSGCOMPASSGEOMETRY_H
 #define OSGWIDGETCORE_OSGCOMPASSGEOMETRY_H
 
 /// @file OsgCompassGeometry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 与 updateCompassScale / updateTcpTeachCompassScale 除数一致
 
 #include "osgwidgetcore_global.h"

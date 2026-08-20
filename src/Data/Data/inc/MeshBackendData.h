@@ -1,7 +1,8 @@
-﻿#ifndef DATA_MESHBACKENDDATA_H
+#ifndef DATA_MESHBACKENDDATA_H
 #define DATA_MESHBACKENDDATA_H
 
 /// @file MeshBackendData.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 三角网格后端：以三角形 soup（每三角形 9 个 float：三顶点 xyz）存几何，支持文件加载与工程内嵌序列化
 
 #include "BackendDataBase.h"

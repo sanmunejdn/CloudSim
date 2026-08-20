@@ -1,7 +1,8 @@
-﻿#ifndef RUNLOGGER_RUN_LOGGER_GLOBAL_H
+#ifndef RUNLOGGER_RUN_LOGGER_GLOBAL_H
 #define RUNLOGGER_RUN_LOGGER_GLOBAL_H
 
 /// @file run_logger_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief RunLogger 导出宏
 
 #if defined(RUN_LOGGER_STATIC) || defined(BUILD_STATIC)

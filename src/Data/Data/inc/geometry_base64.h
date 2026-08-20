@@ -1,7 +1,8 @@
-﻿#ifndef DATA_GEOMETRY_BASE64_H
+#ifndef DATA_GEOMETRY_BASE64_H
 #define DATA_GEOMETRY_BASE64_H
 
 /// @file geometry_base64.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 几何缓冲 Base64（RFC 4648），工程内嵌 float 块
 
 #include "data_global.h"

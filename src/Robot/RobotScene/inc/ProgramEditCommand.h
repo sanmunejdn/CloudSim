@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_PROGRAMEDITCOMMAND_H
+#ifndef ROBOTSCENE_PROGRAMEDITCOMMAND_H
 #define ROBOTSCENE_PROGRAMEDITCOMMAND_H
 
 /// @file ProgramEditCommand.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief ProgramEditCommand 接口
 
 #include "robot_scene_global.h"

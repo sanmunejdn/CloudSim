@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDRELATIONS_H
+#ifndef DATA_BACKENDRELATIONS_H
 #define DATA_BACKENDRELATIONS_H
 
 /// @file BackendRelations.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 对象图关系查询薄封装（委托 BackendDataBase / Manager）
 
 #include "BackendDataBase.h"

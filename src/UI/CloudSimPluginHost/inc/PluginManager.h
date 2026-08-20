@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINMANAGER_H
+#ifndef CLOUDSIMPLUGINHOST_PLUGINMANAGER_H
 #define CLOUDSIMPLUGINHOST_PLUGINMANAGER_H
 
 /// @file PluginManager.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 启动时扫描应用目录 plugins/ 并加载启用插件（编译在 CloudSimHost.dll）
 
 #include "cloudsim_host_global.h"

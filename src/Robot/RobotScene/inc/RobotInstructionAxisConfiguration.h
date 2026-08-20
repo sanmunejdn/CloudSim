@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONAXISCONFIGURATION_H
+#ifndef ROBOTSCENE_ROBOTINSTRUCTIONAXISCONFIGURATION_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONAXISCONFIGURATION_H
 
 /// @file RobotInstructionAxisConfiguration.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 相对规划种子的整圈数；INT_MIN 表示不约束
 
 #include "robot_scene_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTKINEMATICS_SERIALLINKKINEMATICS_H
+#ifndef ROBOTKINEMATICS_SERIALLINKKINEMATICS_H
 #define ROBOTKINEMATICS_SERIALLINKKINEMATICS_H
 
 /// @file SerialLinkKinematics.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 单节改进 DH（Craig）：FK + 位置 DLS IK（legacy：仅无 URDF 时回退；生产有 URDF 走 RobotUrdf）
 
 #include "robot_kinematics_global.h"

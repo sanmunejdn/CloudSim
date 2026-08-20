@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_INSTRUCTIONPROGRAMTREEWIDGET_H
+#ifndef ROBOTWIDGET_INSTRUCTIONPROGRAMTREEWIDGET_H
 #define ROBOTWIDGET_INSTRUCTIONPROGRAMTREEWIDGET_H
 
 /// @file InstructionProgramTreeWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 层级指令程序编辑器，支持拖放改父与分组嵌套显示
 
 #include "robotwidget_global.h"

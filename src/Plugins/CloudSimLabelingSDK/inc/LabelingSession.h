@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMLABELINGSDK_LABELINGSESSION_H
+#ifndef CLOUDSIMLABELINGSDK_LABELINGSESSION_H
 #define CLOUDSIMLABELINGSDK_LABELINGSESSION_H
 
 /// @file LabelingSession.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 纯逻辑标注会话（无 Qt/OSG）
 
 #include "labeling_sdk_global.h"

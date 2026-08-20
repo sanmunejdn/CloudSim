@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_OBJECTGIZMOFRAME_H
+#ifndef OSGWIDGETCORE_OBJECTGIZMOFRAME_H
 #define OSGWIDGETCORE_OBJECTGIZMOFRAME_H
 
 /// @file ObjectGizmoFrame.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 对象变换罗盘位姿单一来源：pose=模型原点在外层父系坐标；矩阵见 engine::osgMatrixFromRigidTransform
 
 #include "osgwidgetcore_global.h"

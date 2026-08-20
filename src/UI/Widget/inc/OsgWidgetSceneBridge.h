@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_OSGWIDGETSCENEBRIDGE_H
+#ifndef WIDGET_OSGWIDGETSCENEBRIDGE_H
 #define WIDGET_OSGWIDGETSCENEBRIDGE_H
 
 /// @file OsgWidgetSceneBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief IBackendSceneBridge 委托至 OsgWidget；widget 未绑定时操作为空操作
 
 #include "widget_global.h"

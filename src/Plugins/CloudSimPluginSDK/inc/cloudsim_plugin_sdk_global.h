@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_CLOUDSIM_PLUGIN_SDK_GLOBAL_H
+#ifndef CLOUDSIMPLUGINSDK_CLOUDSIM_PLUGIN_SDK_GLOBAL_H
 #define CLOUDSIMPLUGINSDK_CLOUDSIM_PLUGIN_SDK_GLOBAL_H
 
 /// @file cloudsim_plugin_sdk_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 宿主 ABI 版本（高 16 主、低 16 次），须与 cloudsimPluginHostVersion 一致
 
 #include <QtCore/qglobal.h>

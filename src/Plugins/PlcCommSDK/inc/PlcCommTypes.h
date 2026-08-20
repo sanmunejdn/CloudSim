@@ -1,7 +1,8 @@
-﻿#ifndef PLCCOMMSDK_PLCCOMMTYPES_H
+#ifndef PLCCOMMSDK_PLCCOMMTYPES_H
 #define PLCCOMMSDK_PLCCOMMTYPES_H
 
 /// @file PlcCommTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PlcCommTypes 接口
 
 #include "plc_comm_sdk_global.h"

@@ -2,6 +2,7 @@
 #define WIDGET_MAINWINDOWROBOTHOST_H
 
 /// @file MainWindowRobotHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief MainWindow 的 IRobotMainWindowHost + 指令属性 IRobotService 委托实现
 
 #include "../RobotWidget/inc/IRobotMainWindowHost.h"

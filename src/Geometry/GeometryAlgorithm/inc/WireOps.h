@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_WIREOPS_H
+#ifndef GEOMETRYALGORITHM_WIREOPS_H
 #define GEOMETRYALGORITHM_WIREOPS_H
 
 /// @file WireOps.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 多条 Wire 合并为单 Wire 或离散折线
 
 #include "geometry_algorithm_global.h"

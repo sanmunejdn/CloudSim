@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWUISTYLE_H
 
 /// @file ProcessFlowUiStyle.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 工艺流程侧栏统一视觉（工业灰蓝，避免系统默认灰窗）
 
 #include <QString>

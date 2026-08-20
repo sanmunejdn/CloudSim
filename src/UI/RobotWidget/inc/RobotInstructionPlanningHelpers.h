@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_ROBOTINSTRUCTIONPLANNINGHELPERS_H
+#ifndef ROBOTWIDGET_ROBOTINSTRUCTIONPLANNINGHELPERS_H
 #define ROBOTWIDGET_ROBOTINSTRUCTIONPLANNINGHELPERS_H
 
 /// @file RobotInstructionPlanningHelpers.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Drop taught joint CSV so preview/Run replan IK after \c motion.tool.frameId / tool matrix change.
 
 #include "robotwidget_global.h"

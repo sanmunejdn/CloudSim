@@ -1,7 +1,8 @@
-﻿#ifndef BACKENDVISUAL_BACKENDIDUSERDATA_H
+#ifndef BACKENDVISUAL_BACKENDIDUSERDATA_H
 #define BACKENDVISUAL_BACKENDIDUSERDATA_H
 
 /// @file BackendIdUserData.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 挂后端根节点，拾取可解析 backendId，免平行 map
 
 #include "backendvisual_global.h"

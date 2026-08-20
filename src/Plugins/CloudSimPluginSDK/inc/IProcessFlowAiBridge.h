@@ -2,6 +2,7 @@
 #define CLOUDSIMPLUGINSDK_IPROCESSFLOWAIBRIDGE_H
 
 /// @file IProcessFlowAiBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 工艺流程 AI 门面：Host/Agent 只经此接口触达插件画布与 DES
 
 #include "cloudsim_plugin_sdk_global.h"

@@ -2,6 +2,7 @@
 #define COLLISIONALGORITHM_COLLISION_ALGORITHM_GLOBAL_H
 
 /// @file collision_algorithm_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief CollisionAlgorithm 导出宏
 
 #if defined(COLLISION_ALGORITHM_STATIC) || defined(BUILD_STATIC)

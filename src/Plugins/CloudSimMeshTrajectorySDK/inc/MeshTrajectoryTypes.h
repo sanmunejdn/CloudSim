@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYTYPES_H
+#ifndef CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYTYPES_H
 #define CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYTYPES_H
 
 /// @file MeshTrajectoryTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief MeshTrajectoryTypes 接口
 
 #include "mesh_trajectory_sdk_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMCORE_IDOCUMENTSCOPE_H
+#ifndef CLOUDSIMCORE_IDOCUMENTSCOPE_H
 #define CLOUDSIMCORE_IDOCUMENTSCOPE_H
 
 /// @file IDocumentScope.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 单文档作用域
 
 #include "cloudsim_core_global.h"

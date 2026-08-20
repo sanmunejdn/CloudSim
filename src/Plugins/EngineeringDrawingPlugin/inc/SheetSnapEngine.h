@@ -2,6 +2,7 @@
 #define ENGINEERINGDRAWINGPLUGIN_SHEETSNAPENGINE_H
 
 /// @file SheetSnapEngine.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 图纸对象捕捉：端点/中点/交点/圆心/垂足/最近点 + 正交/极轴
 
 #include <QLineF>

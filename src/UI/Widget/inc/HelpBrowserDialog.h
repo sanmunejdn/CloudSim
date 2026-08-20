@@ -2,6 +2,7 @@
 #define WIDGET_HELPBROWSERDIALOG_H
 
 /// @file HelpBrowserDialog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 内嵌 HTML 帮助浏览器（左侧分级目录）
 
 #include <QDialog>

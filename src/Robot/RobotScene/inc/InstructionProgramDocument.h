@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_INSTRUCTIONPROGRAMDOCUMENT_H
+#ifndef ROBOTSCENE_INSTRUCTIONPROGRAMDOCUMENT_H
 #define ROBOTSCENE_INSTRUCTIONPROGRAMDOCUMENT_H
 
 /// @file InstructionProgramDocument.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief InstructionProgramDocument 接口
 
 #include "robot_scene_global.h"

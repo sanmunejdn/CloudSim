@@ -2,6 +2,7 @@
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGEXPORT_H
 
 /// @file DrawingExport.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 图纸 SVG / 简易 DXF / PDF 导出
 
 #include "DrawingSheetCanvasWidget.h"

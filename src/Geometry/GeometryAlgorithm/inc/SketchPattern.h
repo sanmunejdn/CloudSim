@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_SKETCHPATTERN_H
 
 /// @file SketchPattern.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 体线性/圆周阵列与相对平面镜像
 
 #include "geometry_algorithm_global.h"

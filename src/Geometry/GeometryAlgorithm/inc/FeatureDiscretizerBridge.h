@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_FEATUREDISCRETIZERBRIDGE_H
+#ifndef GEOMETRYALGORITHM_FEATUREDISCRETIZERBRIDGE_H
 #define GEOMETRYALGORITHM_FEATUREDISCRETIZERBRIDGE_H
 
 /// @file FeatureDiscretizerBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief CAD 轨迹特征 v2：Registry + JSON 策略，discretizeFeatureList 为唯一离散入口
 
 #include "geometry_algorithm_global.h"

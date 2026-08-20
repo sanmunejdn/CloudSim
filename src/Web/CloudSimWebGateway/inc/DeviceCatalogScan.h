@@ -2,6 +2,7 @@
 #define CLOUDSIMWEBGATEWAY_DEVICECATALOGSCAN_H
 
 /// @file DeviceCatalogScan.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 扫描 resource/models 下 URDF 设备包（对齐桌面 DevicePageWidget，不链 RobotWidget）
 
 #include "cloudsim_web_gateway_global.h"

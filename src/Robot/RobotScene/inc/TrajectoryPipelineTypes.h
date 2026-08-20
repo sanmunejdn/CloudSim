@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_TRAJECTORYPIPELINETYPES_H
+#ifndef ROBOTSCENE_TRAJECTORYPIPELINETYPES_H
 #define ROBOTSCENE_TRAJECTORYPIPELINETYPES_H
 
 /// @file TrajectoryPipelineTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 轨迹增量参考系（相对路点当前 T_base_target）
 
 #include "robot_scene_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H
+#ifndef CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H
 #define CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H
 
 /// @file PluginHostContext.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief IPluginHostContext 宿主实现（仅 Widget，不导出插件）
 
 #include "IPluginHostContext.h"

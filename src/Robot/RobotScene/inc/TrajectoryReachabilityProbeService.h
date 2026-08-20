@@ -2,6 +2,7 @@
 #define ROBOTSCENE_TRAJECTORYREACHABILITYPROBESERVICE_H
 
 /// @file TrajectoryReachabilityProbeService.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 用 TeachIk 标记 UnifiedTrajectory 点可达性
 
 #include "robot_scene_global.h"

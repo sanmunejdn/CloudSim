@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_INTERSECTION_H
+#ifndef GEOMETRYALGORITHM_INTERSECTION_H
 #define GEOMETRYALGORITHM_INTERSECTION_H
 
 /// @file Intersection.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief OCCT 线线、线面、面面、形体截面求交
 
 #include "geometry_algorithm_global.h"

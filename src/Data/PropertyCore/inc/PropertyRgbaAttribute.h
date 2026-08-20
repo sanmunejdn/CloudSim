@@ -1,7 +1,8 @@
-﻿#ifndef PROPERTYCORE_PROPERTYRGBAATTRIBUTE_H
+#ifndef PROPERTYCORE_PROPERTYRGBAATTRIBUTE_H
 #define PROPERTYCORE_PROPERTYRGBAATTRIBUTE_H
 
 /// @file PropertyRgbaAttribute.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief RGBA 颜色属性行
 
 #include "PropertyAttributeHelpers.h"

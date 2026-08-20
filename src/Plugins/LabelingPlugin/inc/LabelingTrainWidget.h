@@ -1,7 +1,8 @@
-﻿#ifndef LABELINGPLUGIN_LABELINGTRAINWIDGET_H
+#ifndef LABELINGPLUGIN_LABELINGTRAINWIDGET_H
 #define LABELINGPLUGIN_LABELINGTRAINWIDGET_H
 
 /// @file LabelingTrainWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief LabelingTrainWidget 接口
 
 #include "PointNetTrainingRunner.h"

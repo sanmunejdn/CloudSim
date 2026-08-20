@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_DEVICEPOSEMOTIONPLAYER_H
 
 /// @file DevicePoseMotionPlayer.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 自定义设备姿态插值播放（与机器人程序执行器隔离）
 
 #include "robotwidget_global.h"

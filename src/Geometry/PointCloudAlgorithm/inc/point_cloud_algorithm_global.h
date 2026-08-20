@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_POINT_CLOUD_ALGORITHM_GLOBAL_H
+#ifndef POINTCLOUDALGORITHM_POINT_CLOUD_ALGORITHM_GLOBAL_H
 #define POINTCLOUDALGORITHM_POINT_CLOUD_ALGORITHM_GLOBAL_H
 
 /// @file point_cloud_algorithm_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PointCloudAlgorithm 导出宏
 
 #if defined(POINT_CLOUD_ALGORITHM_STATIC) || !defined(POINT_CLOUD_ALGORITHM_EXPORTS)

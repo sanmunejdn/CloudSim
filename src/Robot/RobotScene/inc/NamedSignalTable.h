@@ -2,6 +2,7 @@
 #define ROBOTSCENE_NAMEDSIGNALTABLE_H
 
 /// @file NamedSignalTable.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 命名 IO 信号定义表（Owner 自持；与 IRobotIoSink 端口解耦）
 
 #include "robot_scene_global.h"

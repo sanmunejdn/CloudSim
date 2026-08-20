@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_MESHTOPOLOGYINDEX_H
+#ifndef OSGWIDGETCORE_MESHTOPOLOGYINDEX_H
 #define OSGWIDGETCORE_MESHTOPOLOGYINDEX_H
 
 /// @file MeshTopologyIndex.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 网格拓扑缓存：三角 soup（Visual 局部坐标），供面/边拾取 scope 与后续扩展
 
 #include "osgwidgetcore_global.h"

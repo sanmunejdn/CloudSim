@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_PROCESSFLOWREPORTPANEL_H
 
 /// @file ProcessFlowReportPanel.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 仿真控制、统计摘要；甘特/Trace/对比走对话框
 
 #include "ProcessFlowResultDialog.h"

@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
+#ifndef ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
 #define ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
 
 /// @file IRobotSimulationDocument.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器人仿真文档只读视图（无 osg；矩阵用 Core Mat4）
 
 #include "robot_scene_global.h"

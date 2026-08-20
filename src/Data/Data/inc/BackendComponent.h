@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDCOMPONENT_H
+#ifndef DATA_BACKENDCOMPONENT_H
 #define DATA_BACKENDCOMPONENT_H
 
 /// @file BackendComponent.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端组件类型擦除契约（Follow 等挂到 BackendDataBase）
 
 #include "data_global.h"

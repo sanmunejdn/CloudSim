@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_BACKENDPICKINDEXREGISTRY_H
+#ifndef OSGWIDGETCORE_BACKENDPICKINDEXREGISTRY_H
 #define OSGWIDGETCORE_BACKENDPICKINDEXREGISTRY_H
 
 /// @file BackendPickIndexRegistry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief backendId → 拾取索引（随 bindBackendVisualRoot 构建）
 
 #include "osgwidgetcore_global.h"

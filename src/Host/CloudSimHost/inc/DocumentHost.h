@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_DOCUMENTHOST_H
+#ifndef CLOUDSIMHOST_DOCUMENTHOST_H
 #define CLOUDSIMHOST_DOCUMENTHOST_H
 
 /// @file DocumentHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 单文档组合根
 
 #include "cloudsim_host_global.h"

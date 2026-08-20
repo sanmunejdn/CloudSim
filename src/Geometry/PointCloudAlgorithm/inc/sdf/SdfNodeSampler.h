@@ -2,6 +2,7 @@
 #define POINTCLOUDALGORITHM_SDF_NODESAMPLER_H
 
 /// @file SdfNodeSampler.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief FPS 变形节点采样与蒙皮权重
 
 #include <cstddef>

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_PROJECTPACKAGEIO_H
+#ifndef CLOUDSIMHOST_PROJECTPACKAGEIO_H
 #define CLOUDSIMHOST_PROJECTPACKAGEIO_H
 
 /// @file ProjectPackageIo.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 构建工程保存根
 
 #include "cloudsim_host_global.h"

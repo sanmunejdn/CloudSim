@@ -2,6 +2,7 @@
 #define CLOUDSIMPLUGINHOST_AIAGENTPLANBUILDER_H
 
 /// @file AiAgentPlanBuilder.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 规则优先、LLM JSON 兜底的需求拆分
 
 #include "AiAgentTypes.h"

@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_TRAJECTORYPLANCONFIRMDIALOG_H
 
 /// @file TrajectoryPlanConfirmDialog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief AI 轨迹离散：策略/参数/管线算子模态确认
 
 #include "robotwidget_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDPLUGIN_POINTCLOUDDOCKWIDGET_H
+#ifndef POINTCLOUDPLUGIN_POINTCLOUDDOCKWIDGET_H
 #define POINTCLOUDPLUGIN_POINTCLOUDDOCKWIDGET_H
 
 /// @file PointCloudDockWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PointCloudDockWidget 接口
 
 #include "PluginPointCloudTypes.h"

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINPRIMITIVETYPES_H
+#ifndef CLOUDSIMPLUGINSDK_PLUGINPRIMITIVETYPES_H
 #define CLOUDSIMPLUGINSDK_PLUGINPRIMITIVETYPES_H
 
 /// @file PluginPrimitiveTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 宿主 createPrimitiveMesh 图元类型（mm）
 
 #include "cloudsim_plugin_sdk_global.h"

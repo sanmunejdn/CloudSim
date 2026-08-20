@@ -1,7 +1,8 @@
-﻿#ifndef OSGWIDGETCORE_OSGCOMPASSRENDER_H
+#ifndef OSGWIDGETCORE_OSGCOMPASSRENDER_H
 #define OSGWIDGETCORE_OSGCOMPASSRENDER_H
 
 /// @file OsgCompassRender.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 罗盘渲染：对象变换与 TCP 示教共用固定色、无光照状态，避免头灯/受光网格导致明暗闪烁
 
 #include <osg/Depth>

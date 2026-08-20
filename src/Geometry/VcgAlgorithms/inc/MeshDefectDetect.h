@@ -1,7 +1,8 @@
-﻿#ifndef VCGALGORITHMS_MESHDEFECTDETECT_H
+#ifndef VCGALGORITHMS_MESHDEFECTDETECT_H
 #define VCGALGORITHMS_MESHDEFECTDETECT_H
 
 /// @file MeshDefectDetect.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 网格缺陷检测：针状三角 / 高曲率突起 / 边界尖刺（只读报告）
 
 #include "vcg_algorithms_global.h"

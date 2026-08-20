@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTCOORDINATEFRAMES_H
+#ifndef ROBOTSCENE_ROBOTCOORDINATEFRAMES_H
 #define ROBOTSCENE_ROBOTCOORDINATEFRAMES_H
 
 /// @file RobotCoordinateFrames.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 运动指令扩展键（PTP/LINE）
 
 #include "robot_scene_global.h"

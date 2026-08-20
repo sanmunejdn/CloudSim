@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYENGINE_BACKENDWORLDPOSE_H
+#ifndef GEOMETRYENGINE_BACKENDWORLDPOSE_H
 #define GEOMETRYENGINE_BACKENDWORLDPOSE_H
 
 /// @file BackendWorldPose.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief pose = 模型坐标原点在世界中的位置 (mm)；euler = 内禀 ZYX 度
 
 #include "geometry_engine_global.h"

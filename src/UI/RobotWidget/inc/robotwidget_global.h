@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_ROBOTWIDGET_GLOBAL_H
+#ifndef ROBOTWIDGET_ROBOTWIDGET_GLOBAL_H
 #define ROBOTWIDGET_ROBOTWIDGET_GLOBAL_H
 
 /// @file robotwidget_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief RobotWidget 导出宏
 
 #include <QtCore/qglobal.h>

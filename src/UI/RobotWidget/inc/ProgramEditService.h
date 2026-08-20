@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_PROGRAMEDITSERVICE_H
+#ifndef ROBOTWIDGET_PROGRAMEDITSERVICE_H
 #define ROBOTWIDGET_PROGRAMEDITSERVICE_H
 
 /// @file ProgramEditService.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 程序编辑撤销栈与文档门面
 
 #include "robotwidget_global.h"

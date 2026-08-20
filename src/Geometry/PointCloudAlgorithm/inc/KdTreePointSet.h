@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_KDTREEPOINTSET_H
+#ifndef POINTCLOUDALGORITHM_KDTREEPOINTSET_H
 #define POINTCLOUDALGORITHM_KDTREEPOINTSET_H
 
 /// @file KdTreePointSet.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief KdTreePointSet 接口
 
 // 基于 CGAL Kd_tree 的点云空间索引加速

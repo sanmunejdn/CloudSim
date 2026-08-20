@@ -2,6 +2,7 @@
 #define ROBOTCOMMSDK_ROBOTCOMMTYPES_H
 
 /// @file RobotCommTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 机器人通讯 DTO（与 Bridge JSON / 仿真空间契约对齐）
 
 #include "robot_comm_sdk_global.h"

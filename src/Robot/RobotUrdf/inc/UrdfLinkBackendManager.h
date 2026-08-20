@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTURDF_URDFLINKBACKENDMANAGER_H
+#ifndef ROBOTURDF_URDFLINKBACKENDMANAGER_H
 #define ROBOTURDF_URDFLINKBACKENDMANAGER_H
 
 /// @file UrdfLinkBackendManager.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 连杆 mesh 后端：一连杆一 MeshBackendData，替代 osgDB 直读以支持属性与序列化
 
 #include "roboturdf_global.h"

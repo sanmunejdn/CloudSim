@@ -2,6 +2,7 @@
 #define WIDGET_BACKENDUNITSDISPLAYFOREST_H
 
 /// @file BackendUnitsDisplayForest.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Units 显示森林：主父投影，无 Qt
 
 #include "widget_global.h"

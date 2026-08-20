@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMBOOTSTRAP_CLOUDSIMBOOTSTRAP_H
+#ifndef CLOUDSIMBOOTSTRAP_CLOUDSIMBOOTSTRAP_H
 #define CLOUDSIMBOOTSTRAP_CLOUDSIMBOOTSTRAP_H
 
 /// @file CloudSimBootstrap.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 组合根 API（实现在 CloudSimHost.dll）
 
 #include "cloudsim_host_global.h"

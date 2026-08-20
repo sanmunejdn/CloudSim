@@ -1,7 +1,8 @@
-﻿#ifndef PROPERTYCORE_PROPERTYATTRIBUTEHELPERS_H
+#ifndef PROPERTYCORE_PROPERTYATTRIBUTEHELPERS_H
 #define PROPERTYCORE_PROPERTYATTRIBUTEHELPERS_H
 
 /// @file PropertyAttributeHelpers.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 属性 JSON 行格式化与解析工具
 
 #include <array>

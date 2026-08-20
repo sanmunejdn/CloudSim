@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMUIASSETS_UIICONDECORATORS_H
+#ifndef CLOUDSIMUIASSETS_UIICONDECORATORS_H
 #define CLOUDSIMUIASSETS_UIICONDECORATORS_H
 
 /// @file UiIconDecorators.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief UiIconDecorators 接口
 
 #include "uiassets_global.h"

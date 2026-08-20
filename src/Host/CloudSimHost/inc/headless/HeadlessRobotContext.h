@@ -2,6 +2,7 @@
 #define CLOUDSIMHOST_HEADLESSROBOTCONTEXT_H
 
 /// @file HeadlessRobotContext.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Web/Headless：无 DocumentPage/OSG 时的 URDF 导入与 per-link FK 上下文
 
 #include "cloudsim_host_global.h"

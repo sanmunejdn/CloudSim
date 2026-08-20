@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_ROBOTFRAMESETTINGSWIDGET_H
+#ifndef ROBOTWIDGET_ROBOTFRAMESETTINGSWIDGET_H
 #define ROBOTWIDGET_ROBOTFRAMESETTINGSWIDGET_H
 
 /// @file RobotFrameSettingsWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief RobotFrameSettingsWidget 接口
 
 #include "robotwidget_global.h"

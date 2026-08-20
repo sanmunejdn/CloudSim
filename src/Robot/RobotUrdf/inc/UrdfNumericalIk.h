@@ -2,6 +2,7 @@
 #define ROBOTURDF_URDFNUMERICALIK_H
 
 /// @file UrdfNumericalIk.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief URDF 几何雅可比 + DLS 位姿数值 IK（纯运动学核）
 
 #include "UrdfIkSolverOptions.h"

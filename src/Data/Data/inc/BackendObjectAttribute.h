@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDOBJECTATTRIBUTE_H
+#ifndef DATA_BACKENDOBJECTATTRIBUTE_H
 #define DATA_BACKENDOBJECTATTRIBUTE_H
 
 /// @file BackendObjectAttribute.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 无状态属性插件：面板 JSON 行，apply 写回 BackendDataBase
 
 #include "data_global.h"

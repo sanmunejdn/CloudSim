@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMHOST_ROBOTPLANINSTRUCTION_H
+#ifndef CLOUDSIMHOST_ROBOTPLANINSTRUCTION_H
 #define CLOUDSIMHOST_ROBOTPLANINSTRUCTION_H
 
 /// @file RobotPlanInstruction.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief DTO 转规划指令
 
 #include "cloudsim_host_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINBACKENDMETA_H
+#ifndef CLOUDSIMPLUGINSDK_PLUGINBACKENDMETA_H
 #define CLOUDSIMPLUGINSDK_PLUGINBACKENDMETA_H
 
 /// @file PluginBackendMeta.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 插件后端工厂（宿主适配 BackendDataBase）
 
 #include "cloudsim_plugin_sdk_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINSCENEBRIDGE_H
+#ifndef CLOUDSIMPLUGINSDK_IPLUGINSCENEBRIDGE_H
 #define CLOUDSIMPLUGINSDK_IPLUGINSCENEBRIDGE_H
 
 /// @file IPluginSceneBridge.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 无 OSG 头的场景操作（4×4 列主序同 osg::Matrixd）
 
 #include "cloudsim_plugin_sdk_global.h"

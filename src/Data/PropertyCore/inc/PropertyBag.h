@@ -1,7 +1,8 @@
-﻿#ifndef PROPERTYCORE_PROPERTYBAG_H
+#ifndef PROPERTYCORE_PROPERTYBAG_H
 #define PROPERTYCORE_PROPERTYBAG_H
 
 /// @file PropertyBag.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief schema 驱动的属性值存储（key 字符串）
 
 #include "PropertyAttributeHelpers.h"

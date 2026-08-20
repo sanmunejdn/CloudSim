@@ -2,6 +2,7 @@
 #define ROBOTURDF_URDFIKSOLVEROPTIONS_H
 
 /// @file UrdfIkSolverOptions.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 数值位姿 IK 容差/阻尼/迭代（与历史 TeachIk 魔法数对齐）
 
 #include "robot_urdf_global.h"

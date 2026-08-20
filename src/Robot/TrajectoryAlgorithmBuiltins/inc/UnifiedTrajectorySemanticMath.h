@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYSEMANTICMATH_H
+#ifndef TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYSEMANTICMATH_H
 #define TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYSEMANTICMATH_H
 
 /// @file UnifiedTrajectorySemanticMath.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief UnifiedTrajectorySemanticMath 接口
 
 // 位姿语义变换与进退刀插入，供 Translate/Mirror/Approach 等原子块复用

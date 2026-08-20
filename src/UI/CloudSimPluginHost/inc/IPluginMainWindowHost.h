@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H
+#ifndef CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H
 #define CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H
 
 /// @file IPluginMainWindowHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 与 IPluginHostContext::PluginJobProgressFn 同型，避免 Widget/CloudSim 依赖 PluginSDK 头
 
 #include <QDockWidget>

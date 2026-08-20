@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDFOLLOWTRANSFORMSOLVER_H
+#ifndef DATA_BACKENDFOLLOWTRANSFORMSOLVER_H
 #define DATA_BACKENDFOLLOWTRANSFORMSOLVER_H
 
 /// @file BackendFollowTransformSolver.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 沿 FollowAttachment DAG 解 follower 位姿；可选 OSG 世界查询与场景/机器人对齐
 
 #include "data_global.h"

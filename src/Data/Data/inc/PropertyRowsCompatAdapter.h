@@ -1,7 +1,8 @@
-﻿#ifndef DATA_PROPERTYROWSCOMPATADAPTER_H
+#ifndef DATA_PROPERTYROWSCOMPATADAPTER_H
 #define DATA_PROPERTYROWSCOMPATADAPTER_H
 
 /// @file PropertyRowsCompatAdapter.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 旧 PropertyBag 与 BackendDataBase 位姿/颜色同步
 
 #include "BackendDataBase.h"

@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPCONFIGIMPL_H
+#ifndef TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPCONFIGIMPL_H
 #define TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPCONFIGIMPL_H
 
 /// @file TrajectoryOpConfigImpl.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief TrajectoryOpConfigImpl 接口
 
 // IOpParamConfig 通用实现：绑定 resource JSON schema

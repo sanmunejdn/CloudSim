@@ -2,6 +2,7 @@
 #define AIWIDGET_AICONFIRMPANEL_H
 
 /// @file AiConfirmPanel.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief Dock 内嵌：按 args_schema 动态表单确认 Agent tool 参数
 
 #include "aiwidget_global.h"

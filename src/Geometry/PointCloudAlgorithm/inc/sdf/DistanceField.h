@@ -2,6 +2,7 @@
 #define POINTCLOUDALGORITHM_SDF_DISTANCEFIELD_H
 
 /// @file DistanceField.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 目标表面有向距离 / 有符号距离场（体素缓存可选）
 
 #include "KdTreePointSet.h"

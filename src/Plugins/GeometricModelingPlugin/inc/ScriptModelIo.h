@@ -2,6 +2,7 @@
 #define GEOMETRICMODELINGPLUGIN_SCRIPTMODELIO_H
 
 /// @file ScriptModelIo.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 脚本建模 JSON 判别与 unwrap（history / feature.compose）
 
 #include <QByteArray>

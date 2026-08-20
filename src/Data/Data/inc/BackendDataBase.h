@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDDATABASE_H
+#ifndef DATA_BACKENDDATABASE_H
 #define DATA_BACKENDDATABASE_H
 
 /// @file BackendDataBase.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端基类：id、几何包围、属性面板、位姿/颜色钩子
 
 #include "data_global.h"

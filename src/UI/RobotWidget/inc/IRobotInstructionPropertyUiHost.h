@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTWIDGET_IROBOTINSTRUCTIONPROPERTYUIHOST_H
+#ifndef ROBOTWIDGET_IROBOTINSTRUCTIONPROPERTYUIHOST_H
 #define ROBOTWIDGET_IROBOTINSTRUCTIONPROPERTYUIHOST_H
 
 /// @file IRobotInstructionPropertyUiHost.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 仿真指令属性面板所需 MainWindow 能力（Widget 不 include RobotInstruction 头）
 
 #include "robotwidget_global.h"
@@ -78,7 +79,8 @@ public:
 
 	virtual void refreshInstructionPoseAxes() = 0;
 	virtual void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction) = 0;
-	virtual void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction) = 0;
+	virtual void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction,
+													 bool forceCartesianIk = false) = 0;
 	virtual void refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& instruction) = 0;
 
 	virtual void scheduleInstructionPropertyRefresh(const std::shared_ptr<RobotInstruction::Base>& instruction,

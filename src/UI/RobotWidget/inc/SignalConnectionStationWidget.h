@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_SIGNALCONNECTIONSTATIONWIDGET_H
 
 /// @file SignalConnectionStationWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 信号连接站：Owner 节点 + DO→DI 拖线
 
 #include "robotwidget_global.h"

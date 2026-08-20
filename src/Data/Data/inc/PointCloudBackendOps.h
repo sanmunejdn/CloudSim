@@ -1,7 +1,8 @@
-﻿#ifndef DATA_POINTCLOUDBACKENDOPS_H
+#ifndef DATA_POINTCLOUDBACKENDOPS_H
 #define DATA_POINTCLOUDBACKENDOPS_H
 
 /// @file PointCloudBackendOps.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 套索选三角面：质心投影到屏幕后判多边形内外
 
 #include "data_global.h"

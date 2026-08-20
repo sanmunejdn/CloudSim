@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMCORE_CLOUDSIM_CORE_GLOBAL_H
+#ifndef CLOUDSIMCORE_CLOUDSIM_CORE_GLOBAL_H
 #define CLOUDSIMCORE_CLOUDSIM_CORE_GLOBAL_H
 
 /// @file cloudsim_core_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief API 版本（高16主版本）
 
 #include <QtCore/qglobal.h>

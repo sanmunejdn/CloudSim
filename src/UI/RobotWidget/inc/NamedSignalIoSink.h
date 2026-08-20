@@ -2,6 +2,7 @@
 #define ROBOTWIDGET_NAMEDSIGNALIOSINK_H
 
 /// @file NamedSignalIoSink.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 仿真命名 IO：分表 DI/DO/AI/AO，面板可强制 DI；实现 IRobotIoSink
 
 #include "robotwidget_global.h"

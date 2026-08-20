@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_VIEWPORTTOOLBAR_H
+#ifndef WIDGET_VIEWPORTTOOLBAR_H
 #define WIDGET_VIEWPORTTOOLBAR_H
 
 /// @file ViewportToolBar.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 3D 视口顶部浮动按钮（视角工具 + 侧栏抽屉切换）
 
 #include <QObject>

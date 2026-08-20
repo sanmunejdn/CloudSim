@@ -1,7 +1,8 @@
-﻿#ifndef POINTCLOUDALGORITHM_TRANSFORM_H
+#ifndef POINTCLOUDALGORITHM_TRANSFORM_H
 #define POINTCLOUDALGORITHM_TRANSFORM_H
 
 /// @file Transform.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 刚体变换点坐标：p' = T * p（列向量语义）
 
 #include "point_cloud_algorithm_global.h"

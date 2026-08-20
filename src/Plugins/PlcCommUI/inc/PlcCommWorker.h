@@ -1,7 +1,8 @@
-﻿#ifndef PLCCOMMUI_PLCCOMMWORKER_H
+#ifndef PLCCOMMUI_PLCCOMMWORKER_H
 #define PLCCOMMUI_PLCCOMMWORKER_H
 
 /// @file PlcCommWorker.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 独占 IPlcCommClient；所有 PLC I/O 在此线程执行
 
 #include "PlcCommTypes.h"

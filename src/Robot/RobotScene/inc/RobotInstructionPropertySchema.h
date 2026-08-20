@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H
+#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H
 
 /// @file RobotInstructionPropertySchema.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief RobotInstructionPropertySchema 接口
 
 #include "../../Data/PropertyCore/inc/PropertySchema.h"

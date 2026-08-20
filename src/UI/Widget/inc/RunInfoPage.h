@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_RUNINFOPAGE_H
+#ifndef WIDGET_RUNINFOPAGE_H
 #define WIDGET_RUNINFOPAGE_H
 
 /// @file RunInfoPage.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 运行信息页：以只读文本显示日志、警告与错误，只读展示运行输出
 
 #include "widget_global.h"

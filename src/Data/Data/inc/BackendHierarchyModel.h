@@ -1,7 +1,8 @@
-﻿#ifndef DATA_BACKENDHIERARCHYMODEL_H
+#ifndef DATA_BACKENDHIERARCHYMODEL_H
 #define DATA_BACKENDHIERARCHYMODEL_H
 
 /// @file BackendHierarchyModel.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief BackendDataManager 层级变更的增量镜像
 
 #include "data_global.h"

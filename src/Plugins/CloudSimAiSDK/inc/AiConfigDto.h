@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMAISDK_AICONFIGDTO_H
+#ifndef CLOUDSIMAISDK_AICONFIGDTO_H
 #define CLOUDSIMAISDK_AICONFIGDTO_H
 
 /// @file AiConfigDto.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief AiConfigDto 接口
 
 #include "cloudsim_ai_sdk_global.h"

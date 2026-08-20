@@ -2,6 +2,7 @@
 #define PROCESSFLOWPLUGIN_SIM_SIMRUNCONFIG_H
 
 /// @file SimRunConfig.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief DES 运行参数（含班次/到达分布）
 
 #include <QString>

@@ -2,6 +2,7 @@
 #define ROBOTCOMMSDK_ROBOT_COMM_SDK_GLOBAL_H
 
 /// @file robot_comm_sdk_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief RobotCommSDK 导出宏与 ABI 版本
 
 #if defined(ROBOTCOMM_SDK_STATIC) || defined(BUILD_STATIC)

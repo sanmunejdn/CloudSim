@@ -1,7 +1,8 @@
-﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPEXECUTIONCONTEXT_H
+#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPEXECUTIONCONTEXT_H
 #define TRAJECTORYALGORITHM_TRAJECTORYOPEXECUTIONCONTEXT_H
 
 /// @file TrajectoryOpExecutionContext.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 几何投影/非刚性/工件参考位姿：由 RobotScene 注入，Builtins 不依赖具体解析实现
 
 #include "trajectory_algorithm_global.h"

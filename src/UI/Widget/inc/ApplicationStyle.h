@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_APPLICATIONSTYLE_H
+#ifndef WIDGET_APPLICATIONSTYLE_H
 #define WIDGET_APPLICATIONSTYLE_H
 
 /// @file ApplicationStyle.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 应用外观：浅色与深色主题的加载、保存与应用（QApplication）
 
 #include "widget_global.h"

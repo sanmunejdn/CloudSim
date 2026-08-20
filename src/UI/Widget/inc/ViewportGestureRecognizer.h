@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_VIEWPORTGESTURERECOGNIZER_H
+#ifndef WIDGET_VIEWPORTGESTURERECOGNIZER_H
 #define WIDGET_VIEWPORTGESTURERECOGNIZER_H
 
 /// @file ViewportGestureRecognizer.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 视口手势：统一点/线/面拾取的 click/drag/release 判定
 
 #include "../../OsgWidgetCore/inc/OsgScene.h"

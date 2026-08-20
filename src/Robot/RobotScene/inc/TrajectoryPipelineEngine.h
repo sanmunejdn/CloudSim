@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H
+#ifndef ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H
 #define ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H
 
 /// @file TrajectoryPipelineEngine.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 统一 IR 管道：单一步骤列表顺序重放，支持节点缓存与局部重跑
 
 #include "robot_scene_global.h"

@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINHOST_DOCUMENTPOINTCLOUDOPS_H
+#ifndef CLOUDSIMPLUGINHOST_DOCUMENTPOINTCLOUDOPS_H
 #define CLOUDSIMPLUGINHOST_DOCUMENTPOINTCLOUDOPS_H
 
 /// @file DocumentPointCloudOps.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 512 点采样：世界系 overlap（scan/template worldMatrix）
 
 #include "cloudsim_host_global.h"

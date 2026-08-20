@@ -1,7 +1,8 @@
-﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H
+#ifndef CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H
 #define CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H
 
 /// @file PluginPointCloudTypes.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 列主序 4×4 刚体变换（mm）
 
 #include "cloudsim_plugin_sdk_global.h"

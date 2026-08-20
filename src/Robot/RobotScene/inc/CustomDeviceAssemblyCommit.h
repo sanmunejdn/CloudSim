@@ -2,6 +2,7 @@
 #define ROBOTSCENE_CUSTOMDEVICEASSEMBLYCOMMIT_H
 
 /// @file CustomDeviceAssemblyCommit.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 组装画布 Link/Joint → 设备 rest/烘焙/q 提交（无 UI）
 
 #include "robot_scene_global.h"

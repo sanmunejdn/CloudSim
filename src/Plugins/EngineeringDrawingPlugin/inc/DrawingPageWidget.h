@@ -2,6 +2,7 @@
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGPAGEWIDGET_H
 
 /// @file DrawingPageWidget.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 中央工程图页：仅画布（出图选项在 Ribbon）
 
 #include "DrawingSheetCanvasWidget.h"

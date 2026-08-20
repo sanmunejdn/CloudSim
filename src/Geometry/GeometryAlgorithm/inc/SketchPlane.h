@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_SKETCHPLANE_H
 
 /// @file SketchPlane.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 从 B-rep 面提取草图平面（世界 mm），无暴露 OCCT 类型
 
 #include "geometry_algorithm_global.h"

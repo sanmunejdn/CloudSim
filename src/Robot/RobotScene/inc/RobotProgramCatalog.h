@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTSCENE_ROBOTPROGRAMCATALOG_H
+#ifndef ROBOTSCENE_ROBOTPROGRAMCATALOG_H
 #define ROBOTSCENE_ROBOTPROGRAMCATALOG_H
 
 /// @file RobotProgramCatalog.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 路点分组元数据，不插入程序树
 
 #include "robot_scene_global.h"

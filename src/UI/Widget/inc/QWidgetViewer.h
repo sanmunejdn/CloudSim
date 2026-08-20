@@ -1,7 +1,8 @@
-﻿#ifndef WIDGET_QWIDGETVIEWER_H
+#ifndef WIDGET_QWIDGETVIEWER_H
 #define WIDGET_QWIDGETVIEWER_H
 
 /// @file QWidgetViewer.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief OpenGL/OSG 嵌入 Qt（QOpenGLWidget）；输入事件转发 osgViewer，供 GraphicsWindowQt1 使用
 
 #include "widget_global.h"

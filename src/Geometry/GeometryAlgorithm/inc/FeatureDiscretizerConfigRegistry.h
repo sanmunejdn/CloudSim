@@ -1,7 +1,8 @@
-﻿#ifndef GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGREGISTRY_H
+#ifndef GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGREGISTRY_H
 #define GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGREGISTRY_H
 
 /// @file FeatureDiscretizerConfigRegistry.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief FeatureDiscretizerConfigRegistry 接口
 
 #include "geometry_algorithm_global.h"

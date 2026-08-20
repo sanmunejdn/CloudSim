@@ -1,7 +1,8 @@
-﻿#ifndef ROBOTURDF_URDFROBOTLOADER_H
+#ifndef ROBOTURDF_URDFROBOTLOADER_H
 #define ROBOTURDF_URDFROBOTLOADER_H
 
 /// @file UrdfRobotLoader.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief URDF 层级场景：关节 MatrixTransform + 连杆几何，内部长度 mm（origin xyz 米→mm）
 
 #include "UrdfKinematicsWorkspace.h"

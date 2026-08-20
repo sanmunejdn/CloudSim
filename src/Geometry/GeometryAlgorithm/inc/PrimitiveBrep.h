@@ -2,6 +2,7 @@
 #define GEOMETRYALGORITHM_PRIMITIVEBREP_H
 
 /// @file PrimitiveBrep.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 参数化基本体 → 内存 ShapeHandle（供轨迹线面特征）
 
 #include "geometry_algorithm_global.h"

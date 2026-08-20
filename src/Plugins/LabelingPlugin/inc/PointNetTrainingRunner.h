@@ -1,7 +1,8 @@
-﻿#ifndef LABELINGPLUGIN_POINTNETTRAININGRUNNER_H
+#ifndef LABELINGPLUGIN_POINTNETTRAININGRUNNER_H
 #define LABELINGPLUGIN_POINTNETTRAININGRUNNER_H
 
 /// @file PointNetTrainingRunner.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief PointNetTrainingRunner 接口
 
 #include <QObject>
