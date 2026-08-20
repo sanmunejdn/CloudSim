@@ -39,6 +39,7 @@ public:
 	/// Widget 侧工程 IO 入口（PluginHostContext 未导出，经此转发）
 	void invokeProjectAboutToSave(const QString& documentId, QJsonObject& root);
 	void invokeProjectLoaded(const QString& documentId, const QJsonObject& root);
+	void invokeDocumentClosed(const QString& documentId);
 
 private:
 	struct LoadedPlugin

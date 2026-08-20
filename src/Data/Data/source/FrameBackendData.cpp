@@ -1,10 +1,12 @@
-﻿// @file FrameBackendData.cpp
+﻿/// @file FrameBackendData.cpp
 /// @brief Frame 后端数据
 
-#include "FrameBackendData.h"
+#include "pch.h"
 
+#include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendObjectAttribute.h"
 #include "BackendTypeIdentity.h"
+#include "FrameBackendData.h"
 
 FrameBackendData::FrameBackendData()
 {
@@ -48,6 +50,25 @@ void FrameBackendData::setAxisLengthMm(const float mm)
 	{
 		m_axisLengthMm = mm;
 	}
+}
+
+nlohmann::json FrameBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
+{
+	// 构造期已挂 pose/rotation attribute，须走 Pipeline，否则面板只有 pose.frame
+	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
+	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
+	return rows;
+}
+
+bool FrameBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
+										   const BackendDataManager* mgr)
+{
+	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
+																					  errMsg))
+	{
+		return true;
+	}
+	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
 }
 
 void FrameBackendData::saveDerivedJson(nlohmann::json& out) const

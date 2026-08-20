@@ -6,10 +6,13 @@
 #include "Ai/AiAgentMemory.h"
 #include "Ai/AiAgentPlanBuilder.h"
 #include "Ai/AiAgentTrace.h"
+#include "Ai/AiActionPlanExecutor.h"
 #include "Ai/AiArgsSchema.h"
 #include "Ai/AiAssistantHostImpl.h"
 #include "Ai/AiCatalogKeywordMatcher.h"
 #include "Ai/AiHostButtonApiDispatch.h"
+#include "Ai/AiIntentParser.h"
+#include "Ai/AiMeshDefaults.h"
 #include "Ai/AiSceneSnapshotBuilder.h"
 #include "AiDomainTypes.h"
 #include "AiLlmClient.h"
@@ -138,6 +141,9 @@ void AiAgentRuntime::runTurnAsync(const AiInferenceRequest& request, const AiCon
 	m_planMaxSteps = std::max(1, config.agent.planMaxSteps);
 	m_autoLowRisk = config.agent.autoExecuteLowRisk;
 	m_requireKeywordHit = config.agent.requireKeywordHit;
+	// 关规则时放开 keyword 门禁，否则口语无法落到 LLM tool_calls
+	if (!config.enableRules)
+		m_requireKeywordHit = false;
 	m_enableTrace = config.agent.enableTrace;
 	m_enablePlan = config.agent.enablePlan;
 	m_replanOnFailure = config.agent.replanOnFailure;
@@ -291,6 +297,13 @@ void AiAgentRuntime::emitNeedConfirm()
 	ev.message = m_pending->confirmKind == AiAgentConfirmKind::TrajectoryCommit
 					 ? QStringLiteral("请在对话框中确认离散策略与管线算子。")
 					 : QStringLiteral("请确认参数后执行。");
+	if (m_pending->confirmKind == AiAgentConfirmKind::CatalogTool &&
+		m_pending->toolId == QStringLiteral("createPrimitiveMesh"))
+	{
+		const QString steps = AiActionPlanExecutor::previewCreateMeshFeatureSteps(m_pending->proposedArgs);
+		if (!steps.isEmpty())
+			ev.message = QStringLiteral("请确认参数后执行。\n") + steps;
+	}
 	m_onEvent(ev);
 }
 
@@ -385,6 +398,7 @@ bool AiAgentRuntime::tryBuildInitialPlan(QString* via)
 	in.maxSteps = std::min(m_maxSteps, m_planMaxSteps);
 	// 无 keyword 策略下禁止 LLM 编造步骤；场景/工艺规则与多 keyword 仍可用
 	in.enableLlmPlan = m_enablePlan && !m_requireKeywordHit;
+	in.enableRules = m_config.enableRules;
 	if (const AiDomainModelConfig* dm = findDomainConfig(domain))
 	{
 		in.llm.enabled = in.enableLlmPlan;
@@ -425,6 +439,7 @@ bool AiAgentRuntime::tryReplanAfterFailure(const QString& failureObservation)
 	in.sessionSummaryUtf8 = AiAgentMemory::sessionSummaryUtf8();
 	in.maxSteps = std::min(m_maxSteps - m_step, m_planMaxSteps);
 	in.enableLlmPlan = m_enablePlan && !m_requireKeywordHit;
+	in.enableRules = m_config.enableRules;
 	if (const AiDomainModelConfig* dm = findDomainConfig(domain))
 	{
 		in.llm.enabled = in.enableLlmPlan;
@@ -492,6 +507,12 @@ int AiAgentRuntime::objectCountInSnapshot(const QByteArray& snap) const
 QString AiAgentRuntime::formatObservation(const QString& toolId, const QByteArray& argsJson,
 										  const AiToolResult& result) const
 {
+	// 参数化创建等已带完整步骤摘要时，不再叠按钮名/无关默认参（如 box 上的 radius_mm）
+	if (!result.summary.isEmpty() &&
+		(result.summary.contains(QStringLiteral("创建步骤")) || result.summary.contains(QStringLiteral("参数化实体")) ||
+		 result.summary.contains(QStringLiteral("参数化特征"))))
+		return result.summary;
+
 	const nlohmann::json api = parseObj(apiEntryJson(toolId));
 	const QString title = titleForApi(api);
 	const nlohmann::json args = parseObj(argsJson);
@@ -724,7 +745,8 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 
 	if (kind != AiAgentConfirmKind::CatalogTool)
 	{
-		finishOk(observation, toolId, kind);
+		// StepDone 已输出 observation，Finished 不再重复贴同一段
+		finishOk(QString(), toolId, kind);
 		return;
 	}
 
@@ -734,7 +756,7 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 		m_step < m_maxSteps && (hasPlanRemaining() || hasRemainingKeywordMatch() || userWantsMultiStep());
 	if (!more)
 	{
-		finishOk(observation, toolId, kind);
+		finishOk(QString(), toolId, kind);
 		return;
 	}
 	schedulePropose(true);
@@ -754,19 +776,59 @@ bool AiAgentRuntime::proposeNextTool(QString* toolId, QByteArray* argsJson, QStr
 	}
 
 	const QString domain = m_assistant->resolveDomainId(m_request.domainId, m_request.userText);
-	const auto match = AiCatalogKeywordMatcher::tryMatch(m_catalog, m_request.userText, domain, m_doneTools);
-	if (match.ok)
+
+	// mesh.create 口语（「生成长方体」）走 IntentParser；关规则时跳过以便测模型
+	if (m_config.enableRules &&
+		(domain == AiDomainIds::meshCreate() || domain.isEmpty() || domain == AiDomainIds::autoDomain()) &&
+		!m_doneTools.contains(QStringLiteral("createPrimitiveMesh")))
 	{
-		*toolId = match.apiId;
-		nlohmann::json plan = parseObj(match.planJsonUtf8);
-		nlohmann::json args = nlohmann::json::object();
-		if (plan.contains("steps") && plan["steps"].is_array() && !plan["steps"].empty())
-			args = plan["steps"][0].value("args", nlohmann::json::object());
-		*argsJson = QByteArray::fromStdString(args.dump());
-		*via = match.hintMessage.isEmpty() ? QStringLiteral("Rules") : match.hintMessage;
-		if (toolCallId)
-			toolCallId->clear();
-		return true;
+		const AiIntentParser::ParseResult pr = AiIntentParser::tryParseUserText(m_request.userText);
+		if (pr.ok && pr.command.is_object() && pr.command.value("action", "") == "create_mesh")
+		{
+			nlohmann::json cmd = pr.command;
+			AiMeshDefaults::applyMissingDimensions(cmd);
+			nlohmann::json args = nlohmann::json::object();
+			args["primitive"] = cmd.value("primitive", "box");
+			if (cmd.contains("dimensions_mm") && cmd["dimensions_mm"].is_object())
+			{
+				const auto& d = cmd["dimensions_mm"];
+				if (d.contains("length"))
+					args["length_mm"] = d["length"];
+				if (d.contains("width"))
+					args["width_mm"] = d["width"];
+				if (d.contains("height"))
+					args["height_mm"] = d["height"];
+				if (d.contains("radius"))
+					args["radius_mm"] = d["radius"];
+			}
+			if (cmd.contains("name") && cmd["name"].is_string())
+				args["name"] = cmd["name"];
+			*toolId = QStringLiteral("createPrimitiveMesh");
+			*argsJson = QByteArray::fromStdString(args.dump());
+			*via = pr.hintMessage.isEmpty() ? QStringLiteral("rules") : pr.hintMessage;
+			if (toolCallId)
+				toolCallId->clear();
+			return true;
+		}
+	}
+
+	// Catalog 关键词也属规则路径；关规则时直接走 LLM
+	if (m_config.enableRules)
+	{
+		const auto match = AiCatalogKeywordMatcher::tryMatch(m_catalog, m_request.userText, domain, m_doneTools);
+		if (match.ok)
+		{
+			*toolId = match.apiId;
+			nlohmann::json plan = parseObj(match.planJsonUtf8);
+			nlohmann::json args = nlohmann::json::object();
+			if (plan.contains("steps") && plan["steps"].is_array() && !plan["steps"].empty())
+				args = plan["steps"][0].value("args", nlohmann::json::object());
+			*argsJson = QByteArray::fromStdString(args.dump());
+			*via = match.hintMessage.isEmpty() ? QStringLiteral("Rules") : match.hintMessage;
+			if (toolCallId)
+				toolCallId->clear();
+			return true;
+		}
 	}
 
 	// 无可靠 keyword：不猜工具；场景/工艺规则规划仍可走 hasPlanRemaining

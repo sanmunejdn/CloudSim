@@ -6,6 +6,9 @@
 
 #include "widget_global.h"
 
+#include <QColor>
+#include <QString>
+
 class QApplication;
 
 /// 应用外观：浅色与深色主题的加载、保存与应用（QApplication）
@@ -17,6 +20,17 @@ enum class Theme
 	Dark
 };
 
+struct ThemeTokens
+{
+	QColor window;
+	QColor text;
+	QColor accent;
+	QColor danger;
+	QColor border;
+	int radiusSmPx = 4;
+};
+
+WIDGET_EXPORT ThemeTokens tokens(Theme theme);
 WIDGET_EXPORT void applyTheme(QApplication* app, Theme theme);
 WIDGET_EXPORT Theme loadSavedTheme();
 WIDGET_EXPORT void saveTheme(Theme theme);

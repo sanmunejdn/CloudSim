@@ -59,6 +59,10 @@ export default function UnitsTree() {
 
   const ctxObj = ctx ? objects.find((o) => o.id === ctx.id) : null;
 
+  const VIRTUAL_THRESHOLD = 200;
+  const useVirtual = objects.length >= VIRTUAL_THRESHOLD;
+  const virtualRoots = useVirtual ? roots.slice(0, 100) : roots;
+
   const renderNode = (id: string, depth: number): ReactNode => {
     const o = objects.find((x) => x.id === id);
     if (!o) return null;
@@ -104,7 +108,12 @@ export default function UnitsTree() {
           </div>
         </div>
         {open && kids.length > 0 && (
-          <ul className="tree-kids">{kids.map((c) => renderNode(c.id, depth + 1))}</ul>
+          <ul className="tree-kids">
+            {(useVirtual ? kids.slice(0, 80) : kids).map((c) => renderNode(c.id, depth + 1))}
+            {useVirtual && kids.length > 80 ? (
+              <li className="tree-more">…另有 {kids.length - 80} 项</li>
+            ) : null}
+          </ul>
         )}
       </li>
     );
@@ -112,7 +121,12 @@ export default function UnitsTree() {
 
   return (
     <>
-      <ul className="tree">{roots.map((r) => renderNode(r.id, 0))}</ul>
+      {useVirtual && (
+        <div className="tree-virtual-hint" title="对象过多时仅渲染部分根节点，展开后可见子节点">
+          虚拟化：显示 {virtualRoots.length}/{roots.length} 根节点（共 {objects.length} 对象）
+        </div>
+      )}
+      <ul className="tree">{virtualRoots.map((r) => renderNode(r.id, 0))}</ul>
       {ctx && (
         <div className="ctx-menu" style={{ left: ctx.x, top: ctx.y }} onMouseLeave={() => setCtx(null)}>
           <button

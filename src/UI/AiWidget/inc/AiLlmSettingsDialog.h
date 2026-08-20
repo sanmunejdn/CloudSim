@@ -50,7 +50,7 @@ private:
 	QGroupBox* m_connectionGroup = nullptr;
 	QFormLayout* m_form = nullptr;
 	QCheckBox* m_enabled = nullptr;
-	QCheckBox* m_ruleFirst = nullptr;
+	QCheckBox* m_enableRules = nullptr;
 	QLineEdit* m_baseUrl = nullptr;
 	QLineEdit* m_apiKey = nullptr;
 	QLineEdit* m_apiKeyEnv = nullptr;

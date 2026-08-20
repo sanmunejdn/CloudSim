@@ -206,6 +206,7 @@ struct Body
 	Mat4 world = {};
 	Aabb worldAabb;
 	bool dirtyPose = true;
+	std::string poseSource;
 
 	void rebuildWorldAabb(const double margin)
 	{
@@ -252,7 +253,7 @@ void CollisionWorld::clear()
 }
 
 void CollisionWorld::upsertMeshBody(const CollisionBodyId& id, const float* soup, const std::size_t nFloats,
-									const Mat4& worldMm)
+									const Mat4& worldMm, const std::string& poseSource)
 {
 	if (!soup || nFloats < 9 || (nFloats % 9) != 0)
 		return;
@@ -263,15 +264,19 @@ void CollisionWorld::upsertMeshBody(const CollisionBodyId& id, const float* soup
 	for (std::size_t i = 0; i + 2 < nFloats; i += 3)
 		b.localVerts.push_back({soup[i], soup[i + 1], soup[i + 2]});
 	b.world = worldMm;
+	if (!poseSource.empty())
+		b.poseSource = poseSource;
 	b.rebuildWorldAabb(m_impl->marginMm);
 }
 
-void CollisionWorld::setWorldPose(const CollisionBodyId& id, const Mat4& worldMm)
+void CollisionWorld::setWorldPose(const CollisionBodyId& id, const Mat4& worldMm, const std::string& poseSource)
 {
 	const auto it = m_impl->bodies.find(bodyIdKey(id));
 	if (it == m_impl->bodies.end())
 		return;
 	it->second.world = worldMm;
+	if (!poseSource.empty())
+		it->second.poseSource = poseSource;
 	it->second.rebuildWorldAabb(m_impl->marginMm);
 }
 
@@ -324,6 +329,36 @@ CollisionQueryResult CollisionWorld::checkAll(const int maxContacts) const
 	for (const auto& kv : m_impl->bodies)
 		list.push_back(&kv.second);
 
+	auto fillDiag = [](ContactHit& c, const Body& A, const Body& B) {
+		c.aOriginMm[0] = A.world[12];
+		c.aOriginMm[1] = A.world[13];
+		c.aOriginMm[2] = A.world[14];
+		c.bOriginMm[0] = B.world[12];
+		c.bOriginMm[1] = B.world[13];
+		c.bOriginMm[2] = B.world[14];
+		c.aAabbCenterMm[0] = 0.5 * (A.worldAabb.mn.x + A.worldAabb.mx.x);
+		c.aAabbCenterMm[1] = 0.5 * (A.worldAabb.mn.y + A.worldAabb.mx.y);
+		c.aAabbCenterMm[2] = 0.5 * (A.worldAabb.mn.z + A.worldAabb.mx.z);
+		c.bAabbCenterMm[0] = 0.5 * (B.worldAabb.mn.x + B.worldAabb.mx.x);
+		c.bAabbCenterMm[1] = 0.5 * (B.worldAabb.mn.y + B.worldAabb.mx.y);
+		c.bAabbCenterMm[2] = 0.5 * (B.worldAabb.mn.z + B.worldAabb.mx.z);
+		c.aPoseSource = A.poseSource.empty() ? "?" : A.poseSource;
+		c.bPoseSource = B.poseSource.empty() ? "?" : B.poseSource;
+	};
+
+	auto formatSummary = [](const ContactHit& c, const bool more) {
+		std::ostringstream oss;
+		oss << "collision: " << c.a.backendId << " vs " << c.b.backendId;
+		if (more)
+			oss << " (+more)";
+		oss << " | A.t=(" << c.aOriginMm[0] << "," << c.aOriginMm[1] << "," << c.aOriginMm[2] << ") aabbC=("
+			<< c.aAabbCenterMm[0] << "," << c.aAabbCenterMm[1] << "," << c.aAabbCenterMm[2] << ") pose="
+			<< c.aPoseSource << " | B.t=(" << c.bOriginMm[0] << "," << c.bOriginMm[1] << "," << c.bOriginMm[2]
+			<< ") aabbC=(" << c.bAabbCenterMm[0] << "," << c.bAabbCenterMm[1] << "," << c.bAabbCenterMm[2]
+			<< ") pose=" << c.bPoseSource;
+		return oss.str();
+	};
+
 	const int cap = std::max(1, maxContacts);
 	for (std::size_t i = 0; i < list.size(); ++i)
 	{
@@ -369,12 +404,11 @@ CollisionQueryResult CollisionWorld::checkAll(const int maxContacts) const
 			c.pointMm[1] = hitPt.y;
 			c.pointMm[2] = hitPt.z;
 			c.depthMm = m_impl->marginMm;
+			fillDiag(c, A, B);
 			out.contacts.push_back(c);
 			if (static_cast<int>(out.contacts.size()) >= cap)
 			{
-				std::ostringstream oss;
-				oss << "collision: " << A.id.backendId << " vs " << B.id.backendId << " (+more)";
-				out.summary = oss.str();
+				out.summary = formatSummary(out.contacts.front(), true);
 				return out;
 			}
 		}
@@ -382,11 +416,13 @@ CollisionQueryResult CollisionWorld::checkAll(const int maxContacts) const
 
 	if (out.inCollision && !out.contacts.empty())
 	{
-		std::ostringstream oss;
-		oss << "collision: " << out.contacts.front().a.backendId << " vs " << out.contacts.front().b.backendId;
+		out.summary = formatSummary(out.contacts.front(), false);
 		if (out.contacts.size() > 1)
-			oss << " (" << out.contacts.size() << " contacts)";
-		out.summary = oss.str();
+		{
+			std::ostringstream oss;
+			oss << out.summary << " (" << out.contacts.size() << " contacts)";
+			out.summary = oss.str();
+		}
 	}
 	return out;
 }

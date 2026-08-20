@@ -12,6 +12,9 @@ class PluginHostContext;
 namespace AiActionPlanExecutor
 {
 bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QString* outSummary, QString* outError);
+
+/// create_mesh / Agent 确认前：预览草图+拉伸等步骤文案（非参数化基本体返回空）
+QString previewCreateMeshFeatureSteps(const QByteArray& createMeshOrArgsJsonUtf8);
 }
 
 #endif // CLOUDSIMPLUGINHOST_AIACTIONPLANEXECUTOR_H

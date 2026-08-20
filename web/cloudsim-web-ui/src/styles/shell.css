@@ -1,5 +1,13 @@
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;font:12px/1.35 "Segoe UI","Microsoft YaHei",sans-serif;background:#ececec;color:#222}
+:root{
+  --cs-bg:#ececec;
+  --cs-text:#222;
+  --cs-accent:#2b79c2;
+  --cs-danger:#c0392b;
+  --cs-panel:#f5f5f5;
+  --cs-border:#bdbdbd;
+}
+html,body{margin:0;height:100%;font:12px/1.35 "Segoe UI","Microsoft YaHei",sans-serif;background:var(--cs-bg);color:var(--cs-text)}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 .hidden{display:none!important}

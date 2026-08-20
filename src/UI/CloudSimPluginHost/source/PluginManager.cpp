@@ -306,3 +306,11 @@ void PluginManager::invokeProjectLoaded(const QString& documentId, const QJsonOb
 		m_hostContext->invokeProjectLoaded(documentId, root);
 	}
 }
+
+void PluginManager::invokeDocumentClosed(const QString& documentId)
+{
+	if (m_hostContext)
+	{
+		m_hostContext->invokeDocumentClosed(documentId);
+	}
+}

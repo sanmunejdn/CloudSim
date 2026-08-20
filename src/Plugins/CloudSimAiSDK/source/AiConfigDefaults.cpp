@@ -10,6 +10,7 @@ AiConfigDto defaultAiConfigDto()
 	AiConfigDto cfg;
 	cfg.hardwareProfile = QStringLiteral("vram_8gb");
 	cfg.parserPriorityDefault = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
+	cfg.enableRules = true;
 	cfg.remoteLlm.enabled = false;
 	cfg.router.mode = QStringLiteral("explicit_ui");
 
@@ -21,7 +22,12 @@ AiConfigDto defaultAiConfigDto()
 	AiDomainModelConfig compose;
 	compose.id = AiDomainIds::meshCompose();
 	compose.model = QStringLiteral("qwen2.5:3b");
-	compose.parserPriority = QStringList{QStringLiteral("local"), QStringLiteral("remote")};
+	compose.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local")};
+
+	AiDomainModelConfig featureCompose;
+	featureCompose.id = AiDomainIds::featureCompose();
+	featureCompose.model = QStringLiteral("qwen2.5:3b");
+	featureCompose.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 
 	AiDomainModelConfig geom;
 	geom.id = AiDomainIds::geometryRecognize();
@@ -50,6 +56,6 @@ AiConfigDto defaultAiConfigDto()
 	designParts.model = QStringLiteral("qwen2.5:3b");
 	designParts.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local")};
 
-	cfg.domains = {mesh, compose, geom, traj, scene, processFlow, designParts};
+	cfg.domains = {mesh, compose, featureCompose, geom, traj, scene, processFlow, designParts};
 	return cfg;
 }

@@ -26,7 +26,9 @@
 #include <QMessageBox>
 #include <QPoint>
 #include <QSet>
+#include <QStandardItem>
 #include <QStringList>
+#include <QTreeView>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
@@ -253,9 +255,9 @@ void MainWindow::rebuildUnitsDocument(const QString& documentId)
 	m_unitsTreeBinder->showOnlyDocument(documentId);
 	if (cacheHit)
 	{
-		if (QTreeWidgetItem* root = m_unitsTreeBinder->documentRoot(documentId))
+		if (QStandardItem* root = m_unitsTreeBinder->documentRoot(documentId))
 		{
-			root->setText(0, title);
+			root->setText(title);
 		}
 		--m_unitsTreeStructureMute;
 		return;
@@ -275,9 +277,8 @@ void MainWindow::rebuildUnitsDocument(const QString& documentId)
 	}
 	--m_unitsTreeStructureMute;
 	m_unitsTreeDirtyDocumentIds.remove(documentId);
-	// 仅在结构重建后纠偏父链/显隐；缓存命中时场景未动，跳过
+	// 树节点勾选已由 snapshot 写入；全量 visibility walk 留给显式 patch / 用户勾选
 	cloudsim::host::syncOsgBackendParentsFromBackend(*page);
-	applyCurrentDocumentVisibilityToScene();
 }
 
 void MainWindow::applyCurrentDocumentVisibilityToScene()
@@ -455,13 +456,13 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 	{
 		return;
 	}
-	QTreeWidgetItem* item = m_backendTree->itemAt(pos);
+	QStandardItem* item = m_unitsTreeBinder->itemFromIndex(m_backendTree->indexAt(pos));
 	if (!item)
 	{
 		return;
 	}
 
-	const QString documentId = item->data(0, kRoleDocumentId).toString();
+	const QString documentId = item->data(kRoleDocumentId).toString();
 	DocumentPage* doc = pageByDocumentId(documentId);
 	if (!doc)
 	{
@@ -477,7 +478,7 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 		return;
 	}
 
-	const int itemType = item->data(0, kRoleItemType).toInt();
+	const int itemType = item->data(kRoleItemType).toInt();
 	if (itemType == kItemTypeAnnotationGroup)
 	{
 		QMenu menu(this);
@@ -500,8 +501,8 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 
 	if (itemType == kItemTypeBackend)
 	{
-		const bool visible = item->checkState(0) == Qt::Checked;
-		const QString backendId = item->data(0, kRoleBackendId).toString();
+		const bool visible = item->checkState() == Qt::Checked;
+		const QString backendId = item->data(kRoleBackendId).toString();
 		QMenu menu(this);
 		QAction* toggle = menu.addAction(visible ? i18n(QStringLiteral("Hide Object"), QStringLiteral("隐藏对象"))
 												 : i18n(QStringLiteral("Show Object"), QStringLiteral("显示对象")));
@@ -527,7 +528,7 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 		QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
 		if (action == toggle)
 		{
-			item->setCheckState(0, visible ? Qt::Unchecked : Qt::Checked);
+			item->setCheckState(visible ? Qt::Unchecked : Qt::Checked);
 		}
 		else if (action == focusView)
 		{
@@ -556,8 +557,8 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 	{
 		return;
 	}
-	const QString annotationId = item->data(0, kRoleAnnotationId).toString();
-	const bool visible = item->checkState(0) == Qt::Checked;
+	const QString annotationId = item->data(kRoleAnnotationId).toString();
+	const bool visible = item->checkState() == Qt::Checked;
 
 	QMenu menu(this);
 	QAction* toggle = menu.addAction(visible ? i18n(QStringLiteral("Hide Annotation"), QStringLiteral("隐藏注释"))

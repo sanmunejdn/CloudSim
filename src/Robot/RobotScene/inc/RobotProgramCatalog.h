@@ -70,6 +70,11 @@ ROBOT_SCENE_API bool emitRawTrajectoryToProgram(const RawTrajectory& trajectory,
 												std::string* errMsg = nullptr, std::string* outGroupId = nullptr,
 												const std::string* pathPlanInstructionId = nullptr);
 
+/// 删除 startId 与 endId 之间原有路点，插入 trajectory 中可达点（保留起终点指令）
+ROBOT_SCENE_API bool insertRawTrajectoryBetween(const RawTrajectory& trajectory, RobotProgram& program,
+												const std::string& startInstructionId,
+												const std::string& endInstructionId, std::string* errMsg = nullptr);
+
 class ROBOT_SCENE_API RobotProgramCatalog
 {
 public:

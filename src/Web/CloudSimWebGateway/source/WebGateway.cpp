@@ -28,6 +28,7 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -140,6 +141,8 @@ struct WebGateway::Impl
 	QList<QString> eventQueue;
 	QWaitCondition eventCv;
 	std::atomic<int> sseClients{0};
+	QMetaObject::Connection visualSceneDirtyConn;
+	qint64 lastEventsDroppedMs = 0;
 };
 
 WebGateway::WebGateway(cloudsim::core::ICloudSimContext& context, WebGatewayConfig config, QObject* parent)
@@ -175,9 +178,14 @@ bool WebGateway::start(QString* outError)
 			*outError = QStringLiteral("Document scope is not DocumentHost.");
 		return false;
 	}
-	QObject::connect(host, &cloudsim::host::DocumentHost::visualSceneDirty, this, [this]() {
-		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
-	});
+	if (m_impl->visualSceneDirtyConn)
+	{
+		QObject::disconnect(m_impl->visualSceneDirtyConn);
+		m_impl->visualSceneDirtyConn = {};
+	}
+	m_impl->visualSceneDirtyConn =
+		QObject::connect(host, &cloudsim::host::DocumentHost::visualSceneDirty, this,
+						 [this]() { pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}")); });
 
 	const QString staticRoot = m_config.staticRoot;
 	const int port = m_config.port;
@@ -380,6 +388,11 @@ void WebGateway::stop()
 	{
 		return;
 	}
+	if (m_impl->visualSceneDirtyConn)
+	{
+		QObject::disconnect(m_impl->visualSceneDirtyConn);
+		m_impl->visualSceneDirtyConn = {};
+	}
 	m_impl->running = false;
 	m_impl->svr.stop();
 	m_impl->eventCv.wakeAll();
@@ -399,6 +412,26 @@ void WebGateway::stop()
 void WebGateway::pushEvent(const QString& jsonLine)
 {
 	QMutexLocker lock(&m_impl->eventMutex);
+	constexpr int kMaxEventQueue = 256;
+	bool dropped = false;
+	while (m_impl->eventQueue.size() >= kMaxEventQueue)
+	{
+		m_impl->eventQueue.takeFirst();
+		dropped = true;
+	}
+	if (dropped)
+	{
+		const qint64 now = QDateTime::currentMSecsSinceEpoch();
+		if (now - m_impl->lastEventsDroppedMs >= 1000)
+		{
+			m_impl->lastEventsDroppedMs = now;
+			m_impl->eventQueue.append(QStringLiteral("{\"type\":\"EventsDropped\"}"));
+			while (m_impl->eventQueue.size() >= kMaxEventQueue)
+			{
+				m_impl->eventQueue.takeFirst();
+			}
+		}
+	}
 	m_impl->eventQueue.append(jsonLine);
 	m_impl->eventCv.wakeAll();
 }

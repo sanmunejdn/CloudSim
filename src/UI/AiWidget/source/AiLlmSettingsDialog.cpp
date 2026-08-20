@@ -62,7 +62,7 @@ void AiLlmSettingsDialog::buildUi()
 	m_connectionGroup = new QGroupBox(QStringLiteral("Connection"), this);
 	m_form = new QFormLayout(m_connectionGroup);
 	m_enabled = new QCheckBox(m_connectionGroup);
-	m_ruleFirst = new QCheckBox(m_connectionGroup);
+	m_enableRules = new QCheckBox(m_connectionGroup);
 	m_baseUrl = new QLineEdit(m_connectionGroup);
 	m_apiKey = new QLineEdit(m_connectionGroup);
 	m_apiKey->setEchoMode(QLineEdit::Password);
@@ -77,7 +77,7 @@ void AiLlmSettingsDialog::buildUi()
 	m_temperature->setDecimals(2);
 
 	m_form->addRow(QString(), m_enabled);
-	m_form->addRow(QString(), m_ruleFirst);
+	m_form->addRow(QString(), m_enableRules);
 	m_form->addRow(QStringLiteral("API base URL"), m_baseUrl);
 	m_form->addRow(QStringLiteral("API key"), m_apiKey);
 	m_form->addRow(QStringLiteral("API key env var"), m_apiKeyEnv);
@@ -112,13 +112,13 @@ void AiLlmSettingsDialog::applyLanguage()
 									   : QStringLiteral("Remote LLM (optional)"));
 	if (m_enabled)
 		m_enabled->setText(zh ? QStringLiteral("启用云端大模型回退") : QStringLiteral("Enable remote LLM fallback"));
-	if (m_ruleFirst)
-		m_ruleFirst->setText(zh ? QStringLiteral("本地解析优先使用规则")
-								: QStringLiteral("Prefer rules in local parser chain"));
+	if (m_enableRules)
+		m_enableRules->setText(zh ? QStringLiteral("启用规则解析（关闭后仅测本地/云端模型）")
+								  : QStringLiteral("Enable rules (off = model-only debug)"));
 	if (m_hintLabel)
 		m_hintLabel->setText(
-			zh ? QStringLiteral("默认使用本地 Ollama（domains 配置）。此处仅配置可选云端 API。")
-			   : QStringLiteral("Local Ollama (domains) is default. Configure optional remote API here."));
+			zh ? QStringLiteral("默认本地 Ollama + 规则。关闭「启用规则」可单独验证模型输出；云端 API 可选。")
+			   : QStringLiteral("Default: local Ollama + rules. Turn off rules to test model output; remote API optional."));
 	if (m_buttons)
 	{
 		if (QPushButton* ok = m_buttons->button(QDialogButtonBox::Ok))
@@ -164,9 +164,7 @@ AiConfigDto AiLlmSettingsDialog::config() const
 	cfg.remoteLlm.model = m_model->text().trimmed();
 	cfg.remoteLlm.timeoutMs = m_timeoutMs->value();
 	cfg.remoteLlm.temperature = m_temperature->value();
-	if (m_ruleFirst->isChecked() && !cfg.domains.empty())
-		cfg.domains[0].parserPriority =
-			QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
+	cfg.enableRules = m_enableRules->isChecked();
 	return cfg;
 }
 
@@ -179,8 +177,7 @@ void AiLlmSettingsDialog::setConfig(const AiConfigDto& cfg)
 	m_model->setText(cfg.remoteLlm.model);
 	m_timeoutMs->setValue(std::max(5000, cfg.remoteLlm.timeoutMs));
 	m_temperature->setValue(cfg.remoteLlm.temperature);
-	const bool ruleFirst = !cfg.domains.empty() && cfg.domains[0].parserPriority.value(0) == QStringLiteral("rules");
-	m_ruleFirst->setChecked(ruleFirst);
+	m_enableRules->setChecked(cfg.enableRules);
 }
 
 void AiLlmSettingsDialog::onAccepted()

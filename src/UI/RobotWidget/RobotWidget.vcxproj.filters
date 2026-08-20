@@ -232,6 +232,9 @@
     <ClCompile Include="source\RobotCollisionSettingsWidget.cpp">
       <Filter>src\RobotSettings</Filter>
     </ClCompile>
+    <ClCompile Include="source\MotionPathPlanDialog.cpp">
+      <Filter>src\RobotSettings</Filter>
+    </ClCompile>
     <ClCompile Include="source\RobotCommPageWidget.cpp">
       <Filter>src\RobotSettings</Filter>
     </ClCompile>
@@ -379,6 +382,9 @@
       <Filter>inc\RobotSettings</Filter>
     </QtMoc>
     <QtMoc Include="inc\RobotCollisionSettingsWidget.h">
+      <Filter>inc\RobotSettings</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\MotionPathPlanDialog.h">
       <Filter>inc\RobotSettings</Filter>
     </QtMoc>
     <QtMoc Include="inc\RobotCommPageWidget.h">

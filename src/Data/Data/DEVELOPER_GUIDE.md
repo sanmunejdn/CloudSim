@@ -121,16 +121,67 @@
 
 **派生扩展**：
 
-| 类型 | `geometry` 字段 |
-|------|-----------------|
+| 类型 | `geometry` / 派生字段 |
+|------|----------------------|
 | `PointCloudBackendData` | `kind=points`，`storage=ply_sidecar`，`pointCount`；几何真源 `objects/{id}.ply`（兼容旧工程 `xyzBase64`） |
 | `MeshBackendData` | `kind=triangles`，`xyzBase64`；另 `mesh.transformPivotAtOrigin` |
+| `BrepBackendData` | `.brep` sidecar 相对路径 + shape；**不**持久化 display soup |
+| `ParametricBrepBackendData` | 同上 + 特征 `history`（见 §4.5） |
+| `FrameBackendData` | `axisLengthMm`（无 geometry 缓冲） |
+| `CustomDeviceBackendData` | Link/Joint/axes/q、namedPoses、poseSignalBindings、ioSignals（无根几何缓冲） |
 
 仍保留 `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` 供派生类内部使用。
 
 ---
 
 ## 4. 具体后端类型
+
+### 4.0- 继承与职责总览
+
+六类内置均由 `BackendRegistry` / `ensureBackendBuiltinsRegistered()` 按 **className** 工厂创建；唯一二级派生为 `ParametricBrepBackendData : BrepBackendData`。组件（`IBackendComponent`）挂在对象上，**不是** Backend 派生类。
+
+```mermaid
+classDiagram
+  direction TB
+  class BackendDataBase {
+    <<abstract>>
+    +className()* string
+    +hasGeometry()* bool
+    +geometryBounds()* BackendBoundingBox
+    +worldMatrix() BackendMat4
+    +saveToJson() json
+    +addComponent()
+  }
+  class PointCloudBackendData
+  class MeshBackendData
+  class BrepBackendData
+  class ParametricBrepBackendData
+  class FrameBackendData
+  class CustomDeviceBackendData
+  class IBackendComponent {
+    <<interface>>
+    +componentType()* string
+  }
+  class FollowAttachmentComponent
+
+  BackendDataBase <|-- PointCloudBackendData
+  BackendDataBase <|-- MeshBackendData
+  BackendDataBase <|-- BrepBackendData
+  BackendDataBase <|-- FrameBackendData
+  BackendDataBase <|-- CustomDeviceBackendData
+  BrepBackendData <|-- ParametricBrepBackendData
+  IBackendComponent <|-- FollowAttachmentComponent
+  BackendDataBase o-- IBackendComponent : components
+```
+
+| 对象 | 继承 | 持久化几何 / 专有数据 | 典型用途 |
+|------|------|----------------------|----------|
+| `PointCloudBackendData` | `BackendDataBase` | PLY sidecar（`objects/{id}.ply`） | 扫描点云 |
+| `MeshBackendData` | `BackendDataBase` | `triangleSoup`（±法线） | 显示网格、URDF 连杆 |
+| `BrepBackendData` | `BackendDataBase` | `ShapeHandle` + `.brep` sidecar | STEP 工件 |
+| `ParametricBrepBackendData` | **`BrepBackendData`** | Brep + 特征 history | 参数化建模 |
+| `FrameBackendData` | `BackendDataBase` | 无 mesh；`axisLengthMm` | 命名坐标系 |
+| `CustomDeviceBackendData` | `BackendDataBase` | Link/Joint/q JSON；几何在子 Backend | 自定义设备根 |
 
 ### 4.0 类型身份「三键」（权威）
 
@@ -252,7 +303,67 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 
 位姿/颜色/属性：`hasPoseProperty` 等均为 `true`。Visual 见 [`BackendVisual/DEVELOPER_GUIDE.md`](../../UI/BackendVisual/DEVELOPER_GUIDE.md) §4.3；Host 装配见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1b。
 
-### 4.5 CAD 轨迹几何桥接（`GeometryRef.h` / `GeometryBackendOps.cpp`）
+另：`worldShape()`（应用 `worldMatrix` 后的 shape 副本）、`writeStepFile`、`faceHighlightColors`（面高亮，进程内）。
+
+### 4.5 `ParametricBrepBackendData`（`: BrepBackendData`）
+
+| 注册名 | `className()` = **`"ParametricBrepModel"`**（catalog `ParametricBrepModel`） |
+|--------|-------------------------------------------------------------------------------|
+
+继承 Brep 的 `ShapeHandle` / sidecar / 位姿颜色；在此之上维护特征链（`ParametricBrepFeature.h`），`rebuild()` 重放 → 更新 tip shape 与面归属表。Visual **复用** Brep visual。
+
+| 方法 | 说明 |
+|------|------|
+| `features()` / `setFeatures` / `clearFeatures` / `findFeature` | 特征链读写 |
+| `addSketch` / `addPad` / `addPocket` / `addSweep` | 草图与拉伸/扫掠 |
+| `addFillet` / `addChamfer` / `addRevolve` | 边圆角/倒角、旋转体 |
+| `addLinearPattern` / `addCircularPattern` / `addMirror3D` | 阵列与镜像 |
+| `addLoft` / `addShell` / `addDraft` | 放样、抽壳、拔模 |
+| `setProfile` / `setLength` | 改草图轮廓或拉伸长度 |
+| `rebuild(errMsg)` | 按特征链重放 → 更新 `ShapeHandle` + `faceOwnerByIndex` |
+| `featureIdForFace` / `faceOwnerByIndex` | tip 上面索引 → 产生该面的特征 id（跨会话不保证） |
+| `tipBeforeFeature` / `tipAfterFeature` | rebuild 后某特征执行前/后 tip（阵列贡献体等） |
+| `historyToJson` / `historyFromJson` | 特征历史序列化（经 `saveDerivedJson`/`loadDerivedJson`） |
+
+`ParametricFeatureKind`：Sketch、Pad、Pocket、Sweep(/Cut)、Fillet、Chamfer、Revolve(/Cut)、Linear/CircularPattern、Mirror3D、Loft(/Cut)、Shell、Draft。自检：`runParametricHistorySelfTest`。
+
+### 4.6 `FrameBackendData`
+
+| 注册名 | `className()` = **`"FrameBackendData"`**（catalog `CoordinateFrame`） |
+|--------|----------------------------------------------------------------------|
+
+命名坐标系：仅世界位姿 + 轴长，**无实体网格**；场景显示为示意轴。
+
+| 方法 | 说明 |
+|------|------|
+| `axisLengthMm` / `setAxisLengthMm` | 轴显示长度（默认 `kDefaultAxisLengthMm` = 100） |
+| `hasPoseProperty` / `hasRotationProperty` | `true` |
+| `hasColorProperty` | 基类默认 `false`（无整对象颜色属性） |
+
+`hasGeometry()` 为示意轴语义（可渲染坐标轴，非三角/点云缓冲）。派生 JSON 写 `axisLengthMm`。
+
+### 4.7 `CustomDeviceBackendData`
+
+| 注册名 | `className()` = **`"CustomDeviceBackendData"`**（catalog `CustomDevice`） |
+|--------|---------------------------------------------------------------------------|
+
+自定义设备**聚合根**：Link/Joint 图为唯一持久化源；`axes`/`q` 为运行时投影。设备根仅示意轴；实体几何绑定在子 Backend（`CustomDeviceLink::geometryBackendId`）。
+
+| 方法 / 结构 | 说明 |
+|-------------|------|
+| `axisLengthMm` | 根示意轴长度（默认 80） |
+| `links` / `setLinks` | `CustomDeviceLink`：画布刚体块 ↔ `geometryBackendId`、`restInDeviceW0` |
+| `joints` / `setJoints` | `CustomDeviceJoint`：父子运动副 + `CustomDeviceAxisConfig` + `parentToChildRest` |
+| `axes` / `setAxes` / `syncAxesFromJoints` | 轴配置；Joint → 运行时 axes/q 投影 |
+| `qValues` / `setQValues` / `ensureQSize` | 关节量 |
+| `baseWorldW0` / `captureBaseWorldW0FromCurrentWorld` | 设备 W0 世界矩阵 |
+| `namedPoses` / `poseSignalBindings` | 命名姿态；DI 上升沿 → 姿态 |
+| `ioSignalsJson` | 本设备自持 IO（与 NamedSignalTable JSON 同形） |
+| `usesLinkJointGraph()` | `!joints.empty() && !links.empty()` |
+
+`CustomDeviceMotionType`：`Translate` / `Rotate`。位姿：`hasPoseProperty`/`hasRotationProperty` 为 `true`；无 `hasColorProperty`。
+
+### 4.8 CAD 轨迹几何桥接（`GeometryRef.h` / `GeometryBackendOps.cpp`）
 
 场景显示仍为 `MeshBackendData` 三角 soup；**特征离散**在运行时从 STEP 临时加载 B-rep（`geoalgo::readStepShape`），不经 Data 持久化 `TopoDS_Shape`。
 
@@ -268,7 +379,7 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 
 UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP 路径（`MainWindowRobotHost::DocumentHost` 转发 `DocumentPage::backendSourcePath()`）。
 
-### 4.6 CAD 模板 + 扫描点云 B-rep 更新
+### 4.9 CAD 模板 + 扫描点云 B-rep 更新
 
 **专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
 
@@ -295,7 +406,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 插件经 `PluginPointCloudHostImpl` 分步调用；面重构成功后 `registerAdoptedBrepAndLoadScene` + `alignFaceUpdatedBrepWithTemplateVisual` 注册**新** `BrepModel`（模板保留）。见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) §3.7 与专题 §2.2。
 
-### 4.7 管状铸件特征构建（1.15.0+）
+### 4.10 管状铸件特征构建（1.15.0+）
 
 `geometry_backend_ops` 转发 `geoalgo::TubularGrinding*`（[`GeometryBackendOps.cpp`](source/GeometryBackendOps.cpp) / [`GeometryBackendOps.h`](inc/GeometryBackendOps.h)）：
 
@@ -440,7 +551,7 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 |------|------|
 | `registerType(BackendMeta)` | `className`, `displayName`, `factory`, 标志 |
 | `create(className)` | `shared_ptr<BackendDataBase>` |
-| `ensureBackendBuiltinsRegistered()` | 见 §4.0 五类内置（含 Brep / ParametricBrep / Frame） |
+| `ensureBackendBuiltinsRegistered()` | 见 §4.0- / §4.0：六类内置（PointCloud / Model / Brep / ParametricBrep / Frame / CustomDevice） |
 
 工程加载时：按 JSON 中 `className` 调用 `create`，再 `loadFromJson`。插件扩展：优先 Host 创建内置类型；`registerBackendType`（委托适配）为半成品，无需求勿用。非场景域（工艺图等）走 `project.json` 侧车键，**不要**注册为 Backend 类型。
 

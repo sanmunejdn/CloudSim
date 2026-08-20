@@ -35,6 +35,13 @@ struct COLLISION_ALGORITHM_API ContactHit
 	double pointMm[3]{0.0, 0.0, 0.0};
 	double normal[3]{0.0, 0.0, 1.0};
 	double depthMm = 0.0;
+	/// 假碰排查：双方世界平移与 AABB 中心（mm）、位姿来源（osg|backend|fk|…）
+	double aOriginMm[3]{0.0, 0.0, 0.0};
+	double bOriginMm[3]{0.0, 0.0, 0.0};
+	double aAabbCenterMm[3]{0.0, 0.0, 0.0};
+	double bAabbCenterMm[3]{0.0, 0.0, 0.0};
+	std::string aPoseSource;
+	std::string bPoseSource;
 };
 
 struct COLLISION_ALGORITHM_API CollisionQueryResult
@@ -56,10 +63,11 @@ public:
 
 	void clear();
 
-	/// soup：模型系，每三角 9 float（xyz×3）；colMajor16 模型→世界
-	void upsertMeshBody(const CollisionBodyId& id, const float* soup, std::size_t nFloats, const Mat4& worldMm);
+	/// soup：模型系，每三角 9 float（xyz×3）；colMajor16 模型→世界；poseSource 写入接触诊断
+	void upsertMeshBody(const CollisionBodyId& id, const float* soup, std::size_t nFloats, const Mat4& worldMm,
+						const std::string& poseSource = {});
 
-	void setWorldPose(const CollisionBodyId& id, const Mat4& worldMm);
+	void setWorldPose(const CollisionBodyId& id, const Mat4& worldMm, const std::string& poseSource = {});
 	void removeBody(const CollisionBodyId& id);
 
 	void clearExcludePairs();

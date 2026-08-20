@@ -24,7 +24,7 @@
 namespace
 {
 constexpr int kKindRole = Qt::UserRole;
-constexpr int kInstrPtrRole = Qt::UserRole + 1;
+constexpr int kInstrIdRole = Qt::UserRole + 1;
 constexpr int kGroupIdRole = Qt::UserRole + 2;
 
 QString branchLabel(InstructionProgramTreeWidget::NodeKind kind, bool chinese)
@@ -40,8 +40,8 @@ QString branchLabel(InstructionProgramTreeWidget::NodeKind kind, bool chinese)
 	}
 }
 
-void collectPtrMapRecursive(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps,
-							std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& out)
+void collectIdMapRecursive(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps,
+						   std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& out)
 {
 	for (const auto& ins : steps)
 	{
@@ -49,21 +49,30 @@ void collectPtrMapRecursive(const std::vector<std::shared_ptr<RobotInstruction::
 		{
 			continue;
 		}
-		out[ins.get()] = ins;
+		out[ins->id()] = ins;
 		if (ins->type() == RobotInstruction::Type::IF)
 		{
 			const auto* ifIns = dynamic_cast<const RobotInstruction::IfInstruction*>(ins.get());
 			if (ifIns)
 			{
-				collectPtrMapRecursive(ifIns->nestedSteps(), out);
-				collectPtrMapRecursive(ifIns->elseSteps(), out);
+				collectIdMapRecursive(ifIns->nestedSteps(), out);
+				collectIdMapRecursive(ifIns->elseSteps(), out);
 			}
 		}
 		else if (ins->type() == RobotInstruction::Type::WHILE)
 		{
-			collectPtrMapRecursive(ins->nestedSteps(), out);
+			collectIdMapRecursive(ins->nestedSteps(), out);
 		}
 	}
+}
+
+std::shared_ptr<RobotInstruction::Base> findSharedById(
+	const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& id)
+{
+	std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>> map;
+	collectIdMapRecursive(steps, map);
+	const auto it = map.find(id);
+	return it != map.end() ? it->second : nullptr;
 }
 } // namespace
 
@@ -162,13 +171,28 @@ InstructionProgramTreeWidget::NodeKind InstructionProgramTreeWidget::nodeKind(co
 	return static_cast<NodeKind>(item->data(0, kKindRole).toInt());
 }
 
-RobotInstruction::Base* InstructionProgramTreeWidget::instructionRaw(const QTreeWidgetItem* item)
+QString InstructionProgramTreeWidget::instructionIdOf(const QTreeWidgetItem* item)
 {
 	if (!item || nodeKind(item) != NodeKind::Instruction)
 	{
+		return {};
+	}
+	return item->data(0, kInstrIdRole).toString();
+}
+
+RobotInstruction::Base* InstructionProgramTreeWidget::instructionRaw(const QTreeWidgetItem* item) const
+{
+	if (!m_program)
+	{
 		return nullptr;
 	}
-	return reinterpret_cast<RobotInstruction::Base*>(item->data(0, kInstrPtrRole).value<quintptr>());
+	const QString id = instructionIdOf(item);
+	if (id.isEmpty())
+	{
+		return nullptr;
+	}
+	const std::shared_ptr<RobotInstruction::Base> ins = findSharedById(*m_program, id.toStdString());
+	return ins.get();
 }
 
 std::string InstructionProgramTreeWidget::groupIdFromItem(const QTreeWidgetItem* item)
@@ -180,10 +204,10 @@ std::string InstructionProgramTreeWidget::groupIdFromItem(const QTreeWidgetItem*
 	return item->data(0, kGroupIdRole).toString().toStdString();
 }
 
-void InstructionProgramTreeWidget::setInstructionPtr(QTreeWidgetItem* item, RobotInstruction::Base* raw)
+void InstructionProgramTreeWidget::setInstructionId(QTreeWidgetItem* item, const std::string& id)
 {
 	item->setData(0, kKindRole, static_cast<int>(NodeKind::Instruction));
-	item->setData(0, kInstrPtrRole, QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(raw)));
+	item->setData(0, kInstrIdRole, QString::fromStdString(id));
 }
 
 void InstructionProgramTreeWidget::setGroupPtr(QTreeWidgetItem* item, const std::string& groupId)
@@ -207,7 +231,7 @@ bool InstructionProgramTreeWidget::isRootLevelInstructionItem(const QTreeWidgetI
 	return pk == NodeKind::Group || pk == NodeKind::PlanningSection;
 }
 
-bool InstructionProgramTreeWidget::isPathPlanInstructionItem(const QTreeWidgetItem* item)
+bool InstructionProgramTreeWidget::isPathPlanInstructionItem(const QTreeWidgetItem* item) const
 {
 	if (!item || nodeKind(item) != NodeKind::Instruction)
 	{
@@ -464,7 +488,7 @@ void InstructionProgramTreeWidget::populateInstructionItem(QTreeWidgetItem* item
 	{
 		return;
 	}
-	setInstructionPtr(item, ins.get());
+	setInstructionId(item, ins->id());
 	const QString label = formatInstructionLabel(*ins, m_useChinese);
 	item->setText(0, label);
 	item->setToolTip(0, label);
@@ -680,14 +704,14 @@ void InstructionProgramTreeWidget::rebuildFromProgram()
 
 void InstructionProgramTreeWidget::readStepsFromChildren(
 	QTreeWidgetItem* container, std::vector<std::shared_ptr<RobotInstruction::Base>>& out,
-	const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const
+	const std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& idMap) const
 {
 	out.clear();
 	if (!container)
 	{
 		return;
 	}
-	std::unordered_set<RobotInstruction::Base*> seen;
+	std::unordered_set<std::string> seen;
 	for (int i = 0; i < container->childCount(); ++i)
 	{
 		QTreeWidgetItem* ch = container->child(i);
@@ -695,15 +719,15 @@ void InstructionProgramTreeWidget::readStepsFromChildren(
 		{
 			continue;
 		}
-		RobotInstruction::Base* raw = instructionRaw(ch);
-		if (!raw || seen.count(raw) != 0)
+		const std::string id = instructionIdOf(ch).toStdString();
+		if (id.empty() || seen.count(id) != 0)
 		{
 			continue;
 		}
-		const auto it = ptrMap.find(raw);
-		if (it != ptrMap.end())
+		const auto it = idMap.find(id);
+		if (it != idMap.end())
 		{
-			seen.insert(raw);
+			seen.insert(id);
 			out.push_back(it->second);
 		}
 	}
@@ -711,19 +735,19 @@ void InstructionProgramTreeWidget::readStepsFromChildren(
 
 void InstructionProgramTreeWidget::syncLogicBranchesFromTreeItem(
 	QTreeWidgetItem* item,
-	const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const
+	const std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& idMap) const
 {
 	if (!item || nodeKind(item) != NodeKind::Instruction)
 	{
 		return;
 	}
-	RobotInstruction::Base* raw = instructionRaw(item);
-	if (!raw)
+	const std::string id = instructionIdOf(item).toStdString();
+	if (id.empty())
 	{
 		return;
 	}
-	const auto it = ptrMap.find(raw);
-	if (it == ptrMap.end() || !it->second)
+	const auto it = idMap.find(id);
+	if (it == idMap.end() || !it->second)
 	{
 		return;
 	}
@@ -735,8 +759,8 @@ void InstructionProgramTreeWidget::syncLogicBranchesFromTreeItem(
 		{
 			return;
 		}
-		readStepsFromChildren(item->child(0), ifIns->thenSteps(), ptrMap);
-		readStepsFromChildren(item->child(1), ifIns->elseStepsMut(), ptrMap);
+		readStepsFromChildren(item->child(0), ifIns->thenSteps(), idMap);
+		readStepsFromChildren(item->child(1), ifIns->elseStepsMut(), idMap);
 		for (int branch = 0; branch < 2; ++branch)
 		{
 			QTreeWidgetItem* hdr = item->child(branch);
@@ -746,7 +770,7 @@ void InstructionProgramTreeWidget::syncLogicBranchesFromTreeItem(
 			}
 			for (int c = 0; c < hdr->childCount(); ++c)
 			{
-				syncLogicBranchesFromTreeItem(hdr->child(c), ptrMap);
+				syncLogicBranchesFromTreeItem(hdr->child(c), idMap);
 			}
 		}
 	}
@@ -758,7 +782,7 @@ void InstructionProgramTreeWidget::syncLogicBranchesFromTreeItem(
 			return;
 		}
 		std::vector<std::shared_ptr<RobotInstruction::Base>> body;
-		std::unordered_set<RobotInstruction::Base*> seenBody;
+		std::unordered_set<std::string> seenBody;
 		for (int c = 0; c < item->childCount(); ++c)
 		{
 			QTreeWidgetItem* ch = item->child(c);
@@ -766,29 +790,29 @@ void InstructionProgramTreeWidget::syncLogicBranchesFromTreeItem(
 			{
 				continue;
 			}
-			RobotInstruction::Base* rawChild = instructionRaw(ch);
-			if (!rawChild || seenBody.count(rawChild) != 0)
+			const std::string childId = instructionIdOf(ch).toStdString();
+			if (childId.empty() || seenBody.count(childId) != 0)
 			{
 				continue;
 			}
-			const auto itChild = ptrMap.find(rawChild);
-			if (itChild != ptrMap.end())
+			const auto itChild = idMap.find(childId);
+			if (itChild != idMap.end())
 			{
-				seenBody.insert(rawChild);
+				seenBody.insert(childId);
 				body.push_back(itChild->second);
 			}
 		}
 		whileIns->bodySteps() = std::move(body);
 		for (int c = 0; c < item->childCount(); ++c)
 		{
-			syncLogicBranchesFromTreeItem(item->child(c), ptrMap);
+			syncLogicBranchesFromTreeItem(item->child(c), idMap);
 		}
 	}
 }
 
 void InstructionProgramTreeWidget::readProgramFromTree(
 	std::vector<std::shared_ptr<RobotInstruction::Base>>& root,
-	const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const
+	const std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& idMap) const
 {
 	root.clear();
 	for (int i = 0; i < topLevelItemCount(); ++i)
@@ -804,9 +828,9 @@ void InstructionProgramTreeWidget::readProgramFromTree(
 				{
 					continue;
 				}
-				RobotInstruction::Base* raw = instructionRaw(child);
-				const auto it = ptrMap.find(raw);
-				if (it != ptrMap.end() && it->second)
+				const std::string id = instructionIdOf(child).toStdString();
+				const auto it = idMap.find(id);
+				if (it != idMap.end() && it->second)
 				{
 					root.push_back(it->second);
 				}
@@ -820,7 +844,7 @@ void InstructionProgramTreeWidget::readProgramFromTree(
 		if (kind == NodeKind::Group)
 		{
 			std::vector<std::shared_ptr<RobotInstruction::Base>> groupSteps;
-			readStepsFromChildren(item, groupSteps, ptrMap);
+			readStepsFromChildren(item, groupSteps, idMap);
 			for (const std::shared_ptr<RobotInstruction::Base>& ins : groupSteps)
 			{
 				if (ins)
@@ -834,15 +858,15 @@ void InstructionProgramTreeWidget::readProgramFromTree(
 		{
 			continue;
 		}
-		RobotInstruction::Base* raw = instructionRaw(item);
-		const auto it = ptrMap.find(raw);
-		if (it == ptrMap.end())
+		const std::string id = instructionIdOf(item).toStdString();
+		const auto it = idMap.find(id);
+		if (it == idMap.end())
 		{
 			continue;
 		}
 		std::shared_ptr<RobotInstruction::Base> ins = it->second;
 		root.push_back(ins);
-		syncLogicBranchesFromTreeItem(item, ptrMap);
+		syncLogicBranchesFromTreeItem(item, idMap);
 	}
 }
 
@@ -892,11 +916,11 @@ void InstructionProgramTreeWidget::syncToProgram()
 	{
 		return;
 	}
-	std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>> ptrMap;
-	collectPtrMapRecursive(*m_program, ptrMap);
+	std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>> idMap;
+	collectIdMapRecursive(*m_program, idMap);
 
 	std::vector<std::shared_ptr<RobotInstruction::Base>> newRoot;
-	readProgramFromTree(newRoot, ptrMap);
+	readProgramFromTree(newRoot, idMap);
 	*m_program = std::move(newRoot);
 	syncGroupsFromTree();
 	emit programStructureChanged();
@@ -917,15 +941,15 @@ std::shared_ptr<RobotInstruction::Base> InstructionProgramTreeWidget::selectedIn
 			item = parent;
 		}
 	}
-	RobotInstruction::Base* raw = instructionRaw(item);
-	if (!raw || !m_program)
+	const QString id = instructionIdOf(item);
+	if (id.isEmpty() || !m_program)
 	{
 		return nullptr;
 	}
-	std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>> ptrMap;
-	collectPtrMapRecursive(*m_program, ptrMap);
-	const auto it = ptrMap.find(raw);
-	return it != ptrMap.end() ? it->second : nullptr;
+	std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>> idMap;
+	collectIdMapRecursive(*m_program, idMap);
+	const auto it = idMap.find(id.toStdString());
+	return it != idMap.end() ? it->second : nullptr;
 }
 
 std::vector<std::shared_ptr<RobotInstruction::Base>> InstructionProgramTreeWidget::selectedMotionInstructions() const
@@ -935,22 +959,23 @@ std::vector<std::shared_ptr<RobotInstruction::Base>> InstructionProgramTreeWidge
 	{
 		return out;
 	}
-	std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>> ptrMap;
-	collectPtrMapRecursive(*m_program, ptrMap);
+	std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>> idMap;
+	collectIdMapRecursive(*m_program, idMap);
 	const QList<QTreeWidgetItem*> items = selectedItems();
 	out.reserve(static_cast<size_t>(items.size()));
 	for (QTreeWidgetItem* item : items)
 	{
-		RobotInstruction::Base* raw = instructionRaw(item);
-		if (!raw || !RobotInstruction::isMotionWaypointType(raw->type()))
+		const QString id = instructionIdOf(item);
+		if (id.isEmpty())
 		{
 			continue;
 		}
-		const auto it = ptrMap.find(raw);
-		if (it != ptrMap.end() && it->second)
+		const auto it = idMap.find(id.toStdString());
+		if (it == idMap.end() || !it->second || !RobotInstruction::isMotionWaypointType(it->second->type()))
 		{
-			out.push_back(it->second);
+			continue;
 		}
+		out.push_back(it->second);
 	}
 	return out;
 }
@@ -962,8 +987,8 @@ std::vector<std::shared_ptr<RobotInstruction::Base>> InstructionProgramTreeWidge
 	{
 		return out;
 	}
-	std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>> ptrMap;
-	collectPtrMapRecursive(*m_program, ptrMap);
+	std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>> idMap;
+	collectIdMapRecursive(*m_program, idMap);
 	const QList<QTreeWidgetItem*> items = selectedItems();
 	out.reserve(static_cast<size_t>(items.size()));
 	for (QTreeWidgetItem* item : items)
@@ -972,13 +997,13 @@ std::vector<std::shared_ptr<RobotInstruction::Base>> InstructionProgramTreeWidge
 		{
 			continue;
 		}
-		RobotInstruction::Base* raw = instructionRaw(item);
-		if (!raw)
+		const QString id = instructionIdOf(item);
+		if (id.isEmpty())
 		{
 			continue;
 		}
-		const auto it = ptrMap.find(raw);
-		if (it != ptrMap.end() && it->second)
+		const auto it = idMap.find(id.toStdString());
+		if (it != idMap.end() && it->second)
 		{
 			out.push_back(it->second);
 		}
@@ -1005,13 +1030,14 @@ void InstructionProgramTreeWidget::selectInstructionByRaw(RobotInstruction::Base
 	{
 		return;
 	}
+	const QString wantId = QString::fromStdString(raw->id());
 	const auto walk = [&](auto&& self, QTreeWidgetItem* node) -> QTreeWidgetItem*
 	{
 		if (!node)
 		{
 			return nullptr;
 		}
-		if (instructionRaw(node) == raw)
+		if (instructionIdOf(node) == wantId)
 		{
 			return node;
 		}
@@ -1204,7 +1230,7 @@ void InstructionProgramTreeWidget::removeSelected()
 			{
 				continue;
 			}
-			if (it->get() == raw)
+			if (it->get() && (*it)->id() == raw->id())
 			{
 				steps.erase(it);
 				return true;

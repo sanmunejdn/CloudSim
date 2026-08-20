@@ -95,6 +95,244 @@ PluginMeshBooleanOp parseBooleanOp(const std::string& op)
 	return PluginMeshBooleanOp::Difference;
 }
 
+double argNumber(const nlohmann::json& args, const char* key, double fallback = 0.0)
+{
+	if (!args.contains(key) || !args[key].is_number())
+		return fallback;
+	return args[key].get<double>();
+}
+
+QString describeProfileZh(const nlohmann::json& args)
+{
+	const std::string profile = args.value("profile", "rectangle");
+	if (profile == "rectangle" || profile == "rect" || profile == "box")
+	{
+		double L = argNumber(args, "length_mm");
+		double W = argNumber(args, "width_mm");
+		if (args.contains("dimensions_mm") && args["dimensions_mm"].is_object())
+		{
+			const auto& d = args["dimensions_mm"];
+			L = d.value("length", L);
+			W = d.value("width", W);
+		}
+		if (L > 0.0 && W > 0.0)
+			return QStringLiteral("矩形轮廓 %1×%2 mm").arg(L).arg(W);
+		return QStringLiteral("矩形轮廓");
+	}
+	if (profile == "circle" || profile == "disk")
+	{
+		double R = argNumber(args, "radius_mm");
+		double D = argNumber(args, "diameter_mm");
+		if (R <= 0.0 && D > 0.0)
+			R = D * 0.5;
+		if (args.contains("dimensions_mm") && args["dimensions_mm"].is_object())
+			R = args["dimensions_mm"].value("radius", R);
+		if (R > 0.0)
+			return QStringLiteral("圆形轮廓 Ø%1 mm").arg(R * 2.0);
+		return QStringLiteral("圆形轮廓");
+	}
+	if (profile == "polygon")
+	{
+		const int sides = static_cast<int>(argNumber(args, "sides", 6));
+		const double R = argNumber(args, "radius_mm");
+		if (R > 0.0)
+			return QStringLiteral("%1 边多边形 R%2 mm").arg(sides).arg(R);
+		return QStringLiteral("%1 边多边形").arg(sides);
+	}
+	return QStringLiteral("自定义轮廓");
+}
+
+double extrudeLengthMm(const nlohmann::json& args)
+{
+	if (args.contains("extrude_mm") && args["extrude_mm"].is_number())
+		return args["extrude_mm"].get<double>();
+	if (args.contains("height_mm") && args["height_mm"].is_number())
+		return args["height_mm"].get<double>();
+	if (args.contains("dimensions_mm") && args["dimensions_mm"].is_object())
+		return args["dimensions_mm"].value("height", 0.0);
+	return 0.0;
+}
+
+/// 单步 extrude → 草图 + 拉伸/切除 文案（供确认面板与执行摘要）
+QStringList describeExtrudeFeatureLines(const nlohmann::json& args, int startIndex)
+{
+	QStringList lines;
+	int n = startIndex;
+	const std::string mode = args.value("mode", "pad");
+	lines << QStringLiteral("%1. 草图绘制：%2（基准面 XY）").arg(n++).arg(describeProfileZh(args));
+	const double H = extrudeLengthMm(args);
+	const std::string endCond = args.value("end_condition", args.value("endCondition", "blind"));
+	if (mode == "pocket")
+	{
+		if (endCond == "through_all" || endCond == "ThroughAll" || endCond == "throughAll")
+			lines << QStringLiteral("%1. 拉伸切除（Pocket）：贯穿全部").arg(n++);
+		else if (H > 0.0)
+			lines << QStringLiteral("%1. 拉伸切除（Pocket）：深度 %2 mm").arg(n++).arg(H);
+		else
+			lines << QStringLiteral("%1. 拉伸切除（Pocket）").arg(n++);
+	}
+	else
+	{
+		if (H > 0.0)
+			lines << QStringLiteral("%1. 拉伸凸台（Pad）：高度 %2 mm").arg(n++).arg(H);
+		else
+			lines << QStringLiteral("%1. 拉伸凸台（Pad）").arg(n++);
+	}
+	return lines;
+}
+
+QStringList describeFeatureComposePlanLines(const nlohmann::json& root)
+{
+	QStringList lines;
+	if (!root.contains("steps") || !root["steps"].is_array())
+		return lines;
+	int n = 1;
+	for (const auto& step : root["steps"])
+	{
+		if (!step.is_object())
+			continue;
+		const std::string api = step.value("api", "");
+		const nlohmann::json args =
+			step.contains("args") && step["args"].is_object() ? step["args"] : nlohmann::json::object();
+		if (api == "extrudeSketchProfileToBrep")
+		{
+			const QStringList sub = describeExtrudeFeatureLines(args, n);
+			lines += sub;
+			n += sub.size();
+			continue;
+		}
+		if (api == "revolveSketchProfileToBrep")
+		{
+			lines << QStringLiteral("%1. 草图绘制：%2").arg(n++).arg(describeProfileZh(args));
+			const double ang = argNumber(args, "angle_deg", 360.0);
+			const std::string mode = args.value("mode", "boss");
+			if (mode == "cut")
+				lines << QStringLiteral("%1. 旋转切除：%2°").arg(n++).arg(ang);
+			else
+				lines << QStringLiteral("%1. 旋转凸台：%2°").arg(n++).arg(ang);
+			continue;
+		}
+		if (api == "filletEdgesToBrep")
+		{
+			const double r = argNumber(args, "radius_mm", 1.0);
+			lines << QStringLiteral("%1. 圆角：R%2 mm").arg(n++).arg(r);
+			continue;
+		}
+		if (api == "chamferEdgesToBrep")
+		{
+			const double d = argNumber(args, "distance_mm", argNumber(args, "dist_mm", 1.0));
+			lines << QStringLiteral("%1. 倒角：%2 mm").arg(n++).arg(d);
+			continue;
+		}
+		if (api == "linearPatternBodyToBrep")
+		{
+			const int count = static_cast<int>(argNumber(args, "count", 2));
+			lines << QStringLiteral("%1. 线性阵列：%2 个").arg(n++).arg(count);
+			continue;
+		}
+		if (api == "circularPatternBodyToBrep")
+		{
+			const int count = static_cast<int>(argNumber(args, "count", 2));
+			lines << QStringLiteral("%1. 圆周阵列：%2 个").arg(n++).arg(count);
+			continue;
+		}
+		if (api == "sweepSketchProfileToBrep")
+		{
+			const std::string mode = args.value("mode", "boss");
+			lines << QStringLiteral("%1. 草图绘制：%2").arg(n++).arg(describeProfileZh(args));
+			lines << (mode == "cut" ? QStringLiteral("%1. 扫描切除").arg(n++) : QStringLiteral("%1. 扫描凸台").arg(n++));
+			continue;
+		}
+		if (api == "loftSketchProfilesToBrep")
+		{
+			const std::string mode = args.value("mode", "boss");
+			lines << (mode == "cut" ? QStringLiteral("%1. 放样切除").arg(n++) : QStringLiteral("%1. 放样凸台").arg(n++));
+			continue;
+		}
+		if (api == "shellFacesToBrep")
+		{
+			const double t = argNumber(args, "thickness_mm", 1.0);
+			lines << QStringLiteral("%1. 抽壳：厚度 %2 mm").arg(n++).arg(t);
+			continue;
+		}
+		if (api == "draftFacesToBrep")
+		{
+			const double a = argNumber(args, "angle_deg", 1.0);
+			lines << QStringLiteral("%1. 拔模：%2°").arg(n++).arg(a);
+			continue;
+		}
+		if (api == "askClarify")
+		{
+			lines << QStringLiteral("%1. 澄清提问").arg(n++);
+			continue;
+		}
+		if (!api.empty())
+			lines << QStringLiteral("%1. %2").arg(n++).arg(QString::fromStdString(api));
+	}
+	return lines;
+}
+
+QString formatCreateStepsBlock(const QStringList& lines)
+{
+	if (lines.isEmpty())
+		return {};
+	return QStringLiteral("创建步骤：\n") + lines.join(QLatin1Char('\n'));
+}
+
+/// create_mesh box/cylinder → 拟执行的特征步骤（确认前预览）
+QString previewStepsFromCreateMeshCmd(const nlohmann::json& cmd)
+{
+	nlohmann::json c = cmd;
+	AiMeshDefaults::applyMissingDimensions(c);
+	const std::string prim = c.value("primitive", "box");
+	if (!c.contains("dimensions_mm") || !c["dimensions_mm"].is_object())
+		return {};
+	const auto& dims = c["dimensions_mm"];
+	nlohmann::json args = nlohmann::json::object();
+	args["mode"] = "pad";
+	if (prim == "box")
+	{
+		args["profile"] = "rectangle";
+		args["length_mm"] = dims.value("length", 0.0);
+		args["width_mm"] = dims.value("width", 0.0);
+		args["extrude_mm"] = dims.value("height", 0.0);
+	}
+	else if (prim == "cylinder")
+	{
+		args["profile"] = "circle";
+		args["radius_mm"] = dims.value("radius", 0.0);
+		args["extrude_mm"] = dims.value("height", 0.0);
+	}
+	else
+		return {};
+	return formatCreateStepsBlock(describeExtrudeFeatureLines(args, 1));
+}
+
+nlohmann::json createMeshCmdFromAgentArgs(const nlohmann::json& args)
+{
+	nlohmann::json cmd;
+	cmd["version"] = 1;
+	cmd["action"] = "create_mesh";
+	cmd["primitive"] = args.value("primitive", "box");
+	nlohmann::json dim = nlohmann::json::object();
+	if (args.contains("dimensions_mm") && args["dimensions_mm"].is_object())
+		dim = args["dimensions_mm"];
+	else
+	{
+		if (args.contains("length_mm"))
+			dim["length"] = args["length_mm"];
+		if (args.contains("width_mm"))
+			dim["width"] = args["width_mm"];
+		if (args.contains("height_mm"))
+			dim["height"] = args["height_mm"];
+		if (args.contains("radius_mm"))
+			dim["radius"] = args["radius_mm"];
+	}
+	if (!dim.empty())
+		cmd["dimensions_mm"] = dim;
+	return cmd;
+}
+
 bool parseCreateMeshCommandToPlugin(const nlohmann::json& cmdIn, PluginPrimitiveMeshParams& pp,
 									PluginPrimitiveMeshQuality& pq, PluginMeshCreateOptions& opt, QString* outError,
 									QString* outSummaryExtra = nullptr)
@@ -175,16 +413,90 @@ bool parseCreateMeshCommandToPlugin(const nlohmann::json& cmdIn, PluginPrimitive
 	return true;
 }
 
+/// box/cylinder → Sketch+Pad（Parametric Body，特征树可见）；cone/sphere 仍走裸 B-rep
+bool tryExecuteCreateMeshAsFeatureCompose(PluginHostContext& host, nlohmann::json cmd, QString* outError,
+										  QString* outBackendId, QString* outSummaryExtra)
+{
+	AiMeshDefaults::applyMissingDimensions(cmd);
+	if (!cmd.contains("dimensions_mm") || !cmd["dimensions_mm"].is_object())
+		return false;
+
+	const std::string prim = cmd.value("primitive", "box");
+	const auto& dims = cmd["dimensions_mm"];
+	nlohmann::json args = nlohmann::json::object();
+	args["mode"] = "pad";
+	if (cmd.contains("name") && cmd["name"].is_string())
+		args["name"] = cmd["name"];
+	else if (prim == "cylinder")
+		args["name"] = "Cylinder";
+	else
+		args["name"] = "Body";
+
+	if (prim == "box")
+	{
+		const double L = dims.value("length", 0.0);
+		const double W = dims.value("width", 0.0);
+		const double H = dims.value("height", 0.0);
+		if (L <= 0.0 || W <= 0.0 || H <= 0.0)
+			return false;
+		args["profile"] = "rectangle";
+		args["length_mm"] = L;
+		args["width_mm"] = W;
+		args["extrude_mm"] = H;
+	}
+	else if (prim == "cylinder")
+	{
+		const double R = dims.value("radius", 0.0);
+		const double H = dims.value("height", 0.0);
+		if (R <= 0.0 || H <= 0.0)
+			return false;
+		args["profile"] = "circle";
+		args["radius_mm"] = R;
+		args["extrude_mm"] = H;
+	}
+	else
+		return false;
+
+	QHash<QString, QString> stepIds;
+	QString ferr;
+	if (!AiFeatureComposeSteps::tryExecute(host, "extrudeSketchProfileToBrep", args, "body", stepIds, &ferr) ||
+		!ferr.isEmpty())
+	{
+		if (outError)
+			*outError = ferr.isEmpty() ? QStringLiteral("参数化拉伸失败。") : ferr;
+		return false;
+	}
+	if (outBackendId)
+		*outBackendId = stepIds.value(QStringLiteral("body"));
+	if (outSummaryExtra)
+	{
+		*outSummaryExtra = formatCreateStepsBlock(describeExtrudeFeatureLines(args, 1));
+		if (!outSummaryExtra->isEmpty())
+			*outSummaryExtra += QStringLiteral("\n（已写入特征树，可继续圆角/切除等）");
+	}
+	return true;
+}
+
 bool executeCreateMeshStep(PluginHostContext& host, const nlohmann::json& cmdIn, QString* outError,
 						   QString* outBackendId, QString* outSummaryExtra = nullptr)
 {
+	nlohmann::json cmd = cmdIn;
+	AiMeshDefaults::applyMissingDimensions(cmd);
+	if (tryExecuteCreateMeshAsFeatureCompose(host, cmd, outError, outBackendId, outSummaryExtra))
+		return true;
+	// cone/sphere 或 Pad 失败：回退裸 B-rep（轨迹工件等仍可用）
+	if (outError)
+		outError->clear();
+	if (outSummaryExtra)
+		outSummaryExtra->clear();
+
 	PluginPrimitiveMeshParams pp;
 
 	PluginPrimitiveMeshQuality pq;
 
 	PluginMeshCreateOptions opt;
 
-	if (!parseCreateMeshCommandToPlugin(cmdIn, pp, pq, opt, outError, outSummaryExtra))
+	if (!parseCreateMeshCommandToPlugin(cmd, pp, pq, opt, outError, outSummaryExtra))
 		return false;
 
 	return host.createPrimitiveMesh(pp, pq, opt, outError, outBackendId);
@@ -474,15 +786,22 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 
 			AiMeshDefaults::applyMissingDimensions(summaryCmd);
 
-			*outSummary = QStringLiteral("已根据 AI 指令创建网格。");
-
 			const QString dims = AiMeshDefaults::summarizeDimensionsMm(summaryCmd);
-
-			if (!dims.isEmpty())
-				*outSummary += QStringLiteral("\n尺寸：%1").arg(dims);
-
-			if (!extra.isEmpty())
+			if (!extra.isEmpty() && extra.startsWith(QStringLiteral("创建步骤")))
+			{
+				*outSummary = QStringLiteral("已创建参数化实体。");
+				if (!dims.isEmpty())
+					*outSummary += QStringLiteral("\n尺寸：%1").arg(dims);
 				*outSummary += QStringLiteral("\n") + extra;
+			}
+			else
+			{
+				*outSummary = QStringLiteral("已根据 AI 指令创建网格。");
+				if (!dims.isEmpty())
+					*outSummary += QStringLiteral("\n尺寸：%1").arg(dims);
+				if (!extra.isEmpty())
+					*outSummary += QStringLiteral("\n") + extra;
+			}
 		}
 
 		return true;
@@ -549,12 +868,36 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 		else if (ctx.ephemeralCompose)
 			*outSummary = QStringLiteral("已执行 %1 个步骤（布尔多步编排，仅注册最终结果）。").arg(okCount);
 		else if (root.value("domain", "") == "feature.compose")
+		{
+			const QString stepsText = formatCreateStepsBlock(describeFeatureComposePlanLines(root));
 			*outSummary = QStringLiteral("已执行 %1 个参数化特征步骤。").arg(okCount);
+			if (!stepsText.isEmpty())
+				*outSummary += QStringLiteral("\n") + stepsText;
+		}
 		else
 			*outSummary = QStringLiteral("已执行 %1 个步骤（布尔多步编排）。").arg(okCount);
 	}
 
 	return true;
+}
+
+QString previewCreateMeshFeatureSteps(const QByteArray& createMeshOrArgsJsonUtf8)
+{
+	nlohmann::json j;
+	try
+	{
+		j = nlohmann::json::parse(createMeshOrArgsJsonUtf8.constData(), nullptr, true);
+	}
+	catch (...)
+	{
+		return {};
+	}
+	if (!j.is_object())
+		return {};
+	if (j.value("action", "") == "create_mesh")
+		return previewStepsFromCreateMeshCmd(j);
+	// Agent args：flat length_mm / 或已是 create_mesh
+	return previewStepsFromCreateMeshCmd(createMeshCmdFromAgentArgs(j));
 }
 
 } // namespace AiActionPlanExecutor

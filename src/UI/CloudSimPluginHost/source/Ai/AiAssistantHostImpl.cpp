@@ -147,7 +147,7 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 		d.displayName = QStringLiteral("Compose mesh (boolean)");
 		d.outputKind = AiDomainOutputKind::ActionPlan;
 		d.supportsMultimodal = false;
-		d.parserPriority = QStringList{QStringLiteral("local"), QStringLiteral("remote")};
+		d.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 		m_registry.registerDomain(d, &m_composeHandler);
 	}
 	{
@@ -475,11 +475,20 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 	}
 
 	QStringList chain = config.parserPriorityDefault;
-	if (const AiDomainDescriptor* descUi = m_registry.descriptor(domainId))
+	if (const AiDomainModelConfig* dmUi = findDomainConfig(config, domainId))
+	{
+		if (!dmUi->parserPriority.isEmpty())
+			chain = dmUi->parserPriority;
+	}
+	else if (const AiDomainDescriptor* descUi = m_registry.descriptor(domainId))
 	{
 		if (!descUi->parserPriority.isEmpty())
 			chain = descUi->parserPriority;
 	}
+	if (!config.enableRules)
+		chain.removeAll(QStringLiteral("rules"));
+	if (chain.isEmpty())
+		chain = QStringList{QStringLiteral("local")};
 
 	const auto result = std::make_shared<AiParseResult>();
 	const AiInferenceRequest reqCopy = request;

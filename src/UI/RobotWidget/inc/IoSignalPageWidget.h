@@ -64,7 +64,7 @@ private:
 	bool m_updating = false;
 	IoSignalNetworkService* m_network = nullptr;
 	RobotIo::NamedSignalTable* m_table = nullptr;
-	NamedSignalIoSink* m_sink = nullptr;
+	QPointer<NamedSignalIoSink> m_sink;
 
 	QComboBox* m_ownerCombo = nullptr;
 	QTableWidget* m_tableWidget = nullptr;

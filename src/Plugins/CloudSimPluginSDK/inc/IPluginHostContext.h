@@ -31,6 +31,24 @@ class QMenu;
 
 using PluginJobProgressFn = std::function<void(double fraction, const QString& message)>;
 
+/// 协作取消；长循环须查 canceled()，不会强杀线程
+class PluginJobCancelToken
+{
+public:
+	PluginJobCancelToken() = default;
+	explicit PluginJobCancelToken(std::function<bool()> check) : m_check(std::move(check)) {}
+
+	bool canceled() const
+	{
+		return m_check && m_check();
+	}
+
+private:
+	std::function<bool()> m_check;
+};
+
+using PluginCancellableJobWorkFn = std::function<void(const PluginJobProgressFn&, const PluginJobCancelToken&)>;
+
 class IPluginHostContext
 {
 public:
@@ -218,6 +236,18 @@ public:
 	virtual bool loadBoundTrajectoryPlanForAi(QByteArray& planOutUtf8, QString* outError = nullptr) = 0;
 	virtual bool reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* outSummary,
 										QString* outError = nullptr) = 0;
+
+	/// 1.52.0+：可取消后台任务；onFinished 仍回 UI（Canceled 时 threw=false）
+	virtual quint64 enqueueCancellableJob(const QString& title, PluginCancellableJobWorkFn work,
+										  std::function<void(bool threw, const QString& throwMessage)> onFinished) = 0;
+	virtual bool cancelJob(quint64 jobId) = 0;
+
+	/// 1.52.0+：按 documentId 取文档；无则 null
+	virtual IPluginDocument* documentById(const QString& documentId) = 0;
+	virtual const IPluginDocument* documentById(const QString& documentId) const = 0;
+
+	/// 1.52.0+：文档 Tab 关闭（deleteLater 前）；默认 destroyOnClose
+	virtual void onDocumentClosed(std::function<void(const QString& documentId)> callback) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

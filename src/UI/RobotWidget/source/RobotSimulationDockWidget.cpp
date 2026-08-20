@@ -1,4 +1,4 @@
-﻿/// @file RobotSimulationDockWidget.cpp
+/// @file RobotSimulationDockWidget.cpp
 /// @brief 机器人仿真 Dock
 
 #include "RobotSimulationDockWidget.h"
@@ -111,7 +111,7 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent) : QWidget(
 	m_robotTabs->addTab(m_axisTabHost, QStringLiteral("Axis"));
 	m_robotTabs->addTab(wrapInScrollArea(m_framePage, m_robotTabs), QStringLiteral("Frames"));
 	m_robotTabs->addTab(wrapInScrollArea(m_externalAxisPage, m_robotTabs), QStringLiteral("外部轴"));
-	m_robotTabs->addTab(wrapInScrollArea(m_collisionPage, m_robotTabs), QStringLiteral("碰撞检测"));
+	m_robotTabs->addTab(wrapInScrollArea(m_collisionPage, m_robotTabs), QStringLiteral("碰撞与规划"));
 	m_robotTabs->addTab(wrapInScrollArea(m_generationPage, m_robotTabs), QStringLiteral("轨迹生成"));
 	m_robotTabs->addTab(wrapInScrollArea(m_trajectoryPage, m_robotTabs), QStringLiteral("轨迹编辑"));
 	m_robotTabs->addTab(wrapInScrollArea(m_commPage, m_robotTabs), QStringLiteral("机器人通讯"));
@@ -233,12 +233,17 @@ void RobotSimulationDockWidget::retranslateUi()
 		m_robotTabs->setTabText(kTabIndexAxisControl, t(QStringLiteral("Axis"), QStringLiteral("轴控制")));
 		m_robotTabs->setTabText(kTabIndexFrames, t(QStringLiteral("Frames"), QStringLiteral("坐标系")));
 		m_robotTabs->setTabText(kTabIndexExternalAxes, t(QStringLiteral("External Axes"), QStringLiteral("外部轴")));
-		m_robotTabs->setTabText(kTabIndexCollision, t(QStringLiteral("Collision"), QStringLiteral("碰撞检测")));
+		m_robotTabs->setTabText(kTabIndexCollision,
+								t(QStringLiteral("Collision & Planning"), QStringLiteral("碰撞与规划")));
 		m_robotTabs->setTabText(kTabIndexTrajectoryGeneration,
 								t(QStringLiteral("Trajectory Generation"), QStringLiteral("轨迹生成")));
 		m_robotTabs->setTabText(kTabIndexTrajectoryEdit,
 								t(QStringLiteral("Trajectory Edit"), QStringLiteral("轨迹编辑")));
 		m_robotTabs->setTabText(kTabIndexRobotComm, t(QStringLiteral("Robot Comm"), QStringLiteral("机器人通讯")));
+	}
+	if (m_collisionPage)
+	{
+		m_collisionPage->setUseChinese(m_useChinese);
 	}
 	if (m_deviceTabs)
 	{

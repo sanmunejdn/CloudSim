@@ -59,6 +59,8 @@ struct CLOUDSIM_AI_SDK_EXPORT AiConfigDto
 {
 	QString hardwareProfile = QStringLiteral("vram_8gb");
 	QStringList parserPriorityDefault = {QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
+	/// false：解析链跳过 rules，便于单独验证本地/云端模型
+	bool enableRules = true;
 	AiRemoteLlmConfig remoteLlm;
 	AiRouterConfig router;
 	AiAgentPolicyConfig agent;

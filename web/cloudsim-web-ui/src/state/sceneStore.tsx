@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   fetchObjects,
+  fetchObjectDetail,
   postSelection,
   importObject,
   type BackendObject,
@@ -73,25 +74,63 @@ export function SceneProvider({ children }: { children: ReactNode }) {
     if (list.projectPath) setPath(list.projectPath);
   }, [setPath]);
 
+  const mergeObjectById = useCallback(async (id: string) => {
+    if (!id) return;
+    const d = await fetchObjectDetail(id);
+    const obj = (d.object ?? (d as unknown as BackendObject)) as BackendObject;
+    if (!obj || !obj.id) return;
+    setObjects((prev) => {
+      const i = prev.findIndex((o) => o.id === obj.id);
+      if (i < 0) return [...prev, obj];
+      const next = prev.slice();
+      next[i] = { ...prev[i], ...obj };
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     void refreshObjects();
   }, [onProjectChanged, refreshObjects]);
 
   useEffect(() => {
     const off = eventHub.onAny((_d, type) => {
-      // 末端拖动时由 SceneViewport 节流刷新，避免 SSE 与 IK 双拉卡顿
       if (type === "RobotKinematicsApplied" && robotDragModeRef.current) {
         return;
       }
+      if (type === "PoseCommitted" || type === "ObjectPatched") {
+        try {
+          const j = JSON.parse(_d) as { backendId?: string; id?: string };
+          const id = j.backendId || j.id;
+          if (id) {
+            void mergeObjectById(id);
+            return;
+          }
+        } catch {
+          /* 无 payload 则全量 */
+        }
+        void refreshObjects();
+        return;
+      }
+      if (type === "RobotKinematicsApplied") {
+        try {
+          const j = JSON.parse(_d) as { sceneRootBackendId?: string; backendId?: string };
+          const id = j.sceneRootBackendId || j.backendId;
+          if (id) {
+            void mergeObjectById(id);
+            return;
+          }
+        } catch {
+          /* fallthrough */
+        }
+        void refreshObjects();
+        return;
+      }
       if (
-        type === "ObjectPatched" ||
-        type === "PoseCommitted" ||
-        type === "RobotKinematicsApplied" ||
         type === "SceneChanged" ||
         type === "BackendObjectCreated" ||
         type === "BackendObjectRegistered" ||
         type === "BackendObjectRemoved" ||
-        type === "message"
+        type === "ProjectLoaded"
       ) {
         void refreshObjects();
       }
@@ -105,7 +144,7 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       }
     });
     return off;
-  }, [refreshObjects]);
+  }, [refreshObjects, mergeObjectById]);
 
   const selectObject = useCallback(async (id: string | null) => {
     setSelectedId(id);

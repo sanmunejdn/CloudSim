@@ -68,7 +68,7 @@ public:
 
 	void clearProgram();
 
-	/// Run 期间按原始指针选中树节点；调用方应 QSignalBlocker 避免触发 instructionSelected
+	/// Run 期间按指令 id 选中树节点；调用方应 QSignalBlocker 避免触发 instructionSelected
 	void selectInstructionByRaw(RobotInstruction::Base* raw);
 
 signals:
@@ -101,11 +101,13 @@ protected:
 private:
 	static NodeKind nodeKind(const QTreeWidgetItem* item);
 
-	static RobotInstruction::Base* instructionRaw(const QTreeWidgetItem* item);
+	static QString instructionIdOf(const QTreeWidgetItem* item);
+
+	RobotInstruction::Base* instructionRaw(const QTreeWidgetItem* item) const;
 
 	static std::string groupIdFromItem(const QTreeWidgetItem* item);
 
-	static void setInstructionPtr(QTreeWidgetItem* item, RobotInstruction::Base* raw);
+	static void setInstructionId(QTreeWidgetItem* item, const std::string& id);
 
 	static void setGroupPtr(QTreeWidgetItem* item, const std::string& groupId);
 
@@ -113,7 +115,7 @@ private:
 
 	static bool isRootLevelInstructionItem(const QTreeWidgetItem* item);
 
-	static bool isPathPlanInstructionItem(const QTreeWidgetItem* item);
+	bool isPathPlanInstructionItem(const QTreeWidgetItem* item) const;
 
 	QTreeWidgetItem* findPlanningSectionItem() const;
 
@@ -143,17 +145,17 @@ private:
 
 		std::vector<std::shared_ptr<RobotInstruction::Base>>& out,
 
-		const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const;
+		const std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& idMap) const;
 
 	void syncLogicBranchesFromTreeItem(
 		QTreeWidgetItem* item,
-		const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const;
+		const std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& idMap) const;
 
 	void readProgramFromTree(
 
 		std::vector<std::shared_ptr<RobotInstruction::Base>>& root,
 
-		const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const;
+		const std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& idMap) const;
 
 	void syncGroupsFromTree();
 

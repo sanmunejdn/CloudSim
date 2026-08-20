@@ -10,7 +10,7 @@
 
 class QString;
 class MainWindow;
-class QTreeWidgetItem;
+class QStandardItem;
 
 namespace cloudsim::core
 {
@@ -40,7 +40,7 @@ public:
 	static void clearSelection(MainWindow& mainWindow, bool clearTreeSelection);
 	static void clearBackendObjectSelection(MainWindow& mainWindow, bool clearTreeSelection);
 	static void handleBackendTreeSelectionChanged(MainWindow& mainWindow);
-	static void handleBackendTreeItemChanged(MainWindow& mainWindow, QTreeWidgetItem* item, int column);
+	static void handleBackendTreeItemChanged(MainWindow& mainWindow, QStandardItem* item);
 	static void handleOsgBackendObjectPicked(MainWindow& mainWindow, const QString& backendId);
 	static SelectionSnapshot currentSelection(MainWindow& mainWindow);
 	static bool selectBackendById(MainWindow& mainWindow, const QString& backendId, bool scrollToItem = true);

@@ -17,6 +17,8 @@
 #include "ProgramEditService.h"
 #include "RawTrajectory.h"
 #include "RobotAxisControlWidget.h"
+#include "RobotCollisionSettingsWidget.h"
+#include "MotionPathPlanDialog.h"
 #include "RobotCanonicalProgramExport.h"
 #include "BrandProgramExportDialog.h"
 #include "PythonScriptCaller.h"
@@ -27,6 +29,7 @@
 #include <json.hpp>
 #include "RobotInstructionPlanningHelpers.h"
 #include "RobotInstructionProgram.h"
+#include "Adapters.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotOsgUiTypes.h"
@@ -42,10 +45,12 @@
 #include "DevicePoseSignalDriver.h"
 #include "DockNavigationService.h"
 #include "IoSignalNetworkService.h"
-#include "RobotCollisionSettingsWidget.h"
 #include "RobotSimulationDockWidget.h"
 #include "BackendCollisionSync.h"
+#include "RobotPathPlanning.h"
 #include "CollisionWorld.h"
+#include "MeshBackendData.h"
+#include "BrepBackendData.h"
 #include "RobotSceneKinematics.h"
 #include "RobotSimulationDockWidget.h"
 #include "RobotSimulationMath.h"
@@ -1029,6 +1034,14 @@ void RobotSimulationController::wireSimulationSignals()
 	{
 		connect(col, &RobotCollisionSettingsWidget::settingsChanged, this,
 				&RobotSimulationController::onRobotCollisionSettingsChanged);
+		connect(col, &RobotCollisionSettingsWidget::planRequested, this,
+				&RobotSimulationController::onMotionPathPlanRequested);
+		connect(col, &RobotCollisionSettingsWidget::clearPreviewRequested, this,
+				&RobotSimulationController::onMotionPathPreviewClearRequested);
+		connect(col, &RobotCollisionSettingsWidget::confirmTrajectoryRequested, this,
+				&RobotSimulationController::onMotionPathConfirmTrajectoryRequested);
+		connect(col, &RobotCollisionSettingsWidget::refreshSceneObjectsRequested, this,
+				&RobotSimulationController::refreshCollisionPageSceneObjects);
 	}
 	connect(m_trajectoryEditSession, &TrajectoryEditSession::pathPlanBound, this,
 			[this](const std::string&) { refreshPathPlanPreviewForActiveTab(); });
@@ -2196,6 +2209,587 @@ void RobotSimulationController::onRobotCollisionSettingsChanged()
 	m_planResultCache.invalidateAll();
 }
 
+QVector<MotionPathWaypointItem> RobotSimulationController::collectMotionPathWaypoints() const
+{
+	QVector<MotionPathWaypointItem> out;
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc)
+		return out;
+	const RobotInstruction::RobotProgramCatalog& catalog = doc->robotProgramStore().activeCatalog();
+	const RobotInstruction::RobotProgram* prog = catalog.findProgram(catalog.activeProgramId());
+	if (!prog)
+		return out;
+	std::vector<std::shared_ptr<RobotInstruction::Base>> flat;
+	// 与 insertRawTrajectoryBetween 一致：仅顶层 steps（避免嵌套路点无法插入）
+	for (const auto& ins : prog->steps)
+		flat.push_back(ins);
+	int ordinal = 0;
+	for (const std::shared_ptr<RobotInstruction::Base>& ins : flat)
+	{
+		if (!ins || !RobotInstruction::isMotionWaypointType(ins->type()))
+			continue;
+		++ordinal;
+		MotionPathWaypointItem item;
+		item.id = QString::fromStdString(ins->id());
+		const QString name = QString::fromStdString(ins->name());
+		const QString type = QString::fromStdString(RobotInstruction::typeToString(ins->type()));
+		item.label = QStringLiteral("%1. %2 [%3]")
+						 .arg(ordinal)
+						 .arg(name.isEmpty() ? QStringLiteral("(unnamed)") : name)
+						 .arg(type);
+		out.push_back(item);
+	}
+	return out;
+}
+
+QVector<CollisionSceneObjectItem> RobotSimulationController::collectCollisionSceneObjects() const
+{
+	QVector<CollisionSceneObjectItem> out;
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc)
+		return out;
+	BackendDataManager& backend = doc->backend();
+	std::unordered_set<std::string> robotIds;
+	for (int ri = 0; ri < doc->robotKinematicInstanceCount(); ++ri)
+	{
+		cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+		if (!doc->robotPerLinkKinematicsForInstance(ri, pl))
+			continue;
+		for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+		{
+			if (it.value().isEmpty())
+				continue;
+			robotIds.insert(it.value().toStdString());
+			CollisionSceneObjectItem item;
+			item.backendId = it.value();
+			item.label = QStringLiteral("%1 (robot/%2)").arg(it.value(), it.key());
+			out.push_back(item);
+		}
+	}
+	for (const auto& data : backend.listData())
+	{
+		if (!data || !data->hasGeometry())
+			continue;
+		const std::string bid = data->id();
+		if (robotIds.count(bid) > 0)
+			continue;
+		if (data->className() == "RobotAssembly" || data->className() == "Group")
+			continue;
+		const bool isMesh = static_cast<bool>(std::dynamic_pointer_cast<MeshBackendData>(data));
+		const bool isBrep = static_cast<bool>(std::dynamic_pointer_cast<BrepBackendData>(data));
+		if (!isMesh && !isBrep)
+			continue;
+		CollisionSceneObjectItem item;
+		item.backendId = QString::fromStdString(bid);
+		const QString kind = isMesh ? QStringLiteral("mesh") : QStringLiteral("brep");
+		item.label = QStringLiteral("%1 (%2)").arg(item.backendId, kind);
+		out.push_back(item);
+	}
+	return out;
+}
+
+void RobotSimulationController::refreshCollisionPageMotionWaypoints()
+{
+	if (!m_simulationDock)
+		return;
+	RobotCollisionSettingsWidget* col = m_simulationDock->collisionPage();
+	if (!col)
+		return;
+	const QVector<MotionPathWaypointItem> wps = collectMotionPathWaypoints();
+	col->setMotionWaypoints(wps);
+	col->selectMotionWaypointIds(m_motionPathStartInstructionId, m_motionPathEndInstructionId);
+}
+
+void RobotSimulationController::refreshCollisionPageSceneObjects()
+{
+	if (!m_simulationDock)
+		return;
+	RobotCollisionSettingsWidget* col = m_simulationDock->collisionPage();
+	if (!col)
+		return;
+	col->setCollisionSceneObjects(collectCollisionSceneObjects());
+}
+
+void RobotSimulationController::onMotionPathPlanRequested()
+{
+	if (m_programExecutor.isRunning())
+		return;
+	refreshCollisionPageMotionWaypoints();
+	RobotCollisionSettingsWidget* col = m_simulationDock ? m_simulationDock->collisionPage() : nullptr;
+	if (!col)
+		return;
+	const QString startId = col->selectedStartWaypointId();
+	const QString endId = col->selectedEndWaypointId();
+	if (startId.isEmpty() || endId.isEmpty() || startId == endId)
+	{
+		const QString msg = QStringLiteral("请选择不同的起点与终点路点");
+		if (m_host && m_host->runInfoPage())
+			m_host->appendRunWarning(msg);
+		col->setPlanStatusText(msg);
+		col->setConfirmEnabled(false);
+		return;
+	}
+	runMotionPathPlanFromWaypoints(startId, endId);
+}
+
+void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& startId, const QString& endId)
+{
+	auto setUiStatus = [this](const QString& text, bool confirmEnabled) {
+		if (m_simulationDock)
+		{
+			if (RobotCollisionSettingsWidget* col = m_simulationDock->collisionPage())
+			{
+				col->setPlanStatusText(text);
+				col->setConfirmEnabled(confirmEnabled);
+			}
+		}
+	};
+
+	if (m_programExecutor.isRunning())
+		return;
+	if (startId.isEmpty() || endId.isEmpty() || startId == endId)
+	{
+		setUiStatus(QStringLiteral("请选择不同的起点与终点路点"), false);
+		return;
+	}
+
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!doc || !osg || !m_host->simulationCommandPage() || !m_host->robotAxisControlPage())
+		return;
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	if (instIdx < 0)
+		return;
+
+	const std::shared_ptr<RobotInstruction::Base> startIns = findInstructionById(startId);
+	const std::shared_ptr<RobotInstruction::Base> endIns = findInstructionById(endId);
+	if (!startIns || !endIns || !RobotInstruction::isMotionWaypointType(startIns->type()) ||
+		!RobotInstruction::isMotionWaypointType(endIns->type()))
+	{
+		setUiStatus(QStringLiteral("起终点路点无效"), false);
+		return;
+	}
+
+	QVector<double> startQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*startIns);
+	if (startQ.isEmpty())
+		startQ = m_host->robotAxisControlPage()->jointAnglesRad();
+	if (startQ.isEmpty())
+	{
+		setUiStatus(QStringLiteral("起点无示教关节角，且轴控为空，无法规划"), false);
+		return;
+	}
+
+	robot_path::TcpPose goal{};
+	engine::RigidTransform Tgoal;
+	if (!RobotInstruction::readTargetTransformFromInstruction(*endIns, Tgoal))
+	{
+		setUiStatus(QStringLiteral("终点路点无有效目标位姿"), false);
+		return;
+	}
+	Tgoal.translationMm(goal.transMm[0], goal.transMm[1], goal.transMm[2]);
+	{
+		const Eigen::Quaterniond q = Tgoal.rotation();
+		goal.quatXyzw[0] = q.x();
+		goal.quatXyzw[1] = q.y();
+		goal.quatXyzw[2] = q.z();
+		goal.quatXyzw[3] = q.w();
+	}
+
+	m_motionPathStartInstructionId = startId;
+	m_motionPathEndInstructionId = endId;
+
+
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	RobotCoordinate::RobotCoordinateFrameSet frames = doc->robotCoordinateFramesForInstance(instIdx);
+	const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames);
+	QString flangeLink = activeTool
+							 ? QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *activeTool))
+							 : QString();
+	if (flangeLink.isEmpty())
+	{
+		flangeLink = RobotSimulationMath::defaultTcpLinkNameForUrdf(
+			urdfPath, m_host->simulationCommandPage()->selectedTcpLink());
+	}
+	BackendMat4 T_tool = BackendMat4::identity();
+	if (activeTool)
+	{
+		T_tool = RobotCoordinate::frameToMat4(activeTool->T_flange_tool);
+	}
+
+	cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+	if (!doc->robotPerLinkKinematicsForInstance(instIdx, pl))
+	{
+		setUiStatus(QStringLiteral("per-link 运动学不可用"), false);
+		return;
+	}
+	QHash<QString, collision::CollisionBodyId> linkBodies;
+	for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+	{
+		collision::CollisionBodyId id;
+		id.kind = "robotLink";
+		id.backendId = it.value().toStdString();
+		id.linkName = it.key().toStdString();
+		linkBodies.insert(it.key(), id);
+	}
+
+	if (!m_collisionWorld)
+	{
+		m_collisionWorld = std::make_unique<collision::CollisionWorld>();
+	}
+	RobotCollision::Settings col = doc->robotCollisionSettings();
+	if (m_simulationDock && m_simulationDock->collisionPage())
+	{
+		col = m_simulationDock->collisionPage()->settings();
+		doc->robotCollisionSettings() = col;
+	}
+	if (col.enabled)
+	{
+		BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, doc->backend(), col, osg);
+		QVector<double> agg;
+		(void)doc->applyJointAnglesRad(instIdx, startQ, agg);
+		BackendCollisionSync::updatePoses(*m_collisionWorld, doc, doc->backend(), osg);
+	}
+
+	BackendMat4 T_world_urdfBase = BackendMat4::identity();
+	{
+		const QString refBid = doc->robotFrameWorldReferenceBackendId(instIdx);
+		QString refLink;
+		for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+		{
+			if (it.value() == refBid)
+			{
+				refLink = it.key();
+				break;
+			}
+		}
+		if (!refLink.isEmpty())
+		{
+			QHash<QString, osg::Matrixd> meshFk;
+			QString fkErr;
+			if (UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, startQ, meshFk, &fkErr, pl.meshVerticesInLinkFrame))
+			{
+				const auto fkIt = meshFk.constFind(refLink);
+				auto be = doc->backend().getData(refBid.toStdString());
+				if (fkIt != meshFk.constEnd() && be)
+				{
+					const engine::RigidTransform T_be = engine::rigidTransformFromColMajor([&] {
+						engine::ColMajorMat4 cm{};
+						BackendMat4 W = be->worldMatrix();
+						cloudsim::core::Mat4 osgPacked{};
+						if (osg && osg->getBackendRootWorldMatrix(refBid.toStdString(), osgPacked))
+						{
+							W = RobotMatrixOsg::backendColMajorFromMatrix(
+								RobotSimulationMath::osgMatrixFromCoreMat4(osgPacked));
+						}
+						for (int i = 0; i < 16; ++i)
+							cm[static_cast<size_t>(i)] = W.v[i];
+						return cm;
+					}());
+					const engine::RigidTransform T_fk = engine::rigidTransformFromOsg(*fkIt);
+					const engine::RigidTransform T_wb = T_be.composeScene(T_fk.inverse());
+					const engine::ColMajorMat4 cm = engine::colMajorFromRigidTransform(T_wb);
+					for (int i = 0; i < 16; ++i)
+						T_world_urdfBase.v[i] = cm[static_cast<size_t>(i)];
+				}
+			}
+		}
+	}
+
+	robot_path::PlanRequest req;
+	req.urdfPath = urdfPath;
+	req.flangeLinkName = flangeLink;
+	req.startJointRad.assign(startQ.begin(), startQ.end());
+	req.goalToolInBase = goal;
+	req.T_flange_tool = T_tool;
+	req.T_world_urdfBase = T_world_urdfBase;
+	{
+		auto backendFromOsgPacked = [](const cloudsim::core::Mat4& packed) {
+			return RobotMatrixOsg::backendColMajorFromMatrix(RobotSimulationMath::osgMatrixFromCoreMat4(packed));
+		};
+		// 绑定位姿：直接 OSG 矩阵，与 applyPerLinkRobotBasePlacement 一致（禁止 Backend 往返）
+		req.robotBasePlacementWorld = RobotSimulationMath::osgMatrixFromCoreMat4(pl.robotBasePlacementWorld);
+		for (auto it = pl.fkMeshWorldT0.constBegin(); it != pl.fkMeshWorldT0.constEnd(); ++it)
+			req.fkMeshWorldT0.insert(it.key(), RobotSimulationMath::osgMatrixFromCoreMat4(it.value()));
+		for (auto it = pl.outerWorldAtBindByBackendId.constBegin(); it != pl.outerWorldAtBindByBackendId.constEnd(); ++it)
+			req.outerWorldAtBindByBackendId.insert(it.key(), RobotSimulationMath::osgMatrixFromCoreMat4(it.value()));
+
+		for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+		{
+			const QString& linkName = it.key();
+			const QString& bid = it.value();
+			if (osg)
+			{
+				cloudsim::core::Mat4 wCm{};
+				if (osg->getBackendRootWorldMatrix(bid.toStdString(), wCm))
+					req.linkWorldAtStart.insert(linkName, backendFromOsgPacked(wCm));
+			}
+		}
+	}
+	req.world = col.enabled ? m_collisionWorld.get() : nullptr;
+	req.linkBodies = linkBodies;
+	req.meshVerticesInLinkFrame = pl.meshVerticesInLinkFrame;
+	req.options.securityMarginMm = col.securityMarginMm;
+	req.options.checkCollision = col.enabled;
+
+	robot_path::PathResult plan;
+	if (!robot_path::planToTcpPose(req, plan) || !plan.ok)
+	{
+		const QString err = QString::fromStdString(plan.errMsg.empty() ? "motion planning failed" : plan.errMsg);
+		if (m_host->runInfoPage())
+			m_host->appendRunWarning(err);
+		setUiStatus(err, false);
+		m_lastMotionPathRawValid = false;
+		return;
+	}
+
+	// 画面复验（与 Run 同源）；失败则拒绝，避免插入不可仿真路径
+	if (col.enabled && m_collisionWorld)
+	{
+		std::string osgColErr;
+		if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(), instIdx, startQ,
+														   plan.jointTrajectoryRad, col, &osgColErr, osg))
+		{
+			const QString err = QStringLiteral("规划路径未通过画面碰撞校验：%1")
+									.arg(QString::fromStdString(osgColErr));
+			if (m_host->runInfoPage())
+				m_host->appendRunWarning(err);
+			setUiStatus(err, false);
+			m_lastMotionPathRawValid = false;
+			return;
+		}
+	}
+
+	RobotInstruction::RawTrajectory raw;
+	raw.points.reserve(plan.tcpPoses.size());
+	const std::size_t nPose = plan.tcpPoses.size();
+	const std::size_t nJoint = plan.jointTrajectoryRad.size();
+	for (std::size_t i = 0; i < nPose; ++i)
+	{
+		const robot_path::TcpPose& tp = plan.tcpPoses[i];
+		RobotInstruction::TrajectoryPoint pt;
+		pt.poseMm.x = tp.transMm[0];
+		pt.poseMm.y = tp.transMm[1];
+		pt.poseMm.z = tp.transMm[2];
+		pt.quatXyzw[0] = tp.quatXyzw[0];
+		pt.quatXyzw[1] = tp.quatXyzw[1];
+		pt.quatXyzw[2] = tp.quatXyzw[2];
+		pt.quatXyzw[3] = tp.quatXyzw[3];
+		pt.hasQuat = true;
+		const osg::Quat q(tp.quatXyzw[3], tp.quatXyzw[0], tp.quatXyzw[1], tp.quatXyzw[2]);
+		double ex = 0.0;
+		double ey = 0.0;
+		double ez = 0.0;
+		engine::quatToEulerDeg(q, ex, ey, ez);
+		pt.eulerDeg.x = ex;
+		pt.eulerDeg.y = ey;
+		pt.eulerDeg.z = ez;
+		pt.reachable = true;
+		pt.speedMmPerSec = 200.0;
+		if (i < nJoint)
+			pt.jointRad = plan.jointTrajectoryRad[i];
+		raw.points.push_back(std::move(pt));
+	}
+
+	std::string previewErr;
+	RobotOsgUi::RawTrajectoryPreviewOptions previewOpts;
+	feature_pick_transform::applyWorldRawTrajectoryPreviewToOsg(osg, raw, previewOpts, &previewErr);
+	m_lastMotionPathRaw = raw;
+	m_lastMotionPathRawValid = !raw.points.empty();
+	m_motionPathPreviewActive = true;
+	setRawTrajectoryPreviewActive(true);
+
+	const QString okMsg = QStringLiteral("OK：%1，%2 点，TCP 长 %3 mm（可确认插入中间点）")
+							  .arg(QString::fromStdString(plan.plannerName))
+							  .arg(static_cast<int>(plan.tcpPoses.size()))
+							  .arg(plan.pathLengthTcpMm, 0, 'f', 1);
+	if (m_host->runInfoPage())
+		m_host->appendRunInfo(QStringLiteral("路径规划 ") + okMsg);
+	setUiStatus(okMsg, m_lastMotionPathRawValid);
+
+}
+
+void RobotSimulationController::onMotionPathPreviewClearRequested()
+{
+	m_motionPathPreviewActive = false;
+	m_lastMotionPathRawValid = false;
+	m_lastMotionPathRaw = RobotInstruction::RawTrajectory{};
+	setRawTrajectoryPreviewActive(false);
+	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+	{
+		osg->clearRawTrajectoryOverlay();
+		osg->clearRawTrajectoryOverlayFrames();
+	}
+	refreshInstructionPoseAxes(false);
+	if (m_simulationDock)
+	{
+		if (RobotCollisionSettingsWidget* col = m_simulationDock->collisionPage())
+		{
+			col->setPlanStatusText(QStringLiteral("已清除预览"));
+			col->setConfirmEnabled(false);
+		}
+	}
+}
+
+void RobotSimulationController::onMotionPathConfirmTrajectoryRequested()
+{
+	if (!m_lastMotionPathRawValid || m_lastMotionPathRaw.points.empty())
+	{
+		if (m_host && m_host->runInfoPage())
+			m_host->appendRunWarning(QStringLiteral("请先规划成功再确认生成"));
+		return;
+	}
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc)
+		return;
+	RobotInstruction::RobotProgramCatalog& catalog = doc->robotProgramStore().activeCatalog();
+	RobotInstruction::RobotProgram* prog = catalog.findProgram(catalog.activeProgramId());
+	if (!prog)
+	{
+		if (m_host->runInfoPage())
+			m_host->appendRunWarning(QStringLiteral("无活动程序，无法生成轨迹"));
+		return;
+	}
+
+	std::string err;
+	const bool insertBetween = !m_motionPathStartInstructionId.isEmpty() && !m_motionPathEndInstructionId.isEmpty();
+	int writtenPoints = 0;
+	if (insertBetween)
+	{
+		// 起终点已在程序中保留，只插入规划路径的中间点
+		RobotInstruction::RawTrajectory mid = m_lastMotionPathRaw;
+		if (mid.points.size() >= 2)
+		{
+			mid.points.erase(mid.points.begin());
+			mid.points.pop_back();
+		}
+		else
+		{
+			mid.points.clear();
+		}
+
+		// 程序顺序与规划起终点相反时反转中间点，保证列表从前往后与路径连续
+		{
+			int iStart = -1;
+			int iEnd = -1;
+			const std::string sid = m_motionPathStartInstructionId.toStdString();
+			const std::string eid = m_motionPathEndInstructionId.toStdString();
+			for (int i = 0; i < static_cast<int>(prog->steps.size()); ++i)
+			{
+				const auto& ins = prog->steps[static_cast<std::size_t>(i)];
+				if (!ins)
+					continue;
+				if (ins->id() == sid)
+					iStart = i;
+				if (ins->id() == eid)
+					iEnd = i;
+			}
+			if (iStart >= 0 && iEnd >= 0 && iStart > iEnd)
+				std::reverse(mid.points.begin(), mid.points.end());
+		}
+
+		writtenPoints = static_cast<int>(mid.points.size());
+		if (!RobotInstruction::insertRawTrajectoryBetween(mid, *prog, m_motionPathStartInstructionId.toStdString(),
+														  m_motionPathEndInstructionId.toStdString(), &err))
+		{
+			if (m_host->runInfoPage())
+				m_host->appendRunWarning(QString::fromStdString(err.empty() ? "插入中间点失败" : err));
+			if (RobotCollisionSettingsWidget* col = m_simulationDock ? m_simulationDock->collisionPage() : nullptr)
+				col->setPlanStatusText(QString::fromStdString(err.empty() ? "插入失败" : err));
+			return;
+		}
+		// 冻结工具上下文，回放才能走 taughtJointCsv，避免中间点重 IK 姿态门限失败
+		if (m_host->simulationCommandPage())
+		{
+			const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+			if (instIdx >= 0)
+			{
+				const RobotCoordinate::RobotCoordinateFrameSet frames =
+					doc->robotCoordinateFramesForInstance(instIdx);
+				int iStart = -1;
+				int iEnd = -1;
+				const std::string sid = m_motionPathStartInstructionId.toStdString();
+				const std::string eid = m_motionPathEndInstructionId.toStdString();
+				for (int i = 0; i < static_cast<int>(prog->steps.size()); ++i)
+				{
+					const auto& ins = prog->steps[static_cast<std::size_t>(i)];
+					if (!ins)
+						continue;
+					if (ins->id() == sid)
+						iStart = i;
+					if (ins->id() == eid)
+						iEnd = i;
+				}
+				if (iStart >= 0 && iEnd >= 0)
+				{
+					if (iStart > iEnd)
+						std::swap(iStart, iEnd);
+					int midIdx = 0;
+					int taughtCount = 0;
+					for (int i = iStart + 1; i < iEnd && midIdx < mid.points.size(); ++i, ++midIdx)
+					{
+						auto& ins = prog->steps[static_cast<std::size_t>(i)];
+						if (!ins || mid.points[static_cast<std::size_t>(midIdx)].jointRad.empty())
+							continue;
+						QVector<double> jq;
+						for (double v : mid.points[static_cast<std::size_t>(midIdx)].jointRad)
+							jq.push_back(v);
+						RobotInstructionPlanning::persistTaughtJointsAndToolContext(*ins, jq, frames);
+						++taughtCount;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		std::string emittedGroupId;
+		if (!RobotInstruction::emitRawTrajectoryToProgram(m_lastMotionPathRaw, *prog, &err, &emittedGroupId, nullptr))
+		{
+			if (m_host->runInfoPage())
+				m_host->appendRunWarning(QString::fromStdString(err.empty() ? "生成轨迹失败" : err));
+			if (RobotCollisionSettingsWidget* col = m_simulationDock ? m_simulationDock->collisionPage() : nullptr)
+				col->setPlanStatusText(QString::fromStdString(err.empty() ? "生成失败" : err));
+			return;
+		}
+		writtenPoints = static_cast<int>(m_lastMotionPathRaw.points.size());
+	}
+
+
+	if (m_host->simulationCommandPage())
+		m_host->simulationCommandPage()->refreshInstructionList();
+	refreshCollisionPageMotionWaypoints();
+	{
+		std::vector<std::shared_ptr<RobotInstruction::Base>> flat;
+		RobotInstruction::flattenInstructionsRecursive(prog->steps, flat);
+		for (const std::shared_ptr<RobotInstruction::Base>& ins : flat)
+		{
+			if (ins && RobotInstruction::isMotionWaypointType(ins->type()))
+				syncInstructionRenderMatricesFromWorldPose(ins);
+		}
+	}
+	m_motionPathPreviewActive = false;
+	m_lastMotionPathRawValid = false;
+	setRawTrajectoryPreviewActive(false);
+	if (IRobotOsgViewHost* osg = m_host->osgView())
+	{
+		osg->clearRawTrajectoryOverlay();
+		osg->clearRawTrajectoryOverlayFrames();
+	}
+	refreshInstructionPoseAxes(false);
+	m_lastMotionPathRaw = RobotInstruction::RawTrajectory{};
+	if (m_host->runInfoPage())
+	{
+		m_host->appendRunInfo(insertBetween
+								  ? QStringLiteral("已在起终点之间插入中间点（%1 点）").arg(writtenPoints)
+								  : QStringLiteral("已生成轨迹到程序（%1 点）").arg(writtenPoints));
+	}
+	if (RobotCollisionSettingsWidget* col = m_simulationDock ? m_simulationDock->collisionPage() : nullptr)
+	{
+		col->setPlanStatusText(insertBetween ? QStringLiteral("已插入中间点") : QStringLiteral("已写入程序"));
+		col->setConfirmEnabled(false);
+	}
+}
+
 void RobotSimulationController::onRobotCoordinateFramesChanged()
 {
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
@@ -2679,6 +3273,8 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 	if (m_simulationDock && m_simulationDock->collisionPage() && doc)
 	{
 		m_simulationDock->collisionPage()->setSettings(doc->robotCollisionSettings());
+		refreshCollisionPageSceneObjects();
+		refreshCollisionPageMotionWaypoints();
 	}
 	refreshRobotCoordinateFrameOverlays();
 	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instanceIndex);
@@ -5023,10 +5619,9 @@ RobotSimulationController::findInstructionById(const QString& instructionId) con
 void RobotSimulationController::invalidateFeasibleAxisConfigurationCache()
 {
 	++m_feasibleAxisJobToken;
-	m_cachedFeasibleAxisInstructionId.clear();
-	m_cachedFeasibleAxisFingerprint.clear();
-	m_cachedFeasibleAxisSeedJointRad.clear();
-	m_cachedFeasibleAxisOptions = {};
+	m_lastFeasibleAxisInstructionId.clear();
+	m_lastFeasibleAxisFingerprint.clear();
+	m_lastFeasibleAxisOptions = {};
 	m_planResultCache.invalidateAll();
 	invalidateChainSeedRollCache();
 }
@@ -5102,14 +5697,18 @@ RobotSimulationController::feasibleMotionAxisConfigurationOptionsForInstruction(
 						   .arg(fpBaseWorld(3, 1), 0, 'g', 8)
 						   .arg(fpBaseWorld(3, 2), 0, 'g', 8);
 	}
-	if (m_cachedFeasibleAxisInstructionId == QString::fromStdString(instruction->id()) &&
-		m_cachedFeasibleAxisFingerprint == fingerprint && !m_cachedFeasibleAxisOptions.presetTokens.empty())
+	const QString instructionId = QString::fromStdString(instruction->id());
+	if (const PlanResultCache::FeasibleAxisEntry* hit =
+			m_planResultCache.fetchFeasibleAxis(instructionId, fingerprint))
 	{
+		m_lastFeasibleAxisInstructionId = instructionId;
+		m_lastFeasibleAxisFingerprint = fingerprint;
+		m_lastFeasibleAxisOptions = hit->options;
 		if (outSeedJointRad)
 		{
-			*outSeedJointRad = m_cachedFeasibleAxisSeedJointRad;
+			*outSeedJointRad = hit->seedJointRad;
 		}
-		return m_cachedFeasibleAxisOptions;
+		return hit->options;
 	}
 
 	const RobotInstructionPlanning::MotionPoseBackup targetBackup =
@@ -5120,10 +5719,10 @@ RobotSimulationController::feasibleMotionAxisConfigurationOptionsForInstruction(
 	out = m_instructionController.queryFeasibleMotionAxisConfigurationOptions(*instruction);
 	RobotInstructionPlanning::restoreInstructionPose(*instruction, targetBackup);
 
-	m_cachedFeasibleAxisInstructionId = QString::fromStdString(instruction->id());
-	m_cachedFeasibleAxisFingerprint = fingerprint;
-	m_cachedFeasibleAxisOptions = out;
-	m_cachedFeasibleAxisSeedJointRad = rollingQ;
+	m_planResultCache.storeFeasibleAxis(instructionId, fingerprint, out, rollingQ);
+	m_lastFeasibleAxisInstructionId = instructionId;
+	m_lastFeasibleAxisFingerprint = fingerprint;
+	m_lastFeasibleAxisOptions = out;
 	if (outSeedJointRad)
 	{
 		*outSeedJointRad = rollingQ;
@@ -5972,6 +6571,8 @@ void RobotSimulationController::onSimulationDockTabChanged(int index)
 				m_simulationDock ? m_simulationDock->trajectoryGenerationPage() : nullptr)
 			gen->refreshWorkpieces();
 	}
+	refreshCollisionPageMotionWaypoints();
+	refreshCollisionPageSceneObjects();
 	refreshPathPlanPreviewForActiveTab();
 }
 
@@ -6773,7 +7374,8 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 		std::string colErr;
 		const QVector<double> seedBefore = seedJointRad;
 		if (!BackendCollisionSync::validateJointTrajectory(*self->m_collisionWorld, doc, doc->backend(), instanceIndex,
-														   seedBefore, plan.jointTrajectoryRad, col, &colErr))
+														   seedBefore, plan.jointTrajectoryRad, col, &colErr,
+														   m_host->osgView()))
 		{
 			plan.ok = false;
 			plan.summary = colErr.empty() ? "Collision detected" : colErr;
@@ -6862,7 +7464,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 			std::vector<std::vector<double>> traj;
 			traj.push_back(outPlan.jointTargetsRad);
 			if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(), instanceIndex,
-															   chainSeedQ, traj, col, &colErr))
+															   chainSeedQ, traj, col, &colErr, m_host->osgView()))
 			{
 				outPlan.ok = false;
 				outPlan.summary = colErr.empty() ? "Collision detected" : colErr;
@@ -7436,11 +8038,14 @@ void RobotSimulationController::scheduleDeferredFeasibleAxisProbe(
 						   .arg(fpBaseWorld(3, 1), 0, 'g', 8)
 						   .arg(fpBaseWorld(3, 2), 0, 'g', 8);
 	}
-	if (m_cachedFeasibleAxisInstructionId == QString::fromStdString(instruction->id()) &&
-		m_cachedFeasibleAxisFingerprint == fingerprint && !m_cachedFeasibleAxisOptions.presetTokens.empty())
+	const QString instructionId = QString::fromStdString(instruction->id());
+	if (const PlanResultCache::FeasibleAxisEntry* hit =
+			m_planResultCache.fetchFeasibleAxis(instructionId, fingerprint))
 	{
-		m_host->applySuggestedAxisPresetFromSeedIfNeeded(instruction, m_cachedFeasibleAxisSeedJointRad,
-														 m_cachedFeasibleAxisOptions);
+		m_lastFeasibleAxisInstructionId = instructionId;
+		m_lastFeasibleAxisFingerprint = fingerprint;
+		m_lastFeasibleAxisOptions = hit->options;
+		m_host->applySuggestedAxisPresetFromSeedIfNeeded(instruction, hit->seedJointRad, hit->options);
 		if (purpose == FeasibleAxisProbePurpose::SelectionAutoSeed)
 		{
 			instruction->setExtensionProperty("context.axisConfigSeeded", "1");
@@ -7472,10 +8077,11 @@ void RobotSimulationController::scheduleDeferredFeasibleAxisProbe(
 			{
 				return;
 			}
-			m_cachedFeasibleAxisInstructionId = jobResult->instructionId;
-			m_cachedFeasibleAxisFingerprint = jobResult->fingerprint;
-			m_cachedFeasibleAxisOptions = jobResult->options;
-			m_cachedFeasibleAxisSeedJointRad = jobResult->seedJointRad;
+			m_planResultCache.storeFeasibleAxis(jobResult->instructionId, jobResult->fingerprint, jobResult->options,
+											   jobResult->seedJointRad);
+			m_lastFeasibleAxisInstructionId = jobResult->instructionId;
+			m_lastFeasibleAxisFingerprint = jobResult->fingerprint;
+			m_lastFeasibleAxisOptions = jobResult->options;
 			const std::shared_ptr<RobotInstruction::Base> active = m_host->activeInstructionForProperty();
 			if (!active || QString::fromStdString(active->id()) != jobResult->instructionId)
 			{

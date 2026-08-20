@@ -163,12 +163,13 @@ void IoSignalPageWidget::onOwnerChanged(int)
 
 void IoSignalPageWidget::bindCurrentOwner()
 {
+	// clear() 会先删 sink 再 networkChanged；QPointer 避免对悬空指针 disconnect
 	if (m_sink)
 	{
 		disconnect(m_sink, nullptr, this, nullptr);
 	}
 	m_table = nullptr;
-	m_sink = nullptr;
+	m_sink.clear();
 	const QString id = currentOwnerId();
 	if (m_network && !id.isEmpty())
 	{

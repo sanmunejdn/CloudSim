@@ -26,6 +26,8 @@ struct BuildInput
 	QStringList excludeApiIds;
 	int maxSteps = 8;
 	bool enableLlmPlan = true;
+	/// false：跳过场景/工艺/多 keyword 规则，只走 LLM 规划
+	bool enableRules = true;
 	AiLlmConfig llm;
 	AiProgressSink progress;
 };

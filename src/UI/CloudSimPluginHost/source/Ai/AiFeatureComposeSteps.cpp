@@ -29,6 +29,7 @@ bool waitGeomJobResult(const std::function<void(PluginGeometryFinishedFn)>& star
 {
 	QEventLoop loop;
 	bool ok = false;
+	bool finished = false;
 	QString err;
 	PluginGeometryJobResult job;
 	start(
@@ -37,9 +38,12 @@ bool waitGeomJobResult(const std::function<void(PluginGeometryFinishedFn)>& star
 			ok = success;
 			err = error;
 			job = result;
+			finished = true;
 			loop.quit();
 		});
-	loop.exec();
+	// Pad/Fillet 等常在 start() 内同步 onFinished；Qt 的 exec() 会清掉此前的 quit，必须跳过
+	if (!finished)
+		loop.exec();
 	if (outJob)
 		*outJob = job;
 	if (!ok)

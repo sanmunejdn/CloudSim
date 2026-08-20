@@ -149,7 +149,8 @@ double findDiameterMm(const QString& t, const std::vector<double>& nums)
 	const auto m = re.match(t);
 	if (m.hasMatch())
 		return m.captured(1).toDouble();
-	QRegularExpression reD(QStringLiteral("\\bd\\s*(\\d+(?:\\.\\d+)?)"), QRegularExpression::CaseInsensitiveOption);
+	// 「通孔 d50」/「通孔d50」：不用 \\b（汉字与 d 之间可能不成单词边界）
+	QRegularExpression reD(QStringLiteral("(?:^|[^A-Za-z0-9_])[dD]\\s*(\\d+(?:\\.\\d+)?)"));
 	const auto md = reD.match(t);
 	if (md.hasMatch())
 		return md.captured(1).toDouble();

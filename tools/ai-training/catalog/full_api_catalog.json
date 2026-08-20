@@ -8,10 +8,24 @@
         "mesh.compose"
       ],
       "keywords": [
+        "生成长方体",
+        "创建长方体",
+        "生成圆柱",
+        "创建圆柱",
+        "生成球体",
+        "创建球体",
+        "生成圆锥",
         "创建基本体",
-        "Create primitive"
+        "长方体",
+        "正方体",
+        "立方体",
+        "圆柱",
+        "圆锥",
+        "球体",
+        "Create primitive",
+        "Generate box"
       ],
-      "summary": "Create box/cylinder/cone/sphere",
+      "summary": "Create box/cylinder/cone/sphere as parametric Pad when possible",
       "risk": "medium",
       "args_schema": [
         {

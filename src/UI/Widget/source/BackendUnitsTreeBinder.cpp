@@ -1,17 +1,54 @@
 /// @file BackendUnitsTreeBinder.cpp
-/// @brief Units 树文档作用域绑定
+/// @brief Units 树文档作用域绑定（QTreeView 便于长列表滚动复用 viewport）
 
 #include "BackendUnitsTreeBinder.h"
 
 #include "MainWindow_p.h"
 
 #include <QSignalBlocker>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
+#include <QStandardItem>
+#include <QStandardItemModel>
+#include <QTreeView>
+
+#include <QModelIndex>
 
 using namespace mainwindow_detail;
 
-BackendUnitsTreeBinder::BackendUnitsTreeBinder(QTreeWidget* tree) : m_tree(tree) {}
+BackendUnitsTreeBinder::BackendUnitsTreeBinder(QTreeView* tree) : m_tree(tree)
+{
+	if (!m_tree)
+	{
+		return;
+	}
+	m_model = new QStandardItemModel(m_tree);
+	m_tree->setModel(m_model);
+	m_tree->setHeaderHidden(true);
+}
+
+QStandardItem* BackendUnitsTreeBinder::makeLabeledItem(const QString& text, int itemType, const QString& documentId,
+													   bool checkable)
+{
+	auto* item = new QStandardItem(text);
+	item->setEditable(false);
+	item->setData(itemType, kRoleItemType);
+	item->setData(documentId, kRoleDocumentId);
+	Qt::ItemFlags flags = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+	if (checkable)
+	{
+		flags |= Qt::ItemIsUserCheckable;
+	}
+	item->setFlags(flags);
+	return item;
+}
+
+void BackendUnitsTreeBinder::expandItem(QStandardItem* item) const
+{
+	if (!m_tree || !item)
+	{
+		return;
+	}
+	m_tree->expand(item->index());
+}
 
 void BackendUnitsTreeBinder::setAnnotationGroupLabel(const QString& label)
 {
@@ -20,27 +57,27 @@ void BackendUnitsTreeBinder::setAnnotationGroupLabel(const QString& label)
 	{
 		if (it.value())
 		{
-			it.value()->setText(0, m_annotationGroupLabel);
+			it.value()->setText(m_annotationGroupLabel);
 		}
 	}
 }
 
-QTreeWidgetItem* BackendUnitsTreeBinder::documentRoot(const QString& documentId) const
+QStandardItem* BackendUnitsTreeBinder::documentRoot(const QString& documentId) const
 {
 	return m_documentRoots.value(documentId, nullptr);
 }
 
-QTreeWidgetItem* BackendUnitsTreeBinder::annotationGroup(const QString& documentId) const
+QStandardItem* BackendUnitsTreeBinder::annotationGroup(const QString& documentId) const
 {
 	return m_annotationGroups.value(documentId, nullptr);
 }
 
-QTreeWidgetItem* BackendUnitsTreeBinder::findBackendItem(const QString& documentId, const QString& backendId) const
+QStandardItem* BackendUnitsTreeBinder::findBackendItem(const QString& documentId, const QString& backendId) const
 {
 	return m_backendItems.value(DocObjKey(documentId, backendId), nullptr);
 }
 
-QTreeWidgetItem* BackendUnitsTreeBinder::findBackendItemAnyDocument(const QString& backendId) const
+QStandardItem* BackendUnitsTreeBinder::findBackendItemAnyDocument(const QString& backendId) const
 {
 	for (auto it = m_backendItems.constBegin(); it != m_backendItems.constEnd(); ++it)
 	{
@@ -52,22 +89,26 @@ QTreeWidgetItem* BackendUnitsTreeBinder::findBackendItemAnyDocument(const QStrin
 	return nullptr;
 }
 
-void BackendUnitsTreeBinder::applyActiveStyle(QTreeWidgetItem* docRoot, bool isActive) const
+QStandardItem* BackendUnitsTreeBinder::itemFromIndex(const QModelIndex& index) const
 {
-	if (!docRoot || !m_tree)
+	return m_model ? m_model->itemFromIndex(index) : nullptr;
+}
+
+void BackendUnitsTreeBinder::applyActiveStyle(QStandardItem* docRoot, bool isActive) const
+{
+	if (!docRoot || !m_model)
 	{
 		return;
 	}
-	QFont font = docRoot->font(0);
+	QFont font = docRoot->font();
 	const bool wantBold = isActive;
 	if (font.bold() == wantBold)
 	{
 		return;
 	}
 	font.setBold(wantBold);
-	// setFont 会触发 itemChanged，须阻断以免与 activateDocument 重入
-	const QSignalBlocker guard(m_tree);
-	docRoot->setFont(0, font);
+	const QSignalBlocker guard(m_model);
+	docRoot->setFont(font);
 }
 
 void BackendUnitsTreeBinder::setActiveDocument(const QString& documentId)
@@ -95,61 +136,55 @@ void BackendUnitsTreeBinder::forgetDocumentIndexes(const QString& documentId)
 	m_annotationGroups.remove(documentId);
 }
 
-void BackendUnitsTreeBinder::clearDocumentChildrenKeepRoot(QTreeWidgetItem* docRoot, const QString& documentId)
+void BackendUnitsTreeBinder::clearDocumentChildrenKeepRoot(QStandardItem* docRoot, const QString& documentId)
 {
 	if (!docRoot)
 	{
 		return;
 	}
 	forgetDocumentIndexes(documentId);
-	const QList<QTreeWidgetItem*> kids = docRoot->takeChildren();
-	qDeleteAll(kids);
+	docRoot->removeRows(0, docRoot->rowCount());
 }
 
-QTreeWidgetItem* BackendUnitsTreeBinder::ensureDocumentRoot(const QString& documentId, const QString& title,
-															bool isActive)
+QStandardItem* BackendUnitsTreeBinder::ensureDocumentRoot(const QString& documentId, const QString& title,
+														  bool isActive)
 {
-	if (!m_tree || documentId.isEmpty())
+	if (!m_model || documentId.isEmpty())
 	{
 		return nullptr;
 	}
-	QTreeWidgetItem* root = m_documentRoots.value(documentId, nullptr);
+	QStandardItem* root = m_documentRoots.value(documentId, nullptr);
 	if (!root)
 	{
-		root = new QTreeWidgetItem(QStringList() << title);
-		root->setData(0, kRoleItemType, kItemTypeDocument);
-		root->setData(0, kRoleDocumentId, documentId);
-		m_tree->addTopLevelItem(root);
+		root = makeLabeledItem(title, kItemTypeDocument, documentId, false);
+		m_model->appendRow(root);
 		m_documentRoots.insert(documentId, root);
 	}
 	else
 	{
-		root->setText(0, title);
+		root->setText(title);
 	}
 	applyActiveStyle(root, isActive);
-	root->setExpanded(true);
+	expandItem(root);
 	return root;
 }
 
 void BackendUnitsTreeBinder::syncDocument(const BackendUnitsDisplayDocument& doc)
 {
-	if (!m_tree || doc.documentId.isEmpty())
+	if (!m_model || doc.documentId.isEmpty())
 	{
 		return;
 	}
-	const QSignalBlocker guard(m_tree);
-	QTreeWidgetItem* docRoot = ensureDocumentRoot(doc.documentId, doc.title, doc.isActive);
+	const QSignalBlocker guard(m_model);
+	QStandardItem* docRoot = ensureDocumentRoot(doc.documentId, doc.title, doc.isActive);
 	if (!docRoot)
 	{
 		return;
 	}
 	clearDocumentChildrenKeepRoot(docRoot, doc.documentId);
 
-	auto* annGroup = new QTreeWidgetItem(QStringList() << m_annotationGroupLabel);
-	annGroup->setData(0, kRoleItemType, kItemTypeAnnotationGroup);
-	annGroup->setData(0, kRoleDocumentId, doc.documentId);
-	docRoot->addChild(annGroup);
-	annGroup->setExpanded(true);
+	QStandardItem* annGroup = makeLabeledItem(m_annotationGroupLabel, kItemTypeAnnotationGroup, doc.documentId, false);
+	docRoot->appendRow(annGroup);
 	m_annotationGroups.insert(doc.documentId, annGroup);
 
 	for (const BackendUnitsDisplayAnnotation& a : doc.annotations)
@@ -158,16 +193,13 @@ void BackendUnitsTreeBinder::syncDocument(const BackendUnitsDisplayDocument& doc
 		{
 			continue;
 		}
-		auto* item = new QTreeWidgetItem(QStringList() << a.displayText);
-		item->setData(0, kRoleItemType, kItemTypeAnnotation);
-		item->setData(0, kRoleDocumentId, doc.documentId);
-		item->setData(0, kRoleAnnotationId, a.id);
-		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-		item->setCheckState(0, a.visible ? Qt::Checked : Qt::Unchecked);
-		annGroup->addChild(item);
+		QStandardItem* item = makeLabeledItem(a.displayText, kItemTypeAnnotation, doc.documentId, true);
+		item->setData(a.id, kRoleAnnotationId);
+		item->setCheckState(a.visible ? Qt::Checked : Qt::Unchecked);
+		annGroup->appendRow(item);
 	}
 
-	QHash<QString, QTreeWidgetItem*> idToItem;
+	QHash<QString, QStandardItem*> idToItem;
 	idToItem.reserve(doc.objectOrder.size());
 	for (const QString& id : doc.objectOrder)
 	{
@@ -177,12 +209,9 @@ void BackendUnitsTreeBinder::syncDocument(const BackendUnitsDisplayDocument& doc
 			continue;
 		}
 		const QString nodeText = QStringLiteral("%1 [%2]").arg(obj.name).arg(obj.id);
-		auto* item = new QTreeWidgetItem(QStringList() << nodeText);
-		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-		item->setData(0, kRoleItemType, kItemTypeBackend);
-		item->setData(0, kRoleDocumentId, doc.documentId);
-		item->setData(0, kRoleBackendId, obj.id);
-		item->setCheckState(0, obj.visible ? Qt::Checked : Qt::Unchecked);
+		QStandardItem* item = makeLabeledItem(nodeText, kItemTypeBackend, doc.documentId, true);
+		item->setData(obj.id, kRoleBackendId);
+		item->setCheckState(obj.visible ? Qt::Checked : Qt::Unchecked);
 		idToItem.insert(obj.id, item);
 		m_backendItems.insert(DocObjKey(doc.documentId, obj.id), item);
 	}
@@ -190,39 +219,42 @@ void BackendUnitsTreeBinder::syncDocument(const BackendUnitsDisplayDocument& doc
 	for (const QString& id : doc.objectOrder)
 	{
 		const BackendUnitsDisplayObject obj = doc.objects.value(id);
-		QTreeWidgetItem* item = idToItem.value(id, nullptr);
+		QStandardItem* item = idToItem.value(id, nullptr);
 		if (!item)
 		{
 			continue;
 		}
-		QTreeWidgetItem* parentItem = docRoot;
+		QStandardItem* parentItem = docRoot;
 		if (!obj.primaryParentId.isEmpty())
 		{
-			if (QTreeWidgetItem* p = idToItem.value(obj.primaryParentId, nullptr))
+			if (QStandardItem* p = idToItem.value(obj.primaryParentId, nullptr))
 			{
 				parentItem = p;
 			}
 		}
-		parentItem->addChild(item);
+		parentItem->appendRow(item);
 	}
+
+	expandItem(annGroup);
+	expandItem(docRoot);
 }
 
 void BackendUnitsTreeBinder::removeDocument(const QString& documentId)
 {
-	if (!m_tree || documentId.isEmpty())
+	if (!m_model || documentId.isEmpty())
 	{
 		return;
 	}
-	QTreeWidgetItem* root = m_documentRoots.take(documentId);
+	QStandardItem* root = m_documentRoots.take(documentId);
 	forgetDocumentIndexes(documentId);
 	if (!root)
 	{
 		return;
 	}
-	const int idx = m_tree->indexOfTopLevelItem(root);
-	if (idx >= 0)
+	const int row = root->row();
+	if (row >= 0)
 	{
-		delete m_tree->takeTopLevelItem(idx);
+		m_model->removeRow(row);
 	}
 	else
 	{
@@ -232,11 +264,11 @@ void BackendUnitsTreeBinder::removeDocument(const QString& documentId)
 
 void BackendUnitsTreeBinder::retainOnlyDocument(const QString& documentId)
 {
-	if (!m_tree)
+	if (!m_model)
 	{
 		return;
 	}
-	const QSignalBlocker guard(m_tree);
+	const QSignalBlocker guard(m_model);
 	const QStringList ids = m_documentRoots.keys();
 	for (const QString& id : ids)
 	{
@@ -249,19 +281,21 @@ void BackendUnitsTreeBinder::retainOnlyDocument(const QString& documentId)
 
 void BackendUnitsTreeBinder::showOnlyDocument(const QString& documentId)
 {
-	if (!m_tree)
+	if (!m_tree || !m_model)
 	{
 		return;
 	}
-	const QSignalBlocker guard(m_tree);
-	for (auto it = m_documentRoots.begin(); it != m_documentRoots.end(); ++it)
+	const QSignalBlocker guard(m_model);
+	for (int r = 0; r < m_model->rowCount(); ++r)
 	{
-		if (!it.value())
+		QStandardItem* root = m_model->item(r);
+		if (!root)
 		{
 			continue;
 		}
-		const bool show = !documentId.isEmpty() && it.key() == documentId;
-		it.value()->setHidden(!show);
+		const QString id = root->data(kRoleDocumentId).toString();
+		const bool show = !documentId.isEmpty() && id == documentId;
+		m_tree->setRowHidden(r, QModelIndex(), !show);
 	}
 	setActiveDocument(documentId);
 }
@@ -273,44 +307,41 @@ bool BackendUnitsTreeBinder::hasDocument(const QString& documentId) const
 
 void BackendUnitsTreeBinder::patchObjectVisible(const QString& documentId, const QString& backendId, bool visible)
 {
-	if (QTreeWidgetItem* item = findBackendItem(documentId, backendId))
+	if (QStandardItem* item = findBackendItem(documentId, backendId))
 	{
-		const QSignalBlocker guard(m_tree);
-		item->setCheckState(0, visible ? Qt::Checked : Qt::Unchecked);
+		const QSignalBlocker guard(m_model);
+		item->setCheckState(visible ? Qt::Checked : Qt::Unchecked);
 	}
 }
 
 void BackendUnitsTreeBinder::addAnnotationItem(const QString& documentId, const QString& annotationId,
 											   const QString& displayText, bool visible)
 {
-	QTreeWidgetItem* group = m_annotationGroups.value(documentId, nullptr);
+	QStandardItem* group = m_annotationGroups.value(documentId, nullptr);
 	if (!group || annotationId.isEmpty())
 	{
 		return;
 	}
-	auto* item = new QTreeWidgetItem(QStringList() << displayText);
-	item->setData(0, kRoleItemType, kItemTypeAnnotation);
-	item->setData(0, kRoleDocumentId, documentId);
-	item->setData(0, kRoleAnnotationId, annotationId);
-	item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-	item->setCheckState(0, visible ? Qt::Checked : Qt::Unchecked);
-	group->addChild(item);
-	group->setExpanded(true);
+	QStandardItem* item = makeLabeledItem(displayText, kItemTypeAnnotation, documentId, true);
+	item->setData(annotationId, kRoleAnnotationId);
+	item->setCheckState(visible ? Qt::Checked : Qt::Unchecked);
+	group->appendRow(item);
+	expandItem(group);
 }
 
 void BackendUnitsTreeBinder::removeAnnotationItem(const QString& documentId, const QString& annotationId)
 {
-	QTreeWidgetItem* group = m_annotationGroups.value(documentId, nullptr);
+	QStandardItem* group = m_annotationGroups.value(documentId, nullptr);
 	if (!group)
 	{
 		return;
 	}
-	for (int i = 0; i < group->childCount(); ++i)
+	for (int i = 0; i < group->rowCount(); ++i)
 	{
-		QTreeWidgetItem* child = group->child(i);
-		if (child && child->data(0, kRoleAnnotationId).toString() == annotationId)
+		QStandardItem* child = group->child(i);
+		if (child && child->data(kRoleAnnotationId).toString() == annotationId)
 		{
-			delete group->takeChild(i);
+			group->removeRow(i);
 			return;
 		}
 	}
@@ -319,18 +350,18 @@ void BackendUnitsTreeBinder::removeAnnotationItem(const QString& documentId, con
 void BackendUnitsTreeBinder::setAnnotationItemVisible(const QString& documentId, const QString& annotationId,
 													  bool visible)
 {
-	QTreeWidgetItem* group = m_annotationGroups.value(documentId, nullptr);
+	QStandardItem* group = m_annotationGroups.value(documentId, nullptr);
 	if (!group)
 	{
 		return;
 	}
-	for (int i = 0; i < group->childCount(); ++i)
+	for (int i = 0; i < group->rowCount(); ++i)
 	{
-		QTreeWidgetItem* child = group->child(i);
-		if (child && child->data(0, kRoleAnnotationId).toString() == annotationId)
+		QStandardItem* child = group->child(i);
+		if (child && child->data(kRoleAnnotationId).toString() == annotationId)
 		{
-			const QSignalBlocker guard(m_tree);
-			child->setCheckState(0, visible ? Qt::Checked : Qt::Unchecked);
+			const QSignalBlocker guard(m_model);
+			child->setCheckState(visible ? Qt::Checked : Qt::Unchecked);
 			return;
 		}
 	}
@@ -342,14 +373,15 @@ void BackendUnitsTreeBinder::setCurrentBackendItem(const QString& documentId, co
 	{
 		return;
 	}
-	QTreeWidgetItem* item = findBackendItem(documentId, backendId);
+	QStandardItem* item = findBackendItem(documentId, backendId);
 	if (!item)
 	{
 		return;
 	}
-	m_tree->setCurrentItem(item);
+	const QModelIndex index = item->index();
+	m_tree->setCurrentIndex(index);
 	if (scroll)
 	{
-		m_tree->scrollToItem(item);
+		m_tree->scrollTo(index);
 	}
 }

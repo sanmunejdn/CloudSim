@@ -22,6 +22,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | **自定义设备组装** | `CustomDeviceAssemblyDialog`；「3D 选择零件」→ `beginPickSolidInView` / `extractBrepSolidByFace`；提交 `CustomDeviceAssemblyCommit` |
 | **设备指令（姿态库 + DI 信号驱动）** | `DeviceCommandPageWidget` + `CustomDeviceSimService`；姿态/`poseSignalBindings`/`signals` 在 `CustomDeviceBackendData`；DI 来自本设备信号表 |
 | **IO 网络 / 连接站** | 桌面：`IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站；Tab stash `ioSignalNetworkCache`。网页/Headless：Host `IoSignalNetwork`（同侧车 JSON）+ Gateway `/api/io/network*`，见 [`docs/网页端信号网络与自定义设备/`](../../../docs/网页端信号网络与自定义设备/)。过程稿 [`docs/_archive/IO信号与流程/`](../../../docs/_archive/IO信号与流程/) |
+| **碰撞与关节路径规划** | Dock「碰撞与规划」：`RobotCollisionSettingsWidget`（启用/安全余量、未分配池、白/黑名单、起终点路点下拉、规划/清除/确认插入）；算法见 `RobotPathPlanning`；场景同步 `BackendCollisionSync` |
 | Orchestration | `RobotSimulationController`（门面；含 `IoSignalNetworkService` 等小服务） |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
@@ -473,6 +474,33 @@ Dock **设备** → 子 Tab **指令**（机器人程序，与「设备指令」
 源码：[`resource/Python/ExportPython/`](resource/Python/ExportPython/)；构建后复制到 `bin/x64(d)/resource/Python/ExportPython/`。调用封装：`PythonScriptCaller`。设计文档：[`docs/机器人程序品牌导出/`](../../../docs/机器人程序品牌导出/)。导入品牌程序不在本模块范围。
 
 分组创建/解散/重命名在**树右键**完成，经 `ProgramEditService` 落盘并 `emit groupsChanged()` 供轨迹编辑页刷新顶栏分组下拉。程序切换：`onProgramComboChanged` → `rebuildCommandListWidget()` 绑定当前程序 `steps` + `groups`。
+
+---
+
+## 碰撞与关节路径规划
+
+Dock 页「碰撞与规划」（`RobotCollisionSettingsWidget`）：
+
+| 能力 | 说明 |
+|------|------|
+| 启用 / 安全余量 | 写入实例 `RobotCollisionSettings` |
+| 未分配池 + 白/黑名单 | 同名单物体互不检碰；仅 **跨名单** 对进入 `CollisionWorld` |
+| 起终点路点 | 页内下拉（非弹窗）；规划 / 清除预览 / **确认插入** |
+| 持久化 | `whiteListBackendIds` / `blackListBackendIds`（工程 JSON） |
+
+规划链路（`RobotSimulationController::runMotionPathPlanFromWaypoints`）：
+
+1. `BackendCollisionSync::rebuildWorld` + 起点 `applyJointAnglesRad` + `updatePoses`
+2. 绑定 `fkMeshWorldT0` / `outerWorldAtBind` / `robotBasePlacementWorld`（OSG）填入 `PlanRequest`
+3. `robot_path::planToTcpPose`（默认 BIT*，见 [`RobotPathPlanning/DEVELOPER_GUIDE.md`](../../Robot/RobotPathPlanning/DEVELOPER_GUIDE.md)）
+4. densify 后 `BackendCollisionSync::validateJointTrajectory`（画面 apply + OSG）闸门
+5. 预览折线；确认后 `insertRawTrajectoryBetween`（Pmid 进分组，夹在起终点之间）+ 示教关节 CSV
+
+**勿**在规划循环跨 DLL 调用 `std::function` 版 `applyJointAnglesRad`（MSVC 边界易失效且扭动画面）。
+
+### IO 信号页生命周期
+
+打开工程 `IoSignalNetworkService::clear()` 会先删 sink 再 `networkChanged`。`IoSignalPageWidget` 用 `QPointer<NamedSignalIoSink>`；`fromProjectJson` 期间 `QSignalBlocker`，避免对悬空 sink `disconnect`（UAF）。
 
 ---
 

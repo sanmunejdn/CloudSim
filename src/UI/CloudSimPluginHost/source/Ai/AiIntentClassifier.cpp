@@ -66,11 +66,13 @@ Result classifyByRules(const QString& userText, const int minScore)
 		hasAny(t, {"拉伸", "凸台", "切除", "草图", "圆角", "倒角", "阵列", "放样", "抽壳", "拔模", "建模",
 				   "生成模型", "text-to-cad", "特征链"},
 			   Qt::CaseInsensitive);
-	if (holeCue && featureStrong)
-		addScore(scores, AiDomainIds::featureCompose(), 3);
+	const bool padStockCue = hasAny(t, {"长方体", "正方体", "立方体", "盒子", "板"});
+	// 「建模 … 通孔 d50」/「长方体 … 通孔」优先参数化 Pad+Pocket，压过纯 mesh.create
+	if (holeCue && (featureStrong || padStockCue))
+		addScore(scores, AiDomainIds::featureCompose(), 4);
 	else if (featureStrong)
 		addScore(scores, AiDomainIds::featureCompose(), 2);
-	if (booleanCue || (holeCue && hasAny(t, {"网格", "mesh", "实体"}, Qt::CaseInsensitive)))
+	if (booleanCue || (holeCue && hasAny(t, {"网格", "mesh", "实体", "布尔"}, Qt::CaseInsensitive)))
 		addScore(scores, AiDomainIds::meshCompose(), 3);
 
 	if (hasAny(t, {"中心线", "模板点位", "区域划分", "特征构建", "centerline"}, Qt::CaseInsensitive))

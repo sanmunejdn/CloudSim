@@ -52,8 +52,12 @@
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
+#include <QTreeView>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
+#include <QItemSelectionModel>
+#include <QStandardItem>
+#include <QStandardItemModel>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <mutex>
@@ -509,21 +513,25 @@ void MainWindow::setupDockWidgets()
 	m_unitDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_unitDockTabs = new QTabWidget(m_unitDock);
 	setupDockTabWidget(m_unitDockTabs);
-	m_backendTree = new QTreeWidget();
+	m_backendTree = new QTreeView();
 	m_backendTree->setHeaderHidden(true);
 	m_backendTree->setRootIsDecorated(true);
 	m_backendTree->setItemsExpandable(true);
 	m_backendTree->setExpandsOnDoubleClick(true);
 	m_backendTree->setIndentation(20);
 	m_backendTree->setAnimated(true);
+	m_backendTree->setUniformRowHeights(true);
 	m_unitsTreeBinder = std::make_unique<BackendUnitsTreeBinder>(m_backendTree);
 	m_unitsTreeBinder->setAnnotationGroupLabel(QStringLiteral("Annotations"));
-	connect(m_backendTree, &QTreeWidget::itemSelectionChanged, this, &MainWindow::onBackendTreeSelectionChanged);
-	connect(m_backendTree, &QTreeWidget::itemChanged, this,
-			[this](QTreeWidgetItem* item, int column)
-			{ MainWindowSelectionService::handleBackendTreeItemChanged(*this, item, column); });
+	connect(m_backendTree->selectionModel(), &QItemSelectionModel::selectionChanged, this,
+			[this] { onBackendTreeSelectionChanged(); });
+	if (QStandardItemModel* model = m_unitsTreeBinder->itemModel())
+	{
+		connect(model, &QStandardItemModel::itemChanged, this,
+				[this](QStandardItem* item) { MainWindowSelectionService::handleBackendTreeItemChanged(*this, item); });
+	}
 	m_backendTree->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(m_backendTree, &QTreeWidget::customContextMenuRequested, this, &MainWindow::onBackendTreeContextMenu);
+	connect(m_backendTree, &QTreeView::customContextMenuRequested, this, &MainWindow::onBackendTreeContextMenu);
 	m_robotSimulation->createSimulationDock(m_unitDockTabs);
 	m_unitDockTabs->addTab(m_backendTree, QStringLiteral("Units"));
 	m_unitDockTabs->addTab(m_robotSimulation->simulationDock(), QStringLiteral("Simulation"));

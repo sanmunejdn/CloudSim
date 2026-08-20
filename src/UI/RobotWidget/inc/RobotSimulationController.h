@@ -1,4 +1,4 @@
-﻿#ifndef ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
+#ifndef ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
 #define ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
 
 /// @file RobotSimulationController.h
@@ -10,8 +10,11 @@
 #include "NamedSignalIoSink.h"
 #include "NamedSignalTable.h"
 #include "PlanResultCache.h"
+#include "RawTrajectory.h"
 #include "RobotInstructionController.h"
 #include "RobotProgramExecutor.h"
+#include "MotionPathPlanDialog.h"
+#include "RobotCollisionSettingsWidget.h"
 
 #include <QElapsedTimer>
 #include <QHash>
@@ -50,7 +53,6 @@ namespace RobotInstruction
 {
 class Base;
 struct FeasibleMotionAxisConfigurationOptions;
-struct RawTrajectory;
 } // namespace RobotInstruction
 
 /// 指令选中时链式种子，供 feasible 与 preview 共用，避免重复 IK
@@ -111,7 +113,7 @@ public:
 														 const PrecomputedChainSeed* precomputedChainSeed = nullptr);
 	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& cachedFeasibleAxisConfigurationOptions() const
 	{
-		return m_cachedFeasibleAxisOptions;
+		return m_lastFeasibleAxisOptions;
 	}
 	void invalidateFeasibleAxisConfigurationCache();
 
@@ -161,6 +163,14 @@ public slots:
 	void onSimulationDockTabChanged(int index);
 	void onReachableWorkspaceToggled(bool enabled);
 	void onReachableWorkspaceDensityChanged(int percent);
+	void onMotionPathPlanRequested();
+	void onMotionPathPreviewClearRequested();
+	void onMotionPathConfirmTrajectoryRequested();
+	void runMotionPathPlanFromWaypoints(const QString& startId, const QString& endId);
+	QVector<MotionPathWaypointItem> collectMotionPathWaypoints() const;
+	void refreshCollisionPageMotionWaypoints();
+	void refreshCollisionPageSceneObjects();
+	QVector<CollisionSceneObjectItem> collectCollisionSceneObjects() const;
 	void onRobotCommConnectRequested();
 	void onRobotCommDisconnectRequested();
 	void onRobotCommMirrorToggled(bool enabled);
@@ -303,6 +313,11 @@ private:
 	bool m_lastTcpDragTargetValid = false;
 	bool m_skipInstructionPreviewOnce = false;
 	bool m_rawTrajectoryPreviewActive = false;
+	bool m_motionPathPreviewActive = false;
+	RobotInstruction::RawTrajectory m_lastMotionPathRaw;
+	bool m_lastMotionPathRawValid = false;
+	QString m_motionPathStartInstructionId;
+	QString m_motionPathEndInstructionId;
 
 	bool m_arcTeachPending = false;
 	RobotInstruction::Vec3 m_arcTeachViaPose{};
@@ -313,10 +328,9 @@ private:
 	void cancelArcTeach();
 
 	QSet<QString> m_hiddenInstructionGroupIds;
-	RobotInstruction::FeasibleMotionAxisConfigurationOptions m_cachedFeasibleAxisOptions;
-	QString m_cachedFeasibleAxisInstructionId;
-	QString m_cachedFeasibleAxisFingerprint;
-	QVector<double> m_cachedFeasibleAxisSeedJointRad;
+	mutable RobotInstruction::FeasibleMotionAxisConfigurationOptions m_lastFeasibleAxisOptions;
+	QString m_lastFeasibleAxisInstructionId;
+	QString m_lastFeasibleAxisFingerprint;
 
 	PlanResultCache m_planResultCache;
 	QHash<QString, bool> m_motionReachabilityCache;

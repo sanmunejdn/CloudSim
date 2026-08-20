@@ -212,7 +212,8 @@ QString sidePanelTabKey(const QWidget* widget)
 	{
 		return widget->objectName();
 	}
-	return QStringLiteral("CloudSim.SidePanel.") + QString::number(reinterpret_cast<quintptr>(widget), 16);
+	// 无 objectName 时不写指针 hex（重启即失效）；调用方应在注册前 setObjectName
+	return QStringLiteral("CloudSim.SidePanel.unnamed");
 }
 
 bool sidePanelTabVisible(const QString& key, const bool defaultVisible)

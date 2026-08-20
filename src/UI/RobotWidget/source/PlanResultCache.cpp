@@ -1,5 +1,5 @@
 ﻿/// @file PlanResultCache.cpp
-/// @brief 规划结果缓存
+/// @brief 规划结果与可行轴缓存
 
 #include "PlanResultCache.h"
 
@@ -21,6 +21,11 @@ void PlanResultCache::evictOverflow()
 	{
 		const QString oldest = m_fifoKeys.takeFirst();
 		m_entries.remove(oldest);
+	}
+	while (m_feasibleAxis.size() > m_maxEntries && !m_feasibleFifoKeys.isEmpty())
+	{
+		const QString oldest = m_feasibleFifoKeys.takeFirst();
+		m_feasibleAxis.remove(oldest);
 	}
 }
 
@@ -47,6 +52,30 @@ void PlanResultCache::store(const QString& instructionId, const QString& fingerp
 	evictOverflow();
 }
 
+const PlanResultCache::FeasibleAxisEntry* PlanResultCache::fetchFeasibleAxis(const QString& instructionId,
+																			const QString& fingerprint) const
+{
+	const auto it = m_feasibleAxis.find(makeKey(instructionId, fingerprint));
+	return (it != m_feasibleAxis.end()) ? &(*it) : nullptr;
+}
+
+void PlanResultCache::storeFeasibleAxis(const QString& instructionId, const QString& fingerprint,
+										const RobotInstruction::FeasibleMotionAxisConfigurationOptions& options,
+										const QVector<double>& seedJointRad)
+{
+	const QString key = makeKey(instructionId, fingerprint);
+	if (m_feasibleAxis.contains(key))
+	{
+		m_feasibleFifoKeys.removeAll(key);
+	}
+	FeasibleAxisEntry e;
+	e.options = options;
+	e.seedJointRad = seedJointRad;
+	m_feasibleAxis.insert(key, std::move(e));
+	m_feasibleFifoKeys.append(key);
+	evictOverflow();
+}
+
 void PlanResultCache::invalidateByInstruction(const QString& instructionId)
 {
 	auto it = m_entries.begin();
@@ -62,12 +91,27 @@ void PlanResultCache::invalidateByInstruction(const QString& instructionId)
 			++it;
 		}
 	}
+	auto fit = m_feasibleAxis.begin();
+	while (fit != m_feasibleAxis.end())
+	{
+		if (fit.key().startsWith(instructionId + QLatin1Char('|')))
+		{
+			m_feasibleFifoKeys.removeAll(fit.key());
+			fit = m_feasibleAxis.erase(fit);
+		}
+		else
+		{
+			++fit;
+		}
+	}
 }
 
 void PlanResultCache::invalidateAll()
 {
 	m_entries.clear();
 	m_fifoKeys.clear();
+	m_feasibleAxis.clear();
+	m_feasibleFifoKeys.clear();
 }
 
 void PlanResultCache::evictFarBehind(const size_t currentMotionIndex, const size_t keepBehind)

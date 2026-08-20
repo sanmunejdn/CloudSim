@@ -142,7 +142,7 @@ AiAgentPlan buildPlan(const BuildInput& in, const QString& failureObservation)
 	for (const QString& id : in.excludeApiIds)
 		allowed.remove(id);
 
-	if (failureObservation.isEmpty())
+	if (failureObservation.isEmpty() && in.enableRules)
 	{
 		if (in.domainId == AiDomainIds::processFlow() || in.domainId == AiDomainIds::autoDomain())
 		{
@@ -180,6 +180,12 @@ AiAgentPlan buildPlan(const BuildInput& in, const QString& failureObservation)
 			return multi;
 
 		// 无多步线索时不调 LLM 规划，留给单步 keyword/tool_calls
+		if (!hasMultiCue(in.userText))
+			return {};
+	}
+	else if (failureObservation.isEmpty() && !in.enableRules)
+	{
+		// 关规则：无多步线索则不规划，直接走 tool_calls
 		if (!hasMultiCue(in.userText))
 			return {};
 	}

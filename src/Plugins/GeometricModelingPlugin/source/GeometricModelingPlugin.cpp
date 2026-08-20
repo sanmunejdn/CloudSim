@@ -129,6 +129,16 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 		});
 	host->onProjectAboutToSave([this](const QString& id, QJsonObject& root) { onProjectAboutToSave(id, root); });
 	host->onProjectLoaded([this](const QString& id, const QJsonObject& root) { onProjectLoaded(id, root); });
+	host->onDocumentClosed(
+		[this](const QString& documentId)
+		{
+			GeometricModelingPage* page = m_pages.take(documentId);
+			if (!page)
+				return;
+			if (m_inMode && m_host)
+				softExitMode();
+			page->deleteLater();
+		});
 	host->onParametricBodyHistoryChanged(
 		[this](const QString& documentId, const QString& backendId)
 		{

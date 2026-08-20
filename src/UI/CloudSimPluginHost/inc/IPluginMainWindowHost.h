@@ -92,6 +92,13 @@ public:
 	virtual bool loadBoundTrajectoryPlanForAi(std::string* planOutUtf8, QString* outError) = 0;
 	virtual bool reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QString* outSummary,
 											 QString* outError) = 0;
+
+	using PluginJobCanceledFn = std::function<bool()>;
+	virtual quint64 enqueueCancellableBackgroundJob(
+		const QString& title,
+		std::function<void(const PluginJobProgressFn& progress, const PluginJobCanceledFn& canceled)> work,
+		std::function<void(bool threw, const QString& message)> onFinished) = 0;
+	virtual bool cancelBackgroundJob(quint64 jobId) = 0;
 };
 
 #endif // CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H

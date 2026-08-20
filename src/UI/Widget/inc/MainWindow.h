@@ -42,6 +42,7 @@ namespace osg
 class Matrixd;
 }
 class QTabWidget;
+class QTreeView;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QtProperty;
@@ -132,6 +133,11 @@ public:
 	QStatusBar* statusBar() override;
 	void enqueueBackgroundJob(const QString& title, std::function<void(const PluginJobProgressFn& progress)> work,
 							  std::function<void(bool threw, const QString& message)> onFinished) override;
+	quint64 enqueueCancellableBackgroundJob(
+		const QString& title,
+		std::function<void(const PluginJobProgressFn& progress, const PluginJobCanceledFn& canceled)> work,
+		std::function<void(bool threw, const QString& message)> onFinished) override;
+	bool cancelBackgroundJob(quint64 jobId) override;
 	QWidget* mainWindowWidget() override { return this; }
 	QObject* pluginActionParent() override { return this; }
 	QDockWidget* addPluginDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) override;
@@ -369,7 +375,7 @@ protected:
 	QSet<QString> m_unitsTreeDirtyDocumentIds;
 	QTabWidget* m_documentTabs = nullptr;
 	QToolBar* m_modeToolBar = nullptr;
-	QTreeWidget* m_backendTree = nullptr;
+	QTreeView* m_backendTree = nullptr;
 	QTreeWidget* m_osgSceneTree = nullptr;
 	std::unique_ptr<BackendUnitsTreeBinder> m_unitsTreeBinder;
 	QtTreePropertyBrowser* m_propertyBrowser = nullptr;

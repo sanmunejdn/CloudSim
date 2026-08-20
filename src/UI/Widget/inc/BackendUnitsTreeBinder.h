@@ -2,7 +2,7 @@
 #define WIDGET_BACKENDUNITSTREEBINDER_H
 
 /// @file BackendUnitsTreeBinder.h
-/// @brief 将 DisplayForest 单文档子树绑定到 QTreeWidget（文档作用域）
+/// @brief 将 DisplayForest 单文档子树绑定到 QTreeView+Model（文档作用域）
 
 #include "widget_global.h"
 
@@ -10,17 +10,21 @@
 
 #include <QFont>
 #include <QHash>
+#include <QModelIndex>
 #include <QPair>
 #include <QString>
 
-class QTreeWidget;
-class QTreeWidgetItem;
+class QStandardItem;
+class QStandardItemModel;
+class QTreeView;
 
 /// 禁止跨文档全局 takeChildren；仅 sync 指定 documentId
 class WIDGET_EXPORT BackendUnitsTreeBinder
 {
 public:
-	explicit BackendUnitsTreeBinder(QTreeWidget* tree);
+	explicit BackendUnitsTreeBinder(QTreeView* tree);
+
+	QStandardItemModel* itemModel() const { return m_model; }
 
 	void setAnnotationGroupLabel(const QString& label);
 
@@ -33,10 +37,11 @@ public:
 	bool hasDocument(const QString& documentId) const;
 	void setActiveDocument(const QString& documentId);
 
-	QTreeWidgetItem* documentRoot(const QString& documentId) const;
-	QTreeWidgetItem* annotationGroup(const QString& documentId) const;
-	QTreeWidgetItem* findBackendItem(const QString& documentId, const QString& backendId) const;
-	QTreeWidgetItem* findBackendItemAnyDocument(const QString& backendId) const;
+	QStandardItem* documentRoot(const QString& documentId) const;
+	QStandardItem* annotationGroup(const QString& documentId) const;
+	QStandardItem* findBackendItem(const QString& documentId, const QString& backendId) const;
+	QStandardItem* findBackendItemAnyDocument(const QString& backendId) const;
+	QStandardItem* itemFromIndex(const QModelIndex& index) const;
 
 	void patchObjectVisible(const QString& documentId, const QString& backendId, bool visible);
 
@@ -50,16 +55,20 @@ public:
 private:
 	using DocObjKey = QPair<QString, QString>;
 
-	QTreeWidgetItem* ensureDocumentRoot(const QString& documentId, const QString& title, bool isActive);
-	void clearDocumentChildrenKeepRoot(QTreeWidgetItem* docRoot, const QString& documentId);
-	void applyActiveStyle(QTreeWidgetItem* docRoot, bool isActive) const;
+	QStandardItem* ensureDocumentRoot(const QString& documentId, const QString& title, bool isActive);
+	void clearDocumentChildrenKeepRoot(QStandardItem* docRoot, const QString& documentId);
+	void applyActiveStyle(QStandardItem* docRoot, bool isActive) const;
 	void forgetDocumentIndexes(const QString& documentId);
+	void expandItem(QStandardItem* item) const;
+	static QStandardItem* makeLabeledItem(const QString& text, int itemType, const QString& documentId,
+										  bool checkable);
 
-	QTreeWidget* m_tree = nullptr;
+	QTreeView* m_tree = nullptr;
+	QStandardItemModel* m_model = nullptr;
 	QString m_annotationGroupLabel = QStringLiteral("Annotations");
-	QHash<QString, QTreeWidgetItem*> m_documentRoots;
-	QHash<QString, QTreeWidgetItem*> m_annotationGroups;
-	QHash<DocObjKey, QTreeWidgetItem*> m_backendItems;
+	QHash<QString, QStandardItem*> m_documentRoots;
+	QHash<QString, QStandardItem*> m_annotationGroups;
+	QHash<DocObjKey, QStandardItem*> m_backendItems;
 };
 
 #endif // WIDGET_BACKENDUNITSTREEBINDER_H

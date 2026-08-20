@@ -8,9 +8,7 @@
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
-#include "MeshBackendData.h"
 #include "OsgWidget.h"
-#include "PointCloudBackendData.h"
 
 namespace cloudsim::host
 {
@@ -18,9 +16,7 @@ namespace
 {
 using ::BackendColor;
 using ::BackendDataBase;
-using ::MeshBackendData;
 using ::OsgWidget;
-using ::PointCloudBackendData;
 
 bool isUiOnlyKey(const QString& key)
 {
@@ -135,10 +131,8 @@ void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& d
 		}
 		return;
 	}
-	if (dynamic_cast<const PointCloudBackendData*>(&data) || dynamic_cast<const MeshBackendData*>(&data))
-	{
-		syncVisualAfterPropertyChange(host, data, false);
-	}
+	// Frame/Brep/CustomDevice 等同理：有 outer 分支则写回 worldMatrix 到 OSG
+	syncVisualAfterPropertyChange(host, data, false);
 	if (propertyKeyCommitsPose(key))
 	{
 		publishPoseCommittedFromBackend(host, data);

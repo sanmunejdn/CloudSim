@@ -33,6 +33,8 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent) : QWidget(parent)
 	m_domainCombo->addItem(QStringLiteral("Auto"), AiDomainIds::autoDomain());
 	m_domainCombo->addItem(QStringLiteral("Create mesh"), AiDomainIds::meshCreate());
 	m_domainCombo->addItem(QStringLiteral("Compose (boolean)"), AiDomainIds::meshCompose());
+	m_domainCombo->addItem(QStringLiteral("Feature compose"), AiDomainIds::featureCompose());
+	m_domainCombo->addItem(QStringLiteral("Design parts"), AiDomainIds::designParts());
 	m_domainCombo->addItem(QStringLiteral("Geometry recognize"), AiDomainIds::geometryRecognize());
 	m_domainCombo->addItem(QStringLiteral("Trajectory feature"), AiDomainIds::trajectoryFeature());
 	m_domainCombo->addItem(QStringLiteral("Point cloud"), AiDomainIds::pointCloudOps());
@@ -126,17 +128,26 @@ void AiAssistantDockWidget::setUseChinese(bool chinese)
 		m_confirmPanel->setUseChinese(chinese);
 	m_settingsBtn->setText(chinese ? QStringLiteral("设置") : QStringLiteral("Settings"));
 	m_sendBtn->setText(chinese ? QStringLiteral("发送") : QStringLiteral("Send"));
-	m_domainCombo->setItemText(0, chinese ? QStringLiteral("自动") : QStringLiteral("Auto"));
-	m_domainCombo->setItemText(1, chinese ? QStringLiteral("创建网格") : QStringLiteral("Create mesh"));
-	m_domainCombo->setItemText(2, chinese ? QStringLiteral("布尔组合") : QStringLiteral("Compose (boolean)"));
-	m_domainCombo->setItemText(3, chinese ? QStringLiteral("几何识别") : QStringLiteral("Geometry recognize"));
-	m_domainCombo->setItemText(4, chinese ? QStringLiteral("轨迹特征") : QStringLiteral("Trajectory feature"));
-	m_domainCombo->setItemText(5, chinese ? QStringLiteral("点云操作") : QStringLiteral("Point cloud"));
-	m_domainCombo->setItemText(6, chinese ? QStringLiteral("文档导入") : QStringLiteral("Document import"));
-	m_domainCombo->setItemText(7, chinese ? QStringLiteral("几何操作") : QStringLiteral("Geometry ops"));
-	m_domainCombo->setItemText(8, chinese ? QStringLiteral("特征构建") : QStringLiteral("Feature build"));
-	m_domainCombo->setItemText(9, chinese ? QStringLiteral("标注") : QStringLiteral("Labeling"));
-	m_domainCombo->setItemText(10, chinese ? QStringLiteral("场景操作") : QStringLiteral("Scene ops"));
+	auto setById = [this, chinese](const QString& id, const QString& zh, const QString& en)
+	{
+		const int i = m_domainCombo->findData(id);
+		if (i >= 0)
+			m_domainCombo->setItemText(i, chinese ? zh : en);
+	};
+	setById(AiDomainIds::autoDomain(), QStringLiteral("自动"), QStringLiteral("Auto"));
+	setById(AiDomainIds::meshCreate(), QStringLiteral("创建网格"), QStringLiteral("Create mesh"));
+	setById(AiDomainIds::meshCompose(), QStringLiteral("布尔组合"), QStringLiteral("Compose (boolean)"));
+	setById(AiDomainIds::featureCompose(), QStringLiteral("参数化特征"), QStringLiteral("Feature compose"));
+	setById(AiDomainIds::designParts(), QStringLiteral("标准件"), QStringLiteral("Design parts"));
+	setById(AiDomainIds::geometryRecognize(), QStringLiteral("几何识别"), QStringLiteral("Geometry recognize"));
+	setById(AiDomainIds::trajectoryFeature(), QStringLiteral("轨迹特征"), QStringLiteral("Trajectory feature"));
+	setById(AiDomainIds::pointCloudOps(), QStringLiteral("点云操作"), QStringLiteral("Point cloud"));
+	setById(AiDomainIds::documentImport(), QStringLiteral("文档导入"), QStringLiteral("Document import"));
+	setById(AiDomainIds::geometryOps(), QStringLiteral("几何操作"), QStringLiteral("Geometry ops"));
+	setById(AiDomainIds::featureBuild(), QStringLiteral("特征构建"), QStringLiteral("Feature build"));
+	setById(AiDomainIds::labelingAnnot(), QStringLiteral("标注"), QStringLiteral("Labeling"));
+	setById(AiDomainIds::sceneOps(), QStringLiteral("场景操作"), QStringLiteral("Scene ops"));
+	setById(AiDomainIds::processFlow(), QStringLiteral("工艺流程"), QStringLiteral("Process flow"));
 	onDomainChanged(m_domainCombo->currentIndex());
 }
 
@@ -313,18 +324,18 @@ QString AiAssistantDockWidget::prefixWithParser(const QString& parserVia, const 
 void AiAssistantDockWidget::appendUserMessage(const QString& text)
 {
 	const QString who = m_useChinese ? QStringLiteral("你") : QStringLiteral("You");
-	m_history->append(QStringLiteral("<b>%1:</b> %2").arg(who, text.toHtmlEscaped()));
+	m_history->append(QStringLiteral("<b>%1:</b> %2").arg(who, text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
 }
 
 void AiAssistantDockWidget::appendAssistantMessage(const QString& text)
 {
 	const QString who = m_useChinese ? QStringLiteral("助手") : QStringLiteral("Assistant");
-	m_history->append(QStringLiteral("<b>%1:</b> %2").arg(who, text.toHtmlEscaped()));
+	m_history->append(QStringLiteral("<b>%1:</b> %2").arg(who, text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
 }
 
 void AiAssistantDockWidget::appendSystemMessage(const QString& text)
 {
-	m_history->append(QStringLiteral("<i>%1</i>").arg(text.toHtmlEscaped()));
+	m_history->append(QStringLiteral("<i>%1</i>").arg(text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
 }
 
 void AiAssistantDockWidget::setBusy(bool busy)

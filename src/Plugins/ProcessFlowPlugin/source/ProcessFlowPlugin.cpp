@@ -109,6 +109,25 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 							   { onProjectAboutToSave(documentId, root); });
 	host->onProjectLoaded([this](const QString& documentId, const QJsonObject& root)
 						  { onProjectLoaded(documentId, root); });
+	host->onDocumentClosed(
+		[this](const QString& documentId)
+		{
+			auto it = m_pagesByDocId.find(documentId);
+			if (it == m_pagesByDocId.end())
+			{
+				return;
+			}
+			ProcessFlowPageWidget* page = it.value().data();
+			m_pagesByDocId.erase(it);
+			if (m_inProcessFlow && page && m_host && m_host->isShowingCentralAlternate())
+			{
+				softExitProcessFlow();
+			}
+			if (page)
+			{
+				page->deleteLater();
+			}
+		});
 
 	host->registerWorkspaceMode(pluginId(), QStringLiteral("工艺流程"), QStringLiteral("Process Flow"),
 								[this]() { enterProcessFlow(); });

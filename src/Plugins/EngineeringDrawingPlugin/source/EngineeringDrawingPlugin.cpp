@@ -122,6 +122,19 @@ bool EngineeringDrawingPlugin::initialize(IPluginHostContext* host)
 							   { onProjectAboutToSave(documentId, root); });
 	host->onProjectLoaded([this](const QString& documentId, const QJsonObject& root)
 						  { onProjectLoaded(documentId, root); });
+	host->onDocumentClosed(
+		[this](const QString& documentId)
+		{
+			auto it = m_pagesByDocId.find(documentId);
+			if (it == m_pagesByDocId.end())
+				return;
+			DrawingPageWidget* page = it.value().data();
+			m_pagesByDocId.erase(it);
+			if (m_inDrawing && page && m_host && m_host->isShowingCentralAlternate())
+				softExitDrawing();
+			if (page)
+				page->deleteLater();
+		});
 
 	host->registerWorkspaceMode(pluginId(), QStringLiteral("工程图"), QStringLiteral("Drawing"),
 								[this]() { enterDrawing(); });

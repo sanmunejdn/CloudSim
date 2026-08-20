@@ -1086,6 +1086,28 @@ QToolTip {
 
 namespace ApplicationStyle
 {
+ThemeTokens tokens(Theme theme)
+{
+	ThemeTokens t;
+	if (theme == Theme::Dark)
+	{
+		t.window = QColor(QStringLiteral("#2b2b2b"));
+		t.text = QColor(QStringLiteral("#e0e0e0"));
+		t.accent = QColor(QStringLiteral("#2b79c2"));
+		t.danger = QColor(QStringLiteral("#e74c3c"));
+		t.border = QColor(QStringLiteral("#555555"));
+	}
+	else
+	{
+		t.window = QColor(QStringLiteral("#f4f5f7"));
+		t.text = QColor(QStringLiteral("#212121"));
+		t.accent = QColor(QStringLiteral("#2b79c2"));
+		t.danger = QColor(QStringLiteral("#c0392b"));
+		t.border = QColor(QStringLiteral("#cfd8dc"));
+	}
+	return t;
+}
+
 void applyTheme(QApplication* app, Theme theme)
 {
 	if (!app)

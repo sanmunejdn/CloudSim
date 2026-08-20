@@ -1237,10 +1237,58 @@ void MainWindow::enqueueBackgroundJob(const QString& title,
 		std::move(onFinished));
 }
 
+quint64 MainWindow::enqueueCancellableBackgroundJob(
+	const QString& title,
+	std::function<void(const PluginJobProgressFn& progress, const PluginJobCanceledFn& canceled)> work,
+	std::function<void(bool threw, const QString& message)> onFinished)
+{
+	if (!m_jobSystem)
+	{
+		if (onFinished)
+		{
+			onFinished(true, QStringLiteral("JobSystem not available"));
+		}
+		return 0;
+	}
+	return m_jobSystem->enqueueCancellable(
+		title,
+		[work = std::move(work)](const JobProgressSink& sink, const JobCancelToken& token)
+		{
+			if (!work)
+			{
+				return;
+			}
+			PluginJobProgressFn pluginSink = [&sink](double fraction, const QString& msg)
+			{
+				if (sink)
+				{
+					sink(fraction, msg);
+				}
+			};
+			work(pluginSink, [&token]() { return token.canceled(); });
+		},
+		std::move(onFinished));
+}
+
+bool MainWindow::cancelBackgroundJob(quint64 jobId)
+{
+	return m_jobSystem ? m_jobSystem->cancel(jobId) : false;
+}
+
 QDockWidget* MainWindow::addPluginDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area)
 {
 	auto* dock = new QDockWidget(title, this);
-	dock->setObjectName(QStringLiteral("PluginDock_") + title);
+	static int s_anonDockSerial = 0;
+	QString objectName = widget ? widget->objectName() : QString();
+	if (objectName.isEmpty())
+	{
+		objectName = QStringLiteral("PluginDock_anon_%1").arg(++s_anonDockSerial);
+	}
+	else if (!objectName.startsWith(QStringLiteral("PluginDock_")))
+	{
+		objectName = QStringLiteral("PluginDock_") + objectName;
+	}
+	dock->setObjectName(objectName);
 	dock->setWidget(widget);
 	addDockWidget(area, dock);
 	return dock;
@@ -2140,6 +2188,10 @@ void MainWindow::closeDocumentTab(int index)
 		m_unitsTreeBinder->removeDocument(closingDocId);
 	}
 	m_unitsTreeDirtyDocumentIds.remove(closingDocId);
+	if (m_pluginManager)
+	{
+		m_pluginManager->invokeDocumentClosed(closingDocId);
+	}
 	page->deleteLater();
 
 	// 关闭后刷新当前标签的状态

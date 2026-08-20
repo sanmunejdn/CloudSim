@@ -52,6 +52,13 @@ public:
 
 	void enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
 					std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
+	quint64 enqueueCancellableJob(const QString& title, PluginCancellableJobWorkFn work,
+								 std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
+	bool cancelJob(quint64 jobId) override;
+	IPluginDocument* documentById(const QString& documentId) override;
+	const IPluginDocument* documentById(const QString& documentId) const override;
+	void onDocumentClosed(std::function<void(const QString& documentId)> callback) override;
+	void invokeDocumentClosed(const QString& documentId);
 
 	QDockWidget* registerDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) override;
 	QWidget* sidePanelTabParent() const override;
@@ -203,6 +210,7 @@ private:
 	std::vector<std::function<void(bool useChinese)>> m_languageCallbacks;
 	std::vector<std::unique_ptr<PluginDocumentAdapter>> m_documents;
 	std::vector<std::function<void(IPluginDocument*)>> m_docChangeCallbacks;
+	std::vector<std::function<void(const QString&)>> m_documentClosedCallbacks;
 	std::vector<QDockWidget*> m_ownedDocks;
 	std::vector<std::function<void(const QString&, QJsonObject&)>> m_projectSaveCallbacks;
 	std::vector<std::function<void(const QString&, const QJsonObject&)>> m_projectLoadCallbacks;

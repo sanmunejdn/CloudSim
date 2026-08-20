@@ -3,6 +3,7 @@
 
 #include "AssemblyMatePanel.h"
 
+#include "ApplicationStyle.h"
 #include "BackendDataBase.h"
 #include "DocumentPage.h"
 #include "MainWindow.h"
@@ -298,7 +299,15 @@ geoalgo::AssemblyMateParams AssemblyMatePanel::currentParams() const
 void AssemblyMatePanel::setStatus(const QString& text, const bool error)
 {
 	m_statusLabel->setText(text);
-	m_statusLabel->setStyleSheet(error ? QStringLiteral("color:#c0392b;") : QString());
+	if (error)
+	{
+		const ApplicationStyle::ThemeTokens t = ApplicationStyle::tokens(ApplicationStyle::loadSavedTheme());
+		m_statusLabel->setStyleSheet(QStringLiteral("color:%1;").arg(t.danger.name()));
+	}
+	else
+	{
+		m_statusLabel->setStyleSheet(QString());
+	}
 }
 
 void AssemblyMatePanel::startFacePick(const int slot)

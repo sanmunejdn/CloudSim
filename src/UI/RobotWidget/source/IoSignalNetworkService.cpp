@@ -11,6 +11,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSet>
+#include <QSignalBlocker>
 #include <QVariant>
 
 #include <atomic>
@@ -38,6 +39,7 @@ IoSignalNetworkService::IoSignalNetworkService(QObject* parent) : QObject(parent
 
 IoSignalNetworkService::~IoSignalNetworkService()
 {
+	const QSignalBlocker blocker(this);
 	clear();
 }
 
@@ -550,65 +552,69 @@ QJsonObject IoSignalNetworkService::toProjectJson() const
 
 bool IoSignalNetworkService::fromProjectJson(const QJsonObject& root, QString* err)
 {
-	clear();
-	const QJsonObject owners = root.value(QStringLiteral("owners")).toObject();
-	for (auto it = owners.begin(); it != owners.end(); ++it)
+	// 加载中抑制 networkChanged，避免 UI 在 clear 删 sink 后立刻 disconnect 悬空指针
 	{
-		const QJsonObject o = it.value().toObject();
-		const QString kindStr = o.value(QStringLiteral("kind")).toString(QStringLiteral("robot"));
-		const IoSignalOwnerKind kind =
-			kindStr == QLatin1String("device") ? IoSignalOwnerKind::Device : IoSignalOwnerKind::Robot;
-		ensureOwner(kind, it.key(), o.value(QStringLiteral("displayName")).toString(it.key()));
-		OwnerState* st = mutableOwner(it.key());
-		if (!st)
+		const QSignalBlocker blocker(this);
+		clear();
+		const QJsonObject owners = root.value(QStringLiteral("owners")).toObject();
+		for (auto it = owners.begin(); it != owners.end(); ++it)
 		{
-			continue;
-		}
-		st->canvasX = o.value(QStringLiteral("canvasX")).toDouble(st->canvasX);
-		st->canvasY = o.value(QStringLiteral("canvasY")).toDouble(st->canvasY);
-		if (kind == IoSignalOwnerKind::Robot && o.contains(QStringLiteral("signals")))
-		{
-			nlohmann::json wrap = nlohmann::json::object();
-			const QByteArray raw =
-				QJsonDocument(o.value(QStringLiteral("signals")).toArray()).toJson(QJsonDocument::Compact);
-			wrap["signals"] = nlohmann::json::parse(raw.constData(), nullptr, false);
-			if (wrap["signals"].is_discarded())
+			const QJsonObject o = it.value().toObject();
+			const QString kindStr = o.value(QStringLiteral("kind")).toString(QStringLiteral("robot"));
+			const IoSignalOwnerKind kind =
+				kindStr == QLatin1String("device") ? IoSignalOwnerKind::Device : IoSignalOwnerKind::Robot;
+			ensureOwner(kind, it.key(), o.value(QStringLiteral("displayName")).toString(it.key()));
+			OwnerState* st = mutableOwner(it.key());
+			if (!st)
 			{
-				wrap["signals"] = nlohmann::json::array();
+				continue;
 			}
-			std::string e;
-			if (!st->table.fromJson(wrap, &e))
+			st->canvasX = o.value(QStringLiteral("canvasX")).toDouble(st->canvasX);
+			st->canvasY = o.value(QStringLiteral("canvasY")).toDouble(st->canvasY);
+			if (kind == IoSignalOwnerKind::Robot && o.contains(QStringLiteral("signals")))
 			{
-				if (err)
+				nlohmann::json wrap = nlohmann::json::object();
+				const QByteArray raw =
+					QJsonDocument(o.value(QStringLiteral("signals")).toArray()).toJson(QJsonDocument::Compact);
+				wrap["signals"] = nlohmann::json::parse(raw.constData(), nullptr, false);
+				if (wrap["signals"].is_discarded())
 				{
-					*err = QString::fromStdString(e);
+					wrap["signals"] = nlohmann::json::array();
 				}
-				return false;
-			}
-			if (st->sink)
-			{
-				st->sink->setSignalTable(&st->table);
-				st->sink->resetRuntimeFromTable(false);
+				std::string e;
+				if (!st->table.fromJson(wrap, &e))
+				{
+					if (err)
+					{
+						*err = QString::fromStdString(e);
+					}
+					return false;
+				}
+				if (st->sink)
+				{
+					st->sink->setSignalTable(&st->table);
+					st->sink->resetRuntimeFromTable(false);
+				}
 			}
 		}
-	}
-	QVector<IoSignalWire> loaded;
-	for (const QJsonValue& v : root.value(QStringLiteral("wires")).toArray())
-	{
-		const QJsonObject j = v.toObject();
-		IoSignalWire w;
-		w.id = j.value(QStringLiteral("id")).toString();
-		w.fromOwnerId = j.value(QStringLiteral("fromOwnerId")).toString();
-		w.fromSignal = j.value(QStringLiteral("fromSignal")).toString();
-		w.toOwnerId = j.value(QStringLiteral("toOwnerId")).toString();
-		w.toSignal = j.value(QStringLiteral("toSignal")).toString();
-		if (w.id.isEmpty())
+		QVector<IoSignalWire> loaded;
+		for (const QJsonValue& v : root.value(QStringLiteral("wires")).toArray())
 		{
-			w.id = makeWireId();
+			const QJsonObject j = v.toObject();
+			IoSignalWire w;
+			w.id = j.value(QStringLiteral("id")).toString();
+			w.fromOwnerId = j.value(QStringLiteral("fromOwnerId")).toString();
+			w.fromSignal = j.value(QStringLiteral("fromSignal")).toString();
+			w.toOwnerId = j.value(QStringLiteral("toOwnerId")).toString();
+			w.toSignal = j.value(QStringLiteral("toSignal")).toString();
+			if (w.id.isEmpty())
+			{
+				w.id = makeWireId();
+			}
+			loaded.push_back(w);
 		}
-		loaded.push_back(w);
+		m_wires = loaded;
 	}
-	m_wires = loaded;
 	emit networkChanged();
 	return true;
 }

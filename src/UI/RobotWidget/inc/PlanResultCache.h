@@ -1,5 +1,5 @@
 ﻿/// @file PlanResultCache.h
-/// @brief PlanResult 缓存，key = instructionId + fingerprint；仅 UI 线程访问；有界淘汰
+/// @brief PlanResult / 可行轴缓存，key = instructionId + fingerprint；仅 UI 线程访问；有界淘汰
 
 #ifndef ROBOTWIDGET_PLANRESULTCACHE_H
 #define ROBOTWIDGET_PLANRESULTCACHE_H
@@ -9,9 +9,10 @@
 #include <QHash>
 #include <QList>
 #include <QString>
+#include <QVector>
 #include <cstddef>
 
-/// PlanResult 缓存，key = instructionId + fingerprint；仅 UI 线程访问
+/// PlanResult 与可行轴配置共用 fingerprint 键，避免双份成员缓存漂移
 class PlanResultCache
 {
 public:
@@ -21,6 +22,17 @@ public:
 
 	void store(const QString& instructionId, const QString& fingerprint, const RobotInstruction::PlanResult& result,
 			   size_t motionIndex = 0);
+
+	struct FeasibleAxisEntry
+	{
+		RobotInstruction::FeasibleMotionAxisConfigurationOptions options;
+		QVector<double> seedJointRad;
+	};
+
+	const FeasibleAxisEntry* fetchFeasibleAxis(const QString& instructionId, const QString& fingerprint) const;
+	void storeFeasibleAxis(const QString& instructionId, const QString& fingerprint,
+						   const RobotInstruction::FeasibleMotionAxisConfigurationOptions& options,
+						   const QVector<double>& seedJointRad);
 
 	void invalidateByInstruction(const QString& instructionId);
 	void invalidateAll();
@@ -44,7 +56,9 @@ private:
 	};
 
 	QHash<QString, Entry> m_entries;
+	QHash<QString, FeasibleAxisEntry> m_feasibleAxis;
 	QList<QString> m_fifoKeys;
+	QList<QString> m_feasibleFifoKeys;
 	int m_maxEntries = kDefaultMaxEntries;
 };
 

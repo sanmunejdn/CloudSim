@@ -76,6 +76,7 @@ std::optional<AiConfigDto> loadAiConfigDto(const QString& filePath)
 		if (!pl.isEmpty())
 			cfg.parserPriorityDefault = pl;
 	}
+	cfg.enableRules = j.value("enable_rules", cfg.enableRules);
 
 	if (j.contains("remote_llm") && j["remote_llm"].is_object())
 	{
@@ -167,6 +168,7 @@ bool saveAiConfigDto(const AiConfigDto& config, const QString& filePath, QString
 {
 	nlohmann::json j;
 	j["hardware_profile"] = config.hardwareProfile.toStdString();
+	j["enable_rules"] = config.enableRules;
 	j["parser_priority"] = nlohmann::json::array();
 	for (const QString& s : config.parserPriorityDefault)
 		j["parser_priority"].push_back(s.toStdString());

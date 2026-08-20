@@ -882,6 +882,7 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 			"未识别到明确意图，未执行任何操作。\n"
 			"请先在上方选择领域，或说得更具体，例如：\n"
 			"· 生成长方体 / 生成圆柱\n"
+			"· 建模 100x100x100 通孔 d50\n"
 			"· 线特征识别 / 面特征识别 / 重新识别\n"
 			"· 体素下采样 / 点云匹配\n"
 			"· 修改离散参数（已有轨迹时）");
@@ -1261,7 +1262,9 @@ void AiAssistantCoordinator::handleAgentEvent(const AiAgentEvent& ev)
 	case AiAgentEventKind::Finished:
 		m_dock->hideAgentConfirmPanel();
 		m_dock->setBusy(false);
-		m_dock->appendAssistantMessage(ev.message.isEmpty() ? QStringLiteral("完成。") : ev.message);
+		// 空 message：摘要已在 StepDone 贴过，避免「同一段贴两次」
+		if (!ev.message.isEmpty())
+			m_dock->appendAssistantMessage(ev.message);
 		if (ev.toolId == QStringLiteral("geometry.recognize.create") ||
 			ev.confirmKind == AiAgentConfirmKind::RecognizeCreate)
 			m_pendingRecognitionJson.clear();

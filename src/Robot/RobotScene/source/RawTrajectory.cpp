@@ -9,6 +9,7 @@
 #include "RobotInstructionTransform.h"
 #include "RobotProgramCatalog.h"
 
+#include <algorithm>
 #include <unordered_set>
 
 #include <FeatureListDocument.h>
@@ -16,10 +17,52 @@
 #include <RigidTransform.h>
 #include <json.hpp>
 
+#include <sstream>
+
 namespace RobotInstruction
 {
 namespace
 {
+
+std::string encodeJointRadCsv(const std::vector<double>& jointRad)
+{
+	if (jointRad.empty())
+		return {};
+	std::ostringstream oss;
+	oss.imbue(std::locale::classic());
+	for (std::size_t i = 0; i < jointRad.size(); ++i)
+	{
+		if (i)
+			oss << ',';
+		oss << jointRad[i];
+	}
+	return oss.str();
+}
+
+void applyTrajectoryPointToInstruction(Base& ins, const TrajectoryPoint& tp)
+{
+	engine::RigidTransform target;
+	if (tp.hasQuat)
+	{
+		target = engine::RigidTransform::fromTranslationQuat(
+			Eigen::Vector3d(tp.poseMm.x, tp.poseMm.y, tp.poseMm.z),
+			Eigen::Quaterniond(tp.quatXyzw[3], tp.quatXyzw[0], tp.quatXyzw[1], tp.quatXyzw[2]));
+	}
+	else
+	{
+		target = engine::RigidTransform::fromTranslationEulerDeg(tp.poseMm.x, tp.poseMm.y, tp.poseMm.z, tp.eulerDeg.x,
+																 tp.eulerDeg.y, tp.eulerDeg.z);
+	}
+	writeTargetTransformToInstruction(ins, target);
+	ins.setBlendRadius(tp.blendRadiusMm);
+	if (tp.speedMmPerSec > 0.0)
+		ins.setSpeed(tp.speedMmPerSec);
+	else if (!ins.hasSpeedProperty() || ins.speed() <= 0.0)
+		ins.setSpeed(200.0);
+	if (!tp.jointRad.empty())
+		ins.setExtensionProperty("context.currentJointRadCsv", encodeJointRadCsv(tp.jointRad));
+}
+
 bool isRawPathSegmentStart(const std::size_t index, const std::vector<std::size_t>& segmentEndExclusive)
 {
 	if (index == 0U)
@@ -197,14 +240,7 @@ bool emitRawTrajectoryToProgram(const RawTrajectory& trajectory, RobotProgram& p
 			}
 			auto ins = std::make_shared<LineInstruction>();
 			ins->setName("P" + std::to_string(++idx));
-			const engine::RigidTransform target = engine::RigidTransform::fromTranslationEulerDeg(
-				tp.poseMm.x, tp.poseMm.y, tp.poseMm.z, tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z);
-			writeTargetTransformToInstruction(*ins, target);
-			ins->setBlendRadius(tp.blendRadiusMm);
-			if (tp.speedMmPerSec > 0.0)
-			{
-				ins->setSpeed(tp.speedMmPerSec);
-			}
+			applyTrajectoryPointToInstruction(*ins, tp);
 			memberIds.push_back(ins->id());
 			newMotion.push_back(std::move(ins));
 		}
@@ -261,6 +297,106 @@ bool emitRawTrajectoryToProgram(const RawTrajectory& trajectory, RobotProgram& p
 	{
 		*outGroupId = firstGroupId;
 	}
+	return true;
+}
+
+bool insertRawTrajectoryBetween(const RawTrajectory& trajectory, RobotProgram& program,
+								const std::string& startInstructionId, const std::string& endInstructionId,
+								std::string* errMsg)
+{
+	if (startInstructionId.empty() || endInstructionId.empty() || startInstructionId == endInstructionId)
+	{
+		if (errMsg)
+			*errMsg = "start/end waypoint invalid";
+		return false;
+	}
+
+	int iStart = -1;
+	int iEnd = -1;
+	for (int i = 0; i < static_cast<int>(program.steps.size()); ++i)
+	{
+		const auto& ins = program.steps[static_cast<std::size_t>(i)];
+		if (!ins)
+			continue;
+		if (ins->id() == startInstructionId)
+			iStart = i;
+		if (ins->id() == endInstructionId)
+			iEnd = i;
+	}
+	if (iStart < 0 || iEnd < 0)
+	{
+		if (errMsg)
+			*errMsg = "start/end waypoint not found in program";
+		return false;
+	}
+
+	// 按程序顺序夹在两点之间（与规划起终点谁先谁后无关）
+	const int iLo = std::min(iStart, iEnd);
+	const int iHi = std::max(iStart, iEnd);
+	if (iHi <= iLo)
+	{
+		if (errMsg)
+			*errMsg = "start/end order invalid";
+		return false;
+	}
+	const std::string idLo = program.steps[static_cast<std::size_t>(iLo)]->id();
+	const std::string idHi = program.steps[static_cast<std::size_t>(iHi)]->id();
+
+	std::unordered_set<std::string> removedIds;
+	for (int i = iLo + 1; i < iHi; ++i)
+	{
+		if (program.steps[static_cast<std::size_t>(i)])
+			removedIds.insert(program.steps[static_cast<std::size_t>(i)]->id());
+	}
+	program.steps.erase(program.steps.begin() + (iLo + 1), program.steps.begin() + iHi);
+
+	for (auto& g : program.groups)
+	{
+		g.memberInstructionIds.erase(std::remove_if(g.memberInstructionIds.begin(), g.memberInstructionIds.end(),
+													 [&removedIds](const std::string& id) {
+														 return removedIds.count(id) != 0;
+													 }),
+									 g.memberInstructionIds.end());
+	}
+
+	std::vector<std::shared_ptr<Base>> inserted;
+	inserted.reserve(trajectory.points.size());
+	int idx = 0;
+	for (const TrajectoryPoint& tp : trajectory.points)
+	{
+		if (!tp.reachable)
+			continue;
+		auto ins = std::make_shared<LineInstruction>();
+		ins->setName("Pmid" + std::to_string(++idx));
+		applyTrajectoryPointToInstruction(*ins, tp);
+		inserted.push_back(std::move(ins));
+	}
+
+	if (inserted.empty())
+		return true;
+
+	std::vector<std::string> newIds;
+	newIds.reserve(inserted.size());
+	for (const auto& ins : inserted)
+		newIds.push_back(ins->id());
+
+	const int insertAt = iLo + 1;
+	program.steps.insert(program.steps.begin() + insertAt, inserted.begin(), inserted.end());
+
+	// 起终点若在同一分组，中间点必须写入该组成员，否则树重建会把 Pmid 渲成分组后的顶层节点
+	bool groupUpdated = false;
+	for (auto& g : program.groups)
+	{
+		auto& members = g.memberInstructionIds;
+		const auto itLo = std::find(members.begin(), members.end(), idLo);
+		const auto itHi = std::find(members.begin(), members.end(), idHi);
+		if (itLo == members.end() || itHi == members.end())
+			continue;
+		members.insert(itLo + 1, newIds.begin(), newIds.end());
+		groupUpdated = true;
+		break;
+	}
+
 	return true;
 }
 

@@ -22,9 +22,9 @@ API 面归档：[`docs/_archive/网页端/API_网页端.md`](../../../docs/_arch
 
 | 现状 | 说明 |
 |------|------|
-| `pushEvent` | 无条件 `append`，**无上限** |
+| `pushEvent` | 队列上限 256；满则丢最旧，约 1s 节流插入 `EventsDropped` |
 | `sseClients` | 仅计数，**不**门控入队 |
-| `start()` | 对 `DocumentHost::visualSceneDirty` 再 `connect` → `SceneChanged`；`stop()` **未**对称断开 |
+| `start()` | 对 `DocumentHost::visualSceneDirty` `connect` → `SceneChanged`；`stop()` **对称 disconnect** |
 
 高负载（无客户端 / 慢客户端 / 反复 start）下队列与重复 handler 可能膨胀。行为修复清单见仓库审查记录；落地前勿假定队列有界。
 

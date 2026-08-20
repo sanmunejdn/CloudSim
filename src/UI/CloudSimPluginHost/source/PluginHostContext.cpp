@@ -290,6 +290,76 @@ void PluginHostContext::enqueueJob(const QString& title, std::function<void(cons
 	m_mainWindowHost->enqueueBackgroundJob(title, std::move(work), std::move(onFinished));
 }
 
+quint64 PluginHostContext::enqueueCancellableJob(const QString& title, PluginCancellableJobWorkFn work,
+												 std::function<void(bool threw, const QString& throwMessage)> onFinished)
+{
+	if (!m_mainWindowHost)
+	{
+		if (onFinished)
+		{
+			onFinished(true, QStringLiteral("JobSystem not available"));
+		}
+		return 0;
+	}
+	return m_mainWindowHost->enqueueCancellableBackgroundJob(
+		title,
+		[work](const PluginJobProgressFn& progress, const IPluginMainWindowHost::PluginJobCanceledFn& canceled)
+		{
+			if (work)
+			{
+				work(progress, PluginJobCancelToken(canceled));
+			}
+		},
+		std::move(onFinished));
+}
+
+bool PluginHostContext::cancelJob(quint64 jobId)
+{
+	return m_mainWindowHost ? m_mainWindowHost->cancelBackgroundJob(jobId) : false;
+}
+
+IPluginDocument* PluginHostContext::documentById(const QString& documentId)
+{
+	if (documentId.isEmpty())
+	{
+		return nullptr;
+	}
+	const std::string idUtf8 = documentId.toStdString();
+	for (const auto& doc : m_documents)
+	{
+		if (doc && doc->documentId() == idUtf8)
+		{
+			return doc.get();
+		}
+	}
+	return nullptr;
+}
+
+const IPluginDocument* PluginHostContext::documentById(const QString& documentId) const
+{
+	return const_cast<PluginHostContext*>(this)->documentById(documentId);
+}
+
+void PluginHostContext::onDocumentClosed(std::function<void(const QString& documentId)> callback)
+{
+	if (callback)
+	{
+		m_documentClosedCallbacks.push_back(std::move(callback));
+	}
+}
+
+void PluginHostContext::invokeDocumentClosed(const QString& documentId)
+{
+	const auto cbs = m_documentClosedCallbacks;
+	for (const auto& cb : cbs)
+	{
+		if (cb)
+		{
+			cb(documentId);
+		}
+	}
+}
+
 QDockWidget* PluginHostContext::registerDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area)
 {
 	if (!m_mainWindowHost || !widget)
@@ -336,6 +406,7 @@ void PluginHostContext::prepareForPluginShutdown()
 {
 	m_languageCallbacks.clear();
 	m_docChangeCallbacks.clear();
+	m_documentClosedCallbacks.clear();
 	m_projectSaveCallbacks.clear();
 	m_projectLoadCallbacks.clear();
 	m_parametricHistoryCallbacks.clear();

@@ -41,6 +41,7 @@
 | **RobotKinematics** | DH 串联 FK / 数值 IK | [RobotKinematics/DEVELOPER_GUIDE.md](../src/Robot/RobotKinematics/DEVELOPER_GUIDE.md) |
 | **RobotUrdf** | URDF 解析、层级场景、**prismatic FK**、每连杆后端 | [RobotUrdf/DEVELOPER_GUIDE.md](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) |
 | **RobotScene** | 指令模型、规划、回放、**RawTrajectory**、特征/配方/轨迹流水线 Command | [RobotScene/DEVELOPER_GUIDE.md](../src/Robot/RobotScene/DEVELOPER_GUIDE.md) |
+| **RobotPathPlanning** | 关节空间避障（OMPL BIT*/RRT* 级联）、`planToTcpPose`；碰撞位姿与画面 FK 对齐 | [RobotPathPlanning/DEVELOPER_GUIDE.md](../src/Robot/RobotPathPlanning/DEVELOPER_GUIDE.md)、[docs/RobotPathPlanning/](RobotPathPlanning/) |
 | **TrajectoryAlgorithm** | `ITrajectoryOp` 框架、Registry、Codec、ConfigRegistry | [TrajectoryAlgorithm/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithm/DEVELOPER_GUIDE.md) |
 | **TrajectoryAlgorithmBuiltins** | 18 种原子块实现、`UnifiedTrajectoryPathMath`、注册注入 | [TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md) |
 | **RunLogger** | 文件/控制台/UI 日志；x64 动态 DLL | [RunLogger/DEVELOPER_GUIDE.md](../src/Infra/RunLogger/DEVELOPER_GUIDE.md) |
@@ -81,6 +82,7 @@ flowchart TB
   H --> D[Data.dll]
   W --> RW[RobotWidget.dll]
   RW --> RS[RobotScene.dll]
+  RW --> RPP[RobotPathPlanning.dll]
   RW --> RU[RobotUrdf.dll]
   RW --> RK[RobotKinematics.dll]
   W --> RS
