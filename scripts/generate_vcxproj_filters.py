@@ -664,6 +664,13 @@ def functional_bucket(project: str, stem: str) -> str:
 		"RobotUrdf": [
 			(["Urdf*", "RobotSimulation*"], "Loader"),
 		],
+		"RobotPathPlanning": [
+			(["SelfTest*"], "SelfTest"),
+			(["RobotPathPlanning*", "PlanToTcpPose*"], "Api"),
+			(["Collision*"], "Collision"),
+			(["*Planner*", "JointSpace*", "Ompl*"], "Planner"),
+			(["PathPostProcess*"], "PostProcess"),
+		],
 		"HelloAiPlugin": [
 			(["HelloAi*", "*Plugin*", "plugin*"], "Plugin"),
 		],

@@ -152,11 +152,12 @@ void MainWindow::refreshRobotCoordinateFrameOverlays(const std::shared_ptr<Robot
 	}
 }
 
-void MainWindow::applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction)
+void MainWindow::applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction,
+													 const bool forceCartesianIk)
 {
 	if (m_robotSimulation)
 	{
-		m_robotSimulation->applyRobotPoseForInstructionPreview(instruction);
+		m_robotSimulation->applyRobotPoseForInstructionPreview(instruction, nullptr, forceCartesianIk);
 	}
 }
 

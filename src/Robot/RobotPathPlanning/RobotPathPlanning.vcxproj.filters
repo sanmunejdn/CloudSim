@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Api">
+      <UniqueIdentifier>{E39F0A4C-9C66-4844-A272-3F5A68ECFFC7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Collision">
+      <UniqueIdentifier>{F6D4ACE5-7F64-4F31-8F3B-199D4B110AD6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{F0E1B739-A6D8-4239-91FE-6B127B924493}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Planner">
+      <UniqueIdentifier>{8438089C-BD75-442A-BDBE-5FBF1DD163DE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\PostProcess">
+      <UniqueIdentifier>{0D0A92CD-3CAE-4944-8E4D-A65CA6FC3075}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Api">
+      <UniqueIdentifier>{4B80E745-48EA-4E1C-B214-694C266E1E12}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Collision">
+      <UniqueIdentifier>{9197EFF1-9B7F-44D9-BB2A-6D5C60AA1177}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Planner">
+      <UniqueIdentifier>{39383ADC-3B85-4D28-9831-21167B572B02}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\PostProcess">
+      <UniqueIdentifier>{3727CAC7-C8FD-4843-9129-50ADD25CD48E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\SelfTest">
+      <UniqueIdentifier>{A6FE2C71-FA90-415A-BA01-53B1A25553E8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\CollisionValidity.h">
+      <Filter>inc\Collision</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\JointSpaceRrtPlanner.h">
+      <Filter>inc\Planner</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OmplJointSpacePlanner.h">
+      <Filter>inc\Planner</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PathPostProcess.h">
+      <Filter>inc\PostProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\robot_path_planning_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotPathPlanning.h">
+      <Filter>inc\Api</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CollisionValidity.cpp">
+      <Filter>src\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="source\JointSpaceRrtPlanner.cpp">
+      <Filter>src\Planner</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OmplJointSpacePlanner.cpp">
+      <Filter>src\Planner</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PathPostProcess.cpp">
+      <Filter>src\PostProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlanToTcpPose.cpp">
+      <Filter>src\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelfTest.cpp">
+      <Filter>src\SelfTest</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

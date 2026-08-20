@@ -151,9 +151,9 @@ void MainWindowInstructionPropertyUiHost::syncInstructionRenderMatricesFromPose(
 }
 
 void MainWindowInstructionPropertyUiHost::applyRobotPoseForInstructionPreview(
-	const std::shared_ptr<RobotInstruction::Base>& instruction)
+	const std::shared_ptr<RobotInstruction::Base>& instruction, const bool forceCartesianIk)
 {
-	m_mw.applyRobotPoseForInstructionPreview(instruction);
+	m_mw.applyRobotPoseForInstructionPreview(instruction, forceCartesianIk);
 }
 
 void MainWindowInstructionPropertyUiHost::refreshRobotCoordinateFrameOverlays(

@@ -12,6 +12,7 @@
 #include "RobotInstructionPlanningHelpers.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionPropertySchema.h"
+#include "RobotInstructionTransform.h"
 #include "SimulationCommandWidget.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
@@ -30,6 +31,12 @@ bool instructionUsesActiveUserFrame(const RobotInstruction::Base& ins)
 
 void instructionTcpInBase(const RobotInstruction::Base& ins, BackendMat4& out)
 {
+	engine::RigidTransform t{};
+	if (RobotInstruction::readTargetTransformFromInstruction(ins, t))
+	{
+		out = RobotCoordinate::backendMat4FromRigidTransform(t);
+		return;
+	}
 	const RobotInstruction::Vec3 p = ins.pose();
 	const RobotInstruction::Vec3 e = ins.eulerDeg();
 	out = RobotCoordinate::tcpInBaseFromPose(p.x, p.y, p.z, e.x, e.y, e.z);
@@ -37,19 +44,35 @@ void instructionTcpInBase(const RobotInstruction::Base& ins, BackendMat4& out)
 
 void setInstructionTcpInBase(RobotInstruction::Base& ins, const BackendMat4& T_base_tcp)
 {
-	double pos[3]{};
-	double euler[3]{};
-	RobotCoordinate::poseEulerFromTcpInBase(T_base_tcp, pos, euler);
-	RobotInstruction::Vec3 p{};
-	p.x = pos[0];
-	p.y = pos[1];
-	p.z = pos[2];
-	ins.setPose(p);
-	RobotInstruction::Vec3 e{};
-	e.x = euler[0];
-	e.y = euler[1];
-	e.z = euler[2];
-	ins.setEulerDeg(e);
+	// IK/路点轴优先读 context.targetTransform*；只改 pose/euler 会与真值脱节
+	RobotInstruction::writeTargetTransformToInstruction(
+		ins, RobotCoordinate::rigidTransformFromBackendMat4(T_base_tcp));
+}
+
+void invalidateSubsequentTaughtJointsAfterPoseEdit(IRobotInstructionPropertyUiHost& host,
+												   const std::shared_ptr<RobotInstruction::Base>& instruction)
+{
+	if (!instruction || !host.simulationCommandPage())
+	{
+		return;
+	}
+	const std::vector<std::shared_ptr<RobotInstruction::Base>> program =
+		host.simulationCommandPage()->instructions(host.simulationCommandPage()->currentRobotBackendId());
+	const std::vector<const RobotInstruction::Base*> motions = RobotInstruction::collectMotionInstructions(program);
+	int changedMotionIndex = -1;
+	for (size_t i = 0; i < motions.size(); ++i)
+	{
+		if (motions[i] && motions[i]->id() == instruction->id())
+		{
+			changedMotionIndex = static_cast<int>(i);
+			break;
+		}
+	}
+	// 本点旧示教角留给 IK 作种子；仅作废后续点
+	if (changedMotionIndex >= 0)
+	{
+		RobotInstructionPlanning::invalidateTaughtJointsFromMotionIndexForward(motions, changedMotionIndex + 1);
+	}
 }
 
 BackendMat4 instructionTcpForDisplay(IRobotInstructionPropertyUiHost& host, const RobotInstruction::Base& ins)
@@ -908,6 +931,14 @@ bool InstructionPropertyPanel::handleVariantPropertyValueChanged(IRobotInstructi
 	{
 		const QString instructionId = QString::fromStdString(instruction->id());
 		host.notifyPropertyPanelNumericEditStarted(instructionId, propertyKey);
+		// 强制笛卡尔重解；示教偏离目标时由规划侧优先链式种子
+		host.applyRobotPoseForInstructionPreview(instruction, true);
+		invalidateSubsequentTaughtJointsAfterPoseEdit(host, instruction);
+		host.scheduleInstructionPropertyRefresh(instruction, true);
+		if (host.simulationCommandPage())
+		{
+			host.simulationCommandPage()->refreshInstructionList();
+		}
 	}
 	else
 	{

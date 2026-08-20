@@ -5851,7 +5851,8 @@ void RobotSimulationController::scheduleInstructionPoseAxesRefresh(const bool co
 }
 
 void RobotSimulationController::applyRobotPoseForInstructionPreview(
-	const std::shared_ptr<RobotInstruction::Base>& instruction, const PrecomputedChainSeed* precomputedChainSeed)
+	const std::shared_ptr<RobotInstruction::Base>& instruction, const PrecomputedChainSeed* precomputedChainSeed,
+	const bool forceCartesianIk)
 {
 	if (m_skipInstructionPreviewOnce)
 	{
@@ -5919,7 +5920,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(
 	std::string planErr;
 	if (!planMotionConsistentWithPreview(*targetIns, seedQ, programStartQ, instIdx, urdfPath, defaultTcpLinkName,
 										 robotBackendId, framesForPlan, plan, &planErr, true,
-										 /*gateTaughtResidual=*/false))
+										 /*gateTaughtResidual=*/true, forceCartesianIk))
 	{
 		if (m_host->runInfoPage())
 		{
@@ -7392,7 +7393,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 	const int instanceIndex, const QString& urdfPath, const QString& defaultTcpLinkName,
 	const QString& sceneRootBackendId, const RobotCoordinate::RobotCoordinateFrameSet& frames,
 	RobotInstruction::PlanResult& outPlan, std::string* planErr, const bool persistTaughtOnSuccess,
-	const bool gateTaughtResidual)
+	const bool gateTaughtResidual, const bool skipTaughtShortCircuit)
 {
 	outPlan = {};
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
@@ -7416,8 +7417,8 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 	}
 
 	const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(instruction);
-	bool useTaughtCsv =
-		taughtQ.size() == nj && RobotInstructionPlanning::shouldUseTaughtJointCsv(instruction, &frames);
+	bool useTaughtCsv = !skipTaughtShortCircuit && taughtQ.size() == nj &&
+						RobotInstructionPlanning::shouldUseTaughtJointCsv(instruction, &frames);
 	const bool extEnabled =
 		RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instanceIndex));
 	if (useTaughtCsv && extEnabled)
@@ -7433,15 +7434,20 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 			useTaughtCsv = false;
 		}
 	}
+	double taughtResidualMm = -1.0;
+	double taughtOrientDeg = -1.0;
+	if (taughtQ.size() == nj)
+	{
+		taughtResidualMm =
+			targetResidualMmForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
+		taughtOrientDeg =
+			targetOrientationResidualDegForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
+	}
 	if (useTaughtCsv)
 	{
 		if (gateTaughtResidual)
 		{
-			const double taughtResidual =
-				targetResidualMmForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
-			const double taughtOrientDeg =
-				targetOrientationResidualDegForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
-			if (!isTaughtOrCacheReuseAcceptable(taughtResidual, taughtOrientDeg))
+			if (!isTaughtOrCacheReuseAcceptable(taughtResidualMm, taughtOrientDeg))
 			{
 				useTaughtCsv = false;
 			}
@@ -7492,7 +7498,10 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		return false;
 	};
 
-	// 种子序：示教 → 链式 → 程序起点（去重）
+	// 示教角已偏笛卡尔目标时优先链式种子，避免从错误折叠构型收敛到「到点但姿态怪」的解
+	constexpr double kTaughtSeedPreferMm = 80.0;
+	const bool preferTaughtAsIkSeed =
+		taughtQ.size() == nj && taughtResidualMm >= 0.0 && taughtResidualMm <= kTaughtSeedPreferMm;
 	QVector<QVector<double>> seedOrder;
 	auto pushSeed = [&](const QVector<double>& s)
 	{
@@ -7509,8 +7518,16 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		}
 		seedOrder.push_back(s);
 	};
-	pushSeed(taughtQ);
-	pushSeed(chainSeedQ);
+	if (preferTaughtAsIkSeed)
+	{
+		pushSeed(taughtQ);
+		pushSeed(chainSeedQ);
+	}
+	else
+	{
+		pushSeed(chainSeedQ);
+		pushSeed(taughtQ);
+	}
 	pushSeed(programStartQ);
 
 	const RobotInstructionPlanning::MotionPoseBackup backup =
@@ -7612,6 +7629,47 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 	if (persistTaughtOnSuccess)
 	{
 		RobotInstructionPlanning::persistTaughtJointsAndToolContext(instruction, resultQ, frames);
+		// AUTO 肘/腕时把观测构型写回，避免下次仍从错误构型种子收敛
+		if (instruction.hasMotionAxisConfigurationProperty())
+		{
+			RobotInstruction::MotionAxisConfiguration cfg = instruction.motionAxisConfiguration();
+			const QStringList jn = doc->robotRevoluteJointNamesForInstance(instanceIndex);
+			std::vector<std::string> jointNames;
+			jointNames.reserve(static_cast<size_t>(jn.size()));
+			for (const QString& n : jn)
+			{
+				jointNames.push_back(n.toStdString());
+			}
+			std::vector<double> q(resultQ.begin(), resultQ.end());
+			const RobotInstruction::JointConfigurationClass observed =
+				RobotInstruction::classifyJointConfiguration(q, jointNames, &q);
+			bool changed = false;
+			if (cfg.elbow == RobotInstruction::ElbowPosture::Auto &&
+				observed.elbow != RobotInstruction::ElbowPosture::Auto)
+			{
+				cfg.elbow = observed.elbow;
+				changed = true;
+			}
+			if (cfg.wrist == RobotInstruction::WristPosture::Auto &&
+				observed.wrist != RobotInstruction::WristPosture::Auto)
+			{
+				cfg.wrist = observed.wrist;
+				changed = true;
+			}
+			if (cfg.arm == RobotInstruction::ArmPosture::Auto && observed.arm != RobotInstruction::ArmPosture::Auto)
+			{
+				cfg.arm = observed.arm;
+				changed = true;
+			}
+			if (changed)
+			{
+				if (cfg.preset == "AUTO" || cfg.preset.empty())
+				{
+					cfg.preset = RobotInstruction::suggestMotionAxisPresetToken(observed);
+				}
+				instruction.setMotionAxisConfiguration(cfg);
+			}
+		}
 	}
 	return true;
 }
