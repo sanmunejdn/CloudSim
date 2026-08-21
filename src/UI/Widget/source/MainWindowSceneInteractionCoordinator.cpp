@@ -30,12 +30,29 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 					Qt::UniqueConnection);
 			connect(toolbar, &ViewportToolBar::rightPanelVisibilityToggled, this, &MainWindow::setRightSidePanelVisible,
 					Qt::UniqueConnection);
+			connect(toolbar, &ViewportToolBar::objectSelectionToggled, this,
+					[this](const bool on)
+					{
+						if (on)
+						{
+							onObjectModeTriggered();
+						}
+						else
+						{
+							onViewModeTriggered();
+						}
+					},
+					Qt::UniqueConnection);
 			toolbar->setUseChinese(m_useChinese);
 			// Dock 可能尚未创建（首文档早于 setupDockWidgets）；勿用空指针写成「已隐藏」
 			if (m_propertyDock || m_unitDock)
 			{
 				toolbar->setSidePanelToggleState(m_propertyDock && !m_propertyDock->isHidden(),
 												 m_unitDock && !m_unitDock->isHidden());
+			}
+			if (m_objectModeAction)
+			{
+				toolbar->setObjectSelectionChecked(m_objectModeAction->isChecked());
 			}
 		}
 	}

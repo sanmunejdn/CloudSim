@@ -175,7 +175,16 @@ flowchart TB
 - 坐标系（`RobotCoordinateFrameSet`）
 - 关节 `MatrixTransform*`（可选；per-link 模式可为空）
 
-**视口工具栏线框**：`ViewportToolBar::wireframeToggled` → `OsgWidget::setWireframeMode`。BRep 走拓扑边（`applyBrepViewportWireframe`），非 BRep 为三角 `PolygonMode::LINE`；与导入 `showWireOutline` 解耦。详见 [`BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md) §4.3。
+**视口工具栏**：`ViewportToolBar` 浮动于 3D 视口顶部。左侧组：对象选择 → 视角自适应 → 线框 → 截图；右侧组：左/右侧栏显隐。
+
+| 按钮 | 信号 / 行为 |
+|------|-------------|
+| 对象选择 | `objectSelectionToggled` → `MainWindow::onObjectModeTriggered` / `onViewModeTriggered`；与 View 菜单勾选态双向同步 |
+| 视角自适应 | `focusRequested` → `OsgWidget::onViewportFocusRequested` |
+| 线框 | `wireframeToggled` → `OsgWidget::setWireframeMode`。BRep 走拓扑边（`applyBrepViewportWireframe`），非 BRep 为三角 `PolygonMode::LINE`；与导入 `showWireOutline` 解耦 |
+| 截图 | `screenshotRequested` → `OsgWidget::onViewportScreenshotRequested` |
+
+详见 [`BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md) §4.3（线框）。
 
 ### 4.3 `WidgetSceneSignalWiring`
 
@@ -564,3 +573,8 @@ w.showMaximized();
 1. **OSG 头文件解耦**：`DocumentPage` 等仍保留 Robot* 头用于访问器实现（未来可通过 Pimpl 隔离）。
 2. **`IRenderView` 全面替代**：Widget 主路径走 `render()`；阶段 3.3-3.4（`ObjectTransformOperation` 等）待定。
 3. **`RobotSimulationController` 核心逻辑迁入 Host**：仿真编排逻辑下沉（长期规划）。
+
+
+## ViewportInteraction（2026-08）
+
+拾取交互经 `ViewportInteractionController`：`IViewportPickEngine` 唯一 `queryPick`；`IPointerTool` / `IOverlayOp` 分手势与罗盘；`IHitResolvePolicy` 归并；`IInteractionSession` 业务消费。旧 `set*PickMode` 为门面。详见 `docs/视口拾取重构/`。

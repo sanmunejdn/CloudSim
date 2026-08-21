@@ -221,6 +221,20 @@
     <QtMoc Include="inc\RunInfoPage.h" />
     <QtMoc Include="inc\HelpBrowserDialog.h" />
     <ClInclude Include="inc\SelectionOperation.h" />
+    <ClInclude Include="inc\ViewportInteraction\ViewportHit.h" />
+    <ClInclude Include="inc\ViewportInteraction\IViewportPickEngine.h" />
+    <ClInclude Include="inc\ViewportInteraction\OsgWidgetPickEngine.h" />
+    <ClInclude Include="inc\ViewportInteraction\IPointerTool.h" />
+    <ClInclude Include="inc\ViewportInteraction\IOverlayOp.h" />
+    <ClInclude Include="inc\ViewportInteraction\IHitResolvePolicy.h" />
+    <ClInclude Include="inc\ViewportInteraction\IInteractionSession.h" />
+    <ClInclude Include="inc\ViewportInteraction\ViewportInteractionController.h" />
+    <ClInclude Include="inc\ViewportInteraction\MeshPickSession.h" />
+    <ClInclude Include="inc\ViewportInteraction\Policies\PassthroughHitPolicy.h" />
+    <ClInclude Include="inc\ViewportInteraction\Policies\GizmoAxisHitPolicy.h" />
+    <ClInclude Include="inc\ViewportInteraction\Policies\RobotObjectSelectPolicy.h" />
+    <ClInclude Include="inc\ViewportInteraction\Tools\SelectionOperationToolAdapter.h" />
+    <ClInclude Include="inc\ViewportInteraction\Overlays\SelectionOperationOverlayAdapter.h" />
     <ClInclude Include="inc\widget_global.h" />
     <ClInclude Include="inc\ProjectPackageZip.h" />
     <QtMoc Include="inc\ViewportToolBar.h" />
@@ -231,6 +245,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="source\ViewportInteraction\OsgWidgetPickEngine.cpp" />
+    <ClCompile Include="source\ViewportInteraction\ViewportInteractionController.cpp" />
     <ClCompile Include="source\ApplicationSettings.cpp" />
     <ClCompile Include="source\ApplicationStyle.cpp" />
     <ClCompile Include="source\DocumentPage.cpp" />

@@ -233,14 +233,78 @@ QString HeadlessRobotContext::robotGizmoAnchorBackendId(const QString& backendId
 		return backendId;
 	}
 	const HierarchicalRobotInstance& ri = m_robots[idx];
+	if (ri.linkNameToBackendId.isEmpty())
+	{
+		return ri.sceneBackendId;
+	}
+
+	// 与桌面 DocumentPage::robotFrameWorldReferenceBackendId 同策：勿用 QHash::begin 落到法兰
+	const auto parentOf = [this](const QString& bid) -> QString
+	{
+		const QString sidecar = m_host.backendParentId().value(bid);
+		if (!sidecar.isEmpty())
+		{
+			return sidecar;
+		}
+		const QVector<QString> parents = m_host.data().parentsOf(bid);
+		return parents.isEmpty() ? QString() : parents.first();
+	};
+
+	QStringList underRootNames;
 	for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
 	{
-		if (m_host.backendParentId().value(it.value()) == ri.sceneBackendId)
+		if (parentOf(it.value()) == ri.sceneBackendId)
 		{
-			return it.value();
+			underRootNames.append(it.key());
 		}
 	}
-	return ri.linkNameToBackendId.isEmpty() ? ri.sceneBackendId : ri.linkNameToBackendId.constBegin().value();
+
+	const QString flangeLink = QString::fromStdString(ri.coordinateFrames.flangeLinkName);
+	const auto pickPreferredName = [&](const QStringList& names) -> QString
+	{
+		static const QString kPreferred[] = {QStringLiteral("base_link"), QStringLiteral("base"),
+											QStringLiteral("root")};
+		for (const QString& want : kPreferred)
+		{
+			for (const QString& name : names)
+			{
+				if (name.compare(want, Qt::CaseInsensitive) == 0)
+				{
+					return name;
+				}
+			}
+		}
+		QStringList sorted = names;
+		std::sort(sorted.begin(), sorted.end(),
+				  [](const QString& a, const QString& b) { return a.compare(b, Qt::CaseInsensitive) < 0; });
+		for (const QString& name : sorted)
+		{
+			if (!flangeLink.isEmpty() && name.compare(flangeLink, Qt::CaseInsensitive) == 0)
+			{
+				continue;
+			}
+			return name;
+		}
+		return sorted.isEmpty() ? QString() : sorted.first();
+	};
+
+	QString urdfRootLink;
+	{
+		QHash<QString, QString> meshes;
+		(void)UrdfRobotLoader::enumerateLinkVisualMeshes(ri.urdfAbsolutePath, urdfRootLink, meshes, nullptr);
+	}
+	if (!urdfRootLink.isEmpty() && ri.linkNameToBackendId.contains(urdfRootLink))
+	{
+		return ri.linkNameToBackendId.value(urdfRootLink);
+	}
+
+	const QStringList namePool = underRootNames.isEmpty() ? QStringList(ri.linkNameToBackendId.keys()) : underRootNames;
+	const QString chosen = pickPreferredName(namePool);
+	if (!chosen.isEmpty())
+	{
+		return ri.linkNameToBackendId.value(chosen);
+	}
+	return ri.sceneBackendId;
 }
 
 QString HeadlessRobotContext::robotFlangeBackendId(const QString& backendId) const

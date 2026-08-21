@@ -284,3 +284,8 @@ UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syn
 - Qt / Host 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（TCP 示教 §13.1；Units/主题 §4.6、§5.3）
 - per-link FK / **M0·P**：[`../../Robot/RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §8
 - Host 组合根：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md)
+
+
+## ViewportInteraction（2026-08）
+
+拾取交互经 `ViewportInteractionController`：`IViewportPickEngine` 唯一 `queryPick`；`IPointerTool` / `IOverlayOp` 分手势与罗盘；`IHitResolvePolicy` 归并；`IInteractionSession` 业务消费。旧 `set*PickMode` 为门面。详见 `docs/视口拾取重构/`。

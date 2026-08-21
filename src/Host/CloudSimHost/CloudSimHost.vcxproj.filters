@@ -111,6 +111,9 @@
     <Filter Include="External\UI\Widget\source\SceneFacade">
       <UniqueIdentifier>{58FFB452-1626-4CA6-905C-DE31E994166A}</UniqueIdentifier>
     </Filter>
+    <Filter Include="External\UI\Widget\source\ViewportInteraction">
+      <UniqueIdentifier>{B1C2D3E4-F5A6-7890-BCDE-F12345678001}</UniqueIdentifier>
+    </Filter>
     <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Agent">
       <UniqueIdentifier>{B71F1A01-4C2E-4D91-9A11-111111111101}</UniqueIdentifier>
     </Filter>
@@ -528,6 +531,12 @@
     </ClCompile>
     <ClCompile Include="..\..\UI\Widget\source\OsgWidget.cpp">
       <Filter>External\UI\Widget\source\OsgView</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\ViewportInteraction\OsgWidgetPickEngine.cpp">
+      <Filter>External\UI\Widget\source\ViewportInteraction</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\ViewportInteraction\ViewportInteractionController.cpp">
+      <Filter>External\UI\Widget\source\ViewportInteraction</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetBackendLoadController.cpp">
       <Filter>External\UI\Widget\source\OsgView</Filter>

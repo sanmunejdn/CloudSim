@@ -95,12 +95,6 @@ QColor viewportBaseColor(bool dark)
 	return dark ? QColor(56, 61, 74) : QColor(214, 222, 235);
 }
 
-// 与 OsgWidget clearColor 对齐，供圆角 AA 溶边
-QColor viewportClearColor(bool dark)
-{
-	return dark ? QColor(36, 36, 41) : QColor(237, 237, 240);
-}
-
 ViewportTipColors tipColorsForTheme(bool dark)
 {
 	if (dark)
@@ -151,13 +145,19 @@ ViewportButtonColors colorsForTheme(bool dark)
 class ViewportActionTip : public QWidget
 {
 public:
-	explicit ViewportActionTip(QWidget* parent = nullptr)
-		: QWidget(parent, Qt::ToolTip | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)
+	explicit ViewportActionTip()
+		// 不用 Qt::ToolTip：全局 QToolTip 样式会先铺近似方底，叠场景时像多出一页
+		: QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint |
+							   Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus)
 	{
+		setObjectName(QStringLiteral("ViewportActionTip"));
 		setAttribute(Qt::WA_ShowWithoutActivating, true);
 		setAttribute(Qt::WA_TransparentForMouseEvents, true);
 		setAutoFillBackground(false);
-		setAttribute(Qt::WA_OpaquePaintEvent, true);
+		setAttribute(Qt::WA_TranslucentBackground, true);
+		setAttribute(Qt::WA_OpaquePaintEvent, false);
+		setAttribute(Qt::WA_NoSystemBackground, true);
+		setStyleSheet(QStringLiteral("#ViewportActionTip { background: transparent; border: none; }"));
 
 		auto* layout = new QVBoxLayout(this);
 		layout->setContentsMargins(12, 9, 12, 9);
@@ -218,6 +218,9 @@ protected:
 
 		QPainter p(this);
 		p.setRenderHint(QPainter::Antialiasing, true);
+		p.setCompositionMode(QPainter::CompositionMode_Source);
+		p.fillRect(rect(), Qt::transparent);
+		p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
 		QPainterPath path;
 		path.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), kTipRadius, kTipRadius);
@@ -281,7 +284,11 @@ public:
 		setCursor(Qt::PointingHandCursor);
 		setFocusPolicy(Qt::NoFocus);
 		setAutoFillBackground(false);
+		// Windows 上透明叠 GL 易黑块；也不铺视口清屏色（叠模型会露「底页」）
+		setAttribute(Qt::WA_TranslucentBackground, false);
 		setAttribute(Qt::WA_OpaquePaintEvent, true);
+		// 屏蔽全局 QToolButton 边框/padding，否则叠场景时底边像多出一页
+		setStyleSheet(QStringLiteral("QToolButton { background: transparent; border: none; padding: 0; margin: 0; }"));
 		applyViewportPalette();
 	}
 
@@ -337,10 +344,8 @@ protected:
 		p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 		p.setPen(Qt::NoPen);
 
-		// 不用 setMask（1bit 锯齿）；圆角外铺清屏色，AA 才能溶边
-		p.fillRect(rect(), viewportClearColor(m_darkTheme));
-
-		// 面与外轮廓同路径：组内邻边保持直角，避免圆角对缝露出黑三角
+		// 整格同色不透明：圆角外也是 chrome 色，避免清屏色底条在场景上露出来
+		p.fillRect(rect(), fill);
 		p.fillPath(chromePath(QRectF(rect()), m_corner, kBtnRadius), fill);
 
 		const QIcon icon = this->icon();
@@ -407,10 +412,17 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 		return;
 	}
 
-	auto* actionTip = new ViewportActionTip(m_host);
+	auto* actionTip = new ViewportActionTip();
+	QObject::connect(m_host, &QObject::destroyed, actionTip, &QObject::deleteLater);
 	m_actionTip = actionTip;
 
-	m_focusBtn = createToolButton(actionTip, ViewportChromeCorner::Leading, m_host);
+	m_objectSelectBtn = createToolButton(actionTip, ViewportChromeCorner::Leading, m_host);
+	UiIconDecorators::apply(m_objectSelectBtn, UiIconId::ObjectSelect, UiIconDecorators::IconPlacement::IconOnly,
+							UiIcons::Size::Medium);
+	m_objectSelectBtn->setCheckable(true);
+	updateObjectSelectTip();
+
+	m_focusBtn = createToolButton(actionTip, ViewportChromeCorner::Middle, m_host);
 	UiIconDecorators::apply(m_focusBtn, UiIconId::FocusCamera, UiIconDecorators::IconPlacement::IconOnly,
 							UiIcons::Size::Medium);
 	static_cast<ViewportIconButton*>(m_focusBtn)
@@ -429,6 +441,7 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 	static_cast<ViewportIconButton*>(m_captureBtn)
 		->setActionTipText(QStringLiteral("截图"), QStringLiteral("Screenshot"));
 
+	connect(m_objectSelectBtn, &QToolButton::toggled, this, &ViewportToolBar::objectSelectionToggled);
 	connect(m_focusBtn, &QToolButton::clicked, this, &ViewportToolBar::focusRequested);
 	connect(m_wireBtn, &QToolButton::toggled, this,
 			[this](bool on)
@@ -473,7 +486,30 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 void ViewportToolBar::setUseChinese(bool useChinese)
 {
 	m_useChinese = useChinese;
+	updateObjectSelectTip();
 	updateSidePanelButtonTips();
+}
+
+void ViewportToolBar::setObjectSelectionChecked(const bool checked)
+{
+	if (!m_objectSelectBtn || m_objectSelectBtn->isChecked() == checked)
+	{
+		return;
+	}
+	const QSignalBlocker blocker(m_objectSelectBtn);
+	m_objectSelectBtn->setChecked(checked);
+	m_objectSelectBtn->update();
+}
+
+void ViewportToolBar::updateObjectSelectTip()
+{
+	if (!m_objectSelectBtn)
+	{
+		return;
+	}
+	static_cast<ViewportIconButton*>(m_objectSelectBtn)
+		->setActionTipText(m_useChinese ? QStringLiteral("对象选择") : QStringLiteral("Object Select"),
+						   m_useChinese ? QStringLiteral("拾取并变换场景对象") : QStringLiteral("Pick and transform objects"));
 }
 
 void ViewportToolBar::setSidePanelToggleState(const bool leftVisible, const bool rightVisible)
@@ -549,10 +585,11 @@ void ViewportToolBar::refreshChrome()
 
 void ViewportToolBar::showButtons()
 {
-	if (!m_focusBtn || !m_wireBtn || !m_captureBtn || !m_leftPanelBtn || !m_rightPanelBtn)
+	if (!m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_leftPanelBtn || !m_rightPanelBtn)
 	{
 		return;
 	}
+	m_objectSelectBtn->show();
 	m_focusBtn->show();
 	m_wireBtn->show();
 	m_captureBtn->show();
@@ -581,6 +618,10 @@ bool ViewportToolBar::eventFilter(QObject* obj, QEvent* ev)
 
 void ViewportToolBar::raiseButtons()
 {
+	if (m_objectSelectBtn)
+	{
+		m_objectSelectBtn->raise();
+	}
 	if (m_focusBtn)
 	{
 		m_focusBtn->raise();
@@ -605,16 +646,18 @@ void ViewportToolBar::raiseButtons()
 
 void ViewportToolBar::reposition()
 {
-	if (!m_host || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_leftPanelBtn || !m_rightPanelBtn)
+	if (!m_host || !m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_leftPanelBtn ||
+		!m_rightPanelBtn)
 	{
 		return;
 	}
-	const int viewGroupW = kBtnSize * 3 + kBarSpacing * 2;
+	const int viewGroupW = kBtnSize * 4 + kBarSpacing * 3;
 	const int totalW = viewGroupW + kGroupGap + kBtnSize * 2 + kBarSpacing;
 	const int x0 = (m_host->width() - totalW) / 2;
-	m_focusBtn->move(x0, kTopMargin);
-	m_wireBtn->move(x0 + kBtnSize + kBarSpacing, kTopMargin);
-	m_captureBtn->move(x0 + (kBtnSize + kBarSpacing) * 2, kTopMargin);
+	m_objectSelectBtn->move(x0, kTopMargin);
+	m_focusBtn->move(x0 + kBtnSize + kBarSpacing, kTopMargin);
+	m_wireBtn->move(x0 + (kBtnSize + kBarSpacing) * 2, kTopMargin);
+	m_captureBtn->move(x0 + (kBtnSize + kBarSpacing) * 3, kTopMargin);
 	const int sideX = x0 + viewGroupW + kGroupGap;
 	m_leftPanelBtn->move(sideX, kTopMargin);
 	m_rightPanelBtn->move(sideX + kBtnSize + kBarSpacing, kTopMargin);
@@ -622,6 +665,7 @@ void ViewportToolBar::reposition()
 
 void ViewportToolBar::applyButtonStyle()
 {
+	applyChromeToButton(m_objectSelectBtn, m_darkTheme);
 	applyChromeToButton(m_focusBtn, m_darkTheme);
 	applyChromeToButton(m_wireBtn, m_darkTheme);
 	applyChromeToButton(m_captureBtn, m_darkTheme);

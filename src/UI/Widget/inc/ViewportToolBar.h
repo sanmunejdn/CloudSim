@@ -3,14 +3,14 @@
 
 /// @file ViewportToolBar.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief 3D 视口顶部浮动按钮（视角工具 + 侧栏抽屉切换）
+/// @brief 3D 视口顶部浮动按钮（对象选择 + 视角工具 + 侧栏抽屉切换）
 
 #include <QObject>
 
 class QToolButton;
 class QWidget;
 
-/// 3D 视口顶部浮动按钮（视角工具 + 侧栏抽屉切换）
+/// 3D 视口顶部浮动按钮（对象选择 + 视角工具 + 侧栏抽屉切换）
 class ViewportToolBar : public QObject
 {
 	Q_OBJECT
@@ -23,8 +23,11 @@ public:
 	void showButtons();
 	/// 与 MainWindow 侧栏显隐同步（checked = 面板可见）
 	void setSidePanelToggleState(bool leftVisible, bool rightVisible);
+	/// 与 View 菜单「对象选择」勾选态同步，避免互相反馈
+	void setObjectSelectionChecked(bool checked);
 
 signals:
+	void objectSelectionToggled(bool on);
 	void focusRequested();
 	void wireframeToggled(bool on);
 	void screenshotRequested();
@@ -39,6 +42,7 @@ private:
 	void reposition();
 	void raiseButtons();
 	void updateSidePanelButtonTips();
+	void updateObjectSelectTip();
 	void updateLeftPanelChrome(bool visible);
 	void updateRightPanelChrome(bool visible);
 
@@ -46,6 +50,7 @@ private:
 	bool m_darkTheme = false;
 	bool m_useChinese = true;
 	bool m_wireframeOn = false;
+	QToolButton* m_objectSelectBtn = nullptr;
 	QToolButton* m_focusBtn = nullptr;
 	QToolButton* m_wireBtn = nullptr;
 	QToolButton* m_captureBtn = nullptr;

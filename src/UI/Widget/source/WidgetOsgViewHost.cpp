@@ -56,6 +56,7 @@ cloudsim::core::InstructionPoseAxisDto instructionAxisToDto(const RobotOsgUi::In
 	d.lineMotion = a.lineMotion;
 	d.reachable = a.reachable;
 	d.instructionId = QString::fromStdString(a.instructionId);
+	d.isArcVia = a.isArcVia;
 	d.robotBackendId = QString::fromStdString(a.robotBackendId);
 	d.backendId = QString::fromStdString(a.backendId);
 	d.mountTcpOnPatRoot = a.mountTcpOnPatRoot;
@@ -444,8 +445,9 @@ bool WidgetOsgViewHost::instructionWaypointPickMode() const
 	return false;
 }
 
-void WidgetOsgViewHost::setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
-														   std::function<void()> onCanceled)
+void WidgetOsgViewHost::setInstructionWaypointPickCallbacks(
+	std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
+	std::function<void()> onCanceled)
 {
 	if (OsgWidget* osg = osgWidget())
 	{

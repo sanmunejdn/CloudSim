@@ -2,6 +2,13 @@
 /// @brief OSG 视口与场景加载
 
 #include "OsgWidget.h"
+#include "ViewportInteraction/OsgWidgetPickEngine.h"
+#include "ViewportInteraction/ViewportInteractionController.h"
+#include "ViewportInteraction/Tools/SelectionOperationToolAdapter.h"
+#include "ViewportInteraction/Overlays/SelectionOperationOverlayAdapter.h"
+#include "ViewportInteraction/Policies/PassthroughHitPolicy.h"
+#include "ViewportInteraction/Policies/GizmoAxisHitPolicy.h"
+
 
 #include "BackendDataBase.h"
 #include "BackendFollowMath.h"
@@ -155,6 +162,7 @@ OsgWidget::OsgWidget(QWidget* parent) : QWidget(parent)
 	m_meshSectionPlaneOperation = std::make_unique<MeshSectionPlaneEditOperation>(this);
 	m_meshElementPickOperation = std::make_unique<MeshEdgeFacePickOperation>(this);
 	m_labelingPickOperation = std::make_unique<LabelingPickOperation>(this);
+	setupInteractionController();
 	m_importController = std::make_unique<OsgWidgetImportController>();
 	m_backendLoadController = std::make_unique<OsgWidgetBackendLoadController>();
 	m_captureController = std::make_unique<OsgWidgetCaptureController>();
@@ -342,6 +350,35 @@ osg::Group* findUrdfLinkContainer(osg::Group* sceneSubtree, const std::string& u
 	} vis(want);
 	sceneSubtree->accept(vis);
 	return vis.found;
+}
+
+// 朝向屏幕的选中圈（配合 AutoTransform::ROTATE_TO_SCREEN / autoScaleToScreen）
+osg::ref_ptr<osg::Geode> createScreenFacingSelectionRingGeode(float radiusPx, const osg::Vec4& color, float lineWidth)
+{
+	constexpr int kSeg = 48;
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	verts->reserve(static_cast<unsigned>(kSeg + 1));
+	for (int i = 0; i <= kSeg; ++i)
+	{
+		const float a = osg::PI * 2.0f * static_cast<float>(i) / static_cast<float>(kSeg);
+		verts->push_back(osg::Vec3(std::cos(a) * radiusPx, std::sin(a) * radiusPx, 0.0f));
+	}
+	osg::ref_ptr<osg::Geometry> ring = new osg::Geometry;
+	ring->setVertexArray(verts.get());
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(color);
+	ring->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	ring->addPrimitiveSet(new osg::DrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(verts->size())));
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	geode->addDrawable(ring.get());
+	osg::StateSet* ss = geode->getOrCreateStateSet();
+	ss->setAttributeAndModes(new osg::LineWidth(lineWidth), osg::StateAttribute::ON);
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+	ss->setRenderBinDetails(115, "RenderBin");
+	return geode;
 }
 
 // 万级路点：单 Geode 批点+线，避免每点 Sphere/ShapeDrawable + MatrixTransform
@@ -737,7 +774,10 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 
 	if (axes.empty())
 	{
-		m_instructionWaypointPickTargets.clear();
+		if (!m_instructionWaypointPickMode)
+		{
+			m_instructionWaypointPickTargets.clear();
+		}
 		requestRedraw();
 		return;
 	}
@@ -760,7 +800,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 		if (!a.instructionId.empty())
 		{
 			m_instructionWaypointPickTargets.push_back(
-				InstructionWaypointPickTarget{a.instructionId, a.positionMm});
+				InstructionWaypointPickTarget{a.instructionId, a.positionMm, a.isArcVia});
 		}
 	}
 	m_instructionPoseAxesGroup->addChild(
@@ -770,6 +810,11 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 
 void OsgWidget::clearInstructionPoseAxes()
 {
+	// 拾取中保留靶标：进模式时常先清对象选，树清空会级联 clearSelection→此处，否则 3D 点了无响应
+	if (m_instructionWaypointPickMode)
+	{
+		return;
+	}
 	m_instructionWaypointPickTargets.clear();
 	if (m_instructionPoseAxesGroup.valid())
 	{
@@ -978,6 +1023,7 @@ void OsgWidget::clearPlaybackCursorOverlay()
 	requestRedraw();
 }
 
+
 void OsgWidget::setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels)
 {
 	if (!m_trajectoryOverlayGroup.valid())
@@ -1047,8 +1093,9 @@ void OsgWidget::clearWaypointIndexLabels()
 	requestRedraw();
 }
 
-void OsgWidget::setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
-												   std::function<void()> onCanceled)
+void OsgWidget::setInstructionWaypointPickCallbacks(
+	std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
+	std::function<void()> onCanceled)
 {
 	m_instructionWaypointPicked = std::move(onPicked);
 	m_instructionWaypointPickCanceled = std::move(onCanceled);
@@ -1056,6 +1103,10 @@ void OsgWidget::setInstructionWaypointPickCallbacks(std::function<void(const std
 
 void OsgWidget::setInstructionWaypointPickMode(bool enabled)
 {
+	if (enabled && m_interactionController)
+	{
+		m_interactionController->clearActiveTool();
+	}
 	if (m_instructionWaypointPickMode == enabled)
 	{
 		return;
@@ -1085,11 +1136,16 @@ void OsgWidget::setInstructionWaypointPickMode(bool enabled)
 		m_lastViewportCursor = Qt::ArrowCursor;
 		m_glWidget->setCursor(Qt::ArrowCursor);
 	}
+	if (!enabled)
+	{
+		clearWaypointPickHover();
+	}
 	syncCameraManipulatorForModes();
 	refreshCompassDrawVisibility();
 }
 
-bool OsgWidget::tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string& outInstructionId) const
+bool OsgWidget::tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string& outInstructionId,
+											  cloudsim::core::Vec3* outPositionMm, bool* outIsArcVia) const
 {
 	if (!m_viewer.valid() || !m_viewer->getCamera() || m_instructionWaypointPickTargets.empty())
 	{
@@ -1102,18 +1158,21 @@ bool OsgWidget::tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string
 	{
 		return false;
 	}
-	const double hitR2 = kPointPickHitRadiusPx * kPointPickHitRadiusPx;
+	constexpr double kWaypointPickHitRadiusPx = kPointPickHitRadiusPx * 1.5;
+	const double hitR2 = kWaypointPickHitRadiusPx * kWaypointPickHitRadiusPx;
 	bool found = false;
 	double bestD2 = hitR2;
 	double bestDepth = (std::numeric_limits<double>::max)();
-	for (const InstructionWaypointPickTarget& t : m_instructionWaypointPickTargets)
+	cloudsim::core::Vec3 bestPos{};
+	bool bestIsArcVia = false;
+	for (const InstructionWaypointPickTarget& target : m_instructionWaypointPickTargets)
 	{
-		if (t.instructionId.empty())
+		if (target.instructionId.empty())
 		{
 			continue;
 		}
 		const osg::Vec3d clip =
-			osg::Vec3d(t.positionMm.x, t.positionMm.y, t.positionMm.z) * mvp;
+			osg::Vec3d(target.positionMm.x, target.positionMm.y, target.positionMm.z) * mvp;
 		if (clip.z() < -1.0 || clip.z() > 1.0)
 		{
 			continue;
@@ -1134,10 +1193,90 @@ bool OsgWidget::tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string
 			found = true;
 			bestD2 = d2;
 			bestDepth = clip.z();
-			outInstructionId = t.instructionId;
+			outInstructionId = target.instructionId;
+			bestPos = target.positionMm;
+			bestIsArcVia = target.isArcVia;
 		}
 	}
+	if (found && outPositionMm)
+	{
+		*outPositionMm = bestPos;
+	}
+	if (found && outIsArcVia)
+	{
+		*outIsArcVia = bestIsArcVia;
+	}
 	return found;
+}
+
+void OsgWidget::ensureWaypointPickHoverRing()
+{
+	if (!m_trajectoryOverlayGroup.valid() || m_waypointPickHoverRingAt.valid())
+	{
+		return;
+	}
+	m_waypointPickHoverRingAt = new osg::AutoTransform;
+	m_waypointPickHoverRingAt->setName("WaypointPickHoverRing");
+	m_waypointPickHoverRingAt->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
+	m_waypointPickHoverRingAt->setAutoScaleToScreen(true);
+	m_waypointPickHoverRingAt->setAutoScaleTransitionWidthRatio(0.25f);
+	m_waypointPickHoverRingAt->setMinimumScale(0.5f);
+	m_waypointPickHoverRingAt->setMaximumScale(4.0f);
+	m_waypointPickHoverRingAt->setNodeMask(0);
+	m_waypointPickHoverRingAt->addChild(
+		createScreenFacingSelectionRingGeode(22.0f, osg::Vec4(0.2f, 0.95f, 0.45f, 0.95f), 2.8f).get());
+	m_waypointPickHoverRingAt->addChild(
+		createScreenFacingSelectionRingGeode(28.0f, osg::Vec4(0.35f, 1.0f, 0.55f, 0.4f), 1.6f).get());
+	m_trajectoryOverlayGroup->addChild(m_waypointPickHoverRingAt.get());
+}
+
+void OsgWidget::updateWaypointPickHoverAt(int mouseX, int mouseY)
+{
+	if (!m_instructionWaypointPickMode)
+	{
+		clearWaypointPickHover();
+		return;
+	}
+	std::string instructionId;
+	cloudsim::core::Vec3 posMm{};
+	if (!tryPickInstructionWaypointAt(mouseX, mouseY, instructionId, &posMm))
+	{
+		clearWaypointPickHover();
+		return;
+	}
+	// 同指令 ARC via/终点共用 id，须按空间位置刷新悬停圈
+	constexpr float kHoverPosEpsMm = 0.5f;
+	const float ddx = posMm.x - m_waypointPickHoverPositionMm.x;
+	const float ddy = posMm.y - m_waypointPickHoverPositionMm.y;
+	const float ddz = posMm.z - m_waypointPickHoverPositionMm.z;
+	if (instructionId == m_waypointPickHoverInstructionId && m_waypointPickHoverRingAt.valid() &&
+		m_waypointPickHoverRingAt->getNodeMask() != 0 &&
+		(ddx * ddx + ddy * ddy + ddz * ddz) <= kHoverPosEpsMm * kHoverPosEpsMm)
+	{
+		return;
+	}
+	ensureWaypointPickHoverRing();
+	m_waypointPickHoverInstructionId = instructionId;
+	m_waypointPickHoverPositionMm = posMm;
+	m_waypointPickHoverRingAt->setPosition(osg::Vec3d(posMm.x, posMm.y, posMm.z));
+	m_waypointPickHoverRingAt->setNodeMask(OsgScene::kMaskPickOverlay);
+	requestRedraw();
+}
+
+void OsgWidget::clearWaypointPickHover()
+{
+	if (m_waypointPickHoverInstructionId.empty() &&
+		(!m_waypointPickHoverRingAt.valid() || m_waypointPickHoverRingAt->getNodeMask() == 0))
+	{
+		return;
+	}
+	m_waypointPickHoverInstructionId.clear();
+	m_waypointPickHoverPositionMm = {};
+	if (m_waypointPickHoverRingAt.valid())
+	{
+		m_waypointPickHoverRingAt->setNodeMask(0);
+	}
+	requestRedraw();
 }
 
 void OsgWidget::setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ)
@@ -2422,6 +2561,19 @@ bool OsgWidget::pickAndActivateBackendAtScreenPos(const QPoint& mousePos)
 	{
 		return false;
 	}
+	// 对象选择：只上报命中 id，勿先挂命中连杆 gizmo（机器人常点到第六轴）
+	// 树选同路径：MainWindowSelectionService 归并到 scene 根后再 robotGizmoAnchor 挂根连杆
+	if (m_objectSelectionMode)
+	{
+		const std::string hitId =
+			pickBackendIdAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()));
+		if (hitId.empty())
+		{
+			return false;
+		}
+		emit backendObjectPicked(QString::fromStdString(hitId));
+		return true;
+	}
 	const bool ok = OsgScene::pickAndActivateBackendAtScreenPos(static_cast<double>(mousePos.x()),
 																static_cast<double>(mousePos.y()));
 	if (ok)
@@ -2439,6 +2591,19 @@ bool OsgWidget::pickAndActivateBackendAtScreenPos(const QPoint& mousePos)
 
 void OsgWidget::setObjectSelectionMode(bool enabled)
 {
+	if (m_interactionController)
+	{
+		if (enabled)
+		{
+			m_interactionController->setActiveTool("objectSelect");
+		}
+		else if (m_interactionController->activeToolId() &&
+				 std::string(m_interactionController->activeToolId()) == "objectSelect")
+		{
+			m_interactionController->clearActiveTool();
+		}
+	}
+
 	m_objectSelectionMode = enabled;
 	if (enabled)
 	{
@@ -2477,6 +2642,19 @@ void OsgWidget::setTransformGizmoFrame(TransformGizmoFrame frame)
 
 void OsgWidget::setPointPickMode(bool enabled)
 {
+	if (m_interactionController)
+	{
+		if (enabled)
+		{
+			m_interactionController->setActiveTool("pointCloud");
+		}
+		else if (m_interactionController->activeToolId() &&
+				 std::string(m_interactionController->activeToolId()) == "pointCloud")
+		{
+			m_interactionController->clearActiveTool();
+		}
+	}
+
 	m_pointPickMode = enabled;
 	if (enabled)
 	{
@@ -2512,6 +2690,19 @@ bool OsgWidget::pointPickMode() const
 
 void OsgWidget::setPolylinePickMode(bool enabled)
 {
+	if (m_interactionController)
+	{
+		if (enabled)
+		{
+			m_interactionController->setActiveTool("polyline");
+		}
+		else if (m_interactionController->activeToolId() &&
+				 std::string(m_interactionController->activeToolId()) == "polyline")
+		{
+			m_interactionController->clearActiveTool();
+		}
+	}
+
 	m_polylinePickMode = enabled;
 	if (enabled)
 	{
@@ -2603,6 +2794,19 @@ void OsgWidget::clearPolylinePickOverlay()
 
 void OsgWidget::setMeshLinePickMode(bool enabled)
 {
+	if (m_interactionController)
+	{
+		if (enabled)
+		{
+			m_interactionController->setActiveTool("meshElement");
+		}
+		else if (m_interactionController->activeToolId() &&
+				 std::string(m_interactionController->activeToolId()) == "meshElement")
+		{
+			m_interactionController->clearActiveTool();
+		}
+	}
+
 	m_meshLinePickMode = enabled;
 	if (enabled)
 	{
@@ -2639,6 +2843,19 @@ bool OsgWidget::meshLinePickMode() const
 
 void OsgWidget::setMeshFacePickMode(bool enabled)
 {
+	if (m_interactionController)
+	{
+		if (enabled)
+		{
+			m_interactionController->setActiveTool("meshElement");
+		}
+		else if (m_interactionController->activeToolId() &&
+				 std::string(m_interactionController->activeToolId()) == "meshElement")
+		{
+			m_interactionController->clearActiveTool();
+		}
+	}
+
 	m_meshFacePickMode = enabled;
 	if (enabled)
 	{
@@ -3709,12 +3926,14 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 			if (m_instructionWaypointPickMode && mouseEvent->button() == Qt::LeftButton)
 			{
 				std::string instructionId;
-				if (tryPickInstructionWaypointAt(mouseEvent->x(), mouseEvent->y(), instructionId))
+				bool isArcVia = false;
+				if (tryPickInstructionWaypointAt(mouseEvent->x(), mouseEvent->y(), instructionId, nullptr,
+												 &isArcVia))
 				{
-					emit instructionWaypointPicked(QString::fromStdString(instructionId));
+					emit instructionWaypointPicked(QString::fromStdString(instructionId), isArcVia);
 					if (m_instructionWaypointPicked)
 					{
-						m_instructionWaypointPicked(instructionId);
+						m_instructionWaypointPicked(instructionId, isArcVia);
 					}
 				}
 				return true;
@@ -3729,7 +3948,8 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 				Qt::CursorShape want = Qt::ArrowCursor;
 				if (m_instructionWaypointPickMode)
 				{
-					want = Qt::CrossCursor;
+					updateWaypointPickHoverAt(mouseEvent->x(), mouseEvent->y());
+					want = m_waypointPickHoverInstructionId.empty() ? Qt::CrossCursor : Qt::PointingHandCursor;
 				}
 				else if (isMouseOverViewCube(static_cast<double>(mouseEvent->x()),
 											 static_cast<double>(mouseEvent->y())))
@@ -3835,42 +4055,63 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 		}
 	}
 
-	if (m_labelingPickOperation && m_labelingPickOperation->handleEvent(watched, event))
-	{
-		return true;
-	}
-
-	if (m_pointPickOperation && m_pointPickOperation->handleEvent(watched, event))
-	{
-		return true;
-	}
-
-	if (m_polylinePickOperation && m_polylinePickOperation->handleEvent(watched, event))
-	{
-		return true;
-	}
-
-	if (m_meshElementPickOperation && m_meshElementPickOperation->handleEvent(watched, event))
-	{
-		return true;
-	}
-
-	if (m_tcpDragTeachOperation && m_tcpDragTeachOperation->handleEvent(watched, event))
-	{
-		return true;
-	}
-
-	if (m_meshSectionPlaneOperation && m_meshSectionPlaneOperation->handleEvent(watched, event))
-	{
-		return true;
-	}
-
-	if (m_objectTransformOperation && m_objectTransformOperation->handleEvent(watched, event))
+	if (m_interactionController && m_interactionController->handleEvent(watched, event))
 	{
 		return true;
 	}
 
 	return QWidget::eventFilter(watched, event);
+}
+
+
+void OsgWidget::setupInteractionController()
+{
+	m_interactionController = std::make_unique<ViewportInteractionController>(
+		std::make_unique<OsgWidgetPickEngine>(*this));
+	m_interactionController->addOverlay(
+		std::make_unique<SelectionOperationOverlayAdapter>("tcpDragTeach", m_tcpDragTeachOperation.get()));
+	m_interactionController->addOverlay(
+		std::make_unique<SelectionOperationOverlayAdapter>("meshSectionPlane", m_meshSectionPlaneOperation.get()));
+	m_interactionController->addOverlay(
+		std::make_unique<SelectionOperationOverlayAdapter>("objectTransform", m_objectTransformOperation.get()));
+	m_interactionController->registerTool(
+		std::make_unique<SelectionOperationToolAdapter>("pointCloud", m_pointPickOperation.get()));
+	m_interactionController->registerTool(
+		std::make_unique<SelectionOperationToolAdapter>("polyline", m_polylinePickOperation.get()));
+	m_interactionController->registerTool(
+		std::make_unique<SelectionOperationToolAdapter>("meshElement", m_meshElementPickOperation.get()));
+	m_interactionController->registerTool(
+		std::make_unique<SelectionOperationToolAdapter>("labeling", m_labelingPickOperation.get()));
+	std::vector<std::unique_ptr<IHitResolvePolicy>> policies;
+	policies.push_back(std::make_unique<GizmoAxisHitPolicy>());
+	policies.push_back(std::make_unique<PassthroughHitPolicy>());
+	m_interactionController->setHitPolicies(std::move(policies));
+}
+
+IViewportPickEngine* OsgWidget::pickEngine()
+{
+	return m_interactionController ? &m_interactionController->engine() : nullptr;
+}
+
+void OsgWidget::beginInteractionSession(std::shared_ptr<IInteractionSession> session)
+{
+	if (m_interactionController)
+	{
+		m_interactionController->beginSession(std::move(session));
+	}
+}
+
+void OsgWidget::endInteractionSession(bool cancel)
+{
+	if (m_interactionController)
+	{
+		m_interactionController->endSession(cancel);
+	}
+}
+
+bool OsgWidget::hasInteractionSession() const
+{
+	return m_interactionController && m_interactionController->hasSession();
 }
 
 void OsgWidget::clearImportedContent()

@@ -995,18 +995,8 @@ void RobotSimulationController::wireSimulationSignals()
 			&RobotSimulationController::onSimulationTcpDragTeachModeChanged);
 	connect(cmd, &SimulationCommandWidget::instructionWaypointPickModeChanged, this,
 			&RobotSimulationController::onInstructionWaypointPickModeChanged);
-	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
-	{
-		osg->setInstructionWaypointPickCallbacks(
-			[this](const std::string& instructionId) { onInstructionWaypointPicked(instructionId); },
-			[this]()
-			{
-				if (SimulationCommandWidget* page = m_host ? m_host->simulationCommandPage() : nullptr)
-				{
-					page->setInstructionWaypointPickMode(false);
-				}
-			});
-	}
+	// 启动时可能尚无 DocumentPage；进入拾取模式时会再绑到当前 OsgWidget
+	bindInstructionWaypointPickCallbacks();
 	connect(axis, &RobotAxisControlWidget::allJointAnglesChanged, this,
 			&RobotSimulationController::onRobotAxisJointAnglesChanged);
 	connect(axis, &RobotAxisControlWidget::externalAxisValuesChanged, this,
@@ -4051,6 +4041,25 @@ void tcpDragProjectExternalSeed(IRobotDocumentHost* doc, const int instIdx, cons
 }
 } // namespace
 
+void RobotSimulationController::bindInstructionWaypointPickCallbacks()
+{
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!osg)
+	{
+		return;
+	}
+	osg->setInstructionWaypointPickCallbacks(
+		[this](const std::string& instructionId, bool isArcVia)
+		{ onInstructionWaypointPicked(instructionId, isArcVia); },
+		[this]()
+		{
+			if (SimulationCommandWidget* page = m_host ? m_host->simulationCommandPage() : nullptr)
+			{
+				page->setInstructionWaypointPickMode(false);
+			}
+		});
+}
+
 void RobotSimulationController::onInstructionWaypointPickModeChanged(const bool enabled)
 {
 	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
@@ -4074,16 +4083,19 @@ void RobotSimulationController::onInstructionWaypointPickModeChanged(const bool 
 		onSimulationTcpDragTeachModeChanged(false);
 		cmd->setTcpDragTeachMode(false);
 	}
-	m_host->clearBackendObjectSelection(true);
+	// 先开拾取再清对象选：clearTree 会级联 clearInstructionPoseAxes，须已被 mode 护住
+	bindInstructionWaypointPickCallbacks();
+	osg->setInstructionWaypointPickMode(true);
+	m_host->clearBackendObjectSelection(false);
 	if (osg->objectSelectionMode())
 	{
 		osg->setObjectSelectionMode(false);
 	}
-	osg->setInstructionWaypointPickMode(true);
 	refreshInstructionPoseAxes(false);
+	scheduleInstructionPoseAxesRefresh(false);
 }
 
-void RobotSimulationController::onInstructionWaypointPicked(const std::string& instructionId)
+void RobotSimulationController::onInstructionWaypointPicked(const std::string& instructionId, bool isArcVia)
 {
 	if (instructionId.empty() || !m_host)
 	{
@@ -4100,6 +4112,9 @@ void RobotSimulationController::onInstructionWaypointPicked(const std::string& i
 		{
 			continue;
 		}
+		m_waypointPickHighlightInstructionId = instructionId;
+		m_waypointPickHighlightPreferVia = isArcVia && ins->type() == RobotInstruction::Type::ARC;
+		m_waypointLabelOverlayFingerprint.clear();
 		if (InstructionProgramTreeWidget* tree = cmd->instructionTree())
 		{
 			tree->selectInstructionByRaw(ins.get());
@@ -4108,6 +4123,8 @@ void RobotSimulationController::onInstructionWaypointPicked(const std::string& i
 				tree->scrollToItem(cur);
 			}
 		}
+		// 同指令 via/终点切换时树选中不变，须主动刷新游标
+		refreshPlaybackPathOverlays(ins);
 		return;
 	}
 }
@@ -6134,11 +6151,19 @@ void RobotSimulationController::refreshPlaybackPathOverlays(
 	// 仅指令树选中驱动游标+编号（含运行中树跟播）
 	const std::string focusId =
 		(highlightInstruction && highlightInstruction->hasPoseProperty()) ? highlightInstruction->id() : std::string();
-	if (focusId == m_waypointLabelOverlayFingerprint)
+	if (focusId.empty() || focusId != m_waypointPickHighlightInstructionId)
+	{
+		m_waypointPickHighlightPreferVia = false;
+		m_waypointPickHighlightInstructionId.clear();
+	}
+	const bool preferVia = m_waypointPickHighlightPreferVia && highlightInstruction &&
+						   highlightInstruction->type() == RobotInstruction::Type::ARC;
+	const std::string overlayFp = preferVia ? (focusId + "|via") : focusId;
+	if (overlayFp == m_waypointLabelOverlayFingerprint)
 	{
 		return;
 	}
-	m_waypointLabelOverlayFingerprint = focusId;
+	m_waypointLabelOverlayFingerprint = overlayFp;
 
 	if (focusId.empty())
 	{
@@ -6159,7 +6184,21 @@ void RobotSimulationController::refreshPlaybackPathOverlays(
 	const bool lineLike = highlightInstruction->type() == RobotInstruction::Type::LINE ||
 						  highlightInstruction->type() == RobotInstruction::Type::ARC;
 	RobotOsgUi::InstructionPoseAxis axis;
-	if (!fillInstructionPoseAxisMount(doc, osg, axisInstIdx, *highlightInstruction, lineLike, true, axis, jointPtr))
+	bool axisOk = false;
+	if (preferVia)
+	{
+		engine::RigidTransform T_via{};
+		if (RobotInstruction::readViaTransformFromInstruction(*highlightInstruction, T_via))
+		{
+			axisOk = fillInstructionPoseAxisFromBaseTcp(doc, osg, axisInstIdx, T_via, true, true, axis, nullptr);
+		}
+	}
+	if (!axisOk)
+	{
+		axisOk = fillInstructionPoseAxisMount(doc, osg, axisInstIdx, *highlightInstruction, lineLike, true, axis,
+											  jointPtr);
+	}
+	if (!axisOk)
 	{
 		osg->clearPlaybackCursorOverlay();
 		osg->clearWaypointIndexLabels();
@@ -6414,6 +6453,7 @@ void RobotSimulationController::refreshInstructionPoseAxesWithReachability(const
 													   nullptr))
 				{
 					viaAxis.instructionId = ins->id();
+					viaAxis.isArcVia = true;
 					axes.push_back(viaAxis);
 				}
 			}

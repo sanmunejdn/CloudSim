@@ -328,8 +328,9 @@ public:
 	void clearWaypointIndexLabels() {}
 	void setInstructionWaypointPickMode(bool enabled) { (void)enabled; }
 	bool instructionWaypointPickMode() const { return false; }
-	void setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
-											std::function<void()> onCanceled)
+	void setInstructionWaypointPickCallbacks(
+		std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
+		std::function<void()> onCanceled)
 	{
 		(void)onPicked;
 		(void)onCanceled;

@@ -128,8 +128,9 @@ public:
 
 	virtual void setInstructionWaypointPickMode(bool enabled) = 0;
 	virtual bool instructionWaypointPickMode() const = 0;
-	virtual void setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
-													 std::function<void()> onCanceled) = 0;
+	virtual void setInstructionWaypointPickCallbacks(
+		std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
+		std::function<void()> onCanceled) = 0;
 };
 
 #endif // ROBOTWIDGET_IROBOTOSGVIEWHOST_H

@@ -1,4 +1,4 @@
-#ifndef WIDGET_OSGWIDGET_H
+﻿#ifndef WIDGET_OSGWIDGET_H
 #define WIDGET_OSGWIDGET_H
 
 /// @file OsgWidget.h
@@ -76,6 +76,9 @@ class OsgWidgetImportController;
 class OsgWidgetBackendLoadController;
 class OsgWidgetCaptureController;
 class OsgWidgetPickAnnotationController;
+class ViewportInteractionController;
+class IViewportPickEngine;
+class IInteractionSession;
 class OsgWidgetColorController;
 class OsgWidgetTransformHierarchyController;
 struct MeshCapturedPart;
@@ -211,6 +214,12 @@ public:
 	void setLabelingClickPickMode(bool enabled, bool meshFace);
 	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx);
 	PickResult queryPick(const PickQuery& query);
+	ViewportInteractionController* interactionController() { return m_interactionController.get(); }
+	IViewportPickEngine* pickEngine();
+	void beginInteractionSession(std::shared_ptr<IInteractionSession> session);
+	void endInteractionSession(bool cancel = true);
+	bool hasInteractionSession() const;
+	void setupInteractionController();
 	osg::Vec3f selectedPosition() const;
 	void setSelectedPosition(const osg::Vec3f& position);
 	osg::Vec3f selectedRotationEulerDeg() const;
@@ -297,8 +306,9 @@ public:
 	void clearWaypointIndexLabels();
 	void setInstructionWaypointPickMode(bool enabled);
 	bool instructionWaypointPickMode() const { return m_instructionWaypointPickMode; }
-	void setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId)> onPicked,
-											 std::function<void()> onCanceled);
+	void setInstructionWaypointPickCallbacks(
+		std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
+		std::function<void()> onCanceled);
 
 	/// TCP 末端拖动示教：场景 overlay 罗盘，拖动发位姿信号（不写指令）
 	bool isTcpDragTeachActive() const { return m_tcpTeachActive; }
@@ -485,7 +495,7 @@ signals:
 	/// TCP 示教拖动中位姿更新（基座系 mm + 欧拉 deg）
 	void tcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void tcpDragTeachEnded();
-	void instructionWaypointPicked(const QString& instructionId);
+	void instructionWaypointPicked(const QString& instructionId, bool isArcVia);
 	void instructionWaypointPickCanceled();
 	void backendObjectPicked(const QString& backendId);
 	void activeAxisChanged(const QString& axisName);
@@ -579,6 +589,7 @@ private:
 	std::unique_ptr<SelectionOperation> m_meshSectionPlaneOperation;
 	std::unique_ptr<SelectionOperation> m_meshElementPickOperation;
 	std::unique_ptr<SelectionOperation> m_labelingPickOperation;
+	std::unique_ptr<ViewportInteractionController> m_interactionController;
 	SketchPlaneInputHandler m_sketchPlaneInputHandler;
 	bool m_originPlanePickActive = false;
 	float m_originPlaneHalfMm = 60.f;
@@ -612,17 +623,27 @@ private:
 	osg::ref_ptr<osg::Group> m_rawTrajectoryFramesGroup;
 	osg::ref_ptr<osg::Geode> m_reachableWorkspaceOverlayGeode;
 	osg::ref_ptr<osg::MatrixTransform> m_playbackCursorMt;
+	/// 路点拾取悬停圈（朝向屏幕）
+	osg::ref_ptr<osg::AutoTransform> m_waypointPickHoverRingAt;
+	std::string m_waypointPickHoverInstructionId;
 	osg::ref_ptr<osg::Group> m_waypointIndexLabelsGroup;
 	bool m_instructionWaypointPickMode = false;
 	struct InstructionWaypointPickTarget
 	{
 		std::string instructionId;
 		cloudsim::core::Vec3 positionMm{};
+		bool isArcVia = false;
 	};
 	std::vector<InstructionWaypointPickTarget> m_instructionWaypointPickTargets;
-	std::function<void(const std::string&)> m_instructionWaypointPicked;
+	std::function<void(const std::string&, bool)> m_instructionWaypointPicked;
 	std::function<void()> m_instructionWaypointPickCanceled;
-	bool tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string& outInstructionId) const;
+	bool tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string& outInstructionId,
+									  cloudsim::core::Vec3* outPositionMm = nullptr,
+									  bool* outIsArcVia = nullptr) const;
+	void ensureWaypointPickHoverRing();
+	void updateWaypointPickHoverAt(int mouseX, int mouseY);
+	void clearWaypointPickHover();
+	cloudsim::core::Vec3 m_waypointPickHoverPositionMm{};
 	bool m_rawTrajShowAxisX = true;
 	bool m_rawTrajShowAxisY = true;
 	bool m_rawTrajShowAxisZ = true;

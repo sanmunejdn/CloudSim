@@ -1,4 +1,4 @@
-/// @file MeshEdgeFacePickOperation.cpp
+﻿/// @file MeshEdgeFacePickOperation.cpp
 /// @brief MeshEdgeFacePick 操作
 
 #include "MeshEdgeFacePickOperation.h"
@@ -6,12 +6,28 @@
 #include "OsgScene.h"
 #include "OsgWidget.h"
 #include "PickTypes.h"
+#include "ViewportInteraction/IViewportPickEngine.h"
 
 #include <QEvent>
 #include <QMouseEvent>
 
+
 namespace
 {
+IViewportPickEngine* meshPickEngineOf(OsgWidget* owner)
+{
+	return owner ? owner->pickEngine() : nullptr;
+}
+
+PickResult meshQueryPick(OsgWidget* owner, const PickQuery& query)
+{
+	if (IViewportPickEngine* eng = meshPickEngineOf(owner))
+	{
+		return eng->queryPick(query);
+	}
+	return owner->queryPick(query);
+}
+
 bool hoverPickUnchanged(const PickResult& pick, const PickPreviewState& preview, bool faceMode)
 {
 	if (!preview.valid || !preview.result.hit || !pick.hit)
@@ -135,7 +151,7 @@ bool MeshEdgeFacePickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	}
 
 	const bool inClickHold = m_gesture.inClickHold(m_clickHoldTimer);
-	const PickResult pick = m_owner->queryPick(makePickQuery(mouseEvent->pos()));
+	const PickResult pick = meshQueryPick(m_owner, makePickQuery(mouseEvent->pos()));
 
 	if (pick.hit && hoverPickUnchanged(pick, m_preview, m_owner->m_meshFacePickMode))
 	{
@@ -190,7 +206,7 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	{
 		PickQuery query = makePickQuery(mouseEvent->pos());
 		query.hoverPick = false;
-		pick = m_owner->queryPick(query);
+		pick = meshQueryPick(m_owner, query);
 	}
 	if (pick.hit)
 	{

@@ -56,6 +56,7 @@ public:
 	void setViewportToolBarDarkTheme(bool dark);
 	void setViewportToolBarUseChinese(bool useChinese);
 	void syncViewportSidePanelToggleState(bool leftVisible, bool rightVisible);
+	void setViewportObjectSelectionChecked(bool checked);
 
 	void markFollowAttachmentDirtyFromBackendMove(const QString& seedBackendId);
 

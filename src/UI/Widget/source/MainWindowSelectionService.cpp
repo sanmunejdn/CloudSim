@@ -99,14 +99,9 @@ void MainWindowSelectionService::applyBackendSelection(MainWindow& mainWindow, c
 		}
 		if (hasSelection && doc)
 		{
-			if (gizmoId != effectiveId && doc->data().isValid(gizmoId))
-			{
-				cloudsim::host::SelectionVisualService::ensureSelectionVisual(*doc, gizmoId, urdfLinkMesh);
-			}
-			else
-			{
-				cloudsim::host::SelectionVisualService::ensureSelectionVisual(*doc, effectiveId, urdfLinkMesh);
-			}
+			// 3D 拾取命中常是连杆；gizmo 必须挂整机锚点（与树选一致），勿停在命中 id
+			const QString visualId = (gizmoId != effectiveId && doc->data().isValid(gizmoId)) ? gizmoId : effectiveId;
+			cloudsim::host::SelectionVisualService::ensureSelectionVisual(*doc, visualId, urdfLinkMesh);
 		}
 	}
 	if (doc)

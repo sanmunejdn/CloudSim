@@ -20,6 +20,8 @@ struct InstructionPoseAxis
 	bool reachable = true;
 	/// 对应指令 id；3D 拾取跳树用，空则不可点
 	std::string instructionId;
+	/// ARC 经由点与终点共用 instructionId，拾取高亮需区分
+	bool isArcVia = false;
 	std::string robotBackendId;
 	bool mountTcpOnPatRoot = false;
 	bool hasLocalMatrix = false;

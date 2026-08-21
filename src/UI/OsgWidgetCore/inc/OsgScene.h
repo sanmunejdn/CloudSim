@@ -217,6 +217,8 @@ public:
 	/// 仅写入逻辑父 id（不改 OSG 场景父链），供分件导入后 focusCameraOnBackend 聚合子树包围球
 	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId);
 
+	/// 射线命中 backendId（不改 active/gizmo）；失败返回空
+	std::string pickBackendIdAtScreenPos(double mouseX, double mouseY) const;
 	bool pickAndActivateBackendAtScreenPos(double mouseX, double mouseY);
 	void cachePickablePointsFromNode(osg::Node* node);
 	bool pickPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld) const;

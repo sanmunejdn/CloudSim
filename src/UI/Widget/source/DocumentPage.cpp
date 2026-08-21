@@ -79,7 +79,8 @@ DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& eve
 	// 视口浮动按钮（无容器 QWidget，避免 Windows 透明层黑块）
 	if (OsgWidget* ow = osgWidget())
 	{
-		auto* toolbar = new ViewportToolBar(ow);
+		QWidget* host = ow->viewportWidget() ? ow->viewportWidget() : static_cast<QWidget*>(ow);
+		auto* toolbar = new ViewportToolBar(host);
 		connect(toolbar, &ViewportToolBar::focusRequested, ow, &OsgWidget::onViewportFocusRequested);
 		connect(toolbar, &ViewportToolBar::wireframeToggled, ow, &OsgWidget::setWireframeMode);
 		connect(toolbar, &ViewportToolBar::screenshotRequested, ow, &OsgWidget::onViewportScreenshotRequested);
@@ -115,6 +116,17 @@ void DocumentPage::syncViewportSidePanelToggleState(const bool leftVisible, cons
 		if (auto* toolbar = view->findChild<ViewportToolBar*>())
 		{
 			toolbar->setSidePanelToggleState(leftVisible, rightVisible);
+		}
+	}
+}
+
+void DocumentPage::setViewportObjectSelectionChecked(const bool checked)
+{
+	if (QWidget* view = render().widget())
+	{
+		if (auto* toolbar = view->findChild<ViewportToolBar*>())
+		{
+			toolbar->setObjectSelectionChecked(checked);
 		}
 	}
 }
@@ -355,15 +367,79 @@ QString DocumentPage::robotFrameWorldReferenceBackendId(const int instanceIndex)
 	{
 		return ri.sceneBackendId;
 	}
+	if (ri.linkNameToBackendId.isEmpty())
+	{
+		return ri.sceneBackendId;
+	}
+
+	// 整机 gizmo 必须挂根连杆；QHash::begin / 法兰名会落到第六轴
+	const auto parentOf = [this](const QString& backendId) -> QString
+	{
+		const QString sidecar = backendParentId().value(backendId);
+		if (!sidecar.isEmpty())
+		{
+			return sidecar;
+		}
+		const QVector<QString> parents = documentData().parentsOf(backendId);
+		return parents.isEmpty() ? QString() : parents.first();
+	};
+
+	QStringList underRootNames;
+	underRootNames.reserve(ri.linkNameToBackendId.size());
 	for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
 	{
-		const QString& linkBackendId = it.value();
-		if (backendParentId().value(linkBackendId) == ri.sceneBackendId)
+		if (parentOf(it.value()) == ri.sceneBackendId)
 		{
-			return linkBackendId;
+			underRootNames.append(it.key());
 		}
 	}
-	return ri.linkNameToBackendId.isEmpty() ? ri.sceneBackendId : ri.linkNameToBackendId.constBegin().value();
+
+	const QString flangeLink = QString::fromStdString(ri.coordinateFrames.flangeLinkName);
+	const auto pickPreferredName = [&](const QStringList& names) -> QString
+	{
+		static const QString kPreferred[] = {QStringLiteral("base_link"), QStringLiteral("base"),
+											QStringLiteral("root")};
+		for (const QString& want : kPreferred)
+		{
+			for (const QString& name : names)
+			{
+				if (name.compare(want, Qt::CaseInsensitive) == 0)
+				{
+					return name;
+				}
+			}
+		}
+		QStringList sorted = names;
+		std::sort(sorted.begin(), sorted.end(),
+				  [](const QString& a, const QString& b) { return a.compare(b, Qt::CaseInsensitive) < 0; });
+		for (const QString& name : sorted)
+		{
+			if (!flangeLink.isEmpty() && name.compare(flangeLink, Qt::CaseInsensitive) == 0)
+			{
+				continue;
+			}
+			return name;
+		}
+		return sorted.isEmpty() ? QString() : sorted.first();
+	};
+
+	QString urdfRootLink;
+	{
+		QHash<QString, QString> meshes;
+		(void)UrdfRobotLoader::enumerateLinkVisualMeshes(ri.urdfAbsolutePath, urdfRootLink, meshes, nullptr);
+	}
+	if (!urdfRootLink.isEmpty() && ri.linkNameToBackendId.contains(urdfRootLink))
+	{
+		return ri.linkNameToBackendId.value(urdfRootLink);
+	}
+
+	const QStringList namePool = underRootNames.isEmpty() ? QStringList(ri.linkNameToBackendId.keys()) : underRootNames;
+	const QString chosen = pickPreferredName(namePool);
+	if (!chosen.isEmpty())
+	{
+		return ri.linkNameToBackendId.value(chosen);
+	}
+	return ri.sceneBackendId;
 }
 
 QString DocumentPage::robotDisplayLabelForInstance(const int instanceIndex) const

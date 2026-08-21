@@ -193,6 +193,7 @@ struct InstructionPoseAxisDto
 	bool lineMotion = false;
 	bool reachable = true;
 	QString instructionId;
+	bool isArcVia = false;
 	QString robotBackendId;
 	QString backendId;
 	bool mountTcpOnPatRoot = false;

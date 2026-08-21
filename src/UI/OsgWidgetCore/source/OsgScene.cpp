@@ -679,11 +679,11 @@ bool OsgScene::tryGetBackendPointLocalToWorldMatrix(const std::string& backendId
 	return true;
 }
 
-bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
+std::string OsgScene::pickBackendIdAtScreenPos(double mouseX, double mouseY) const
 {
 	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
 	{
-		return false;
+		return {};
 	}
 	double windowX = 0.0;
 	double windowY = 0.0;
@@ -696,7 +696,7 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 	m_viewer->getCamera()->accept(iv);
 	if (!intersector->containsIntersections())
 	{
-		return false;
+		return {};
 	}
 	for (const auto& hit : intersector->getIntersections())
 	{
@@ -717,16 +717,36 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 				continue;
 			}
 		}
-		m_activeBackendId = logicalId;
-		m_activeBackendOuterPat = rootIt->second;
-		attachGizmoOverlayToActiveBackend();
-		cacheSelectionGizmoPose();
-		const std::string& centerKey = rootIt->first;
-		auto cIt = m_backendModelCenters.find(centerKey);
-		m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
-		return true;
+		return logicalId.empty() ? rootIt->first : logicalId;
 	}
-	return false;
+	return {};
+}
+
+bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
+{
+	const std::string logicalId = pickBackendIdAtScreenPos(mouseX, mouseY);
+	if (logicalId.empty())
+	{
+		return false;
+	}
+	const std::string scopeId = resolvePickScopeBackendId(logicalId);
+	auto rootIt = m_backendObjectRoots.find(scopeId);
+	if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
+	{
+		rootIt = m_backendObjectRoots.find(logicalId);
+		if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
+		{
+			return false;
+		}
+	}
+	m_activeBackendId = logicalId;
+	m_activeBackendOuterPat = rootIt->second;
+	attachGizmoOverlayToActiveBackend();
+	cacheSelectionGizmoPose();
+	const std::string& centerKey = rootIt->first;
+	auto cIt = m_backendModelCenters.find(centerKey);
+	m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
+	return true;
 }
 void OsgScene::cachePickablePointsFromNode(osg::Node* node)
 {

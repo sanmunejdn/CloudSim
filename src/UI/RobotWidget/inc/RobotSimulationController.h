@@ -151,7 +151,7 @@ public slots:
 	void onAxisControlTargetChanged(AxisControlTargetKind kind, const QString& id);
 	void onSimulationTcpDragTeachModeChanged(bool enabled);
 	void onInstructionWaypointPickModeChanged(bool enabled);
-	void onInstructionWaypointPicked(const std::string& instructionId);
+	void onInstructionWaypointPicked(const std::string& instructionId, bool isArcVia = false);
 	void onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void onTcpDragTeachEnded();
 	void flushTcpDragTeachIkPending();
@@ -269,6 +269,8 @@ private:
 
 	void ensureInstructionControllerKinematics(IRobotDocumentHost* doc, int instanceIndex, const QString& urdfPath);
 	void scheduleInstructionPoseAxesRefresh(bool computeReachability = false);
+	/// wire 时可能尚无页；进入拾取时再绑到当前 OsgWidget
+	void bindInstructionWaypointPickCallbacks();
 
 	IRobotMainWindowHost* m_host = nullptr;
 	RobotSimulationDockWidget* m_simulationDock = nullptr;
@@ -375,8 +377,11 @@ private:
 	const RobotInstruction::Base* m_playbackExtInterpMotion = nullptr;
 	/// 播放叠加高亮：避免每 tick 扫 instructionList
 	std::shared_ptr<RobotInstruction::Base> m_playbackOverlayHighlight;
-	/// 路点编号 overlay 指纹（focusId|enabled|running），相同则跳过重建
+	/// 路点编号 overlay 指纹（focusId|via|...），相同则跳过重建
 	std::string m_waypointLabelOverlayFingerprint;
+	/// 3D 点中 ARC via 时，播放游标落 via 而非主目标
+	std::string m_waypointPickHighlightInstructionId;
+	bool m_waypointPickHighlightPreferVia = false;
 	QString m_overlayCachedUrdfPath;
 	QString m_overlayCachedUrdfRootLink;
 

@@ -262,6 +262,8 @@
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetMeshSectionPlane.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetTcpTeach.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidget.cpp" />
+    <ClCompile Include="..\..\UI\Widget\source\ViewportInteraction\OsgWidgetPickEngine.cpp" />
+    <ClCompile Include="..\..\UI\Widget\source\ViewportInteraction\ViewportInteractionController.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetBackendLoadController.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetImportController.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetCaptureController.cpp" />

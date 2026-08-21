@@ -568,6 +568,8 @@ void MainWindow::onTransformGizmoCommitted()
 	const int instIdx = doc->robotInstanceIndexForPerLinkBackend(backendId, &isSceneRoot);
 	if (instIdx >= 0 && isSceneRoot && doc->robotUsesPerLinkBackendsForInstance(instIdx))
 	{
+		// 松手再 FK 一次：避免拖动中钩子未触发时只拧了单连杆
+		refreshPerLinkRobotObjectGizmoFk(*doc);
 		doc->data().markFollowDirtyFromMove(backendId);
 		updatePropertyPanel(backendId);
 		cloudsim::host::publishPoseCommittedFromBackendId(*doc, backendId);
@@ -703,6 +705,10 @@ void MainWindow::onViewModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
+	if (DocumentPage* page = currentPage())
+	{
+		page->setViewportObjectSelectionChecked(false);
+	}
 	if (m_assemblyMatePanel)
 	{
 		m_assemblyMatePanel->interruptPicking();
@@ -723,6 +729,10 @@ void MainWindow::onObjectModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
+	if (DocumentPage* page = currentPage())
+	{
+		page->setViewportObjectSelectionChecked(true);
+	}
 	if (m_assemblyMatePanel)
 	{
 		m_assemblyMatePanel->interruptPicking();
@@ -753,6 +763,10 @@ void MainWindow::onPointPickModeTriggered()
 	m_pointPickModeAction->setChecked(true);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
+	if (DocumentPage* page = currentPage())
+	{
+		page->setViewportObjectSelectionChecked(false);
+	}
 	if (m_assemblyMatePanel)
 	{
 		m_assemblyMatePanel->interruptPicking();
@@ -778,6 +792,10 @@ void MainWindow::onMeshLinePickModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(true);
 	m_meshFacePickModeAction->setChecked(false);
+	if (DocumentPage* page = currentPage())
+	{
+		page->setViewportObjectSelectionChecked(false);
+	}
 	if (m_assemblyMatePanel)
 	{
 		m_assemblyMatePanel->interruptPicking();
@@ -802,6 +820,10 @@ void MainWindow::onMeshFacePickModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(true);
+	if (DocumentPage* page = currentPage())
+	{
+		page->setViewportObjectSelectionChecked(false);
+	}
 	if (m_assemblyMatePanel)
 	{
 		m_assemblyMatePanel->interruptPicking();
@@ -830,6 +852,10 @@ void MainWindow::onSelectionCanceledByEsc()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
+	if (DocumentPage* page = currentPage())
+	{
+		page->setViewportObjectSelectionChecked(false);
+	}
 	resetInteractionPickModes(*view);
 	MainWindowSelectionService::clearSelection(*this, true);
 }
@@ -1878,6 +1904,7 @@ bool MainWindow::isPerLinkRobotObjectGizmoActive(const DocumentPage* page) const
 		return false;
 	}
 	const QString anchorId = page->robotGizmoAnchorBackendId(page->robotSceneBackendIdForInstance(instIdx));
+	// 必须挂在根连杆 mesh 上；空壳 scene 根无 outer，不能当拖动主体
 	return !anchorId.isEmpty() && activeId == anchorId;
 }
 
@@ -2216,6 +2243,10 @@ void MainWindow::syncViewModeActionsFromCurrentOsg()
 		m_pointPickModeAction->setChecked(false);
 		m_meshLinePickModeAction->setChecked(false);
 		m_meshFacePickModeAction->setChecked(false);
+		if (DocumentPage* page = currentPage())
+		{
+			page->setViewportObjectSelectionChecked(false);
+		}
 		if (m_gizmoFrameGroup && m_gizmoLocalFrameAction && m_gizmoWorldFrameAction)
 		{
 			const QSignalBlocker bg(m_gizmoFrameGroup);
@@ -2233,6 +2264,10 @@ void MainWindow::syncViewModeActionsFromCurrentOsg()
 	m_pointPickModeAction->setChecked(view->pointPickMode());
 	m_meshLinePickModeAction->setChecked(view->meshLinePickMode());
 	m_meshFacePickModeAction->setChecked(view->meshFacePickMode());
+	if (DocumentPage* page = currentPage())
+	{
+		page->setViewportObjectSelectionChecked(view->objectSelectionMode());
+	}
 	if (m_gizmoFrameGroup && m_gizmoLocalFrameAction && m_gizmoWorldFrameAction)
 	{
 		const QSignalBlocker bg(m_gizmoFrameGroup);

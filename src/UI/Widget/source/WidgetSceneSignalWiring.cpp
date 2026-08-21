@@ -8,6 +8,10 @@
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
 #include "OsgWidget.h"
+#include "RobotSimulationController.h"
+#include "SimulationCommandWidget.h"
+#include "ViewportInteraction/ViewportHit.h"
+#include "ViewportInteraction/ViewportInteractionController.h"
 
 void wireMainWindowDocumentSceneSignals(MainWindow& mw, DocumentPage* page, MainWindowRobotHost* robotHost)
 {
@@ -30,8 +34,17 @@ void wireMainWindowDocumentSceneSignals(MainWindow& mw, DocumentPage* page, Main
 	QObject::connect(o, &OsgWidget::pointPickFeedback, &mw, &MainWindow::onPointPickFeedback);
 	QObject::connect(o, &OsgWidget::meshPickFeedback, &mw, &MainWindow::onMeshPickFeedback);
 	QObject::connect(o, &OsgWidget::meshPickCommitted, &mw,
-					 [robotHost](const PickResult pick, const int pickKindInt)
+					 [robotHost, o](const PickResult pick, const int pickKindInt)
 					 {
+						 if (o && o->hasInteractionSession() && o->interactionController())
+						 {
+							 ViewportHit hit;
+							 hit.phase = HitPhase::Commit;
+							 hit.kind = static_cast<PickKind>(pickKindInt);
+							 hit.raw = pick;
+							 o->interactionController()->dispatchCommit(hit, HitResolveContext{});
+							 return;
+						 }
 						 if (robotHost)
 						 {
 							 robotHost->notifyMeshPickCommitted(pick, static_cast<PickKind>(pickKindInt));
@@ -70,4 +83,20 @@ void wireMainWindowDocumentSceneSignals(MainWindow& mw, DocumentPage* page, Main
 						 }
 					 });
 	QObject::connect(o, &OsgWidget::backendObjectPicked, &mw, &MainWindow::onOsgBackendObjectPicked);
+	// 路点拾取：文档页创建时再接 Qt 信号，避免仅依赖启动期 std::function（当时常无 OsgWidget）
+	if (RobotSimulationController* sim = mw.robotSimulation())
+	{
+		QObject::connect(o, &OsgWidget::instructionWaypointPicked, sim,
+						 [sim](const QString& instructionId, bool isArcVia)
+						 { sim->onInstructionWaypointPicked(instructionId.toStdString(), isArcVia); });
+		QObject::connect(o, &OsgWidget::instructionWaypointPickCanceled, sim,
+						 [sim]()
+						 {
+							 if (SimulationCommandWidget* page =
+									 sim->host() ? sim->host()->simulationCommandPage() : nullptr)
+							 {
+								 page->setInstructionWaypointPickMode(false);
+							 }
+						 });
+	}
 }

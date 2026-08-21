@@ -5,6 +5,7 @@
 
 #include "OsgScene.h"
 #include "OsgWidget.h"
+#include "ViewportInteraction/IViewportPickEngine.h"
 #include "PickTypes.h"
 
 #include <QEvent>
@@ -52,7 +53,7 @@ bool PointPickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	query.screenY = mouseEvent->pos().y();
 	query.kind = PickKind::PointCloud;
 	query.hitRadiusPx = OsgScene::kPointPickHitRadiusPx;
-	const PickResult pick = m_owner->queryPick(query);
+	const PickResult pick = ((m_owner->pickEngine() != nullptr) ? m_owner->pickEngine()->queryPick(query) : m_owner->queryPick(query));
 
 	if (pick.hit)
 	{
@@ -117,7 +118,7 @@ bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	query.kind = PickKind::PointCloud;
 	query.hitRadiusPx = OsgScene::kPointPickHitRadiusPx;
 	query.hoverPick = true;
-	const PickResult pick = m_owner->queryPick(query);
+	const PickResult pick = ((m_owner->pickEngine() != nullptr) ? m_owner->pickEngine()->queryPick(query) : m_owner->queryPick(query));
 
 	const bool hadPreview = m_preview.valid && m_preview.result.hit &&
 							m_preview.result.screenDistancePx <= OsgScene::kPointPickPreviewRadiusPx;
