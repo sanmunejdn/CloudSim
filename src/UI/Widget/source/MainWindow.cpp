@@ -742,11 +742,27 @@ void MainWindow::onObjectModeTriggered()
 	view->setMeshLinePickMode(false);
 	view->setMeshFacePickMode(false);
 
-	// 场景有内容时允许 gizmo；树刷新可能清空选中但不卸载场景
+	// 导入后 activeBackend 常停在末根连杆；仅 setSelectionActive 会把罗盘挂在该轴上
 	DocumentPage* doc = currentPage();
 	if (doc && doc->render().hasImportedContent())
 	{
-		view->setSelectionActive(true);
+		QString seed = m_selectionState.selectedBackendId();
+		if (seed.isEmpty())
+		{
+			const std::string active = doc->render().activeBackendId();
+			if (!active.empty())
+			{
+				seed = QString::fromStdString(active);
+			}
+		}
+		if (!seed.isEmpty())
+		{
+			MainWindowSelectionService::handleOsgBackendObjectPicked(*this, seed);
+		}
+		else
+		{
+			view->setSelectionActive(true);
+		}
 	}
 }
 
