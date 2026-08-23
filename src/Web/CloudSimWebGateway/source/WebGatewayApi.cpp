@@ -398,8 +398,10 @@ bool WebGateway::createCoordinateFrameOnGuiThread(cloudsim::host::DocumentHost* 
 		frame->setAxisLengthMm(static_cast<float>(axisLen));
 	}
 
+	const QString parentId = o.value(QStringLiteral("parentId")).toString().trimmed();
+
 	if (!cloudsim::host::registerAdoptedFrameAndLoadScene(
-			*host, frame, QLatin1String(backend_type::kCatalogCoordinateFrame), QString(), false, err))
+			*host, frame, QLatin1String(backend_type::kCatalogCoordinateFrame), parentId, false, err))
 	{
 		return false;
 	}
@@ -445,9 +447,17 @@ bool WebGateway::attachChildOnGuiThread(cloudsim::host::DocumentHost* host, cons
 			*err = QStringLiteral("Invalid body.");
 		return false;
 	}
-	const QString parentId = doc.object().value(QStringLiteral("parentId")).toString();
-	const QString childId = doc.object().value(QStringLiteral("childId")).toString();
-	return host->data().attachChild(parentId, childId, err);
+	const QString parentId = doc.object().value(QStringLiteral("parentId")).toString().trimmed();
+	const QString childId = doc.object().value(QStringLiteral("childId")).toString().trimmed();
+	if (parentId.isEmpty() || childId.isEmpty())
+	{
+		if (err)
+		{
+			*err = QStringLiteral("parentId and childId required");
+		}
+		return false;
+	}
+	return cloudsim::host::attachBackendChildToParent(*host, parentId.toStdString(), childId.toStdString(), err);
 }
 
 QByteArray WebGateway::robotProgramsJsonOnGuiThread()
@@ -1670,6 +1680,45 @@ bool WebGateway::customDeviceExportUrdfOnGuiThread(cloudsim::host::DocumentHost*
 		return false;
 	}
 	return cloudsim::host::exportCustomDeviceUrdfZip(*host, id, parentDir, err, outDir);
+}
+
+QByteArray WebGateway::robotsForMountJsonOnGuiThread(cloudsim::host::DocumentHost* host)
+{
+	if (!host)
+	{
+		return QByteArray(R"({"ok":false,"error":"No host."})");
+	}
+	return QJsonDocument(cloudsim::host::listRobotsForMountJson(*host)).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::customDeviceMountOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id,
+											  const QByteArray& body, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const QJsonObject o = QJsonDocument::fromJson(body).object();
+	const bool ok = cloudsim::host::mountCustomDeviceToRobotFlange(*host, id, o, err);
+	if (ok)
+		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
+	return ok;
+}
+
+bool WebGateway::customDeviceUnmountOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, QString* err)
+{
+	if (!host)
+	{
+		if (err)
+			*err = QStringLiteral("No host.");
+		return false;
+	}
+	const bool ok = cloudsim::host::unmountCustomDeviceFromRobotFlange(*host, id, err);
+	if (ok)
+		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
+	return ok;
 }
 
 } // namespace cloudsim::web

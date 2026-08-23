@@ -6,12 +6,14 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowTransformSolver.h"
+#include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "DocumentHost.h"
 #include "FollowAttachmentComponent.h"
 #include "IRenderView.h"
 #include "OsgWidget.h"
 #include "OsgWidgetSceneBridge.h"
+#include "RobotMatrixOsgBridge.h"
 
 #include <QString>
 #include <unordered_set>
@@ -59,10 +61,20 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		bakeFollowLocalAfterManualPoseEdit(page, skipId);
 	}
 
-	// OSG 有件时优先场景矩阵（与 FK/gizmo 一致）；无 OSG 才回落 backend worldMatrix
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid,
-																		 BackendMat4& out) -> bool
+	// URDF 连杆 FK 写 backend worldMatrix；OSG outer PAT 在部分路径下仍为原点，须读 backend
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&page, osg, &mgr](const std::string& bid,
+																					   BackendMat4& out) -> bool
 	{
+		if (page.isKinematicsOwnedBackend(bid))
+		{
+			const auto obj = mgr.getData(bid);
+			if (!obj || !obj->hasPoseProperty())
+			{
+				return false;
+			}
+			out = obj->worldMatrix();
+			return true;
+		}
 		if (!osg)
 		{
 			return false;
@@ -72,13 +84,7 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		{
 			return false;
 		}
-		for (int c = 0; c < 4; ++c)
-		{
-			for (int r = 0; r < 4; ++r)
-			{
-				out.v[c * 4 + r] = om(r, c);
-			}
-		}
+		out = RobotMatrixOsg::backendColMajorFromMatrix(om);
 		return true;
 	};
 
@@ -115,6 +121,15 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		if (usePoseLimit && !dirty.count(fid))
 		{
 			continue;
+		}
+		// 挂到 URDF 连杆的自定义设备：OSG 由 refreshCustomDevicesFollowingKinematicsTargets 统一写
+		if (d->className() == backend_type::kClassCustomDevice)
+		{
+			const std::string& targetId = comp->targetBackendId();
+			if (page.isKinematicsOwnedBackend(targetId))
+			{
+				continue;
+			}
 		}
 		page.sceneBridge().syncOuterPatFromBackend(*d);
 	}

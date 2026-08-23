@@ -4,6 +4,9 @@
 #include "CustomDeviceHostOps.h"
 
 #include "BackendFileImport.h"
+#include "BackendSceneDocumentFacade.h"
+#include "CustomDeviceRobotMountComponent.h"
+#include "CustomDeviceRobotMountOps.h"
 #include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "CustomDeviceAssemblyCommit.h"
@@ -23,6 +26,8 @@
 
 #include <json.hpp>
 
+#include <BackendDataManager.h>
+
 namespace cloudsim::host
 {
 namespace
@@ -36,8 +41,10 @@ QHash<QString, bool>& edgeMemory()
 IRobotBackendPoseSink* poseSinkOf(DocumentHost& host)
 {
 	if (HeadlessRobotContext* hrc = host.headlessRobotContext())
+	{
 		return hrc->urdfImportScenePoseSink();
-	return nullptr;
+	}
+	return host.sceneFacade().poseSink();
 }
 
 bool readDeviceDi(IoSignalNetwork& network, const QString& deviceId, const QString& signalName, bool* out)
@@ -77,6 +84,23 @@ std::vector<double> doublesFromJson(const QJsonArray& a)
 	return q;
 }
 } // namespace
+
+void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host, const std::string& deviceBackendId)
+{
+	if (deviceBackendId.empty())
+	{
+		return;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceBackendId));
+	if (!device || !device->usesLinkJointGraph())
+	{
+		return;
+	}
+	BackendDataManager& mgr = host.backend();
+	(void)CustomDeviceKinematics::applyQ(*device, &mgr, poseSinkOf(host), nullptr);
+	// 连杆几何由 applyQ + poseSink 写 OSG；勿对子节点再 syncOuterPat，会与层级 Follow 冲突并破坏拾取
+	(void)host.syncOuterPatFromBackendId(deviceBackendId);
+}
 
 QJsonObject listCustomDevicesJson(DocumentHost& host)
 {
@@ -129,6 +153,17 @@ QJsonObject customDeviceDetailJson(DocumentHost& host, const QString& deviceId)
 	root.insert(QStringLiteral("joints"), toQ(jointsJ));
 	root.insert(QStringLiteral("signals"),
 				QJsonDocument::fromJson(QByteArray::fromStdString(device->ioSignalsJson().dump())).array());
+
+	if (const CustomDeviceRobotMountComponent* mount = CustomDeviceRobotMountComponent::mountOf(*device).get())
+	{
+		QJsonObject rm;
+		rm.insert(QStringLiteral("enabled"), mount->enabled());
+		rm.insert(QStringLiteral("robotSceneBackendId"), QString::fromStdString(mount->robotSceneBackendId()));
+		rm.insert(QStringLiteral("flangeLinkName"), QString::fromStdString(mount->flangeLinkName()));
+		rm.insert(QStringLiteral("flangeBackendId"), QString::fromStdString(mount->flangeBackendId()));
+		rm.insert(QStringLiteral("mountFrameBackendId"), QString::fromStdString(mount->mountFrameBackendId()));
+		root.insert(QStringLiteral("robotMount"), rm);
+	}
 	return root;
 }
 
@@ -490,6 +525,80 @@ bool exportCustomDeviceUrdfZip(DocumentHost& host, const QString& deviceId, cons
 	if (outPackageDir)
 		*outPackageDir = packageRoot;
 	return true;
+}
+
+QJsonObject listRobotsForMountJson(DocumentHost& host)
+{
+	QJsonArray arr;
+	if (HeadlessRobotContext* hrc = host.headlessRobotContext())
+	{
+		const QVector<HeadlessRobotContext::InstanceInfo> instances = hrc->listInstances();
+		for (int i = 0; i < instances.size(); ++i)
+		{
+			const HeadlessRobotContext::InstanceInfo& info = instances[i];
+			QJsonObject o;
+			o.insert(QStringLiteral("sceneBackendId"), info.sceneRootBackendId);
+			o.insert(QStringLiteral("label"), info.label.isEmpty() ? info.sceneRootBackendId : info.label);
+			QString flangeLink = QString::fromStdString(hrc->robotCoordinateFramesForInstance(i).flangeLinkName);
+			o.insert(QStringLiteral("flangeLinkName"), flangeLink);
+			o.insert(QStringLiteral("flangeBackendId"), hrc->robotFlangeBackendId(info.sceneRootBackendId));
+			arr.append(o);
+		}
+	}
+	return QJsonObject{{QStringLiteral("ok"), true}, {QStringLiteral("robots"), arr}};
+}
+
+bool mountCustomDeviceToRobotFlange(DocumentHost& host, const QString& deviceId, const QJsonObject& body, QString* err)
+{
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceId.toStdString()));
+	if (!device)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("device not found");
+		}
+		return false;
+	}
+	const QString robotSceneBackendId = body.value(QStringLiteral("robotSceneBackendId")).toString().trimmed();
+	if (robotSceneBackendId.isEmpty())
+	{
+		if (err)
+		{
+			*err = QStringLiteral("robotSceneBackendId required");
+		}
+		return false;
+	}
+	const QString flangeLinkName = body.value(QStringLiteral("flangeLinkName")).toString().trimmed();
+	const QString mountFrameBackendId = body.value(QStringLiteral("mountFrameBackendId")).toString().trimmed();
+	const QString flangeBackendId = body.value(QStringLiteral("flangeBackendId")).toString().trimmed();
+	BackendMat4 toolMat = BackendMat4::identity();
+	if (body.contains(QStringLiteral("toolFrameInFlange")) && body.value(QStringLiteral("toolFrameInFlange")).isArray())
+	{
+		const QJsonArray a = body.value(QStringLiteral("toolFrameInFlange")).toArray();
+		if (a.size() >= 16)
+		{
+			for (int i = 0; i < 16; ++i)
+			{
+				toolMat.v[i] = a[i].toDouble();
+			}
+		}
+	}
+	return mountCustomDeviceToFlange(*device, host, robotSceneBackendId, flangeLinkName, flangeBackendId,
+									 mountFrameBackendId, toolMat, nullptr, nullptr, err);
+}
+
+bool unmountCustomDeviceFromRobotFlange(DocumentHost& host, const QString& deviceId, QString* err)
+{
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceId.toStdString()));
+	if (!device)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("device not found");
+		}
+		return false;
+	}
+	return unmountCustomDeviceFromRobot(*device, host, err);
 }
 
 } // namespace cloudsim::host

@@ -8,6 +8,7 @@
 #include "CustomDeviceAssemblyCommit.h"
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceKinematics.h"
+#include "CustomDeviceRobotMountComponent.h"
 #include "ICustomDeviceAssemblyHost.h"
 #include "IRobotDocumentHost.h"
 
@@ -206,6 +207,44 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	splitter->setStretchFactor(1, 1);
 	rootLayout->addWidget(splitter, 1);
 
+	m_mountFrame = new QFrame(this);
+	m_mountFrame->setObjectName(QStringLiteral("assemblyMount"));
+	auto* mountLayout = new QVBoxLayout(m_mountFrame);
+	mountLayout->setContentsMargins(12, 10, 12, 10);
+	mountLayout->setSpacing(6);
+	auto* mountTitle =
+		new QLabel(i18n(QStringLiteral("Mount to Robot Flange"), QStringLiteral("安装到机器人法兰")), m_mountFrame);
+	mountTitle->setObjectName(QStringLiteral("assemblyPropsTitle"));
+	mountLayout->addWidget(mountTitle);
+	auto* mountHint = new QLabel(
+		i18n(QStringLiteral("Mount frame must be on the device root or a fixed link. On confirm, the device root follows the robot flange via Follow (install frame aligns with TCP)."),
+			 QStringLiteral("安装坐标系须位于设备根或 fixed 连杆下。确认后设备根通过 Follow 跟随机器人法兰（安装坐标系与 TCP 对齐）。")),
+		m_mountFrame);
+	mountHint->setWordWrap(true);
+	mountLayout->addWidget(mountHint);
+	auto* mountForm = new QFormLayout();
+	mountForm->setContentsMargins(0, 0, 0, 0);
+	m_mountRobotCombo = new QComboBox(m_mountFrame);
+	m_mountFlangeCombo = new QComboBox(m_mountFrame);
+	m_mountFrameCombo = new QComboBox(m_mountFrame);
+	mountForm->addRow(i18n(QStringLiteral("Robot"), QStringLiteral("机器人")), m_mountRobotCombo);
+	mountForm->addRow(i18n(QStringLiteral("Flange link"), QStringLiteral("法兰连杆")), m_mountFlangeCombo);
+	mountForm->addRow(i18n(QStringLiteral("Mount frame"), QStringLiteral("安装坐标系")), m_mountFrameCombo);
+	mountLayout->addLayout(mountForm);
+	auto* mountBtnRow = new QHBoxLayout();
+	m_mountBtn = new QPushButton(i18n(QStringLiteral("Confirm mount"), QStringLiteral("确认挂载")), m_mountFrame);
+	m_unmountBtn = new QPushButton(i18n(QStringLiteral("Unmount"), QStringLiteral("解除挂载")), m_mountFrame);
+	m_mountBtn->setProperty("btnRole", QStringLiteral("primary"));
+	m_unmountBtn->setProperty("btnRole", QStringLiteral("secondary"));
+	mountBtnRow->addWidget(m_mountBtn);
+	mountBtnRow->addWidget(m_unmountBtn);
+	mountBtnRow->addStretch(1);
+	mountLayout->addLayout(mountBtnRow);
+	m_mountStatusLabel = new QLabel(m_mountFrame);
+	m_mountStatusLabel->setWordWrap(true);
+	mountLayout->addWidget(m_mountStatusLabel);
+	rootLayout->addWidget(m_mountFrame);
+
 	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
 	buttons->button(QDialogButtonBox::Ok)->setText(i18n(QStringLiteral("Apply"), QStringLiteral("应用")));
 	buttons->button(QDialogButtonBox::Ok)->setProperty("btnRole", QStringLiteral("primary"));
@@ -214,6 +253,7 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 
 	setRotationCenterVisible(false);
 	refillCenterOptions();
+	refillMountUi();
 	if (m_editMode && m_device)
 	{
 		preloadEditGraph();
@@ -246,6 +286,10 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	connect(fromSceneBtn, &QPushButton::clicked, this, &CustomDeviceAssemblyDialog::onFromScene);
 	connect(m_pickSolidBtn, &QPushButton::toggled, this, &CustomDeviceAssemblyDialog::onPickSolidToggled);
 	connect(importFileBtn, &QPushButton::clicked, this, &CustomDeviceAssemblyDialog::onImportModels);
+	connect(m_mountBtn, &QPushButton::clicked, this, &CustomDeviceAssemblyDialog::onMountToRobot);
+	connect(m_unmountBtn, &QPushButton::clicked, this, &CustomDeviceAssemblyDialog::onUnmountFromRobot);
+	connect(m_mountRobotCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int) { refillMountUi(); });
 	connect(buttons, &QDialogButtonBox::accepted, this, &CustomDeviceAssemblyDialog::onApplyAccepted);
 	connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 	connect(this, &QDialog::finished, this, [this]() {
@@ -782,5 +826,158 @@ void CustomDeviceAssemblyDialog::onApplyAccepted()
 									 QStringLiteral("已更新自定义设备：%1").arg(name))
 							  : i18n(QStringLiteral("Custom device assembled: %1").arg(name),
 									 QStringLiteral("已组装自定义设备：%1").arg(name)));
+	refillMountUi();
+	updateMountControlsEnabled();
 	accept();
+}
+
+void CustomDeviceAssemblyDialog::refillMountUi()
+{
+	if (!m_host || !m_mountRobotCombo || !m_mountFrameCombo)
+	{
+		return;
+	}
+	const QString deviceId = m_device ? QString::fromStdString(m_device->id()) : QString();
+	m_mountRobotCombo->blockSignals(true);
+	m_mountFrameCombo->blockSignals(true);
+	const QString keepRobot = m_mountRobotCombo->currentData().toString();
+	const QString keepFrame = m_mountFrameCombo->currentData().toString();
+	m_mountRobotCombo->clear();
+	const QVector<CustomDeviceMountRobotCandidate> robots = m_host->listMountRobotCandidates();
+	for (const CustomDeviceMountRobotCandidate& r : robots)
+	{
+		const QString label = r.label.isEmpty() ? r.sceneBackendId : r.label;
+		m_mountRobotCombo->addItem(label, r.sceneBackendId);
+		m_mountRobotCombo->setItemData(m_mountRobotCombo->count() - 1, r.flangeLinkName, Qt::UserRole + 1);
+		m_mountRobotCombo->setItemData(m_mountRobotCombo->count() - 1, r.flangeBackendId, Qt::UserRole + 2);
+	}
+	int robotIdx = m_mountRobotCombo->findData(keepRobot);
+	if (robotIdx < 0)
+	{
+		robotIdx = 0;
+	}
+	m_mountRobotCombo->setCurrentIndex(robotIdx);
+
+	m_mountFlangeCombo->clear();
+	if (m_mountRobotCombo->count() > 0)
+	{
+		const int idx = m_mountRobotCombo->currentIndex();
+		const QString flangeLink = m_mountRobotCombo->itemData(idx, Qt::UserRole + 1).toString();
+		if (!flangeLink.isEmpty())
+		{
+			m_mountFlangeCombo->addItem(flangeLink, flangeLink);
+		}
+	}
+
+	m_mountFrameCombo->clear();
+	m_mountFrameCombo->addItem(i18n(QStringLiteral("(None)"), QStringLiteral("（无）")), QString());
+	if (!deviceId.isEmpty())
+	{
+		const QVector<CustomDeviceMountFrameCandidate> frames = m_host->listMountFrameCandidates(deviceId);
+		for (const CustomDeviceMountFrameCandidate& f : frames)
+		{
+			m_mountFrameCombo->addItem(f.displayName, f.backendId);
+		}
+	}
+	int frameIdx = m_mountFrameCombo->findData(keepFrame);
+	if (frameIdx < 0 && m_mountFrameCombo->count() > 1)
+	{
+		frameIdx = 1;
+	}
+	else if (frameIdx < 0)
+	{
+		frameIdx = 0;
+	}
+	m_mountFrameCombo->setCurrentIndex(frameIdx);
+	m_mountRobotCombo->blockSignals(false);
+	m_mountFrameCombo->blockSignals(false);
+
+	if (m_mountStatusLabel)
+	{
+		if (!deviceId.isEmpty() && m_host->isDeviceMountedToRobot(deviceId))
+		{
+			m_mountStatusLabel->setText(i18n(QStringLiteral("Status: mounted to robot."),
+										   QStringLiteral("状态：已挂载到机器人。")));
+		}
+		else
+		{
+			m_mountStatusLabel->setText(QString());
+		}
+	}
+	updateMountControlsEnabled();
+}
+
+void CustomDeviceAssemblyDialog::updateMountControlsEnabled()
+{
+	const bool hasDevice = static_cast<bool>(m_device);
+	const bool hasGraph = hasDevice && m_device->usesLinkJointGraph();
+	const bool mounted = hasDevice && m_host && m_host->isDeviceMountedToRobot(QString::fromStdString(m_device->id()));
+	if (m_mountFrame)
+	{
+		m_mountFrame->setEnabled(hasDevice);
+	}
+	if (m_mountBtn)
+	{
+		m_mountBtn->setEnabled(hasGraph && !mounted && m_mountRobotCombo && m_mountRobotCombo->count() > 0);
+	}
+	if (m_unmountBtn)
+	{
+		m_unmountBtn->setEnabled(mounted);
+	}
+}
+
+void CustomDeviceAssemblyDialog::onMountToRobot()
+{
+	if (!m_host || !m_device)
+	{
+		return;
+	}
+	if (!m_device->usesLinkJointGraph())
+	{
+		QMessageBox::warning(this, i18n(QStringLiteral("Mount"), QStringLiteral("安装")),
+							 i18n(QStringLiteral("Apply assembly before mounting."),
+								  QStringLiteral("请先应用组装（Link/Joint 图）。")));
+		return;
+	}
+	if (m_mountRobotCombo->count() <= 0)
+	{
+		QMessageBox::warning(this, i18n(QStringLiteral("Mount"), QStringLiteral("安装")),
+							 i18n(QStringLiteral("No robot in scene."), QStringLiteral("场景中没有机器人。")));
+		return;
+	}
+	const int rIdx = m_mountRobotCombo->currentIndex();
+	const QString robotSceneId = m_mountRobotCombo->itemData(rIdx).toString();
+	const QString flangeLink = m_mountFlangeCombo->count() > 0 ? m_mountFlangeCombo->currentData().toString()
+															   : m_mountRobotCombo->itemData(rIdx, Qt::UserRole + 1).toString();
+	const QString flangeBackendId = m_mountRobotCombo->itemData(rIdx, Qt::UserRole + 2).toString();
+	const QString mountFrameId = m_mountFrameCombo->currentData().toString();
+	const QString deviceId = QString::fromStdString(m_device->id());
+	QString err;
+	if (!m_host->mountDeviceToRobot(deviceId, robotSceneId, flangeLink, flangeBackendId, mountFrameId, &err))
+	{
+		QMessageBox::warning(this, i18n(QStringLiteral("Mount"), QStringLiteral("安装")), err);
+		return;
+	}
+	refillMountUi();
+	m_host->appendRunInfo(i18n(QStringLiteral("Device mounted to robot flange."),
+							   QStringLiteral("设备已挂载到机器人法兰。")));
+}
+
+void CustomDeviceAssemblyDialog::onUnmountFromRobot()
+{
+	if (!m_host || !m_device)
+	{
+		return;
+	}
+	QString err;
+	const QString deviceId = QString::fromStdString(m_device->id());
+	if (!m_host->unmountDeviceFromRobot(deviceId, &err))
+	{
+		QMessageBox::warning(this, i18n(QStringLiteral("Unmount"), QStringLiteral("解除挂载")), err);
+		return;
+	}
+	m_host->runFollowSolveAndSync();
+	refillMountUi();
+	m_host->appendRunInfo(i18n(QStringLiteral("Device unmounted from robot."),
+							   QStringLiteral("设备已从机器人解除挂载。")));
 }

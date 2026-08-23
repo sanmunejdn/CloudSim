@@ -400,6 +400,8 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 
 轴控、姿态库、`DeviceAxisInstruction` 只消费投影后的扁平接口；新功能优先挂图。
 
+**机器人法兰挂载**（`CustomDeviceRobotMountComponent` + 设备根 `FollowAttachment`）：组装完成后在组装对话框选择机器人与安装坐标系（须在设备根或 fixed Link 下）；挂载时 bake `T_local = T_tool × inv(T_frame_in_device)`，设备根 Follow 法兰。机器人 FK 后 `runFollowSolveAndSync` → `refreshCustomDevicesFollowingKinematicsTargets` 触发 `applyQ`。工具系变更时 `rebakeMountedCustomDevicesFollowLocals`。Host API：`mountCustomDeviceToRobotFlange` / `unmountCustomDeviceFromRobotFlange`；Web：`POST /api/custom-devices/{id}/mount`。
+
 i18n：`setUseChinese` ← `MainWindow::applyLanguage`。
 
 **资源侧注意**：ABB 去掉重复 `IRB 120-3-58.bmp`。INOVANCE 两台恢复原始 `link6` 装配网格+visual。TCP 悬空根因是工具轴叠加曾挂在 `base_link`；`refreshRobotCoordinateFrameOverlays` 已改为始终挂法兰 link，并用 `inv(visual)*T_tool` 对齐文件系网格（装配系 URDF 与本地系 URDF 均适用）。

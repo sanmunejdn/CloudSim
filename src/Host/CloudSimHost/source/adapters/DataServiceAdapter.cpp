@@ -16,6 +16,8 @@
 #include "DocumentHostAccess.h"
 #include "DocumentImportFacade.h"
 #include "FollowAttachmentComponent.h"
+#include "io/CustomDeviceHostOps.h"
+#include "io/CustomDeviceRobotMountOps.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
@@ -110,13 +112,7 @@ QVector<core::ObjectId> DataServiceAdapter::listChildren(const core::ObjectId& p
 
 bool DataServiceAdapter::attachChild(const core::ObjectId& parentId, const core::ObjectId& childId, QString* outError)
 {
-	if (!backendOf(m_host).attachChild(parentId.toStdString(), childId.toStdString()))
-	{
-		if (outError)
-			*outError = QStringLiteral("attachChild failed");
-		return false;
-	}
-	return true;
+	return attachBackendChildToParent(m_host, parentId.toStdString(), childId.toStdString(), outError);
 }
 
 QVector<core::PropertyRowDto> DataServiceAdapter::propertyRows(const core::ObjectId& id) const
@@ -173,6 +169,15 @@ bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QSt
 	if (poseLikeKey)
 	{
 		bakeFollowLocalAfterManualPoseEdit(m_host, id.toStdString());
+		if (obj->className() == backend_type::kClassCustomDevice)
+		{
+			syncCustomDeviceKinematicsAfterRootPoseChange(m_host, id.toStdString());
+		}
+		if (rebakeMountedDeviceFromInstallFramePose(m_host, id.toStdString()))
+		{
+			afterDataServicePropertyChange(m_host, *obj, key);
+			return true;
+		}
 	}
 	afterDataServicePropertyChange(m_host, *obj, key);
 	if (key.startsWith(QStringLiteral("follow.")))
@@ -210,6 +215,15 @@ bool DataServiceAdapter::applyWorldPoseMm(const core::ObjectId& id, const core::
 		obj->setRotation(euler);
 	}
 	bakeFollowLocalAfterManualPoseEdit(m_host, id.toStdString());
+	if (obj->className() == backend_type::kClassCustomDevice)
+	{
+		syncCustomDeviceKinematicsAfterRootPoseChange(m_host, id.toStdString());
+	}
+	if (rebakeMountedDeviceFromInstallFramePose(m_host, id.toStdString()))
+	{
+		afterDataServicePropertyChange(m_host, *obj, QStringLiteral("pose.x"));
+		return true;
+	}
 	afterDataServicePropertyChange(m_host, *obj, QStringLiteral("pose.x"));
 	return true;
 }

@@ -54,6 +54,7 @@ public:
 
 	void refreshBackendTree() override;
 	void runFollowSolveAndSyncForCurrentDocument() override;
+	void rebakeMountedCustomDevicesFollowLocalsForCurrentDocument() override;
 	void refreshInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
 										 bool refreshFeasibleAxisOptions = true) override;
 	void clearInstructionPropertyPanel() override;
@@ -102,6 +103,13 @@ public:
 	void focusBackendInTree(const QString& backendId) override;
 	void runFollowSolveAndSync() override;
 	void onCustomDeviceAssemblyCommitted(const QString& deviceBackendId) override;
+	QVector<CustomDeviceMountRobotCandidate> listMountRobotCandidates() override;
+	QVector<CustomDeviceMountFrameCandidate> listMountFrameCandidates(const QString& deviceBackendId) override;
+	bool mountDeviceToRobot(const QString& deviceBackendId, const QString& robotSceneBackendId,
+							const QString& flangeLinkName, const QString& flangeBackendId,
+							const QString& mountFrameBackendId, QString* outError) override;
+	bool unmountDeviceFromRobot(const QString& deviceBackendId, QString* outError) override;
+	bool isDeviceMountedToRobot(const QString& deviceBackendId) const override;
 
 	QVector<cloudsim::core::PropertyRowDto> instructionPropertyRows(const QString& instructionId) override;
 	bool applyInstructionPropertyChange(const QString& instructionId, const QString& key, const QString& value,

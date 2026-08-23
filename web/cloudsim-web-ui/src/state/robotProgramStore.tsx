@@ -19,12 +19,18 @@ import { eventHub } from "../sse/EventHub";
 import { useScene } from "./sceneStore";
 import { useStatus } from "./statusStore";
 
+type SelectInstrOpts = { preferVia?: boolean };
+
 type RobotCtx = {
   catalogs: ProgramCatalog[];
   activeRootId: string;
   activeProgram: RobotProgram | null;
   selectedInstrId: string | null;
-  setSelectedInstrId: (id: string | null) => void;
+  /** ARC via 高亮：与桌面 m_waypointPickHighlightPreferVia 对齐 */
+  selectedInstrPreferVia: boolean;
+  setSelectedInstrId: (id: string | null, opts?: SelectInstrOpts) => void;
+  waypointPickMode: boolean;
+  setWaypointPickMode: (v: boolean) => void;
   playing: boolean;
   setPlaying: (v: boolean) => void;
   reloadPrograms: () => Promise<void>;
@@ -47,9 +53,16 @@ export function RobotProgramProvider({ children }: { children: ReactNode }) {
   const { objects, selectedId } = useScene();
   const { setStatus } = useStatus();
   const [catalogs, setCatalogs] = useState<ProgramCatalog[]>([]);
-  const [selectedInstrId, setSelectedInstrId] = useState<string | null>(null);
+  const [selectedInstrId, setSelectedInstrIdState] = useState<string | null>(null);
+  const [selectedInstrPreferVia, setSelectedInstrPreferVia] = useState(false);
+  const [waypointPickMode, setWaypointPickMode] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [roots, setRoots] = useState<string[]>([]);
+
+  const setSelectedInstrId = useCallback((id: string | null, opts?: SelectInstrOpts) => {
+    setSelectedInstrIdState(id);
+    setSelectedInstrPreferVia(!!(id && opts?.preferVia));
+  }, []);
 
   const preferRootId = useCallback(() => {
     const withInstr = catalogs.find((c) =>
@@ -143,7 +156,10 @@ export function RobotProgramProvider({ children }: { children: ReactNode }) {
       activeRootId,
       activeProgram,
       selectedInstrId,
+      selectedInstrPreferVia,
       setSelectedInstrId,
+      waypointPickMode,
+      setWaypointPickMode,
       playing,
       setPlaying,
       reloadPrograms,
@@ -156,6 +172,9 @@ export function RobotProgramProvider({ children }: { children: ReactNode }) {
       activeRootId,
       activeProgram,
       selectedInstrId,
+      selectedInstrPreferVia,
+      setSelectedInstrId,
+      waypointPickMode,
       playing,
       reloadPrograms,
       savePrograms,

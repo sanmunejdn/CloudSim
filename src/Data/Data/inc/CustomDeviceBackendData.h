@@ -146,6 +146,10 @@ public:
 	const nlohmann::json& ioSignalsJson() const { return m_ioSignalsJson; }
 	void setIoSignalsJson(nlohmann::json signalsJson);
 
+	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
+	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
+							 const BackendDataManager* mgr = nullptr) override;
+
 private:
 	void saveDerivedJson(nlohmann::json& out) const override;
 	bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg) override;

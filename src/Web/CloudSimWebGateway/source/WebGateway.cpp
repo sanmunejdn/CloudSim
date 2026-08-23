@@ -1627,6 +1627,53 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 						 res.status = ok ? 200 : 400;
 						 res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
 					 });
+	m_impl->svr.Get("/api/robots/mount-candidates",
+					[this, host](const httplib::Request&, httplib::Response& res)
+					{
+						QByteArray body;
+						QMetaObject::invokeMethod(
+							this, [this, host, &body]() { body = robotsForMountJsonOnGuiThread(host); },
+							Qt::BlockingQueuedConnection);
+						res.status = 200;
+						res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+					});
+	m_impl->svr.Post(R"(/api/custom-devices/([^/]+)/mount)",
+					 [this, host](const httplib::Request& req, httplib::Response& res)
+					 {
+						 const QString id = QString::fromStdString(req.matches[1]);
+						 QString err;
+						 bool ok = false;
+						 const QByteArray reqBody = QByteArray::fromStdString(req.body);
+						 QMetaObject::invokeMethod(
+							 this,
+							 [this, host, id, reqBody, &err, &ok]() {
+								 ok = customDeviceMountOnGuiThread(host, id, reqBody, &err);
+							 },
+							 Qt::BlockingQueuedConnection);
+						 QJsonObject o{{QStringLiteral("ok"), ok}};
+						 if (!ok)
+							 o.insert(QStringLiteral("error"), err);
+						 const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
+						 res.status = ok ? 200 : 400;
+						 res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
+					 });
+	m_impl->svr.Post(R"(/api/custom-devices/([^/]+)/unmount)",
+					 [this, host](const httplib::Request& req, httplib::Response& res)
+					 {
+						 const QString id = QString::fromStdString(req.matches[1]);
+						 QString err;
+						 bool ok = false;
+						 QMetaObject::invokeMethod(
+							 this,
+							 [this, host, id, &err, &ok]() { ok = customDeviceUnmountOnGuiThread(host, id, &err); },
+							 Qt::BlockingQueuedConnection);
+						 QJsonObject o{{QStringLiteral("ok"), ok}};
+						 if (!ok)
+							 o.insert(QStringLiteral("error"), err);
+						 const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
+						 res.status = ok ? 200 : 400;
+						 res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
+					 });
 	m_impl->svr.Get("/api/devices/thumbnail",
 					[](const httplib::Request& req, httplib::Response& res)
 					{

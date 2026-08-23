@@ -8,12 +8,16 @@
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
 #include "BackendFileImport.h"
+#include "BackendDataManager.h"
 #include "BackendSceneDocumentFacade.h"
 #include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "CustomDeviceBackendData.h"
+#include "CustomDeviceRobotMountComponent.h"
+#include "BackendFollowMath.h"
 #include "DocumentImportFacade.h"
 #include "DocumentPage.h"
+#include "FrameBackendData.h"
 #include "HierarchyMeshImport.h"
 #include "IDataService.h"
 #include "IRenderView.h"
@@ -29,8 +33,13 @@
 #include "RobotPlanInstruction.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotExternalAxes.h"
+#include "RobotSimulationMath.h"
 #include "RobotTeachIk.h"
+
+#include <queue>
+#include <unordered_set>
 #include "RunInfoPage.h"
+#include "io/CustomDeviceRobotMountOps.h"
 
 #include <cmath>
 #include <limits>
@@ -42,6 +51,89 @@
 #include <algorithm>
 
 #include <Adapters.h>
+
+namespace
+{
+QString resolveMountFlangeLinkName(DocumentPage* page, const int instIdx, const QString& flangeBackendId,
+								   const QString& hint)
+{
+	if (page)
+	{
+		cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+		if (page->robotPerLinkKinematicsForInstance(instIdx, pl))
+		{
+			for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+			{
+				if (it.value() == flangeBackendId)
+				{
+					return it.key();
+				}
+			}
+		}
+	}
+	const QString trimmed = hint.trimmed();
+	if (!trimmed.isEmpty())
+	{
+		return trimmed;
+	}
+	if (!page)
+	{
+		return QString();
+	}
+	const QString urdfPath = page->robotUrdfAbsolutePathForInstance(instIdx);
+	QStringList revoluteChildren;
+	if (UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildren, nullptr) &&
+		!revoluteChildren.isEmpty())
+	{
+		return revoluteChildren.back();
+	}
+	return QString();
+}
+
+bool computeMountTcpWorld(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, const int instIdx,
+						  const QString& flangeBackendId, const QString& flangeLinkHint,
+						  const QVector<double>& jointQ, const RobotCoordinate::RobotCoordinateFrameSet& frames,
+						  BackendMat4& outTcpWorld, QString* outResolvedLink = nullptr)
+{
+	if (!doc || instIdx < 0 || jointQ.isEmpty())
+	{
+		return false;
+	}
+	DocumentPage* page = dynamic_cast<DocumentPage*>(doc);
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		return false;
+	}
+	const QString resolvedFlange = resolveMountFlangeLinkName(page, instIdx, flangeBackendId, flangeLinkHint);
+	if (outResolvedLink)
+	{
+		*outResolvedLink = resolvedFlange;
+	}
+	if (resolvedFlange.isEmpty())
+	{
+		return false;
+	}
+	QHash<QString, osg::Matrixd> linkWorld;
+	QString fkErr;
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, jointQ, linkWorld, &fkErr) ||
+		!linkWorld.contains(resolvedFlange))
+	{
+		return false;
+	}
+	const BackendMat4 T_tool = RobotSimulationMath::toolMat4ForFrames(frames, nullptr);
+	const BackendMat4 tcpInBase =
+		RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(linkWorld.value(resolvedFlange), T_tool);
+	osg::Matrixd robotBaseWorld;
+	robotBaseWorld.makeIdentity();
+	(void)RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, robotBaseWorld);
+	const osg::Matrixd tcpRenderWorld =
+		RobotMatrixOsg::matrixFromBackendColMajor(tcpInBase) * robotBaseWorld;
+	outTcpWorld = RobotMatrixOsg::backendColMajorFromMatrix(tcpRenderWorld);
+	return true;
+}
+// #endregion
+} // namespace
 
 #include <QComboBox>
 #include <QDialog>
@@ -1021,6 +1113,17 @@ void MainWindowRobotHost::runFollowSolveAndSyncForCurrentDocument()
 	cloudsim::core::FollowSolveContextDto ctx;
 	ctx.skipAll = false;
 	(void)page->data().runFollowSolveAndSync(ctx, nullptr);
+	cloudsim::host::refreshCustomDevicesFollowingKinematicsTargets(*page);
+}
+
+void MainWindowRobotHost::rebakeMountedCustomDevicesFollowLocalsForCurrentDocument()
+{
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host)
+	{
+		return;
+	}
+	cloudsim::host::rebakeMountedCustomDevicesFollowLocals(*host);
 }
 
 void MainWindowRobotHost::refreshInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
@@ -1460,4 +1563,251 @@ void MainWindowRobotHost::onCustomDeviceAssemblyCommitted(const QString& deviceB
 	{
 		axis->selectControlTarget(AxisControlTargetKind::CustomDevice, deviceBackendId);
 	}
+}
+
+QVector<CustomDeviceMountRobotCandidate> MainWindowRobotHost::listMountRobotCandidates()
+{
+	QVector<CustomDeviceMountRobotCandidate> out;
+	DocumentPage* page = m_mw ? m_mw->currentPage() : nullptr;
+	IRobotDocumentHost* doc = document();
+	if (!page || !doc)
+	{
+		return out;
+	}
+	const int n = page->robotKinematicInstanceCount();
+	out.reserve(n);
+	for (int i = 0; i < n; ++i)
+	{
+		cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+		if (!page->robotPerLinkKinematicsForInstance(i, pl))
+		{
+			continue;
+		}
+		CustomDeviceMountRobotCandidate c;
+		c.sceneBackendId = pl.sceneRootBackendId;
+		const QFileInfo urdfInfo(pl.urdfAbsolutePath);
+		c.label = urdfInfo.completeBaseName().isEmpty() ? pl.sceneRootBackendId : urdfInfo.completeBaseName();
+		const RobotCoordinate::RobotCoordinateFrameSet& frames = page->robotCoordinateFramesForInstance(i);
+		c.flangeLinkName = QString::fromStdString(frames.flangeLinkName);
+		if (!c.flangeLinkName.isEmpty())
+		{
+			c.flangeBackendId =
+				RobotSimulationMath::linkMeshBackendIdForInstance(doc, i, frames.flangeLinkName);
+		}
+		if (c.flangeBackendId.isEmpty())
+		{
+			const QHash<QString, QString>& links = pl.linkNameToBackendId;
+			if (!links.isEmpty())
+			{
+				QStringList names = links.keys();
+				std::sort(names.begin(), names.end());
+				c.flangeBackendId = links.value(names.last());
+				if (c.flangeLinkName.isEmpty())
+				{
+					c.flangeLinkName = names.last();
+				}
+			}
+		}
+		out.push_back(c);
+	}
+	return out;
+}
+
+QVector<CustomDeviceMountFrameCandidate> MainWindowRobotHost::listMountFrameCandidates(const QString& deviceBackendId)
+{
+	QVector<CustomDeviceMountFrameCandidate> out;
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host)
+	{
+		return out;
+	}
+	const std::string deviceId = deviceBackendId.toStdString();
+	std::unordered_set<std::string> subtreeIds;
+	if (!deviceId.empty() && host->backend().contains(deviceId))
+	{
+		std::queue<std::string> queue;
+		queue.push(deviceId);
+		subtreeIds.insert(deviceId);
+		while (!queue.empty())
+		{
+			const std::string cur = queue.front();
+			queue.pop();
+			for (const std::string& child : host->backend().childrenOf(cur))
+			{
+				if (subtreeIds.insert(child).second)
+				{
+					queue.push(child);
+				}
+			}
+		}
+	}
+	auto appendFrame = [&](const std::shared_ptr<BackendDataBase>& obj) {
+		if (!obj || obj->className() != backend_type::kClassFrame)
+		{
+			return;
+		}
+		CustomDeviceMountFrameCandidate c;
+		c.backendId = QString::fromStdString(obj->id());
+		c.displayName = QString::fromStdString(obj->name().empty() ? obj->id() : obj->name());
+		out.push_back(c);
+	};
+	for (const auto& obj : host->listObjects())
+	{
+		if (!obj || obj->className() != backend_type::kClassFrame)
+		{
+			continue;
+		}
+		if (!subtreeIds.empty() && subtreeIds.count(obj->id()) == 0)
+		{
+			continue;
+		}
+		appendFrame(obj);
+	}
+	if (!out.isEmpty())
+	{
+		return out;
+	}
+	for (const auto& obj : host->listObjects())
+	{
+		appendFrame(obj);
+	}
+	return out;
+}
+
+bool MainWindowRobotHost::mountDeviceToRobot(const QString& deviceBackendId, const QString& robotSceneBackendId,
+											 const QString& flangeLinkName, const QString& flangeBackendId,
+											 const QString& mountFrameBackendId, QString* outError)
+{
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("No active document.");
+		}
+		return false;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
+	if (!device)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("device not found");
+		}
+		return false;
+	}
+
+	DocumentPage* page = m_mw ? m_mw->currentPage() : nullptr;
+	RobotSimulationController* sim = m_mw ? m_mw->robotSimulation() : nullptr;
+	const QVector<double>* jointAnglesForMount = nullptr;
+	QVector<double> localJointAngles;
+	const BackendMat4* mountTcpWorldForAlign = nullptr;
+	BackendMat4 mountTcpWorld{};
+	if (page && sim && page->hasRobotSimulationContext() && !robotSceneBackendId.isEmpty())
+	{
+		const int instIdx = page->robotInstanceIndexForSceneBackendId(robotSceneBackendId);
+		if (instIdx >= 0)
+		{
+			const int offset = page->robotJointOffsetInAggregatedVector(instIdx);
+			const int nj = page->robotRevoluteJointCountForInstance(instIdx);
+			QVector<double> agg = sim->aggregatedJointAnglesRad();
+			if (nj > 0)
+			{
+				localJointAngles = QVector<double>(nj, 0.0);
+				if (agg.size() >= offset + nj)
+				{
+					for (int j = 0; j < nj; ++j)
+					{
+						localJointAngles[j] = agg[offset + j];
+					}
+				}
+				else if (robotAxisControlPage() && robotAxisControlPage()->jointCount() >= nj)
+				{
+					const QVector<double> sliderQ = robotAxisControlPage()->jointAnglesRad();
+					for (int j = 0; j < nj; ++j)
+					{
+						localJointAngles[j] = sliderQ[j];
+					}
+				}
+				jointAnglesForMount = &localJointAngles;
+				QVector<double> aggOut = agg;
+				QString fkErr;
+				(void)page->robot().applyJointAnglesRad(robotSceneBackendId, localJointAngles, &aggOut, &fkErr);
+				page->reconcilePerLinkOuterBindFromScene(instIdx, localJointAngles);
+				page->notifyRobotKinematicsAppliedToScene();
+
+				const RobotCoordinate::RobotCoordinateFrameSet& frames =
+					page->robotCoordinateFramesForInstance(instIdx);
+				QString resolvedFlange;
+				const bool tcpOk = computeMountTcpWorld(document(), osgView(), instIdx, flangeBackendId, flangeLinkName,
+													  localJointAngles, frames, mountTcpWorld, &resolvedFlange);
+				if (tcpOk)
+				{
+					mountTcpWorldForAlign = &mountTcpWorld;
+				}
+			}
+		}
+	}
+
+	const bool mounted = cloudsim::host::mountCustomDeviceToFlange(*device, *host, robotSceneBackendId, flangeLinkName,
+																   flangeBackendId, mountFrameBackendId,
+																   BackendMat4::identity(), jointAnglesForMount,
+																   mountTcpWorldForAlign, outError);
+	if (mounted)
+	{
+		// pre-mount 已 FK；再 applyJointAnglesRad 会内嵌 notify 并用陈旧 OSG 覆盖刚挂好的设备
+		if (page)
+		{
+			page->notifyRobotKinematicsAppliedToScene();
+		}
+		else
+		{
+			runFollowSolveAndSyncForCurrentDocument();
+		}
+		if (m_mw)
+		{
+			m_mw->updatePropertyPanel(deviceBackendId);
+			m_mw->refreshRobotCoordinateFrameOverlays();
+		}
+	}
+	return mounted;
+}
+
+bool MainWindowRobotHost::unmountDeviceFromRobot(const QString& deviceBackendId, QString* outError)
+{
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("No active document.");
+		}
+		return false;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
+	if (!device)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("device not found");
+		}
+		return false;
+	}
+	return cloudsim::host::unmountCustomDeviceFromRobot(*device, *host, outError);
+}
+
+bool MainWindowRobotHost::isDeviceMountedToRobot(const QString& deviceBackendId) const
+{
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host)
+	{
+		return false;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
+	if (!device)
+	{
+		return false;
+	}
+	const auto mount = CustomDeviceRobotMountComponent::mountOf(*device);
+	return mount && mount->enabled();
 }

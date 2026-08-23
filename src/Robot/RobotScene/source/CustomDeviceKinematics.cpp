@@ -83,18 +83,9 @@ bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mg
 		jointByChild[joints[i].childLinkId] = i;
 	}
 
+	const BackendMat4 w0Mat = mgr ? device.worldMatrix(mgr) : device.baseWorldW0();
 	double w0[16];
-	backendMat4ToArray(device.baseWorldW0(), w0);
-	device.setWorldMatrix(device.baseWorldW0(), mgr);
-	if (sink)
-	{
-		cloudsim::core::Mat4 mat{};
-		for (int i = 0; i < 16; ++i)
-		{
-			mat[static_cast<size_t>(i)] = w0[i];
-		}
-		sink->setBackendRootWorldMatrixFromWorld(device.id(), mat);
-	}
+	backendMat4ToArray(w0Mat, w0);
 
 	std::unordered_map<std::string, std::array<double, 16>> worldByLink;
 	std::queue<std::string> queue;
@@ -188,6 +179,15 @@ bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mg
 	return true;
 }
 } // namespace
+
+BackendMat4 resolveEffectiveDeviceW0(const CustomDeviceBackendData& device, BackendDataManager* mgr)
+{
+	if (mgr)
+	{
+		return device.worldMatrix(mgr);
+	}
+	return device.baseWorldW0();
+}
 
 bool bakeMotionCenterFrameToOriginMm(CustomDeviceAxisConfig& motion, const double parentWorldCm[16],
 									 BackendDataManager* mgr)

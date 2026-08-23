@@ -361,6 +361,8 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 | `ioSignalsJson` | 本设备自持 IO（与 NamedSignalTable JSON 同形） |
 | `usesLinkJointGraph()` | `!joints.empty() && !links.empty()` |
 
+**组件 `CustomDeviceRobotMount`**（`CustomDeviceRobotMountComponent`）：元数据 `enabled`、`robotSceneBackendId`、`flangeLinkName`、`flangeBackendId`、`mountFrameBackendId`、`frameInDeviceW0`、`toolFrameInFlange`。运行时设备根 `FollowAttachment` 跟随法兰；`CustomDeviceKinematics::applyQ` 读当前 `worldMatrix` 作 W0。详见 [`docs/自定义设备机器人挂载/`](../../../docs/自定义设备机器人挂载/)。
+
 `CustomDeviceMotionType`：`Translate` / `Rotate`。位姿：`hasPoseProperty`/`hasRotationProperty` 为 `true`；无 `hasColorProperty`。
 
 ### 4.8 CAD 轨迹几何桥接（`GeometryRef.h` / `GeometryBackendOps.cpp`）

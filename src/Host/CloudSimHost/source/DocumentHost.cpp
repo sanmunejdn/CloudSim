@@ -22,6 +22,7 @@
 #include "HeadlessPointCloudBridge.h"
 #include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
+#include "IRobotSimulationDocument.h"
 #include "MeshBackendData.h"
 #include "NullCoreServices.h"
 #include "OsgWidget.h"
@@ -304,6 +305,48 @@ void DocumentHost::setPerLinkRobotStateAccessor(IPerLinkRobotStateAccessor* acce
 IPerLinkRobotStateAccessor* DocumentHost::perLinkRobotStateAccessor() const
 {
 	return m_perLinkRobotStateAccessor;
+}
+
+void DocumentHost::noteRobotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId,
+														 const QVector<double>& aggregatedJointRad)
+{
+	if (sceneRootBackendId.isEmpty() || aggregatedJointRad.isEmpty())
+	{
+		return;
+	}
+	IRobotUrdfImportContext* ctx = robotUrdfImportContext();
+	IRobotSimulationDocument* doc = ctx ? ctx->urdfImportRobotSimulationDocument() : nullptr;
+	if (!ctx || !doc)
+	{
+		return;
+	}
+	const int idx = ctx->robotInstanceIndexForSceneBackendId(sceneRootBackendId);
+	if (idx < 0)
+	{
+		return;
+	}
+	int offset = 0;
+	for (int i = 0; i < idx; ++i)
+	{
+		offset += doc->robotRevoluteJointCountForInstance(i);
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(idx);
+	if (nj <= 0 || offset + nj > aggregatedJointRad.size())
+	{
+		return;
+	}
+	m_robotLocalJointQBySceneRoot.insert(sceneRootBackendId, aggregatedJointRad.mid(offset, nj));
+}
+
+bool DocumentHost::robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId, QVector<double>& outLocal) const
+{
+	const auto it = m_robotLocalJointQBySceneRoot.constFind(sceneRootBackendId);
+	if (it == m_robotLocalJointQBySceneRoot.cend() || it.value().isEmpty())
+	{
+		return false;
+	}
+	outLocal = it.value();
+	return true;
 }
 
 DocumentHost::~DocumentHost() = default;

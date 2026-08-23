@@ -42,6 +42,7 @@ void publishBackendObjectRemoved(DocumentHost& host, const QString& objectId)
 void publishRobotKinematicsApplied(DocumentHost& host, const QString& sceneRootBackendId,
 								   const QVector<double>& jointAnglesRad)
 {
+	host.noteRobotLocalJointAnglesForSceneRoot(sceneRootBackendId, jointAnglesRad);
 	cloudsim::core::RobotKinematicsAppliedEvent ev;
 	ev.documentId = host.documentId();
 	ev.sceneRootBackendId = sceneRootBackendId;

@@ -3,6 +3,7 @@
 
 #include "CustomDeviceBackendData.h"
 
+#include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendObjectAttribute.h"
 #include "BackendTypeIdentity.h"
 
@@ -672,6 +673,24 @@ void CustomDeviceBackendData::setPoseSignalBindings(const std::vector<CustomDevi
 void CustomDeviceBackendData::setIoSignalsJson(nlohmann::json signalsJson)
 {
 	m_ioSignalsJson = std::move(signalsJson);
+}
+
+nlohmann::json CustomDeviceBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
+{
+	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
+	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
+	return rows;
+}
+
+bool CustomDeviceBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
+												  const BackendDataManager* mgr)
+{
+	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
+																					  errMsg))
+	{
+		return true;
+	}
+	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
 }
 
 void CustomDeviceBackendData::saveDerivedJson(nlohmann::json& out) const

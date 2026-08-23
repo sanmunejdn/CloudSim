@@ -2817,6 +2817,7 @@ void RobotSimulationController::onRobotCoordinateFramesChanged()
 		++m_reachabilityJobToken;
 		m_host->invalidateInstructionPropertyCache();
 		applyToolFrameChangeToProgram(oldFrames, newFrames, activeToolChanged, toolGeometryChanged);
+		m_host->rebakeMountedCustomDevicesFollowLocalsForCurrentDocument();
 	}
 	else
 	{
@@ -3086,7 +3087,7 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		RobotOsgUi::RobotFrameOverlayUpdate::ToolEntry te;
 		te.name = tool.name;
 		te.active = (tool.id == highlightToolId);
-		// per-link：工具轴挂在法兰 mesh 上。文件系顶点时 local=T_tool*inv(visual)，使世界系落在连杆原点
+		// per-link：工具轴挂在法兰 mesh 上。文件系顶点时 local=T_tool*inv(visual)
 		if (perLink)
 		{
 			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);

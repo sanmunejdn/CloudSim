@@ -21,6 +21,7 @@ class QDoubleSpinBox;
 class QFormLayout;
 class QFrame;
 class QLineEdit;
+class QLabel;
 class QPushButton;
 
 class ROBOTWIDGET_EXPORT CustomDeviceAssemblyDialog : public QDialog
@@ -40,9 +41,13 @@ private slots:
 	void onImportModels();
 	void onExportUrdf();
 	void onApplyAccepted();
+	void onMountToRobot();
+	void onUnmountFromRobot();
 	void refreshJointProps();
 	void pushJointProps();
 	void refillCenterOptions();
+	void refillMountUi();
+	void updateMountControlsEnabled();
 
 private:
 	QString i18n(const QString& en, const QString& zh) const;
@@ -72,6 +77,13 @@ private:
 	QComboBox* m_centerFrameCombo = nullptr;
 	QPushButton* m_connectBtn = nullptr;
 	QPushButton* m_pickSolidBtn = nullptr;
+	QFrame* m_mountFrame = nullptr;
+	QComboBox* m_mountRobotCombo = nullptr;
+	QComboBox* m_mountFlangeCombo = nullptr;
+	QComboBox* m_mountFrameCombo = nullptr;
+	QPushButton* m_mountBtn = nullptr;
+	QPushButton* m_unmountBtn = nullptr;
+	QLabel* m_mountStatusLabel = nullptr;
 };
 
 #endif // ROBOTWIDGET_CUSTOMDEVICEASSEMBLYDIALOG_H

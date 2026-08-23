@@ -175,6 +175,11 @@ public:
 	void setPerLinkRobotStateAccessor(IPerLinkRobotStateAccessor* accessor);
 	IPerLinkRobotStateAccessor* perLinkRobotStateAccessor() const;
 
+	/// FK 发布后缓存本机实例关节角，供挂载设备 TCP 重算
+	void noteRobotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId,
+											   const QVector<double>& aggregatedJointRad);
+	bool robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId, QVector<double>& outLocal) const;
+
 signals:
 	/// 自定义设备等改写了 Backend worldMatrix，网页需拉 objects
 	void visualSceneDirty();
@@ -206,6 +211,7 @@ private:
 	std::unique_ptr<IRobotInstructionPropertyDelegate> m_ownedInstructionPropertyDelegate;
 	IPerLinkKinematicsHost* m_perLinkKinematicsHost = nullptr;
 	IPerLinkRobotStateAccessor* m_perLinkRobotStateAccessor = nullptr;
+	QHash<QString, QVector<double>> m_robotLocalJointQBySceneRoot;
 };
 
 } // namespace cloudsim::host

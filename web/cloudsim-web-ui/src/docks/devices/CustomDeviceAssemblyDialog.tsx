@@ -19,10 +19,14 @@ import {
   exportCustomDeviceUrdf,
   fetchAssemblyCandidates,
   fetchCustomDevice,
+  fetchMountRobotCandidates,
+  mountCustomDeviceToRobot,
   postCustomDeviceAssembly,
+  unmountCustomDeviceFromRobot,
   type CustomDeviceMotion,
   type CustomDeviceJointDto,
   type CustomDeviceLinkDto,
+  type MountRobotCandidate,
 } from "../../api/customDevices";
 import { importObject, listCoordinateFrames } from "../../api";
 import { dialogOpen, dialogPaths } from "../../api/project";
@@ -96,6 +100,10 @@ export default function CustomDeviceAssemblyDialog({ open, deviceId, onClose, on
   const [jointParent, setJointParent] = useState("");
   const [jointChild, setJointChild] = useState("");
   const [jointType, setJointType] = useState<"Rotate" | "Translate">("Rotate");
+  const [mountRobots, setMountRobots] = useState<MountRobotCandidate[]>([]);
+  const [mountRobotId, setMountRobotId] = useState("");
+  const [mountFrameId, setMountFrameId] = useState("");
+  const [deviceMounted, setDeviceMounted] = useState(false);
 
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId) || null;
   const motion: CustomDeviceMotion =
@@ -141,10 +149,26 @@ export default function CustomDeviceAssemblyDialog({ open, deviceId, onClose, on
           .filter((f) => f.id)
           .map((f) => ({ id: String(f.id), name: String(f.name || f.id) })),
       );
+      if (frames.length && !mountFrameId) {
+        setMountFrameId(String(frames[0]?.id || ""));
+      }
     } catch {
       setFrameOptions([]);
     }
-  }, []);
+  }, [mountFrameId]);
+
+  const loadMountRobots = useCallback(async () => {
+    try {
+      const r = await fetchMountRobotCandidates();
+      const robots = r.robots || [];
+      setMountRobots(robots);
+      if (robots.length && !mountRobotId) {
+        setMountRobotId(robots[0].sceneBackendId);
+      }
+    } catch {
+      setMountRobots([]);
+    }
+  }, [mountRobotId]);
 
   const loadExisting = useCallback(async () => {
     if (!deviceId) return;
@@ -192,6 +216,13 @@ export default function CustomDeviceAssemblyDialog({ open, deviceId, onClose, on
     );
     setLinkSeq(Math.max(1, maxL + 1));
     setJointSeq(Math.max(1, maxJ + 1));
+    setDeviceMounted(!!r.robotMount?.enabled);
+    if (r.robotMount?.robotSceneBackendId) {
+      setMountRobotId(r.robotMount.robotSceneBackendId);
+    }
+    if (r.robotMount?.mountFrameBackendId) {
+      setMountFrameId(r.robotMount.mountFrameBackendId);
+    }
   }, [deviceId]);
 
   useEffect(() => {
@@ -201,6 +232,7 @@ export default function CustomDeviceAssemblyDialog({ open, deviceId, onClose, on
     setConnectMode(false);
     setAddJointOpen(false);
     void loadFrames();
+    void loadMountRobots();
     if (deviceId) void loadExisting();
     else {
       setNodes([]);
@@ -209,8 +241,10 @@ export default function CustomDeviceAssemblyDialog({ open, deviceId, onClose, on
       setWorkingId("");
       setLinkSeq(1);
       setJointSeq(1);
+      setDeviceMounted(false);
+      setMountFrameId("");
     }
-  }, [open, deviceId, loadExisting, loadFrames]);
+  }, [open, deviceId, loadExisting, loadFrames, loadMountRobots]);
 
   const createJoint = useCallback(
     (parentId: string, childId: string, type: "Rotate" | "Translate" = "Rotate") => {
@@ -461,6 +495,50 @@ export default function CustomDeviceAssemblyDialog({ open, deviceId, onClose, on
     else setStatus(`已导出：${r.packageDir || d.path}`);
   };
 
+  const selectedMountRobot = mountRobots.find((r) => r.sceneBackendId === mountRobotId);
+
+  const doMount = async () => {
+    const id = workingId || deviceId;
+    if (!id) {
+      setStatus("请先应用组装", "warn");
+      return;
+    }
+    if (!mountRobotId) {
+      setStatus("请选择机器人", "warn");
+      return;
+    }
+    setBusy(true);
+    const r = await mountCustomDeviceToRobot(id, {
+      robotSceneBackendId: mountRobotId,
+      flangeLinkName: selectedMountRobot?.flangeLinkName,
+      flangeBackendId: selectedMountRobot?.flangeBackendId,
+      mountFrameBackendId: mountFrameId || undefined,
+    });
+    setBusy(false);
+    if (!r.ok) {
+      setStatus(r.error || "挂载失败", "err");
+      return;
+    }
+    setDeviceMounted(true);
+    await refreshObjects();
+    setStatus("已挂载到机器人法兰");
+  };
+
+  const doUnmount = async () => {
+    const id = workingId || deviceId;
+    if (!id) return;
+    setBusy(true);
+    const r = await unmountCustomDeviceFromRobot(id);
+    setBusy(false);
+    if (!r.ok) {
+      setStatus(r.error || "解除挂载失败", "err");
+      return;
+    }
+    setDeviceMounted(false);
+    await refreshObjects();
+    setStatus("已解除机器人挂载");
+  };
+
   if (!open) return null;
 
   const isRotate = !String(motion.motionType || "Rotate").toLowerCase().startsWith("t");
@@ -587,6 +665,62 @@ export default function CustomDeviceAssemblyDialog({ open, deviceId, onClose, on
             ? "连接模式：从父块右侧端口拖到子块左侧端口。再点「连接」可退出。"
             : "每个子块仅一条入边；提交前须绑定几何。可用「连接」拖拽，或「添加运动副」表单创建。"}
         </p>
+
+        <div className="assembly-mount-panel">
+          <strong>安装到机器人法兰</strong>
+          <p className="hint">安装坐标系须位于设备根或 fixed 连杆下；确认后设备根通过 Follow 跟随法兰（与 TCP 对齐）。</p>
+          <div className="assembly-mount-fields">
+            <label className="field compact">
+              机器人
+              <select value={mountRobotId} onChange={(e) => setMountRobotId(e.target.value)} disabled={busy}>
+                <option value="">选择…</option>
+                {mountRobots.map((r) => (
+                  <option key={r.sceneBackendId} value={r.sceneBackendId}>
+                    {r.label || r.sceneBackendId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field compact">
+              法兰
+              <input
+                className="prop-input"
+                readOnly
+                value={selectedMountRobot?.flangeLinkName || "—"}
+              />
+            </label>
+            <label className="field compact">
+              安装坐标系
+              <select value={mountFrameId} onChange={(e) => setMountFrameId(e.target.value)} disabled={busy}>
+                <option value="">（无）</option>
+                {frameOptions.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="assembly-tool-group">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy || deviceMounted || !mountRobotId || !(workingId || deviceId) || !edges.length}
+              onClick={() => void doMount()}
+            >
+              确认挂载
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={busy || !deviceMounted}
+              onClick={() => void doUnmount()}
+            >
+              解除挂载
+            </button>
+            {deviceMounted ? <span className="hint inline">已挂载</span> : null}
+          </div>
+        </div>
 
         <div className="assembly-body">
           <div className={`assembly-canvas ${connectMode ? "is-connect" : ""}`}>

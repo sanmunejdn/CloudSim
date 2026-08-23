@@ -4,6 +4,9 @@
 #include "BackendFollowTransformSolver.h"
 
 #include "BackendDataManager.h"
+#include "BackendTypeIds.h"
+#include "CustomDeviceBackendData.h"
+#include "CustomDeviceRobotMountComponent.h"
 #include "FollowAttachmentComponent.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
@@ -236,6 +239,15 @@ void BackendFollowTransformSolver::solve(BackendDataManager& mgr, const WorldMat
 		if (backend_mat4_nearly_equal(follower->worldMatrix(), wF))
 		{
 			continue;
+		}
+		if (follower->className() == backend_type::kClassCustomDevice)
+		{
+			const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(follower);
+			const auto mount = device ? CustomDeviceRobotMountComponent::mountOf(*device) : nullptr;
+			if (mount && mount->enabled())
+			{
+				continue;
+			}
 		}
 		follower->setWorldMatrix(wF);
 	}

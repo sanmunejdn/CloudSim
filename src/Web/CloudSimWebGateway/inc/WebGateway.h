@@ -182,6 +182,10 @@ private:
 									   QString* err);
 	bool customDeviceExportUrdfOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
 										   QString* err, QString* outDir);
+	QByteArray robotsForMountJsonOnGuiThread(cloudsim::host::DocumentHost* host);
+	bool customDeviceMountOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
+									  QString* err);
+	bool customDeviceUnmountOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, QString* err);
 
 	cloudsim::core::ICloudSimContext& m_context;
 	WebGatewayConfig m_config;

@@ -44,6 +44,15 @@ CLOUDSIM_HOST_EXPORT bool exportCustomDeviceUrdfZip(DocumentHost& host, const QS
 													const QString& packageParentDir, QString* err,
 													QString* outPackageDir);
 
+CLOUDSIM_HOST_EXPORT QJsonObject listRobotsForMountJson(DocumentHost& host);
+CLOUDSIM_HOST_EXPORT bool mountCustomDeviceToRobotFlange(DocumentHost& host, const QString& deviceId,
+														 const QJsonObject& body, QString* err);
+CLOUDSIM_HOST_EXPORT bool unmountCustomDeviceFromRobotFlange(DocumentHost& host, const QString& deviceId, QString* err);
+
+/// 设备根位姿变更后：applyQ 传播连杆几何，并同步子树 OSG
+CLOUDSIM_HOST_EXPORT void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host,
+																		const std::string& deviceBackendId);
+
 } // namespace cloudsim::host
 
 #endif // CLOUDSIMHOST_CUSTOMDEVICEHOSTOPS_H

@@ -54,6 +54,20 @@ export type CustomDeviceDetail = {
   links?: CustomDeviceLinkDto[];
   joints?: CustomDeviceJointDto[];
   signals?: unknown[];
+  robotMount?: {
+    enabled?: boolean;
+    robotSceneBackendId?: string;
+    flangeLinkName?: string;
+    flangeBackendId?: string;
+    mountFrameBackendId?: string;
+  };
+};
+
+export type MountRobotCandidate = {
+  sceneBackendId: string;
+  label: string;
+  flangeLinkName?: string;
+  flangeBackendId?: string;
 };
 
 export type AssemblyCandidate = { id: string; name: string; className?: string };
@@ -96,6 +110,22 @@ export const exportCustomDeviceUrdf = (deviceId: string, packageParentDir: strin
     `/api/custom-devices/${encodeURIComponent(deviceId)}/export-urdf`,
     { packageParentDir },
   );
+
+export const fetchMountRobotCandidates = () =>
+  apiJson<{ ok: boolean; robots?: MountRobotCandidate[]; error?: string }>("/api/robots/mount-candidates");
+
+export const mountCustomDeviceToRobot = (
+  deviceId: string,
+  body: {
+    robotSceneBackendId: string;
+    flangeLinkName?: string;
+    flangeBackendId?: string;
+    mountFrameBackendId?: string;
+  },
+) => postJson<ApiOk>(`/api/custom-devices/${encodeURIComponent(deviceId)}/mount`, body);
+
+export const unmountCustomDeviceFromRobot = (deviceId: string) =>
+  postJson<ApiOk>(`/api/custom-devices/${encodeURIComponent(deviceId)}/unmount`);
 
 export function defaultRotateMotion(jointId: string): CustomDeviceMotion {
   return {

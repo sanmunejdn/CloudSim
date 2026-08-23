@@ -8,6 +8,7 @@
 #include "robot_scene_global.h"
 
 #include "CustomDeviceBackendData.h"
+#include "CustomDeviceRobotMountComponent.h"
 #include "RobotExternalAxes.h"
 
 #include <vector>
@@ -19,6 +20,9 @@ namespace CustomDeviceKinematics
 {
 ROBOT_SCENE_API RobotExternal::RobotExternalAxisConfig toExternalAxisConfig(const CustomDeviceAxisConfig& in);
 ROBOT_SCENE_API RobotExternal::RobotExternalAxisConfigSet toExternalAxisConfigSet(const CustomDeviceAxisConfigSet& in);
+
+/// 挂载启用时 W_eff = T_flange_world * T_flange_device；否则 baseWorldW0
+ROBOT_SCENE_API BackendMat4 resolveEffectiveDeviceW0(const CustomDeviceBackendData& device, BackendDataManager* mgr);
 
 /// 仅 Link/Joint 图：syncAxes → 写 q → 树状 FK；无图返回 false
 ROBOT_SCENE_API bool applyQ(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBackendPoseSink* sink,

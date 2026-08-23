@@ -173,6 +173,7 @@
     <ClInclude Include="inc\BackendFollowTransformSolver.h" />
     <ClInclude Include="inc\BackendSpatial.h" />
     <ClInclude Include="inc\FollowAttachmentComponent.h" />
+    <ClInclude Include="inc\CustomDeviceRobotMountComponent.h" />
     <ClInclude Include="inc\BackendDataBase.h" />
     <ClInclude Include="inc\BackendObjectAttribute.h" />
     <ClInclude Include="inc\BackendPropertyRow.h" />
@@ -203,6 +204,7 @@
     <ClCompile Include="source\BackendSpatial.cpp" />
     <ClCompile Include="source\BackendFollowTransformSolver.cpp" />
     <ClCompile Include="source\FollowAttachmentComponent.cpp" />
+    <ClCompile Include="source\CustomDeviceRobotMountComponent.cpp" />
     <ClCompile Include="source\BackendDataBase.cpp" />
     <ClCompile Include="source\BackendObjectAttribute.cpp" />
     <ClCompile Include="source\BackendDataManager.cpp" />

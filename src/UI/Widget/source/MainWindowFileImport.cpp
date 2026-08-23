@@ -240,9 +240,19 @@ void MainWindow::onCreateCoordinateFrame()
 	frame->setPose(BackendVec3{xSpin->value(), ySpin->value(), zSpin->value()});
 	frame->setRotation(BackendVec3{rxSpin->value(), rySpin->value(), rzSpin->value()});
 
+	QString parentId;
+	if (m_selectionState.hasBackendSelection())
+	{
+		const QString sel = m_selectionState.selectedBackendId();
+		if (host->backend().contains(sel.toStdString()))
+		{
+			parentId = sel;
+		}
+	}
+
 	QString err;
-	if (!cloudsim::host::registerAdoptedFrameAndLoadScene(*host, frame, QLatin1String(backend_type::kCatalogCoordinateFrame), QString(),
-														  false, &err))
+	if (!cloudsim::host::registerAdoptedFrameAndLoadScene(*host, frame, QLatin1String(backend_type::kCatalogCoordinateFrame),
+														  parentId, false, &err))
 	{
 		QMessageBox::warning(
 			this,

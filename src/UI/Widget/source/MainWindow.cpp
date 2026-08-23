@@ -29,6 +29,7 @@
 #include "DevicePageWidget.h"
 #include "DocumentHostEvents.h"
 #include "DocumentPage.h"
+#include "io/CustomDeviceRobotMountOps.h"
 #include "IoSignalPageWidget.h"
 #include "IDataService.h"
 #include "IRenderView.h"
@@ -579,6 +580,11 @@ void MainWindow::onTransformGizmoCommitted()
 	syncRobotKinematicsAfterPoseEdit(backendId);
 	// follower 手动拖完要烘焙 local，否则松手 Follow 会用旧偏移写回
 	cloudsim::host::bakeFollowLocalAfterManualPoseEdit(*doc, backendId.toStdString());
+	if (cloudsim::host::rebakeMountedDeviceFromInstallFramePose(*doc, backendId.toStdString()))
+	{
+		cloudsim::core::FollowSolveContextDto ctx;
+		(void)doc->data().runFollowSolveAndSync(ctx, nullptr);
+	}
 	doc->data().markFollowDirtyFromMove(backendId);
 	updatePropertyPanel(backendId);
 	cloudsim::host::publishPoseCommittedFromBackendId(*doc, backendId);

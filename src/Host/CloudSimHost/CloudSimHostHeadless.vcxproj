@@ -113,6 +113,7 @@
     <ClInclude Include="inc\HeadlessTrajectorySession.h" />
     <ClInclude Include="inc\HeadlessInstructionPropertyDelegate.h" />
     <ClInclude Include="inc\io\CustomDeviceHostOps.h" />
+    <ClInclude Include="inc\io\CustomDeviceRobotMountOps.h" />
     <ClInclude Include="inc\UrdfRobotImport.h" />
     <ClInclude Include="inc\BackendFileImport.h" />
     <ClInclude Include="inc\BackendProjectObjectIo.h" />
@@ -184,6 +185,7 @@
     <ClCompile Include="source\headless\HeadlessInstructionPropertyDelegate.cpp" />
     <ClCompile Include="source\io\IoSignalNetwork.cpp" />
     <ClCompile Include="source\io\CustomDeviceHostOps.cpp" />
+    <ClCompile Include="source\io\CustomDeviceRobotMountOps.cpp" />
     <ClCompile Include="source\io\CustomDevicePoseMotionHost.cpp" />
     <ClCompile Include="source\HostRenderViewFactory.cpp" />
     <ClCompile Include="source\headless\OsgWidgetSceneBridge_Headless.cpp" />

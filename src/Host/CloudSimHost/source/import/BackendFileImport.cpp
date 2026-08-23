@@ -5,6 +5,7 @@
 #include "BackendFileImport.h"
 
 #include "BackendHierarchyFollow.h"
+#include "BackendFollowSolve.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendTypeIds.h"
@@ -426,6 +427,16 @@ bool registerAdoptedFrameAndLoadScene(DocumentHost& host, const std::shared_ptr<
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG frame display failed") : sceneErr;
 			return false;
 		}
+		if (!parentId.isEmpty())
+		{
+			applyHierarchyFollowBinding(host, frame->id(), parentId.toStdString());
+			runBackendFollowSolveAndSync(host, osg, nullptr, nullptr);
+		}
+	}
+	else if (!parentId.isEmpty())
+	{
+		applyHierarchyFollowBinding(host, frame->id(), parentId.toStdString());
+		runBackendFollowSolveAndSync(host, nullptr, nullptr, nullptr);
 	}
 	return true;
 }
@@ -461,6 +472,52 @@ bool registerAdoptedCustomDeviceAndLoadScene(DocumentHost& host,
 	return true;
 }
 
+bool attachBackendChildToParent(DocumentHost& host, const std::string& parentId, const std::string& childId,
+								QString* outError)
+{
+	if (parentId.empty() || childId.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("empty parent or child id");
+		}
+		return false;
+	}
+	if (parentId == childId)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("cannot parent object to itself");
+		}
+		return false;
+	}
+	if (!host.backend().contains(parentId) || !host.backend().contains(childId))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("parent or child not registered");
+		}
+		return false;
+	}
+	if (!host.backend().setParent(childId, parentId))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("setParent failed");
+		}
+		return false;
+	}
+	host.backendParentId()[QString::fromStdString(childId)] = QString::fromStdString(parentId);
+	OsgWidget* osg = osgWidgetFrom(host);
+	if (osg)
+	{
+		osg->setBackendParent(childId, parentId);
+	}
+	applyHierarchyFollowBinding(host, childId, parentId);
+	runBackendFollowSolveAndSync(host, osg, nullptr, nullptr);
+	return true;
+}
+
 bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& deviceId, const std::string& childId,
 									  QString* outError)
 {
@@ -469,14 +526,6 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 		if (outError)
 		{
 			*outError = QStringLiteral("empty device or child id");
-		}
-		return false;
-	}
-	if (!host.backend().contains(deviceId) || !host.backend().contains(childId))
-	{
-		if (outError)
-		{
-			*outError = QStringLiteral("device or child not registered");
 		}
 		return false;
 	}
@@ -489,20 +538,7 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 		}
 		return false;
 	}
-	if (!host.backend().setParent(childId, deviceId))
-	{
-		if (outError)
-		{
-			*outError = QStringLiteral("setParent failed");
-		}
-		return false;
-	}
-	if (OsgWidget* osg = osgWidgetFrom(host))
-	{
-		osg->setBackendParent(childId, deviceId);
-	}
-	applyHierarchyFollowBinding(host, childId, deviceId);
-	return true;
+	return attachBackendChildToParent(host, deviceId, childId, outError);
 }
 
 bool registerAdoptedPointCloudAndLoadScene(DocumentHost& host, const std::shared_ptr<PointCloudBackendData>& pointCloud,

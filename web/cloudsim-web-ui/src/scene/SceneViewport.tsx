@@ -45,7 +45,7 @@ import {
   syncActiveToolOverlayFromProxy,
 } from "./frameAxes";
 import { applyRawPreviewToGroup, clearRawPreviewGroup, type PreviewAxisOpts, type RawPreviewPayload } from "./rawPreview";
-import { refreshInstrMarkers } from "./instrMarkers";
+import { refreshInstrMarkers, tryPickInstrWaypointAt, updateWaypointPickHover, clearWaypointPickHover } from "./instrMarkers";
 import {
   applyWorldViewDirection,
   createViewCubeHud,
@@ -138,7 +138,8 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
   const { setStatus } = useStatus();
   const { pickMode, featureEditActive, workpieceId, setWorkpieceId } = useTrajectory();
   const { polylinePickActive, addPolylinePoint, polylineScreenXy, renderRevision: pointCloudRevision } = usePointCloud();
-  const { activeRootId, activeProgram, selectedInstrId, playing } = useRobotProgram();
+  const { activeRootId, activeProgram, selectedInstrId, selectedInstrPreferVia, setSelectedInstrId, waypointPickMode, setWaypointPickMode, playing } =
+    useRobotProgram();
   const { frames } = useFrames();
 
   const sceneRef = useRef<THREE.Scene>();
@@ -163,6 +164,8 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
   const axesHudRef = useRef<WorldAxesHud | null>(null);
   const instrStepsRef = useRef(activeProgram?.instructions || []);
   const selectedInstrRef = useRef(selectedInstrId);
+  const selectedPreferViaRef = useRef(selectedInstrPreferVia);
+  const waypointPickModeRef = useRef(waypointPickMode);
   const playingRef = useRef(playing);
   const [robotMeta, setRobotMeta] = useState<RobotMeta>({ isRobot: false });
   const gizmoCtxRef = useRef({
@@ -182,6 +185,8 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
   });
   instrStepsRef.current = activeProgram?.instructions || [];
   selectedInstrRef.current = selectedInstrId;
+  selectedPreferViaRef.current = selectedInstrPreferVia;
+  waypointPickModeRef.current = waypointPickMode;
   playingRef.current = playing;
   gizmoCtxRef.current = {
     selectedId,
@@ -261,6 +266,28 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     if (pickMode && featureEditActive) return;
     clearPickOverlayGroup(overlayRef.current);
   }, [pickMode, featureEditActive]);
+
+  // 对象选择与路点拾取互斥
+  useEffect(() => {
+    if (interactMode === "select" && waypointPickMode) setWaypointPickMode(false);
+  }, [interactMode, waypointPickMode, setWaypointPickMode]);
+
+  useEffect(() => {
+    if (!waypointPickMode) clearWaypointPickHover(instrMarkersRef.current);
+  }, [waypointPickMode]);
+
+  useEffect(() => {
+    if (!waypointPickMode) return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        setWaypointPickMode(false);
+        clearWaypointPickHover(instrMarkersRef.current);
+        setStatus("已退出路点拾取");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [waypointPickMode, setWaypointPickMode, setStatus]);
 
   useEffect(() => {
     const mount = mountRef.current!;
@@ -1025,6 +1052,23 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
         window.dispatchEvent(new CustomEvent("cloudsim-pick-commit", { detail: { ...body, result: r } }));
         return;
       }
+      if (waypointPickModeRef.current && instrMarkersRef.current && cameraRef.current) {
+        const hit = tryPickInstrWaypointAt(
+          instrMarkersRef.current,
+          cameraRef.current,
+          ev.clientX,
+          ev.clientY,
+          renderer.domElement,
+        );
+        if (hit) {
+          setSelectedInstrId(hit.instructionId, { preferVia: hit.isArcVia });
+          window.dispatchEvent(new CustomEvent("cloudsim-focus-props"));
+          setStatus(hit.isArcVia ? `已选 ARC via ${hit.instructionId}` : `已选路点 ${hit.instructionId}`);
+          return;
+        }
+        setStatus("未命中路点", "warn");
+        return;
+      }
       if (interactMode === "select" && ray.hitBackendId) {
         await selectObject(ray.hitBackendId);
       }
@@ -1035,6 +1079,18 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       window.dispatchEvent(new CustomEvent("cloudsim-pick-highlight", { detail: { clear: true } }));
     };
     const onMove = (ev: MouseEvent) => {
+      if (waypointPickModeRef.current && instrMarkersRef.current && cameraRef.current) {
+        const hit = tryPickInstrWaypointAt(
+          instrMarkersRef.current,
+          cameraRef.current,
+          ev.clientX,
+          ev.clientY,
+          renderer.domElement,
+        );
+        updateWaypointPickHover(instrMarkersRef.current, cameraRef.current, hit);
+        renderer.domElement.style.cursor = hit ? "pointer" : "crosshair";
+        return;
+      }
       if (!pickMode || !featureEditActive) return;
       if (hoverTimer) window.clearTimeout(hoverTimer);
       hoverTimer = window.setTimeout(async () => {
@@ -1068,6 +1124,8 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     const onLeave = () => {
       if (hoverTimer) window.clearTimeout(hoverTimer);
       hoverPickSeqRef.current += 1;
+      clearWaypointPickHover(instrMarkersRef.current);
+      if (waypointPickModeRef.current) renderer.domElement.style.cursor = "crosshair";
       if (pickMode) clearHl();
     };
 
@@ -1092,6 +1150,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     setWorkpieceId,
     selectObject,
     setStatus,
+    setSelectedInstrId,
     polylinePickActive,
     addPolylinePoint,
     polylineScreenXy,
@@ -1141,6 +1200,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       refreshInstrMarkers(g, instrStepsRef.current, selectedInstrRef.current, {
         hideForRawPreview: rawPreviewActiveRef.current,
         playing: playingRef.current,
+        preferVia: selectedPreferViaRef.current,
       });
     };
     const onRaw = (ev: Event) => {
@@ -1182,8 +1242,9 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     refreshInstrMarkers(g, activeProgram?.instructions || [], selectedInstrId, {
       hideForRawPreview: rawPreviewActiveRef.current,
       playing,
+      preferVia: selectedInstrPreferVia,
     });
-  }, [activeProgram?.instructions, selectedInstrId, playing, activeRootId]);
+  }, [activeProgram?.instructions, selectedInstrId, selectedInstrPreferVia, playing, activeRootId]);
 
   // 叠加层事件
   useEffect(() => {

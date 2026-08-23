@@ -99,12 +99,14 @@ export default function InstructionPanel() {
     activeRootId,
     selectedInstrId,
     setSelectedInstrId,
+    waypointPickMode,
+    setWaypointPickMode,
     updateActiveProgram,
     playing,
     setPlaying,
     reloadPrograms,
   } = useRobotProgram();
-  const { robotDragMode, setRobotDragMode, refreshObjects, robotDragTeachPose } = useScene();
+  const { robotDragMode, setRobotDragMode, refreshObjects, robotDragTeachPose, setInteractMode } = useScene();
   const { setStatus } = useStatus();
   const { goTrajGen } = useDockNav();
   const { bindPlan, reloadPathPlans, setFeatures } = useTrajectory();
@@ -386,9 +388,31 @@ export default function InstructionPanel() {
           type="button"
           className={robotDragMode ? "active" : ""}
           title="开启后拖动末端罗盘做 IK；G 移动 / R 旋转"
-          onClick={() => setRobotDragMode(!robotDragMode)}
+          onClick={() => {
+            const next = !robotDragMode;
+            setRobotDragMode(next);
+            if (next) setWaypointPickMode(false);
+          }}
         >
           拖拽
+        </button>
+        <button
+          type="button"
+          className={waypointPickMode ? "active" : ""}
+          title="在视口点击指令路点；圆弧可点 via 或终点"
+          onClick={() => {
+            const next = !waypointPickMode;
+            setWaypointPickMode(next);
+            if (next) {
+              setRobotDragMode(false);
+              setInteractMode("view");
+              setStatus("路点拾取：点击视口中的姿态轴");
+            } else {
+              setStatus("已退出路点拾取");
+            }
+          }}
+        >
+          路点
         </button>
         <button type="button" className="danger" onClick={() => void delSelected()}>
           删除

@@ -4,11 +4,13 @@
 #include "../RobotWidget/inc/InstructionPropertyPanel.h"
 #include "BackendPropertyRow.h"
 #include "BackendPropertySchema.h"
+#include "BackendTypeIds.h"
 #include "BackendVisualSync.h"
 #include "CoreTypes.h"
 #include "DocumentHostEvents.h"
 #include "DocumentPage.h"
 #include "IDataService.h"
+#include "io/CustomDeviceHostOps.h"
 #include "MainWindow.h"
 #include "MainWindow_p.h"
 #include "RobotInstructionPropertySchema.h"
@@ -888,6 +890,12 @@ void MainWindow::onPropertyVisualPreviewTimer()
 	DocumentPage* docPage = currentPage();
 	if (!docPage || !docPage->data().isValid(backendId))
 	{
+		return;
+	}
+	const auto obj = docPage->findObject(backendId.toStdString());
+	if (obj && obj->className() == backend_type::kClassCustomDevice)
+	{
+		cloudsim::host::syncCustomDeviceKinematicsAfterRootPoseChange(*docPage, backendId.toStdString());
 		return;
 	}
 	(void)docPage->syncOuterPatFromBackendId(backendId.toStdString());

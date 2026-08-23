@@ -48,5 +48,8 @@ export async function fetchMeshSoup(id: string): Promise<Float32Array | null> {
 export const createCoordinateFrame = (body: unknown) =>
   postJson<{ ok: boolean; id?: string; error?: string }>("/api/objects/coordinate-frame", body);
 
+export const attachObjectChild = (parentId: string, childId: string) =>
+  postJson<ApiOk>("/api/objects/attach", { parentId, childId });
+
 export const listCoordinateFrames = () =>
   apiJson<{ ok: boolean; frames?: unknown[] }>("/api/objects/coordinate-frames");

@@ -12,10 +12,25 @@
 
 #include <QString>
 #include <QStringList>
+#include <QVector>
 #include <QWidget>
 
 class CustomDeviceBackendData;
 class IRobotDocumentHost;
+
+struct ROBOTWIDGET_EXPORT CustomDeviceMountRobotCandidate
+{
+	QString sceneBackendId;
+	QString label;
+	QString flangeLinkName;
+	QString flangeBackendId;
+};
+
+struct ROBOTWIDGET_EXPORT CustomDeviceMountFrameCandidate
+{
+	QString backendId;
+	QString displayName;
+};
 
 class ROBOTWIDGET_EXPORT ICustomDeviceAssemblyHost
 {
@@ -43,6 +58,14 @@ public:
 	virtual void appendRunInfo(const QString& message) = 0;
 	/// Apply 成功后：刷新轴目标并选中该设备
 	virtual void onCustomDeviceAssemblyCommitted(const QString& deviceBackendId) = 0;
+
+	virtual QVector<CustomDeviceMountRobotCandidate> listMountRobotCandidates() = 0;
+	virtual QVector<CustomDeviceMountFrameCandidate> listMountFrameCandidates(const QString& deviceBackendId) = 0;
+	virtual bool mountDeviceToRobot(const QString& deviceBackendId, const QString& robotSceneBackendId,
+									const QString& flangeLinkName, const QString& flangeBackendId,
+									const QString& mountFrameBackendId, QString* outError) = 0;
+	virtual bool unmountDeviceFromRobot(const QString& deviceBackendId, QString* outError) = 0;
+	virtual bool isDeviceMountedToRobot(const QString& deviceBackendId) const = 0;
 };
 
 #endif // ROBOTWIDGET_ICUSTOMDEVICEASSEMBLYHOST_H

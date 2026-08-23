@@ -20,6 +20,7 @@
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 #include "ViewportToolBar.h"
+#include "io/CustomDeviceRobotMountOps.h"
 
 #include <algorithm>
 
@@ -1208,6 +1209,7 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 	cloudsim::core::FollowSolveContextDto ctx;
 	ctx.skipAll = false;
 	(void)data().runFollowSolveAndSync(ctx, nullptr);
+	cloudsim::host::refreshCustomDevicesFollowingKinematicsTargets(*this);
 }
 
 void DocumentPage::setBackendVisible(const QString& backendId, bool visible)

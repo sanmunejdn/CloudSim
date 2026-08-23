@@ -6,6 +6,7 @@
 /// @brief 注册 Follow 等内置组件编解码
 
 #include "BackendComponentCodecRegistry.h"
+#include "CustomDeviceRobotMountComponent.h"
 #include "FollowAttachmentComponent.h"
 #include "RunLogger.h"
 
@@ -38,6 +39,25 @@ inline void ensureBackendComponentCodecBuiltinsRegistered()
 			auto follow = std::make_shared<FollowAttachmentComponent>();
 			follow->readJson(inData);
 			return std::static_pointer_cast<IBackendComponent>(follow);
+		});
+
+	BackendComponentCodecRegistry::instance().registerCodec(
+		CustomDeviceRobotMountComponent::typeKeyStatic(),
+		[](const BackendComponentPtr& component, nlohmann::json& outData)
+		{
+			const auto mount = std::dynamic_pointer_cast<CustomDeviceRobotMountComponent>(component);
+			if (!mount)
+			{
+				return false;
+			}
+			mount->writeJson(outData);
+			return true;
+		},
+		[](const nlohmann::json& inData)
+		{
+			auto mount = std::make_shared<CustomDeviceRobotMountComponent>();
+			mount->readJson(inData);
+			return std::static_pointer_cast<IBackendComponent>(mount);
 		});
 }
 

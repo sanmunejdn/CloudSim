@@ -6,6 +6,7 @@
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "DocumentHost.h"
+#include "io/CustomDeviceRobotMountOps.h"
 #include "IDataService.h"
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
@@ -1202,6 +1203,7 @@ void HeadlessRobotContext::notifyRobotKinematicsAppliedToScene()
 	// Headless：无 OSG 时 Follow 写 BackendData，网页 syncObjectTransforms 拉 worldMatrix
 	cloudsim::core::FollowSolveContextDto ctx;
 	(void)m_host.data().runFollowSolveAndSync(ctx, nullptr);
+	cloudsim::host::refreshCustomDevicesFollowingKinematicsTargets(m_host);
 }
 
 void HeadlessRobotContext::rebuildAggregates()
