@@ -43,7 +43,9 @@ ROBOT_SCENE_API bool bakeJointMotionOriginFromParentLink(CustomDeviceBackendData
 														 const std::string& parentLinkId, BackendDataManager* mgr);
 
 /// 对已提交 Link/Joint 图：按 motionCenterFrameBackendId 重算各旋转副 originMm
-ROBOT_SCENE_API void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData& device, BackendDataManager* mgr);
+/// @param qForFk 若非空，用该 q 做父连杆 FK（轴控时应传当前 q，否则世界系 Frame 在上游关节变化后枢轴会偏）
+ROBOT_SCENE_API void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData& device, BackendDataManager* mgr,
+														const std::vector<double>* qForFk = nullptr);
 
 /// 世界点 → 设备 W0 局部 mm；失败返回 false
 ROBOT_SCENE_API bool worldPointToDeviceLocalMm(const BackendMat4& w0, double worldX, double worldY, double worldZ,

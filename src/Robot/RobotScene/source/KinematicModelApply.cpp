@@ -16,21 +16,8 @@ namespace KinematicModelApply
 bool applyCustomDevice(const std::string& registryKey, CustomDeviceBackendData& device, BackendDataManager* mgr,
 					   IRobotBackendPoseSink* sink, const std::vector<double>& q)
 {
-	std::shared_ptr<kinematic_core::IKinematicModel> base = KinematicModelRegistry::modelForKey(registryKey);
-	auto model = std::dynamic_pointer_cast<CustomDeviceKinematicModel::Model>(base);
-	if (!model)
-	{
-		model = CustomDeviceKinematicModel::create(device);
-		KinematicModelRegistry::registerModel(registryKey, model);
-	}
-	const BackendMat4 w0Mat = CustomDeviceKinematics::resolveEffectiveDeviceW0(device, mgr);
-	double w0[16];
-	for (int i = 0; i < 16; ++i)
-	{
-		w0[i] = w0Mat.v[i];
-	}
-	model->rebuildGraph();
-	return model->applyToSink(device, mgr, sink, q, w0);
+	(void)registryKey;
+	return CustomDeviceKinematics::applyQ(device, mgr, sink, &q);
 }
 
 bool applyRobotArm(const std::string& registryKey, const RobotKinematicApplyContext::Context& ctx,

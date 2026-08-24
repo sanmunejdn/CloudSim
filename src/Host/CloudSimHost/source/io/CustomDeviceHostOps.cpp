@@ -154,6 +154,7 @@ void finalizeCustomDeviceLinkJointGraph(DocumentHost& host, const std::string& d
 	}
 	registerCustomDeviceLinkGeometryOwnership(host, *device);
 	stripCustomDeviceLinkHierarchyFollow(host, *device);
+	CustomDeviceAssemblyCommit::refreshLinkRestPosesFromGeometry(*device, host.backend());
 	CustomDeviceKinematics::rebakeRotateJointOriginsFromFrames(*device, &host.backend());
 	(void)CustomDeviceKinematics::applyQ(*device, &host.backend(), poseSinkOf(host), nullptr);
 	host.stripKinematicsOwnedFollowAttachments();

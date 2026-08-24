@@ -195,6 +195,7 @@
     <ClInclude Include="inc\RobotExternalAxes.h" />
     <ClInclude Include="inc\CustomDeviceKinematics.h" />
     <ClInclude Include="inc\CustomDeviceGraphBuilder.h" />
+    <ClInclude Include="inc\CustomDeviceMat4Layout.h" />
     <ClInclude Include="inc\CustomDeviceKinematicModel.h" />
     <ClInclude Include="inc\JointMotionAdapters.h" />
     <ClInclude Include="inc\KinematicModelRegistry.h" />
@@ -279,6 +280,7 @@
     <ClCompile Include="source\RobotExternalAxes.cpp" />
     <ClCompile Include="source\CustomDeviceKinematics.cpp" />
     <ClCompile Include="source\CustomDeviceGraphBuilder.cpp" />
+    <ClCompile Include="source\CustomDeviceMat4Layout.cpp" />
     <ClCompile Include="source\CustomDeviceKinematicModel.cpp" />
     <ClCompile Include="source\JointMotionAdapters.cpp" />
     <ClCompile Include="source\KinematicModelRegistry.cpp" />

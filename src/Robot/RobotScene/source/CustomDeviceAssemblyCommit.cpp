@@ -10,6 +10,8 @@
 
 #include "CustomDeviceKinematics.h"
 
+#include "CustomDeviceGraphBuilder.h"
+#include "CustomDeviceMat4Layout.h"
 #include "RobotExternalAxes.h"
 
 
@@ -21,6 +23,8 @@
 #include "BackendFollowMath.h"
 
 #include "FollowAttachmentComponent.h"
+
+#include "Mat4Ops.h"
 
 
 
@@ -70,17 +74,6 @@ bool geomWorld(BackendDataManager& backend, const std::string& gid, double out[1
 	return true;
 
 }
-
-
-
-bool restTranslationNonZero(const double rest[16])
-
-{
-
-	return std::abs(rest[3]) > 1e-6 || std::abs(rest[7]) > 1e-6 || std::abs(rest[11]) > 1e-6;
-
-}
-
 
 
 bool resolveGeometryWorldForCommit(BackendDataManager& backend, const std::string& gid, double outGw[16])
@@ -147,160 +140,6 @@ bool resolveGeometryWorldForCommit(BackendDataManager& backend, const std::strin
 
 }
 
-
-
-void computeParentToChildRestFromLinkRestPoses(const double w0[16], const std::vector<CustomDeviceLink>& links,
-
-											   std::vector<CustomDeviceJoint>& joints)
-
-{
-
-	if (links.empty() || joints.empty())
-
-	{
-
-		return;
-
-	}
-
-	std::unordered_map<std::string, size_t> linkIdx;
-
-	for (size_t i = 0; i < links.size(); ++i)
-
-	{
-
-		linkIdx[links[i].id] = i;
-
-	}
-
-	std::string fixedId;
-
-	for (const CustomDeviceLink& L : links)
-
-	{
-
-		if (L.fixed)
-
-		{
-
-			fixedId = L.id;
-
-			break;
-
-		}
-
-	}
-
-	if (fixedId.empty())
-
-	{
-
-		fixedId = links.front().id;
-
-	}
-
-	std::unordered_map<std::string, std::array<double, 16>> linkWorldQ0;
-
-	{
-
-		std::array<double, 16> wf{};
-
-		RobotExternal::mat4MulColumnMajor16(w0, links[linkIdx.at(fixedId)].restInDeviceW0, wf.data());
-
-		linkWorldQ0[fixedId] = wf;
-
-	}
-
-	std::unordered_map<std::string, std::vector<size_t>> jointsByParent;
-
-	for (size_t ji = 0; ji < joints.size(); ++ji)
-
-	{
-
-		jointsByParent[joints[ji].parentLinkId].push_back(ji);
-
-	}
-
-	std::queue<std::string> bfs;
-
-	std::unordered_set<std::string> visited;
-
-	bfs.push(fixedId);
-
-	visited.insert(fixedId);
-
-	while (!bfs.empty())
-
-	{
-
-		const std::string parentId = bfs.front();
-
-		bfs.pop();
-
-		const auto jointIt = jointsByParent.find(parentId);
-
-		if (jointIt == jointsByParent.end() || !linkWorldQ0.count(parentId))
-
-		{
-
-			continue;
-
-		}
-
-		for (const size_t ji : jointIt->second)
-
-		{
-
-			CustomDeviceJoint& J = joints[ji];
-
-			const auto childIt = linkIdx.find(J.childLinkId);
-
-			if (childIt == linkIdx.end())
-
-			{
-
-				continue;
-
-			}
-
-			double childTarget[16];
-
-			RobotExternal::mat4MulColumnMajor16(w0, links[childIt->second].restInDeviceW0, childTarget);
-
-			double invParent[16];
-
-			if (!RobotExternal::mat4InvertRigidColumnMajor(linkWorldQ0[parentId].data(), invParent))
-
-			{
-
-				continue;
-
-			}
-
-			RobotExternal::mat4MulColumnMajor16(invParent, childTarget, J.parentToChildRest);
-
-			std::array<double, 16> childW{};
-
-			RobotExternal::mat4MulColumnMajor16(linkWorldQ0[parentId].data(), J.parentToChildRest, childW.data());
-
-			linkWorldQ0[J.childLinkId] = childW;
-
-			if (!visited.count(J.childLinkId))
-
-			{
-
-				visited.insert(J.childLinkId);
-
-				bfs.push(J.childLinkId);
-
-			}
-
-		}
-
-	}
-
-}
-
 } // namespace
 
 
@@ -335,18 +174,6 @@ bool commitGraph(CustomDeviceBackendData& device, const std::vector<CustomDevice
 
 	}
 
-	double invW0[16];
-
-	if (!RobotExternal::mat4InvertRigidColumnMajor(w0, invW0))
-
-	{
-
-		std::memset(invW0, 0, sizeof(invW0));
-
-		invW0[0] = invW0[5] = invW0[10] = invW0[15] = 1.0;
-
-	}
-
 
 
 	std::vector<CustomDeviceLink> linkStd;
@@ -359,7 +186,7 @@ bool commitGraph(CustomDeviceBackendData& device, const std::vector<CustomDevice
 
 		CustomDeviceLink L = src;
 
-		if (!restTranslationNonZero(L.restInDeviceW0) && !L.geometryBackendId.empty())
+		if (!L.geometryBackendId.empty())
 
 		{
 
@@ -369,7 +196,29 @@ bool commitGraph(CustomDeviceBackendData& device, const std::vector<CustomDevice
 
 			{
 
-				RobotExternal::mat4MulColumnMajor16(invW0, gw, L.restInDeviceW0);
+				double w0Kc[16];
+
+				double invW0Kc[16];
+
+				double gwKc[16];
+
+				double restKc[16];
+
+				CustomDeviceMat4Layout::osgBackendToKinematicCore(w0, w0Kc);
+
+				if (!CustomDeviceMat4Layout::kinematicCoreInvertRigid(w0Kc, invW0Kc))
+
+				{
+
+					kinematic_core::mat4IdentityColumnMajor(invW0Kc);
+
+				}
+
+				CustomDeviceMat4Layout::osgBackendToKinematicCore(gw, gwKc);
+
+				kinematic_core::mat4MulColumnMajor16(invW0Kc, gwKc, restKc);
+
+				CustomDeviceMat4Layout::kinematicCoreToOsgBackend(restKc, L.restInDeviceW0);
 
 			}
 
@@ -393,9 +242,7 @@ bool commitGraph(CustomDeviceBackendData& device, const std::vector<CustomDevice
 
 	}
 
-	computeParentToChildRestFromLinkRestPoses(w0, linkStd, jointStd);
-
-
+	CustomDeviceGraphBuilder::computeParentToChildRestFromLinkRestPoses(w0, linkStd, jointStd);
 
 	device.setLinks(linkStd);
 
@@ -429,6 +276,52 @@ bool commitGraph(CustomDeviceBackendData& device, const std::vector<CustomDevice
 
 	return CustomDeviceKinematics::applyQ(device, &backend, sink);
 
+}
+
+void refreshLinkRestPosesFromGeometry(CustomDeviceBackendData& device, BackendDataManager& backend)
+{
+	if (!device.usesLinkJointGraph() || device.links().empty())
+	{
+		return;
+	}
+
+	device.captureBaseWorldW0FromCurrentWorld();
+	double w0[16];
+	for (int i = 0; i < 16; ++i)
+	{
+		w0[i] = device.baseWorldW0().v[i];
+	}
+
+	std::vector<CustomDeviceLink> links = device.links();
+	for (CustomDeviceLink& L : links)
+	{
+		if (L.geometryBackendId.empty())
+		{
+			continue;
+		}
+		double gw[16];
+		if (!resolveGeometryWorldForCommit(backend, L.geometryBackendId, gw))
+		{
+			continue;
+		}
+		double w0Kc[16];
+		double invW0Kc[16];
+		double gwKc[16];
+		double restKc[16];
+		CustomDeviceMat4Layout::osgBackendToKinematicCore(w0, w0Kc);
+		if (!CustomDeviceMat4Layout::kinematicCoreInvertRigid(w0Kc, invW0Kc))
+		{
+			kinematic_core::mat4IdentityColumnMajor(invW0Kc);
+		}
+		CustomDeviceMat4Layout::osgBackendToKinematicCore(gw, gwKc);
+		kinematic_core::mat4MulColumnMajor16(invW0Kc, gwKc, restKc);
+		CustomDeviceMat4Layout::kinematicCoreToOsgBackend(restKc, L.restInDeviceW0);
+	}
+
+	std::vector<CustomDeviceJoint> joints = device.joints();
+	CustomDeviceGraphBuilder::computeParentToChildRestFromLinkRestPoses(w0, links, joints);
+	device.setLinks(links);
+	device.setJoints(joints);
 }
 
 } // namespace CustomDeviceAssemblyCommit

@@ -22,6 +22,7 @@ public:
 	explicit Model(CustomDeviceBackendData& device);
 
 	const kinematic_core::KinematicGraph& graph() const override { return m_graph; }
+	const CustomDeviceBackendData& device() const { return m_device; }
 	int dofCount() const override { return m_graph.dofCount(); }
 	std::vector<kinematic_core::AxisDescriptor> axisDescriptors() const override;
 	bool forward(const double* q, std::size_t qCount, std::vector<std::array<double, 16>>& linkWorld) const override;

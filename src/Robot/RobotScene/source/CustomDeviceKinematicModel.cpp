@@ -1,12 +1,13 @@
 #include "CustomDeviceKinematicModel.h"
 
 #include "CustomDeviceGraphBuilder.h"
+#include "CustomDeviceMat4Layout.h"
 
 #include "BackendDataManager.h"
 #include "IRobotBackendPoseSink.h"
 #include "TreeForwardKinematics.h"
 
-#include <cstring>
+#include <string>
 #include <unordered_map>
 
 namespace CustomDeviceKinematicModel
@@ -51,11 +52,7 @@ bool Model::forward(const double* q, const std::size_t qCount, std::vector<std::
 	}
 	std::vector<std::array<double, 16>> buf(m_graph.links.size());
 	double w0[16];
-	BackendMat4 w0Mat = m_device.baseWorldW0();
-	for (int i = 0; i < 16; ++i)
-	{
-		w0[i] = w0Mat.v[i];
-	}
+	CustomDeviceMat4Layout::backendMat4ToKinematicCore(m_device.baseWorldW0(), w0);
 	if (!kinematic_core::forwardKinematicsTree(m_graph, w0, q, qCount,
 											   reinterpret_cast<double(*)[16]>(buf.data())))
 	{
@@ -90,18 +87,14 @@ bool Model::applyToSink(CustomDeviceBackendData& device, BackendDataManager* mgr
 		{
 			continue;
 		}
-		BackendMat4 wm = BackendMat4::identity();
-		for (int k = 0; k < 16; ++k)
-		{
-			wm.v[k] = buf[i][static_cast<size_t>(k)];
-		}
+		const BackendMat4 wm = CustomDeviceMat4Layout::kinematicCoreToBackendMat4(buf[i].data());
 		geom->setWorldMatrix(wm, mgr);
 		if (sink)
 		{
 			cloudsim::core::Mat4 mat{};
 			for (int k = 0; k < 16; ++k)
 			{
-				mat[static_cast<size_t>(k)] = buf[i][static_cast<size_t>(k)];
+				mat[static_cast<size_t>(k)] = wm.v[k];
 			}
 			sink->setBackendRootWorldMatrixFromWorld(L.payloadKey, mat);
 		}
@@ -126,11 +119,8 @@ bool forwardLinkWorldById(const CustomDeviceBackendData& device, BackendDataMana
 	}
 	std::vector<std::array<double, 16>> buf(graph.links.size());
 	double w0[16];
-	BackendMat4 w0Mat = mgr ? device.worldMatrix(mgr) : device.baseWorldW0();
-	for (int i = 0; i < 16; ++i)
-	{
-		w0[i] = w0Mat.v[i];
-	}
+	const BackendMat4 w0Mat = mgr ? device.worldMatrix(mgr) : device.baseWorldW0();
+	CustomDeviceMat4Layout::backendMat4ToKinematicCore(w0Mat, w0);
 	if (!kinematic_core::forwardKinematicsTree(graph, w0, q.data(), q.size(),
 											   reinterpret_cast<double(*)[16]>(buf.data())))
 	{
@@ -139,7 +129,7 @@ bool forwardLinkWorldById(const CustomDeviceBackendData& device, BackendDataMana
 	for (size_t i = 0; i < graph.links.size(); ++i)
 	{
 		std::array<double, 16> wf{};
-		std::memcpy(wf.data(), buf[i].data(), sizeof(wf));
+		CustomDeviceMat4Layout::kinematicCoreToOsgBackend(buf[i].data(), wf.data());
 		worldByLink[graph.links[i].id] = wf;
 	}
 	return !worldByLink.empty();

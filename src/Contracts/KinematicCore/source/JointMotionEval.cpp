@@ -46,8 +46,9 @@ void makeRotateAboutAxisColumnMajor(const double ox, const double oy, const doub
 	rot[10] = r22;
 	makeTranslateColumnMajor(ox, oy, oz, fromOrigin);
 	double tmp[16];
-	mat4MulColumnMajor16(toOrigin, rot, tmp);
-	mat4MulColumnMajor16(tmp, fromOrigin, out);
+	// KC 列主序平移在 [12,13,14]：绕枢轴 o 的共轭为 T(+o)*R*T(-o)
+	mat4MulColumnMajor16(fromOrigin, rot, tmp);
+	mat4MulColumnMajor16(tmp, toOrigin, out);
 }
 
 void evaluateJointMotion1D(const JointMotion1D& motion, const double q, double outColumnMajor[16])

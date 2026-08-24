@@ -20,6 +20,9 @@ namespace CustomDeviceAssemblyCommit
 ROBOT_SCENE_API bool commitGraph(CustomDeviceBackendData& device, const std::vector<CustomDeviceLink>& links,
 								 const std::vector<CustomDeviceJoint>& joints, BackendDataManager& backend,
 								 IRobotBackendPoseSink* sink);
+
+/// 按场景几何世界位姿刷新 Link.restInDeviceW0 与 Joint.parentToChildRest（加载/轴控前补全）
+ROBOT_SCENE_API void refreshLinkRestPosesFromGeometry(CustomDeviceBackendData& device, BackendDataManager& backend);
 } // namespace CustomDeviceAssemblyCommit
 
 #endif // ROBOTSCENE_CUSTOMDEVICEASSEMBLYCOMMIT_H

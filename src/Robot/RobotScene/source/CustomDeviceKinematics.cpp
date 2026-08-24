@@ -4,6 +4,8 @@
 #include "CustomDeviceKinematics.h"
 
 #include "CustomDeviceKinematicModel.h"
+#include "CustomDeviceMat4Layout.h"
+#include "CustomDeviceAssemblyCommit.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "BackendSpatial.h"
@@ -16,6 +18,7 @@
 #include <cmath>
 #include <cstring>
 #include <queue>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -55,9 +58,26 @@ bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mg
 	{
 		return false;
 	}
+	if (mgr)
+	{
+		bool allRestZero = true;
+		for (const CustomDeviceJoint& J : device.joints())
+		{
+			if (std::abs(J.parentToChildRest[3]) > 1e-6 || std::abs(J.parentToChildRest[7]) > 1e-6 ||
+				std::abs(J.parentToChildRest[11]) > 1e-6)
+			{
+				allRestZero = false;
+				break;
+			}
+		}
+		if (allRestZero)
+		{
+			CustomDeviceAssemblyCommit::refreshLinkRestPosesFromGeometry(device, *mgr);
+		}
+	}
 	const BackendMat4 w0Mat = resolveEffectiveDeviceW0(device, mgr);
 	double w0[16];
-	backendMat4ToArray(w0Mat, w0);
+	CustomDeviceMat4Layout::backendMat4ToKinematicCore(w0Mat, w0);
 	auto model = CustomDeviceKinematicModel::create(device);
 	model->rebuildGraph();
 	return model->applyToSink(device, mgr, sink, q, w0);
@@ -140,35 +160,105 @@ bool bakeJointMotionOriginFromParentLink(CustomDeviceBackendData& device, Custom
 	return bakeMotionCenterFrameToOriginMm(motion, parentIt->second.data(), mgr);
 }
 
-void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData& device, BackendDataManager* mgr)
+void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData& device, BackendDataManager* mgr,
+										const std::vector<double>* qForFk)
 {
 	if (!device.usesLinkJointGraph() || !mgr)
 	{
 		return;
 	}
 	device.ensureQSize();
-	std::vector<double> q = device.qValues();
-	std::unordered_map<std::string, std::array<double, 16>> worldByLink;
-	if (!computeLinkWorldMatrices(device, mgr, q, worldByLink))
+	std::vector<double> q = qForFk ? *qForFk : device.qValues();
+	std::vector<CustomDeviceJoint> joints = device.joints();
+	if (joints.empty())
 	{
 		return;
 	}
-	std::vector<CustomDeviceJoint> joints = device.joints();
-	bool changed = false;
-	for (CustomDeviceJoint& J : joints)
+
+	std::string rootLinkId;
+	for (const CustomDeviceLink& L : device.links())
 	{
+		if (L.fixed)
+		{
+			rootLinkId = L.id;
+			break;
+		}
+	}
+	if (rootLinkId.empty() && !device.links().empty())
+	{
+		rootLinkId = device.links().front().id;
+	}
+
+	std::unordered_map<std::string, std::vector<size_t>> jointsByParent;
+	for (size_t ji = 0; ji < joints.size(); ++ji)
+	{
+		jointsByParent[joints[ji].parentLinkId].push_back(ji);
+	}
+	std::vector<size_t> jointOrder;
+	std::queue<std::string> bfs;
+	std::unordered_set<std::string> visitedLinks;
+	if (!rootLinkId.empty())
+	{
+		bfs.push(rootLinkId);
+		visitedLinks.insert(rootLinkId);
+	}
+	while (!bfs.empty())
+	{
+		const std::string parentId = bfs.front();
+		bfs.pop();
+		const auto it = jointsByParent.find(parentId);
+		if (it == jointsByParent.end())
+		{
+			continue;
+		}
+		for (const size_t ji : it->second)
+		{
+			jointOrder.push_back(ji);
+			const std::string& childId = joints[ji].childLinkId;
+			if (!visitedLinks.count(childId))
+			{
+				visitedLinks.insert(childId);
+				bfs.push(childId);
+			}
+		}
+	}
+	for (size_t ji = 0; ji < joints.size(); ++ji)
+	{
+		if (std::find(jointOrder.begin(), jointOrder.end(), ji) == jointOrder.end())
+		{
+			jointOrder.push_back(ji);
+		}
+	}
+
+	bool changed = false;
+	for (const size_t ji : jointOrder)
+	{
+		CustomDeviceJoint& J = joints[ji];
 		if (J.motion.motionType != CustomDeviceMotionType::Rotate || J.motion.motionCenterFrameBackendId.empty())
 		{
 			continue;
+		}
+		std::unordered_map<std::string, std::array<double, 16>> worldByLink;
+		if (!computeLinkWorldMatrices(device, mgr, q, worldByLink))
+		{
+			return;
 		}
 		const auto parentIt = worldByLink.find(J.parentLinkId);
 		if (parentIt == worldByLink.end())
 		{
 			continue;
 		}
-		if (bakeMotionCenterFrameToOriginMm(J.motion, parentIt->second.data(), mgr))
+		const double beforeO[3] = {J.motion.originMm[0], J.motion.originMm[1], J.motion.originMm[2]};
+		const bool baked = bakeMotionCenterFrameToOriginMm(J.motion, parentIt->second.data(), mgr);
+		if (baked)
 		{
-			changed = true;
+			const double delta = std::abs(J.motion.originMm[0] - beforeO[0]) + std::abs(J.motion.originMm[1] - beforeO[1]) +
+								 std::abs(J.motion.originMm[2] - beforeO[2]);
+			if (delta > 1e-4)
+			{
+				changed = true;
+				device.setJoints(joints);
+			}
 		}
 	}
 	if (changed)
@@ -232,6 +322,7 @@ bool applyQ(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBack
 		q[i] = std::clamp(q[i], device.axes().axes[i].lower, device.axes().axes[i].upper);
 	}
 	device.setQValues(q);
+	rebakeRotateJointOriginsFromFrames(device, mgr, &q);
 	return applyLinkJointGraph(device, mgr, sink, q);
 }
 

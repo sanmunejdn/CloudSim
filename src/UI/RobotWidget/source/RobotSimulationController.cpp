@@ -3666,10 +3666,6 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 		const RobotExternal::RobotExternalAxisConfigSet ext =
 			CustomDeviceKinematics::toExternalAxisConfigSet(device->axes());
 		const std::vector<double> fullQ = fullQFromEnabledValues(ext, values);
-		if (m_host)
-		{
-			m_host->prepareCustomDeviceAxisControlTarget(deviceId);
-		}
 		if (!KinematicModelApply::applyCustomDevice(KinematicModelRegistry::keyCustomDevice(deviceId.toStdString()),
 													*device, &doc->backend(), doc->poseSink(), fullQ))
 		{

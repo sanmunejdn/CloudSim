@@ -215,6 +215,9 @@
     <ClInclude Include="inc\CustomDeviceGraphBuilder.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
+    <ClInclude Include="inc\CustomDeviceMat4Layout.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
     <ClInclude Include="inc\CustomDeviceKinematicModel.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
@@ -377,6 +380,9 @@
       <Filter>src\Trajectory</Filter>
     </ClCompile>
     <ClCompile Include="source\CustomDeviceGraphBuilder.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceMat4Layout.cpp">
       <Filter>src\KinematicCore</Filter>
     </ClCompile>
     <ClCompile Include="source\CustomDeviceKinematicModel.cpp">

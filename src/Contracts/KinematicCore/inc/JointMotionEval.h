@@ -11,7 +11,7 @@ namespace kinematic_core
 {
 KINEMATIC_CORE_API void makeTranslateColumnMajor(double tx, double ty, double tz, double out[16]);
 
-/// 绕 axis 过 origin 旋转；列主序 + T(-o)*R*T(+o)
+/// 绕 axis 过 origin 旋转；KC 列主序（平移 [12,13,14]）+ T(+o)*R*T(-o)
 KINEMATIC_CORE_API void makeRotateAboutAxisColumnMajor(double ox, double oy, double oz, double ax, double ay, double az,
 													   double angleRad, double out[16]);
 
