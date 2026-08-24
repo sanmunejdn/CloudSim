@@ -9,10 +9,14 @@
 
 #include "CoreTypes.h"
 
+#include "RobotExternalAxes.h"
+
 #include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVector>
+
+#include <vector>
 
 class BackendDataManager;
 
@@ -95,6 +99,37 @@ public:
 	virtual bool robotUrdfMeshVerticesInLinkFrame() const { return false; }
 
 	virtual BackendDataManager* robotBackendManagerForKinematics() { return nullptr; }
+
+	/// 外轴（无则默认空）
+	virtual const RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) const
+	{
+		(void)instanceIndex;
+		static const RobotExternal::RobotExternalAxisConfigSet kEmpty{};
+		return kEmpty;
+	}
+	virtual std::vector<double> robotExternalAxisQ(int instanceIndex) const
+	{
+		(void)instanceIndex;
+		return {};
+	}
+	virtual void setRobotExternalAxisQ(int instanceIndex, const std::vector<double>& qValues)
+	{
+		(void)instanceIndex;
+		(void)qValues;
+	}
+	virtual cloudsim::core::Mat4 workpieceExternalBasePlacement(int instanceIndex, const QString& backendId) const
+	{
+		(void)instanceIndex;
+		(void)backendId;
+		return cloudsim::core::PlanContextDto::identityMat4();
+	}
+	virtual void ensureWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
+													  const cloudsim::core::Mat4& currentWorld)
+	{
+		(void)instanceIndex;
+		(void)backendId;
+		(void)currentWorld;
+	}
 
 	virtual void notifyRobotKinematicsAppliedToScene() {}
 };

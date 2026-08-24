@@ -207,7 +207,7 @@ OsgWidget 信号的**唯一边界**。所有 OsgWidget 的 Qt 信号（拾取、
 | `captureToolFrameFromTcp` | `DocumentPage` 坐标系操作 |
 | `captureUserFrameFromTcp` | `DocumentPage` 坐标系操作 |
 | `resetToolFrame` | `DocumentPage` 坐标系操作 |
-| `solveTcpDragTeachIk` | `RobotKinematics::ikPositionDampedLeastSquares` |
+| `solveTcpDragTeachIk` | `KinematicModelIk::solveTeachPose`（Registry）→ `RobotTeachIk` → `UrdfNumericalIk` |
 | `planForExport` | `RobotPlanInstruction::planMotionInstruction` |
 
 ### 4.5 `MainWindowSelectionService`

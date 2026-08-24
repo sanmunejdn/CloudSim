@@ -18,7 +18,9 @@
 
 #include <osg/Matrixd>
 
+class BackendDataManager;
 class IRobotSimulationDocument;
+class IRobotBackendPoseSink;
 class IRobotBackendPoseSink;
 class BackendDataManager;
 
@@ -50,6 +52,11 @@ ROBOT_SCENE_API bool applyPerLinkRobotBasePlacement(IRobotBackendPoseSink* osg, 
 													const RobotPerLinkKinematicsSlice& slice,
 													const QVector<double>& jointAnglesRad,
 													const osg::Matrixd& basePlacementWorld);
+
+/// 父先于子写连杆 backend（OSG 父级 world 参与子级 setWorld）
+ROBOT_SCENE_API void resolveRobotLinkUpdateOrder(BackendDataManager* mgr,
+												 const QHash<QString, QString>& linkNameToBackendId,
+												 QVector<QString>& outLinkNames);
 
 /// 由 gizmo 锚点连杆当前世界矩阵反解 basePlacementWorld（W = M0 * inv(T0) * Tq * P）
 ROBOT_SCENE_API bool computeBasePlacementFromAnchorLinkWorld(const RobotPerLinkKinematicsSlice& slice,

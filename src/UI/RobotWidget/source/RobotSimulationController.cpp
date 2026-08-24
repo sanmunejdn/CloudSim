@@ -16,6 +16,7 @@
 #include "PlanResultCache.h"
 #include "ProgramEditService.h"
 #include "RawTrajectory.h"
+#include "RobotExternalAxisSceneApply.h"
 #include "RobotAxisControlWidget.h"
 #include "RobotCollisionSettingsWidget.h"
 #include "MotionPathPlanDialog.h"
@@ -37,6 +38,8 @@
 #include "RobotExternalAxes.h"
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceKinematics.h"
+#include "KinematicModelApply.h"
+#include "KinematicModelRegistry.h"
 #include "BackendTypeIds.h"
 #include "AxisControlTargetService.h"
 #include "CustomDeviceSimService.h"
@@ -3440,8 +3443,12 @@ void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<doub
 	{
 		m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
 	}
-	const bool applied = doc->applyJointAnglesRad(instIdx, jointAnglesRad, m_aggregatedJointAnglesRad);
-	if (applied && m_host->osgView())
+	// 须走 doc->applyJointAnglesRad：KinematicsBatchScope + notify + Follow 批末求解
+	if (!doc->applyJointAnglesRad(instIdx, jointAnglesRad, m_aggregatedJointAnglesRad))
+	{
+		return;
+	}
+	if (m_host->osgView())
 	{
 		m_host->osgView()->requestRedraw();
 	}
@@ -3504,43 +3511,10 @@ void RobotSimulationController::applyAxisControlExternalPose(const int instanceI
 		return;
 	}
 	const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instanceIndex);
-	const std::vector<double> prevQ = doc->robotExternalAxisQ(instanceIndex);
 	const std::vector<double> fullQ = fullQFromEnabledValues(set, values);
 
-	QSet<QString> workpieceBackends;
-	const std::vector<int> idxs = RobotExternal::enabledExternalAxisIndices(set);
-	for (const int idx : idxs)
-	{
-		if (idx < 0 || idx >= static_cast<int>(set.axes.size()))
-		{
-			continue;
-		}
-		const RobotExternal::RobotExternalAxisConfig& a = set.axes[static_cast<size_t>(idx)];
-		if (a.attachment != RobotExternal::RobotExternalAttachment::Workpiece || a.boundBackendId.empty())
-		{
-			continue;
-		}
-		workpieceBackends.insert(QString::fromStdString(a.boundBackendId));
-	}
-
-	if (IRobotBackendPoseSink* sink = doc->poseSink())
-	{
-		for (const QString& backendId : workpieceBackends)
-		{
-			cloudsim::core::Mat4 currentWorld = cloudsim::core::PlanContextDto::identityMat4();
-			if (!sink->getBackendRootWorldMatrix(backendId.toStdString(), currentWorld))
-			{
-				continue;
-			}
-			// 缺 W0 时：current 仍对应 prevQ，反解后再 ensure
-			cloudsim::core::Mat4 w0Candidate = currentWorld;
-			RobotExternal::unbakeWorkpiecePlacementExternalAxis(currentWorld.data(), set, backendId.toStdString(),
-																prevQ, w0Candidate.data());
-			doc->ensureWorkpieceExternalBasePlacement(instanceIndex, backendId, w0Candidate);
-		}
-	}
-
-	doc->setRobotExternalAxisQ(instanceIndex, fullQ);
+	IRobotBackendPoseSink* sink = doc->poseSink();
+	(void)RobotExternalAxisSceneApply::applyExternalAxisQ(doc, sink, instanceIndex, fullQ);
 
 	QVector<double> joints = localJointAnglesForInstance(instanceIndex);
 	if (joints.isEmpty() && m_host->robotAxisControlPage() &&
@@ -3555,18 +3529,6 @@ void RobotSimulationController::applyAxisControlExternalPose(const int instanceI
 			m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
 		}
 		(void)doc->applyJointAnglesRad(instanceIndex, joints, m_aggregatedJointAnglesRad);
-	}
-
-	if (IRobotBackendPoseSink* sink = doc->poseSink())
-	{
-		for (const QString& backendId : workpieceBackends)
-		{
-			const std::string bid = backendId.toStdString();
-			const cloudsim::core::Mat4 w0 = doc->workpieceExternalBasePlacement(instanceIndex, backendId);
-			cloudsim::core::Mat4 wEff = cloudsim::core::PlanContextDto::identityMat4();
-			RobotExternal::composeWorkpiecePlacementWithExternalAxis(w0.data(), set, bid, fullQ, wEff.data());
-			sink->setBackendRootWorldMatrixFromWorld(bid, wEff);
-		}
 	}
 
 	m_axisControlExternalQApplied = values;
@@ -3708,7 +3670,8 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 		{
 			m_host->prepareCustomDeviceAxisControlTarget(deviceId);
 		}
-		if (!CustomDeviceKinematics::applyQ(*device, &doc->backend(), doc->poseSink(), &fullQ))
+		if (!KinematicModelApply::applyCustomDevice(KinematicModelRegistry::keyCustomDevice(deviceId.toStdString()),
+													*device, &doc->backend(), doc->poseSink(), fullQ))
 		{
 			return;
 		}
@@ -4518,6 +4481,14 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Failed to attach TCP drag gizmo."), QStringLiteral("无法挂载 TCP 拖动示教罗盘。")));
 		}
 	}
+	else if (m_host->runInfoPage())
+	{
+		m_host->appendRunInfo(m_host->i18n(
+			QStringLiteral("TCP drag teach active | flange=%1 | mount=%2")
+				.arg(m_tcpDragTeachFlangeLink, QString::fromStdString(mountBackendId)),
+			QStringLiteral("末端拖动示教已开启 | 法兰=%1 | 挂载=%2")
+				.arg(m_tcpDragTeachFlangeLink, QString::fromStdString(mountBackendId))));
+	}
 	// 法兰路径会按场景挂载点校准 T_base；缓存须读回，勿用进入前的纯 FK
 	m_lastTcpDragTargetInBase = tcpDragRigidPeffToP0(doc, instIdx, osg->tcpDragTeachTargetInBase());
 	m_lastTcpDragTargetValid = true;
@@ -4642,13 +4613,28 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 												   m_tcpDragTeachFlangeLink, qeSeed, hasQeSeed);
 	if (!ikResult.ok)
 	{
+		if (m_host && m_host->runInfoPage())
+		{
+			static QElapsedTimer ikFailWarnTimer;
+			if (!ikFailWarnTimer.isValid() || ikFailWarnTimer.elapsed() >= 800)
+			{
+				ikFailWarnTimer.start();
+				const QString detail =
+					ikResult.error.isEmpty() ? QStringLiteral("IK solve failed") : ikResult.error;
+				m_host->appendRunWarning(
+					m_host->i18n(QStringLiteral("TCP drag IK failed (flange=%1): %2")
+									 .arg(m_tcpDragTeachFlangeLink, detail),
+								 QStringLiteral("末端拖动 IK 失败（法兰=%1）：%2")
+									 .arg(m_tcpDragTeachFlangeLink, detail)));
+			}
+		}
 		return false;
 	}
 	QVector<double> qRad = ikResult.jointRad;
+	wrapJointAnglesTowardSeed(qRad, seedQ);
 	QVector<double> qClamped = clampJointAnglesToInstanceLimits(doc, instIdx, qRad);
 	const bool anyClamped =
 		(qClamped.size() == qRad.size()) && !std::equal(qClamped.begin(), qClamped.end(), qRad.begin());
-	wrapJointAnglesTowardSeed(qClamped, seedQ);
 	const bool hasPrevDragQ = (m_tcpDragLastAppliedJointRad.size() == qClamped.size());
 	const double maxDeltaIk = hasPrevDragQ ? maxJointDeltaRad(qClamped, m_tcpDragLastAppliedJointRad) : 1.0;
 	static constexpr double kTcpDragMaxJointStepRad = 0.45;
@@ -4724,82 +4710,6 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	{
 		return true;
 	}
-	// 外轴本步有位移时跳过臂对齐拒绝，避免把轨步进整段丢掉
-	const bool skipAlignReject = extMoved;
-	if (!skipAlignReject && hadPrevTarget && !qClamped.isEmpty())
-	{
-		engine::RigidTransform fkMotion{};
-		if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
-				urdfPath, qClamped, frames, m_tcpDragTeachFlangeLink, fkMotion, nullptr, nullptr))
-		{
-			double tPrev[3]{};
-			double tTgt[3]{};
-			double tFk[3]{};
-			prevTarget.translationMm(tPrev[0], tPrev[1], tPrev[2]);
-			targetForIkStep.translationMm(tTgt[0], tTgt[1], tTgt[2]);
-			fkMotion.translationMm(tFk[0], tFk[1], tFk[2]);
-			if (haveExtUpdate)
-			{
-				for (size_t i = 0; i < extSet.axes.size(); ++i)
-				{
-					const RobotExternal::RobotExternalAxisConfig& a = extSet.axes[i];
-					if (!a.enabled || a.attachment != RobotExternal::RobotExternalAttachment::RobotBase ||
-						a.motionType != RobotExternal::RobotExternalMotionType::Translate)
-					{
-						continue;
-					}
-					const double q = i < qeNewFull.size() ? qeNewFull[i] : a.home;
-					tFk[0] += q * a.axis[0];
-					tFk[1] += q * a.axis[1];
-					tFk[2] += q * a.axis[2];
-				}
-			}
-			engine::RigidTransform fkSeedPose{};
-			if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
-					urdfPath, seedQ, frames, m_tcpDragTeachFlangeLink, fkSeedPose, nullptr, nullptr))
-			{
-				double tSeed[3]{};
-				fkSeedPose.translationMm(tSeed[0], tSeed[1], tSeed[2]);
-				if (haveExtUpdate || RobotExternal::hasEnabledExternalAxes(extSet))
-				{
-					for (size_t i = 0; i < extSet.axes.size(); ++i)
-					{
-						const RobotExternal::RobotExternalAxisConfig& a = extSet.axes[i];
-						if (!a.enabled || a.attachment != RobotExternal::RobotExternalAttachment::RobotBase ||
-							a.motionType != RobotExternal::RobotExternalMotionType::Translate)
-						{
-							continue;
-						}
-						const double q = i < qeOldFull.size() ? qeOldFull[i] : a.home;
-						tSeed[0] += q * a.axis[0];
-						tSeed[1] += q * a.axis[1];
-						tSeed[2] += q * a.axis[2];
-					}
-				}
-				const double wantDx = tTgt[0] - tPrev[0];
-				const double wantDy = tTgt[1] - tPrev[1];
-				const double wantDz = tTgt[2] - tPrev[2];
-				const double fkDx = tFk[0] - tSeed[0];
-				const double fkDy = tFk[1] - tSeed[1];
-				const double fkDz = tFk[2] - tSeed[2];
-				const double wantLen = std::sqrt(wantDx * wantDx + wantDy * wantDy + wantDz * wantDz);
-				const double fkLen = std::sqrt(fkDx * fkDx + fkDy * fkDy + fkDz * fkDz);
-				const double alignDot = wantDx * fkDx + wantDy * fkDy + wantDz * fkDz;
-				const double alignRatio = (wantLen > 1e-6 && fkLen > 1e-6) ? (alignDot / (wantLen * fkLen)) : 1.0;
-				static constexpr double kTcpDragMinWantLenMm = 2.0;
-				static constexpr double kTcpDragMinAlignRatio = 0.35;
-				const bool rejectOpposite = (wantLen >= kTcpDragMinWantLenMm && alignDot < 0.0);
-				const bool rejectMisaligned =
-					(wantLen >= 5.0 && fkLen >= kTcpDragMinWantLenMm && alignRatio < kTcpDragMinAlignRatio);
-				if (rejectOpposite || rejectMisaligned)
-				{
-					return true;
-				}
-			}
-		}
-	}
-	m_lastTcpDragTargetInBase = targetForIkStep;
-	m_lastTcpDragTargetValid = true;
 	m_tcpDragLastAppliedJointRad = qClamped;
 	if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
 	{
@@ -4823,7 +4733,26 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		}
 		applyAxisControlExternalPose(instIdx, enabledVals);
 	}
-	(void)doc->applyJointAnglesRad(instIdx, qClamped, m_aggregatedJointAnglesRad);
+	QString applyFkErr;
+	if (!doc->applyJointAnglesRad(instIdx, qClamped, m_aggregatedJointAnglesRad, &applyFkErr))
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			static QElapsedTimer fkFailWarnTimer;
+			if (!fkFailWarnTimer.isValid() || fkFailWarnTimer.elapsed() >= 800)
+			{
+				fkFailWarnTimer.start();
+				const QString detail =
+					applyFkErr.isEmpty() ? QStringLiteral("applyJointAnglesRad failed") : applyFkErr;
+				m_host->appendRunWarning(
+					m_host->i18n(QStringLiteral("TCP drag FK apply failed: %1").arg(detail),
+								 QStringLiteral("末端拖动 FK 写回失败：%1").arg(detail)));
+			}
+		}
+		m_suppressMotionPreviewStartCapture = false;
+		m_tcpDragApplyingIk = false;
+		return false;
+	}
 	if (m_host)
 	{
 		doc->requestFollowSolveForced();
@@ -4835,13 +4764,30 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	}
 	if (anyClamped && m_host->runInfoPage())
 	{
-		m_host->appendRunWarning(
-			m_host->i18n(QStringLiteral("TCP drag IK exceeded joint limits; angles were clamped to URDF range."), QStringLiteral("末端拖动 IK 超关节限位，已钳制到 URDF 范围。")));
+		static QElapsedTimer clampWarnTimer;
+		if (!clampWarnTimer.isValid() || clampWarnTimer.elapsed() >= 800)
+		{
+			clampWarnTimer.start();
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("TCP drag IK exceeded joint limits; angles were clamped to URDF range."),
+							 QStringLiteral("末端拖动 IK 超关节限位，已钳制到 URDF 范围。")));
+		}
 	}
 	m_suppressMotionPreviewStartCapture = false;
 	m_tcpDragApplyingIk = false;
-	// 拖动中罗盘跟鼠标目标；松手后 overlay 帧会改跟法兰 FK，勿在此用残差把罗盘拽回去
-	osg->updateTcpDragTeachFromTarget(tcpDragRigidP0ToPeff(doc, instIdx, m_lastTcpDragTargetInBase), false);
+	engine::RigidTransform fkPeff{};
+	if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
+			urdfPath, qClamped, frames, m_tcpDragTeachFlangeLink, fkPeff, nullptr, nullptr))
+	{
+		m_lastTcpDragTargetInBase = tcpDragRigidPeffToP0(doc, instIdx, fkPeff);
+	}
+	else
+	{
+		m_lastTcpDragTargetInBase = targetFromEmit;
+	}
+	m_lastTcpDragTargetValid = true;
+	// 罗盘仍跟鼠标目标；追逐锚点用 FK，避免 IK 残差累积导致跳动
+	osg->updateTcpDragTeachFromTarget(tcpDragRigidP0ToPeff(doc, instIdx, targetFromEmit), false);
 	static constexpr int kTcpDragOverlayMinIntervalMs = 50;
 	if (!m_tcpDragOverlayRefreshTimer.isValid() ||
 		m_tcpDragOverlayRefreshTimer.elapsed() >= kTcpDragOverlayMinIntervalMs)

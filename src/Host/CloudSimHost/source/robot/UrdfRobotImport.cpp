@@ -12,6 +12,7 @@
 #include "RobotCoordinateFrames.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPerLinkKinematicsSliceOsg.h"
+#include "RobotKinematicModelRegistration.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 
@@ -334,6 +335,14 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 	}
 	ctx.setRobotPerLinkKinematicsBinding(robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0Mat4, outerBindMat4,
 										 kFkMeshVerticesInLinkFrame);
+
+	{
+		const int instIdx = ctx.robotKinematicInstanceCount() - 1;
+		if (instIdx >= 0)
+		{
+			(void)RobotKinematicModelRegistration::registerRobotInstance(robotDoc, instIdx, robotRootId);
+		}
+	}
 
 	if (!RobotSceneKinematics::applyJointAnglesFromDocument(robotDoc, ctx.urdfImportScenePoseSink(), q0))
 	{

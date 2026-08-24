@@ -78,6 +78,8 @@ struct ROBOT_SCENE_API TeachIkContext
 	TeachIkExternalAxisDof externalAxes{};
 	/// 完整配置轴数；>0 时结果 externalAxisQs 按 config 下标对齐（未用槽填 0）
 	int externalAxisConfigCount = 0;
+	/// 非空时 IK/FK 经 KinematicModelRegistry（robot:<sceneRootId>）
+	std::string registryKey;
 };
 
 struct ROBOT_SCENE_API TeachIkResult

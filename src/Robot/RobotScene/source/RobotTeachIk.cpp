@@ -14,6 +14,7 @@
 #include <utility>
 
 #include <Adapters.h>
+#include <KinematicCoreUrdfIk.h>
 #include <ToolKinematics.h>
 #include <UrdfIkSolverOptions.h>
 #include <UrdfKinematicsWorkspace.h>
@@ -405,9 +406,9 @@ std::vector<double> solveUrdfNumericalIkCoupledExternalMulti(
 			ws.qRad[j] = q[static_cast<size_t>(j)];
 		}
 		double quatXyZw[4] = {0.0, 0.0, 0.0, 1.0};
-		if (!UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(
+		if (!UrdfRobotLoader::computeLinkPoseAndJacobianViaCore(
 				urdfPath, ws.qRad, ikLink, pos, useOrientation ? quatXyZw : nullptr, ws.J, useOrientation,
-				orientationWeight, nullptr, &ws) ||
+				orientationWeight, nullptr) ||
 			static_cast<int>(ws.J.size()) < taskDim * nArm)
 		{
 			if (failReason)

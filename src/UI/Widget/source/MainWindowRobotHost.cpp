@@ -34,6 +34,8 @@
 #include "RobotCoordinateFrames.h"
 #include "RobotExternalAxes.h"
 #include "RobotSimulationMath.h"
+#include "KinematicModelIk.h"
+#include "KinematicModelRegistry.h"
 #include "RobotTeachIk.h"
 
 #include <queue>
@@ -551,7 +553,34 @@ public:
 		}
 		ctx.useOrientation = true;
 		ctx.T_flange_tool = toolMat;
-		ctx.maxIkIterations = 22;
+		// 拖动：小步增量 + 与 FK/罗盘同源的 URDF DLS
+		ctx.maxIkIterations = 32;
+		ctx.options.maxIterations = 32;
+		ctx.options.maxJointStepRad = 0.22;
+		ctx.options.positionToleranceMm = 1.0;
+		ctx.options.orientationToleranceRad = 0.35 * 3.14159265358979323846 / 180.0;
+		const QString sceneRootId = m_page->robotSceneBackendIdForInstance(instanceIndex);
+		if (!sceneRootId.isEmpty())
+		{
+			ctx.registryKey = KinematicModelRegistry::keyRobotInstance(sceneRootId.toStdString());
+		}
+
+		auto solveIk = [](const RobotTeachIk::TeachIkContext& c) -> RobotTeachIk::TeachIkResult {
+			if (!c.registryKey.empty())
+			{
+				return KinematicModelIk::solveTeachPose(c.registryKey, c);
+			}
+			return RobotTeachIk::solveTeachIk(c);
+		};
+		auto solveIkDrag = [](const RobotTeachIk::TeachIkContext& c, const double hint,
+							  const bool hasHint) -> RobotTeachIk::TeachIkResult {
+			if (!c.registryKey.empty())
+			{
+				RobotTeachIk::TeachIkContext cc = c;
+				return RobotTeachIk::solveTeachIkCoordinatedDrag(cc, hint, hasHint);
+			}
+			return RobotTeachIk::solveTeachIkCoordinatedDrag(c, hint, hasHint);
+		};
 
 		const RobotExternal::RobotExternalAxisConfigSet& extSet =
 			m_page->robotExternalAxesForInstance(instanceIndex);
@@ -840,12 +869,12 @@ public:
 					{
 						ctx.externalAxes = tryBase;
 						const double hint = tryBase.qExternal.empty() ? 0.0 : tryBase.qExternal.front();
-						ik = RobotTeachIk::solveTeachIkCoordinatedDrag(ctx, hint, true);
+						ik = solveIkDrag(ctx, hint, true);
 					}
 					else
 					{
 						ctx.externalAxes = {};
-						ik = RobotTeachIk::solveTeachIk(ctx);
+						ik = solveIk(ctx);
 					}
 					if (!ik.ok)
 					{
@@ -875,20 +904,48 @@ public:
 			{
 				ctx.externalAxes = baseDof;
 				const double hint = baseDof.qExternal.empty() ? 0.0 : baseDof.qExternal.front();
-				bestIk = RobotTeachIk::solveTeachIkCoordinatedDrag(ctx, hint, hasExternalAxisQSeed);
+				bestIk = solveIkDrag(ctx, hint, hasExternalAxisQSeed);
 			}
 			else
 			{
 				ctx.externalAxes = {};
-				bestIk = RobotTeachIk::solveTeachIk(ctx);
+				bestIk = solveIk(ctx);
 			}
 			bestQe = qeFull;
 			bestBaseDof = baseDof;
 		}
 
+		if (!bestIk.ok || bestIk.residualTcpMm > 5.0)
+		{
+			ctx.T_base_target =
+				engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+			ctx.useOrientation = false;
+			ctx.maxIkIterations = 80;
+			ctx.options.maxIterations = 80;
+			RobotTeachIk::TeachIkResult posOnly{};
+			if (baseDof.active())
+			{
+				ctx.externalAxes = baseDof;
+				const double hint = baseDof.qExternal.empty() ? 0.0 : baseDof.qExternal.front();
+				posOnly = solveIkDrag(ctx, hint, hasExternalAxisQSeed);
+			}
+			else
+			{
+				ctx.externalAxes = {};
+				posOnly = solveIk(ctx);
+			}
+			if (posOnly.ok && (!bestIk.ok || posOnly.residualTcpMm < bestIk.residualTcpMm))
+			{
+				bestIk = posOnly;
+				bestQe = qeFull;
+				bestBaseDof = baseDof;
+			}
+		}
+
 		if (!bestIk.ok)
 		{
-			result.error = QStringLiteral("IK solve failed");
+			result.error = bestIk.error.empty() ? QStringLiteral("IK solve failed")
+												: QString::fromStdString(bestIk.error);
 			return result;
 		}
 		fillResult(bestIk, bestBaseDof, bestQe);
@@ -1118,6 +1175,9 @@ void MainWindowRobotHost::runFollowSolveAndSyncForCurrentDocument()
 	{
 		return;
 	}
+	// TCP 拖动等高频 FK 后须 forced + flush，否则 follower 仍读陈旧父级
+	page->requestFollowSolveForced();
+	(void)page->flushVisualSync();
 	cloudsim::core::FollowSolveContextDto ctx;
 	ctx.skipAll = false;
 	(void)page->data().runFollowSolveAndSync(ctx, nullptr);

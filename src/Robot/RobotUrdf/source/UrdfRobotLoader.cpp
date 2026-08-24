@@ -4,6 +4,9 @@
 // UrdfRobotLoader：URDF 解析、FK、层级 OSG 场景；多机键前缀由上层加 backendId::
 #include "UrdfRobotLoader.h"
 
+#include "KinematicGraph.h"
+#include "TreeForwardKinematics.h"
+
 #include "BackendVisualRegistry.h"
 #include "MeshBackendData.h"
 #include "RunLogger.h"
@@ -1112,30 +1115,135 @@ void computeMeshWorldMatricesFromModel(const UrdfFkModelData& model, const QVect
 	}
 }
 
-void computeLinkWorldMatricesFromModel(const UrdfFkModelData& model, const QVector<double>& jointAnglesRad,
-									   QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld)
+static void mat4InternalToColumnMajor(const Mat4& m, double out[16])
 {
-	outLinkNameToLinkWorld.clear();
-	const QVector<double>& angles = jointAnglesRad;
+	for (int i = 0; i < 16; ++i)
+	{
+		out[i] = m.m[i];
+	}
+}
 
+static Mat4 columnMajorToMat4Internal(const double in[16])
+{
+	Mat4 m = matIdentity();
+	for (int i = 0; i < 16; ++i)
+	{
+		m.m[i] = in[i];
+	}
+	return m;
+}
+
+static void fillJointMotionFromUrdf(const UrdfJoint& j, kinematic_core::KinematicJoint& kj, int qIndex)
+{
+	const Mat4 T_origin =
+		matFromXyzRpy(j.x * kUrdfOriginXyzMetersToInternalMm, j.y * kUrdfOriginXyzMetersToInternalMm,
+					  j.z * kUrdfOriginXyzMetersToInternalMm, j.roll, j.pitch, j.yaw);
+	mat4InternalToColumnMajor(T_origin, kj.parentToChildRest);
+	kj.transformOrder = kinematic_core::JointTransformOrder::RestThenMotion;
+	kj.motion.name = j.name.toStdString();
+	kj.motion.axis[0] = j.ax;
+	kj.motion.axis[1] = j.ay;
+	kj.motion.axis[2] = j.az;
+	if (j.hasLimit)
+	{
+		kj.motion.lower = j.limitLower;
+		kj.motion.upper = j.limitUpper;
+		kj.motion.hasLimit = true;
+	}
+
+	const QString jt = j.type.toLower();
+	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
+	{
+		kj.motion.motionType = kinematic_core::JointMotionType::Revolute;
+		kj.qIndex = qIndex;
+		return;
+	}
+	if (jt == QLatin1String("prismatic"))
+	{
+		kj.motion.motionType = kinematic_core::JointMotionType::Translate;
+		kj.motion.qScale = kUrdfOriginXyzMetersToInternalMm;
+		kj.qIndex = qIndex;
+		return;
+	}
+	kj.qIndex = -1;
+	kj.motion.enabled = false;
+}
+
+static bool buildKinematicGraphFromModel(const UrdfFkModelData& model, kinematic_core::KinematicGraph& graph)
+{
+	graph.links.clear();
+	graph.joints.clear();
+	for (const QString& linkName : model.linkNames)
+	{
+		kinematic_core::KinematicLink link;
+		link.id = linkName.toStdString();
+		graph.links.push_back(link);
+	}
+	graph.rootLinkIdx = graph.linkIndexById(model.rootLink.toStdString());
+	if (graph.rootLinkIdx < 0)
+	{
+		return false;
+	}
+
+	int qIndex = 0;
+	std::queue<QString> q;
+	q.push(model.rootLink);
+	std::unordered_set<QString> visited;
+	visited.insert(model.rootLink);
+	while (!q.empty())
+	{
+		const QString curLink = q.front();
+		q.pop();
+		const auto jit = model.jointsByParent.find(curLink);
+		if (jit == model.jointsByParent.end())
+		{
+			continue;
+		}
+		for (const UrdfJoint& j : jit->second)
+		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
+			kinematic_core::KinematicJoint kj;
+			kj.parentLinkIdx = graph.linkIndexById(j.parent.toStdString());
+			kj.childLinkIdx = graph.linkIndexById(j.child.toStdString());
+			if (kj.parentLinkIdx < 0 || kj.childLinkIdx < 0)
+			{
+				continue;
+			}
+			const QString jt = j.type.toLower();
+			const bool hasDof = jt == QLatin1String("revolute") || jt == QLatin1String("continuous") ||
+								jt == QLatin1String("prismatic");
+			fillJointMotionFromUrdf(j, kj, hasDof ? qIndex++ : -1);
+			graph.joints.push_back(kj);
+			if (visited.insert(j.child).second)
+			{
+				q.push(j.child);
+			}
+		}
+	}
+	std::string err;
+	return graph.validateTree(&err);
+}
+
+static void computeLinkWorldLegacyBfsFromModel(const UrdfFkModelData& model, const QVector<double>& jointAnglesRad,
+											   QHash<QString, Mat4>& outLinkNameToUrdfWorld)
+{
+	outLinkNameToUrdfWorld.clear();
 	struct QueueItem
 	{
 		QString link;
 		Mat4 worldFromLink;
 	};
 	std::queue<QueueItem> q;
-	QueueItem start{};
-	start.link = model.rootLink;
-	start.worldFromLink = matIdentity();
-	q.push(start);
+	q.push({model.rootLink, matIdentity()});
 	int qIndex = 0;
 	while (!q.empty())
 	{
 		const QueueItem cur = q.front();
 		q.pop();
-		const Mat4 osgWorldFromLink = osgWorldFromUrdfMeshFrame(cur.worldFromLink);
-		outLinkNameToLinkWorld.insert(cur.link, mat4ToOsg(osgWorldFromLink));
-
+		outLinkNameToUrdfWorld.insert(cur.link, cur.worldFromLink);
 		const auto jit = model.jointsByParent.find(cur.link);
 		if (jit == model.jointsByParent.end())
 		{
@@ -1147,12 +1255,63 @@ void computeLinkWorldMatricesFromModel(const UrdfFkModelData& model, const QVect
 			{
 				continue;
 			}
-			const Mat4 jointFromChild = jointChildTransformForFk(j, angles, qIndex);
+			const Mat4 jointFromChild = jointChildTransformForFk(j, jointAnglesRad, qIndex);
 			QueueItem nxt{};
 			nxt.link = j.child;
 			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
 			q.push(nxt);
 		}
+	}
+}
+
+void computeLinkWorldMatricesFromModel(const UrdfFkModelData& model, const QVector<double>& jointAnglesRad,
+									   QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld)
+{
+	outLinkNameToLinkWorld.clear();
+	kinematic_core::KinematicGraph graph;
+	if (!buildKinematicGraphFromModel(model, graph))
+	{
+		return;
+	}
+	double base[16];
+	mat4InternalToColumnMajor(matIdentity(), base);
+	std::vector<std::array<double, 16>> linkWorld(graph.links.size());
+	const int nLinks = static_cast<int>(graph.links.size());
+	QVector<double> qExt = jointAnglesRad;
+	if (!kinematic_core::forwardKinematicsTree(graph, base, qExt.constData(), static_cast<std::size_t>(qExt.size()),
+											   reinterpret_cast<double(*)[16]>(linkWorld.data())))
+	{
+		return;
+	}
+#ifdef KINEMATIC_CORE_DUAL_RUN
+	QHash<QString, Mat4> legacy;
+	computeLinkWorldLegacyBfsFromModel(model, jointAnglesRad, legacy);
+	for (auto it = legacy.constBegin(); it != legacy.constEnd(); ++it)
+	{
+		const int idx = graph.linkIndexById(it.key().toStdString());
+		if (idx < 0 || idx >= nLinks)
+		{
+			continue;
+		}
+		const Mat4 graphUrdf = columnMajorToMat4Internal(linkWorld[static_cast<size_t>(idx)].data());
+		const osg::Vec3d legacyPos = mat4ToOsg(osgWorldFromUrdfMeshFrame(it.value())).getTrans();
+		const osg::Vec3d graphPos = mat4ToOsg(osgWorldFromUrdfMeshFrame(graphUrdf)).getTrans();
+		const double dx = legacyPos.x() - graphPos.x();
+		const double dy = legacyPos.y() - graphPos.y();
+		const double dz = legacyPos.z() - graphPos.z();
+		const double delta = std::sqrt(dx * dx + dy * dy + dz * dz);
+		if (delta > 1e-4)
+		{
+			RunLogger::warn("KinematicCore FK dual-run delta " + std::to_string(delta) + " mm at " +
+							it.key().toStdString());
+		}
+	}
+#endif
+	for (int i = 0; i < nLinks; ++i)
+	{
+		const Mat4 urdfWorld = columnMajorToMat4Internal(linkWorld[static_cast<size_t>(i)].data());
+		const Mat4 osgWorld = osgWorldFromUrdfMeshFrame(urdfWorld);
+		outLinkNameToLinkWorld.insert(QString::fromStdString(graph.links[static_cast<size_t>(i)].id), mat4ToOsg(osgWorld));
 	}
 }
 
@@ -1405,18 +1564,79 @@ bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(const QString& urdfFilePath,
 }
 
 // 给定与各转动关节顺序一致的 jointAnglesRad（弧度），计算每个带 mesh 的连杆对应的 mesh→世界矩阵
+bool UrdfRobotLoader::computeMeshWorldFromCoreLinkWorld(
+	const QString& urdfFilePath, const kinematic_core::KinematicGraph& graph,
+	const std::vector<std::array<double, 16>>& linkWorld, QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+	const bool meshVerticesAlreadyInLinkFrame, QString* errorMessage)
+{
+	outLinkNameToMeshWorld.clear();
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+	const int nLinks = static_cast<int>(graph.links.size());
+	if (static_cast<int>(linkWorld.size()) < nLinks)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("linkWorld size mismatch.");
+		}
+		return false;
+	}
+	for (int i = 0; i < nLinks; ++i)
+	{
+		const QString linkName = QString::fromStdString(graph.links[static_cast<size_t>(i)].id);
+		auto visIt = model->linkVisuals.find(linkName);
+		if (visIt == model->linkVisuals.end() || !visIt->second.hasMesh)
+		{
+			continue;
+		}
+		const Mat4 worldFromLink = columnMajorToMat4Internal(linkWorld[static_cast<size_t>(i)].data());
+		const Mat4 visualInLink =
+			meshVerticesAlreadyInLinkFrame ? matIdentity() : meshFileToLinkFrameFromVisual(visIt->second);
+		const Mat4 urdfWorldFromMesh = matMul(worldFromLink, visualInLink);
+		const Mat4 osgWorldFromMesh = osgWorldFromUrdfMeshFrame(urdfWorldFromMesh);
+		outLinkNameToMeshWorld.insert(linkName, mat4ToOsg(osgWorldFromMesh));
+	}
+	return !outLinkNameToMeshWorld.isEmpty();
+}
+
+bool UrdfRobotLoader::computeMeshWorldMatricesViaKinematicCore(const QString& urdfFilePath,
+															   const QVector<double>& jointAnglesRad,
+															   QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+															   QString* errorMessage,
+															   const bool meshVerticesAlreadyInLinkFrame)
+{
+	outLinkNameToMeshWorld.clear();
+	kinematic_core::KinematicGraph graph;
+	if (!buildUrdfKinematicGraph(urdfFilePath, graph, errorMessage))
+	{
+		return false;
+	}
+	std::vector<std::array<double, 16>> linkWorld(graph.links.size());
+	double base[16];
+	mat4InternalToColumnMajor(matIdentity(), base);
+	if (!kinematic_core::forwardKinematicsTree(graph, base, jointAnglesRad.constData(),
+											   static_cast<std::size_t>(jointAnglesRad.size()),
+											   reinterpret_cast<double(*)[16]>(linkWorld.data())))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("KinematicCore forwardKinematicsTree failed.");
+		}
+		return false;
+	}
+	return computeMeshWorldFromCoreLinkWorld(urdfFilePath, graph, linkWorld, outLinkNameToMeshWorld,
+											 meshVerticesAlreadyInLinkFrame, errorMessage);
+}
+
 bool UrdfRobotLoader::computeMeshWorldMatrices(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,
 											   QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
 											   QString* errorMessage, bool meshVerticesAlreadyInLinkFrame)
 {
-	std::shared_ptr<const UrdfFkModelData> model;
-	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
-	{
-		outLinkNameToMeshWorld.clear();
-		return false;
-	}
-	computeMeshWorldMatricesFromModel(*model, jointAnglesRad, outLinkNameToMeshWorld, meshVerticesAlreadyInLinkFrame);
-	return true;
+	return computeMeshWorldMatricesViaKinematicCore(urdfFilePath, jointAnglesRad, outLinkNameToMeshWorld, errorMessage,
+													meshVerticesAlreadyInLinkFrame);
 }
 
 bool UrdfRobotLoader::linkMeshFileToLinkColumnMajor16(const QString& urdfFilePath, const QString& linkName,
@@ -2851,4 +3071,15 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(const QString& urdfFile
 
 	// 转移所有权：release() 使裸指针引用计数仍为 1，由调用方 addChild 或 osg::ref_ptr 承接；禁止手动 ref()+get()
 	return robotAssembly.release();
+}
+
+bool UrdfRobotLoader::buildUrdfKinematicGraph(const QString& urdfFilePath, kinematic_core::KinematicGraph& outGraph,
+											  QString* errorMessage)
+{
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+	return buildKinematicGraphFromModel(*model, outGraph);
 }

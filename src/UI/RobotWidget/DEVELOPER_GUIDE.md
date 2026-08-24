@@ -133,11 +133,11 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 **进入示教**（`onSimulationTcpDragTeachModeChanged(true)`）：目标用连杆系 FK（勿把装配系 mesh 世界矩阵当法兰连杆）。per-link 罗盘挂法兰 mesh，`local=linkFrameLocalOnMeshBackend(T_tool)`；再 `reconcilePerLinkOuterBindFromScene`（关节角与轴控同源）；`resolveRobotBaseWorld` 取 **P**。法兰路径在 `syncTargetInBase` 时用挂载点场景位姿反推 `T_base`，避免 P 与外绑不一致时罗盘落在默认位。删机再导若 sceneBackendId 无交集则聚合角清零。详见 Widget §13.1。
 
-1. 罗盘相对 `P_eff`；经 `tcpDragRigidPeffToP0` 得到 `T_p0`，缓存 `m_lastTcpDragTargetInBase`。鼠标位姿 pending 合并，IK 约 8ms 一拍；单步追赶约 220mm、关节步约 0.45rad；拖动中罗盘不跟 FK 残差回拉。
-2. `doc->solveTcpDragTeachIk`：有启用 Workpiece 时按 REP（`T_work = inv(T_p0_work)*T_p0`，外层采样工件轴，内层 RobotBase `solveTeachIkCoordinatedDrag`）；否则仅 RobotBase。
-3. 关节角按 URDF 限位 **钳位**（`clampJointAnglesToInstanceLimits`）；外轴经 `applyAxisControlExternalPose` 写回（含工件 backend）。
-4. 拖动中 `updateTcpDragTeachFromTarget(..., false)` 保持鼠标目标；追赶未完成则自动再拍 IK。
-5. **不**在拖动每帧更新程序起点（仅添加第一条运动指令或空程序结束拖动时可选捕获）。
+1. 罗盘相对 `P_eff`；经 `tcpDragRigidPeffToP0` 得到 `T_p0`。`m_lastTcpDragTargetInBase` 在 IK 写回后用 **FK 实际 TCP** 更新（追逐锚点）；罗盘仍跟鼠标 `targetFromEmit`。pending 合并约 8ms/拍；单步追赶约 220mm、关节步约 0.45rad。
+2. `doc->solveTcpDragTeachIk`：Registry 路径 `KinematicModelIk::solveTeachPose`；拖动参数 32 iter / 0.22rad 步 / 1mm 位置容差。有 Workpiece 时 REP + `solveTeachIkCoordinatedDrag`。
+3. IK 结果先 `wrapJointAnglesTowardSeed` 再 URDF 限位钳位；限位警告 800ms 节流。
+4. `applyJointAnglesRad` → Registry FK；拖动中 `updateTcpDragTeachFromTarget(..., false)` 保持鼠标目标。
+5. **不**在拖动每帧更新程序起点。
 6. 落点写指令时同步 `externalAxisQCsv` 与 `workingTcp*`（REP）。
 ### 添加指令（`onSimulationAddInstructionRequested`）
 

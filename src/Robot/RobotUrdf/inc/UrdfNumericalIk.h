@@ -22,7 +22,7 @@ struct ROBOT_URDF_API UrdfPoseIkTarget
 	double quatXyzw[4]{0.0, 0.0, 0.0, 1.0};
 };
 
-/// 臂位姿 DLS；失败返回空向量
+/// 臂位姿 DLS；纯平移优先 KinematicCore，含姿态走 legacy Jacobian
 ROBOT_URDF_API std::vector<double> solveArmPoseDampedLeastSquares(const QString& urdfPath, const QString& ikLink,
 																  const UrdfPoseIkTarget& target,
 																  std::vector<double> seedJointRad,

@@ -10,10 +10,16 @@
 
 #include "BackendDataBase.h"
 
+namespace kinematic_core
+{
+class KinematicGraph;
+}
+
 #include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVector>
+#include <array>
 #include <vector>
 
 #include <RigidTransform.h>
@@ -66,6 +72,19 @@ ROBOT_URDF_API bool computeLinkWorldMatrices(const QString& urdfFilePath, const 
 											 QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld,
 											 QString* errorMessage = nullptr);
 
+/// KinematicCore FK → mesh 世界矩阵（与 computeMeshWorldMatrices 同约定，供 Registry/Sink 主路径）
+ROBOT_URDF_API bool computeMeshWorldMatricesViaKinematicCore(const QString& urdfFilePath,
+															 const QVector<double>& jointAnglesRad,
+															 QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+															 QString* errorMessage = nullptr,
+															 bool meshVerticesAlreadyInLinkFrame = false);
+
+/// 已有 Core linkWorld 列主序时补 visual→mesh 变换
+ROBOT_URDF_API bool computeMeshWorldFromCoreLinkWorld(
+	const QString& urdfFilePath, const kinematic_core::KinematicGraph& graph,
+	const std::vector<std::array<double, 16>>& linkWorld, QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+	bool meshVerticesAlreadyInLinkFrame = false, QString* errorMessage = nullptr);
+
 /// 一次 FK：目标连杆位姿 + 几何雅可比（行主序 taskDim×n；姿态行乘 orientationWeight）
 /// outQuatXyzw 可为 nullptr（只要位置）；与 computeLinkWorldMatrices 同坐标系
 ROBOT_URDF_API bool computeLinkPoseAndGeometricJacobian(const QString& urdfFilePath,
@@ -113,6 +132,9 @@ ROBOT_URDF_API osg::Group* buildHierarchicalRobotScene(const QString& urdfFilePa
 													   QHash<QString, osg::Group*>& outLinkToContainer,
 													   QHash<QString, osg::MatrixTransform*>& outJointTransforms,
 													   QString* errorMessage = nullptr);
+
+ROBOT_URDF_API bool buildUrdfKinematicGraph(const QString& urdfFilePath, kinematic_core::KinematicGraph& outGraph,
+											QString* errorMessage = nullptr);
 } // namespace UrdfRobotLoader
 
 #endif // ROBOTURDF_URDFROBOTLOADER_H

@@ -3,7 +3,11 @@
 
 #include "RobotExternalAxes.h"
 
+#include "JointMotionAdapters.h"
 #include "BackendFollowMath.h"
+
+#include "JointMotionEval.h"
+#include "Mat4Ops.h"
 
 #include <algorithm>
 #include <cmath>
@@ -344,12 +348,12 @@ std::string resolveWorkingFrameId(const RobotExternalAxisConfigSet& set)
 
 void mat4IdentityColumnMajor(double out[16])
 {
-	mat4Identity(out);
+	kinematic_core::mat4IdentityColumnMajor(out);
 }
 
 void mat4MulColumnMajor16(const double a[16], const double b[16], double out[16])
 {
-	mat4MulColumnMajor(a, b, out);
+	kinematic_core::mat4MulColumnMajor16(a, b, out);
 }
 
 bool mat4InvertRigidColumnMajor(const double in[16], double out[16])
@@ -645,13 +649,8 @@ std::vector<double> parseExternalAxisQCsv(const std::string& csv)
 
 void makeAxisMotionColumnMajor(const RobotExternalAxisConfig& cfg, const double q, double out[16])
 {
-	if (cfg.motionType == RobotExternalMotionType::Translate)
-	{
-		makeTranslateColumnMajor(cfg.axis[0] * q, cfg.axis[1] * q, cfg.axis[2] * q, out);
-		return;
-	}
-	makeRotateAboutAxisColumnMajor(cfg.originMm[0], cfg.originMm[1], cfg.originMm[2], cfg.axis[0], cfg.axis[1],
-								   cfg.axis[2], q, out);
+	const kinematic_core::JointMotion1D motion = JointMotionAdapters::fromRobotExternalAxisConfig(cfg);
+	kinematic_core::evaluateJointMotion1D(motion, q, out);
 }
 
 void composeBasePlacementWithExternalAxis(const double p0ColumnMajor[16], const RobotExternalAxisConfigSet& set,

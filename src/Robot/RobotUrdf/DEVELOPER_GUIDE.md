@@ -34,9 +34,13 @@
 | `computeLinkWorldMatrices(urdf, angles, out, err)` | 各 link **坐标系**世界矩阵（OSG） |
 | `computeLinkWorldRigidTransforms(urdf, angles, out, err)` | 同上，输出 `engine::RigidTransform`（推荐机器人/IK 边界） |
 | `computeMeshWorldMatrices(urdf, angles, out, err, meshVerticesAlreadyInLinkFrame)` | 各 link **网格**世界矩阵；末参 `true` 时 visual 为单位（顶点已在连杆系） |
-| `computeLinkPoseAndGeometricJacobian(...)` | 一次 FK + 几何雅可比（可传 `UrdfKinematicsWorkspace*`） |
-| `solveArmPoseDampedLeastSquares` | `UrdfNumericalIk`：位姿 DLS + `UrdfIkSolverOptions` |
-| `runSelfTest` | FK / 有限差分 J / DLS 闭环 |
+| `computeLinkPoseAndGeometricJacobian(...)` | 一次 FK + 几何雅可比（legacy BFS；SelfTest 对照） |
+| `computeLinkPoseAndJacobianViaCore(...)` | Core 图雅可比 + `computeLinkWorldMatrices` 位姿（与显示 FK 同源） |
+| `solveArmPoseDampedLeastSquares` | 主路径：`KinematicCoreUrdfIk::runUrdfDlsLoop`（FK/雅可比/限位一致） |
+| `solveArmPoseViaKinematicCore` | 同上，供 `UrdfNumericalIk` 转发 |
+| `solveArmPoseViaUrdfJacobianLegacy` | **仅 SelfTest**；legacy BFS 雅可比 DLS |
+| `buildUrdfKinematicGraph` | URDF → `kinematic_core::KinematicGraph`（`JointMotion1D.hasLimit`） |
+| `runSelfTest` | FK / 有限差分 J / DLS 闭环；可选 IRB 1100 FK golden |
 | `linkMeshFileToLinkColumnMajor16(urdf, linkName, out16, err)` | mesh 文件系→连杆系 4×4（列主序），供烘焙顶点后 FK |
 
 ---

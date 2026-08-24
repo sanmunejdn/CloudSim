@@ -4,6 +4,8 @@ VisualStudioVersion = 16.0.35826.135
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimCore", "src\Contracts\CloudSimCore\CloudSimCore.vcxproj", "{A0B1C2D3-E4F5-6789-ABCD-EF0123456701}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KinematicCore", "src\Contracts\KinematicCore\KinematicCore.vcxproj", "{C1D2E3F4-B5A6-7890-CDEF-123456789ABC}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimBootstrap", "src\App\CloudSimBootstrap\CloudSimBootstrap.vcxproj", "{A0B1C2D3-E4F5-6789-ABCD-EF0123456702}"
 	ProjectSection(ProjectDependencies) = postProject
 		{A0B1C2D3-E4F5-6789-ABCD-EF0123456701} = {A0B1C2D3-E4F5-6789-ABCD-EF0123456701}
@@ -221,6 +223,12 @@ Global
 		{A0B1C2D3-E4F5-6789-ABCD-EF0123456701}.Release|x64.ActiveCfg = Release|x64
 		{A0B1C2D3-E4F5-6789-ABCD-EF0123456701}.Release|x64.Build.0 = Release|x64
 		{A0B1C2D3-E4F5-6789-ABCD-EF0123456701}.Release|x86.ActiveCfg = Release|x64
+		{C1D2E3F4-B5A6-7890-CDEF-123456789ABC}.Debug|x64.ActiveCfg = Debug|x64
+		{C1D2E3F4-B5A6-7890-CDEF-123456789ABC}.Debug|x64.Build.0 = Debug|x64
+		{C1D2E3F4-B5A6-7890-CDEF-123456789ABC}.Debug|x86.ActiveCfg = Debug|x64
+		{C1D2E3F4-B5A6-7890-CDEF-123456789ABC}.Release|x64.ActiveCfg = Release|x64
+		{C1D2E3F4-B5A6-7890-CDEF-123456789ABC}.Release|x64.Build.0 = Release|x64
+		{C1D2E3F4-B5A6-7890-CDEF-123456789ABC}.Release|x86.ActiveCfg = Release|x64
 		{A0B1C2D3-E4F5-6789-ABCD-EF0123456702}.Debug|x64.ActiveCfg = Debug|x64
 		{A0B1C2D3-E4F5-6789-ABCD-EF0123456702}.Debug|x64.Build.0 = Debug|x64
 		{A0B1C2D3-E4F5-6789-ABCD-EF0123456702}.Debug|x86.ActiveCfg = Debug|x64

@@ -3,6 +3,7 @@
 
 #include "CustomDeviceKinematics.h"
 
+#include "CustomDeviceKinematicModel.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "BackendSpatial.h"
@@ -44,123 +45,22 @@ bool computeLinkWorldMatrices(const CustomDeviceBackendData& device, BackendData
 							  const std::vector<double>& q,
 							  std::unordered_map<std::string, std::array<double, 16>>& worldByLink)
 {
-	worldByLink.clear();
-	const std::vector<CustomDeviceLink>& links = device.links();
-	const std::vector<CustomDeviceJoint>& joints = device.joints();
-	if (links.empty() || joints.empty())
-	{
-		return false;
-	}
-
-	std::unordered_map<std::string, size_t> linkIndex;
-	for (size_t i = 0; i < links.size(); ++i)
-	{
-		linkIndex[links[i].id] = i;
-	}
-
-	std::string fixedId;
-	for (const CustomDeviceLink& L : links)
-	{
-		if (L.fixed)
-		{
-			fixedId = L.id;
-			break;
-		}
-	}
-	if (fixedId.empty())
-	{
-		fixedId = links.front().id;
-	}
-
-	const BackendMat4 w0Mat = mgr ? device.worldMatrix(mgr) : device.baseWorldW0();
-	double w0[16];
-	backendMat4ToArray(w0Mat, w0);
-
-	std::queue<std::string> queue;
-	std::unordered_set<std::string> visited;
-
-	{
-		std::array<double, 16> wf{};
-		RobotExternal::mat4MulColumnMajor16(w0, links[linkIndex[fixedId]].restInDeviceW0, wf.data());
-		worldByLink[fixedId] = wf;
-		queue.push(fixedId);
-		visited.insert(fixedId);
-	}
-
-	while (!queue.empty())
-	{
-		const std::string parentId = queue.front();
-		queue.pop();
-		for (size_t ji = 0; ji < joints.size(); ++ji)
-		{
-			const CustomDeviceJoint& J = joints[ji];
-			if (J.parentLinkId != parentId)
-			{
-				continue;
-			}
-			if (visited.count(J.childLinkId))
-			{
-				continue;
-			}
-			if (!linkIndex.count(J.childLinkId) || !worldByLink.count(parentId))
-			{
-				continue;
-			}
-			const double qj = ji < q.size() ? q[ji] : J.motion.home;
-			const RobotExternal::RobotExternalAxisConfig ext = toExternalAxisConfig(J.motion);
-			double motion[16];
-			RobotExternal::makeAxisMotionColumnMajor(ext, qj, motion);
-			double parentMotion[16];
-			RobotExternal::mat4MulColumnMajor16(worldByLink[parentId].data(), motion, parentMotion);
-			std::array<double, 16> childW{};
-			RobotExternal::mat4MulColumnMajor16(parentMotion, J.parentToChildRest, childW.data());
-			worldByLink[J.childLinkId] = childW;
-			visited.insert(J.childLinkId);
-			queue.push(J.childLinkId);
-		}
-	}
-	return !worldByLink.empty();
+	return CustomDeviceKinematicModel::forwardLinkWorldById(device, mgr, q, worldByLink);
 }
 
 bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBackendPoseSink* sink,
 						 const std::vector<double>& q)
 {
-	const std::vector<CustomDeviceLink>& links = device.links();
-	if (links.empty() || device.joints().empty())
+	if (device.links().empty() || device.joints().empty())
 	{
 		return false;
 	}
-
-	std::unordered_map<std::string, std::array<double, 16>> worldByLink;
-	if (!computeLinkWorldMatrices(device, mgr, q, worldByLink))
-	{
-		return false;
-	}
-
-	for (const CustomDeviceLink& L : links)
-	{
-		if (L.geometryBackendId.empty() || !worldByLink.count(L.id))
-		{
-			continue;
-		}
-		const auto geom = mgr ? mgr->getData(L.geometryBackendId) : nullptr;
-		if (!geom || !geom->hasPoseProperty())
-		{
-			continue;
-		}
-		const BackendMat4 wm = arrayToBackendMat4(worldByLink[L.id].data());
-		geom->setWorldMatrix(wm, mgr);
-		if (sink)
-		{
-			cloudsim::core::Mat4 mat{};
-			for (int i = 0; i < 16; ++i)
-			{
-				mat[static_cast<size_t>(i)] = worldByLink[L.id][static_cast<size_t>(i)];
-			}
-			sink->setBackendRootWorldMatrixFromWorld(L.geometryBackendId, mat);
-		}
-	}
-	return true;
+	const BackendMat4 w0Mat = resolveEffectiveDeviceW0(device, mgr);
+	double w0[16];
+	backendMat4ToArray(w0Mat, w0);
+	auto model = CustomDeviceKinematicModel::create(device);
+	model->rebuildGraph();
+	return model->applyToSink(device, mgr, sink, q, w0);
 }
 } // namespace
 

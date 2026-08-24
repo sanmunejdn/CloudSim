@@ -147,13 +147,13 @@
       <PreprocessorDefinitions>ROBOT_SCENE_LIB;TRAJECTORY_ALGORITHM_STATIC;TRAJECTORY_ALGORITHM_BUILTINS_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Contracts/KinematicCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;GeometryAlgorithm.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;KinematicCore.lib;GeometryEngine.lib;GeometryAlgorithm.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -169,13 +169,13 @@
       <PreprocessorDefinitions>ROBOT_SCENE_LIB;TRAJECTORY_ALGORITHM_STATIC;TRAJECTORY_ALGORITHM_BUILTINS_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Contracts/KinematicCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;GeometryAlgorithm.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;KinematicCore.lib;GeometryEngine.lib;GeometryAlgorithm.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -194,6 +194,20 @@
     <ClInclude Include="inc\RobotCoordinateFrames.h" />
     <ClInclude Include="inc\RobotExternalAxes.h" />
     <ClInclude Include="inc\CustomDeviceKinematics.h" />
+    <ClInclude Include="inc\CustomDeviceGraphBuilder.h" />
+    <ClInclude Include="inc\CustomDeviceKinematicModel.h" />
+    <ClInclude Include="inc\JointMotionAdapters.h" />
+    <ClInclude Include="inc\KinematicModelRegistry.h" />
+    <ClInclude Include="inc\ExternalAxisGraphBuilder.h" />
+    <ClInclude Include="inc\CompositeKinematicModel.h" />
+    <ClInclude Include="inc\ExternalAxisKinematicModel.h" />
+    <ClInclude Include="inc\KinematicModelApply.h" />
+    <ClInclude Include="inc\RobotKinematicApplyContext.h" />
+    <ClInclude Include="inc\KinematicModelIk.h" />
+    <ClInclude Include="inc\RobotExternalAxisSceneApply.h" />
+    <ClInclude Include="inc\RobotKinematicModelRegistration.h" />
+    <ClInclude Include="inc\RobotPerLinkKinematicsApply.h" />
+    <ClInclude Include="inc\UrdfRobotKinematicModelSink.h" />
     <ClInclude Include="inc\CustomDeviceAssemblyCommit.h" />
     <ClInclude Include="inc\RobotCollisionSettings.h" />
     <ClInclude Include="inc\ExternalAxisSearchService.h" />
@@ -264,6 +278,19 @@
     <ClCompile Include="source\RobotCoordinateFrames.cpp" />
     <ClCompile Include="source\RobotExternalAxes.cpp" />
     <ClCompile Include="source\CustomDeviceKinematics.cpp" />
+    <ClCompile Include="source\CustomDeviceGraphBuilder.cpp" />
+    <ClCompile Include="source\CustomDeviceKinematicModel.cpp" />
+    <ClCompile Include="source\JointMotionAdapters.cpp" />
+    <ClCompile Include="source\KinematicModelRegistry.cpp" />
+    <ClCompile Include="source\ExternalAxisGraphBuilder.cpp" />
+    <ClCompile Include="source\CompositeKinematicModel.cpp" />
+    <ClCompile Include="source\ExternalAxisKinematicModel.cpp" />
+    <ClCompile Include="source\KinematicModelApply.cpp" />
+    <ClCompile Include="source\KinematicModelIk.cpp" />
+    <ClCompile Include="source\RobotExternalAxisSceneApply.cpp" />
+    <ClCompile Include="source\RobotKinematicModelRegistration.cpp" />
+    <ClCompile Include="source\RobotPerLinkKinematicsApply.cpp" />
+    <ClCompile Include="source\UrdfRobotKinematicModelSink.cpp" />
     <ClCompile Include="source\CustomDeviceAssemblyCommit.cpp" />
     <ClCompile Include="source\RobotCollisionSettings.cpp" />
     <ClCompile Include="source\ExternalAxisSearchService.cpp" />
@@ -301,6 +328,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
       <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Contracts\KinematicCore\KinematicCore.vcxproj">
+      <Project>{c1d2e3f4-b5a6-7890-cdef-123456789abc}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\Geometry\GeometryEngine\GeometryEngine.vcxproj">
       <Project>{d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70}</Project>

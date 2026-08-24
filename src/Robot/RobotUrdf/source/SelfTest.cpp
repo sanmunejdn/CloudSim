@@ -3,12 +3,16 @@
 
 #include "SelfTest.h"
 
+#include "KinematicCoreUrdfIk.h"
 #include "UrdfIkSolverOptions.h"
 #include "UrdfNumericalIk.h"
+#include "UrdfNumericalIkLegacy.h"
 #include "UrdfRobotLoader.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTextStream>
 #include <cmath>
@@ -56,6 +60,77 @@ bool nearlyEqual(double a, double b, double tol)
 {
 	return std::abs(a - b) <= tol;
 }
+
+QString resolveIrb1100UrdfPath()
+{
+	const QString rel =
+		QStringLiteral("resource/models/Robot/ABB/IRB 1100-4-0.58/urdf/IRB 1100-4-0.58.urdf");
+	const QStringList candidates = {
+		QDir::current().filePath(rel),
+		QDir(QCoreApplication::applicationDirPath()).filePath(rel),
+	};
+	for (const QString& p : candidates)
+	{
+		if (QFile::exists(p))
+		{
+			return QFileInfo(p).absoluteFilePath();
+		}
+	}
+	return {};
+}
+
+bool runIrb1100FkGolden(std::vector<std::string>& failures)
+{
+	const QString urdf = resolveIrb1100UrdfPath();
+	if (urdf.isEmpty())
+	{
+		return true;
+	}
+	QStringList childLinks;
+	if (!loadRevoluteJointChildLinksInOrder(urdf, childLinks, nullptr) || childLinks.isEmpty())
+	{
+		failures.push_back("IRB1100: load child links failed");
+		return false;
+	}
+	const QString flangeLink = childLinks.back();
+	const auto checkQ = [&](const QVector<double>& q, const char* label) -> bool {
+		double legacyPos[3] = {};
+		std::vector<double> J;
+		if (!computeLinkPoseAndGeometricJacobian(urdf, q, flangeLink, legacyPos, nullptr, J, false, 1.0, nullptr))
+		{
+			failures.push_back(std::string("IRB1100 legacy FK failed: ") + label);
+			return false;
+		}
+		QHash<QString, osg::Matrixd> coreLinkWorld;
+		if (!computeLinkWorldMatrices(urdf, q, coreLinkWorld, nullptr) || !coreLinkWorld.contains(flangeLink))
+		{
+			failures.push_back(std::string("IRB1100 core FK failed: ") + label);
+			return false;
+		}
+		const osg::Vec3d corePos = coreLinkWorld.value(flangeLink).getTrans();
+		const double dx = legacyPos[0] - corePos.x();
+		const double dy = legacyPos[1] - corePos.y();
+		const double dz = legacyPos[2] - corePos.z();
+		const double errMm = std::sqrt(dx * dx + dy * dy + dz * dz);
+		if (errMm > 0.1)
+		{
+			std::ostringstream os;
+			os << "IRB1100 FK delta " << errMm << " mm at " << label;
+			failures.push_back(os.str());
+			return false;
+		}
+		return true;
+	};
+
+	QVector<double> q0(6, 0.0);
+	if (!checkQ(q0, "zero"))
+	{
+		return false;
+	}
+	QVector<double> qRand;
+	qRand << 0.12 << -0.34 << 0.56 << -0.21 << 0.45 << -0.08;
+	return checkQ(qRand, "random");
+}
 } // namespace
 
 bool runSelfTest(std::vector<std::string>& failures)
@@ -94,6 +169,17 @@ bool runSelfTest(std::vector<std::string>& failures)
 		std::ostringstream os;
 		os << "FK z golden: got " << pos[2] << " expect " << goldenZ;
 		failures.push_back(os.str());
+	}
+
+	QHash<QString, osg::Matrixd> linkWorldGraph;
+	QString fkErr;
+	if (!computeLinkWorldMatrices(urdf, q, linkWorldGraph, &fkErr))
+	{
+		failures.push_back(std::string("graph FK: ") + fkErr.toStdString());
+	}
+	else if (!linkWorldGraph.contains(QStringLiteral("link2")))
+	{
+		failures.push_back("graph FK missing link2");
 	}
 
 	const int n = 2;
@@ -147,6 +233,17 @@ bool runSelfTest(std::vector<std::string>& failures)
 	opt.maxIterations = 80;
 	std::vector<double> seed = {0.0, 0.0};
 	std::string ikFail;
+	UrdfPoseIkTarget posOnly{};
+	posOnly.posMm[0] = pos[0];
+	posOnly.posMm[1] = pos[1];
+	posOnly.posMm[2] = pos[2];
+	posOnly.hasOrientation = false;
+	std::vector<double> qCore = solveArmPoseViaKinematicCore(urdf, QStringLiteral("link2"), posOnly, seed, opt, &ikFail);
+	if (qCore.empty())
+	{
+		failures.push_back(std::string("KinematicCore IK failed: ") + ikFail);
+	}
+
 	std::vector<double> qIk = solveArmPoseDampedLeastSquares(urdf, QStringLiteral("link2"), target, seed, opt, &ikFail);
 	if (qIk.empty())
 	{
@@ -181,6 +278,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 			}
 		}
 	}
+
+	(void)runIrb1100FkGolden(failures);
 
 	clearUrdfModelCache();
 	return failures.empty();

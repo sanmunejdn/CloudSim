@@ -441,9 +441,24 @@ flowchart LR
 
 | API | 说明 |
 |-----|------|
-| `TeachIkContext` | `urdfPath`、`ikLinkName`、`T_base_target`、`seedJointRad`、`T_flange_tool`、`options` |
-| `solveTeachIk` | 交互示教 IK；法兰目标经 `engine::flangeFromToolOrigin` |
+| `TeachIkContext` | `urdfPath`、`ikLinkName`、`T_base_target`、`seedJointRad`、`T_flange_tool`、`options`、`registryKey` |
+| `solveTeachIk` | 交互示教 IK；法兰目标经 `engine::flangeFromToolOrigin`；臂 DLS 在 `RobotUrdf` |
 | `solveTeachIkCoordinatedDrag` | 拖动联立多候选 |
+| `KinematicModelIk::solveTeachPose` | 带 `registryKey` 时设置上下文后走 `solveTeachIk` |
+
+### 11.2 `KinematicModelRegistry` / Apply / IK
+
+URDF 导入或轴控注册时写入 `KinematicModelRegistry::keyRobotInstance(sceneRootId)`，值为 `CompositeKinematicModel`（臂 + 外轴）。
+
+| 组件 | 作用 |
+|------|------|
+| `UrdfRobotKinematicModelSink` | `model.forward(q)` → per-link backend（`RobotPerLinkKinematicsApply`） |
+| `KinematicModelApply::applyRobotArm` | Host/UI 统一 FK 写回入口 |
+| `RobotKinematicModelRegistration` | 导入/轴控时注册 Composite |
+| `RobotExternalAxisSceneApply` | 外轴 Q + 工件 PAT 写场景 |
+| `KinematicModelIk` | Registry 键包装 `RobotTeachIk` |
+
+Host `RobotServiceAdapter::applyJointAnglesRad` 经 `KinematicsBatchScope` + Registry apply；拖动 IK 经 `MainWindowRobotHost::solveTcpDragTeachIk` → `KinematicModelIk`。
 
 架构图：[`../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html`](../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html) · 热路径：[drag-hotpath-dataflow.html](../../../docs/_archive/robot-kinematics-workspace/diagrams/drag-hotpath-dataflow.html)
 

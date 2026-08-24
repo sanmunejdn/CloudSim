@@ -9,6 +9,7 @@
 #include "IRobotSimulationDocument.h"
 #include "MeshBackendData.h"
 #include "RobotMatrixOsgBridge.h"
+#include "RobotPerLinkKinematicsApply.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
@@ -121,6 +122,10 @@ BackendMat4 osgMatToBackendColMajor(const osg::Matrixd& m)
 /// When link meshes are parented in OSG, \ref IRobotBackendPoseSink::setBackendRootWorldMatrixFromWorld uses each
 /// node's current parent world matrix. Updates must run **parent link before child link**; arbitrary QHash iteration
 /// was valid only while every outer PAT hung directly under the same scene group (identical parent world).
+} // namespace
+
+namespace RobotSceneKinematics
+{
 void resolveRobotLinkUpdateOrder(BackendDataManager* mgr, const QHash<QString, QString>& linkNameToBackendId,
 								 QVector<QString>& outLinkNames)
 {
@@ -221,10 +226,7 @@ void resolveRobotLinkUpdateOrder(BackendDataManager* mgr, const QHash<QString, Q
 		outLinkNames += tail;
 	}
 }
-} // namespace
 
-namespace RobotSceneKinematics
-{
 bool applyJointAnglesViaLinkBackends(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, BackendDataManager& mgr,
 									 const QVector<double>& anglesRad, const RobotPerLinkKinematicsSlice& slice)
 {
@@ -244,103 +246,14 @@ bool applyJointAnglesViaLinkBackends(IRobotSimulationDocument* doc, IRobotBacken
 	}
 	QHash<QString, osg::Matrixd> Tq;
 	QString fkErr;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, anglesRad, Tq, &fkErr, slice.meshVerticesInLinkFrame))
+	if (!UrdfRobotLoader::computeMeshWorldMatricesViaKinematicCore(urdfPath, anglesRad, Tq, &fkErr,
+																   slice.meshVerticesInLinkFrame))
 	{
 		RunLogger::warn(qToUtf8Std(
 			QStringLiteral("RobotSceneKinematics::applyJointAnglesViaLinkBackends FK failed: %1").arg(fkErr)));
 		return false;
 	}
-	const QHash<QString, osg::Matrixd>& T0 = slice.fkMeshWorldT0;
-	const QHash<QString, osg::Matrixd>& m0bind = slice.outerWorldAtBindByBackendId;
-
-	QVector<QString> linkOrder;
-	resolveRobotLinkUpdateOrder(&mgr, linkToId, linkOrder);
-
-	const int dbg = robotKinematicsDebugLevel();
-	if (dbg > 0)
-	{
-		std::ostringstream hdr;
-		const int nj = anglesRad.size();
-		hdr << "[RobotKinematicsDBG] applyJointAnglesViaLinkBackends urdf=" << qToUtf8Std(urdfPath) << " nj=" << nj
-			<< " linkUpdateOrder=[" << joinUtf8List(linkOrder) << "]\n";
-		hdr << "  jointAnglesRad (index : rad : deg):";
-		for (int ji = 0; ji < nj; ++ji)
-		{
-			const double rad = anglesRad[ji];
-			const double deg = rad * (180.0 / 3.14159265358979323846);
-			hdr << "\n    [" << ji << "] " << std::setprecision(9) << rad << " rad (" << deg << " deg)";
-		}
-		RunLogger::info(hdr.str());
-	}
-
-	for (const QString& linkName : linkOrder)
-	{
-		const QString backendIdStr = linkToId.value(linkName);
-		if (backendIdStr.isEmpty())
-		{
-			continue;
-		}
-		const std::string bid = backendIdStr.toStdString();
-		const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(mgr.getData(bid));
-		if (!meshPtr)
-		{
-			continue;
-		}
-		if (!Tq.contains(linkName) || !T0.contains(linkName))
-		{
-			continue;
-		}
-		const auto m0It = m0bind.constFind(backendIdStr);
-		if (m0It == m0bind.cend())
-		{
-			continue;
-		}
-		const osg::Matrixd& T0m = T0[linkName];
-		const osg::Matrixd& Tqm = Tq[linkName];
-		const osg::Matrixd& M0m = m0It.value();
-		// UrdfRobotLoader::mat4ToOsg stores C(M)=M^T with C(A*B)=C(B)*C(A). Internal mesh world is Tq*T0^-1*M0;
-		// in OSG multiply order that is M0_osg * inv(T0_osg) * Tq_osg.
-		// robotBasePlacementWorld: scene-root pose (OSG row-vector: post-multiply world placement after FK).
-		const osg::Matrixd Mnew = M0m * osg::Matrixd::inverse(T0m) * Tqm * slice.robotBasePlacementWorld;
-
-		if (dbg > 0)
-		{
-			std::ostringstream line;
-			line << "[RobotKinematicsDBG] link=" << qToUtf8Std(linkName) << " backendId=" << bid;
-			const std::vector<std::string> ps = mgr.parentsOf(bid);
-			if (!ps.empty())
-			{
-				line << " parentBackendId=" << ps.front();
-			}
-			else
-			{
-				line << " parentBackendId=<none>";
-			}
-			osg::Matrixd parentWorldBefore;
-			if (!ps.empty() && getBackendRootWorldOsg(osg, ps.front(), parentWorldBefore))
-			{
-				appendOsgMatrixBlock(line, "parentWorld(OSG,before)", parentWorldBefore, dbg);
-			}
-			appendOsgMatrixBlock(line, "T0(bindFK_meshWorld)", T0m, dbg);
-			appendOsgMatrixBlock(line, "Tq(currentFK_meshWorld)", Tqm, dbg);
-			appendOsgMatrixBlock(line, "M0(outerWorldAtBind)", M0m, dbg);
-			appendOsgMatrixBlock(line, "Mnew(target_outerWorld)", Mnew, dbg);
-			RunLogger::info(line.str());
-		}
-
-		meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew), &mgr);
-		if (osg)
-		{
-			osg->syncRobotMeshBackendPoseAfterKinematics(*meshPtr);
-		}
-	}
-
-	if (dbg > 0)
-	{
-		RunLogger::info("[RobotKinematicsDBG] applyJointAnglesViaLinkBackends complete.");
-		RunLogger::flush();
-	}
-	return true;
+	return RobotPerLinkKinematicsApply::applyLinkWorldFromCoreFk(osg, mgr, slice, Tq);
 }
 
 bool computeBasePlacementFromAnchorLinkWorld(const RobotPerLinkKinematicsSlice& slice,

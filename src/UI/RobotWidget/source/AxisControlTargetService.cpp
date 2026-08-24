@@ -6,12 +6,18 @@
 #include "BackendTypeIds.h"
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceKinematics.h"
+#include "CustomDeviceKinematicModel.h"
+#include "CompositeKinematicModel.h"
+#include "KinematicModelRegistry.h"
+#include "RobotExternalAxisSceneApply.h"
+#include "RobotKinematicModelRegistration.h"
 #include "IRobotDocumentHost.h"
 #include "IRobotMainWindowHost.h"
 #include "RobotAxisControlWidget.h"
 #include "RobotExternalAxes.h"
 #include "RobotSimulationController.h"
 #include "SimulationCommandWidget.h"
+#include "UrdfRobotKinematicModel.h"
 
 namespace
 {
@@ -114,6 +120,8 @@ void AxisControlTargetService::onTargetChanged(const AxisControlTargetKind kind,
 			return;
 		}
 		device->ensureQSize();
+		KinematicModelRegistry::registerModel(KinematicModelRegistry::keyCustomDevice(id.toStdString()),
+											  CustomDeviceKinematicModel::create(*device));
 		const RobotExternal::RobotExternalAxisConfigSet ext =
 			CustomDeviceKinematics::toExternalAxisConfigSet(device->axes());
 		axis->setExternalAxes(ext);
@@ -136,6 +144,11 @@ void AxisControlTargetService::onTargetChanged(const AxisControlTargetKind kind,
 	if (instIdx < 0)
 	{
 		return;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (!urdfPath.isEmpty())
+	{
+		(void)RobotKinematicModelRegistration::registerRobotInstance(doc, instIdx, id);
 	}
 	QVector<double> lower;
 	QVector<double> upper;

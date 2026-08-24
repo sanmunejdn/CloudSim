@@ -1,0 +1,8 @@
+#ifndef KINEMATICCORE_KINEMATICCOREVERSION_H
+#define KINEMATICCORE_KINEMATICCOREVERSION_H
+
+#include "kinematic_core_global.h"
+
+KINEMATIC_CORE_API unsigned int kinematicCoreApiVersion();
+
+#endif // KINEMATICCORE_KINEMATICCOREVERSION_H

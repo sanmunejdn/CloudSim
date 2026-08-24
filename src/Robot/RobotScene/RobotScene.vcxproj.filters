@@ -17,6 +17,9 @@
     <Filter Include="inc\Interfaces">
       <UniqueIdentifier>{0876079D-DC98-4D45-B160-15D7EC57EC59}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\KinematicCore">
+      <UniqueIdentifier>{KC-RS-INC-0001-4F2A-9B8C-D1E2F3A4B5C6}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\KinematicsFrames">
       <UniqueIdentifier>{9679D019-AED6-405A-9FFB-942E0D19117C}</UniqueIdentifier>
     </Filter>
@@ -50,6 +53,9 @@
     </Filter>
     <Filter Include="src\Instructions">
       <UniqueIdentifier>{80DF28ED-2E94-4C8F-814A-F8516E620C56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\KinematicCore">
+      <UniqueIdentifier>{KC-RS-SRC-0001-4F2A-9B8C-D1E2F3A4B5C6}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\KinematicsFrames">
       <UniqueIdentifier>{4BC7C7AB-677C-4C3C-9CC9-A83C31EFF021}</UniqueIdentifier>
@@ -206,6 +212,48 @@
     <ClInclude Include="inc\UnifiedTrajectory.h">
       <Filter>inc\Trajectory</Filter>
     </ClInclude>
+    <ClInclude Include="inc\CustomDeviceGraphBuilder.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CustomDeviceKinematicModel.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\JointMotionAdapters.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KinematicModelRegistry.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ExternalAxisGraphBuilder.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CompositeKinematicModel.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ExternalAxisKinematicModel.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KinematicModelApply.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotKinematicApplyContext.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UrdfRobotKinematicModelSink.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KinematicModelIk.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotExternalAxisSceneApply.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotKinematicModelRegistration.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotPerLinkKinematicsApply.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\CloudSimCoreExport.cpp">
@@ -327,6 +375,45 @@
     </ClCompile>
     <ClCompile Include="source\UnifiedTrajectory.cpp">
       <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceGraphBuilder.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceKinematicModel.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\JointMotionAdapters.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicModelRegistry.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ExternalAxisGraphBuilder.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CompositeKinematicModel.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ExternalAxisKinematicModel.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicModelApply.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UrdfRobotKinematicModelSink.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicModelIk.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotExternalAxisSceneApply.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotKinematicModelRegistration.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotPerLinkKinematicsApply.cpp">
+      <Filter>src\KinematicCore</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

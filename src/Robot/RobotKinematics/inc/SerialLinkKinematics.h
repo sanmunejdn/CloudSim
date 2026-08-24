@@ -15,7 +15,7 @@ namespace robot_kinematics
 /// 单节改进 DH（Craig《机器人学导论》）：\n
 /// 旋转：θ_i = thetaOffset + q[jointIndex]；棱柱：d_i = d + q[jointIndex]\n
 /// jointIndex < 0 表示该节无关节变量
-/// @deprecated 有 URDF 时勿新建 DH 行；请用 UrdfRobotLoader / UrdfNumericalIk
+/// @deprecated 有 URDF 时勿新建 DH 行；请用 UrdfRobotLoader / UrdfNumericalIk / KinematicCore 图 IK
 struct DhRow
 {
 	double a = 0.0;

@@ -9,11 +9,14 @@
 #include "DocumentHostEvents.h"
 #include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
+#include "KinematicModelApply.h"
+#include "KinematicModelRegistry.h"
+#include "IRobotSimulationDocument.h"
 #include "OsgWidget.h"
 #include "RobotPlanInstruction.h"
 #include "RobotProgramJsonIo.h"
 #include "RobotProgramStore.h"
-#include "RobotSceneKinematics.h"
+#include "RobotKinematicApplyContext.h"
 #include "UrdfRobotImport.h"
 
 namespace cloudsim::host
@@ -82,11 +85,22 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 	}
 	QVector<double> aggregated(doc->robotRevoluteJointNames().size(), 0.0);
 	KinematicsBatchScope batch(m_host);
-	if (!RobotSceneKinematics::applyJointAnglesForInstance(doc, poseSink, instIdx, jointAnglesRad, aggregated))
+	RobotKinematicApplyContext::Context applyCtx;
+	applyCtx.doc = doc;
+	applyCtx.sink = poseSink;
+	applyCtx.instanceIndex = instIdx;
+	const std::string registryKey =
+		KinematicModelRegistry::keyRobotInstance(sceneRootBackendId.toStdString());
+	std::vector<double> localArmQ(static_cast<size_t>(jointAnglesRad.size()));
+	for (int i = 0; i < jointAnglesRad.size(); ++i)
+	{
+		localArmQ[static_cast<size_t>(i)] = jointAnglesRad[i];
+	}
+	if (!KinematicModelApply::applyRobotArm(registryKey, applyCtx, localArmQ, aggregated))
 	{
 		if (outError)
 		{
-			*outError = QStringLiteral("applyJointAnglesForInstance failed");
+			*outError = QStringLiteral("KinematicModelApply::applyRobotArm failed");
 		}
 		return false;
 	}
