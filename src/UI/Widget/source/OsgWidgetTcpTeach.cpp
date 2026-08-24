@@ -168,7 +168,10 @@ void OsgWidget::beginTcpDragTeach(const std::string& mountBackendId, const engin
 
 	updateTcpDragTeachFromTarget(T_base_target);
 	syncTcpTeachWorldPatFromTarget();
-	m_tcpTeachCompassTransform->setNodeMask(0xffffffffu);
+	// 仅 overlay 拾取；勿进 kMaskPickContent，否则对象选择射线会打到罗盘几何并易崩
+	m_tcpTeachWorldPat->setNodeMask(OsgScene::kMaskPickOverlay);
+	m_tcpTeachOverlayGroup->setNodeMask(OsgScene::kMaskPickOverlay);
+	m_tcpTeachCompassTransform->setNodeMask(OsgScene::kMaskPickOverlay);
 	requestRedraw();
 }
 

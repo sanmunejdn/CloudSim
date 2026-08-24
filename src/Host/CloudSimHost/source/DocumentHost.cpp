@@ -34,6 +34,8 @@
 #include "adapters/OsgRenderViewAdapter.h"
 #endif
 #include "adapters/RobotServiceAdapter.h"
+#include "visual/BackendVisualSyncEngine.h"
+#include "visual/BackendVisualEnsure.h"
 
 #include <Qt>
 #include <QVBoxLayout>
@@ -64,6 +66,10 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 	{
 		// OSG 直挂 layout：勿用 QStackedWidget 包 OpenGL，Windows 上会拖视图卡顿
 		m_osgWidget = new OsgWidget(this);
+		m_osgWidget->setPoseSyncBackendManager(m_backend.get());
+		m_osgWidget->setVisualSyncMarkDirty([this](const std::string& id, const std::uint32_t aspects) {
+			m_visualSyncEngine.markDirty(id, static_cast<VisualAspect>(aspects), VisualChangeReason::FkWrite);
+		});
 		m_sceneBridge.setOsgWidget(m_osgWidget);
 		m_centralLayout->addWidget(m_osgWidget);
 		m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget, *this);
@@ -616,6 +622,10 @@ void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& s
 			stack.push_back(c);
 		}
 	}
+	for (const std::string& followerId : followReverseIndex().followersOf(data(), seed))
+	{
+		m_followState.dirtyBackendIds().insert(followerId);
+	}
 }
 
 void DocumentHost::invalidateFollowReverseIndex()
@@ -646,7 +656,13 @@ bool DocumentHost::followSolveForcedPending() const
 bool DocumentHost::isKinematicsOwnedBackend(const std::string& backendId) const
 {
 	const QString id = QString::fromStdString(backendId);
-	return m_projectSidecar.sourceType().value(id).compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0;
+	const QString src = m_projectSidecar.sourceType().value(id);
+	if (src.compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0)
+	{
+		return true;
+	}
+	// 自定义设备 Link 几何由 applyQ FK 写位姿，与 URDF 连杆同规则
+	return src.compare(QStringLiteral("CustomDeviceLink"), Qt::CaseInsensitive) == 0;
 }
 
 void DocumentHost::stripKinematicsOwnedFollowAttachments()
@@ -691,15 +707,31 @@ bool DocumentHost::deferPropertyPanelVisualFullSync() const
 	return m_followState.deferPropertyPanelVisualFullSync();
 }
 
+BackendVisualSyncEngine& DocumentHost::visualSyncEngine()
+{
+	return m_visualSyncEngine;
+}
+
+const BackendVisualSyncEngine& DocumentHost::visualSyncEngine() const
+{
+	return m_visualSyncEngine;
+}
+
+void DocumentHost::markVisualDirty(const std::string& backendId, const VisualAspect aspects)
+{
+	m_visualSyncEngine.markDirty(backendId, aspects, VisualChangeReason::Manual);
+}
+
+bool DocumentHost::flushVisualSync(const FlushPolicy policy)
+{
+	return m_visualSyncEngine.flush(policy);
+}
+
 void DocumentHost::ensureSelectionVisualForBackend(const std::string& backendId, const bool urdfLinkMesh)
 {
-	const auto obj = m_backend->getData(backendId);
-	if (!obj || !m_osgWidget)
-	{
-		return;
-	}
-	BackendSceneDocumentFacade facade(data(), *m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
-	facade.ensureSelectionVisualForBackend(*obj, urdfLinkMesh);
+	EnsureVisualOptions opts;
+	opts.urdfLinkMesh = urdfLinkMesh;
+	(void)ensureVisual(*this, backendId, EnsureVisualPolicy::CreateIfMissing, opts);
 }
 
 bool DocumentHost::syncOuterPatFromBackendId(const std::string& backendId)
@@ -709,9 +741,8 @@ bool DocumentHost::syncOuterPatFromBackendId(const std::string& backendId)
 	{
 		return false;
 	}
-	BackendSceneDocumentFacade facade(data(), *m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
-	facade.entity(backendId).syncOuterPatFromBackend(*obj);
-	return true;
+	m_visualSyncEngine.markDirty(backendId, VisualAspect::Transform, VisualChangeReason::Manual);
+	return m_visualSyncEngine.flushTransform({backendId});
 }
 
 QMap<QString, QString>& DocumentHost::backendSourcePath()

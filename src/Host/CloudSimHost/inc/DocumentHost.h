@@ -12,6 +12,8 @@
 #include "IPerLinkRobotStateAccessor.h"
 #include "DocumentFollowState.h"
 #include "DocumentProjectSidecar.h"
+#include "visual/BackendVisualSyncEngine.h"
+#include "visual/VisualAspect.h"
 
 #include <QHash>
 #include <QMap>
@@ -143,6 +145,11 @@ public:
 	void setDeferPropertyPanelVisualFullSync(bool defer);
 	bool deferPropertyPanelVisualFullSync() const;
 
+	BackendVisualSyncEngine& visualSyncEngine();
+	const BackendVisualSyncEngine& visualSyncEngine() const;
+	void markVisualDirty(const std::string& backendId, VisualAspect aspects);
+	bool flushVisualSync(FlushPolicy policy = FlushPolicy::Immediate);
+
 	void ensureSelectionVisualForBackend(const std::string& backendId, bool urdfLinkMesh = false);
 	bool syncOuterPatFromBackendId(const std::string& backendId);
 
@@ -212,6 +219,7 @@ private:
 	IPerLinkKinematicsHost* m_perLinkKinematicsHost = nullptr;
 	IPerLinkRobotStateAccessor* m_perLinkRobotStateAccessor = nullptr;
 	QHash<QString, QVector<double>> m_robotLocalJointQBySceneRoot;
+	BackendVisualSyncEngine m_visualSyncEngine{*this};
 };
 
 } // namespace cloudsim::host

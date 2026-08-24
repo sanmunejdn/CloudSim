@@ -120,6 +120,7 @@ void OsgWidget::ensureMeshSectionPlaneOverlay(const std::string& backendIdUtf8)
 	{
 		m_sectionPlaneOverlayGroup = new osg::Group;
 		m_sectionPlaneOverlayGroup->setName("MeshSectionPlaneOverlay");
+		m_sectionPlaneOverlayGroup->setNodeMask(OsgScene::kMaskPickOverlay);
 		if (m_backendObjectsGroup.valid())
 		{
 			m_backendObjectsGroup->addChild(m_sectionPlaneOverlayGroup.get());

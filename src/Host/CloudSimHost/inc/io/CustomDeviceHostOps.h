@@ -53,6 +53,15 @@ CLOUDSIM_HOST_EXPORT bool unmountCustomDeviceFromRobotFlange(DocumentHost& host,
 CLOUDSIM_HOST_EXPORT void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host,
 																		const std::string& deviceBackendId);
 
+/// Link/Joint 提交后：登记连杆几何为 FK 独占并卸层级 Follow（否则轴控 applyQ 会被 Follow 拉回）
+CLOUDSIM_HOST_EXPORT void finalizeCustomDeviceLinkJointGraph(DocumentHost& host, const std::string& deviceBackendId);
+
+/// applyQ 后：把连杆几何 worldMatrix 刷到 OSG（poseSink 只标脏，须显式 flush）
+CLOUDSIM_HOST_EXPORT void flushCustomDeviceLinkGeometryVisual(DocumentHost& host, const std::string& deviceBackendId);
+
+/// 工程加载：为已存图的自定义设备补登记连杆 FK 独占
+CLOUDSIM_HOST_EXPORT void registerAllCustomDeviceLinkGeometryOwnership(DocumentHost& host);
+
 } // namespace cloudsim::host
 
 #endif // CLOUDSIMHOST_CUSTOMDEVICEHOSTOPS_H

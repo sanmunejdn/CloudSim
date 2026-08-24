@@ -22,6 +22,7 @@
 #include <limits>
 #include <queue>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 #include <BrepImportArtifacts.h>
@@ -333,7 +334,7 @@ void OsgScene::initScene()
 
 	m_tcpTeachSceneOverlayGroup = new osg::Group;
 	m_tcpTeachSceneOverlayGroup->setName("TcpTeachSceneOverlay");
-	m_tcpTeachSceneOverlayGroup->setNodeMask(0xffffffffu);
+	m_tcpTeachSceneOverlayGroup->setNodeMask(kMaskPickOverlay);
 	m_tcpTeachSceneOverlayGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF |
 																				 osg::StateAttribute::OVERRIDE);
 	m_tcpTeachSceneOverlayGroup->getOrCreateStateSet()->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF |
@@ -351,7 +352,8 @@ void OsgScene::initScene()
 
 	m_gizmoOverlayGroup = new osg::Group;
 	m_gizmoOverlayGroup->setName("GizmoOverlay");
-	m_gizmoOverlayGroup->setNodeMask(0xffffffffu);
+	// 勿进内容拾取：挂在选中件 inner 下时，全场景射线会打到罗盘几何
+	m_gizmoOverlayGroup->setNodeMask(kMaskPickOverlay);
 	osg_compass::applyUnlitHighlitStateSet(m_gizmoOverlayGroup->getOrCreateStateSet());
 
 	m_compassTransform = new osg::PositionAttitudeTransform;
@@ -360,7 +362,7 @@ void OsgScene::initScene()
 	m_gizmoOverlayGroup->addChild(m_compassTransform.get());
 
 	m_pickFeedbackTransform = new osg::AutoTransform;
-	m_pickFeedbackTransform->setNodeMask(kMaskHelper);
+	m_pickFeedbackTransform->setNodeMask(kMaskPickOverlay);
 	m_pickFeedbackTransform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
 	m_pickFeedbackTransform->setAutoScaleToScreen(true);
 	m_gizmoOverlayGroup->addChild(m_pickFeedbackTransform.get());
@@ -679,47 +681,229 @@ bool OsgScene::tryGetBackendPointLocalToWorldMatrix(const std::string& backendId
 	return true;
 }
 
+namespace
+{
+bool matrixPtrAllFinite(const double* m16)
+{
+	if (!m16)
+	{
+		return false;
+	}
+	for (int i = 0; i < 16; ++i)
+	{
+		if (!std::isfinite(m16[i]))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool windowToWorldPickRay(osg::Camera* camera, const double windowX, const double windowY, osg::Vec3d& outNearWorld,
+						  osg::Vec3d& outFarWorld)
+{
+	if (!camera)
+	{
+		return false;
+	}
+	osg::Viewport* const vp = camera->getViewport();
+	if (!vp || vp->width() <= 0.0 || vp->height() <= 0.0)
+	{
+		return false;
+	}
+	osg::Matrixd mvpw = camera->getViewMatrix() * camera->getProjectionMatrix();
+	mvpw.postMult(vp->computeWindowMatrix());
+	osg::Matrixd invMvpw;
+	if (!invMvpw.invert(mvpw) || !matrixPtrAllFinite(invMvpw.ptr()))
+	{
+		return false;
+	}
+	outNearWorld = osg::Vec3d(windowX, windowY, 0.0) * invMvpw;
+	outFarWorld = osg::Vec3d(windowX, windowY, 1.0) * invMvpw;
+	return std::isfinite(outNearWorld.x()) && std::isfinite(outNearWorld.y()) && std::isfinite(outNearWorld.z()) &&
+		   std::isfinite(outFarWorld.x()) && std::isfinite(outFarWorld.y()) && std::isfinite(outFarWorld.z());
+}
+
+// 父链走访，遇环则失败（避免 computeLocalToWorld 死循环）
+bool safeLocalToWorld(const osg::Node* leaf, osg::Matrixd& outWorld)
+{
+	if (!leaf)
+	{
+		return false;
+	}
+	osg::NodePath path;
+	std::unordered_set<const osg::Node*> seen;
+	for (const osg::Node* n = leaf; n != nullptr;)
+	{
+		if (!seen.insert(n).second)
+		{
+			return false;
+		}
+		path.insert(path.begin(), const_cast<osg::Node*>(n));
+		if (n->getNumParents() == 0)
+		{
+			break;
+		}
+		n = n->getParent(0);
+	}
+	outWorld = osg::computeLocalToWorld(path);
+	return matrixPtrAllFinite(outWorld.ptr());
+}
+
+bool projectWorldToLogicalScreen(osg::Camera* camera, const int viewportW, const int viewportH, const double dpr,
+								 const osg::Vec3d& world, double& outLogicalX, double& outLogicalY, double& outNdcZ)
+{
+	if (!camera || viewportW <= 0 || viewportH <= 0 || dpr <= 0.0)
+	{
+		return false;
+	}
+	osg::Viewport* const vp = camera->getViewport();
+	if (!vp)
+	{
+		return false;
+	}
+	osg::Matrixd mvpw = camera->getViewMatrix() * camera->getProjectionMatrix();
+	mvpw.postMult(vp->computeWindowMatrix());
+	const osg::Vec3d win = world * mvpw;
+	if (!std::isfinite(win.x()) || !std::isfinite(win.y()) || !std::isfinite(win.z()))
+	{
+		return false;
+	}
+	outNdcZ = win.z();
+	// window → logical（与 logicalMouseToPickWindowCoords 互逆）
+	outLogicalX = win.x() / dpr;
+	outLogicalY = (static_cast<double>(viewportH) * dpr - win.y()) / dpr;
+	return std::isfinite(outLogicalX) && std::isfinite(outLogicalY);
+}
+
+#if defined(_WIN32)
+bool safeAcceptNodeIntersection(osg::Node* node, osgUtil::IntersectionVisitor& iv)
+{
+	if (!node)
+	{
+		return false;
+	}
+	__try
+	{
+		node->accept(iv);
+		return true;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		return false;
+	}
+}
+#else
+bool safeAcceptNodeIntersection(osg::Node* node, osgUtil::IntersectionVisitor& iv)
+{
+	if (!node)
+	{
+		return false;
+	}
+	try
+	{
+		node->accept(iv);
+		return true;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+#endif
+
+bool acceptPickSubgraph(osg::Node* subgraph, const unsigned int traversalMask,
+						osgUtil::LineSegmentIntersector& intersector)
+{
+	if (!subgraph)
+	{
+		return false;
+	}
+	osgUtil::IntersectionVisitor iv(&intersector);
+	iv.setTraversalMask(traversalMask);
+	return safeAcceptNodeIntersection(subgraph, iv);
+}
+} // namespace
+
 std::string OsgScene::pickBackendIdAtScreenPos(double mouseX, double mouseY) const
 {
-	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
+	if (!m_viewer.valid() || !m_viewer->getCamera() || m_backendObjectRoots.empty())
 	{
 		return {};
 	}
-	double windowX = 0.0;
-	double windowY = 0.0;
-	logicalMouseToPickWindowCoords(mouseX, mouseY, windowX, windowY);
-	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
-	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
-	osgUtil::IntersectionVisitor iv(intersector.get());
-	iv.setTraversalMask(kMaskPickContent);
-	m_viewer->getCamera()->accept(iv);
-	if (!intersector->containsIntersections())
+	if (viewportWidth() <= 0 || viewportHeight() <= 0)
 	{
 		return {};
 	}
-	for (const auto& hit : intersector->getIntersections())
+	osg::Camera* const camera = m_viewer->getCamera();
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	// 不用 LineSegmentIntersector：坏 Drawable / osgText / 环路会在 accept 里直接 AV
+	static constexpr double kHitRadiusPx = 96.0;
+	const double hitR2 = kHitRadiusPx * kHitRadiusPx;
+	double bestScore = 1e300;
+	std::string bestId;
+	for (const auto& kv : m_backendObjectRoots)
 	{
-		const osg::NodePath& path = hit.nodePath;
-		std::string visualId;
-		if (!resolveBackendIdFromPickedPath(path, visualId))
+		osg::MatrixTransform* const outer = kv.second.get();
+		if (!outer || (outer->getNodeMask() & kMaskPickContent) == 0u)
 		{
 			continue;
 		}
-		const std::string logicalId = resolveLogicalBackendIdFromVisualPick(visualId);
-		const std::string scopeId = resolvePickScopeBackendId(logicalId);
-		auto rootIt = m_backendObjectRoots.find(scopeId);
+		osg::Matrixd world;
+		if (!safeLocalToWorld(outer, world))
+		{
+			continue;
+		}
+		osg::Vec3d centerLocal(0.0, 0.0, 0.0);
+		const auto cIt = m_backendModelCenters.find(kv.first);
+		if (cIt != m_backendModelCenters.end())
+		{
+			centerLocal.set(static_cast<double>(cIt->second.x()), static_cast<double>(cIt->second.y()),
+							static_cast<double>(cIt->second.z()));
+		}
+		const osg::Vec3d centerWorld = centerLocal * world;
+		double sx = 0.0;
+		double sy = 0.0;
+		double ndcZ = 0.0;
+		if (!projectWorldToLogicalScreen(camera, viewportWidth(), viewportHeight(), dpr, centerWorld, sx, sy, ndcZ))
+		{
+			continue;
+		}
+		if (ndcZ < 0.0 || ndcZ > 1.0)
+		{
+			continue;
+		}
+		const double dx = sx - mouseX;
+		const double dy = sy - mouseY;
+		const double d2 = dx * dx + dy * dy;
+		if (d2 > hitR2)
+		{
+			continue;
+		}
+		// 近距优先；同屏距时更靠前的优先
+		const double score = d2 + ndcZ * 8.0;
+		if (score < bestScore)
+		{
+			bestScore = score;
+			bestId = kv.first;
+		}
+	}
+	if (bestId.empty())
+	{
+		return {};
+	}
+	const std::string logicalId = resolveLogicalBackendIdFromVisualPick(bestId);
+	const std::string scopeId = resolvePickScopeBackendId(logicalId);
+	auto rootIt = m_backendObjectRoots.find(scopeId);
+	if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
+	{
+		rootIt = m_backendObjectRoots.find(bestId);
 		if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
 		{
-			rootIt = m_backendObjectRoots.find(visualId);
-			if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
-			{
-				continue;
-			}
+			return {};
 		}
-		return logicalId.empty() ? rootIt->first : logicalId;
 	}
-	return {};
+	return logicalId.empty() ? rootIt->first : logicalId;
 }
 
 bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
@@ -1149,12 +1333,17 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 	double windowX = 0.0;
 	double windowY = 0.0;
 	logicalMouseToPickWindowCoords(mouseX, mouseY, windowX, windowY);
+	osg::Vec3d nearWorld;
+	osg::Vec3d farWorld;
+	if (!windowToWorldPickRay(m_viewer->getCamera(), windowX, windowY, nearWorld, farWorld))
+	{
+		return false;
+	}
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::MODEL, nearWorld, farWorld);
 	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
-	osgUtil::IntersectionVisitor iv(intersector.get());
-	iv.setTraversalMask(kMaskPickContent);
-	m_viewer->getCamera()->accept(iv);
+	(void)acceptPickSubgraph(m_backendObjectsGroup.get(), kMaskPickContent, *intersector);
+	(void)acceptPickSubgraph(m_robotAssemblyGroup.get(), kMaskPickContent, *intersector);
 
 	if (!intersector->containsIntersections())
 	{
@@ -1507,12 +1696,17 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY, osg::
 	double windowX = 0.0;
 	double windowY = 0.0;
 	logicalMouseToPickWindowCoords(mouseX, mouseY, windowX, windowY);
+	osg::Vec3d nearWorld;
+	osg::Vec3d farWorld;
+	if (!windowToWorldPickRay(m_viewer->getCamera(), windowX, windowY, nearWorld, farWorld))
+	{
+		return false;
+	}
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::MODEL, nearWorld, farWorld);
 	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
-	osgUtil::IntersectionVisitor iv(intersector.get());
-	iv.setTraversalMask(kMaskPickContent);
-	m_viewer->getCamera()->accept(iv);
+	(void)acceptPickSubgraph(m_backendObjectsGroup.get(), kMaskPickContent, *intersector);
+	(void)acceptPickSubgraph(m_robotAssemblyGroup.get(), kMaskPickContent, *intersector);
 
 	if (!intersector->containsIntersections())
 	{

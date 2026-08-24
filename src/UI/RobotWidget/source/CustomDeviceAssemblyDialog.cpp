@@ -9,6 +9,7 @@
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceKinematics.h"
 #include "CustomDeviceRobotMountComponent.h"
+#include "RobotExternalAxes.h"
 #include "ICustomDeviceAssemblyHost.h"
 #include "IRobotDocumentHost.h"
 
@@ -420,6 +421,42 @@ void CustomDeviceAssemblyDialog::pushJointProps()
 	if (m.motionType == CustomDeviceMotionType::Rotate)
 	{
 		m.motionCenterFrameBackendId = m_centerFrameCombo->currentData().toString().toStdString();
+		if (m.motionCenterFrameBackendId.empty())
+		{
+			m.originMm[0] = 0.0;
+			m.originMm[1] = 0.0;
+			m.originMm[2] = 0.0;
+		}
+		else if (m_host && m_host->document())
+		{
+			const QString jid = m_canvas->selectedJointId();
+			for (const CustomDeviceJoint& J : m_canvas->joints())
+			{
+				if (QString::fromStdString(J.id) != jid)
+				{
+					continue;
+				}
+				for (const CustomDeviceLink& L : m_canvas->links())
+				{
+					if (L.id != J.parentLinkId || L.geometryBackendId.empty())
+					{
+						continue;
+					}
+					if (m_device && m_device->usesLinkJointGraph())
+					{
+						(void)CustomDeviceKinematics::bakeJointMotionOriginFromParentLink(
+							*m_device, m, J.parentLinkId, &m_host->document()->backend());
+					}
+					else
+					{
+						(void)CustomDeviceKinematics::bakeJointMotionOriginFromParentGeometry(
+							m, L.geometryBackendId, &m_host->document()->backend());
+					}
+					break;
+				}
+				break;
+			}
+		}
 	}
 	else
 	{
@@ -517,6 +554,16 @@ bool CustomDeviceAssemblyDialog::attachChildId(const QString& childId, QString* 
 		return false;
 	}
 	QString err;
+	BackendMat4 preAttachWorld = BackendMat4::identity();
+	bool havePreAttachWorld = false;
+	if (const auto geom = m_host->document()->findObject(childId.toStdString()))
+	{
+		if (geom->hasPoseProperty())
+		{
+			preAttachWorld = geom->worldMatrix(&m_host->document()->backend());
+			havePreAttachWorld = true;
+		}
+	}
 	if (!m_host->attachChildToCustomDevice(m_device->id(), childId.toStdString(), &err))
 	{
 		if (outErr)
@@ -535,8 +582,25 @@ bool CustomDeviceAssemblyDialog::attachChildId(const QString& childId, QString* 
 	}
 	const bool first = m_canvas->links().isEmpty();
 	const QPointF pos(120.0 + m_canvas->links().size() * 200.0, 160.0);
-	m_canvas->addLinkBlock(title, childId, pos, first);
+	const QString linkId = m_canvas->addLinkBlock(title, childId, pos, first);
 	m_device->captureBaseWorldW0FromCurrentWorld();
+	if (havePreAttachWorld)
+	{
+		double w0[16];
+		double invW0[16];
+		double gw[16];
+		double rest[16];
+		for (int i = 0; i < 16; ++i)
+		{
+			w0[i] = m_device->baseWorldW0().v[i];
+			gw[i] = preAttachWorld.v[i];
+		}
+		if (RobotExternal::mat4InvertRigidColumnMajor(w0, invW0))
+		{
+			RobotExternal::mat4MulColumnMajor16(invW0, gw, rest);
+			(void)m_canvas->setLinkRestInDeviceW0(linkId, rest);
+		}
+	}
 	(void)CustomDeviceKinematics::applyQ(*m_device, &m_host->document()->backend(), m_host->document()->poseSink());
 	m_host->markFollowAttachmentDirty(QString::fromStdString(m_device->id()));
 	m_host->runFollowSolveAndSync();
@@ -814,12 +878,12 @@ void CustomDeviceAssemblyDialog::onApplyAccepted()
 		return;
 	}
 
+	m_committedDeviceId = QString::fromStdString(m_device->id());
+	m_host->onCustomDeviceAssemblyCommitted(m_committedDeviceId);
 	m_host->markFollowAttachmentDirty(QString::fromStdString(m_device->id()));
 	m_host->runFollowSolveAndSync();
 	m_host->refreshBackendTree();
 	m_host->focusBackendInTree(QString::fromStdString(m_device->id()));
-	m_committedDeviceId = QString::fromStdString(m_device->id());
-	m_host->onCustomDeviceAssemblyCommitted(m_committedDeviceId);
 	const QString name = QString::fromStdString(m_device->name());
 	m_host->appendRunInfo(m_editMode
 							  ? i18n(QStringLiteral("Custom device updated: %1").arg(name),

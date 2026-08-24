@@ -67,6 +67,10 @@ public:
 	virtual void refreshBackendTree() = 0;
 	virtual void runFollowSolveAndSyncForCurrentDocument() = 0;
 	virtual void rebakeMountedCustomDevicesFollowLocalsForCurrentDocument() = 0;
+	/// 轴控切到自定义设备：登记连杆 FK 独占并卸层级 Follow
+	virtual void prepareCustomDeviceAxisControlTarget(const QString& deviceBackendId) = 0;
+	/// applyQ 后刷新连杆 OSG 位姿
+	virtual void flushCustomDeviceLinkGeometryVisual(const QString& deviceBackendId) = 0;
 	virtual void clearBackendObjectSelection(bool clearTreeSelection) = 0;
 	virtual QString selectedBackendId() const = 0;
 

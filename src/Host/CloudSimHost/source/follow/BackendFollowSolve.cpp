@@ -6,14 +6,16 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowTransformSolver.h"
-#include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "DocumentHost.h"
 #include "FollowAttachmentComponent.h"
 #include "IRenderView.h"
 #include "OsgWidget.h"
 #include "OsgWidgetSceneBridge.h"
-#include "RobotMatrixOsgBridge.h"
+#include "io/CustomDeviceRobotMountOps.h"
+#include "visual/VisualAspect.h"
+
+#include "PropertyBag.h"
 
 #include <QString>
 #include <unordered_set>
@@ -22,6 +24,69 @@
 
 namespace cloudsim::host
 {
+namespace
+{
+std::string trimUtf8Whitespace(const std::string& s)
+{
+	std::size_t a = 0;
+	std::size_t b = s.size();
+	while (a < b && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r' || s[a] == '\n'))
+	{
+		++a;
+	}
+	while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t' || s[b - 1] == '\r' || s[b - 1] == '\n'))
+	{
+		--b;
+	}
+	return s.substr(a, b - a);
+}
+
+void resolveFollowTargetsFromNames(BackendDataManager& mgr)
+{
+	for (const auto& d : mgr.listData())
+	{
+		if (!d)
+		{
+			continue;
+		}
+		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		if (!comp || !comp->enabled() || !comp->targetBackendId().empty())
+		{
+			continue;
+		}
+		std::string name;
+		if (!d->propertyBag().tryGet<std::string>("follow.targetName", name))
+		{
+			continue;
+		}
+		name = trimUtf8Whitespace(name);
+		if (name.empty())
+		{
+			continue;
+		}
+		const std::vector<std::shared_ptr<BackendDataBase>> matches = mgr.findByName(name);
+		if (matches.size() != 1U || !matches.front())
+		{
+			continue;
+		}
+		comp->setTargetBackendId(matches.front()->id());
+	}
+}
+
+bool dirtyContainsKinematicsSeed(const DocumentHost& page, const std::unordered_set<std::string>& dirty)
+{
+	for (const std::string& id : dirty)
+	{
+		if (page.isKinematicsOwnedBackend(id))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+} // namespace
+
 void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const FollowSolveContext* ctx,
 								  const std::string* manualPoseAuthorityBackendId)
 {
@@ -34,9 +99,14 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 	page.stripKinematicsOwnedFollowAttachments();
 
 	BackendDataManager& mgr = page.backend();
-	const bool forced = page.takeFollowSolveForced();
+	resolveFollowTargetsFromNames(mgr);
+	bool forced = page.takeFollowSolveForced();
 	auto& dirty = page.followDirtyBackendIds();
-	const bool gizmoDrag = osg && osg->isTransformGizmoDragging();
+	if (!forced && dirtyContainsKinematicsSeed(page, dirty))
+	{
+		forced = true;
+	}
+	const bool gizmoDrag = osg && osg->isTransformGizmoDragging() && !osg->isTcpDragTeachActive();
 	// gizmo 拖动不能单独当全量解：否则无关件每帧 syncOuterPat（日志里 A 被反复刷）
 	if (!forced && dirty.empty())
 	{
@@ -61,30 +131,16 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		bakeFollowLocalAfterManualPoseEdit(page, skipId);
 	}
 
-	// URDF 连杆 FK 写 backend worldMatrix；OSG outer PAT 在部分路径下仍为原点，须读 backend
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&page, osg, &mgr](const std::string& bid,
-																					   BackendMat4& out) -> bool
+	// 位姿真源统一读 Data.worldMatrix（gizmo 拖动期由 skipId 排除 follower 写回）
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&mgr](const std::string& bid,
+																		 BackendMat4& out) -> bool
 	{
-		if (page.isKinematicsOwnedBackend(bid))
-		{
-			const auto obj = mgr.getData(bid);
-			if (!obj || !obj->hasPoseProperty())
-			{
-				return false;
-			}
-			out = obj->worldMatrix();
-			return true;
-		}
-		if (!osg)
+		const auto obj = mgr.getData(bid);
+		if (!obj || !obj->hasPoseProperty())
 		{
 			return false;
 		}
-		osg::Matrixd om;
-		if (!osg->getBackendRootWorldMatrix(bid, om))
-		{
-			return false;
-		}
-		out = RobotMatrixOsg::backendColMajorFromMatrix(om);
+		out = obj->worldMatrix(&mgr);
 		return true;
 	};
 
@@ -122,17 +178,34 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		{
 			continue;
 		}
-		// 挂到 URDF 连杆的自定义设备：OSG 由 refreshCustomDevicesFollowingKinematicsTargets 统一写
-		if (d->className() == backend_type::kClassCustomDevice)
+		page.markVisualDirty(fid, VisualAspect::Transform);
+	}
+	if (usePoseLimit)
+	{
+		for (const std::string& id : dirty)
 		{
-			const std::string& targetId = comp->targetBackendId();
-			if (page.isKinematicsOwnedBackend(targetId))
+			if (page.isKinematicsOwnedBackend(id))
 			{
 				continue;
 			}
+			if (!gizmoDragSelectedId.empty() && id == gizmoDragSelectedId)
+			{
+				continue;
+			}
+			if (!manualAuthorityId.empty() && id == manualAuthorityId)
+			{
+				continue;
+			}
+			const auto obj = mgr.getData(id);
+			if (!obj || !obj->hasPoseProperty())
+			{
+				continue;
+			}
+			page.markVisualDirty(id, VisualAspect::Transform);
 		}
-		page.sceneBridge().syncOuterPatFromBackend(*d);
 	}
+	refreshCustomDevicesFollowingKinematicsTargets(page);
+	page.flushVisualSync();
 	dirty.clear();
 }
 
@@ -162,15 +235,12 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid,
 																		   BackendMat4& out) -> bool
 	{
-		cloudsim::core::Mat4 mat;
-		if (!host.render().getWorldMatrix(QString::fromStdString(bid), mat))
+		const auto obj = host.backend().getData(bid);
+		if (!obj || !obj->hasPoseProperty())
 		{
 			return false;
 		}
-		for (int i = 0; i < 16; ++i)
-		{
-			out.v[i] = mat[static_cast<size_t>(i)];
-		}
+		out = obj->worldMatrix(&host.backend());
 		return true;
 	};
 	if (propertyKey == QStringLiteral("follow.targetId") || propertyKey == QStringLiteral("follow.targetName") ||
@@ -204,15 +274,12 @@ void bakeFollowLocalAfterManualPoseEdit(DocumentHost& host, const std::string& b
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid,
 																		   BackendMat4& out) -> bool
 	{
-		cloudsim::core::Mat4 mat;
-		if (!host.render().getWorldMatrix(QString::fromStdString(bid), mat))
+		const auto obj = host.backend().getData(bid);
+		if (!obj || !obj->hasPoseProperty())
 		{
 			return false;
 		}
-		for (int i = 0; i < 16; ++i)
-		{
-			out.v[i] = mat[static_cast<size_t>(i)];
-		}
+		out = obj->worldMatrix(&host.backend());
 		return true;
 	};
 	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *data, nullptr);

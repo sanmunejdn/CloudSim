@@ -4,6 +4,7 @@
 #include "ShapeQuery.h"
 
 #include "BrepBoolean.h"
+#include "CsgkBackend.h"
 #include "Discretize.h"
 #include "Intersection.h"
 #include "MeshDiscretize.h"
@@ -62,8 +63,12 @@ int shapeEdgeCount(const TopoDS_Shape& shape)
 
 int shapeHandleEdgeCount(const ShapeHandle& handle)
 {
+#ifdef CLOUDSIM_USE_CSGK
+	if(ShapeHandleAccess::isCsgkBackend(handle))
+		return csgkShapeEdgeCount(handle);
+#endif
 	TopoDS_Shape native;
-	if (!ShapeHandleAccess::nativeShape(handle, &native) || native.IsNull())
+	if(!ShapeHandleAccess::nativeShape(handle, &native) || native.IsNull())
 		return 0;
 	return shapeEdgeCount(native);
 }

@@ -113,6 +113,7 @@ public:
 					  const BackendDataManager* mgr = nullptr);
 	BackendMat4 worldMatrix(const BackendDataManager* mgr = nullptr) const;
 	void setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr = nullptr);
+	std::uint64_t geometryRevision() const { return m_geometryRevision; }
 	/// 用户拖动/Gizmo：后乘增量，geometry 不变
 	void applyWorldMatrixIncrement(const BackendMat4& incrementLocal, const BackendDataManager* mgr = nullptr);
 	bool validatePoseFrameRoundTrip(const BackendDataManager* mgr, double epsilon = 1e-6) const;
@@ -163,6 +164,7 @@ public:
 	static std::string generateId();
 
 protected:
+	void bumpGeometryRevision() { ++m_geometryRevision; }
 	virtual void saveDerivedJson(nlohmann::json& out) const;
 	virtual bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg);
 
@@ -174,6 +176,7 @@ private:
 	bool m_visible = true;
 	BackendPoseReferenceFrame m_poseReferenceFrame = BackendPoseReferenceFrame::World;
 	BackendMat4 m_worldMatrix = BackendMat4::identity();
+	std::uint64_t m_geometryRevision = 0;
 	mutable PropertyBag m_propertyBag;
 	mutable std::mutex m_componentMutex;
 	std::unordered_map<std::string, BackendComponentPtr> m_components;

@@ -57,6 +57,7 @@ void BrepBackendData::setShape(geoalgo::ShapeHandle shape)
 {
 	m_shape = std::move(shape);
 	recomputeBounds();
+	bumpGeometryRevision();
 }
 
 void BrepBackendData::shareShapeFrom(const BrepBackendData& other)

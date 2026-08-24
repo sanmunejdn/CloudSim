@@ -1046,7 +1046,11 @@ void RobotSimulationController::wireSimulationSignals()
 		connect(deviceTabs, &QTabWidget::currentChanged, this, &RobotSimulationController::onSimulationDockTabChanged);
 	}
 	connect(m_simulationDock, &RobotSimulationDockWidget::dockModeChanged, this,
-			[this](SimulationDockMode) { refreshPathPlanPreviewForActiveTab(); });
+			[this](SimulationDockMode mode)
+			{
+				refreshPathPlanPreviewForActiveTab();
+				syncAxisControlTargetForDockMode(mode);
+			});
 	if (m_programEditService)
 	{
 		connect(m_programEditService, &ProgramEditService::revisionChanged, this,
@@ -1221,7 +1225,7 @@ void RobotSimulationController::syncRobotKinematicsAfterPoseEdit(const std::shar
 	}
 }
 
-void RobotSimulationController::stopRobotSimulation()
+void RobotSimulationController::stopRobotSimulation(const bool applyLastPoseToScene)
 {
 	cancelArcTeach();
 	const QVector<double> lastJointAngles = m_programExecutor.jointAnglesRad();
@@ -1258,7 +1262,7 @@ void RobotSimulationController::stopRobotSimulation()
 	{
 		m_simulationDock->trajectoryEditPage()->setReadOnly(false);
 	}
-	if (m_host->robotAxisControlPage())
+	if (applyLastPoseToScene && m_host->robotAxisControlPage())
 	{
 		m_host->robotAxisControlPage()->setInteractionEnabled(true);
 		IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
@@ -1279,8 +1283,82 @@ void RobotSimulationController::stopRobotSimulation()
 			}
 		}
 	}
+	else if (m_host && m_host->robotAxisControlPage())
+	{
+		m_host->robotAxisControlPage()->setInteractionEnabled(true);
+	}
 	refreshInstructionPoseAxes();
 	refreshRobotCoordinateFrameOverlays();
+}
+
+void RobotSimulationController::forgetDocumentJointUiState(const QString& documentId)
+{
+	if (documentId.isEmpty())
+	{
+		return;
+	}
+	m_jointUiByDocumentId.remove(documentId);
+	if (m_boundDocumentId == documentId)
+	{
+		m_boundDocumentId.clear();
+		m_aggregatedJointAnglesRad.clear();
+		m_syncedRobotSceneBackendIds.clear();
+	}
+}
+
+void RobotSimulationController::bindJointUiToDocument(IRobotDocumentHost* doc)
+{
+	const QString documentId = doc ? doc->documentId() : QString();
+	if (documentId == m_boundDocumentId)
+	{
+		return;
+	}
+	if (!m_boundDocumentId.isEmpty())
+	{
+		DocumentJointUiState& stash = m_jointUiByDocumentId[m_boundDocumentId];
+		stash.aggregatedJointAnglesRad = m_aggregatedJointAnglesRad;
+		stash.syncedRobotSceneBackendIds = m_syncedRobotSceneBackendIds;
+	}
+	m_boundDocumentId = documentId;
+	if (documentId.isEmpty())
+	{
+		m_aggregatedJointAnglesRad.clear();
+		m_syncedRobotSceneBackendIds.clear();
+		return;
+	}
+	const auto it = m_jointUiByDocumentId.constFind(documentId);
+	if (it != m_jointUiByDocumentId.cend())
+	{
+		m_aggregatedJointAnglesRad = it->aggregatedJointAnglesRad;
+		m_syncedRobotSceneBackendIds = it->syncedRobotSceneBackendIds;
+		return;
+	}
+	m_aggregatedJointAnglesRad.clear();
+	m_syncedRobotSceneBackendIds.clear();
+	if (!doc || !doc->hasRobotSimulationContext())
+	{
+		return;
+	}
+	const int total = doc->robotRevoluteJointNames().size();
+	m_aggregatedJointAnglesRad = QVector<double>(total, 0.0);
+	const int n = doc->robotKinematicInstanceCount();
+	m_syncedRobotSceneBackendIds.reserve(n);
+	for (int i = 0; i < n; ++i)
+	{
+		const QString root = doc->robotSceneBackendIdForInstance(i);
+		m_syncedRobotSceneBackendIds.append(root);
+		QVector<double> local;
+		if (!doc->robotLocalJointAnglesForSceneRoot(root, local))
+		{
+			continue;
+		}
+		const int offset = doc->robotJointOffsetInAggregatedVector(i);
+		const int nj = doc->robotRevoluteJointCountForInstance(i);
+		for (int j = 0; j < nj && j < local.size() && offset + j < total; ++j)
+		{
+			m_aggregatedJointAnglesRad[offset + j] = local[j];
+		}
+	}
 }
 
 void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
@@ -1290,6 +1368,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		return;
 	}
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	bindJointUiToDocument(doc);
 	if (doc)
 	{
 		m_host->simulationCommandPage()->setProgramStore(&doc->robotProgramStore());
@@ -1415,7 +1494,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 
 		{
 			const int total = doc->robotRevoluteJointNames().size();
-			// 删机再导时 DOF 常相同，旧聚合角会进轴控/罗盘 FK，而场景仍是零位
+			// 同文档内删机再导：DOF 常相同，仅当 sceneBackendId 集合无交集时清零
 			if (backendIds != m_syncedRobotSceneBackendIds)
 			{
 				bool overlap = false;
@@ -1450,6 +1529,12 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 				{
 					m_aggregatedJointAnglesRad[i] = 0.0;
 				}
+			}
+			if (!m_boundDocumentId.isEmpty())
+			{
+				DocumentJointUiState& stash = m_jointUiByDocumentId[m_boundDocumentId];
+				stash.aggregatedJointAnglesRad = m_aggregatedJointAnglesRad;
+				stash.syncedRobotSceneBackendIds = m_syncedRobotSceneBackendIds;
 			}
 		}
 		// 切文档只同步轴控 UI；场景位姿由各 DocumentPage 自持，勿每次重推 FK
@@ -1515,6 +1600,13 @@ void RobotSimulationController::restoreAggregatedJointStateAfterProjectLoad(cons
 			ids.append(doc->robotSceneBackendIdForInstance(i));
 		}
 		m_syncedRobotSceneBackendIds = ids;
+	}
+	m_boundDocumentId = doc->documentId();
+	if (!m_boundDocumentId.isEmpty())
+	{
+		DocumentJointUiState& stash = m_jointUiByDocumentId[m_boundDocumentId];
+		stash.aggregatedJointAnglesRad = m_aggregatedJointAnglesRad;
+		stash.syncedRobotSceneBackendIds = m_syncedRobotSceneBackendIds;
 	}
 	const int instIdx =
 		m_host->simulationCommandPage() && m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
@@ -3612,10 +3704,17 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 		const RobotExternal::RobotExternalAxisConfigSet ext =
 			CustomDeviceKinematics::toExternalAxisConfigSet(device->axes());
 		const std::vector<double> fullQ = fullQFromEnabledValues(ext, values);
-		(void)CustomDeviceKinematics::applyQ(*device, &doc->backend(), doc->poseSink(), &fullQ);
 		if (m_host)
 		{
-			m_host->runFollowSolveAndSyncForCurrentDocument();
+			m_host->prepareCustomDeviceAxisControlTarget(deviceId);
+		}
+		if (!CustomDeviceKinematics::applyQ(*device, &doc->backend(), doc->poseSink(), &fullQ))
+		{
+			return;
+		}
+		if (m_host)
+		{
+			m_host->flushCustomDeviceLinkGeometryVisual(deviceId);
 		}
 		if (m_host->osgView())
 		{
@@ -3647,6 +3746,40 @@ void RobotSimulationController::refreshAxisControlTargets()
 	syncIoOwnersFromDocument();
 }
 
+void RobotSimulationController::syncAxisControlTargetForDockMode(const SimulationDockMode mode)
+{
+	if (!m_host || !m_simulationDock)
+	{
+		return;
+	}
+	RobotAxisControlWidget* axis = m_host->robotAxisControlPage();
+	IRobotDocumentHost* doc = m_host->document();
+	if (!axis || !doc)
+	{
+		return;
+	}
+	if (mode == SimulationDockMode::CustomDevice)
+	{
+		for (const QString& id :
+			 doc->documentData().findByClassName(QString::fromUtf8(backend_type::kClassCustomDevice)))
+		{
+			if (id.isEmpty())
+			{
+				continue;
+			}
+			axis->selectControlTarget(AxisControlTargetKind::CustomDevice, id);
+			return;
+		}
+		return;
+	}
+	const int instIdx = m_host->currentSimulationRobotInstanceIndex();
+	if (instIdx < 0 || instIdx >= doc->robotKinematicInstanceCount())
+	{
+		return;
+	}
+	axis->selectControlTarget(AxisControlTargetKind::RobotInstance, doc->robotSceneBackendIdForInstance(instIdx));
+}
+
 void RobotSimulationController::showRobotDockTab(const int tabIndex)
 {
 	if (m_dockNavigation)
@@ -3660,6 +3793,11 @@ void RobotSimulationController::showDeviceDockTab(const int tabIndex)
 	if (m_dockNavigation)
 	{
 		m_dockNavigation->showDeviceDockTab(tabIndex);
+	}
+	if (m_simulationDock && m_simulationDock->dockMode() == SimulationDockMode::CustomDevice &&
+		tabIndex == RobotSimulationDockWidget::kTabIndexDeviceAxisControl)
+	{
+		syncAxisControlTargetForDockMode(SimulationDockMode::CustomDevice);
 	}
 }
 
@@ -4686,6 +4824,11 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		applyAxisControlExternalPose(instIdx, enabledVals);
 	}
 	(void)doc->applyJointAnglesRad(instIdx, qClamped, m_aggregatedJointAnglesRad);
+	if (m_host)
+	{
+		doc->requestFollowSolveForced();
+		m_host->runFollowSolveAndSyncForCurrentDocument();
+	}
 	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == njInst)
 	{
 		m_host->robotAxisControlPage()->setJointAnglesRadSilent(qClamped);
@@ -4797,6 +4940,11 @@ void RobotSimulationController::syncTcpDragExitJointState()
 		(void)doc->applyJointAnglesRad(instIdx, local, m_aggregatedJointAnglesRad);
 		m_suppressMotionPreviewStartCapture = false;
 		m_tcpDragApplyingIk = false;
+		if (m_host)
+		{
+			doc->requestFollowSolveForced();
+			m_host->runFollowSolveAndSyncForCurrentDocument();
+		}
 	}
 	if (m_host->robotAxisControlPage()->jointCount() == local.size())
 	{
@@ -6606,7 +6754,11 @@ bool RobotSimulationController::shouldShowTrajectoryGenerationPreview() const
 
 void RobotSimulationController::onSimulationDockTabChanged(int index)
 {
-	(void)index;
+	if (m_simulationDock && m_simulationDock->dockMode() == SimulationDockMode::CustomDevice &&
+		index == RobotSimulationDockWidget::kTabIndexDeviceAxisControl)
+	{
+		syncAxisControlTargetForDockMode(SimulationDockMode::CustomDevice);
+	}
 	if (isTrajectoryGenerationTabActive())
 	{
 		if (TrajectoryGenerationPageWidget* gen =

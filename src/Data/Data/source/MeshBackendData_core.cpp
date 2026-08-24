@@ -58,6 +58,7 @@ void MeshBackendData::clearGeometry()
 	m_triangleVertexColors.clear();
 	m_overlayLineSegments.clear();
 	m_bounds = BackendBoundingBox{};
+	bumpGeometryRevision();
 }
 
 void MeshBackendData::setColor(const BackendColor& color)
@@ -113,6 +114,7 @@ void MeshBackendData::setTriangleSoupWithNormals(std::vector<float> xyzPerTriang
 	m_triangleNormals = std::move(normalPerTriangleVertex);
 	m_triangleVertexColors.clear();
 	recomputeBounds();
+	bumpGeometryRevision();
 }
 
 void MeshBackendData::setTriangleSoupWithVertexColors(std::vector<float> xyzPerTriangleVertex,
@@ -132,6 +134,7 @@ void MeshBackendData::setTriangleSoupWithVertexColors(std::vector<float> xyzPerT
 	m_triangleVertexColors = std::move(rgbPerTriangleVertex);
 	m_triangleNormals.clear();
 	recomputeBounds();
+	bumpGeometryRevision();
 }
 
 void MeshBackendData::setOverlayLineSegments(std::vector<float> xyzLinePairs)

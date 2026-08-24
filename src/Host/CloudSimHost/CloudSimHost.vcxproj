@@ -126,6 +126,10 @@
     <ClInclude Include="inc\BackendFollowSolve.h" />
     <ClInclude Include="inc\ProjectPackageIo.h" />
     <ClInclude Include="inc\BackendVisualSync.h" />
+    <ClInclude Include="inc\visual\VisualAspect.h" />
+    <ClInclude Include="inc\visual\BackendVisualSyncEngine.h" />
+    <ClInclude Include="inc\visual\KinematicsBatchScope.h" />
+    <ClInclude Include="inc\visual\BackendVisualEnsure.h" />
     <ClInclude Include="inc\AnnotationProjectIo.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\IPluginMainWindowHost.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\DocumentGeometryOps.h" />
@@ -208,6 +212,9 @@
     <ClCompile Include="source\follow\BackendFollowSolve.cpp" />
     <ClCompile Include="source\project\ProjectPackageIo.cpp" />
     <ClCompile Include="source\follow\BackendVisualSync.cpp" />
+    <ClCompile Include="source\visual\BackendVisualSyncEngine.cpp" />
+    <ClCompile Include="source\visual\KinematicsBatchScope.cpp" />
+    <ClCompile Include="source\visual\BackendVisualEnsure.cpp" />
     <ClCompile Include="source\project\AnnotationProjectIo.cpp" />
     <ClCompile Include="source\CloudSimHostExport.cpp" />
     <ClCompile Include="source\CloudSimApplicationContext.cpp" />

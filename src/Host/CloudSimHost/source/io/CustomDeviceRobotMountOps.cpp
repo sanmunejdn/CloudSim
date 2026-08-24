@@ -37,7 +37,7 @@ namespace cloudsim::host
 {
 namespace
 {
-IRobotBackendPoseSink* poseSinkOf(DocumentHost& host);
+IRobotBackendPoseSink* poseSinkOf(DocumentHost& host)
 {
 	if (HeadlessRobotContext* hrc = host.headlessRobotContext())
 	{

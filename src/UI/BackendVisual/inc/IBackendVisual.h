@@ -11,6 +11,7 @@
 #include <string>
 
 #include <osg/MatrixTransform>
+#include <osg/Node>
 #include <osg/Vec3f>
 #include <osg/ref_ptr>
 
@@ -50,6 +51,18 @@ public:
 
 	virtual void computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
 											   float& outDiagonal) const = 0;
+
+	virtual bool canUpdateGeometryInPlace() const { return false; }
+	virtual bool updateGeometry(osg::Node* innerRoot, const BackendDataBase& data, std::string* errorMessage)
+	{
+		(void)innerRoot;
+		(void)data;
+		if (errorMessage)
+		{
+			*errorMessage = "updateGeometry not implemented";
+		}
+		return false;
+	}
 };
 
 #endif // BACKENDVISUAL_IBACKENDVISUAL_H

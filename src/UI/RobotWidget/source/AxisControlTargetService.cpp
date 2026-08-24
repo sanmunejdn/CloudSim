@@ -102,6 +102,10 @@ void AxisControlTargetService::onTargetChanged(const AxisControlTargetKind kind,
 	}
 	if (kind == AxisControlTargetKind::CustomDevice)
 	{
+		if (m_host)
+		{
+			m_host->prepareCustomDeviceAxisControlTarget(id);
+		}
 		axis->clearJoints();
 		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(id.toStdString()));
 		if (!device)

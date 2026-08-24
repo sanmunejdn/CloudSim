@@ -5,7 +5,7 @@
 
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
-#include "FollowAttachmentComponent.h"
+#include "BackendSpatial.h"
 #include "IRobotBackendPoseSink.h"
 
 #include "CoreTypes.h"
@@ -22,12 +22,6 @@ namespace CustomDeviceKinematics
 {
 namespace
 {
-void resolveMotionOriginInParentLocal(CustomDeviceAxisConfig& motion, const double parentWorldCm[16],
-									  BackendDataManager* mgr)
-{
-	(void)bakeMotionCenterFrameToOriginMm(motion, parentWorldCm, mgr);
-}
-
 void backendMat4ToArray(const BackendMat4& m, double out[16])
 {
 	for (int i = 0; i < 16; ++i)
@@ -46,9 +40,11 @@ BackendMat4 arrayToBackendMat4(const double in[16])
 	return m;
 }
 
-bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBackendPoseSink* sink,
-						 const std::vector<double>& q)
+bool computeLinkWorldMatrices(const CustomDeviceBackendData& device, BackendDataManager* mgr,
+							  const std::vector<double>& q,
+							  std::unordered_map<std::string, std::array<double, 16>>& worldByLink)
 {
+	worldByLink.clear();
 	const std::vector<CustomDeviceLink>& links = device.links();
 	const std::vector<CustomDeviceJoint>& joints = device.joints();
 	if (links.empty() || joints.empty())
@@ -76,18 +72,10 @@ bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mg
 		fixedId = links.front().id;
 	}
 
-	// childLinkId -> joint index
-	std::unordered_map<std::string, size_t> jointByChild;
-	for (size_t i = 0; i < joints.size(); ++i)
-	{
-		jointByChild[joints[i].childLinkId] = i;
-	}
-
 	const BackendMat4 w0Mat = mgr ? device.worldMatrix(mgr) : device.baseWorldW0();
 	double w0[16];
 	backendMat4ToArray(w0Mat, w0);
 
-	std::unordered_map<std::string, std::array<double, 16>> worldByLink;
 	std::queue<std::string> queue;
 	std::unordered_set<std::string> visited;
 
@@ -119,9 +107,7 @@ bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mg
 				continue;
 			}
 			const double qj = ji < q.size() ? q[ji] : J.motion.home;
-			CustomDeviceAxisConfig motionCfg = J.motion;
-			resolveMotionOriginInParentLocal(motionCfg, worldByLink[parentId].data(), mgr);
-			const RobotExternal::RobotExternalAxisConfig ext = toExternalAxisConfig(motionCfg);
+			const RobotExternal::RobotExternalAxisConfig ext = toExternalAxisConfig(J.motion);
 			double motion[16];
 			RobotExternal::makeAxisMotionColumnMajor(ext, qj, motion);
 			double parentMotion[16];
@@ -133,21 +119,23 @@ bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mg
 			queue.push(J.childLinkId);
 		}
 	}
+	return !worldByLink.empty();
+}
 
-	auto worldQuery = [mgr, sink](const std::string& bid, BackendMat4& out) -> bool {
-		if (!mgr)
-		{
-			return false;
-		}
-		const auto data = mgr->getData(bid);
-		if (!data)
-		{
-			return false;
-		}
-		out = data->worldMatrix(mgr);
-		(void)sink;
-		return true;
-	};
+bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBackendPoseSink* sink,
+						 const std::vector<double>& q)
+{
+	const std::vector<CustomDeviceLink>& links = device.links();
+	if (links.empty() || device.joints().empty())
+	{
+		return false;
+	}
+
+	std::unordered_map<std::string, std::array<double, 16>> worldByLink;
+	if (!computeLinkWorldMatrices(device, mgr, q, worldByLink))
+	{
+		return false;
+	}
 
 	for (const CustomDeviceLink& L : links)
 	{
@@ -170,10 +158,6 @@ bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mg
 				mat[static_cast<size_t>(i)] = worldByLink[L.id][static_cast<size_t>(i)];
 			}
 			sink->setBackendRootWorldMatrixFromWorld(L.geometryBackendId, mat);
-		}
-		if (mgr)
-		{
-			(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(*mgr, worldQuery, *geom, nullptr);
 		}
 	}
 	return true;
@@ -209,13 +193,88 @@ bool bakeMotionCenterFrameToOriginMm(CustomDeviceAxisConfig& motion, const doubl
 	{
 		return false;
 	}
-	const double wx = frameW.v[12];
-	const double wy = frameW.v[13];
-	const double wz = frameW.v[14];
-	motion.originMm[0] = invParent.v[0] * wx + invParent.v[4] * wy + invParent.v[8] * wz + invParent.v[12];
-	motion.originMm[1] = invParent.v[1] * wx + invParent.v[5] * wy + invParent.v[9] * wz + invParent.v[13];
-	motion.originMm[2] = invParent.v[2] * wx + invParent.v[6] * wy + invParent.v[10] * wz + invParent.v[14];
+	const BackendVec3 frameOriginWorld = backend_mat4_transform_point(frameW, BackendVec3{0.0, 0.0, 0.0});
+	const BackendVec3 local = backend_mat4_transform_point(invParent, frameOriginWorld);
+	motion.originMm[0] = local.x;
+	motion.originMm[1] = local.y;
+	motion.originMm[2] = local.z;
 	return true;
+}
+
+bool bakeJointMotionOriginFromParentGeometry(CustomDeviceAxisConfig& motion,
+											 const std::string& parentGeometryBackendId, BackendDataManager* mgr)
+{
+	if (parentGeometryBackendId.empty() || !mgr)
+	{
+		return false;
+	}
+	const auto parentGeom = mgr->getData(parentGeometryBackendId);
+	if (!parentGeom || !parentGeom->hasPoseProperty())
+	{
+		return false;
+	}
+	double parentWorldCm[16];
+	backendMat4ToArray(parentGeom->worldMatrix(mgr), parentWorldCm);
+	return bakeMotionCenterFrameToOriginMm(motion, parentWorldCm, mgr);
+}
+
+bool bakeJointMotionOriginFromParentLink(CustomDeviceBackendData& device, CustomDeviceAxisConfig& motion,
+										 const std::string& parentLinkId, BackendDataManager* mgr)
+{
+	if (parentLinkId.empty() || !mgr || !device.usesLinkJointGraph())
+	{
+		return false;
+	}
+	device.ensureQSize();
+	std::vector<double> q = device.qValues();
+	std::unordered_map<std::string, std::array<double, 16>> worldByLink;
+	if (!computeLinkWorldMatrices(device, mgr, q, worldByLink))
+	{
+		return false;
+	}
+	const auto parentIt = worldByLink.find(parentLinkId);
+	if (parentIt == worldByLink.end())
+	{
+		return false;
+	}
+	return bakeMotionCenterFrameToOriginMm(motion, parentIt->second.data(), mgr);
+}
+
+void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData& device, BackendDataManager* mgr)
+{
+	if (!device.usesLinkJointGraph() || !mgr)
+	{
+		return;
+	}
+	device.ensureQSize();
+	std::vector<double> q = device.qValues();
+	std::unordered_map<std::string, std::array<double, 16>> worldByLink;
+	if (!computeLinkWorldMatrices(device, mgr, q, worldByLink))
+	{
+		return;
+	}
+	std::vector<CustomDeviceJoint> joints = device.joints();
+	bool changed = false;
+	for (CustomDeviceJoint& J : joints)
+	{
+		if (J.motion.motionType != CustomDeviceMotionType::Rotate || J.motion.motionCenterFrameBackendId.empty())
+		{
+			continue;
+		}
+		const auto parentIt = worldByLink.find(J.parentLinkId);
+		if (parentIt == worldByLink.end())
+		{
+			continue;
+		}
+		if (bakeMotionCenterFrameToOriginMm(J.motion, parentIt->second.data(), mgr))
+		{
+			changed = true;
+		}
+	}
+	if (changed)
+	{
+		device.setJoints(joints);
+	}
 }
 
 RobotExternal::RobotExternalAxisConfig toExternalAxisConfig(const CustomDeviceAxisConfig& in)
@@ -283,16 +342,15 @@ bool worldPointToDeviceLocalMm(const BackendMat4& w0, const double worldX, const
 	{
 		return false;
 	}
-	double w0a[16];
-	backendMat4ToArray(w0, w0a);
-	double inv[16];
-	if (!RobotExternal::mat4InvertRigidColumnMajor(w0a, inv))
+	BackendMat4 inv{};
+	if (!backend_mat4_invert_rigid(w0, inv))
 	{
 		return false;
 	}
-	outLocal[0] = inv[0] * worldX + inv[4] * worldY + inv[8] * worldZ + inv[12];
-	outLocal[1] = inv[1] * worldX + inv[5] * worldY + inv[9] * worldZ + inv[13];
-	outLocal[2] = inv[2] * worldX + inv[6] * worldY + inv[10] * worldZ + inv[14];
+	const BackendVec3 local = backend_mat4_transform_point(inv, BackendVec3{worldX, worldY, worldZ});
+	outLocal[0] = local.x;
+	outLocal[1] = local.y;
+	outLocal[2] = local.z;
 	return true;
 }
 
@@ -303,24 +361,20 @@ bool worldDirectionToDeviceLocal(const BackendMat4& w0, const double worldDx, co
 	{
 		return false;
 	}
-	double w0a[16];
-	backendMat4ToArray(w0, w0a);
-	double inv[16];
-	if (!RobotExternal::mat4InvertRigidColumnMajor(w0a, inv))
+	BackendMat4 inv{};
+	if (!backend_mat4_invert_rigid(w0, inv))
 	{
 		return false;
 	}
-	outLocal[0] = inv[0] * worldDx + inv[4] * worldDy + inv[8] * worldDz;
-	outLocal[1] = inv[1] * worldDx + inv[5] * worldDy + inv[9] * worldDz;
-	outLocal[2] = inv[2] * worldDx + inv[6] * worldDy + inv[10] * worldDz;
-	const double n = std::sqrt(outLocal[0] * outLocal[0] + outLocal[1] * outLocal[1] + outLocal[2] * outLocal[2]);
+	const BackendVec3 local = backend_mat4_transform_point(inv, BackendVec3{worldDx, worldDy, worldDz});
+	const double n = std::sqrt(local.x * local.x + local.y * local.y + local.z * local.z);
 	if (n < 1e-12)
 	{
 		return false;
 	}
-	outLocal[0] /= n;
-	outLocal[1] /= n;
-	outLocal[2] /= n;
+	outLocal[0] = local.x / n;
+	outLocal[1] = local.y / n;
+	outLocal[2] = local.z / n;
 	return true;
 }
 

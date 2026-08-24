@@ -137,20 +137,21 @@ void makeRotateAboutAxisColumnMajor(const double ox, const double oy, const doub
 	double fromOrigin[16];
 	makeTranslateColumnMajor(-ox, -oy, -oz, toOrigin);
 	mat4Identity(rot);
-	// 与平移布局一致：按行铺开，(r,c)→r*4+c
+	// OSG/Backend 底行平移序：旋转按列主序 (r,c)→c*4+r
 	rot[0] = r00;
-	rot[1] = r01;
-	rot[2] = r02;
-	rot[4] = r10;
+	rot[1] = r10;
+	rot[2] = r20;
+	rot[4] = r01;
 	rot[5] = r11;
-	rot[6] = r12;
-	rot[8] = r20;
-	rot[9] = r21;
+	rot[6] = r21;
+	rot[8] = r02;
+	rot[9] = r12;
 	rot[10] = r22;
 	makeTranslateColumnMajor(ox, oy, oz, fromOrigin);
+	// 同布局下绕 +origin 的共轭是 T(-o)*R*T(+o)（T(+o)*R*T(-o) 会绕到 -origin）
 	double tmp[16];
-	mat4MulColumnMajor(fromOrigin, rot, tmp);
-	mat4MulColumnMajor(tmp, toOrigin, out);
+	mat4MulColumnMajor(toOrigin, rot, tmp);
+	mat4MulColumnMajor(tmp, fromOrigin, out);
 }
 
 double qForAxisIndex(const RobotExternalAxisConfigSet& set, const std::vector<double>& qValues, const int axisIndex)

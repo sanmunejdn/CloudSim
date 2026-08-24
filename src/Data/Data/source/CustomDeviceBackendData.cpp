@@ -552,6 +552,7 @@ void CustomDeviceBackendData::setAxisLengthMm(const float mm)
 	if (mm > 1.0f)
 	{
 		m_axisLengthMm = mm;
+		bumpGeometryRevision();
 	}
 }
 

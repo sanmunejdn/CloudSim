@@ -3,6 +3,7 @@
 
 #include "ShapeIo.h"
 
+#include "CsgkBackend.h"
 #include "detail/OccIncludes.h"
 
 #include <BRepBuilderAPI_Transform.hxx>
@@ -168,6 +169,10 @@ bool readStepIntoHandle(const std::string& pathLocal, ShapeHandle& outShape, std
 bool readBrepFile(const std::string& pathLocal, ShapeHandle& outShape, std::string* errMsg)
 {
 	outShape = ShapeHandle{};
+#ifdef CLOUDSIM_USE_CSGK
+	if(pathLocal.size() >= 5 && pathLocal.compare(pathLocal.size() - 5, 5, ".csgb") == 0)
+		return readCsgkNativeFile(pathLocal, outShape, errMsg);
+#endif
 	std::ifstream in;
 	if (!openInputBinary(pathLocal, in, errMsg))
 	{

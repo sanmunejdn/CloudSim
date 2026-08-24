@@ -18,6 +18,7 @@
 #include "FollowAttachmentComponent.h"
 #include "FrameBackendData.h"
 #include "IDataService.h"
+#include "io/CustomDeviceHostOps.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
@@ -680,6 +681,7 @@ bool exportBackendTriangleSoupMm(DocumentHost& host, const QString& backendId, s
 void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, const QVector<ProjectHierarchyEdge>& edges,
 											const FollowSolveContext* solveCtx)
 {
+	registerAllCustomDeviceLinkGeometryOwnership(host);
 	host.stripKinematicsOwnedFollowAttachments();
 	for (const ProjectHierarchyEdge& edge : edges)
 	{

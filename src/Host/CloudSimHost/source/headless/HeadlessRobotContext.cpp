@@ -2,6 +2,7 @@
 /// @brief Web Headless 机器人导入/FK 上下文（无 OSG）
 
 #include "HeadlessRobotContext.h"
+#include "visual/KinematicsBatchScope.h"
 
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
@@ -691,6 +692,7 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 	}
 
 	QVector<double> aggregated(robotRevoluteJointNames().size(), 0.0);
+	cloudsim::host::KinematicsBatchScope batch(m_host);
 	if (!RobotSceneKinematics::applyJointAnglesForInstance(this, sink, instanceIndex, qRad, aggregated))
 	{
 		if (outError)

@@ -70,6 +70,7 @@ void PointCloudBackendData::clearGeometry()
 	m_xyz.clear();
 	m_rgbaVertex.clear();
 	m_normals.clear();
+	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::setColor(const BackendColor& color)
@@ -119,6 +120,7 @@ void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<
 	m_normals = std::move(normalsNxNyNz);
 	m_pointCount = m_xyz.empty() ? 0U : n;
 	recomputeBoundsFromPoints();
+	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::setPointNormals(std::vector<float> normalsNxNyNz)

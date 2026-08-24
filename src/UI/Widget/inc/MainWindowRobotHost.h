@@ -55,6 +55,8 @@ public:
 	void refreshBackendTree() override;
 	void runFollowSolveAndSyncForCurrentDocument() override;
 	void rebakeMountedCustomDevicesFollowLocalsForCurrentDocument() override;
+	void prepareCustomDeviceAxisControlTarget(const QString& deviceBackendId) override;
+	void flushCustomDeviceLinkGeometryVisual(const QString& deviceBackendId) override;
 	void refreshInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
 										 bool refreshFeasibleAxisOptions = true) override;
 	void clearInstructionPropertyPanel() override;

@@ -24,6 +24,10 @@ enum class PropertySemanticFlags : std::uint32_t
 	AffectsFollowConstraintGraph = 1u << 2,
 	/// 机器人指令运动字段（规划/轴刷新）
 	AffectsInstructionMotion = 1u << 3,
+	/// 可见性影响 OSG 节点 mask
+	AffectsVisibility = 1u << 4,
+	/// 几何缓冲/轴长等影响 OSG 分支重建
+	AffectsGeometry = 1u << 5,
 	/// 非 schema 键：保留旧版全量提交（OSG + follow dirty）
 	LegacyFullCommitBehavior = 1u << 31
 };

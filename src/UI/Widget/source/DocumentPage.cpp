@@ -1196,7 +1196,6 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 		{
 			DocumentHost::markFollowAttachmentDirtyFromBackendMove(ri.sceneBackendId.toStdString());
 		}
-		// 跟随目标常是连杆 backend，须显式置脏（勿仅依赖 root→children 拓扑）
 		for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
 		{
 			if (!it.value().isEmpty())
@@ -1205,9 +1204,43 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 			}
 		}
 	}
-	// 同步求解并清空脏集；per-frame hook 仅兜底 gizmo/属性/forced，避免 FK 后再解一遍
+	if (visualSyncEngine().kinematicsBatchDepth() > 0)
+	{
+		visualSyncEngine().setPendingFollowSolveAfterBatch(true);
+		return;
+	}
+	// FK 已写 Data：先把连杆 mesh（含 link_6）刷到 OSG，再解 Follow
+	for (const HierarchicalRobotInstance& ri : m_hierarchicalRobots)
+	{
+		if (!ri.perLinkBackends || ri.linkNameToBackendId.isEmpty())
+		{
+			continue;
+		}
+		std::vector<std::string> linkIds;
+		linkIds.reserve(static_cast<std::size_t>(ri.linkNameToBackendId.size()));
+		for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
+		{
+			if (!it.value().isEmpty())
+			{
+				linkIds.push_back(it.value().toStdString());
+			}
+		}
+		if (!linkIds.empty())
+		{
+			(void)visualSyncEngine().flushTransform(linkIds);
+		}
+	}
 	cloudsim::core::FollowSolveContextDto ctx;
 	ctx.skipAll = false;
+	if (render().isTransformGizmoDragging() && !render().isTcpDragTeachActive())
+	{
+		const std::string activeId = render().activeBackendId();
+		if (!activeId.empty())
+		{
+			ctx.gizmoSelectedBackendId = QString::fromStdString(activeId);
+		}
+	}
+	requestFollowSolveForced();
 	(void)data().runFollowSolveAndSync(ctx, nullptr);
 	cloudsim::host::refreshCustomDevicesFollowingKinematicsTargets(*this);
 }

@@ -40,6 +40,7 @@
 #include <unordered_set>
 #include "RunInfoPage.h"
 #include "io/CustomDeviceRobotMountOps.h"
+#include "io/CustomDeviceHostOps.h"
 
 #include <cmath>
 #include <limits>
@@ -148,6 +149,13 @@ public:
 	explicit DocumentHost(DocumentPage* page) : m_page(page) {}
 
 	DocumentPage* page() const { return m_page; }
+
+	QString documentId() const override { return m_page ? m_page->documentId() : QString(); }
+	bool robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId,
+										   QVector<double>& outLocal) const override
+	{
+		return m_page && m_page->robotLocalJointAnglesForSceneRoot(sceneRootBackendId, outLocal);
+	}
 
 	RobotProgramStore& robotProgramStore() override { return m_page->robotProgramStore(); }
 	const RobotProgramStore& robotProgramStore() const override { return m_page->robotProgramStore(); }
@@ -1126,6 +1134,26 @@ void MainWindowRobotHost::rebakeMountedCustomDevicesFollowLocalsForCurrentDocume
 	cloudsim::host::rebakeMountedCustomDevicesFollowLocals(*host);
 }
 
+void MainWindowRobotHost::prepareCustomDeviceAxisControlTarget(const QString& deviceBackendId)
+{
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host || deviceBackendId.isEmpty())
+	{
+		return;
+	}
+	cloudsim::host::finalizeCustomDeviceLinkJointGraph(*host, deviceBackendId.toStdString());
+}
+
+void MainWindowRobotHost::flushCustomDeviceLinkGeometryVisual(const QString& deviceBackendId)
+{
+	cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr;
+	if (!host || deviceBackendId.isEmpty())
+	{
+		return;
+	}
+	cloudsim::host::flushCustomDeviceLinkGeometryVisual(*host, deviceBackendId.toStdString());
+}
+
 void MainWindowRobotHost::refreshInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
 														  const bool refreshFeasibleAxisOptions)
 {
@@ -1557,6 +1585,10 @@ void MainWindowRobotHost::onCustomDeviceAssemblyCommitted(const QString& deviceB
 	if (!m_mw || !m_mw->m_robotSimulation)
 	{
 		return;
+	}
+	if (cloudsim::host::DocumentHost* host = m_mw ? m_mw->currentDocumentHost() : nullptr)
+	{
+		cloudsim::host::finalizeCustomDeviceLinkJointGraph(*host, deviceBackendId.toStdString());
 	}
 	m_mw->m_robotSimulation->refreshAxisControlTargets();
 	if (RobotAxisControlWidget* axis = robotAxisControlPage())

@@ -8,12 +8,14 @@
 #include "BackendFollowSolve.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendFollowMath.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "CustomDeviceBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
+#include "FollowAttachmentComponent.h"
 #include "FrameBackendData.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
@@ -23,6 +25,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QLatin1String>
+#include <functional>
 #include <memory>
 
 namespace cloudsim::host
@@ -538,7 +541,41 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 		}
 		return false;
 	}
-	return attachBackendChildToParent(host, deviceId, childId, outError);
+	const auto child = host.backend().getData(childId);
+	BackendMat4 savedWorld = BackendMat4::identity();
+	bool haveSavedWorld = false;
+	if (child && child->hasPoseProperty())
+	{
+		savedWorld = child->worldMatrix(&host.backend());
+		haveSavedWorld = true;
+	}
+	if (!attachBackendChildToParent(host, deviceId, childId, outError))
+	{
+		return false;
+	}
+	// setBackendParent 故意不恢复世界矩阵（URDF 由 FK 回写）；设备挂接必须先还原再重算 Follow local
+	if (haveSavedWorld && child)
+	{
+		child->setWorldMatrix(savedWorld, &host.backend());
+		OsgWidget* osg = osgWidgetFrom(host);
+		if (osg)
+		{
+			osg::Matrixd om;
+			for (int c = 0; c < 4; ++c)
+			{
+				for (int r = 0; r < 4; ++r)
+				{
+					om(r, c) = savedWorld.v[c * 4 + r];
+				}
+			}
+			osg->setBackendRootWorldMatrixFromWorld(childId, om);
+		}
+		const std::function<bool(const std::string&, BackendMat4&)> dataOnly =
+			[](const std::string&, BackendMat4&) -> bool { return false; };
+		(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), dataOnly, *child, nullptr);
+		runBackendFollowSolveAndSync(host, osg, nullptr, nullptr);
+	}
+	return true;
 }
 
 bool registerAdoptedPointCloudAndLoadScene(DocumentHost& host, const std::shared_ptr<PointCloudBackendData>& pointCloud,

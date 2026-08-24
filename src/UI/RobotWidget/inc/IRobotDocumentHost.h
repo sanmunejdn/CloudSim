@@ -38,6 +38,12 @@ class ROBOTWIDGET_EXPORT IRobotDocumentHost : public IRobotSimulationDocument
 public:
 	~IRobotDocumentHost() override = default;
 
+	/// 文档隔离键（多页时控制器关节缓存按此分桶）
+	virtual QString documentId() const = 0;
+	/// 读该文档已缓存的实例局部关节角（无则 false）
+	virtual bool robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId,
+												   QVector<double>& outLocal) const = 0;
+
 	virtual RobotProgramStore& robotProgramStore() = 0;
 	virtual const RobotProgramStore& robotProgramStore() const = 0;
 

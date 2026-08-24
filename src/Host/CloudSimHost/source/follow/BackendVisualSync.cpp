@@ -5,60 +5,44 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendPropertyVisualAspect.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
 #include "OsgWidget.h"
+#include "visual/VisualAspect.h"
 
 namespace cloudsim::host
 {
 namespace
 {
-using ::BackendColor;
 using ::BackendDataBase;
 using ::OsgWidget;
 
-bool isUiOnlyKey(const QString& key)
+VisualAspect aspectsFromSchemaBits(const std::uint32_t bits)
 {
-	return key.isEmpty() || key.startsWith(QStringLiteral("ui."));
+	return static_cast<VisualAspect>(bits);
 }
 
 } // namespace
 
 bool propertyKeyNeedsVisualSync(const QString& key)
 {
-	if (isUiOnlyKey(key))
+	if (key.isEmpty() || key.startsWith(QStringLiteral("ui.")))
 	{
 		return false;
 	}
 	if (key.startsWith(QStringLiteral("follow.")))
 	{
-		return true;
+		return false;
 	}
-	if (key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation.")))
-	{
-		return true;
-	}
-	if (key.contains(QStringLiteral("color"), Qt::CaseInsensitive) ||
-		key.contains(QStringLiteral("visible"), Qt::CaseInsensitive))
-	{
-		return true;
-	}
-	return true; // 未知 key 默认同步
+	return true;
 }
 
 bool propertyKeyCommitsPose(const QString& key)
 {
-	if (key.startsWith(QStringLiteral("follow.")))
-	{
-		return true;
-	}
-	if (key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation.")))
-	{
-		return true;
-	}
-	return key.contains(QStringLiteral("pose"), Qt::CaseInsensitive) ||
-		   key.contains(QStringLiteral("rotation"), Qt::CaseInsensitive);
+	return backend_property_schema::propertyCommitsPoseFromSchema(std::string(), key.toStdString()) ||
+		   key.startsWith(QStringLiteral("follow."));
 }
 
 void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& data, const bool applyColor)
@@ -72,17 +56,16 @@ void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& da
 	osg->syncSelectionForBackendId(backendId);
 	if (applyColor)
 	{
-		const BackendColor color = data.color();
-		osg->applyColorToBackendObject(backendId, osg::Vec4(color.r, color.g, color.b, color.a));
-		osg->requestRedraw();
+		host.markVisualDirty(backendId, VisualAspect::Appearance);
+		(void)host.flushVisualSync();
 		return;
 	}
 	if (!osg->hasBackendObjectBranch(backendId))
 	{
 		return;
 	}
-	(void)host.sceneBridge().syncOuterPatFromBackend(data);
-	osg->requestRedraw();
+	host.markVisualDirty(backendId, VisualAspect::Transform);
+	(void)host.flushVisualSync();
 }
 
 void syncVisualAfterPropertyChangeById(DocumentHost& host, const QString& objectId, const bool applyColor)
@@ -101,13 +84,15 @@ void syncVisualAfterPropertyChangeById(DocumentHost& host, const QString& object
 
 void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& data, const QString& key)
 {
-	// 属性面板连续 spin：数据已写入，全量 OSG/Follow/PoseCommitted 延至失焦（见 MainWindow flushPropertyPanelVisualCommit）
 	if (host.deferPropertyPanelVisualFullSync() &&
 		(key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation."))))
 	{
 		return;
 	}
-	if (!propertyKeyNeedsVisualSync(key))
+	const std::uint32_t aspectBits =
+		backend_property_schema::visualAspectsForPropertyKey(data.className(), key.toStdString());
+	const VisualAspect aspects = aspectsFromSchemaBits(aspectBits);
+	if (aspects == VisualAspect::None && !key.startsWith(QStringLiteral("follow.")))
 	{
 		if (propertyKeyCommitsPose(key))
 		{
@@ -115,24 +100,26 @@ void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& d
 		}
 		return;
 	}
-	const bool applyColor = key.contains(QStringLiteral("color"), Qt::CaseInsensitive);
-	if (applyColor)
+	if (hasVisualAspect(aspects, VisualAspect::Appearance))
 	{
-		syncVisualAfterPropertyChange(host, data, true);
-		return;
+		host.markVisualDirty(data.id(), VisualAspect::Appearance);
 	}
-	if (key.contains(QStringLiteral("visible"), Qt::CaseInsensitive))
+	if (hasVisualAspect(aspects, VisualAspect::Visibility))
 	{
-		OsgWidget* osg = osgWidgetFrom(host);
-		if (osg)
-		{
-			osg->setBackendObjectVisible(data.id(), data.isVisible());
-			osg->requestRedraw();
-		}
-		return;
+		host.markVisualDirty(data.id(), VisualAspect::Visibility);
 	}
-	// Frame/Brep/CustomDevice 等同理：有 outer 分支则写回 worldMatrix 到 OSG
-	syncVisualAfterPropertyChange(host, data, false);
+	if (hasVisualAspect(aspects, VisualAspect::Transform))
+	{
+		host.markVisualDirty(data.id(), VisualAspect::Transform);
+	}
+	if (hasVisualAspect(aspects, VisualAspect::Geometry))
+	{
+		host.markVisualDirty(data.id(), VisualAspect::Geometry);
+	}
+	if (!host.deferPropertyPanelVisualFullSync())
+	{
+		(void)host.flushVisualSync();
+	}
 	if (propertyKeyCommitsPose(key))
 	{
 		publishPoseCommittedFromBackend(host, data);

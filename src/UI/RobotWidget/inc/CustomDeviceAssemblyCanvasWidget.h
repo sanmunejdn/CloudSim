@@ -44,6 +44,7 @@ public:
 	QString selectedLinkId() const { return m_selectedLinkId; }
 	QString selectedJointId() const { return m_selectedJointId; }
 	bool updateSelectedJointMotion(const CustomDeviceAxisConfig& motion);
+	bool setLinkRestInDeviceW0(const QString& linkId, const double rest[16]);
 
 signals:
 	void selectionChanged();
@@ -64,6 +65,7 @@ private:
 		QString geometryId;
 		bool fixed = false;
 		QRectF rect;
+		double restInDeviceW0[16]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 	};
 	struct Edge
 	{

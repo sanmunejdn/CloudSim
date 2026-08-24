@@ -328,42 +328,11 @@ bool applyJointAnglesViaLinkBackends(IRobotSimulationDocument* doc, IRobotBacken
 			RunLogger::info(line.str());
 		}
 
-		setBackendRootWorldOsg(osg, bid, Mnew);
-
-		if (dbg > 0)
+		meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew), &mgr);
+		if (osg)
 		{
-			osg::Matrixd worldAfter{};
-			if (getBackendRootWorldOsg(osg, bid, worldAfter))
-			{
-				std::ostringstream ver;
-				ver << "[RobotKinematicsDBG] link=" << qToUtf8Std(linkName) << " backendId=" << bid;
-				appendOsgMatrixBlock(ver, "outerWorld(OSG,after)", worldAfter, dbg);
-				double maxDiff = 0.0;
-				for (int r = 0; r < 4; ++r)
-				{
-					for (int c = 0; c < 4; ++c)
-					{
-						const double d =
-							std::abs(static_cast<double>(worldAfter(r, c)) - static_cast<double>(Mnew(r, c)));
-						if (d > maxDiff)
-						{
-							maxDiff = d;
-						}
-					}
-				}
-				ver << " maxAbsDiff(Mnew,after)=" << std::setprecision(6) << maxDiff;
-				RunLogger::info(ver.str());
-			}
-			else
-			{
-				RunLogger::info(std::string("[RobotKinematicsDBG] link=") + qToUtf8Std(linkName) +
-								" getBackendRootWorldMatrix failed after setBackendRootWorldMatrixFromWorld");
-			}
+			osg->syncRobotMeshBackendPoseAfterKinematics(*meshPtr);
 		}
-
-		osg::Matrixd worldAfter = Mnew;
-		(void)getBackendRootWorldOsg(osg, bid, worldAfter);
-		meshPtr->setWorldMatrix(osgMatToBackendColMajor(worldAfter), &mgr);
 	}
 
 	if (dbg > 0)
@@ -461,10 +430,11 @@ bool applyPerLinkRobotBasePlacement(IRobotBackendPoseSink* osg, BackendDataManag
 		}
 		const osg::Matrixd Mnew =
 			m0It.value() * osg::Matrixd::inverse(T0[linkName]) * Tq[linkName] * basePlacementWorld;
-		setBackendRootWorldOsg(osg, bid, Mnew);
-		osg::Matrixd worldAfter = Mnew;
-		(void)getBackendRootWorldOsg(osg, bid, worldAfter);
-		meshPtr->setWorldMatrix(osgMatToBackendColMajor(worldAfter), &mgr);
+		meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew), &mgr);
+		if (osg)
+		{
+			osg->syncRobotMeshBackendPoseAfterKinematics(*meshPtr);
+		}
 		any = true;
 	}
 	return any;
@@ -679,7 +649,21 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 			continue;
 		}
 		const osg::Matrixd Mnew = m0It.value() * osg::Matrixd::inverse(T0[linkName]) * Tq[linkName];
-		setBackendRootWorldOsg(osg, backendId.toStdString(), Mnew);
+		if (mgr)
+		{
+			if (const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(mgr->getData(backendId.toStdString())))
+			{
+				meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew), mgr);
+				if (osg)
+				{
+					osg->syncRobotMeshBackendPoseAfterKinematics(*meshPtr);
+				}
+			}
+		}
+		else
+		{
+			setBackendRootWorldOsg(osg, backendId.toStdString(), Mnew);
+		}
 	}
 	doc->notifyRobotKinematicsAppliedToScene();
 	return true;

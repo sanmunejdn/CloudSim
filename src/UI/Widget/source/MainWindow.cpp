@@ -424,6 +424,22 @@ bool robotSelectionUsesGizmoAnchor(const DocumentPage* doc, const QString& selec
 	return doc && !selectionId.isEmpty() && doc->robotGizmoAnchorBackendId(selectionId) != selectionId;
 }
 
+bool robotPerLinkAnchorGizmoOwnsPoseSync(const DocumentPage* doc, const QString& backendId)
+{
+	if (!doc || backendId.isEmpty())
+	{
+		return false;
+	}
+	bool isSceneRoot = false;
+	const int instIdx = doc->robotInstanceIndexForPerLinkBackend(backendId, &isSceneRoot);
+	if (instIdx < 0 || isSceneRoot || !doc->robotUsesPerLinkBackendsForInstance(instIdx))
+	{
+		return false;
+	}
+	const QString anchorId = doc->robotGizmoAnchorBackendId(doc->robotSceneBackendIdForInstance(instIdx));
+	return !anchorId.isEmpty() && backendId == anchorId;
+}
+
 } // namespace
 
 void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
@@ -448,6 +464,15 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 	}
 	if (robotSelectionUsesGizmoAnchor(doc, snapshot.backendId))
 	{
+		return;
+	}
+	// 根连杆 gizmo 由 FK 钩子写 Data + Follow；此处 applyWorldPoseMm 会冲掉 FK 结果
+	if (robotPerLinkAnchorGizmoOwnsPoseSync(doc, snapshot.backendId))
+	{
+		if (doc->render().isTransformGizmoDragging())
+		{
+			syncPropertyPanelGizmoLiveValues(snapshot.backendId);
+		}
 		return;
 	}
 	cloudsim::core::PoseDto pose = doc->data().worldPoseMm(snapshot.backendId);
@@ -491,6 +516,14 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 	}
 	if (robotSelectionUsesGizmoAnchor(doc, snapshot.backendId))
 	{
+		return;
+	}
+	if (robotPerLinkAnchorGizmoOwnsPoseSync(doc, snapshot.backendId))
+	{
+		if (doc->render().isTransformGizmoDragging())
+		{
+			syncPropertyPanelGizmoLiveValues(snapshot.backendId);
+		}
 		return;
 	}
 	cloudsim::core::PoseDto pose = doc->data().worldPoseMm(snapshot.backendId);
@@ -572,6 +605,17 @@ void MainWindow::onTransformGizmoCommitted()
 		// 松手再 FK 一次：避免拖动中钩子未触发时只拧了单连杆
 		refreshPerLinkRobotObjectGizmoFk(*doc);
 		doc->data().markFollowDirtyFromMove(backendId);
+		runFollowSolveAndSyncForPage(*doc);
+		updatePropertyPanel(backendId);
+		cloudsim::host::publishPoseCommittedFromBackendId(*doc, backendId);
+		return;
+	}
+	if (instIdx >= 0 && !isSceneRoot && doc->robotUsesPerLinkBackendsForInstance(instIdx) &&
+		backendId == doc->robotGizmoAnchorBackendId(doc->robotSceneBackendIdForInstance(instIdx)))
+	{
+		refreshPerLinkRobotObjectGizmoFk(*doc);
+		syncRobotKinematicsAfterPoseEdit(backendId);
+		runFollowSolveAndSyncForPage(*doc);
 		updatePropertyPanel(backendId);
 		cloudsim::host::publishPoseCommittedFromBackendId(*doc, backendId);
 		return;
@@ -604,13 +648,9 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& b
 	doc->data().markFollowDirtyFromMove(backendId);
 	cloudsim::core::IRenderView* rv = &doc->render();
 	const bool dragging = rv->isTransformGizmoDragging();
-	if (!dragging)
-	{
-		cloudsim::core::FollowSolveContextDto ctx;
-		// TCP 示教期间仍解跟随，否则绑到法兰的工件静止
-		ctx.skipAll = false;
-		(void)doc->data().runFollowSolveAndSync(ctx, nullptr);
-	}
+	// 拖动中也要求解跟随：机器人 FK / 目标件位移时 follower 须实时跟；手动拖 follower 由 gizmoSelectedBackendId 排除
+	(void)doc->data().runFollowSolveAndSync(makeFollowSolveContextDto(*doc), nullptr);
+	cloudsim::host::refreshCustomDevicesFollowingKinematicsTargets(*doc);
 	if (dragging || shouldDeferPropertyPanelRebuild(backendId))
 	{
 		if (dragging && m_propertyKeyToVariant.isEmpty())
@@ -1856,7 +1896,8 @@ cloudsim::core::FollowSolveContextDto MainWindow::makeFollowSolveContextDto(Docu
 	cloudsim::core::FollowSolveContextDto ctx;
 	const cloudsim::core::IRenderView& rv = page.render();
 	ctx.skipAll = false;
-	if (rv.isTransformGizmoDragging() && m_selectionState.hasBackendSelection())
+	// TCP 末端拖动与对象 gizmo 共用 isTransformGizmoDragging，勿把 follower 当手动拖
+	if (rv.isTransformGizmoDragging() && !rv.isTcpDragTeachActive() && m_selectionState.hasBackendSelection())
 	{
 		ctx.gizmoSelectedBackendId = m_selectionState.selectedBackendId();
 	}
@@ -1871,6 +1912,7 @@ void MainWindow::runFollowSolveAndSyncForPage(DocumentPage& page, const std::str
 		ctx.manualPoseAuthorityBackendId = QString::fromStdString(*manualPoseAuthorityBackendId);
 	}
 	(void)page.data().runFollowSolveAndSync(ctx, nullptr);
+	cloudsim::host::refreshCustomDevicesFollowingKinematicsTargets(page);
 }
 
 void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
@@ -2151,7 +2193,8 @@ void MainWindow::onDocumentTabChanged(int)
 	}
 	if (m_robotSimulation && m_robotSimulation->programExecutor().isRunning())
 	{
-		stopRobotSimulation();
+		// currentChanged 时 currentPage 已是新页；禁止把运行中关节角 FK 到新文档
+		m_robotSimulation->stopRobotSimulation(false);
 	}
 	// 先换树再清选中，避免对旧文档节点发 selection/itemChanged 写可见性
 	if (next)
@@ -2227,6 +2270,10 @@ void MainWindow::closeDocumentTab(int index)
 	}
 
 	const QString closingDocId = page->documentId();
+	if (m_robotSimulation)
+	{
+		m_robotSimulation->forgetDocumentJointUiState(closingDocId);
+	}
 	if (m_ioBoundDocumentPage == page)
 	{
 		m_ioBoundDocumentPage = nullptr;

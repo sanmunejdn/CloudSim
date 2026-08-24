@@ -25,6 +25,11 @@
     <RootNamespace>GeometryAlgorithm</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
+  <PropertyGroup Label="CsgkAdapter">
+    <CloudSimUseCsgk Condition="'$(CloudSimUseCsgk)'==''">false</CloudSimUseCsgk>
+    <CsgkRoot Condition="'$(CsgkRoot)'==''">$(CloudSimRepoRoot)..\CloudSimGeomKernel</CsgkRoot>
+    <CsgkBinDir>$(CsgkRoot)\build\bin\$(Configuration)</CsgkBinDir>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -159,6 +164,32 @@
       <Command>powershell -NoProfile -ExecutionPolicy Bypass -Command "$src = Join-Path '$(ProjectDir)' 'resource/feature'; $dst = Join-Path '$(OutDir)' 'resource/feature'; New-Item -ItemType Directory -Force -Path (Join-Path $dst 'discretizers') | Out-Null; foreach ($rel in @('StrategyCatalog.json')) { $s = Join-Path $src $rel; $d = Join-Path $dst $rel; if ((Test-Path $s) -and -not (Test-Path $d)) { Copy-Item $s $d } }; $srcOps = Join-Path $src 'discretizers'; if (Test-Path $srcOps) { Get-ChildItem $srcOps -Filter *.json | ForEach-Object { $d = Join-Path (Join-Path $dst 'discretizers') $_.Name; if (-not (Test-Path $d)) { Copy-Item $_.FullName $d } } }"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(CloudSimUseCsgk)'=='true' and '$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>CLOUDSIM_USE_CSGK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(CsgkRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>csgk_engine.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CsgkBinDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>if exist "$(CsgkBinDir)\csgk_engine.dll" copy /Y "$(CsgkBinDir)\csgk_engine.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(CloudSimUseCsgk)'=='true' and '$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>CLOUDSIM_USE_CSGK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(CsgkRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>csgk_engine.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CsgkBinDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>if exist "$(CsgkBinDir)\csgk_engine.dll" copy /Y "$(CsgkBinDir)\csgk_engine.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="inc\geometry_algorithm_global.h" />
     <ClInclude Include="inc\Types.h" />
@@ -203,6 +234,7 @@
     <ClInclude Include="discretizers\FaceOffsetCurveDiscretizer.h" />
     <ClInclude Include="discretizers\SyntheticPolylineDiscretizer.h" />
     <ClInclude Include="inc\ShapeHandle.h" />
+    <ClInclude Include="inc\CsgkBackend.h" />
     <ClInclude Include="inc\PrimitiveBrep.h" />
     <ClInclude Include="inc\ShapeIo.h" />
     <ClInclude Include="inc\ViewTessellate.h" />
@@ -219,6 +251,7 @@
     <ClCompile Include="source\ShapeQuery.cpp" />
     <ClCompile Include="source\detail\OccSehCall.cpp" />
     <ClCompile Include="source\ShapeIo.cpp" />
+    <ClCompile Include="source\CsgkBackend.cpp" />
     <ClCompile Include="source\Discretize.cpp" />
     <ClCompile Include="source\DiscretizeEdge.cpp" />
     <ClCompile Include="source\HlrProject.cpp" />

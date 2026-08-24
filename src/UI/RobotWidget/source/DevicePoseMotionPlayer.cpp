@@ -56,13 +56,17 @@ bool DevicePoseMotionPlayer::applyQNow(const QString& deviceId, const std::vecto
 	{
 		return false;
 	}
+	if (m_host)
+	{
+		m_host->prepareCustomDeviceAxisControlTarget(deviceId);
+	}
 	if (!CustomDeviceKinematics::applyQ(*device, &doc->backend(), doc->poseSink(), &q))
 	{
 		return false;
 	}
 	if (m_host)
 	{
-		m_host->runFollowSolveAndSyncForCurrentDocument();
+		m_host->flushCustomDeviceLinkGeometryVisual(deviceId);
 	}
 	if (m_host && m_host->osgView())
 	{

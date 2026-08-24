@@ -37,6 +37,7 @@ class IRobotMotionClient;
 enum class AxisControlTargetKind : int;
 
 class RobotSimulationDockWidget;
+enum class SimulationDockMode : int;
 class CustomDeviceSimService;
 class DockNavigationService;
 class AxisControlTargetService;
@@ -178,8 +179,10 @@ public slots:
 	void onRobotCommPollIntervalChanged(int ms);
 	void onRobotCommPollTick();
 
-	void stopRobotSimulation();
+	/// @param applyLastPoseToScene 为 false 时只停播放器（切页后 current 已是新文档，禁止把旧角 FK 过去）
+	void stopRobotSimulation(bool applyLastPoseToScene = true);
 	QVector<double> aggregatedJointAnglesRad() const { return m_aggregatedJointAnglesRad; }
+	void forgetDocumentJointUiState(const QString& documentId);
 	void restoreAggregatedJointStateAfterProjectLoad(const QVector<double>& allJointAnglesRad);
 	void applyProgramStartPoseAfterProjectLoad();
 	void refreshInstructionPoseAxes(bool computeReachability = true);
@@ -199,6 +202,7 @@ public slots:
 	void syncRobotExternalAxisSettingsFromDocument(int instanceIndex);
 	void syncRobotAxisControlExternalAxes(int instanceIndex);
 	void refreshAxisControlTargets();
+	void syncAxisControlTargetForDockMode(SimulationDockMode mode);
 	void showRobotDockTab(int tabIndex);
 	void showDeviceDockTab(int tabIndex);
 	void applyAxisControlExternalPose(int instanceIndex, const QVector<double>& values);
@@ -294,8 +298,17 @@ private:
 	DockNavigationService* m_dockNavigation = nullptr;
 	AxisControlTargetService* m_axisControlTargets = nullptr;
 	QVector<double> m_aggregatedJointAnglesRad;
-	/// 上次已与聚合角对齐的机器人 sceneBackendId；集合无交集时丢弃旧角（删机再导）
+	/// 上次已与聚合角对齐的机器人 sceneBackendId；同文档内无交集时丢弃旧角（删机再导）
 	QStringList m_syncedRobotSceneBackendIds;
+	/// 当前聚合角所属文档；切页时与 m_jointUiByDocumentId 交换，避免跨文档混用
+	QString m_boundDocumentId;
+	struct DocumentJointUiState
+	{
+		QVector<double> aggregatedJointAnglesRad;
+		QStringList syncedRobotSceneBackendIds;
+	};
+	QHash<QString, DocumentJointUiState> m_jointUiByDocumentId;
+	void bindJointUiToDocument(IRobotDocumentHost* doc);
 	/// 轴控制已应用到基座的外轴量（与 UI 滑条对应，用于差分更新 P）
 	QVector<double> m_axisControlExternalQApplied;
 	double m_axisControlExternalAxis[3]{1.0, 0.0, 0.0};

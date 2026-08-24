@@ -11,6 +11,7 @@
 
 
 #include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "BackendPoseOsg.h"
 #include "BackendVisualMath.h"
@@ -564,22 +565,169 @@ bool OsgWidget::isTransformGizmoDragging() const
 	return m_dragging || m_rotating || m_tcpTeachDragging || m_tcpTeachRotating;
 }
 
-bool OsgWidget::syncOuterPatFromBackend(const BackendDataBase& data)
+void OsgWidget::setPoseSyncBackendManager(BackendDataManager* mgr)
+{
+	m_poseSyncBackendMgr = mgr;
+}
+
+void OsgWidget::setVisualSyncMarkDirty(VisualSyncMarkDirtyFn fn)
+{
+	m_visualSyncMarkDirty = std::move(fn);
+}
+
+namespace
+{
+bool resolveParentWorldForBackendTransform(OsgWidget& self, const std::string& backendId, BackendDataManager& mgr,
+										   osg::Matrixd& outParentWorld)
+{
+	outParentWorld.makeIdentity();
+	std::string logicalParentId;
+	const auto parentRel = self.m_backendParentIds.find(backendId);
+	if (parentRel != self.m_backendParentIds.end() && !parentRel->second.empty())
+	{
+		logicalParentId = parentRel->second;
+	}
+	else
+	{
+		const std::vector<std::string> parents = mgr.parentsOf(backendId);
+		if (!parents.empty())
+		{
+			logicalParentId = parents.front();
+		}
+	}
+	const bool underLogicalParent = !logicalParentId.empty() &&
+									self.backendOuterPatIsUnderOuterPatInSceneGraph(backendId, logicalParentId);
+	if (underLogicalParent)
+	{
+		if (const auto parentObj = mgr.getData(logicalParentId))
+		{
+			if (parentObj->hasPoseProperty())
+			{
+				outParentWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(parentObj->worldMatrix(&mgr));
+				return true;
+			}
+		}
+		if (!self.getBackendRootWorldMatrix(logicalParentId, outParentWorld))
+		{
+			outParentWorld.makeIdentity();
+		}
+		return true;
+	}
+	const auto it = self.m_backendObjectRoots.find(backendId);
+	if (it == self.m_backendObjectRoots.end() || !it->second.valid())
+	{
+		return false;
+	}
+	osg::MatrixTransform* mt = it->second.get();
+	const osg::NodePath fullPath = nodePathToSceneRoot(mt);
+	if (fullPath.size() >= 2U)
+	{
+		osg::NodePath parentPath;
+		parentPath.reserve(fullPath.size() - 1U);
+		for (unsigned i = 0; i + 1U < fullPath.size(); ++i)
+		{
+			parentPath.push_back(fullPath[i]);
+		}
+		outParentWorld = osg::computeLocalToWorld(parentPath);
+	}
+	return true;
+}
+
+bool osgMatrixAllFinite(const osg::Matrixd& m)
+{
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			if (!std::isfinite(m(r, c)))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+void applyWorldMatrixToOuterPat(OsgWidget& self, const std::string& backendId, const osg::Matrixd& worldMat,
+								BackendDataManager& mgr)
+{
+	const auto it = self.m_backendObjectRoots.find(backendId);
+	if (it == self.m_backendObjectRoots.end() || !it->second.valid())
+	{
+		return;
+	}
+	if (!osgMatrixAllFinite(worldMat))
+	{
+		return;
+	}
+	osg::MatrixTransform* mt = it->second.get();
+	osg::Matrixd parentWorld;
+	if (!resolveParentWorldForBackendTransform(self, backendId, mgr, parentWorld))
+	{
+		parentWorld.makeIdentity();
+	}
+	if (!osgMatrixAllFinite(parentWorld))
+	{
+		parentWorld.makeIdentity();
+	}
+	const osg::Matrixd invPw = osg::Matrixd::inverse(parentWorld);
+	const osg::Matrixd local = worldMat * invPw;
+	// 奇异父级逆会产出 NaN，后续 LineSegmentIntersector 易 AV
+	if (!osgMatrixAllFinite(local))
+	{
+		return;
+	}
+	mt->setMatrix(local);
+}
+} // namespace
+
+bool OsgWidget::applyWorldMatrixToOsg(const std::string& backendId, BackendDataManager& mgr)
+{
+	const auto obj = mgr.getData(backendId);
+	if (!obj || !obj->hasPoseProperty())
+	{
+		return false;
+	}
+	const auto it = m_backendObjectRoots.find(backendId);
+	if (it == m_backendObjectRoots.end() || !it->second.valid())
+	{
+		return false;
+	}
+	const osg::Matrixd targetWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(obj->worldMatrix(&mgr));
+	applyWorldMatrixToOuterPat(*this, backendId, targetWorld, mgr);
+	requestRedraw();
+	return true;
+}
+
+bool OsgWidget::syncTransformFromBackendData(const BackendDataBase& data, BackendDataManager& mgr)
 {
 	if (!data.hasPoseProperty())
 	{
 		return false;
 	}
-	const std::string id = data.id();
-	auto it = m_backendObjectRoots.find(id);
-	if (it == m_backendObjectRoots.end() || !it->second.valid())
+	return applyWorldMatrixToOsg(data.id(), mgr);
+}
+
+bool OsgWidget::syncOuterPatFromBackend(const BackendDataBase& data)
+{
+	if (!m_poseSyncBackendMgr)
 	{
-		return false;
+		if (!data.hasPoseProperty())
+		{
+			return false;
+		}
+		const std::string id = data.id();
+		auto it = m_backendObjectRoots.find(id);
+		if (it == m_backendObjectRoots.end() || !it->second.valid())
+		{
+			return false;
+		}
+		const osg::Matrixd targetWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(data.worldMatrix());
+		setBackendRootWorldMatrixFromWorld(id, targetWorld);
+		requestRedraw();
+		return true;
 	}
-	const osg::Matrixd targetWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(data.worldMatrix());
-	setBackendRootWorldMatrixFromWorld(id, targetWorld);
-	requestRedraw();
-	return true;
+	return syncTransformFromBackendData(data, *m_poseSyncBackendMgr);
 }
 
 void OsgWidget::setCameraFollowBackendId(std::string backendId)
@@ -620,6 +768,26 @@ bool OsgWidget::getBackendRootWorldMatrix(const std::string& backendId, osg::Mat
 
 void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat)
 {
+	if (m_poseSyncBackendMgr)
+	{
+		if (const auto obj = m_poseSyncBackendMgr->getData(backendId))
+		{
+			BackendMat4 wm;
+			for (int c = 0; c < 4; ++c)
+			{
+				for (int r = 0; r < 4; ++r)
+				{
+					wm.v[static_cast<size_t>(c * 4 + r)] = worldMat(r, c);
+				}
+			}
+			obj->setWorldMatrix(wm, m_poseSyncBackendMgr);
+			if (m_visualSyncMarkDirty)
+			{
+				m_visualSyncMarkDirty(backendId, 1u);
+			}
+		}
+		return;
+	}
 	const auto it = m_backendObjectRoots.find(backendId);
 	if (it == m_backendObjectRoots.end() || !it->second.valid())
 	{
@@ -628,7 +796,6 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 	osg::MatrixTransform* mt = it->second.get();
 	osg::Matrixd parentWorld;
 	parentWorld.makeIdentity();
-	// 仅当 OSG 真挂在逻辑父下才用父世界（URDF）；抽件扁平时用场景父，否则 local 被错除
 	const auto parentRel = m_backendParentIds.find(backendId);
 	const bool underLogicalParent = parentRel != m_backendParentIds.end() && !parentRel->second.empty() &&
 									backendOuterPatIsUnderOuterPatInSceneGraph(backendId, parentRel->second);
@@ -654,10 +821,7 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 		}
 	}
 	const osg::Matrixd invPw = osg::Matrixd::inverse(parentWorld);
-	// Row-vector OSG convention (see ObjectGizmoFrame): p_world = p_local * local * parentWorld.
-	// Hence local = worldMat * inv(parentWorld). Column-order inv(P)*W only matches when P is identity.
 	mt->setMatrix(worldMat * invPw);
-	// 勿每帧 setSceneData：Follow sync 会刷无关件，看起来像瞬间跳变
 	requestRedraw();
 }
 
@@ -715,9 +879,9 @@ bool OsgWidget::alignBackendInnerModelCenterFrom(const std::string& targetBacken
 
 void OsgWidget::syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& mesh)
 {
-	if (const auto* m = dynamic_cast<const MeshBackendData*>(&mesh))
+	if (m_visualSyncMarkDirty)
 	{
-		(void)syncOuterPatFromBackend(*m);
+		m_visualSyncMarkDirty(mesh.id(), 1u);
 	}
 }
 

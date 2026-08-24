@@ -11,6 +11,13 @@
 
 namespace geoalgo
 {
+#ifdef CLOUDSIM_USE_CSGK
+namespace csgk
+{
+class BodyHandle;
+}
+#endif
+
 /// 不透明 B-rep 共享句柄；Data/Visual 侧不暴露 OCCT 类型
 class GEOMETRY_ALGORITHM_API ShapeHandle
 {
@@ -52,6 +59,11 @@ class GEOMETRY_ALGORITHM_API ShapeHandleAccess
 public:
 	static bool nativeShape(const ShapeHandle& handle, void* outTopoDsShapeStorage);
 	static ShapeHandle fromNativeShape(const void* topoDsShapeStorage);
+#ifdef CLOUDSIM_USE_CSGK
+	static ShapeHandle fromCsgkBody(const csgk::BodyHandle& body);
+	static bool tryGetCsgkBody(const ShapeHandle& handle, csgk::BodyHandle& outBody);
+	static bool isCsgkBackend(const ShapeHandle& handle);
+#endif
 };
 
 } // namespace geoalgo

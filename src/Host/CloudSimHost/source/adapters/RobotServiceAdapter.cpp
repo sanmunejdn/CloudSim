@@ -2,6 +2,7 @@
 /// @brief 机器人到 IRobotService
 
 #include "adapters/RobotServiceAdapter.h"
+#include "visual/KinematicsBatchScope.h"
 
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
@@ -80,6 +81,7 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 		return false;
 	}
 	QVector<double> aggregated(doc->robotRevoluteJointNames().size(), 0.0);
+	KinematicsBatchScope batch(m_host);
 	if (!RobotSceneKinematics::applyJointAnglesForInstance(doc, poseSink, instIdx, jointAnglesRad, aggregated))
 	{
 		if (outError)

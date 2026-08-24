@@ -3,6 +3,7 @@
 
 #include "Discretize.h"
 
+#include "CsgkBackend.h"
 #include "ShapeHandle.h"
 #include "ShapeIo.h"
 #include "ShapeQuery.h"
@@ -297,8 +298,19 @@ bool discretizeShapeToSoupPerFace(const ShapeHandle& shape, const TessellatePara
 								  std::vector<int>& outTriangleFaceIndex, std::vector<std::vector<float>>* outFaceSoups,
 								  std::string* errMsg)
 {
+#ifdef CLOUDSIM_USE_CSGK
+	if(ShapeHandleAccess::isCsgkBackend(shape))
+	{
+		if(!discretizeCsgkShapeToSoup(shape, params, outSoup, errMsg))
+			return false;
+		outTriangleFaceIndex.assign(outSoup.size() / 9U, 0);
+		if(outFaceSoups)
+			outFaceSoups->clear();
+		return true;
+	}
+#endif
 	TopoDS_Shape native;
-	if (!ShapeHandleAccess::nativeShape(shape, &native))
+	if(!ShapeHandleAccess::nativeShape(shape, &native))
 	{
 		detail::setErr(errMsg, "null shape");
 		return false;

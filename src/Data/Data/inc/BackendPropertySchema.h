@@ -21,6 +21,10 @@ inline void tagPoseRotationColorSemantics(std::vector<property_core::PropertyDes
 		{
 			d.semanticFlags = PropertySemanticFlags::None;
 		}
+		else if (d.key == "visible")
+		{
+			d.semanticFlags = PropertySemanticFlags::AffectsVisibility;
+		}
 		else if (d.key.size() >= 5U && d.key.compare(0, 5, "pose.") == 0)
 		{
 			d.semanticFlags = PropertySemanticFlags::AffectsBackendRootWorldXform;
@@ -77,7 +81,94 @@ inline const property_core::PropertySchema& meshBackendSchema()
 		s.schemaVersion = 1;
 		s.descriptors = commonTransformDisplayPack();
 		tagPoseRotationColorSemantics(s.descriptors);
+		s.descriptors.push_back({"visible", "Visible", PropertyType::Bool, true});
 		s.descriptors.push_back({"mesh.triangle_count", "Triangles", PropertyType::Int, 0, false});
+		for (PropertyDescriptor& d : s.descriptors)
+		{
+			if (d.key == "visible")
+			{
+				d.semanticFlags = PropertySemanticFlags::AffectsVisibility;
+			}
+		}
+		return s;
+	}();
+	return schema;
+}
+
+inline const property_core::PropertySchema& frameBackendSchema()
+{
+	using namespace property_core;
+	static const PropertySchema schema = []()
+	{
+		PropertySchema s;
+		s.objectTypeId = "backend.frame";
+		s.schemaVersion = 1;
+		s.descriptors = commonTransformDisplayPack();
+		tagPoseRotationColorSemantics(s.descriptors);
+		s.descriptors.push_back({"visible", "Visible", PropertyType::Bool, true});
+		s.descriptors.push_back({"axisLengthMm", "Axis length (mm)", PropertyType::Double, 100.0});
+		for (PropertyDescriptor& d : s.descriptors)
+		{
+			if (d.key == "visible")
+			{
+				d.semanticFlags = PropertySemanticFlags::AffectsVisibility;
+			}
+			else if (d.key == "axisLengthMm")
+			{
+				d.semanticFlags = PropertySemanticFlags::AffectsGeometry;
+			}
+		}
+		return s;
+	}();
+	return schema;
+}
+
+inline const property_core::PropertySchema& customDeviceBackendSchema()
+{
+	using namespace property_core;
+	static const PropertySchema schema = []()
+	{
+		PropertySchema s;
+		s.objectTypeId = "backend.custom_device";
+		s.schemaVersion = 1;
+		s.descriptors = commonTransformDisplayPack();
+		tagPoseRotationColorSemantics(s.descriptors);
+		s.descriptors.push_back({"visible", "Visible", PropertyType::Bool, true});
+		s.descriptors.push_back({"axisLengthMm", "Axis length (mm)", PropertyType::Double, 80.0});
+		for (PropertyDescriptor& d : s.descriptors)
+		{
+			if (d.key == "visible")
+			{
+				d.semanticFlags = PropertySemanticFlags::AffectsVisibility;
+			}
+			else if (d.key == "axisLengthMm")
+			{
+				d.semanticFlags = PropertySemanticFlags::AffectsGeometry;
+			}
+		}
+		return s;
+	}();
+	return schema;
+}
+
+inline const property_core::PropertySchema& brepBackendSchema()
+{
+	using namespace property_core;
+	static const PropertySchema schema = []()
+	{
+		PropertySchema s;
+		s.objectTypeId = "backend.brep";
+		s.schemaVersion = 1;
+		s.descriptors = commonTransformDisplayPack();
+		tagPoseRotationColorSemantics(s.descriptors);
+		s.descriptors.push_back({"visible", "Visible", PropertyType::Bool, true});
+		for (PropertyDescriptor& d : s.descriptors)
+		{
+			if (d.key == "visible")
+			{
+				d.semanticFlags = PropertySemanticFlags::AffectsVisibility;
+			}
+		}
 		return s;
 	}();
 	return schema;
@@ -109,6 +200,18 @@ inline const property_core::PropertySchema& schemaForBackendClassName(const std:
 	{
 		return pointCloudBackendSchema();
 	}
+	if (className == backend_type::kClassFrame)
+	{
+		return frameBackendSchema();
+	}
+	if (className == backend_type::kClassCustomDevice)
+	{
+		return customDeviceBackendSchema();
+	}
+	if (className == backend_type::kClassBrepModel || className == backend_type::kClassParametricBrep)
+	{
+		return brepBackendSchema();
+	}
 	return meshBackendSchema();
 }
 
@@ -119,6 +222,18 @@ inline const property_core::PropertyDescriptor* findAnyBackendPropertyDescriptor
 		return descriptor;
 	}
 	if (const auto* descriptor = meshBackendSchema().find(key))
+	{
+		return descriptor;
+	}
+	if (const auto* descriptor = frameBackendSchema().find(key))
+	{
+		return descriptor;
+	}
+	if (const auto* descriptor = customDeviceBackendSchema().find(key))
+	{
+		return descriptor;
+	}
+	if (const auto* descriptor = brepBackendSchema().find(key))
 	{
 		return descriptor;
 	}

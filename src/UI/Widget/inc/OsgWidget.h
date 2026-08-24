@@ -70,6 +70,7 @@ class RobotTcpDragTeachOperation;
 class MeshEdgeFacePickOperation;
 class MeshSectionPlaneEditOperation;
 class BackendDataBase;
+class BackendDataManager;
 class PointCloudBackendData;
 class MeshBackendData;
 class OsgWidgetImportController;
@@ -268,6 +269,12 @@ public:
 	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const;
 	/// 设外层 PAT 世界矩阵为 \a worldMat（含父链）
 	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat);
+	/// 单轨：Data worldMatrix → OSG outer local（逻辑父 world 优先读 Data）
+	bool applyWorldMatrixToOsg(const std::string& backendId, BackendDataManager& mgr);
+	bool syncTransformFromBackendData(const BackendDataBase& data, BackendDataManager& mgr);
+	void setPoseSyncBackendManager(BackendDataManager* mgr);
+	using VisualSyncMarkDirtyFn = std::function<void(const std::string&, std::uint32_t)>;
+	void setVisualSyncMarkDirty(VisualSyncMarkDirtyFn fn);
 	/// IRobotBackendPoseSink：列主序 Mat4
 	bool getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const override;
 	void setBackendRootWorldMatrixFromWorld(const std::string& backendId,
@@ -685,6 +692,9 @@ private:
 	bool pickMeshEdgeByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld,
 									   osg::Vec3f& outEdgeBWorld, double* outEdgeDistancePx = nullptr,
 									   const std::string* scopeBackendId = nullptr) const;
+
+	BackendDataManager* m_poseSyncBackendMgr = nullptr;
+	VisualSyncMarkDirtyFn m_visualSyncMarkDirty;
 };
 
 #endif // WIDGET_OSGWIDGET_H

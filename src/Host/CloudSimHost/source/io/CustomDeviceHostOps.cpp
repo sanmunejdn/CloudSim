@@ -14,7 +14,9 @@
 #include "CustomDeviceKinematics.h"
 #include "CustomDevicePoseMotionHost.h"
 #include "DocumentHost.h"
+#include "FollowAttachmentComponent.h"
 #include "HeadlessRobotContext.h"
+#include "visual/VisualAspect.h"
 #include "IDataService.h"
 #include "IoSignalNetwork.h"
 #include "NamedSignalTable.h"
@@ -83,7 +85,101 @@ std::vector<double> doublesFromJson(const QJsonArray& a)
 		q.push_back(v.toDouble());
 	return q;
 }
+
+void registerCustomDeviceLinkGeometryOwnership(DocumentHost& host, const CustomDeviceBackendData& device)
+{
+	QMap<QString, QString>& types = host.backendSourceType();
+	for (const CustomDeviceLink& L : device.links())
+	{
+		if (L.geometryBackendId.empty())
+		{
+			continue;
+		}
+		types[QString::fromStdString(L.geometryBackendId)] = QStringLiteral("CustomDeviceLink");
+	}
+}
+
+void stripCustomDeviceLinkHierarchyFollow(DocumentHost& host, const CustomDeviceBackendData& device)
+{
+	bool changed = false;
+	BackendDataManager& mgr = host.backend();
+	for (const CustomDeviceLink& L : device.links())
+	{
+		if (L.geometryBackendId.empty())
+		{
+			continue;
+		}
+		const auto geom = mgr.getData(L.geometryBackendId);
+		if (!geom || !geom->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
+		{
+			continue;
+		}
+		geom->removeComponent(FollowAttachmentComponent::typeKeyStatic());
+		changed = true;
+	}
+	if (changed)
+	{
+		host.invalidateFollowReverseIndex();
+	}
+}
 } // namespace
+
+void registerAllCustomDeviceLinkGeometryOwnership(DocumentHost& host)
+{
+	for (const auto& obj : host.listObjects())
+	{
+		if (!obj || obj->className() != backend_type::kClassCustomDevice)
+		{
+			continue;
+		}
+		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(obj);
+		if (!device || !device->usesLinkJointGraph())
+		{
+			continue;
+		}
+		registerCustomDeviceLinkGeometryOwnership(host, *device);
+	}
+}
+
+void finalizeCustomDeviceLinkJointGraph(DocumentHost& host, const std::string& deviceBackendId)
+{
+	if (deviceBackendId.empty())
+	{
+		return;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceBackendId));
+	if (!device || !device->usesLinkJointGraph())
+	{
+		return;
+	}
+	registerCustomDeviceLinkGeometryOwnership(host, *device);
+	stripCustomDeviceLinkHierarchyFollow(host, *device);
+	CustomDeviceKinematics::rebakeRotateJointOriginsFromFrames(*device, &host.backend());
+	(void)CustomDeviceKinematics::applyQ(*device, &host.backend(), poseSinkOf(host), nullptr);
+	host.stripKinematicsOwnedFollowAttachments();
+}
+
+void flushCustomDeviceLinkGeometryVisual(DocumentHost& host, const std::string& deviceBackendId)
+{
+	if (deviceBackendId.empty())
+	{
+		return;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceBackendId));
+	if (!device || !device->usesLinkJointGraph())
+	{
+		return;
+	}
+	for (const CustomDeviceLink& L : device->links())
+	{
+		if (L.geometryBackendId.empty())
+		{
+			continue;
+		}
+		host.markVisualDirty(L.geometryBackendId, VisualAspect::Transform);
+	}
+	(void)host.flushVisualSync();
+}
 
 void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host, const std::string& deviceBackendId)
 {
@@ -98,7 +194,7 @@ void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host, const std
 	}
 	BackendDataManager& mgr = host.backend();
 	(void)CustomDeviceKinematics::applyQ(*device, &mgr, poseSinkOf(host), nullptr);
-	// 连杆几何由 applyQ + poseSink 写 OSG；勿对子节点再 syncOuterPat，会与层级 Follow 冲突并破坏拾取
+	flushCustomDeviceLinkGeometryVisual(host, deviceBackendId);
 	(void)host.syncOuterPatFromBackendId(deviceBackendId);
 }
 
@@ -246,8 +342,8 @@ bool applyCustomDeviceQ(DocumentHost& host, const QString& deviceId, const QJson
 			*err = QStringLiteral("applyQ failed");
 		return false;
 	}
-	cloudsim::core::FollowSolveContextDto ctx;
-	(void)host.data().runFollowSolveAndSync(ctx, nullptr);
+	finalizeCustomDeviceLinkJointGraph(host, deviceId.toStdString());
+	flushCustomDeviceLinkGeometryVisual(host, deviceId.toStdString());
 	emit host.visualSceneDirty();
 	return true;
 }
@@ -507,6 +603,7 @@ bool commitCustomDeviceAssembly(DocumentHost& host, const QJsonObject& body, QSt
 			*err = QStringLiteral("commitGraph failed");
 		return false;
 	}
+	finalizeCustomDeviceLinkJointGraph(host, deviceId.toStdString());
 	cloudsim::core::FollowSolveContextDto ctx;
 	(void)host.data().runFollowSolveAndSync(ctx, nullptr);
 	host.ioSignalNetwork().syncOwnersFromDocument(host);

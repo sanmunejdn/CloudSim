@@ -254,7 +254,7 @@ QVector<CustomDeviceLink> CustomDeviceAssemblyCanvasWidget::links() const
 		L.fixed = n.fixed;
 		L.canvasX = n.rect.center().x();
 		L.canvasY = n.rect.center().y();
-		identity16(L.restInDeviceW0);
+		std::memcpy(L.restInDeviceW0, n.restInDeviceW0, sizeof(double) * 16);
 		out.push_back(L);
 	}
 	return out;
@@ -291,6 +291,7 @@ void CustomDeviceAssemblyCanvasWidget::setGraph(const QVector<CustomDeviceLink>&
 		n.geometryId = QString::fromStdString(L.geometryBackendId);
 		n.fixed = L.fixed;
 		n.rect = QRectF(L.canvasX - kNodeW * 0.5, L.canvasY - kNodeH * 0.5, kNodeW, kNodeH);
+		std::memcpy(n.restInDeviceW0, L.restInDeviceW0, sizeof(double) * 16);
 		m_nodes.push_back(n);
 		if (n.id.startsWith(QLatin1Char('L')))
 		{
@@ -313,6 +314,23 @@ void CustomDeviceAssemblyCanvasWidget::setGraph(const QVector<CustomDeviceLink>&
 	}
 	m_idSeq = maxId + 1;
 	update();
+}
+
+bool CustomDeviceAssemblyCanvasWidget::setLinkRestInDeviceW0(const QString& linkId, const double rest[16])
+{
+	if (linkId.isEmpty() || !rest)
+	{
+		return false;
+	}
+	for (Node& n : m_nodes)
+	{
+		if (n.id == linkId)
+		{
+			std::memcpy(n.restInDeviceW0, rest, sizeof(double) * 16);
+			return true;
+		}
+	}
+	return false;
 }
 
 bool CustomDeviceAssemblyCanvasWidget::updateSelectedJointMotion(const CustomDeviceAxisConfig& motion)
