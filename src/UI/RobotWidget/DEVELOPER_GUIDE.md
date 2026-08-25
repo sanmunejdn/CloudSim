@@ -400,7 +400,7 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 
 轴控、姿态库、`DeviceAxisInstruction` 只消费投影后的扁平接口；新功能优先挂图。
 
-**机器人法兰挂载**（`CustomDeviceRobotMountComponent` + 设备根 `FollowAttachment`）：组装完成后在组装对话框选择机器人与安装坐标系（须在设备根或 fixed Link 下）；挂载时 bake `T_local = T_tool × inv(T_frame_in_device)`，设备根 Follow 法兰。机器人 FK 后 `refreshCustomDevicesFollowingKinematicsTargets` → `updateMountedDeviceWorldFromRobotTcp`（更新 `W0` + `applyQ` + 旋转中心 Frame 回写）并 flush 连杆/Frame OSG。轴控 `applyQ` 末尾 `syncMotionCenterFramesFromOrigins`（`W_frame = W_parentLink × T(originMm)`）。工具系变更时 `rebakeMountedCustomDevicesFollowLocals`。Host：`mountCustomDeviceToRobotFlange` / `unmountCustomDeviceFromRobotFlange`；Web：`POST /api/custom-devices/{id}/mount`（可选 `jointAnglesRad`）。
+**机器人法兰挂载**（`CustomDeviceRobotMountComponent` + 设备根 **显式** `FollowAttachment`）：组装完成后在组装对话框选择机器人与安装坐标系（须在设备根或 fixed Link 下）；挂载时 bake `T_local = T_tool × inv(T_frame_in_device)`，设备根 Follow 法兰（跨部件）。同部件 STEP 子 Solid **不**装 hierarchy Follow，靠 `applyToSink` / `backend_compound` 刚体随动。机器人 FK 后经 `runBackendFollowSolveAndSync`（内含挂载 refresh + compound 后再解跟子件的 Follow）更新并 flush。轴控 `applyQ` 末尾 `syncMotionCenterFramesFromOrigins`。工具系变更时 `rebakeMountedCustomDevicesFollowLocals`。Host：`mountCustomDeviceToRobotFlange` / `unmountCustomDeviceFromRobotFlange`；Web：`POST /api/custom-devices/{id}/mount`。概念见 `docs/Follow与Compound分流/`。
 
 i18n：`setUseChinese` ← `MainWindow::applyLanguage`。
 

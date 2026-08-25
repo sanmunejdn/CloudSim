@@ -598,7 +598,7 @@ Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`../../../docs/�
 | API | 说明 |
 |-----|------|
 | `applyQ(device, mgr, sink, qOverride?, ApplyQOptions)` | 轴控主入口：`rebake`（可选）→ FK → `syncMotionCenterFramesFromOrigins` |
-| `CustomDeviceKinematicModel::applyToSink` | 写各 Link `geometryBackendId`；并对 Data 下挂非其它 Link 几何的子件施加 compound 刚体 \(\Delta=W_{new}\cdot W_{old}^{-1}\)（STEP 分件常无 Follow，勿走 Follow 求解） |
+| `CustomDeviceKinematicModel::applyToSink` | 写各 Link `geometryBackendId`；经 `backend_compound::propagateFromWorldChange` 推同部件子树（跳过其它 Link 几何与自身已启用 Follow 的节点） |
 | `ApplyQOptions::refreshRestFromGeometry` | 默认 true；挂载预同步传 false |
 | `ApplyQOptions::rebakeOriginsFromSceneFrames` | 默认 false；true 时从场景 Frame 反烘焙 `originMm`（世界锚定枢轴） |
 | `rebakeRotateJointOriginsFromFrames` | 组装/提交：Frame → `originMm` |

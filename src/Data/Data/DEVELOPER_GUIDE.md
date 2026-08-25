@@ -464,7 +464,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 |------|------|
 | `enabled` / `targetBackendId` / `localPosition` / `localEulerDeg` | 跟随约束参数 |
 | `solverPaused` | gizmo 拖动时暂停求解写回 |
-| `hierarchyDriven` | 由 `attachChild` 自动建立的目标 |
+| `hierarchyDriven` | 旧版 attach 自动 Follow 标记；现已不作为默认路径，加载/求解时剥离 |
 | `appendPropertyRows` / `applyPropertyChange` | UI：`follow.targetName` → `findByName` |
 | `writeJson` / `readJson` | 组件数据体（经 `BackendComponentCodecRegistry` 写入 `components[]`） |
 | `recomputeLocalFromCurrentWorld`（静态） | 从当前世界位姿重算局部偏移 |
@@ -492,7 +492,13 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 | `WorldMatQuery` | `bool(backendId, BackendMat4& outWorld)`，优先 OSG 真值 |
 | `solve(mgr, worldQuery, skipUpdatingFollowerId, limitPoseUpdateToFollowerIds)` | 拓扑序更新 follower 的 `pose/rotation` |
 
-与 `Widget::runBackendFollowSolveAndSync`、`BackendSceneDocumentFacade` 脏集配合。
+与 `Widget::runBackendFollowSolveAndSync`、`BackendSceneDocumentFacade` 脏集配合。同部件子树刚体见 §7.1。
+
+## 7.1 `backend_compound`（`BackendCompoundPropagate.h`）
+
+同部件 Data 子树：\(\Delta=W_{new}\cdot W_{old}^{-1}\)。跳过自身已启用 Follow 的节点（跨部件位姿由 Follow 独占）。`CustomDeviceKinematicModel::applyToSink` 与 Host `propagateCompoundAfterRootWorldChange` 共用。
+
+跨部件 vs 同部件约定见 [`docs/Follow与Compound分流/`](../../../docs/Follow与Compound分流/)。
 
 ---
 

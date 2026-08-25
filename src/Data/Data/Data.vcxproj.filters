@@ -107,6 +107,9 @@
     <ClInclude Include="inc\FollowAttachmentComponent.h">
       <Filter>inc\HierarchyFollow</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendCompoundPropagate.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
     <ClInclude Include="inc\FrameBackendData.h">
       <Filter>inc\GeometryBackends</Filter>
     </ClInclude>
@@ -158,6 +161,9 @@
       <Filter>src\HierarchyFollow</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendFollowTransformSolver.cpp">
+      <Filter>src\HierarchyFollow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendCompoundPropagate.cpp">
       <Filter>src\HierarchyFollow</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendHierarchyModel.cpp">

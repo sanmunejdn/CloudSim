@@ -3,11 +3,11 @@
 #include "CustomDeviceGraphBuilder.h"
 #include "CustomDeviceMat4Layout.h"
 
+#include "BackendCompoundPropagate.h"
 #include "BackendDataManager.h"
 #include "IRobotBackendPoseSink.h"
 #include "TreeForwardKinematics.h"
 
-#include <queue>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -30,44 +30,13 @@ void writeSinkWorld(IRobotBackendPoseSink* sink, const std::string& backendId, c
 	sink->setBackendRootWorldMatrixFromWorld(backendId, mat);
 }
 
-/// 连杆 compound 刚体增量：子件无 Follow，须随父几何同乘 Δ=W_new·inv(W_old)
-void applyCompoundDeltaToDescendants(BackendDataManager& mgr, IRobotBackendPoseSink* sink,
-									 const std::string& linkGeomId, const BackendMat4& delta,
-									 const std::unordered_set<std::string>& linkGeomIds)
+backend_compound::WorldWriteFn makeSinkWriter(IRobotBackendPoseSink* sink)
 {
-	std::queue<std::string> queue;
-	std::unordered_set<std::string> visited;
-	visited.insert(linkGeomId);
-	queue.push(linkGeomId);
-	while (!queue.empty())
+	if (!sink)
 	{
-		const std::string cur = queue.front();
-		queue.pop();
-		for (const std::string& childId : mgr.childrenOf(cur))
-		{
-			if (!visited.insert(childId).second)
-			{
-				continue;
-			}
-			queue.push(childId);
-			if (linkGeomIds.count(childId) != 0)
-			{
-				continue;
-			}
-			const auto child = mgr.getData(childId);
-			if (!child || !child->hasPoseProperty())
-			{
-				continue;
-			}
-			BackendMat4 childNew{};
-			if (!backend_mat4_multiply(delta, child->worldMatrix(&mgr), childNew))
-			{
-				continue;
-			}
-			child->setWorldMatrix(childNew, &mgr);
-			writeSinkWorld(sink, childId, childNew);
-		}
+		return nullptr;
 	}
+	return [sink](const std::string& id, const BackendMat4& wm) { writeSinkWorld(sink, id, wm); };
 }
 } // namespace
 
@@ -146,6 +115,7 @@ bool Model::applyToSink(CustomDeviceBackendData& device, BackendDataManager* mgr
 		}
 	}
 
+	const backend_compound::WorldWriteFn writeWorld = makeSinkWriter(sink);
 	for (size_t i = 0; i < m_graph.links.size(); ++i)
 	{
 		const kinematic_core::KinematicLink& L = m_graph.links[i];
@@ -167,13 +137,7 @@ bool Model::applyToSink(CustomDeviceBackendData& device, BackendDataManager* mgr
 		{
 			continue;
 		}
-		BackendMat4 invOld{};
-		BackendMat4 delta{};
-		if (!backend_mat4_invert_rigid(wOld, invOld) || !backend_mat4_multiply(wNew, invOld, delta))
-		{
-			continue;
-		}
-		applyCompoundDeltaToDescendants(*mgr, sink, L.payloadKey, delta, linkGeomIds);
+		(void)backend_compound::propagateFromWorldChange(*mgr, L.payloadKey, wOld, wNew, &linkGeomIds, writeWorld);
 	}
 	return true;
 }

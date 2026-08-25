@@ -686,6 +686,30 @@ void DocumentHost::stripKinematicsOwnedFollowAttachments()
 	}
 }
 
+void DocumentHost::stripHierarchyDrivenFollowAttachments()
+{
+	bool removed = false;
+	for (const auto& d : m_backend->listData())
+	{
+		if (!d)
+		{
+			continue;
+		}
+		const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		if (!follow || !follow->hierarchyDriven())
+		{
+			continue;
+		}
+		d->removeComponent(FollowAttachmentComponent::typeKeyStatic());
+		removed = true;
+	}
+	if (removed)
+	{
+		invalidateFollowReverseIndex();
+	}
+}
+
 void DocumentHost::setSuppressRobotFollowDirtyNotify(const bool suppress)
 {
 	m_followState.setSuppressRobotDirtyNotify(suppress);

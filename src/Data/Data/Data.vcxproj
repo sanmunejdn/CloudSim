@@ -171,6 +171,7 @@
     <ClInclude Include="inc\GeometryBackendOps.h" />
     <ClInclude Include="inc\GeometryRef.h" />
     <ClInclude Include="inc\BackendFollowTransformSolver.h" />
+    <ClInclude Include="inc\BackendCompoundPropagate.h" />
     <ClInclude Include="inc\BackendSpatial.h" />
     <ClInclude Include="inc\FollowAttachmentComponent.h" />
     <ClInclude Include="inc\CustomDeviceRobotMountComponent.h" />
@@ -203,6 +204,7 @@
     <ClCompile Include="source\BackendFollowMath.cpp" />
     <ClCompile Include="source\BackendSpatial.cpp" />
     <ClCompile Include="source\BackendFollowTransformSolver.cpp" />
+    <ClCompile Include="source\BackendCompoundPropagate.cpp" />
     <ClCompile Include="source\FollowAttachmentComponent.cpp" />
     <ClCompile Include="source\CustomDeviceRobotMountComponent.cpp" />
     <ClCompile Include="source\BackendDataBase.cpp" />

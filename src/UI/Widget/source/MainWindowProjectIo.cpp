@@ -362,8 +362,7 @@ void MainWindow::onOpenProjectFile()
 	loadOpts.useEdgesRelation = useEdgesRelation;
 	loadOpts.robotLinkMeshBackendIds = robotLinkMeshBackendIds;
 	cloudsim::host::ProjectObjectLoadCallbacks loadCbs;
-	loadCbs.legacyParentFollow = [page](const std::string& childId, const std::string& parentId)
-	{ cloudsim::host::applyHierarchyFollowBinding(*page, childId, parentId); };
+	loadCbs.legacyParentFollow = [](const std::string&, const std::string&) {};
 	loadCbs.pointCloudWidgetImport = [](cloudsim::host::DocumentHost& host, const QString& loadPath,
 										const QString& persistedId, QString& outImportedId, QString* outError) -> bool
 	{

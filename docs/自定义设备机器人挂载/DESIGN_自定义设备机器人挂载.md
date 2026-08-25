@@ -21,16 +21,20 @@ T_local  = T_tool × inv(T_frame_in_device)   // 挂载时 bake
 
 ```text
 notifyRobotKinematicsAppliedToScene
-  → runFollowSolveAndSync
-  → refreshCustomDevicesFollowingKinematicsTargets
-       updateMountedDeviceWorldFromRobotTcp   // W_device、安装 Frame 对齐 TCP
-       applyQ（refreshRest=false）            // 连杆 FK + compound 子件 Δ + syncMotionCenterFrames
-       flush 设备根 / 连杆几何+下挂子件 OSG / 旋转中心 Frame / 安装坐标系 OSG
+  → runBackendFollowSolveAndSync
+       Follow（跨部件；挂载设备根跳过写世界）
+       → 未挂载 follower：compound 或设备 applyQ
+       → 受限 Follow（跟 compound 动过的 target）
+       → refreshCustomDevicesFollowingKinematicsTargets
+            updateMountedDeviceWorldFromRobotTcp + applyQ（连杆 FK + compound）
+       → 再受限 Follow（跟挂载连杆子 Solid 的工件等）
+       → flushVisualSync
 ```
 
 - 通用 Follow 求解器**跳过**已挂载 `CustomDevice` 根的世界写入（由 `updateMountedDeviceWorldFromRobotTcp` 独占）。
-- 连杆下仍挂着、未参与运动学的 STEP 子件（无 Follow 目标）：由 `CustomDeviceKinematicModel::applyToSink` 用 \(\Delta=W_{new}\cdot W_{old}^{-1}\) 刚体更新；**禁止**在 `flushCustomDeviceLinkGeometryVisual` 内再调 `runFollowSolveAndSync`（会与挂载刷新递归栈溢出）。
+- 同部件 STEP 子件：**无** hierarchy Follow；由 `backend_compound` / `applyToSink` 刚体更新。**禁止**在 `flushCustomDeviceLinkGeometryVisual` 内再调 `runFollowSolveAndSync`。
 - 工具系变更：`rebakeMountedCustomDevicesFollowLocals` 重算 `T_local`。
+- 概念细则：`docs/Follow与Compound分流/CONSENSUS_Follow与Compound分流.md`。
 
 ## Phase 1 约束
 

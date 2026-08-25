@@ -64,11 +64,11 @@ registerAdoptedCustomDeviceAndLoadScene(DocumentHost& host, const std::shared_pt
 										const QString& catalogTypeName, const QString& parentId, bool resetViewToHome,
 										QString* outError = nullptr);
 
-/// 将子后端挂到自定义设备（Data 父边 + OSG + Follow）
+/// 将子后端挂到自定义设备（Data 父边 + OSG；同部件不装 Follow）
 CLOUDSIM_HOST_EXPORT bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& deviceId,
 														   const std::string& childId, QString* outError = nullptr);
 
-/// 将子后端挂到任意父后端（Data 单父 + OSG + hierarchy Follow）
+/// 将子后端挂到任意父后端（Data 单父 + OSG；同部件不装 hierarchy Follow）
 CLOUDSIM_HOST_EXPORT bool attachBackendChildToParent(DocumentHost& host, const std::string& parentId,
 													 const std::string& childId, QString* outError = nullptr);
 

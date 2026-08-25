@@ -1,15 +1,23 @@
 ﻿/// @file BackendFollowSolve.cpp
-/// @brief Follow 脏集求解
+/// @brief Follow 脏集求解 + compound 传播
 
 #include "BackendFollowSolve.h"
 
+#include "BackendCompoundPropagate.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowTransformSolver.h"
+#include "BackendSceneDocumentFacade.h"
+#include "BackendTypeIds.h"
 #include "CoreTypes.h"
+#include "CustomDeviceBackendData.h"
+#include "CustomDeviceKinematics.h"
+#include "CustomDeviceRobotMountComponent.h"
 #include "DocumentHost.h"
 #include "FollowAttachmentComponent.h"
+#include "HeadlessRobotContext.h"
 #include "IRenderView.h"
+#include "IRobotBackendPoseSink.h"
 #include "OsgWidget.h"
 #include "OsgWidgetSceneBridge.h"
 #include "io/CustomDeviceRobotMountOps.h"
@@ -18,7 +26,9 @@
 #include "PropertyBag.h"
 
 #include <QString>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <osg/Matrixd>
 
@@ -85,7 +95,248 @@ bool dirtyContainsKinematicsSeed(const DocumentHost& page, const std::unordered_
 	}
 	return false;
 }
+
+IRobotBackendPoseSink* poseSinkOf(DocumentHost& host)
+{
+	if (HeadlessRobotContext* hrc = host.headlessRobotContext())
+	{
+		return hrc->urdfImportScenePoseSink();
+	}
+	return host.sceneFacade().poseSink();
+}
+
+backend_compound::WorldWriteFn makePoseSinkWriter(IRobotBackendPoseSink* sink)
+{
+	if (!sink)
+	{
+		return nullptr;
+	}
+	return [sink](const std::string& id, const BackendMat4& wm)
+	{
+		cloudsim::core::Mat4 mat{};
+		for (int k = 0; k < 16; ++k)
+		{
+			mat[static_cast<size_t>(k)] = wm.v[k];
+		}
+		sink->setBackendRootWorldMatrixFromWorld(id, mat);
+	};
+}
+
+bool isMountedCustomDevice(const BackendDataBase& data)
+{
+	if (data.className() != backend_type::kClassCustomDevice)
+	{
+		return false;
+	}
+	const auto device = dynamic_cast<const CustomDeviceBackendData*>(&data);
+	const auto mount = device ? CustomDeviceRobotMountComponent::mountOf(*device) : nullptr;
+	return mount && mount->enabled();
+}
+
+bool isEnabledFollower(const BackendDataBase& data)
+{
+	const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+		data.getComponent(FollowAttachmentComponent::typeKeyStatic()));
+	return follow && follow->enabled() && !follow->targetBackendId().empty();
+}
+
+std::unordered_set<std::string> collectEnabledFollowerIds(BackendDataManager& mgr)
+{
+	std::unordered_set<std::string> out;
+	for (const auto& d : mgr.listData())
+	{
+		if (d && isEnabledFollower(*d))
+		{
+			out.insert(d->id());
+		}
+	}
+	return out;
+}
+
+std::unordered_map<std::string, BackendMat4> snapshotWorlds(BackendDataManager& mgr,
+															const std::unordered_set<std::string>& ids)
+{
+	std::unordered_map<std::string, BackendMat4> out;
+	for (const std::string& id : ids)
+	{
+		const auto obj = mgr.getData(id);
+		if (!obj || !obj->hasPoseProperty())
+		{
+			continue;
+		}
+		out[id] = obj->worldMatrix(&mgr);
+	}
+	return out;
+}
+
+std::unordered_set<std::string> followersTargeting(BackendDataManager& mgr,
+												   const std::unordered_set<std::string>& targets)
+{
+	std::unordered_set<std::string> out;
+	if (targets.empty())
+	{
+		return out;
+	}
+	for (const auto& d : mgr.listData())
+	{
+		if (!d)
+		{
+			continue;
+		}
+		const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		if (!follow || !follow->enabled())
+		{
+			continue;
+		}
+		const std::string tid = follow->targetBackendId();
+		if (!tid.empty() && targets.count(tid) != 0)
+		{
+			out.insert(d->id());
+		}
+	}
+	return out;
+}
+
+/// Follow 写根后：未挂载设备走 applyQ；其它对象走 compound
+std::unordered_set<std::string> propagateAfterFollowMovedRoot(DocumentHost& page, BackendDataManager& mgr,
+															  const std::string& rootId, const BackendMat4& wOld)
+{
+	std::unordered_set<std::string> touched;
+	const auto obj = mgr.getData(rootId);
+	if (!obj || !obj->hasPoseProperty())
+	{
+		return touched;
+	}
+	if (isMountedCustomDevice(*obj))
+	{
+		return touched;
+	}
+	const BackendMat4 wNew = obj->worldMatrix(&mgr);
+	if (backend_mat4_nearly_equal(wOld, wNew, 1e-9))
+	{
+		return touched;
+	}
+
+	IRobotBackendPoseSink* sink = poseSinkOf(page);
+	if (obj->className() == backend_type::kClassCustomDevice)
+	{
+		auto* device = dynamic_cast<CustomDeviceBackendData*>(obj.get());
+		if (!device || !device->usesLinkJointGraph())
+		{
+			return touched;
+		}
+		device->setBaseWorldW0(wNew);
+		CustomDeviceKinematics::ApplyQOptions opts;
+		opts.refreshRestFromGeometry = false;
+		opts.rebakeOriginsFromSceneFrames = false;
+		(void)CustomDeviceKinematics::applyQ(*device, &mgr, sink, nullptr, opts);
+		touched.insert(rootId);
+		for (const CustomDeviceLink& L : device->links())
+		{
+			if (!L.geometryBackendId.empty())
+			{
+				touched.insert(L.geometryBackendId);
+			}
+		}
+		for (const std::string& child : mgr.childrenOf(rootId))
+		{
+			touched.insert(child);
+			for (const std::string& grand : mgr.childrenOf(child))
+			{
+				touched.insert(grand);
+			}
+		}
+		return touched;
+	}
+
+	return backend_compound::propagateFromWorldChange(mgr, rootId, wOld, wNew, nullptr, makePoseSinkWriter(sink));
+}
+
+void markVisualForFollowers(DocumentHost& page, BackendDataManager& mgr, const std::string& gizmoDragSelectedId,
+							const std::string& manualAuthorityId, const bool usePoseLimit,
+							const std::unordered_set<std::string>& dirty)
+{
+	for (const auto& d : mgr.listData())
+	{
+		if (!d)
+		{
+			continue;
+		}
+		if (page.isKinematicsOwnedBackend(d->id()))
+		{
+			continue;
+		}
+		if (!isEnabledFollower(*d))
+		{
+			continue;
+		}
+		const std::string fid = d->id();
+		if (!gizmoDragSelectedId.empty() && fid == gizmoDragSelectedId)
+		{
+			continue;
+		}
+		if (!manualAuthorityId.empty() && fid == manualAuthorityId)
+		{
+			continue;
+		}
+		if (usePoseLimit && !dirty.count(fid))
+		{
+			continue;
+		}
+		page.markVisualDirty(fid, VisualAspect::Transform);
+	}
+	if (!usePoseLimit)
+	{
+		return;
+	}
+	for (const std::string& id : dirty)
+	{
+		if (page.isKinematicsOwnedBackend(id))
+		{
+			continue;
+		}
+		if (!gizmoDragSelectedId.empty() && id == gizmoDragSelectedId)
+		{
+			continue;
+		}
+		if (!manualAuthorityId.empty() && id == manualAuthorityId)
+		{
+			continue;
+		}
+		const auto obj = mgr.getData(id);
+		if (!obj || !obj->hasPoseProperty())
+		{
+			continue;
+		}
+		page.markVisualDirty(id, VisualAspect::Transform);
+	}
+}
 } // namespace
+
+std::unordered_set<std::string> propagateCompoundAfterRootWorldChange(DocumentHost& host, const std::string& rootId,
+																	  const BackendMat4& wOld, const BackendMat4& wNew)
+{
+	BackendDataManager& mgr = host.backend();
+	const auto root = mgr.getData(rootId);
+	if (!root || rootId.empty())
+	{
+		return {};
+	}
+	if (root->className() == backend_type::kClassCustomDevice)
+	{
+		return {};
+	}
+	IRobotBackendPoseSink* sink = poseSinkOf(host);
+	auto touched =
+		backend_compound::propagateFromWorldChange(mgr, rootId, wOld, wNew, nullptr, makePoseSinkWriter(sink));
+	for (const std::string& id : touched)
+	{
+		host.markVisualDirty(id, VisualAspect::Transform);
+		host.markFollowAttachmentDirtyFromBackendMove(id);
+	}
+	return touched;
+}
 
 void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const FollowSolveContext* ctx,
 								  const std::string* manualPoseAuthorityBackendId)
@@ -95,8 +346,8 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		return;
 	}
 
-	// FK 与 Follow 写同一批连杆会拆散装配；先卸再解
 	page.stripKinematicsOwnedFollowAttachments();
+	page.stripHierarchyDrivenFollowAttachments();
 
 	BackendDataManager& mgr = page.backend();
 	resolveFollowTargetsFromNames(mgr);
@@ -107,7 +358,6 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		forced = true;
 	}
 	const bool gizmoDrag = osg && osg->isTransformGizmoDragging() && !osg->isTcpDragTeachActive();
-	// gizmo 拖动不能单独当全量解：否则无关件每帧 syncOuterPat（日志里 A 被反复刷）
 	if (!forced && dirty.empty())
 	{
 		return;
@@ -125,13 +375,11 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 	{
 		skipId = gizmoDragSelectedId;
 	}
-	// 拖 follower 时同步烘焙 local，松手求解才不会用旧偏移拽回
 	if (!skipId.empty())
 	{
 		bakeFollowLocalAfterManualPoseEdit(page, skipId);
 	}
 
-	// 位姿真源统一读 Data.worldMatrix（gizmo 拖动期由 skipId 排除 follower 写回）
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&mgr](const std::string& bid,
 																		 BackendMat4& out) -> bool
 	{
@@ -144,67 +392,98 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		return true;
 	};
 
-	// 有脏集时只写脏 follower；forced 仍全量
 	const bool usePoseLimit = !forced && !dirty.empty();
 	const std::unordered_set<std::string>* limitPtr = usePoseLimit ? &dirty : nullptr;
-	BackendFollowTransformSolver::solve(mgr, worldQuery, skipId, limitPtr);
 
-	for (const auto& d : mgr.listData())
-	{
-		if (!d)
-		{
-			continue;
-		}
-		if (page.isKinematicsOwnedBackend(d->id()))
-		{
-			continue;
-		}
-		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-		if (!comp || !comp->enabled() || comp->targetBackendId().empty())
-		{
-			continue;
-		}
-		const std::string fid = d->id();
-		if (!gizmoDragSelectedId.empty() && fid == gizmoDragSelectedId) // 避免与 gizmo 抢写
-		{
-			continue;
-		}
-		if (!manualAuthorityId.empty() && fid == manualAuthorityId)
-		{
-			continue;
-		}
-		if (usePoseLimit && !dirty.count(fid))
-		{
-			continue;
-		}
-		page.markVisualDirty(fid, VisualAspect::Transform);
-	}
+	const std::unordered_set<std::string> followerIds = collectEnabledFollowerIds(mgr);
+	std::unordered_set<std::string> snapshotIds = followerIds;
 	if (usePoseLimit)
 	{
+		snapshotIds.clear();
 		for (const std::string& id : dirty)
 		{
-			if (page.isKinematicsOwnedBackend(id))
+			if (followerIds.count(id) != 0)
 			{
-				continue;
+				snapshotIds.insert(id);
 			}
-			if (!gizmoDragSelectedId.empty() && id == gizmoDragSelectedId)
-			{
-				continue;
-			}
-			if (!manualAuthorityId.empty() && id == manualAuthorityId)
-			{
-				continue;
-			}
-			const auto obj = mgr.getData(id);
-			if (!obj || !obj->hasPoseProperty())
-			{
-				continue;
-			}
-			page.markVisualDirty(id, VisualAspect::Transform);
 		}
 	}
+	const auto worldsBefore = snapshotWorlds(mgr, snapshotIds);
+
+	BackendFollowTransformSolver::solve(mgr, worldQuery, skipId, limitPtr);
+
+	std::unordered_set<std::string> compoundTouched;
+	for (const auto& kv : worldsBefore)
+	{
+		const std::string& fid = kv.first;
+		if (!skipId.empty() && fid == skipId)
+		{
+			continue;
+		}
+		auto part = propagateAfterFollowMovedRoot(page, mgr, fid, kv.second);
+		compoundTouched.insert(part.begin(), part.end());
+	}
+
+	const std::unordered_set<std::string> secondPassFollowers = followersTargeting(mgr, compoundTouched);
+	if (!secondPassFollowers.empty())
+	{
+		BackendFollowTransformSolver::solve(mgr, worldQuery, skipId, &secondPassFollowers);
+		for (const std::string& fid : secondPassFollowers)
+		{
+			page.markVisualDirty(fid, VisualAspect::Transform);
+		}
+	}
+
+	markVisualForFollowers(page, mgr, gizmoDragSelectedId, manualAuthorityId, usePoseLimit, dirty);
+	for (const std::string& id : compoundTouched)
+	{
+		page.markVisualDirty(id, VisualAspect::Transform);
+	}
+
 	refreshCustomDevicesFollowingKinematicsTargets(page);
+
+	// 挂载 applyQ/compound 之后，再解「跟连杆子 Solid」的跨部件 Follow
+	std::unordered_set<std::string> mountTouched;
+	for (const auto& obj : page.listObjects())
+	{
+		if (!obj || obj->className() != backend_type::kClassCustomDevice)
+		{
+			continue;
+		}
+		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(obj);
+		if (!device)
+		{
+			continue;
+		}
+		const auto mount = CustomDeviceRobotMountComponent::mountOf(*device);
+		if (!mount || !mount->enabled())
+		{
+			continue;
+		}
+		mountTouched.insert(device->id());
+		for (const CustomDeviceLink& L : device->links())
+		{
+			if (L.geometryBackendId.empty())
+			{
+				continue;
+			}
+			mountTouched.insert(L.geometryBackendId);
+			for (const std::string& child : mgr.childrenOf(L.geometryBackendId))
+			{
+				mountTouched.insert(child);
+			}
+		}
+	}
+	const std::unordered_set<std::string> postMountFollowers = followersTargeting(mgr, mountTouched);
+	if (!postMountFollowers.empty())
+	{
+		BackendFollowTransformSolver::solve(mgr, worldQuery, skipId, &postMountFollowers);
+		for (const std::string& fid : postMountFollowers)
+		{
+			page.markVisualDirty(fid, VisualAspect::Transform);
+		}
+	}
+
 	page.flushVisualSync();
 	dirty.clear();
 }
@@ -248,7 +527,6 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 		 (valueText == QStringLiteral("1") || valueText.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0)))
 	{
 		(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *data, nullptr);
-		// 只脏本对象及下游 follower；全量 forced 会误伤其它链（旧工程连杆 Follow）
 	}
 	host.markFollowAttachmentDirtyFromBackendMove(id);
 	host.invalidateFollowReverseIndex();

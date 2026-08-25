@@ -30,6 +30,7 @@
 #include <osg/Vec4>
 
 class BackendDataBase;
+class BackendDataManager;
 class MeshBackendData;
 class PointCloudBackendData;
 
@@ -401,6 +402,14 @@ public:
 	}
 	std::string resolvePickScopeBackendId(const std::string& backendId) const { return backendId; }
 	bool isTransformGizmoDragging() const { return false; }
+	bool isTcpDragTeachActive() const { return false; }
+	std::string activeBackendId() const { return {}; }
+	bool applyWorldMatrixToOsg(const std::string& backendId, BackendDataManager& mgr)
+	{
+		(void)backendId;
+		(void)mgr;
+		return false;
+	}
 
 signals:
 	void polylinePickCommitted(QVector<float> polylineScreenXy, QVector<double> mvpMatrix, int viewportWidth,

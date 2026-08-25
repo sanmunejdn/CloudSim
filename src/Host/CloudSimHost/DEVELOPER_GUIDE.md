@@ -163,7 +163,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | `registerAdoptedMesh` / `registerAdoptedPointCloud` | 已构造 mesh/点云注册（AI、插件、ply Job 完成回调）；内部 `registerAdopted*AndLoadScene` + `BackendObjectRegistered` |
 | `PointCloudBackgroundLoadState` | 后台 Job 读 ply/xyz（Widget 不接触 `PointCloudBackendData`）：`executeLoad` → UI 线程 `adoptIntoDocument` |
 | `runBackendFollowSolveAndSync` | Follow 求解 + `sceneBridge().syncOuterPatFromBackend`；`FollowSolveContext` 由 Widget 注入守卫 |
-| `applyProjectEdgesFollowBindingAndSolve` | 工程 `edges[]` 批量 binding + 一次求解（`BackendProjectObjectIo`） |
+| `applyProjectEdgesFollowBindingAndSolve` | 登记连杆 ownership、剥离 kinematics/hierarchyDriven Follow，再 Follow 求解（edges 不再自动 binding） |
 
 **对象导出**（`DocumentPointCloudOps`，Widget 后端树右键复用）：`exportPointCloudToPly`（`writePointCloudPlySidecar`）、`exportBrepToStep`（`BrepBackendData::writeStepFile` → `geoalgo::writeStepFile`）；路径 `QFile::encodeName`。
 
@@ -186,7 +186,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | `mergeRobotProgramsIntoProjectRoot` | 保存前写入 `robotPrograms` |
 | `mergeRobotKinematicsIntoProjectRoot` | 保存前写入 `robotKinematicsInstances`（含 coordinateFrames；字段兼容桌面） |
 | `applyProjectViewportFromJson` | 恢复标注与 `cameraFollowBackendId`（经 `AnnotationProjectIo`） |
-| `finalizeProjectLoadFollowAndViewport` | OSG 父链、edges 跟随、视口、强制 Follow 求解、末尾 `focusCameraOnAllVisibleBackends` |
+| `finalizeProjectLoadFollowAndViewport` | OSG 父链、剥离 hierarchyDriven、Follow 求解、视口、末尾 `focusCameraOnAllVisibleBackends` |
 | `restoreRobotKinematicsFromProjectJson` | 工程 robotKinematics* 恢复（perLink） |
 | `applyRestoredJointAnglesToScene` | 工程加载后把聚合关节角 FK 写回场景（Widget 不链 `RobotScene`） |
 | `loadRobotProgramsFromProjectJson` / `mergeRobotProgramsIntoProjectRoot` | 程序 JSON 读写 |
@@ -258,9 +258,13 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 **说明**：`skipInnerModelCenterRebase` 参数已从主路径移除（inner PAT 恒 `(0,0,0)`）。世界坐标分件依赖顶点烘焙 + `pose=0`，见契约 §3。
 
-**层级跟随绑定**（工程 `edges` / 属性编辑，**非** DXF 分件导入）由 `cloudsim::host::applyHierarchyFollowBinding` 写入 `FollowAttachment`；`MainWindow::applyHierarchyFollowBinding` 再调用 `runBackendFollowSolveAndSync`。
+**Follow vs compound（硬边界）**
 
-**位姿所有权（硬边界）**：`sourceType=URDF` 的后端（机器人根与连杆）由 FK / `RobotSceneKinematics` 独占写世界位姿；**不得**作为 Follow follower。`applyHierarchyFollowBinding` 与工程 edges 绑定会跳过这类 id；`runBackendFollowSolveAndSync` 入口调用 `stripKinematicsOwnedFollowAttachments` 卸掉旧工程误装的 Follow。Follow 仅驱动工件/工具等自由物体相对 target（如法兰）保持常相对位姿。
+- **Follow**：仅跨部件（显式 `FollowAttachment`、设备根挂法兰）。`applyHierarchyFollowBinding` 仅供显式调用，**不是** attach / 工程 `edges` 的默认行为。
+- **Compound**：同部件 Data 子树刚体 \(\Delta=W_{new}\cdot W_{old}^{-1}\)（`backend_compound::propagate*` / `propagateCompoundAfterRootWorldChange`）。
+- **位姿所有权**：`sourceType=URDF` 与 `CustomDeviceLink` 由 FK 独占，不得作 Follow follower；`runBackendFollowSolveAndSync` 入口 `stripKinematicsOwnedFollowAttachments` + `stripHierarchyDrivenFollowAttachments`（旧工程 hierarchy Follow 剥离，显式 Follow 保留）。
+
+**Follow 求解流水线**（`runBackendFollowSolveAndSync`）：Follow → 变更 follower 的 compound/`applyQ` → 受限 Follow（跟 compound target）→ `refreshCustomDevicesFollowingKinematicsTargets` → 再受限 Follow（跟挂载连杆子件）→ flush。
 
 层级分件导入时 `MainWindow::beginBackendTreeEventRefreshSuppress()` 抑制逐片树刷新，结束时一次 `refreshBackendTree()`。
 
@@ -346,7 +350,7 @@ Open Model / `importMeshFileExtended`：`loadStepHierarchyFromFile` → `collect
 | 删除子树 | `page->data().unregisterSubtree()` |
 | DXF 层级网格 | `importMeshFileExtended` / `importMeshHierarchyParts` |
 | STEP 一层子装配 / 抽 Solid | `loadStepHierarchyFromFile` / `extractBrepSolidByFace` |
-| 层级跟随（仅组件，不求解） | `applyHierarchyFollowBinding` |
+| 显式层级 Follow（非默认） | `applyHierarchyFollowBinding` |
 
 **插件**：`IPluginDocument::removeBackendObject` → `unregisterSubtree`；`IPluginHostContext::importFileIntoActiveDocument` → `DocumentImportFacade`；网格注册 → `registerAdoptedMesh`。
 
@@ -369,7 +373,7 @@ Open Model / `importMeshFileExtended`：`loadStepHierarchyFromFile` → `collect
 | 删子树 | `page->data().unregisterSubtree` | |
 | DXF 层级 / CGAL+OSG 回退 | `importMeshFileExtended` / `importMeshHierarchyParts` | 世界坐标分件 + `setBackendLogicalParent`；导入时不做 Follow |
 | STEP 一层子装配 / 抽 Solid | `collectBrepTopLevelShapeParts` / `extractBrepSolidByFace` | Open Model 拆根 Compound 直接子件；点面再抽 Solid |
-| 跟随（层级边 / legacy parentId） | `applyHierarchyFollowBinding`（Host） | 工程加载 edges 批量绑定后一次 `runBackendFollowSolveAndSync`；属性编辑仍经 `MainWindow::applyHierarchyFollowBinding` |
+| 跟随（显式 / 挂载） | `FollowAttachment` + `runBackendFollowSolveAndSync` | edges 只建父子；同部件靠 compound；属性面板可显式配 Follow |
 
 **已删除（勿再引用）**
 
@@ -683,7 +687,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 |-----|------|
 | `followDirtyBackendIds` / `markFollowAttachmentDirtyFromBackendMove` / `invalidateFollowReverseIndex` / `clearFollowDirtyBackendIds` | 脏集 |
 | `requestFollowSolveForced` / `takeFollowSolveForced` / `followSolveForcedPending` | 强制求解门闩 |
-| `isKinematicsOwnedBackend` / `stripKinematicsOwnedFollowAttachments` | URDF 位姿所有权 |
+| `isKinematicsOwnedBackend` / `stripKinematicsOwnedFollowAttachments` / `stripHierarchyDrivenFollowAttachments` | URDF/连杆位姿所有权；剥离旧 hierarchyDriven Follow |
 | `setSuppressRobotFollowDirtyNotify` / `setDeferPropertyPanelVisualFullSync` | FK/属性编辑门闩 |
 | `ensureSelectionVisualForBackend` / `syncOuterPatFromBackendId` | 选择视觉 / outer PAT |
 
@@ -795,7 +799,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | API | 头文件 | 说明 |
 |-----|--------|------|
 | `runBackendFollowSolveAndSync` / `afterFollowPropertyEdited` | `BackendFollowSolve` | Follow 求解 + outer PAT 同步 |
-| `applyHierarchyFollowBinding` | `BackendHierarchyFollow` | 写 FollowAttachment（跳过 URDF） |
+| `applyHierarchyFollowBinding` | `BackendHierarchyFollow` | 显式写 Follow（跳过 URDF）；attach/edges 默认不调用 |
 | `propertyKeyNeedsVisualSync` / `propertyKeyCommitsPose` / `syncVisualAfterPropertyChange*` / `afterDataServicePropertyChange` | `BackendVisualSync` | 属性后 OSG/事件 |
 | `publishBackendObjectRegistered` / `Removed` / `publishRobotKinematicsApplied` / `publishProjectLoaded` / `publishSelectionChanged` / `publishPoseCommitted*` | `DocumentHostEvents` | EventHub 出口 |
 

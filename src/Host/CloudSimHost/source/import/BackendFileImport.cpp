@@ -4,8 +4,6 @@
 #include "CustomDeviceUrdfExporter.h"
 #include "BackendFileImport.h"
 
-#include "BackendHierarchyFollow.h"
-#include "BackendFollowSolve.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
@@ -15,7 +13,6 @@
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
-#include "FollowAttachmentComponent.h"
 #include "FrameBackendData.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
@@ -25,7 +22,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QLatin1String>
-#include <functional>
 #include <memory>
 
 namespace cloudsim::host
@@ -430,16 +426,7 @@ bool registerAdoptedFrameAndLoadScene(DocumentHost& host, const std::shared_ptr<
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG frame display failed") : sceneErr;
 			return false;
 		}
-		if (!parentId.isEmpty())
-		{
-			applyHierarchyFollowBinding(host, frame->id(), parentId.toStdString());
-			runBackendFollowSolveAndSync(host, osg, nullptr, nullptr);
-		}
-	}
-	else if (!parentId.isEmpty())
-	{
-		applyHierarchyFollowBinding(host, frame->id(), parentId.toStdString());
-		runBackendFollowSolveAndSync(host, nullptr, nullptr, nullptr);
+		// 同部件 Frame：只靠 Data/OSG 父子 + compound，不装 hierarchy Follow
 	}
 	return true;
 }
@@ -516,8 +503,7 @@ bool attachBackendChildToParent(DocumentHost& host, const std::string& parentId,
 	{
 		osg->setBackendParent(childId, parentId);
 	}
-	applyHierarchyFollowBinding(host, childId, parentId);
-	runBackendFollowSolveAndSync(host, osg, nullptr, nullptr);
+	// 同部件：只建父子边；跨部件跟随须显式 Follow / 挂载
 	return true;
 }
 
@@ -570,10 +556,6 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 			}
 			osg->setBackendRootWorldMatrixFromWorld(childId, om);
 		}
-		const std::function<bool(const std::string&, BackendMat4&)> dataOnly =
-			[](const std::string&, BackendMat4&) -> bool { return false; };
-		(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), dataOnly, *child, nullptr);
-		runBackendFollowSolveAndSync(host, osg, nullptr, nullptr);
 	}
 	return true;
 }

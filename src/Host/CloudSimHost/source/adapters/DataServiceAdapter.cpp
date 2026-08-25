@@ -173,6 +173,10 @@ bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QSt
 		{
 			syncCustomDeviceKinematicsAfterRootPoseChange(m_host, id.toStdString());
 		}
+		else
+		{
+			(void)propagateCompoundAfterRootWorldChange(m_host, id.toStdString(), worldBefore, obj->worldMatrix());
+		}
 		if (rebakeMountedDeviceFromInstallFramePose(m_host, id.toStdString()))
 		{
 			afterDataServicePropertyChange(m_host, *obj, key);
@@ -218,6 +222,10 @@ bool DataServiceAdapter::applyWorldPoseMm(const core::ObjectId& id, const core::
 	if (obj->className() == backend_type::kClassCustomDevice)
 	{
 		syncCustomDeviceKinematicsAfterRootPoseChange(m_host, id.toStdString());
+	}
+	else
+	{
+		(void)propagateCompoundAfterRootWorldChange(m_host, id.toStdString(), worldBefore, obj->worldMatrix());
 	}
 	if (rebakeMountedDeviceFromInstallFramePose(m_host, id.toStdString()))
 	{

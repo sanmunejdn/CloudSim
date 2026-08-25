@@ -7,7 +7,6 @@
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
 #include "BackendFollowSolve.h"
-#include "BackendHierarchyFollow.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
 #include "BackendTypeIdentity.h"
@@ -15,7 +14,6 @@
 #include "CustomDeviceBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
-#include "FollowAttachmentComponent.h"
 #include "FrameBackendData.h"
 #include "IDataService.h"
 #include "io/CustomDeviceHostOps.h"
@@ -681,23 +679,11 @@ bool exportBackendTriangleSoupMm(DocumentHost& host, const QString& backendId, s
 void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, const QVector<ProjectHierarchyEdge>& edges,
 											const FollowSolveContext* solveCtx)
 {
+	(void)edges;
 	registerAllCustomDeviceLinkGeometryOwnership(host);
 	host.stripKinematicsOwnedFollowAttachments();
-	for (const ProjectHierarchyEdge& edge : edges)
-	{
-		const std::string childId = edge.childId.toStdString();
-		if (host.isKinematicsOwnedBackend(childId))
-		{
-			continue;
-		}
-		const std::shared_ptr<BackendDataBase> childData = host.backend().getData(childId);
-		// 工程里已带 followAttachment 的节点不再重复 binding
-		if (childData && childData->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
-		{
-			continue;
-		}
-		applyHierarchyFollowBinding(host, childId, edge.parentId.toStdString());
-	}
+	host.stripHierarchyDrivenFollowAttachments();
+	// edges 只表示 Data 父子；跨部件 Follow 靠对象上显式组件
 	runBackendFollowSolveAndSync(host, osgWidgetFrom(host), solveCtx);
 }
 

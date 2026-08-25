@@ -3,12 +3,17 @@
 
 #include "adapters/OsgRenderViewAdapter.h"
 
+#include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendFollowMath.h"
+#include "BackendFollowSolve.h"
+#include "BackendTypeIds.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "IDataService.h"
 #include "ObjectGizmoFrame.h"
 #include "OsgWidget.h"
+#include "io/CustomDeviceHostOps.h"
 
 #include "../../UI/OsgWidgetCore/inc/RobotOsgUiTypes.h"
 
@@ -311,7 +316,21 @@ bool OsgRenderViewAdapter::commitGizmoPoseToBackend(const core::ObjectId& id)
 	{
 		return false;
 	}
-	return m_widget.writeActiveBackendPoseFromOsg(*obj);
+	const BackendMat4 worldBefore = obj->worldMatrix(&m_host->backend());
+	if (!m_widget.writeActiveBackendPoseFromOsg(*obj))
+	{
+		return false;
+	}
+	const BackendMat4 worldAfter = obj->worldMatrix(&m_host->backend());
+	if (obj->className() == backend_type::kClassCustomDevice)
+	{
+		syncCustomDeviceKinematicsAfterRootPoseChange(*m_host, id.toStdString());
+	}
+	else if (!backend_mat4_nearly_equal(worldBefore, worldAfter, 1e-9))
+	{
+		(void)propagateCompoundAfterRootWorldChange(*m_host, id.toStdString(), worldBefore, worldAfter);
+	}
+	return true;
 }
 
 void OsgRenderViewAdapter::setViewerBackgroundForDarkUi(const bool dark)

@@ -138,6 +138,8 @@ public:
 	bool isKinematicsOwnedBackend(const std::string& backendId) const;
 	/// 卸掉运动学对象上误装的 FollowAttachment（工程 edges / 旧工程迁移）
 	void stripKinematicsOwnedFollowAttachments();
+	/// 卸掉 hierarchyDriven Follow（同部件改靠 compound；保留显式 Follow）
+	void stripHierarchyDrivenFollowAttachments();
 	/// FK 批量抑制脏通知
 	void setSuppressRobotFollowDirtyNotify(bool suppress);
 	bool suppressRobotFollowDirtyNotify() const;

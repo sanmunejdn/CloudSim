@@ -336,6 +336,7 @@ void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host, const std
 	(void)host.syncOuterPatFromBackendId(deviceBackendId);
 	flushCustomDeviceLinkGeometryVisual(host, deviceBackendId);
 	flushCustomDeviceMotionCenterFrameVisual(host, deviceBackendId);
+	host.markFollowAttachmentDirtyFromBackendMove(deviceBackendId);
 }
 
 QJsonObject listCustomDevicesJson(DocumentHost& host)

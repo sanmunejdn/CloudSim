@@ -3,12 +3,15 @@
 
 /// @file BackendFollowSolve.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief Follow 求解上下文
+/// @brief Follow 求解 + 同部件 compound 传播
 
 #include "cloudsim_host_global.h"
 
+#include "BackendFollowMath.h"
+
 #include <functional>
 #include <string>
+#include <unordered_set>
 
 class OsgWidget;
 
@@ -23,10 +26,15 @@ struct FollowSolveContext
 	std::function<bool(std::string& outSelectedId)> fillGizmoSelectedId;
 };
 
-/// Follow 求解；osg 可空（Web Headless 只写 BackendData，靠 worldMatrix 回落）
+/// Follow 求解；随后对变更 follower 做 compound（挂载设备除外），再解依赖 compound target 的 Follow
 CLOUDSIM_HOST_EXPORT void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg,
 													   const FollowSolveContext* ctx = nullptr,
 													   const std::string* manualPoseAuthorityBackendId = nullptr);
+
+/// 同部件：根世界从 wOld→wNew 后刚体推 Data 子树（跳过自身已启用 Follow 的节点）
+CLOUDSIM_HOST_EXPORT std::unordered_set<std::string>
+propagateCompoundAfterRootWorldChange(DocumentHost& host, const std::string& rootId, const BackendMat4& wOld,
+									  const BackendMat4& wNew);
 
 /// follow.* 属性提交后重算局部偏移并置脏
 CLOUDSIM_HOST_EXPORT void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId,
