@@ -59,6 +59,10 @@ CLOUDSIM_HOST_EXPORT void finalizeCustomDeviceLinkJointGraph(DocumentHost& host,
 /// applyQ 后：把连杆几何 worldMatrix 刷到 OSG（poseSink 只标脏，须显式 flush）
 CLOUDSIM_HOST_EXPORT void flushCustomDeviceLinkGeometryVisual(DocumentHost& host, const std::string& deviceBackendId);
 
+/// applyQ 后：旋转中心坐标系刷到 OSG
+CLOUDSIM_HOST_EXPORT void flushCustomDeviceMotionCenterFrameVisual(DocumentHost& host,
+																   const std::string& deviceBackendId);
+
 /// 工程加载：为已存图的自定义设备补登记连杆 FK 独占
 CLOUDSIM_HOST_EXPORT void registerAllCustomDeviceLinkGeometryOwnership(DocumentHost& host);
 

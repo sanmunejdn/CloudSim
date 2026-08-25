@@ -666,6 +666,10 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& b
 			syncPropertyPanelRowValues(backendId);
 		}
 	}
+	else if (isInlineTextPropertyEditActive(backendId))
+	{
+		return;
+	}
 	else
 	{
 		updatePropertyPanel(backendId);
@@ -694,7 +698,7 @@ void MainWindow::onPropertyPanelCommitTimer()
 	{
 		return;
 	}
-	if (shouldDeferPropertyPanelRebuild(want))
+	if (shouldDeferPropertyPanelRebuild(want) || isInlineTextPropertyEditActive(want))
 	{
 		m_propertyPanelCommitPendingBackendId = want;
 		m_propertyPanelCommitTimer.start(220);

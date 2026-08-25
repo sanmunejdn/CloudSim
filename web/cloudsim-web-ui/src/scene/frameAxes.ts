@@ -17,7 +17,7 @@ export function makeCoordinateFrameAxes(axisLengthMm = 100) {
       new THREE.Vector3(0, 0, 0),
       new THREE.Vector3(dir[0] * len, dir[1] * len, dir[2] * len),
     ]);
-    return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, depthTest: true }));
+    return new THREE.Line(geo, new THREE.LineBasicMaterial({ color, depthTest: false }));
   };
   g.add(mk([1, 0, 0], 0xe53935));
   g.add(mk([0, 1, 0], 0x43a047));

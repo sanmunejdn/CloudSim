@@ -5,6 +5,7 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendTypeIds.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "OsgWidget.h"
@@ -133,9 +134,19 @@ bool BackendVisualSyncEngine::flushTransformForId(const std::string& backendId)
 
 bool BackendVisualSyncEngine::flushAppearanceForId(const std::string& backendId)
 {
-	OsgWidget* osg = osgWidgetFrom(m_host);
 	const auto obj = m_host.backend().getData(backendId);
-	if (!osg || !obj)
+	if (!obj)
+	{
+		return false;
+	}
+	// 坐标系/自定义设备根轴为固定 RGB 顶点色，不走统一 object color
+	if (backend_type::isCoordinateFrameClassName(obj->className()) ||
+		backend_type::isCustomDeviceClassName(obj->className()))
+	{
+		return true;
+	}
+	OsgWidget* osg = osgWidgetFrom(m_host);
+	if (!osg)
 	{
 		return false;
 	}
@@ -169,9 +180,25 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 	{
 		return true;
 	}
+	// 先记 revision，避免 ensureVisual 内嵌 flush 时重复进入几何重建
+	m_lastSyncedGeometryRevision[backendId] = rev;
+	if (backend_type::isCoordinateFrameClassName(obj->className()) ||
+		backend_type::isCustomDeviceClassName(obj->className()))
+	{
+		OsgWidget* osg = osgWidgetFrom(m_host);
+		if (!osg)
+		{
+			return false;
+		}
+		if (!osg->loadBackendFromBackendData(*obj, nullptr, false, false, false))
+		{
+			return false;
+		}
+		(void)osg->applyWorldMatrixToOsg(backendId, m_host.backend());
+		return true;
+	}
 	EnsureVisualOptions opts;
 	(void)ensureVisual(m_host, backendId, EnsureVisualPolicy::FullRebuild, opts);
-	m_lastSyncedGeometryRevision[backendId] = rev;
 	return true;
 }
 

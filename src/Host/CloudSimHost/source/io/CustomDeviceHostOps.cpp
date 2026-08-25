@@ -16,6 +16,7 @@
 #include "DocumentHost.h"
 #include "FollowAttachmentComponent.h"
 #include "HeadlessRobotContext.h"
+#include "RobotSceneKinematics.h"
 #include "visual/VisualAspect.h"
 #include "IDataService.h"
 #include "IoSignalNetwork.h"
@@ -27,6 +28,8 @@
 #include <QUuid>
 
 #include <json.hpp>
+
+#include <unordered_set>
 
 #include <BackendDataManager.h>
 
@@ -84,6 +87,62 @@ std::vector<double> doublesFromJson(const QJsonArray& a)
 	for (const QJsonValue& v : a)
 		q.push_back(v.toDouble());
 	return q;
+}
+
+QVector<double> qvectorFromJson(const QJsonArray& a)
+{
+	QVector<double> q;
+	q.reserve(a.size());
+	for (const QJsonValue& v : a)
+		q.append(v.toDouble());
+	return q;
+}
+
+/// 挂载前 FK，与桌面 mountDeviceToRobot 预同步一致
+bool applyRobotFkBeforeDeviceMount(DocumentHost& host, const QString& robotSceneBackendId,
+									const QVector<double>* jointAnglesOverride, QVector<double>& outLocalJointAngles)
+{
+	HeadlessRobotContext* hrc = host.headlessRobotContext();
+	if (!hrc)
+	{
+		return false;
+	}
+	const int instIdx = hrc->robotInstanceIndexForSceneBackendId(robotSceneBackendId);
+	if (instIdx < 0)
+	{
+		return false;
+	}
+	if (jointAnglesOverride && !jointAnglesOverride->isEmpty())
+	{
+		outLocalJointAngles = *jointAnglesOverride;
+	}
+	else
+	{
+		QStringList names;
+		QVector<double> lower;
+		QVector<double> upper;
+		if (!hrc->jointMetaForSceneRoot(robotSceneBackendId, names, lower, upper, outLocalJointAngles))
+		{
+			return false;
+		}
+	}
+	IRobotBackendPoseSink* sink = poseSinkOf(host);
+	QVector<double> aggregated;
+	if (!RobotSceneKinematics::applyJointAnglesForInstance(hrc, sink, instIdx, outLocalJointAngles, aggregated))
+	{
+		return false;
+	}
+	hrc->recordJointAnglesForSceneRoot(robotSceneBackendId, outLocalJointAngles);
+	host.noteRobotLocalJointAnglesForSceneRoot(robotSceneBackendId, aggregated);
+	return true;
+}
+
+void notifyRobotSceneAfterDeviceMountChange(DocumentHost& host)
+{
+	if (HeadlessRobotContext* hrc = host.headlessRobotContext())
+	{
+		hrc->notifyRobotKinematicsAppliedToScene();
+	}
 }
 
 void registerCustomDeviceLinkGeometryOwnership(DocumentHost& host, const CustomDeviceBackendData& device)
@@ -177,9 +236,42 @@ void flushCustomDeviceLinkGeometryVisual(DocumentHost& host, const std::string& 
 		{
 			continue;
 		}
-		host.markVisualDirty(L.geometryBackendId, VisualAspect::Transform);
+		(void)host.syncOuterPatFromBackendId(L.geometryBackendId);
 	}
-	(void)host.flushVisualSync();
+}
+
+void flushCustomDeviceMotionCenterFrameVisual(DocumentHost& host, const std::string& deviceBackendId)
+{
+	if (deviceBackendId.empty())
+	{
+		return;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceBackendId));
+	if (!device || !device->usesLinkJointGraph())
+	{
+		return;
+	}
+	BackendDataManager& mgr = host.backend();
+	std::unordered_set<std::string> synced;
+	for (const CustomDeviceJoint& J : device->joints())
+	{
+		if (J.motion.motionType != CustomDeviceMotionType::Rotate)
+		{
+			continue;
+		}
+		const std::string& frameId = J.motion.motionCenterFrameBackendId;
+		if (frameId.empty() || synced.count(frameId) != 0)
+		{
+			continue;
+		}
+		const auto frame = mgr.getData(frameId);
+		if (!frame || !backend_type::isCoordinateFrameClassName(frame->className()))
+		{
+			continue;
+		}
+		(void)host.syncOuterPatFromBackendId(frameId);
+		synced.insert(frameId);
+	}
 }
 
 void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host, const std::string& deviceBackendId)
@@ -195,8 +287,9 @@ void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host, const std
 	}
 	BackendDataManager& mgr = host.backend();
 	(void)CustomDeviceKinematics::applyQ(*device, &mgr, poseSinkOf(host), nullptr);
-	flushCustomDeviceLinkGeometryVisual(host, deviceBackendId);
 	(void)host.syncOuterPatFromBackendId(deviceBackendId);
+	flushCustomDeviceLinkGeometryVisual(host, deviceBackendId);
+	flushCustomDeviceMotionCenterFrameVisual(host, deviceBackendId);
 }
 
 QJsonObject listCustomDevicesJson(DocumentHost& host)
@@ -681,8 +774,45 @@ bool mountCustomDeviceToRobotFlange(DocumentHost& host, const QString& deviceId,
 			}
 		}
 	}
-	return mountCustomDeviceToFlange(*device, host, robotSceneBackendId, flangeLinkName, flangeBackendId,
-									 mountFrameBackendId, toolMat, nullptr, nullptr, err);
+
+	(void)host.flushVisualSync();
+
+	QVector<double> bodyJointAngles;
+	if (body.contains(QStringLiteral("jointAnglesRad")) && body.value(QStringLiteral("jointAnglesRad")).isArray())
+	{
+		bodyJointAngles = qvectorFromJson(body.value(QStringLiteral("jointAnglesRad")).toArray());
+	}
+	const QVector<double>* jointOverride = bodyJointAngles.isEmpty() ? nullptr : &bodyJointAngles;
+
+	QVector<double> localJointAngles;
+	const QVector<double>* jointAnglesForMount = nullptr;
+	BackendMat4 mountTcpWorld{};
+	const BackendMat4* mountTcpWorldForAlign = nullptr;
+	HeadlessRobotContext* hrc = host.headlessRobotContext();
+	if (hrc && hrc->robotInstanceIndexForSceneBackendId(robotSceneBackendId) >= 0)
+	{
+		if (applyRobotFkBeforeDeviceMount(host, robotSceneBackendId, jointOverride, localJointAngles))
+		{
+			jointAnglesForMount = &localJointAngles;
+			notifyRobotSceneAfterDeviceMountChange(host);
+
+			HeadlessRobotContext::TcpPoseCapture tcpCapture;
+			if (hrc->captureTcpPose(robotSceneBackendId, tcpCapture, nullptr))
+			{
+				mountTcpWorld = tcpCapture.worldMat;
+				mountTcpWorldForAlign = &mountTcpWorld;
+			}
+		}
+	}
+
+	const bool mounted = mountCustomDeviceToFlange(*device, host, robotSceneBackendId, flangeLinkName, flangeBackendId,
+												   mountFrameBackendId, toolMat, jointAnglesForMount,
+												   mountTcpWorldForAlign, err);
+	if (mounted)
+	{
+		notifyRobotSceneAfterDeviceMountChange(host);
+	}
+	return mounted;
 }
 
 bool unmountCustomDeviceFromRobotFlange(DocumentHost& host, const QString& deviceId, QString* err)
@@ -696,7 +826,12 @@ bool unmountCustomDeviceFromRobotFlange(DocumentHost& host, const QString& devic
 		}
 		return false;
 	}
-	return unmountCustomDeviceFromRobot(*device, host, err);
+	const bool ok = unmountCustomDeviceFromRobot(*device, host, err);
+	if (ok)
+	{
+		notifyRobotSceneAfterDeviceMountChange(host);
+	}
+	return ok;
 }
 
 } // namespace cloudsim::host

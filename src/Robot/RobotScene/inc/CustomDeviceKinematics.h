@@ -24,9 +24,16 @@ ROBOT_SCENE_API RobotExternal::RobotExternalAxisConfigSet toExternalAxisConfigSe
 /// 挂载启用时 W_eff = T_flange_world * T_flange_device；否则 baseWorldW0
 ROBOT_SCENE_API BackendMat4 resolveEffectiveDeviceW0(const CustomDeviceBackendData& device, BackendDataManager* mgr);
 
+struct ApplyQOptions
+{
+	bool refreshRestFromGeometry = true;
+	/// 为 true 时从场景 Frame 重烘焙 originMm（世界锚定枢轴）；链式机构轴控应保持 false
+	bool rebakeOriginsFromSceneFrames = false;
+};
+
 /// 仅 Link/Joint 图：syncAxes → 写 q → 树状 FK；无图返回 false
 ROBOT_SCENE_API bool applyQ(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBackendPoseSink* sink,
-							const std::vector<double>* qOverride = nullptr);
+							const std::vector<double>* qOverride = nullptr, ApplyQOptions options = {});
 
 /// 将 motionCenterFrame 原点变到父连杆局部，写入 motion.originMm；无 Frame 或失败则 false
 ROBOT_SCENE_API bool bakeMotionCenterFrameToOriginMm(CustomDeviceAxisConfig& motion, const double parentWorldCm[16],
@@ -46,6 +53,10 @@ ROBOT_SCENE_API bool bakeJointMotionOriginFromParentLink(CustomDeviceBackendData
 /// @param qForFk 若非空，用该 q 做父连杆 FK（轴控时应传当前 q，否则世界系 Frame 在上游关节变化后枢轴会偏）
 ROBOT_SCENE_API void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData& device, BackendDataManager* mgr,
 														const std::vector<double>* qForFk = nullptr);
+
+/// applyQ 后：按父连杆 FK × originMm 回写旋转中心坐标系世界位姿（仅 Frame，不含 Link 几何）
+ROBOT_SCENE_API void syncMotionCenterFramesFromOrigins(CustomDeviceBackendData& device, BackendDataManager* mgr,
+													  IRobotBackendPoseSink* sink, const std::vector<double>& q);
 
 /// 世界点 → 设备 W0 局部 mm；失败返回 false
 ROBOT_SCENE_API bool worldPointToDeviceLocalMm(const BackendMat4& w0, double worldX, double worldY, double worldZ,

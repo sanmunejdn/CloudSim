@@ -121,6 +121,8 @@ export const mountCustomDeviceToRobot = (
     flangeLinkName?: string;
     flangeBackendId?: string;
     mountFrameBackendId?: string;
+    toolFrameInFlange?: number[];
+    jointAnglesRad?: number[];
   },
 ) => postJson<ApiOk>(`/api/custom-devices/${encodeURIComponent(deviceId)}/mount`, body);
 

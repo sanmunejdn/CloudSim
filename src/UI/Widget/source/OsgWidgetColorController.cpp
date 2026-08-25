@@ -19,6 +19,11 @@
 
 namespace
 {
+bool isFixedRgbAxisGeodeName(const std::string& name)
+{
+	return name == "frameAxes" || name == "customDeviceAxes";
+}
+
 void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color, bool useSceneLighting)
 {
 	if (!root)
@@ -31,6 +36,10 @@ void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color, bool useSc
 
 		void apply(osg::Geode& geode) override
 		{
+			if (isFixedRgbAxisGeodeName(geode.getName()))
+			{
+				return;
+			}
 			const bool wireOverlay = (geode.getName() == "meshWireOverlay") ||
 									 (geode.getName() == "brepWireOverlay") ||
 									 (geode.getName() == "brepViewportWireframe");

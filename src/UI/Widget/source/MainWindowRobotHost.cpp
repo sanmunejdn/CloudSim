@@ -1788,6 +1788,7 @@ bool MainWindowRobotHost::mountDeviceToRobot(const QString& deviceBackendId, con
 		}
 		return false;
 	}
+	(void)host->flushVisualSync();
 
 	DocumentPage* page = m_mw ? m_mw->currentPage() : nullptr;
 	RobotSimulationController* sim = m_mw ? m_mw->robotSimulation() : nullptr;

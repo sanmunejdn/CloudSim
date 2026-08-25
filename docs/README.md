@@ -57,13 +57,17 @@ Cursor 规则：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-archite
 | TCP 拖动示教与罗盘 | [`RobotWidget/DEVELOPER_GUIDE.md`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)、[`OsgWidgetCore`](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |
 | IO 信号网络 / 连接站 / 自定义设备 | 桌面：[`RobotWidget`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)；网页指南见 web-ui；过程稿 [`_archive/IO信号与流程/`](_archive/IO信号与流程/)、[`_archive/网页端信号网络与自定义设备/`](_archive/网页端信号网络与自定义设备/) |
 | Robot 运动学 Workspace | [`RobotUrdf`](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md)；图与 6A：[`_archive/robot-kinematics-workspace/`](_archive/robot-kinematics-workspace/) |
+| **运动副（1-DOF FK）** | [`运动副/`](运动副/) · [架构图](运动副/运动副架构图.html) |
+| **自定义设备旋转中心 / 机器人挂载** | [`自定义设备旋转中心Frame/`](自定义设备旋转中心Frame/) · [`自定义设备机器人挂载/`](自定义设备机器人挂载/) |
 
 ## 进行中专题
 
 | 文档 | 说明 |
 |------|------|
 | [`TopoNaming/`](TopoNaming/) | TopoNaming 对齐（本里程碑未实现） |
-| [`自定义设备旋转中心Frame/`](自定义设备旋转中心Frame/) | 自定义设备旋转中心 Frame（ALIGNMENT） |
+| [`自定义设备旋转中心Frame/`](自定义设备旋转中心Frame/) | 旋转中心 Frame 绑定与 applyQ 视觉回写 |
+| [`自定义设备机器人挂载/`](自定义设备机器人挂载/) | 法兰挂载、TCP 跟踪与 FK 后刷新 |
+| [`运动副/`](运动副/) | 1-DOF 运动副设计、FK 组合与架构图 |
 | [`开发文档整理/`](开发文档整理/) | 文档全面整理（导航 + 断链 + src 指南） |
 
 ## 历史归档

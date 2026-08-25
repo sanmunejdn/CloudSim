@@ -299,10 +299,19 @@ bool WebGateway::patchObjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 				return false;
 		}
 	}
-	if (o.contains(QStringLiteral("propertyKey")))
+	if (o.contains(QStringLiteral("propertyKey")) || o.contains(QStringLiteral("key")))
 	{
-		if (!data.applyPropertyChange(id, o.value(QStringLiteral("propertyKey")).toString(),
-									  o.value(QStringLiteral("propertyValue")).toVariant().toString(), err))
+		QString propKey = o.contains(QStringLiteral("propertyKey"))
+							  ? o.value(QStringLiteral("propertyKey")).toString()
+							  : o.value(QStringLiteral("key")).toString();
+		const QString propVal = o.contains(QStringLiteral("propertyValue"))
+									? o.value(QStringLiteral("propertyValue")).toVariant().toString()
+									: o.value(QStringLiteral("value")).toVariant().toString();
+		if (propKey == QStringLiteral("name"))
+		{
+			propKey = QStringLiteral("core.name");
+		}
+		if (!data.applyPropertyChange(id, propKey, propVal, err))
 			return false;
 	}
 	pushEvent(QStringLiteral("{\"type\":\"ObjectPatched\",\"backendId\":\"%1\"}").arg(id));

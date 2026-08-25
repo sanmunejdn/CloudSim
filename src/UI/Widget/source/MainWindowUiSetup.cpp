@@ -19,6 +19,7 @@
 #include "IoSignalNetworkService.h"
 #include "NamedSignalIoSink.h"
 #include "JobSystem.h"
+#include "PropertyPanelVariantEditorFactory.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
 #include "MainWindowSelectionService.h"
@@ -223,6 +224,10 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			{
 				m_selectionState.setSelectedBackendId(ev.primaryId);
 			}
+			if (isInlineTextPropertyEditActive(ev.primaryId))
+			{
+				return;
+			}
 			updatePropertyPanel(ev.primaryId);
 		});
 	m_appEvents.subscribe<cloudsim::core::PoseCommittedEvent>(
@@ -237,9 +242,12 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			{
 				return;
 			}
-			if (shouldDeferPropertyPanelRebuild(ev.objectId))
+			if (isInlineTextPropertyEditActive(ev.objectId) || shouldDeferPropertyPanelRebuild(ev.objectId))
 			{
-				syncPropertyPanelRowValues(ev.objectId);
+				if (shouldDeferPropertyPanelRebuild(ev.objectId))
+				{
+					syncPropertyPanelRowValues(ev.objectId);
+				}
 				return;
 			}
 			schedulePropertyPanelCommitRefresh(ev.objectId);
@@ -251,8 +259,6 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	m_robotSimulation->attachPlaybackTimer(&m_robotSimTimer);
 	connect(m_documentTabs, &QTabWidget::currentChanged, this, &MainWindow::onDocumentTabChanged);
 	connect(m_documentTabs, &QTabWidget::tabCloseRequested, this, &MainWindow::closeDocumentTab);
-	m_followTargetNameDebounceTimer.setSingleShot(true);
-	connect(&m_followTargetNameDebounceTimer, &QTimer::timeout, this, &MainWindow::flushFollowTargetNamePropertyEdit);
 	m_propertyPanelCommitTimer.setSingleShot(true);
 	connect(&m_propertyPanelCommitTimer, &QTimer::timeout, this, &MainWindow::onPropertyPanelCommitTimer);
 	m_instructionPropertyRefreshTimer.setSingleShot(true);
@@ -457,7 +463,7 @@ void MainWindow::setupDockWidgets()
 	m_propertyDock->setObjectName(QStringLiteral("PropertyDock"));
 	m_propertyDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_variantManager = new QtVariantPropertyManager(this);
-	m_variantFactory = new QtVariantEditorFactory(this);
+	m_variantFactory = new PropertyPanelVariantEditorFactory(this);
 	m_propertyBrowser = new QtTreePropertyBrowser();
 	m_propertyBrowser->setFactoryForManager(m_variantManager, m_variantFactory);
 	m_propertyBrowser->setResizeMode(QtTreePropertyBrowser::ResizeToContents);
@@ -468,9 +474,8 @@ void MainWindow::setupDockWidgets()
 	m_propertyBrowser->setSplitterPosition(100);
 	if (QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>())
 	{
-		propTree->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked |
-								  QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
-		// 增加行高
+		// 编辑由 QtTreePropertyBrowser/VariantFactory 接管；勿开 QTreeWidget 自带编辑，否则首键抢焦点
+		propTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
 		propTree->setUniformRowHeights(true);
 	}
 	connect(m_variantManager, &QtVariantPropertyManager::valueChanged, this,
@@ -650,7 +655,6 @@ void MainWindow::shutdownRuntimeWorkers()
 
 	stopRobotSimulation();
 	m_robotSimTimer.stop();
-	m_followTargetNameDebounceTimer.stop();
 	m_propertyPanelCommitTimer.stop();
 	m_instructionPropertyRefreshTimer.stop();
 	m_propertyVisualPreviewTimer.stop();

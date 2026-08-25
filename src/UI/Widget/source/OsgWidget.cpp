@@ -63,6 +63,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <BrepImportArtifacts.h>
 #include <osg/Array>
@@ -296,8 +297,13 @@ namespace
 osg::NodePath nodePathToSceneRoot(const osg::Node* leaf)
 {
 	osg::NodePath path;
+	std::unordered_set<const osg::Node*> visited;
 	for (const osg::Node* n = leaf; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
 	{
+		if (!visited.insert(n).second)
+		{
+			break;
+		}
 		path.insert(path.begin(), const_cast<osg::Node*>(n));
 	}
 	return path;

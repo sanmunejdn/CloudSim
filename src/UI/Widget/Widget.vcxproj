@@ -203,6 +203,7 @@
     <QtMoc Include="inc\StyledDockTitleBar.h" />
     <QtMoc Include="inc\DocumentPage.h" />
     <QtMoc Include="inc\MainWindow.h" />
+    <ClInclude Include="inc\PropertyPanelVariantEditorFactory.h" />
     <QtMoc Include="inc\ProgressManager.h" />
     <ClInclude Include="inc\ObjectTransformOperation.h" />
     <ClInclude Include="inc\RobotTcpDragTeachOperation.h" />
@@ -270,6 +271,7 @@
     <ClCompile Include="source\HelpBrowserDialog.cpp" />
     <ClCompile Include="source\MainWindowProjectIo.cpp" />
     <ClCompile Include="source\ProjectPackageZip.cpp" />
+    <ClCompile Include="source\PropertyPanelVariantEditorFactory.cpp" />
     <ClCompile Include="source\MainWindowPropertyPanel.cpp" />
     <ClCompile Include="source\MainWindowInstructionPropertyUiHost.cpp" />
     <ClCompile Include="source\ViewportToolBar.cpp" />

@@ -51,28 +51,58 @@ bool computeLinkWorldMatrices(const CustomDeviceBackendData& device, BackendData
 	return CustomDeviceKinematicModel::forwardLinkWorldById(device, mgr, q, worldByLink);
 }
 
+BackendMat4 pivotWorldFromParentOrigin(const BackendMat4& parentWorld, const double originMm[3])
+{
+	BackendMat4 pivotLocal = BackendMat4::identity();
+	pivotLocal.v[3] = originMm[0];
+	pivotLocal.v[7] = originMm[1];
+	pivotLocal.v[11] = originMm[2];
+	BackendMat4 out{};
+	(void)backend_mat4_multiply(parentWorld, pivotLocal, out);
+	return out;
+}
+
+void writeWorldToPoseSink(IRobotBackendPoseSink* sink, const std::string& backendId, const BackendMat4& world)
+{
+	if (!sink)
+	{
+		return;
+	}
+	cloudsim::core::Mat4 mat{};
+	for (int i = 0; i < 16; ++i)
+	{
+		mat[static_cast<size_t>(i)] = world.v[static_cast<size_t>(i)];
+	}
+	sink->setBackendRootWorldMatrixFromWorld(backendId, mat);
+}
+
 bool applyLinkJointGraph(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBackendPoseSink* sink,
-						 const std::vector<double>& q)
+						 const std::vector<double>& q, bool refreshRestFromGeometry)
 {
 	if (device.links().empty() || device.joints().empty())
 	{
 		return false;
 	}
-	if (mgr)
+	if (mgr && refreshRestFromGeometry)
 	{
-		bool allRestZero = true;
-		for (const CustomDeviceJoint& J : device.joints())
+		const auto mountComp = CustomDeviceRobotMountComponent::mountOf(device);
+		const bool mounted = mountComp && mountComp->enabled();
+		if (!mounted)
 		{
-			if (std::abs(J.parentToChildRest[3]) > 1e-6 || std::abs(J.parentToChildRest[7]) > 1e-6 ||
-				std::abs(J.parentToChildRest[11]) > 1e-6)
+			bool allRestZero = true;
+			for (const CustomDeviceJoint& J : device.joints())
 			{
-				allRestZero = false;
-				break;
+				if (std::abs(J.parentToChildRest[3]) > 1e-6 || std::abs(J.parentToChildRest[7]) > 1e-6 ||
+					std::abs(J.parentToChildRest[11]) > 1e-6)
+				{
+					allRestZero = false;
+					break;
+				}
 			}
-		}
-		if (allRestZero)
-		{
-			CustomDeviceAssemblyCommit::refreshLinkRestPosesFromGeometry(device, *mgr);
+			if (allRestZero)
+			{
+				CustomDeviceAssemblyCommit::refreshLinkRestPosesFromGeometry(device, *mgr);
+			}
 		}
 	}
 	const BackendMat4 w0Mat = resolveEffectiveDeviceW0(device, mgr);
@@ -267,6 +297,63 @@ void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData& device, Backend
 	}
 }
 
+void syncMotionCenterFramesFromOrigins(CustomDeviceBackendData& device, BackendDataManager* mgr,
+									   IRobotBackendPoseSink* sink, const std::vector<double>& q)
+{
+	if (!mgr || !device.usesLinkJointGraph())
+	{
+		return;
+	}
+	std::unordered_map<std::string, std::array<double, 16>> worldByLink;
+	if (!computeLinkWorldMatrices(device, mgr, q, worldByLink))
+	{
+		return;
+	}
+
+	const auto mount = CustomDeviceRobotMountComponent::mountOf(device);
+	const bool mountEnabled = mount && mount->enabled();
+	const std::string mountFrameId = mountEnabled ? mount->mountFrameBackendId() : std::string();
+
+	std::unordered_set<std::string> synced;
+	for (const CustomDeviceJoint& J : device.joints())
+	{
+		if (J.motion.motionType != CustomDeviceMotionType::Rotate)
+		{
+			continue;
+		}
+		const std::string& frameId = J.motion.motionCenterFrameBackendId;
+		if (frameId.empty() || synced.count(frameId) != 0)
+		{
+			continue;
+		}
+		if (mountEnabled && frameId == mountFrameId)
+		{
+			continue;
+		}
+		const auto frame = mgr->getData(frameId);
+		if (!frame || !frame->hasPoseProperty() ||
+			!backend_type::isCoordinateFrameClassName(frame->className()))
+		{
+			continue;
+		}
+		const auto parentIt = worldByLink.find(J.parentLinkId);
+		if (parentIt == worldByLink.end())
+		{
+			continue;
+		}
+		const BackendMat4 parentWorld = arrayToBackendMat4(parentIt->second.data());
+		const BackendMat4 frameWorld = pivotWorldFromParentOrigin(parentWorld, J.motion.originMm);
+		if (backend_mat4_nearly_equal(frame->worldMatrix(mgr), frameWorld, 1e-5))
+		{
+			synced.insert(frameId);
+			continue;
+		}
+		frame->setWorldMatrix(frameWorld, mgr);
+		writeWorldToPoseSink(sink, frameId, frameWorld);
+		synced.insert(frameId);
+	}
+}
+
 RobotExternal::RobotExternalAxisConfig toExternalAxisConfig(const CustomDeviceAxisConfig& in)
 {
 	RobotExternal::RobotExternalAxisConfig out;
@@ -304,7 +391,7 @@ RobotExternal::RobotExternalAxisConfigSet toExternalAxisConfigSet(const CustomDe
 }
 
 bool applyQ(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBackendPoseSink* sink,
-			const std::vector<double>* qOverride)
+			const std::vector<double>* qOverride, ApplyQOptions options)
 {
 	if (!device.usesLinkJointGraph() || !mgr)
 	{
@@ -322,8 +409,16 @@ bool applyQ(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBack
 		q[i] = std::clamp(q[i], device.axes().axes[i].lower, device.axes().axes[i].upper);
 	}
 	device.setQValues(q);
-	rebakeRotateJointOriginsFromFrames(device, mgr, &q);
-	return applyLinkJointGraph(device, mgr, sink, q);
+	if (options.rebakeOriginsFromSceneFrames)
+	{
+		rebakeRotateJointOriginsFromFrames(device, mgr, &q);
+	}
+	if (!applyLinkJointGraph(device, mgr, sink, q, options.refreshRestFromGeometry))
+	{
+		return false;
+	}
+	syncMotionCenterFramesFromOrigins(device, mgr, sink, q);
+	return true;
 }
 
 bool worldPointToDeviceLocalMm(const BackendMat4& w0, const double worldX, const double worldY, const double worldZ,

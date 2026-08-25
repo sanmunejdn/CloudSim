@@ -17,6 +17,8 @@
 #include "FrameBackendVisual.h"
 #include "BackendTypeIds.h"
 
+#include "../../OsgWidgetCore/inc/OsgCompassRender.h"
+
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/LineWidth>
@@ -31,42 +33,32 @@ namespace
 osg::ref_ptr<osg::Geode> createRgbAxisGeode(const float axisLengthMm)
 {
 	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
-	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
-	const osg::Vec4 xColor(1.0f, 0.4f, 0.4f, 1.0f);
-	const osg::Vec4 yColor(0.4f, 1.0f, 0.4f, 1.0f);
-	const osg::Vec4 zColor(0.4f, 0.6f, 1.0f, 1.0f);
-
 	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
 	verts->push_back(osg::Vec3(axisLengthMm, 0.0f, 0.0f));
-	colors->push_back(xColor);
-	colors->push_back(xColor);
-
 	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
 	verts->push_back(osg::Vec3(0.0f, axisLengthMm, 0.0f));
-	colors->push_back(yColor);
-	colors->push_back(yColor);
-
 	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
 	verts->push_back(osg::Vec3(0.0f, 0.0f, axisLengthMm));
-	colors->push_back(zColor);
-	colors->push_back(zColor);
+
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(osg::Vec4(1.0f, 0.4f, 0.4f, 1.0f));
+	colors->push_back(osg::Vec4(0.4f, 1.0f, 0.4f, 1.0f));
+	colors->push_back(osg::Vec4(0.4f, 0.6f, 1.0f, 1.0f));
 
 	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
 	geom->setVertexArray(verts.get());
-	geom->setColorArray(colors.get(), osg::Array::BIND_PER_VERTEX);
-	geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINES, 0, static_cast<GLsizei>(verts->size())));
+	geom->setColorArray(colors.get(), osg::Array::BIND_PER_PRIMITIVE_SET);
+	geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINES, 0, 2));
+	geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINES, 2, 2));
+	geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINES, 4, 2));
 
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode->setName("frameAxes");
 	geode->addDrawable(geom.get());
 	osg::StateSet* ss = geode->getOrCreateStateSet();
-	// 与工具/用户系轴一致：父级 lit OVERRIDE 时须 PROTECTED，否则线段随视角变黑
+	// 与罗盘轴一致：无光照 + 深度恒通过；勿开 BLEND，否则 RGB 顶点色会被混成单色
+	osg_compass::applyUnlitHighlitStateSet(ss);
 	const auto on = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
-	const auto off = osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
-	ss->setMode(GL_LIGHTING, off);
-	ss->setMode(GL_COLOR_MATERIAL, off);
-	ss->setMode(GL_DEPTH_TEST, on);
-	ss->setMode(GL_BLEND, on);
 	ss->setAttributeAndModes(new osg::LineWidth(2.5f), on);
 	return geode;
 }

@@ -591,7 +591,24 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 ---
 
-## 15. 相关文档
+## 15. 自定义设备运动学（`CustomDeviceKinematics`）
+
+Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`../../../docs/运动副/DESIGN_运动副.md`](../../../docs/运动副/DESIGN_运动副.md) §6）。
+
+| API | 说明 |
+|-----|------|
+| `applyQ(device, mgr, sink, qOverride?, ApplyQOptions)` | 轴控主入口：`rebake`（可选）→ FK → `syncMotionCenterFramesFromOrigins` |
+| `ApplyQOptions::refreshRestFromGeometry` | 默认 true；挂载预同步传 false |
+| `ApplyQOptions::rebakeOriginsFromSceneFrames` | 默认 false；true 时从场景 Frame 反烘焙 `originMm`（世界锚定枢轴） |
+| `rebakeRotateJointOriginsFromFrames` | 组装/提交：Frame → `originMm` |
+| `syncMotionCenterFramesFromOrigins` | `W_frame = W_parentLink × T(originMm)`，仅 `FrameBackendData` |
+| `bakeMotionCenterFrameToOriginMm` | 单副烘焙辅助 |
+
+挂载设备 W0 由 Host `updateMountedDeviceWorldFromRobotTcp` 写入后再 `applyQ`。
+
+---
+
+## 16. 相关文档
 
 - 轨迹框架：[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)
 - 内置原子块：[`../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md)

@@ -224,6 +224,8 @@ private:
 	bool registerBackendObject(const QString& filePath, const QString& typeName, bool isPointCloud,
 							   bool quietUi = false);
 	void updatePropertyPanel(const QString& backendId);
+	/// 字符串属性行编辑结束（Enter / 失焦）后提交；组字期间不提交
+	void commitInlineTextPropertyEdit(const QString& propertyKey = QString());
 	void updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
 										bool refreshFeasibleAxisOptions = true);
 	void invalidateFeasibleAxisConfigurationCache();
@@ -234,6 +236,7 @@ private:
 											 const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible);
 
 	friend class MainWindowInstructionPropertyUiHost;
+	friend class PropertyPanelVariantEditorFactory;
 	void appendPropertyBrowserRow(const QString& propertyKey, const QString& displayLabel, const QString& value,
 								  bool editable, const std::vector<std::string>* enumOptionTokens = nullptr,
 								  const QStringList* enumDisplayNames = nullptr, const QString& toolTip = QString());
@@ -336,8 +339,8 @@ private:
 	void refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& backendId);
 	/// 从后端父子边同步 FollowAttachment：子世界=父*局部
 	void applyHierarchyFollowBinding(DocumentPage* page, const std::string& childId, const std::string& parentId);
-	/// 防抖应用 follow.targetName（逐键 emit，避免输入时 clear）
-	void flushFollowTargetNamePropertyEdit();
+	/// 内联字符串编辑提交（editingFinished）；组字期间禁止面板重建
+	void clearInlineTextPropertyEdit();
 	void syncViewModeActionsFromCurrentOsg();
 	void setAllDocumentViewerDarkBackground(bool dark);
 	void syncSidePanelToggleUi();
@@ -348,6 +351,7 @@ private:
 	bool sidePanelTabSavedVisible(const QString& key, bool defaultVisible) const;
 	bool viewerUsesDarkBackground() const;
 	bool shouldDeferPropertyPanelRebuild(const QString& contextId) const;
+	bool isInlineTextPropertyEditActive(const QString& backendId) const;
 	void beginPropertyBrowserProgrammaticUpdate();
 	void endPropertyBrowserProgrammaticUpdate();
 	void beginPropertyPanelNumericEdit(const QString& contextId, const QString& propertyKey);
@@ -456,7 +460,6 @@ protected:
 	QPointer<DocumentPage> m_ioBoundDocumentPage;
 	MainWindowInstructionPropertyUiHost m_instructionPropertyUiHost;
 	QTimer m_robotSimTimer;
-	QTimer m_followTargetNameDebounceTimer;
 	QTimer m_propertyPanelCommitTimer;
 	QTimer m_instructionPropertyRefreshTimer;
 	QTimer m_propertyVisualPreviewTimer;
@@ -468,8 +471,11 @@ protected:
 	QString m_propertyPanelActiveEditContextId;
 	bool m_propertyPanelDeferFullRebuild = false;
 	QHash<QString, QtProperty*> m_propertyKeyToVariant;
-	QString m_followTargetNameDebounceBackendId;
-	QString m_followTargetNameDebounceText;
+	bool m_inlineTextEditActive = false;
+	bool m_propertyImeComposing = false;
+	QString m_inlineTextEditBackendId;
+	QString m_inlineTextEditKey;
+	QString m_inlineTextEditPendingValue;
 	QDockWidget* m_runDock = nullptr;
 	/// 右侧 Dock 顶栏：工作区（单元/仿真/场景）与 AI，替代 tabifyDockWidget 底部页签
 	QTabWidget* m_rightPanelTabs = nullptr;

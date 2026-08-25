@@ -9,10 +9,14 @@
 #include "CustomDeviceBackendData.h"
 #include "IDataService.h"
 #include "CustomDeviceKinematics.h"
+#include "CustomDeviceMat4Layout.h"
+#include "CustomDeviceKinematicModel.h"
 #include "CustomDeviceRobotMountComponent.h"
+#include "io/CustomDeviceHostOps.h"
 #include "BackendFollowMath.h"
 #include "BackendHierarchyFollow.h"
-#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
+#include "OsgWidget.h"
 #include "FollowAttachmentComponent.h"
 #include "HeadlessRobotContext.h"
 #include "IPerLinkRobotStateAccessor.h"
@@ -28,9 +32,12 @@
 
 #include <BackendDataManager.h>
 
+#include <array>
 #include <algorithm>
 #include <cmath>
+#include <osg/Matrixd>
 #include <queue>
+#include <sstream>
 #include <unordered_set>
 
 namespace cloudsim::host
@@ -50,6 +57,49 @@ void runFollowSolveOnHost(DocumentHost& host)
 {
 	cloudsim::core::FollowSolveContextDto ctx;
 	(void)host.data().runFollowSolveAndSync(ctx, nullptr);
+}
+
+BackendVec3 backendWorldTranslationMm(const BackendMat4& world)
+{
+	BackendVec3 pose{};
+	BackendVec3 euler{};
+	backend_pose_euler_from_world_mat(world, pose, euler);
+	return pose;
+}
+
+void syncBackendWorldMatrix(DocumentHost& host, BackendDataManager& mgr, const std::string& backendId,
+							const BackendMat4& world)
+{
+	const auto obj = mgr.getData(backendId);
+	if (!obj || !obj->hasPoseProperty())
+	{
+		return;
+	}
+	obj->setWorldMatrix(world, &mgr);
+	if (IRobotBackendPoseSink* sink = poseSinkOf(host))
+	{
+		cloudsim::core::Mat4 mat{};
+		for (int i = 0; i < 16; ++i)
+		{
+			mat[static_cast<size_t>(i)] = world.v[static_cast<size_t>(i)];
+		}
+		sink->setBackendRootWorldMatrixFromWorld(backendId, mat);
+	}
+}
+
+void syncMountFrameWorldToTcpAlign(DocumentHost& host, BackendDataManager& mgr, const std::string& mountFrameId,
+								   const BackendMat4& deviceWorld, const BackendMat4& frameInDevice)
+{
+	if (mountFrameId.empty())
+	{
+		return;
+	}
+	BackendMat4 mountFrameW{};
+	if (!backend_mat4_multiply(deviceWorld, frameInDevice, mountFrameW))
+	{
+		return;
+	}
+	syncBackendWorldMatrix(host, mgr, mountFrameId, mountFrameW);
 }
 
 QString resolveFlangeBackendId(DocumentHost& host, const QString& robotSceneBackendId, QString flangeLinkName)
@@ -328,6 +378,403 @@ bool isInDeviceSubtree(BackendDataManager& mgr, const std::string& deviceId, con
 	return false;
 }
 
+bool resolveDeviceSubtreeParent(BackendDataManager& mgr, const std::string& deviceId, const std::string& childId,
+								std::string& outParentId)
+{
+	for (const std::string& p : mgr.parentsOf(childId))
+	{
+		if (p == deviceId || isInDeviceSubtree(mgr, deviceId, p))
+		{
+			outParentId = p;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool mountFrameWorldHasMeaningfulTranslation(const BackendMat4& m)
+{
+	const BackendVec3 t = backendWorldTranslationMm(m);
+	return std::abs(t.x) > 1e-6 || std::abs(t.y) > 1e-6 || std::abs(t.z) > 1e-6;
+}
+
+bool mountFrameMatIsNonIdentity(const BackendMat4& m)
+{
+	return !backend_mat4_nearly_equal(m, BackendMat4::identity(), 1e-5);
+}
+
+const CustomDeviceLink* linkForGeometryBackendId(const CustomDeviceBackendData& device, const std::string& geomId)
+{
+	for (const CustomDeviceLink& link : device.links())
+	{
+		if (link.geometryBackendId == geomId)
+		{
+			return &link;
+		}
+	}
+	return nullptr;
+}
+
+bool resolveMountFrameParentWorld(DocumentHost& host, BackendDataManager& mgr, CustomDeviceBackendData& device,
+								  const std::string& parentId, BackendMat4& outParentW)
+{
+	if (parentId.empty())
+	{
+		return false;
+	}
+	if (parentId == device.id())
+	{
+		outParentW = device.worldMatrix(&mgr);
+		return true;
+	}
+	if (const CustomDeviceLink* link = linkForGeometryBackendId(device, parentId))
+	{
+		device.ensureQSize();
+		std::unordered_map<std::string, std::array<double, 16>> worldByLink;
+		if (CustomDeviceKinematicModel::forwardLinkWorldById(device, &mgr, device.qValues(), worldByLink))
+		{
+			const auto it = worldByLink.find(link->id);
+			if (it != worldByLink.end())
+			{
+				outParentW = CustomDeviceMat4Layout::kinematicCoreToBackendMat4(it->second.data());
+				return true;
+			}
+		}
+	}
+	const auto parent = mgr.getData(parentId);
+	if (!parent || !parent->hasPoseProperty())
+	{
+		return false;
+	}
+	outParentW = parent->worldMatrix(&mgr);
+	if (!mountFrameWorldHasMeaningfulTranslation(outParentW))
+	{
+		BackendMat4 sinkW{};
+		if (resolveBackendWorldMatrix(host, mgr, parentId, sinkW) && mountFrameWorldHasMeaningfulTranslation(sinkW))
+		{
+			outParentW = sinkW;
+		}
+	}
+	return true;
+}
+
+bool tryOsgBackendWorld(DocumentHost& host, const std::string& backendId, BackendMat4& outWorld)
+{
+	OsgWidget* osg = osgWidgetFrom(host);
+	if (!osg)
+	{
+		return false;
+	}
+	osg::Matrixd world;
+	if (!osg->getBackendRootWorldMatrix(backendId, world))
+	{
+		return false;
+	}
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			outWorld.v[static_cast<size_t>(c * 4 + r)] = world(r, c);
+		}
+	}
+	return true;
+}
+
+void rebakeMountFrameFollowLocalFromScene(DocumentHost& host, const std::string& mountFrameId)
+{
+	OsgWidget* osg = osgWidgetFrom(host);
+	if (!osg)
+	{
+		return;
+	}
+	BackendDataManager& mgr = host.backend();
+	const auto frame = mgr.getData(mountFrameId);
+	if (!frame || !frame->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
+	{
+		return;
+	}
+	const auto worldQuery = [osg](const std::string& bid, BackendMat4& out) -> bool
+	{
+		osg::Matrixd om;
+		if (!osg->getBackendRootWorldMatrix(bid, om))
+		{
+			return false;
+		}
+		for (int c = 0; c < 4; ++c)
+		{
+			for (int r = 0; r < 4; ++r)
+			{
+				out.v[static_cast<size_t>(c * 4 + r)] = om(r, c);
+			}
+		}
+		return true;
+	};
+	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(mgr, worldQuery, *frame, nullptr);
+}
+
+bool buildDeviceToMountFrameChain(BackendDataManager& mgr, const std::string& deviceId, const std::string& mountFrameId,
+								  std::vector<std::string>& outChain)
+{
+	outChain.clear();
+	std::vector<std::string> rev;
+	std::string cur = mountFrameId;
+	std::unordered_set<std::string> visited;
+	while (cur != deviceId)
+	{
+		if (!visited.insert(cur).second)
+		{
+			return false;
+		}
+		rev.push_back(cur);
+		std::string parent;
+		if (!resolveDeviceSubtreeParent(mgr, deviceId, cur, parent))
+		{
+			return false;
+		}
+		cur = parent;
+	}
+	rev.push_back(deviceId);
+	outChain.assign(rev.rbegin(), rev.rend());
+	return !outChain.empty();
+}
+
+bool composeLocalChildRelativeToParent(DocumentHost& host, BackendDataManager& mgr, CustomDeviceBackendData& device,
+									   const std::string& childId, const std::string& parentId,
+									   const BackendMat4& parentW, BackendMat4& outLocal)
+{
+	const auto child = mgr.getData(childId);
+	if (!child)
+	{
+		return false;
+	}
+	BackendMat4 childWorld{};
+	if (tryOsgBackendWorld(host, childId, childWorld) || resolveBackendWorldMatrix(host, mgr, childId, childWorld))
+	{
+		BackendMat4 invParent{};
+		if (backend_mat4_invert_rigid(parentW, invParent))
+		{
+			(void)backend_mat4_multiply(invParent, childWorld, outLocal);
+			if (mountFrameMatIsNonIdentity(outLocal))
+			{
+				return true;
+			}
+		}
+	}
+	if (const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			child->getComponent(FollowAttachmentComponent::typeKeyStatic())))
+	{
+		if (follow->enabled() && follow->targetBackendId() == parentId)
+		{
+			outLocal = backend_world_mat_from_pose(follow->localPosition(), follow->localEulerDeg());
+			if (mountFrameMatIsNonIdentity(outLocal))
+			{
+				return true;
+			}
+		}
+	}
+	const BackendPoseValue pv = child->poseValue(BackendPoseReferenceFrame::Parent, &mgr);
+	outLocal = backend_world_mat_from_pose(pv.position, pv.eulerDeg);
+	return true;
+}
+
+bool resolveMountFrameWorldByAncestorChain(DocumentHost& host, BackendDataManager& mgr, CustomDeviceBackendData& device,
+										   const std::string& mountFrameId, BackendMat4& outFrameW,
+										   std::string& outImmediateParentId, std::string& outAncestorChain)
+{
+	std::vector<std::string> chain;
+	if (!buildDeviceToMountFrameChain(mgr, device.id(), mountFrameId, chain))
+	{
+		return false;
+	}
+	{
+		std::ostringstream os;
+		for (std::size_t i = 0; i < chain.size(); ++i)
+		{
+			if (i > 0U)
+			{
+				os << '>';
+			}
+			os << chain[i];
+		}
+		outAncestorChain = os.str();
+	}
+	if (chain.size() >= 2U)
+	{
+		outImmediateParentId = chain[chain.size() - 2U];
+	}
+
+	BackendMat4 world = device.worldMatrix(&mgr);
+	for (std::size_t i = 1; i < chain.size(); ++i)
+	{
+		const std::string& parentId = chain[i - 1U];
+		const std::string& childId = chain[i];
+		if (linkForGeometryBackendId(device, childId))
+		{
+			if (!resolveMountFrameParentWorld(host, mgr, device, childId, world))
+			{
+				return false;
+			}
+			continue;
+		}
+		const BackendMat4 parentW = world;
+		BackendMat4 localM = BackendMat4::identity();
+		(void)composeLocalChildRelativeToParent(host, mgr, device, childId, parentId, parentW, localM);
+		if (!backend_mat4_multiply(parentW, localM, world))
+		{
+			return false;
+		}
+	}
+	outFrameW = world;
+	return true;
+}
+
+void syncCustomDeviceSubtreePosesFromOsg(DocumentHost& host, const std::string& deviceRootId)
+{
+	BackendDataManager& mgr = host.backend();
+	IRobotBackendPoseSink* sink = poseSinkOf(host);
+	std::queue<std::string> queue;
+	queue.push(deviceRootId);
+	std::unordered_set<std::string> visited;
+	while (!queue.empty())
+	{
+		const std::string cur = queue.front();
+		queue.pop();
+		if (!visited.insert(cur).second)
+		{
+			continue;
+		}
+		for (const std::string& child : mgr.childrenOf(cur))
+		{
+			queue.push(child);
+			const auto obj = mgr.getData(child);
+			if (!obj || !obj->hasPoseProperty())
+			{
+				continue;
+			}
+			BackendMat4 osgW{};
+			if (!tryOsgBackendWorld(host, child, osgW))
+			{
+				continue;
+			}
+			if (backend_mat4_nearly_equal(obj->worldMatrix(&mgr), osgW, 1e-5))
+			{
+				continue;
+			}
+			obj->setWorldMatrix(osgW, &mgr);
+			if (sink)
+			{
+				cloudsim::core::Mat4 mat{};
+				for (int i = 0; i < 16; ++i)
+				{
+					mat[static_cast<size_t>(i)] = osgW.v[static_cast<size_t>(i)];
+				}
+				sink->setBackendRootWorldMatrixFromWorld(child, mat);
+			}
+		}
+	}
+}
+
+bool tryResolveMountFrameWorldViaMotionCenterJoint(DocumentHost& host, BackendDataManager& mgr,
+												   CustomDeviceBackendData& device, const std::string& mountFrameId,
+												   BackendMat4& outFrameW)
+{
+	for (const CustomDeviceJoint& joint : device.joints())
+	{
+		if (joint.motion.motionCenterFrameBackendId != mountFrameId)
+		{
+			continue;
+		}
+		const CustomDeviceLink* parentLink = nullptr;
+		for (const CustomDeviceLink& link : device.links())
+		{
+			if (link.id == joint.parentLinkId)
+			{
+				parentLink = &link;
+				break;
+			}
+		}
+		if (!parentLink || parentLink->geometryBackendId.empty())
+		{
+			continue;
+		}
+		BackendMat4 linkGeomW{};
+		if (!resolveMountFrameParentWorld(host, mgr, device, parentLink->geometryBackendId, linkGeomW))
+		{
+			continue;
+		}
+		BackendMat4 frameLocal = BackendMat4::identity();
+		(void)composeLocalChildRelativeToParent(host, mgr, device, mountFrameId, parentLink->geometryBackendId,
+												linkGeomW, frameLocal);
+		if (!backend_mat4_multiply(linkGeomW, frameLocal, outFrameW))
+		{
+			continue;
+		}
+		return true;
+	}
+	return false;
+}
+
+bool resolveMountFrameWorldForMount(DocumentHost& host, BackendDataManager& mgr, CustomDeviceBackendData& device,
+									const std::string& mountFrameId, BackendMat4& outFrameW, std::string& outParentId,
+									BackendMat4& outParentW, bool& outUsedHierarchyResolve, std::string& outMgrParentId,
+									std::string& outAncestorChain)
+{
+	outParentId.clear();
+	outParentW = BackendMat4::identity();
+	outUsedHierarchyResolve = false;
+	outMgrParentId.clear();
+	outAncestorChain.clear();
+
+	const auto frame = mgr.getData(mountFrameId);
+	if (!frame || !frame->hasPoseProperty())
+	{
+		return false;
+	}
+
+	(void)resolveDeviceSubtreeParent(mgr, device.id(), mountFrameId, outMgrParentId);
+
+	BackendMat4 osgFrameW{};
+	if (tryOsgBackendWorld(host, mountFrameId, osgFrameW) && mountFrameMatIsNonIdentity(osgFrameW))
+	{
+		outFrameW = osgFrameW;
+		outParentId = outMgrParentId;
+		if (!outParentId.empty())
+		{
+			(void)resolveMountFrameParentWorld(host, mgr, device, outParentId, outParentW);
+		}
+		outUsedHierarchyResolve = true;
+		return true;
+	}
+
+	if (resolveMountFrameWorldByAncestorChain(host, mgr, device, mountFrameId, outFrameW, outParentId, outAncestorChain))
+	{
+		outUsedHierarchyResolve = true;
+		if (!outParentId.empty())
+		{
+			(void)resolveMountFrameParentWorld(host, mgr, device, outParentId, outParentW);
+		}
+		if (mountFrameMatIsNonIdentity(outFrameW))
+		{
+			return true;
+		}
+	}
+
+	if (tryResolveMountFrameWorldViaMotionCenterJoint(host, mgr, device, mountFrameId, outFrameW))
+	{
+		outUsedHierarchyResolve = true;
+		return true;
+	}
+
+	const BackendMat4 dataFrameW = frame->worldMatrix(&mgr);
+	if (mountFrameMatIsNonIdentity(dataFrameW))
+	{
+		outFrameW = dataFrameW;
+		return true;
+	}
+
+	return resolveBackendWorldMatrix(host, mgr, mountFrameId, outFrameW);
+}
+
 void clearConflictingFollowOnMountFrame(DocumentHost& host, BackendDataManager& mgr, const CustomDeviceBackendData& device,
 										const std::string& frameBackendId)
 {
@@ -585,6 +1032,15 @@ bool updateMountedDeviceWorldFromRobotTcp(CustomDeviceBackendData& device, Docum
 		return false;
 	}
 	device.setWorldMatrix(deviceWorld, &mgr);
+	device.setBaseWorldW0(deviceWorld);
+	syncMountFrameWorldToTcpAlign(host, mgr, mount->mountFrameBackendId(), deviceWorld, mount->frameInDeviceW0());
+
+	// 末端位姿变更后须用新 W0 做 FK，并回写各旋转中心 Frame（含链式枢轴）
+	IRobotBackendPoseSink* sink = poseSinkOf(host);
+	CustomDeviceKinematics::ApplyQOptions applyOpts;
+	applyOpts.refreshRestFromGeometry = false;
+	applyOpts.rebakeOriginsFromSceneFrames = false;
+	(void)CustomDeviceKinematics::applyQ(device, &mgr, sink, nullptr, applyOpts);
 	return true;
 }
 
@@ -732,7 +1188,6 @@ bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& ho
 		return false;
 	}
 	clearConflictingFollowOnMountFrame(host, mgr, device, mountFrameBackendId.toStdString());
-	stripHierarchyFollowOnMountFrame(host, mountFrameBackendId.toStdString());
 
 	QString flangeBackendId = flangeBackendIdIn;
 	if (flangeBackendId.isEmpty())
@@ -756,29 +1211,41 @@ bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& ho
 		return false;
 	}
 
+	IRobotBackendPoseSink* sink = poseSinkOf(host);
+	(void)host.flushVisualSync();
+	CustomDeviceKinematics::ApplyQOptions preMountApplyQ;
+	preMountApplyQ.refreshRestFromGeometry = false;
+	(void)CustomDeviceKinematics::applyQ(device, &mgr, sink, nullptr, preMountApplyQ);
+	syncCustomDeviceSubtreePosesFromOsg(host, device.id());
+	rebakeMountFrameFollowLocalFromScene(host, mountFrameBackendId.toStdString());
+	host.markFollowAttachmentDirtyFromBackendMove(device.id());
+	runFollowSolveOnHost(host);
+
 	BackendMat4 deviceW{};
 	BackendMat4 frameW{};
+	std::string mountFrameParentId;
+	std::string mountFrameMgrParentId;
+	std::string mountFrameAncestorChain;
+	BackendMat4 mountFrameParentW = BackendMat4::identity();
+	bool usedHierarchyResolve = false;
+	if (!resolveMountFrameWorldForMount(host, mgr, device, mountFrameBackendId.toStdString(), frameW, mountFrameParentId,
+									  mountFrameParentW, usedHierarchyResolve, mountFrameMgrParentId,
+									  mountFrameAncestorChain))
+	{
+		if (err)
+		{
+			*err = QStringLiteral("mount frame backend missing");
+		}
+		return false;
+	}
 	if (!resolveBackendWorldMatrix(host, mgr, device.id(), deviceW))
 	{
 		deviceW = device.worldMatrix(&mgr);
 	}
-	if (!resolveBackendWorldMatrix(host, mgr, mountFrameBackendId.toStdString(), frameW))
-	{
-		const auto mountFrame = mgr.getData(mountFrameBackendId.toStdString());
-		if (!mountFrame)
-		{
-			if (err)
-			{
-				*err = QStringLiteral("mount frame backend missing");
-			}
-			return false;
-		}
-		frameW = mountFrame->worldMatrix(&mgr);
-	}
+	stripHierarchyFollowOnMountFrame(host, mountFrameBackendId.toStdString());
 
 	BackendMat4 toolInFlange = toolFrameInFlange;
-	if (toolInFlange.v[0] == 1.0 && toolInFlange.v[5] == 1.0 && toolInFlange.v[10] == 1.0 && toolInFlange.v[15] == 1.0 &&
-		toolInFlange.v[12] == 0.0 && toolInFlange.v[13] == 0.0 && toolInFlange.v[14] == 0.0)
+	if (backend_mat4_nearly_equal(toolInFlange, BackendMat4::identity(), 1e-6))
 	{
 		toolInFlange = resolveActiveToolFrameInFlange(host, robotSceneBackendId);
 	}
@@ -825,6 +1292,7 @@ bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& ho
 	}
 
 	device.setWorldMatrix(deviceWorldDesired, &mgr);
+	device.setBaseWorldW0(deviceWorldDesired);
 	ensureDeviceRootFollow(device, flangeBackendId.toStdString(), followLocal);
 	host.invalidateFollowReverseIndex();
 
@@ -838,9 +1306,12 @@ bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& ho
 	mount.setToolFrameInFlange(toolInFlange);
 	mount.setAlignMountFrameToTcp(false);
 
+	syncMountFrameWorldToTcpAlign(host, mgr, mountFrameBackendId.toStdString(), deviceWorldDesired, frameInDevice);
+
 	host.markFollowAttachmentDirtyFromBackendMove(flangeBackendId.toStdString());
 	host.markFollowAttachmentDirtyFromBackendMove(device.id());
-	// OSG 同步留给 notify → Follow → refreshCustomDevicesFollowingKinematicsTargets，避免与 applyQ 双重写
+	syncCustomDeviceKinematicsAfterRootPoseChange(host, device.id());
+	(void)host.syncOuterPatFromBackendId(mountFrameBackendId.toStdString());
 	return true;
 }
 
@@ -858,23 +1329,13 @@ bool unmountCustomDeviceFromRobot(CustomDeviceBackendData& device, DocumentHost&
 	mount->setEnabled(false);
 	mount->setAlignMountFrameToTcp(false);
 	clearDeviceRootFollow(device, host);
-	BackendDataManager& mgr = host.backend();
-	if (!CustomDeviceKinematics::applyQ(device, &mgr, poseSinkOf(host), nullptr))
-	{
-		if (err)
-		{
-			*err = QStringLiteral("applyQ failed after unmount");
-		}
-		return false;
-	}
-	(void)host.syncOuterPatFromBackendId(device.id());
+	syncCustomDeviceKinematicsAfterRootPoseChange(host, device.id());
 	return true;
 }
 
 void refreshCustomDevicesFollowingKinematicsTargets(DocumentHost& host)
 {
 	BackendDataManager& mgr = host.backend();
-	IRobotBackendPoseSink* sink = poseSinkOf(host);
 	for (const auto& obj : host.listObjects())
 	{
 		if (!obj || obj->className() != backend_type::kClassCustomDevice)
@@ -896,10 +1357,18 @@ void refreshCustomDevicesFollowingKinematicsTargets(DocumentHost& host)
 		{
 			continue;
 		}
-		(void)updateMountedDeviceWorldFromRobotTcp(*device, host, mgr);
-		(void)CustomDeviceKinematics::applyQ(*device, &mgr, sink, nullptr);
-		// 只同步设备根；连杆几何已由 applyQ + poseSink 写入
+		const auto mount = CustomDeviceRobotMountComponent::mountOf(*device);
+		if (!updateMountedDeviceWorldFromRobotTcp(*device, host, mgr))
+		{
+			continue;
+		}
 		(void)host.syncOuterPatFromBackendId(device->id());
+		flushCustomDeviceLinkGeometryVisual(host, device->id());
+		flushCustomDeviceMotionCenterFrameVisual(host, device->id());
+		if (mount && !mount->mountFrameBackendId().empty())
+		{
+			(void)host.syncOuterPatFromBackendId(mount->mountFrameBackendId());
+		}
 	}
 }
 

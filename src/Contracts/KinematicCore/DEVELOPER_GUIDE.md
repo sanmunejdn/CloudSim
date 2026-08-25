@@ -1,5 +1,7 @@
 # KinematicCore 模块开发文档
 
+> **运动副全景**（分层架构、FK 组合、矩阵布局、Frame 烘焙）：[`docs/运动副/`](../../../docs/运动副/README.md) · [架构图](../../../docs/运动副/运动副架构图.html)
+
 ## 1. 模块定位
 
 `KinematicCore` 提供与 UI/OSG 无关的**树形运动学图**、FK、几何雅可比与通用 DLS IK。URDF/外轴/自定义设备在 `RobotUrdf` / `RobotScene` 侧构图为 `KinematicGraph` 后调用本库。

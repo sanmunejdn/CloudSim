@@ -22,8 +22,11 @@
 #include "qtvariantproperty.h"
 
 #include <QAbstractItemView>
+#include <QApplication>
 #include <QColor>
 #include <QEvent>
+#include <QInputMethodEvent>
+#include <QLineEdit>
 #include <QList>
 #include <QTimer>
 #include <QTreeWidget>
@@ -246,6 +249,23 @@ bool isRotationComponentKey(const QString& key)
 {
 	return key == QStringLiteral("rotation.x") || key == QStringLiteral("rotation.y") ||
 		   key == QStringLiteral("rotation.z");
+}
+
+bool isDebouncedTextPropertyKey(const QString& key)
+{
+	if (key.isEmpty() || key.startsWith(QStringLiteral("ui.")))
+	{
+		return false;
+	}
+	if (key == QStringLiteral("color"))
+	{
+		return false;
+	}
+	if (isPoseComponentKey(key) || isRotationComponentKey(key))
+	{
+		return false;
+	}
+	return propertyEditorTypeForKey(key, true) == QVariant::String;
 }
 
 bool isColorComponentKey(const QString& key)
@@ -836,6 +856,11 @@ bool MainWindow::shouldDeferPropertyPanelRebuild(const QString& contextId) const
 		   contextId == m_propertyPanelActiveEditContextId;
 }
 
+bool MainWindow::isInlineTextPropertyEditActive(const QString& backendId) const
+{
+	return m_inlineTextEditActive && !m_inlineTextEditBackendId.isEmpty() && backendId == m_inlineTextEditBackendId;
+}
+
 void MainWindow::beginPropertyPanelNumericEdit(const QString& contextId, const QString& propertyKey)
 {
 	m_propertyPanelActiveEditContextId = contextId;
@@ -1096,33 +1121,64 @@ void MainWindow::installPropertyPanelEventFilter()
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event)
 {
-	if (event->type() == QEvent::FocusOut && m_propertyPanelDeferFullRebuild && m_propertyBrowser)
+	if (m_propertyBrowser)
 	{
-		QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>();
-		if (propTree && (watched == propTree || watched == m_propertyBrowser ||
-						 (qobject_cast<QWidget*>(watched) && propTree->isAncestorOf(qobject_cast<QWidget*>(watched)))))
+		if (auto* lineEdit = qobject_cast<QLineEdit*>(watched))
 		{
-			QTimer::singleShot(0, this,
-							   [this]()
-							   {
-								   if (!m_propertyPanelDeferFullRebuild || !m_propertyBrowser)
-								   {
-									   return;
-								   }
-								   QTreeWidget* tree = m_propertyBrowser->findChild<QTreeWidget*>();
-								   if (!tree)
-								   {
-									   endPropertyPanelNumericEdit();
-									   return;
-								   }
-								   QWidget* focusWidget = tree->focusWidget();
-								   if (!focusWidget || !tree->isAncestorOf(focusWidget))
-								   {
-									   endPropertyPanelNumericEdit();
-								   }
-							   });
+			if (m_propertyBrowser->isAncestorOf(lineEdit))
+			{
+				if (event->type() == QEvent::InputMethod)
+				{
+					const auto* ime = static_cast<const QInputMethodEvent*>(event);
+					m_propertyImeComposing = !ime->preeditString().isEmpty();
+					if (!ime->commitString().isEmpty())
+					{
+						m_propertyImeComposing = false;
+					}
+					return QMainWindow::eventFilter(watched, event);
+				}
+			}
 		}
 	}
+
+	if (event->type() != QEvent::FocusOut || !m_propertyBrowser)
+	{
+		return QMainWindow::eventFilter(watched, event);
+	}
+	QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>();
+	if (!propTree)
+	{
+		return QMainWindow::eventFilter(watched, event);
+	}
+	const bool watchRelevant = watched == propTree || watched == m_propertyBrowser ||
+							   (qobject_cast<QWidget*>(watched) != nullptr &&
+								propTree->isAncestorOf(qobject_cast<QWidget*>(watched)));
+	if (!watchRelevant)
+	{
+		return QMainWindow::eventFilter(watched, event);
+	}
+	QTimer::singleShot(0, this,
+					   [this]()
+					   {
+						   if (!m_propertyBrowser)
+						   {
+							   return;
+						   }
+						   QTreeWidget* tree = m_propertyBrowser->findChild<QTreeWidget*>();
+						   if (!tree)
+						   {
+							   return;
+						   }
+						   QWidget* focusWidget = tree->focusWidget();
+						   if (focusWidget && tree->isAncestorOf(focusWidget))
+						   {
+							   return;
+						   }
+						   if (m_propertyPanelDeferFullRebuild)
+						   {
+							   endPropertyPanelNumericEdit();
+						   }
+					   });
 	return QMainWindow::eventFilter(watched, event);
 }
 
@@ -1169,22 +1225,20 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 		syncPropertyPanelRowValues(backendId);
 		return;
 	}
-	if (!backendId.isEmpty() && m_followTargetNameDebounceTimer.isActive() &&
-		backendId == m_followTargetNameDebounceBackendId)
+	if (!backendId.isEmpty() && isInlineTextPropertyEditActive(backendId))
 	{
 		return;
 	}
 	if (backendId.isEmpty())
 	{
-		m_followTargetNameDebounceTimer.stop();
-		m_followTargetNameDebounceBackendId.clear();
-		m_followTargetNameDebounceText.clear();
+		if (m_inlineTextEditActive)
+		{
+			commitInlineTextPropertyEdit();
+		}
 	}
-	else if (!m_followTargetNameDebounceBackendId.isEmpty() && backendId != m_followTargetNameDebounceBackendId)
+	else if (!m_inlineTextEditBackendId.isEmpty() && backendId != m_inlineTextEditBackendId)
 	{
-		m_followTargetNameDebounceTimer.stop();
-		m_followTargetNameDebounceBackendId.clear();
-		m_followTargetNameDebounceText.clear();
+		commitInlineTextPropertyEdit();
 	}
 	beginPropertyBrowserProgrammaticUpdate();
 	clearPropertyKeyVariantMap();
@@ -1204,6 +1258,10 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 	const QVector<cloudsim::core::PropertyRowDto> rows = docPage->data().propertyRows(backendId);
 	QColor objectColor;
 	const bool hasObjectColor = colorFromPropertyRows(rows, &objectColor);
+	const auto backendObj = docPage->findObject(backendId.toStdString());
+	const bool hasFixedRgbAxes =
+		backendObj && (backend_type::isCoordinateFrameClassName(backendObj->className()) ||
+					   backend_type::isCustomDeviceClassName(backendObj->className()));
 	for (const cloudsim::core::PropertyRowDto& r : rows)
 	{
 		QString key = r.key;
@@ -1219,7 +1277,7 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 		const QString label = propertyDisplayLabelForKey(key, r.labelEn);
 		appendPropertyBrowserRow(key, label, r.value, editable);
 	}
-	if (hasObjectColor)
+	if (hasObjectColor && !hasFixedRgbAxes)
 	{
 		appendColorPropertyBrowserRow(objectColor);
 	}
@@ -1296,21 +1354,18 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		schedulePropertyPanelCommitRefresh(backendId);
 		return;
 	}
-	if (propertyKey == QStringLiteral("follow.targetName"))
+	if (isDebouncedTextPropertyKey(propertyKey))
 	{
 		const QString text = variantValueToString(value);
-		if (text == propertyRowValue(*docPage, backendId, propertyKey))
-		{
-			return;
-		}
-		if (text.trimmed().isEmpty() &&
+		if (propertyKey == QStringLiteral("follow.targetName") && text.trimmed().isEmpty() &&
 			!docPage->data().hasComponent(backendId, QStringLiteral("FollowAttachment")))
 		{
 			return;
 		}
-		m_followTargetNameDebounceBackendId = backendId;
-		m_followTargetNameDebounceText = text;
-		m_followTargetNameDebounceTimer.start(400);
+		m_inlineTextEditActive = true;
+		m_inlineTextEditBackendId = backendId;
+		m_inlineTextEditKey = propertyKey;
+		m_inlineTextEditPendingValue = text;
 		return;
 	}
 	if (propertyKey.isEmpty() || propertyKey.startsWith(QStringLiteral("ui.")))
@@ -1333,12 +1388,20 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	if (isPoseRotEdit)
 	{
 		poseBefore = docPage->data().worldPoseMm(backendId);
+		if (!shouldDeferPropertyPanelRebuild(backendId))
+		{
+			beginPropertyPanelNumericEdit(backendId, propertyKey);
+		}
 	}
 
 	QString dsErr;
 	const bool applyOk = docPage->data().applyPropertyChange(backendId, propertyKey, valueText, &dsErr);
 	if (!applyOk)
 	{
+		if (isPoseRotEdit && shouldDeferPropertyPanelRebuild(backendId))
+		{
+			endPropertyPanelNumericEdit();
+		}
 		updatePropertyPanel(backendId);
 		return;
 	}
@@ -1352,9 +1415,12 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	{
 		if (poseDtoNearlyEqual(poseBefore, docPage->data().worldPoseMm(backendId)))
 		{
+			if (shouldDeferPropertyPanelRebuild(backendId))
+			{
+				endPropertyPanelNumericEdit();
+			}
 			return;
 		}
-		beginPropertyPanelNumericEdit(backendId, propertyKey);
 		docPage->markFollowAttachmentDirtyFromBackendMove(backendId);
 	}
 
@@ -1368,60 +1434,87 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	}
 }
 
-void MainWindow::flushFollowTargetNamePropertyEdit()
+void MainWindow::clearInlineTextPropertyEdit()
 {
+	m_inlineTextEditActive = false;
+	m_propertyImeComposing = false;
+	m_inlineTextEditBackendId.clear();
+	m_inlineTextEditKey.clear();
+	m_inlineTextEditPendingValue.clear();
+}
+
+void MainWindow::commitInlineTextPropertyEdit(const QString& propertyKeyFilter)
+{
+	if (m_propertyImeComposing || !m_inlineTextEditActive)
+	{
+		return;
+	}
 	if (!m_backendTree || !renderWidgetFromPage(currentPage()) || !m_selectionState.hasBackendSelection())
 	{
-		m_followTargetNameDebounceBackendId.clear();
-		m_followTargetNameDebounceText.clear();
+		clearInlineTextPropertyEdit();
 		return;
 	}
 	const QString selId = m_selectionState.selectedBackendId();
-	if (selId != m_followTargetNameDebounceBackendId)
+	if (selId != m_inlineTextEditBackendId)
 	{
-		m_followTargetNameDebounceBackendId.clear();
-		m_followTargetNameDebounceText.clear();
+		clearInlineTextPropertyEdit();
 		return;
 	}
-	if (m_followTargetNameDebounceBackendId.isEmpty())
+	if (m_inlineTextEditBackendId.isEmpty() || m_inlineTextEditKey.isEmpty())
+	{
+		return;
+	}
+	if (!propertyKeyFilter.isEmpty() && propertyKeyFilter != m_inlineTextEditKey)
 	{
 		return;
 	}
 
 	DocumentPage* docPage = currentPage();
-	const QString propertyKey = QStringLiteral("follow.targetName");
-	const QString backendId = m_followTargetNameDebounceBackendId;
+	const QString propertyKey = m_inlineTextEditKey;
+	const QString backendId = m_inlineTextEditBackendId;
+	QString text = m_inlineTextEditPendingValue;
+	if (m_variantManager)
+	{
+		if (QtProperty* prop = m_propertyKeyToVariant.value(propertyKey))
+		{
+			text = variantValueToString(m_variantManager->value(static_cast<QtVariantProperty*>(prop)));
+		}
+	}
 
 	if (!docPage)
 	{
-		RunLogger::debug(std::string("[PropertyCommitDBG] skip follow name commit without document page id=") +
-						 backendId.toStdString());
-		RunLogger::flush();
-		m_followTargetNameDebounceBackendId.clear();
-		m_followTargetNameDebounceText.clear();
+		clearInlineTextPropertyEdit();
 		return;
 	}
-	if (m_followTargetNameDebounceText.trimmed().isEmpty() &&
+	if (propertyKey == QStringLiteral("follow.targetName") && text.trimmed().isEmpty() &&
 		!docPage->data().hasComponent(backendId, QStringLiteral("FollowAttachment")))
 	{
-		m_followTargetNameDebounceBackendId.clear();
-		m_followTargetNameDebounceText.clear();
+		clearInlineTextPropertyEdit();
+		return;
+	}
+	if (text == propertyRowValue(*docPage, backendId, propertyKey))
+	{
+		clearInlineTextPropertyEdit();
 		return;
 	}
 
+	const bool refreshTree = propertyKey == QStringLiteral("core.name");
 	QString dsErr;
-	const bool applyOk =
-		docPage->data().applyPropertyChange(backendId, propertyKey, m_followTargetNameDebounceText, &dsErr);
+	const bool applyOk = docPage->data().applyPropertyChange(backendId, propertyKey, text, &dsErr);
+	clearInlineTextPropertyEdit();
 	if (!applyOk)
 	{
-		m_followTargetNameDebounceBackendId.clear();
 		updatePropertyPanel(backendId);
 		return;
 	}
 
-	afterBackendFollowPropertyEdited(propertyKey, m_followTargetNameDebounceText);
-
-	m_followTargetNameDebounceBackendId.clear();
-	m_followTargetNameDebounceText.clear();
+	if (propertyKey.startsWith(QStringLiteral("follow.")))
+	{
+		afterBackendFollowPropertyEdited(propertyKey, text);
+	}
 	updatePropertyPanel(backendId);
+	if (refreshTree)
+	{
+		refreshBackendTree();
+	}
 }

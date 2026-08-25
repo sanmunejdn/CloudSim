@@ -840,6 +840,10 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | `processCustomDevicePoseRisingEdges` / `primeCustomDevicePoseEdgeMemory` / `clearCustomDevicePoseEdgeMemory` | 同上 | DI 边沿 → 姿态 |
 | `commitCustomDeviceAssembly` / `ensureCustomDevice` / `attachCustomDeviceChildren` | 同上 | 组装提交 |
 | `listAssemblyGeometryCandidatesJson` / `exportCustomDeviceUrdfZip` | 同上 | 候选几何 / URDF zip |
+| `listRobotsForMountJson` / `mountCustomDeviceToRobotFlange` / `unmountCustomDeviceFromRobotFlange` | 同上 | 机器人挂载（Web 与桌面共用 Host） |
+| `syncCustomDeviceKinematicsAfterRootPoseChange` / `finalizeCustomDeviceLinkJointGraph` | 同上 | 根位姿变更 FK；提交后登记连杆 FK 独占 |
+| `flushCustomDeviceLinkGeometryVisual` / `flushCustomDeviceMotionCenterFrameVisual` | 同上 | applyQ 后 OSG 刷连杆几何 / 旋转中心 Frame |
+| `mountCustomDeviceToFlange` / `updateMountedDeviceWorldFromRobotTcp` / `refreshCustomDevicesFollowingKinematicsTargets` | `io/CustomDeviceRobotMountOps.h` | 挂载、TCP 跟踪、机器人 FK 后刷新 |
 
 ---
 

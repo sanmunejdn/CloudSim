@@ -596,7 +596,7 @@ nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* m
 {
 	nlohmann::json rows = nlohmann::json::array();
 	backend_property_json::appendRow(rows, "core.id", "ID", false, m_id);
-	backend_property_json::appendRow(rows, "core.name", "Name", false, m_name);
+	backend_property_json::appendRow(rows, "core.name", "Name", true, m_name);
 	backend_property_json::appendRow(rows, "core.class", "Class", false, className());
 	if (hasPoseProperty())
 	{
@@ -627,6 +627,20 @@ nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* m
 bool BackendDataBase::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 										  const BackendDataManager* mgr)
 {
+	if (key == "core.name")
+	{
+		const std::string trimmed = trimUtf8Whitespace(value);
+		if (trimmed.empty())
+		{
+			if (errMsg)
+			{
+				*errMsg = "Name must not be empty.";
+			}
+			return false;
+		}
+		setName(trimmed);
+		return true;
+	}
 	if (key == "pose.frame")
 	{
 		const std::string frame = toLowerAscii(trimUtf8Whitespace(value));
