@@ -29,6 +29,7 @@
 
 #include <json.hpp>
 
+#include <queue>
 #include <unordered_set>
 
 #include <BackendDataManager.h>
@@ -200,7 +201,7 @@ void registerAllCustomDeviceLinkGeometryOwnership(DocumentHost& host)
 	}
 }
 
-void finalizeCustomDeviceLinkJointGraph(DocumentHost& host, const std::string& deviceBackendId)
+void ensureCustomDeviceLinkKinematicsOwnership(DocumentHost& host, const std::string& deviceBackendId)
 {
 	if (deviceBackendId.empty())
 	{
@@ -213,10 +214,26 @@ void finalizeCustomDeviceLinkJointGraph(DocumentHost& host, const std::string& d
 	}
 	registerCustomDeviceLinkGeometryOwnership(host, *device);
 	stripCustomDeviceLinkHierarchyFollow(host, *device);
+	host.stripKinematicsOwnedFollowAttachments();
+}
+
+void finalizeCustomDeviceLinkJointGraph(DocumentHost& host, const std::string& deviceBackendId)
+{
+	if (deviceBackendId.empty())
+	{
+		return;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceBackendId));
+	if (!device || !device->usesLinkJointGraph())
+	{
+		return;
+	}
+	ensureCustomDeviceLinkKinematicsOwnership(host, deviceBackendId);
 	CustomDeviceAssemblyCommit::refreshLinkRestPosesFromGeometry(*device, host.backend());
 	CustomDeviceKinematics::rebakeRotateJointOriginsFromFrames(*device, &host.backend());
 	(void)CustomDeviceKinematics::applyQ(*device, &host.backend(), poseSinkOf(host), nullptr);
-	host.stripKinematicsOwnedFollowAttachments();
+	flushCustomDeviceLinkGeometryVisual(host, deviceBackendId);
+	flushCustomDeviceMotionCenterFrameVisual(host, deviceBackendId);
 }
 
 void flushCustomDeviceLinkGeometryVisual(DocumentHost& host, const std::string& deviceBackendId)
@@ -230,13 +247,42 @@ void flushCustomDeviceLinkGeometryVisual(DocumentHost& host, const std::string& 
 	{
 		return;
 	}
+	BackendDataManager& mgr = host.backend();
+	std::vector<std::string> linkGeomIds;
+	linkGeomIds.reserve(device->links().size());
 	for (const CustomDeviceLink& L : device->links())
 	{
 		if (L.geometryBackendId.empty())
 		{
 			continue;
 		}
-		(void)host.syncOuterPatFromBackendId(L.geometryBackendId);
+		linkGeomIds.push_back(L.geometryBackendId);
+	}
+	if (linkGeomIds.empty())
+	{
+		return;
+	}
+
+	// Backend 已由 applyToSink 用 compound Δ 写好连杆及下挂非运动学子件，此处只刷 OSG
+	std::unordered_set<std::string> flushed;
+	std::queue<std::string> queue;
+	for (const std::string& linkGeomId : linkGeomIds)
+	{
+		queue.push(linkGeomId);
+	}
+	while (!queue.empty())
+	{
+		const std::string cur = queue.front();
+		queue.pop();
+		if (!flushed.insert(cur).second)
+		{
+			continue;
+		}
+		(void)host.syncOuterPatFromBackendId(cur);
+		for (const std::string& child : mgr.childrenOf(cur))
+		{
+			queue.push(child);
+		}
 	}
 }
 
@@ -436,8 +482,8 @@ bool applyCustomDeviceQ(DocumentHost& host, const QString& deviceId, const QJson
 			*err = QStringLiteral("applyQ failed");
 		return false;
 	}
-	finalizeCustomDeviceLinkJointGraph(host, deviceId.toStdString());
 	flushCustomDeviceLinkGeometryVisual(host, deviceId.toStdString());
+	flushCustomDeviceMotionCenterFrameVisual(host, deviceId.toStdString());
 	emit host.visualSceneDirty();
 	return true;
 }

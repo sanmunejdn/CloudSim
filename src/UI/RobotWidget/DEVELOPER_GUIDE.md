@@ -450,6 +450,7 @@ Dock **设备** → 子 Tab **指令**（机器人程序，与「设备指令」
 | 能力 | 说明 |
 |------|------|
 | 姿态库 | `CustomDeviceBackendData::namedPoses`（全轴 `q` 快照）；示教取当前 `qValues()` |
+| 运动到此 | `DevicePoseMotionPlayer` 插值 → `CustomDeviceKinematics::applyQ`；**禁止**热路径调用 `finalizeCustomDeviceLinkJointGraph`（会把当前姿势刷进 rest） |
 | 信号绑定 | `poseSignalBindings`：`signalName` = **本设备**信号表 DI；上升沿 → `DevicePoseMotionPlayer` → `CustomDeviceKinematics::applyQ` |
 | 触发源 | 每设备 `NamedSignalTable` + sink（经 `IoSignalNetworkService`）；跨设备用连接站 DO→DI |
 | 连接站 | 「信号」页按钮打开对话框：`SignalConnectionStationWidget`；Owner 节点，仅 DO→DI；侧车 `ioSignalNetwork.wires` |

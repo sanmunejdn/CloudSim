@@ -598,13 +598,14 @@ Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`../../../docs/�
 | API | 说明 |
 |-----|------|
 | `applyQ(device, mgr, sink, qOverride?, ApplyQOptions)` | 轴控主入口：`rebake`（可选）→ FK → `syncMotionCenterFramesFromOrigins` |
+| `CustomDeviceKinematicModel::applyToSink` | 写各 Link `geometryBackendId`；并对 Data 下挂非其它 Link 几何的子件施加 compound 刚体 \(\Delta=W_{new}\cdot W_{old}^{-1}\)（STEP 分件常无 Follow，勿走 Follow 求解） |
 | `ApplyQOptions::refreshRestFromGeometry` | 默认 true；挂载预同步传 false |
 | `ApplyQOptions::rebakeOriginsFromSceneFrames` | 默认 false；true 时从场景 Frame 反烘焙 `originMm`（世界锚定枢轴） |
 | `rebakeRotateJointOriginsFromFrames` | 组装/提交：Frame → `originMm` |
 | `syncMotionCenterFramesFromOrigins` | `W_frame = W_parentLink × T(originMm)`，仅 `FrameBackendData` |
 | `bakeMotionCenterFrameToOriginMm` | 单副烘焙辅助 |
 
-挂载设备 W0 由 Host `updateMountedDeviceWorldFromRobotTcp` 写入后再 `applyQ`。
+挂载设备 W0 由 Host `updateMountedDeviceWorldFromRobotTcp` 写入后再 `applyQ`。Host `flushCustomDeviceLinkGeometryVisual` 只刷 OSG（连杆 + compound 子树），位姿已在 `applyToSink` 写好。
 
 ---
 

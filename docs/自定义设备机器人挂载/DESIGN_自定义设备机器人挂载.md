@@ -24,11 +24,12 @@ notifyRobotKinematicsAppliedToScene
   → runFollowSolveAndSync
   → refreshCustomDevicesFollowingKinematicsTargets
        updateMountedDeviceWorldFromRobotTcp   // W_device、安装 Frame 对齐 TCP
-       applyQ（refreshRest=false）            // 连杆 FK + syncMotionCenterFramesFromOrigins
-       flush 设备根 / 连杆几何 / 旋转中心 Frame / 安装坐标系 OSG
+       applyQ（refreshRest=false）            // 连杆 FK + compound 子件 Δ + syncMotionCenterFrames
+       flush 设备根 / 连杆几何+下挂子件 OSG / 旋转中心 Frame / 安装坐标系 OSG
 ```
 
 - 通用 Follow 求解器**跳过**已挂载 `CustomDevice` 根的世界写入（由 `updateMountedDeviceWorldFromRobotTcp` 独占）。
+- 连杆下仍挂着、未参与运动学的 STEP 子件（无 Follow 目标）：由 `CustomDeviceKinematicModel::applyToSink` 用 \(\Delta=W_{new}\cdot W_{old}^{-1}\) 刚体更新；**禁止**在 `flushCustomDeviceLinkGeometryVisual` 内再调 `runFollowSolveAndSync`（会与挂载刷新递归栈溢出）。
 - 工具系变更：`rebakeMountedCustomDevicesFollowLocals` 重算 `T_local`。
 
 ## Phase 1 约束
@@ -46,6 +47,9 @@ notifyRobotKinematicsAppliedToScene
 | `rebakeMountedCustomDevicesFollowLocals` | 工具系变更后重算 T_local |
 | `mountCustomDeviceToRobotFlange` | Web/JSON：预 FK、`captureTcpPose`、挂载前后 notify |
 | `syncCustomDeviceKinematicsAfterRootPoseChange` | 根位姿变更后 applyQ + 视觉 flush |
+| `ensureCustomDeviceLinkKinematicsOwnership` | 轴控准备：登记连杆独占；不刷新 rest |
+| `finalizeCustomDeviceLinkJointGraph` | **仅组装提交后**刷新 rest；禁止姿态库热路径 |
+| `flushCustomDeviceLinkGeometryVisual` | 连杆 + compound 下挂子件 OSG（位姿在 `applyToSink`） |
 | `flushCustomDeviceMotionCenterFrameVisual` | 旋转中心 Frame OSG 同步 |
 
 ## UI

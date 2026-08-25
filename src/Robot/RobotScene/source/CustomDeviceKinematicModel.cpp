@@ -7,11 +7,70 @@
 #include "IRobotBackendPoseSink.h"
 #include "TreeForwardKinematics.h"
 
+#include <queue>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace CustomDeviceKinematicModel
 {
+namespace
+{
+void writeSinkWorld(IRobotBackendPoseSink* sink, const std::string& backendId, const BackendMat4& wm)
+{
+	if (!sink || backendId.empty())
+	{
+		return;
+	}
+	cloudsim::core::Mat4 mat{};
+	for (int k = 0; k < 16; ++k)
+	{
+		mat[static_cast<size_t>(k)] = wm.v[k];
+	}
+	sink->setBackendRootWorldMatrixFromWorld(backendId, mat);
+}
+
+/// 连杆 compound 刚体增量：子件无 Follow，须随父几何同乘 Δ=W_new·inv(W_old)
+void applyCompoundDeltaToDescendants(BackendDataManager& mgr, IRobotBackendPoseSink* sink,
+									 const std::string& linkGeomId, const BackendMat4& delta,
+									 const std::unordered_set<std::string>& linkGeomIds)
+{
+	std::queue<std::string> queue;
+	std::unordered_set<std::string> visited;
+	visited.insert(linkGeomId);
+	queue.push(linkGeomId);
+	while (!queue.empty())
+	{
+		const std::string cur = queue.front();
+		queue.pop();
+		for (const std::string& childId : mgr.childrenOf(cur))
+		{
+			if (!visited.insert(childId).second)
+			{
+				continue;
+			}
+			queue.push(childId);
+			if (linkGeomIds.count(childId) != 0)
+			{
+				continue;
+			}
+			const auto child = mgr.getData(childId);
+			if (!child || !child->hasPoseProperty())
+			{
+				continue;
+			}
+			BackendMat4 childNew{};
+			if (!backend_mat4_multiply(delta, child->worldMatrix(&mgr), childNew))
+			{
+				continue;
+			}
+			child->setWorldMatrix(childNew, &mgr);
+			writeSinkWorld(sink, childId, childNew);
+		}
+	}
+}
+} // namespace
+
 Model::Model(CustomDeviceBackendData& device) : m_device(device)
 {
 	rebuildGraph();
@@ -65,6 +124,7 @@ bool Model::forward(const double* q, const std::size_t qCount, std::vector<std::
 bool Model::applyToSink(CustomDeviceBackendData& device, BackendDataManager* mgr, IRobotBackendPoseSink* sink,
 						const std::vector<double>& q, const double w0[16]) const
 {
+	(void)device;
 	if (m_graph.links.empty())
 	{
 		return false;
@@ -75,6 +135,17 @@ bool Model::applyToSink(CustomDeviceBackendData& device, BackendDataManager* mgr
 	{
 		return false;
 	}
+
+	std::unordered_set<std::string> linkGeomIds;
+	linkGeomIds.reserve(m_graph.links.size());
+	for (const kinematic_core::KinematicLink& L : m_graph.links)
+	{
+		if (!L.payloadKey.empty())
+		{
+			linkGeomIds.insert(L.payloadKey);
+		}
+	}
+
 	for (size_t i = 0; i < m_graph.links.size(); ++i)
 	{
 		const kinematic_core::KinematicLink& L = m_graph.links[i];
@@ -87,17 +158,22 @@ bool Model::applyToSink(CustomDeviceBackendData& device, BackendDataManager* mgr
 		{
 			continue;
 		}
-		const BackendMat4 wm = CustomDeviceMat4Layout::kinematicCoreToBackendMat4(buf[i].data());
-		geom->setWorldMatrix(wm, mgr);
-		if (sink)
+		const BackendMat4 wOld = geom->worldMatrix(mgr);
+		const BackendMat4 wNew = CustomDeviceMat4Layout::kinematicCoreToBackendMat4(buf[i].data());
+		geom->setWorldMatrix(wNew, mgr);
+		writeSinkWorld(sink, L.payloadKey, wNew);
+
+		if (!mgr)
 		{
-			cloudsim::core::Mat4 mat{};
-			for (int k = 0; k < 16; ++k)
-			{
-				mat[static_cast<size_t>(k)] = wm.v[k];
-			}
-			sink->setBackendRootWorldMatrixFromWorld(L.payloadKey, mat);
+			continue;
 		}
+		BackendMat4 invOld{};
+		BackendMat4 delta{};
+		if (!backend_mat4_invert_rigid(wOld, invOld) || !backend_mat4_multiply(wNew, invOld, delta))
+		{
+			continue;
+		}
+		applyCompoundDeltaToDescendants(*mgr, sink, L.payloadKey, delta, linkGeomIds);
 	}
 	return true;
 }

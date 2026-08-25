@@ -1201,7 +1201,8 @@ void MainWindowRobotHost::prepareCustomDeviceAxisControlTarget(const QString& de
 	{
 		return;
 	}
-	cloudsim::host::finalizeCustomDeviceLinkJointGraph(*host, deviceBackendId.toStdString());
+	// 仅卸 Follow / 登记 FK 独占；勿 finalize（会把当前姿势刷进 rest，姿态库运动到此会乱）
+	cloudsim::host::ensureCustomDeviceLinkKinematicsOwnership(*host, deviceBackendId.toStdString());
 }
 
 void MainWindowRobotHost::flushCustomDeviceLinkGeometryVisual(const QString& deviceBackendId)

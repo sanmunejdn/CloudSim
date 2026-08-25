@@ -35,7 +35,6 @@
 #endif
 #include "adapters/RobotServiceAdapter.h"
 #include "visual/BackendVisualSyncEngine.h"
-#include "visual/BackendVisualEnsure.h"
 
 #include <Qt>
 #include <QVBoxLayout>
@@ -729,9 +728,13 @@ bool DocumentHost::flushVisualSync(const FlushPolicy policy)
 
 void DocumentHost::ensureSelectionVisualForBackend(const std::string& backendId, const bool urdfLinkMesh)
 {
-	EnsureVisualOptions opts;
-	opts.urdfLinkMesh = urdfLinkMesh;
-	(void)ensureVisual(*this, backendId, EnsureVisualPolicy::CreateIfMissing, opts);
+	const auto obj = m_backend->getData(backendId);
+	if (!obj)
+	{
+		return;
+	}
+	// 经 facade 建分支；勿再调 ensureVisual，否则无分支时互相递归
+	sceneFacade().ensureSelectionVisualForBackend(*obj, urdfLinkMesh);
 }
 
 bool DocumentHost::syncOuterPatFromBackendId(const std::string& backendId)

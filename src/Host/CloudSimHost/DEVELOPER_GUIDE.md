@@ -841,8 +841,10 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | `commitCustomDeviceAssembly` / `ensureCustomDevice` / `attachCustomDeviceChildren` | 同上 | 组装提交 |
 | `listAssemblyGeometryCandidatesJson` / `exportCustomDeviceUrdfZip` | 同上 | 候选几何 / URDF zip |
 | `listRobotsForMountJson` / `mountCustomDeviceToRobotFlange` / `unmountCustomDeviceFromRobotFlange` | 同上 | 机器人挂载（Web 与桌面共用 Host） |
-| `syncCustomDeviceKinematicsAfterRootPoseChange` / `finalizeCustomDeviceLinkJointGraph` | 同上 | 根位姿变更 FK；提交后登记连杆 FK 独占 |
-| `flushCustomDeviceLinkGeometryVisual` / `flushCustomDeviceMotionCenterFrameVisual` | 同上 | applyQ 后 OSG 刷连杆几何 / 旋转中心 Frame |
+| `syncCustomDeviceKinematicsAfterRootPoseChange` | 同上 | 根位姿变更后 applyQ + 视觉 flush |
+| `ensureCustomDeviceLinkKinematicsOwnership` | 同上 | 轴控准备：仅登记连杆独占 / 卸 Follow |
+| `finalizeCustomDeviceLinkJointGraph` | 同上 | **仅组装提交后**刷新 rest；禁止姿态库/轴控热路径调用 |
+| `flushCustomDeviceLinkGeometryVisual` / `flushCustomDeviceMotionCenterFrameVisual` | 同上 | applyQ 后 OSG：连杆 + **compound 下挂子件**（`applyToSink` 用 Δ=W_new·inv(W_old)）/ 旋转中心 Frame |
 | `mountCustomDeviceToFlange` / `updateMountedDeviceWorldFromRobotTcp` / `refreshCustomDevicesFollowingKinematicsTargets` | `io/CustomDeviceRobotMountOps.h` | 挂载、TCP 跟踪、机器人 FK 后刷新 |
 
 ---
@@ -879,3 +881,5 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | `IRenderView` 未定义 | 包含 `IRenderView.h`（`DocumentHostAccess.h` / `WidgetDocumentAccess.h` 已包含） |
 | C2662 `render()` 与 `const DocumentHost` | `osgWidgetFrom` 仅接受非 const `DocumentHost&` |
 | C2662 `render()` 与 `const DocumentPage` | Widget 新代码用非 const `DocumentPage*` + `render()`；插件存量 `widgetOsgFromPage` |
+| 挂载后连杆下 STEP 子件（无 Follow）不跟 TCP | 靠 `applyToSink` 的 compound \(\Delta\)，勿对无目标子件走 Follow；flush 只 `syncOuterPat` |
+| 姿态库「运动到此」位姿混乱 | 热路径勿调 `finalizeCustomDeviceLinkJointGraph`（会把当前姿势刷进 rest）；用 `ensureCustomDeviceLinkKinematicsOwnership` |

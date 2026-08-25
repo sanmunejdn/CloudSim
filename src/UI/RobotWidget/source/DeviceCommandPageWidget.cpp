@@ -440,6 +440,7 @@ void DeviceCommandPageWidget::onTeachPose()
 									  QStringLiteral("请先选择自定义设备。")));
 		return;
 	}
+	device->syncAxesFromJoints();
 	device->ensureQSize();
 	bool ok = false;
 	const QString name = QInputDialog::getText(
