@@ -4,6 +4,7 @@
 #include "FeatureDiscretizerRegistry.h"
 
 #include <algorithm>
+#include <mutex>
 
 namespace geoalgo
 {
@@ -19,6 +20,7 @@ void FeatureDiscretizerRegistry::registerDiscretizer(std::unique_ptr<IFeatureDis
 	{
 		return;
 	}
+	std::unique_lock<std::shared_mutex> lock(m_mutex);
 	const std::string id = discretizer->strategyId();
 	for (const std::unique_ptr<IFeatureDiscretizer>& existing : m_discretizers)
 	{
@@ -32,6 +34,7 @@ void FeatureDiscretizerRegistry::registerDiscretizer(std::unique_ptr<IFeatureDis
 
 const IFeatureDiscretizer* FeatureDiscretizerRegistry::get(const std::string& strategyId) const
 {
+	std::shared_lock<std::shared_mutex> lock(m_mutex);
 	for (const std::unique_ptr<IFeatureDiscretizer>& d : m_discretizers)
 	{
 		if (d && d->strategyId() == strategyId)
@@ -44,6 +47,7 @@ const IFeatureDiscretizer* FeatureDiscretizerRegistry::get(const std::string& st
 
 std::vector<std::string> FeatureDiscretizerRegistry::listStrategyIds() const
 {
+	std::shared_lock<std::shared_mutex> lock(m_mutex);
 	std::vector<std::string> ids;
 	ids.reserve(m_discretizers.size());
 	for (const std::unique_ptr<IFeatureDiscretizer>& d : m_discretizers)

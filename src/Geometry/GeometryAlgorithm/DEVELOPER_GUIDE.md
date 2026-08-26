@@ -32,6 +32,7 @@
 | `ShapeIo.h` / `ShapeQuery.h` | STEP 读入；按索引求交/离散；`extractSolidByFaceIndex` |
 | `Intersection.h` | 线线、线面、面面、形体截面 |
 | `BrepBoolean.h` | OCC Fuse/Common/Cut → Shape 或 mesh |
+| `CsgkBackend.h` | **CSGK 后端适配（`CLOUDSIM_USE_CSGK` 编译期开关）**：读 `.csgb` 到 `ShapeHandle`、离散为三角 soup、面/边计数；面级功能降级，见 §3.2 |
 | `WireOps.h` / `ShellOps.h` | 线融合、面缝合 |
 | `GeoMeshBoolean.h` | CGAL 三角网格布尔 |
 | `FeatureSpec.h` | **CAD 轨迹特征 v2**：`FeatureListDocument` / `RawPath` / `FeatureCatalog`；见 `FeatureDiscretizerBridge.h` |
@@ -188,6 +189,10 @@ buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
 | `queryFaceMateGeom` / `computeAssemblyMateDelta`（`AssemblyMate.h`） | 面几何（平面/柱/锥/球/环）与 8 种一次定位增量；Host 传 `worldShape()`，不持有 `worldMatrix` |
 
 特征离散（`discretizeFeature`）仍从精确 BREP/STEP 计算，**不依赖** display soup。
+
+**`BRepTools::Clean` 隐性契约**：各离散入口的 `TopoDS_Shape copy = shape; BRepTools::Clean(copy);` 是**句柄浅拷贝**——`copy` 与调用方 `shape` 共享 `TShape`，`Clean`/网格化实际原地改调用方 shape 上的三角化缓存（`collectShapeHierarchy` 甚至 mesh `copy`、收集 `shape`，能 work 正依赖此共享）。这是 OCC 官方语义、结果正确，但意味着**对同一 shape 并发调用离散 API 不安全**（OCC 三角化非线程安全），调用方需自行串行化。
+
+**CSGK 后端降级（`CLOUDSIM_USE_CSGK`）**：`Discretize.h` 的 `ShapeHandle` 重载对 CSGK 后端 shape 走 `discretizeCsgkShapeToSoup`——只产整件三角 soup，`faceSoups` 返回空、`triangleFaceIndex` 全 0。因此 CSGK shape 的**面级拾取/高亮与 `sliceBrepImportArtifactsForShape`（要求 `faceSoups.size()==面数`）静默不可用**；其余 `TopoDS_Shape` 入口对 CSGK shape 不适用（`ShapeHandleAccess::nativeShape` 取不到原生面）。
 
 #### Artifacts API
 

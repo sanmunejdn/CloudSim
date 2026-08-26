@@ -213,7 +213,8 @@ bool discretizeFaceToSoup(const TopoDS_Face& face, const TessellateParams& param
 						  std::string* errMsg)
 {
 	TopoDS_Shape shape = face;
-	// 清旧三角，避免 IncrementalMesh 复用残缺/过粗缓存导致面高亮不全
+	// 清旧三角，避免 IncrementalMesh 复用残缺/过粗缓存导致面高亮不全。
+	// 注意：TopoDS 句柄浅拷贝共享 TShape，Clean 实际清的是调用方 shape 的三角化缓存（OCC 约定）
 	BRepTools::Clean(shape);
 	if (!meshShapeIncremental(shape, params, errMsg))
 	{
@@ -233,7 +234,8 @@ bool discretizeShapeToSoup(const TopoDS_Shape& shape, const TessellateParams& pa
 						   std::string* errMsg)
 {
 	TopoDS_Shape copy = shape;
-	// 清除旧三角化，避免改 deflection 时 OCC 复用缓存
+	// 清除旧三角化，避免改 deflection 时 OCC 复用缓存。
+	// 句柄浅拷贝共享 TShape：Clean 原地改调用方 shape 的缓存；对同一 shape 并发调用本族 API 不安全
 	BRepTools::Clean(copy);
 	if (!meshShapeIncremental(copy, params, errMsg))
 	{
@@ -264,6 +266,7 @@ bool discretizeShapeToSoupPerFace(const TopoDS_Shape& shape, const TessellatePar
 		return false;
 	}
 	TopoDS_Shape copy = shape;
+	// Clean 浅拷贝句柄 = 原地清调用方 shape 的三角化缓存（共享 TShape）；同一 shape 勿并发离散
 	BRepTools::Clean(copy);
 	if (!meshShapeIncremental(copy, params, errMsg))
 	{
@@ -301,6 +304,8 @@ bool discretizeShapeToSoupPerFace(const ShapeHandle& shape, const TessellatePara
 #ifdef CLOUDSIM_USE_CSGK
 	if(ShapeHandleAccess::isCsgkBackend(shape))
 	{
+		// CSGK 后端降级：faceSoups 返回空、triangleFaceIndex 全 0，CSGK shape 的面级拾取/高亮
+		// 与 sliceBrepImportArtifactsForShape（要求 faceSoups.size()==面数）静默不可用
 		if(!discretizeCsgkShapeToSoup(shape, params, outSoup, errMsg))
 			return false;
 		outTriangleFaceIndex.assign(outSoup.size() / 9U, 0);
@@ -345,6 +350,7 @@ bool collectShapeHierarchy(const TopoDS_Shape& shape, const TessellateParams& pa
 						   std::vector<MeshHierarchyPart>& outParts, std::string* errMsg)
 {
 	outParts.clear();
+	// mesh 的是 copy、收集的是 shape：二者共享 TShape，三角化经浅拷贝写回同一缓存后才可被 shape 侧读到（隐性契约）
 	TopoDS_Shape copy = shape;
 	if (!meshShapeIncremental(copy, params, errMsg))
 	{

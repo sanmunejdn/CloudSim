@@ -12,11 +12,14 @@
 #include "FeatureDiscretizerRegistry.h"
 #include "SyntheticPolylineDiscretizer.h"
 
+#include <mutex>
+
 namespace geoalgo
 {
 namespace
 {
-bool g_builtinsRegistered = false;
+// 与 Data 层 BackendRegistryBuiltins 同一纪律：懒初始化用 call_once，不用裸 bool 检查-置位
+std::once_flag g_builtinsOnce;
 
 void registerDiscretizerConfigs()
 {
@@ -45,13 +48,11 @@ void touchStaticDiscretizerRegistrations()
 
 void ensureFeatureDiscretizersRegistered()
 {
-	if (g_builtinsRegistered)
+	std::call_once(g_builtinsOnce, []()
 	{
-		return;
-	}
-	touchStaticDiscretizerRegistrations();
-	registerDiscretizerConfigs();
-	g_builtinsRegistered = true;
+		touchStaticDiscretizerRegistrations();
+		registerDiscretizerConfigs();
+	});
 }
 
 } // namespace geoalgo

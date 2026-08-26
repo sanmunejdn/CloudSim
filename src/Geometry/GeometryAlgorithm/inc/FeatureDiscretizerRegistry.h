@@ -10,6 +10,7 @@
 #include "IFeatureDiscretizer.h"
 
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,8 @@ public:
 
 private:
 	FeatureDiscretizerRegistry() = default;
+	// get 返回的裸指针在锁释放后仍有效：条目只增不删，unique_ptr 搬移不影响所指点对象
+	mutable std::shared_mutex m_mutex;
 	std::vector<std::unique_ptr<IFeatureDiscretizer>> m_discretizers;
 };
 

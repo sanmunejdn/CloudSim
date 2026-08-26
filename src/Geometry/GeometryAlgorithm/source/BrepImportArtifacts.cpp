@@ -154,6 +154,8 @@ std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(const ShapeHa
 			}
 		}
 	}
+	// 有意在锁外做昂贵的 Phase1 构建：网格化耗时可达数秒，持锁会阻塞全部缓存查询。
+	// 代价是两线程并发首导同一 shape 会重复构建、败者在下方锁内复查时丢弃——结果正确，仅费工
 	auto artifacts = std::make_shared<BrepImportArtifacts>();
 	BrepImportBuildTimings localTimings;
 	if (!buildBrepImportArtifactsDisplay(shape, *artifacts, timings ? timings : &localTimings, errMsg))
@@ -262,6 +264,7 @@ std::shared_ptr<BrepImportArtifacts> sliceBrepImportArtifactsForShape(const Shap
 		}
 		else
 		{
+			// IsBound 未命中时逐面 IsPartner 探测：O(dst面数 × src面数)，仅拆 Solid 等小场景可接受
 			int probe = 0;
 			for (TopExp_Explorer srcExp(srcNative, TopAbs_FACE); srcExp.More(); srcExp.Next(), ++probe)
 			{
