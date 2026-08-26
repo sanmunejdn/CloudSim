@@ -325,7 +325,7 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 
 位姿/颜色/属性：`hasPoseProperty` 等均为 `true`。Visual 见 [`BackendVisual/DEVELOPER_GUIDE.md`](../../UI/BackendVisual/DEVELOPER_GUIDE.md) §4.3；Host 装配见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1b。
 
-另：`worldShape()`（应用 `worldMatrix` 后的 shape 副本）、`writeStepFile`、`faceHighlightColors`（面高亮，进程内）。
+另：`worldShape()`（应用 `worldMatrix` 后的 shape 副本）、`writeStepFile`、`faceHighlightColors`（面高亮，进程内不持久化；setter/clear 均 bump geometryRevision，调用方无需自行标脏）。
 
 ### 4.5 `ParametricBrepBackendData`（`: BrepBackendData`）
 
@@ -539,7 +539,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 **`worldQuery` 两处接线**：
 - 求解主循环（`BackendFollowSolve.cpp:383-393`）：**Data 直通**，直接 `obj->worldMatrix()`；
-- 层级绑定瞬间（`BackendCompoundPropagate.cpp`）：**OSG 真值**，经 `OsgWidgetSceneBridge::tryGetBackendWorldMatrix` 拿当前 OSG 场景图位姿。
+- 层级绑定瞬间（`BackendHierarchyFollow.cpp` 的 worldQuery）：**OSG 真值**，直调 `OsgWidget::getBackendRootWorldMatrix` 拿当前场景图位姿；`CustomDeviceRobotMountOps.cpp` 的挂载帧 rebake 同法。
 
 **跳过自身已启用 Follow 的节点**：`BackendCompoundPropagate.cpp:50-53` 先入队后判跳过——**后代仍传播**（子树不受跳过影响），仅自身位姿不被覆写。
 

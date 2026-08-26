@@ -233,7 +233,7 @@ Phase2（边折线）
 
 ### 3.3 模板 B-rep 面更新（`TemplateBrepUpdate.h`）
 
-扫描点云（STEP 模型坐标 mm）驱动模板 shape 逐面调整。编排与 ICP 在 `Data/GeometryBackendOps.cpp`；**完整流程与守卫逻辑**见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) §4。
+扫描点云（STEP 模型坐标 mm）驱动模板 shape 逐面调整。编排与 ICP 在 `GeometryServices/GeometryBackendOps.cpp`；**完整流程与守卫逻辑**见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) §4。
 
 | API | 说明 |
 |-----|------|
