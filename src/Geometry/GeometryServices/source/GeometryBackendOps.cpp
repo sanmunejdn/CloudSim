@@ -2406,17 +2406,15 @@ bool runColdStartCoarseIcpPath(const std::vector<float>& workXyz, const std::vec
 }
 
 void saveRegistrationCheckpoint(geoalgo::TemplateBrepRegistrationCheckpoint* checkpoint,
-								const std::vector<float>& templateSoupXyz,
-								const std::vector<float>& templateSoupNormals, const Eigen::Isometry3d& icpDeltaWorld)
+								const Eigen::Isometry3d& icpDeltaWorld)
 {
 	if (!checkpoint)
 	{
 		return;
 	}
-	checkpoint->templateSoupXyz = templateSoupXyz;
-	checkpoint->templateSoupNormals = templateSoupNormals;
+	// 只记增量链与门控位：精配 soup 按当前模板 worldMatrix 重建，缓存 soup 是只写不读的死存储
 	checkpoint->icpDeltaWorld = icpDeltaWorld;
-	checkpoint->valid = !templateSoupXyz.empty();
+	checkpoint->valid = true;
 }
 
 bool runFineInlierIcpRefinement(const std::vector<float>& workXyz, const std::vector<float>& workNormals,
@@ -3644,14 +3642,16 @@ bool registerScanToCadTemplate(const BrepBackendData& templateBrep, const PointC
 	}
 	RunLogger::info("[TemplateBrepUpdate] registration in world frame (scan/template worldMatrix)");
 
-	const bool fineFromCheckpoint = params.registrationStage == geoalgo::TemplateBrepRegistrationStage::FineOnly &&
-									registrationCheckpoint != nullptr && registrationCheckpoint->valid;
+	// 精配 soup 按当前 template.worldMatrix 重建（用户粗配后的手动调整即精配初值，可被 ICP 正确消化）；
+	// checkpoint 只提供门控(valid)与粗配总增量(icpDeltaWorld)，不缓存 soup
+	const bool fineOnlyStage = params.registrationStage == geoalgo::TemplateBrepRegistrationStage::FineOnly &&
+							   registrationCheckpoint != nullptr && registrationCheckpoint->valid;
 
 	std::vector<float> templateSampleXyz;
 	std::vector<float> templateSampleNormals;
 	std::size_t templateTriCount = 0U;
 	constexpr std::size_t kMaxTemplateSoupPoints = 40000U;
-	if (fineFromCheckpoint)
+	if (fineOnlyStage)
 	{
 		if (!geoalgo::extractDisplaySoupPointCloud(templateShapeForIcp, templateSampleXyz, templateSampleNormals,
 												   kMaxTemplateSoupPoints, &templateTriCount, errMsg))
@@ -3693,7 +3693,7 @@ bool registerScanToCadTemplate(const BrepBackendData& templateBrep, const PointC
 						std::to_string(icpWorkXyz.size() / 3U) + " pts");
 	}
 
-	if (fineFromCheckpoint)
+	if (fineOnlyStage)
 	{
 		params.registrationMatchVoxelMm =
 			downsampleRegistrationPairToTarget(icpWorkXyz, icpWorkNormals, templateSampleXyz, templateSampleNormals,
@@ -3712,7 +3712,7 @@ bool registerScanToCadTemplate(const BrepBackendData& templateBrep, const PointC
 
 	if (params.registrationStage == geoalgo::TemplateBrepRegistrationStage::FineOnly)
 	{
-		if (!fineFromCheckpoint)
+		if (!fineOnlyStage)
 		{
 			if (errMsg)
 			{
@@ -3739,14 +3739,14 @@ bool registerScanToCadTemplate(const BrepBackendData& templateBrep, const PointC
 		return false;
 	}
 
-	saveRegistrationCheckpoint(registrationCheckpoint, templateSampleXyz, templateSampleNormals, icpDeltaWorld);
+	saveRegistrationCheckpoint(registrationCheckpoint, icpDeltaWorld);
 
 	if (params.registrationStage == geoalgo::TemplateBrepRegistrationStage::CoarseOnly)
 	{
 		RunLogger::info("[TemplateBrepUpdate] coarse-only registration stage complete");
 	}
 
-	outReport.icpDeltaWorld = icpDeltaWorld; // 正典字段：newTemplateWorld = icpDeltaWorld × templateWorld
+	outReport.icpDeltaWorld = icpDeltaWorld; // 正典字段（FineOnly+拖动场景的增量链语义见头文件契约注释）
 	outReport.templateToScan = icpDeltaWorld; // 遗留别名，与 icpDeltaWorld 恒同值；新代码勿再消费此字段
 
 	RunLogger::info(std::string("[TemplateBrepUpdate] reverse registration done, icpRmseMm=") +

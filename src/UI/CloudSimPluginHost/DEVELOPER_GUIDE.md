@@ -139,7 +139,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 - 坐标变换遵循 [`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)；`feature_pick_transform` 经 `getBackendRootWorldMatrix`（**不**加减 `modelCenter`）。
 - 禁止对模板 id 直接使用 logical id 取 world 矩阵而不 resolve，否则装配体子件会出现 `frameCheck pairHits=0`。
 
-配准编排与日志见 `geometry_backend_ops::registerScanToCadTemplate`（`Data/GeometryBackendOps.cpp`）。
+配准编排与日志见 `geometry_backend_ops::registerScanToCadTemplate`（`Geometry/GeometryServices/source/GeometryBackendOps.cpp`）。
 
 ### 3.8 网格后处理（1.9.0+，VcgAlgorithms）
 

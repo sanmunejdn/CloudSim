@@ -52,11 +52,9 @@ enum class TemplateBrepRegistrationStage
 	FineOnly = 2,  ///< 需 checkpoint
 };
 
-/** 粗配完成后保存，供精配继续（soup 为世界系） */
+/** 粗配完成后保存，供精配门控与增量链抵消使用；精配 soup 按当前模板 worldMatrix 重建，不在此缓存 */
 struct TemplateBrepRegistrationCheckpoint
 {
-	std::vector<float> templateSoupXyz;
-	std::vector<float> templateSoupNormals;
 	Eigen::Isometry3d icpDeltaWorld = Eigen::Isometry3d::Identity();
 	bool valid = false;
 };
@@ -90,7 +88,10 @@ struct TemplateBrepUpdateParams
 struct TemplateBrepUpdateResult
 {
 	ShapeHandle updatedShape;
-	Eigen::Isometry3d icpDeltaWorld = Eigen::Isometry3d::Identity(); ///< newTemplateWorld = icpDeltaWorld × templateWorld（正典字段）
+	/// 正典字段：newTemplateWorld = icpDeltaWorld × templateWorld。
+	/// 例外：FineOnly 且粗配后用户拖过模板时为增量链值 fine×coarse（精配 soup 按当前 worldMatrix 重建，
+	/// fine 相对当前帧），正典消费方式是 report.icpDeltaWorld × inv(checkpoint.icpDeltaWorld) 左乘当前世界
+	Eigen::Isometry3d icpDeltaWorld = Eigen::Isometry3d::Identity();
 	Eigen::Isometry3d templateToScan = Eigen::Isometry3d::Identity(); ///< 遗留别名：与 icpDeltaWorld 恒同值，仅为兼容保留，新代码勿消费
 	double icpRmseMm = 0.0;
 	bool icpRmseGatePassed = false;
