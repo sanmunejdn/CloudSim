@@ -1,5 +1,6 @@
 ﻿/// @file GeometryBackendOps.cpp
-/// @brief 仅统计距模板 soup 在 inlierGateMm 内的扫描点（与 ICP 重叠区一致，避免全云离群点拉高 maxDev）
+/// @brief geometry_backend_ops 编排层实现：STEP 导入离散、模板 B-rep 配准（PCA/RANSAC 粗配 + ICP 阶梯）、
+///        扫描驱动面更新、管状特征构建、特征轨迹桥接等
 
 #include "pch.h"
 
@@ -487,6 +488,7 @@ void measureScanToCloudDistance(const std::vector<float>& scanXyz, const std::ve
 }
 
 /// 仅统计距模板 soup 在 inlierGateMm 内的扫描点（与 ICP 重叠区一致，避免全云离群点拉高 maxDev）
+/// 一致性备注：暴力双循环（512×512 封顶），未上 KdTreePointSet——量小可接受；若样本上限上调需同步改 kd-tree
 void measureScanToCloudInlierStats(const std::vector<float>& scanXyz, const std::vector<float>& cloudXyz,
 								   const double inlierGateMm, double& outInlierMaxMm, double& outInlierAvgMm,
 								   std::size_t& outInlierHits, const std::size_t maxScanSamples = 512U)
@@ -602,9 +604,17 @@ double computeMatchedRmseMm(const std::vector<float>& srcXyz, const std::vector<
 	const Eigen::Matrix3d rot = transform.linear();
 
 	const std::size_t nSrc = srcXyz.size() / 3U;
-	const std::size_t nTgt = tgtXyz.size() / 3U;
 	const std::size_t srcStride = std::max<std::size_t>(1U, nSrc / 4000U);
-	const std::size_t tgtStride = std::max<std::size_t>(1U, nTgt / 4000U);
+
+	// kd-tree 加速（对齐本文件 measureScanToCloudDistance 的纪律，评分链最重调用）：
+	// 法向门控需在近邻候选里挑"过门"的最近点，故取小 k 而非 k=1——原暴力实现会扫完全场找过门者
+	const pclalgo::KdTreePointSet tgtTree(tgtXyz);
+	if (tgtTree.empty())
+	{
+		return 0.0;
+	}
+	const bool gateNormals = useNormals && minNormalDot > -0.999;
+	constexpr unsigned int kNormalCandidates = 8U;
 
 	double sumSq = 0.0;
 	std::size_t pairs = 0U;
@@ -622,44 +632,65 @@ double computeMatchedRmseMm(const std::vector<float>& srcXyz, const std::vector<
 			}
 		}
 
-		double bestSq = maxPairDistSq;
-		std::size_t bestJ = static_cast<std::size_t>(-1);
-		Eigen::Vector3d tn = Eigen::Vector3d::Zero();
-		for (std::size_t j = 0; j < nTgt; j += tgtStride)
+		// 候选按距离升序；法向门控时取第一个过门者（k 内全不过门视为无配对，与原实现近似）
+		std::vector<std::size_t> candIdx;
+		std::vector<double> candDistSq;
+		if (gateNormals)
 		{
-			const std::size_t tb = j * 3U;
-			const Eigen::Vector3d qt(tgtXyz[tb], tgtXyz[tb + 1U], tgtXyz[tb + 2U]);
-			const double d2 = (ps - qt).squaredNorm();
-			if (d2 >= bestSq)
+			tgtTree.findKNearest(ps.x(), ps.y(), ps.z(), kNormalCandidates, candIdx, candDistSq);
+		}
+		else
+		{
+			double nnDistSq = 0.0;
+			const std::size_t nn = tgtTree.findNearest(ps.x(), ps.y(), ps.z(), maxPairDistSq, nnDistSq);
+			if (nn != static_cast<std::size_t>(-1))
+			{
+				candIdx.push_back(nn);
+				candDistSq.push_back(nnDistSq);
+			}
+		}
+
+		double bestSq = std::numeric_limits<double>::max();
+		std::size_t bestJ = static_cast<std::size_t>(-1);
+		for (std::size_t c = 0; c < candIdx.size(); ++c)
+		{
+			if (candDistSq[c] > maxPairDistSq)
 			{
 				continue;
 			}
-			if (useNormals && minNormalDot > -0.999)
+			if (gateNormals)
 			{
-				tn = Eigen::Vector3d(tgtNormals[tb], tgtNormals[tb + 1U], tgtNormals[tb + 2U]);
-				if (tn.norm() > 1e-12)
+				const std::size_t tb = candIdx[c] * 3U;
+				Eigen::Vector3d cn(tgtNormals[tb], tgtNormals[tb + 1U], tgtNormals[tb + 2U]);
+				if (cn.norm() > 1e-12)
 				{
-					tn.normalize();
+					cn.normalize();
 				}
-				if (sn.dot(tn) < minNormalDot)
+				if (sn.dot(cn) < minNormalDot)
 				{
 					continue;
 				}
 			}
-			bestSq = d2;
-			bestJ = j;
-			if (useNormals)
-			{
-				tn = Eigen::Vector3d(tgtNormals[tb], tgtNormals[tb + 1U], tgtNormals[tb + 2U]);
-			}
+			bestSq = candDistSq[c];
+			bestJ = candIdx[c];
+			break;
 		}
 		if (bestJ == static_cast<std::size_t>(-1))
 		{
 			continue;
 		}
+		Eigen::Vector3d tn = Eigen::Vector3d::Zero();
+		if (useNormals)
+		{
+			const std::size_t tb = bestJ * 3U;
+			tn = Eigen::Vector3d(tgtNormals[tb], tgtNormals[tb + 1U], tgtNormals[tb + 2U]);
+			if (tn.norm() > 1e-12)
+			{
+				tn.normalize();
+			}
+		}
 		if (useNormals && tn.norm() > 1e-12)
 		{
-			tn.normalize();
 			const double d = std::abs(tn.dot(ps - pointAtXyz(tgtXyz, bestJ)));
 			sumSq += d * d;
 		}
@@ -3715,8 +3746,8 @@ bool registerScanToCadTemplate(const BrepBackendData& templateBrep, const PointC
 		RunLogger::info("[TemplateBrepUpdate] coarse-only registration stage complete");
 	}
 
-	outReport.icpDeltaWorld = icpDeltaWorld;
-	outReport.templateToScan = icpDeltaWorld;
+	outReport.icpDeltaWorld = icpDeltaWorld; // 正典字段：newTemplateWorld = icpDeltaWorld × templateWorld
+	outReport.templateToScan = icpDeltaWorld; // 遗留别名，与 icpDeltaWorld 恒同值；新代码勿再消费此字段
 
 	RunLogger::info(std::string("[TemplateBrepUpdate] reverse registration done, icpRmseMm=") +
 					std::to_string(outReport.icpRmseMm));

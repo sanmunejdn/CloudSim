@@ -1907,6 +1907,16 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 		onFinished(false, QString::fromStdString(resolveErr), {});
 		return;
 	}
+	// 缓存比对只验 id 与 RMSE 门：配准后模板若在 3D 视图被拖动，对齐关系已失效，
+	// 继续执行会把扫描点按错位映射写进模板文件系（静默改形）。与配准时刻的世界矩阵比对拦截
+	if (!backend_mat4_nearly_equal(templateBrep->worldMatrix(), m_templateBrepAlignCache.templateWorldMatrixAtRegister,
+								   1e-5))
+	{
+		onFinished(false,
+				   QStringLiteral("Template B-rep has moved since registration; re-run scan-to-template matching first"),
+				   {});
+		return;
+	}
 	const QString templateStepPath =
 		page->backendSourcePath().value(QString::fromStdString(params.templateBrepBackendIdUtf8));
 

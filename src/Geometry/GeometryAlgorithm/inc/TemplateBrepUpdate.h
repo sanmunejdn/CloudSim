@@ -90,8 +90,8 @@ struct TemplateBrepUpdateParams
 struct TemplateBrepUpdateResult
 {
 	ShapeHandle updatedShape;
-	Eigen::Isometry3d icpDeltaWorld = Eigen::Isometry3d::Identity(); ///< newTemplateWorld = icpDeltaWorld × templateWorld
-	Eigen::Isometry3d templateToScan = Eigen::Isometry3d::Identity();
+	Eigen::Isometry3d icpDeltaWorld = Eigen::Isometry3d::Identity(); ///< newTemplateWorld = icpDeltaWorld × templateWorld（正典字段）
+	Eigen::Isometry3d templateToScan = Eigen::Isometry3d::Identity(); ///< 遗留别名：与 icpDeltaWorld 恒同值，仅为兼容保留，新代码勿消费
 	double icpRmseMm = 0.0;
 	bool icpRmseGatePassed = false;
 	double registrationOverlapMaxDevMm = 0.0;
