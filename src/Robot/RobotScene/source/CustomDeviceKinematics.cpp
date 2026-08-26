@@ -118,7 +118,7 @@ BackendMat4 resolveEffectiveDeviceW0(const CustomDeviceBackendData& device, Back
 {
 	if (mgr)
 	{
-		return device.worldMatrix(mgr);
+		return device.worldMatrix();
 	}
 	return device.baseWorldW0();
 }
@@ -135,7 +135,7 @@ bool bakeMotionCenterFrameToOriginMm(CustomDeviceAxisConfig& motion, const doubl
 	{
 		return false;
 	}
-	const BackendMat4 frameW = frame->worldMatrix(mgr);
+	const BackendMat4 frameW = frame->worldMatrix();
 	BackendMat4 parentW{};
 	std::memcpy(parentW.v, parentWorldCm, sizeof(double) * 16);
 	BackendMat4 invParent{};
@@ -164,7 +164,7 @@ bool bakeJointMotionOriginFromParentGeometry(CustomDeviceAxisConfig& motion,
 		return false;
 	}
 	double parentWorldCm[16];
-	backendMat4ToArray(parentGeom->worldMatrix(mgr), parentWorldCm);
+	backendMat4ToArray(parentGeom->worldMatrix(), parentWorldCm);
 	return bakeMotionCenterFrameToOriginMm(motion, parentWorldCm, mgr);
 }
 
@@ -343,12 +343,12 @@ void syncMotionCenterFramesFromOrigins(CustomDeviceBackendData& device, BackendD
 		}
 		const BackendMat4 parentWorld = arrayToBackendMat4(parentIt->second.data());
 		const BackendMat4 frameWorld = pivotWorldFromParentOrigin(parentWorld, J.motion.originMm);
-		if (backend_mat4_nearly_equal(frame->worldMatrix(mgr), frameWorld, 1e-5))
+		if (backend_mat4_nearly_equal(frame->worldMatrix(), frameWorld, 1e-5))
 		{
 			synced.insert(frameId);
 			continue;
 		}
-		frame->setWorldMatrix(frameWorld, mgr);
+		frame->setWorldMatrix(frameWorld);
 		writeWorldToPoseSink(sink, frameId, frameWorld);
 		synced.insert(frameId);
 	}

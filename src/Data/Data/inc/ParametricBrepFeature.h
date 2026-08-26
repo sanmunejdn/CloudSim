@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "data_global.h"
+
 #include <json.hpp>
 
 enum class ParametricFeatureKind
@@ -150,40 +152,15 @@ inline const char* parametricFeatureKindToString(ParametricFeatureKind k)
 	}
 }
 
-inline ParametricFeatureKind parametricFeatureKindFromString(const std::string& s)
+/// 未知枚举串解析结果：调用方必须显式处理失败，禁止静默回退默认值
+template <typename T> struct ParametricEnumParse
 {
-	if (s == "Pad")
-		return ParametricFeatureKind::Pad;
-	if (s == "Pocket")
-		return ParametricFeatureKind::Pocket;
-	if (s == "Sweep")
-		return ParametricFeatureKind::Sweep;
-	if (s == "SweepCut")
-		return ParametricFeatureKind::SweepCut;
-	if (s == "Fillet")
-		return ParametricFeatureKind::Fillet;
-	if (s == "Chamfer")
-		return ParametricFeatureKind::Chamfer;
-	if (s == "Revolve")
-		return ParametricFeatureKind::Revolve;
-	if (s == "RevolveCut")
-		return ParametricFeatureKind::RevolveCut;
-	if (s == "LinearPattern")
-		return ParametricFeatureKind::LinearPattern;
-	if (s == "CircularPattern")
-		return ParametricFeatureKind::CircularPattern;
-	if (s == "Mirror3D")
-		return ParametricFeatureKind::Mirror3D;
-	if (s == "Loft")
-		return ParametricFeatureKind::Loft;
-	if (s == "LoftCut")
-		return ParametricFeatureKind::LoftCut;
-	if (s == "Shell")
-		return ParametricFeatureKind::Shell;
-	if (s == "Draft")
-		return ParametricFeatureKind::Draft;
-	return ParametricFeatureKind::Sketch;
-}
+	T value{};
+	bool ok = false;
+};
+
+DATA_EXPORT ParametricEnumParse<ParametricFeatureKind> parametricFeatureKindTryParse(const std::string& s);
+DATA_EXPORT ParametricEnumParse<ParametricExtrudeEnd> parametricExtrudeEndTryParse(const std::string& s);
 
 inline const char* parametricExtrudeEndToString(ParametricExtrudeEnd e)
 {
@@ -204,23 +181,6 @@ inline const char* parametricExtrudeEndToString(ParametricExtrudeEnd e)
 	default:
 		return "Blind";
 	}
-}
-
-inline ParametricExtrudeEnd parametricExtrudeEndFromString(const std::string& s)
-{
-	if (s == "UpToFace")
-		return ParametricExtrudeEnd::UpToFace;
-	if (s == "MidPlane")
-		return ParametricExtrudeEnd::MidPlane;
-	if (s == "ThroughAll")
-		return ParametricExtrudeEnd::ThroughAll;
-	if (s == "UpToVertex")
-		return ParametricExtrudeEnd::UpToVertex;
-	if (s == "OffsetFromFace")
-		return ParametricExtrudeEnd::OffsetFromFace;
-	if (s == "TwoDirections")
-		return ParametricExtrudeEnd::TwoDirections;
-	return ParametricExtrudeEnd::Blind;
 }
 
 nlohmann::json parametricFeatureToJson(const ParametricFeature& f);

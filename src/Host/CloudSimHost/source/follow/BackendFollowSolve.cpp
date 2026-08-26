@@ -1,4 +1,4 @@
-﻿/// @file BackendFollowSolve.cpp
+/// @file BackendFollowSolve.cpp
 /// @brief Follow 脏集求解 + compound 传播
 
 #include "BackendFollowSolve.h"
@@ -164,7 +164,7 @@ std::unordered_map<std::string, BackendMat4> snapshotWorlds(BackendDataManager& 
 		{
 			continue;
 		}
-		out[id] = obj->worldMatrix(&mgr);
+		out[id] = obj->worldMatrix();
 	}
 	return out;
 }
@@ -212,7 +212,7 @@ std::unordered_set<std::string> propagateAfterFollowMovedRoot(DocumentHost& page
 	{
 		return touched;
 	}
-	const BackendMat4 wNew = obj->worldMatrix(&mgr);
+	const BackendMat4 wNew = obj->worldMatrix();
 	if (backend_mat4_nearly_equal(wOld, wNew, 1e-9))
 	{
 		return touched;
@@ -239,12 +239,23 @@ std::unordered_set<std::string> propagateAfterFollowMovedRoot(DocumentHost& page
 				touched.insert(L.geometryBackendId);
 			}
 		}
+		// P3-4: 递归收集所有子孙，不再硬编码两级
+		std::vector<std::string> stack;
 		for (const std::string& child : mgr.childrenOf(rootId))
 		{
-			touched.insert(child);
-			for (const std::string& grand : mgr.childrenOf(child))
+			stack.push_back(child);
+		}
+		while (!stack.empty())
+		{
+			const std::string u = stack.back();
+			stack.pop_back();
+			if (!touched.insert(u).second)
 			{
-				touched.insert(grand);
+				continue;
+			}
+			for (const std::string& c : mgr.childrenOf(u))
+			{
+				stack.push_back(c);
 			}
 		}
 		return touched;
@@ -388,7 +399,7 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 		{
 			return false;
 		}
-		out = obj->worldMatrix(&mgr);
+		out = obj->worldMatrix();
 		return true;
 	};
 
@@ -519,7 +530,7 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 		{
 			return false;
 		}
-		out = obj->worldMatrix(&host.backend());
+		out = obj->worldMatrix();
 		return true;
 	};
 	if (propertyKey == QStringLiteral("follow.targetId") || propertyKey == QStringLiteral("follow.targetName") ||
@@ -557,7 +568,7 @@ void bakeFollowLocalAfterManualPoseEdit(DocumentHost& host, const std::string& b
 		{
 			return false;
 		}
-		out = obj->worldMatrix(&host.backend());
+		out = obj->worldMatrix();
 		return true;
 	};
 	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *data, nullptr);

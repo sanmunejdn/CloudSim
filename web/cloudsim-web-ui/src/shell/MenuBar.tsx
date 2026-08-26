@@ -4,6 +4,7 @@ import { useScene } from "../state/sceneStore";
 import { dialogOpen } from "../api/project";
 import { importUrdf } from "../api/robot";
 import { useStatus } from "../state/statusStore";
+import { useI18n } from "../i18n/useI18n";
 
 type Props = {
   onInsertFrame: () => void;
@@ -14,6 +15,7 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
   const { health, modes, mode, setMode, doNew, doOpen, doOpenFolder, doSave } = useProject();
   const { interactMode, setInteractMode, doImport, doOpenModel, requestFocus } = useScene();
   const { setStatus } = useStatus();
+  const { t, lang, setLang, theme, toggleTheme } = useI18n();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   const toggle = (m: string) => setOpenMenu((v) => (v === m ? null : m));
@@ -22,7 +24,7 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
     <header className="menubar" onMouseLeave={() => setOpenMenu(null)}>
       <div className={`menu ${openMenu === "file" ? "open" : ""}`}>
         <button type="button" className="menu-btn" onClick={() => toggle("file")}>
-          文件
+          {t("menu.file", "文件")}
         </button>
         <div className="menu-drop">
           <button type="button" onClick={() => void doNew()}>
@@ -112,6 +114,16 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
               ))}
             </select>
           </label>
+          <label className="menu-label">
+            语言
+            <select value={lang} onChange={(e) => setLang(e.target.value)}>
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <button type="button" onClick={toggleTheme}>
+            {theme === "light" ? "切换深色主题" : "切换浅色主题"}
+          </button>
         </div>
       </div>
       <div className={`menu ${openMenu === "help" ? "open" : ""}`}>
@@ -119,7 +131,7 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
           帮助
         </button>
         <div className="menu-drop">
-          <button type="button" onClick={() => setStatus("CloudSim Web · Vite React 坞式壳")}>
+          <button type="button" onClick={() => setStatus(t("app.title", "CloudSim Web"))}>
             关于 CloudSim Web
           </button>
         </div>

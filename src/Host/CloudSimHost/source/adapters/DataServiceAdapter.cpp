@@ -260,7 +260,8 @@ bool DataServiceAdapter::applyColor(const core::ObjectId& id, const core::ColorD
 bool DataServiceAdapter::isVisible(const core::ObjectId& id) const
 {
 	const auto obj = backendOf(m_host).getData(id.toStdString());
-	return obj ? obj->isVisible() : true;
+	// P3-1: 与 Data 层 BackendManagerDataService 对齐，非法 id 返回 false
+	return obj ? obj->isVisible() : false;
 }
 
 bool DataServiceAdapter::setVisible(const core::ObjectId& id, bool visible, QString* outError)
@@ -275,6 +276,8 @@ bool DataServiceAdapter::setVisible(const core::ObjectId& id, bool visible, QStr
 		return false;
 	}
 	obj->setVisible(visible);
+	// P2: 补视觉同步（对照 applyColor:256、applyWorldPoseMm:235）
+	afterDataServicePropertyChange(m_host, *obj, QStringLiteral("visible"));
 	return true;
 }
 
@@ -539,7 +542,7 @@ core::ObjectId DataServiceAdapter::followTargetId(const core::ObjectId& follower
 	{
 		return {};
 	}
-	const std::string& tid = follow->targetBackendId();
+	const std::string tid = follow->targetBackendId();
 	if (tid.empty())
 	{
 		return {};

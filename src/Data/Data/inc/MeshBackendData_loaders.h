@@ -20,7 +20,8 @@ constexpr bool kMeshStepFlipReversedFaceWinding = true;
 void meshLoadErr(std::string* errMsg, const char* text);
 std::string meshLowerExtension(const std::string& path);
 
-void meshPushTri(std::vector<float>& soup, double ax, double ay, double az, double bx, double by, double bz, double cx,
+/// 退化三角（叉积过小）返回 false，不入 soup
+bool meshPushTri(std::vector<float>& soup, double ax, double ay, double az, double bx, double by, double bz, double cx,
 				 double cy, double cz);
 
 bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>& soup, std::vector<float>& normalSoup);
@@ -30,6 +31,7 @@ bool meshLoadDxfSingleFile(const std::string& path, std::vector<float>& soup, st
 bool meshLoadCgalMeshFile(MeshBackendData& mesh, const std::string& path, const std::string& ext, std::string* errMsg,
 						  int meshImportQuality = 1);
 
+/// 兼容旧签名；真源层不再做有损抽稀（quality 0/1 均不删三角）
 void meshApplyImportQualityToSoup(std::vector<float>& soup, int meshImportQuality);
 
 } // namespace mesh_backend_load

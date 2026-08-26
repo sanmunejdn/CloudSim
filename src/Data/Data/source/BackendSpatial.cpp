@@ -40,20 +40,21 @@ BackendVec3 backend_mat4_transform_point(const BackendMat4& m, const BackendVec3
 	return BackendVec3{out.x(), out.y(), out.z()};
 }
 
-BackendMat4 objectWorldMatrix(const BackendDataBase& obj, const BackendDataManager* mgr)
+BackendMat4 objectWorldMatrix(const BackendDataBase& obj)
 {
-	(void)mgr;
-	return obj.worldMatrix(mgr);
+	return obj.worldMatrix();
 }
 
 BackendVec3 transformPointToWorld(const BackendDataBase& obj, const BackendVec3& vStored, const BackendDataManager* mgr)
 {
-	return backend_mat4_transform_point(objectWorldMatrix(obj, mgr), vStored);
+	(void)mgr;
+	return backend_mat4_transform_point(objectWorldMatrix(obj), vStored);
 }
 
 BackendVec3 transformPointToStored(const BackendDataBase& obj, const BackendVec3& vWorld, const BackendDataManager* mgr)
 {
-	const engine::RigidTransform inv = rigidFromBackendMat4(objectWorldMatrix(obj, mgr)).inverse();
+	(void)mgr;
+	const engine::RigidTransform inv = rigidFromBackendMat4(objectWorldMatrix(obj)).inverse();
 	const Eigen::Vector3d out = inv.isometry() * Eigen::Vector3d(vWorld.x, vWorld.y, vWorld.z);
 	return BackendVec3{out.x(), out.y(), out.z()};
 }

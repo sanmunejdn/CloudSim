@@ -11,6 +11,7 @@ import SceneViewport, { type SceneViewportHandle } from "./scene/SceneViewport";
 import { createCoordinateFrame } from "./api";
 import { useStatus } from "./state/statusStore";
 import { useScene } from "./state/sceneStore";
+import WorkspaceModeRouter from "./shell/WorkspaceModeRouter";
 import "./styles/shell.css";
 
 function InsertFrameDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -98,17 +99,21 @@ function Shell() {
         />
         <section className="center">
           <DocTabs />
-          <div className="viewport">
-            <SceneViewport ref={sceneRef} />
-            <div className="view-toolbar">
-              <button type="button" title="聚焦" onClick={() => sceneRef.current?.focusAll()}>
-                ⌂
-              </button>
-              <button type="button" title="主视图" onClick={() => sceneRef.current?.homeView()}>
-                ◎
-              </button>
-            </div>
-          </div>
+          <WorkspaceModeRouter
+            scene3dChildren={
+              <div className="viewport">
+                <SceneViewport ref={sceneRef} />
+                <div className="view-toolbar">
+                  <button type="button" title="聚焦" onClick={() => sceneRef.current?.focusAll()}>
+                    ⌂
+                  </button>
+                  <button type="button" title="主视图" onClick={() => sceneRef.current?.homeView()}>
+                    ◎
+                  </button>
+                </div>
+              </div>
+            }
+          />
         </section>
         <DockSplitter
           title="拖动调整右侧栏宽度"

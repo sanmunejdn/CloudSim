@@ -1,4 +1,4 @@
-import { apiJson, postJson, type ApiOk } from "./client";
+import { apiJson, postJson, putJson, type ApiOk } from "./client";
 
 export type DevicePackage = {
   type: string;
@@ -17,8 +17,24 @@ export const fetchDeviceCatalog = () =>
     modelsRoot?: string;
   }>("/api/devices/catalog");
 
-export const aiChat = (prompt: string) =>
-  postJson<{ ok: boolean; reply?: string; error?: string }>("/api/ai/chat", { prompt });
-
-export const geometryOp = (body: unknown) => postJson<ApiOk & { error?: string }>("/api/geometry/op", body);
 export const pointcloudOp = (body: unknown) => postJson<ApiOk & { error?: string }>("/api/pointcloud/op", body);
+
+export type DevicePanelEntry = {
+  id?: string;
+  name?: string;
+  enabled?: boolean;
+  address?: string;
+  note?: string;
+};
+
+export const fetchPlcDevices = () =>
+  apiJson<{ ok: boolean; devices?: DevicePanelEntry[]; note?: string; error?: string }>("/api/devices/plc");
+
+export const putPlcDevices = (body: { devices?: DevicePanelEntry[] }) =>
+  putJson<ApiOk>("/api/devices/plc", body);
+
+export const fetchCameraDevices = () =>
+  apiJson<{ ok: boolean; devices?: DevicePanelEntry[]; note?: string; error?: string }>("/api/devices/camera");
+
+export const putCameraDevices = (body: { devices?: DevicePanelEntry[] }) =>
+  putJson<ApiOk>("/api/devices/camera", body);

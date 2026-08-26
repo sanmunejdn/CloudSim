@@ -58,7 +58,7 @@ bool applyLinkWorldFromCoreFk(IRobotBackendPoseSink* osg, BackendDataManager& mg
 		}
 		const osg::Matrixd Mnew =
 			m0It.value() * osg::Matrixd::inverse(T0[linkName]) * meshWorldTq[linkName] * slice.robotBasePlacementWorld;
-		meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew), &mgr);
+		meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew));
 		if (osg)
 		{
 			osg->syncRobotMeshBackendPoseAfterKinematics(*meshPtr);

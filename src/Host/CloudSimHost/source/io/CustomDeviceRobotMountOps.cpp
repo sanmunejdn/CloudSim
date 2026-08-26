@@ -75,7 +75,7 @@ void syncBackendWorldMatrix(DocumentHost& host, BackendDataManager& mgr, const s
 	{
 		return;
 	}
-	obj->setWorldMatrix(world, &mgr);
+	obj->setWorldMatrix(world);
 	if (IRobotBackendPoseSink* sink = poseSinkOf(host))
 	{
 		cloudsim::core::Mat4 mat{};
@@ -216,7 +216,7 @@ bool resolveBackendWorldMatrix(DocumentHost& host, BackendDataManager& mgr, cons
 	{
 		return false;
 	}
-	outWorld = obj->worldMatrix(&mgr);
+	outWorld = obj->worldMatrix();
 	return true;
 }
 
@@ -424,7 +424,7 @@ bool resolveMountFrameParentWorld(DocumentHost& host, BackendDataManager& mgr, C
 	}
 	if (parentId == device.id())
 	{
-		outParentW = device.worldMatrix(&mgr);
+		outParentW = device.worldMatrix();
 		return true;
 	}
 	if (const CustomDeviceLink* link = linkForGeometryBackendId(device, parentId))
@@ -446,7 +446,7 @@ bool resolveMountFrameParentWorld(DocumentHost& host, BackendDataManager& mgr, C
 	{
 		return false;
 	}
-	outParentW = parent->worldMatrix(&mgr);
+	outParentW = parent->worldMatrix();
 	if (!mountFrameWorldHasMeaningfulTranslation(outParentW))
 	{
 		BackendMat4 sinkW{};
@@ -603,7 +603,7 @@ bool resolveMountFrameWorldByAncestorChain(DocumentHost& host, BackendDataManage
 		outImmediateParentId = chain[chain.size() - 2U];
 	}
 
-	BackendMat4 world = device.worldMatrix(&mgr);
+	BackendMat4 world = device.worldMatrix();
 	for (std::size_t i = 1; i < chain.size(); ++i)
 	{
 		const std::string& parentId = chain[i - 1U];
@@ -656,11 +656,11 @@ void syncCustomDeviceSubtreePosesFromOsg(DocumentHost& host, const std::string& 
 			{
 				continue;
 			}
-			if (backend_mat4_nearly_equal(obj->worldMatrix(&mgr), osgW, 1e-5))
+			if (backend_mat4_nearly_equal(obj->worldMatrix(), osgW, 1e-5))
 			{
 				continue;
 			}
-			obj->setWorldMatrix(osgW, &mgr);
+			obj->setWorldMatrix(osgW);
 			if (sink)
 			{
 				cloudsim::core::Mat4 mat{};
@@ -765,7 +765,7 @@ bool resolveMountFrameWorldForMount(DocumentHost& host, BackendDataManager& mgr,
 		return true;
 	}
 
-	const BackendMat4 dataFrameW = frame->worldMatrix(&mgr);
+	const BackendMat4 dataFrameW = frame->worldMatrix();
 	if (mountFrameMatIsNonIdentity(dataFrameW))
 	{
 		outFrameW = dataFrameW;
@@ -1031,7 +1031,7 @@ bool updateMountedDeviceWorldFromRobotTcp(CustomDeviceBackendData& device, Docum
 	{
 		return false;
 	}
-	device.setWorldMatrix(deviceWorld, &mgr);
+	device.setWorldMatrix(deviceWorld);
 	device.setBaseWorldW0(deviceWorld);
 	syncMountFrameWorldToTcpAlign(host, mgr, mount->mountFrameBackendId(), deviceWorld, mount->frameInDeviceW0());
 
@@ -1057,7 +1057,7 @@ bool rebakeDeviceRootFollowKeepingDeviceWorld(CustomDeviceBackendData& device, D
 	BackendMat4 deviceW{};
 	if (!resolveBackendWorldMatrix(host, mgr, device.id(), deviceW))
 	{
-		deviceW = device.worldMatrix(&mgr);
+		deviceW = device.worldMatrix();
 	}
 	BackendMat4 flangeWorld{};
 	if (!resolveBackendWorldMatrix(host, mgr, mount.flangeBackendId(), flangeWorld))
@@ -1240,7 +1240,7 @@ bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& ho
 	}
 	if (!resolveBackendWorldMatrix(host, mgr, device.id(), deviceW))
 	{
-		deviceW = device.worldMatrix(&mgr);
+		deviceW = device.worldMatrix();
 	}
 	stripHierarchyFollowOnMountFrame(host, mountFrameBackendId.toStdString());
 
@@ -1291,7 +1291,7 @@ bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& ho
 		return false;
 	}
 
-	device.setWorldMatrix(deviceWorldDesired, &mgr);
+	device.setWorldMatrix(deviceWorldDesired);
 	device.setBaseWorldW0(deviceWorldDesired);
 	ensureDeviceRootFollow(device, flangeBackendId.toStdString(), followLocal);
 	host.invalidateFollowReverseIndex();
@@ -1399,7 +1399,7 @@ bool rebakeMountedDeviceFromInstallFramePose(DocumentHost& host, const std::stri
 		BackendMat4 frameW{};
 		if (!resolveBackendWorldMatrix(host, mgr, device->id(), deviceW))
 		{
-			deviceW = device->worldMatrix(&mgr);
+			deviceW = device->worldMatrix();
 		}
 		if (!resolveBackendWorldMatrix(host, mgr, frameBackendId, frameW))
 		{
@@ -1408,7 +1408,7 @@ bool rebakeMountedDeviceFromInstallFramePose(DocumentHost& host, const std::stri
 			{
 				return false;
 			}
-			frameW = frame->worldMatrix(&mgr);
+			frameW = frame->worldMatrix();
 		}
 		BackendMat4 frameInDevice{};
 		if (!CustomDeviceRobotMountComponent::computeFrameInDeviceFromWorldPoses(deviceW, frameW, frameInDevice))

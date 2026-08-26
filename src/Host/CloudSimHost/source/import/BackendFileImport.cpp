@@ -1,4 +1,4 @@
-﻿/// @file BackendFileImport.cpp
+/// @file BackendFileImport.cpp
 /// @brief 后端文件导入注册
 
 #include "CustomDeviceUrdfExporter.h"
@@ -532,7 +532,7 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 	bool haveSavedWorld = false;
 	if (child && child->hasPoseProperty())
 	{
-		savedWorld = child->worldMatrix(&host.backend());
+		savedWorld = child->worldMatrix();
 		haveSavedWorld = true;
 	}
 	if (!attachBackendChildToParent(host, deviceId, childId, outError))
@@ -542,7 +542,7 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 	// setBackendParent 故意不恢复世界矩阵（URDF 由 FK 回写）；设备挂接必须先还原再重算 Follow local
 	if (haveSavedWorld && child)
 	{
-		child->setWorldMatrix(savedWorld, &host.backend());
+		child->setWorldMatrix(savedWorld);
 		OsgWidget* osg = osgWidgetFrom(host);
 		if (osg)
 		{

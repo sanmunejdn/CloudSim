@@ -51,6 +51,16 @@ class IRobotInstructionPropertyDelegate;
 class HeadlessRobotContext;
 class HeadlessTrajectorySession;
 class HeadlessPointCloudBridge;
+class HeadlessRobotPlaybackBridge;
+class HeadlessRobotExportBridge;
+class HeadlessGeometryBridge;
+class HeadlessAiBridge;
+class HeadlessRobotCollisionBridge;
+class HeadlessProgramEditBridge;
+class HeadlessProcessFlowBridge;
+class HeadlessDrawingBridge;
+class HeadlessGeomodelBridge;
+class HeadlessLabelingBridge;
 class IoSignalNetwork;
 
 /// 单文档组合根
@@ -162,6 +172,16 @@ public:
 	HeadlessRobotContext* headlessRobotContext() const;
 	HeadlessTrajectorySession* headlessTrajectorySession() const;
 	HeadlessPointCloudBridge* headlessPointCloudBridge() const;
+	HeadlessRobotPlaybackBridge* headlessRobotPlaybackBridge() const;
+	HeadlessRobotExportBridge* headlessRobotExportBridge() const;
+	HeadlessGeometryBridge* headlessGeometryBridge() const;
+	HeadlessAiBridge* headlessAiBridge() const;
+	HeadlessRobotCollisionBridge* headlessRobotCollisionBridge() const;
+	HeadlessProgramEditBridge* headlessProgramEditBridge() const;
+	HeadlessProcessFlowBridge* headlessProcessFlowBridge() const;
+	HeadlessDrawingBridge* headlessDrawingBridge() const;
+	HeadlessGeomodelBridge* headlessGeomodelBridge() const;
+	HeadlessLabelingBridge* headlessLabelingBridge() const;
 
 	/// 多 Owner IO 网（工程侧车 ioSignalNetwork）；旧 API 经 primary 表兼容
 	IoSignalNetwork& ioSignalNetwork();
@@ -215,6 +235,16 @@ private:
 	std::unique_ptr<HeadlessRobotContext> m_headlessRobotContext;
 	std::unique_ptr<HeadlessTrajectorySession> m_headlessTrajectorySession;
 	std::unique_ptr<HeadlessPointCloudBridge> m_headlessPointCloudBridge;
+	std::unique_ptr<HeadlessRobotPlaybackBridge> m_headlessRobotPlaybackBridge;
+	std::unique_ptr<HeadlessRobotExportBridge> m_headlessRobotExportBridge;
+	std::unique_ptr<HeadlessGeometryBridge> m_headlessGeometryBridge;
+	std::unique_ptr<HeadlessAiBridge> m_headlessAiBridge;
+	std::unique_ptr<HeadlessRobotCollisionBridge> m_headlessRobotCollisionBridge;
+	std::unique_ptr<HeadlessProgramEditBridge> m_headlessProgramEditBridge;
+	std::unique_ptr<HeadlessProcessFlowBridge> m_headlessProcessFlowBridge;
+	std::unique_ptr<HeadlessDrawingBridge> m_headlessDrawingBridge;
+	std::unique_ptr<HeadlessGeomodelBridge> m_headlessGeomodelBridge;
+	std::unique_ptr<HeadlessLabelingBridge> m_headlessLabelingBridge;
 	std::unique_ptr<IoSignalNetwork> m_ioSignalNetwork;
 	IRobotInstructionPropertyDelegate* m_instructionPropertyDelegate = nullptr;
 	std::unique_ptr<IRobotInstructionPropertyDelegate> m_ownedInstructionPropertyDelegate;

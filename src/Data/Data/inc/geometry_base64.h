@@ -18,6 +18,15 @@ DATA_EXPORT bool geometryBase64Decode(const std::string& base64, std::vector<uns
 
 inline std::string geometryBase64EncodeFloats(const std::vector<float>& values)
 {
+	// 工程约定「float32_le」：主机原生 float 字节序；当前仅支持 little-endian
+	static_assert(sizeof(float) == 4, "float must be 32-bit");
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__)
+	static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "geometry Base64 float32_le requires little-endian host");
+#elif defined(_MSC_VER) || defined(__i386__) || defined(__x86_64__) || defined(_M_X64) || defined(_M_IX86)
+	// MSVC / x86 默认 little-endian
+#else
+#error "geometry Base64 float32_le: unsupported endianness"
+#endif
 	if (values.empty())
 	{
 		return std::string();

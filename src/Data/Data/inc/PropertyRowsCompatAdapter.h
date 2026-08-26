@@ -24,17 +24,22 @@ inline void syncTransformColorToBag(PropertyBag& bag, const BackendDataBase& dat
 	}
 	const BackendVec3 p = data.pose();
 	const BackendVec3 r = data.rotation();
-	const BackendColor c = data.color();
 	bag.set<double>("pose.x", p.x);
 	bag.set<double>("pose.y", p.y);
 	bag.set<double>("pose.z", p.z);
 	bag.set<double>("rotation.x", r.x);
 	bag.set<double>("rotation.y", r.y);
 	bag.set<double>("rotation.z", r.z);
-	bag.set<double>("color.r", static_cast<double>(c.r));
-	bag.set<double>("color.g", static_cast<double>(c.g));
-	bag.set<double>("color.b", static_cast<double>(c.b));
-	bag.set<double>("color.a", static_cast<double>(c.a));
+	// color 键仅写给真正有颜色属性的对象；Frame/CustomDevice 无颜色概念，
+	// 写入 color.*=白 会污染 bag 并随工程持久化
+	if (data.hasColorProperty())
+	{
+		const BackendColor c = data.color();
+		bag.set<double>("color.r", static_cast<double>(c.r));
+		bag.set<double>("color.g", static_cast<double>(c.g));
+		bag.set<double>("color.b", static_cast<double>(c.b));
+		bag.set<double>("color.a", static_cast<double>(c.a));
+	}
 	const std::string frame = (data.poseReferenceFrame() == BackendPoseReferenceFrame::Parent) ? "parent" : "world";
 	bag.set<std::string>("pose.frame", frame);
 }

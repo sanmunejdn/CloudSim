@@ -1,4 +1,4 @@
-﻿/// @file OsgRenderViewAdapter.cpp
+/// @file OsgRenderViewAdapter.cpp
 /// @brief OSG 到 IRenderView
 
 #include "adapters/OsgRenderViewAdapter.h"
@@ -316,12 +316,12 @@ bool OsgRenderViewAdapter::commitGizmoPoseToBackend(const core::ObjectId& id)
 	{
 		return false;
 	}
-	const BackendMat4 worldBefore = obj->worldMatrix(&m_host->backend());
+	const BackendMat4 worldBefore = obj->worldMatrix();
 	if (!m_widget.writeActiveBackendPoseFromOsg(*obj))
 	{
 		return false;
 	}
-	const BackendMat4 worldAfter = obj->worldMatrix(&m_host->backend());
+	const BackendMat4 worldAfter = obj->worldMatrix();
 	if (obj->className() == backend_type::kClassCustomDevice)
 	{
 		syncCustomDeviceKinematicsAfterRootPoseChange(*m_host, id.toStdString());

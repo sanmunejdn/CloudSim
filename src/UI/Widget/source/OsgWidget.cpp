@@ -1,4 +1,4 @@
-﻿/// @file OsgWidget.cpp
+/// @file OsgWidget.cpp
 /// @brief OSG 视口与场景加载
 
 #include "OsgWidget.h"
@@ -13,6 +13,7 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
+#include "RunLogger.h"
 #include "BackendPoseOsg.h"
 #include "BackendVisualMath.h"
 #include "BackendVisualRegistry.h"
@@ -609,7 +610,7 @@ bool resolveParentWorldForBackendTransform(OsgWidget& self, const std::string& b
 		{
 			if (parentObj->hasPoseProperty())
 			{
-				outParentWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(parentObj->worldMatrix(&mgr));
+				outParentWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(parentObj->worldMatrix());
 				return true;
 			}
 		}
@@ -699,7 +700,7 @@ bool OsgWidget::applyWorldMatrixToOsg(const std::string& backendId, BackendDataM
 	{
 		return false;
 	}
-	const osg::Matrixd targetWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(obj->worldMatrix(&mgr));
+	const osg::Matrixd targetWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(obj->worldMatrix());
 	applyWorldMatrixToOuterPat(*this, backendId, targetWorld, mgr);
 	requestRedraw();
 	return true;
@@ -786,7 +787,13 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 					wm.v[static_cast<size_t>(c * 4 + r)] = worldMat(r, c);
 				}
 			}
-			obj->setWorldMatrix(wm, m_poseSyncBackendMgr);
+			// P3-5: 与 loadFromJson 的刚体校验对称，脚本/插件注入的矩阵需过检
+			if (!backend_mat4_is_nearly_rigid(wm))
+			{
+				RunLogger::warn("[OsgWidget] setBackendRootWorldMatrixFromWorld: matrix not nearly rigid, rejected.");
+				return;
+			}
+			obj->setWorldMatrix(wm);
 			if (m_visualSyncMarkDirty)
 			{
 				m_visualSyncMarkDirty(backendId, 1u);

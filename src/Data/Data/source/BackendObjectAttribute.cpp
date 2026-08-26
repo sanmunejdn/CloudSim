@@ -92,3 +92,20 @@ BackendAttributePtr makeBackendDisplayColorAttribute()
 		hasColorProperty, getColor, setColor, std::array<const char*, 4>{"color.r", "color.g", "color.b", "color.a"},
 		std::array<const char*, 4>{"Color R", "Color G", "Color B", "Color A"}, appendBackendRow);
 }
+
+void appendStandardAttributesForCapabilities(const BackendDataBase& self,
+											 std::vector<BackendAttributePtr>& outAttributes)
+{
+	if (self.hasPoseProperty())
+	{
+		outAttributes.push_back(makeBackendPoseAttribute());
+	}
+	if (self.hasRotationProperty())
+	{
+		outAttributes.push_back(makeBackendRotationAttribute());
+	}
+	if (self.hasColorProperty())
+	{
+		outAttributes.push_back(makeBackendDisplayColorAttribute());
+	}
+}

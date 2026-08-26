@@ -8,11 +8,13 @@ import { FrameProvider } from "./frameStore";
 import { PointCloudProvider } from "./pointCloudStore";
 import { DockNavProvider } from "./dockNavStore";
 import { DeviceRuntimeProvider } from "./deviceRuntimeStore";
+import { I18nProvider } from "../i18n/useI18n";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <StatusProvider>
-      <ProjectProvider>
+    <I18nProvider>
+      <StatusProvider>
+        <ProjectProvider>
         <SceneProvider>
           <DockNavProvider>
             <DeviceRuntimeProvider>
@@ -26,7 +28,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
             </DeviceRuntimeProvider>
           </DockNavProvider>
         </SceneProvider>
-      </ProjectProvider>
-    </StatusProvider>
+        </ProjectProvider>
+      </StatusProvider>
+    </I18nProvider>
   );
 }

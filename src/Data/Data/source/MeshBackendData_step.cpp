@@ -1,11 +1,11 @@
 ﻿/// @file MeshBackendData_step.cpp
-/// @brief Mesh 后端数据
+/// @brief Mesh STEP 辅助与层级加载转发
 
 #include "pch.h"
 
+#include "BackendImporters.h"
 #include "MeshBackendData.h"
 #include "MeshBackendData_loaders.h"
-#include "RunLogger.h"
 
 #include <Discretize.h>
 #include <Types.h>
@@ -24,24 +24,5 @@ bool meshLoadStepSingleFile(const std::string& path, std::vector<float>& soup, s
 bool MeshBackendData::loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
 												std::string* errMsg)
 {
-	outParts.clear();
-	std::vector<geoalgo::MeshHierarchyPart> parts;
-	geoalgo::TessellateParams params;
-	params.flipReversedFaces = mesh_backend_load::kMeshStepFlipReversedFaceWinding;
-	if (!geoalgo::tessellateStepHierarchy(path, params, parts, errMsg))
-	{
-		return false;
-	}
-	outParts.reserve(parts.size());
-	for (const geoalgo::MeshHierarchyPart& p : parts)
-	{
-		MeshHierarchyPart mp;
-		mp.partPath = p.partPath;
-		mp.parentPartPath = p.parentPartPath;
-		mp.displayName = p.displayName;
-		mp.triangleSoup = p.triangleSoup;
-		outParts.push_back(std::move(mp));
-	}
-	RunLogger::info("[MeshBackendData] STEP hierarchy loaded successfully.");
-	return true;
+	return backend_io::loadMeshStepHierarchy(path, outParts, errMsg);
 }

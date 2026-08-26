@@ -1,4 +1,4 @@
-﻿/// @file RobotCoordinateFrameOps.cpp
+/// @file RobotCoordinateFrameOps.cpp
 /// @brief 机器人坐标系运算
 
 #include "RobotCoordinateFrameOps.h"
@@ -94,7 +94,7 @@ bool backendWorldOf(BackendDataManager& backend, const QString& backendId, Backe
 	{
 		return false;
 	}
-	outWorld = mesh->worldMatrix(&backend);
+	outWorld = mesh->worldMatrix();
 	return true;
 }
 

@@ -14,10 +14,10 @@
 struct DATA_EXPORT PlyHeaderInfo
 {
 	bool valid = false;
-	bool cgalFormatOnLine2 = false;
+	bool cgalFormatOnLine2 = false; // 历史命名：header 内任意行命中 format 即 true（容忍前置 comment）
 	bool isAscii = true;
-	int vertexCount = 0;
-	int faceCount = 0;
+	std::size_t vertexCount = 0;
+	std::size_t faceCount = 0;
 	bool hasFaceElement = false;
 	bool hasUcharRgb = false;
 	bool vertexHasListProperty = false;

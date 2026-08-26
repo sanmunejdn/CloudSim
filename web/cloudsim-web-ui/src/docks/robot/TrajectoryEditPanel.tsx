@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import {
   trajGetPipeline,
   trajPutPipeline,
@@ -10,6 +10,7 @@ import {
   trajEmit,
   trajApply,
   trajSession,
+  trajRecipe,
 } from "../../api";
 import { useStatus } from "../../state/statusStore";
 import { useTrajectory } from "../../state/trajectoryStore";
@@ -19,6 +20,9 @@ import { normalizeOpPalette, OP_PALETTE_FALLBACK } from "./opPalette";
 import OpParamForm from "./OpParamForm";
 import { defaultScopeForNewOp, type PipelineOp } from "./opSchema";
 import { publishRawPreview } from "../../scene/rawPreview";
+
+const PALETTE_MIME = "application/x-cloudsim-traj-op-kind";
+const PIPELINE_INDEX_MIME = "application/x-cloudsim-traj-op-index";
 
 export default function TrajectoryEditPanel() {
   const { featureEditActive, syncSession, exitEditAfterCommit, editUiEpoch } = useTrajectory();
@@ -36,6 +40,7 @@ export default function TrajectoryEditPanel() {
   const [progId, setProgId] = useState("");
   const [groupId, setGroupId] = useState("");
   const [paramsJson, setParamsJson] = useState("{}");
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const previewOnRef = useRef(previewOn);
   previewOnRef.current = previewOn;
   const saveTimer = useRef<number | null>(null);
@@ -160,6 +165,52 @@ export default function TrajectoryEditPanel() {
   const locked = !featureEditActive;
   const selected = ops[sel] || null;
 
+  const insertOp = useCallback(
+    (kind: string, at?: number) => {
+      if (locked) return;
+      const scope = defaultScopeForNewOp(rawPointCount, groupId);
+      const next = [...ops];
+      const idx = at ?? next.length;
+      next.splice(idx, 0, { kind, enabled: true, scope, params: {} });
+      setSel(idx);
+      void persist(next);
+    },
+    [groupId, locked, ops, persist, rawPointCount],
+  );
+
+  const moveOp = useCallback(
+    (from: number, to: number) => {
+      if (locked || from === to || from < 0 || from >= ops.length) return;
+      const next = [...ops];
+      const [item] = next.splice(from, 1);
+      const insertAt = to > from ? to - 1 : to;
+      const clamped = Math.max(0, Math.min(insertAt, next.length));
+      next.splice(clamped, 0, item);
+      setSel(clamped);
+      void persist(next);
+    },
+    [locked, ops, persist],
+  );
+
+  const onPipelineDrop = useCallback(
+    (e: DragEvent, dropIndex: number) => {
+      e.preventDefault();
+      setDragOverIndex(null);
+      if (locked) return;
+      const paletteKind = e.dataTransfer.getData(PALETTE_MIME);
+      if (paletteKind) {
+        insertOp(paletteKind, dropIndex);
+        return;
+      }
+      const fromRaw = e.dataTransfer.getData(PIPELINE_INDEX_MIME);
+      if (fromRaw === "") return;
+      const from = Number(fromRaw);
+      if (!Number.isFinite(from)) return;
+      moveOp(from, dropIndex);
+    },
+    [insertOp, locked, moveOp],
+  );
+
   return (
     <div className="robot-pane traj-edit-pane" id="robotTrajEdit">
       <fieldset className="traj-edit-recipe">
@@ -171,7 +222,15 @@ export default function TrajectoryEditPanel() {
             <option value="glue">涂胶</option>
             <option value="grind">打磨</option>
           </select>
-          <button type="button" disabled={locked} onClick={() => setStatus(`已选择工艺：${recipe}`)}>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={async () => {
+              const r = await trajRecipe(recipe);
+              setStatus(r.ok ? `工艺模板「${recipe}」已填充` : r.error || "填充失败", r.ok ? "info" : "err");
+              if (r.ok) await reload();
+            }}
+          >
             填充
           </button>
           <button
@@ -222,13 +281,13 @@ export default function TrajectoryEditPanel() {
                 key={p.kind}
                 type="button"
                 disabled={locked}
+                draggable={!locked}
                 title={p.kind}
-                onClick={() => {
-                  const scope = defaultScopeForNewOp(rawPointCount, groupId);
-                  const next = [...ops, { kind: p.kind, enabled: true, scope, params: {} }];
-                  setSel(next.length - 1);
-                  void persist(next);
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(PALETTE_MIME, p.kind);
+                  e.dataTransfer.effectAllowed = "copy";
                 }}
+                onClick={() => insertOp(p.kind)}
               >
                 {p.displayNameZh || p.kind}
               </button>
@@ -237,14 +296,46 @@ export default function TrajectoryEditPanel() {
         </div>
         <div className="traj-edit-pipeline-col">
           <div className="section-title">流水线</div>
-          <div className={`traj-op-pipeline ${locked ? "disabled-pane" : ""} ${ops.length ? "" : "muted"}`}>
+          <div
+            className={`traj-op-pipeline ${locked ? "disabled-pane" : ""} ${ops.length ? "" : "muted"}`}
+            onDragOver={(e) => {
+              if (locked) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = e.dataTransfer.types.includes(PIPELINE_INDEX_MIME) ? "move" : "copy";
+              setDragOverIndex(ops.length);
+            }}
+            onDragLeave={() => setDragOverIndex(null)}
+            onDrop={(e) => onPipelineDrop(e, ops.length)}
+          >
+            {!ops.length && dragOverIndex === 0 && <div className="traj-drop-indicator" />}
             {!ops.length && "空"}
             {ops.map((op, i) => (
-              <div
-                key={`${op.kind}-${i}`}
-                className={`step ${i === sel ? "sel" : ""} ${op.enabled === false ? "disabled-op" : ""}`}
-                onClick={() => setSel(i)}
-              >
+              <div key={`${op.kind}-${i}`}>
+                {dragOverIndex === i && <div className="traj-drop-indicator" />}
+                <div
+                  className={`step ${i === sel ? "sel" : ""} ${op.enabled === false ? "disabled-op" : ""} ${dragOverIndex === i + 1 ? "drop-before" : ""}`}
+                  draggable={!locked}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(PIPELINE_INDEX_MIME, String(i));
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    if (locked) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                    const after = e.clientY > rect.top + rect.height / 2;
+                    setDragOverIndex(after ? i + 1 : i);
+                    e.dataTransfer.dropEffect = e.dataTransfer.types.includes(PIPELINE_INDEX_MIME) ? "move" : "copy";
+                  }}
+                  onDrop={(e) => {
+                    e.stopPropagation();
+                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                    const after = e.clientY > rect.top + rect.height / 2;
+                    onPipelineDrop(e, after ? i + 1 : i);
+                  }}
+                  onClick={() => setSel(i)}
+                >
                 <span className="t">{op.kind}</span>
                 <label className="en">
                   <input
@@ -270,8 +361,10 @@ export default function TrajectoryEditPanel() {
                 >
                   ×
                 </button>
+                </div>
               </div>
             ))}
+            {ops.length > 0 && dragOverIndex === ops.length && <div className="traj-drop-indicator" />}
           </div>
         </div>
       </div>

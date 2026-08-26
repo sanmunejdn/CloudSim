@@ -180,8 +180,7 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 	{
 		return true;
 	}
-	// 先记 revision，避免 ensureVisual 内嵌 flush 时重复进入几何重建
-	m_lastSyncedGeometryRevision[backendId] = rev;
+	// 重建成功才记录 revision，失败保留旧值触发重试
 	if (backend_type::isCoordinateFrameClassName(obj->className()) ||
 		backend_type::isCustomDeviceClassName(obj->className()))
 	{
@@ -195,10 +194,16 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 			return false;
 		}
 		(void)osg->applyWorldMatrixToOsg(backendId, m_host.backend());
+		m_lastSyncedGeometryRevision[backendId] = rev;
 		return true;
 	}
 	EnsureVisualOptions opts;
-	(void)ensureVisual(m_host, backendId, EnsureVisualPolicy::FullRebuild, opts);
+	const EnsureVisualResult res = ensureVisual(m_host, backendId, EnsureVisualPolicy::FullRebuild, opts);
+	if (!res.ok)
+	{
+		return false;
+	}
+	m_lastSyncedGeometryRevision[backendId] = rev;
 	return true;
 }
 
@@ -241,6 +246,7 @@ bool BackendVisualSyncEngine::flush(FlushPolicy policy)
 	}
 	(void)flushTransform(transformIds);
 
+	bool allOk = true;
 	for (auto it = m_dirty.begin(); it != m_dirty.end();)
 	{
 		const std::string id = it->first;
@@ -259,9 +265,17 @@ bool BackendVisualSyncEngine::flush(FlushPolicy policy)
 		}
 		if (hasVisualAspect(remaining, VisualAspect::Geometry))
 		{
-			(void)flushGeometryForId(id);
-			remaining = static_cast<VisualAspect>(static_cast<std::uint32_t>(remaining) &
-												  ~static_cast<std::uint32_t>(VisualAspect::Geometry));
+			// P3-3: flush 失败保留 Geometry 脏位，避免瞬时失败=静默陈旧
+			if (flushGeometryForId(id))
+			{
+				remaining = static_cast<VisualAspect>(static_cast<std::uint32_t>(remaining) &
+													  ~static_cast<std::uint32_t>(VisualAspect::Geometry));
+			}
+			else
+			{
+				// B1: 记录失败，flush() 不再恒返 true
+				allOk = false;
+			}
 		}
 		if (remaining == VisualAspect::None)
 		{
@@ -273,7 +287,7 @@ bool BackendVisualSyncEngine::flush(FlushPolicy policy)
 			++it;
 		}
 	}
-	return true;
+	return allOk;
 }
 
 } // namespace cloudsim::host

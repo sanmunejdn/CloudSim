@@ -2,6 +2,64 @@
 
 #include "ParametricBrepFeature.h"
 
+#include "RunLogger.h"
+
+ParametricEnumParse<ParametricFeatureKind> parametricFeatureKindTryParse(const std::string& s)
+{
+	if (s == "Sketch")
+		return {ParametricFeatureKind::Sketch, true};
+	if (s == "Pad")
+		return {ParametricFeatureKind::Pad, true};
+	if (s == "Pocket")
+		return {ParametricFeatureKind::Pocket, true};
+	if (s == "Sweep")
+		return {ParametricFeatureKind::Sweep, true};
+	if (s == "SweepCut")
+		return {ParametricFeatureKind::SweepCut, true};
+	if (s == "Fillet")
+		return {ParametricFeatureKind::Fillet, true};
+	if (s == "Chamfer")
+		return {ParametricFeatureKind::Chamfer, true};
+	if (s == "Revolve")
+		return {ParametricFeatureKind::Revolve, true};
+	if (s == "RevolveCut")
+		return {ParametricFeatureKind::RevolveCut, true};
+	if (s == "LinearPattern")
+		return {ParametricFeatureKind::LinearPattern, true};
+	if (s == "CircularPattern")
+		return {ParametricFeatureKind::CircularPattern, true};
+	if (s == "Mirror3D")
+		return {ParametricFeatureKind::Mirror3D, true};
+	if (s == "Loft")
+		return {ParametricFeatureKind::Loft, true};
+	if (s == "LoftCut")
+		return {ParametricFeatureKind::LoftCut, true};
+	if (s == "Shell")
+		return {ParametricFeatureKind::Shell, true};
+	if (s == "Draft")
+		return {ParametricFeatureKind::Draft, true};
+	return {ParametricFeatureKind::Sketch, false};
+}
+
+ParametricEnumParse<ParametricExtrudeEnd> parametricExtrudeEndTryParse(const std::string& s)
+{
+	if (s == "Blind")
+		return {ParametricExtrudeEnd::Blind, true};
+	if (s == "UpToFace")
+		return {ParametricExtrudeEnd::UpToFace, true};
+	if (s == "MidPlane")
+		return {ParametricExtrudeEnd::MidPlane, true};
+	if (s == "ThroughAll")
+		return {ParametricExtrudeEnd::ThroughAll, true};
+	if (s == "UpToVertex")
+		return {ParametricExtrudeEnd::UpToVertex, true};
+	if (s == "OffsetFromFace")
+		return {ParametricExtrudeEnd::OffsetFromFace, true};
+	if (s == "TwoDirections")
+		return {ParametricExtrudeEnd::TwoDirections, true};
+	return {ParametricExtrudeEnd::Blind, false};
+}
+
 namespace
 {
 nlohmann::json planeToJson(const ParametricSketchPlane& p)
@@ -143,7 +201,17 @@ bool parametricFeatureFromJson(const nlohmann::json& o, ParametricFeature& out)
 		return false;
 	out.id = o.value("id", std::string());
 	out.name = o.value("name", out.id);
-	out.kind = parametricFeatureKindFromString(o.value("kind", std::string("Sketch")));
+	// 未知 kind 不再静默回退 Sketch：回退会悄悄改写特征链且加载成功，必须告警
+	{
+		const std::string kindStr = o.value("kind", std::string("Sketch"));
+		const auto parsed = parametricFeatureKindTryParse(kindStr);
+		if (!parsed.ok)
+		{
+			RunLogger::warn("[ParametricFeature] unknown feature kind \"" + kindStr +
+							"\", fallback to Sketch. Project file may be corrupt or from a newer version.");
+		}
+		out.kind = parsed.value;
+	}
 	if (o.contains("plane") && o["plane"].is_object())
 		planeFromJson(o["plane"], out.plane);
 	out.profileXyzMm.clear();
@@ -230,7 +298,16 @@ bool parametricFeatureFromJson(const nlohmann::json& o, ParametricFeature& out)
 	out.startOffsetMm = o.value("startOffsetMm", 0.0);
 	out.draftAngleDeg = o.value("draftAngleDeg", 0.0);
 	out.reversed = o.value("reversed", false);
-	out.endCondition = parametricExtrudeEndFromString(o.value("endCondition", std::string("Blind")));
+	{
+		const std::string endStr = o.value("endCondition", std::string("Blind"));
+		const auto parsed = parametricExtrudeEndTryParse(endStr);
+		if (!parsed.ok)
+		{
+			RunLogger::warn("[ParametricFeature] unknown endCondition \"" + endStr +
+							"\", fallback to Blind. Project file may be corrupt or from a newer version.");
+		}
+		out.endCondition = parsed.value;
+	}
 	out.hasUpToFacePlane = false;
 	if (o.contains("upToFacePlane") && o["upToFacePlane"].is_object())
 	{

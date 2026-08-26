@@ -36,8 +36,8 @@
 | `BackendColor` | `r,g,b,a` float 0..1 |
 | `BackendPoseValue` | `position` + `eulerDeg` |
 | `BackendPoseReferenceFrame` | `World` / `Parent` |
-| `BackendMat4` | `v[16]` 列主序（遗留）；`backend_mat4_multiply` 用 Eigen 列向量语义（与 GeometryEngine `composeColumn` 一致） |
-| `objectWorldMatrix` / `transformPointToWorld` | 世界点 = `objectWorldMatrix × v_stored`（见 `BackendSpatial.h`） |
+| `BackendMat4` | `v[16]` 列主序；**刚体语义**（R\|t）：`backend_mat4_multiply` / `backend_mat4_invert_rigid` 按刚体抽取后运算（恒成功）；加载用 `backend_mat4_is_nearly_rigid` fail-fast |
+| `objectWorldMatrix` / `transformPointToWorld` | 世界点 = `objectWorldMatrix × v_stored`（见 `BackendSpatial.h`；`objectWorldMatrix` 即 `worldMatrix()`） |
 | `backend_world_mat_from_pose` | 列向量 `p'=R×p_model+pose`；委托 `rigidTransformFromBackendPoseEuler` + `colMajorFromRigidTransform`；**无** `+modelCenter`（见契约 §1.1） |
 
 ---
@@ -48,7 +48,7 @@
 
 | 方法 | 说明 |
 |------|------|
-| `id()` / `setId` | 稳定 UUID 风格 id |
+| `id()` / `setId` | 进程内自增 id（`backend_data_N`）；`registerData` 成功后 **id 冻结**（再改拒绝并 warn）；加载解码期（未注册）仍可 `setId` |
 | `name()` / `setName` | 显示名（跟随 `follow.targetName` 匹配用） |
 | `isVisible()` / `setVisible` | 场景显示/隐藏真源（持久化字段 `visible`） |
 | `className()` | **纯虚**；如 `"PointCloudBackendData"`, `"Model"` |
@@ -57,10 +57,16 @@
 
 | 方法 | 说明 |
 |------|------|
-| `hasGeometry()` | 是否可渲染 |
-| `geometryBounds()` | 模型空间 AABB |
+| `hasGeometry()` | 是否可渲染（有自有几何） |
+| `geometryBounds()` | 模型空间 AABB，**必须是真实几何包络**；无自有几何的类型返回 `valid=false`（不得谎报，如 CustomDevice 根） |
 | `geometryElementCount()` | 点数或三角数 |
 | `clearGeometry()` | 清空缓冲 |
+
+**geometryRevision 纪律**：Host 侧 `BackendVisualSyncEngine` 仅靠 diff `geometryRevision()` 判断几何是否过期。任何改几何缓冲/shape 的路径**必须** `bumpGeometryRevision()`——漏 bump 即视觉过期且无报错。setter 校验失败时**保持原状**并 `RunLogger::warn` 告警，**禁止** `clearGeometry()` 自毁式清掉已有好数据。
+
+**poseRevision**：`poseRevision()` / `bumpPoseRevision()`；`setPose` / `setRotation` / `setWorldMatrix` / `applyBackendWorldPose` / `setPoseInFrame` / `setRotationInFrame` / `setPoseValue` / `setVisible` 等全部位姿/可见性写路径 bump（Host transform/visibility flush 后续可接入）。
+
+**容差 / epsilon（静默早退）**：`setPose` 位置差 ≤ `5e-4` 不写；`setRotation` / `applyBackendWorldPose` 与现矩阵近等（`1e-5`）不写。
 
 ### 3.3 位姿与颜色（可覆盖）
 
@@ -68,6 +74,7 @@
 |------|------|
 | `pose` / `setPose`, `rotation` / `setRotation`, `color` / `setColor` | 零/白 |
 | `hasPoseProperty()` 等 | `false` |
+| `isPoseExternallyDriven()` | `false`；位姿由外部系统驱动时（如机器人挂载）覆盖为 `true`，Follow 求解器不覆写其世界矩阵 |
 | `supportsBackendTransform()` | `hasPoseProperty()` |
 | `applyBackendWorldPose(centerWorld, eulerDegWorld)` | 世界系写回窄接口 |
 
@@ -78,7 +85,7 @@
 | `poseReferenceFrame()` / `setPoseReferenceFrame` | World / Parent |
 | `poseInFrame` / `setPoseInFrame`（含 rotation） | 需 `BackendDataManager` 做父链变换 |
 | `poseValue` / `setPoseValue` | `BackendPoseValue` 原子读写 |
-| `worldMatrix(mgr)` / `setWorldMatrix(world, mgr)` | 缓存世界矩阵（实现内带锁） |
+| `worldMatrix()` / `setWorldMatrix(world)` / `applyWorldMatrixIncrement(inc)` | 缓存世界矩阵（世界系左乘增量） |
 | `validatePoseFrameRoundTrip(mgr, epsilon)` | 帧转换自检 |
 
 ### 3.5 属性系统
@@ -96,6 +103,9 @@
 | `addComponent` / `removeComponent` / `getComponent` / `hasComponent` | 按 `componentType()` 字符串 |
 | `getComponent<T>()` / `emplaceComponent<T>(...)` | 类型安全 |
 | `listComponents()` | 全部组件 |
+| `collectReferencedBackendIds(out)` | 汇总本对象（含组件）引用的其他后端 id；派生类/组件可覆盖 |
+
+**跨对象 id 引用悬挂检测**：`BackendDataManager::unregisterData` 移除对象后扫描其余对象的 `collectReferencedBackendIds()`，命中已删 id 即 `RunLogger::warn`（只告警，不自动改写引用方）。内建来源：`FollowAttachment.targetBackendId`、`CustomDeviceRobotMount` 三个 id、`CustomDeviceLink::geometryBackendId`、轴 `motionCenterFrameBackendId`。
 
 ### 3.7 层级（经 Manager 图）
 
@@ -113,24 +123,27 @@
 | `loadFromJson(in, errMsg)` | 模板方法：恢复公共字段 + `propertyBag` + `components` + 调用 `loadDerivedJson`；兼容旧字段 `followAttachment` |
 | `saveDerivedJson(out)` / `loadDerivedJson(in, errMsg)` | 派生类扩展（几何等），默认空实现 |
 
-**公共字段**（基类统一）：`id`、`name`、`className`、`visible`、`pose`、`rotation`、`color`、`worldMatrix`、`poseReferenceFrame`、`propertyBag`。
+**公共字段**（基类统一写出）：`id`、`name`、`className`、`visible`、`color`（若有）、`worldMatrix`（16 元）、`poseReferenceFrame`、`propertyBag`、`components`。**不写** `pose`/`rotation`（仅为 `worldMatrix` 分解视图）。
 
 | 字段 | 说明 |
 |------|------|
 | `visible` | 场景显示态真源（默认 `true`）；缺字段加载时视为显示。OSG NodeMask / 后端树勾选为派生视图 |
+| `worldMatrix` | 列主序 16 元；加载时须近似刚体，否则 fail-fast |
 
 **派生扩展**：
 
 | 类型 | `geometry` / 派生字段 |
 |------|----------------------|
 | `PointCloudBackendData` | `kind=points`，`storage=ply_sidecar`，`pointCount`；几何真源 `objects/{id}.ply`（兼容旧工程 `xyzBase64`） |
-| `MeshBackendData` | `kind=triangles`，`xyzBase64`；另 `mesh.transformPivotAtOrigin` |
+| `MeshBackendData` | `kind=triangles`，`encoding=float32_le`，`xyzBase64`；可选 `normalsBase64` / `vertexColorsBase64` / `overlayLinesBase64`（尺寸不匹配 warn-drop）；另 `mesh.transformPivotAtOrigin`、`mesh.overlayLinesAlwaysOnTop` |
 | `BrepBackendData` | `.brep` sidecar 相对路径 + shape；**不**持久化 display soup |
 | `ParametricBrepBackendData` | 同上 + 特征 `history`（见 §4.5） |
 | `FrameBackendData` | `axisLengthMm`（无 geometry 缓冲） |
 | `CustomDeviceBackendData` | Link/Joint/axes/q、namedPoses、poseSignalBindings、ioSignals（无根几何缓冲） |
 
 仍保留 `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` 供派生类内部使用。
+
+**刚体校验**：`backend_mat4_is_nearly_rigid` 检查列单位长 + 正交 + 齐次行 + **右手系**（叉积方向 `dot(cross(c0,c1),c2) > 0`，排除镜像矩阵 det=-1）。
 
 ---
 
@@ -211,6 +224,10 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 | **禁止** | 对本地路径使用 `std::filesystem::u8path`（中文 Windows 下非法 UTF-8 序列会抛 `system_error`） |
 | **禁止** | Widget 侧对含中文路径用 `filePath.toUtf8()` 再交给上述 API（与 `encodeName` 语义不一致） |
 
+**导入门面两阶段提交**（`backend_io::loadPointCloudFromFile` / `loadMeshFromFile`）：失败路径**不**先 `clearGeometry()`；解析到临时缓冲成功后才置换目标对象。**空结果判定前置**：STEP/DXF 路径在 `setTriangleSoup` 之前判空（纯曲线/点 STEP、空 DXF 不清空原几何），与 CGAL 路径对齐。`meshImportQuality` 参数保留兼容，**真源层不再有损抽稀**（0 与 1 行为一致；显式传 0 触发一次弃用告警）。XYZ 读取坏行计数，结尾统一 `RunLogger::warn`（不再静默吞行）。
+
+**`float32_le`**：工程内嵌 Base64 float 块按主机原生 float 字节序 `memcpy`；当前工程仅支持 little-endian 平台（编码处 `static_assert`）。
+
 ### 4.1 `PointCloudBackendData`
 
 | 注册名 | `className()` = `"PointCloudBackendData"` |
@@ -221,7 +238,7 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 | `setPointBuffers(xyz, rgba)` / `setPointBuffers(xyz, rgba, normals)` | `3*N` float + 可选 `4*N` RGBA + 可选 `3*N` 法线 |
 | `pointNormalsNxNyNz()` / `hasPointNormals()` | 法线缓冲（**v1 不写入 project.json**，仅内存） |
 | `pointPositionsXyz()` / `pointVertexRgba()` | 只读缓冲 |
-| `loadFromFile` | `.ply`, `.xyz`（CGAL）；路径见 §4.0.1 |
+| `loadFromFile` | `.ply`, `.xyz`（CGAL）；路径见 §4.0.1；实现见 `backend_io::loadPointCloudFromFile`（[`BackendImporters.h`](inc/BackendImporters.h)） |
 | `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用（**仅顶点**，忽略 `element face`）；路径见 §4.0.1 |
 | `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` | 旧工程内嵌 Base64（新保存走 PLY sidecar） |
 | `writePointCloudPlySidecar` / `readPointCloudPlySidecar` | 工程 `objects/{id}.ply` 读写 |
@@ -230,7 +247,7 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 
 | API | 说明 |
 |-----|------|
-| `scanPlyHeader` | 解析头：`vertexCount`、`faceCount`、`hasFaceElement`、点云读路径所需 x/y/z/RGB 列索引；首行可剥离 UTF-8 BOM |
+| `scanPlyHeader` | 解析头：`vertexCount`/`faceCount`（`size_t`）、`hasFaceElement`、点云读路径所需 x/y/z/RGB 列索引；首行可剥离 UTF-8 BOM；`format` 可在 header **任意行**（容忍前置 comment；历史字段名 `cgalFormatOnLine2`） |
 | `plyFileHasTriangleFaces` | `valid && hasFaceElement && faceCount > 0`；面元元素名支持 `face` / `polygon` / `triangle` |
 | 分流约定 | 含三角面的 PLY 经点云菜单或 Host `importPointCloudFile` 时，由 Host/Widget 改道 `MeshBackendData::loadFromFile`（`read_polygon_soup`），**不在此**读顶点 |
 | `loadFromFile`（点云） | `.ply` 且 `plyFileHasTriangleFaces` 为真时**拒绝**并提示改走网格导入（防止 Job 异步路径误当纯点云） |
@@ -245,15 +262,16 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 | 方法 | 说明 |
 |------|------|
 | `setTriangleSoup` / `triangleSoup()` | 每三角 9 float（v0,v1,v2 各 xyz） |
-| `setTriangleSoupWithNormals` / `triangleVertexNormals()` / `hasTriangleVertexNormals()` | 可选每顶点法线（9 float/三角，与 soup 下标对齐）；OBJ 含 `vn` 时写入 |
+| `setTriangleSoupWithNormals` / `triangleVertexNormals()` / `hasTriangleVertexNormals()` | 可选每顶点法线（9 float/三角，与 soup 下标对齐）；OBJ 含 `vn` 时写入；工程 JSON 可选 `normalsBase64` |
+| `triangleVertexColors` / overlay 线段 | 可选；工程 JSON 可选 `vertexColorsBase64` / `overlayLinesBase64`（尺寸不匹配则 warn-drop 该通道，保留 soup） |
 | `transformVerticesColumnMajorHomogeneous4x4(colMajor16)` | 列主序 4×4 烘焙顶点（URDF 世界烘焙、配准等）；**同时**旋转 `triangleVertexNormals` |
 | `setTransformPivotAtOrigin(true)` | 烘焙后枢轴在原点；外包络 `modelCenter` 仍可非零，**不参与** pose 分解 |
-| `loadFromFile` | 见 §4.2.1 |
-| `loadStepHierarchyFromFile` / `loadDxfHierarchyFromFile` | 静态，输出 `MeshHierarchyPart` 列表 |
+| `loadFromFile` | 见 §4.2.1；实现见 `backend_io::loadMeshFromFile` |
+| `loadStepHierarchyFromFile` / `loadDxfHierarchyFromFile` | 静态；STEP 实现见 `backend_io::loadMeshStepHierarchy` |
 
 ### 4.2.1 网格文件导入（`loadFromFile`）
 
-统一写入 `triangleSoup`；`clearGeometry()` 同时清空 soup 与法线缓冲。
+统一写入 `triangleSoup`。导入门面两阶段提交：失败保留原几何。损坏 OBJ 面索引（非法 `stoi`）回退 CGAL，不崩出 `loadFromFile`。
 
 | 扩展名 | 实现 | 绕序 / 法线 |
 |--------|------|-------------|
@@ -278,7 +296,11 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 
 STEP/DXF **mesh** 层级导入中间结构：`partPath`, `parentPartPath`, `displayName`, `triangleSoup`。
 
+> **平行类型**：`geoalgo::MeshHierarchyPart`（GeometryAlgorithm/Types.h）字段语义相近但用于算法层；Data 层保留本结构，与 `BrepHierarchyPart` 并列，暂未模板化归并（见改造计划 P2-6 文档说明）。
+
 DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界绝对坐标**；导入时 `pose=0`，**不做** Follow 求解（见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1a）。
+
+**DXF 导入语义**：单文件/层级两路收集器共用 `DxfPolylineAccumulator`（POLYLINE M×N 网格/闭合环三角化）。图层 `off` 或 frozen（flags bit0）→ 该层实体（含 INSERT）跳过。INSERT `scale=0` 告警并按 1.0 处理；BLOCK 自引用环保告警并丢弃该分支。**限制**：dxflib 不透传 INSERT 的 210/220/230 extrusion，恒按 `+Z` 展开——旋转 UCS（OCS）下定义的 INSERT 方向可能不符（受第三方库 API 限制，未修库）。
 
 ### 4.4 `BrepBackendData`
 
@@ -289,8 +311,8 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 |------|------|
 | `setShape` / `shapeRef()` | 持有 `geoalgo::ShapeHandle`；显示与特征离散共用 |
 | `shareShapeFrom(other)` | 装配子零件共享 assembly shape |
-| `loadFromStepFile` / `loadFromBrepFile` / `writeBrepFile` | STEP/BREP 文件 I/O |
-| `loadStepHierarchyFromFile` | 静态；`collectBrepTopLevelShapeParts` → 根 Compound 直接子件；可选 `outAssembly` |
+| `loadFromStepFile` / `loadFromBrepFile` / `writeBrepFile` | STEP 见 `backend_io::loadBrepFromStepFile`；BREP 文件 I/O |
+| `loadStepHierarchyFromFile` | 静态转发 `backend_io::loadBrepStepHierarchy` |
 | `setBrepSidecarRelativePath` | 工程内嵌 `.brep` 相对路径 |
 
 | `BrepHierarchyPart` 字段 | 说明 |
@@ -320,10 +342,11 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 | `addLinearPattern` / `addCircularPattern` / `addMirror3D` | 阵列与镜像 |
 | `addLoft` / `addShell` / `addDraft` | 放样、抽壳、拔模 |
 | `setProfile` / `setLength` | 改草图轮廓或拉伸长度 |
-| `rebuild(errMsg)` | 按特征链重放 → 更新 `ShapeHandle` + `faceOwnerByIndex` |
+| `rebuild(errMsg)` | 按特征链重放 → 更新 `ShapeHandle` + `faceOwnerByIndex`；**空 tip（全抑制/仅草图/无有效特征）返回 false**，非成功 |
 | `featureIdForFace` / `faceOwnerByIndex` | tip 上面索引 → 产生该面的特征 id（跨会话不保证） |
 | `tipBeforeFeature` / `tipAfterFeature` | rebuild 后某特征执行前/后 tip（阵列贡献体等） |
 | `historyToJson` / `historyFromJson` | 特征历史序列化（经 `saveDerivedJson`/`loadDerivedJson`） |
+| `loadDerivedJson` | 恢复 history 后**自动 `rebuild()`**，使面归属/tip 映射立即可用；rebuild 失败经 `errMsg` 上报但不阻断对象加载 |
 
 `ParametricFeatureKind`：Sketch、Pad、Pocket、Sweep(/Cut)、Fillet、Chamfer、Revolve(/Cut)、Linear/CircularPattern、Mirror3D、Loft(/Cut)、Shell、Draft。自检：`runParametricHistorySelfTest`。
 
@@ -336,7 +359,7 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 
 | 方法 | 说明 |
 |------|------|
-| `axisLengthMm` / `setAxisLengthMm` | 轴显示长度（默认 `kDefaultAxisLengthMm` = 100） |
+| `axisLengthMm` / `setAxisLengthMm` | 轴显示长度（默认 `kDefaultAxisLengthMm` = 100）；接受 `>0`；非法值 warn 并保持，不静默改回默认 |
 | `hasPoseProperty` / `hasRotationProperty` | `true` |
 | `hasColorProperty` | 基类默认 `false`（无整对象颜色属性） |
 
@@ -349,6 +372,10 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 
 自定义设备**聚合根**：Link/Joint 图为唯一持久化源；`axes`/`q` 为运行时投影。设备根仅示意轴；实体几何绑定在子 Backend（`CustomDeviceLink::geometryBackendId`）。
 
+**几何契约**：设备根无自有几何——`hasGeometry()` = `false`、`geometryBounds()` = `valid=false`、`geometryElementCount()` = 0、`clearGeometry()` 空操作（示意轴由 `CustomDeviceBackendVisual` 按 `axisLengthMm` 自画，不经几何缓冲；fit-to-view/场景统计应由子件几何承担）。
+
+**JSON 变换字段刚性校验**：`baseWorldW0`、`links[].restInDeviceW0`、`joints[].parentToChildRest` 读取时校验 `backend_mat4_is_nearly_rigid`；非法/非刚体 warn 后回退 identity（与基类 `worldMatrix` fail-fast 一致）。`motionType` 未知串 warn 后回退 `Translate`。`POSE_`/`PSB_` 生成计数器在加载已持久化 id 时自动回推，避免与工程内已有 id 碰撞。
+
 | 方法 / 结构 | 说明 |
 |-------------|------|
 | `axisLengthMm` | 根示意轴长度（默认 80） |
@@ -357,15 +384,19 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界�
 | `axes` / `setAxes` / `syncAxesFromJoints` | 轴配置；Joint → 运行时 axes/q 投影 |
 | `qValues` / `setQValues` / `ensureQSize` | 关节量 |
 | `baseWorldW0` / `captureBaseWorldW0FromCurrentWorld` | 设备 W0 世界矩阵 |
+**运行时投影**：`CustomDeviceKinematicState`（`axes` + `q`）由 Link/Joint 图投影；聚合根 `axes()`/`qValues()` 等门面委托该结构。`setJoints` 后自动 `syncAxesFromJoints()`。
+
 | `namedPoses` / `poseSignalBindings` | 命名姿态；DI 上升沿 → 姿态 |
 | `ioSignalsJson` | 本设备自持 IO（与 NamedSignalTable JSON 同形） |
 | `usesLinkJointGraph()` | `!joints.empty() && !links.empty()` |
 
-**组件 `CustomDeviceRobotMount`**（`CustomDeviceRobotMountComponent`）：元数据 `enabled`、`robotSceneBackendId`、`flangeLinkName`、`flangeBackendId`、`mountFrameBackendId`、`frameInDeviceW0`、`toolFrameInFlange`。运行时设备根 `FollowAttachment` 跟随法兰；`CustomDeviceKinematics::applyQ` 读当前 `worldMatrix` 作 W0。详见 [`docs/自定义设备机器人挂载/`](../../../docs/自定义设备机器人挂载/)。
+**组件 `CustomDeviceRobotMount`**（`CustomDeviceRobotMountComponent`）：元数据 `enabled`、`robotSceneBackendId`、`flangeLinkName`、`flangeBackendId`、`mountFrameBackendId`、`frameInDeviceW0`、`toolFrameInFlange`。getter 一律**按值返回**（锁内拷贝，无悬挂引用；同 `FollowAttachmentComponent` 哲学）；JSON 读 `T_flange_device` / `frameInDeviceW0` / `toolFrameInFlange` 做刚性校验，非法/非刚体 warn 并保留现值。运行时设备根 `FollowAttachment` 跟随法兰；`CustomDeviceKinematics::applyQ` 读当前 `worldMatrix` 作 W0。详见 [`docs/自定义设备机器人挂载/`](../../../docs/自定义设备机器人挂载/)。
 
 `CustomDeviceMotionType`：`Translate` / `Rotate`。位姿：`hasPoseProperty`/`hasRotationProperty` 为 `true`；无 `hasColorProperty`。
 
-### 4.8 CAD 轨迹几何桥接（`GeometryRef.h` / `GeometryBackendOps.cpp`）
+### 4.8 CAD 轨迹几何桥接（已迁至 GeometryServices）
+
+算法门面已迁至 [`../../Geometry/GeometryServices/`](../../Geometry/GeometryServices/DEVELOPER_GUIDE.md)：`GeometryRef.h`、`GeometryBackendOps.h`（`geometry_backend_ops` 命名空间不变）。
 
 场景显示仍为 `MeshBackendData` 三角 soup；**特征离散**在运行时从 STEP 临时加载 B-rep（`geoalgo::readStepShape`），不经 Data 持久化 `TopoDS_Shape`。
 
@@ -420,6 +451,10 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 宿主 `PluginPointCloudHostImpl` 在 Segment 完成后注册 `_管段着色` / `_环着色` / `_环圆心` / `_法向` 等临时 `MeshBackendData`。算法与参数见 [`GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.5；UI 见 [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../../Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md)。
 
+**rebuild 原子性**（`ParametricBrepBackendData.cpp`）：派生映射（`m_tipBeforeFeature` / `m_tipAfterFeature` / `m_faceOwnerByIndex`）先局部重建，**成功才整体提交**；中途失败保留旧映射与旧 shape 一致（`featureIdForFace` 不会拿到半成品）。**例外**：全抑制/空历史时允许 `clearGeometry()` + 清空映射（语义=空实体），返回 false。
+
+**Fillet/Chamfer edgeIndices 索引漂移**：参数化 CAD 的固有约束——特征重放后 face/edge 索引可能漂移（依赖底层内核的拓扑命名），用户侧保存的 edgeIndices 在模型变更后可能指向错误边。属已知限制，需用户感知。
+
 ---
 
 ## 5. 属性基础设施
@@ -428,10 +463,11 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 | API | 说明 |
 |-----|------|
-| `set<T>(name, value)` | 类型化键 `PropertyKey{name, type_index}` |
+| `set<T>(name, value)` | 类型化键 `PropertyKey{name, type_index}`；同名异型覆盖经 hook 告警 |
 | `tryGet<T>(name, out)` | 类型不匹配返回 false |
 | `applyDiff(PropertyBagDiff)` | 批量更新 |
-| `toJson()` | 序列化 |
+| `toJson()` | 序列化；同名异型按**类型名字典序**取首个（跨运行输出确定） |
+| `setWarningHook(hook)` | 默认已接 `RunLogger::warn`，测试可替换 |
 
 ### 5.2 `backend_property_json`（`BackendPropertyRow.h`）
 
@@ -441,10 +477,12 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 | 函数 | 产出 |
 |------|------|
-| `pointCloudBackendSchema()` / `meshBackendSchema()` | PropertyCore `PropertySchema` |
+| `pointCloudBackendSchema()` / `meshBackendSchema()` | PropertyCore `PropertySchema`（五类内建均含 `visible` 描述符） |
 | `followAttachmentBackendPropertySchema()` | `follow.targetName` 等 |
-| `schemaForBackendClassName(className)` | 分发 |
+| `schemaForBackendClassName(className)` | 分发；未知 className warn 一次后落 mesh schema |
 | `tagPoseRotationColorSemantics` | `pose.*` → 影响世界变换；`color.*` → 仅颜色 |
+
+**aspect 映射**（`BackendPropertyVisualAspect.cpp`）：键按 schema `semanticFlags` → 视觉 aspect；未知键前缀**精确**匹配（`pose.`/`rotation.`/`color.`/`visible.`），不做子串猜测（`transposedXxx` 不误判）；仍未知时返回全量 aspect（安全默认）。
 
 ### 5.4 `BackendAttributeBase` 工厂
 
@@ -453,6 +491,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 | `makeBackendPoseAttribute()` | pose.x/y/z |
 | `makeBackendRotationAttribute()` | rotation.x/y/z |
 | `makeBackendDisplayColorAttribute()` | color.r/g/b/a |
+| `appendStandardAttributesForCapabilities(self, out)` | 按对象 `hasPoseProperty()` / `hasRotationProperty()` / `hasColorProperty()` 声明统一追加标准 attribute；派生类构造函数**必须**调它而非手工 push——手工 push 与 `has*Property()` 无关联，漏推时面板静默少行 |
 
 ---
 
@@ -462,7 +501,9 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 | 方法 | 说明 |
 |------|------|
-| `enabled` / `targetBackendId` / `localPosition` / `localEulerDeg` | 跟随约束参数 |
+| `snapshot()` | **单次原子读**（enabled/targetId/localPos/localEulerDeg/solverPaused/hierarchyDriven），求解器据此避免逐字段锁读到「新 target + 旧 local」的撕裂组合 |
+| `enabled` / `targetBackendId` / `localPosition` / `localEulerDeg` | 跟随约束参数（逐字段锁，跨字段一致性请用 `snapshot()`） |
+| `setLocalPose(p, e)` | local 位姿原子写，与 `snapshot()` 配对 |
 | `solverPaused` | gizmo 拖动时暂停求解写回 |
 | `hierarchyDriven` | 旧版 attach 自动 Follow 标记；现已不作为默认路径，加载/求解时剥离 |
 | `appendPropertyRows` / `applyPropertyChange` | UI：`follow.targetName` → `findByName` |
@@ -490,9 +531,19 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 | API | 说明 |
 |-----|------|
 | `WorldMatQuery` | `bool(backendId, BackendMat4& outWorld)`，优先 OSG 真值 |
-| `solve(mgr, worldQuery, skipUpdatingFollowerId, limitPoseUpdateToFollowerIds)` | 拓扑序更新 follower 的 `pose/rotation` |
+| `solve(mgr, worldQuery, skipUpdatingFollowerId, limitPoseUpdateToFollowerIds)` | 拓扑序更新 follower 的 `pose/rotation`；Follow 环只跳过成环分量并 `RunLogger::warn` 告警，**不再全场静默瘫痪**；位姿由外部驱动的对象（`isPoseExternallyDriven()`，如机器人挂载）求解器不覆写 |
 
 与 `Widget::runBackendFollowSolveAndSync`、`BackendSceneDocumentFacade` 脏集配合。同部件子树刚体见 §7.1。
+
+**Follow 求解器语义**（`BackendFollowTransformSolver.cpp`）：按拓扑序逐个 follower 求解 `wF = wT * local`；被跳过的 follower（无 pose 属性、限集外、no-op、外部驱动、求解暂停）**不写入 worldCache**，避免下游 Follow 命中缓存拿到从未生效的位姿；缓存只反映"实际生效的位姿"。no-op 判定阈值与 setter 侧对齐为 1e-5。
+
+**`worldQuery` 两处接线**：
+- 求解主循环（`BackendFollowSolve.cpp:383-393`）：**Data 直通**，直接 `obj->worldMatrix()`；
+- 层级绑定瞬间（`BackendCompoundPropagate.cpp`）：**OSG 真值**，经 `OsgWidgetSceneBridge::tryGetBackendWorldMatrix` 拿当前 OSG 场景图位姿。
+
+**跳过自身已启用 Follow 的节点**：`BackendCompoundPropagate.cpp:50-53` 先入队后判跳过——**后代仍传播**（子树不受跳过影响），仅自身位姿不被覆写。
+
+---
 
 ## 7.1 `backend_compound`（`BackendCompoundPropagate.h`）
 
@@ -517,26 +568,28 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 | 方法 | 说明 |
 |------|------|
-| `attachChild(parentId, childId)` | 有向边 |
-| `setParent(childId, parentId)` | 单父替换 |
-| `detachChild` / `detachAllParents` | 删边 |
-| `parentsOf` / `childrenOf` / `ancestorsOf` / `descendantsOf` | id 列表 |
-| `subtreeIds(rootId)` | 缓存：根 + 后代 |
-| `topoOrder()` / `rootIds()` / `listEdges()` | 拓扑与根 |
+| `attachChild(parentId, childId)` | 有向边；若尚无主父则记录主父 |
+| `setParent(childId, parentId)` | 单父替换；主父记为 `parentId` |
+| `detachChild` / `detachAllParents` | 删边；同步更新主父 |
+| `parentsOf` / `primaryParentOf` / `childrenOf` / `ancestorsOf` / `descendantsOf` | id 列表；`primaryParentOf` 为 Parent 参考系显式主父（无记录时回退字母序首个并 warn） |
+| `subtreeIds(rootId)` | 缓存：根 + 后代；BFS 内子集先排序再入队，相同图结构下遍历序**可复现** |
+| `topoOrder()` / `rootIds()` / `listEdges()` | 拓扑与根（`topoOrder` 用 `std::set` 有序 ready 队列，输出确定） |
 | `wouldCreateCycle` / `validateGraph` | 一致性 |
 
 ### 8.3 观测与调试
 
 | 方法 | 说明 |
 |------|------|
-| `addHierarchyObserver` / `removeHierarchyObserver` | **禁止**在回调内再抢写锁 |
+| `addHierarchyObserver` / `removeHierarchyObserver` | 结构变更回调于**锁外**派发；回调内勿再抢 manager 写锁 |
 | `takeSnapshot()` | `BackendSnapshot` 向量 |
 | `collectBaselineMetrics` | 性能基线 |
 | `clear()` | 清空 |
 
 ### 8.4 `BackendHierarchyModel`
 
-UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓存失效）。结构变更经 `BackendHierarchyChange` 通知观察者；**禁止**在回调内再抢 manager 写锁。
+**UI 线程专属**：构造、`resyncFrom`、`subtreeIds`、观察者回调均须在 UI 线程调用。
+
+UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓存失效）。结构变更经 `BackendHierarchyChange` 通知观察者（**锁外派发**）；回调内勿再抢 manager 写锁。
 
 ### 8.5 Units 显示投影（与 DAG 真源关系）
 
@@ -563,6 +616,14 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 
 工程加载时：按 JSON 中 `className` 调用 `create`，再 `loadFromJson`。插件扩展：优先 Host 创建内置类型；`registerBackendType`（委托适配）为半成品，无需求勿用。非场景域（工艺图等）走 `project.json` 侧车键，**不要**注册为 Backend 类型。
 
+**C API `cloudsimCreateDataService(apiVersion)`**（`CloudSimCoreExport.cpp`）：返回 **Data 层直连实现** `BackendManagerDataService`（`BackendManagerDataService.h` / `CloudSimCoreDataService.cpp`）——注册/层级/属性/位姿/序列化走 `BackendDataManager`；**视觉分支与 Follow 求解属 Host 能力**：`hasVisualBranch` 恒 `false`，`markFollowDirtyFromMove` / `requestFollowSolveForced` warn-once 空转，`runFollowSolveAndSync` warn-once 返回 false；`importFromFile` 仅支持 mesh/pointcloud（brep/装配/网格骨骼需 Host 层 `IDataService`）。`apiVersion` 严格相等、无兼容窗。
+
+**配套释放**：`cloudsimDestroyDataService(IDataService*)` 已导出；跨 DLL delete 仅在双方共享 CRT（/MD）时安全，Host 若 /MT 编译必须走此入口释放，禁止直接 `delete`。
+
+**JSON 加载防火墙**：`loadObjectFromJson` / `decodeComponent` / `loadLegacyComponentsFromJson` 均包 `catch (const nlohmann::json::exception&)`，类型错配（如 className 是数字、visible 是字符串）转 outError/warn，不再跨 DLL 抛异常。
+
+**单例绑定（架构拍板）**：本实现硬绑定 `BackendDataManager::instance()` 全局单例，**不支持 per-document 多实例**；多文档/多图场景需 Host 层自行维护多份 manager 并各自包适配器，Data 层不出该能力。
+
 ---
 
 ## 10. 工具
@@ -571,7 +632,7 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 |------|------|
 | `geometry_base64` | 浮点缓冲 ↔ Base64（工程嵌入） |
 | `backend_relations` | `parents`/`children` 便捷包装 |
-| `property_rows_compat::syncTransformColorToBag` | 面板 ↔ PropertyBag 同步 |
+| `property_rows_compat::syncTransformColorToBag` | 面板 ↔ PropertyBag 同步；`color.*` 仅写给 `hasColorProperty()` 的对象（Frame/CustomDevice 不再被污染白值） |
 
 ---
 

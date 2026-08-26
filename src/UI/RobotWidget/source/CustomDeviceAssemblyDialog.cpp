@@ -560,7 +560,7 @@ bool CustomDeviceAssemblyDialog::attachChildId(const QString& childId, QString* 
 	{
 		if (geom->hasPoseProperty())
 		{
-			preAttachWorld = geom->worldMatrix(&m_host->document()->backend());
+			preAttachWorld = geom->worldMatrix();
 			havePreAttachWorld = true;
 		}
 	}

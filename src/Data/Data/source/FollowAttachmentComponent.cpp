@@ -5,8 +5,6 @@
 
 #include "BackendDataManager.h"
 #include "BackendPropertyRow.h"
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
 
 #include <algorithm>
 #include <cmath>
@@ -14,6 +12,13 @@
 
 namespace
 {
+/// 布尔解析统一入口，follow.* 各键保持一致
+bool parseFollowBool(const std::string& value)
+{
+	return value == "1" || value == "true" || value == "True" || value == "TRUE" || value == "yes" ||
+		   value == "Yes" || value == "on";
+}
+
 std::string trimUtf8Whitespace(const std::string& s)
 {
 	std::size_t a = 0;
@@ -27,55 +32,6 @@ std::string trimUtf8Whitespace(const std::string& s)
 		--b;
 	}
 	return s.substr(a, b - a);
-}
-
-BackendVec3 modelCenterForData(const BackendDataBase& data)
-{
-	if (const auto* pc = dynamic_cast<const PointCloudBackendData*>(&data))
-	{
-		const auto& xyz = pc->pointPositionsXyz();
-		if (xyz.size() < 3U || (xyz.size() % 3U) != 0U)
-		{
-			return BackendVec3{};
-		}
-		float minx = xyz[0], maxx = xyz[0], miny = xyz[1], maxy = xyz[1], minz = xyz[2], maxz = xyz[2];
-		for (std::size_t i = 0; i + 2 < xyz.size(); i += 3U)
-		{
-			const float x = xyz[i], y = xyz[i + 1], z = xyz[i + 2];
-			minx = std::min(minx, x);
-			maxx = std::max(maxx, x);
-			miny = std::min(miny, y);
-			maxy = std::max(maxy, y);
-			minz = std::min(minz, z);
-			maxz = std::max(maxz, z);
-		}
-		return BackendVec3{0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-						   0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-						   0.5 * (static_cast<double>(minz) + static_cast<double>(maxz))};
-	}
-	if (const auto* mesh = dynamic_cast<const MeshBackendData*>(&data))
-	{
-		const auto& soup = mesh->triangleSoup();
-		if (soup.size() < 3U || (soup.size() % 3U) != 0U)
-		{
-			return BackendVec3{};
-		}
-		float minx = soup[0], maxx = soup[0], miny = soup[1], maxy = soup[1], minz = soup[2], maxz = soup[2];
-		for (std::size_t i = 0; i + 2 < soup.size(); i += 3U)
-		{
-			const float x = soup[i], y = soup[i + 1], z = soup[i + 2];
-			minx = std::min(minx, x);
-			maxx = std::max(maxx, x);
-			miny = std::min(miny, y);
-			maxy = std::max(maxy, y);
-			minz = std::min(minz, z);
-			maxz = std::max(maxz, z);
-		}
-		return BackendVec3{0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-						   0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-						   0.5 * (static_cast<double>(minz) + static_cast<double>(maxz))};
-	}
-	return BackendVec3{};
 }
 
 bool tryWorldMatForData(const BackendDataBase& data,
@@ -107,10 +63,25 @@ void FollowAttachmentComponent::setEnabled(bool on)
 	m_enabled = on;
 }
 
-const std::string& FollowAttachmentComponent::targetBackendId() const
+FollowAttachmentComponent::Snapshot FollowAttachmentComponent::snapshot() const
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	return Snapshot{m_enabled, m_targetId, m_localPos, m_localEuler, m_solverPaused, m_hierarchyDriven};
+}
+
+std::string FollowAttachmentComponent::targetBackendId() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_targetId;
+}
+
+void FollowAttachmentComponent::collectReferencedBackendIds(std::vector<std::string>& out) const
+{
+	std::string t = targetBackendId();
+	if (!t.empty())
+	{
+		out.push_back(std::move(t));
+	}
 }
 
 void FollowAttachmentComponent::setTargetBackendId(std::string id)
@@ -140,6 +111,13 @@ BackendVec3 FollowAttachmentComponent::localEulerDeg() const
 void FollowAttachmentComponent::setLocalEulerDeg(const BackendVec3& e)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
+	m_localEuler = e;
+}
+
+void FollowAttachmentComponent::setLocalPose(const BackendVec3& p, const BackendVec3& e)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_localPos = p;
 	m_localEuler = e;
 }
 
@@ -194,6 +172,38 @@ void FollowAttachmentComponent::appendPropertyRows(nlohmann::json& rows, const B
 	backend_property_json::appendRow(rows, "follow.targetName", "Follow: target object name", true, display);
 }
 
+bool FollowAttachmentComponent::appendDefaultPropertyRowsWhenAbsent(nlohmann::json& rows,
+																	const BackendDataManager* mgr) const
+{
+	appendPropertyRows(rows, mgr);
+	return true;
+}
+
+void FollowAttachmentComponent::syncTargetNameInOwnerPropertyBag(BackendDataBase& owner,
+																const BackendDataManager* mgr)
+{
+	const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+		owner.getComponent(typeKeyStatic()));
+	if (!follow || !mgr)
+	{
+		return;
+	}
+	std::string targetId;
+	{
+		std::lock_guard<std::mutex> lock(follow->m_mutex);
+		targetId = follow->m_targetId;
+	}
+	if (targetId.empty())
+	{
+		owner.propertyBag().set<std::string>("follow.targetName", std::string());
+		return;
+	}
+	if (const auto target = mgr->getData(targetId))
+	{
+		owner.propertyBag().set<std::string>("follow.targetName", target->name());
+	}
+}
+
 bool FollowAttachmentComponent::applyPropertyChange(BackendDataBase& owner, const std::string& key,
 													const std::string& value, std::string* errMsg,
 													const BackendDataManager* mgr)
@@ -213,10 +223,8 @@ bool FollowAttachmentComponent::applyPropertyChange(BackendDataBase& owner, cons
 		const std::string name = trimUtf8Whitespace(value);
 		if (name.empty())
 		{
-			std::lock_guard<std::mutex> lock(m_mutex);
-			m_enabled = false;
-			m_targetId.clear();
-			m_hierarchyDriven = false;
+			owner.removeComponent(typeKeyStatic());
+			owner.propertyBag().set<std::string>("follow.targetName", std::string());
 			return true;
 		}
 		if (!mgr)
@@ -257,10 +265,14 @@ bool FollowAttachmentComponent::applyPropertyChange(BackendDataBase& owner, cons
 			}
 			return false;
 		}
-		std::lock_guard<std::mutex> lock(m_mutex);
-		m_targetId = target->id();
-		m_enabled = true;
-		m_hierarchyDriven = false;
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			m_targetId = target->id();
+			m_enabled = true;
+			m_hierarchyDriven = false;
+		}
+		// 已解析到 target，直接写 bag；勿在持锁时调 sync（会再抢 m_mutex）
+		owner.propertyBag().set<std::string>("follow.targetName", target->name());
 		return true;
 	}
 
@@ -276,7 +288,7 @@ bool FollowAttachmentComponent::applyPropertyChange(BackendDataBase& owner, cons
 	}
 	if (key == "follow.enabled")
 	{
-		m_enabled = (value == "1" || value == "true" || value == "True" || value == "yes");
+		m_enabled = parseFollowBool(value);
 		return true;
 	}
 	if (key == "follow.targetId")
@@ -324,7 +336,7 @@ bool FollowAttachmentComponent::applyPropertyChange(BackendDataBase& owner, cons
 	}
 	if (key == "follow.solverPaused")
 	{
-		m_solverPaused = (value == "1" || value == "true");
+		m_solverPaused = parseFollowBool(value);
 		return true;
 	}
 	if (key == "follow.snapLocal")
@@ -409,16 +421,9 @@ bool FollowAttachmentComponent::recomputeLocalFromCurrentWorld(
 		return false;
 	}
 	BackendMat4 invT{};
-	if (!backend_mat4_invert_rigid(wT, invT))
-	{
-		if (errMsg)
-		{
-			*errMsg = "invert target failed.";
-		}
-		return false;
-	}
+	(void)backend_mat4_invert_rigid(wT, invT);
 	BackendMat4 localRel{};
-	backend_mat4_multiply(invT, wF, localRel);
+	(void)backend_mat4_multiply(invT, wF, localRel);
 	BackendVec3 lp{};
 	BackendVec3 le{};
 	backend_trans_euler_from_rigid_mat(localRel, lp, le);

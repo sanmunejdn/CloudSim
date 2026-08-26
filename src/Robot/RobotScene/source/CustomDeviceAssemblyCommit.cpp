@@ -1,4 +1,4 @@
-﻿/// @file CustomDeviceAssemblyCommit.cpp
+/// @file CustomDeviceAssemblyCommit.cpp
 
 /// @brief 自定义设备组装提交
 
@@ -61,7 +61,7 @@ bool geomWorld(BackendDataManager& backend, const std::string& gid, double out[1
 
 	}
 
-	const BackendMat4 wm = data->worldMatrix(&backend);
+	const BackendMat4 wm = data->worldMatrix();
 
 	for (int i = 0; i < 16; ++i)
 
@@ -106,7 +106,7 @@ bool resolveGeometryWorldForCommit(BackendDataManager& backend, const std::strin
 
 			{
 
-				const BackendMat4 targetW = target->worldMatrix(&backend);
+				const BackendMat4 targetW = target->worldMatrix();
 
 				const BackendMat4 localW =
 

@@ -76,11 +76,12 @@ std::uint32_t visualAspectsForPropertyKey(const std::string& className, const st
 	{
 		return kVisualAspectTransform;
 	}
-	if (key.find("color") != std::string::npos)
+	// 前缀精确匹配，避免 "discolorXxx"/"invisibleXxx" 这类键被子串误判
+	if (key.rfind("color.", 0) == 0)
 	{
 		return kVisualAspectAppearance;
 	}
-	if (key.find("visible") != std::string::npos)
+	if (key.rfind("visible.", 0) == 0)
 	{
 		return kVisualAspectVisibility;
 	}
@@ -98,7 +99,8 @@ bool propertyCommitsPoseFromSchema(const std::string& className, const std::stri
 	{
 		return true;
 	}
-	return key.find("pose") != std::string::npos || key.find("rotation") != std::string::npos;
+	// 前缀精确匹配，避免 "transposedXxx" 这类键被 "pose" 子串误判为位姿提交
+	return key.rfind("pose.", 0) == 0 || key.rfind("rotation.", 0) == 0;
 }
 
 } // namespace backend_property_schema

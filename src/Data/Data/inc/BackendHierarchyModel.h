@@ -16,7 +16,7 @@
 
 class BackendDataManager;
 
-/// BackendDataManager 层级变更的增量镜像
+/// BackendDataManager 层级变更的增量镜像（**UI 线程专属**：构造、resync、subtreeIds、观察者回调均须在 UI 线程调用）
 /// 缓存 subtreeIds（根+可达后代，DAG 去重）
 class DATA_EXPORT BackendHierarchyModel
 {
@@ -30,10 +30,8 @@ public:
 	/// 从 manager 重建镜像（调用方勿持 manager 写锁）
 	void resyncFrom(const BackendDataManager& manager);
 
-	/// 根优先 BFS；下次结构变更前有效
-	/// 或仅在 UI 线程同步使用
-	const std::vector<std::string>& subtreeIds(const std::string& rootId);
-	const std::vector<std::string>& subtreeIds(const std::string& rootId) const;
+	/// 根优先 BFS；按值返回，UI 线程同步使用
+	std::vector<std::string> subtreeIds(const std::string& rootId) const;
 
 private:
 	void onHierarchyChange(const BackendHierarchyChangeEvent& event);
@@ -46,7 +44,6 @@ private:
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_parents;
 	std::unordered_set<std::string> m_nodes;
 	mutable std::unordered_map<std::string, std::vector<std::string>> m_subtreeCache;
-	mutable std::vector<std::string> m_emptySubtree;
 };
 
 #endif // DATA_BACKENDHIERARCHYMODEL_H

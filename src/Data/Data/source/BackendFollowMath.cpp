@@ -63,6 +63,49 @@ bool backend_mat4_invert_rigid(const BackendMat4& m, BackendMat4& out)
 	return true;
 }
 
+bool backend_mat4_is_nearly_rigid(const BackendMat4& m, const double absEps)
+{
+	const auto colLen = [&](const int c) -> double
+	{
+		const double x = m.v[c * 4 + 0];
+		const double y = m.v[c * 4 + 1];
+		const double z = m.v[c * 4 + 2];
+		return std::sqrt(x * x + y * y + z * z);
+	};
+	const auto dotCols = [&](const int a, const int b) -> double
+	{
+		return m.v[a * 4 + 0] * m.v[b * 4 + 0] + m.v[a * 4 + 1] * m.v[b * 4 + 1] +
+			   m.v[a * 4 + 2] * m.v[b * 4 + 2];
+	};
+	for (int c = 0; c < 3; ++c)
+	{
+		if (std::abs(colLen(c) - 1.0) > absEps)
+		{
+			return false;
+		}
+	}
+	if (std::abs(dotCols(0, 1)) > absEps || std::abs(dotCols(0, 2)) > absEps || std::abs(dotCols(1, 2)) > absEps)
+	{
+		return false;
+	}
+	if (std::abs(m.v[3]) > absEps || std::abs(m.v[7]) > absEps || std::abs(m.v[11]) > absEps ||
+		std::abs(m.v[15] - 1.0) > absEps)
+	{
+		return false;
+	}
+	// P3-1: 镜像矩阵（det=-1，列仍单位正交）需额外排除——叉积方向检查
+	// dot(cross(c0,c1),c2) > 0 保证右手系
+	const double cx = m.v[0 * 4 + 1] * m.v[1 * 4 + 2] - m.v[0 * 4 + 2] * m.v[1 * 4 + 1];
+	const double cy = m.v[0 * 4 + 2] * m.v[1 * 4 + 0] - m.v[0 * 4 + 0] * m.v[1 * 4 + 2];
+	const double cz = m.v[0 * 4 + 0] * m.v[1 * 4 + 1] - m.v[0 * 4 + 1] * m.v[1 * 4 + 0];
+	const double det3 = cx * m.v[2 * 4 + 0] + cy * m.v[2 * 4 + 1] + cz * m.v[2 * 4 + 2];
+	if (det3 <= absEps)
+	{
+		return false;
+	}
+	return true;
+}
+
 BackendMat4 backend_world_mat_from_pose(const BackendVec3& pose, const BackendVec3& rotationEulerDeg)
 {
 	const engine::RigidTransform rt = engine::rigidTransformFromBackendPoseEuler(

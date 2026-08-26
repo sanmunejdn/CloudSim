@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{B2C3D4E5-F6A7-4890-BCDE-F123456789AB}</ProjectGuid>
+    <RootNamespace>GeometryServices</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)GeometryServices\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)GeometryServices\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
+      <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;GEOMETRY_SERVICES_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>inc;../../Data/Data/inc;../../Contracts/CloudSimCore/inc;../../Infra/RunLogger/inc;../../Geometry/GeometryEngine/inc;../../Geometry/PointCloudAlgorithm/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/VcgAlgorithms/inc;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Data.lib;CloudSimCore.lib;GeometryEngine.lib;PointCloudAlgorithm.lib;GeometryAlgorithm.lib;VcgAlgorithms.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;tbb12.lib;tbbmalloc.lib;boost_container-vc142-mt-x64-1_79.lib;boost_date_time-vc142-mt-x64-1_79.lib;libboost_exception-vc142-mt-x64-1_79.lib;boost_filesystem-vc142-mt-x64-1_79.lib;boost_graph-vc142-mt-x64-1_79.lib;boost_iostreams-vc142-mt-x64-1_79.lib;boost_locale-vc142-mt-x64-1_79.lib;boost_math_c99-vc142-mt-x64-1_79.lib;boost_math_c99f-vc142-mt-x64-1_79.lib;boost_math_c99l-vc142-mt-x64-1_79.lib;boost_math_tr1-vc142-mt-x64-1_79.lib;boost_math_tr1f-vc142-mt-x64-1_79.lib;boost_math_tr1l-vc142-mt-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-x64-1_79.lib;boost_random-vc142-mt-x64-1_79.lib;boost_regex-vc142-mt-x64-1_79.lib;boost_serialization-vc142-mt-x64-1_79.lib;boost_system-vc142-mt-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-x64-1_79.lib;boost_thread-vc142-mt-x64-1_79.lib;boost_unit_test_framework-vc142-mt-x64-1_79.lib;boost_wserialization-vc142-mt-x64-1_79.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir);$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/lib;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0/lib64-msvc-14.2;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;GEOMETRY_SERVICES_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>inc;../../Data/Data/inc;../../Contracts/CloudSimCore/inc;../../Infra/RunLogger/inc;../../Geometry/GeometryEngine/inc;../../Geometry/PointCloudAlgorithm/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/VcgAlgorithms/inc;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Data.lib;CloudSimCore.lib;GeometryEngine.lib;PointCloudAlgorithm.lib;GeometryAlgorithm.lib;VcgAlgorithms.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;tbb12.lib;tbbmalloc.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir);$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/lib;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0/lib64-msvc-14.2;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\geometry_services_global.h" />
+    <ClInclude Include="inc\GeometryBackendOps.h" />
+    <ClInclude Include="inc\GeometryRef.h" />
+    <ClInclude Include="inc\MeshBoolean.h" />
+    <ClInclude Include="inc\pch.h" />
+    <ClInclude Include="inc\PointCloudBackendOps.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="source\GeometryBackendOps.cpp" />
+    <ClCompile Include="source\MeshBoolean.cpp" />
+    <ClCompile Include="source\PointCloudBackendOps.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GeometryEngine\GeometryEngine.vcxproj">
+      <Project>{d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Data\Data\Data.vcxproj">
+      <Project>{50119edf-918f-4bc8-a201-7ac6f0fe82a1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\GeometryAlgorithm\GeometryAlgorithm.vcxproj">
+      <Project>{a1b2c3d4-e5f6-4789-abcd-ef0123456789}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\PointCloudAlgorithm\PointCloudAlgorithm.vcxproj">
+      <Project>{e8f9a0b1-c2d3-4e4f-9a8b-1c2d3e4f5a6b}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\VcgAlgorithms\VcgAlgorithms.vcxproj">
+      <Project>{a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Infra\RunLogger\RunLogger.vcxproj">
+      <Project>{35f6e3c1-7f9a-4d93-9faf-74bae4a0c2d1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
+      <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

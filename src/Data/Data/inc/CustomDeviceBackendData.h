@@ -77,6 +77,17 @@ struct DATA_EXPORT CustomDevicePoseSignalBinding
 	bool enabled = true;
 };
 
+struct DATA_EXPORT CustomDeviceKinematicState
+{
+	CustomDeviceAxisConfigSet axes;
+	std::vector<double> q;
+
+	void setAxes(const CustomDeviceAxisConfigSet& nextAxes);
+	void setQValues(const std::vector<double>& nextQ);
+	void ensureQSize();
+	void syncAxesFromJoints(const std::vector<CustomDeviceJoint>& joints);
+};
+
 DATA_EXPORT CustomDeviceAxisConfig makeDefaultCustomDeviceTranslateAxis();
 DATA_EXPORT CustomDeviceAxisConfig makeDefaultCustomDeviceRotateAxis();
 DATA_EXPORT void normalizeCustomDeviceAxisConfig(CustomDeviceAxisConfig& cfg);
@@ -113,10 +124,13 @@ public:
 	bool hasPoseProperty() const override { return true; }
 	bool hasRotationProperty() const override { return true; }
 
+	/// 挂载机器人时位姿由机器人运动学驱动，Follow 求解器不得覆写
+	bool isPoseExternallyDriven() const override;
+
 	float axisLengthMm() const { return m_axisLengthMm; }
 	void setAxisLengthMm(float mm);
 
-	const CustomDeviceAxisConfigSet& axes() const { return m_axes; }
+	const CustomDeviceAxisConfigSet& axes() const { return m_kinematic.axes; }
 	void setAxes(const CustomDeviceAxisConfigSet& axes);
 
 	const std::vector<CustomDeviceLink>& links() const { return m_links; }
@@ -127,7 +141,7 @@ public:
 	void syncAxesFromJoints();
 	bool usesLinkJointGraph() const { return !m_joints.empty() && !m_links.empty(); }
 
-	const std::vector<double>& qValues() const { return m_q; }
+	const std::vector<double>& qValues() const { return m_kinematic.q; }
 	void setQValues(const std::vector<double>& q);
 	void ensureQSize();
 
@@ -150,15 +164,16 @@ public:
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 							 const BackendDataManager* mgr = nullptr) override;
 
+	void collectReferencedBackendIds(std::vector<std::string>& out) const override;
+
 private:
 	void saveDerivedJson(nlohmann::json& out) const override;
 	bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg) override;
 
 	float m_axisLengthMm = kDefaultAxisLengthMm;
-	CustomDeviceAxisConfigSet m_axes;
+	CustomDeviceKinematicState m_kinematic;
 	std::vector<CustomDeviceLink> m_links;
 	std::vector<CustomDeviceJoint> m_joints;
-	std::vector<double> m_q;
 	BackendMat4 m_baseWorldW0{};
 	bool m_baseWorldW0Valid = false;
 	std::vector<CustomDeviceNamedPose> m_namedPoses;

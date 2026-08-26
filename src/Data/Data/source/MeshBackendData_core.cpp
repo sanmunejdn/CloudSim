@@ -21,10 +21,8 @@ MeshBackendData::MeshBackendData()
 	c.a = 1.0f;
 	m_color = c;
 
-	// 复用 pose/rotation/color 属性，面板行为一致
-	m_attributes.push_back(makeBackendPoseAttribute());
-	m_attributes.push_back(makeBackendRotationAttribute());
-	m_attributes.push_back(makeBackendDisplayColorAttribute());
+	// 按 has*Property() 声明统一追加，避免手工 push 漏推导致面板静默少行
+	appendStandardAttributesForCapabilities(*this, m_attributes);
 }
 
 std::string MeshBackendData::className() const
@@ -102,12 +100,12 @@ void MeshBackendData::setTriangleSoupWithNormals(std::vector<float> xyzPerTriang
 {
 	if (xyzPerTriangleVertex.size() % 9U != 0U)
 	{
-		clearGeometry();
+		RunLogger::warn("[MeshBackendData] setTriangleSoupWithNormals: bad soup size, keep existing geometry.");
 		return;
 	}
 	if (!normalPerTriangleVertex.empty() && normalPerTriangleVertex.size() != xyzPerTriangleVertex.size())
 	{
-		clearGeometry();
+		RunLogger::warn("[MeshBackendData] setTriangleSoupWithNormals: normals size mismatch, keep existing geometry.");
 		return;
 	}
 	m_triangleSoup = std::move(xyzPerTriangleVertex);
@@ -122,12 +120,12 @@ void MeshBackendData::setTriangleSoupWithVertexColors(std::vector<float> xyzPerT
 {
 	if (xyzPerTriangleVertex.size() % 9U != 0U)
 	{
-		clearGeometry();
+		RunLogger::warn("[MeshBackendData] setTriangleSoupWithVertexColors: bad soup size, keep existing geometry.");
 		return;
 	}
 	if (rgbPerTriangleVertex.size() != xyzPerTriangleVertex.size())
 	{
-		clearGeometry();
+		RunLogger::warn("[MeshBackendData] setTriangleSoupWithVertexColors: color size mismatch, keep existing geometry.");
 		return;
 	}
 	m_triangleSoup = std::move(xyzPerTriangleVertex);
@@ -141,12 +139,16 @@ void MeshBackendData::setOverlayLineSegments(std::vector<float> xyzLinePairs)
 {
 	if (xyzLinePairs.size() % 6U != 0U)
 	{
+		// B3: 与同文件其他 setter 对齐，非法尺寸告警
+		RunLogger::warn("[MeshBackendData] setOverlayLineSegments: size not multiple of 6, cleared.");
 		m_overlayLineSegments.clear();
 		recomputeBounds();
+		bumpGeometryRevision();
 		return;
 	}
 	m_overlayLineSegments = std::move(xyzLinePairs);
 	recomputeBounds();
+	bumpGeometryRevision();
 }
 
 void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[16])
@@ -183,6 +185,7 @@ void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[
 		}
 	}
 	recomputeBounds();
+	bumpGeometryRevision();
 }
 
 void MeshBackendData::recomputeBounds()
@@ -245,9 +248,23 @@ void MeshBackendData::saveDerivedJson(nlohmann::json& out) const
 	std::string soupB64;
 	if (writeProjectEmbeddedGeometry(soupB64))
 	{
-		out["geometry"] = nlohmann::json{{"kind", "triangles"}, {"encoding", "float32_le"}, {"xyzBase64", soupB64}};
+		nlohmann::json geo = nlohmann::json{{"kind", "triangles"}, {"encoding", "float32_le"}, {"xyzBase64", soupB64}};
+		if (hasTriangleVertexNormals())
+		{
+			geo["normalsBase64"] = geometryBase64EncodeFloats(m_triangleNormals);
+		}
+		if (hasTriangleVertexColors())
+		{
+			geo["vertexColorsBase64"] = geometryBase64EncodeFloats(m_triangleVertexColors);
+		}
+		if (hasOverlayLineSegments())
+		{
+			geo["overlayLinesBase64"] = geometryBase64EncodeFloats(m_overlayLineSegments);
+		}
+		out["geometry"] = std::move(geo);
 	}
-	out["mesh"] = nlohmann::json{{"transformPivotAtOrigin", m_transformPivotAtOrigin}};
+	out["mesh"] = nlohmann::json{{"transformPivotAtOrigin", m_transformPivotAtOrigin},
+								 {"overlayLinesAlwaysOnTop", m_overlayLinesAlwaysOnTop}};
 }
 
 bool MeshBackendData::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)
@@ -255,6 +272,7 @@ bool MeshBackendData::loadDerivedJson(const nlohmann::json& in, std::string* err
 	if (in.contains("mesh") && in["mesh"].is_object())
 	{
 		m_transformPivotAtOrigin = in["mesh"].value("transformPivotAtOrigin", false);
+		m_overlayLinesAlwaysOnTop = in["mesh"].value("overlayLinesAlwaysOnTop", false);
 	}
 	if (!in.contains("geometry"))
 	{
@@ -290,5 +308,44 @@ bool MeshBackendData::loadDerivedJson(const nlohmann::json& in, std::string* err
 		}
 		return false;
 	}
+
+	auto tryLoadOptionalChannel = [&](const char* key, std::vector<float>& dest, const char* label,
+									  const bool requireMatchSoupSize)
+	{
+		dest.clear();
+		if (!geo.contains(key) || !geo[key].is_string())
+		{
+			return;
+		}
+		const std::string b64 = geo[key].get<std::string>();
+		if (b64.empty())
+		{
+			return;
+		}
+		std::vector<float> decoded;
+		if (!geometryBase64DecodeFloats(b64, decoded))
+		{
+			RunLogger::warn(std::string("[MeshBackendData] drop ") + label + ": Base64 decode failed.");
+			return;
+		}
+		if (requireMatchSoupSize && decoded.size() != m_triangleSoup.size())
+		{
+			RunLogger::warn(std::string("[MeshBackendData] drop ") + label + ": size mismatch with soup.");
+			return;
+		}
+		if (!requireMatchSoupSize && (decoded.size() < 6U || (decoded.size() % 6U) != 0U))
+		{
+			RunLogger::warn(std::string("[MeshBackendData] drop ") + label + ": invalid overlay line size.");
+			return;
+		}
+		dest = std::move(decoded);
+	};
+
+	tryLoadOptionalChannel("normalsBase64", m_triangleNormals, "normalsBase64", true);
+	tryLoadOptionalChannel("vertexColorsBase64", m_triangleVertexColors, "vertexColorsBase64", true);
+	tryLoadOptionalChannel("overlayLinesBase64", m_overlayLineSegments, "overlayLinesBase64", false);
+
+	recomputeBounds();
+	bumpGeometryRevision();
 	return true;
 }

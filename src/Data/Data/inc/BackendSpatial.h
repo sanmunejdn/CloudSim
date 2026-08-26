@@ -15,7 +15,7 @@ class BackendDataBase;
 class BackendDataManager;
 
 /// 世界点 = objectWorldMatrix × v_stored
-DATA_EXPORT BackendMat4 objectWorldMatrix(const BackendDataBase& obj, const BackendDataManager* mgr = nullptr);
+DATA_EXPORT BackendMat4 objectWorldMatrix(const BackendDataBase& obj);
 DATA_EXPORT BackendVec3 transformPointToWorld(const BackendDataBase& obj, const BackendVec3& vStored,
 											  const BackendDataManager* mgr = nullptr);
 DATA_EXPORT BackendVec3 transformPointToStored(const BackendDataBase& obj, const BackendVec3& vWorld,

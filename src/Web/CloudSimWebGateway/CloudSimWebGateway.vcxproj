@@ -78,6 +78,7 @@
     <ClCompile Include="source\DeviceCatalogScan.cpp" />
     <ClCompile Include="source\StoreZipExtract.cpp" />
     <ClCompile Include="source\WebGateway.cpp" />
+    <ClCompile Include="source\WebGatewayParity.cpp" />
     <ClCompile Include="source\WebGatewayApi.cpp" />
     <ClCompile Include="source\WebGatewayPointCloud.cpp" />
     <ClCompile Include="source\WebGatewayTrajectory.cpp" />

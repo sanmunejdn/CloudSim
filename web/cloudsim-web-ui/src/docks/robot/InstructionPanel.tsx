@@ -3,11 +3,16 @@ import {
   createPathPlan,
   runProgram,
   stopProgram,
+  exportProgram,
+  ROBOT_EXPORT_BRANDS,
   tcpPose,
   importUrdf,
   postJoints,
   patchIoNetworkRuntime,
   fetchIoNetwork,
+  switchRobotProgram,
+  undoProgramEdit,
+  redoProgramEdit,
   type Instruction,
 } from "../../api";
 import { dialogOpen } from "../../api/project";
@@ -20,6 +25,8 @@ import {
   estimateStepDurationSec,
   planStepFrames,
   playJointFrames,
+  probeServerPlayback,
+  startServerPlayback,
 } from "../../robot/playback";
 import InstructionTree, { CMD_LABEL } from "./InstructionTree";
 
@@ -95,6 +102,7 @@ const TEACH_BTNS: { type: string; label: string }[] = [
 
 export default function InstructionPanel() {
   const {
+    catalogs,
     activeProgram,
     activeRootId,
     selectedInstrId,
@@ -111,6 +119,7 @@ export default function InstructionPanel() {
   const { goTrajGen } = useDockNav();
   const { bindPlan, reloadPathPlans, setFeatures } = useTrajectory();
   const [simRate, setSimRate] = useState(1);
+  const [exportBrand, setExportBrand] = useState<string>(ROBOT_EXPORT_BRANDS[0].id);
   const abortRef = useRef(false);
   const [urdfPath, setUrdfPath] = useState("");
   const [jointsCsv, setJointsCsv] = useState("0,0,0,0,0,0");
@@ -122,6 +131,54 @@ export default function InstructionPanel() {
 
   const steps = activeProgram?.instructions || [];
   const groups = activeProgram?.groups || [];
+  const entry = catalogs.find((c) => c.sceneBackendId === activeRootId);
+  const programs = entry?.programs || [];
+  const activeProgramId = entry?.activeProgramId || activeProgram?.id || "";
+
+  const switchProgram = async (programId: string) => {
+    if (!programId || programId === activeProgramId) return;
+    const r = await switchRobotProgram(programId, activeRootId || undefined);
+    if (!r.ok) {
+      setStatus(r.error || "切换程序失败", "err");
+      return;
+    }
+    setSelectedInstrId(null);
+    await reloadPrograms();
+    setStatus(`已切换至 ${r.programName || programId}`);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) {
+        return;
+      }
+      const body = activeRootId ? { sceneRootBackendId: activeRootId } : {};
+      if (e.key === "z" || e.key === "Z") {
+        if (e.shiftKey) return;
+        e.preventDefault();
+        void undoProgramEdit(body).then(async (r) => {
+          if (!r.ok) setStatus(r.error || "撤销失败", "err");
+          else {
+            await reloadPrograms();
+            setStatus(r.stub ? "撤销（桩）" : "已撤销");
+          }
+        });
+      } else if (e.key === "y" || e.key === "Y") {
+        e.preventDefault();
+        void redoProgramEdit(body).then(async (r) => {
+          if (!r.ok) setStatus(r.error || "重做失败", "err");
+          else {
+            await reloadPrograms();
+            setStatus(r.stub ? "重做（桩）" : "已重做");
+          }
+        });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeRootId, reloadPrograms, setStatus]);
 
   const teach = async (type: string) => {
     if (!activeRootId) {
@@ -249,7 +306,33 @@ export default function InstructionPanel() {
     }
     setPlaying(true);
     abortRef.current = false;
-    // 与桌面一致：不清 IO，靠程序 SET_DO 产生 DI 上升沿
+
+    const serverOk = await probeServerPlayback();
+    if (serverOk) {
+      setStatus("运行中…");
+      const played = await startServerPlayback(
+        {
+          sceneRootBackendId: activeRootId,
+          programId: activeProgram?.id,
+          playbackRate: simRate,
+        },
+        () => abortRef.current,
+        (frame) => {
+          if (frame.instructionId) setSelectedInstrId(frame.instructionId);
+        },
+      );
+      setPlaying(false);
+      if (played.ok) {
+        if (!abortRef.current) {
+          setStatus(played.abortSummary ? `运行结束: ${played.abortSummary}` : "运行完成", played.abortSummary ? "warn" : "info");
+        }
+      } else {
+        setStatus(played.error || "服务端运行失败", "err");
+      }
+      await reloadPrograms();
+      return;
+    }
+
     try {
       await runProgram();
     } catch {
@@ -326,6 +409,37 @@ export default function InstructionPanel() {
     await reloadPrograms();
   };
 
+  const exportRobotProgram = async () => {
+    if (!activeRootId) {
+      setStatus("请先导入机器人", "warn");
+      return;
+    }
+    const brand = ROBOT_EXPORT_BRANDS.find((b) => b.id === exportBrand) || ROBOT_EXPORT_BRANDS[0];
+    let outputPath = "";
+    try {
+      const d = await dialogOpen({
+        purpose: "saveFile",
+        title: "导出机器人程序",
+        filter: brand.filter,
+      });
+      if (!d.ok || !d.path) {
+        if (!d.cancelled) setStatus(d.error || "未选择导出路径", "warn");
+        return;
+      }
+      outputPath = d.path;
+    } catch {
+      outputPath = window.prompt("导出路径")?.trim() || "";
+      if (!outputPath) return;
+    }
+    const r = await exportProgram({
+      sceneRootBackendId: activeRootId,
+      programId: activeProgram?.id,
+      brand: brand.id,
+      outputPath,
+    });
+    setStatus(r.ok ? `已导出 ${r.path || outputPath}` : r.error || "导出失败", r.ok ? "info" : "err");
+  };
+
   return (
     <div className="robot-pane" id="robotCmd">
       <div className="toolbar-row">
@@ -356,12 +470,31 @@ export default function InstructionPanel() {
           />
           <span>x</span>
         </label>
-        <button type="button" className="btn-ghost" onClick={() => setStatus("导出尚未接入", "warn")}>
+        <label className="inline">
+          品牌
+          <select value={exportBrand} onChange={(e) => setExportBrand(e.target.value)}>
+            {ROBOT_EXPORT_BRANDS.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="btn-ghost" onClick={() => void exportRobotProgram()}>
           导出
         </button>
       </div>
       <div className="prog-head">
-        <span>程序 {activeProgram?.name || activeProgram?.id || "Main"}</span>
+        <label className="field compact prog-select">
+          程序
+          <select value={activeProgramId} onChange={(e) => void switchProgram(e.target.value)}>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name || p.id}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           className="btn-ghost"

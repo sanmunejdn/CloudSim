@@ -346,16 +346,17 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 {
 	geoalgo::ShapeHandle tip;
 	std::unordered_map<std::uintptr_t, std::string> tshapeOwners;
-	m_tipBeforeFeature.clear();
-	m_tipAfterFeature.clear();
-	m_faceOwnerByIndex.clear();
+	// P2: 派生映射先局部重建，成功才整体提交；失败时保留旧映射与旧 shape 一致
+	std::unordered_map<std::string, geoalgo::ShapeHandle> newTipBefore;
+	std::unordered_map<std::string, geoalgo::ShapeHandle> newTipAfter;
+	std::unordered_map<int, std::string> newFaceOwner;
 
 	for (const auto& feat : m_features)
 	{
 		if (feat.suppressed || feat.kind == ParametricFeatureKind::Sketch)
 			continue;
 
-		m_tipBeforeFeature[feat.id] = tip;
+		newTipBefore[feat.id] = tip;
 		const geoalgo::ShapeHandle* basePtr = tip.isNull() ? nullptr : &tip;
 		geoalgo::ShapeHandle next;
 		std::string err;
@@ -800,15 +801,27 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			return false;
 		}
 		tip = std::move(next);
-		m_tipAfterFeature[feat.id] = tip;
-		geoalgo::mergeFaceOwnershipByTShape(tip, feat.id, tshapeOwners, m_faceOwnerByIndex);
+		newTipAfter[feat.id] = tip;
+		geoalgo::mergeFaceOwnershipByTShape(tip, feat.id, tshapeOwners, newFaceOwner);
 	}
 
 	if (tip.isNull())
 	{
+		// 例外：全抑制/空历史时允许清空几何与映射（语义=空实体）
 		clearGeometry();
-		return true;
+		m_tipBeforeFeature.clear();
+		m_tipAfterFeature.clear();
+		m_faceOwnerByIndex.clear();
+		if (errMsg)
+		{
+			*errMsg = "no solid tip after rebuild (empty history, all suppressed, or only sketches).";
+		}
+		return false;
 	}
+	// 成功才提交派生映射
+	m_tipBeforeFeature = std::move(newTipBefore);
+	m_tipAfterFeature = std::move(newTipAfter);
+	m_faceOwnerByIndex = std::move(newFaceOwner);
 	setShape(std::move(tip));
 	return true;
 }
@@ -869,7 +882,23 @@ bool ParametricBrepBackendData::loadDerivedJson(const nlohmann::json& in, std::s
 		return false;
 	if (!in.contains("parametricHistory"))
 		return true;
-	return historyFromJson(in["parametricHistory"], errMsg);
+	if (!historyFromJson(in["parametricHistory"], errMsg))
+		return false;
+	// 加载后自动 rebuild，使 faceOwner/tip 映射立即可用
+	std::string rebuildErr;
+	if (!rebuild(&rebuildErr))
+	{
+		if (errMsg && errMsg->empty())
+		{
+			*errMsg = rebuildErr.empty() ? "parametric rebuild after load failed." : rebuildErr;
+		}
+		else if (errMsg && !rebuildErr.empty())
+		{
+			errMsg->append("; ").append(rebuildErr);
+		}
+		// history 已恢复，rebuild 失败不阻断对象注册
+	}
+	return true;
 }
 
 bool ParametricBrepBackendData::runParametricHistorySelfTest(std::string* errMsg)

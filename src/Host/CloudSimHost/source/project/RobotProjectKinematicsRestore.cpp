@@ -1,4 +1,4 @@
-﻿/// @file RobotProjectKinematicsRestore.cpp
+/// @file RobotProjectKinematicsRestore.cpp
 /// @brief 工程运动学恢复
 
 #include "RobotProjectKinematicsRestore.h"
@@ -152,7 +152,7 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(backend.getData(bid.toStdString()));
 		if (meshPtr)
 		{
-			outer.insert(bid, RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix(&backend)));
+			outer.insert(bid, RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix()));
 		}
 		else
 		{

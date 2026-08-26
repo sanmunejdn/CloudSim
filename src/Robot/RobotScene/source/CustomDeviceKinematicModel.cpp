@@ -128,9 +128,9 @@ bool Model::applyToSink(CustomDeviceBackendData& device, BackendDataManager* mgr
 		{
 			continue;
 		}
-		const BackendMat4 wOld = geom->worldMatrix(mgr);
+		const BackendMat4 wOld = geom->worldMatrix();
 		const BackendMat4 wNew = CustomDeviceMat4Layout::kinematicCoreToBackendMat4(buf[i].data());
-		geom->setWorldMatrix(wNew, mgr);
+		geom->setWorldMatrix(wNew);
 		writeSinkWorld(sink, L.payloadKey, wNew);
 
 		if (!mgr)
@@ -159,7 +159,7 @@ bool forwardLinkWorldById(const CustomDeviceBackendData& device, BackendDataMana
 	}
 	std::vector<std::array<double, 16>> buf(graph.links.size());
 	double w0[16];
-	const BackendMat4 w0Mat = mgr ? device.worldMatrix(mgr) : device.baseWorldW0();
+	const BackendMat4 w0Mat = mgr ? device.worldMatrix() : device.baseWorldW0();
 	CustomDeviceMat4Layout::backendMat4ToKinematicCore(w0Mat, w0);
 	if (!kinematic_core::forwardKinematicsTree(graph, w0, q.data(), q.size(),
 											   reinterpret_cast<double(*)[16]>(buf.data())))

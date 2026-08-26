@@ -12,6 +12,7 @@
 #include "BackendObjectAttribute.h"
 #include "PropertyBag.h"
 
+#include <atomic>
 #include <cstddef>
 #include <memory>
 #include <mutex>
@@ -70,6 +71,9 @@ public:
 
 	const std::string& id() const;
 	void setId(const std::string& id);
+	/// 注册进 Manager 后冻结 id；解码期（未注册）仍可 setId
+	void markIdRegistered(bool registered);
+	bool isIdRegistered() const { return m_idRegistered; }
 
 	const std::string& name() const;
 	void setName(const std::string& name);
@@ -96,6 +100,9 @@ public:
 	virtual bool hasRotationProperty() const { return false; }
 	virtual bool hasColorProperty() const { return false; }
 
+	/// 位姿由外部系统驱动（如机器人挂载）时返回 true，Follow 求解器不覆写其世界矩阵
+	virtual bool isPoseExternallyDriven() const { return false; }
+
 	/// 窄变换 API：暴露 pose/rotation 的类型以世界位姿为准
 	virtual bool supportsBackendTransform() const { return hasPoseProperty(); }
 	virtual void applyBackendWorldPose(const BackendVec3& centerWorld, const BackendVec3& eulerDegWorld);
@@ -111,11 +118,12 @@ public:
 	BackendPoseValue poseValue(BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr) const;
 	void setPoseValue(const BackendPoseValue& value, BackendPoseReferenceFrame frame,
 					  const BackendDataManager* mgr = nullptr);
-	BackendMat4 worldMatrix(const BackendDataManager* mgr = nullptr) const;
-	void setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr = nullptr);
-	std::uint64_t geometryRevision() const { return m_geometryRevision; }
-	/// 用户拖动/Gizmo：后乘增量，geometry 不变
-	void applyWorldMatrixIncrement(const BackendMat4& incrementLocal, const BackendDataManager* mgr = nullptr);
+	BackendMat4 worldMatrix() const;
+	void setWorldMatrix(const BackendMat4& world);
+	std::uint64_t geometryRevision() const { return m_geometryRevision.load(std::memory_order_relaxed); }
+	std::uint64_t poseRevision() const { return m_poseRevision.load(std::memory_order_relaxed); }
+	/// Gizmo 拖动：世界系左乘增量 `incrementWorld * worldMatrix`
+	void applyWorldMatrixIncrement(const BackendMat4& incrementWorld);
 	bool validatePoseFrameRoundTrip(const BackendDataManager* mgr, double epsilon = 1e-6) const;
 
 	PropertyBag& propertyBag() { return m_propertyBag; }
@@ -127,6 +135,9 @@ public:
 	virtual bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 									 const BackendDataManager* mgr = nullptr);
 
+	/// 本对象（含组件）引用的其他后端对象 id；unregister 时用于悬挂引用检测
+	virtual void collectReferencedBackendIds(std::vector<std::string>& out) const;
+
 	bool addComponent(const BackendComponentPtr& component);
 	bool removeComponent(const std::string& componentType);
 	BackendComponentPtr getComponent(const std::string& componentType) const;
@@ -135,12 +146,14 @@ public:
 	{
 		static_assert(std::is_base_of<IBackendComponent, T>::value, "T must derive from IBackendComponent");
 		std::lock_guard<std::mutex> lock(m_componentMutex);
-		const auto it = m_componentsByType.find(std::type_index(typeid(T)));
-		if (it == m_componentsByType.end())
+		for (const auto& kv : m_components)
 		{
-			return nullptr;
+			if (auto typed = std::dynamic_pointer_cast<T>(kv.second))
+			{
+				return typed;
+			}
 		}
-		return std::dynamic_pointer_cast<T>(it->second);
+		return nullptr;
 	}
 
 	template <typename T, typename... Args>
@@ -164,7 +177,9 @@ public:
 	static std::string generateId();
 
 protected:
-	void bumpGeometryRevision() { ++m_geometryRevision; }
+	void bumpGeometryRevision() { m_geometryRevision.fetch_add(1U, std::memory_order_relaxed); }
+	void bumpPoseRevision() { m_poseRevision.fetch_add(1U, std::memory_order_relaxed); }
+	void syncPropertyBagFromState();
 	virtual void saveDerivedJson(nlohmann::json& out) const;
 	virtual bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg);
 
@@ -172,15 +187,16 @@ protected:
 
 private:
 	std::string m_id;
+	bool m_idRegistered = false;
 	std::string m_name;
 	bool m_visible = true;
 	BackendPoseReferenceFrame m_poseReferenceFrame = BackendPoseReferenceFrame::World;
 	BackendMat4 m_worldMatrix = BackendMat4::identity();
-	std::uint64_t m_geometryRevision = 0;
-	mutable PropertyBag m_propertyBag;
+	std::atomic<std::uint64_t> m_geometryRevision{0};
+	std::atomic<std::uint64_t> m_poseRevision{0};
+	PropertyBag m_propertyBag;
 	mutable std::mutex m_componentMutex;
 	std::unordered_map<std::string, BackendComponentPtr> m_components;
-	std::unordered_map<std::type_index, BackendComponentPtr> m_componentsByType;
 };
 
 #endif // DATA_BACKENDDATABASE_H

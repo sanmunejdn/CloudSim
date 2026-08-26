@@ -1,4 +1,4 @@
-﻿/// @file TrajectoryEditSession.cpp
+/// @file TrajectoryEditSession.cpp
 /// @brief TrajectoryEdit会话
 
 #include "TrajectoryEditSession.h"
@@ -385,7 +385,7 @@ void TrajectoryEditSession::injectWorkpieceReferenceOnEngine() const
 				}
 				return false;
 			}
-			const BackendMat4 world = data->worldMatrix(mgr);
+			const BackendMat4 world = data->worldMatrix();
 			engine::ColMajorMat4 cm{};
 			for (int i = 0; i < 16; ++i)
 			{

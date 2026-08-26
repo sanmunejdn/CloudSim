@@ -12,14 +12,18 @@
 #include "BackendTypeIdentity.h"
 #include "BrepBackendData.h"
 #include "CustomDeviceBackendData.h"
+#include "CustomDeviceRobotMountComponent.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
+#include "FollowAttachmentComponent.h"
 #include "FrameBackendData.h"
 #include "IDataService.h"
 #include "io/CustomDeviceHostOps.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
+#include "ParametricBrepBackendData.h"
 #include "PointCloudBackendData.h"
+#include "RunLogger.h"
 #include "ViewTessellate.h"
 
 #include <QDir>
@@ -64,6 +68,63 @@ void appendProjectLoadWarning(QStringList* outWarnings, const QString& message)
 
 // 加载工程时用于共享 stepSidecar 对应 Shape 的缓存
 QMap<QString, std::shared_ptr<BrepBackendData>> g_stepSidecarCache;
+
+// id 软引用完整性校验：DAG 只管层级边，对象内的 backendId 引用（follow.targetId、
+// CustomDeviceLink::geometryBackendId、RobotMount 三个 id、motionCenterFrameBackendId、
+// upToFaceBackendId）删除被引用对象后会留下悬空 id。加载收尾时全量对账一次并告警，
+// 不再静默让求解器跳过
+void collectDanglingBackendRefs(DocumentHost& host, QStringList* outWarnings)
+{
+	const auto all = host.backend().listData();
+	for (const auto& d : all)
+	{
+		if (!d)
+		{
+			continue;
+		}
+		auto checkRef = [&](const std::string& refId, const char* fieldDesc)
+		{
+			if (!refId.empty() && !host.backend().contains(refId))
+			{
+				appendProjectLoadWarning(
+					outWarnings,
+					QStringLiteral("Dangling reference: %1 (id=%2) field %3 points to missing backend \"%4\"")
+						.arg(QString::fromStdString(d->name()), QString::fromStdString(d->id()),
+							 QString::fromLatin1(fieldDesc), QString::fromStdString(refId)));
+			}
+		};
+		if (const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+				d->getComponent(FollowAttachmentComponent::typeKeyStatic())))
+		{
+			checkRef(follow->targetBackendId(), "follow.targetId");
+		}
+		if (const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(d))
+		{
+			for (const auto& link : device->links())
+			{
+				checkRef(link.geometryBackendId, "link.geometryBackendId");
+			}
+			for (const auto& axis : device->axes().axes)
+			{
+				checkRef(axis.motionCenterFrameBackendId, "axis.motionCenterFrameBackendId");
+			}
+			if (const auto mount = std::dynamic_pointer_cast<CustomDeviceRobotMountComponent>(
+					device->getComponent(CustomDeviceRobotMountComponent::typeKeyStatic())))
+			{
+				checkRef(mount->robotSceneBackendId(), "mount.robotSceneBackendId");
+				checkRef(mount->mountFrameBackendId(), "mount.mountFrameBackendId");
+				checkRef(mount->flangeBackendId(), "mount.flangeBackendId");
+			}
+		}
+		if (const auto param = std::dynamic_pointer_cast<ParametricBrepBackendData>(d))
+		{
+			for (const auto& f : param->features())
+			{
+				checkRef(f.upToFaceBackendId, "feature.upToFaceBackendId");
+			}
+		}
+	}
+}
 
 } // namespace
 
@@ -150,8 +211,10 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 
 			// 优先尝试 stepSidecar（新保存格式，原始 STEP 拷贝），并支持多个 BREP 共享同一个 Shape
 			QString stepRel = emb.value(QStringLiteral("stepSidecar")).toString();
+			bool attemptedSidecar = false;
 			if (!stepRel.isEmpty())
 			{
+				attemptedSidecar = true;
 				if (g_stepSidecarCache.contains(stepRel))
 				{
 					// 直接共享已加载的 Shape
@@ -182,34 +245,42 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 			}
 			else
 			{
-				// 回退到旧的 brepSidecar 格式
-				QString brepRel = emb.value(QStringLiteral("brepSidecar")).toString();
-				if (brepRel.isEmpty())
+			// 回退到旧的 brepSidecar 格式
+			QString brepRel = emb.value(QStringLiteral("brepSidecar")).toString();
+			if (brepRel.isEmpty())
+			{
+				brepRel = objectJson.value(QStringLiteral("assetRelativePath")).toString();
+			}
+			const QString brepPath = resolveProjectObjectLoadPath(projectDir, sourcePath, brepRel);
+			if (!brepPath.isEmpty())
+			{
+				attemptedSidecar = true;
+				const QByteArray enc = QFile::encodeName(brepPath);
+				const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+				std::string loadErr;
+				if (!brep->loadFromBrepFile(nativePath, &loadErr))
 				{
-					brepRel = objectJson.value(QStringLiteral("assetRelativePath")).toString();
+					if (outError)
+					{
+						*outError = loadErr.empty() ? QStringLiteral("Failed to load B-rep sidecar")
+													: QString::fromStdString(loadErr);
+					}
+					return false;
 				}
-				const QString brepPath = resolveProjectObjectLoadPath(projectDir, sourcePath, brepRel);
-				if (!brepPath.isEmpty())
+				if (!brepRel.isEmpty())
 				{
-					const QByteArray enc = QFile::encodeName(brepPath);
-					const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
-					std::string loadErr;
-					if (!brep->loadFromBrepFile(nativePath, &loadErr))
-					{
-						if (outError)
-						{
-							*outError = loadErr.empty() ? QStringLiteral("Failed to load B-rep sidecar")
-														: QString::fromStdString(loadErr);
-						}
-						return false;
-					}
-					if (!brepRel.isEmpty())
-					{
-						brep->setBrepSidecarRelativePath(brepRel.toStdString());
-					}
+					brep->setBrepSidecarRelativePath(brepRel.toStdString());
 				}
 			}
+			// sidecar 路径存在但文件实际缺失/加载失败后仍空：告警提示工程文件不完整
+			if (!brep->hasGeometry() && attemptedSidecar)
+			{
+				RunLogger::warn("[ProjectIo] brep \"" + brep->id() +
+								"\" sidecar referenced but geometry still empty after load attempt. "
+								"Sidecar file may be missing or renamed.");
+			}
 		}
+	}
 	}
 	if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(backendObject))
 	{
@@ -237,6 +308,16 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 					return false;
 				}
 			}
+		}
+		// sidecar 对账：元数据声明点数与实际加载不一致即告警（sidecar 丢失/改名后不再静默空对象）
+		const QJsonObject geomJson = objectJson.value(QStringLiteral("geometry")).toObject();
+		const qint64 declared = static_cast<qint64>(geomJson.value(QStringLiteral("pointCount")).toDouble(0.0));
+		if (declared > 0 && static_cast<qint64>(pc->geometryElementCount()) != declared)
+		{
+			RunLogger::warn("[ProjectIo] point cloud \"" + pc->id() + "\" declares pointCount=" +
+							std::to_string(declared) + " but loaded " +
+							std::to_string(pc->geometryElementCount()) +
+							". PLY sidecar may be missing or renamed.");
 		}
 	}
 	OsgWidget* osg = osgWidgetFrom(host);
@@ -632,6 +713,7 @@ void finalizeProjectHierarchyAfterObjects(DocumentHost& host, const bool useEdge
 		applyProjectEdgesToBackend(host, edges, outWarnings);
 	}
 	rebuildBackendParentIdMirror(host);
+	collectDanglingBackendRefs(host, outWarnings);
 }
 
 bool exportBackendTriangleSoupMm(DocumentHost& host, const QString& backendId, std::vector<float>& outSoup,

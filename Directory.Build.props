@@ -17,12 +17,33 @@
 
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+
+    <CloudSimBinDir>$(CloudSimRepoRoot)bin\x64d\</CloudSimBinDir>
+
+    <CloudSimIntRoot>$(CloudSimRepoRoot)bin\x64dmiddle\</CloudSimIntRoot>
+
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
 
     <CloudSimBinDir>$(CloudSimRepoRoot)bin\x64\</CloudSimBinDir>
 
     <CloudSimIntRoot>$(CloudSimRepoRoot)bin\x64middle\</CloudSimIntRoot>
 
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+
+    <CloudSimBinDir>$(CloudSimRepoRoot)bin\x64\</CloudSimBinDir>
+
+    <CloudSimIntRoot>$(CloudSimRepoRoot)bin\x64middle\</CloudSimIntRoot>
+
+  </PropertyGroup>
+
+  <!-- Qt 每次 Build 都会 Overwrite IntDir\qt\qt_work.log；该文件新于 DLL 时 VS Fast Up-To-Date 永久失败，表现为 RobotWidget/Widget「无改动仍生成」 -->
+  <PropertyGroup>
+    <QtLogFilePath Condition="'$(QtLogFilePath)' == ''">$(TEMP)\CloudSim_$(MSBuildProjectName)_$(Configuration)_$(Platform)_qt_work.log</QtLogFilePath>
   </PropertyGroup>
 
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">

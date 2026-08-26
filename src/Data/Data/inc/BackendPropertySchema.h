@@ -9,6 +9,21 @@
 #include "BackendDataBase.h"
 #include "BackendTypeIdentity.h"
 
+#ifdef DATA_BUILD_DLL
+// Data.dll 内部：直接链 RunLogger
+#include "RunLogger.h"
+#else
+// 宿主工程（BackendVisual 等）无 RunLogger include 目录：
+// 此处仅保证可编译；未知 className 告警在宿主侧静默（Data.dll 内部仍全量告警）
+namespace BackendPropertySchemaDetail
+{
+inline void defaultWarn(const std::string&) {}
+} // namespace BackendPropertySchemaDetail
+#endif
+
+#include <mutex>
+#include <unordered_set>
+
 /// 后端对象属性 schema 拼装与语义位标注
 namespace backend_property_schema
 {
@@ -66,6 +81,14 @@ inline const property_core::PropertySchema& pointCloudBackendSchema()
 		s.schemaVersion = 1;
 		s.descriptors = commonTransformDisplayPack();
 		tagPoseRotationColorSemantics(s.descriptors);
+		s.descriptors.push_back({"visible", "Visible", PropertyType::Bool, true});
+		for (PropertyDescriptor& d : s.descriptors)
+		{
+			if (d.key == "visible")
+			{
+				d.semanticFlags = PropertySemanticFlags::AffectsVisibility;
+			}
+		}
 		return s;
 	}();
 	return schema;
@@ -211,6 +234,24 @@ inline const property_core::PropertySchema& schemaForBackendClassName(const std:
 	if (className == backend_type::kClassBrepModel || className == backend_type::kClassParametricBrep)
 	{
 		return brepBackendSchema();
+	}
+	if (!backend_type::isMeshClassName(className))
+	{
+		// 未知 className 落到 mesh schema 易掩盖拼写错误；告警一次即可
+		static std::unordered_set<std::string> warned;
+		static std::mutex warnedMutex;
+		{
+			std::lock_guard<std::mutex> lock(warnedMutex);
+			if (warned.insert(className).second)
+			{
+#ifdef DATA_BUILD_DLL
+			RunLogger::warn("[BackendPropertySchema] unknown className \"" + className +
+							"\", fallback to mesh schema.");
+#else
+			BackendPropertySchemaDetail::defaultWarn(className);
+#endif
+			}
+		}
 	}
 	return meshBackendSchema();
 }

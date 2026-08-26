@@ -54,6 +54,7 @@ public:
 	bool hasRotationProperty() const override { return true; }
 	bool hasColorProperty() const override { return true; }
 
+	/// STEP 加载见 backend_io；此处转发兼容旧调用方
 	bool loadFromStepFile(const std::string& path, std::string* errMsg = nullptr);
 	bool loadFromBrepFile(const std::string& path, std::string* errMsg = nullptr);
 	bool writeBrepFile(const std::string& path, std::string* errMsg = nullptr) const;

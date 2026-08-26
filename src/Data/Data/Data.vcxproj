@@ -168,8 +168,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="inc\GeometryBackendOps.h" />
-    <ClInclude Include="inc\GeometryRef.h" />
+    <ClInclude Include="inc\BackendImporters.h" />
     <ClInclude Include="inc\BackendFollowTransformSolver.h" />
     <ClInclude Include="inc\BackendCompoundPropagate.h" />
     <ClInclude Include="inc\BackendSpatial.h" />
@@ -179,12 +178,12 @@
     <ClInclude Include="inc\BackendObjectAttribute.h" />
     <ClInclude Include="inc\BackendPropertyRow.h" />
     <ClInclude Include="inc\BackendDataManager.h" />
+    <ClInclude Include="inc\BackendManagerDataService.h" />
     <ClInclude Include="inc\BackendHierarchyChange.h" />
     <ClInclude Include="inc\BackendHierarchyModel.h" />
     <ClInclude Include="inc\data_global.h" />
     <ClInclude Include="inc\geometry_base64.h" />
     <ClInclude Include="inc\BackendPrimitiveGeometry.h" />
-    <ClInclude Include="inc\MeshBoolean.h" />
     <ClInclude Include="inc\BackendTypeIdentity.h" />
     <ClInclude Include="inc\BrepBackendData.h" />
     <ClInclude Include="inc\ParametricBrepBackendData.h" />
@@ -194,13 +193,13 @@
     <ClInclude Include="inc\MeshBackendData.h" />
     <ClInclude Include="inc\PlyIo.h" />
     <ClInclude Include="inc\PointCloudBackendData.h" />
-    <ClInclude Include="inc\PointCloudBackendOps.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="source\BackendImporters.cpp" />
     <ClCompile Include="source\BackendFollowMath.cpp" />
     <ClCompile Include="source\BackendSpatial.cpp" />
     <ClCompile Include="source\BackendFollowTransformSolver.cpp" />
@@ -214,8 +213,6 @@
     <ClCompile Include="source\BackendHierarchyModel.cpp" />
     <ClCompile Include="source\geometry_base64.cpp" />
     <ClCompile Include="source\BackendPrimitiveGeometry.cpp" />
-    <ClCompile Include="source\GeometryBackendOps.cpp" />
-    <ClCompile Include="source\MeshBoolean.cpp" />
     <ClCompile Include="source\BrepBackendData_core.cpp" />
     <ClCompile Include="source\BrepBackendData_step.cpp" />
     <ClCompile Include="source\ParametricBrepBackendData.cpp" />
@@ -229,8 +226,12 @@
     <ClCompile Include="source\MeshBackendData_dxf.cpp" />
     <ClCompile Include="source\PlyIo.cpp" />
     <ClCompile Include="source\PointCloudBackendData.cpp" />
-    <ClCompile Include="source\PointCloudBackendOps.cpp" />
     <ClCompile Include="source\CloudSimCoreExport.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <AdditionalIncludeDirectories>../../Contracts/CloudSimCore/inc;D:\Qt\Qt5.14.2\5.14.2\msvc2017_64\include;D:\Qt\Qt5.14.2\5.14.2\msvc2017_64\include\QtCore;D:\Qt\Qt5.14.2\5.14.2\msvc2017_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="source\CloudSimCoreDataService.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <AdditionalIncludeDirectories>../../Contracts/CloudSimCore/inc;D:\Qt\Qt5.14.2\5.14.2\msvc2017_64\include;D:\Qt\Qt5.14.2\5.14.2\msvc2017_64\include\QtCore;D:\Qt\Qt5.14.2\5.14.2\msvc2017_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

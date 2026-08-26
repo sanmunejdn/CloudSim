@@ -29,33 +29,36 @@ public:
 	bool enabled() const;
 	void setEnabled(bool on);
 
-	const std::string& robotSceneBackendId() const;
+	// 按值返回：锁内拷贝，避免锁释放后悬挂引用
+	std::string robotSceneBackendId() const;
 	void setRobotSceneBackendId(std::string id);
 
-	const std::string& flangeLinkName() const;
+	std::string flangeLinkName() const;
 	void setFlangeLinkName(std::string name);
 
-	const std::string& mountFrameBackendId() const;
+	std::string mountFrameBackendId() const;
 	void setMountFrameBackendId(std::string id);
 
 	/// 挂载时解析的法兰 link mesh backendId（FK 后读 worldMatrix）
-	const std::string& flangeBackendId() const;
+	std::string flangeBackendId() const;
 	void setFlangeBackendId(std::string id);
 
-	const BackendMat4& tFlangeDevice() const;
+	BackendMat4 tFlangeDevice() const;
 	void setTFlangeDevice(const BackendMat4& m);
 
 	/// 安装坐标系在设备 W0 下的位姿：T_device_mountFrame（挂载时冻结）
-	const BackendMat4& frameInDeviceW0() const;
+	BackendMat4 frameInDeviceW0() const;
 	void setFrameInDeviceW0(const BackendMat4& m);
 
 	/// 挂载时刻机器人激活工具系 T_flange_tool
-	const BackendMat4& toolFrameInFlange() const;
+	BackendMat4 toolFrameInFlange() const;
 	void setToolFrameInFlange(const BackendMat4& m);
 
 	bool alignsMountFrameToTcp() const;
 
 	void setAlignMountFrameToTcp(bool on);
+
+	void collectReferencedBackendIds(std::vector<std::string>& out) const override;
 
 	void writeJson(nlohmann::json& out) const;
 	void readJson(const nlohmann::json& in);

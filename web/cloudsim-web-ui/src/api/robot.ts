@@ -141,8 +141,47 @@ export const postJoints = (sceneRootBackendId: string, jointAnglesRad: number[])
 export const planInstruction = (body: unknown) =>
   postJson<{ ok: boolean; jointTargetsRad?: number[]; error?: string; frames?: number[][] }>("/api/robot/plan", body);
 
-export const runProgram = () => postJson<ApiOk>("/api/robot/run");
-export const stopProgram = () => postJson<ApiOk>("/api/robot/stop");
+export type RunProgramBody = {
+  sceneRootBackendId?: string;
+  programId?: string;
+  playbackRate?: number;
+};
+
+export type PlaybackStatus = {
+  ok: boolean;
+  running?: boolean;
+  sceneRootBackendId?: string;
+  jointAnglesRad?: number[];
+  error?: string;
+};
+
+export type ExportProgramBody = {
+  sceneRootBackendId?: string;
+  programId?: string;
+  brand?: string;
+  outputPath?: string;
+  scriptStem?: string;
+};
+
+export const runProgram = (body?: RunProgramBody) =>
+  postJson<ApiOk & { status?: string; error?: string }>("/api/robot/run", body ?? {});
+
+export const stopProgram = () => postJson<ApiOk & { status?: string }>("/api/robot/stop");
+
+export const fetchPlaybackStatus = () => apiJson<PlaybackStatus>("/api/robot/playback/status");
+
+export const exportProgram = (body: ExportProgramBody) =>
+  postJson<{ ok: boolean; path?: string; canonicalPath?: string; error?: string }>("/api/robot/export", body);
+
+/** 与桌面 BrandProgramExportDialog::allBrands 对齐 */
+export const ROBOT_EXPORT_BRANDS = [
+  { id: "abb", label: "ABB", filter: "ABB RAPID (*.MOD)" },
+  { id: "air", label: "AIR", filter: "AIR ARL (*.arl)" },
+  { id: "fanuc", label: "FANUC", filter: "FANUC LS (*.LS)" },
+  { id: "inovance", label: "INOVANCE", filter: "INOVANCE PRO (*.pro)" },
+  { id: "lineheating", label: "LineHeating", filter: "LineHeating LS (*.LS)" },
+  { id: "rokae", label: "ROKAE", filter: "ROKAE MOD (*.mod)" },
+] as const;
 
 export const placeRobot = (body: unknown) => postJson<ApiOk>("/api/robot/place", body);
 export const tcpIk = (body: unknown) =>
@@ -159,3 +198,47 @@ export const tcpPose = (sceneRootBackendId: string) =>
 
 export const createPathPlan = (sceneRootBackendId: string) =>
   postJson<{ ok: boolean; pathPlanId?: string; error?: string }>("/api/robot/path-plan", { sceneRootBackendId });
+
+export type CollisionSettings = {
+  enabled?: boolean;
+  securityMarginMm?: number;
+  whiteListBackendIds?: string[];
+  blackListBackendIds?: string[];
+};
+
+export const fetchCollisionSettings = () =>
+  apiJson<CollisionSettings & { ok: boolean; error?: string; stub?: boolean }>("/api/robot/collision-settings");
+
+export const putCollisionSettings = (body: CollisionSettings) =>
+  putJson<ApiOk>("/api/robot/collision-settings", body);
+
+/** 规划路由未上线时由面板回退为仅保存设置 */
+export async function postCollisionPlan(
+  body: CollisionSettings,
+): Promise<{ ok: boolean; error?: string; routeMissing?: boolean }> {
+  const r = await fetch("/api/robot/collision/plan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (r.status === 404) return { ok: false, routeMissing: true };
+  return (await r.json()) as { ok: boolean; error?: string };
+}
+
+export const switchRobotProgram = (programId: string, sceneRootBackendId?: string) =>
+  postJson<{ ok: boolean; programId?: string; programName?: string; error?: string }>(
+    "/api/robot/programs/switch",
+    { programId, ...(sceneRootBackendId ? { sceneRootBackendId } : {}) },
+  );
+
+export const undoProgramEdit = (body: { sceneRootBackendId?: string } = {}) =>
+  postJson<{ ok: boolean; canUndo?: boolean; error?: string; stub?: boolean }>(
+    "/api/robot/program-edit/undo",
+    body,
+  );
+
+export const redoProgramEdit = (body: { sceneRootBackendId?: string } = {}) =>
+  postJson<{ ok: boolean; canRedo?: boolean; error?: string; stub?: boolean }>(
+    "/api/robot/program-edit/redo",
+    body,
+  );

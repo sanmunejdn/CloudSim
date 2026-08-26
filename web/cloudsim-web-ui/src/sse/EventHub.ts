@@ -45,6 +45,7 @@ export class EventHub {
     this.es.addEventListener("IoSignalsChanged", (ev) =>
       this.dispatch("IoSignalsChanged", (ev as MessageEvent).data),
     );
+    this.es.addEventListener("PlaybackFrame", (ev) => this.dispatch("PlaybackFrame", (ev as MessageEvent).data));
   }
 
   stop() {

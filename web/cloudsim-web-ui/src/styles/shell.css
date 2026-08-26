@@ -252,6 +252,18 @@ body.dock-resizing *{cursor:col-resize!important}
 .pc-row-2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .pc-check{display:inline-flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
 .prog-head{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #ddd;font-weight:600}
+.prog-head .prog-select{flex:1;min-width:0;font-weight:400;margin:0}
+.prog-head .prog-select select{width:100%;font-weight:600}
+.collision-pane fieldset{border:1px solid #bbb;border-radius:3px;margin:6px 0;padding:8px}
+.collision-pane .collision-pool{max-height:120px;overflow:auto;border:1px solid #ddd;background:#fff;padding:4px;margin:4px 0}
+.collision-pool-item{display:flex;align-items:center;gap:6px;padding:2px 4px;font-size:12px}
+.collision-lists{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.collision-list-col{min-width:0}
+.collision-id-list{list-style:none;margin:0;padding:0;max-height:100px;overflow:auto;border:1px solid #ddd;background:#fff;font-size:12px}
+.collision-id-list li{padding:3px 6px;border-bottom:1px solid #f0f0f0}
+.device-stub-list{padding:8px;display:flex;flex-direction:column;gap:6px}
+.device-stub-row{border:1px solid #ddd;border-radius:3px;padding:8px;background:#fafafa;display:flex;flex-direction:column;gap:6px;cursor:pointer}
+.device-stub-row.sel{border-color:#1976d2;background:#eef6fc}
 .section-title{font-weight:600;margin-top:2px}
 .cmd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
 .cmd-grid.narrow{grid-template-columns:repeat(3,1fr)}
@@ -362,6 +374,9 @@ body.dock-resizing *{cursor:col-resize!important}
 .traj-op-pipeline .step .rm{flex-shrink:0;border:0;background:transparent;color:#888;padding:0 4px;cursor:pointer}
 .traj-op-pipeline .step .rm:hover{color:#b71c1c}
 .traj-op-pipeline .step.disabled-op .t{color:#999}
+.traj-op-palette button[draggable="true"]{cursor:grab}
+.traj-op-pipeline .step[draggable="true"]{cursor:grab}
+.traj-drop-indicator{height:2px;margin:1px 4px;background:#1976d2;border-radius:1px}
 .traj-edit-params{border:1px solid #bbb;border-radius:3px;background:#fff;padding:0}
 .traj-edit-params>summary{padding:5px 8px;font-weight:600;cursor:pointer;background:#f3f3f3;border-bottom:1px solid #e0e0e0}
 .traj-edit-params .op-params-form{border:0;border-radius:0;max-height:none;overflow:visible}
@@ -429,4 +444,44 @@ body.dock-resizing *{cursor:col-resize!important}
 
 #root{height:100%;margin:0}
 .scene canvas:not(.view-cube-canvas):not(.axis-hud-canvas){display:block;width:100%;height:100%}
+
+/* —— 工作区壳（W3） —— */
+.workspace-shell{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--cs-panel)}
+.workspace-head{padding:10px 12px;border-bottom:1px solid var(--cs-border);background:var(--cs-panel)}
+.workspace-head h2{margin:0;font-size:14px}
+.workspace-head .hint,.workspace-body .hint{margin:4px 0 0;font-size:11px;color:#666}
+.workspace-toolbar{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--cs-border);background:#fafafa}
+.workspace-toolbar button,.workspace-toolbar .primary{padding:5px 10px;border:1px solid #aaa;border-radius:3px;background:#f0f0f0}
+.workspace-toolbar .primary{background:var(--cs-accent);border-color:#2468a8;color:#fff}
+.workspace-body{flex:1;min-height:0;overflow:auto;padding:10px 12px}
+.workspace-list{list-style:none;margin:0;padding:0}
+.workspace-list li{padding:6px 8px;border-bottom:1px solid #eee}
+.processflow-canvas{min-height:280px}
+.processflow-canvas .react-flow{min-height:260px;border:1px solid var(--cs-border);border-radius:4px;background:#fff}
+.feature-tree li{display:flex;flex-direction:column;gap:2px}
+.feature-tree-name{font-weight:600}
+.feature-tree-meta{font-size:11px;color:#666}
+.drawing-preview{margin-top:10px;border:1px solid var(--cs-border);background:#fff;padding:8px;max-height:360px;overflow:auto}
+.doc-tab{cursor:pointer}
+.doc-tab:not(.active){background:#e8e8e8}
+.annotations-panel .annotation-row{display:flex;flex-direction:column;gap:6px;padding:8px}
+.annotations-panel .pad{padding:12px}
+.hint.pad{padding:12px}
+
+/* —— 深色主题（W4） —— */
+html[data-theme="dark"]{
+  --cs-bg:#1a1d21;
+  --cs-text:#e8eaed;
+  --cs-accent:#4a9eff;
+  --cs-danger:#f07178;
+  --cs-panel:#252830;
+  --cs-border:#3d4450;
+}
+html[data-theme="dark"] .menubar{background:#2a2f38;border-color:var(--cs-border)}
+html[data-theme="dark"] .menu-btn{color:var(--cs-text)}
+html[data-theme="dark"] .menu-drop{background:#2a2f38;border-color:var(--cs-border)}
+html[data-theme="dark"] .dock{background:var(--cs-panel)}
+html[data-theme="dark"] .dock-body{background:#1e2228}
+html[data-theme="dark"] .center{background:#151820}
+html[data-theme="dark"] .processflow-canvas .react-flow{background:#1e2228}
 

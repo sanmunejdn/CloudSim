@@ -405,6 +405,36 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       axesHudRef.current = null;
       if (viewCube.canvas.parentElement === mount) mount.removeChild(viewCube.canvas);
       if (axesHud.canvas.parentElement === mount) mount.removeChild(axesHud.canvas);
+
+      const drainGroup = (g: THREE.Group | undefined) => {
+        if (!g) return;
+        while (g.children.length) {
+          const c = g.children[0];
+          g.remove(c);
+          disposeObject3D(c);
+        }
+      };
+      drainGroup(contentRef.current);
+      drainGroup(overlayRef.current);
+      drainGroup(frameOverlayRef.current);
+      drainGroup(rawPreviewRef.current);
+      drainGroup(instrMarkersRef.current);
+      if (rootRef.current) {
+        while (rootRef.current.children.length) {
+          const c = rootRef.current.children[0];
+          rootRef.current.remove(c);
+          disposeObject3D(c);
+        }
+      }
+      idToMesh.current.clear();
+      if (sceneRef.current) {
+        while (sceneRef.current.children.length) {
+          const c = sceneRef.current.children[0];
+          sceneRef.current.remove(c);
+          disposeObject3D(c);
+        }
+      }
+
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };

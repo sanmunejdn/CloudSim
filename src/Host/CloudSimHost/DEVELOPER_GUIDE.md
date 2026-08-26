@@ -334,7 +334,7 @@ Open Model / `importMeshFileExtended`：`loadStepHierarchyFromFile` → `collect
 | 加载 `robotPrograms` | `setRobotProgramsJson` |
 | 保存 `objects[]` | `BackendProjectObjectIo::saveProjectObject`；点云 PLY 由 `buildProjectSaveRoot` 写入 `objects/{id}.ply` |
 | 内嵌点云加载 | `registerEmbeddedProjectObject`：`plySidecar` / `assetRelativePath` → `readPointCloudPlySidecar`（兼容 `xyzBase64`） |
-| 加载 `objects[]` | `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects` |
+| 加载 `objects[]` | `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects`（收尾含 `collectDanglingBackendRefs`：全量对账对象内 id 软引用——follow.targetId / link.geometryBackendId / mount 三 id / motionCenterFrameBackendId / upToFaceBackendId，悬空即入 warnings，不再静默断链） |
 | 加载坐标系 | `FrameBackendData` / `CoordinateFrame`：无文件几何亦可走 `registerEmbeddedProjectObject`（`geometry.kind=frame` 或仅 pose） |
 | 加载内嵌几何 | `registerEmbeddedProjectObject`（由 load 编排调用） |
 | 工程文件回退 | `importProjectObjectFromFile`（网格 `importMeshFile`；点云 ply/xyz `importPointCloudFile`） |
@@ -887,3 +887,4 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | C2662 `render()` 与 `const DocumentPage` | Widget 新代码用非 const `DocumentPage*` + `render()`；插件存量 `widgetOsgFromPage` |
 | 挂载后连杆下 STEP 子件（无 Follow）不跟 TCP | 靠 `applyToSink` 的 compound \(\Delta\)，勿对无目标子件走 Follow；flush 只 `syncOuterPat` |
 | 姿态库「运动到此」位姿混乱 | 热路径勿调 `finalizeCustomDeviceLinkJointGraph`（会把当前姿势刷进 rest）；用 `ensureCustomDeviceLinkKinematicsOwnership` |
+| RobotWidget/Widget 无改动仍显示「生成」 | 常见三因：① Qt `qt_work.log` 写在 IntDir（已改 `%TEMP%`）；② Qt 聚合 `write.1u.tlog` 误记陈旧 `.lib`（已删聚合 tlog + 对齐 lib 时间戳）；③ IntDir 残留已删源的 `.obj` 仍在 CL write tlog 中（删孤儿 obj 并清 `CL.*.tlog` 后编一次）。命令行 `msbuild` 仍可能打印 `-> dll`，以 VS「最新」为准 |

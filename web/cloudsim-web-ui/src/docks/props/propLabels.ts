@@ -39,6 +39,12 @@ const LABEL_ZH: Record<string, string> = {
   "logic.io.port": "IO 端口",
   "logic.io.boolValue": "输出值 (0/1)",
   "logic.io.analogValue": "模拟量",
+  "follow.enabled": "跟随启用",
+  "follow.targetName": "跟随目标名称",
+  "follow.targetId": "跟随目标 ID",
+  "follow.localPosition": "局部位置 (mm)",
+  "follow.localEulerDeg": "局部欧拉角 (deg)",
+  "follow.hierarchyDriven": "层级驱动",
 };
 
 export function propertyDisplayLabel(key: string, fallback?: string) {
@@ -68,6 +74,7 @@ export const AXIS_ENUM_OPTS: Record<string, string[]> = {
   "logic.condition.equals": ["0", "1"],
   "logic.condition.kind": ["always", "never", "io", "compare"],
   "logic.io.boolValue": ["0", "1"],
+  "follow.enabled": ["false", "true", "0", "1"],
 };
 
 export function enumOptionsForKey(key: string): string[] | null {

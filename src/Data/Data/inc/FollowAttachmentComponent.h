@@ -10,8 +10,7 @@
 #include "BackendComponent.h"
 #include "BackendDataBase.h"
 #include "BackendFollowMath.h"
-
-#include <mutex>
+#include "BackendPropertyRow.h"
 #include <string>
 
 #include <json.hpp>
@@ -29,14 +28,31 @@ public:
 	bool enabled() const;
 	void setEnabled(bool on);
 
-	const std::string& targetBackendId() const;
+	/// 单次原子读，避免逐字段锁读到「新 target + 旧 local」撕裂组合
+	struct DATA_EXPORT Snapshot
+	{
+		bool enabled = false;
+		std::string targetId;
+		BackendVec3 localPos{};
+		BackendVec3 localEulerDeg{};
+		bool solverPaused = false;
+		bool hierarchyDriven = false;
+	};
+	Snapshot snapshot() const;
+
+	std::string targetBackendId() const;
 	void setTargetBackendId(std::string id);
+
+	void collectReferencedBackendIds(std::vector<std::string>& out) const override;
 
 	BackendVec3 localPosition() const;
 	void setLocalPosition(const BackendVec3& p);
 
 	BackendVec3 localEulerDeg() const;
 	void setLocalEulerDeg(const BackendVec3& e);
+
+	/// local 位姿原子写，与 snapshot() 配对
+	void setLocalPose(const BackendVec3& p, const BackendVec3& e);
 
 	/// true 时求解器跳过此 follower（如用户拖 gizmo）
 	bool solverPaused() const;
@@ -47,9 +63,13 @@ public:
 	void setHierarchyDriven(bool on);
 
 	/// 面板单行：按对象名选跟随目标
-	void appendPropertyRows(nlohmann::json& rows, const BackendDataManager* mgr = nullptr) const;
+	void appendPropertyRows(nlohmann::json& rows, const BackendDataManager* mgr = nullptr) const override;
 	bool applyPropertyChange(BackendDataBase& owner, const std::string& key, const std::string& value,
-							 std::string* errMsg, const BackendDataManager* mgr = nullptr);
+							 std::string* errMsg, const BackendDataManager* mgr = nullptr) override;
+	bool appendDefaultPropertyRowsWhenAbsent(nlohmann::json& rows,
+											 const BackendDataManager* mgr = nullptr) const override;
+
+	static void syncTargetNameInOwnerPropertyBag(BackendDataBase& owner, const BackendDataManager* mgr);
 
 	void writeJson(nlohmann::json& out) const;
 	void readJson(const nlohmann::json& in);

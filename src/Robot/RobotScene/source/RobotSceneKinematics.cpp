@@ -1,4 +1,4 @@
-﻿/// @file RobotSceneKinematics.cpp
+/// @file RobotSceneKinematics.cpp
 /// @brief ROBOT_KINEMATICS_DEBUG：0 关，1 紧凑，2/full 全矩阵
 
 #include "RobotSceneKinematics.h"
@@ -343,7 +343,7 @@ bool applyPerLinkRobotBasePlacement(IRobotBackendPoseSink* osg, BackendDataManag
 		}
 		const osg::Matrixd Mnew =
 			m0It.value() * osg::Matrixd::inverse(T0[linkName]) * Tq[linkName] * basePlacementWorld;
-		meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew), &mgr);
+		meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew));
 		if (osg)
 		{
 			osg->syncRobotMeshBackendPoseAfterKinematics(*meshPtr);
@@ -566,7 +566,7 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 		{
 			if (const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(mgr->getData(backendId.toStdString())))
 			{
-				meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew), mgr);
+				meshPtr->setWorldMatrix(osgMatToBackendColMajor(Mnew));
 				if (osg)
 				{
 					osg->syncRobotMeshBackendPoseAfterKinematics(*meshPtr);

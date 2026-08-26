@@ -62,11 +62,8 @@ std::unordered_set<std::string> propagateRigidDelta(BackendDataManager& mgr, con
 				continue;
 			}
 			BackendMat4 childNew{};
-			if (!backend_mat4_multiply(delta, child->worldMatrix(&mgr), childNew))
-			{
-				continue;
-			}
-			child->setWorldMatrix(childNew, &mgr);
+			(void)backend_mat4_multiply(delta, child->worldMatrix(), childNew);
+			child->setWorldMatrix(childNew);
 			if (writeWorld)
 			{
 				writeWorld(childId, childNew);
@@ -84,10 +81,8 @@ std::unordered_set<std::string> propagateFromWorldChange(BackendDataManager& mgr
 {
 	BackendMat4 invOld{};
 	BackendMat4 delta{};
-	if (!backend_mat4_invert_rigid(wOld, invOld) || !backend_mat4_multiply(wNew, invOld, delta))
-	{
-		return {};
-	}
+	(void)backend_mat4_invert_rigid(wOld, invOld);
+	(void)backend_mat4_multiply(wNew, invOld, delta);
 	return propagateRigidDelta(mgr, rootId, delta, skipIds, writeWorld);
 }
 

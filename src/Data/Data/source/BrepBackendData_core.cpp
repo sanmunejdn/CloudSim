@@ -21,9 +21,7 @@ BrepBackendData::BrepBackendData()
 	c.b = 0.95f;
 	c.a = 1.0f;
 	m_color = c;
-	m_attributes.push_back(makeBackendPoseAttribute());
-	m_attributes.push_back(makeBackendRotationAttribute());
-	m_attributes.push_back(makeBackendDisplayColorAttribute());
+	appendStandardAttributesForCapabilities(*this, m_attributes);
 }
 
 std::string BrepBackendData::className() const
@@ -51,6 +49,7 @@ void BrepBackendData::clearGeometry()
 	m_shape = geoalgo::ShapeHandle{};
 	m_bounds = BackendBoundingBox{};
 	m_faceHighlightColors.clear();
+	bumpGeometryRevision();
 }
 
 void BrepBackendData::setShape(geoalgo::ShapeHandle shape)
@@ -64,6 +63,7 @@ void BrepBackendData::shareShapeFrom(const BrepBackendData& other)
 {
 	m_shape = other.m_shape;
 	recomputeBounds();
+	bumpGeometryRevision();
 }
 
 void BrepBackendData::setColor(const BackendColor& color)
@@ -79,6 +79,9 @@ BackendColor BrepBackendData::color() const
 void BrepBackendData::setFaceHighlightColors(std::unordered_map<int, BackendColor> colorsByFaceIndex)
 {
 	m_faceHighlightColors = std::move(colorsByFaceIndex);
+	// C1: 唯一调用方与 setShape 配对（setShape 内部 bump），现实安全；
+	// 未来单独设高亮的新调用方会踩，故补 bump
+	bumpGeometryRevision();
 }
 
 const std::unordered_map<int, BackendColor>& BrepBackendData::faceHighlightColors() const
@@ -89,6 +92,8 @@ const std::unordered_map<int, BackendColor>& BrepBackendData::faceHighlightColor
 void BrepBackendData::clearFaceHighlightColors()
 {
 	m_faceHighlightColors.clear();
+	// C1: 同上，单独 clear 时也需 bump
+	bumpGeometryRevision();
 }
 
 void BrepBackendData::recomputeBounds()
@@ -192,7 +197,12 @@ bool BrepBackendData::loadDerivedJson(const nlohmann::json& in, std::string* err
 	const nlohmann::json& geom = geomIt.value();
 	if (geom.value("kind", std::string()) != "brep")
 	{
-		return true;
+		// 与 Mesh/PointCloud 一致：kind 不匹配视为数据损坏，报错而非静默跳过
+		if (errMsg)
+		{
+			*errMsg = "geometry.kind mismatch, expected \"brep\".";
+		}
+		return false;
 	}
 	if (geom.contains("brepSidecar") && geom["brepSidecar"].is_string())
 	{

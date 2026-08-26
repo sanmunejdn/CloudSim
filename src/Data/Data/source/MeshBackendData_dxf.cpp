@@ -33,108 +33,143 @@ static void meshAddTraceTriangles(std::vector<float>& soup, const DL_TraceData& 
 		mesh_backend_load::meshPushTri(soup, x[0], y[0], z[0], x[2], y[2], z[2], x[3], y[3], z[3]);
 	}
 }
+/// 两个 DXF 收集器共用的 POLYLINE 累积/三角化（M×N 网格 / 闭合环扇形），消除双份实现
+class DxfPolylineAccumulator
+{
+public:
+	void begin(const DL_PolylineData& pd)
+	{
+		m_flags = pd.flags;
+		m_m = pd.m;
+		m_n = pd.n;
+		m_haveHeader = true;
+		m_verts.clear();
+	}
+
+	void addVertex(const DL_VertexData& data)
+	{
+		if (!m_haveHeader)
+		{
+			return;
+		}
+		m_verts.push_back(data.x);
+		m_verts.push_back(data.y);
+		m_verts.push_back(data.z);
+	}
+
+	void reset()
+	{
+		m_verts.clear();
+		m_haveHeader = false;
+	}
+
+	void flush(std::vector<float>& soup)
+	{
+		if (!m_haveHeader)
+		{
+			return;
+		}
+		const std::size_t npts = m_verts.size() / 3;
+		if (npts >= 3 && !(m_flags & 32))
+		{
+			const unsigned m = m_m;
+			const unsigned n = m_n;
+			if ((m_flags & 16) && m >= 2 && n >= 2 && static_cast<std::size_t>(m) * static_cast<std::size_t>(n) == npts)
+			{
+				for (unsigned i = 0; i + 1 < m; ++i)
+				{
+					for (unsigned j = 0; j + 1 < n; ++j)
+					{
+						const std::size_t i00 = static_cast<std::size_t>(i) * n + j;
+						const std::size_t i10 = (static_cast<std::size_t>(i) + 1) * n + j;
+						const std::size_t i11 = (static_cast<std::size_t>(i) + 1) * n + (j + 1);
+						const std::size_t i01 = static_cast<std::size_t>(i) * n + (j + 1);
+						mesh_backend_load::meshPushTri(soup, m_verts[i00 * 3], m_verts[i00 * 3 + 1], m_verts[i00 * 3 + 2],
+													   m_verts[i10 * 3], m_verts[i10 * 3 + 1], m_verts[i10 * 3 + 2],
+													   m_verts[i11 * 3], m_verts[i11 * 3 + 1], m_verts[i11 * 3 + 2]);
+						mesh_backend_load::meshPushTri(soup, m_verts[i00 * 3], m_verts[i00 * 3 + 1], m_verts[i00 * 3 + 2],
+													   m_verts[i11 * 3], m_verts[i11 * 3 + 1], m_verts[i11 * 3 + 2],
+													   m_verts[i01 * 3], m_verts[i01 * 3 + 1], m_verts[i01 * 3 + 2]);
+					}
+				}
+			}
+			else if (m_flags & 1)
+			{
+				for (std::size_t k = 1; k + 1 < npts; ++k)
+				{
+					mesh_backend_load::meshPushTri(soup, m_verts[0], m_verts[1], m_verts[2], m_verts[k * 3],
+												   m_verts[k * 3 + 1], m_verts[k * 3 + 2], m_verts[(k + 1) * 3],
+												   m_verts[(k + 1) * 3 + 1], m_verts[(k + 1) * 3 + 2]);
+				}
+			}
+		}
+		reset();
+	}
+
+private:
+	int m_flags = 0;
+	unsigned m_m = 0;
+	unsigned m_n = 0;
+	bool m_haveHeader = false;
+	std::vector<double> m_verts;
+};
+
 class MeshDxfCollector final : public DL_CreationAdapter
 {
 public:
 	std::vector<float> soup;
+	std::unordered_set<std::string> hiddenLayers;
 
-	void add3dFace(const DL_3dFaceData& data) override { meshAddTraceTriangles(soup, data); }
-	void addSolid(const DL_SolidData& data) override { meshAddTraceTriangles(soup, data); }
-	void addTrace(const DL_TraceData& data) override { meshAddTraceTriangles(soup, data); }
+	void addLayer(const DL_LayerData& data) override
+	{
+		if (data.off || (data.flags & 1))
+		{
+			hiddenLayers.insert(data.name);
+		}
+	}
+
+	void add3dFace(const DL_3dFaceData& data) override
+	{
+		if (entityVisible())
+			meshAddTraceTriangles(soup, data);
+	}
+	void addSolid(const DL_SolidData& data) override
+	{
+		if (entityVisible())
+			meshAddTraceTriangles(soup, data);
+	}
+	void addTrace(const DL_TraceData& data) override
+	{
+		if (entityVisible())
+			meshAddTraceTriangles(soup, data);
+	}
 
 	void addPolyline(const DL_PolylineData& pd) override
 	{
 		flushPolyline();
-		m_polylineFlags = pd.flags;
-		m_polyM = pd.m;
-		m_polyN = pd.n;
-		m_havePolylineHeader = true;
-		m_polyVerts.clear();
-	}
-
-	void addVertex(const DL_VertexData& data) override
-	{
-		if (!m_havePolylineHeader)
+		if (!entityVisible())
 		{
+			m_poly.reset();
 			return;
 		}
-		m_polyVerts.push_back(data.x);
-		m_polyVerts.push_back(data.y);
-		m_polyVerts.push_back(data.z);
+		m_poly.begin(pd);
 	}
+
+	void addVertex(const DL_VertexData& data) override { m_poly.addVertex(data); }
 
 	void endEntity() override { flushPolyline(); }
 
 	void endSequence() override { flushPolyline(); }
 
 private:
-	int m_polylineFlags = 0;
-	unsigned m_polyM = 0;
-	unsigned m_polyN = 0;
-	bool m_havePolylineHeader = false;
-	std::vector<double> m_polyVerts;
+	DxfPolylineAccumulator m_poly;
 
-	void flushPolyline()
+	bool entityVisible()
 	{
-		if (!m_havePolylineHeader)
-		{
-			return;
-		}
-		const std::size_t npts = m_polyVerts.size() / 3;
-		if (npts < 3)
-		{
-			m_polyVerts.clear();
-			m_havePolylineHeader = false;
-			return;
-		}
-		const int flags = m_polylineFlags;
-		if (flags & 32)
-		{
-			m_polyVerts.clear();
-			m_havePolylineHeader = false;
-			return;
-		}
-		const unsigned m = m_polyM;
-		const unsigned n = m_polyN;
-		if ((flags & 16) && m >= 2 && n >= 2 && static_cast<std::size_t>(m) * static_cast<std::size_t>(n) == npts)
-		{
-			for (unsigned i = 0; i + 1 < m; ++i)
-			{
-				for (unsigned j = 0; j + 1 < n; ++j)
-				{
-					const std::size_t i00 = static_cast<std::size_t>(i) * n + j;
-					const std::size_t i10 = (static_cast<std::size_t>(i) + 1) * n + j;
-					const std::size_t i11 = (static_cast<std::size_t>(i) + 1) * n + (j + 1);
-					const std::size_t i01 = static_cast<std::size_t>(i) * n + (j + 1);
-					const double ax = m_polyVerts[i00 * 3];
-					const double ay = m_polyVerts[i00 * 3 + 1];
-					const double az = m_polyVerts[i00 * 3 + 2];
-					const double bx = m_polyVerts[i10 * 3];
-					const double by = m_polyVerts[i10 * 3 + 1];
-					const double bz = m_polyVerts[i10 * 3 + 2];
-					const double cx = m_polyVerts[i11 * 3];
-					const double cy = m_polyVerts[i11 * 3 + 1];
-					const double cz = m_polyVerts[i11 * 3 + 2];
-					const double dx = m_polyVerts[i01 * 3];
-					const double dy = m_polyVerts[i01 * 3 + 1];
-					const double dz = m_polyVerts[i01 * 3 + 2];
-					mesh_backend_load::meshPushTri(soup, ax, ay, az, bx, by, bz, cx, cy, cz);
-					mesh_backend_load::meshPushTri(soup, ax, ay, az, cx, cy, cz, dx, dy, dz);
-				}
-			}
-		}
-		else if (flags & 1)
-		{
-			for (std::size_t k = 1; k + 1 < npts; ++k)
-			{
-				mesh_backend_load::meshPushTri(soup, m_polyVerts[0], m_polyVerts[1], m_polyVerts[2], m_polyVerts[k * 3],
-											   m_polyVerts[k * 3 + 1], m_polyVerts[k * 3 + 2], m_polyVerts[(k + 1) * 3],
-											   m_polyVerts[(k + 1) * 3 + 1], m_polyVerts[(k + 1) * 3 + 2]);
-			}
-		}
-		m_polyVerts.clear();
-		m_havePolylineHeader = false;
+		return hiddenLayers.find(getAttributes().getLayer()) == hiddenLayers.end();
 	}
+
+	void flushPolyline() { m_poly.flush(soup); }
 };
 
 struct DxfMatrix4
@@ -245,7 +280,14 @@ public:
 	std::vector<DxfInsertInstance> rootInserts;
 	std::unordered_set<std::string> hiddenLayers;
 
-	void addLayer(const DL_LayerData& data) override { (void)data; }
+	void addLayer(const DL_LayerData& data) override
+	{
+		// off 或 frozen（flags bit0）的图层不导入
+		if (data.off || (data.flags & 1))
+		{
+			hiddenLayers.insert(data.name);
+		}
+	}
 
 	void addBlock(const DL_BlockData& data) override
 	{
@@ -317,39 +359,25 @@ public:
 		flushPolyline();
 		if (!entityVisible())
 		{
-			m_havePolylineHeader = false;
-			m_polyVerts.clear();
+			m_poly.reset();
 			return;
 		}
-		m_polylineFlags = pd.flags;
-		m_polyM = pd.m;
-		m_polyN = pd.n;
-		m_havePolylineHeader = true;
-		m_polyVerts.clear();
+		m_poly.begin(pd);
 	}
 
-	void addVertex(const DL_VertexData& data) override
-	{
-		if (!m_havePolylineHeader)
-		{
-			return;
-		}
-		m_polyVerts.push_back(data.x);
-		m_polyVerts.push_back(data.y);
-		m_polyVerts.push_back(data.z);
-	}
+	void addVertex(const DL_VertexData& data) override { m_poly.addVertex(data); }
 
 	void endEntity() override { flushPolyline(); }
 	void endSequence() override { flushPolyline(); }
 
 private:
 	std::vector<std::string> m_blockStack;
-	int m_polylineFlags = 0;
-	unsigned m_polyM = 0;
-	unsigned m_polyN = 0;
-	bool m_havePolylineHeader = false;
-	std::vector<double> m_polyVerts;
-	bool entityVisible() { return true; }
+	DxfPolylineAccumulator m_poly;
+
+	bool entityVisible()
+	{
+		return hiddenLayers.find(getAttributes().getLayer()) == hiddenLayers.end();
+	}
 
 	std::vector<float>& targetSoup()
 	{
@@ -360,60 +388,11 @@ private:
 		return blocks[m_blockStack.back()].localSoup;
 	}
 
-	void flushPolyline()
-	{
-		if (!m_havePolylineHeader)
-		{
-			return;
-		}
-		std::vector<float>& soup = targetSoup();
-		const std::size_t npts = m_polyVerts.size() / 3;
-		if (npts >= 3)
-		{
-			const int flags = m_polylineFlags;
-			if (!(flags & 32))
-			{
-				const unsigned m = m_polyM;
-				const unsigned n = m_polyN;
-				if ((flags & 16) && m >= 2 && n >= 2 &&
-					static_cast<std::size_t>(m) * static_cast<std::size_t>(n) == npts)
-				{
-					for (unsigned i = 0; i + 1 < m; ++i)
-					{
-						for (unsigned j = 0; j + 1 < n; ++j)
-						{
-							const std::size_t i00 = static_cast<std::size_t>(i) * n + j;
-							const std::size_t i10 = (static_cast<std::size_t>(i) + 1) * n + j;
-							const std::size_t i11 = (static_cast<std::size_t>(i) + 1) * n + (j + 1);
-							const std::size_t i01 = static_cast<std::size_t>(i) * n + (j + 1);
-							mesh_backend_load::meshPushTri(
-								soup, m_polyVerts[i00 * 3], m_polyVerts[i00 * 3 + 1], m_polyVerts[i00 * 3 + 2],
-								m_polyVerts[i10 * 3], m_polyVerts[i10 * 3 + 1], m_polyVerts[i10 * 3 + 2],
-								m_polyVerts[i11 * 3], m_polyVerts[i11 * 3 + 1], m_polyVerts[i11 * 3 + 2]);
-							mesh_backend_load::meshPushTri(
-								soup, m_polyVerts[i00 * 3], m_polyVerts[i00 * 3 + 1], m_polyVerts[i00 * 3 + 2],
-								m_polyVerts[i11 * 3], m_polyVerts[i11 * 3 + 1], m_polyVerts[i11 * 3 + 2],
-								m_polyVerts[i01 * 3], m_polyVerts[i01 * 3 + 1], m_polyVerts[i01 * 3 + 2]);
-						}
-					}
-				}
-				else if (flags & 1)
-				{
-					for (std::size_t k = 1; k + 1 < npts; ++k)
-					{
-						mesh_backend_load::meshPushTri(soup, m_polyVerts[0], m_polyVerts[1], m_polyVerts[2],
-													   m_polyVerts[k * 3], m_polyVerts[k * 3 + 1],
-													   m_polyVerts[k * 3 + 2], m_polyVerts[(k + 1) * 3],
-													   m_polyVerts[(k + 1) * 3 + 1], m_polyVerts[(k + 1) * 3 + 2]);
-					}
-				}
-			}
-		}
-		m_polyVerts.clear();
-		m_havePolylineHeader = false;
-	}
+	void flushPolyline() { m_poly.flush(targetSoup()); }
 };
 
+// 限制：dxflib 的 DL_InsertData 不透传 210/220/230 extrusion，本组合恒假定 extrusion=+Z；
+// 旋转 UCS（OCS）下定义的 INSERT 会按 WCS 展开（方向可能不符）
 static DxfMatrix4 dxfComposeInsertTransform(const DxfInsertInstance& ins, const DxfBlockDef& block, double arrayDx,
 											double arrayDy)
 {
@@ -454,7 +433,14 @@ static void dxfExpandInsertRecursive(const DxfInsertInstance& ins, const DxfMatr
 	const DxfBlockDef& block = it->second;
 	if (std::find(stack.begin(), stack.end(), ins.blockName) != stack.end())
 	{
+		RunLogger::warn("[MeshBackendData] DXF block reference cycle at \"" + ins.blockName +
+						"\"; recursive branch dropped.");
 		return;
+	}
+	if (ins.sx == 0.0 || ins.sy == 0.0 || ins.sz == 0.0)
+	{
+		RunLogger::warn("[MeshBackendData] DXF INSERT \"" + ins.blockName +
+						"\" has zero scale factor; treated as 1.0.");
 	}
 	stack.push_back(ins.blockName);
 	const int cols = std::max(1, ins.cols);

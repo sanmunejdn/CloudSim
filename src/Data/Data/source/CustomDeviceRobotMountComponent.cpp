@@ -4,6 +4,7 @@
 #include "CustomDeviceRobotMountComponent.h"
 
 #include "CustomDeviceBackendData.h"
+#include "RunLogger.h"
 
 #include <cstring>
 
@@ -34,6 +35,27 @@ bool readMat4Json(const nlohmann::json& in, BackendMat4& out)
 	}
 	return true;
 }
+
+/// 读取 + 刚性校验；失败告警并保留原值（与 worldMatrix fail-fast 哲学一致）
+void readRigidMat4JsonOrKeep(const nlohmann::json& in, const char* key, BackendMat4& out)
+{
+	if (!in.contains(key))
+	{
+		return;
+	}
+	BackendMat4 parsed{};
+	if (!readMat4Json(in[key], parsed))
+	{
+		RunLogger::warn(std::string("[CustomDeviceRobotMount] ") + key + ": invalid 16-element matrix, keep current.");
+		return;
+	}
+	if (!backend_mat4_is_nearly_rigid(parsed))
+	{
+		RunLogger::warn(std::string("[CustomDeviceRobotMount] ") + key + ": matrix not nearly rigid, keep current.");
+		return;
+	}
+	out = parsed;
+}
 } // namespace
 
 bool CustomDeviceRobotMountComponent::enabled() const
@@ -48,7 +70,7 @@ void CustomDeviceRobotMountComponent::setEnabled(const bool on)
 	m_enabled = on;
 }
 
-const std::string& CustomDeviceRobotMountComponent::robotSceneBackendId() const
+std::string CustomDeviceRobotMountComponent::robotSceneBackendId() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_robotSceneBackendId;
@@ -60,7 +82,7 @@ void CustomDeviceRobotMountComponent::setRobotSceneBackendId(std::string id)
 	m_robotSceneBackendId = std::move(id);
 }
 
-const std::string& CustomDeviceRobotMountComponent::flangeLinkName() const
+std::string CustomDeviceRobotMountComponent::flangeLinkName() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_flangeLinkName;
@@ -72,7 +94,7 @@ void CustomDeviceRobotMountComponent::setFlangeLinkName(std::string name)
 	m_flangeLinkName = std::move(name);
 }
 
-const std::string& CustomDeviceRobotMountComponent::mountFrameBackendId() const
+std::string CustomDeviceRobotMountComponent::mountFrameBackendId() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_mountFrameBackendId;
@@ -84,7 +106,7 @@ void CustomDeviceRobotMountComponent::setMountFrameBackendId(std::string id)
 	m_mountFrameBackendId = std::move(id);
 }
 
-const std::string& CustomDeviceRobotMountComponent::flangeBackendId() const
+std::string CustomDeviceRobotMountComponent::flangeBackendId() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_flangeBackendId;
@@ -96,7 +118,7 @@ void CustomDeviceRobotMountComponent::setFlangeBackendId(std::string id)
 	m_flangeBackendId = std::move(id);
 }
 
-const BackendMat4& CustomDeviceRobotMountComponent::tFlangeDevice() const
+BackendMat4 CustomDeviceRobotMountComponent::tFlangeDevice() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_tFlangeDevice;
@@ -108,7 +130,7 @@ void CustomDeviceRobotMountComponent::setTFlangeDevice(const BackendMat4& m)
 	m_tFlangeDevice = m;
 }
 
-const BackendMat4& CustomDeviceRobotMountComponent::frameInDeviceW0() const
+BackendMat4 CustomDeviceRobotMountComponent::frameInDeviceW0() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_frameInDeviceW0;
@@ -120,7 +142,7 @@ void CustomDeviceRobotMountComponent::setFrameInDeviceW0(const BackendMat4& m)
 	m_frameInDeviceW0 = m;
 }
 
-const BackendMat4& CustomDeviceRobotMountComponent::toolFrameInFlange() const
+BackendMat4 CustomDeviceRobotMountComponent::toolFrameInFlange() const
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_toolFrameInFlange;
@@ -142,6 +164,23 @@ void CustomDeviceRobotMountComponent::setAlignMountFrameToTcp(const bool on)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	m_alignMountFrameToTcp = on;
+}
+
+void CustomDeviceRobotMountComponent::collectReferencedBackendIds(std::vector<std::string>& out) const
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	if (!m_robotSceneBackendId.empty())
+	{
+		out.push_back(m_robotSceneBackendId);
+	}
+	if (!m_mountFrameBackendId.empty())
+	{
+		out.push_back(m_mountFrameBackendId);
+	}
+	if (!m_flangeBackendId.empty())
+	{
+		out.push_back(m_flangeBackendId);
+	}
 }
 
 bool CustomDeviceRobotMountComponent::computeTFlangeDeviceFromWorldPoses(const BackendMat4& flangeWorld,
@@ -244,16 +283,7 @@ void CustomDeviceRobotMountComponent::readJson(const nlohmann::json& in)
 	{
 		m_flangeBackendId = in["flangeBackendId"].get<std::string>();
 	}
-	if (in.contains("T_flange_device"))
-	{
-		(void)readMat4Json(in["T_flange_device"], m_tFlangeDevice);
-	}
-	if (in.contains("frameInDeviceW0"))
-	{
-		(void)readMat4Json(in["frameInDeviceW0"], m_frameInDeviceW0);
-	}
-	if (in.contains("toolFrameInFlange"))
-	{
-		(void)readMat4Json(in["toolFrameInFlange"], m_toolFrameInFlange);
-	}
+	readRigidMat4JsonOrKeep(in, "T_flange_device", m_tFlangeDevice);
+	readRigidMat4JsonOrKeep(in, "frameInDeviceW0", m_frameInDeviceW0);
+	readRigidMat4JsonOrKeep(in, "toolFrameInFlange", m_toolFrameInFlange);
 }

@@ -127,6 +127,7 @@ std::vector<float> makeSphereTriangleSoup(double radiusMm, int segments, int rin
 	rings = clampInt(rings, 4, 64);
 	const float r = static_cast<float>(radiusMm);
 	std::vector<float> soup;
+	// 已知：两极各产生 segments 个零面积退化三角形（同一极点重复入扇），下游法线/拾取需自行耐受
 	for (int j = 0; j < rings; ++j)
 	{
 		const double phi0 = kPi * j / rings - kPi * 0.5;

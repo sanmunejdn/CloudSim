@@ -88,8 +88,9 @@ bool geometryBase64Decode(const std::string& base64, std::vector<unsigned char>&
 		int v3 = 0;
 		if (c2 == '=')
 		{
-			v2 = -1;
-			v3 = -1;
+			// P3-2: 非规范 padding 位置（中段 =）报错
+			outBytes.clear();
+			return false;
 		}
 		else
 		{
@@ -141,6 +142,9 @@ bool geometryBase64DecodeFloats(const std::string& base64, std::vector<float>& o
 	{
 		return false;
 	}
+	// P3-2: 实际是主机原生字节序 memcpy，非 float32_le 契约；
+	// Windows/x64 无影响，跨平台需自行序列化
+	static_assert(sizeof(float) == 4, "float must be 32-bit");
 	outFloats.resize(raw.size() / sizeof(float));
 	std::memcpy(outFloats.data(), raw.data(), raw.size());
 	return true;

@@ -61,12 +61,10 @@ bool scanPlyHeader(std::istream& input, PlyHeaderInfo& out, std::string* errMsg)
 			}
 			continue;
 		}
-		if (lineNumber == 2 && line.rfind("format ", 0) == 0)
-		{
-			out.cgalFormatOnLine2 = true;
-		}
 		if (line.rfind("format ", 0) == 0)
 		{
+			// 容忍 header 前置 comment：不再要求 format 恰在第 2 行
+			out.cgalFormatOnLine2 = true;
 			out.isAscii = (line.find("ascii") != std::string::npos);
 		}
 		if (line == "end_header")
@@ -86,14 +84,14 @@ bool scanPlyHeader(std::istream& input, PlyHeaderInfo& out, std::string* errMsg)
 			}
 			if (elementName == "vertex")
 			{
-				out.vertexCount = static_cast<int>(elementCount);
+				out.vertexCount = elementCount;
 				inVertex = true;
 				vertexPropIndex = 0;
 			}
 			else if (isFaceLikeElement(elementName))
 			{
 				out.hasFaceElement = true;
-				out.faceCount = static_cast<int>(elementCount);
+				out.faceCount = elementCount;
 				inVertex = false;
 			}
 			else

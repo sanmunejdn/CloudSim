@@ -7,12 +7,12 @@
 #include "BackendObjectAttribute.h"
 #include "BackendTypeIdentity.h"
 #include "FrameBackendData.h"
+#include "RunLogger.h"
 
 FrameBackendData::FrameBackendData()
 {
 	setName(backend_type::kCatalogCoordinateFrame);
-	m_attributes.push_back(makeBackendPoseAttribute());
-	m_attributes.push_back(makeBackendRotationAttribute());
+	appendStandardAttributesForCapabilities(*this, m_attributes);
 }
 
 std::string FrameBackendData::className() const
@@ -46,11 +46,13 @@ void FrameBackendData::clearGeometry()
 
 void FrameBackendData::setAxisLengthMm(const float mm)
 {
-	if (mm > 1.0f)
+	if (mm > 0.0f)
 	{
 		m_axisLengthMm = mm;
 		bumpGeometryRevision();
+		return;
 	}
+	RunLogger::warn("[FrameBackendData] setAxisLengthMm: ignore non-positive value.");
 }
 
 nlohmann::json FrameBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
@@ -81,6 +83,7 @@ void FrameBackendData::saveDerivedJson(nlohmann::json& out) const
 
 bool FrameBackendData::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)
 {
+	// C2: 与 brep 的严格检查不统一；frame 的 kind 错了也无实际危害，故仅注释说明
 	(void)errMsg;
 	if (in.contains("axisLengthMm") && in["axisLengthMm"].is_number())
 	{

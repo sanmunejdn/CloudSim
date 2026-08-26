@@ -71,6 +71,9 @@
     <ClInclude Include="inc\BackendDataManager.h">
       <Filter>inc\Core</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendManagerDataService.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BackendFollowTransformSolver.h">
       <Filter>inc\HierarchyFollow</Filter>
     </ClInclude>
@@ -185,6 +188,9 @@
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\CloudSimCoreExport.cpp">
+      <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CloudSimCoreDataService.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
     <ClCompile Include="source\CustomDeviceBackendData.cpp">

@@ -4,12 +4,8 @@
 #include "BackendFollowTransformSolver.h"
 
 #include "BackendDataManager.h"
-#include "BackendTypeIds.h"
-#include "CustomDeviceBackendData.h"
-#include "CustomDeviceRobotMountComponent.h"
 #include "FollowAttachmentComponent.h"
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
+#include "RunLogger.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -17,55 +13,6 @@
 
 namespace
 {
-BackendVec3 modelCenterForData(const BackendDataBase& data)
-{
-	if (const auto* pc = dynamic_cast<const PointCloudBackendData*>(&data))
-	{
-		const auto& xyz = pc->pointPositionsXyz();
-		if (xyz.size() < 3U || (xyz.size() % 3U) != 0U)
-		{
-			return BackendVec3{};
-		}
-		float minx = xyz[0], maxx = xyz[0], miny = xyz[1], maxy = xyz[1], minz = xyz[2], maxz = xyz[2];
-		for (std::size_t i = 0; i + 2 < xyz.size(); i += 3U)
-		{
-			const float x = xyz[i], y = xyz[i + 1], z = xyz[i + 2];
-			minx = std::min(minx, x);
-			maxx = std::max(maxx, x);
-			miny = std::min(miny, y);
-			maxy = std::max(maxy, y);
-			minz = std::min(minz, z);
-			maxz = std::max(maxz, z);
-		}
-		return BackendVec3{0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-						   0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-						   0.5 * (static_cast<double>(minz) + static_cast<double>(maxz))};
-	}
-	if (const auto* mesh = dynamic_cast<const MeshBackendData*>(&data))
-	{
-		const auto& soup = mesh->triangleSoup();
-		if (soup.size() < 3U || (soup.size() % 3U) != 0U)
-		{
-			return BackendVec3{};
-		}
-		float minx = soup[0], maxx = soup[0], miny = soup[1], maxy = soup[1], minz = soup[2], maxz = soup[2];
-		for (std::size_t i = 0; i + 2 < soup.size(); i += 3U)
-		{
-			const float x = soup[i], y = soup[i + 1], z = soup[i + 2];
-			minx = std::min(minx, x);
-			maxx = std::max(maxx, x);
-			miny = std::min(miny, y);
-			maxy = std::max(maxy, y);
-			minz = std::min(minz, z);
-			maxz = std::max(maxz, z);
-		}
-		return BackendVec3{0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-						   0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-						   0.5 * (static_cast<double>(minz) + static_cast<double>(maxz))};
-	}
-	return BackendVec3{};
-}
-
 bool tryWorldMatForData(const BackendDataBase& data, const BackendFollowTransformSolver::WorldMatQuery& worldQuery,
 						BackendMat4& outWorld)
 {
@@ -100,11 +47,16 @@ void BackendFollowTransformSolver::solve(BackendDataManager& mgr, const WorldMat
 		}
 		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
 			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-		if (!comp || !comp->enabled())
+		if (!comp)
 		{
 			continue;
 		}
-		const std::string tid = comp->targetBackendId();
+		const auto snap = comp->snapshot();
+		if (!snap.enabled)
+		{
+			continue;
+		}
+		const std::string& tid = snap.targetId;
 		if (tid.empty() || tid == d->id())
 		{
 			continue;
@@ -168,10 +120,23 @@ void BackendFollowTransformSolver::solve(BackendDataManager& mgr, const WorldMat
 			}
 		}
 	}
+	// 环只影响所在强连通分量：未入 topo 的节点即环上节点，单独告警并跳过，
+	// 不连累场景里其余正常 Follow 关系
 	if (topo.size() != nodes.size())
 	{
-		// 环或不一致图：跳过自动解
-		return;
+		std::string cyclicIds;
+		for (const std::string& n : nodes)
+		{
+			if (indegree[n] > 0)
+			{
+				if (!cyclicIds.empty())
+				{
+					cyclicIds += ", ";
+				}
+				cyclicIds += n;
+			}
+		}
+		RunLogger::warn("[FollowSolver] cycle detected, skip cyclic followers only: " + cyclicIds);
 	}
 
 	std::unordered_map<std::string, BackendMat4> worldCache;
@@ -210,23 +175,29 @@ void BackendFollowTransformSolver::solve(BackendDataManager& mgr, const WorldMat
 		auto comp = follower ? std::dynamic_pointer_cast<FollowAttachmentComponent>(
 								   follower->getComponent(FollowAttachmentComponent::typeKeyStatic()))
 							 : nullptr;
-		if (!follower || !comp || comp->solverPaused())
+		if (!follower || !comp)
 		{
 			continue;
 		}
-		const std::string tid = comp->targetBackendId();
+		const auto snap = comp->snapshot();
+		if (snap.solverPaused)
+		{
+			continue;
+		}
+		const std::string& tid = snap.targetId;
 		BackendMat4 wT{};
 		if (!getWorld(tid, wT))
 		{
 			continue;
 		}
-		const BackendVec3 lp = comp->localPosition();
-		const BackendVec3 le = comp->localEulerDeg();
+		const BackendVec3& lp = snap.localPos;
+		const BackendVec3& le = snap.localEulerDeg;
 		const BackendMat4 lMat = backend_world_mat_from_pose(lp, le);
 		BackendMat4 wF{};
 		backend_mat4_multiply(wT, lMat, wF);
-		worldCache[fid] = wF;
 
+		// 跳过检查全部前置：被跳过的 follower 不写入 worldCache，
+		// 避免下游 Follow 命中缓存拿到从未生效的位姿（mount/limit 场景）
 		if (!follower->hasPoseProperty())
 		{
 			continue;
@@ -236,19 +207,18 @@ void BackendFollowTransformSolver::solve(BackendDataManager& mgr, const WorldMat
 		{
 			continue;
 		}
-		if (backend_mat4_nearly_equal(follower->worldMatrix(), wF))
+		// P3-1: 与 setter 侧 no-op 阈值 1e-5 对齐（BackendDataBase.cpp:459/475），
+		// 避免 1e-7~1e-5 量级的"无变化"更新白白 bump poseRevision 触发下游同步
+		if (backend_mat4_nearly_equal(follower->worldMatrix(), wF, 1e-5))
 		{
 			continue;
 		}
-		if (follower->className() == backend_type::kClassCustomDevice)
+		// 通用扩展点：组件可声明「位姿由外部驱动」（如 mount），求解器不覆写
+		if (follower->isPoseExternallyDriven())
 		{
-			const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(follower);
-			const auto mount = device ? CustomDeviceRobotMountComponent::mountOf(*device) : nullptr;
-			if (mount && mount->enabled())
-			{
-				continue;
-			}
+			continue;
 		}
 		follower->setWorldMatrix(wF);
+		worldCache[fid] = wF;
 	}
 }

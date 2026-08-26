@@ -20,6 +20,9 @@
 #include "RobotCoordinateFrames.h"
 #include "StoreZipExtract.h"
 #include "WebGatewaySidecars.h"
+#include "headless/HeadlessDrawingBridge.h"
+#include "headless/HeadlessLabelingBridge.h"
+#include "headless/HeadlessProcessFlowBridge.h"
 #include "NamedSignalTable.h"
 
 #include <QDir>
@@ -122,6 +125,30 @@ void webGatewayLoadSidecarsFromProject(const QJsonObject& root)
 	g_sidecars.annotations = root.value(QStringLiteral("annotations")).toArray();
 }
 
+void webGatewaySyncSidecarsToHost(cloudsim::host::DocumentHost* host, const QJsonObject& projectRoot)
+{
+	if (!host)
+		return;
+	if (auto* b = host->headlessProcessFlowBridge())
+		b->loadSidecarFromProject(projectRoot);
+	if (auto* b = host->headlessDrawingBridge())
+		b->loadSidecarFromProject(projectRoot);
+	if (auto* b = host->headlessLabelingBridge())
+		b->loadSidecarFromProject(projectRoot);
+}
+
+void webGatewayMergeHostSidecarsIntoProject(cloudsim::host::DocumentHost* host, QJsonObject& projectRoot)
+{
+	if (!host)
+		return;
+	if (auto* b = host->headlessProcessFlowBridge())
+		b->mergeSidecarIntoProject(projectRoot);
+	if (auto* b = host->headlessDrawingBridge())
+		b->mergeSidecarIntoProject(projectRoot);
+	if (auto* b = host->headlessLabelingBridge())
+		b->mergeSidecarIntoProject(projectRoot);
+}
+
 void webGatewayMergeSidecarsIntoProject(QJsonObject& root)
 {
 	if (!g_sidecars.processFlow.isEmpty())
@@ -197,6 +224,7 @@ bool WebGateway::saveProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 	}
 	cloudsim::host::mergeRobotProgramsIntoProjectRoot(*host, built.root);
 	cloudsim::host::mergeRobotKinematicsIntoProjectRoot(*host, built.root);
+	webGatewayMergeHostSidecarsIntoProject(host, built.root);
 	webGatewayMergeSidecarsIntoProject(built.root);
 	host->ioSignalNetwork().flushDeviceTablesToDocument(*host);
 	built.root.insert(QStringLiteral("ioSignalNetwork"), host->ioSignalNetwork().toProjectJson());
@@ -1329,7 +1357,7 @@ QByteArray WebGateway::helpIndexJson() const
 QByteArray WebGateway::aiStatusJson() const
 {
 	return QByteArrayLiteral(
-		"{\"ok\":true,\"endpoint\":\"/api/ai/chat\",\"note\":\"P5 stub: configure ai_config.json for desktop LLM\"}");
+		"{\"ok\":true,\"endpoint\":\"/api/ai/chat\",\"note\":\"Configure ai_config.json beside CloudSimWeb.exe\"}");
 }
 
 QByteArray WebGateway::ioSignalsJsonOnGuiThread(cloudsim::host::DocumentHost* host)

@@ -412,7 +412,7 @@ bool HeadlessTrajectorySession::modelFromWorldDir(const std::string& backendId, 
 	if (!data)
 		return false;
 	const Eigen::Vector3d out =
-		rigidFromBackendMat4(data->worldMatrix(&m_host.backend())).inverse().isometry().linear() *
+		rigidFromBackendMat4(data->worldMatrix()).inverse().isometry().linear() *
 		Eigen::Vector3d(wx, wy, wz);
 	const double len = out.norm();
 	if (len < 1e-12)
@@ -441,7 +441,7 @@ bool HeadlessTrajectorySession::transformRawToWorld(const RobotInstruction::RawT
 		return false;
 	}
 	// 与桌面 FeaturePickTransform 同式：位置走 Backend 世界矩阵；姿态 OSG mFile*rot（勿用仅 Eigen 链替代）
-	const engine::RigidTransform T_wm = rigidFromBackendMat4(data->worldMatrix(&m_host.backend()));
+	const engine::RigidTransform T_wm = rigidFromBackendMat4(data->worldMatrix());
 	osg::Matrixd worldMat = engine::osgMatrixFromRigidTransform(T_wm);
 	osg::Matrixd rot = worldMat;
 	rot.setTrans(0.0, 0.0, 0.0);
@@ -1101,7 +1101,7 @@ void HeadlessTrajectorySession::injectWorkpieceReferenceOnEngine()
 					*errMsg = "external TCP frame backend not found: " + backendId;
 				return false;
 			}
-			out = rigidFromBackendMat4(data->worldMatrix(mgr));
+			out = rigidFromBackendMat4(data->worldMatrix());
 			return true;
 		});
 }

@@ -11,7 +11,7 @@ import {
 import { useScene } from "../../state/sceneStore";
 import { useRobotProgram } from "../../state/robotProgramStore";
 import { useStatus } from "../../state/statusStore";
-import { propertyDisplayLabel } from "./propLabels";
+import { propertyDisplayLabel, enumOptionsForKey } from "./propLabels";
 import { buildInstrPropView, type InstrPropViewRow, type SignalNameOptions } from "./instrPropView";
 import { eventHub } from "../../sse/EventHub";
 
@@ -23,6 +23,21 @@ function findInstruction(steps: Instruction[] | undefined, id: string | null): I
     if (nested) return nested;
   }
   return null;
+}
+
+type ApiPropRow = PropRow & { labelEn?: string };
+
+function mapApiProps(rows: ApiPropRow[]): PropRow[] {
+  return rows.map((p) => ({
+    key: p.key,
+    label: p.label || p.labelEn,
+    value: p.value,
+    editable: p.editable,
+  }));
+}
+
+function isFollowKey(key: string) {
+  return key.startsWith("follow.");
 }
 
 export default function PropsPanel() {
@@ -44,12 +59,20 @@ export default function PropsPanel() {
     if (mode === "instr" && selectedInstrId) {
       return buildInstrPropView(rawProps, selectedInstrId, instruction, signalOpts);
     }
-    return rawProps.map((p) => ({
-      ...p,
-      label: propertyDisplayLabel(p.key, p.label),
-      kind: "text" as const,
-    }));
+    return rawProps.map((p) => {
+      const opts = enumOptionsForKey(p.key);
+      return {
+        ...p,
+        label: propertyDisplayLabel(p.key, p.label),
+        kind: opts ? ("enum" as const) : ("text" as const),
+        options: opts ?? undefined,
+      };
+    });
   }, [mode, selectedInstrId, rawProps, instruction, signalOpts]);
+
+  const hasFollowProps = mode === "object" && rawProps.some((p) => isFollowKey(p.key));
+  const followRows = hasFollowProps ? viewRows.filter((p) => isFollowKey(p.key)) : [];
+  const otherRows = hasFollowProps ? viewRows.filter((p) => !isFollowKey(p.key)) : viewRows;
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +108,7 @@ export default function PropsPanel() {
         if (r.ok) {
           setMode("instr");
           setCaption(`指令属性 · ${selectedInstrId}`);
-          setRawProps(r.properties || []);
+          setRawProps(mapApiProps(r.properties || []));
           return;
         }
         setMode("instr");
@@ -104,7 +127,7 @@ export default function PropsPanel() {
       if (cancelled) return;
       setMode("object");
       setCaption(`对象 · ${selectedId}`);
-      if (r.properties?.length) setRawProps(r.properties);
+      if (r.properties?.length) setRawProps(mapApiProps(r.properties));
       else if (r.object) {
         setRawProps([
           { key: "name", label: "名称", value: r.object.name, editable: true },
@@ -157,7 +180,50 @@ export default function PropsPanel() {
                 <span className="prop-val">无可编辑属性</span>
               </div>
             )}
-            {viewRows.map((p) => (
+            {hasFollowProps && followRows.length > 0 && (
+              <>
+                <div className="prop-caption">FollowAttachment</div>
+                {followRows.map((p) => (
+                  <div key={p.key} className={`prop-row ${p.editable ? "editable" : ""}`}>
+                    <span className="prop-key" title={p.key}>
+                      {p.label || p.key}
+                    </span>
+                    <span className="prop-val" title={p.value ?? ""}>
+                      {p.editable ? (
+                        p.kind === "enum" && p.options?.length ? (
+                          <select
+                            className="prop-input"
+                            value={p.value ?? ""}
+                            onChange={(e) => void commit(p.key, e.target.value)}
+                          >
+                            {!p.options.includes(String(p.value ?? "")) && (p.value ?? "") !== "" && (
+                              <option value={p.value}>{p.value}</option>
+                            )}
+                            {p.options.map((opt) => (
+                              <option key={opt || "__empty"} value={opt}>
+                                {opt || "（空）"}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            className="prop-input"
+                            defaultValue={p.value ?? ""}
+                            key={`${mode}-${selectedInstrId || selectedId}-${p.key}-${p.value ?? ""}`}
+                            onBlur={(e) => {
+                              if (e.target.value !== (p.value ?? "")) void commit(p.key, e.target.value);
+                            }}
+                          />
+                        )
+                      ) : (
+                        p.value ?? ""
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+            {otherRows.map((p) => (
               <div key={p.key} className={`prop-row ${p.editable ? "editable" : ""}`}>
                 <span className="prop-key" title={p.key}>
                   {p.label || p.key}

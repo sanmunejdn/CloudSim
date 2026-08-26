@@ -22,9 +22,12 @@ struct DATA_EXPORT BackendMat4
 	static BackendMat4 rotateEulerDeg(double exDeg, double eyDeg, double ezDeg);
 };
 
+/// 按刚体（R|t）抽取后相乘；恒成功（输入非刚体时仍按刚体路径抽取）
 DATA_EXPORT bool backend_mat4_multiply(const BackendMat4& a, const BackendMat4& b, BackendMat4& out);
-/// 刚体逆变换；不可逆返回 false
+/// 按刚体（R|t）抽取后求逆；恒成功（与 multiply 同语义）
 DATA_EXPORT bool backend_mat4_invert_rigid(const BackendMat4& m, BackendMat4& out);
+/// 列主序 4×4 是否近似刚体（三列正交单位 + 末列齐次）
+DATA_EXPORT bool backend_mat4_is_nearly_rigid(const BackendMat4& m, double absEps = 1e-4);
 
 /// 世界矩阵：pose=模型原点世界坐标；权威实现 engine::rigidTransformFromBackendPoseEuler
 DATA_EXPORT BackendMat4 backend_world_mat_from_pose(const BackendVec3& pose, const BackendVec3& rotationEulerDeg);

@@ -3,6 +3,7 @@
 
 #include "pch.h"
 
+#include "BackendImporters.h"
 #include "BackendSpatial.h"
 #include "MeshBackendData.h"
 #include "MeshBackendData_loaders.h"
@@ -14,58 +15,12 @@ using namespace mesh_backend_load;
 
 bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg, const int meshImportQuality)
 {
-	clearGeometry();
-	const std::string ext = meshLowerExtension(path);
-	if (ext.empty())
+	if (meshImportQuality == 0)
 	{
-		meshLoadErr(errMsg, "Missing file extension.");
-		return false;
+		// 抽稀已移出导入源路径（B3），该参数不再生效；告警防调用方误以为会抽稀
+		RunLogger::warn("[MeshBackendData] meshImportQuality=0 is deprecated and has no effect (no decimation on import).");
 	}
-
-	// STEP：OCCT 读入并离散为三角 soup
-	if (ext == "step" || ext == "stp")
-	{
-		std::vector<float> soup;
-		if (!meshLoadStepSingleFile(path, soup, errMsg))
-		{
-			return false;
-		}
-		setTriangleSoup(std::move(soup));
-		RunLogger::info("[MeshBackendData] STEP mesh loaded successfully.");
-		return !m_triangleSoup.empty();
-	}
-
-	if (ext == "dxf")
-	{
-		std::vector<float> soup;
-		if (!meshLoadDxfSingleFile(path, soup, errMsg))
-		{
-			return false;
-		}
-		setTriangleSoup(std::move(soup));
-		RunLogger::info("[MeshBackendData] DXF mesh loaded successfully.");
-		return true;
-	}
-
-	// OBJ 保留 vn 供光照（CGAL soup 会丢 vn）
-	if (ext == "obj")
-	{
-		std::vector<float> objSoup;
-		std::vector<float> objNormals;
-		if (meshTryLoadObjWithVertexNormals(path, objSoup, objNormals))
-		{
-			if (meshImportQuality == 0 && objNormals.size() == objSoup.size())
-			{
-				meshApplyImportQualityToSoup(objNormals, meshImportQuality);
-			}
-			meshApplyImportQualityToSoup(objSoup, meshImportQuality);
-			setTriangleSoupWithNormals(std::move(objSoup), std::move(objNormals));
-			RunLogger::info("[MeshBackendData] OBJ loaded with file vertex normals for lighting.");
-			return !m_triangleSoup.empty();
-		}
-	}
-
-	return meshLoadCgalMeshFile(*this, path, ext, errMsg, meshImportQuality);
+	return backend_io::loadMeshFromFile(*this, path, errMsg, meshImportQuality);
 }
 
 bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, std::string* errMsg) const
@@ -98,7 +53,8 @@ bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, std::str
 		polygons.push_back({vBase, vBase + 1U, vBase + 2U});
 	}
 
-	const std::filesystem::path outPath = std::filesystem::u8path(utf8Path);
+	// §4.0.1 统一约定：本地路径按本地编码构造，禁止 u8path（中文 Windows 非法 UTF-8 序列会抛）
+	const std::filesystem::path outPath(utf8Path);
 	if (!CGAL::IO::write_polygon_soup(outPath.string(), points, polygons))
 	{
 		meshLoadErr(errMsg, "Failed to write mesh PLY.");
@@ -137,7 +93,8 @@ bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, const st
 		polygons.push_back({vBase, vBase + 1U, vBase + 2U});
 	}
 
-	const std::filesystem::path outPath = std::filesystem::u8path(utf8Path);
+	// §4.0.1 统一约定：本地路径按本地编码构造，禁止 u8path（中文 Windows 非法 UTF-8 序列会抛）
+	const std::filesystem::path outPath(utf8Path);
 	if (!CGAL::IO::write_polygon_soup(outPath.string(), points, polygons))
 	{
 		meshLoadErr(errMsg, "Failed to write mesh PLY.");

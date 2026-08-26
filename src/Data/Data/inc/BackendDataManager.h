@@ -64,10 +64,12 @@ public:
 	bool detachChild(const std::string& parentId, const std::string& childId);
 	bool detachAllParents(const std::string& childId);
 	std::vector<std::string> parentsOf(const std::string& id) const;
+	/// 显式主父；无记录时回退字母序首个并 warn
+	std::string primaryParentOf(const std::string& childId) const;
 	std::vector<std::string> childrenOf(const std::string& id) const;
 	std::vector<std::string> ancestorsOf(const std::string& id) const;
 	std::vector<std::string> descendantsOf(const std::string& id) const;
-	const std::vector<std::string>& subtreeIds(const std::string& rootId) const;
+	std::vector<std::string> subtreeIds(const std::string& rootId) const;
 	std::vector<std::string> rootIds() const;
 	std::vector<std::string> topoOrder() const;
 	std::vector<std::pair<std::string, std::string>> listEdges() const;
@@ -77,7 +79,7 @@ public:
 	BackendBaselineMetrics collectBaselineMetrics(const std::string& sampleRootId = std::string()) const;
 	void clear();
 
-	/// 观察者于写锁内回调，不得再调 BackendDataManager 加锁 API（死锁）
+	/// 观察者于锁外回调（注册/移除仍持写锁）
 	void addHierarchyObserver(void* key, BackendHierarchyObserver observer);
 	void removeHierarchyObserver(void* key);
 
@@ -85,14 +87,16 @@ private:
 	BackendDataManager(const BackendDataManager&) = delete;
 	BackendDataManager& operator=(const BackendDataManager&) = delete;
 
-	void notifyHierarchyObserversLocked(const BackendHierarchyChangeEvent& event);
+	static void dispatchHierarchyEvents(
+		const std::vector<std::pair<void*, BackendHierarchyObserver>>& observers,
+		const std::vector<BackendHierarchyChangeEvent>& events);
 
 	mutable std::shared_mutex m_mutex;
 	std::unordered_map<std::string, std::shared_ptr<BackendDataBase>> m_records;
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_childrenByParent;
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_parentsByChild;
+	std::unordered_map<std::string, std::string> m_primaryParentByChild;
 	mutable std::unordered_map<std::string, std::vector<std::string>> m_subtreeCache;
-	mutable std::vector<std::string> m_emptySubtree;
 	std::vector<std::pair<void*, BackendHierarchyObserver>> m_hierarchyObservers;
 };
 

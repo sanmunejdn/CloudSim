@@ -15,6 +15,8 @@ export const trajPreview = () => postJson<Record<string, unknown>>("/api/traject
 export const trajPreviewRaw = () => postJson<Record<string, unknown>>("/api/trajectory/preview-raw");
 export const trajEmit = () => postJson<ApiOk & { error?: string }>("/api/trajectory/emit");
 export const trajApply = () => postJson<ApiOk & { error?: string }>("/api/trajectory/apply");
+export const trajRecipe = (recipe: string) =>
+  postJson<ApiOk & { error?: string }>("/api/trajectory/recipe", { recipe });
 export const trajReset = () => postJson<ApiOk>("/api/trajectory/reset");
 export const trajUndo = () => postJson<ApiOk>("/api/trajectory/undo");
 export const trajRedo = () => postJson<ApiOk>("/api/trajectory/redo");

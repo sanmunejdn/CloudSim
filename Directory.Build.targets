@@ -1,10 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Qt VS Tools 3.x：QtVars 的 Inputs 含 $(QtQmlStaticImportFile)（默认 qt/qmake/import.qml）。
-  无 QML/RCC 时该文件永不生成 → 每次判定过期 → NewGuid 工作目录 → include 变 → 全量重编。
-  占位文件只需存在；勿在已存在时改写时间戳。
+  Qt VS Tools / VS Fast Up-To-Date 增量修复：
+  1) QtVars 的 Inputs 含 $(QtQmlStaticImportFile)（默认 qt/qmake/import.qml）。
+     无 QML 时该文件永不生成 → 每次判定过期 → NewGuid 工作目录 → 全量重编。
+     占位文件只需存在；勿在已存在时改写时间戳。
+  2) Qt 每次 Build 改写 qt_work.log；若落在 IntDir，VS FUTD 会认为工程过期。
+     日志路径见 Directory.Build.props 的 QtLogFilePath；此处忽略 IntDir\qt\**。
+  3) Qt qt_work 向 $(ProjectName).write.1u.tlog 追加，并把 vcxproj→.lib/.exp 误记为输出；
+     增量链接又不更新 .lib → FUTD 永久失败。每次 QtWork 后丢掉该聚合 tlog（moc/rcc 各有独立 write tlog）。
+  4) 链接后若 .lib/.exp 早于 DLL，对齐时间戳，避免上述误记或历史 tlog 再踩坑。
 -->
 <Project>
+  <ItemGroup>
+    <UpToDateCheckIgnore Include="$(IntDir)qt\**\*" />
+    <UpToDateCheckIgnore Include="$(TargetDir)$(TargetName).lib" Condition="'$(TargetName)' != ''" />
+    <UpToDateCheckIgnore Include="$(TargetDir)$(TargetName).exp" Condition="'$(TargetName)' != ''" />
+  </ItemGroup>
+
   <Target Name="CloudSimEnsureQtImportPlaceholder" BeforeTargets="QtVars"
           Condition="'$(QtQmlStaticImportFile)' != ''">
     <PropertyGroup>
@@ -16,5 +28,25 @@
                       File="$(QtQmlStaticImportFile)"
                       Lines="/* cloudsim: QtVars input placeholder */"
                       Overwrite="true" />
+  </Target>
+
+  <!-- Qt clean_log 无 Overwrite 追加，且常把 ImportLib 写进聚合 write tlog；删掉以免 FUTD 读到陈旧 .lib -->
+  <Target Name="CloudSimStripQtAggregateWriteTlog" AfterTargets="QtWork"
+          Condition="'$(TLogLocation)' != '' AND '$(DesignTimeBuild)' != 'true'">
+    <Delete Files="$(TLogLocation)$(MSBuildProjectName).write.1u.tlog"
+            Condition="Exists('$(TLogLocation)$(MSBuildProjectName).write.1u.tlog')" />
+  </Target>
+
+  <!-- 增量链接常不碰 .lib；仅当落后于 DLL 时对齐，避免误触下游依赖 -->
+  <Target Name="CloudSimSyncImportLibTimestamp" AfterTargets="Link"
+          Condition="'$(DesignTimeBuild)' != 'true' AND Exists('$(TargetPath)')">
+    <PropertyGroup>
+      <_CloudSimImportLib>$(TargetDir)$(TargetName).lib</_CloudSimImportLib>
+      <_CloudSimExportExp>$(TargetDir)$(TargetName).exp</_CloudSimExportExp>
+    </PropertyGroup>
+    <Touch Files="$(_CloudSimImportLib)" AlwaysCreate="false"
+           Condition="Exists('$(_CloudSimImportLib)') AND $([System.IO.File]::GetLastWriteTime('$(_CloudSimImportLib)').Ticks) &lt; $([System.IO.File]::GetLastWriteTime('$(TargetPath)').Ticks)" />
+    <Touch Files="$(_CloudSimExportExp)" AlwaysCreate="false"
+           Condition="Exists('$(_CloudSimExportExp)') AND $([System.IO.File]::GetLastWriteTime('$(_CloudSimExportExp)').Ticks) &lt; $([System.IO.File]::GetLastWriteTime('$(TargetPath)').Ticks)" />
   </Target>
 </Project>

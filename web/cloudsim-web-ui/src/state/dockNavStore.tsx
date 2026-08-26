@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
-export type PrimaryTab = "workspace" | "ai" | "cloud";
-export type WsTab = "units" | "devices";
+export type PrimaryTab = "workspace" | "ai" | "cloud" | "geometry";
+export type WsTab = "units" | "devices" | "annotations";
 export type DeviceMode = "robot" | "customDevice";
-export type RobotTab = "cmd" | "joint" | "trajGen" | "trajEdit" | "frame";
+export type RobotTab = "cmd" | "joint" | "trajGen" | "trajEdit" | "frame" | "collision";
 export type DeviceTab = "cmd" | "joint";
 
 type DockNav = {

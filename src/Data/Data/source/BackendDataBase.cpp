@@ -8,10 +8,8 @@
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "BackendPropertyRow.h"
-#include "FollowAttachmentComponent.h"
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
 #include "PropertyRowsCompatAdapter.h"
+#include "RunLogger.h"
 
 #include <algorithm>
 #include <atomic>
@@ -59,14 +57,14 @@ bool buildWorldPoseInFrame(const BackendDataBase& owner, const BackendVec3& pose
 		return true;
 	}
 
-	const std::vector<std::string> parents = mgr->parentsOf(owner.id());
-	if (parents.empty())
+	const std::string primaryId = mgr->primaryParentOf(owner.id());
+	if (primaryId.empty())
 	{
 		outWorldPose = poseFrame;
 		outWorldEuler = rotFrame;
 		return true;
 	}
-	const auto parent = mgr->getData(parents.front());
+	const auto parent = mgr->getData(primaryId);
 	if (!parent || !parent->hasPoseProperty())
 	{
 		outWorldPose = poseFrame;
@@ -74,7 +72,7 @@ bool buildWorldPoseInFrame(const BackendDataBase& owner, const BackendVec3& pose
 		return true;
 	}
 
-	const BackendMat4 parentWorld = parent->worldMatrix(mgr);
+	const BackendMat4 parentWorld = parent->worldMatrix();
 	const BackendMat4 local = backend_world_mat_from_pose(poseFrame, rotFrame);
 	BackendMat4 world{};
 	backend_mat4_multiply(parentWorld, local, world);
@@ -186,10 +184,43 @@ const std::string& BackendDataBase::id() const
 
 void BackendDataBase::setId(const std::string& id)
 {
-	if (!id.empty())
+	if (id.empty())
 	{
-		m_id = id;
+		return;
 	}
+	if (m_idRegistered && id != m_id)
+	{
+		RunLogger::warn("[BackendDataBase] setId refused: id already registered as \"" + m_id + "\".");
+		return;
+	}
+	m_id = id;
+	const std::string prefix = "backend_data_";
+	if (id.size() > prefix.size() && id.compare(0, prefix.size(), prefix) == 0)
+	{
+		try
+		{
+			const unsigned long long parsed = std::stoull(id.substr(prefix.size()));
+			unsigned long long expected = g_backendDataIdCounter.load(std::memory_order_relaxed);
+			while (parsed >= expected &&
+				   !g_backendDataIdCounter.compare_exchange_weak(expected, parsed + 1ULL, std::memory_order_relaxed,
+																 std::memory_order_relaxed))
+			{
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+}
+
+void BackendDataBase::markIdRegistered(bool registered)
+{
+	m_idRegistered = registered;
+}
+
+void BackendDataBase::syncPropertyBagFromState()
+{
+	property_rows_compat::syncTransformColorToBag(m_propertyBag, *this);
 }
 
 const std::string& BackendDataBase::name() const
@@ -212,7 +243,12 @@ bool BackendDataBase::isVisible() const
 
 void BackendDataBase::setVisible(bool visible)
 {
+	if (m_visible == visible)
+	{
+		return;
+	}
 	m_visible = visible;
+	bumpPoseRevision();
 }
 
 nlohmann::json BackendDataBase::saveToJson() const
@@ -293,25 +329,31 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 	}
 
 	loadPropertyBagFromJson(in.value("propertyBag", nlohmann::json::object()), m_propertyBag);
-	removeComponent(FollowAttachmentComponent::typeKeyStatic());
+	BackendComponentCodecRegistry& registry = BackendComponentCodecRegistry::instance();
+	for (const std::string& legacyType : registry.legacyComponentTypes())
+	{
+		removeComponent(legacyType);
+	}
 	const nlohmann::json components = in.value("components", nlohmann::json::array());
 	if (components.is_array())
 	{
 		for (const auto& item : components)
 		{
-			const BackendComponentPtr component = BackendComponentCodecRegistry::instance().decodeComponent(item);
+			const BackendComponentPtr component = registry.decodeComponent(item);
 			if (component)
 			{
 				addComponent(component);
 			}
 		}
 	}
-	if (!hasComponent(FollowAttachmentComponent::typeKeyStatic()) && in.contains("followAttachment") &&
-		in["followAttachment"].is_object())
+	std::vector<BackendComponentPtr> legacyComponents;
+	registry.loadLegacyComponentsFromJson(in, legacyComponents);
+	for (const BackendComponentPtr& component : legacyComponents)
 	{
-		auto follow = std::make_shared<FollowAttachmentComponent>();
-		follow->readJson(in["followAttachment"]);
-		addComponent(follow);
+		if (component && !hasComponent(component->componentType()))
+		{
+			addComponent(component);
+		}
 	}
 	if (in.contains("worldMatrix"))
 	{
@@ -337,7 +379,16 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 			}
 			world.v[i] = wm[i].get<double>();
 		}
+		if (!backend_mat4_is_nearly_rigid(world))
+		{
+			if (errMsg)
+			{
+				*errMsg = "worldMatrix is not nearly rigid (orthogonal unit columns + homogeneous last row).";
+			}
+			return false;
+		}
 		setWorldMatrix(world);
+		syncPropertyBagFromState();
 	}
 	else if (hasPoseProperty())
 	{
@@ -347,7 +398,12 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 		}
 		return false;
 	}
-	return loadDerivedJson(in, errMsg);
+	if (!loadDerivedJson(in, errMsg))
+	{
+		return false;
+	}
+	syncPropertyBagFromState();
+	return true;
 }
 
 BackendVec3 BackendDataBase::pose() const
@@ -374,6 +430,8 @@ void BackendDataBase::setPose(const BackendVec3& position)
 		return;
 	}
 	m_worldMatrix = backend_world_mat_replace_translation(m_worldMatrix, position);
+	syncPropertyBagFromState();
+	bumpPoseRevision();
 }
 
 BackendVec3 BackendDataBase::rotation() const
@@ -403,6 +461,8 @@ void BackendDataBase::setRotation(const BackendVec3& eulerDeg)
 		return;
 	}
 	m_worldMatrix = proposed;
+	syncPropertyBagFromState();
+	bumpPoseRevision();
 }
 
 void BackendDataBase::applyBackendWorldPose(const BackendVec3& centerWorld, const BackendVec3& eulerDegWorld)
@@ -417,6 +477,8 @@ void BackendDataBase::applyBackendWorldPose(const BackendVec3& centerWorld, cons
 		return;
 	}
 	m_worldMatrix = proposed;
+	syncPropertyBagFromState();
+	bumpPoseRevision();
 }
 
 BackendPoseReferenceFrame BackendDataBase::poseReferenceFrame() const
@@ -439,19 +501,19 @@ BackendVec3 BackendDataBase::poseInFrame(BackendPoseReferenceFrame frame, const 
 	{
 		return pose();
 	}
-	const std::vector<std::string> parents = mgr->parentsOf(id());
-	if (parents.empty())
+	const std::string primaryId = mgr->primaryParentOf(id());
+	if (primaryId.empty())
 	{
 		return pose();
 	}
-	const auto parent = mgr->getData(parents.front());
+	const auto parent = mgr->getData(primaryId);
 	if (!parent || !parent->hasPoseProperty())
 	{
 		return pose();
 	}
 
-	const BackendMat4 selfWorld = worldMatrix(mgr);
-	const BackendMat4 parentWorld = parent->worldMatrix(mgr);
+	const BackendMat4 selfWorld = worldMatrix();
+	const BackendMat4 parentWorld = parent->worldMatrix();
 	BackendMat4 invParent{};
 	backend_mat4_invert_rigid(parentWorld, invParent);
 	BackendMat4 selfLocal{};
@@ -472,19 +534,19 @@ BackendVec3 BackendDataBase::rotationInFrame(BackendPoseReferenceFrame frame, co
 	{
 		return rotation();
 	}
-	const std::vector<std::string> parents = mgr->parentsOf(id());
-	if (parents.empty())
+	const std::string primaryId = mgr->primaryParentOf(id());
+	if (primaryId.empty())
 	{
 		return rotation();
 	}
-	const auto parent = mgr->getData(parents.front());
+	const auto parent = mgr->getData(primaryId);
 	if (!parent || !parent->hasPoseProperty())
 	{
 		return rotation();
 	}
 
-	const BackendMat4 selfWorld = worldMatrix(mgr);
-	const BackendMat4 parentWorld = parent->worldMatrix(mgr);
+	const BackendMat4 selfWorld = worldMatrix();
+	const BackendMat4 parentWorld = parent->worldMatrix();
 	BackendMat4 invParent{};
 	backend_mat4_invert_rigid(parentWorld, invParent);
 	BackendMat4 selfLocal{};
@@ -506,6 +568,8 @@ void BackendDataBase::setPoseInFrame(const BackendVec3& value, BackendPoseRefere
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, value, rotationInFrame(frame, mgr), frame, mgr, worldPose, worldEuler);
 	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
+	syncPropertyBagFromState();
+	bumpPoseRevision();
 }
 
 void BackendDataBase::setRotationInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame,
@@ -519,6 +583,8 @@ void BackendDataBase::setRotationInFrame(const BackendVec3& value, BackendPoseRe
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, poseInFrame(frame, mgr), value, frame, mgr, worldPose, worldEuler);
 	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
+	syncPropertyBagFromState();
+	bumpPoseRevision();
 }
 
 BackendPoseValue BackendDataBase::poseValue(BackendPoseReferenceFrame frame, const BackendDataManager* mgr) const
@@ -536,11 +602,12 @@ void BackendDataBase::setPoseValue(const BackendPoseValue& value, BackendPoseRef
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, value.position, value.eulerDeg, frame, mgr, worldPose, worldEuler);
 	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
+	syncPropertyBagFromState();
+	bumpPoseRevision();
 }
 
-BackendMat4 BackendDataBase::worldMatrix(const BackendDataManager* mgr) const
+BackendMat4 BackendDataBase::worldMatrix() const
 {
-	(void)mgr;
 	if (!hasPoseProperty())
 	{
 		return BackendMat4::identity();
@@ -548,26 +615,28 @@ BackendMat4 BackendDataBase::worldMatrix(const BackendDataManager* mgr) const
 	return m_worldMatrix;
 }
 
-void BackendDataBase::setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr)
+void BackendDataBase::setWorldMatrix(const BackendMat4& world)
 {
-	(void)mgr;
 	if (!hasPoseProperty())
 	{
 		return;
 	}
 	m_worldMatrix = world;
+	syncPropertyBagFromState();
+	bumpPoseRevision();
 }
 
-void BackendDataBase::applyWorldMatrixIncrement(const BackendMat4& incrementLocal, const BackendDataManager* mgr)
+void BackendDataBase::applyWorldMatrixIncrement(const BackendMat4& incrementWorld)
 {
-	(void)mgr;
 	if (!hasPoseProperty())
 	{
 		return;
 	}
 	BackendMat4 combined{};
-	backend_mat4_multiply(incrementLocal, m_worldMatrix, combined);
+	backend_mat4_multiply(incrementWorld, m_worldMatrix, combined);
 	m_worldMatrix = combined;
+	syncPropertyBagFromState();
+	bumpPoseRevision();
 }
 
 bool BackendDataBase::validatePoseFrameRoundTrip(const BackendDataManager* mgr, double epsilon) const
@@ -592,34 +661,49 @@ std::string BackendDataBase::generateId()
 	return "backend_data_" + std::to_string(id);
 }
 
+void BackendDataBase::collectReferencedBackendIds(std::vector<std::string>& out) const
+{
+	std::lock_guard<std::mutex> lock(m_componentMutex);
+	for (const auto& kv : m_components)
+	{
+		if (kv.second)
+		{
+			kv.second->collectReferencedBackendIds(out);
+		}
+	}
+}
+
 nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* mgr) const
 {
-	nlohmann::json rows = nlohmann::json::array();
+	ensureBackendComponentCodecBuiltinsRegistered();	nlohmann::json rows = nlohmann::json::array();
 	backend_property_json::appendRow(rows, "core.id", "ID", false, m_id);
 	backend_property_json::appendRow(rows, "core.name", "Name", true, m_name);
 	backend_property_json::appendRow(rows, "core.class", "Class", false, className());
 	if (hasPoseProperty())
 	{
 		const std::string frameText = (m_poseReferenceFrame == BackendPoseReferenceFrame::Parent) ? "parent" : "world";
-		property_rows_compat::syncTransformColorToBag(m_propertyBag, *this);
 		backend_property_json::appendRow(rows, "pose.frame", "Pose frame (world|parent)", true, frameText);
 	}
-	if (const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-			getComponent(FollowAttachmentComponent::typeKeyStatic())))
+	for (const BackendComponentPtr& component : listComponents())
 	{
-		if (mgr)
+		if (component)
 		{
-			if (const auto target = mgr->getData(f->targetBackendId()))
+			component->appendPropertyRows(rows, mgr);
+		}
+	}
+	if (hasPoseProperty())
+	{
+		for (const BackendComponentCodecRegistry::DefaultPropertyRows& defaults :
+			 BackendComponentCodecRegistry::instance().defaultPropertyRowFactories())
+		{
+			if (!hasComponent(defaults.componentType) && defaults.factory)
 			{
-				m_propertyBag.set<std::string>("follow.targetName", target->name());
+				if (const BackendComponentPtr prototype = defaults.factory())
+				{
+					prototype->appendDefaultPropertyRowsWhenAbsent(rows, mgr);
+				}
 			}
 		}
-		f->appendPropertyRows(rows, mgr);
-	}
-	else if (hasPoseProperty())
-	{
-		FollowAttachmentComponent defaults;
-		defaults.appendPropertyRows(rows, mgr);
 	}
 	return rows;
 }
@@ -662,31 +746,20 @@ bool BackendDataBase::applyPropertyChange(const std::string& key, const std::str
 		}
 		return false;
 	}
-	const auto ensureFollow = [&]()
+	const BackendComponentCodecRegistry& registry = BackendComponentCodecRegistry::instance();
+	const std::string prefixType = registry.componentTypeForPropertyPrefix(key);
+	if (!prefixType.empty() && !hasComponent(prefixType))
 	{
-		if (!getComponent(FollowAttachmentComponent::typeKeyStatic()))
+		if (const BackendComponentPtr created = registry.createForPropertyPrefix(key))
 		{
-			addComponent(std::make_shared<FollowAttachmentComponent>());
+			addComponent(created);
 		}
-	};
-	if (key == "follow.targetName")
-	{
-		const std::string trimmed = trimUtf8Whitespace(value);
-		if (trimmed.empty())
-		{
-			removeComponent(FollowAttachmentComponent::typeKeyStatic());
-			m_propertyBag.set<std::string>("follow.targetName", std::string());
-			return true;
-		}
-		m_propertyBag.set<std::string>("follow.targetName", trimmed);
 	}
-	if (key.rfind("follow.", 0) == 0)
+	for (const BackendComponentPtr& component : listComponents())
 	{
-		ensureFollow();
-		if (const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-				getComponent(FollowAttachmentComponent::typeKeyStatic())))
+		if (component && component->applyPropertyChange(*this, key, value, errMsg, mgr))
 		{
-			return f->applyPropertyChange(*this, key, value, errMsg, mgr);
+			return true;
 		}
 	}
 	if (errMsg)
@@ -709,7 +782,6 @@ bool BackendDataBase::addComponent(const BackendComponentPtr& component)
 	}
 	std::lock_guard<std::mutex> lock(m_componentMutex);
 	m_components[type] = component;
-	m_componentsByType[std::type_index(typeid(*component))] = component;
 	return true;
 }
 
@@ -720,17 +792,7 @@ bool BackendDataBase::removeComponent(const std::string& componentType)
 		return false;
 	}
 	std::lock_guard<std::mutex> lock(m_componentMutex);
-	const auto it = m_components.find(componentType);
-	if (it == m_components.end())
-	{
-		return false;
-	}
-	if (it->second)
-	{
-		m_componentsByType.erase(std::type_index(typeid(*it->second)));
-	}
-	m_components.erase(it);
-	return true;
+	return m_components.erase(componentType) > 0;
 }
 
 BackendComponentPtr BackendDataBase::getComponent(const std::string& componentType) const
@@ -752,8 +814,8 @@ std::vector<BackendComponentPtr> BackendDataBase::listComponents() const
 {
 	std::lock_guard<std::mutex> lock(m_componentMutex);
 	std::vector<BackendComponentPtr> components;
-	components.reserve(m_componentsByType.size());
-	for (const auto& item : m_componentsByType)
+	components.reserve(m_components.size());
+	for (const auto& item : m_components)
 	{
 		components.push_back(item.second);
 	}

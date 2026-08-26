@@ -13,12 +13,10 @@
 /// 注册 Follow 等内置组件编解码
 inline void ensureBackendComponentCodecBuiltinsRegistered()
 {
-	static bool once = false;
-	if (once)
-	{
-		return;
-	}
-	once = true;
+	static std::once_flag once;
+	std::call_once(once,
+				   []()
+				   {
 	BackendComponentCodecRegistry::instance().setWarningHook([](const std::string& message)
 															 { RunLogger::warn(message); });
 
@@ -59,6 +57,24 @@ inline void ensureBackendComponentCodecBuiltinsRegistered()
 			mount->readJson(inData);
 			return std::static_pointer_cast<IBackendComponent>(mount);
 		});
+
+	BackendComponentCodecRegistry::instance().registerPropertyPrefix(
+		"follow.", FollowAttachmentComponent::typeKeyStatic(),
+		[]() { return std::static_pointer_cast<IBackendComponent>(std::make_shared<FollowAttachmentComponent>()); });
+
+	BackendComponentCodecRegistry::instance().registerLegacyObjectKey(
+		"followAttachment", FollowAttachmentComponent::typeKeyStatic(),
+		[](const nlohmann::json& in)
+		{
+			auto follow = std::make_shared<FollowAttachmentComponent>();
+			follow->readJson(in);
+			return std::static_pointer_cast<IBackendComponent>(follow);
+		});
+
+	BackendComponentCodecRegistry::instance().registerDefaultPropertyRows(
+		FollowAttachmentComponent::typeKeyStatic(),
+		[]() { return std::static_pointer_cast<IBackendComponent>(std::make_shared<FollowAttachmentComponent>()); });
+				   });
 }
 
 #endif // DATA_BACKENDCOMPONENTCODECBUILTINS_H

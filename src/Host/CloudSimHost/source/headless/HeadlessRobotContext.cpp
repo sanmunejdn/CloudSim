@@ -39,7 +39,7 @@ bool BackendDataPoseSink::getBackendRootWorldMatrix(const std::string& backendId
 	{
 		return false;
 	}
-	const osg::Matrixd osgWorld = RobotMatrixOsg::matrixFromBackendColMajor(mesh->worldMatrix(&m_backend));
+	const osg::Matrixd osgWorld = RobotMatrixOsg::matrixFromBackendColMajor(mesh->worldMatrix());
 	outWorld = RobotSceneKinematics::coreMat4FromOsgMatrix(osgWorld);
 	return true;
 }
@@ -53,7 +53,7 @@ void BackendDataPoseSink::setBackendRootWorldMatrixFromWorld(const std::string& 
 		return;
 	}
 	const osg::Matrixd osgWorld = RobotSceneKinematics::osgMatrixFromCoreMat4(worldColumnMajor);
-	mesh->setWorldMatrix(RobotMatrixOsg::backendColMajorFromMatrix(osgWorld), &m_backend);
+	mesh->setWorldMatrix(RobotMatrixOsg::backendColMajorFromMatrix(osgWorld));
 }
 
 HeadlessRobotContext::HeadlessRobotContext(DocumentHost& host)

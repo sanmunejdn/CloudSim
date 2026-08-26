@@ -24,12 +24,6 @@ struct BackendMeta
 	std::string displayName;
 
 	std::function<std::shared_ptr<BackendDataBase>()> factory;
-
-	std::function<void*(BackendDataBase*)> propertyEditorFactory;
-
-	bool supportsTransform = true;
-
-	bool supportsVisibility = true;
 };
 
 /// className → 创建与属性面板工厂

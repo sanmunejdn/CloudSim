@@ -69,7 +69,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     });
     const t = setInterval(() => void refreshHealth(), 5000);
     eventHub.start();
-    const off = eventHub.onAny((_d, type) => {
+    const offAny = eventHub.onAny((_d, type) => {
       if (
         type === "ProjectLoaded" ||
         type === "ProjectSaved" ||
@@ -80,9 +80,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         setBump((n) => n + 1);
       }
     });
+    const offMode = eventHub.on("WorkspaceModeChanged", (data) => {
+      try {
+        const j = JSON.parse(data) as { mode?: string };
+        if (j.mode) setModeState(j.mode);
+      } catch {
+        /* keepalive */
+      }
+    });
     return () => {
       clearInterval(t);
-      off();
+      offAny();
+      offMode();
       eventHub.stop();
     };
   }, [refreshHealth]);

@@ -111,7 +111,7 @@ std::vector<float> worldTriangleSoupForMesh(const MeshBackendData& mesh, Backend
 	std::vector<float> soup = mesh.triangleSoup();
 	if (soup.empty())
 		return soup;
-	const BackendMat4 world = mesh.worldMatrix(&mgr);
+	const BackendMat4 world = mesh.worldMatrix();
 	transformSoupByMat4(soup, world);
 	return soup;
 }
@@ -1444,8 +1444,6 @@ bool PluginHostContext::registerBackendType(const PluginBackendMeta& meta, QStri
 	BackendMeta reg;
 	reg.className = meta.className;
 	reg.displayName = meta.displayName.empty() ? meta.className : meta.displayName;
-	reg.supportsTransform = meta.supportsTransform;
-	reg.supportsVisibility = meta.supportsVisibility;
 	reg.factory = [factory = meta.factory]() -> std::shared_ptr<BackendDataBase>
 	{
 		const std::shared_ptr<IPluginBackendObject> delegate = factory();
@@ -1455,15 +1453,6 @@ bool PluginHostContext::registerBackendType(const PluginBackendMeta& meta, QStri
 		}
 		return std::make_shared<PluginDelegatedBackend>(delegate);
 	};
-	if (meta.propertyRowsProvider)
-	{
-		reg.propertyEditorFactory = [provider = meta.propertyRowsProvider](BackendDataBase* base) -> void*
-		{
-			(void)base;
-			(void)provider;
-			return nullptr;
-		};
-	}
 
 	BackendRegistry::instance().registerType(reg);
 	return true;

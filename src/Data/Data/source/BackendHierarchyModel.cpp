@@ -6,6 +6,7 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 
+#include <algorithm>
 #include <queue>
 
 BackendHierarchyModel::BackendHierarchyModel(BackendDataManager& manager) : m_manager(manager)
@@ -137,7 +138,10 @@ std::vector<std::string> BackendHierarchyModel::buildSubtreeBfs(const std::strin
 		{
 			continue;
 		}
-		for (const std::string& childId : it->second)
+		// 子集为 unordered_set，先排序再入队，保证相同图结构下遍历序可复现
+		std::vector<std::string> children(it->second.begin(), it->second.end());
+		std::sort(children.begin(), children.end());
+		for (const std::string& childId : children)
 		{
 			if (visited.insert(childId).second)
 			{
@@ -148,17 +152,11 @@ std::vector<std::string> BackendHierarchyModel::buildSubtreeBfs(const std::strin
 	return out;
 }
 
-const std::vector<std::string>& BackendHierarchyModel::subtreeIds(const std::string& rootId)
-{
-	return const_cast<const BackendHierarchyModel*>(this)->subtreeIds(rootId);
-}
-
-const std::vector<std::string>& BackendHierarchyModel::subtreeIds(const std::string& rootId) const
+std::vector<std::string> BackendHierarchyModel::subtreeIds(const std::string& rootId) const
 {
 	if (rootId.empty() || m_nodes.find(rootId) == m_nodes.end())
 	{
-		m_emptySubtree.clear();
-		return m_emptySubtree;
+		return {};
 	}
 	const auto cached = m_subtreeCache.find(rootId);
 	if (cached != m_subtreeCache.end())

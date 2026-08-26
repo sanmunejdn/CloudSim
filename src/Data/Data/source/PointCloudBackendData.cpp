@@ -3,6 +3,8 @@
 
 #include "PointCloudBackendData.h"
 
+#include "BackendImporters.h"
+#include "RunLogger.h"
 #include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendSpatial.h"
 #include "BackendTypeIdentity.h"
@@ -34,9 +36,7 @@ PointCloudBackendData::PointCloudBackendData()
 	c.b = 0.95f;
 	c.a = 1.0f;
 	m_color = c;
-	m_attributes.push_back(makeBackendPoseAttribute());
-	m_attributes.push_back(makeBackendRotationAttribute());
-	m_attributes.push_back(makeBackendDisplayColorAttribute());
+	appendStandardAttributesForCapabilities(*this, m_attributes);
 }
 
 std::string PointCloudBackendData::className() const
@@ -86,11 +86,14 @@ BackendColor PointCloudBackendData::color() const
 void PointCloudBackendData::setPointCount(std::size_t count)
 {
 	m_pointCount = count;
+	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::setBounds(const BackendBoundingBox& bounds)
 {
 	m_bounds = bounds;
+	// B4: 独立调用时 Host 包围盒缓存需失效；当前无独立调用方，属潜在陷阱
+	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<float> rgbaPerVertex)
@@ -103,16 +106,18 @@ void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<
 {
 	if (xyz.size() % 3U != 0U)
 	{
-		clearGeometry();
+		RunLogger::warn("[PointCloudBackendData] setPointBuffers: bad xyz size, keep existing geometry.");
 		return;
 	}
 	const std::size_t n = xyz.size() / 3U;
 	if (!rgbaPerVertex.empty() && rgbaPerVertex.size() != n * 4U)
 	{
+		RunLogger::warn("[PointCloudBackendData] setPointBuffers: rgba size mismatch, discard rgba.");
 		rgbaPerVertex.clear();
 	}
 	if (!normalsNxNyNz.empty() && normalsNxNyNz.size() != n * 3U)
 	{
+		RunLogger::warn("[PointCloudBackendData] setPointBuffers: normals size mismatch, discard normals.");
 		normalsNxNyNz.clear();
 	}
 	m_xyz = std::move(xyz);
@@ -128,10 +133,13 @@ void PointCloudBackendData::setPointNormals(std::vector<float> normalsNxNyNz)
 	const std::size_t n = m_xyz.size() / 3U;
 	if (n == 0U || normalsNxNyNz.size() != n * 3U)
 	{
+		RunLogger::warn("[PointCloudBackendData] setPointNormals: size mismatch, clear normals.");
 		m_normals.clear();
+		bumpGeometryRevision();
 		return;
 	}
 	m_normals = std::move(normalsNxNyNz);
+	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::recomputeBoundsFromPoints()
@@ -296,15 +304,32 @@ static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeader
 		}
 	}
 
-	std::ifstream is2(std::filesystem::path(utf8Path), scan.isAscii ? std::ios::in : std::ios::binary);
-	if (!is2)
+	// P3-3: RGB 尝试失败后复用同一文件流（clear + seekg 回数据区），
+	// 避免大点云文件二次打开/重读 header 的 I/O 开销
+	is.clear();
+	is.seekg(0);
+	if (!is)
 	{
-		setErr(errMsg, "Cannot open point PLY file.");
+		setErr(errMsg, "Cannot rewind point PLY file.");
 		return false;
 	}
-	CGAL::IO::set_mode(is2, scan.isAscii ? CGAL::IO::ASCII : CGAL::IO::BINARY);
+	// 跳过 header（CGAL read_PLY 期望流定位在数据区）
+	{
+		std::string line;
+		while (std::getline(is, line))
+		{
+			if (!line.empty() && line.back() == '\r')
+			{
+				line.pop_back();
+			}
+			if (line == "end_header")
+			{
+				break;
+			}
+		}
+	}
 	std::vector<PlyReadPoint_3> pts;
-	const bool ptsOk = CGAL::IO::read_PLY<PlyReadPoint_3>(is2, std::back_inserter(pts));
+	const bool ptsOk = CGAL::IO::read_PLY<PlyReadPoint_3>(is, std::back_inserter(pts));
 	if (!ptsOk || pts.empty())
 	{
 		setErr(errMsg, "CGAL could not read PLY vertex positions.");
@@ -335,7 +360,7 @@ static int splitAsciiNumbers(const std::string& line, double* out, int maxOut)
 static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderInfo& scan, PointCloudBackendData& dst,
 								 std::string* errMsg)
 {
-	if (!scan.isAscii || scan.vertexCount <= 0 || scan.vertexHasListProperty)
+	if (!scan.isAscii || scan.vertexCount == 0U || scan.vertexHasListProperty)
 	{
 		setErr(errMsg, "ASCII PLY fallback needs vertex count and no list properties on vertex.");
 		return false;
@@ -369,14 +394,17 @@ static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderInf
 	const bool wantRgb = (scan.ir >= 0 && scan.ig >= 0 && scan.ib >= 0);
 	std::vector<float> xyz;
 	std::vector<float> rgba;
-	xyz.reserve(static_cast<std::size_t>(scan.vertexCount) * 3U);
+	xyz.reserve(scan.vertexCount * 3U);
 	if (wantRgb)
 	{
-		rgba.reserve(static_cast<std::size_t>(scan.vertexCount) * 4U);
+		rgba.reserve(scan.vertexCount * 4U);
 	}
 
-	double vals[64];
-	for (int vi = 0; vi < scan.vertexCount; ++vi)
+	// P3-3: 64 列上限放宽到 256，覆盖绝大多数 PLY 属性数；
+	// 超上限才报错（避免 rgb 列靠后时误报 missing color）
+	constexpr int kMaxPlyColumns = 256;
+	double vals[kMaxPlyColumns];
+	for (std::size_t vi = 0; vi < scan.vertexCount; ++vi)
 	{
 		if (!std::getline(fin, line))
 		{
@@ -387,7 +415,12 @@ static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderInf
 		{
 			line.pop_back();
 		}
-		const int nc = splitAsciiNumbers(line, vals, 64);
+		const int nc = splitAsciiNumbers(line, vals, kMaxPlyColumns);
+		if (nc >= kMaxPlyColumns)
+		{
+			setErr(errMsg, "ASCII PLY: vertex line exceeds 256 columns (unsupported).");
+			return false;
+		}
 		if (nc <= std::max({scan.ix, scan.iy, scan.iz}))
 		{
 			setErr(errMsg, "ASCII PLY: bad vertex line.");
@@ -482,85 +515,9 @@ bool PointCloudBackendData::readPointCloudFromPlyFile(const std::string& utf8Pat
 	return false;
 }
 
-namespace
-{
-bool readPointCloudFromXyzFilePath(PointCloudBackendData& pc, const std::string& nativePath, std::string* errMsg)
-{
-	std::ifstream in(nativePath);
-	if (!in)
-	{
-		setErr(errMsg, "Cannot open XYZ file.");
-		return false;
-	}
-	std::vector<float> xyz;
-	std::string line;
-	while (std::getline(in, line))
-	{
-		std::size_t i = 0;
-		while (i < line.size() && (line[i] == ' ' || line[i] == '\t' || line[i] == '\r'))
-		{
-			++i;
-		}
-		if (i >= line.size() || line[i] == '#')
-		{
-			continue;
-		}
-		std::istringstream ls(line.substr(i));
-		double vx = 0.0;
-		double vy = 0.0;
-		double vz = 0.0;
-		if (ls >> vx >> vy >> vz)
-		{
-			xyz.push_back(static_cast<float>(vx));
-			xyz.push_back(static_cast<float>(vy));
-			xyz.push_back(static_cast<float>(vz));
-		}
-	}
-	if (xyz.empty())
-	{
-		setErr(errMsg, "No valid XYZ points.");
-		return false;
-	}
-	pc.setPointBuffers(std::move(xyz), {});
-	return true;
-}
-
-} // namespace
-
 bool PointCloudBackendData::loadFromFile(const std::string& path, std::string* errMsg)
 {
-	clearGeometry();
-	const auto dot = path.find_last_of('.');
-	if (dot == std::string::npos)
-	{
-		setErr(errMsg, "Missing file extension.");
-		return false;
-	}
-	std::string ext = path.substr(dot + 1);
-	for (char& c : ext)
-	{
-		c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-	}
-	if (ext == "ply")
-	{
-		if (plyFileHasTriangleFaces(path))
-		{
-			setErr(errMsg, "PLY contains faces; import as mesh instead of point cloud.");
-			return false;
-		}
-		return readPointCloudFromPlyFile(path, errMsg);
-	}
-	if (ext == "xyz")
-	{
-		return readPointCloudFromXyzFilePath(*this, path, errMsg);
-	}
-	if (ext == "las" || ext == "laz")
-	{
-		setErr(errMsg, "LAS/LAZ: use OSG import path or convert to PLY/XYZ.");
-		return false;
-	}
-	setErr(errMsg, "Unsupported point cloud extension for CGAL backend load.");
-	return false;
+	return backend_io::loadPointCloudFromFile(*this, path, errMsg);
 }
 
 bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Path, std::string* errMsg) const
@@ -775,6 +732,15 @@ bool PointCloudBackendData::loadDerivedJson(const nlohmann::json& in, std::strin
 		}
 		return true;
 	}
-	// ply_sidecar：由 Host 从 assetRelativePath / plySidecar 加载
+	// ply_sidecar：字节由 Host ProjectPackageIo 外部写盘，Data 侧只记元数据；
+	// 元数据声明了点数而 sidecar 字节缺失时，留下的是静默空对象——此处无法读到字节，
+	// 只能告警提示外部协作者（Host）对账，真正的完整性校验在 Host 加载 sidecar 时做
+	const std::size_t declaredCount = static_cast<std::size_t>(geo.value("pointCount", 0.0));
+	if (declaredCount > 0U)
+	{
+		RunLogger::warn("[PointCloudBackendData] geometry declares pointCount=" + std::to_string(declaredCount) +
+						" but no embedded xyzBase64; expecting external PLY sidecar. If sidecar is missing, "
+						"object will stay empty.");
+	}
 	return true;
 }

@@ -1,4 +1,4 @@
-﻿/// @file UrdfRobotImport.cpp
+/// @file UrdfRobotImport.cpp
 /// @brief URDF 每连杆导入
 
 #include "UrdfRobotImport.h"
@@ -160,11 +160,11 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		// Tbind 含 visual origin 与关节链世界位姿；几何保持 mesh 文件系，位姿写入 worldMatrix
 		if (Tbind.contains(linkName))
 		{
-			mesh->setWorldMatrix(RobotMatrixOsg::backendColMajorFromMatrix(Tbind[linkName]), &backend);
+			mesh->setWorldMatrix(RobotMatrixOsg::backendColMajorFromMatrix(Tbind[linkName]));
 		}
 		else
 		{
-			mesh->setWorldMatrix(BackendMat4::identity(), &backend);
+			mesh->setWorldMatrix(BackendMat4::identity());
 		}
 		if (!backend.registerData(mesh))
 		{
@@ -282,7 +282,7 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 			}
 			poseSink->setBackendRootWorldMatrixFromWorld(
 				bidStd, RobotSceneKinematics::coreMat4FromOsgMatrix(
-							RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix(&backend))));
+							RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix())));
 		}
 	}
 
@@ -292,7 +292,7 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(backend.getData(it.value().toStdString()));
 		if (meshPtr)
 		{
-			outerBind.insert(it.value(), RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix(&backend)));
+			outerBind.insert(it.value(), RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix()));
 		}
 	}
 

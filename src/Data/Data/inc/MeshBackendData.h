@@ -76,7 +76,7 @@ public:
 	bool writeProjectEmbeddedGeometry(std::string& outTriangleSoupBase64) const;
 	bool readProjectEmbeddedGeometry(const std::string& triangleSoupBase64);
 
-	/// CGAL polygon soup（.obj/.stl/.ply/.off）；path 本地编码
+	/// 文件加载实现见 backend_io；此处转发兼容旧调用方
 	bool loadFromFile(const std::string& path, std::string* errMsg = nullptr, int meshImportQuality = 1);
 	/// 三角 soup 写 PLY（含 face 元素）；path UTF-8
 	bool writeTriangleMeshPly(const std::string& utf8Path, std::string* errMsg = nullptr) const;

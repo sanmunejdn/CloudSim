@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <json.hpp>
 
@@ -28,5 +29,11 @@ using BackendAttributePtr = std::shared_ptr<BackendAttributeBase>;
 DATA_EXPORT BackendAttributePtr makeBackendPoseAttribute();
 DATA_EXPORT BackendAttributePtr makeBackendRotationAttribute();
 DATA_EXPORT BackendAttributePtr makeBackendDisplayColorAttribute();
+
+/// 按对象声明的能力追加标准属性 attribute。
+/// 派生类构造函数必须改调此函数而非手工 push 单个 attribute：
+/// 手工 push 与 has*Property() 无编译期关联，漏推时面板静默少行
+DATA_EXPORT void appendStandardAttributesForCapabilities(const BackendDataBase& self,
+														 std::vector<BackendAttributePtr>& outAttributes);
 
 #endif // DATA_BACKENDOBJECTATTRIBUTE_H

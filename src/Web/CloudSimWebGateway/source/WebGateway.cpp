@@ -145,6 +145,11 @@ struct WebGateway::Impl
 	qint64 lastEventsDroppedMs = 0;
 };
 
+httplib::Server& WebGateway::httpServer()
+{
+	return m_impl->svr;
+}
+
 WebGateway::WebGateway(cloudsim::core::ICloudSimContext& context, WebGatewayConfig config, QObject* parent)
 	: QObject(parent), m_context(context), m_config(std::move(config)), m_impl(std::make_unique<Impl>())
 {
@@ -411,6 +416,8 @@ void WebGateway::stop()
 
 void WebGateway::pushEvent(const QString& jsonLine)
 {
+	if (m_impl->sseClients.load() <= 0)
+		return;
 	QMutexLocker lock(&m_impl->eventMutex);
 	constexpr int kMaxEventQueue = 256;
 	bool dropped = false;
@@ -1126,63 +1133,10 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 		writeJsonOk(res, ok, err, QJsonObject{});
 	});
 
-	m_impl->svr.Post("/api/robot/run",
-					  [](const httplib::Request&, httplib::Response& res)
-					  {
-						  res.set_content(R"({"ok":true,"status":"accepted","note":"playback orchestrated by client SSE pose stream"})",
-										  "application/json; charset=utf-8");
-					  });
-	m_impl->svr.Post("/api/robot/stop",
-					  [](const httplib::Request&, httplib::Response& res)
-					  {
-						  res.set_content(R"({"ok":true,"status":"stopped"})", "application/json; charset=utf-8");
-					  });
-	m_impl->svr.Post("/api/robot/export",
-					  [](const httplib::Request& req, httplib::Response& res)
-					  {
-						  QJsonObject o;
-						  o.insert(QStringLiteral("ok"), true);
-						  o.insert(QStringLiteral("format"), QStringLiteral("canonical-v1"));
-						  o.insert(QStringLiteral("note"),
-								   QStringLiteral("Brand scripts invoked out-of-process; body echoed for client pipeline"));
-						  o.insert(QStringLiteral("requestBytes"), static_cast<int>(req.body.size()));
-						  const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
-						  res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
-					  });
-
-	// 几何 / 点云作业面（重活在 Host）
-	m_impl->svr.Post("/api/geometry/op",
-					  [this](const httplib::Request& req, httplib::Response& res)
-					  {
-						  const QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(req.body));
-						  const QString op =
-							  doc.isObject() ? doc.object().value(QStringLiteral("op")).toString() : QString();
-						  QJsonObject o;
-						  o.insert(QStringLiteral("ok"), true);
-						  o.insert(QStringLiteral("queued"), true);
-						  o.insert(QStringLiteral("op"), op);
-						  o.insert(QStringLiteral("note"),
-								   QStringLiteral("GeometryAlgorithm jobs accepted; progress via SSE GeometryJobProgress"));
-						  pushEvent(QStringLiteral("{\"type\":\"GeometryJobProgress\",\"op\":\"%1\",\"progress\":1.0}")
-										.arg(op));
-						  const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
-						  res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
-					  });
-	m_impl->svr.Post("/api/pointcloud/op",
-					  [this](const httplib::Request& req, httplib::Response& res)
-					  {
-						  QByteArray body;
-						  QMetaObject::invokeMethod(
-							  this,
-							  [this, reqBody = QByteArray::fromStdString(req.body), &body]()
-							  {
-								  body = pointCloudPostJsonOnGuiThread(
-									  reqBody, &cloudsim::host::HeadlessPointCloudBridge::deprecatedOp);
-							  },
-							  Qt::BlockingQueuedConnection);
-						  res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
-					  });
 	registerPointCloudRoutes(host);
+	registerParityRoutes(host);
+
+	// 模式 / 侧车
 
 	// 模式 / 侧车
 	m_impl->svr.Get("/api/modes", [this](const httplib::Request&, httplib::Response& res)
@@ -1217,18 +1171,6 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 		const QByteArray body = aiStatusJson();
 		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
 	});
-	m_impl->svr.Post("/api/ai/chat",
-					 [](const httplib::Request& req, httplib::Response& res)
-					 {
-						 QJsonObject o;
-						 o.insert(QStringLiteral("ok"), true);
-						 o.insert(QStringLiteral("role"), QStringLiteral("assistant"));
-						 o.insert(QStringLiteral("content"),
-								  QStringLiteral("AI bridge stub — configure ai_config.json; request bytes=%1")
-									  .arg(static_cast<int>(req.body.size())));
-						 const QByteArray out = QJsonDocument(o).toJson(QJsonDocument::Compact);
-						 res.set_content(out.constData(), out.size(), "application/json; charset=utf-8");
-					 });
 	m_impl->svr.Get("/api/help", [this](const httplib::Request&, httplib::Response& res)
 	{
 		const QByteArray body = helpIndexJson();
@@ -1866,6 +1808,7 @@ bool WebGateway::openProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 		}
 	}
 	webGatewayLoadSidecarsFromProject(root);
+	webGatewaySyncSidecarsToHost(host, root);
 	{
 		QString ioErr;
 		if (root.contains(QStringLiteral("ioSignalNetwork")))

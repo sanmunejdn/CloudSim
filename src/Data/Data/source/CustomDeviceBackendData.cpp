@@ -6,6 +6,8 @@
 #include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendObjectAttribute.h"
 #include "BackendTypeIdentity.h"
+#include "CustomDeviceRobotMountComponent.h"
+#include "RunLogger.h"
 
 #include <algorithm>
 #include <atomic>
@@ -68,6 +70,27 @@ void setIdentity16(double m[16])
 	m[0] = m[5] = m[10] = m[15] = 1.0;
 }
 
+/// 读取并校验刚体（与 worldMatrix 的 fail-fast 哲学一致：脏矩阵告警后回退 identity）
+void readRigidMat16(const nlohmann::json& in, double out[16], const char* label)
+{
+	if (!readMat16(in, out))
+	{
+		RunLogger::warn(std::string("[CustomDevice] ") + label + ": invalid 16-element matrix, keep identity.");
+		setIdentity16(out);
+		return;
+	}
+	BackendMat4 m{};
+	for (int i = 0; i < 16; ++i)
+	{
+		m.v[i] = out[i];
+	}
+	if (!backend_mat4_is_nearly_rigid(m))
+	{
+		RunLogger::warn(std::string("[CustomDevice] ") + label + ": matrix not nearly rigid, keep identity.");
+		setIdentity16(out);
+	}
+}
+
 const char* motionToString(const CustomDeviceMotionType t)
 {
 	return t == CustomDeviceMotionType::Rotate ? "Rotate" : "Translate";
@@ -78,6 +101,10 @@ CustomDeviceMotionType motionFromString(const std::string& s)
 	if (s == "Rotate" || s == "rotate")
 	{
 		return CustomDeviceMotionType::Rotate;
+	}
+	if (s != "Translate" && s != "translate")
+	{
+		RunLogger::warn("[CustomDevice] motionFromString: unknown \"" + s + "\", fallback to Translate.");
 	}
 	return CustomDeviceMotionType::Translate;
 }
@@ -307,7 +334,7 @@ bool readCustomDeviceLinksFromJson(const nlohmann::json& in, std::vector<CustomD
 		}
 		if (item.contains("restInDeviceW0"))
 		{
-			readMat16(item["restInDeviceW0"], L.restInDeviceW0);
+			readRigidMat16(item["restInDeviceW0"], L.restInDeviceW0, "link.restInDeviceW0");
 		}
 		if (L.id.empty())
 		{
@@ -368,7 +395,7 @@ bool readCustomDeviceJointsFromJson(const nlohmann::json& in, std::vector<Custom
 		}
 		if (item.contains("parentToChildRest"))
 		{
-			readMat16(item["parentToChildRest"], J.parentToChildRest);
+			readRigidMat16(item["parentToChildRest"], J.parentToChildRest, "joint.parentToChildRest");
 		}
 		if (J.id.empty() || J.parentLinkId.empty() || J.childLinkId.empty())
 		{
@@ -379,16 +406,43 @@ bool readCustomDeviceJointsFromJson(const nlohmann::json& in, std::vector<Custom
 	return true;
 }
 
+namespace
+{
+std::atomic<unsigned long long> g_customDevicePoseIdCounter{1ULL};
+std::atomic<unsigned long long> g_customDevicePoseBindingIdCounter{1ULL};
+
+/// 加载期回推计数器，避免生成 id 与已加载 id 碰撞（同 BackendDataBase::setId 哲学）
+void advanceIdCounterFromLoaded(std::atomic<unsigned long long>& counter, const std::string& id, const char* prefix)
+{
+	const std::size_t prefixLen = std::strlen(prefix);
+	if (id.size() <= prefixLen || id.compare(0, prefixLen, prefix) != 0)
+	{
+		return;
+	}
+	try
+	{
+		const unsigned long long parsed = std::stoull(id.substr(prefixLen));
+		unsigned long long expected = counter.load(std::memory_order_relaxed);
+		while (parsed >= expected &&
+			   !counter.compare_exchange_weak(expected, parsed + 1ULL, std::memory_order_relaxed,
+											  std::memory_order_relaxed))
+		{
+		}
+	}
+	catch (...)
+	{
+	}
+}
+} // namespace
+
 std::string makeCustomDevicePoseId()
 {
-	static std::atomic<unsigned long long> sCounter{1ULL};
-	return std::string("POSE_") + std::to_string(sCounter.fetch_add(1ULL));
+	return std::string("POSE_") + std::to_string(g_customDevicePoseIdCounter.fetch_add(1ULL));
 }
 
 std::string makeCustomDevicePoseBindingId()
 {
-	static std::atomic<unsigned long long> sCounter{1ULL};
-	return std::string("PSB_") + std::to_string(sCounter.fetch_add(1ULL));
+	return std::string("PSB_") + std::to_string(g_customDevicePoseBindingIdCounter.fetch_add(1ULL));
 }
 
 void writeCustomDeviceNamedPosesToJson(const std::vector<CustomDeviceNamedPose>& poses, nlohmann::json& out)
@@ -439,6 +493,10 @@ bool readCustomDeviceNamedPosesFromJson(const nlohmann::json& in, std::vector<Cu
 		if (p.id.empty())
 		{
 			p.id = makeCustomDevicePoseId();
+		}
+		else
+		{
+			advanceIdCounterFromLoaded(g_customDevicePoseIdCounter, p.id, "POSE_");
 		}
 		if (p.name.empty())
 		{
@@ -504,6 +562,10 @@ bool readCustomDevicePoseSignalBindingsFromJson(const nlohmann::json& in,
 		{
 			b.id = makeCustomDevicePoseBindingId();
 		}
+		else
+		{
+			advanceIdCounterFromLoaded(g_customDevicePoseBindingIdCounter, b.id, "PSB_");
+		}
 		out.push_back(std::move(b));
 	}
 	return true;
@@ -512,8 +574,7 @@ bool readCustomDevicePoseSignalBindingsFromJson(const nlohmann::json& in,
 CustomDeviceBackendData::CustomDeviceBackendData()
 {
 	setName(backend_type::kCatalogCustomDevice);
-	m_attributes.push_back(makeBackendPoseAttribute());
-	m_attributes.push_back(makeBackendRotationAttribute());
+	appendStandardAttributesForCapabilities(*this, m_attributes);
 	m_baseWorldW0 = BackendMat4::identity();
 	m_baseWorldW0Valid = true;
 }
@@ -523,47 +584,131 @@ std::string CustomDeviceBackendData::className() const
 	return backend_type::kClassCustomDevice;
 }
 
+bool CustomDeviceBackendData::isPoseExternallyDriven() const
+{
+	const auto mount = std::dynamic_pointer_cast<CustomDeviceRobotMountComponent>(
+		getComponent(CustomDeviceRobotMountComponent::typeKeyStatic()));
+	return mount && mount->enabled();
+}
+
 bool CustomDeviceBackendData::hasGeometry() const
 {
-	return true;
+	// 设备根自身无几何：真实几何在 Link 引用的 geometryBackendId 上；此处仅示意轴（visual 自画）
+	return false;
 }
 
 BackendBoundingBox CustomDeviceBackendData::geometryBounds() const
 {
-	const double half = static_cast<double>(m_axisLengthMm);
+	// 谎报 ±axisLengthMm 立方会污染 fit-to-view/场景统计；报无效，由子件几何承担包络
 	BackendBoundingBox box{};
-	box.min = {-half, -half, -half};
-	box.max = {half, half, half};
-	box.valid = true;
+	box.valid = false;
 	return box;
 }
 
 std::size_t CustomDeviceBackendData::geometryElementCount() const
 {
-	return 1U;
+	return 0U;
 }
 
 void CustomDeviceBackendData::clearGeometry()
 {
 }
 
-void CustomDeviceBackendData::setAxisLengthMm(const float mm)
+void CustomDeviceBackendData::collectReferencedBackendIds(std::vector<std::string>& out) const
 {
-	if (mm > 1.0f)
+	BackendDataBase::collectReferencedBackendIds(out);
+	for (const CustomDeviceLink& L : m_links)
 	{
-		m_axisLengthMm = mm;
-		bumpGeometryRevision();
+		if (!L.geometryBackendId.empty())
+		{
+			out.push_back(L.geometryBackendId);
+		}
+	}
+	for (const CustomDeviceAxisConfig& a : m_kinematic.axes.axes)
+	{
+		if (!a.motionCenterFrameBackendId.empty())
+		{
+			out.push_back(a.motionCenterFrameBackendId);
+		}
 	}
 }
 
-void CustomDeviceBackendData::setAxes(const CustomDeviceAxisConfigSet& axes)
+void CustomDeviceKinematicState::setAxes(const CustomDeviceAxisConfigSet& nextAxes)
 {
-	m_axes = axes;
-	for (CustomDeviceAxisConfig& a : m_axes.axes)
+	axes = nextAxes;
+	for (CustomDeviceAxisConfig& a : axes.axes)
 	{
 		normalizeCustomDeviceAxisConfig(a);
 	}
 	ensureQSize();
+}
+
+void CustomDeviceKinematicState::setQValues(const std::vector<double>& nextQ)
+{
+	q = nextQ;
+	ensureQSize();
+	for (size_t i = 0; i < axes.axes.size() && i < q.size(); ++i)
+	{
+		q[i] = std::clamp(q[i], axes.axes[i].lower, axes.axes[i].upper);
+	}
+}
+
+void CustomDeviceKinematicState::ensureQSize()
+{
+	if (q.size() < axes.axes.size())
+	{
+		const size_t old = q.size();
+		q.resize(axes.axes.size(), 0.0);
+		for (size_t i = old; i < axes.axes.size(); ++i)
+		{
+			q[i] = axes.axes[i].home;
+		}
+	}
+	else if (q.size() > axes.axes.size())
+	{
+		q.resize(axes.axes.size());
+	}
+}
+
+void CustomDeviceKinematicState::syncAxesFromJoints(const std::vector<CustomDeviceJoint>& joints)
+{
+	if (joints.empty())
+	{
+		return;
+	}
+	CustomDeviceAxisConfigSet set;
+	set.axes.reserve(joints.size());
+	for (const CustomDeviceJoint& j : joints)
+	{
+		CustomDeviceAxisConfig a = j.motion;
+		if (a.displayName.empty())
+		{
+			a.displayName = j.id;
+		}
+		if (a.jointName.empty())
+		{
+			a.jointName = j.id;
+		}
+		normalizeCustomDeviceAxisConfig(a);
+		set.axes.push_back(std::move(a));
+	}
+	setAxes(set);
+}
+
+void CustomDeviceBackendData::setAxisLengthMm(const float mm)
+{
+	if (mm > 0.0f)
+	{
+		m_axisLengthMm = mm;
+		bumpGeometryRevision();
+		return;
+	}
+	RunLogger::warn("[CustomDeviceBackendData] setAxisLengthMm: ignore non-positive value.");
+}
+
+void CustomDeviceBackendData::setAxes(const CustomDeviceAxisConfigSet& axes)
+{
+	m_kinematic.setAxes(axes);
 }
 
 void CustomDeviceBackendData::setLinks(const std::vector<CustomDeviceLink>& links)
@@ -583,54 +728,17 @@ void CustomDeviceBackendData::setJoints(const std::vector<CustomDeviceJoint>& jo
 
 void CustomDeviceBackendData::syncAxesFromJoints()
 {
-	if (m_joints.empty())
-	{
-		return;
-	}
-	CustomDeviceAxisConfigSet set;
-	set.axes.reserve(m_joints.size());
-	for (const CustomDeviceJoint& j : m_joints)
-	{
-		CustomDeviceAxisConfig a = j.motion;
-		if (a.displayName.empty())
-		{
-			a.displayName = j.id;
-		}
-		if (a.jointName.empty())
-		{
-			a.jointName = j.id;
-		}
-		normalizeCustomDeviceAxisConfig(a);
-		set.axes.push_back(std::move(a));
-	}
-	setAxes(set);
+	m_kinematic.syncAxesFromJoints(m_joints);
 }
 
 void CustomDeviceBackendData::setQValues(const std::vector<double>& q)
 {
-	m_q = q;
-	ensureQSize();
-	for (size_t i = 0; i < m_axes.axes.size() && i < m_q.size(); ++i)
-	{
-		m_q[i] = std::clamp(m_q[i], m_axes.axes[i].lower, m_axes.axes[i].upper);
-	}
+	m_kinematic.setQValues(q);
 }
 
 void CustomDeviceBackendData::ensureQSize()
 {
-	if (m_q.size() < m_axes.axes.size())
-	{
-		const size_t old = m_q.size();
-		m_q.resize(m_axes.axes.size(), 0.0);
-		for (size_t i = old; i < m_axes.axes.size(); ++i)
-		{
-			m_q[i] = m_axes.axes[i].home;
-		}
-	}
-	else if (m_q.size() > m_axes.axes.size())
-	{
-		m_q.resize(m_axes.axes.size());
-	}
+	m_kinematic.ensureQSize();
 }
 
 void CustomDeviceBackendData::setBaseWorldW0(const BackendMat4& w0)
@@ -641,7 +749,7 @@ void CustomDeviceBackendData::setBaseWorldW0(const BackendMat4& w0)
 
 void CustomDeviceBackendData::captureBaseWorldW0FromCurrentWorld()
 {
-	m_baseWorldW0 = worldMatrix(nullptr);
+	m_baseWorldW0 = worldMatrix();
 	m_baseWorldW0Valid = true;
 }
 
@@ -704,7 +812,7 @@ void CustomDeviceBackendData::saveDerivedJson(nlohmann::json& out) const
 	nlohmann::json jointsJson;
 	writeCustomDeviceJointsToJson(m_joints, jointsJson);
 	out["joints"] = std::move(jointsJson);
-	out["q"] = m_q;
+	out["q"] = m_kinematic.q;
 	nlohmann::json w0 = nlohmann::json::array();
 	for (int i = 0; i < 16; ++i)
 	{
@@ -723,7 +831,16 @@ void CustomDeviceBackendData::saveDerivedJson(nlohmann::json& out) const
 
 bool CustomDeviceBackendData::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)
 {
-	(void)errMsg;
+	// 逐段失败逐段告警，不再整体吞错；错误不阻断其余段落加载
+	std::string errs;
+	auto noteErr = [&](const char* section)
+	{
+		if (!errs.empty())
+		{
+			errs += "; ";
+		}
+		errs += section;
+	};
 	if (in.contains("axisLengthMm") && in["axisLengthMm"].is_number())
 	{
 		setAxisLengthMm(static_cast<float>(in["axisLengthMm"].get<double>()));
@@ -735,6 +852,10 @@ bool CustomDeviceBackendData::loadDerivedJson(const nlohmann::json& in, std::str
 		{
 			setLinks(links);
 		}
+		else
+		{
+			noteErr("links");
+		}
 	}
 	if (in.contains("joints"))
 	{
@@ -742,6 +863,10 @@ bool CustomDeviceBackendData::loadDerivedJson(const nlohmann::json& in, std::str
 		if (readCustomDeviceJointsFromJson(in["joints"], joints))
 		{
 			setJoints(joints);
+		}
+		else
+		{
+			noteErr("joints");
 		}
 	}
 	if (in.contains("q") && in["q"].is_array())
@@ -758,21 +883,15 @@ bool CustomDeviceBackendData::loadDerivedJson(const nlohmann::json& in, std::str
 	}
 	if (in.contains("baseWorldW0") && in["baseWorldW0"].is_array() && in["baseWorldW0"].size() >= 16)
 	{
+		double w0raw[16];
+		setIdentity16(w0raw);
+		readRigidMat16(in["baseWorldW0"], w0raw, "baseWorldW0");
 		BackendMat4 w0 = BackendMat4::identity();
-		bool ok = true;
 		for (int i = 0; i < 16; ++i)
 		{
-			if (!in["baseWorldW0"][i].is_number())
-			{
-				ok = false;
-				break;
-			}
-			w0.v[i] = in["baseWorldW0"][i].get<double>();
+			w0.v[i] = w0raw[i];
 		}
-		if (ok)
-		{
-			setBaseWorldW0(w0);
-		}
+		setBaseWorldW0(w0);
 	}
 	if (in.contains("baseWorldW0Valid") && in["baseWorldW0Valid"].is_boolean())
 	{
@@ -785,6 +904,10 @@ bool CustomDeviceBackendData::loadDerivedJson(const nlohmann::json& in, std::str
 		{
 			setNamedPoses(poses);
 		}
+		else
+		{
+			noteErr("namedPoses");
+		}
 	}
 	if (in.contains("poseSignalBindings"))
 	{
@@ -793,11 +916,19 @@ bool CustomDeviceBackendData::loadDerivedJson(const nlohmann::json& in, std::str
 		{
 			setPoseSignalBindings(bindings);
 		}
+		else
+		{
+			noteErr("poseSignalBindings");
+		}
 	}
 	if (in.contains("signals"))
 	{
 		setIoSignalsJson(in["signals"]);
 	}
 	ensureQSize();
+	if (!errs.empty() && errMsg)
+	{
+		*errMsg = "CustomDevice partially loaded, failed sections: " + errs;
+	}
 	return true;
 }

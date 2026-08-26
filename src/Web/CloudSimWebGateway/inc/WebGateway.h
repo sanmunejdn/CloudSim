@@ -14,6 +14,11 @@
 #include <memory>
 #include <vector>
 
+namespace httplib
+{
+class Server;
+}
+
 namespace cloudsim::core
 {
 class ICloudSimContext;
@@ -141,6 +146,8 @@ private:
 											 QJsonObject (cloudsim::host::HeadlessPointCloudBridge::*method)(
 												 const QJsonObject&));
 	void registerPointCloudRoutes(cloudsim::host::DocumentHost* host);
+	void registerParityRoutes(cloudsim::host::DocumentHost* host);
+	httplib::Server& httpServer();
 
 	// 几何 / 模式 / AI 薄面
 	QByteArray sidecarGetOnGuiThread(const QString& key);

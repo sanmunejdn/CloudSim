@@ -1,4 +1,102 @@
-import { fetchJoints, planInstruction, postJoints, type Instruction } from "../api";
+import {
+  fetchJoints,
+  fetchPlaybackStatus,
+  planInstruction,
+  postJoints,
+  runProgram,
+  stopProgram,
+  type Instruction,
+  type RunProgramBody,
+} from "../api";
+import { eventHub } from "../sse/EventHub";
+
+export type PlaybackFrame = {
+  ok?: boolean;
+  running?: boolean;
+  instructionId?: string;
+  jointAnglesRad?: number[];
+  progress?: number;
+  tickResult?: number;
+  abortSummary?: string;
+};
+
+export async function probeServerPlayback(): Promise<boolean> {
+  try {
+    const s = await fetchPlaybackStatus();
+    return !!s.ok;
+  } catch {
+    return false;
+  }
+}
+
+function sleepMs(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** 订阅 SSE + 轮询 status，直到服务端回放结束或 abort */
+export async function waitServerPlayback(
+  shouldAbort: () => boolean,
+  onFrame?: (frame: PlaybackFrame) => void,
+): Promise<{ ok: boolean; abortSummary?: string }> {
+  let done = false;
+  let unsub = () => {};
+  let poll = 0;
+
+  const cleanup = () => {
+    unsub();
+    if (poll) window.clearInterval(poll);
+  };
+
+  return new Promise((resolve) => {
+    const end = (ok: boolean, abortSummary?: string) => {
+      if (done) return;
+      done = true;
+      cleanup();
+      resolve({ ok, abortSummary });
+    };
+
+    unsub = eventHub.on("PlaybackFrame", (data) => {
+      try {
+        const frame = JSON.parse(data) as PlaybackFrame;
+        onFrame?.(frame);
+        if (frame.running === false) end(true, frame.abortSummary);
+      } catch {
+        /* 非 JSON */
+      }
+    });
+
+    poll = window.setInterval(() => {
+      void (async () => {
+        if (shouldAbort()) {
+          try {
+            await stopProgram();
+          } catch {
+            /* Host 可选 */
+          }
+          end(false);
+          return;
+        }
+        try {
+          const st = await fetchPlaybackStatus();
+          if (st.ok && !st.running) end(true);
+        } catch {
+          /* 轮询兜底 */
+        }
+      })();
+    }, 400);
+  });
+}
+
+export async function startServerPlayback(
+  body: RunProgramBody,
+  shouldAbort: () => boolean,
+  onFrame?: (frame: PlaybackFrame) => void,
+): Promise<{ ok: boolean; error?: string; abortSummary?: string }> {
+  const r = await runProgram(body);
+  if (!r.ok) return { ok: false, error: r.error || "服务端运行失败" };
+  const waited = await waitServerPlayback(shouldAbort, onFrame);
+  return { ok: waited.ok, abortSummary: waited.abortSummary };
+}
 
 export function reshapeJointFrames(flat: number[] | undefined, dof: number): number[][] {
   const arr = (flat || []).map(Number).filter((n) => !Number.isNaN(n));
@@ -83,10 +181,6 @@ export function estimateStepDurationSec(step: Instruction, frameCount: number) {
   const speed = Number(step.speed) || 100;
   if (frameCount > 1) return Math.max(0.35, frameCount * 0.04 * (100 / speed));
   return Math.max(0.4, 1.2 * (100 / speed));
-}
-
-function sleepMs(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function playJointFrames(

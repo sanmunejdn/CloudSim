@@ -5,7 +5,7 @@
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 套索选三角面：质心投影到屏幕后判多边形内外
 
-#include "data_global.h"
+#include "geometry_services_global.h"
 
 #include <cstddef>
 #include <string>
@@ -90,27 +90,27 @@ struct PointCloudSpareParams
 	int maxOuterIters = 30;
 };
 
-DATA_EXPORT bool downsamplePointCloudVoxel(PointCloudBackendData& data, double voxelSizeMm,
+GEOMETRY_SERVICES_EXPORT bool downsamplePointCloudVoxel(PointCloudBackendData& data, double voxelSizeMm,
 										   unsigned int minPointsPerCell, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool downsamplePointCloudRandom(PointCloudBackendData& data, double retainedFraction,
+GEOMETRY_SERVICES_EXPORT bool downsamplePointCloudRandom(PointCloudBackendData& data, double retainedFraction,
 											std::string* errMsg = nullptr);
 
-DATA_EXPORT bool applyRigidTransformToPointCloud(PointCloudBackendData& data, const Eigen::Isometry3d& transform,
+GEOMETRY_SERVICES_EXPORT bool applyRigidTransformToPointCloud(PointCloudBackendData& data, const Eigen::Isometry3d& transform,
 												 std::string* errMsg = nullptr);
 
-DATA_EXPORT bool cropPointCloudByBox(PointCloudBackendData& data, const Eigen::AlignedBox3d& box,
+GEOMETRY_SERVICES_EXPORT bool cropPointCloudByBox(PointCloudBackendData& data, const Eigen::AlignedBox3d& box,
 									 std::string* errMsg = nullptr);
 
-DATA_EXPORT bool cropPointCloudBySphere(PointCloudBackendData& data, const Eigen::Vector3d& centerMm, double radiusMm,
+GEOMETRY_SERVICES_EXPORT bool cropPointCloudBySphere(PointCloudBackendData& data, const Eigen::Vector3d& centerMm, double radiusMm,
 										std::string* errMsg = nullptr);
 
-DATA_EXPORT bool cropPointCloudByPolyline2D(PointCloudBackendData& data, const std::vector<float>& polylineScreenXy,
+GEOMETRY_SERVICES_EXPORT bool cropPointCloudByPolyline2D(PointCloudBackendData& data, const std::vector<float>& polylineScreenXy,
 											const double mvpMatrix[16], const double modelToWorld[16],
 											int viewportWidth, int viewportHeight, bool keepInside,
 											std::string* errMsg = nullptr);
 
-DATA_EXPORT bool collectPointCloudIndicesByPolyline2D(const PointCloudBackendData& data,
+GEOMETRY_SERVICES_EXPORT bool collectPointCloudIndicesByPolyline2D(const PointCloudBackendData& data,
 													  const std::vector<float>& polylineScreenXy,
 													  const double mvpMatrix[16], const double modelToWorld[16],
 													  int viewportWidth, int viewportHeight, bool keepInside,
@@ -118,48 +118,48 @@ DATA_EXPORT bool collectPointCloudIndicesByPolyline2D(const PointCloudBackendDat
 													  std::string* errMsg = nullptr);
 
 /// 套索选三角面：质心投影到屏幕后判多边形内外
-DATA_EXPORT bool collectMeshTriangleIndicesByPolyline2D(const MeshBackendData& mesh,
+GEOMETRY_SERVICES_EXPORT bool collectMeshTriangleIndicesByPolyline2D(const MeshBackendData& mesh,
 														const std::vector<float>& polylineScreenXy,
 														const double mvpMatrix[16], const double modelToWorld[16],
 														int viewportWidth, int viewportHeight, bool keepInside,
 														std::vector<int>& outTriangleIndices,
 														std::string* errMsg = nullptr);
 
-DATA_EXPORT bool measurePointCloud(const PointCloudBackendData& data, PointCloudMeasureResult& out,
+GEOMETRY_SERVICES_EXPORT bool measurePointCloud(const PointCloudBackendData& data, PointCloudMeasureResult& out,
 								   std::string* errMsg = nullptr);
 
-DATA_EXPORT bool removePointCloudOutliers(PointCloudBackendData& data, double removalPercent, unsigned int kNeighbors,
+GEOMETRY_SERVICES_EXPORT bool removePointCloudOutliers(PointCloudBackendData& data, double removalPercent, unsigned int kNeighbors,
 										  std::string* errMsg = nullptr);
 
-DATA_EXPORT bool smoothPointCloudBilateral(PointCloudBackendData& data, std::string* errMsg = nullptr);
+GEOMETRY_SERVICES_EXPORT bool smoothPointCloudBilateral(PointCloudBackendData& data, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool estimatePointCloudNormalsPca(PointCloudBackendData& data, unsigned int kNeighbors,
+GEOMETRY_SERVICES_EXPORT bool estimatePointCloudNormalsPca(PointCloudBackendData& data, unsigned int kNeighbors,
 											  std::string* errMsg = nullptr);
 
-DATA_EXPORT bool estimatePointCloudNormalsJet(PointCloudBackendData& data, unsigned int kNeighbors,
+GEOMETRY_SERVICES_EXPORT bool estimatePointCloudNormalsJet(PointCloudBackendData& data, unsigned int kNeighbors,
 											  unsigned int degreeFitting, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool orientPointCloudNormalsMst(PointCloudBackendData& data, unsigned int kNeighbors,
+GEOMETRY_SERVICES_EXPORT bool orientPointCloudNormalsMst(PointCloudBackendData& data, unsigned int kNeighbors,
 											std::string* errMsg = nullptr);
 
-DATA_EXPORT bool preprocessPointCloudForReconstruction(PointCloudBackendData& data, double voxelPrefilterMm,
+GEOMETRY_SERVICES_EXPORT bool preprocessPointCloudForReconstruction(PointCloudBackendData& data, double voxelPrefilterMm,
 													   double outlierRemovalPercent, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool rigidRegisterPointCloudsIcp(const PointCloudBackendData& source, const PointCloudBackendData& target,
+GEOMETRY_SERVICES_EXPORT bool rigidRegisterPointCloudsIcp(const PointCloudBackendData& source, const PointCloudBackendData& target,
 											 PointCloudIcpResult& out, int maxIterations, double convergenceTransMm,
 											 double maxPairDistanceMm, std::size_t icpMaxPoints,
 											 std::string* errMsg = nullptr);
 
-DATA_EXPORT bool nonRigidRegisterPointCloudsSpare(PointCloudBackendData& sourceInOut,
+GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterPointCloudsSpare(PointCloudBackendData& sourceInOut,
 												  const PointCloudBackendData& target, PointCloudSpareResult& out,
 												  const PointCloudSpareParams& params, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool nonRigidRegisterPointCloudToMeshSpare(PointCloudBackendData& sourceInOut,
+GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterPointCloudToMeshSpare(PointCloudBackendData& sourceInOut,
 													   const MeshBackendData& targetMesh, PointCloudSpareResult& out,
 													   const PointCloudSpareParams& params,
 													   std::string* errMsg = nullptr);
 
-DATA_EXPORT bool nonRigidRegisterMeshSpare(MeshBackendData& sourceMeshInOut,
+GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterMeshSpare(MeshBackendData& sourceMeshInOut,
 										   const PointCloudBackendData* targetPointCloud,
 										   const MeshBackendData* targetMesh, PointCloudSpareResult& out,
 										   const PointCloudSpareParams& params, std::string* errMsg = nullptr);
@@ -190,43 +190,43 @@ struct PointCloudSdfParams
 	int maxOuterIters = 30;
 };
 
-DATA_EXPORT bool nonRigidRegisterPointCloudsSdf(PointCloudBackendData& sourceInOut,
+GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterPointCloudsSdf(PointCloudBackendData& sourceInOut,
 												const PointCloudBackendData& target, PointCloudSdfResult& out,
 												const PointCloudSdfParams& params, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool nonRigidRegisterPointCloudToMeshSdf(PointCloudBackendData& sourceInOut,
+GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterPointCloudToMeshSdf(PointCloudBackendData& sourceInOut,
 													 const MeshBackendData& targetMesh, PointCloudSdfResult& out,
 													 const PointCloudSdfParams& params, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool nonRigidRegisterMeshSdf(MeshBackendData& sourceMeshInOut,
+GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterMeshSdf(MeshBackendData& sourceMeshInOut,
 										 const PointCloudBackendData* targetPointCloud,
 										 const MeshBackendData* targetMesh, PointCloudSdfResult& out,
 										 const PointCloudSdfParams& params, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool deformPointCloudTpsFromControls(PointCloudBackendData& data,
+GEOMETRY_SERVICES_EXPORT bool deformPointCloudTpsFromControls(PointCloudBackendData& data,
 												 const std::vector<std::size_t>& controlPointIndices,
 												 const std::vector<float>& controlDisplacementXyz,
 												 double regularizationLambda, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool deformPointCloudTpsFitAndDeform(const PointCloudBackendData& source,
+GEOMETRY_SERVICES_EXPORT bool deformPointCloudTpsFitAndDeform(const PointCloudBackendData& source,
 												 const PointCloudBackendData& target,
 												 const std::vector<std::size_t>& correspondenceIndices,
 												 std::vector<float>& sourceXyzDeformedOut, double regularizationLambda,
 												 std::string* errMsg = nullptr);
 
-DATA_EXPORT bool reconstructMeshPoisson(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
+GEOMETRY_SERVICES_EXPORT bool reconstructMeshPoisson(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
 										double spacingMm, double smAngleDeg, double smRadiusRel, double smDistanceRel,
 										std::string* errMsg = nullptr);
 
-DATA_EXPORT bool reconstructMeshFromPointCloudPoisson(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
+GEOMETRY_SERVICES_EXPORT bool reconstructMeshFromPointCloudPoisson(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
 													  double voxelPrefilterMm, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool reconstructMeshScaleSpace(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
+GEOMETRY_SERVICES_EXPORT bool reconstructMeshScaleSpace(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
 										   std::size_t smoothIterations, double meshingRadiusMm,
 										   std::string* errMsg = nullptr);
 
 // 配置版本API
-DATA_EXPORT bool reconstructMeshFromPointCloudPoissonWithConfig(const PointCloudBackendData& pointCloud,
+GEOMETRY_SERVICES_EXPORT bool reconstructMeshFromPointCloudPoissonWithConfig(const PointCloudBackendData& pointCloud,
 																MeshBackendData& meshOut,
 																const pclalgo::ReconstructionConfig& config,
 																std::string* errMsg = nullptr);
@@ -240,26 +240,26 @@ inline bool downsamplePointCloud(PointCloudBackendData& data, const double voxel
 // === vcglib 网格后处理（x64：Data.dll 链接 VcgAlgorithms.dll） ===
 // 使用 raw soup 接口，便于宿主异步调用
 
-DATA_EXPORT bool simplifyMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut, int targetFaceCount,
+GEOMETRY_SERVICES_EXPORT bool simplifyMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut, int targetFaceCount,
 							  double qualityThreshold = 0.3, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool smoothMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut,
+GEOMETRY_SERVICES_EXPORT bool smoothMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut,
 							const MeshSmoothRequest& params, MeshRepairStatistics* repairReport = nullptr,
 							std::string* errMsg = nullptr);
 
-DATA_EXPORT bool repairMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut,
+GEOMETRY_SERVICES_EXPORT bool repairMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut,
 							const MeshRepairRequest& params, MeshRepairStatistics* report = nullptr,
 							std::string* errMsg = nullptr);
 
-DATA_EXPORT bool remeshMeshIsotropic(const std::vector<float>& soupIn, std::vector<float>& soupOut,
+GEOMETRY_SERVICES_EXPORT bool remeshMeshIsotropic(const std::vector<float>& soupIn, std::vector<float>& soupOut,
 									 double targetEdgeLengthMm, int iterations = 3, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool reconstructMeshFromPointCloudPoissonAndPostProcess(const PointCloudBackendData& pointCloud,
+GEOMETRY_SERVICES_EXPORT bool reconstructMeshFromPointCloudPoissonAndPostProcess(const PointCloudBackendData& pointCloud,
 																	MeshBackendData& meshOut, int targetFaceCount = 0,
 																	bool doRepair = true, bool doSmooth = false,
 																	std::string* errMsg = nullptr);
 
-DATA_EXPORT bool analyzeMeshDefects(const std::vector<float>& soupIn, std::vector<int>& defectFaceIndices,
+GEOMETRY_SERVICES_EXPORT bool analyzeMeshDefects(const std::vector<float>& soupIn, std::vector<int>& defectFaceIndices,
 									std::vector<float>& defectScores, std::vector<int>& defectKinds, int& outTotalFaces,
 									int& outDefectFaceCount, double& outDefectAreaRatio, int& outNeedleCount,
 									int& outProtrusionCount, int& outBoundarySpikeCount, double sensitivity,

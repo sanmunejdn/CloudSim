@@ -20,6 +20,16 @@
 #include "HeadlessRobotContext.h"
 #include "HeadlessTrajectorySession.h"
 #include "HeadlessPointCloudBridge.h"
+#include "headless/HeadlessRobotPlaybackBridge.h"
+#include "headless/HeadlessRobotExportBridge.h"
+#include "headless/HeadlessGeometryBridge.h"
+#include "headless/HeadlessAiBridge.h"
+#include "headless/HeadlessRobotCollisionBridge.h"
+#include "headless/HeadlessProgramEditBridge.h"
+#include "headless/HeadlessProcessFlowBridge.h"
+#include "headless/HeadlessDrawingBridge.h"
+#include "headless/HeadlessGeomodelBridge.h"
+#include "headless/HeadlessLabelingBridge.h"
 #include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
 #include "IRobotSimulationDocument.h"
@@ -90,6 +100,16 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 		m_robotUrdfImportContext = m_headlessRobotContext.get();
 		m_headlessTrajectorySession = std::make_unique<HeadlessTrajectorySession>(*this);
 		m_headlessPointCloudBridge = std::make_unique<HeadlessPointCloudBridge>(*this);
+		m_headlessRobotPlaybackBridge = std::make_unique<HeadlessRobotPlaybackBridge>(*this);
+		m_headlessRobotExportBridge = std::make_unique<HeadlessRobotExportBridge>(*this);
+		m_headlessGeometryBridge = std::make_unique<HeadlessGeometryBridge>(*this);
+		m_headlessAiBridge = std::make_unique<HeadlessAiBridge>(*this);
+		m_headlessRobotCollisionBridge = std::make_unique<HeadlessRobotCollisionBridge>(*this);
+		m_headlessProgramEditBridge = std::make_unique<HeadlessProgramEditBridge>(*this);
+		m_headlessProcessFlowBridge = std::make_unique<HeadlessProcessFlowBridge>(*this);
+		m_headlessDrawingBridge = std::make_unique<HeadlessDrawingBridge>(*this);
+		m_headlessGeomodelBridge = std::make_unique<HeadlessGeomodelBridge>(*this);
+		m_headlessLabelingBridge = std::make_unique<HeadlessLabelingBridge>(*this);
 	}
 
 	m_ioSignalNetwork = std::make_unique<IoSignalNetwork>(this);
@@ -274,6 +294,56 @@ HeadlessTrajectorySession* DocumentHost::headlessTrajectorySession() const
 HeadlessPointCloudBridge* DocumentHost::headlessPointCloudBridge() const
 {
 	return m_headlessPointCloudBridge.get();
+}
+
+HeadlessRobotPlaybackBridge* DocumentHost::headlessRobotPlaybackBridge() const
+{
+	return m_headlessRobotPlaybackBridge.get();
+}
+
+HeadlessRobotExportBridge* DocumentHost::headlessRobotExportBridge() const
+{
+	return m_headlessRobotExportBridge.get();
+}
+
+HeadlessGeometryBridge* DocumentHost::headlessGeometryBridge() const
+{
+	return m_headlessGeometryBridge.get();
+}
+
+HeadlessAiBridge* DocumentHost::headlessAiBridge() const
+{
+	return m_headlessAiBridge.get();
+}
+
+HeadlessRobotCollisionBridge* DocumentHost::headlessRobotCollisionBridge() const
+{
+	return m_headlessRobotCollisionBridge.get();
+}
+
+HeadlessProgramEditBridge* DocumentHost::headlessProgramEditBridge() const
+{
+	return m_headlessProgramEditBridge.get();
+}
+
+HeadlessProcessFlowBridge* DocumentHost::headlessProcessFlowBridge() const
+{
+	return m_headlessProcessFlowBridge.get();
+}
+
+HeadlessDrawingBridge* DocumentHost::headlessDrawingBridge() const
+{
+	return m_headlessDrawingBridge.get();
+}
+
+HeadlessGeomodelBridge* DocumentHost::headlessGeomodelBridge() const
+{
+	return m_headlessGeomodelBridge.get();
+}
+
+HeadlessLabelingBridge* DocumentHost::headlessLabelingBridge() const
+{
+	return m_headlessLabelingBridge.get();
 }
 
 void DocumentHost::setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate)
@@ -512,7 +582,7 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 	}
 	QStringList ids;
 	const std::string rootStd = rootBackendId.toStdString();
-	const std::vector<std::string>& subtree = m_hierarchyModel->subtreeIds(rootStd);
+	const std::vector<std::string> subtree = m_hierarchyModel->subtreeIds(rootStd);
 	if (subtree.empty() && m_backend->contains(rootStd))
 	{
 		ids.append(rootBackendId);
@@ -570,32 +640,7 @@ void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& s
 		return;
 	}
 	BackendDataManager& mgr = backend();
-	// follower 链传播脏标记
-	std::unordered_map<std::string, std::vector<std::string>> targetToFollowers;
-	for (const auto& d : mgr.listData())
-	{
-		if (!d)
-		{
-			continue;
-		}
-		const auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-		if (!comp || !comp->enabled())
-		{
-			continue;
-		}
-		const std::string tid = comp->targetBackendId();
-		if (tid.empty() || tid == d->id())
-		{
-			continue;
-		}
-		if (!mgr.contains(tid))
-		{
-			continue;
-		}
-		targetToFollowers[tid].push_back(d->id());
-	}
-
+	// P3-2: 传递闭包改用 followReverseIndex（O(1) 查询），替代每次全量扫描建 targetToFollowers
 	std::vector<std::string> stack;
 	stack.push_back(seed);
 	std::unordered_set<std::string> visited;
@@ -608,22 +653,16 @@ void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& s
 			continue;
 		}
 		m_followState.dirtyBackendIds().insert(u);
-		const auto itF = targetToFollowers.find(u);
-		if (itF != targetToFollowers.end())
+		// 直接 follower（O(1) 索引查询）
+		for (const std::string& f : followReverseIndex().followersOf(data(), u))
 		{
-			for (const std::string& f : itF->second)
-			{
-				stack.push_back(f);
-			}
+			stack.push_back(f);
 		}
+		// 层级子节点
 		for (const std::string& c : mgr.childrenOf(u))
 		{
 			stack.push_back(c);
 		}
-	}
-	for (const std::string& followerId : followReverseIndex().followersOf(data(), seed))
-	{
-		m_followState.dirtyBackendIds().insert(followerId);
 	}
 }
 
