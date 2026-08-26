@@ -15,6 +15,7 @@
 #include "RobotPerLinkKinematicsSliceOsg.h"
 #include "RobotSceneKinematics.h"
 #include "RobotTeachIk.h"
+#include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
 #include <Adapters.h>
@@ -333,6 +334,10 @@ QString HeadlessRobotContext::robotFlangeBackendId(const QString& backendId) con
 		std::sort(names.begin(), names.end());
 		return ri.linkNameToBackendId.value(names.last());
 	}
+	// 锚点多为基座而非末端法兰：挂载方只验"id 在册"，此处必须留痕，否则会静默挂到基座
+	RunLogger::warn("[HeadlessRobotContext] robotFlangeBackendId: no flange link configured and link map empty, "
+					"falling back to gizmo anchor (likely the BASE, not the end flange) for robot \"" +
+					backendId.toStdString() + "\".");
 	return robotGizmoAnchorBackendId(backendId);
 }
 

@@ -76,6 +76,8 @@ void syncBackendWorldMatrix(DocumentHost& host, BackendDataManager& mgr, const s
 		return;
 	}
 	obj->setWorldMatrix(world);
+	// 第二遍经 sink 推送：headless 下 sink 回写的仍是同一 SoT（BackendDataPoseSink），
+	// GUI 下由 OsgWidget 同步场景图；同值回写靠 setter 的 1e-5 no-op 兜底，不会重复 bump revision
 	if (IRobotBackendPoseSink* sink = poseSinkOf(host))
 	{
 		cloudsim::core::Mat4 mat{};
@@ -447,6 +449,8 @@ bool resolveMountFrameParentWorld(DocumentHost& host, BackendDataManager& mgr, C
 		return false;
 	}
 	outParentW = parent->worldMatrix();
+	// 已知脆弱点：以"平移近零"猜测 Data 侧尚未初始化，设备合法位于世界原点时会误触发回读；
+	// 此时 sink/OSG 中同为原点位姿，结果一致，故仅影响性能不影响正确性
 	if (!mountFrameWorldHasMeaningfulTranslation(outParentW))
 	{
 		BackendMat4 sinkW{};
@@ -661,6 +665,7 @@ void syncCustomDeviceSubtreePosesFromOsg(DocumentHost& host, const std::string& 
 				continue;
 			}
 			obj->setWorldMatrix(osgW);
+			// 第二遍为 sink 推送（headless 下回写同一 SoT），同值由 setter 1e-5 no-op 兜底
 			if (sink)
 			{
 				cloudsim::core::Mat4 mat{};
@@ -1121,13 +1126,8 @@ QString resolveMountFrameBackendId(DocumentHost& host, const CustomDeviceBackend
 			return QString::fromStdString(joint.motion.motionCenterFrameBackendId);
 		}
 	}
-	for (const auto& obj : host.listObjects())
-	{
-		if (obj && obj->className() == backend_type::kClassFrame)
-		{
-			return QString::fromStdString(obj->id());
-		}
-	}
+	// 不再回退"全场第一个 Frame"：它能被选中仅当子树扫描为空，即该 Frame 必不在设备子树内，
+	// 后续 validateMountFrameOnRootOrFixedLink 的 isInDeviceSubtree 校验必然失败，回退是死路径
 	return QString();
 }
 
