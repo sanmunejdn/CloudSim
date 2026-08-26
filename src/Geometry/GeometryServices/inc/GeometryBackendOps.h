@@ -1,5 +1,5 @@
-#ifndef DATA_GEOMETRYBACKENDOPS_H
-#define DATA_GEOMETRYBACKENDOPS_H
+#ifndef GEOMETRYSERVICES_GEOMETRYBACKENDOPS_H
+#define GEOMETRYSERVICES_GEOMETRYBACKENDOPS_H
 
 /// @file GeometryBackendOps.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -329,4 +329,4 @@ buildTubularGrindingIterationSnapshotContractedPointsCloud(const geoalgo::Tubula
 
 } // namespace geometry_backend_ops
 
-#endif // DATA_GEOMETRYBACKENDOPS_H
+#endif // GEOMETRYSERVICES_GEOMETRYBACKENDOPS_H

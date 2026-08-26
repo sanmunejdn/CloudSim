@@ -240,9 +240,9 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 ---
 
-## 4. Data 薄包装
+## 4. GeometryServices 薄包装
 
-[`PointCloudBackendOps.h`](../../Data/Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、**SDF/DDF**、Poisson/Scale-space 重建。
+[`PointCloudBackendOps.h`](../GeometryServices/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`，已迁至 GeometryServices）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、**SDF/DDF**、Poisson/Scale-space 重建。
 
 常用入口：
 

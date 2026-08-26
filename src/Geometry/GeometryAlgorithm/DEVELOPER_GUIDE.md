@@ -631,7 +631,7 @@ OTLC 参数（`OtLcParams`，由 `buildOtLcParams` 从 `TubularGrindingParams` �
 
 入口：`createTubularGrindingSession` → `runTubularGrindingStage`。
 
-**Data 转发**：`geometry_backend_ops::createTubularGrindingSession`、`buildTubularGrindingRingColoredMeshSoup`、`buildTubularGrindingFaceNormalAxisLineSegments`、`buildTubularGrindingCenterlinePolylineXyz` 等（[`GeometryBackendOps.h`](../../Data/Data/inc/GeometryBackendOps.h)）。
+**GeometryServices 转发**：`geometry_backend_ops::createTubularGrindingSession`、`buildTubularGrindingRingColoredMeshSoup`、`buildTubularGrindingFaceNormalAxisLineSegments`、`buildTubularGrindingCenterlinePolylineXyz` 等（[`GeometryBackendOps.h`](../GeometryServices/inc/GeometryBackendOps.h)）。
 
 **调参提示**：分割过碎时优先增大 `ringRayConvergenceEpsMm`（常见 8–25 mm）或 `ringCenterClusterEpsMm`；交汇误判可增大 `junctionAxisSpreadDeg`。中心线失败时优先降低收缩强度或 `sectionSpacingMm`。
 
@@ -639,13 +639,13 @@ OTLC 参数（`OtLcParams`，由 `buildOtLcParams` 从 `TubularGrindingParams` �
 
 自检：`SelfTest.cpp` 中 `tubularGrinding*`（OCCT 圆柱离散 → Segment + Centerline + Template + Project + 投影命中率门禁）。
 
-## 4. Data 薄包装
+## 4. GeometryServices 薄包装
 
-[`GeometryBackendOps.h`](../../Data/Data/inc/GeometryBackendOps.h)（`geometry_backend_ops`）转发 STEP 路径级 API，供 `CloudSimPluginHost` 调用。STEP 导入仍经 `MeshBackendData::loadFromFile` → `geoalgo::tessellateStepFile`。
+[`GeometryBackendOps.h`](../GeometryServices/inc/GeometryBackendOps.h)（`geometry_backend_ops`）转发 STEP 路径级 API，供 `CloudSimPluginHost` 调用；其实现 `GeometryBackendOps.cpp`（2000+ 行：ICP 阶梯 / PCA 粗配 / RANSAC / 模板更新编排）在 GeometryServices，是本 DLL 算法的主要编排层。STEP 导入仍经 `MeshBackendData::loadFromFile` → `geoalgo::tessellateStepFile`。
 
-**模板 B-rep 更新**另含 `registerScanToCadTemplate` / `updateBrepFromAlignedScan`（见 [`Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md) §4.6）。
+**模板 B-rep 更新**另含 `registerScanToCadTemplate` / `updateBrepFromAlignedScan`（见 [`Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md) §4.9）。
 
-特征轨迹 API 另见 [`GeometryRef.h`](../../Data/Data/inc/GeometryRef.h)：`resolveGeometryRef`、`discretizeFeature`、`enumerateFeatureCatalog` 等（`geometry_backend_ops` 命名空间）。
+特征轨迹 API 另见 [`GeometryRef.h`](../GeometryServices/inc/GeometryRef.h)：`resolveGeometryRef`、`discretizeFeature`、`enumerateFeatureCatalog` 等（`geometry_backend_ops` 命名空间）。
 
 ## 5. 插件 SDK（1.5.0+）
 

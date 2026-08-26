@@ -422,7 +422,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 | `updateBrepFromAlignedScan` | 原始 STEP + `scanPointsToTemplateModelFrame` → `updateShapeFromPointCloud` → `brepOut`；**不**注册场景 |
 | `updateBrepFromCadTemplate` | 上述两步合并（单次调用场景） |
 
-配准实现于 `GeometryBackendOps.cpp`：`runCoarseAlignmentPipeline` 编排粗配（`coarseStage=modeSelect/bbox/pca/frameCheck/ransac/soupMulti/coarseIcpLadder/soupRefine`）、`resolveRegistrationAlignMode`（**`pairHits=0` → `autoRecover`**，仅 `pairHits∈[1,31]` 且 maxDev 适中才 `manualPartial`）、`runReverseSoupMultiStageIcp`、**coarse ICP ladder 回退**（soup rollback 或 post-soup overlap 不足）。重叠度量与 PCA 评分使用 `KdTreePointSet` 加速。合成自检：`registrationCoarsePipelineSelfTest`（`pairHits=0 → autoRecover`、ladder maxPair 升序）。
+配准实现于 GeometryServices 的 `GeometryBackendOps.cpp`：`runCoarseAlignmentPipeline` 编排粗配（`coarseStage=modeSelect/bbox/pca/frameCheck/ransac/soupMulti/coarseIcpLadder/soupRefine`）、`resolveRegistrationAlignMode`（**`pairHits=0` → `autoRecover`**，仅 `pairHits∈[1,31]` 且 maxDev 适中才 `manualPartial`）、`runReverseSoupMultiStageIcp`、**coarse ICP ladder 回退**（soup rollback 或 post-soup overlap 不足）。重叠度量与 PCA 评分使用 `KdTreePointSet` 加速。合成自检：`registrationCoarsePipelineSelfTest`（`pairHits=0 → autoRecover`、ladder maxPair 升序）。
 
 配准在 Data 层将扫描/模板 soup 变换到世界系（`worldMatrix`）后 ICP；面归属前 `scanPointsToTemplateModelFrame` 变到模板文件系。
 
@@ -441,7 +441,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 ### 4.10 管状铸件特征构建（1.15.0+）
 
-`geometry_backend_ops` 转发 `geoalgo::TubularGrinding*`（[`GeometryBackendOps.cpp`](source/GeometryBackendOps.cpp) / [`GeometryBackendOps.h`](inc/GeometryBackendOps.h)）：
+`geometry_backend_ops` 转发 `geoalgo::TubularGrinding*`（[`GeometryBackendOps.cpp`](../../Geometry/GeometryServices/source/GeometryBackendOps.cpp) / [`GeometryBackendOps.h`](../../Geometry/GeometryServices/inc/GeometryBackendOps.h)，已迁至 GeometryServices）：
 
 | API | 说明 |
 |-----|------|

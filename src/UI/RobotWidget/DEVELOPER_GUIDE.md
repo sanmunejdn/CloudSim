@@ -854,7 +854,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 
 | 依赖 | 说明 |
 |------|------|
-| `geometry_backend_ops` | [`Data/inc/GeometryRef.h`](../../Data/Data/inc/GeometryRef.h) |
+| `geometry_backend_ops` | [`GeometryServices/inc/GeometryRef.h`](../../Geometry/GeometryServices/inc/GeometryRef.h) |
 | `RawTrajectory` | [`RobotScene/inc/RawTrajectory.h`](../../Robot/RobotScene/inc/RawTrajectory.h) |
 | STEP 路径 | `IRobotDocumentHost::meshBackendStepSourcePath`（`DocumentHost::backendSourcePath`） |
 | 预览 | `applyRawTrajectoryPreviewToOsg` / `applyWorldRawTrajectoryPreviewToOsg`；`clearRawTrajectoryOverlay*`；指令路点 `setInstructionPoseAxes` |

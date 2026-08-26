@@ -65,7 +65,9 @@ public:
 			const std::size_t b = i * 3U;
 			points_.emplace_back(static_cast<double>(xyz[b]), static_cast<double>(xyz[b + 1U]),
 								 static_cast<double>(xyz[b + 2U]));
-			indexMap_[points_.back()] = i;
+			// 精确坐标做 map 键：完全同坐标的重复点坍缩为一个键；用 emplace 保首现索引，
+			// 避免后写点覆盖先写点导致原始索引永久丢失（ICP 只取位置无害，回查法向/颜色需注意）
+			indexMap_.emplace(points_.back(), i);
 		}
 
 		if (!points_.empty())

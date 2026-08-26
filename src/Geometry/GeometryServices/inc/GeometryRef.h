@@ -1,5 +1,5 @@
-#ifndef DATA_GEOMETRYREF_H
-#define DATA_GEOMETRYREF_H
+#ifndef GEOMETRYSERVICES_GEOMETRYREF_H
+#define GEOMETRYSERVICES_GEOMETRYREF_H
 
 /// @file GeometryRef.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -95,4 +95,4 @@ GEOMETRY_SERVICES_EXPORT bool buildFeatureEntryFromModelPick(const geoalgo::Work
 
 } // namespace geometry_backend_ops
 
-#endif // DATA_GEOMETRYREF_H
+#endif // GEOMETRYSERVICES_GEOMETRYREF_H

@@ -1,5 +1,5 @@
-#ifndef DATA_POINTCLOUDBACKENDOPS_H
-#define DATA_POINTCLOUDBACKENDOPS_H
+#ifndef GEOMETRYSERVICES_POINTCLOUDBACKENDOPS_H
+#define GEOMETRYSERVICES_POINTCLOUDBACKENDOPS_H
 
 /// @file PointCloudBackendOps.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -268,4 +268,4 @@ GEOMETRY_SERVICES_EXPORT bool analyzeMeshDefects(const std::vector<float>& soupI
 
 } // namespace point_cloud_backend_ops
 
-#endif // DATA_POINTCLOUDBACKENDOPS_H
+#endif // GEOMETRYSERVICES_POINTCLOUDBACKENDOPS_H

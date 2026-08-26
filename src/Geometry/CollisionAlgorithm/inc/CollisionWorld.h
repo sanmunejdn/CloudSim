@@ -34,7 +34,8 @@ struct COLLISION_ALGORITHM_API ContactHit
 	CollisionBodyId a;
 	CollisionBodyId b;
 	double pointMm[3]{0.0, 0.0, 0.0};
-	double normal[3]{0.0, 0.0, 1.0};
+	/// 占位字段：内置窄相是布尔判定，不计算真实穿透法向/深度；勿用于碰撞响应或穿透回退
+	double normal[3]{0.0, 0.0, 0.0};
 	double depthMm = 0.0;
 	/// 假碰排查：双方世界平移与 AABB 中心（mm）、位姿来源（osg|backend|fk|…）
 	double aOriginMm[3]{0.0, 0.0, 0.0};
@@ -53,6 +54,7 @@ struct COLLISION_ALGORITHM_API CollisionQueryResult
 };
 
 /// 多体碰撞世界（内置 AABB+三角；可选 CLOUDSIM_HAS_COAL）
+/// 线程安全：非线程安全，upsert/setWorldPose/checkAll 等全部入口需调用方外部串行化
 class COLLISION_ALGORITHM_API CollisionWorld
 {
 public:

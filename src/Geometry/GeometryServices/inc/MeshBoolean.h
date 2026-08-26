@@ -1,5 +1,5 @@
-#ifndef DATA_MESHBOOLEAN_H
-#define DATA_MESHBOOLEAN_H
+#ifndef GEOMETRYSERVICES_MESHBOOLEAN_H
+#define GEOMETRYSERVICES_MESHBOOLEAN_H
 
 /// @file MeshBoolean.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -27,4 +27,4 @@ GEOMETRY_SERVICES_EXPORT bool compute(const std::vector<float>& targetSoup, cons
 GEOMETRY_SERVICES_EXPORT bool runSelfTest(std::string* errMsg = nullptr);
 } // namespace MeshBoolean
 
-#endif // DATA_MESHBOOLEAN_H
+#endif // GEOMETRYSERVICES_MESHBOOLEAN_H

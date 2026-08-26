@@ -90,6 +90,8 @@ struct Aabb
 };
 
 // Möller 三角-三角：投影分离轴
+// 已知限制：无共面分支——两三角共面时距离被 eps 归零、区间退化为单点，仅投影点重合才报碰；
+// 平行贴合面/面内穿插漏检（装配"贴面"场景注意）。需真实共面检测请启用 coal 后端
 bool triTriIntersect(const Vec3& V0, const Vec3& V1, const Vec3& V2, const Vec3& U0, const Vec3& U1, const Vec3& U2)
 {
 	const Vec3 e1 = V1 - V0;
@@ -205,7 +207,6 @@ struct Body
 	std::vector<Vec3> localVerts; // 每三角 3 顶点连续
 	Mat4 world = {};
 	Aabb worldAabb;
-	bool dirtyPose = true;
 	std::string poseSource;
 
 	void rebuildWorldAabb(const double margin)
@@ -214,7 +215,6 @@ struct Body
 		for (const Vec3& lp : localVerts)
 			worldAabb.expand(transformPoint(world, lp));
 		worldAabb.inflate(margin);
-		dirtyPose = false;
 	}
 };
 
@@ -373,18 +373,26 @@ CollisionQueryResult CollisionWorld::checkAll(const int maxContacts) const
 
 			const std::size_t nA = A.localVerts.size() / 3;
 			const std::size_t nB = B.localVerts.size() / 3;
+			// 无空间索引：AABB 重叠后 O(nA×nB) 全三角对（量大时需 coal 后端）；
+			// 顶点世界变换每对预计算一次，原先在内层循环里 A 的三角对每个 B 都重复变换
+			std::vector<Vec3> aW(A.localVerts.size());
+			for (std::size_t k = 0; k < A.localVerts.size(); ++k)
+				aW[k] = transformPoint(A.world, A.localVerts[k]);
+			std::vector<Vec3> bW(B.localVerts.size());
+			for (std::size_t k = 0; k < B.localVerts.size(); ++k)
+				bW[k] = transformPoint(B.world, B.localVerts[k]);
 			bool hit = false;
 			Vec3 hitPt{};
 			for (std::size_t ta = 0; ta < nA && !hit; ++ta)
 			{
-				const Vec3 a0 = transformPoint(A.world, A.localVerts[ta * 3 + 0]);
-				const Vec3 a1 = transformPoint(A.world, A.localVerts[ta * 3 + 1]);
-				const Vec3 a2 = transformPoint(A.world, A.localVerts[ta * 3 + 2]);
+				const Vec3 a0 = aW[ta * 3 + 0];
+				const Vec3 a1 = aW[ta * 3 + 1];
+				const Vec3 a2 = aW[ta * 3 + 2];
 				for (std::size_t tb = 0; tb < nB; ++tb)
 				{
-					const Vec3 b0 = transformPoint(B.world, B.localVerts[tb * 3 + 0]);
-					const Vec3 b1 = transformPoint(B.world, B.localVerts[tb * 3 + 1]);
-					const Vec3 b2 = transformPoint(B.world, B.localVerts[tb * 3 + 2]);
+					const Vec3 b0 = bW[tb * 3 + 0];
+					const Vec3 b1 = bW[tb * 3 + 1];
+					const Vec3 b2 = bW[tb * 3 + 2];
 					if (triTriIntersect(a0, a1, a2, b0, b1, b2))
 					{
 						hit = true;
@@ -403,7 +411,7 @@ CollisionQueryResult CollisionWorld::checkAll(const int maxContacts) const
 			c.pointMm[0] = hitPt.x;
 			c.pointMm[1] = hitPt.y;
 			c.pointMm[2] = hitPt.z;
-			c.depthMm = m_impl->marginMm;
+			// normal/depthMm 保持占位零值：布尔窄相算不出真实穿透向量，勿回显安全余量冒充深度
 			fillDiag(c, A, B);
 			out.contacts.push_back(c);
 			if (static_cast<int>(out.contacts.size()) >= cap)
