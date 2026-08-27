@@ -95,6 +95,9 @@
     <Filter Include="inc\import">
       <UniqueIdentifier>{0D0A7B4F-A9B4-4CBE-83B8-8A8215B03CD0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\io">
+      <UniqueIdentifier>{A21ECA5A-DDC0-4724-A02E-99447111B96A}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\project">
       <UniqueIdentifier>{31D03C75-F7AE-4411-83FD-F4811F05EFF9}</UniqueIdentifier>
     </Filter>
@@ -125,6 +128,9 @@
     </Filter>
     <Filter Include="src\import">
       <UniqueIdentifier>{12F070BB-A350-40BF-84B4-99B78E1709B7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\io">
+      <UniqueIdentifier>{F4596DC2-FD8E-4AAD-8847-29324F867C62}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\project">
       <UniqueIdentifier>{D8D26B6A-1D01-4718-8EFB-C10F6B42222F}</UniqueIdentifier>
@@ -217,6 +223,12 @@
     </ClInclude>
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\CatalogActionPlanDomainHandler.h">
       <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\DesignPartsCatalog.h">
+      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Catalog</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\DesignPartsDomainHandler.h">
+      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\FeatureComposeDomainHandler.h">
       <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
@@ -319,6 +331,24 @@
     </ClInclude>
     <ClInclude Include="inc\HostRenderViewFactory.h">
       <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\BackendVisualEnsure.h">
+      <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\BackendVisualSyncEngine.h">
+      <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\KinematicsBatchScope.h">
+      <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\VisualAspect.h">
+      <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\io\CustomDeviceHostOps.h">
+      <Filter>inc\io</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\io\CustomDeviceRobotMountOps.h">
+      <Filter>inc\io</Filter>
     </ClInclude>
     <ClInclude Include="inc\IRobotUrdfImportContext.h">
       <Filter>inc\import</Filter>
@@ -427,6 +457,12 @@
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\CatalogActionPlanDomainHandler.cpp">
       <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\DesignPartsCatalog.cpp">
+      <Filter>External\UI\CloudSimPluginHost\source\Ai\Catalog</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\DesignPartsDomainHandler.cpp">
+      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\FeatureComposeDomainHandler.cpp">
       <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
     </ClCompile>
@@ -523,10 +559,49 @@
     <ClCompile Include="source\headless\HeadlessTrajectorySession.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
+    <ClCompile Include="source\headless\HeadlessAiBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessDrawingBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessGeometryBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessGeomodelBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessLabelingBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessProcessFlowBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessProgramEditBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessRobotCollisionBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessRobotExportBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessRobotPlaybackBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
     <ClCompile Include="source\headless\OsgWidgetSceneBridge_Headless.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
     <ClCompile Include="source\HostRenderViewFactory.cpp">
+      <Filter>src\Visual</Filter>
+    </ClCompile>
+    <ClCompile Include="source\visual\BackendVisualEnsure.cpp">
+      <Filter>src\Visual</Filter>
+    </ClCompile>
+    <ClCompile Include="source\visual\BackendVisualSyncEngine.cpp">
+      <Filter>src\Visual</Filter>
+    </ClCompile>
+    <ClCompile Include="source\visual\KinematicsBatchScope.cpp">
       <Filter>src\Visual</Filter>
     </ClCompile>
     <ClCompile Include="source\import\BackendFileImport.cpp">
@@ -537,6 +612,18 @@
     </ClCompile>
     <ClCompile Include="source\import\HierarchyMeshImport.cpp">
       <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\CustomDeviceHostOps.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\CustomDeviceRobotMountOps.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\CustomDevicePoseMotionHost.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\IoSignalNetwork.cpp">
+      <Filter>src\io</Filter>
     </ClCompile>
     <ClCompile Include="source\pch.cpp">
       <Filter>src\Global</Filter>
@@ -583,10 +670,13 @@
       <Filter>inc\DocumentHost</Filter>
     </QtMoc>
     <QtMoc Include="inc\io\IoSignalNetwork.h">
-      <Filter>inc</Filter>
+      <Filter>inc\io</Filter>
     </QtMoc>
     <QtMoc Include="inc\io\CustomDevicePoseMotionHost.h">
-      <Filter>inc</Filter>
+      <Filter>inc\io</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\headless\HeadlessRobotPlaybackBridge.h">
+      <Filter>inc\headless</Filter>
     </QtMoc>
     <QtMoc Include="inc\headless_stub\OsgWidget.h">
       <Filter>inc\headless_stub</Filter>

@@ -83,6 +83,9 @@
     <ClInclude Include="inc\BackendHierarchyModel.h">
       <Filter>inc\HierarchyFollow</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendImporters.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BackendObjectAttribute.h">
       <Filter>inc\Core</Filter>
     </ClInclude>
@@ -104,6 +107,9 @@
     <ClInclude Include="inc\CustomDeviceBackendData.h">
       <Filter>inc\Other</Filter>
     </ClInclude>
+    <ClInclude Include="inc\CustomDeviceRobotMountComponent.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\data_global.h">
       <Filter>inc\Global</Filter>
     </ClInclude>
@@ -119,16 +125,7 @@
     <ClInclude Include="inc\geometry_base64.h">
       <Filter>inc\GeometryBackends</Filter>
     </ClInclude>
-    <ClInclude Include="inc\GeometryBackendOps.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\GeometryRef.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
     <ClInclude Include="inc\MeshBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshBoolean.h">
       <Filter>inc\GeometryBackends</Filter>
     </ClInclude>
     <ClInclude Include="inc\ParametricBrepBackendData.h">
@@ -143,9 +140,6 @@
     <ClInclude Include="inc\PointCloudBackendData.h">
       <Filter>inc\GeometryBackends</Filter>
     </ClInclude>
-    <ClInclude Include="inc\PointCloudBackendOps.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib\Source\dl_dxf.cpp">
@@ -156,6 +150,9 @@
     </ClCompile>
     <ClCompile Include="source\BackendDataBase.cpp">
       <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendImporters.cpp">
+      <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendDataManager.cpp">
       <Filter>src\Core</Filter>
@@ -173,6 +170,9 @@
       <Filter>src\HierarchyFollow</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendObjectAttribute.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendPropertyVisualAspect.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendPrimitiveGeometry.cpp">
@@ -196,6 +196,9 @@
     <ClCompile Include="source\CustomDeviceBackendData.cpp">
       <Filter>src\Other</Filter>
     </ClCompile>
+    <ClCompile Include="source\CustomDeviceRobotMountComponent.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\FollowAttachmentComponent.cpp">
       <Filter>src\HierarchyFollow</Filter>
     </ClCompile>
@@ -203,9 +206,6 @@
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\geometry_base64.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\GeometryBackendOps.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\MeshBackendData_cgal_io.cpp">
@@ -223,9 +223,6 @@
     <ClCompile Include="source\MeshBackendData_step.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
-    <ClCompile Include="source\MeshBoolean.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
     <ClCompile Include="source\ParametricBrepBackendData.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
@@ -239,9 +236,6 @@
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\PointCloudBackendData.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PointCloudBackendOps.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
   </ItemGroup>

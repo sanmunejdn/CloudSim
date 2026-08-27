@@ -86,6 +86,9 @@
     <ClInclude Include="..\..\Host\CloudSimHost\inc\DocumentHost.h">
       <Filter>External\Host\CloudSimHost\inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ApplicationSettings.h">
+      <Filter>inc\Infrastructure</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ApplicationStyle.h">
       <Filter>inc\MainWindow</Filter>
     </ClInclude>
@@ -139,6 +142,9 @@
     </ClInclude>
     <ClInclude Include="inc\ProjectPackageZip.h">
       <Filter>inc\Infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PropertyPanelVariantEditorFactory.h">
+      <Filter>inc\MainWindow</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotTcpDragTeachOperation.h">
       <Filter>inc\PickOperations</Filter>
@@ -220,6 +226,9 @@
     <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qtvariantproperty.cpp">
       <Filter>External\$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser</Filter>
     </ClCompile>
+    <ClCompile Include="source\ApplicationSettings.cpp">
+      <Filter>src\Infrastructure</Filter>
+    </ClCompile>
     <ClCompile Include="source\ApplicationStyle.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
@@ -297,6 +306,9 @@
     </ClCompile>
     <ClCompile Include="source\ProjectPackageZip.cpp">
       <Filter>src\Infrastructure</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PropertyPanelVariantEditorFactory.cpp">
+      <Filter>src\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\RunInfoPage.cpp">
       <Filter>src\MainWindow</Filter>
