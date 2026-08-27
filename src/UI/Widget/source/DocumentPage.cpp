@@ -1184,6 +1184,16 @@ QString DocumentPage::robotJointPrefixRoot() const
 	return p;
 }
 
+void DocumentPage::noteRobotJointAnglesAppliedForInstance(int instanceIndex, const QVector<double>& localJointRad)
+{
+	const QString sceneRoot = robotSceneBackendIdForInstance(instanceIndex);
+	if (sceneRoot.isEmpty())
+	{
+		return;
+	}
+	noteRobotLocalJointAnglesForSceneRoot(sceneRoot, localJointRad);
+}
+
 void DocumentPage::notifyRobotKinematicsAppliedToScene()
 {
 	if (suppressRobotFollowDirtyNotify())

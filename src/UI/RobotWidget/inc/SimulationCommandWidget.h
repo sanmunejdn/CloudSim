@@ -63,6 +63,8 @@ public:
 
 	int currentRobotInstanceIndex() const;
 
+	void setCurrentRobotInstanceIndex(int instanceIndex);
+
 	QString currentRobotBackendId() const;
 
 	void setRevoluteJointNames(const QStringList& names);

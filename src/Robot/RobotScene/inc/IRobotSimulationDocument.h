@@ -132,6 +132,15 @@ public:
 	}
 
 	virtual void notifyRobotKinematicsAppliedToScene() {}
+
+	/// FK 收口回写：本实例当前关节角（rad，非聚合向量）写入文档真源。
+	/// 挂载设备 TCP 重算等读取方只依赖该真源；所有 FK 应用路径（手动/播放/预览/加载）必须在收口处调用，
+	/// 否则读取方会拿到陈旧关节角（曾致挂载设备播放期间不跟随、停止后瞬移）。
+	virtual void noteRobotJointAnglesAppliedForInstance(int instanceIndex, const QVector<double>& localJointRad)
+	{
+		(void)instanceIndex;
+		(void)localJointRad;
+	}
 };
 
 #endif // ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H

@@ -83,7 +83,16 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 		}
 		return false;
 	}
-	QVector<double> aggregated(doc->robotRevoluteJointNames().size(), 0.0);
+	const int totalJoints = doc->robotRevoluteJointNames().size();
+	QVector<double> aggregated;
+	if (outAggregated && outAggregated->size() == totalJoints)
+	{
+		aggregated = *outAggregated;
+	}
+	else
+	{
+		aggregated = QVector<double>(totalJoints, 0.0);
+	}
 	KinematicsBatchScope batch(m_host);
 	RobotKinematicApplyContext::Context applyCtx;
 	applyCtx.doc = doc;

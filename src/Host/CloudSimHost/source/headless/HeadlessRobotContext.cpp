@@ -1213,6 +1213,18 @@ void HeadlessRobotContext::notifyRobotKinematicsAppliedToScene()
 	cloudsim::host::refreshCustomDevicesFollowingKinematicsTargets(m_host);
 }
 
+void HeadlessRobotContext::noteRobotJointAnglesAppliedForInstance(int instanceIndex, const QVector<double>& localJointRad)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_robots.size())
+	{
+		return;
+	}
+	const QString sceneRoot = m_robots[instanceIndex].sceneBackendId;
+	recordJointAnglesForSceneRoot(sceneRoot, localJointRad);
+	// 播放桥起点种子读 host 侧缓存（HeadlessRobotPlaybackBridge），双写保持两端一致
+	m_host.noteRobotLocalJointAnglesForSceneRoot(sceneRoot, localJointRad);
+}
+
 void HeadlessRobotContext::rebuildAggregates()
 {
 	m_robotRevoluteJointNames.clear();

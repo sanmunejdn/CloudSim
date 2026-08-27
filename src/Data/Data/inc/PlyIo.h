@@ -9,6 +9,7 @@
 
 #include <iosfwd>
 #include <string>
+#include <vector>
 
 /// PLY 头扫描（点云/网格分流共用）
 struct DATA_EXPORT PlyHeaderInfo
@@ -27,6 +28,12 @@ struct DATA_EXPORT PlyHeaderInfo
 	int ir = -1;
 	int ig = -1;
 	int ib = -1;
+	struct VertexPropertySpec
+	{
+		std::string type;
+		std::string name;
+	};
+	std::vector<VertexPropertySpec> vertexProperties;
 };
 
 DATA_EXPORT bool scanPlyHeader(std::istream& input, PlyHeaderInfo& out, std::string* errMsg = nullptr);

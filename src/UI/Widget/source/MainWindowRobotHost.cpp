@@ -341,6 +341,10 @@ public:
 		m_page->reconcilePerLinkOuterBindFromScene(instanceIndex, jointAnglesRad);
 	}
 	void notifyRobotKinematicsAppliedToScene() override { m_page->notifyRobotKinematicsAppliedToScene(); }
+	void noteRobotJointAnglesAppliedForInstance(int instanceIndex, const QVector<double>& localJointRad) override
+	{
+		m_page->noteRobotJointAnglesAppliedForInstance(instanceIndex, localJointRad);
+	}
 	void requestFollowSolveForced() override { m_page->requestFollowSolveForced(); }
 	void setSuppressRobotFollowDirtyNotify(const bool suppress) override
 	{

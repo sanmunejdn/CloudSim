@@ -1839,6 +1839,38 @@ QVector<double> RobotSimulationController::localJointAnglesForInstance(const int
 	return out;
 }
 
+int RobotSimulationController::axisControlActiveRobotInstanceIndex() const
+{
+	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!axis || !doc)
+	{
+		return -1;
+	}
+	const AxisControlTargetItem target = axis->currentControlTarget();
+	if (target.kind == AxisControlTargetKind::CustomDevice)
+	{
+		return -1;
+	}
+	if (target.robotInstanceIndex >= 0)
+	{
+		return target.robotInstanceIndex;
+	}
+	if (!target.id.isEmpty())
+	{
+		const int idx = doc->robotInstanceIndexForSceneBackendId(target.id);
+		if (idx >= 0)
+		{
+			return idx;
+		}
+	}
+	if (m_host->simulationCommandPage())
+	{
+		return m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	}
+	return -1;
+}
+
 QVector<double> RobotSimulationController::motionPreviewProgramStartJointsLocal(const int nj,
 																				const int jointOffset) const
 {
@@ -3354,6 +3386,8 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 	{
 		return;
 	}
+	m_host->robotAxisControlPage()->selectControlTarget(
+		AxisControlTargetKind::RobotInstance, doc->robotSceneBackendIdForInstance(instanceIndex));
 	syncRobotFrameSettingsFromDocument(instanceIndex);
 	syncRobotExternalAxisSettingsFromDocument(instanceIndex);
 	if (m_simulationDock && m_simulationDock->collisionPage() && doc)
@@ -3433,8 +3467,7 @@ void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<doub
 	{
 		return;
 	}
-	const int instIdx =
-		m_host->simulationCommandPage() ? m_host->simulationCommandPage()->currentRobotInstanceIndex() : 0;
+	const int instIdx = axisControlActiveRobotInstanceIndex();
 	if (instIdx < 0)
 	{
 		return;
@@ -3681,11 +3714,7 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 		}
 		return;
 	}
-	if (!m_host->simulationCommandPage())
-	{
-		return;
-	}
-	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	const int instIdx = axisControlActiveRobotInstanceIndex();
 	if (instIdx < 0)
 	{
 		return;

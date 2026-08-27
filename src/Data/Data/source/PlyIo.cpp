@@ -122,6 +122,10 @@ bool scanPlyHeader(std::istream& input, PlyHeaderInfo& out, std::string* errMsg)
 			{
 				continue;
 			}
+			else
+			{
+				out.vertexProperties.push_back({type, name});
+			}
 			auto mapRgb = [&](const std::string& n, int idx)
 			{
 				if (n == "red" || n == "diffuse_red")

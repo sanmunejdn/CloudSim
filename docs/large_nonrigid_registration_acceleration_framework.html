@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大模型非刚性匹配加速框架</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #eb6c36;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      padding: 2.5rem 2rem;
+    }
+
+    .frame { max-width: 1280px; width: 100%; margin: 0 auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 56rem;
+      line-height: 1.5;
+    }
+
+    svg { width: 100%; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · CloudSim · 非刚性配准</p>
+    <h1>大模型点云 / 网格非刚性匹配加速框架</h1>
+    <p class="subtitle">主路径在金字塔各层重复「定密度 → 场/图构建 → SDF 粗求解」；层间用位移场 prolongate 作 warm-start，仅末层开细阶段或 ROI 精修。</p>
+
+    <svg viewBox="0 0 1280 900" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-labelledby="large-nr-accel-title large-nr-accel-desc">
+      <title id="large-nr-accel-title">大模型非刚性匹配加速框架</title>
+      <desc id="large-nr-accel-desc">架构图展示刚性预对齐后的多分辨率金字塔三层逻辑：每层重网格、变形图与 SDF 求解，以及层间位移 prolongate 与末层输出。</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+        </marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/>
+        </marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- Zone: 前置（扫描 / CAD 并列 → 刚性预对齐） -->
+      <rect x="32" y="40" width="1216" height="100" rx="8"
+            fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <rect x="88" y="44" width="56" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="112" y="53" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">前置</text>
+
+      <!-- Arrows: 并列汇入刚性预对齐 -->
+      <line x1="192" y1="84" x2="368" y2="84" stroke="#4f5d75" stroke-width="1.2"/>
+      <line x1="348" y1="84" x2="368" y2="84" stroke="#4f5d75" stroke-width="1.2"/>
+      <line x1="368" y1="84" x2="416" y2="84" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="556" y1="84" x2="592" y2="84" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M 648,110 V 156" fill="none" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+
+      <!-- 前置 nodes -->
+      <rect x="64" y="58" width="128" height="52" rx="6" fill="#f5f5f5"/>
+      <rect x="64" y="58" width="128" height="52" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <text x="128" y="80" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">扫描</text>
+      <text x="128" y="96" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">mesh / 点云</text>
+
+      <rect x="220" y="58" width="128" height="52" rx="6" fill="#f5f5f5"/>
+      <rect x="220" y="58" width="128" height="52" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+      <text x="284" y="80" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CAD 模板</text>
+      <text x="284" y="96" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">公差 → 基准 h</text>
+
+      <rect x="416" y="58" width="140" height="52" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="486" y="80" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">刚性预对齐</text>
+      <text x="486" y="96" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">ICP · 全层共用位姿</text>
+
+      <rect x="592" y="58" width="112" height="52" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="648" y="80" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">估 h</text>
+      <text x="648" y="96" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">max(tol, k·σ)</text>
+
+      <text x="736" y="84" fill="#4f5d75" font-size="11" font-family="'Geist', sans-serif">↓ 进入金字塔（每层独立 remesh + 求解）</text>
+
+      <!-- Zone: 金字塔详述 -->
+      <rect x="32" y="152" width="1216" height="510" rx="8"
+            fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <rect x="88" y="156" width="120" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="148" y="165" fill="rgba(235,108,54,0.85)" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">多分辨率金字塔</text>
+
+      <!-- L0→L1→L2 horizontal arrows -->
+      <line x1="408" y1="200" x2="424" y2="200" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="824" y1="200" x2="840" y2="200" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="360" y="188" width="72" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="396" y="197" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">PROLONG</text>
+      <rect x="776" y="188" width="72" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="812" y="197" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">PROLONG</text>
+
+      <!-- L0 column -->
+      <rect x="48" y="184" width="360" height="312" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <rect x="56" y="192" width="48" height="16" rx="4" fill="rgba(45,49,66,0.05)" stroke="rgba(79,93,117,0.40)" stroke-width="0.8"/>
+      <text x="80" y="204" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">L0</text>
+      <text x="120" y="204" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif">粗层 · 边长 4h</text>
+
+      <text x="64" y="228" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">① 几何</text>
+      <text x="64" y="244" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">源 remesh(4h)；目标 CAD 离散(4h) 或 remesh(4h)</text>
+      <text x="64" y="260" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">N₀ 小 · 网格源 voxel=0</text>
+
+      <text x="64" y="280" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">② 初值</text>
+      <text x="64" y="296" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">刚性 ICP 位姿 T（各层共用，不再重刚性）</text>
+
+      <text x="64" y="316" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">③ 构建</text>
+      <text x="64" y="332" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">目标 DistanceField(KdTree)；源变形图 FPS</text>
+      <text x="64" y="352" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">sampleR 大 → 节点少；网格建边表</text>
+
+      <text x="64" y="368" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">④ 求解</text>
+      <text x="64" y="384" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">SDF 粗：useCoarseReg ✓ · useFineReg ✗</text>
+      <text x="64" y="400" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">alignSample≈2000 · maxOuter≈15</text>
+
+      <text x="64" y="420" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">⑤ 输出</text>
+      <text x="64" y="436" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">节点位移 nodeT₀；变形源 mesh₀</text>
+      <text x="64" y="452" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace">目标：全局形变，避开局部极小</text>
+
+      <!-- L1 column -->
+      <rect x="432" y="184" width="360" height="312" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <rect x="440" y="192" width="48" height="16" rx="4" fill="rgba(45,49,66,0.05)" stroke="rgba(79,93,117,0.40)" stroke-width="0.8"/>
+      <text x="464" y="204" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">L1</text>
+      <text x="504" y="204" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif">中层 · 边长 2h</text>
+
+      <text x="448" y="228" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">① 几何</text>
+      <text x="448" y="244" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">源/目标 remesh(2h)；拓扑重焊</text>
+      <text x="448" y="260" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">N₁ ≈ 4×N₀（面数级）</text>
+
+      <text x="448" y="280" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">② 初值 · PROLONG</text>
+      <text x="448" y="296" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">粗层顶点位移 Δx₀ → 细层顶点 NN/重心插值</text>
+      <text x="448" y="312" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">或 nodeT₀ 经蒙皮权重映射到 L1 节点</text>
+
+      <text x="448" y="332" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">③ 构建</text>
+      <text x="448" y="348" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">重建场 + 变形图（节点数 ↑，sampleR ↓）</text>
+
+      <text x="448" y="368" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">④ 求解</text>
+      <text x="448" y="384" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">SDF 粗：仍 useFineReg ✗</text>
+      <text x="448" y="400" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">maxOuter 减半 · 收敛更快（有好初值）</text>
+
+      <text x="448" y="420" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">⑤ 输出</text>
+      <text x="448" y="436" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">nodeT₁ · mesh₁</text>
+      <text x="448" y="452" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace">承接中频变形</text>
+
+      <!-- L2 column focal -->
+      <rect x="864" y="184" width="360" height="312" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+      <rect x="872" y="192" width="48" height="16" rx="4" fill="rgba(235,108,54,0.15)" stroke="rgba(235,108,54,0.50)" stroke-width="0.8"/>
+      <text x="896" y="204" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">L2</text>
+      <text x="936" y="204" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif">细层 · 边长 h</text>
+
+      <text x="880" y="228" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">① 几何</text>
+      <text x="880" y="244" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">remesh(h) 全分辨率；或仅 ROI 内加密</text>
+      <text x="880" y="260" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">精度上限 ≈ h</text>
+
+      <text x="880" y="280" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">② 初值 · PROLONG</text>
+      <text x="880" y="296" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">同 L1：L1 位移场 → L2 warm-start</text>
+
+      <text x="880" y="316" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">③ 构建</text>
+      <text x="880" y="332" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">全分辨率场 + 变形图；边应变约束全开</text>
+
+      <text x="880" y="352" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">④ 求解</text>
+      <text x="880" y="368" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">SDF 粗 + 可选 useFineReg ✓</text>
+      <text x="880" y="384" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">或仅 ROI 顶点阻尼点-面精修</text>
+      <text x="880" y="400" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace">SPARE 大模型：细阶段仍建议关闭</text>
+
+      <text x="880" y="420" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.08em">⑤ 输出</text>
+      <text x="880" y="436" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">变形 soup / 点云 · CAD 面更新</text>
+      <text x="880" y="452" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace">可映射回原始全分辨率顶点</text>
+
+      <!-- Prolongate 说明条 -->
+      <rect x="48" y="508" width="1168" height="70" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+      <text x="64" y="532" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.12em">层间 PROLONG 逻辑</text>
+      <text x="64" y="552" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">
+        节点场：粗 nodeT_j 按 ED 蒙皮权重插到细层节点 → 作迭代初值，非直接拷贝几何
+      </text>
+      <text x="64" y="568" fill="#2d3142" font-size="10" font-family="'Geist', sans-serif">
+        顶点位移：粗 mesh 顶点 Δx 在细 mesh 上 NN / 三角重心插值 → 减少细层外迭代与错误对应
+      </text>
+
+      <!-- 输出节点 -->
+      <rect x="864" y="594" width="360" height="56" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+      <text x="1020" y="618" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">变形输出</text>
+      <text x="1020" y="634" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">registerScanToCad / 新对象写回</text>
+      <path d="M 1020,496 V 586" fill="none" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+
+      <!-- 其他加速策略（压缩） -->
+      <rect x="32" y="678" width="1216" height="110" rx="8"
+            fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <rect x="88" y="682" width="88" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="132" y="691" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">可叠加策略</text>
+
+      <text x="56" y="714" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">降规模</text>
+      <text x="56" y="730" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">体素仅点云 · simplify · ROI 裁剪</text>
+
+      <text x="280" y="714" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">求解减负</text>
+      <text x="280" y="730" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">sampleRadius↑ · alignSample 上限</text>
+
+      <text x="520" y="714" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">CAD 先验</text>
+      <text x="520" y="730" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">目标用 CAD 离散 · 干净拓扑</text>
+
+      <text x="760" y="714" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">并行</text>
+      <text x="760" y="730" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">OpenMP · 多工件任务级</text>
+
+      <text x="960" y="714" fill="#7a8399" font-size="11" font-weight="600" font-family="'Geist', sans-serif">慎用</text>
+      <text x="960" y="730" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace">空间分块（接缝风险）</text>
+
+      <!-- Legend -->
+      <line x1="32" y1="818" x2="1248" y2="818" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <text x="32" y="834" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+      <rect x="32" y="850" width="14" height="10" rx="2" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1"/>
+      <text x="52" y="858" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">细层 L2 / CAD 定 h</text>
+
+      <rect x="200" y="850" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="220" y="858" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">金字塔层卡片</text>
+
+      <line x1="360" y1="856" x2="388" y2="856" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+      <text x="396" y="858" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">层间 / 输出主路径</text>
+
+      <line x1="540" y1="856" x2="568" y2="856" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="576" y="858" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">前置流程</text>
+    </svg>
+  </div>
+</body>
+</html>

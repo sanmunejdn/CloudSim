@@ -240,6 +240,7 @@ private:
 	void captureMotionPreviewProgramStartJoints();
 	QVector<double> motionPreviewProgramStartJointsLocal(int nj, int jointOffset) const;
 	QVector<double> localJointAnglesForInstance(int instIdx) const;
+	int axisControlActiveRobotInstanceIndex() const;
 	bool buildChainSeedJointRadForInstruction(const std::shared_ptr<RobotInstruction::Base>& instruction,
 											  QVector<double>& outChainSeed, int* outTargetMotionIndex = nullptr,
 											  bool* outChainReliable = nullptr);

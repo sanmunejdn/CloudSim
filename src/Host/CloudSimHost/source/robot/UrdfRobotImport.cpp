@@ -344,9 +344,22 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		}
 	}
 
-	if (!RobotSceneKinematics::applyJointAnglesFromDocument(robotDoc, ctx.urdfImportScenePoseSink(), q0))
 	{
-		warn(QStringLiteral("URDF: initial kinematics sync failed."));
+		const int instIdx = ctx.robotKinematicInstanceCount() - 1;
+		IRobotBackendPoseSink* importSink = ctx.urdfImportScenePoseSink();
+		if (instIdx <= 0)
+		{
+			if (!RobotSceneKinematics::applyJointAnglesFromDocument(robotDoc, importSink, q0))
+			{
+				warn(QStringLiteral("URDF: initial kinematics sync failed."));
+			}
+		}
+		else
+		{
+			// 新机 mesh 已在 Tbind(q0)；勿全文档 apply（会误写实例 0），也勿再 FK（M0/T0 已采集，改场景不更新绑定）
+			robotDoc->noteRobotJointAnglesAppliedForInstance(instIdx, q0);
+			ctx.urdfImportReconcilePerLinkBind(instIdx, q0);
+		}
 	}
 
 	ctx.urdfImportClearStagingGeometry();

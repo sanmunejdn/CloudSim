@@ -133,8 +133,7 @@ bool applyRobotFkBeforeDeviceMount(DocumentHost& host, const QString& robotScene
 	{
 		return false;
 	}
-	hrc->recordJointAnglesForSceneRoot(robotSceneBackendId, outLocalJointAngles);
-	host.noteRobotLocalJointAnglesForSceneRoot(robotSceneBackendId, aggregated);
+	// 关节角缓存已由 FK 收口回写（hrc->noteRobotJointAnglesAppliedForInstance），无需显式记录
 	return true;
 }
 

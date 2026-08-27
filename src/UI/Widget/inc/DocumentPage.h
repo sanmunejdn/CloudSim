@@ -147,6 +147,7 @@ public:
 	using DocumentHost::listObjects;
 
 	void notifyRobotKinematicsAppliedToScene() override;
+	void noteRobotJointAnglesAppliedForInstance(int instanceIndex, const QVector<double>& localJointRad) override;
 
 	BackendDataManager& urdfImportBackend() override { return DocumentHost::backend(); }
 	IRobotSimulationDocument* urdfImportRobotSimulationDocument() override { return this; }
@@ -154,6 +155,10 @@ public:
 	bool urdfImportLoadLinkMeshIntoScene(const MeshBackendData& mesh, QString* errorMessage = nullptr) override
 	{
 		return loadUrdfLinkMeshIntoScene(mesh, errorMessage);
+	}
+	void urdfImportReconcilePerLinkBind(int instanceIndex, const QVector<double>& localJointRad) override
+	{
+		reconcilePerLinkOuterBindFromScene(instanceIndex, localJointRad);
 	}
 	void urdfImportSetBackendParent(const std::string& childBackendId, const std::string& parentBackendId) override
 	{

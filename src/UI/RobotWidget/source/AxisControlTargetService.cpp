@@ -19,6 +19,8 @@
 #include "SimulationCommandWidget.h"
 #include "UrdfRobotKinematicModel.h"
 
+#include <QHash>
+
 namespace
 {
 QVector<double> enabledValuesFromFullQ(const RobotExternal::RobotExternalAxisConfigSet& set,
@@ -64,6 +66,16 @@ void AxisControlTargetService::refreshTargets()
 	{
 		QVector<AxisControlTargetItem> targets;
 		const int robotCount = doc->robotKinematicInstanceCount();
+		QHash<QString, int> labelUseCount;
+		for (int i = 0; i < robotCount; ++i)
+		{
+			QString label = doc->robotDisplayLabelForInstance(i);
+			if (label.isEmpty())
+			{
+				label = QStringLiteral("Robot %1").arg(i + 1);
+			}
+			++labelUseCount[label];
+		}
 		for (int i = 0; i < robotCount; ++i)
 		{
 			AxisControlTargetItem item;
@@ -74,6 +86,10 @@ void AxisControlTargetService::refreshTargets()
 			if (item.displayLabel.isEmpty())
 			{
 				item.displayLabel = QStringLiteral("Robot %1").arg(i + 1);
+			}
+			if (labelUseCount.value(item.displayLabel) > 1)
+			{
+				item.displayLabel = QStringLiteral("%1 (#%2)").arg(item.displayLabel).arg(i + 1);
 			}
 			targets.push_back(item);
 		}
@@ -144,6 +160,10 @@ void AxisControlTargetService::onTargetChanged(const AxisControlTargetKind kind,
 	if (instIdx < 0)
 	{
 		return;
+	}
+	if (SimulationCommandWidget* cmd = m_host->simulationCommandPage())
+	{
+		cmd->setCurrentRobotInstanceIndex(instIdx);
 	}
 	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
 	if (!urdfPath.isEmpty())

@@ -2,17 +2,15 @@
 
 #include "BackendDataManager.h"
 #include "IRobotSimulationDocument.h"
-#include "RobotPerLinkKinematicsApply.h"
 #include "RobotPerLinkKinematicsSliceOsg.h"
 #include "RobotSceneKinematics.h"
-#include "UrdfRobotLoader.h"
 
 namespace UrdfRobotKinematicModelSink
 {
 bool applyToSink(const UrdfRobotKinematicModel::Model& model, const RobotKinematicApplyContext::Context& ctx,
 				 const std::vector<double>& localArmQ, QVector<double>& aggregatedAnglesRad)
 {
-	if (!ctx.doc || !ctx.sink || ctx.instanceIndex < 0)
+	(void)model;	if (!ctx.doc || !ctx.sink || ctx.instanceIndex < 0)
 	{
 		return false;
 	}
@@ -25,8 +23,12 @@ bool applyToSink(const UrdfRobotKinematicModel::Model& model, const RobotKinemat
 	const int total = ctx.doc->robotRevoluteJointNames().size();
 	if (aggregatedAnglesRad.size() != total)
 	{
+		const int oldSize = aggregatedAnglesRad.size();
 		aggregatedAnglesRad.resize(total);
-		aggregatedAnglesRad.fill(0.0);
+		for (int i = oldSize; i < total; ++i)
+		{
+			aggregatedAnglesRad[i] = 0.0;
+		}
 	}
 	int offset = 0;
 	for (int i = 0; i < ctx.instanceIndex; ++i)
@@ -53,22 +55,11 @@ bool applyToSink(const UrdfRobotKinematicModel::Model& model, const RobotKinemat
 	}
 	const RobotPerLinkKinematicsSlice slice = RobotSceneKinematics::robotPerLinkSliceFromDto(plDto);
 
-	std::vector<std::array<double, 16>> linkWorld;
-	if (!model.forward(localArmQ.data(), static_cast<std::size_t>(localArmQ.size()), linkWorld))
+	if (!RobotSceneKinematics::applyJointAnglesViaLinkBackends(ctx.doc, ctx.sink, *mgr, local, slice))
 	{
 		return false;
 	}
-	QHash<QString, osg::Matrixd> meshWorldTq;
-	QString fkErr;
-	if (!UrdfRobotLoader::computeMeshWorldFromCoreLinkWorld(slice.urdfAbsolutePath, model.graph(), linkWorld,
-															meshWorldTq, slice.meshVerticesInLinkFrame, &fkErr))
-	{
-		return false;
-	}
-	if (!RobotPerLinkKinematicsApply::applyLinkWorldFromCoreFk(ctx.sink, *mgr, slice, meshWorldTq))
-	{
-		return false;
-	}
+	ctx.doc->noteRobotJointAnglesAppliedForInstance(ctx.instanceIndex, local);
 	ctx.doc->notifyRobotKinematicsAppliedToScene();
 	return true;
 }

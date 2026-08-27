@@ -551,6 +551,19 @@ int SimulationCommandWidget::currentRobotInstanceIndex() const
 	return m_robotCombo ? m_robotCombo->currentIndex() : -1;
 }
 
+void SimulationCommandWidget::setCurrentRobotInstanceIndex(const int instanceIndex)
+{
+	if (!m_robotCombo || instanceIndex < 0 || instanceIndex >= m_robotCombo->count())
+	{
+		return;
+	}
+	if (m_robotCombo->currentIndex() == instanceIndex)
+	{
+		return;
+	}
+	m_robotCombo->setCurrentIndex(instanceIndex);
+}
+
 QString SimulationCommandWidget::currentRobotBackendId() const
 {
 	if (m_programStore)

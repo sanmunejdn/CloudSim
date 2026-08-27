@@ -368,8 +368,12 @@ bool applyJointAnglesForInstance(IRobotSimulationDocument* doc, IRobotBackendPos
 	const int total = doc->robotRevoluteJointNames().size();
 	if (aggregatedAnglesRad.size() != total)
 	{
+		const int oldSize = aggregatedAnglesRad.size();
 		aggregatedAnglesRad.resize(total);
-		aggregatedAnglesRad.fill(0.0);
+		for (int i = oldSize; i < total; ++i)
+		{
+			aggregatedAnglesRad[i] = 0.0;
+		}
 	}
 	int offset = 0;
 	for (int i = 0; i < instanceIndex; ++i)
@@ -429,13 +433,14 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 									"BackendDataManager and OSG.");
 					return false;
 				}
-				const RobotPerLinkKinematicsSlice plSlice = robotPerLinkSliceFromDto(plDto);
-				if (!applyJointAnglesViaLinkBackends(doc, osg, *mgr, jointSlice, plSlice))
-				{
-					return false;
-				}
-				applied = true;
-				continue;
+			const RobotPerLinkKinematicsSlice plSlice = robotPerLinkSliceFromDto(plDto);
+			if (!applyJointAnglesViaLinkBackends(doc, osg, *mgr, jointSlice, plSlice))
+			{
+				return false;
+			}
+			doc->noteRobotJointAnglesAppliedForInstance(i, jointSlice);
+			applied = true;
+			continue;
 			}
 
 			if (!osg)
@@ -456,11 +461,12 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 			{
 				localByKey.insert(prefix + it.key(), coreMat4FromOsgMatrix(it.value()));
 			}
-			if (!localByKey.isEmpty())
-			{
-				doc->applyRobotJointLocalMatrices(localByKey);
-				applied = true;
-			}
+		if (!localByKey.isEmpty())
+		{
+			doc->applyRobotJointLocalMatrices(localByKey);
+			doc->noteRobotJointAnglesAppliedForInstance(i, jointSlice);
+			applied = true;
+		}
 		}
 		if (applied)
 		{

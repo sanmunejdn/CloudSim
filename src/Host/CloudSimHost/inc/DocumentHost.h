@@ -204,9 +204,9 @@ public:
 	void setPerLinkRobotStateAccessor(IPerLinkRobotStateAccessor* accessor);
 	IPerLinkRobotStateAccessor* perLinkRobotStateAccessor() const;
 
-	/// FK 发布后缓存本机实例关节角，供挂载设备 TCP 重算
+	/// FK 收口回写：直接记录本机实例当前关节角（local，非聚合），供挂载设备 TCP 重算
 	void noteRobotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId,
-											   const QVector<double>& aggregatedJointRad);
+											   const QVector<double>& localJointRad);
 	bool robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId, QVector<double>& outLocal) const;
 
 signals:

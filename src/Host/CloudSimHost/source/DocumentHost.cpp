@@ -383,34 +383,13 @@ IPerLinkRobotStateAccessor* DocumentHost::perLinkRobotStateAccessor() const
 }
 
 void DocumentHost::noteRobotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId,
-														 const QVector<double>& aggregatedJointRad)
+														 const QVector<double>& localJointRad)
 {
-	if (sceneRootBackendId.isEmpty() || aggregatedJointRad.isEmpty())
+	if (sceneRootBackendId.isEmpty() || localJointRad.isEmpty())
 	{
 		return;
 	}
-	IRobotUrdfImportContext* ctx = robotUrdfImportContext();
-	IRobotSimulationDocument* doc = ctx ? ctx->urdfImportRobotSimulationDocument() : nullptr;
-	if (!ctx || !doc)
-	{
-		return;
-	}
-	const int idx = ctx->robotInstanceIndexForSceneBackendId(sceneRootBackendId);
-	if (idx < 0)
-	{
-		return;
-	}
-	int offset = 0;
-	for (int i = 0; i < idx; ++i)
-	{
-		offset += doc->robotRevoluteJointCountForInstance(i);
-	}
-	const int nj = doc->robotRevoluteJointCountForInstance(idx);
-	if (nj <= 0 || offset + nj > aggregatedJointRad.size())
-	{
-		return;
-	}
-	m_robotLocalJointQBySceneRoot.insert(sceneRootBackendId, aggregatedJointRad.mid(offset, nj));
+	m_robotLocalJointQBySceneRoot.insert(sceneRootBackendId, localJointRad);
 }
 
 bool DocumentHost::robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId, QVector<double>& outLocal) const

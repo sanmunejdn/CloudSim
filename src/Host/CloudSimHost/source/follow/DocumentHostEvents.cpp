@@ -42,7 +42,7 @@ void publishBackendObjectRemoved(DocumentHost& host, const QString& objectId)
 void publishRobotKinematicsApplied(DocumentHost& host, const QString& sceneRootBackendId,
 								   const QVector<double>& jointAnglesRad)
 {
-	host.noteRobotLocalJointAnglesForSceneRoot(sceneRootBackendId, jointAnglesRad);
+	// 关节角真源由 FK 收口（noteRobotJointAnglesAppliedForInstance）统一回写，此处仅发事件
 	cloudsim::core::RobotKinematicsAppliedEvent ev;
 	ev.documentId = host.documentId();
 	ev.sceneRootBackendId = sceneRootBackendId;

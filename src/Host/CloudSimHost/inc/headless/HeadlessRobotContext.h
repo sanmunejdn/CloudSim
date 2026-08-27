@@ -137,6 +137,7 @@ public:
 	bool robotUrdfMeshVerticesInLinkFrame() const override;
 	BackendDataManager* robotBackendManagerForKinematics() override;
 	void notifyRobotKinematicsAppliedToScene() override;
+	void noteRobotJointAnglesAppliedForInstance(int instanceIndex, const QVector<double>& localJointRad) override;
 
 private:
 	struct HierarchicalRobotInstance

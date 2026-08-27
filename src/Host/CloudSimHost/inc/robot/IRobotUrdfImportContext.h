@@ -76,6 +76,13 @@ public:
 	/// 设置机器人基座放置位姿 P（工程恢复时从 project.json 还原；列主序 Mat4）
 	virtual void setRobotBasePlacementWorldForInstance(int instanceIndex,
 													   const cloudsim::core::Mat4& placementWorld) = 0;
+
+	/// 导入后按场景与关节角重算 per-link M0，使后续拖动 FK 与绑定一致
+	virtual void urdfImportReconcilePerLinkBind(int instanceIndex, const QVector<double>& localJointRad)
+	{
+		(void)instanceIndex;
+		(void)localJointRad;
+	}
 };
 
 } // namespace cloudsim::host

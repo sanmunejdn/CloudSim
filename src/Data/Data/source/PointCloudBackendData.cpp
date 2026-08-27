@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -304,8 +306,7 @@ static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeader
 		}
 	}
 
-	// P3-3: RGB 尝试失败后复用同一文件流（clear + seekg 回数据区），
-	// 避免大点云文件二次打开/重读 header 的 I/O 开销
+	// P3-3: RGB 失败后复用同一文件流；read_PLY 自文件头解析 header，不可先跳过 end_header
 	is.clear();
 	is.seekg(0);
 	if (!is)
@@ -313,21 +314,7 @@ static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeader
 		setErr(errMsg, "Cannot rewind point PLY file.");
 		return false;
 	}
-	// 跳过 header（CGAL read_PLY 期望流定位在数据区）
-	{
-		std::string line;
-		while (std::getline(is, line))
-		{
-			if (!line.empty() && line.back() == '\r')
-			{
-				line.pop_back();
-			}
-			if (line == "end_header")
-			{
-				break;
-			}
-		}
-	}
+	CGAL::IO::set_mode(is, scan.isAscii ? CGAL::IO::ASCII : CGAL::IO::BINARY);
 	std::vector<PlyReadPoint_3> pts;
 	const bool ptsOk = CGAL::IO::read_PLY<PlyReadPoint_3>(is, std::back_inserter(pts));
 	if (!ptsOk || pts.empty())
@@ -468,6 +455,190 @@ static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderInf
 	return true;
 }
 
+static std::size_t plyPropertyByteSize(const std::string& type)
+{
+	if (type == "char" || type == "uchar" || type == "int8" || type == "uint8")
+	{
+		return 1U;
+	}
+	if (type == "short" || type == "ushort" || type == "int16" || type == "uint16")
+	{
+		return 2U;
+	}
+	if (type == "int" || type == "uint" || type == "float" || type == "int32" || type == "uint32")
+	{
+		return 4U;
+	}
+	if (type == "double" || type == "int64" || type == "uint64")
+	{
+		return 8U;
+	}
+	return 4U;
+}
+
+static std::size_t plyPropertyOffset(const PlyHeaderInfo& scan, int propIndex)
+{
+	std::size_t off = 0U;
+	for (int i = 0; i < propIndex; ++i)
+	{
+		off += plyPropertyByteSize(scan.vertexProperties[static_cast<std::size_t>(i)].type);
+	}
+	return off;
+}
+
+static float readPlyScalarAsFloat(const std::uint8_t* row, std::size_t off, const std::string& type)
+{
+	if (type == "float")
+	{
+		float v = 0.f;
+		std::memcpy(&v, row + off, sizeof(float));
+		return v;
+	}
+	if (type == "double")
+	{
+		double v = 0.0;
+		std::memcpy(&v, row + off, sizeof(double));
+		return static_cast<float>(v);
+	}
+	if (type == "uchar" || type == "uint8")
+	{
+		return static_cast<float>(row[off]);
+	}
+	if (type == "char" || type == "int8")
+	{
+		return static_cast<float>(static_cast<std::int8_t>(row[off]));
+	}
+	if (type == "ushort" || type == "uint16")
+	{
+		std::uint16_t v = 0;
+		std::memcpy(&v, row + off, sizeof(std::uint16_t));
+		return static_cast<float>(v);
+	}
+	if (type == "short" || type == "int16")
+	{
+		std::int16_t v = 0;
+		std::memcpy(&v, row + off, sizeof(std::int16_t));
+		return static_cast<float>(v);
+	}
+	if (type == "uint" || type == "uint32")
+	{
+		std::uint32_t v = 0;
+		std::memcpy(&v, row + off, sizeof(std::uint32_t));
+		return static_cast<float>(v);
+	}
+	if (type == "int" || type == "int32")
+	{
+		std::int32_t v = 0;
+		std::memcpy(&v, row + off, sizeof(std::int32_t));
+		return static_cast<float>(v);
+	}
+	return 0.f;
+}
+
+static bool readBinaryPlyFlexible(const std::string& utf8Path, const PlyHeaderInfo& scan, PointCloudBackendData& dst,
+								  std::string* errMsg)
+{
+	if (scan.isAscii || scan.vertexCount == 0U || scan.vertexHasListProperty)
+	{
+		setErr(errMsg, "Binary PLY fallback needs binary vertex section without list properties.");
+		return false;
+	}
+	if (scan.ix < 0 || scan.iy < 0 || scan.iz < 0)
+	{
+		setErr(errMsg, "Binary PLY fallback: missing x/y/z in header.");
+		return false;
+	}
+	if (scan.vertexProperties.empty())
+	{
+		setErr(errMsg, "Binary PLY fallback: no vertex property layout in header.");
+		return false;
+	}
+
+	std::ifstream fin{std::filesystem::path{utf8Path}, std::ios::binary};
+	if (!fin)
+	{
+		setErr(errMsg, "Cannot open point PLY file.");
+		return false;
+	}
+	std::string line;
+	while (std::getline(fin, line))
+	{
+		if (!line.empty() && line.back() == '\r')
+		{
+			line.pop_back();
+		}
+		if (line == "end_header")
+		{
+			break;
+		}
+	}
+
+	std::size_t stride = 0U;
+	for (const auto& prop : scan.vertexProperties)
+	{
+		stride += plyPropertyByteSize(prop.type);
+	}
+	if (stride == 0U)
+	{
+		setErr(errMsg, "Binary PLY fallback: invalid vertex stride.");
+		return false;
+	}
+
+	const bool wantRgb = (scan.ir >= 0 && scan.ig >= 0 && scan.ib >= 0);
+	std::vector<float> xyz;
+	std::vector<float> rgba;
+	xyz.reserve(scan.vertexCount * 3U);
+	if (wantRgb)
+	{
+		rgba.reserve(scan.vertexCount * 4U);
+	}
+
+	std::vector<std::uint8_t> row(stride);
+	for (std::size_t vi = 0; vi < scan.vertexCount; ++vi)
+	{
+		if (!fin.read(reinterpret_cast<char*>(row.data()), static_cast<std::streamsize>(stride)))
+		{
+			setErr(errMsg, "Binary PLY: unexpected end of file in vertex section.");
+			return false;
+		}
+		const auto& props = scan.vertexProperties;
+		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.ix), props[static_cast<std::size_t>(scan.ix)].type));
+		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.iy), props[static_cast<std::size_t>(scan.iy)].type));
+		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.iz), props[static_cast<std::size_t>(scan.iz)].type));
+		if (wantRgb)
+		{
+			const float r = readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.ir),
+												 props[static_cast<std::size_t>(scan.ir)].type) /
+							255.0f;
+			const float g = readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.ig),
+												 props[static_cast<std::size_t>(scan.ig)].type) /
+							255.0f;
+			const float b = readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.ib),
+												 props[static_cast<std::size_t>(scan.ib)].type) /
+							255.0f;
+			rgba.push_back(r);
+			rgba.push_back(g);
+			rgba.push_back(b);
+			rgba.push_back(1.0f);
+		}
+	}
+
+	if (xyz.empty())
+	{
+		setErr(errMsg, "Binary PLY: no vertices read.");
+		return false;
+	}
+	if (wantRgb && rgba.size() == xyz.size() / 3U * 4U)
+	{
+		dst.setPointBuffers(std::move(xyz), std::move(rgba));
+	}
+	else
+	{
+		dst.setPointBuffers(std::move(xyz), {});
+	}
+	return true;
+}
+
 } // namespace
 
 bool PointCloudBackendData::readPointCloudFromPlyFile(const std::string& utf8Path, std::string* errMsg)
@@ -492,6 +663,13 @@ bool PointCloudBackendData::readPointCloudFromPlyFile(const std::string& utf8Pat
 		return true;
 	}
 
+	std::string binaryErr;
+	if (!scan.isAscii && scan.vertexCount > 0 && !scan.vertexHasListProperty &&
+		readBinaryPlyFlexible(utf8Path, scan, *this, &binaryErr) && !pointPositionsXyz().empty())
+	{
+		return true;
+	}
+
 	if (errMsg)
 	{
 		errMsg->clear();
@@ -507,9 +685,17 @@ bool PointCloudBackendData::readPointCloudFromPlyFile(const std::string& utf8Pat
 			}
 			errMsg->append(asciiErr);
 		}
+		if (!binaryErr.empty())
+		{
+			if (!errMsg->empty())
+			{
+				errMsg->append(" | ");
+			}
+			errMsg->append(binaryErr);
+		}
 		if (errMsg->empty())
 		{
-			setErr(errMsg, "Could not read PLY point cloud (CGAL + ASCII fallback).");
+			setErr(errMsg, "Could not read PLY point cloud (CGAL + flexible fallback).");
 		}
 	}
 	return false;
