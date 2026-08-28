@@ -1,5 +1,5 @@
-﻿/// @file RawTrajectory.cpp
-/// @brief Raw 轨迹
+/// @file RawTrajectory.cpp
+/// @brief Raw �켣
 
 #include "RawTrajectory.h"
 
@@ -17,27 +17,11 @@
 #include <RigidTransform.h>
 #include <json.hpp>
 
-#include <sstream>
 
 namespace RobotInstruction
 {
 namespace
 {
-
-std::string encodeJointRadCsv(const std::vector<double>& jointRad)
-{
-	if (jointRad.empty())
-		return {};
-	std::ostringstream oss;
-	oss.imbue(std::locale::classic());
-	for (std::size_t i = 0; i < jointRad.size(); ++i)
-	{
-		if (i)
-			oss << ',';
-		oss << jointRad[i];
-	}
-	return oss.str();
-}
 
 void applyTrajectoryPointToInstruction(Base& ins, const TrajectoryPoint& tp)
 {
@@ -59,8 +43,8 @@ void applyTrajectoryPointToInstruction(Base& ins, const TrajectoryPoint& tp)
 		ins.setSpeed(tp.speedMmPerSec);
 	else if (!ins.hasSpeedProperty() || ins.speed() <= 0.0)
 		ins.setSpeed(200.0);
-	if (!tp.jointRad.empty())
-		ins.setExtensionProperty("context.currentJointRadCsv", encodeJointRadCsv(tp.jointRad));
+	// ָ��ֻ�� TCP��jointRad �����滮�Ự��������
+	ins.eraseExtensionProperty("context.currentJointRadCsv");
 }
 
 bool isRawPathSegmentStart(const std::size_t index, const std::vector<std::size_t>& segmentEndExclusive)
@@ -330,7 +314,7 @@ bool insertRawTrajectoryBetween(const RawTrajectory& trajectory, RobotProgram& p
 		return false;
 	}
 
-	// 按程序顺序夹在两点之间（与规划起终点谁先谁后无关）
+	// ������˳���������֮�䣨��滮���յ�˭��˭���޹أ�
 	const int iLo = std::min(iStart, iEnd);
 	const int iHi = std::max(iStart, iEnd);
 	if (iHi <= iLo)
@@ -383,7 +367,7 @@ bool insertRawTrajectoryBetween(const RawTrajectory& trajectory, RobotProgram& p
 	const int insertAt = iLo + 1;
 	program.steps.insert(program.steps.begin() + insertAt, inserted.begin(), inserted.end());
 
-	// 起终点若在同一分组，中间点必须写入该组成员，否则树重建会把 Pmid 渲成分组后的顶层节点
+	// ���յ�����ͬһ���飬�м�����д������Ա���������ؽ���� Pmid �ֳɷ����Ķ���ڵ�
 	bool groupUpdated = false;
 	for (auto& g : program.groups)
 	{
@@ -418,7 +402,7 @@ std::string rawTrajectoryWorkpieceBackendId(const RawTrajectory& trajectory)
 	{
 		return {};
 	}
-	// FeatureList v2 与 MeshTrajectorySpec v1 都可能挂在 sourceFeatureJson
+	// FeatureList v2 �� MeshTrajectorySpec v1 �����ܹ��� sourceFeatureJson
 	geoalgo::FeatureListDocument featureDoc{};
 	std::string err;
 	if (geometry_backend_ops::featureListFromJson(trajectory.sourceFeatureJson, featureDoc, &err) &&

@@ -1,4 +1,4 @@
-﻿/// @file RobotPlanInstruction.cpp
+/// @file RobotPlanInstruction.cpp
 /// @brief 规划指令 Host 路径
 
 #include "RobotPlanInstruction.h"
@@ -9,6 +9,7 @@
 #include "RobotExternalAxes.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionFactory.h"
+#include "RobotInstructionIkContext.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -21,41 +22,6 @@ namespace cloudsim::host
 {
 namespace
 {
-/// Host 侧规划准备：不链 RobotWidget（与 prepareMotionInstructionForPlanning 同语义，doc/osg 可空）
-void prepareMotionInstructionForHostPlanning(RobotInstruction::Base& ins, const QVector<double>& rollingQ,
-											 const QString& urdfPath, const std::string& defaultTcpLinkName,
-											 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
-{
-	QStringList parts;
-	parts.reserve(rollingQ.size());
-	for (double v : rollingQ)
-	{
-		parts.push_back(QString::number(v, 'g', 12));
-	}
-	ins.setExtensionProperty("context.currentJointRadCsv", parts.join(QLatin1Char(',')).toStdString());
-	ins.setExtensionProperty("context.urdfPath", urdfPath.toStdString());
-	ins.setExtensionProperty("context.tcpLinkName", defaultTcpLinkName);
-	if (!coordinateFrames)
-	{
-		return;
-	}
-	const BackendMat4 T_tool = RobotCoordinate::toolMat4ForExtension(*coordinateFrames, ins.extensionProperties());
-	ins.setExtensionProperty("context.toolFrameMat4", RobotCoordinate::encodeMat4Csv(T_tool));
-	if (const RobotCoordinate::RobotToolFrame* tool =
-			RobotCoordinate::resolveToolFrameForExtension(*coordinateFrames, ins.extensionProperties()))
-	{
-		const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(*coordinateFrames, *tool);
-		if (!flangeLink.empty())
-		{
-			ins.setExtensionProperty("context.flangeLinkName", flangeLink);
-		}
-	}
-	else if (!coordinateFrames->flangeLinkName.empty())
-	{
-		ins.setExtensionProperty("context.flangeLinkName", coordinateFrames->flangeLinkName);
-	}
-}
-
 nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 {
 	nlohmann::json j;
@@ -76,16 +42,7 @@ nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 		j["axisConfiguration"] =
 			nlohmann::json::parse(std::string(raw.constData(), static_cast<size_t>(raw.size())), nullptr, false);
 	}
-	if (!instruction.jointRadCsv.isEmpty())
-	{
-		j["context"] = nlohmann::json::object();
-		j["context"]["currentJointRadCsv"] = instruction.jointRadCsv.toStdString();
-	}
-	if (!instruction.taughtJointRadCsv.isEmpty())
-	{
-		j["context"] = j.contains("context") && j["context"].is_object() ? j["context"] : nlohmann::json::object();
-		j["context"]["taughtJointRadCsv"] = instruction.taughtJointRadCsv.toStdString();
-	}
+	// 指令契约：不落盘关节 CSV（jointRadCsv / taughtJointRadCsv 忽略）
 	if (!instruction.extensions.isEmpty())
 	{
 		const QByteArray raw = QJsonDocument(instruction.extensions).toJson(QJsonDocument::Compact);
@@ -98,6 +55,11 @@ nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 				j[it.key()] = it.value();
 			}
 		}
+	}
+	if (j.contains("context") && j["context"].is_object())
+	{
+		j["context"].erase("currentJointRadCsv");
+		j["context"].erase("taughtJointRadCsv");
 	}
 	return j;
 }
@@ -127,17 +89,6 @@ core::MotionInstructionDto motionDtoFromInstructionJson(const nlohmann::json& j)
 		if (axisDoc.isObject())
 		{
 			dto.axisConfiguration = axisDoc.object();
-		}
-	}
-	if (j.contains("context") && j["context"].is_object())
-	{
-		if (j["context"].contains("currentJointRadCsv"))
-		{
-			dto.jointRadCsv = QString::fromStdString(j["context"]["currentJointRadCsv"].get<std::string>());
-		}
-		if (j["context"].contains("taughtJointRadCsv"))
-		{
-			dto.taughtJointRadCsv = QString::fromStdString(j["context"]["taughtJointRadCsv"].get<std::string>());
 		}
 	}
 	QJsonObject extObj;
@@ -261,21 +212,8 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 		tcpLink = "tool0";
 	}
 	RobotCoordinate::RobotCoordinateFrameSet& frames = ctx.robotCoordinateFramesForInstance(instIdx);
-	// prepare 会用 seed 覆盖 currentJointRadCsv；示教目标须事先取出
-	const QVector<double> taughtQ = parseJointCsv(instruction.taughtJointRadCsv);
-	prepareMotionInstructionForHostPlanning(*ins, context.seedJointRad, urdfPath, tcpLink, &frames);
-
-	const QString typeLower = instruction.instructionType.trimmed().toLower();
-	const bool ptpTaught = (typeLower == QStringLiteral("ptp")) && !taughtQ.isEmpty();
-	if (ptpTaught && !RobotExternal::hasEnabledExternalAxes(ctx.robotExternalAxesForInstance(instIdx)))
-	{
-		out.ok = true;
-		out.error = QStringLiteral("Use taughtJointRadCsv from teach capture");
-		out.hasExternalAxisQ = false;
-		out.externalAxisQ = 0.0;
-		out.jointTargetsRad = taughtQ;
-		return true;
-	}
+	std::vector<double> seedStd(context.seedJointRad.begin(), context.seedJointRad.end());
+	RobotInstruction::prepareInstructionIkContext(*ins, seedStd, urdfPath.toStdString(), tcpLink, &frames);
 
 	RobotInstruction::Controller controller;
 	controller.buildDefaultPlanners();
@@ -295,11 +233,24 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 	out.error = QString::fromStdString(plan.summary);
 	out.hasExternalAxisQ = plan.hasExternalAxisQ;
 	out.externalAxisQ = plan.externalAxisQ;
+	out.durationSec = plan.durationSec;
 	out.jointTargetsRad.clear();
 	out.jointTargetsRad.reserve(static_cast<int>(plan.jointTargetsRad.size()));
 	for (double v : plan.jointTargetsRad)
 	{
 		out.jointTargetsRad.append(v);
+	}
+	out.jointTrajectoryRad.clear();
+	out.jointTrajectoryRad.reserve(static_cast<int>(plan.jointTrajectoryRad.size()));
+	for (const std::vector<double>& sample : plan.jointTrajectoryRad)
+	{
+		QVector<double> row;
+		row.reserve(static_cast<int>(sample.size()));
+		for (double v : sample)
+		{
+			row.append(v);
+		}
+		out.jointTrajectoryRad.append(std::move(row));
 	}
 	return out.ok;
 }
@@ -330,11 +281,19 @@ bool planRobotInstruction(IRobotUrdfImportContext& ctx, RobotInstruction::Base& 
 	out.summary = hostResult.error.toStdString();
 	out.hasExternalAxisQ = hostResult.hasExternalAxisQ;
 	out.externalAxisQ = hostResult.externalAxisQ;
+	out.durationSec = hostResult.durationSec;
 	out.jointTargetsRad.clear();
 	out.jointTargetsRad.reserve(static_cast<size_t>(hostResult.jointTargetsRad.size()));
 	for (double v : hostResult.jointTargetsRad)
 	{
 		out.jointTargetsRad.push_back(v);
+	}
+	out.jointTrajectoryRad.clear();
+	out.jointTrajectoryRad.reserve(static_cast<size_t>(hostResult.jointTrajectoryRad.size()));
+	for (const QVector<double>& row : hostResult.jointTrajectoryRad)
+	{
+		std::vector<double> sample(row.begin(), row.end());
+		out.jointTrajectoryRad.push_back(std::move(sample));
 	}
 	return out.ok;
 }

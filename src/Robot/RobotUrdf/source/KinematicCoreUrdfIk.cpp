@@ -3,10 +3,8 @@
 #include "UrdfKinematicsWorkspace.h"
 #include "UrdfRobotLoader.h"
 
-#include "GeometricJacobian.h"
 #include "KinematicGraph.h"
 
-#include <QHash>
 #include <QVector>
 
 #include <algorithm>
@@ -132,35 +130,297 @@ void clampQToGraphLimits(const kinematic_core::KinematicGraph& graph, std::vecto
 	}
 }
 
-bool linkPoseFromUrdfGraph(const QString& urdfPath, const QString& linkName, const QVector<double>& qRad,
-						   double outPos[3], osg::Quat* outQuat, QString* errorMessage)
+bool linkPoseFromGraph(const kinematic_core::KinematicGraph& graph, const int linkIdx, const QVector<double>& qRad,
+					   double outPos[3], osg::Quat* outQuat)
 {
-	QHash<QString, osg::Matrixd> linkWorld;
-	if (!computeLinkWorldMatrices(urdfPath, qRad, linkWorld, errorMessage) || !linkWorld.contains(linkName))
+	return computeLinkWorldPoseFromGraph(graph, linkIdx, qRad, outPos, outQuat, nullptr);
+}
+
+/// 一次 FK：tip（OSG）+ 几何雅可比
+bool linkPoseAndJacobianFromGraph(const kinematic_core::KinematicGraph& graph, const int linkIdx,
+								  const QVector<double>& qRad, double outPos[3], osg::Quat* outQuat,
+								  std::vector<double>& outJ, const bool includeOrientation,
+								  const double orientationWeight)
+{
+	return computeLinkWorldPoseAndJacobianFromGraph(graph, linkIdx, qRad, outPos, outQuat, outJ, includeOrientation,
+													orientationWeight, nullptr);
+}
+
+/// 球腕：锁 J4–J6，仅用 J1–J3 收敛位置（TRAC-IK / KDL 球腕解耦思路）
+std::vector<double> runArmOnlyPositionRefine(const QString& urdfPath, const QString& ikLink,
+											 const kinematic_core::KinematicGraph& graph, const int linkIdx,
+											 const UrdfPoseIkTarget& target, std::vector<double> q,
+											 const UrdfIkSolverOptions& options)
+{
+	const int n = static_cast<int>(q.size());
+	constexpr int kWristDof = 3;
+	if (n <= kWristDof)
 	{
-		if (errorMessage && errorMessage->isEmpty())
+		return {};
+	}
+	const int armEnd = n - kWristDof;
+	const int iterLimit = options.maxIterations > 0 ? std::min(options.maxIterations, 80) : 80;
+	const double lambda = options.lambda > 0.0 ? options.lambda : 1e-2;
+	const double posTol = options.positionToleranceMm > 0.0 ? options.positionToleranceMm : 0.5;
+	const double stepCap = options.maxJointStepRad > 0.0 ? options.maxJointStepRad : 0.25;
+	constexpr double kSoftPosAcceptMm = 1.0;
+
+	UrdfKinematicsWorkspace& ws = threadLocalKinematicsWorkspace();
+	ws.ensureCapacity(n, 64, 3);
+
+	QVector<double> qRad;
+	qRad.resize(n);
+
+	std::vector<double> bestQ = q;
+	double bestPosErr = 1e30;
+
+	for (int iter = 0; iter < iterLimit; ++iter)
+	{
+		for (int j = 0; j < n; ++j)
 		{
-			*errorMessage = QStringLiteral("Link '%1' missing in FK.").arg(linkName);
+			qRad[j] = q[static_cast<size_t>(j)];
 		}
-		return false;
+		double pos[3] = {0.0, 0.0, 0.0};
+		if (!linkPoseAndJacobianFromGraph(graph, linkIdx, qRad, pos, nullptr, ws.J, false, 1.0) ||
+			static_cast<int>(ws.J.size()) < 3 * n)
+		{
+			break;
+		}
+		const double dx = target.posMm[0] - pos[0];
+		const double dy = target.posMm[1] - pos[1];
+		const double dz = target.posMm[2] - pos[2];
+		const double posErr = std::sqrt(dx * dx + dy * dy + dz * dz);
+		if (posErr < bestPosErr)
+		{
+			bestPosErr = posErr;
+			bestQ = q;
+		}
+		if (posErr <= posTol || posErr <= kSoftPosAcceptMm)
+		{
+			return q;
+		}
+
+		ws.e[0] = dx;
+		ws.e[1] = dy;
+		ws.e[2] = dz;
+
+		std::vector<double> JJt(9, 0.0);
+		std::vector<double> e3(3, 0.0);
+		e3[0] = ws.e[0];
+		e3[1] = ws.e[1];
+		e3[2] = ws.e[2];
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				double s = 0.0;
+				for (int a = 0; a < armEnd; ++a)
+				{
+					s += ws.J[static_cast<size_t>(r * n + a)] * ws.J[static_cast<size_t>(c * n + a)];
+				}
+				JJt[static_cast<size_t>(r * 3 + c)] = s;
+			}
+			JJt[static_cast<size_t>(r * 3 + r)] += lambda * lambda;
+		}
+		if (!solveLinearSystem(JJt, e3, 3))
+		{
+			break;
+		}
+
+		for (int a = 0; a < armEnd; ++a)
+		{
+			double step = 0.0;
+			for (int r = 0; r < 3; ++r)
+			{
+				step += ws.J[static_cast<size_t>(r * n + a)] * e3[static_cast<size_t>(r)];
+			}
+			if (step > stepCap)
+			{
+				step = stepCap;
+			}
+			if (step < -stepCap)
+			{
+				step = -stepCap;
+			}
+			q[static_cast<size_t>(a)] += step;
+		}
+		clampQToGraphLimits(graph, q);
 	}
-	const osg::Matrixd& m = linkWorld.value(linkName);
-	const osg::Vec3d t = m.getTrans();
-	outPos[0] = t.x();
-	outPos[1] = t.y();
-	outPos[2] = t.z();
-	if (outQuat)
+
+	if (bestPosErr <= kSoftPosAcceptMm)
 	{
-		*outQuat = m.getRotate();
-		normalizeQuatSafe(*outQuat);
+		return bestQ;
 	}
-	return true;
+	return {};
+}
+
+/// 球腕末三轴解耦：锁臂关节仅调姿态，避免 pos-then-ori 全臂 DLS 把位置拉偏
+std::vector<double> runWristOnlyOrientationRefine(const QString& urdfPath, const QString& ikLink,
+												  const kinematic_core::KinematicGraph& graph, const int linkIdx,
+												  const UrdfPoseIkTarget& target, std::vector<double> q,
+												  const UrdfIkSolverOptions& options)
+{
+	const int n = static_cast<int>(q.size());
+	constexpr int kWristDof = 3;
+	if (n < kWristDof || !target.hasOrientation)
+	{
+		return {};
+	}
+	const int wristStart = n - kWristDof;
+	const int iterLimit = options.maxIterations > 0 ? std::min(options.maxIterations, 48) : 48;
+	const double lambda = options.lambda > 0.0 ? options.lambda : 1e-2;
+	const double rotTol =
+		options.orientationToleranceRad > 0.0 ? options.orientationToleranceRad : 0.1 * 3.14159265358979323846 / 180.0;
+	const double orientationWeight = options.orientationWeight > 0.0 ? options.orientationWeight : 300.0;
+	const double stepCap = options.maxJointStepRad > 0.0 ? options.maxJointStepRad : 0.25;
+	constexpr double kMaxPosDriftMm = 3.0;
+	constexpr double kSoftRotAcceptRad = 2.0 * 3.14159265358979323846 / 180.0;
+
+	osg::Quat targetQuat;
+	targetQuat.set(target.quatXyzw[0], target.quatXyzw[1], target.quatXyzw[2], target.quatXyzw[3]);
+	normalizeQuatSafe(targetQuat);
+
+	UrdfKinematicsWorkspace& ws = threadLocalKinematicsWorkspace();
+	ws.ensureCapacity(n, 64, 6);
+
+	QVector<double> qRad;
+	qRad.resize(n);
+
+	auto fkErrors = [&](const std::vector<double>& qIn, double& posErr, double& rotErr) -> bool {
+		for (int j = 0; j < n; ++j)
+		{
+			qRad[j] = qIn[static_cast<size_t>(j)];
+		}
+		double pos[3] = {0.0, 0.0, 0.0};
+		osg::Quat curQuat;
+		if (!linkPoseFromGraph(graph, linkIdx, qRad, pos, &curQuat))
+		{
+			return false;
+		}
+		const double dx = target.posMm[0] - pos[0];
+		const double dy = target.posMm[1] - pos[1];
+		const double dz = target.posMm[2] - pos[2];
+		posErr = std::sqrt(dx * dx + dy * dy + dz * dz);
+		double eRot[3] = {0.0, 0.0, 0.0};
+		quatErrorAxisAngle(curQuat, targetQuat, eRot);
+		rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
+		return true;
+	};
+
+	double posErr0 = 0.0;
+	double rotErr0 = 0.0;
+	if (!fkErrors(q, posErr0, rotErr0))
+	{
+		return {};
+	}
+	if (posErr0 <= kMaxPosDriftMm && rotErr0 <= rotTol)
+	{
+		return q;
+	}
+
+	std::vector<double> bestQ = q;
+	double bestRotErr = rotErr0;
+
+	for (int iter = 0; iter < iterLimit; ++iter)
+	{
+		for (int j = 0; j < n; ++j)
+		{
+			qRad[j] = q[static_cast<size_t>(j)];
+		}
+		double pos[3] = {0.0, 0.0, 0.0};
+		osg::Quat curQuat;
+		if (!linkPoseAndJacobianFromGraph(graph, linkIdx, qRad, pos, &curQuat, ws.J, true, orientationWeight) ||
+			static_cast<int>(ws.J.size()) < 6 * n)
+		{
+			break;
+		}
+
+		const double dx = target.posMm[0] - pos[0];
+		const double dy = target.posMm[1] - pos[1];
+		const double dz = target.posMm[2] - pos[2];
+		const double posErr = std::sqrt(dx * dx + dy * dy + dz * dz);
+		double eRot[3] = {0.0, 0.0, 0.0};
+		quatErrorAxisAngle(curQuat, targetQuat, eRot);
+		const double rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
+		if (posErr > kMaxPosDriftMm)
+		{
+			break;
+		}
+		if (posErr <= kMaxPosDriftMm && rotErr <= rotTol)
+		{
+			return q;
+		}
+		if (rotErr < bestRotErr)
+		{
+			bestRotErr = rotErr;
+			bestQ = q;
+		}
+		if (rotErr <= kSoftRotAcceptRad && posErr <= kMaxPosDriftMm)
+		{
+			return q;
+		}
+
+		std::vector<double> JJt(9, 0.0);
+		std::vector<double> e3(3, 0.0);
+		for (int r = 0; r < 3; ++r)
+		{
+			e3[static_cast<size_t>(r)] = eRot[r] * orientationWeight;
+			for (int c = 0; c < 3; ++c)
+			{
+				double s = 0.0;
+				for (int w = 0; w < kWristDof; ++w)
+				{
+					const int jCol = wristStart + w;
+					s += ws.J[static_cast<size_t>((3 + r) * n + jCol)] *
+						 ws.J[static_cast<size_t>((3 + c) * n + jCol)];
+				}
+				JJt[static_cast<size_t>(r * 3 + c)] = s;
+			}
+			JJt[static_cast<size_t>(r * 3 + r)] += lambda * lambda;
+		}
+		if (!solveLinearSystem(JJt, e3, 3))
+		{
+			break;
+		}
+
+		for (int w = 0; w < kWristDof; ++w)
+		{
+			const int jCol = wristStart + w;
+			double step = 0.0;
+			for (int r = 0; r < 3; ++r)
+			{
+				step += ws.J[static_cast<size_t>((3 + r) * n + jCol)] * e3[static_cast<size_t>(r)];
+			}
+			if (step > stepCap)
+			{
+				step = stepCap;
+			}
+			if (step < -stepCap)
+			{
+				step = -stepCap;
+			}
+			q[static_cast<size_t>(jCol)] += step;
+		}
+		clampQToGraphLimits(graph, q);
+	}
+
+	if (bestRotErr <= kSoftRotAcceptRad)
+	{
+		double posErr = 0.0;
+		double rotErr = 0.0;
+		if (fkErrors(bestQ, posErr, rotErr) && posErr <= kMaxPosDriftMm)
+		{
+			return bestQ;
+		}
+	}
+	return {};
 }
 
 std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLink,
 								   const kinematic_core::KinematicGraph& graph, const int linkIdx,
 								   const UrdfPoseIkTarget& target, std::vector<double> q,
-								   const UrdfIkSolverOptions& options, std::string* failReason)
+								   const UrdfIkSolverOptions& options, std::string* failReason,
+								   const bool allowPosThenOriRefine = true)
 {
 	const int n = static_cast<int>(q.size());
 	const bool useOrientation = target.hasOrientation;
@@ -187,20 +447,16 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 		normalizeQuatSafe(targetQuat);
 	}
 
-	double base[16];
-	for (int i = 0; i < 16; ++i)
-	{
-		base[i] = (i % 5 == 0) ? 1.0 : 0.0;
-	}
-
-	kinematic_core::JacobianOptions jopt;
-	jopt.orientationWeight = orientationWeight;
-
 	UrdfKinematicsWorkspace& ws = threadLocalKinematicsWorkspace();
 	ws.ensureCapacity(n, 64, taskDim);
 
 	std::vector<double> bestQ = q;
 	double bestPosErr = 1e30;
+	double bestRotErr = 1e30;
+	double bestCost = 1e30;
+	// 循环内硬收敛仍用 options；软接受仅用于近收敛（禁止宽姿态兜底，否则与指令姿态脱节）
+	constexpr double kSoftPosAcceptMm = 1.0;
+	constexpr double kSoftRotAcceptRad = 2.0 * 3.14159265358979323846 / 180.0;
 
 	for (int iter = 0; iter < iterLimit; ++iter)
 	{
@@ -211,35 +467,13 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 
 		double pos[3] = {0.0, 0.0, 0.0};
 		osg::Quat curQuat;
-		if (!linkPoseFromUrdfGraph(urdfPath, ikLink, qRad, pos, useOrientation ? &curQuat : nullptr, nullptr))
+		if (!linkPoseAndJacobianFromGraph(graph, linkIdx, qRad, pos, useOrientation ? &curQuat : nullptr, ws.J,
+										  useOrientation, orientationWeight) ||
+			static_cast<int>(ws.J.size()) < taskDim * n)
 		{
 			if (failReason)
 			{
-				*failReason = "URDF FK failed";
-			}
-			break;
-		}
-
-		if (useOrientation)
-		{
-			if (!kinematic_core::computePoseJacobian(graph, base, qRad.constData(),
-													 static_cast<std::size_t>(qRad.size()), linkIdx, ws.J, jopt) ||
-				static_cast<int>(ws.J.size()) < taskDim * n)
-			{
-				if (failReason)
-				{
-					*failReason = "URDF pose Jacobian failed";
-				}
-				break;
-			}
-		}
-		else if (!kinematic_core::computePositionJacobian(graph, base, qRad.constData(),
-														  static_cast<std::size_t>(qRad.size()), linkIdx, ws.J, jopt) ||
-				 static_cast<int>(ws.J.size()) < taskDim * n)
-		{
-			if (failReason)
-			{
-				*failReason = "URDF position Jacobian failed";
+				*failReason = useOrientation ? "URDF pose Jacobian failed" : "URDF position Jacobian failed";
 			}
 			break;
 		}
@@ -261,9 +495,12 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 			rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
 		}
 
-		if (posErr < bestPosErr)
+		const double cost = useOrientation ? (posErr + 200.0 * rotErr) : posErr;
+		if (cost < bestCost)
 		{
+			bestCost = cost;
 			bestPosErr = posErr;
+			bestRotErr = rotErr;
 			bestQ = q;
 		}
 		if (posErr <= posTol && (!useOrientation || rotErr <= rotTol))
@@ -313,23 +550,167 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 		clampQToGraphLimits(graph, q);
 	}
 
-	if (bestPosErr <= posTol * 12.0)
+	// 仅位置目标：位置够近即可收
+	if (!useOrientation)
 	{
+		if (bestPosErr <= posTol * 12.0)
+		{
+			return bestQ;
+		}
+		if (failReason)
+		{
+			*failReason = "KinematicCore DLS did not converge";
+		}
+		return {};
+	}
+
+	// 姿态已较好：软接受，避免 0.1° 硬阈把可用解打成失败
+	if (bestPosErr <= kSoftPosAcceptMm && bestRotErr <= kSoftRotAcceptRad)
+	{
+		if (failReason)
+		{
+			failReason->clear();
+		}
 		return bestQ;
 	}
 
-	if (useOrientation)
+	if (!allowPosThenOriRefine)
 	{
-		UrdfPoseIkTarget posOnly = target;
-		posOnly.hasOrientation = false;
-		UrdfIkSolverOptions posOpt = options;
-		posOpt.maxIterations = std::max(iterLimit, 24);
-		return runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, posOnly, bestQ, posOpt, failReason);
+		if (failReason)
+		{
+			*failReason = "KinematicCore DLS did not converge";
+		}
+		return {};
 	}
 
+	// 仅明显走错分支时跳过精修；86mm/11° 类近解仍需 pos-then-ori
+	constexpr double kSkipRefinePosMm = 150.0;
+	constexpr double kSkipRefineRotRad = 45.0 * 3.14159265358979323846 / 180.0;
+	constexpr double kSkipRefinePosHardMm = 400.0;
+	constexpr double kSkipRefineRotHardRad = 70.0 * 3.14159265358979323846 / 180.0;
+	// 明显不可达或随机重启野种子：跳过昂贵 pos-then-ori（86mm 类近解仍保留）
+	constexpr double kSkipRefinePosAloneMm = 150.0;
+	const bool hopeless = bestPosErr > kSkipRefinePosHardMm || bestRotErr > kSkipRefineRotHardRad ||
+						  (bestPosErr > kSkipRefinePosMm && bestRotErr > kSkipRefineRotRad) ||
+						  bestPosErr > kSkipRefinePosAloneMm;
+	if (hopeless)
+	{
+		if (failReason)
+		{
+			*failReason = "KinematicCore DLS did not converge";
+		}
+		return {};
+	}
+
+	// 姿态联立失败时：先到点再精修姿态。直接返回仅位置解会留下上百度姿态残差。
+	int refineAttempts = 0;
+	UrdfPoseIkTarget posOnly = target;
+	posOnly.hasOrientation = false;
+	UrdfIkSolverOptions posOpt = options;
+	posOpt.maxIterations = std::max(iterLimit, 24);
+	std::vector<double> qPos = runArmOnlyPositionRefine(urdfPath, ikLink, graph, linkIdx, posOnly, bestQ, posOpt);
+	if (qPos.empty())
+	{
+		qPos = runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, posOnly, bestQ, posOpt, failReason, false);
+	}
+	if (qPos.empty())
+	{
+		return {};
+	}
+	{
+		QVector<double> qRad;
+		qRad.reserve(n);
+		for (double v : qPos)
+		{
+			qRad.push_back(v);
+		}
+		double pos[3] = {0.0, 0.0, 0.0};
+		osg::Quat curQuat;
+		osg::Quat targetQuatCheck;
+		targetQuatCheck.set(target.quatXyzw[0], target.quatXyzw[1], target.quatXyzw[2], target.quatXyzw[3]);
+		normalizeQuatSafe(targetQuatCheck);
+		if (linkPoseFromGraph(graph, linkIdx, qRad, pos, &curQuat))
+		{
+			const double dx = target.posMm[0] - pos[0];
+			const double dy = target.posMm[1] - pos[1];
+			const double dz = target.posMm[2] - pos[2];
+			const double posErr = std::sqrt(dx * dx + dy * dy + dz * dz);
+			double eRot[3] = {0.0, 0.0, 0.0};
+			quatErrorAxisAngle(curQuat, targetQuatCheck, eRot);
+			const double rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
+			if (posErr <= kSoftPosAcceptMm && rotErr <= kSoftRotAcceptRad)
+			{
+				if (failReason)
+				{
+					failReason->clear();
+				}
+				return qPos;
+			}
+		}
+	}
+	UrdfIkSolverOptions oriOpt = options;
+	oriOpt.maxIterations = std::max(iterLimit, 64);
+	oriOpt.orientationToleranceRad = std::max(oriOpt.orientationToleranceRad, kSoftRotAcceptRad);
+	oriOpt.positionToleranceMm = std::max(oriOpt.positionToleranceMm, 0.5);
+	// 降权避免大姿态误差时旋转项淹没位置项导致发散
+	if (oriOpt.orientationWeight > 50.0)
+	{
+		oriOpt.orientationWeight = 50.0;
+	}
+	// 腕部多解：扫末轴 + 翻转 J5
+	constexpr double kPi = 3.14159265358979323846;
+	const int jTail = n - 1;
+	const int jWrist = n >= 2 ? n - 2 : -1;
+	const double qTail0 = (jTail >= 0) ? qPos[static_cast<size_t>(jTail)] : 0.0;
+	const double qWrist0 = (jWrist >= 0) ? qPos[static_cast<size_t>(jWrist)] : 0.0;
+	const double kTailOffsets[] = {0.0,	 0.25 * kPi, -0.25 * kPi, 0.5 * kPi, -0.5 * kPi,
+								   0.75 * kPi, -0.75 * kPi, kPi,	   -kPi};
+	const int maxRefineAttempts =
+		options.maxPosThenOriAttempts > 0 ? options.maxPosThenOriAttempts : 18;
+	std::string refineFail;
+	for (int wristFlip = 0; wristFlip < 2; ++wristFlip)
+	{
+		for (double off : kTailOffsets)
+		{
+			if (refineAttempts >= maxRefineAttempts)
+			{
+				break;
+			}
+			std::vector<double> qSeed = qPos;
+			if (jWrist >= 0 && wristFlip != 0)
+			{
+				qSeed[static_cast<size_t>(jWrist)] = -qWrist0;
+			}
+			if (jTail >= 0)
+			{
+				qSeed[static_cast<size_t>(jTail)] = qTail0 + off;
+			}
+			clampQToGraphLimits(graph, qSeed);
+			++refineAttempts;
+			std::vector<double> qOri = runWristOnlyOrientationRefine(urdfPath, ikLink, graph, linkIdx, target, qSeed,
+																	 oriOpt);
+			if (qOri.empty())
+			{
+				qOri = runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, target, std::move(qSeed), oriOpt, &refineFail,
+									  false);
+			}
+			if (!qOri.empty())
+			{
+				if (failReason)
+				{
+					failReason->clear();
+				}
+				return qOri;
+			}
+		}
+		if (refineAttempts >= maxRefineAttempts)
+		{
+			break;
+		}
+	}
 	if (failReason)
 	{
-		*failReason = "KinematicCore DLS did not converge";
+		*failReason = refineFail.empty() ? "KinematicCore DLS did not converge" : refineFail;
 	}
 	return {};
 }
@@ -365,9 +746,13 @@ bool computeLinkPoseAndJacobianViaCore(const QString& urdfPath, const QVector<do
 	}
 
 	osg::Quat quat;
-	if (!linkPoseFromUrdfGraph(urdfPath, linkName, jointAnglesRad, outPosMm, outQuatXyzw ? &quat : nullptr,
-							   errorMessage))
+	if (!linkPoseAndJacobianFromGraph(graph, linkIdx, jointAnglesRad, outPosMm, outQuatXyzw ? &quat : nullptr,
+									  outJ_rowMajor, includeOrientation, orientationWeight))
 	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("link pose + Jacobian failed.");
+		}
 		return false;
 	}
 	if (outQuatXyzw)
@@ -377,31 +762,8 @@ bool computeLinkPoseAndJacobianViaCore(const QString& urdfPath, const QVector<do
 		outQuatXyzw[2] = quat.z();
 		outQuatXyzw[3] = quat.w();
 	}
-
-	double base[16];
-	for (int i = 0; i < 16; ++i)
-	{
-		base[i] = (i % 5 == 0) ? 1.0 : 0.0;
-	}
-	kinematic_core::JacobianOptions jopt;
-	jopt.orientationWeight = orientationWeight;
-	if (includeOrientation)
-	{
-		if (!kinematic_core::computePoseJacobian(graph, base, jointAnglesRad.constData(),
-												 static_cast<std::size_t>(jointAnglesRad.size()), linkIdx,
-												 outJ_rowMajor, jopt))
-		{
-			return false;
-		}
-		return static_cast<int>(outJ_rowMajor.size()) >= 6 * n;
-	}
-	if (!kinematic_core::computePositionJacobian(graph, base, jointAnglesRad.constData(),
-												 static_cast<std::size_t>(jointAnglesRad.size()), linkIdx,
-												 outJ_rowMajor, jopt))
-	{
-		return false;
-	}
-	return static_cast<int>(outJ_rowMajor.size()) >= 3 * n;
+	const int need = includeOrientation ? 6 * n : 3 * n;
+	return static_cast<int>(outJ_rowMajor.size()) >= need;
 }
 
 std::vector<double> solveArmPoseViaKinematicCore(const QString& urdfPath, const QString& ikLink,

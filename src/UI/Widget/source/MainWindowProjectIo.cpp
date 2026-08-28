@@ -356,11 +356,16 @@ void MainWindow::onOpenProjectFile()
 		cloudsim::host::parseProjectEdgesJson(root.value(QStringLiteral("edges")).toArray());
 	const bool useEdgesRelation = !pendingEdges.isEmpty();
 	const QSet<QString> robotLinkMeshBackendIds = cloudsim::host::collectRobotLinkMeshBackendIds(root);
+	const QSet<QString> robotSceneRootBackendIds = cloudsim::host::collectRobotSceneRootBackendIds(root);
+	const QHash<QString, cloudsim::host::RobotLinkUrdfReloadHint> robotLinkUrdfReloadHints =
+		cloudsim::host::collectRobotLinkUrdfReloadHints(root);
 	beginBackendTreeEventRefreshSuppress();
 	cloudsim::host::ProjectObjectLoadOptions loadOpts;
 	loadOpts.projectDir = projectDir;
 	loadOpts.useEdgesRelation = useEdgesRelation;
 	loadOpts.robotLinkMeshBackendIds = robotLinkMeshBackendIds;
+	loadOpts.robotSceneRootBackendIds = robotSceneRootBackendIds;
+	loadOpts.robotLinkUrdfReloadHints = robotLinkUrdfReloadHints;
 	cloudsim::host::ProjectObjectLoadCallbacks loadCbs;
 	loadCbs.legacyParentFollow = [](const std::string&, const std::string&) {};
 	loadCbs.pointCloudWidgetImport = [](cloudsim::host::DocumentHost& host, const QString& loadPath,
@@ -381,6 +386,8 @@ void MainWindow::onOpenProjectFile()
 											   loadCbs, &objectLoadWarnings);
 	QStringList hierarchyWarnings;
 	cloudsim::host::finalizeProjectHierarchyAfterObjects(*page, useEdgesRelation, pendingEdges, &hierarchyWarnings);
+	// edges 若有悬空，按 robotKinematicsInstances 从 URDF 重建层级
+	cloudsim::host::reapplyAllRobotHierarchyFromProjectJson(*page, root);
 	const auto appendLoadWarnings = [this](const QStringList& warnings)
 	{
 		if (!m_runInfoPage)
@@ -499,6 +506,9 @@ void MainWindow::onOpenProjectFile()
 	{
 		const cloudsim::core::FollowSolveContextDto solveCtx = makeFollowSolveContextDto(*page);
 		cloudsim::host::finalizeProjectLoadFollowAndViewport(*page, root, useEdgesRelation, pendingEdges, &solveCtx);
+		// Follow 求解后 OSG 父链可能偏离 Data；关节 FK 前再对齐一次
+		cloudsim::host::reapplyAllRobotHierarchyFromProjectJson(*page, root);
+		cloudsim::host::syncOsgBackendParentsFromBackend(*page);
 	}
 
 	// Follow 求解会改写连杆 mesh 世界矩阵；须在求解后重新按 URDF 关节角同步（与「重置所有关节」同路径）

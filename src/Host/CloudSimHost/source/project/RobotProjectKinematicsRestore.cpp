@@ -3,7 +3,9 @@
 
 #include "RobotProjectKinematicsRestore.h"
 
+#include "BackendProjectObjectIo.h"
 #include "BackendDataManager.h"
+#include "DocumentHost.h"
 #include "CoreTypes.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotUrdfImportContext.h"
@@ -42,6 +44,36 @@ void collectRobotLinkIdsFromKinematicsObject(const QJsonObject& rkObj, QSet<QStr
 	}
 }
 
+void collectRobotKinematicsMetaFromObject(const QJsonObject& rkObj, QSet<QString>& outLinkIds,
+										  QSet<QString>& outSceneRoots,
+										  QHash<QString, RobotLinkUrdfReloadHint>& outReloadHints)
+{
+	if (rkObj.value(QStringLiteral("mode")).toString() != QStringLiteral("perLink"))
+	{
+		return;
+	}
+	const QString urdf = rkObj.value(QStringLiteral("urdf")).toString();
+	const QString sceneRoot = rkObj.value(QStringLiteral("sceneRootBackendId")).toString();
+	if (!sceneRoot.isEmpty())
+	{
+		outSceneRoots.insert(sceneRoot);
+	}
+	const QJsonObject linksJ = rkObj.value(QStringLiteral("links")).toObject();
+	for (auto it = linksJ.constBegin(); it != linksJ.constEnd(); ++it)
+	{
+		const QString backendId = it.value().toString();
+		if (backendId.isEmpty())
+		{
+			continue;
+		}
+		outLinkIds.insert(backendId);
+		RobotLinkUrdfReloadHint hint;
+		hint.urdfPath = urdf;
+		hint.linkName = it.key();
+		outReloadHints.insert(backendId, hint);
+	}
+}
+
 } // namespace
 
 QSet<QString> collectRobotLinkMeshBackendIds(const QJsonObject& projectRoot)
@@ -61,6 +93,183 @@ QSet<QString> collectRobotLinkMeshBackendIds(const QJsonObject& projectRoot)
 		collectRobotLinkIdsFromKinematicsObject(legacy, ids);
 	}
 	return ids;
+}
+
+QSet<QString> collectRobotSceneRootBackendIds(const QJsonObject& projectRoot)
+{
+	QSet<QString> roots;
+	QSet<QString> unusedLinks;
+	QHash<QString, RobotLinkUrdfReloadHint> unusedHints;
+	const QJsonArray instances = projectRoot.value(QStringLiteral("robotKinematicsInstances")).toArray();
+	for (const QJsonValue& rv : instances)
+	{
+		if (rv.isObject())
+		{
+			collectRobotKinematicsMetaFromObject(rv.toObject(), unusedLinks, roots, unusedHints);
+		}
+	}
+	const QJsonObject legacy = projectRoot.value(QStringLiteral("robotKinematics")).toObject();
+	if (!legacy.isEmpty())
+	{
+		collectRobotKinematicsMetaFromObject(legacy, unusedLinks, roots, unusedHints);
+	}
+	return roots;
+}
+
+QHash<QString, RobotLinkUrdfReloadHint> collectRobotLinkUrdfReloadHints(const QJsonObject& projectRoot)
+{
+	QHash<QString, RobotLinkUrdfReloadHint> hints;
+	QSet<QString> unusedLinks;
+	QSet<QString> unusedRoots;
+	const QJsonArray instances = projectRoot.value(QStringLiteral("robotKinematicsInstances")).toArray();
+	for (const QJsonValue& rv : instances)
+	{
+		if (rv.isObject())
+		{
+			collectRobotKinematicsMetaFromObject(rv.toObject(), unusedLinks, unusedRoots, hints);
+		}
+	}
+	const QJsonObject legacy = projectRoot.value(QStringLiteral("robotKinematics")).toObject();
+	if (!legacy.isEmpty())
+	{
+		collectRobotKinematicsMetaFromObject(legacy, unusedLinks, unusedRoots, hints);
+	}
+	return hints;
+}
+
+bool reloadRobotLinkMeshFromUrdfHint(MeshBackendData& mesh, const RobotLinkUrdfReloadHint& hint, QString* outError)
+{
+	if (mesh.hasGeometry())
+	{
+		return true;
+	}
+	if (hint.urdfPath.isEmpty() || hint.linkName.isEmpty() || !QFileInfo::exists(hint.urdfPath))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("robot link reload: missing URDF or link name");
+		}
+		return false;
+	}
+	QHash<QString, QString> linkMeshes;
+	QString rootLink;
+	QString urdfErr;
+	if (!UrdfRobotLoader::enumerateLinkVisualMeshes(hint.urdfPath, rootLink, linkMeshes, &urdfErr))
+	{
+		if (outError)
+		{
+			*outError = urdfErr.isEmpty() ? QStringLiteral("enumerateLinkVisualMeshes failed") : urdfErr;
+		}
+		return false;
+	}
+	const QString meshPath = linkMeshes.value(hint.linkName);
+	if (meshPath.isEmpty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("robot link reload: no visual mesh for '%1'").arg(hint.linkName);
+		}
+		return false;
+	}
+	std::string loadErr;
+	if (!mesh.loadFromFile(meshPath.toStdString(), &loadErr))
+	{
+		if (outError)
+		{
+			*outError = loadErr.empty() ? QStringLiteral("loadFromFile failed") : QString::fromStdString(loadErr);
+		}
+		return false;
+	}
+	return true;
+}
+
+void reapplyAllRobotHierarchyFromProjectJson(DocumentHost& host, const QJsonObject& projectRoot)
+{
+	const auto applyOne = [&host](const QJsonObject& rk)
+	{
+		if (rk.value(QStringLiteral("mode")).toString() != QStringLiteral("perLink"))
+		{
+			return;
+		}
+		const QString urdf = rk.value(QStringLiteral("urdf")).toString();
+		const QString sceneRoot = rk.value(QStringLiteral("sceneRootBackendId")).toString();
+		const QJsonObject linksJ = rk.value(QStringLiteral("links")).toObject();
+		QHash<QString, QString> linkMap;
+		for (auto it = linksJ.constBegin(); it != linksJ.constEnd(); ++it)
+		{
+			linkMap.insert(it.key(), it.value().toString());
+		}
+		if (sceneRoot.isEmpty() || linkMap.isEmpty())
+		{
+			return;
+		}
+		reapplyUrdfRobotHierarchyEdges(host.backend(), urdf, sceneRoot, linkMap);
+	};
+	for (const QJsonValue& rv : projectRoot.value(QStringLiteral("robotKinematicsInstances")).toArray())
+	{
+		if (rv.isObject())
+		{
+			applyOne(rv.toObject());
+		}
+	}
+	const QJsonObject legacy = projectRoot.value(QStringLiteral("robotKinematics")).toObject();
+	if (!legacy.isEmpty())
+	{
+		applyOne(legacy);
+	}
+	rebuildBackendParentIdMirror(host);
+}
+
+void reapplyUrdfRobotHierarchyEdges(BackendDataManager& backend, const QString& urdfPath,
+									const QString& sceneRootBackendId, const QHash<QString, QString>& linkNameToBackendId)
+{
+	if (urdfPath.isEmpty() || sceneRootBackendId.isEmpty() || linkNameToBackendId.isEmpty())
+	{
+		return;
+	}
+	if (!backend.contains(sceneRootBackendId.toStdString()))
+	{
+		return;
+	}
+	QHash<QString, QString> urdfChildToParent;
+	if (!UrdfRobotLoader::loadLinkChildToParentMap(urdfPath, urdfChildToParent, nullptr))
+	{
+		return;
+	}
+	const auto nearestMeshedAncestor = [&](const QString& linkName) -> QString
+	{
+		QString p = urdfChildToParent.value(linkName);
+		while (!p.isEmpty() && !linkNameToBackendId.contains(p))
+		{
+			p = urdfChildToParent.value(p);
+		}
+		return p;
+	};
+	for (auto it = linkNameToBackendId.constBegin(); it != linkNameToBackendId.constEnd(); ++it)
+	{
+		const std::string childId = it.value().toStdString();
+		if (backend.contains(childId))
+		{
+			backend.detachAllParents(childId);
+		}
+	}
+	for (auto it = linkNameToBackendId.constBegin(); it != linkNameToBackendId.constEnd(); ++it)
+	{
+		const QString& linkName = it.key();
+		const QString& childBid = it.value();
+		const QString parentLink = nearestMeshedAncestor(linkName);
+		const QString parentBid = parentLink.isEmpty() ? sceneRootBackendId : linkNameToBackendId.value(parentLink);
+		if (parentBid.isEmpty())
+		{
+			continue;
+		}
+		const std::string parentStd = parentBid.toStdString();
+		const std::string childStd = childBid.toStdString();
+		if (backend.contains(parentStd) && backend.contains(childStd))
+		{
+			backend.attachChild(parentStd, childStd);
+		}
+	}
 }
 
 bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, const QJsonObject& rk,
@@ -173,6 +382,7 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		outerMat4.insert(it.key(), RobotSceneKinematics::coreMat4FromOsgMatrix(it.value()));
 	}
 	ctx.setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0Mat4, outerMat4, false);
+	reapplyUrdfRobotHierarchyEdges(backend, urdf, sceneRoot, linkMap);
 
 	// 恢复机器人基座放置位姿 P（JSON 列主序 16 元 ≡ core::Mat4）
 	const QJsonArray basePlacementArr = rk.value(QStringLiteral("basePlacementWorld")).toArray();

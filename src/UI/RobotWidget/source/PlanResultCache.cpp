@@ -1,4 +1,4 @@
-﻿/// @file PlanResultCache.cpp
+/// @file PlanResultCache.cpp
 /// @brief 规划结果与可行轴缓存
 
 #include "PlanResultCache.h"
@@ -13,6 +13,27 @@ const RobotInstruction::PlanResult* PlanResultCache::fetch(const QString& instru
 {
 	const auto it = m_entries.find(makeKey(instructionId, fingerprint));
 	return (it != m_entries.end()) ? &it->result : nullptr;
+}
+
+const RobotInstruction::PlanResult* PlanResultCache::findLatestOkByInstructionId(const QString& instructionId) const
+{
+	const RobotInstruction::PlanResult* best = nullptr;
+	size_t bestMi = 0;
+	bool have = false;
+	for (auto it = m_entries.constBegin(); it != m_entries.constEnd(); ++it)
+	{
+		if (it->instructionId != instructionId || !it->result.ok || it->result.jointTargetsRad.empty())
+		{
+			continue;
+		}
+		if (!have || it->motionIndex >= bestMi)
+		{
+			have = true;
+			bestMi = it->motionIndex;
+			best = &it->result;
+		}
+	}
+	return best;
 }
 
 void PlanResultCache::evictOverflow()
@@ -42,8 +63,10 @@ void PlanResultCache::store(const QString& instructionId, const QString& fingerp
 	e.fingerprint = fingerprint;
 	e.motionIndex = motionIndex;
 	e.result = result;
-	// 万级 PTP 不留轨迹；ARC/LINE 插帧依赖多样本，须保留
-	if (result.plannerName != "ArcPlanner" && result.plannerName != "LinePlanner")
+	// 单点占位轨迹可丢；Ruckig/笛卡尔多样本须保留供回放
+	const bool keepTraj = result.plannerName == "ArcPlanner" || result.plannerName == "LinePlanner" ||
+						  result.jointTrajectoryRad.size() >= 2U;
+	if (!keepTraj)
 	{
 		e.result.jointTrajectoryRad.clear();
 	}

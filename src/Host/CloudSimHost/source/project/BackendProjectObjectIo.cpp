@@ -23,6 +23,7 @@
 #include "OsgWidget.h"
 #include "ParametricBrepBackendData.h"
 #include "PointCloudBackendData.h"
+#include "RobotProjectKinematicsRestore.h"
 #include "RunLogger.h"
 #include "ViewTessellate.h"
 
@@ -126,6 +127,33 @@ void collectDanglingBackendRefs(DocumentHost& host, QStringList* outWarnings)
 	}
 }
 
+// RobotURDF_<型号> 为根；RobotURDF_<型号>_<link> 为连杆（型号段常含 '-' 而非 '_'）
+bool looksLikeUrdfLinkMeshBackendId(const QString& persistedId)
+{
+	if (!persistedId.startsWith(QStringLiteral("RobotURDF_")))
+	{
+		return false;
+	}
+	return persistedId.mid(10).contains(QLatin1Char('_'));
+}
+
+bool isUrdfRobotSceneRootShellCandidate(const QString& persistedId, const ProjectObjectLoadOptions& options)
+{
+	if (!persistedId.startsWith(QStringLiteral("RobotURDF_")))
+	{
+		return false;
+	}
+	if (options.robotLinkMeshBackendIds.contains(persistedId))
+	{
+		return false;
+	}
+	if (!options.robotSceneRootBackendIds.isEmpty())
+	{
+		return options.robotSceneRootBackendIds.contains(persistedId);
+	}
+	return !looksLikeUrdfLinkMeshBackendId(persistedId);
+}
+
 } // namespace
 
 QJsonObject saveProjectObject(DocumentHost& host, const QString& objectId, const QString& sourcePath,
@@ -191,7 +219,8 @@ bool decodeBackendObjectFromProjectJson(const QJsonObject& objectJson, std::shar
 
 bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& objectJson, const QString& persistedId,
 								   const QString& sourcePath, const QString& catalogTypeName, const QString& parentId,
-								   const bool robotLinkMeshVisual, const QString& projectDir, QString* outVisualError,
+								   const bool robotLinkMeshVisual, const QString& projectDir,
+								   const RobotLinkUrdfReloadHint* robotLinkReloadHint, QString* outVisualError,
 								   QString* outError)
 {
 	std::shared_ptr<BackendDataBase> backendObject;
@@ -202,6 +231,17 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 	if (!persistedId.isEmpty())
 	{
 		backendObject->setId(persistedId.toStdString());
+	}
+	if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(backendObject))
+	{
+		if (!mesh->hasGeometry() && robotLinkReloadHint)
+		{
+			QString reloadErr;
+			if (!reloadRobotLinkMeshFromUrdfHint(*mesh, *robotLinkReloadHint, &reloadErr) && outError && !reloadErr.isEmpty())
+			{
+				*outError = reloadErr;
+			}
+		}
 	}
 	if (auto brep = std::dynamic_pointer_cast<BrepBackendData>(backendObject))
 	{
@@ -567,14 +607,23 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		const bool isUrdfRobotShellHint =
 			sourceType.compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0 ||
 			persistedId.startsWith(QStringLiteral("RobotURDF_"));
+		const bool isRobotLinkMesh = options.robotLinkMeshBackendIds.contains(persistedId);
 
 		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty() && !isCoordinateFrame && !isCustomDevice &&
-			!isUrdfRobotShellHint)
+			!isUrdfRobotShellHint && !isRobotLinkMesh)
 		{
 			continue;
 		}
 
-		if (hasEmb || isCoordinateFrame || isCustomDevice)
+		const RobotLinkUrdfReloadHint* linkReloadHint = nullptr;
+		RobotLinkUrdfReloadHint linkReloadHintStorage;
+		if (options.robotLinkUrdfReloadHints.contains(persistedId))
+		{
+			linkReloadHintStorage = options.robotLinkUrdfReloadHints.value(persistedId);
+			linkReloadHint = &linkReloadHintStorage;
+		}
+
+		if (hasEmb || isCoordinateFrame || isCustomDevice || isRobotLinkMesh)
 		{
 			const QString catalogType =
 				sourceType.isEmpty() ? QString::fromStdString(backend_type::catalogTypeFromClassName(classNameUtf8))
@@ -585,7 +634,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 			QString regErr;
 			if (registerEmbeddedProjectObject(host, obj, persistedId, sourcePath, catalogType, parentId,
 											  options.robotLinkMeshBackendIds.contains(persistedId), options.projectDir,
-											  &visualErr, &regErr))
+											  linkReloadHint, &visualErr, &regErr))
 			{
 				if (!parentId.isEmpty() && callbacks.legacyParentFollow)
 				{
@@ -622,7 +671,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		const QString urdfProbePath =
 			!loadPath.isEmpty() ? loadPath : (!sourcePath.isEmpty() ? sourcePath : assetRelativePath);
 		const bool isUrdfRobotRootShell =
-			isUrdfRobotShellHint &&
+			isUrdfRobotShellHint && isUrdfRobotSceneRootShellCandidate(persistedId, options) &&
 			(urdfProbePath.isEmpty() ||
 			 QFileInfo(urdfProbePath).suffix().compare(QStringLiteral("urdf"), Qt::CaseInsensitive) == 0);
 		if (isUrdfRobotRootShell)
@@ -632,7 +681,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 			QString visualErr;
 			QString regErr;
 			if (registerEmbeddedProjectObject(host, obj, persistedId, sourcePath, catalogType, parentId, false,
-											  options.projectDir, &visualErr, &regErr))
+											  options.projectDir, nullptr, &visualErr, &regErr))
 			{
 				if (!parentId.isEmpty() && callbacks.legacyParentFollow)
 				{

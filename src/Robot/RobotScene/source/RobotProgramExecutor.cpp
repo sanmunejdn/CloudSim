@@ -27,6 +27,20 @@ std::string qToUtf8Std(const QString& s)
 	const QByteArray utf8 = s.toUtf8();
 	return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
 }
+
+/// 回转轴最短角插值：与规划 R1 同度量，避免未折圈 lerp 空转一整圈
+double lerpRevoluteShortest(const double q0, const double q1, const double t)
+{
+	constexpr double kTwoPi = 6.283185307179586;
+	const double q1n = q1 - kTwoPi * std::round((q1 - q0) / kTwoPi);
+	return q0 + (q1n - q0) * t;
+}
+
+double nearestRevolution(const double q, const double ref)
+{
+	constexpr double kTwoPi = 6.283185307179586;
+	return q - kTwoPi * std::round((q - ref) / kTwoPi);
+}
 } // namespace
 
 void RobotProgramExecutor::stop()
@@ -250,7 +264,7 @@ bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRob
 				const double q0 = (i0 == 0U) ? m_segStartJointAngles[gi]
 											 : traj[i0 - 1U][static_cast<size_t>(j)];
 				const double q1 = traj[i1 - 1U][static_cast<size_t>(j)];
-				m_jointAnglesRad[gi] = q0 + (q1 - q0) * t;
+				m_jointAnglesRad[gi] = lerpRevoluteShortest(q0, q1, t);
 			}
 		}
 	}
@@ -264,7 +278,7 @@ bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRob
 				const int gi = m_jointOffset + j;
 				const double q0 = m_segStartJointAngles[gi];
 				const double q1 = plan->jointTargetsRad[static_cast<size_t>(j)];
-				m_jointAnglesRad[gi] = q0 + (q1 - q0) * u;
+				m_jointAnglesRad[gi] = lerpRevoluteShortest(q0, q1, u);
 			}
 		}
 	}
@@ -284,7 +298,7 @@ bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRob
 									  ? m_segStartJointAngles[gi]
 									  : traj[i0][static_cast<size_t>(j)];
 				const double q1 = traj[i1][static_cast<size_t>(j)];
-				m_jointAnglesRad[gi] = q0 + (q1 - q0) * t;
+				m_jointAnglesRad[gi] = lerpRevoluteShortest(q0, q1, t);
 			}
 		}
 	}
@@ -296,13 +310,15 @@ bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRob
 
 	if (u >= 1.0 - 1e-9)
 	{
-		// 终点强制对齐 jointTargets，避免 LINE 轨迹采样终点与预览/示教分叉
+		// 终点对齐到最近圈，避免与插值终点差一整圈时末帧瞬移
 		if (plan && plan->ok && !plan->jointTargetsRad.empty() &&
 			plan->jointTargetsRad.size() == static_cast<size_t>(m_jointCount))
 		{
 			for (int j = 0; j < m_jointCount; ++j)
 			{
-				m_jointAnglesRad[m_jointOffset + j] = plan->jointTargetsRad[static_cast<size_t>(j)];
+				const int gi = m_jointOffset + j;
+				m_jointAnglesRad[gi] =
+					nearestRevolution(plan->jointTargetsRad[static_cast<size_t>(j)], m_jointAnglesRad[gi]);
 			}
 			(void)applyJointAngles(doc, osg);
 		}

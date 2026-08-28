@@ -26,6 +26,7 @@ class KinematicGraph;
 #include <osg/Group>
 #include <osg/MatrixTransform>
 #include <osg/Matrixd>
+#include <osg/Quat>
 #include <osg/Node>
 
 /// URDF 层级场景：关节 MatrixTransform + 连杆几何，内部长度 mm（origin xyz 米→mm）
@@ -71,6 +72,23 @@ ROBOT_URDF_API bool linkMeshFileToLinkOsgMatrix(const QString& urdfFilePath, con
 ROBOT_URDF_API bool computeLinkWorldMatrices(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,
 											 QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld,
 											 QString* errorMessage = nullptr);
+
+/// 单连杆 FK（DLS 热路径，避免全链 QHash）
+ROBOT_URDF_API bool computeLinkWorldPose(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,
+										 const QString& linkName, double outPosMm[3], osg::Quat* outQuat = nullptr,
+										 QString* errorMessage = nullptr);
+
+/// 已持有 graph 时的单连杆 FK
+ROBOT_URDF_API bool computeLinkWorldPoseFromGraph(const kinematic_core::KinematicGraph& graph, int linkIdx,
+												  const QVector<double>& jointAnglesRad, double outPosMm[3],
+												  osg::Quat* outQuat = nullptr, QString* errorMessage = nullptr);
+
+/// 一次 FK：单连杆位姿（OSG）+ 几何雅可比（与 Jacobian 同 URDF 世界系）
+ROBOT_URDF_API bool computeLinkWorldPoseAndJacobianFromGraph(const kinematic_core::KinematicGraph& graph, int linkIdx,
+															 const QVector<double>& jointAnglesRad, double outPosMm[3],
+															 osg::Quat* outQuat, std::vector<double>& outJ_rowMajor,
+															 bool includeOrientation, double orientationWeight = 300.0,
+															 QString* errorMessage = nullptr);
 
 /// KinematicCore FK → mesh 世界矩阵（与 computeMeshWorldMatrices 同约定，供 Registry/Sink 主路径）
 ROBOT_URDF_API bool computeMeshWorldMatricesViaKinematicCore(const QString& urdfFilePath,

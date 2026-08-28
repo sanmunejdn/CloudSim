@@ -328,8 +328,10 @@ M_link = M0 · inv(T0) · Tq · P
 
 ### 规划真值一致性（Pose vs TargetTransform）
 
-- `pose/euler` 与 `context.targetTransform*` 必须保持同源一致；`ProgramEditCommand` 对位姿做变换时通过 `writeTargetTransformToInstruction` 同步两者。
+- `pose/euler` 与 `context.targetTransform*` 必须保持同源一致；改显示分量走 `applyTargetDisplayComponent` / `writeTargetTransformToInstruction`（`PoseAttribute`/`EulerAttribute` 已挂钩）。
+- 规划准备：`RobotInstruction::prepareInstructionIkContext` 先 `syncToolContextFromFrames`（跟随 active 用当前激活工具），再写种子与工具矩阵；Host/Widget 不得再维护副本。
 - 轨迹编辑预览会临时写入 `context.targetTransform*`。当上层（RobotWidget）执行快照恢复时，若快照里不存在该键，必须显式清理旧键后再恢复扩展属性。
+- `restoreInstructionPose` 整体替换 extension（规划期新增键会被擦除）。
 - 否则会出现“`pose` 已回退但 `readTargetTransformFromInstruction` 仍是旧值”的状态，Apply 会基于错误真值再次增量，表现为位置被重复作用。
 
 ### 工具链 FK（禁止误用 OSG 裸乘）

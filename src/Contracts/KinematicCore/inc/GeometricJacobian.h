@@ -4,6 +4,7 @@
 #include "KinematicGraph.h"
 #include "kinematic_core_global.h"
 
+#include <array>
 #include <vector>
 
 namespace kinematic_core
@@ -23,6 +24,19 @@ KINEMATIC_CORE_API bool computePositionJacobian(const KinematicGraph& graph, con
 KINEMATIC_CORE_API bool computePoseJacobian(const KinematicGraph& graph, const double baseWorld[16], const double* q,
 											std::size_t qCount, int targetLinkIdx, std::vector<double>& J_6xn,
 											const JacobianOptions& opt = {});
+
+/// 已有 FK linkWorld（每连杆列主序 4×4）时填位置雅可比；避免二次 FK
+KINEMATIC_CORE_API bool computePositionJacobianFromLinkWorld(const KinematicGraph& graph, const double* q,
+															 std::size_t qCount, int targetLinkIdx,
+															 const std::vector<std::array<double, 16>>& linkWorld,
+															 std::vector<double>& J_3xn,
+															 const JacobianOptions& opt = {});
+
+/// 已有 FK linkWorld 时填 6×n 位姿雅可比
+KINEMATIC_CORE_API bool computePoseJacobianFromLinkWorld(const KinematicGraph& graph, const double* q,
+														 std::size_t qCount, int targetLinkIdx,
+														 const std::vector<std::array<double, 16>>& linkWorld,
+														 std::vector<double>& J_6xn, const JacobianOptions& opt = {});
 
 } // namespace kinematic_core
 

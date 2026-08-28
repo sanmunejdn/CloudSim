@@ -69,6 +69,7 @@
 #include <QCoreApplication>
 #include <QDialog>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileDialog>
 #include <QGuiApplication>
@@ -82,6 +83,8 @@
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
+#include <random>
+#include <cstdio>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -106,6 +109,11 @@ constexpr double kMaxTaughtOrientReuseDeg = 15.0;
 /// 新鲜 IK 仅拦近翻转；联立求解按位置选优，5° 会误杀可用解
 constexpr double kMaxFreshIkOrientDeg = 45.0;
 constexpr double kFreshIkPositionRejectMm = 3.0;
+/// 随机兜底候选的连续性硬门：与链式种子的未折圈逐关节最大偏差（执行器真实行程，±2π 必淘汰）
+/// 只约束随机兜底；确定性种子 / 示教 CSV 不受此限
+constexpr double kFallbackConsistencyRad = 2.6;
+/// 收集-择优的提前收口：最佳候选已足够近时不再消耗时间盒
+constexpr double kFallbackNearEnoughRad = 0.35;
 constexpr double kPi = 3.14159265358979323846;
 
 bool isTaughtOrCacheReuseAcceptable(const double residualMm, const double orientDeg)
@@ -125,6 +133,42 @@ bool isFreshIkSolutionAcceptable(const double residualMm, const double orientDeg
 		return true;
 	}
 	return orientDeg <= kMaxFreshIkOrientDeg;
+}
+
+/// 确定性种子全败时的随机重启兜底：固定 RNG 序列保证可复现；同步/Worker 两条规划路径共用。
+/// 前半沿用 ±π 均匀采样（序列与已验证行为逐位一致）；后半在 URDF 限位内逐关节采样（TRAC-IK 方式），
+/// 覆盖宽限位关节的远端分支，同时避免越限种子被钳制到边界后重复浪费。
+/// 收集-择优与时间盒在 tryPass 的 collectNearest 模式内：盒内收集全部过门候选，选距链式种子最近者
+template <typename TryPass>
+bool tryRandomRestartPass(TryPass&& tryPass, const int nj, const QVector<double>& lowerRad,
+						  const QVector<double>& upperRad, const qint64 budgetMs)
+{
+	constexpr int kUniformSeeds = 8;
+	constexpr int kLimitSeeds = 8;
+	std::mt19937 rng(80591);
+	std::uniform_real_distribution<double> uniFull(-kPi, kPi);
+	const bool hasLimits = lowerRad.size() == nj && upperRad.size() == nj;
+	QVector<QVector<double>> randomSeeds;
+	randomSeeds.reserve(kUniformSeeds + kLimitSeeds);
+	for (int k = 0; k < kUniformSeeds + kLimitSeeds; ++k)
+	{
+		const bool useLimits = hasLimits && k >= kUniformSeeds;
+		QVector<double> rs(nj);
+		for (int j = 0; j < nj; ++j)
+		{
+			if (useLimits && lowerRad[j] < upperRad[j])
+			{
+				std::uniform_real_distribution<double> uniLimit(lowerRad[j], upperRad[j]);
+				rs[j] = uniLimit(rng);
+			}
+			else
+			{
+				rs[j] = uniFull(rng);
+			}
+		}
+		randomSeeds.push_back(rs);
+	}
+	return tryPass(randomSeeds, false, true, budgetMs);
 }
 
 double trapezoidTravelDurationSec(const double distance, const double vMax, const double accel)
@@ -740,6 +784,158 @@ QVector<double> clampJointAnglesToInstanceLimits(IRobotDocumentHost* doc, const 
 	}
 	return out;
 }
+
+/// TRAC-IK normalize_seed：回转关节归一到离参照最近的圈数。
+/// 任一关节归一后越限则失败（拒绝远圈候选），无有效限位时整体不动
+bool normalizeJointRevolutionsToReference(std::vector<double>& q, const std::vector<double>& ref,
+										  const QVector<double>& lowerRad, const QVector<double>& upperRad)
+{
+	const size_t n = q.size();
+	if (ref.size() != n)
+	{
+		return false;
+	}
+	const bool hasLimits = lowerRad.size() == static_cast<int>(n) && upperRad.size() == static_cast<int>(n);
+	if (!hasLimits)
+	{
+		return false;
+	}
+	constexpr double kTwoPi = 6.283185307179586;
+	for (size_t j = 0; j < n; ++j)
+	{
+		const double shifted = q[j] - kTwoPi * std::round((q[j] - ref[j]) / kTwoPi);
+		const int ji = static_cast<int>(j);
+		if (shifted < lowerRad[ji] - 1e-9 || shifted > upperRad[ji] + 1e-9)
+		{
+			return false;
+		}
+		q[j] = shifted;
+	}
+	return true;
+}
+
+/// R1 改写终点后按同量平移整条轨迹，避免 clear 后回放路径与已校验碰撞分叉
+void shiftJointTrajectoryByTargetDelta(std::vector<std::vector<double>>& traj,
+									   const std::vector<double>& targetsBefore,
+									   const std::vector<double>& targetsAfter)
+{
+	if (traj.empty() || targetsBefore.size() != targetsAfter.size() || targetsAfter.empty())
+	{
+		return;
+	}
+	const size_t n = targetsAfter.size();
+	std::vector<double> delta(n, 0.0);
+	bool any = false;
+	for (size_t j = 0; j < n; ++j)
+	{
+		delta[j] = targetsAfter[j] - targetsBefore[j];
+		if (std::abs(delta[j]) > 1e-12)
+		{
+			any = true;
+		}
+	}
+	if (!any)
+	{
+		return;
+	}
+	for (std::vector<double>& sample : traj)
+	{
+		if (sample.size() != n)
+		{
+			continue;
+		}
+		for (size_t j = 0; j < n; ++j)
+		{
+			sample[j] += delta[j];
+		}
+	}
+}
+
+bool jointTrajectoryTailMatchesTargets(const std::vector<std::vector<double>>& traj,
+									   const std::vector<double>& targets, const double eps = 1e-6)
+{
+	if (traj.empty() || traj.back().size() != targets.size())
+	{
+		return false;
+	}
+	const auto& back = traj.back();
+	for (size_t j = 0; j < targets.size(); ++j)
+	{
+		if (std::abs(back[j] - targets[j]) > eps)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+/// 折圈后对齐轨迹；仍不一致则剥轨迹（调用方须复验碰撞）
+void alignTrajectoryAfterTargetNormalize(RobotInstruction::PlanResult& plan,
+										 const std::vector<double>& targetsBeforeNormalize)
+{
+	if (plan.jointTrajectoryRad.size() < 2U)
+	{
+		return;
+	}
+	shiftJointTrajectoryByTargetDelta(plan.jointTrajectoryRad, targetsBeforeNormalize, plan.jointTargetsRad);
+	if (!jointTrajectoryTailMatchesTargets(plan.jointTrajectoryRad, plan.jointTargetsRad))
+	{
+		plan.jointTrajectoryRad.clear();
+	}
+}
+
+/// Lookahead/worker 入库前：R1 + 轨迹对齐；失败则标记不可缓存
+bool prepareWorkerPlanForCache(RobotInstruction::PlanResult& plan, const QVector<double>& chainSeedQ,
+							   const QVector<double>& limLo, const QVector<double>& limHi)
+{
+	if (!plan.ok || plan.jointTargetsRad.empty())
+	{
+		return false;
+	}
+	if (chainSeedQ.size() != static_cast<int>(plan.jointTargetsRad.size()))
+	{
+		return true;
+	}
+	std::vector<double> refQ(chainSeedQ.begin(), chainSeedQ.end());
+	const std::vector<double> before = plan.jointTargetsRad;
+	if (!normalizeJointRevolutionsToReference(plan.jointTargetsRad, refQ, limLo, limHi))
+	{
+		plan.ok = false;
+		plan.summary = "joint revolution normalize failed (limits block nearest turn)";
+		return false;
+	}
+	alignTrajectoryAfterTargetNormalize(plan, before);
+	return true;
+}
+
+double maxUnfoldedJointAbsDelta(const QVector<double>& a, const QVector<double>& b)
+{
+	if (a.size() != b.size())
+	{
+		return 1e30;
+	}
+	double maxAbs = 0.0;
+	for (int j = 0; j < a.size(); ++j)
+	{
+		maxAbs = std::max(maxAbs, std::abs(a[j] - b[j]));
+	}
+	return maxAbs;
+}
+
+double unfoldedJointSse(const QVector<double>& a, const QVector<double>& b)
+{
+	if (a.size() != b.size())
+	{
+		return 1e30;
+	}
+	double sse = 0.0;
+	for (int j = 0; j < a.size(); ++j)
+	{
+		const double d = a[j] - b[j];
+		sse += d * d;
+	}
+	return sse;
+}
 } // namespace
 
 namespace InstructionPoseDiagState
@@ -987,6 +1183,14 @@ void RobotSimulationController::wireSimulationSignals()
 		connect(cmd, &SimulationCommandWidget::playbackRateChanged, this,
 				[this](const double rate) { m_programExecutor.setPlaybackRate(rate); });
 		m_programExecutor.setPlaybackRate(cmd->playbackRate());
+		connect(cmd, &SimulationCommandWidget::ikSeedPolicyChanged, this,
+				[this](const int policy)
+				{
+					m_ikSeedPolicy = (policy == 1) ? RobotInstruction::IkSeedPolicy::FromCurrentPose
+												   : RobotInstruction::IkSeedPolicy::FromInstruction;
+					m_ikSeedInstructionId.clear();
+					m_planResultCache.invalidateAll();
+				});
 	}
 	connect(cmd, &SimulationCommandWidget::addInstructionRequested, this,
 			&RobotSimulationController::onSimulationAddInstructionRequested);
@@ -1879,17 +2083,47 @@ QVector<double> RobotSimulationController::motionPreviewProgramStartJointsLocal(
 	{
 		return rollingQ;
 	}
+	bool fromFrozen = false;
 	if (m_motionPreviewProgramStartJointRad.size() > jointOffset)
 	{
 		for (int j = 0; j < nj && jointOffset + j < m_motionPreviewProgramStartJointRad.size(); ++j)
 		{
 			rollingQ[j] = m_motionPreviewProgramStartJointRad[jointOffset + j];
 		}
-		return rollingQ;
+		fromFrozen = true;
 	}
-	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == nj)
+	const bool axisOk =
+		m_host && m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == nj;
+	if (axisOk)
 	{
-		return m_host->robotAxisControlPage()->jointAnglesRad();
+		const QVector<double> axisQ = m_host->robotAxisControlPage()->jointAnglesRad();
+		bool frozenNearZero = true;
+		for (int j = 0; j < nj; ++j)
+		{
+			if (std::abs(rollingQ[j]) > 1e-6)
+			{
+				frozenNearZero = false;
+				break;
+			}
+		}
+		bool axisMeaningful = false;
+		for (int j = 0; j < axisQ.size(); ++j)
+		{
+			if (std::abs(axisQ[j]) > 1e-3)
+			{
+				axisMeaningful = true;
+				break;
+			}
+		}
+		// 导入瞬间捕获的全零起点会毒害 IK；轴控已有位姿时改用轴控
+		if ((!fromFrozen || (frozenNearZero && axisMeaningful)) && axisQ.size() == nj)
+		{
+			return axisQ;
+		}
+	}
+	if (fromFrozen)
+	{
+		return rollingQ;
 	}
 	return rollingQ;
 }
@@ -2049,28 +2283,6 @@ bool RobotSimulationController::buildChainSeedJointRadForInstruction(
 			outChainSeed = programStartQ;
 			return true;
 		}
-		const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*motionIns);
-		bool useTaught =
-			taughtQ.size() == nj && RobotInstructionPlanning::shouldUseTaughtJointCsv(*motionIns, &frames);
-		if (useTaught && RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx)))
-		{
-			const auto& ext = motionIns->extensionProperties();
-			const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
-			const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-			const bool hasCsv = itCsv != ext.end() && !itCsv->second.empty();
-			const bool hasQ = itQ != ext.end() && !itQ->second.empty();
-			if (!hasCsv && !hasQ)
-			{
-				useTaught = false;
-			}
-		}
-		if (useTaught)
-		{
-			// 链式种子信任示教 CSV：逐点 FK 残差会让点击远端点卡顿；Run 路径仍做门控
-			rollingQ = taughtQ;
-			storeEndAt(mi, rollingQ);
-			continue;
-		}
 		const RobotInstructionPlanning::MotionPoseBackup backup =
 			RobotInstructionPlanning::backupInstructionPose(*motionIns);
 		const QString insIdQ = QString::fromStdString(motionIns->id());
@@ -2113,9 +2325,11 @@ bool RobotSimulationController::buildChainSeedJointRadForInstruction(
 				}
 				std::string planErr;
 				RobotInstruction::PlanResult plan{};
-				const bool okPlan = planMotionOnHost(*motionIns, rollingQ, instIdx, urdfPath, defaultTcpLinkName,
-													 robotBackendId, plan, &planErr) &&
-									plan.ok && plan.jointTargetsRad.size() == static_cast<size_t>(nj);
+				// 与 consistent 种子循环一致：跳过碰撞，接受前再验
+				const bool okPlan =
+					planMotionOnHost(*motionIns, rollingQ, instIdx, urdfPath, defaultTcpLinkName, robotBackendId, plan,
+									 &planErr, /*skipValidate=*/false, /*skipCollision=*/true) &&
+					plan.ok && plan.jointTargetsRad.size() == static_cast<size_t>(nj);
 				motionIns->eraseExtensionProperty("context.playbackPlanLite");
 				if (!okPlan)
 				{
@@ -2134,11 +2348,29 @@ bool RobotSimulationController::buildChainSeedJointRadForInstruction(
 				{
 					return false;
 				}
+				{
+					const RobotCollision::Settings& colGate = doc->robotCollisionSettings();
+					if (colGate.enabled && m_collisionWorld)
+					{
+						std::vector<std::vector<double>> seg = plan.jointTrajectoryRad;
+						if (seg.empty())
+						{
+							seg.push_back(std::vector<double>(resultQ.begin(), resultQ.end()));
+						}
+						std::string colErr;
+						if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(),
+																		   instIdx, rollingQ, seg, colGate, &colErr,
+																		   m_host->osgView()))
+						{
+							return false;
+						}
+					}
+				}
 				m_planResultCache.store(insIdQ, fp, plan);
 				rollingQ = resultQ;
 				return true;
 			};
-			gotJoints = tryHostPlan(true) || tryHostPlan(false);
+			gotJoints = (motionIns->type() != RobotInstruction::Type::PTP && tryHostPlan(true)) || tryHostPlan(false);
 		}
 		RobotInstructionPlanning::restoreInstructionPose(*motionIns, backup);
 		if (!gotJoints)
@@ -2232,6 +2464,19 @@ void RobotSimulationController::applyToolFrameChangeToProgram(const RobotCoordin
 	if (firstInvalidateIndex < static_cast<int>(motions.size()))
 	{
 		RobotInstructionPlanning::invalidateTaughtJointsFromMotionIndexForward(motions, firstInvalidateIndex);
+		if (m_host->runInfoPage())
+		{
+			int pointIndex = RobotInstruction::motionPointIndex(*motions[static_cast<size_t>(firstInvalidateIndex)]);
+			if (pointIndex <= 0)
+			{
+				pointIndex = firstInvalidateIndex + 1;
+			}
+			const QString pointTag = QString::fromStdString(RobotInstruction::formatMotionPointName(pointIndex));
+			m_host->appendRunInfo(m_host->i18n(
+										 QStringLiteral("Taught joints from %1 onward were invalidated by the tool frame change; please re-teach."),
+										 QStringLiteral("%1 起示教角因工具系变更已失效，需重新示教。"))
+									  .arg(pointTag));
+		}
 	}
 }
 
@@ -2814,7 +3059,7 @@ void RobotSimulationController::onMotionPathConfirmTrajectoryRequested()
 				col->setPlanStatusText(QString::fromStdString(err.empty() ? "插入失败" : err));
 			return;
 		}
-		// 冻结工具上下文，回放才能走 taughtJointCsv，避免中间点重 IK 姿态门限失败
+		// 中间点只写 TCP；同步工具系，不落盘关节
 		if (m_host->simulationCommandPage())
 		{
 			const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
@@ -2840,18 +3085,12 @@ void RobotSimulationController::onMotionPathConfirmTrajectoryRequested()
 				{
 					if (iStart > iEnd)
 						std::swap(iStart, iEnd);
-					int midIdx = 0;
-					int taughtCount = 0;
-					for (int i = iStart + 1; i < iEnd && midIdx < mid.points.size(); ++i, ++midIdx)
+					for (int i = iStart + 1; i < iEnd; ++i)
 					{
 						auto& ins = prog->steps[static_cast<std::size_t>(i)];
-						if (!ins || mid.points[static_cast<std::size_t>(midIdx)].jointRad.empty())
+						if (!ins)
 							continue;
-						QVector<double> jq;
-						for (double v : mid.points[static_cast<std::size_t>(midIdx)].jointRad)
-							jq.push_back(v);
-						RobotInstructionPlanning::persistTaughtJointsAndToolContext(*ins, jq, frames);
-						++taughtCount;
+						RobotInstructionPlanning::persistTaughtJointsAndToolContext(*ins, {}, frames);
 					}
 				}
 			}
@@ -5614,8 +5853,8 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 			}
 			if (!qLocal.isEmpty())
 			{
-				ins->setExtensionProperty("context.currentJointRadCsv",
-										  RobotInstructionPlanning::encodeJointAnglesRadCsv(qLocal));
+				// 示教只落 TCP；关节仅用于 FK 求目标，不写指令
+				ins->eraseExtensionProperty("context.currentJointRadCsv");
 				osg::Matrixd tcpWorldFromJoints;
 				if (instructionTcpWorldMat4FromTaughtJoints(capDoc2, capInstIdx2, *ins, qLocal, tcpWorldFromJoints))
 				{
@@ -7100,9 +7339,11 @@ void RobotSimulationController::onSimulationStartTriggered()
 	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
 		urdfPath, m_host->simulationCommandPage() ? m_host->simulationCommandPage()->selectedTcpLink() : QString());
 	QVector<double> initialAngles(jnamesAll.size(), 0.0);
+	bool usedFrozenStart = false;
 	if (m_motionPreviewProgramStartJointRad.size() == jnamesAll.size())
 	{
 		initialAngles = m_motionPreviewProgramStartJointRad;
+		usedFrozenStart = true;
 	}
 	else if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == nj)
 	{
@@ -7110,6 +7351,40 @@ void RobotSimulationController::onSimulationStartTriggered()
 		for (int j = 0; j < nj && jointOffset + j < initialAngles.size(); ++j)
 		{
 			initialAngles[jointOffset + j] = local[j];
+		}
+	}
+	// 冻结起点全零但轴控已有位姿：用轴控纠正（避免未预览直接 Run 全失败）
+	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == nj)
+	{
+		const QVector<double> axisQ = m_host->robotAxisControlPage()->jointAnglesRad();
+		bool frozenNearZero = true;
+		for (int j = 0; j < nj && jointOffset + j < initialAngles.size(); ++j)
+		{
+			if (std::abs(initialAngles[jointOffset + j]) > 1e-6)
+			{
+				frozenNearZero = false;
+				break;
+			}
+		}
+		bool axisMeaningful = false;
+		for (int j = 0; j < axisQ.size(); ++j)
+		{
+			if (std::abs(axisQ[j]) > 1e-3)
+			{
+				axisMeaningful = true;
+				break;
+			}
+		}
+		if ((!usedFrozenStart || (frozenNearZero && axisMeaningful)) && axisQ.size() == nj)
+		{
+			for (int j = 0; j < nj && jointOffset + j < initialAngles.size(); ++j)
+			{
+				initialAngles[jointOffset + j] = axisQ[j];
+			}
+			if (frozenNearZero && axisMeaningful)
+			{
+				m_motionPreviewProgramStartJointRad = initialAngles;
+			}
 		}
 	}
 	m_aggregatedJointAnglesRad = initialAngles;
@@ -7173,8 +7448,10 @@ void RobotSimulationController::onSimulationStartTriggered()
 		const RobotCoordinate::RobotCoordinateFrameSet& framesForRun = doc->robotCoordinateFramesForInstance(instIdx);
 		std::string planErr;
 		RobotInstruction::PlanResult plan{};
-		if (!planMotionConsistentWithPreview(*ins, rollingQ, programStartQ, instIdx, urdfPath, defaultTcpLinkName,
-											 robotBackendId, framesForRun, plan, &planErr, true))
+		const bool planOk = planMotionConsistentWithPreview(*ins, rollingQ, programStartQ, instIdx, urdfPath,
+															defaultTcpLinkName, robotBackendId, framesForRun, plan,
+															&planErr, true);
+		if (!planOk)
 		{
 			RobotInstruction::PlanResult failed{};
 			failed.ok = false;
@@ -7498,7 +7775,8 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 												 const QVector<double>& seedJointRad, const int instanceIndex,
 												 const QString& urdfPath, const QString& defaultTcpLinkName,
 												 const QString& sceneRootBackendId, RobotInstruction::PlanResult& plan,
-												 std::string* planErr) const
+												 std::string* planErr, const bool skipValidate,
+												 const bool skipCollision) const
 {
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	if (!doc || !m_host)
@@ -7516,7 +7794,7 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 	self->ensureInstructionControllerKinematics(doc, instanceIndex, urdfPath);
 	std::string err;
 	plan = {};
-	if (!self->m_instructionController.validate(instruction, &err))
+	if (!skipValidate && !self->m_instructionController.validate(instruction, &err))
 	{
 		if (planErr)
 		{
@@ -7533,20 +7811,23 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 		return false;
 	}
 
-	const RobotCollision::Settings& col = doc->robotCollisionSettings();
-	if (col.enabled)
+	if (!skipCollision)
 	{
-		std::string colErr;
-		const QVector<double> seedBefore = seedJointRad;
-		if (!BackendCollisionSync::validateJointTrajectory(*self->m_collisionWorld, doc, doc->backend(), instanceIndex,
-														   seedBefore, plan.jointTrajectoryRad, col, &colErr,
-														   m_host->osgView()))
+		const RobotCollision::Settings& col = doc->robotCollisionSettings();
+		if (col.enabled)
 		{
-			plan.ok = false;
-			plan.summary = colErr.empty() ? "Collision detected" : colErr;
-			if (planErr)
-				*planErr = plan.summary;
-			return false;
+			std::string colErr;
+			const QVector<double> seedBefore = seedJointRad;
+			if (!BackendCollisionSync::validateJointTrajectory(*self->m_collisionWorld, doc, doc->backend(),
+															   instanceIndex, seedBefore, plan.jointTrajectoryRad, col,
+															   &colErr, m_host->osgView()))
+			{
+				plan.ok = false;
+				plan.summary = colErr.empty() ? "Collision detected" : colErr;
+				if (planErr)
+					*planErr = plan.summary;
+				return false;
+			}
 		}
 	}
 	return true;
@@ -7580,70 +7861,63 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		return false;
 	}
 
-	const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(instruction);
-	bool useTaughtCsv = !skipTaughtShortCircuit && taughtQ.size() == nj &&
-						RobotInstructionPlanning::shouldUseTaughtJointCsv(instruction, &frames);
-	const bool extEnabled =
-		RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instanceIndex));
-	if (useTaughtCsv && extEnabled)
+	(void)skipTaughtShortCircuit;
+	(void)gateTaughtResidual;
+
+	const QString insIdQ = QString::fromStdString(instruction.id());
+	const QString planFp = computePlanFingerprint(instruction, chainSeedQ, urdfPath, defaultTcpLinkName);
+	if (const RobotInstruction::PlanResult* cached = m_planResultCache.fetch(insIdQ, planFp))
 	{
-		// 启用外轴时禁止仅用臂关节示教 CSV 短路，否则外轴永不参与求解
-		const auto& ext = instruction.extensionProperties();
-		const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
-		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-		const bool hasCsv = itCsv != ext.end() && !itCsv->second.empty();
-		const bool hasQ = itQ != ext.end() && !itQ->second.empty();
-		if (!hasCsv && !hasQ)
+		if (cached->ok && cached->jointTargetsRad.size() == static_cast<size_t>(nj))
 		{
-			useTaughtCsv = false;
-		}
-	}
-	double taughtResidualMm = -1.0;
-	double taughtOrientDeg = -1.0;
-	if (taughtQ.size() == nj)
-	{
-		taughtResidualMm =
-			targetResidualMmForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
-		taughtOrientDeg =
-			targetOrientationResidualDegForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
-	}
-	if (useTaughtCsv)
-	{
-		if (gateTaughtResidual)
-		{
-			if (!isTaughtOrCacheReuseAcceptable(taughtResidualMm, taughtOrientDeg))
+			QVector<double> cachedQ(nj);
+			for (int j = 0; j < nj; ++j)
 			{
-				useTaughtCsv = false;
+				cachedQ[j] = cached->jointTargetsRad[static_cast<size_t>(j)];
+			}
+			if (isTaughtOrCacheReuseAcceptable(
+					targetResidualMmForInstruction(urdfPath, cachedQ, frames, defaultTcpLinkName, instruction),
+					targetOrientationResidualDegForInstruction(urdfPath, cachedQ, frames, defaultTcpLinkName,
+															   instruction)))
+			{
+				RobotInstruction::PlanResult plan = *cached;
+				std::vector<double> refQ(chainSeedQ.begin(), chainSeedQ.end());
+				QVector<double> limLo, limHi;
+				doc->robotJointLimitsForInstance(instanceIndex, limLo, limHi);
+				const std::vector<double> targetsBeforeNorm = plan.jointTargetsRad;
+				bool cacheOk = normalizeJointRevolutionsToReference(plan.jointTargetsRad, refQ, limLo, limHi);
+				if (cacheOk)
+				{
+					alignTrajectoryAfterTargetNormalize(plan, targetsBeforeNorm);
+					const RobotCollision::Settings& colGate = doc->robotCollisionSettings();
+					if (colGate.enabled && m_collisionWorld)
+					{
+						std::vector<std::vector<double>> seg = plan.jointTrajectoryRad;
+						if (seg.empty())
+						{
+							seg.push_back(plan.jointTargetsRad);
+						}
+						std::string colErr;
+						if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(),
+																		   instanceIndex, chainSeedQ, seg, colGate,
+																		   &colErr, m_host->osgView()))
+						{
+							cacheOk = false;
+						}
+					}
+				}
+				if (cacheOk)
+				{
+					outPlan = std::move(plan);
+					if (persistTaughtOnSuccess)
+					{
+						RobotInstructionPlanning::persistTaughtJointsAndToolContext(instruction, cachedQ, frames);
+					}
+					return true;
+				}
+				m_planResultCache.invalidateByInstruction(insIdQ);
 			}
 		}
-	}
-	if (useTaughtCsv)
-	{
-		outPlan.ok = true;
-		outPlan.plannerName = "taughtJointCsv";
-		outPlan.summary = "Use context.currentJointRadCsv from teach capture";
-		outPlan.durationSec = RobotInstructionPlanning::motionDurationSecFromInstruction(instruction);
-		outPlan.jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
-		outPlan.jointTrajectoryRad.clear();
-		const auto& ext = instruction.extensionProperties();
-		fillPlanExternalAxisFromInstructionExt(outPlan, ext, &doc->robotExternalAxesForInstance(instanceIndex));
-		const RobotCollision::Settings& col = doc->robotCollisionSettings();
-		if (col.enabled && m_collisionWorld)
-		{
-			std::string colErr;
-			std::vector<std::vector<double>> traj;
-			traj.push_back(outPlan.jointTargetsRad);
-			if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(), instanceIndex,
-															   chainSeedQ, traj, col, &colErr, m_host->osgView()))
-			{
-				outPlan.ok = false;
-				outPlan.summary = colErr.empty() ? "Collision detected" : colErr;
-				if (planErr)
-					*planErr = outPlan.summary;
-				return false;
-			}
-		}
-		return true;
 	}
 
 	auto seedsDiffer = [&](const QVector<double>& a, const QVector<double>& b) -> bool
@@ -7662,10 +7936,66 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		return false;
 	};
 
-	// 示教角已偏笛卡尔目标时优先链式种子，避免从错误折叠构型收敛到「到点但姿态怪」的解
-	constexpr double kTaughtSeedPreferMm = 80.0;
-	const bool preferTaughtAsIkSeed =
-		taughtQ.size() == nj && taughtResidualMm >= 0.0 && taughtResidualMm <= kTaughtSeedPreferMm;
+	QVector<double> currentPoseQ = programStartQ;
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instanceIndex);
+	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointAnglesRad().size() == nj)
+	{
+		currentPoseQ = m_host->robotAxisControlPage()->jointAnglesRad();
+	}
+	else if (m_aggregatedJointAnglesRad.size() >= jointOffset + nj && nj > 0)
+	{
+		currentPoseQ = m_aggregatedJointAnglesRad.mid(jointOffset, nj);
+	}
+
+	QVector<double> refInstructionQ = chainSeedQ;
+	const bool explicitSeedIns =
+		m_ikSeedPolicy == RobotInstruction::IkSeedPolicy::FromInstruction && !m_ikSeedInstructionId.empty();
+	if (explicitSeedIns)
+	{
+		refInstructionQ.clear();
+		if (const RobotInstruction::PlanResult* hit =
+				m_planResultCache.findLatestOkByInstructionId(QString::fromStdString(m_ikSeedInstructionId)))
+		{
+			if (hit->jointTargetsRad.size() == static_cast<size_t>(nj))
+			{
+				refInstructionQ.resize(nj);
+				for (int j = 0; j < nj; ++j)
+				{
+					refInstructionQ[j] = hit->jointTargetsRad[static_cast<size_t>(j)];
+				}
+			}
+		}
+		if (refInstructionQ.size() != nj)
+		{
+			if (planErr)
+			{
+				*planErr = "seed instruction has no planned joints yet; plan the referenced waypoint first";
+			}
+			return false;
+		}
+	}
+
+	RobotInstruction::IkRequest ikReq;
+	ikReq.seedPolicy = m_ikSeedPolicy;
+	ikReq.seedInstructionId = m_ikSeedInstructionId;
+	std::vector<double> currentStd(currentPoseQ.begin(), currentPoseQ.end());
+	std::vector<double> refStd(refInstructionQ.begin(), refInstructionQ.end());
+	RobotInstruction::resolveIkRequestSeed(ikReq, currentStd, refStd);
+	QVector<double> primarySeed;
+	primarySeed.reserve(static_cast<int>(ikReq.qSeedResolved.size()));
+	for (double v : ikReq.qSeedResolved)
+	{
+		primarySeed.push_back(v);
+	}
+	if (m_ikSeedPolicy == RobotInstruction::IkSeedPolicy::FromCurrentPose && primarySeed.size() != nj)
+	{
+		if (planErr)
+		{
+			*planErr = "current pose seed unavailable";
+		}
+		return false;
+	}
+
 	QVector<QVector<double>> seedOrder;
 	auto pushSeed = [&](const QVector<double>& s)
 	{
@@ -7682,29 +8012,197 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		}
 		seedOrder.push_back(s);
 	};
-	if (preferTaughtAsIkSeed)
-	{
-		pushSeed(taughtQ);
-		pushSeed(chainSeedQ);
-	}
-	else
+	pushSeed(primarySeed);
+	// 链式：确定性多种子；当前位姿：轴控优先，仍兜底链式/程序起点（否则未预览直接 Run 易全败）
+	if (m_ikSeedPolicy == RobotInstruction::IkSeedPolicy::FromInstruction && !explicitSeedIns)
 	{
 		pushSeed(chainSeedQ);
-		pushSeed(taughtQ);
+		pushSeed(programStartQ);
 	}
-	pushSeed(programStartQ);
+	else if (m_ikSeedPolicy == RobotInstruction::IkSeedPolicy::FromCurrentPose)
+	{
+		pushSeed(chainSeedQ);
+		pushSeed(programStartQ);
+	}
+	if (seedOrder.isEmpty())
+	{
+		if (planErr)
+		{
+			*planErr = "empty IK seed list";
+		}
+		return false;
+	}
 
 	const RobotInstructionPlanning::MotionPoseBackup backup =
 		RobotInstructionPlanning::backupInstructionPose(instruction);
 	std::string lastErr;
 	bool planned = false;
 	QVector<double> resultQ;
+	QVector<double> jointLowerRad, jointUpperRad;
+	doc->robotJointLimitsForInstance(instanceIndex, jointLowerRad, jointUpperRad);
 
-	// LINE 可走 lite；与 Preview/Run 种子策略一致
-	auto trySeedPass = [&](const bool useLite) -> bool
+	// 同一次多种子终接受只 rebuild 一次碰撞世界
+	bool collisionWorldReady = false;
+	const RobotCollision::Settings& colSettings = doc->robotCollisionSettings();
+	if (colSettings.enabled && m_collisionWorld && m_host)
 	{
-		for (const QVector<double>& trySeed : seedOrder)
+		BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, doc->backend(), colSettings, m_host->osgView());
+		collisionWorldReady = true;
+	}
+
+	// 接受尾段：转数归一化（R1→chainSeed）→ 尾点一致性 → 非链种子重锚/降级 → 写出
+	auto finalizeAccept = [&](RobotInstruction::PlanResult& plan, const QVector<double>& trySeed) -> bool
+	{
+		std::vector<double> refQ(chainSeedQ.begin(), chainSeedQ.end());
+		const std::vector<double> targetsBeforeNorm = plan.jointTargetsRad;
+		if (!normalizeJointRevolutionsToReference(plan.jointTargetsRad, refQ, jointLowerRad, jointUpperRad))
 		{
+			lastErr = "joint revolution normalize failed (limits block nearest turn)";
+			return false;
+		}
+		alignTrajectoryAfterTargetNormalize(plan, targetsBeforeNorm);
+		resultQ.resize(nj);
+		for (int j = 0; j < nj; ++j)
+		{
+			resultQ[j] = plan.jointTargetsRad[static_cast<size_t>(j)];
+		}
+		// 非链式种子：只锁肘/腕/臂重锚（不锁 turn=0，避免回到链式种子失败的那一支）；失败则剥轨迹
+		if (seedsDiffer(trySeed, chainSeedQ) && chainSeedQ.size() == nj)
+		{
+			const RobotInstruction::MotionAxisConfiguration cfgBackup = instruction.motionAxisConfiguration();
+			RobotInstruction::MotionAxisConfiguration lockCfg = cfgBackup;
+			{
+				const QStringList jnLock = doc->robotRevoluteJointNamesForInstance(instanceIndex);
+				std::vector<std::string> jnLockStd;
+				jnLockStd.reserve(static_cast<size_t>(jnLock.size()));
+				for (const QString& jn : jnLock)
+				{
+					jnLockStd.push_back(jn.toStdString());
+				}
+				std::vector<double> qDiscovered(resultQ.begin(), resultQ.end());
+				std::vector<double> qChain(chainSeedQ.begin(), chainSeedQ.end());
+				const RobotInstruction::JointConfigurationClass observed =
+					RobotInstruction::classifyJointConfiguration(qDiscovered, jnLockStd, &qChain);
+				if (observed.elbow != RobotInstruction::ElbowPosture::Auto)
+				{
+					lockCfg.elbow = observed.elbow;
+				}
+				if (observed.wrist != RobotInstruction::WristPosture::Auto)
+				{
+					lockCfg.wrist = observed.wrist;
+				}
+				if (observed.arm != RobotInstruction::ArmPosture::Auto)
+				{
+					lockCfg.arm = observed.arm;
+				}
+			}
+			instruction.setMotionAxisConfiguration(lockCfg);
+			RobotInstruction::PlanResult anchored{};
+			std::string anchorErr;
+			RobotInstructionPlanning::prepareMotionInstructionForPlanning(
+				instruction, chainSeedQ, doc, osg, instanceIndex, urdfPath, defaultTcpLinkName.toStdString(),
+				&frames);
+			instruction.eraseExtensionProperty("context.playbackPlanLite");
+			bool anchorOk =
+				planMotionOnHost(instruction, chainSeedQ, instanceIndex, urdfPath, defaultTcpLinkName,
+								 sceneRootBackendId, anchored, &anchorErr, /*skipValidate=*/false,
+								 /*skipCollision=*/true) &&
+				anchored.ok && anchored.jointTargetsRad.size() == static_cast<size_t>(nj);
+			if (anchorOk)
+			{
+				const std::vector<double> anchoredBefore = anchored.jointTargetsRad;
+				if (!normalizeJointRevolutionsToReference(anchored.jointTargetsRad, refQ, jointLowerRad,
+														  jointUpperRad))
+				{
+					anchorOk = false;
+				}
+				else
+				{
+					alignTrajectoryAfterTargetNormalize(anchored, anchoredBefore);
+				}
+			}
+			if (anchorOk)
+			{
+				QVector<double> anchoredQ(nj);
+				for (int j = 0; j < nj; ++j)
+				{
+					anchoredQ[j] = anchored.jointTargetsRad[static_cast<size_t>(j)];
+				}
+				anchorOk = isFreshIkSolutionAcceptable(
+					targetResidualMmForInstruction(urdfPath, anchoredQ, frames, defaultTcpLinkName, instruction),
+					targetOrientationResidualDegForInstruction(urdfPath, anchoredQ, frames, defaultTcpLinkName,
+															   instruction));
+				if (anchorOk)
+				{
+					resultQ = anchoredQ;
+					plan = std::move(anchored);
+				}
+			}
+			instruction.setMotionAxisConfiguration(cfgBackup);
+			if (!anchorOk)
+			{
+				if (!plan.jointTrajectoryRad.empty())
+				{
+					plan.jointTrajectoryRad.clear();
+					plan.summary += " | anchor re-plan failed, degraded to joint lerp";
+				}
+			}
+		}
+		// 种子尝试跳过碰撞：终接受统一验最终轨迹（稠密或端点 lerp）
+		{
+			const RobotCollision::Settings& colGate = doc->robotCollisionSettings();
+			if (colGate.enabled && m_collisionWorld)
+			{
+				std::vector<std::vector<double>> seg = plan.jointTrajectoryRad;
+				if (seg.empty())
+				{
+					seg.push_back(std::vector<double>(resultQ.begin(), resultQ.end()));
+				}
+				std::string colErr;
+				if (!BackendCollisionSync::validateJointTrajectory(
+						*m_collisionWorld, doc, doc->backend(), instanceIndex, chainSeedQ, seg, colGate, &colErr,
+						m_host->osgView(), /*rebuildWorldFirst=*/!collisionWorldReady))
+				{
+					lastErr = colErr.empty() ? "Collision detected" : colErr;
+					return false;
+				}
+			}
+		}
+		outPlan = std::move(plan);
+		writeExternalAxisPlanToInstruction(instruction, outPlan, doc, instanceIndex);
+		return true;
+	};
+
+	// LINE 可走 lite；与 Preview/Run 种子策略一致。
+	// collectNearest=true（随机兜底）时不在首个过门种子处收口：盒内收集全部过门候选，
+	// 经连续性硬门（R3）后按距链式种子 SSE 排序，终接受（含碰撞）逐个尝试直至成功
+	auto trySeedListPass = [&](const QVector<QVector<double>>& seeds, const bool useLite,
+							   const bool collectNearest, const qint64 budgetMs) -> bool
+	{
+		QElapsedTimer budget;
+		budget.start();
+		struct NearestCand
+		{
+			double sse = 0.0;
+			double wristJump = 0.0;
+			RobotInstruction::PlanResult plan{};
+			QVector<double> seed;
+		};
+		std::vector<NearestCand> nearestCands;
+		const QStringList jnQ = doc->robotRevoluteJointNamesForInstance(instanceIndex);
+		std::vector<std::string> jointNames;
+		jointNames.reserve(static_cast<size_t>(jnQ.size()));
+		for (const QString& n : jnQ)
+		{
+			jointNames.push_back(n.toStdString());
+		}
+		std::vector<double> chainSeedStd(chainSeedQ.begin(), chainSeedQ.end());
+		for (const QVector<double>& trySeed : seeds)
+		{
+			if (collectNearest && budgetMs > 0 && budget.elapsed() >= budgetMs)
+			{
+				break;
+			}
 			RobotInstructionPlanning::prepareMotionInstructionForPlanning(
 				instruction, trySeed, doc, osg, instanceIndex, urdfPath, defaultTcpLinkName.toStdString(), &frames);
 			if (useLite)
@@ -7724,7 +8222,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 			}
 			RobotInstruction::PlanResult plan{};
 			if (!planMotionOnHost(instruction, trySeed, instanceIndex, urdfPath, defaultTcpLinkName, sceneRootBackendId,
-								  plan, &seedErr) ||
+								  plan, &seedErr, /*skipValidate=*/true, /*skipCollision=*/true) ||
 				!plan.ok)
 			{
 				lastErr = plan.summary.empty() ? (seedErr.empty() ? "IK???" : seedErr) : plan.summary;
@@ -7748,39 +8246,74 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 				targetOrientationResidualDegForInstruction(urdfPath, resultQ, frames, defaultTcpLinkName, instruction);
 			if (!isFreshIkSolutionAcceptable(residualMm, orientDeg))
 			{
-				lastErr = (residualMm < 0.0 || residualMm > kFreshIkPositionRejectMm)
-							  ? "position residual exceeds gate"
-							  : "orientation residual exceeds gate";
+				char gateBuf[192];
+				std::snprintf(gateBuf, sizeof(gateBuf),
+							  "%s residual exceeds gate (pos=%.2fmm gate=%.1fmm, orient=%.2fdeg gate=%.1fdeg)",
+							  (residualMm < 0.0 || residualMm > kFreshIkPositionRejectMm) ? "position" : "orientation",
+							  residualMm, kFreshIkPositionRejectMm, orientDeg, kMaxFreshIkOrientDeg);
+				lastErr = gateBuf;
 				continue;
 			}
-			if (plan.jointTrajectoryRad.size() >= 2U)
+			const double wristJump =
+				RobotInstruction::wristConfigurationJumpRad(plan.jointTargetsRad, chainSeedStd, jointNames);
+			const bool wristCont = wristJump <= RobotInstruction::kWristContinuityGateRad;
+			if (collectNearest)
 			{
-				const auto& back = plan.jointTrajectoryRad.back();
-				bool trajMatchesTarget = back.size() == plan.jointTargetsRad.size();
-				if (trajMatchesTarget)
+				const double maxAbs = maxUnfoldedJointAbsDelta(resultQ, chainSeedQ);
+				const double sse = unfoldedJointSse(resultQ, chainSeedQ);
+				if (maxAbs > kFallbackConsistencyRad)
 				{
-					for (size_t j = 0; j < back.size(); ++j)
-					{
-						if (std::abs(back[j] - plan.jointTargetsRad[j]) > 1e-6)
-						{
-							trajMatchesTarget = false;
-							break;
-						}
-					}
+					lastErr = "random fallback candidate exceeds continuity gate";
+					continue;
 				}
-				if (!trajMatchesTarget)
+				nearestCands.push_back(NearestCand{sse, wristJump, std::move(plan), trySeed});
+				if (maxAbs <= kFallbackNearEnoughRad && wristCont)
 				{
-					plan.jointTrajectoryRad.clear();
+					break;
+				}
+				continue;
+			}
+			// 确定性种子：先收齐过门候选，按腕连续优先再终接受（避免硬拒导致全败）
+			nearestCands.push_back(NearestCand{0.0, wristJump, std::move(plan), trySeed});
+		}
+		if (!nearestCands.empty())
+		{
+			std::sort(nearestCands.begin(), nearestCands.end(),
+					  [](const NearestCand& a, const NearestCand& b)
+					  {
+						  const bool aCont = a.wristJump <= RobotInstruction::kWristContinuityGateRad;
+						  const bool bCont = b.wristJump <= RobotInstruction::kWristContinuityGateRad;
+						  if (aCont != bCont)
+						  {
+							  return aCont;
+						  }
+						  if (std::abs(a.wristJump - b.wristJump) > 1e-9)
+						  {
+							  return a.wristJump < b.wristJump;
+						  }
+						  return a.sse < b.sse;
+					  });
+			for (NearestCand& cand : nearestCands)
+			{
+				if (finalizeAccept(cand.plan, cand.seed))
+				{
+					return true;
 				}
 			}
-			outPlan = std::move(plan);
-			writeExternalAxisPlanToInstruction(instruction, outPlan, doc, instanceIndex);
-			return true;
 		}
 		return false;
 	};
 
-	planned = trySeedPass(true) || trySeedPass(false);
+	// PTP 的 lite 不减 DLS，只白付一遍；LINE/ARC lite 才压缩采样
+	const bool tryLiteFirst = instruction.type() != RobotInstruction::Type::PTP;
+	planned = (tryLiteFirst && trySeedListPass(seedOrder, true, false, 0)) ||
+			  trySeedListPass(seedOrder, false, false, 0);
+	if (!planned)
+	{
+		// 播放中段前补算失败会停机：给足随机盒；预取段仍受 ensurePlaybackPlansReady 时间盒约束
+		const qint64 budgetMs = m_programExecutor.isRunning() ? 280 : 400;
+		planned = tryRandomRestartPass(trySeedListPass, nj, jointLowerRad, jointUpperRad, budgetMs);
+	}
 	RobotInstructionPlanning::restoreInstructionPose(instruction, backup);
 	if (!planned)
 	{
@@ -7834,6 +8367,10 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 				instruction.setMotionAxisConfiguration(cfg);
 			}
 		}
+	}
+	{
+		const QString storeFp = computePlanFingerprint(instruction, chainSeedQ, urdfPath, defaultTcpLinkName);
+		m_planResultCache.store(insIdQ, storeFp, outPlan);
 	}
 	return true;
 }
@@ -8002,47 +8539,6 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 	{
 		return false;
 	}
-	const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(ins);
-	bool useTaughtCsv = frames && taughtQ.size() == nj && RobotInstructionPlanning::shouldUseTaughtJointCsv(ins, frames);
-	if (useTaughtCsv && workerCtrl.hasEnabledExternalAxes())
-	{
-		const auto& ext = ins.extensionProperties();
-		const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
-		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-		const bool hasCsv = itCsv != ext.end() && !itCsv->second.empty();
-		const bool hasQ = itQ != ext.end() && !itQ->second.empty();
-		if (!hasCsv && !hasQ)
-		{
-			useTaughtCsv = false;
-		}
-	}
-	if (useTaughtCsv)
-	{
-		const double taughtResidual = targetResidualMmForInstruction(urdfPath, taughtQ, *frames, tcpLinkName, ins);
-		const double taughtOrientDeg =
-			targetOrientationResidualDegForInstruction(urdfPath, taughtQ, *frames, tcpLinkName, ins);
-		if (!isTaughtOrCacheReuseAcceptable(taughtResidual, taughtOrientDeg))
-		{
-			useTaughtCsv = false;
-		}
-	}
-	if (useTaughtCsv)
-	{
-		outJointQ = taughtQ;
-		if (outPlan)
-		{
-			*outPlan = {};
-			outPlan->ok = true;
-			outPlan->plannerName = "taughtJointCsv";
-			outPlan->summary = "Use context.currentJointRadCsv from teach capture";
-			outPlan->durationSec = RobotInstructionPlanning::motionDurationSecFromInstruction(ins);
-			outPlan->jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
-			outPlan->jointTrajectoryRad.clear();
-			const auto& ext = ins.extensionProperties();
-			fillPlanExternalAxisFromInstructionExt(*outPlan, ext, externalAxesForPlan);
-		}
-		return true;
-	}
 
 	QVector<QVector<double>> seedOrder;
 	auto pushSeed = [&](const QVector<double>& s)
@@ -8060,15 +8556,43 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 		}
 		seedOrder.push_back(s);
 	};
-	pushSeed(taughtQ);
 	pushSeed(chainSeedQ);
 	pushSeed(programStartQ);
 
 	const RobotInstructionPlanning::MotionPoseBackup backup = RobotInstructionPlanning::backupInstructionPose(ins);
-	auto tryPass = [&](const bool useLite) -> bool
+	// 接受写出：非链式种子获胜时笛卡尔轨迹起点锚定在错误位形上；worker 无文档/碰撞上下文，剥离轨迹降级为端点 lerp
+	auto acceptPlan = [&](RobotInstruction::PlanResult& plan, const QVector<double>& trySeed,
+						  const QVector<double>& acceptQ) -> bool
 	{
-		for (const QVector<double>& trySeed : seedOrder)
+		if (seedsDifferPlan(trySeed, chainSeedQ) && chainSeedQ.size() == nj && !plan.jointTrajectoryRad.empty())
 		{
+			plan.jointTrajectoryRad.clear();
+			plan.summary += " | non-chain seed anchor, trajectory stripped";
+		}
+		outJointQ = acceptQ;
+		if (outPlan)
+		{
+			*outPlan = std::move(plan);
+		}
+		return true;
+	};
+	// collectNearest：未折圈行程门 + 就近优选（R1 归一化由同步缓存接受点带限位完成）
+	auto tryPass = [&](const QVector<QVector<double>>& seeds, const bool useLite, const bool collectNearest,
+					   const qint64 budgetMs) -> bool
+	{
+		QElapsedTimer budget;
+		budget.start();
+		bool haveBest = false;
+		double bestScore = 0.0;
+		RobotInstruction::PlanResult bestPlan{};
+		QVector<double> bestQ;
+		QVector<double> bestSeed;
+		for (const QVector<double>& trySeed : seeds)
+		{
+			if (collectNearest && budgetMs > 0 && budget.elapsed() >= budgetMs)
+			{
+				break;
+			}
 			RobotInstructionPlanning::prepareMotionInstructionForPlanning(
 				ins, trySeed, nullptr, nullptr, 0, urdfPath, tcpLinkName.toStdString(), frames);
 			if (useLite)
@@ -8104,16 +8628,50 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 					continue;
 				}
 			}
-			outJointQ = resultQ;
-			if (outPlan)
+			if (collectNearest)
 			{
-				*outPlan = std::move(plan);
+				const double maxAbs = maxUnfoldedJointAbsDelta(resultQ, chainSeedQ);
+				const double sse = unfoldedJointSse(resultQ, chainSeedQ);
+				if (maxAbs > kFallbackConsistencyRad)
+				{
+					continue;
+				}
+				if (!haveBest || sse < bestScore)
+				{
+					haveBest = true;
+					bestScore = sse;
+					bestPlan = plan;
+					bestQ = resultQ;
+					bestSeed = trySeed;
+				}
+				if (maxAbs <= kFallbackNearEnoughRad)
+				{
+					break;
+				}
+				continue;
 			}
-			return true;
+			if (acceptPlan(plan, trySeed, resultQ))
+			{
+				return true;
+			}
+		}
+		if (collectNearest && haveBest)
+		{
+			return acceptPlan(bestPlan, bestSeed, bestQ);
 		}
 		return false;
 	};
-	const bool ok = tryPass(true) || tryPass(false);
+	bool ok = false;
+	if (ins.type() != RobotInstruction::Type::PTP)
+	{
+		ok = tryPass(seedOrder, true, false, 0);
+	}
+	ok = ok || tryPass(seedOrder, false, false, 0);
+	if (!ok)
+	{
+		// worker 在后台线程：预算放宽保成功率，但必须有界——单难点长期占槽会加剧倍速下的前瞻饥饿
+		ok = tryRandomRestartPass(tryPass, nj, QVector<double>(), QVector<double>(), 300);
+	}
 	RobotInstructionPlanning::restoreInstructionPose(ins, backup);
 	return ok;
 }
@@ -8726,10 +9284,30 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 		(void)m_programExecutor.updateMotionPlanResult(motionPtr, failed);
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(
+			QString detail =
 				m_host->i18n(QStringLiteral("Lazy plan seed unavailable for motion %1.")
-								 .arg(static_cast<int>(motionIndex) + 1), QStringLiteral("运动 %1 的懒加载规划种子不可用。")
-								 .arg(static_cast<int>(motionIndex) + 1)));
+								 .arg(static_cast<int>(motionIndex) + 1),
+							 QStringLiteral("运动 %1 的懒加载规划种子不可用。").arg(static_cast<int>(motionIndex) + 1));
+			// 常见连锁：前序段 IK/碰撞失败后本段无滚动种子
+			if (motionIndex > 0 && motionIndex <= m_currentRunMotions.size())
+			{
+				const RobotInstruction::Base* prev = m_currentRunMotions[motionIndex - 1];
+				if (const RobotInstruction::PlanResult* prevPlan = m_programExecutor.motionPlanResult(prev))
+				{
+					if (!prevPlan->ok)
+					{
+						const QString prevReason = QString::fromStdString(
+							prevPlan->summary.empty() ? prevPlan->plannerName : prevPlan->summary);
+						detail += m_host->i18n(QStringLiteral(" Prior motion %1 failed: %2")
+												   .arg(static_cast<int>(motionIndex))
+												   .arg(prevReason),
+											   QStringLiteral(" 前序运动 %1 已失败：%2")
+												   .arg(static_cast<int>(motionIndex))
+												   .arg(prevReason));
+					}
+				}
+			}
+			m_host->appendRunWarning(detail);
 		}
 		return false;
 	}
@@ -8737,49 +9315,6 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 	RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motionPtr);
 	const QString insIdQ = QString::fromStdString(ins->id());
 	const QString fp = computePlanFingerprint(*ins, rollingQ, urdfPath, defaultTcpLinkName);
-
-	const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*ins);
-	bool useTaught = taughtQ.size() == nj && RobotInstructionPlanning::shouldUseTaughtJointCsv(*ins, &framesForRun);
-	if (useTaught && RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx)))
-	{
-		const auto& ext = ins->extensionProperties();
-		const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
-		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-		const bool hasCsv = itCsv != ext.end() && !itCsv->second.empty();
-		const bool hasQ = itQ != ext.end() && !itQ->second.empty();
-		if (!hasCsv && !hasQ)
-		{
-			useTaught = false;
-		}
-	}
-	if (useTaught)
-	{
-		const double taughtResidual =
-			targetResidualMmForInstruction(urdfPath, taughtQ, framesForRun, defaultTcpLinkName, *ins);
-		const double taughtOrientDeg =
-			targetOrientationResidualDegForInstruction(urdfPath, taughtQ, framesForRun, defaultTcpLinkName, *ins);
-		if (!isTaughtOrCacheReuseAcceptable(taughtResidual, taughtOrientDeg))
-		{
-			useTaught = false;
-		}
-	}
-	if (useTaught)
-	{
-		RobotInstruction::PlanResult plan{};
-		plan.ok = true;
-		plan.plannerName = "taughtJointCsv";
-		plan.summary = "Use context.currentJointRadCsv from teach capture";
-		plan.durationSec = RobotInstructionPlanning::motionDurationSecFromInstruction(*ins);
-		plan.jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
-		const auto& ext = ins->extensionProperties();
-		fillPlanExternalAxisFromInstructionExt(plan, ext, &doc->robotExternalAxesForInstance(instIdx));
-		if (plan.durationSec > 1e-6)
-		{
-			ins->setExtensionProperty("motion.durationSec", QString::number(plan.durationSec, 'f', 3).toStdString());
-		}
-		commitPlaybackPlan(motionPtr, motionIndex, std::move(plan));
-		return true;
-	}
 
 	if (const RobotInstruction::PlanResult* cached = m_planResultCache.fetch(insIdQ, fp))
 	{
@@ -8796,21 +9331,61 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 				targetResidualMmForInstruction(urdfPath, cachedQ, framesForRun, defaultTcpLinkName, *ins);
 			const double orientDeg = targetOrientationResidualDegForInstruction(urdfPath, cachedQ, framesForRun,
 																				defaultTcpLinkName, *ins);
-			if (isTaughtOrCacheReuseAcceptable(residualMm, orientDeg))
+		if (isTaughtOrCacheReuseAcceptable(residualMm, orientDeg))
+		{
+			RobotInstruction::PlanResult plan = *cached;
+			// R1：参照滚动链种子；归一失败则丢弃缓存重规划。示教 CSV 路径刻意不归一
+			std::vector<double> refQ(rollingQ.begin(), rollingQ.end());
+			QVector<double> limLo, limHi;
+			doc->robotJointLimitsForInstance(instIdx, limLo, limHi);
+			const std::vector<double> targetsBeforeNorm = plan.jointTargetsRad;
+			bool cacheOk = normalizeJointRevolutionsToReference(plan.jointTargetsRad, refQ, limLo, limHi);
+			if (cacheOk)
 			{
-				RobotInstruction::PlanResult plan = *cached;
+				alignTrajectoryAfterTargetNormalize(plan, targetsBeforeNorm);
+				// R1 后无论稠密/端点，均复验碰撞（与 finalizeAccept 对齐）
+				const RobotCollision::Settings& colGate = doc->robotCollisionSettings();
+				if (colGate.enabled && m_collisionWorld)
+				{
+					std::vector<std::vector<double>> seg = plan.jointTrajectoryRad;
+					if (seg.empty())
+					{
+						seg.push_back(plan.jointTargetsRad);
+					}
+					std::string colErr;
+					if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(),
+																	   instIdx, rollingQ, seg, colGate, &colErr,
+																	   m_host->osgView()))
+					{
+						cacheOk = false;
+					}
+				}
+			}
+			if (cacheOk)
+			{
 				(void)m_programExecutor.updateMotionPlanResult(motionPtr, plan);
 				return true;
 			}
+			// 命中后 R1/碰撞失败：剔除毒缓存，避免下次仍先踩坑
+			m_planResultCache.invalidateByInstruction(insIdQ);
+		}
 		}
 	}
 
 	ins->eraseExtensionProperty("context.playbackPlanLite");
 	std::string planErr;
 	RobotInstruction::PlanResult plan{};
+	QElapsedTimer syncPlanTimer;
+	syncPlanTimer.start();
 	const bool okPlan = planMotionConsistentWithPreview(*ins, rollingQ, programStartQ, instIdx, urdfPath,
 														defaultTcpLinkName, robotBackendId, framesForRun, plan,
 														&planErr, true);
+	// 播放中同步补规划是 UI 线程阻塞源：超阈值打点，量化倍速卡顿的主嫌疑
+	if (m_programExecutor.isRunning() && syncPlanTimer.elapsed() > 30)
+	{
+		RunLogger::info("Playback sync plan motion " + std::to_string(motionIndex + 1) + " took " +
+						std::to_string(syncPlanTimer.elapsed()) + " ms");
+	}
 	if (!okPlan)
 	{
 		RobotInstruction::PlanResult failed{};
@@ -8871,6 +9446,11 @@ void RobotSimulationController::ensurePlaybackPlansReady()
 	}
 
 	constexpr size_t kPrefetch = 2;
+	// 预取段受单 tick 时间盒约束：倍速播放时避免一次 tick 连续多段全量规划卡死 UI，超盒留待下 tick。
+	// current 段本身必须补完（Executor 进入未消 lazyPending 段会判失败停机），其成本由随机重启时间盒封顶
+	constexpr qint64 kPrefetchBudgetMs = 24;
+	QElapsedTimer prefetchBudget;
+	prefetchBudget.start();
 	const size_t last = m_currentRunMotions.size() - 1;
 	const size_t needThrough = std::min(last, currentMi + kPrefetch);
 	for (size_t mi = currentMi; mi <= needThrough; ++mi)
@@ -8885,6 +9465,10 @@ void RobotSimulationController::ensurePlaybackPlansReady()
 		{
 			continue;
 		}
+		if (mi != currentMi && prefetchBudget.elapsed() >= kPrefetchBudgetMs)
+		{
+			break;
+		}
 		if (!syncPlanMotionAtIndex(mi))
 		{
 			break;
@@ -8898,7 +9482,11 @@ void RobotSimulationController::tickLookaheadPlanning()
 	{
 		return;
 	}
-	if (m_lookaheadPendingJobs >= m_lookaheadConfig.maxConcurrentJobs)
+	// 倍率抬高段消耗速率，前瞻并发随倍率放大；封顶 8 避免后台线程与渲染线程争抢
+	const int effectiveMaxJobs =
+		std::clamp(static_cast<int>(std::ceil(m_lookaheadConfig.maxConcurrentJobs * m_programExecutor.playbackRate())),
+				   m_lookaheadConfig.maxConcurrentJobs, 8);
+	if (m_lookaheadPendingJobs >= effectiveMaxJobs)
 	{
 		return;
 	}
@@ -8952,7 +9540,7 @@ void RobotSimulationController::tickLookaheadPlanning()
 	int jobsStarted = 0;
 	for (int ahead = 1; ahead <= m_lookaheadConfig.maxAdvanceBlocks; ++ahead)
 	{
-		if (m_lookaheadPendingJobs >= m_lookaheadConfig.maxConcurrentJobs)
+		if (m_lookaheadPendingJobs >= effectiveMaxJobs)
 		{
 			break;
 		}
@@ -8998,12 +9586,16 @@ void RobotSimulationController::tickLookaheadPlanning()
 			QString insId;
 			QString fingerprint;
 			size_t motionIndex = 0;
+			int instanceIndex = 0;
+			QVector<double> seedJointRad;
 			RobotInstruction::PlanResult plan;
 		};
 		const auto jobResult = std::make_shared<LookaheadJobResult>();
 		jobResult->insId = insIdQ;
 		jobResult->fingerprint = fp;
 		jobResult->motionIndex = targetMi;
+		jobResult->instanceIndex = instIdx;
+		jobResult->seedJointRad = seedQ;
 
 		++m_lookaheadPendingJobs;
 		++jobsStarted;
@@ -9016,6 +9608,35 @@ void RobotSimulationController::tickLookaheadPlanning()
 				if (threw || !jobResult->plan.ok)
 				{
 					return;
+				}
+				IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+				if (doc)
+				{
+					QVector<double> limLo, limHi;
+					doc->robotJointLimitsForInstance(jobResult->instanceIndex, limLo, limHi);
+					if (!prepareWorkerPlanForCache(jobResult->plan, jobResult->seedJointRad, limLo, limHi))
+					{
+						return;
+					}
+					// 入库前复验碰撞（稠密轨迹亦验，与 sync 缓存命中一致）
+					{
+						const RobotCollision::Settings& colGate = doc->robotCollisionSettings();
+						if (colGate.enabled && m_collisionWorld)
+						{
+							std::vector<std::vector<double>> seg = jobResult->plan.jointTrajectoryRad;
+							if (seg.empty())
+							{
+								seg.push_back(jobResult->plan.jointTargetsRad);
+							}
+							std::string colErr;
+							if (!BackendCollisionSync::validateJointTrajectory(
+									*m_collisionWorld, doc, doc->backend(), jobResult->instanceIndex,
+									jobResult->seedJointRad, seg, colGate, &colErr, m_host->osgView()))
+							{
+								return;
+							}
+						}
+					}
 				}
 				m_planResultCache.store(jobResult->insId, jobResult->fingerprint, jobResult->plan,
 										jobResult->motionIndex);

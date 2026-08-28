@@ -47,7 +47,7 @@ struct ROBOT_SCENE_API TrajectoryPoint
 	/// 与 pose 对应的四元数（xyzw）；有则写入时优先于欧拉，避免往返丢姿态
 	double quatXyzw[4]{0.0, 0.0, 0.0, 1.0};
 	bool hasQuat = false;
-	/// 运动规划得到的关节角；有则落盘为 context.currentJointRadCsv，回放免重 IK
+	/// 运动规划得到的关节角（会话用）；落盘指令时不写 context.currentJointRadCsv
 	std::vector<double> jointRad;
 	double blendRadiusMm = 0.0;
 	double speedMmPerSec = 0.0;

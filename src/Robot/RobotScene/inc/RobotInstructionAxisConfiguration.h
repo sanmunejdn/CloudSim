@@ -109,6 +109,14 @@ ROBOT_SCENE_API JointConfigurationClass classifyJointConfiguration(const std::ve
 																   const std::vector<std::string>& jointNames,
 																   const std::vector<double>* referenceQRad = nullptr);
 
+/// 相对种子的腕区跳变（J4/J5/J6 最短角差的最大者，rad；已对 2π 折同构）
+/// 邻点连续：小于约 π/2 视为未翻腕；球腕 J4/J6 对调通常 ≥π
+ROBOT_SCENE_API double wristConfigurationJumpRad(const std::vector<double>& qRad, const std::vector<double>& seedRad,
+												 const std::vector<std::string>& jointNames);
+
+/// 腕连续门限（rad）：超过则视为跳腕支
+inline constexpr double kWristContinuityGateRad = 1.5707963267948966; // π/2
+
 /// 从观测姿态反推最具体 preset（可能为 AUTO）
 ROBOT_SCENE_API std::string suggestMotionAxisPresetToken(const JointConfigurationClass& observed);
 

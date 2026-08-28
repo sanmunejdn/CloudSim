@@ -38,6 +38,7 @@ ROBOTWIDGET_EXPORT QVector<double> jointAnglesRadFromInstructionContext(const Ro
 ROBOTWIDGET_EXPORT double motionDurationSecFromInstruction(const RobotInstruction::Base& ins, double defaultSec = 0.5);
 
 /// Drop taught joint CSV so preview/Run replan IK after \c motion.tool.frameId / tool matrix change.
+/// @note 契约：指令不持久化关节；shouldUseTaughtJointCsv 恒为 false
 ROBOTWIDGET_EXPORT void invalidateTaughtJointsForToolFrameChange(RobotInstruction::Base& ins);
 
 /// 从 \a fromMotionIndexInclusive 起清除示教关节（含当前点），避免下游仍用旧工具系下的 CSV。
@@ -45,7 +46,7 @@ ROBOTWIDGET_EXPORT void
 invalidateTaughtJointsFromMotionIndexForward(const std::vector<const RobotInstruction::Base*>& motions,
 											 int fromMotionIndexInclusive);
 
-/// True only when taught CSV matches this point's frozen tool context.
+/// 恒 false：指令只存 TCP，禁止关节短路
 ROBOTWIDGET_EXPORT bool shouldUseTaughtJointCsv(const RobotInstruction::Base& ins,
 												const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames);
 
@@ -56,7 +57,7 @@ ROBOTWIDGET_EXPORT bool motionFollowsActiveToolFrame(const RobotInstruction::Bas
 ROBOTWIDGET_EXPORT void syncInstructionToolContextFromFrames(RobotInstruction::Base& ins,
 															 const RobotCoordinate::RobotCoordinateFrameSet& frames);
 
-/// IK/规划成功后回写示教关节与冻结工具 context
+/// 仅同步工具系并清除关节 CSV（不再落盘关节）
 ROBOTWIDGET_EXPORT void persistTaughtJointsAndToolContext(RobotInstruction::Base& ins, const QVector<double>& jointQ,
 														  const RobotCoordinate::RobotCoordinateFrameSet& frames);
 

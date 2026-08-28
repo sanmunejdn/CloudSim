@@ -21,6 +21,9 @@ public:
 
 	const RobotInstruction::PlanResult* fetch(const QString& instructionId, const QString& fingerprint) const;
 
+	/// 指定指令点种子：取该 id 最近一次成功规划的关节终点
+	const RobotInstruction::PlanResult* findLatestOkByInstructionId(const QString& instructionId) const;
+
 	void store(const QString& instructionId, const QString& fingerprint, const RobotInstruction::PlanResult& result,
 			   size_t motionIndex = 0);
 

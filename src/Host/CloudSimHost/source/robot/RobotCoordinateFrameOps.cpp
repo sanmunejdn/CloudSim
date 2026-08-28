@@ -6,6 +6,7 @@
 #include "DocumentHost.h"
 #include "HeadlessRobotContext.h"
 #include "RobotExternalAxes.h"
+#include "RobotInstructionIkContext.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPerLinkKinematicsSliceOsg.h"
 #include "RobotProgramCatalog.h"
@@ -34,39 +35,6 @@ bool toolGeometryMatches(const RobotCoordinate::RobotToolFrame& a, const RobotCo
 	return RobotCoordinate::encodeMat4Csv(RobotCoordinate::frameToMat4(a.T_flange_tool)) ==
 			   RobotCoordinate::encodeMat4Csv(RobotCoordinate::frameToMat4(b.T_flange_tool)) &&
 		   a.flangeLinkName == b.flangeLinkName;
-}
-
-bool motionFollowsActiveToolFrame(const RobotInstruction::Base& ins)
-{
-	const auto& ext = ins.extensionProperties();
-	const auto it = ext.find(RobotCoordinate::kExtMotionToolFrameId);
-	return it == ext.end() || it->second.empty() || it->second == "active";
-}
-
-void syncInstructionToolContext(RobotInstruction::Base& ins, const RobotCoordinate::RobotCoordinateFrameSet& frames)
-{
-	const RobotCoordinate::RobotToolFrame* tool = nullptr;
-	if (motionFollowsActiveToolFrame(ins))
-	{
-		tool = RobotCoordinate::activeToolFrame(frames);
-	}
-	else if (const RobotCoordinate::RobotToolFrame* resolved =
-				 RobotCoordinate::resolveToolFrameForExtension(frames, ins.extensionProperties()))
-	{
-		tool = resolved;
-	}
-	if (!tool)
-	{
-		return;
-	}
-	const BackendMat4 toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
-	ins.setExtensionProperty(RobotCoordinate::kExtContextToolFrameMat4, RobotCoordinate::encodeMat4Csv(toolMat));
-	ins.setExtensionProperty("context.activeToolFrameId", tool->id);
-	const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
-	if (!flangeLink.empty())
-	{
-		ins.setExtensionProperty("context.flangeLinkName", flangeLink);
-	}
 }
 
 void fillOverlayPoseFromMat4(const BackendMat4& m, FrameOverlayEntry& e)
@@ -386,7 +354,7 @@ void syncProgramToolContextAfterFrameChange(RobotProgramStore& store, const QStr
 				continue;
 			}
 			bool affected = false;
-			if (activeChanged && motionFollowsActiveToolFrame(*step))
+			if (activeChanged && RobotInstruction::motionUsesActiveToolFrame(*step))
 			{
 				affected = true;
 			}
@@ -404,7 +372,7 @@ void syncProgramToolContextAfterFrameChange(RobotProgramStore& store, const QStr
 				continue;
 			}
 			step->eraseExtensionProperty("context.currentJointRadCsv");
-			syncInstructionToolContext(*step, newFrames);
+			RobotInstruction::syncToolContextFromFrames(*step, newFrames);
 		}
 	}
 }

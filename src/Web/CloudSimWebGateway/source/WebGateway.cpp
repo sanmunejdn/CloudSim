@@ -1752,11 +1752,16 @@ bool WebGateway::openProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 		cloudsim::host::parseProjectEdgesJson(root.value(QStringLiteral("edges")).toArray());
 	const bool useEdgesRelation = !pendingEdges.isEmpty();
 	const QSet<QString> robotLinkMeshBackendIds = cloudsim::host::collectRobotLinkMeshBackendIds(root);
+	const QSet<QString> robotSceneRootBackendIds = cloudsim::host::collectRobotSceneRootBackendIds(root);
+	const QHash<QString, cloudsim::host::RobotLinkUrdfReloadHint> robotLinkUrdfReloadHints =
+		cloudsim::host::collectRobotLinkUrdfReloadHints(root);
 
 	cloudsim::host::ProjectObjectLoadOptions loadOpts;
 	loadOpts.projectDir = projectDir;
 	loadOpts.useEdgesRelation = useEdgesRelation;
 	loadOpts.robotLinkMeshBackendIds = robotLinkMeshBackendIds;
+	loadOpts.robotSceneRootBackendIds = robotSceneRootBackendIds;
+	loadOpts.robotLinkUrdfReloadHints = robotLinkUrdfReloadHints;
 
 	cloudsim::host::ProjectObjectLoadCallbacks loadCbs;
 	loadCbs.legacyParentFollow = [](const std::string&, const std::string&) {};

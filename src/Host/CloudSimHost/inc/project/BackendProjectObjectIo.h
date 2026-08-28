@@ -6,6 +6,7 @@
 /// @brief 工程父子边
 
 #include "cloudsim_host_global.h"
+#include "RobotProjectKinematicsRestore.h"
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -43,11 +44,11 @@ CLOUDSIM_HOST_EXPORT bool decodeBackendObjectFromProjectJson(const QJsonObject& 
 															 QString* outError = nullptr);
 
 /// 内嵌几何注册
-CLOUDSIM_HOST_EXPORT bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& objectJson,
-														const QString& persistedId, const QString& sourcePath,
-														const QString& catalogTypeName, const QString& parentId,
-														bool robotLinkMeshVisual, const QString& projectDir = QString(),
-														QString* outVisualError = nullptr, QString* outError = nullptr);
+CLOUDSIM_HOST_EXPORT bool registerEmbeddedProjectObject(
+	DocumentHost& host, const QJsonObject& objectJson, const QString& persistedId, const QString& sourcePath,
+	const QString& catalogTypeName, const QString& parentId, bool robotLinkMeshVisual, const QString& projectDir = QString(),
+	const RobotLinkUrdfReloadHint* robotLinkReloadHint = nullptr, QString* outVisualError = nullptr,
+	QString* outError = nullptr);
 
 /// 文件回退导入
 CLOUDSIM_HOST_EXPORT QString importProjectObjectFromFile(DocumentHost& host, const QString& loadPath,
@@ -75,6 +76,8 @@ struct ProjectObjectLoadOptions
 	QString projectDir;
 	bool useEdgesRelation = false;
 	QSet<QString> robotLinkMeshBackendIds;
+	QSet<QString> robotSceneRootBackendIds;
+	QHash<QString, RobotLinkUrdfReloadHint> robotLinkUrdfReloadHints;
 };
 
 /// 点云 Widget 回退

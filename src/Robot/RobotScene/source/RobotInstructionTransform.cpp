@@ -5,6 +5,7 @@
 
 #include "RobotExternalAxes.h"
 
+#include <cmath>
 #include <sstream>
 
 namespace RobotInstruction
@@ -44,7 +45,20 @@ bool parseQuatCsv(const std::string& csv, Eigen::Quaterniond& out)
 	{
 		return false;
 	}
-	out = Eigen::Quaterniond(v[3], v[0], v[1], v[2]);
+	for (int i = 0; i < 4; ++i)
+	{
+		if (!std::isfinite(v[i]))
+		{
+			return false;
+		}
+	}
+	Eigen::Quaterniond q(v[3], v[0], v[1], v[2]);
+	// 零范数 normalized() 会出 NaN 旋转；脏 CSV / 手改工程必须在读侧拒掉
+	if (q.norm() < 1e-9)
+	{
+		return false;
+	}
+	out = q.normalized();
 	return true;
 }
 
@@ -127,6 +141,15 @@ bool readTargetTransformFromInstruction(const Base& cmd, engine::RigidTransform&
 		Eigen::Vector3d t = Eigen::Vector3d::Zero();
 		if (parseQuatCsv(itQ->second, q) && parseTransCsv(itT->second, t))
 		{
+			// 与示教拖动一致：界面 euler 为真源，context 四元数仅作落盘
+			if (cmd.hasEulerProperty())
+			{
+				const Vec3 p = cmd.pose();
+				const Vec3 e = cmd.eulerDeg();
+				outTargetInBase =
+					engine::RigidTransform::fromTranslationEulerDeg(p.x, p.y, p.z, e.x, e.y, e.z);
+				return true;
+			}
 			outTargetInBase = engine::RigidTransform::fromTranslationQuat(t, q);
 			return true;
 		}
@@ -141,6 +164,98 @@ bool readTargetTransformFromInstruction(const Base& cmd, engine::RigidTransform&
 	{
 		outTargetInBase =
 			engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d(p.x, p.y, p.z), Eigen::Quaterniond::Identity());
+	}
+	return true;
+}
+
+bool applyTargetDisplayComponent(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg)
+{
+	if (!cmd.hasPoseProperty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "instruction has no pose property";
+		}
+		return false;
+	}
+	double parsed = 0.0;
+	try
+	{
+		size_t idx = 0;
+		parsed = std::stod(value, &idx);
+		if (idx != value.size())
+		{
+			if (errMsg)
+			{
+				*errMsg = "invalid number";
+			}
+			return false;
+		}
+	}
+	catch (...)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid number";
+		}
+		return false;
+	}
+	engine::RigidTransform t{};
+	if (!readTargetTransformFromInstruction(cmd, t))
+	{
+		if (errMsg)
+		{
+			*errMsg = "failed to read target transform";
+		}
+		return false;
+	}
+	Eigen::Vector3d trans = t.translationMm();
+	double ex = 0.0;
+	double ey = 0.0;
+	double ez = 0.0;
+	t.eulerDegForDisplay(ex, ey, ez);
+	if (key == "motion.target.pose.x")
+	{
+		trans.x() = parsed;
+	}
+	else if (key == "motion.target.pose.y")
+	{
+		trans.y() = parsed;
+	}
+	else if (key == "motion.target.pose.z")
+	{
+		trans.z() = parsed;
+	}
+	else if (key == "motion.target.euler.rx")
+	{
+		ex = parsed;
+	}
+	else if (key == "motion.target.euler.ry")
+	{
+		ey = parsed;
+	}
+	else if (key == "motion.target.euler.rz")
+	{
+		ez = parsed;
+	}
+	else
+	{
+		if (errMsg)
+		{
+			*errMsg = "unknown target display key";
+		}
+		return false;
+	}
+	// 平移分量保留原旋转；欧拉分量用显示欧拉重建（与面板语义一致）
+	if (key == "motion.target.pose.x" || key == "motion.target.pose.y" || key == "motion.target.pose.z")
+	{
+		writeTargetTransformToInstruction(
+			cmd, engine::RigidTransform::fromTranslationQuat(trans, t.rotation().normalized()));
+	}
+	else
+	{
+		writeTargetTransformToInstruction(
+			cmd, engine::RigidTransform::fromTranslationEulerDeg(trans.x(), trans.y(), trans.z(), ex, ey, ez));
 	}
 	return true;
 }
@@ -199,6 +314,97 @@ bool readViaTransformFromInstruction(const Base& cmd, engine::RigidTransform& ou
 	{
 		outViaInBase =
 			engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d(p.x, p.y, p.z), Eigen::Quaterniond::Identity());
+	}
+	return true;
+}
+
+bool applyViaDisplayComponent(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg)
+{
+	if (!cmd.hasViaPoseProperty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "instruction has no via pose property";
+		}
+		return false;
+	}
+	double parsed = 0.0;
+	try
+	{
+		size_t idx = 0;
+		parsed = std::stod(value, &idx);
+		if (idx != value.size())
+		{
+			if (errMsg)
+			{
+				*errMsg = "invalid number";
+			}
+			return false;
+		}
+	}
+	catch (...)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid number";
+		}
+		return false;
+	}
+	engine::RigidTransform t{};
+	if (!readViaTransformFromInstruction(cmd, t))
+	{
+		if (errMsg)
+		{
+			*errMsg = "failed to read via transform";
+		}
+		return false;
+	}
+	Eigen::Vector3d trans = t.translationMm();
+	double ex = 0.0;
+	double ey = 0.0;
+	double ez = 0.0;
+	t.eulerDegForDisplay(ex, ey, ez);
+	if (key == "motion.via.pose.x")
+	{
+		trans.x() = parsed;
+	}
+	else if (key == "motion.via.pose.y")
+	{
+		trans.y() = parsed;
+	}
+	else if (key == "motion.via.pose.z")
+	{
+		trans.z() = parsed;
+	}
+	else if (key == "motion.via.euler.rx")
+	{
+		ex = parsed;
+	}
+	else if (key == "motion.via.euler.ry")
+	{
+		ey = parsed;
+	}
+	else if (key == "motion.via.euler.rz")
+	{
+		ez = parsed;
+	}
+	else
+	{
+		if (errMsg)
+		{
+			*errMsg = "unknown via display key";
+		}
+		return false;
+	}
+	if (key == "motion.via.pose.x" || key == "motion.via.pose.y" || key == "motion.via.pose.z")
+	{
+		writeViaTransformToInstruction(cmd,
+									   engine::RigidTransform::fromTranslationQuat(trans, t.rotation().normalized()));
+	}
+	else
+	{
+		writeViaTransformToInstruction(
+			cmd, engine::RigidTransform::fromTranslationEulerDeg(trans.x(), trans.y(), trans.z(), ex, ey, ez));
 	}
 	return true;
 }

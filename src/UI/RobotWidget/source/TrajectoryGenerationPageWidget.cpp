@@ -354,6 +354,12 @@ void TrajectoryGenerationPageWidget::refreshPathPlanCombo()
 		}
 	}
 
+	// 重开工程时 session 未绑定，prevId 为空；默认选首项，避免 UI 有选中但未 bind
+	if (selectIdx < 0 && m_pathPlanCombo->count() > 0)
+	{
+		selectIdx = 0;
+	}
+
 	if (selectIdx >= 0)
 
 	{
@@ -369,6 +375,16 @@ void TrajectoryGenerationPageWidget::refreshPathPlanCombo()
 	}
 
 	m_pathPlanCombo->blockSignals(false);
+
+	// blockSignals 期间 currentIndexChanged 被吞掉，须显式同步 bind
+	if (m_session && m_pathPlanCombo->currentIndex() >= 0)
+	{
+		const std::string pathPlanId = m_pathPlanCombo->currentData().toString().toStdString();
+		if (!pathPlanId.empty() && m_session->boundPathPlanId() != pathPlanId)
+		{
+			m_session->bindPathPlan(pathPlanId);
+		}
+	}
 }
 
 void TrajectoryGenerationPageWidget::onPathPlanComboChanged(int index)
@@ -460,6 +476,16 @@ void TrajectoryGenerationPageWidget::onBeginEditClicked()
 
 	{
 		return;
+	}
+
+	// 点击时再兜底一次：下拉已有项但 session 未绑定时先同步
+	if (m_session && m_pathPlanCombo && m_pathPlanCombo->currentIndex() >= 0)
+	{
+		const std::string pathPlanId = m_pathPlanCombo->currentData().toString().toStdString();
+		if (!pathPlanId.empty() && m_session->boundPathPlanId() != pathPlanId)
+		{
+			m_session->bindPathPlan(pathPlanId);
+		}
 	}
 
 	(void)m_brepPage->beginEditBoundPathPlan();

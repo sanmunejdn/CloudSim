@@ -88,7 +88,8 @@ bool backend_mat4_is_nearly_rigid(const BackendMat4& m, const double absEps)
 	{
 		return false;
 	}
-	if (std::abs(m.v[3]) > absEps || std::abs(m.v[7]) > absEps || std::abs(m.v[11]) > absEps ||
+	// BackendMat4/OSG 列主序：平移在 v[3/7/11]（底行），第 4 列首三行须为 0
+	if (std::abs(m.v[12]) > absEps || std::abs(m.v[13]) > absEps || std::abs(m.v[14]) > absEps ||
 		std::abs(m.v[15] - 1.0) > absEps)
 	{
 		return false;

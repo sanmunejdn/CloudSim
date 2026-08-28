@@ -13,6 +13,7 @@
 #include "PlanResultCache.h"
 #include "RawTrajectory.h"
 #include "RobotInstructionController.h"
+#include "RobotInstructionIkRequest.h"
 #include "RobotProgramExecutor.h"
 #include "MotionPathPlanDialog.h"
 #include "RobotCollisionSettingsWidget.h"
@@ -258,11 +259,11 @@ private:
 
 	bool planMotionOnHost(RobotInstruction::Base& instruction, const QVector<double>& seedJointRad, int instanceIndex,
 						  const QString& urdfPath, const QString& defaultTcpLinkName, const QString& sceneRootBackendId,
-						  RobotInstruction::PlanResult& plan, std::string* planErr) const;
+						  RobotInstruction::PlanResult& plan, std::string* planErr, bool skipValidate = false,
+						  bool skipCollision = false) const;
 
-	/// 预览与 Run 共用：示教 CSV → 示教种子 IK → 链式种子 IK → 程序起点 IK
-	/// gateTaughtResidual：Run/可达性保持 FK 门控；点击预览可关以省掉双次 FK
-	/// skipTaughtShortCircuit：属性改位姿时禁止示教短路，但仍用旧关节作 IK 种子保构型
+	/// 预览与 Run 共用：按 IkSeedPolicy 解析种子后走 IK（指令不存关节）
+	/// persistTaughtOnSuccess：仅同步工具系，不再落盘关节
 	bool planMotionConsistentWithPreview(RobotInstruction::Base& instruction, const QVector<double>& chainSeedQ,
 										 const QVector<double>& programStartQ, int instanceIndex,
 										 const QString& urdfPath, const QString& defaultTcpLinkName,
@@ -271,6 +272,11 @@ private:
 										 RobotInstruction::PlanResult& outPlan, std::string* planErr,
 										 bool persistTaughtOnSuccess, bool gateTaughtResidual = true,
 										 bool skipTaughtShortCircuit = false);
+
+	void setIkSeedPolicy(RobotInstruction::IkSeedPolicy policy) { m_ikSeedPolicy = policy; }
+	RobotInstruction::IkSeedPolicy ikSeedPolicy() const { return m_ikSeedPolicy; }
+	void setIkSeedInstructionId(const std::string& id) { m_ikSeedInstructionId = id; }
+	const std::string& ikSeedInstructionId() const { return m_ikSeedInstructionId; }
 
 	void ensureInstructionControllerKinematics(IRobotDocumentHost* doc, int instanceIndex, const QString& urdfPath);
 	void scheduleInstructionPoseAxesRefresh(bool computeReachability = false);
@@ -353,6 +359,8 @@ private:
 	QString m_lastFeasibleAxisFingerprint;
 
 	PlanResultCache m_planResultCache;
+	RobotInstruction::IkSeedPolicy m_ikSeedPolicy = RobotInstruction::IkSeedPolicy::FromInstruction;
+	std::string m_ikSeedInstructionId;
 	QHash<QString, bool> m_motionReachabilityCache;
 	quint64 m_reachabilityJobToken = 0;
 	int m_reachabilityPendingJobs = 0;

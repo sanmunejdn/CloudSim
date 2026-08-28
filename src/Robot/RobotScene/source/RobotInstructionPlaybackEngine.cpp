@@ -1,4 +1,4 @@
-﻿/// @file RobotInstructionPlaybackEngine.cpp
+/// @file RobotInstructionPlaybackEngine.cpp
 /// @brief 指令回放引擎
 
 #include "RobotInstructionPlaybackEngine.h"
@@ -24,6 +24,13 @@ std::string qToUtf8Std(const QString& s)
 {
 	const QByteArray utf8 = s.toUtf8();
 	return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
+}
+
+double lerpRevoluteShortest(const double q0, const double q1, const double t)
+{
+	constexpr double kTwoPi = 6.283185307179586;
+	const double q1n = q1 - kTwoPi * std::round((q1 - q0) / kTwoPi);
+	return q0 + (q1n - q0) * t;
 }
 } // namespace
 
@@ -324,19 +331,9 @@ bool RobotInstructionPlaybackEngine::applyPlannedJointStateAtProgress(double u)
 		{
 			return false;
 		}
-		// Treat planned trajectory as waypoints after the current segment start.
-		// This guarantees visible interpolation even when planner only outputs one target waypoint.
-		if (m_segStartJointAngles.size() != m_jointAnglesRad.size())
+		// 多样本轨迹（Ruckig/笛卡尔）已是 q0→q1 全段，按轨迹时间轴播，勿再 prepend 段起点
+		if (traj.size() >= 2U)
 		{
-			// Fallback to legacy interpretation when start snapshot is unavailable.
-			if (traj.size() == 1U)
-			{
-				for (int j = 0; j < m_jointAnglesRad.size(); ++j)
-				{
-					m_jointAnglesRad[j] = traj[0][static_cast<size_t>(j)];
-				}
-				return true;
-			}
 			const double scaled = uc * static_cast<double>(traj.size() - 1U);
 			const size_t i0 = static_cast<size_t>(std::floor(scaled));
 			const size_t i1 = std::min(i0 + 1U, traj.size() - 1U);
@@ -350,38 +347,24 @@ bool RobotInstructionPlaybackEngine::applyPlannedJointStateAtProgress(double u)
 			{
 				const double q0 = traj[i0][static_cast<size_t>(j)];
 				const double q1 = traj[i1][static_cast<size_t>(j)];
-				m_jointAnglesRad[j] = q0 + (q1 - q0) * t;
+				m_jointAnglesRad[j] = lerpRevoluteShortest(q0, q1, t);
 			}
 			return true;
 		}
-
-		const size_t waypoints = traj.size() + 1U; // [start] + planner waypoints
-		const double scaled = uc * static_cast<double>(waypoints - 1U);
-		const size_t i0 = static_cast<size_t>(std::floor(scaled));
-		const size_t i1 = std::min(i0 + 1U, waypoints - 1U);
-		const double t = scaled - static_cast<double>(i0);
-
-		const auto readQ = [&](size_t idx, int joint)
+		// 单点占位：从段起点插到目标
+		if (m_segStartJointAngles.size() == m_jointAnglesRad.size())
 		{
-			if (idx == 0U)
+			for (int j = 0; j < m_jointAnglesRad.size(); ++j)
 			{
-				return m_segStartJointAngles[joint];
+				const double q0 = m_segStartJointAngles[j];
+				const double q1 = traj[0][static_cast<size_t>(j)];
+				m_jointAnglesRad[j] = lerpRevoluteShortest(q0, q1, uc);
 			}
-			return traj[idx - 1U][static_cast<size_t>(joint)];
-		};
-		if (i0 > 0U && traj[i0 - 1U].size() != static_cast<size_t>(m_jointAnglesRad.size()))
-		{
-			return false;
-		}
-		if (i1 > 0U && traj[i1 - 1U].size() != static_cast<size_t>(m_jointAnglesRad.size()))
-		{
-			return false;
+			return true;
 		}
 		for (int j = 0; j < m_jointAnglesRad.size(); ++j)
 		{
-			const double q0 = readQ(i0, j);
-			const double q1 = readQ(i1, j);
-			m_jointAnglesRad[j] = q0 + (q1 - q0) * t;
+			m_jointAnglesRad[j] = traj[0][static_cast<size_t>(j)];
 		}
 		return true;
 	}
@@ -394,7 +377,7 @@ bool RobotInstructionPlaybackEngine::applyPlannedJointStateAtProgress(double u)
 		{
 			const double q0 = m_segStartJointAngles[j];
 			const double q1 = plan->jointTargetsRad[static_cast<size_t>(j)];
-			m_jointAnglesRad[j] = q0 + (q1 - q0) * uc;
+			m_jointAnglesRad[j] = lerpRevoluteShortest(q0, q1, uc);
 		}
 		return true;
 	}

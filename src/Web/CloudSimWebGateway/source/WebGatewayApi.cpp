@@ -807,7 +807,7 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 	cloudsim::core::MotionInstructionDto instr;
 	instr.instructionType = o.value(QStringLiteral("instructionType")).toString(QStringLiteral("PTP"));
 	instr.jointRadCsv = o.value(QStringLiteral("jointRadCsv")).toString();
-	instr.taughtJointRadCsv = o.value(QStringLiteral("taughtJointRadCsv")).toString();
+	instr.taughtJointRadCsv = o.value(QStringLiteral("taughtJointRadCsv")).toString(); // 废弃字段，兼容旧 JSON
 	instr.axisConfiguration = o.value(QStringLiteral("axisConfiguration")).toObject();
 	instr.extensions = o.value(QStringLiteral("extensions")).toObject();
 	if (o.contains(QStringLiteral("targetPose")))
@@ -849,10 +849,20 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 	{
 		(*out)[QStringLiteral("ok")] = result.ok;
 		(*out)[QStringLiteral("error")] = result.error;
+		(*out)[QStringLiteral("durationSec")] = result.durationSec;
 		QJsonArray joints;
 		for (double d : result.jointTargetsRad)
 			joints.append(d);
 		(*out)[QStringLiteral("jointTargetsRad")] = joints;
+		QJsonArray traj;
+		for (const QVector<double>& sample : result.jointTrajectoryRad)
+		{
+			QJsonArray row;
+			for (double d : sample)
+				row.append(d);
+			traj.append(row);
+		}
+		(*out)[QStringLiteral("jointTrajectoryRad")] = traj;
 	}
 	return result.ok;
 }

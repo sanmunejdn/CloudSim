@@ -1,0 +1,68 @@
+name: CD
+
+on:
+  workflow_dispatch:
+  release:
+    types: [released]
+
+jobs:
+  build-python-wheels:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v4.1.0
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: dist-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+        path: wheelhouse/*.whl
+
+
+  make-python-source-dist:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Build SDist
+      run: pipx run build --sdist
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: dist-sdist
+        path: dist/*.tar.gz
+
+
+  upload-pypi:
+    needs: [build-python-wheels, make-python-source-dist]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: dist-*
+        path: dist
+        merge-multiple: true
+
+    - name: Upload to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+
+  upload-cargo:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Upload to Cargo
+      run: cargo publish
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_TOKEN }}

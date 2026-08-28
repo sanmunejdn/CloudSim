@@ -312,12 +312,15 @@ bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHos
 							 const int instanceIndex, const QVector<double>& seedJointsBefore,
 							 const std::vector<std::vector<double>>& jointTrajectoryRad,
 							 const RobotCollision::Settings& settings, std::string* failSummary,
-							 IRobotOsgViewHost* osg)
+							 IRobotOsgViewHost* osg, const bool rebuildWorldFirst)
 {
 	if (!settings.enabled || !doc)
 		return true;
 
-	rebuildWorld(world, doc, backend, settings, osg);
+	if (rebuildWorldFirst)
+	{
+		rebuildWorld(world, doc, backend, settings, osg);
+	}
 	if (world.bodyCount() < 2)
 		return true;
 

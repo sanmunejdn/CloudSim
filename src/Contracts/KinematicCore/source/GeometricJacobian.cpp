@@ -113,23 +113,19 @@ bool jointAffectsTarget(const KinematicGraph& graph, int jointIdx, int targetLin
 	}
 	return false;
 }
-} // namespace
 
-bool computePositionJacobian(const KinematicGraph& graph, const double baseWorld[16], const double* q,
-							 const std::size_t qCount, const int targetLinkIdx, std::vector<double>& J_3xn,
-							 const JacobianOptions& opt)
+bool fillPositionJacobianFromLinkWorld(const KinematicGraph& graph, const double* q, const std::size_t qCount,
+									   const int targetLinkIdx,
+									   const std::vector<std::array<double, 16>>& linkWorld,
+									   std::vector<double>& J_3xn, const JacobianOptions& opt)
 {
-	if (targetLinkIdx < 0 || targetLinkIdx >= static_cast<int>(graph.links.size()))
+	if (targetLinkIdx < 0 || targetLinkIdx >= static_cast<int>(graph.links.size()) ||
+		linkWorld.size() != graph.links.size())
 	{
 		return false;
 	}
 	const int n = graph.dofCount();
 	if (n <= 0)
-	{
-		return false;
-	}
-	std::vector<std::array<double, 16>> linkWorld(static_cast<size_t>(graph.links.size()));
-	if (!forwardKinematicsTree(graph, baseWorld, q, qCount, reinterpret_cast<double(*)[16]>(linkWorld.data())))
 	{
 		return false;
 	}
@@ -145,6 +141,10 @@ bool computePositionJacobian(const KinematicGraph& graph, const double baseWorld
 			continue;
 		}
 		if (!jointAffectsTarget(graph, static_cast<int>(ji), targetLinkIdx))
+		{
+			continue;
+		}
+		if (j.parentLinkIdx < 0 || j.parentLinkIdx >= static_cast<int>(linkWorld.size()))
 		{
 			continue;
 		}
@@ -174,25 +174,17 @@ bool computePositionJacobian(const KinematicGraph& graph, const double baseWorld
 	return true;
 }
 
-bool computePoseJacobian(const KinematicGraph& graph, const double baseWorld[16], const double* q,
-					   const std::size_t qCount, const int targetLinkIdx, std::vector<double>& J_6xn,
-					   const JacobianOptions& opt)
+bool fillOrientationRowsFromLinkWorld(const KinematicGraph& graph, const double* q, const std::size_t qCount,
+									  const int targetLinkIdx,
+									  const std::vector<std::array<double, 16>>& linkWorld,
+									  std::vector<double>& J_6xn, const JacobianOptions& opt)
 {
-	if (!computePositionJacobian(graph, baseWorld, q, qCount, targetLinkIdx, J_6xn, opt))
-	{
-		return false;
-	}
 	const int n = graph.dofCount();
-	if (n <= 0 || static_cast<int>(J_6xn.size()) < 3 * n)
+	if (n <= 0 || static_cast<int>(J_6xn.size()) < 3 * n || linkWorld.size() != graph.links.size())
 	{
 		return false;
 	}
 	J_6xn.resize(static_cast<size_t>(6 * n));
-	std::vector<std::array<double, 16>> linkWorld(static_cast<size_t>(graph.links.size()));
-	if (!forwardKinematicsTree(graph, baseWorld, q, qCount, reinterpret_cast<double(*)[16]>(linkWorld.data())))
-	{
-		return false;
-	}
 	const double w = opt.orientationWeight;
 	for (size_t ji = 0; ji < graph.joints.size(); ++ji)
 	{
@@ -202,6 +194,10 @@ bool computePoseJacobian(const KinematicGraph& graph, const double baseWorld[16]
 			continue;
 		}
 		if (!jointAffectsTarget(graph, static_cast<int>(ji), targetLinkIdx))
+		{
+			continue;
+		}
+		if (j.parentLinkIdx < 0 || j.parentLinkIdx >= static_cast<int>(linkWorld.size()))
 		{
 			continue;
 		}
@@ -225,6 +221,59 @@ bool computePoseJacobian(const KinematicGraph& graph, const double baseWorld[16]
 		}
 	}
 	return true;
+}
+} // namespace
+
+bool computePositionJacobianFromLinkWorld(const KinematicGraph& graph, const double* q, const std::size_t qCount,
+										  const int targetLinkIdx,
+										  const std::vector<std::array<double, 16>>& linkWorld,
+										  std::vector<double>& J_3xn, const JacobianOptions& opt)
+{
+	return fillPositionJacobianFromLinkWorld(graph, q, qCount, targetLinkIdx, linkWorld, J_3xn, opt);
+}
+
+bool computePoseJacobianFromLinkWorld(const KinematicGraph& graph, const double* q, const std::size_t qCount,
+									  const int targetLinkIdx,
+									  const std::vector<std::array<double, 16>>& linkWorld,
+									  std::vector<double>& J_6xn, const JacobianOptions& opt)
+{
+	if (!fillPositionJacobianFromLinkWorld(graph, q, qCount, targetLinkIdx, linkWorld, J_6xn, opt))
+	{
+		return false;
+	}
+	return fillOrientationRowsFromLinkWorld(graph, q, qCount, targetLinkIdx, linkWorld, J_6xn, opt);
+}
+
+bool computePositionJacobian(const KinematicGraph& graph, const double baseWorld[16], const double* q,
+							 const std::size_t qCount, const int targetLinkIdx, std::vector<double>& J_3xn,
+							 const JacobianOptions& opt)
+{
+	if (targetLinkIdx < 0 || targetLinkIdx >= static_cast<int>(graph.links.size()))
+	{
+		return false;
+	}
+	std::vector<std::array<double, 16>> linkWorld(graph.links.size());
+	if (!forwardKinematicsTree(graph, baseWorld, q, qCount, reinterpret_cast<double(*)[16]>(linkWorld.data())))
+	{
+		return false;
+	}
+	return fillPositionJacobianFromLinkWorld(graph, q, qCount, targetLinkIdx, linkWorld, J_3xn, opt);
+}
+
+bool computePoseJacobian(const KinematicGraph& graph, const double baseWorld[16], const double* q,
+						 const std::size_t qCount, const int targetLinkIdx, std::vector<double>& J_6xn,
+						 const JacobianOptions& opt)
+{
+	if (targetLinkIdx < 0 || targetLinkIdx >= static_cast<int>(graph.links.size()))
+	{
+		return false;
+	}
+	std::vector<std::array<double, 16>> linkWorld(graph.links.size());
+	if (!forwardKinematicsTree(graph, baseWorld, q, qCount, reinterpret_cast<double(*)[16]>(linkWorld.data())))
+	{
+		return false;
+	}
+	return computePoseJacobianFromLinkWorld(graph, q, qCount, targetLinkIdx, linkWorld, J_6xn, opt);
 }
 
 } // namespace kinematic_core

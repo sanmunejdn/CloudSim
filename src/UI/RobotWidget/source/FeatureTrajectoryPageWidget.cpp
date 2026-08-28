@@ -948,11 +948,13 @@ bool FeatureTrajectoryPageWidget::beginEditBoundPathPlan(QString* err)
 {
 	if (!m_session || m_session->boundPathPlanId().empty())
 	{
+		const QString msg =
+			m_chinese ? QStringLiteral("请先选择路径规划") : QStringLiteral("Select a path plan first");
 		if (err)
 		{
-			*err = m_chinese ? QStringLiteral("请先选择路径规划") : QStringLiteral("Select a path plan first");
+			*err = msg;
 		}
-		setStatus(err ? *err : QString());
+		setStatus(msg);
 		return false;
 	}
 	const std::string pathPlanId = m_session->boundPathPlanId();

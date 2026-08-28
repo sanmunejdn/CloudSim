@@ -1,4 +1,4 @@
-﻿/// @file RobotInstructionFactory.cpp
+/// @file RobotInstructionFactory.cpp
 /// @brief RobotInstruction 工厂
 
 #include "RobotInstructionFactory.h"
@@ -63,6 +63,9 @@ void applyCommonFields(Base& ins, const nlohmann::json& j)
 			}
 		}
 	}
+	// 落盘禁键：旧工程读入后立刻清掉，避免再写回
+	ins.eraseExtensionProperty("context.currentJointRadCsv");
+	ins.eraseExtensionProperty("context.taughtJointRadCsv");
 }
 
 bool parseNested(const nlohmann::json& j, const char* key, std::vector<std::shared_ptr<Base>>& out, std::string* errMsg)
@@ -132,9 +135,16 @@ void writeCommonFields(nlohmann::json& j, const Base& ins)
 		nlohmann::json extObj = nlohmann::json::object();
 		for (const auto& kv : ext)
 		{
+			if (kv.first == "context.currentJointRadCsv" || kv.first == "context.taughtJointRadCsv")
+			{
+				continue;
+			}
 			extObj[kv.first] = kv.second;
 		}
-		j["extensions"] = std::move(extObj);
+		if (!extObj.empty())
+		{
+			j["extensions"] = std::move(extObj);
+		}
 	}
 }
 } // namespace

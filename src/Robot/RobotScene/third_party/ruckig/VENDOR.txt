@@ -1,0 +1,7 @@
+# Ruckig vendor
+
+- Source: https://github.com/pantor/ruckig
+- License: MIT (see LICENSE)
+- Version: tree as cloned (0.19.x line)
+- Integration: RobotScene compiles selected `src/ruckig/*.cpp` (no cloud_client) as C++20;
+  public API is `RuckigPtpTrajectory.h` (C++17-safe).

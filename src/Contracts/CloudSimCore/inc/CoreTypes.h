@@ -92,6 +92,9 @@ struct PlanResultDto
 	bool ok = false;
 	QString error;
 	QVector<double> jointTargetsRad;
+	/// 稠密关节轨迹（可选；空则仅有终点）
+	QVector<QVector<double>> jointTrajectoryRad;
+	double durationSec = 0.0;
 	bool hasExternalAxisQ = false;
 	double externalAxisQ = 0.0;
 };
@@ -101,10 +104,10 @@ struct MotionInstructionDto
 {
 	QString instructionType;
 	PoseDto targetPose;
-	/// IK 链式种子（当前/前序点关节）；与示教目标关节分开
+	/// IK 链式种子（会话）；非指令持久化真源
 	QString jointRadCsv;
-	/// 示教落点关节（PTP 优先直出，避免罗盘位姿与钳制关节不一致时再解 IK）
-	QString taughtJointRadCsv;
+	/// 废弃：指令只存 TCP，求解器不再用此字段短路
+	QString taughtJointRadCsv; ///< 废弃：指令只存 TCP，求解器不再使用此字段短路
 	QJsonObject axisConfiguration;
 	QJsonObject extensions;
 };

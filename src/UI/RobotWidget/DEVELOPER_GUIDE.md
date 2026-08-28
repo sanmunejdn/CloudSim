@@ -105,23 +105,42 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 ## 示教关节与位姿真源
 
-### `context.currentJointRadCsv`
+### 关节 CSV（已弃用落盘）
 
-添加 PTP/LINE 时写入当前实例关节角（rad，逗号分隔）。**Run** 先经 `shouldUseTaughtJointCsv` 再校验位置/姿态残差（≤ 1 mm / ≤ **15°**）；**点击预览**在示教 CSV 可用时跳过残差 FK（`gateTaughtResidual=false`）以降低延迟。新鲜 IK 以位置为主（≤3 mm），姿态仅拦近翻转（≤45°）——联立求解按位置选优，旧 5° 门控会误杀可用解。**不因前序点曾 IK 而禁用示教 CSV**。IK/规划成功后 `persistTaughtJointsAndToolContext` 回写 CSV 与冻结工具 context。
+契约：**指令不持久化关节**。`shouldUseTaughtJointCsv` 恒为 false，Run/预览每点走 IK。`persistTaughtJointsAndToolContext` 只同步工具系并 **erase** `context.currentJointRadCsv`。规划期间 `prepareMotionInstructionForPlanning` 可临时注入种子关节，结束后还原。Host 序列化忽略 `jointRadCsv` / `taughtJointRadCsv`。**IK 提速不恢复示教 CSV 短路**（编排层减重复校验/碰撞延后 + DLS 图缓存）。
 
 | API | 模块 |
 |-----|------|
-| `RobotInstructionPlanning::encodeJointAnglesRadCsv` | 写入 |
-| `RobotInstructionPlanning::jointAnglesRadFromInstructionContext` | 读取 |
+| `RobotInstructionPlanning::encodeJointAnglesRadCsv` | 临时编码 |
+| `RobotInstructionPlanning::jointAnglesRadFromInstructionContext` | 读取（兼容旧工程扩展键） |
 | `RobotInstructionPlanning::motionDurationSecFromInstruction` | 段时长（缺省 0.5s） |
 
 ### `prepareMotionInstructionForPlanning`
 
-仅设置规划上下文，**禁止**用当前 `rollingQ` 的 FK 覆盖指令 `pose/euler`（`writeTargetTransformToInstruction` 已移除）。写入：
+实现下沉到 `RobotScene` 的 `RobotInstruction::prepareMotionInstructionForPlanning`（Widget/Host 薄封装）。顺序固定：
 
-- `context.currentJointRadCsv`（链式种子）
-- `context.urdfPath` / `context.tcpLinkName` / `context.flangeLinkName`（由工具系解析法兰 link）
-- `context.toolFrameMat4`
+1. **先** `syncToolContextFromFrames`：跟随 `active` 的路点用**当前** `activeToolFrame`，不用冻结的 `context.activeToolFrameId`
+2. 再写 `context.currentJointRadCsv`（链式种子）、`urdfPath` / `tcpLinkName`；有工具时写 `flangeLinkName` / `toolFrameMat4`
+3. **无工具时不写单位 `toolFrameMat4`**（否则会误触发「强制法兰 IK」，与示教 tcpLink 脱节）
+
+**禁止**用 `rollingQ` 的 FK 覆盖指令 `pose/euler`。
+
+### 指令位姿真值
+
+- 真值只在 `context.targetTransformQuatCsv` + `TransMmCsv`；`pose/euler` 为显示副本
+- 改 pose/euler 分量走 `applyTargetDisplayComponent` → `writeTargetTransformToInstruction`（属性 / Headless / Host API 同源）
+- 脏 `toolFrameMat4` / 非法四元数：IK **fail-fast**，不当单位阵继续解
+- **非单位**工具偏置时 IK 连杆必须是 `flangeLinkName`；单位/缺省 toolMat 优先 `tcpLinkName`（与示教选链一致）
+- 跟随 `active` 且当前无工具时，`sync` 会清掉陈旧 `toolFrameMat4`，避免假 hasToolMat
+
+### 规划连续性（与执行器同度量）
+
+- **到位门**：新鲜 IK 3mm / 45°；示教短路 1mm / 15°
+- **R1**：接受解归一到 `chainSeed` 最近圈；越限则拒候选；轨迹尾点与 targets 不一致则清轨迹
+- **R3**：仅随机兜底；未折圈 `|q-seed|` 硬门（±2π 空转必淘汰）
+- **执行器**：回转轴最短角插值；段末对齐到最近圈
+- **LINE/ARC 采样**：相邻路点关节跳变超门则该段失败
+- 随机兜底重锚只锁肘/腕/臂，**不锁 turn=0**（避免回到链式种子失败的那一支）
 
 ### 程序起点 `m_motionPreviewProgramStartJointRad`
 
@@ -564,6 +583,8 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | **算子流水线** | `pipeline[]` | **仅 Apply** 经 `UpdatePathPlanPipelineCommand`（草稿期不直写 PathPlan） |
 
 **轨迹生成页顶栏**（`TrajectoryGenerationPageWidget`）：路径规划下拉、`+` 新建、`开始修改`、`取消修改`。切换 PathPlan 仅 `bindPathPlan` + 清空 CAD 特征表；**不**自动重离散、**不**预显示 raw 叠加层（`shouldShowTrajectoryGenerationPreview` ← `FeatureTrajectoryPageWidget::isFeatureEditActive()`）。
+
+**重开工程**：`refreshPathPlanCombo` 在 `blockSignals` 下重建下拉时，若 session 尚无绑定则默认选首项并**显式** `bindPathPlan`（否则 UI 看似已选中、但 `boundPathPlanId` 为空，「开始修改」会静默失败）。「开始修改」点击时再做一次 combo→session 同步兜底。
 
 **「开始修改」**（`beginEditBoundPathPlan`）统一恢复编辑态：
 

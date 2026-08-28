@@ -161,6 +161,12 @@
     <ClInclude Include="inc\RobotInstructionTransform.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
+    <ClInclude Include="inc\RobotInstructionIkContext.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionIkRequest.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
     <ClInclude Include="inc\RobotMatrixOsgBridge.h">
       <Filter>inc\KinematicsFrames</Filter>
     </ClInclude>
@@ -338,6 +344,12 @@
       <Filter>src\Instructions</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotInstructionTransform.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionIkContext.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionIkRequest.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotMatrixOsgBridge.cpp">

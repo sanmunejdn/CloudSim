@@ -1,0 +1,36 @@
+[package]
+name = "ruckig"
+version = "0.19.4"
+readme = "README.md"
+description = "Instantaneous Motion Generation for Robots and Machines."
+keywords = ["robotics", "trajectory", "real-time", "jerk-constrained", "time-optimal"]
+categories = ["science", "science::robotics"]
+homepage = "https://ruckig.com"
+repository = "https://github.com/pantor/ruckig"
+documentation = "https://docs.ruckig.com"
+license = "MIT"
+edition = "2021"
+build = "src/wrapper/rust_build.rs"
+
+[lib]
+name = "ruckig"
+crate-type = ["rlib"]
+path = "src/wrapper/rust.rs"
+
+[[example]]
+name = "01_position"
+path = "examples/01_position.rs"
+
+[[example]]
+name = "02_position_offline"
+path = "examples/02_position_offline.rs"
+
+[[example]]
+name = "05_velocity"
+path = "examples/05_velocity.rs"
+
+[dependencies]
+cxx = "1.0"
+
+[build-dependencies]
+cxx-build = "1.0"

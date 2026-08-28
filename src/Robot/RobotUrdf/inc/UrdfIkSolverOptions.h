@@ -19,6 +19,10 @@ struct ROBOT_URDF_API UrdfIkSolverOptions
 	double maxJointStepRad = 0.0;
 	/// 0：默认 180
 	int maxIterations = 0;
+	/// 0：默认 18（9 末轴偏置 × 2 腕翻转）；规划链式 IK 宜 6
+	int maxPosThenOriAttempts = 0;
+	/// 仅顶层规划器开启；禁止与 UI 随机重启叠加
+	bool allowInternalRandomRestart = false;
 };
 
 } // namespace UrdfRobotLoader

@@ -6,6 +6,7 @@
 #include "IRobotDocumentHost.h"
 #include "IRobotOsgViewHost.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotInstructionIkContext.h"
 
 #include <QStringList>
 
@@ -80,6 +81,15 @@ void restoreInstructionPose(RobotInstruction::Base& ins, const MotionPoseBackup&
 		ins.setPose(backup.pose);
 		ins.setEulerDeg(backup.eulerDeg);
 	}
+	// 整体替换：规划期新增的 extension（种子 CSV 等）不能残留
+	const auto current = ins.extensionProperties();
+	for (const auto& kv : current)
+	{
+		if (backup.extensions.find(kv.first) == backup.extensions.end())
+		{
+			ins.eraseExtensionProperty(kv.first);
+		}
+	}
 	for (const auto& kv : backup.extensions)
 	{
 		ins.setExtensionProperty(kv.first, kv.second);
@@ -110,119 +120,31 @@ void invalidateTaughtJointsFromMotionIndexForward(const std::vector<const RobotI
 
 bool motionFollowsActiveToolFrame(const RobotInstruction::Base& ins)
 {
-	const auto& ext = ins.extensionProperties();
-	const auto itMotion = ext.find(RobotCoordinate::kExtMotionToolFrameId);
-	if (itMotion == ext.end() || itMotion->second.empty() || itMotion->second == "active")
-	{
-		return true;
-	}
-	return false;
-}
-
-void syncInstructionToolContextFromToolFrame(RobotInstruction::Base& ins,
-											 const RobotCoordinate::RobotCoordinateFrameSet& frames,
-											 const RobotCoordinate::RobotToolFrame& tool)
-{
-	const BackendMat4 toolMat = RobotCoordinate::frameToMat4(tool.T_flange_tool);
-	ins.setExtensionProperty(RobotCoordinate::kExtContextToolFrameMat4, RobotCoordinate::encodeMat4Csv(toolMat));
-	ins.setExtensionProperty("context.activeToolFrameId", tool.id);
-	const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
-	if (!flangeLink.empty())
-	{
-		ins.setExtensionProperty("context.flangeLinkName", flangeLink);
-	}
+	return RobotInstruction::motionUsesActiveToolFrame(ins);
 }
 
 void syncInstructionToolContextFromFrames(RobotInstruction::Base& ins,
 										  const RobotCoordinate::RobotCoordinateFrameSet& frames)
 {
-	const RobotCoordinate::RobotToolFrame* tool = nullptr;
-	if (motionFollowsActiveToolFrame(ins))
-	{
-		// 跟随 active 的路点必须用全局激活工具，不能走 resolve 里 stale 的 frozen id
-		tool = RobotCoordinate::activeToolFrame(frames);
-	}
-	else if (const RobotCoordinate::RobotToolFrame* resolved =
-				 RobotCoordinate::resolveToolFrameForExtension(frames, ins.extensionProperties()))
-	{
-		tool = resolved;
-	}
-	if (tool)
-	{
-		syncInstructionToolContextFromToolFrame(ins, frames, *tool);
-	}
+	RobotInstruction::syncToolContextFromFrames(ins, frames);
 }
 
 void persistTaughtJointsAndToolContext(RobotInstruction::Base& ins, const QVector<double>& jointQ,
 									   const RobotCoordinate::RobotCoordinateFrameSet& frames)
 {
-	if (jointQ.isEmpty())
-	{
-		return;
-	}
-	ins.setExtensionProperty("context.currentJointRadCsv", encodeJointAnglesRadCsv(jointQ));
+	(void)jointQ;
+	// 指令只存 TCP；关节不落盘，仅同步工具系供规划读上下文
 	syncInstructionToolContextFromFrames(ins, frames);
+	ins.eraseExtensionProperty("context.currentJointRadCsv");
 }
 
 bool shouldUseTaughtJointCsv(const RobotInstruction::Base& ins,
 							 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
 {
-	// ARC 必须走 ArcPlanner 出 jointTrajectoryRad；示教 CSV 短路会退化成关节 lerp
-	if (ins.type() == RobotInstruction::Type::ARC)
-	{
-		return false;
-	}
-	if (jointAnglesRadFromInstructionContext(ins).isEmpty())
-	{
-		return false;
-	}
-	const auto& ext = ins.extensionProperties();
-	const auto itMotion = ext.find(RobotCoordinate::kExtMotionToolFrameId);
-	const std::string motionId = (itMotion != ext.end()) ? itMotion->second : std::string();
-	const bool followsActive = motionId.empty() || motionId == "active";
-	if (followsActive)
-	{
-		if (!coordinateFrames)
-		{
-			return false;
-		}
-		const auto itFrozen = ext.find("context.activeToolFrameId");
-		if (itFrozen == ext.end() || itFrozen->second.empty())
-		{
-			return false;
-		}
-		if (itFrozen->second != coordinateFrames->activeToolFrameId)
-		{
-			return false;
-		}
-	}
-	else
-	{
-		const auto itFrozen = ext.find("context.activeToolFrameId");
-		if (itFrozen != ext.end() && !itFrozen->second.empty() && itFrozen->second != motionId)
-		{
-			return false;
-		}
-	}
-	if (coordinateFrames)
-	{
-		const BackendMat4 live = RobotCoordinate::toolMat4ForExtension(*coordinateFrames, ext);
-		const auto itMat = ext.find(RobotCoordinate::kExtContextToolFrameMat4);
-		if (itMat != ext.end() && !itMat->second.empty())
-		{
-			BackendMat4 frozen{};
-			if (RobotCoordinate::parseMat4Csv(itMat->second, frozen))
-			{
-				const std::string liveCsv = RobotCoordinate::encodeMat4Csv(live);
-				const std::string frozenCsv = RobotCoordinate::encodeMat4Csv(frozen);
-				if (liveCsv != frozenCsv)
-				{
-					return false;
-				}
-			}
-		}
-	}
-	return true;
+	(void)ins;
+	(void)coordinateFrames;
+	// 禁止示教关节短路：每点必须走求解器
+	return false;
 }
 
 void prepareMotionInstructionForPlanning(RobotInstruction::Base& ins, const QVector<double>& rollingQ,
@@ -230,36 +152,12 @@ void prepareMotionInstructionForPlanning(RobotInstruction::Base& ins, const QVec
 										 const QString& urdfPath, const std::string& defaultTcpLinkName,
 										 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
 {
-	(void)osg;
-	QStringList parts;
-	parts.reserve(rollingQ.size());
-	for (double v : rollingQ)
-	{
-		parts.push_back(QString::number(v, 'g', 12));
-	}
-	ins.setExtensionProperty("context.currentJointRadCsv", parts.join(QLatin1Char(',')).toStdString());
-	ins.setExtensionProperty("context.urdfPath", urdfPath.toStdString());
-	ins.setExtensionProperty("context.tcpLinkName", defaultTcpLinkName);
-	if (coordinateFrames)
-	{
-		const BackendMat4 T_tool = RobotCoordinate::toolMat4ForExtension(*coordinateFrames, ins.extensionProperties());
-		ins.setExtensionProperty("context.toolFrameMat4", RobotCoordinate::encodeMat4Csv(T_tool));
-		if (const RobotCoordinate::RobotToolFrame* tool =
-				RobotCoordinate::resolveToolFrameForExtension(*coordinateFrames, ins.extensionProperties()))
-		{
-			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(*coordinateFrames, *tool);
-			if (!flangeLink.empty())
-			{
-				ins.setExtensionProperty("context.flangeLinkName", flangeLink);
-			}
-		}
-		else if (!coordinateFrames->flangeLinkName.empty())
-		{
-			ins.setExtensionProperty("context.flangeLinkName", coordinateFrames->flangeLinkName);
-		}
-	}
 	(void)doc;
+	(void)osg;
 	(void)instIdx;
+	std::vector<double> seed(rollingQ.begin(), rollingQ.end());
+	RobotInstruction::prepareInstructionIkContext(ins, seed, urdfPath.toStdString(), defaultTcpLinkName,
+												  coordinateFrames);
 }
 
 } // namespace RobotInstructionPlanning

@@ -33,12 +33,13 @@ ROBOTWIDGET_EXPORT void updatePoses(collision::CollisionWorld& world, IRobotDocu
 									BackendDataManager& backend, IRobotOsgViewHost* osg = nullptr);
 
 /// 对关节轨迹抽样碰撞；命中写 failSummary，返回 false
+/// rebuildWorldFirst=false 时复用调用方已 rebuild 的 world（同一次规划多次终接受）
 ROBOTWIDGET_EXPORT bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHost* doc,
 												BackendDataManager& backend, int instanceIndex,
 												const QVector<double>& seedJointsBefore,
 												const std::vector<std::vector<double>>& jointTrajectoryRad,
 												const RobotCollision::Settings& settings, std::string* failSummary,
-												IRobotOsgViewHost* osg = nullptr);
+												IRobotOsgViewHost* osg = nullptr, bool rebuildWorldFirst = true);
 
 } // namespace BackendCollisionSync
 

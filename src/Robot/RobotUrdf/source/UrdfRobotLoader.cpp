@@ -1,9 +1,10 @@
-﻿/// @file UrdfRobotLoader.cpp
+/// @file UrdfRobotLoader.cpp
 /// @brief 零位姿（q=0）下的 parent_T_child，仅由该关节的 URDF 决定，不依赖 jointAnglesRad 下标顺序
 
 // UrdfRobotLoader：URDF 解析、FK、层级 OSG 场景；多机键前缀由上层加 backendId::
 #include "UrdfRobotLoader.h"
 
+#include "GeometricJacobian.h"
 #include "KinematicGraph.h"
 #include "TreeForwardKinematics.h"
 
@@ -920,6 +921,9 @@ struct UrdfFkModelData
 	QStringList linkNames;
 	std::unordered_map<QString, int> linkNameToIndex;
 	std::vector<std::vector<int>> childJointIndices;
+	/// 与模型同生命周期；避免每次 FK/IK 重建 graph
+	kinematic_core::KinematicGraph kinematicGraph;
+	bool kinematicGraphValid = false;
 };
 
 static void buildFkIndexGraph(UrdfFkModelData& data)
@@ -1011,6 +1015,8 @@ static QString urdfCacheKey(const QString& urdfFilePath)
 	return c.isEmpty() ? fi.absoluteFilePath() : c;
 }
 
+static bool buildKinematicGraphFromModel(const UrdfFkModelData& model, kinematic_core::KinematicGraph& graph);
+
 // 线程安全：按路径 + 修改时间缓存解析结果；未命中则 parseUrdfModel 并填充 jointsByParent
 bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const UrdfFkModelData>& out,
 						  QString* errorMessage)
@@ -1048,6 +1054,7 @@ bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const Urd
 		data->jointsByParent[j.parent].push_back(j);
 	}
 	buildFkIndexGraph(*data);
+	data->kinematicGraphValid = buildKinematicGraphFromModel(*data, data->kinematicGraph);
 
 	out = data;
 	UrdfModelCacheEntry ent;
@@ -1268,11 +1275,21 @@ void computeLinkWorldMatricesFromModel(const UrdfFkModelData& model, const QVect
 									   QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld)
 {
 	outLinkNameToLinkWorld.clear();
-	kinematic_core::KinematicGraph graph;
-	if (!buildKinematicGraphFromModel(model, graph))
+	const kinematic_core::KinematicGraph* graphPtr = nullptr;
+	kinematic_core::KinematicGraph graphLocal;
+	if (model.kinematicGraphValid)
+	{
+		graphPtr = &model.kinematicGraph;
+	}
+	else if (buildKinematicGraphFromModel(model, graphLocal))
+	{
+		graphPtr = &graphLocal;
+	}
+	else
 	{
 		return;
 	}
+	const kinematic_core::KinematicGraph& graph = *graphPtr;
 	double base[16];
 	mat4InternalToColumnMajor(matIdentity(), base);
 	std::vector<std::array<double, 16>> linkWorld(graph.links.size());
@@ -1697,6 +1714,138 @@ bool UrdfRobotLoader::computeLinkWorldMatrices(const QString& urdfFilePath, cons
 	}
 	computeLinkWorldMatricesFromModel(*model, jointAnglesRad, outLinkNameToLinkWorld);
 	return true;
+}
+
+bool UrdfRobotLoader::computeLinkWorldPoseFromGraph(const kinematic_core::KinematicGraph& graph, const int linkIdx,
+													const QVector<double>& jointAnglesRad, double outPosMm[3],
+													osg::Quat* outQuat, QString* errorMessage)
+{
+	if (!outPosMm || linkIdx < 0 || linkIdx >= static_cast<int>(graph.links.size()))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Invalid link pose arguments.");
+		}
+		return false;
+	}
+	double base[16];
+	mat4InternalToColumnMajor(matIdentity(), base);
+	std::vector<std::array<double, 16>> linkWorld(graph.links.size());
+	if (!kinematic_core::forwardKinematicsTree(graph, base, jointAnglesRad.constData(),
+											   static_cast<std::size_t>(jointAnglesRad.size()),
+											   reinterpret_cast<double(*)[16]>(linkWorld.data())))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("forwardKinematicsTree failed.");
+		}
+		return false;
+	}
+	const Mat4 urdfWorld = columnMajorToMat4Internal(linkWorld[static_cast<size_t>(linkIdx)].data());
+	const osg::Matrixd osgWorld = mat4ToOsg(osgWorldFromUrdfMeshFrame(urdfWorld));
+	const osg::Vec3d t = osgWorld.getTrans();
+	outPosMm[0] = t.x();
+	outPosMm[1] = t.y();
+	outPosMm[2] = t.z();
+	if (outQuat)
+	{
+		*outQuat = osgWorld.getRotate();
+		const double n = outQuat->length();
+		if (n > 1e-12)
+		{
+			*outQuat = osg::Quat(outQuat->x() / n, outQuat->y() / n, outQuat->z() / n, outQuat->w() / n);
+		}
+	}
+	return true;
+}
+
+bool UrdfRobotLoader::computeLinkWorldPoseAndJacobianFromGraph(const kinematic_core::KinematicGraph& graph,
+															   const int linkIdx, const QVector<double>& jointAnglesRad,
+															   double outPosMm[3], osg::Quat* outQuat,
+															   std::vector<double>& outJ_rowMajor,
+															   const bool includeOrientation,
+															   const double orientationWeight, QString* errorMessage)
+{
+	outJ_rowMajor.clear();
+	if (!outPosMm || linkIdx < 0 || linkIdx >= static_cast<int>(graph.links.size()))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Invalid link pose Jacobian arguments.");
+		}
+		return false;
+	}
+	double base[16];
+	mat4InternalToColumnMajor(matIdentity(), base);
+	std::vector<std::array<double, 16>> linkWorld(graph.links.size());
+	if (!kinematic_core::forwardKinematicsTree(graph, base, jointAnglesRad.constData(),
+											   static_cast<std::size_t>(jointAnglesRad.size()),
+											   reinterpret_cast<double(*)[16]>(linkWorld.data())))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("forwardKinematicsTree failed.");
+		}
+		return false;
+	}
+	const Mat4 urdfWorld = columnMajorToMat4Internal(linkWorld[static_cast<size_t>(linkIdx)].data());
+	const osg::Matrixd osgWorld = mat4ToOsg(osgWorldFromUrdfMeshFrame(urdfWorld));
+	const osg::Vec3d t = osgWorld.getTrans();
+	outPosMm[0] = t.x();
+	outPosMm[1] = t.y();
+	outPosMm[2] = t.z();
+	if (outQuat)
+	{
+		*outQuat = osgWorld.getRotate();
+		const double n = outQuat->length();
+		if (n > 1e-12)
+		{
+			*outQuat = osg::Quat(outQuat->x() / n, outQuat->y() / n, outQuat->z() / n, outQuat->w() / n);
+		}
+	}
+
+	kinematic_core::JacobianOptions jopt;
+	jopt.orientationWeight = orientationWeight;
+	const bool okJ =
+		includeOrientation
+			? kinematic_core::computePoseJacobianFromLinkWorld(graph, jointAnglesRad.constData(),
+															   static_cast<std::size_t>(jointAnglesRad.size()), linkIdx,
+															   linkWorld, outJ_rowMajor, jopt)
+			: kinematic_core::computePositionJacobianFromLinkWorld(
+				  graph, jointAnglesRad.constData(), static_cast<std::size_t>(jointAnglesRad.size()), linkIdx, linkWorld,
+				  outJ_rowMajor, jopt);
+	if (!okJ)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Geometric Jacobian from linkWorld failed.");
+		}
+		return false;
+	}
+	const int n = graph.dofCount();
+	const int need = includeOrientation ? 6 * n : 3 * n;
+	return n > 0 && static_cast<int>(outJ_rowMajor.size()) >= need;
+}
+
+bool UrdfRobotLoader::computeLinkWorldPose(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,
+										   const QString& linkName, double outPosMm[3], osg::Quat* outQuat,
+										   QString* errorMessage)
+{
+	kinematic_core::KinematicGraph graph;
+	if (!buildUrdfKinematicGraph(urdfFilePath, graph, errorMessage))
+	{
+		return false;
+	}
+	const int linkIdx = graph.linkIndexById(linkName.toStdString());
+	if (linkIdx < 0)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Link '%1' missing in FK.").arg(linkName);
+		}
+		return false;
+	}
+	return computeLinkWorldPoseFromGraph(graph, linkIdx, jointAnglesRad, outPosMm, outQuat, errorMessage);
 }
 
 bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFilePath,
@@ -3080,6 +3229,11 @@ bool UrdfRobotLoader::buildUrdfKinematicGraph(const QString& urdfFilePath, kinem
 	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
 	{
 		return false;
+	}
+	if (model->kinematicGraphValid)
+	{
+		outGraph = model->kinematicGraph;
+		return true;
 	}
 	return buildKinematicGraphFromModel(*model, outGraph);
 }

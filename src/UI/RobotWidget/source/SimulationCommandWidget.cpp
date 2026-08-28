@@ -1,4 +1,4 @@
-﻿/// @file SimulationCommandWidget.cpp
+/// @file SimulationCommandWidget.cpp
 /// @brief 仿真指令坞
 
 #include "SimulationCommandWidget.h"
@@ -257,12 +257,21 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	}
 	m_playbackRateCombo->setCurrentIndex(defaultRateIndex);
 	m_playbackRateCombo->setToolTip(QStringLiteral("Playback rate (does not change planned duration)"));
+	m_ikSeedLabel = new QLabel(QStringLiteral("IK Seed"), this);
+	m_ikSeedCombo = new QComboBox(this);
+	m_ikSeedCombo->addItem(QStringLiteral("Chain"), 0);
+	m_ikSeedCombo->addItem(QStringLiteral("Current"), 1);
+	m_ikSeedCombo->setCurrentIndex(0);
+	m_ikSeedCombo->setToolTip(QStringLiteral("IK seed: previous waypoint chain / current joint pose"));
 	configureCompactButton(m_runBtn);
 	configureCompactButton(m_stopBtn);
 	configureCompactButton(m_exportBtn);
 	configureCompactCombo(m_playbackRateCombo);
+	configureCompactCombo(m_ikSeedCombo);
 	m_playbackRateCombo->setMinimumWidth(64);
 	m_playbackRateCombo->setMaximumWidth(88);
+	m_ikSeedCombo->setMinimumWidth(72);
+	m_ikSeedCombo->setMaximumWidth(96);
 	applyBtnRole(m_runBtn, "primary");
 	applyBtnRole(m_stopBtn, "danger");
 	applyBtnRole(m_exportBtn, "secondary");
@@ -270,6 +279,8 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	rowRun->addWidget(m_stopBtn);
 	rowRun->addWidget(m_playbackRateLabel);
 	rowRun->addWidget(m_playbackRateCombo);
+	rowRun->addWidget(m_ikSeedLabel);
+	rowRun->addWidget(m_ikSeedCombo);
 	rowRun->addStretch(1);
 	rowRun->addWidget(m_exportBtn);
 	root->addLayout(rowRun);
@@ -455,6 +466,11 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 			[this](int)
 			{
 				emit playbackRateChanged(playbackRate());
+			});
+	connect(m_ikSeedCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				emit ikSeedPolicyChanged(m_ikSeedCombo->currentData().toInt());
 			});
 
 	UiIconDecorators::apply(m_tcpDragTeachBtn, UiIconId::TcpDragTeach);
@@ -702,6 +718,17 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	{
 		m_playbackRateCombo->setToolTip(chinese ? QStringLiteral("播放倍率（不改变规划时长）")
 												: QStringLiteral("Playback rate (does not change planned duration)"));
+	}
+	if (m_ikSeedLabel)
+	{
+		m_ikSeedLabel->setText(chinese ? QStringLiteral("IK种子") : QStringLiteral("IK Seed"));
+	}
+	if (m_ikSeedCombo)
+	{
+		m_ikSeedCombo->setItemText(0, chinese ? QStringLiteral("链式") : QStringLiteral("Chain"));
+		m_ikSeedCombo->setItemText(1, chinese ? QStringLiteral("当前") : QStringLiteral("Current"));
+		m_ikSeedCombo->setToolTip(chinese ? QStringLiteral("IK 种子：上一路点链式 / 轴控当前关节")
+										  : QStringLiteral("IK seed: previous waypoint chain / current joint pose"));
 	}
 	if (m_exportBtn)
 	{

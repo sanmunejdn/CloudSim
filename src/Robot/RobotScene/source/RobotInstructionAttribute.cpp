@@ -40,6 +40,15 @@ RobotInstruction::Vec3 getPose(const RobotInstruction::Base& cmd)
 
 void setPose(RobotInstruction::Base& cmd, const RobotInstruction::Vec3& pose)
 {
+	// 整 Vec3 写入仍走真值同步，避免旁路 setPose 只改显示副本
+	engine::RigidTransform t{};
+	if (RobotInstruction::readTargetTransformFromInstruction(cmd, t))
+	{
+		RobotInstruction::writeTargetTransformToInstruction(
+			cmd, engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d(pose.x, pose.y, pose.z),
+															 t.rotation().normalized()));
+		return;
+	}
 	cmd.setPose(pose);
 }
 
@@ -55,6 +64,15 @@ RobotInstruction::Vec3 getEuler(const RobotInstruction::Base& cmd)
 
 void setEuler(RobotInstruction::Base& cmd, const RobotInstruction::Vec3& value)
 {
+	engine::RigidTransform t{};
+	if (RobotInstruction::readTargetTransformFromInstruction(cmd, t))
+	{
+		const Eigen::Vector3d trans = t.translationMm();
+		RobotInstruction::writeTargetTransformToInstruction(
+			cmd, engine::RigidTransform::fromTranslationEulerDeg(trans.x(), trans.y(), trans.z(), value.x, value.y,
+																 value.z));
+		return;
+	}
 	cmd.setEulerDeg(value);
 }
 
@@ -130,10 +148,15 @@ RobotInstruction::Vec3 getViaPoseFn(const RobotInstruction::Base& cmd)
 
 void setViaPoseFn(RobotInstruction::Base& cmd, const RobotInstruction::Vec3& pose)
 {
+	engine::RigidTransform t{};
+	if (RobotInstruction::readViaTransformFromInstruction(cmd, t))
+	{
+		RobotInstruction::writeViaTransformToInstruction(
+			cmd, engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d(pose.x, pose.y, pose.z),
+															 t.rotation().normalized()));
+		return;
+	}
 	cmd.setViaPose(pose);
-	// 面板改 Via 后丢掉旧 transform，避免规划仍用示教快照
-	cmd.eraseExtensionProperty(RobotInstruction::kExtContextViaTransformQuatCsv);
-	cmd.eraseExtensionProperty(RobotInstruction::kExtContextViaTransformTransMmCsv);
 }
 
 bool hasViaEulerPropertyFn(const RobotInstruction::Base& cmd)
@@ -148,9 +171,16 @@ RobotInstruction::Vec3 getViaEulerFn(const RobotInstruction::Base& cmd)
 
 void setViaEulerFn(RobotInstruction::Base& cmd, const RobotInstruction::Vec3& value)
 {
+	engine::RigidTransform t{};
+	if (RobotInstruction::readViaTransformFromInstruction(cmd, t))
+	{
+		const Eigen::Vector3d trans = t.translationMm();
+		RobotInstruction::writeViaTransformToInstruction(
+			cmd, engine::RigidTransform::fromTranslationEulerDeg(trans.x(), trans.y(), trans.z(), value.x, value.y,
+																value.z));
+		return;
+	}
 	cmd.setViaEulerDeg(value);
-	cmd.eraseExtensionProperty(RobotInstruction::kExtContextViaTransformQuatCsv);
-	cmd.eraseExtensionProperty(RobotInstruction::kExtContextViaTransformTransMmCsv);
 }
 } // namespace
 
@@ -170,6 +200,15 @@ PoseAttribute::PoseAttribute()
 {
 }
 
+bool PoseAttribute::apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const
+{
+	if (!handlesKey(context, key))
+	{
+		return false;
+	}
+	return applyTargetDisplayComponent(context, key, value, errMsg);
+}
+
 EulerAttribute::EulerAttribute()
 	: property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>(
 		  hasEulerProperty, getEuler, setEuler,
@@ -179,6 +218,15 @@ EulerAttribute::EulerAttribute()
 									 labelForKey("motion.target.euler.rz", "Euler RZ (deg)")},
 		  appendRow)
 {
+}
+
+bool EulerAttribute::apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const
+{
+	if (!handlesKey(context, key))
+	{
+		return false;
+	}
+	return applyTargetDisplayComponent(context, key, value, errMsg);
 }
 
 ViaPoseAttribute::ViaPoseAttribute()
@@ -192,6 +240,15 @@ ViaPoseAttribute::ViaPoseAttribute()
 {
 }
 
+bool ViaPoseAttribute::apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const
+{
+	if (!handlesKey(context, key))
+	{
+		return false;
+	}
+	return applyViaDisplayComponent(context, key, value, errMsg);
+}
+
 ViaEulerAttribute::ViaEulerAttribute()
 	: property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>(
 		  hasViaEulerPropertyFn, getViaEulerFn, setViaEulerFn,
@@ -201,6 +258,16 @@ ViaEulerAttribute::ViaEulerAttribute()
 									 labelForKey("motion.via.euler.rz", "Via Euler RZ (deg)")},
 		  appendRow)
 {
+}
+
+bool ViaEulerAttribute::apply(Base& context, const std::string& key, const std::string& value,
+							  std::string* errMsg) const
+{
+	if (!handlesKey(context, key))
+	{
+		return false;
+	}
+	return applyViaDisplayComponent(context, key, value, errMsg);
 }
 
 AttributePtr makeScalarDoubleAttribute(bool (*hasProperty)(const Base&), double (*getter)(const Base&),

@@ -131,6 +131,9 @@ signals:
 
 	void playbackRateChanged(double rate);
 
+	/// 0=FromInstruction（链式），1=FromCurrentPose
+	void ikSeedPolicyChanged(int policy);
+
 	void tcpDragTeachModeChanged(bool enabled);
 
 	void instructionWaypointPickModeChanged(bool enabled);
@@ -230,6 +233,10 @@ private:
 	QLabel* m_playbackRateLabel = nullptr;
 
 	QComboBox* m_playbackRateCombo = nullptr;
+
+	QLabel* m_ikSeedLabel = nullptr;
+
+	QComboBox* m_ikSeedCombo = nullptr;
 
 	QPushButton* m_exportBtn = nullptr;
 

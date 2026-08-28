@@ -627,4 +627,41 @@ JointConfigurationClass classifyJointConfiguration(const std::vector<double>& qR
 	return c;
 }
 
+double wristConfigurationJumpRad(const std::vector<double>& qRad, const std::vector<double>& seedRad,
+								 const std::vector<std::string>& jointNames)
+{
+	if (qRad.empty() || qRad.size() != seedRad.size())
+	{
+		return 1e30;
+	}
+	const int j4Idx = findJointIndexByHint(jointNames, "joint_4", 3);
+	const int wristIdx = findJointIndexByHint(jointNames, "wrist", 4);
+	const int j6Idx = findJointIndexByHint(jointNames, "joint_6", 5);
+	constexpr double kPi = 3.14159265358979323846;
+	constexpr double kTwoPi = 6.283185307179586;
+	double maxAbs = 0.0;
+	auto accum = [&](const int idx)
+	{
+		if (idx < 0 || idx >= static_cast<int>(qRad.size()))
+		{
+			return;
+		}
+		// 最短角差：fold/转数同构不当作翻腕
+		double d = qRad[static_cast<size_t>(idx)] - seedRad[static_cast<size_t>(idx)];
+		while (d > kPi)
+		{
+			d -= kTwoPi;
+		}
+		while (d < -kPi)
+		{
+			d += kTwoPi;
+		}
+		maxAbs = std::max(maxAbs, std::abs(d));
+	};
+	accum(j4Idx);
+	accum(wristIdx);
+	accum(j6Idx);
+	return maxAbs;
+}
+
 } // namespace RobotInstruction

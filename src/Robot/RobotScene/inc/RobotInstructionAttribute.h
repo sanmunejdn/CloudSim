@@ -33,24 +33,28 @@ class ROBOT_SCENE_API PoseAttribute final : public property_core::PropertyVec3At
 {
 public:
 	PoseAttribute();
+	bool apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const override;
 };
 
 class ROBOT_SCENE_API EulerAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
 {
 public:
 	EulerAttribute();
+	bool apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const override;
 };
 
 class ROBOT_SCENE_API ViaPoseAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
 {
 public:
 	ViaPoseAttribute();
+	bool apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const override;
 };
 
 class ROBOT_SCENE_API ViaEulerAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
 {
 public:
 	ViaEulerAttribute();
+	bool apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const override;
 };
 
 using AttributePtr = std::shared_ptr<AttributeBase>;
