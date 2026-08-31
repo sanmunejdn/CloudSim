@@ -2311,6 +2311,16 @@ public:
 			}
 			return false;
 		}
+		// IK 多解分支稳定：折圈到种子最近圈，避免 LINE 链路整体跨支（同 PTP）
+		{
+			constexpr double kTwoPi = 6.283185307179586;
+			for (size_t i = 0; i < qTarget.size(); ++i)
+			{
+				double d = qTarget[i] - q0[i];
+				d -= kTwoPi * std::round(d / kTwoPi);
+				qTarget[i] = q0[i] + d;
+			}
+		}
 
 		double durationSec = 0.0;
 		double cartDistMm = 0.0;
@@ -2599,6 +2609,16 @@ public:
 				*errMsg = qTarget.empty() ? (ikFailReason.empty() ? "IK无解" : ikFailReason) : "IK解关节数与种子不一致";
 			}
 			return false;
+		}
+		// IK 多解分支稳定：折圈到种子最近圈，避免 ARC 链路整体跨支（同 PTP/LINE）
+		{
+			constexpr double kTwoPi = 6.283185307179586;
+			for (size_t i = 0; i < qTarget.size(); ++i)
+			{
+				double d = qTarget[i] - q0[i];
+				d -= kTwoPi * std::round(d / kTwoPi);
+				qTarget[i] = q0[i] + d;
+			}
 		}
 
 		engine::RigidTransform T_end{};

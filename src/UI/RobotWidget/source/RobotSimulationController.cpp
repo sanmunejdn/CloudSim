@@ -84,6 +84,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <optional>
@@ -802,17 +803,93 @@ bool normalizeJointRevolutionsToReference(std::vector<double>& q, const std::vec
 		return false;
 	}
 	constexpr double kTwoPi = 6.283185307179586;
+	constexpr double kRadToDeg = 180.0 / 3.141592653589793;
 	for (size_t j = 0; j < n; ++j)
 	{
 		const double shifted = q[j] - kTwoPi * std::round((q[j] - ref[j]) / kTwoPi);
 		const int ji = static_cast<int>(j);
 		if (shifted < lowerRad[ji] - 1e-9 || shifted > upperRad[ji] + 1e-9)
 		{
+			char buf[256];
+			std::snprintf(buf, sizeof(buf),
+						  "折圈失败: J%d IK=%.1f° 链种子=%.1f° 折回=%.1f° 限位=[%.1f°, %.1f°] 越下限=%.1f° 越上限=%.1f°",
+						  ji + 1, q[j] * kRadToDeg, ref[j] * kRadToDeg, shifted * kRadToDeg,
+						  lowerRad[ji] * kRadToDeg, upperRad[ji] * kRadToDeg,
+						  (lowerRad[ji] - shifted) * kRadToDeg, (shifted - upperRad[ji]) * kRadToDeg);
+			RunLogger::warn(buf);
 			return false;
 		}
 		q[j] = shifted;
 	}
 	return true;
+}
+
+/// 折圈失败时生成面向用户的中文说明（角度制）；|折回差| > 180° 视为分支跨越
+std::string describeJointNormalizeFailure(const std::vector<double>& q, const std::vector<double>& ref,
+										  const QVector<double>& lowerRad, const QVector<double>& upperRad)
+{
+	constexpr double kTwoPi = 6.283185307179586;
+	constexpr double kPi = 3.141592653589793;
+	constexpr double kRadToDeg = 180.0 / kPi;
+	int worstJ = -1;
+	double worstOver = -1.0;
+	double qDeg = 0.0;
+	double refDeg = 0.0;
+	double shiftedDeg = 0.0;
+	double loDeg = 0.0;
+	double hiDeg = 0.0;
+	double foldedAbsDeg = 0.0;
+	for (size_t j = 0; j < q.size() && j < ref.size(); ++j)
+	{
+		const int ji = static_cast<int>(j);
+		if (ji >= lowerRad.size() || ji >= upperRad.size())
+		{
+			continue;
+		}
+		const double shifted = q[j] - kTwoPi * std::round((q[j] - ref[j]) / kTwoPi);
+		const double over = std::max(lowerRad[ji] - shifted, shifted - upperRad[ji]);
+		if (over > worstOver)
+		{
+			worstOver = over;
+			worstJ = ji;
+			qDeg = q[j] * kRadToDeg;
+			refDeg = ref[j] * kRadToDeg;
+			shiftedDeg = shifted * kRadToDeg;
+			loDeg = lowerRad[ji] * kRadToDeg;
+			hiDeg = upperRad[ji] * kRadToDeg;
+			double d = q[j] - ref[j];
+			d -= kTwoPi * std::round(d / kTwoPi);
+			foldedAbsDeg = std::abs(d) * kRadToDeg;
+		}
+	}
+	if (worstJ < 0)
+	{
+		return QStringLiteral("关节转数折回失败：最接近的整圈超出限位").toStdString();
+	}
+	const double unfoldAbsDeg = std::abs(qDeg - refDeg);
+	if (foldedAbsDeg > 180.0)
+	{
+		return QStringLiteral("分支跨越被拒：J%1 最短连续转动 %2°（链种子 %3° → IK %4°），超出物理连续性限制。"
+							  "折回最近圈得 %5°，限位 [%6°, %7°]。请在相邻指令间插入 PTP 或重新示教。")
+			.arg(worstJ + 1)
+			.arg(foldedAbsDeg, 0, 'f', 1)
+			.arg(refDeg, 0, 'f', 1)
+			.arg(qDeg, 0, 'f', 1)
+			.arg(shiftedDeg, 0, 'f', 1)
+			.arg(loDeg, 0, 'f', 1)
+			.arg(hiDeg, 0, 'f', 1)
+			.toStdString();
+	}
+	return QStringLiteral("关节转数折回失败：J%1 链种子 %2°，IK 解 %3°（未折圈差 %4°）。"
+						  "折回最近圈得 %5°，超出限位 [%6°, %7°]。连续 LINE 无法跨圈，请改用 PTP 过渡或重新示教。")
+		.arg(worstJ + 1)
+		.arg(refDeg, 0, 'f', 1)
+		.arg(qDeg, 0, 'f', 1)
+		.arg(unfoldAbsDeg, 0, 'f', 1)
+		.arg(shiftedDeg, 0, 'f', 1)
+		.arg(loDeg, 0, 'f', 1)
+		.arg(hiDeg, 0, 'f', 1)
+		.toStdString();
 }
 
 /// R1 改写终点后按同量平移整条轨迹，避免 clear 后回放路径与已校验碰撞分叉
@@ -902,7 +979,7 @@ bool prepareWorkerPlanForCache(RobotInstruction::PlanResult& plan, const QVector
 	if (!normalizeJointRevolutionsToReference(plan.jointTargetsRad, refQ, limLo, limHi))
 	{
 		plan.ok = false;
-		plan.summary = "joint revolution normalize failed (limits block nearest turn)";
+		plan.summary = describeJointNormalizeFailure(before, refQ, limLo, limHi);
 		return false;
 	}
 	alignTrajectoryAfterTargetNormalize(plan, before);
@@ -919,6 +996,25 @@ double maxUnfoldedJointAbsDelta(const QVector<double>& a, const QVector<double>&
 	for (int j = 0; j < a.size(); ++j)
 	{
 		maxAbs = std::max(maxAbs, std::abs(a[j] - b[j]));
+	}
+	return maxAbs;
+}
+
+/// 折圈后逐关节最大偏差：用于连续性硬门（区分「分支跨越」与「整圈跳转」）
+/// 分支跨越（如手腕翻转）折圈后差值小，应通过；整圈跳转折圈后差为 0，也应通过
+/// 排序仍用未折圈 SSE，优先选物理行程短的解
+double maxFoldedJointAbsDelta(const QVector<double>& a, const QVector<double>& b)
+{
+	if (a.size() != b.size())
+	{
+		return 1e30;
+	}
+	constexpr double kTwoPi = 6.283185307179586;
+	double maxAbs = 0.0;
+	for (int j = 0; j < a.size(); ++j)
+	{
+		const double folded = a[j] - kTwoPi * std::round((a[j] - b[j]) / kTwoPi);
+		maxAbs = std::max(maxAbs, std::abs(folded - b[j]));
 	}
 	return maxAbs;
 }
@@ -8139,7 +8235,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		const std::vector<double> targetsBeforeNorm = plan.jointTargetsRad;
 		if (!normalizeJointRevolutionsToReference(plan.jointTargetsRad, refQ, jointLowerRad, jointUpperRad))
 		{
-			lastErr = "joint revolution normalize failed (limits block nearest turn)";
+			lastErr = describeJointNormalizeFailure(targetsBeforeNorm, refQ, jointLowerRad, jointUpperRad);
 			return false;
 		}
 		alignTrajectoryAfterTargetNormalize(plan, targetsBeforeNorm);
@@ -8473,7 +8569,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 			const bool wristCont = wristJump <= RobotInstruction::kWristContinuityGateRad;
 			if (collectNearest)
 			{
-				const double maxAbs = maxUnfoldedJointAbsDelta(resultQ, chainSeedQ);
+				const double maxAbs = maxFoldedJointAbsDelta(resultQ, chainSeedQ);
 				const double sse = unfoldedJointSse(resultQ, chainSeedQ);
 				if (maxAbs > kFallbackConsistencyRad)
 				{
@@ -8844,7 +8940,7 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 			}
 			if (collectNearest)
 			{
-				const double maxAbs = maxUnfoldedJointAbsDelta(resultQ, chainSeedQ);
+				const double maxAbs = maxFoldedJointAbsDelta(resultQ, chainSeedQ);
 				const double sse = unfoldedJointSse(resultQ, chainSeedQ);
 				if (maxAbs > kFallbackConsistencyRad)
 				{
