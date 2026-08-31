@@ -8,6 +8,9 @@
     <Filter Include="inc\Feature">
       <UniqueIdentifier>{B4527F41-9EE1-4AE6-85E5-8813F2DB14F3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{23E08F90-3214-409A-A25D-DDB9DF40F6B4}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\Plugin">
       <UniqueIdentifier>{3BDD6AD3-59C2-48C0-B981-15C2A4CEA1D5}</UniqueIdentifier>
     </Filter>
@@ -23,6 +26,9 @@
     </Filter>
     <Filter Include="src\Feature">
       <UniqueIdentifier>{197AF075-83B8-4DB8-BFA9-DF62565AD75F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{49C5695E-7C7F-47BA-B574-F53DB781E6CF}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Plugin">
       <UniqueIdentifier>{EEA8AA0F-B503-4E66-BA2A-8095AB387FC8}</UniqueIdentifier>
@@ -41,11 +47,17 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\BodyHistoryCmd.h">
+      <Filter>inc\Feature</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimGeomPython.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\FeatureDocument.h">
       <Filter>inc\Feature</Filter>
     </ClInclude>
-    <ClInclude Include="inc\BodyHistoryCmd.h">
-      <Filter>inc\Feature</Filter>
+    <ClInclude Include="inc\ScriptModelIo.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\SketchConstraintSolver.h">
       <Filter>inc\Sketch</Filter>
@@ -61,6 +73,9 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\CloudSimGeomPython.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\CommandStack.cpp">
       <Filter>src\UI</Filter>
     </ClCompile>
@@ -73,11 +88,14 @@
     <ClCompile Include="source\GeometricModelingPlugin.cpp">
       <Filter>src\Plugin</Filter>
     </ClCompile>
+    <ClCompile Include="source\GeometricModelingRibbonBar.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
     <ClCompile Include="source\GeometricModelingSolidFeatures.cpp">
       <Filter>src\Plugin</Filter>
     </ClCompile>
-    <ClCompile Include="source\GeometricModelingRibbonBar.cpp">
-      <Filter>src\UI</Filter>
+    <ClCompile Include="source\ScriptModelIo.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchConstraintSolver.cpp">
       <Filter>src\Sketch</Filter>

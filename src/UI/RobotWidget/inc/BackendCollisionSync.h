@@ -34,12 +34,14 @@ ROBOTWIDGET_EXPORT void updatePoses(collision::CollisionWorld& world, IRobotDocu
 
 /// 对关节轨迹抽样碰撞；命中写 failSummary，返回 false
 /// rebuildWorldFirst=false 时复用调用方已 rebuild 的 world（同一次规划多次终接受）
+/// restorePoseOnHit=false：命中停在碰撞姿态（默认；避免回滚到起点造成「画面有缝、日志报碰」）
 ROBOTWIDGET_EXPORT bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHost* doc,
 												BackendDataManager& backend, int instanceIndex,
 												const QVector<double>& seedJointsBefore,
 												const std::vector<std::vector<double>>& jointTrajectoryRad,
 												const RobotCollision::Settings& settings, std::string* failSummary,
-												IRobotOsgViewHost* osg = nullptr, bool rebuildWorldFirst = true);
+												IRobotOsgViewHost* osg = nullptr, bool rebuildWorldFirst = true,
+												bool restorePoseOnHit = false);
 
 } // namespace BackendCollisionSync
 

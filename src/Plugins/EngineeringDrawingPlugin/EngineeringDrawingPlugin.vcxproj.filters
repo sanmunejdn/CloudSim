@@ -1,9 +1,21 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
+    <Filter Include="External">
+      <UniqueIdentifier>{C140D72A-2453-4095-9ADA-ED32648EFFC1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\GeometricModelingPlugin">
+      <UniqueIdentifier>{236AAF21-FAAF-4B15-AD3A-2B52D1882142}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\GeometricModelingPlugin\inc">
+      <UniqueIdentifier>{4EA01478-0FAC-49F5-82B7-4D69FD98B6E0}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{74180773-56EA-4C19-8C8F-857C9441529B}</UniqueIdentifier>
     </Filter>
     <Filter Include="inc\Plugin">
       <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
@@ -15,6 +27,9 @@
       <UniqueIdentifier>{D4E5F6A7-B8C9-0123-DEF0-234567890123}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{929336C0-BDE2-4E5C-9B67-8BB22B08DB95}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\Plugin">
       <UniqueIdentifier>{E5F6A7B8-C9D0-1234-EF01-345678901234}</UniqueIdentifier>
     </Filter>
@@ -23,8 +38,17 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\GeometricModelingPlugin\inc\SketchGeom.h">
+      <Filter>External\GeometricModelingPlugin\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\GeometricModelingPlugin\inc\SketchTools.h">
+      <Filter>External\GeometricModelingPlugin\inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\DrawingExport.h">
       <Filter>inc\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DrawingSheetModel.h">
+      <Filter>inc\Core</Filter>
     </ClInclude>
     <ClInclude Include="inc\SheetSketchAdapter.h">
       <Filter>inc\UI</Filter>
@@ -34,28 +58,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\EngineeringDrawingPlugin.cpp">
-      <Filter>src\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DrawingSheetCanvasWidget.cpp">
+    <ClCompile Include="..\GeometricModelingPlugin\source\SketchGeom.cpp">
       <Filter>src\UI</Filter>
     </ClCompile>
-    <ClCompile Include="source\DrawingSheetCanvasCadExt.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\SheetSnapEngine.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DrawingPageWidget.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DrawingRibbonBar.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DrawingSidePanel.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DrawingInfoPanel.cpp">
+    <ClCompile Include="..\GeometricModelingPlugin\source\SketchTools.cpp">
       <Filter>src\UI</Filter>
     </ClCompile>
     <ClCompile Include="source\DimStyleDialog.cpp">
@@ -64,21 +70,42 @@
     <ClCompile Include="source\DrawingExport.cpp">
       <Filter>src\UI</Filter>
     </ClCompile>
+    <ClCompile Include="source\DrawingInfoPanel.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingPageWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingRibbonBar.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingSheetCanvasCadExt.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingSheetCanvasWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingSheetModel.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingSidePanel.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\EngineeringDrawingPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
     <ClCompile Include="source\SheetSketchAdapter.cpp">
       <Filter>src\UI</Filter>
     </ClCompile>
-    <ClCompile Include="..\GeometricModelingPlugin\source\SketchGeom.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="..\GeometricModelingPlugin\source\SketchTools.cpp">
+    <ClCompile Include="source\SheetSnapEngine.cpp">
       <Filter>src\UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="inc\EngineeringDrawingPlugin.h">
-      <Filter>inc\Plugin</Filter>
+    <QtMoc Include="inc\DimStyleDialog.h">
+      <Filter>inc\UI</Filter>
     </QtMoc>
-    <QtMoc Include="inc\DrawingSheetCanvasWidget.h">
+    <QtMoc Include="inc\DrawingInfoPanel.h">
       <Filter>inc\UI</Filter>
     </QtMoc>
     <QtMoc Include="inc\DrawingPageWidget.h">
@@ -87,14 +114,14 @@
     <QtMoc Include="inc\DrawingRibbonBar.h">
       <Filter>inc\UI</Filter>
     </QtMoc>
+    <QtMoc Include="inc\DrawingSheetCanvasWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
     <QtMoc Include="inc\DrawingSidePanel.h">
       <Filter>inc\UI</Filter>
     </QtMoc>
-    <QtMoc Include="inc\DrawingInfoPanel.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\DimStyleDialog.h">
-      <Filter>inc\UI</Filter>
+    <QtMoc Include="inc\EngineeringDrawingPlugin.h">
+      <Filter>inc\Plugin</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

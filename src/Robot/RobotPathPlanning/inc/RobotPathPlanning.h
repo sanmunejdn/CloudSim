@@ -34,6 +34,8 @@ struct ROBOT_PATH_PLANNING_API PlanRequest
 	QString flangeLinkName;
 	std::vector<double> startJointRad;
 	TcpPose goalToolInBase{};
+	/// 非空则跳过 IK，按给定终点关节做空间规划（Run 穿模回退 OMPL）
+	std::vector<double> goalJointRad;
 	BackendMat4 T_flange_tool = BackendMat4::identity();
 	/// URDF 基座 → 场景世界（无绑定位姿时的兜底）
 	BackendMat4 T_world_urdfBase = BackendMat4::identity();
@@ -60,6 +62,8 @@ struct ROBOT_PATH_PLANNING_API PlanRequest
 		bool useOrientation = true;
 		/// false 时仅检限位（对应 Dock「启用碰撞检测」关闭）
 		bool checkCollision = true;
+		/// false：跳过关节直线 Direct，直接采样规划（画面复验失败后的重试）
+		bool allowDirectJointLerp = true;
 		/// 固定种子，同起终点可复现
 		unsigned int rngSeed = 42u;
 	} options;

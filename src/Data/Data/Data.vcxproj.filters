@@ -65,13 +65,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\BackendCompoundPropagate.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BackendDataBase.h">
       <Filter>inc\Core</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendDataManager.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendManagerDataService.h">
       <Filter>inc\Core</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendFollowTransformSolver.h">
@@ -85,6 +85,9 @@
     </ClInclude>
     <ClInclude Include="inc\BackendImporters.h">
       <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendManagerDataService.h">
+      <Filter>inc\Core</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendObjectAttribute.h">
       <Filter>inc\Core</Filter>
@@ -116,9 +119,6 @@
     <ClInclude Include="inc\FollowAttachmentComponent.h">
       <Filter>inc\HierarchyFollow</Filter>
     </ClInclude>
-    <ClInclude Include="inc\BackendCompoundPropagate.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
     <ClInclude Include="inc\FrameBackendData.h">
       <Filter>inc\GeometryBackends</Filter>
     </ClInclude>
@@ -148,11 +148,11 @@
     <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
       <Filter>External\$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib\Source</Filter>
     </ClCompile>
+    <ClCompile Include="source\BackendCompoundPropagate.cpp">
+      <Filter>src\HierarchyFollow</Filter>
+    </ClCompile>
     <ClCompile Include="source\BackendDataBase.cpp">
       <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendImporters.cpp">
-      <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendDataManager.cpp">
       <Filter>src\Core</Filter>
@@ -163,20 +163,20 @@
     <ClCompile Include="source\BackendFollowTransformSolver.cpp">
       <Filter>src\HierarchyFollow</Filter>
     </ClCompile>
-    <ClCompile Include="source\BackendCompoundPropagate.cpp">
-      <Filter>src\HierarchyFollow</Filter>
-    </ClCompile>
     <ClCompile Include="source\BackendHierarchyModel.cpp">
       <Filter>src\HierarchyFollow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendImporters.cpp">
+      <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendObjectAttribute.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
-    <ClCompile Include="source\BackendPropertyVisualAspect.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
     <ClCompile Include="source\BackendPrimitiveGeometry.cpp">
       <Filter>src\SpatialPrimitive</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendPropertyVisualAspect.cpp">
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendSpatial.cpp">
       <Filter>src\SpatialPrimitive</Filter>
@@ -187,10 +187,10 @@
     <ClCompile Include="source\BrepBackendData_step.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
-    <ClCompile Include="source\CloudSimCoreExport.cpp">
+    <ClCompile Include="source\CloudSimCoreDataService.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
-    <ClCompile Include="source\CloudSimCoreDataService.cpp">
+    <ClCompile Include="source\CloudSimCoreExport.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
     <ClCompile Include="source\CustomDeviceBackendData.cpp">

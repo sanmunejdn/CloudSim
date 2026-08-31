@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="discretizers">
@@ -16,6 +16,9 @@
     </Filter>
     <Filter Include="inc\Mesh">
       <UniqueIdentifier>{CADF33A5-ACB5-42BD-AB14-FB1F342855D2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{6C142ABC-3DB6-42D1-95EB-19103279B414}</UniqueIdentifier>
     </Filter>
     <Filter Include="inc\SelfTest">
       <UniqueIdentifier>{25491B97-0721-4B96-9CFE-E7B6D8AADD8E}</UniqueIdentifier>
@@ -41,6 +44,9 @@
     </Filter>
     <Filter Include="src\MeshSurfaceReconstruction">
       <UniqueIdentifier>{4FB89936-F23F-4E7D-B81A-518EC1F96D35}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{5A91208E-9CC5-467F-AFB3-1239A8DDDCCE}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\SelfTest">
       <UniqueIdentifier>{83E51BCE-3B04-469B-9F08-04F2A4A4562C}</UniqueIdentifier>
@@ -83,22 +89,25 @@
     <ClInclude Include="discretizers\SyntheticPolylineDiscretizer.h">
       <Filter>discretizers</Filter>
     </ClInclude>
+    <ClInclude Include="inc\AssemblyMate.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BrepBoolean.h">
       <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
     <ClInclude Include="inc\BrepImportArtifacts.h">
       <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
+    <ClInclude Include="inc\CsgkBackend.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\Discretize.h">
       <Filter>inc\FeatureDiscretize</Filter>
     </ClInclude>
-    <ClInclude Include="inc\HlrProject.h">
+    <ClInclude Include="inc\DrawingEngines.h">
       <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
     <ClInclude Include="inc\DrawingGeometry.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\DrawingEngines.h">
       <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
     <ClInclude Include="inc\FeatureDiscretizeParamUtils.h">
@@ -130,6 +139,9 @@
     </ClInclude>
     <ClInclude Include="inc\geometry_algorithm_global.h">
       <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HlrProject.h">
+      <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
     <ClInclude Include="inc\IFeatureDiscretizer.h">
       <Filter>inc\FeatureDiscretize</Filter>
@@ -167,32 +179,32 @@
     <ClInclude Include="inc\ShellOps.h">
       <Filter>inc\ShapeBrep</Filter>
     </ClInclude>
-    <ClInclude Include="inc\SketchExtrude.h">
+    <ClInclude Include="inc\SketchCurveWire.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
     <ClInclude Include="inc\SketchDraft.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
+    <ClInclude Include="inc\SketchExtrude.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
     <ClInclude Include="inc\SketchFillet.h">
-      <Filter>inc\Sketch</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SketchRevolve.h">
-      <Filter>inc\Sketch</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SketchPattern.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
     <ClInclude Include="inc\SketchLoft.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
-    <ClInclude Include="inc\SketchShell.h">
+    <ClInclude Include="inc\SketchPattern.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
     <ClInclude Include="inc\SketchPlane.h">
       <Filter>inc\Sketch</Filter>
     </ClInclude>
-    <ClInclude Include="inc\AssemblyMate.h">
-      <Filter>inc\ShapeBrep</Filter>
+    <ClInclude Include="inc\SketchRevolve.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchShell.h">
+      <Filter>inc\Sketch</Filter>
     </ClInclude>
     <ClInclude Include="inc\SketchSweep.h">
       <Filter>inc\Sketch</Filter>
@@ -244,11 +256,17 @@
     <ClCompile Include="discretizers\SyntheticPolylineDiscretizer.cpp">
       <Filter>discretizers</Filter>
     </ClCompile>
+    <ClCompile Include="source\AssemblyMate.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
     <ClCompile Include="source\BrepBoolean.cpp">
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\BrepImportArtifacts.cpp">
       <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CsgkBackend.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\detail\FeatureDiscretizeCommon.cpp">
       <Filter>src\detail</Filter>
@@ -256,22 +274,22 @@
     <ClCompile Include="source\detail\FeatureDiscretizeFrame.cpp">
       <Filter>src\detail</Filter>
     </ClCompile>
+    <ClCompile Include="source\detail\OccSehCall.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
     <ClCompile Include="source\Discretize.cpp">
       <Filter>src\FeatureDiscretize</Filter>
     </ClCompile>
     <ClCompile Include="source\DiscretizeEdge.cpp">
       <Filter>src\FeatureDiscretize</Filter>
     </ClCompile>
-    <ClCompile Include="source\HlrProject.cpp">
+    <ClCompile Include="source\DrawingEngines.cpp">
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\DrawingGeometry.cpp">
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\DrawingGeomFactory.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DrawingEngines.cpp">
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\FaceSectionDiscretize.cpp">
@@ -303,6 +321,9 @@
     </ClCompile>
     <ClCompile Include="source\FeatureDiscretizerRegistry.cpp">
       <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HlrProject.cpp">
+      <Filter>src\ShapeBrep</Filter>
     </ClCompile>
     <ClCompile Include="source\IFeatureDiscretizer.cpp">
       <Filter>src\FeatureDiscretize</Filter>
@@ -412,14 +433,8 @@
     <ClCompile Include="source\ShapeQuery.cpp">
       <Filter>src\ShapeBrep</Filter>
     </ClCompile>
-    <ClCompile Include="source\detail\OccSehCall.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
     <ClCompile Include="source\ShellOps.cpp">
       <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\SketchExtrude.cpp">
-      <Filter>src\Sketch</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchCurveWire.cpp">
       <Filter>src\Sketch</Filter>
@@ -427,26 +442,26 @@
     <ClCompile Include="source\SketchDraft.cpp">
       <Filter>src\Sketch</Filter>
     </ClCompile>
+    <ClCompile Include="source\SketchExtrude.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
     <ClCompile Include="source\SketchFillet.cpp">
-      <Filter>src\Sketch</Filter>
-    </ClCompile>
-    <ClCompile Include="source\SketchRevolve.cpp">
-      <Filter>src\Sketch</Filter>
-    </ClCompile>
-    <ClCompile Include="source\SketchPattern.cpp">
       <Filter>src\Sketch</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchLoft.cpp">
       <Filter>src\Sketch</Filter>
     </ClCompile>
-    <ClCompile Include="source\SketchShell.cpp">
+    <ClCompile Include="source\SketchPattern.cpp">
       <Filter>src\Sketch</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchPlane.cpp">
       <Filter>src\Sketch</Filter>
     </ClCompile>
-    <ClCompile Include="source\AssemblyMate.cpp">
-      <Filter>src\ShapeBrep</Filter>
+    <ClCompile Include="source\SketchRevolve.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchShell.cpp">
+      <Filter>src\Sketch</Filter>
     </ClCompile>
     <ClCompile Include="source\SketchSweep.cpp">
       <Filter>src\Sketch</Filter>

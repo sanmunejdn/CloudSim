@@ -135,131 +135,204 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 	}
 
 	std::vector<double> goalQ;
-	if (!solveGoalJoints(armReq, goalQ, out.errMsg))
+	if (!armReq.goalJointRad.empty())
+	{
+		goalQ = armReq.goalJointRad;
+		if (goalQ.size() > lim.lowerRad.size())
+			goalQ.resize(lim.lowerRad.size());
+		if (goalQ.size() != lim.lowerRad.size())
+		{
+			out.errMsg = "goal joint count mismatch (got " + std::to_string(armReq.goalJointRad.size()) + ", urdf " +
+						 std::to_string(lim.lowerRad.size()) + ")";
+			return false;
+		}
+	}
+	else if (!solveGoalJoints(armReq, goalQ, out.errMsg))
+	{
 		return false;
+	}
 
+	{
+		double dq2 = 0.0;
+		for (std::size_t i = 0; i < goalQ.size(); ++i)
+		{
+			const double d = goalQ[i] - armReq.startJointRad[i];
+			dq2 += d * d;
+		}
+		// 起终点关节几乎重合时 Direct 会“成功”但 TCP 长为 0，拒绝以免假成功
+		if (std::sqrt(dq2) < 1e-3)
+		{
+			out.errMsg = "start/goal joints nearly identical; re-teach start waypoint or pick different end";
+			return false;
+		}
+	}
+
+	// 采样规划前先诊断起/终点，避免起点碰场景时 OMPL 空转超时
+	{
+		const std::string startBad = detail::describeStateInvalid(armReq, lim, armReq.startJointRad);
+		const std::string goalBad = detail::describeStateInvalid(armReq, lim, goalQ);
+		if (!startBad.empty())
+		{
+			out.errMsg = "start state invalid: " + startBad;
+			return false;
+		}
+		if (!goalBad.empty())
+		{
+			out.errMsg = "goal state invalid: " + goalBad;
+			return false;
+		}
+	}
+
+	auto densifyCollisionOk = [&](std::string& densifyErr) -> bool {
+		const double stepRad = std::max(1e-6, armReq.options.longestValidSegmentRad);
+		detail::densifyJointPath(out, stepRad);
+		if (!armReq.options.checkCollision)
+			return true;
+		if (!armReq.world)
+		{
+			densifyErr = "collision check enabled but collision world is null";
+			return false;
+		}
+		for (std::size_t i = 0; i < out.jointTrajectoryRad.size(); ++i)
+		{
+			if (!detail::isStateValid(armReq, lim, out.jointTrajectoryRad[i]))
+			{
+				densifyErr = "path state in collision after densify (i=" + std::to_string(i) + ")";
+				return false;
+			}
+			if (i + 1 < out.jointTrajectoryRad.size()
+				&& !detail::isSegmentValid(armReq, lim, out.jointTrajectoryRad[i], out.jointTrajectoryRad[i + 1],
+										   stepRad))
+			{
+				densifyErr = "path segment in collision after densify (i=" + std::to_string(i) + ")";
+				return false;
+			}
+		}
+		return true;
+	};
+
+	auto snapGoalAndDensify = [&](std::string& err) -> bool {
+		if (!out.jointTrajectoryRad.empty())
+		{
+			auto& back = out.jointTrajectoryRad.back();
+			if (back.size() == goalQ.size())
+			{
+				double dq = 0.0;
+				for (std::size_t i = 0; i < goalQ.size(); ++i)
+				{
+					const double d = back[i] - goalQ[i];
+					dq += d * d;
+				}
+				dq = std::sqrt(dq);
+				if (dq > 1e-3)
+				{
+					if (!detail::isSegmentValid(armReq, lim, back, goalQ, armReq.options.longestValidSegmentRad))
+					{
+						err = "path end != goal joints after plan";
+						return false;
+					}
+					out.jointTrajectoryRad.push_back(goalQ);
+				}
+				else
+				{
+					back = goalQ;
+				}
+			}
+		}
+		if (!densifyCollisionOk(err))
+			return false;
+		// 捷径缩短；若加密后穿模则退回捷径前稠密路径
+		const auto backup = out.jointTrajectoryRad;
+		const std::string nameBackup = out.plannerName;
+		detail::shortcutJointPath(armReq, lim, out);
+		std::string shortcutErr;
+		if (!densifyCollisionOk(shortcutErr))
+		{
+			out.jointTrajectoryRad = backup;
+			out.plannerName = nameBackup;
+		}
+		return true;
+	};
+
+	auto tryOmplOrRrt = [&](std::string& lastErr) -> bool {
+		auto tryOne = [&](const char* plannerId, const double minTimeSec, const bool useOmpl) -> bool {
+			PlanRequest tryReq = armReq;
+			tryReq.options.plannerId = plannerId;
+			tryReq.options.planningTimeSec = std::max(minTimeSec, armReq.options.planningTimeSec);
+			bool planned = false;
+#if defined(CLOUDSIM_HAS_OMPL)
+			if (useOmpl)
+				planned = detail::planJointSpaceOmpl(tryReq, lim, goalQ, out);
+#endif
+			if (!useOmpl)
+				planned = detail::planJointSpaceRrt(tryReq, lim, goalQ, out);
+			if (!planned)
+			{
+				lastErr = out.errMsg.empty() ? lastErr : out.errMsg;
+				return false;
+			}
+			std::string densifyErr;
+			if (!snapGoalAndDensify(densifyErr))
+			{
+				lastErr = densifyErr;
+				out = PathResult{};
+				return false;
+			}
+			return true;
+		};
+#if defined(CLOUDSIM_HAS_OMPL)
+		if (tryOne("BITstar", 10.0, true))
+			return true;
+		if (tryOne("InformedRRTstar", 10.0, true))
+			return true;
+		if (tryOne("RRTstar", 8.0, true))
+			return true;
+		if (tryOne("RRTConnect", 5.0, true))
+			return true;
+#endif
+		if (tryOne("RRTConnect", 5.0, false))
+			return true;
+		if (out.errMsg.empty())
+			out.errMsg = lastErr.empty() ? "motion planning failed" : lastErr;
+		return false;
+	};
+
+	bool usedDirect = false;
 	// 无障碍/直达可行时：关节直线最短且可复现
-	if (detail::isStateValid(armReq, lim, armReq.startJointRad) && detail::isStateValid(armReq, lim, goalQ)
+	if (armReq.options.allowDirectJointLerp
 		&& detail::isSegmentValid(armReq, lim, armReq.startJointRad, goalQ, armReq.options.longestValidSegmentRad))
 	{
 		out.jointTrajectoryRad = {armReq.startJointRad, goalQ};
 		out.plannerName = "Direct";
 		out.ok = true;
+		usedDirect = true;
 	}
 	else
 	{
-		bool planned = false;
 		std::string lastErr;
-#if defined(CLOUDSIM_HAS_OMPL)
-		// BIT*（批量启发，路径长度 anytime）→ Informed RRT* → RRT* → RRTConnect
-		// 参考：https://github.com/ompl/ompl demos/OptimalPlanning.cpp
-		{
-			PlanRequest tryReq = armReq;
-			tryReq.options.plannerId = "BITstar";
-			tryReq.options.planningTimeSec = std::max(10.0, armReq.options.planningTimeSec);
-			planned = detail::planJointSpaceOmpl(tryReq, lim, goalQ, out);
-			if (!planned)
-				lastErr = out.errMsg;
-		}
-		if (!planned)
-		{
-			PlanRequest tryReq = armReq;
-			tryReq.options.plannerId = "InformedRRTstar";
-			tryReq.options.planningTimeSec = std::max(10.0, armReq.options.planningTimeSec);
-			planned = detail::planJointSpaceOmpl(tryReq, lim, goalQ, out);
-			if (!planned)
-				lastErr = out.errMsg;
-		}
-		if (!planned)
-		{
-			PlanRequest tryReq = armReq;
-			tryReq.options.plannerId = "RRTstar";
-			tryReq.options.planningTimeSec = std::max(8.0, armReq.options.planningTimeSec);
-			planned = detail::planJointSpaceOmpl(tryReq, lim, goalQ, out);
-			if (!planned)
-				lastErr = out.errMsg;
-		}
-		if (!planned)
-		{
-			PlanRequest tryReq = armReq;
-			tryReq.options.plannerId = "RRTConnect";
-			tryReq.options.planningTimeSec = std::max(5.0, armReq.options.planningTimeSec);
-			planned = detail::planJointSpaceOmpl(tryReq, lim, goalQ, out);
-			if (!planned)
-				lastErr = out.errMsg;
-		}
-#endif
-		if (!planned)
-		{
-			PlanRequest tryReq = armReq;
-			tryReq.options.plannerId = "RRTConnect";
-			tryReq.options.planningTimeSec = std::max(5.0, armReq.options.planningTimeSec);
-			planned = detail::planJointSpaceRrt(tryReq, lim, goalQ, out);
-			if (!planned && out.errMsg.empty())
-				out.errMsg = lastErr.empty() ? "motion planning failed" : lastErr;
-		}
-		if (!planned)
+		if (!tryOmplOrRrt(lastErr))
 			return false;
-		detail::shortcutJointPath(armReq, lim, out);
 	}
 
-	// 捷径后仍保证末端 = goalQ
-	if (!out.jointTrajectoryRad.empty())
+	if (usedDirect)
 	{
-		auto& back = out.jointTrajectoryRad.back();
-		if (back.size() == goalQ.size())
+		std::string densifyErr;
+		if (!snapGoalAndDensify(densifyErr))
 		{
-			double dq = 0.0;
-			for (std::size_t i = 0; i < goalQ.size(); ++i)
-			{
-				const double d = back[i] - goalQ[i];
-				dq += d * d;
-			}
-			dq = std::sqrt(dq);
-			if (dq > 1e-3)
-			{
-				if (!detail::isSegmentValid(armReq, lim, back, goalQ, armReq.options.longestValidSegmentRad))
-				{
-					out.ok = false;
-					out.errMsg = "path end != goal joints after shortcut";
-					return false;
-				}
-				out.jointTrajectoryRad.push_back(goalQ);
-			}
-			else
-			{
-				back = goalQ;
-			}
-		}
-	}
-
-	// 写入程序用：加密中间关节样本（去掉起终点后仍有 Pmid）
-	detail::densifyJointPath(out, std::max(0.05, armReq.options.longestValidSegmentRad));
-	// densify 不检碰：逐点 + 邻段复核，拒绝「规划器认为可行但样本穿模」
-	if (armReq.options.checkCollision && armReq.world)
-	{
-		for (std::size_t i = 0; i < out.jointTrajectoryRad.size(); ++i)
-		{
-			if (!detail::isStateValid(armReq, lim, out.jointTrajectoryRad[i]))
+			// Direct 粗检漏过中段穿模：改走 OMPL 绕障，勿整段直接失败
+			out = PathResult{};
+			std::string lastErr;
+			if (!tryOmplOrRrt(lastErr))
 			{
 				out.ok = false;
-				out.errMsg = "path state in collision after densify (i=" + std::to_string(i) + ")";
-				out.jointTrajectoryRad.clear();
-				out.tcpPoses.clear();
-				return false;
-			}
-			if (i + 1 < out.jointTrajectoryRad.size()
-				&& !detail::isSegmentValid(armReq, lim, out.jointTrajectoryRad[i], out.jointTrajectoryRad[i + 1],
-										   armReq.options.longestValidSegmentRad))
-			{
-				out.ok = false;
-				out.errMsg = "path segment in collision after densify (i=" + std::to_string(i) + ")";
+				out.errMsg = densifyErr + "; ompl fallback failed: " + (lastErr.empty() ? out.errMsg : lastErr);
 				out.jointTrajectoryRad.clear();
 				out.tcpPoses.clear();
 				return false;
 			}
 		}
 	}
+
 	detail::fillTcpPosesFromJoints(armReq, out);
 	if (out.tcpPoses.size() != out.jointTrajectoryRad.size())
 	{
@@ -268,6 +341,18 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 		return false;
 	}
 	detail::computePathMetrics(out);
+	// 关节差极小或 IK 落到近起点时 metrics 可近零，与「规划成功」语义不符
+	constexpr double kMinUsefulTcpMm = 1.0;
+	constexpr double kMinUsefulJointRad = 0.02;
+	if (out.pathLengthTcpMm < kMinUsefulTcpMm && out.pathLengthRad < kMinUsefulJointRad)
+	{
+		out.ok = false;
+		out.errMsg = "planned path too short (TCP=" + std::to_string(out.pathLengthTcpMm) +
+					 "mm); start/goal poses nearly coincident";
+		out.jointTrajectoryRad.clear();
+		out.tcpPoses.clear();
+		return false;
+	}
 	out.ok = true;
 	return true;
 }

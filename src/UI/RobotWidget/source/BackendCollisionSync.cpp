@@ -49,7 +49,7 @@ collision::Mat4 collisionMat4FromBackend(const BackendMat4& m)
 	return collisionMat4FromRigid(engine::rigidTransformFromColMajor(cm));
 }
 
-/// OsgWidget::getBackendRootWorldMatrix 的 Mat4 是 OSG 元素按 c*4+r 打包，不是 Backend/碰撞列主序
+/// OsgWidget::getBackendRootWorldMatrix 的 Mat4 按 OSG 元素 c*4+r 打包，不是 Backend/碰撞列主序
 osg::Matrixd osgMatrixFromOsgPackedCoreMat4(const cloudsim::core::Mat4& packed)
 {
 	osg::Matrixd m;
@@ -88,7 +88,7 @@ ResolvedBodyWorld resolveBodyWorld(IRobotOsgViewHost* osg, const std::shared_ptr
 		out.poseSource = "identity";
 		return out;
 	}
-	// BackendMat4 为 OSG 底行序，须转成 CollisionWorld 的 Eigen 列主序
+	// BackendMat4 是 OSG 底行序，须转成 CollisionWorld 的 Eigen 列主序
 	out.W = collisionMat4FromBackend(data->worldMatrix());
 	out.poseSource = "backend";
 	return out;
@@ -271,6 +271,8 @@ void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc, Back
 {
 	if (!doc)
 		return;
+	// 连杆：用 applyJointAngles 刚写入的 backend.worldMatrix（与规划器 fk-bind 同源）
+	// 勿优先读 OSG——父子链/未 flush 时 getBackendRootWorldMatrix 会与 FK 分叉，造成「规划通过、画面复验误报」
 	for (int ri = 0; ri < doc->robotKinematicInstanceCount(); ++ri)
 	{
 		cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
@@ -281,8 +283,8 @@ void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc, Back
 			auto data = backend.getData(it.value().toStdString());
 			if (!data)
 				continue;
-			const ResolvedBodyWorld resolved = resolveBodyWorld(osg, data);
-			world.setWorldPose(makeLinkBody(it.value(), it.key()), resolved.W, resolved.poseSource);
+			world.setWorldPose(makeLinkBody(it.value(), it.key()), collisionMat4FromBackend(data->worldMatrix()),
+							   "backend");
 		}
 	}
 	const auto all = backend.listData();
@@ -303,6 +305,7 @@ void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc, Back
 			continue;
 		if (data->className() == "RobotAssembly" || data->className() == "Group")
 			continue;
+		// 场景体仍优先 OSG（gizmo 可能只改节点）
 		const ResolvedBodyWorld resolved = resolveBodyWorld(osg, data);
 		world.setWorldPose(makeSceneBody(QString::fromStdString(data->id())), resolved.W, resolved.poseSource);
 	}
@@ -312,7 +315,7 @@ bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHos
 							 const int instanceIndex, const QVector<double>& seedJointsBefore,
 							 const std::vector<std::vector<double>>& jointTrajectoryRad,
 							 const RobotCollision::Settings& settings, std::string* failSummary,
-							 IRobotOsgViewHost* osg, const bool rebuildWorldFirst)
+							 IRobotOsgViewHost* osg, const bool rebuildWorldFirst, const bool restorePoseOnHit)
 {
 	if (!settings.enabled || !doc)
 		return true;
@@ -400,11 +403,20 @@ bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHos
 		const collision::CollisionQueryResult hit = world.checkAll(4);
 		if (hit.inCollision)
 		{
-			(void)doc->applyJointAnglesRad(instanceIndex, restore, agg);
+			if (restorePoseOnHit)
+			{
+				(void)doc->applyJointAnglesRad(instanceIndex, restore, agg);
+			}
 			if (failSummary)
 			{
 				*failSummary = hit.summary.empty() ? "Collision detected along trajectory" : hit.summary;
-				*failSummary += " (sample " + std::to_string(si) + ")";
+				if (!hit.contacts.empty())
+				{
+					const auto& c = hit.contacts.front();
+					*failSummary += " @(" + std::to_string(c.pointMm[0]) + "," + std::to_string(c.pointMm[1]) + "," +
+									std::to_string(c.pointMm[2]) + ")";
+				}
+				*failSummary += " (sample " + std::to_string(si) + "/" + std::to_string(samples.size()) + ")";
 			}
 			return false;
 		}

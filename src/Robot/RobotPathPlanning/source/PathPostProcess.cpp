@@ -78,13 +78,10 @@ void densifyJointPath(PathResult& io, const double maxStepRad)
 	{
 		const auto& a = path[i - 1];
 		const auto& b = path[i];
+		// 与 isSegmentValid 同用各轴最大步长，避免 L2 加密后段检仍判穿模
 		double span = 0.0;
-		for (std::size_t j = 0; j < a.size(); ++j)
-		{
-			const double d = b[j] - a[j];
-			span += d * d;
-		}
-		span = std::sqrt(span);
+		for (std::size_t j = 0; j < a.size() && j < b.size(); ++j)
+			span = std::max(span, std::abs(b[j] - a[j]));
 		const int steps = std::max(1, static_cast<int>(std::ceil(span / maxStepRad)));
 		for (int s = 1; s <= steps; ++s)
 		{

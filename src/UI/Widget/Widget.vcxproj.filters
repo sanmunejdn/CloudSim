@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="External">
@@ -41,11 +41,11 @@
     <Filter Include="inc\OsgWidget">
       <UniqueIdentifier>{FF5AF394-210A-466B-97BB-22FE4D1DEBF9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\PickOperations">
+      <UniqueIdentifier>{F2FFDF8D-FC8C-4CF0-A7A1-30A636AE3C96}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\ViewportInteraction">
       <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567001}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\ViewportInteraction\Tools">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567002}</UniqueIdentifier>
     </Filter>
     <Filter Include="inc\ViewportInteraction\Overlays">
       <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567003}</UniqueIdentifier>
@@ -53,11 +53,8 @@
     <Filter Include="inc\ViewportInteraction\Policies">
       <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567004}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\ViewportInteraction">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567005}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\PickOperations">
-      <UniqueIdentifier>{F2FFDF8D-FC8C-4CF0-A7A1-30A636AE3C96}</UniqueIdentifier>
+    <Filter Include="inc\ViewportInteraction\Tools">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567002}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
@@ -77,6 +74,9 @@
     </Filter>
     <Filter Include="src\OsgWidget">
       <UniqueIdentifier>{30F01420-7810-4FDC-8C16-285464F41703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ViewportInteraction">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567005}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -113,9 +113,6 @@
     <ClInclude Include="inc\MainWindow_p.h">
       <Filter>inc\MainWindow</Filter>
     </ClInclude>
-    <QtMoc Include="inc\HelpBrowserDialog.h">
-      <Filter>inc\MainWindow</Filter>
-    </QtMoc>
     <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
       <Filter>inc\MainWindow</Filter>
     </ClInclude>
@@ -152,43 +149,34 @@
     <ClInclude Include="inc\SelectionOperation.h">
       <Filter>inc\PickOperations</Filter>
     </ClInclude>
-    <ClInclude Include="inc\widget_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\WidgetOsgViewHost.h">
-      <Filter>inc\OsgWidget</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\ViewportHit.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\IViewportPickEngine.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\OsgWidgetPickEngine.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\IPointerTool.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\IOverlayOp.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
     <ClInclude Include="inc\ViewportInteraction\IHitResolvePolicy.h">
       <Filter>inc\ViewportInteraction</Filter>
     </ClInclude>
     <ClInclude Include="inc\ViewportInteraction\IInteractionSession.h">
       <Filter>inc\ViewportInteraction</Filter>
     </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\ViewportInteractionController.h">
+    <ClInclude Include="inc\ViewportInteraction\IOverlayOp.h">
+      <Filter>inc\ViewportInteraction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ViewportInteraction\IPointerTool.h">
+      <Filter>inc\ViewportInteraction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ViewportInteraction\IViewportPickEngine.h">
       <Filter>inc\ViewportInteraction</Filter>
     </ClInclude>
     <ClInclude Include="inc\ViewportInteraction\MeshPickSession.h">
       <Filter>inc\ViewportInteraction</Filter>
     </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\Policies\PassthroughHitPolicy.h">
-      <Filter>inc\ViewportInteraction\Policies</Filter>
+    <ClInclude Include="inc\ViewportInteraction\OsgWidgetPickEngine.h">
+      <Filter>inc\ViewportInteraction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ViewportInteraction\Overlays\SelectionOperationOverlayAdapter.h">
+      <Filter>inc\ViewportInteraction\Overlays</Filter>
     </ClInclude>
     <ClInclude Include="inc\ViewportInteraction\Policies\GizmoAxisHitPolicy.h">
+      <Filter>inc\ViewportInteraction\Policies</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ViewportInteraction\Policies\PassthroughHitPolicy.h">
       <Filter>inc\ViewportInteraction\Policies</Filter>
     </ClInclude>
     <ClInclude Include="inc\ViewportInteraction\Policies\RobotObjectSelectPolicy.h">
@@ -197,8 +185,17 @@
     <ClInclude Include="inc\ViewportInteraction\Tools\SelectionOperationToolAdapter.h">
       <Filter>inc\ViewportInteraction\Tools</Filter>
     </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\Overlays\SelectionOperationOverlayAdapter.h">
-      <Filter>inc\ViewportInteraction\Overlays</Filter>
+    <ClInclude Include="inc\ViewportInteraction\ViewportHit.h">
+      <Filter>inc\ViewportInteraction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ViewportInteraction\ViewportInteractionController.h">
+      <Filter>inc\ViewportInteraction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\widget_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\WidgetOsgViewHost.h">
+      <Filter>inc\OsgWidget</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -232,6 +229,9 @@
     <ClCompile Include="source\ApplicationStyle.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
+    <ClCompile Include="source\AssemblyMatePanel.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
     <ClCompile Include="source\BackendUnitsDisplayForest.cpp">
       <Filter>src\BackendTree</Filter>
     </ClCompile>
@@ -239,6 +239,9 @@
       <Filter>src\BackendTree</Filter>
     </ClCompile>
     <ClCompile Include="source\DocumentPage.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HelpBrowserDialog.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\JobSystem.cpp">
@@ -257,9 +260,6 @@
       <Filter>src\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowHelp.cpp">
-      <Filter>src\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\HelpBrowserDialog.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp">
@@ -295,9 +295,6 @@
     <ClCompile Include="source\MainWindowUiSetup.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
-    <ClCompile Include="source\AssemblyMatePanel.cpp">
-      <Filter>src\MainWindow</Filter>
-    </ClCompile>
     <ClCompile Include="source\pch.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
@@ -316,6 +313,12 @@
     <ClCompile Include="source\StyledDockTitleBar.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
+    <ClCompile Include="source\ViewportInteraction\OsgWidgetPickEngine.cpp">
+      <Filter>src\ViewportInteraction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ViewportInteraction\ViewportInteractionController.cpp">
+      <Filter>src\ViewportInteraction</Filter>
+    </ClCompile>
     <ClCompile Include="source\ViewportToolBar.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
@@ -325,15 +328,15 @@
     <ClCompile Include="source\WidgetSceneSignalWiring.cpp">
       <Filter>src\OsgWidget</Filter>
     </ClCompile>
-    <ClCompile Include="source\ViewportInteraction\OsgWidgetPickEngine.cpp">
-      <Filter>src\ViewportInteraction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ViewportInteraction\ViewportInteractionController.cpp">
-      <Filter>src\ViewportInteraction</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="inc\AssemblyMatePanel.h">
+      <Filter>inc\MainWindow</Filter>
+    </QtMoc>
     <QtMoc Include="inc\DocumentPage.h">
+      <Filter>inc\MainWindow</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\HelpBrowserDialog.h">
       <Filter>inc\MainWindow</Filter>
     </QtMoc>
     <QtMoc Include="inc\MainWindow.h">
@@ -349,9 +352,6 @@
       <Filter>inc\MainWindow</Filter>
     </QtMoc>
     <QtMoc Include="inc\ViewportToolBar.h">
-      <Filter>inc\MainWindow</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\AssemblyMatePanel.h">
       <Filter>inc\MainWindow</Filter>
     </QtMoc>
   </ItemGroup>

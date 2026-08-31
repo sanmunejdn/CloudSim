@@ -67,10 +67,12 @@ bool jointsNear(const std::vector<double>& a, const std::vector<double>& b, cons
 	return true;
 }
 
-void updateRobotPoses(const PlanRequest& req, const std::vector<double>& q)
+bool updateRobotPoses(const PlanRequest& req, const std::vector<double>& q)
 {
 	if (!req.world || req.linkBodies.isEmpty())
-		return;
+	{
+		return false;
+	}
 	const bool nearStart = jointsNear(q, req.startJointRad);
 	if (nearStart)
 	{
@@ -78,18 +80,22 @@ void updateRobotPoses(const PlanRequest& req, const std::vector<double>& q)
 		{
 			const auto w0It = req.linkWorldAtStart.constFind(it.key());
 			if (w0It == req.linkWorldAtStart.constEnd())
-				continue;
+			{
+				return false;
+			}
 			const osg::Matrixd W0 = osgFromBackend(*w0It);
 			req.world->setWorldPose(it.value(), collisionMat4FromRigid(engine::rigidTransformFromOsg(W0)),
 									"osg-start");
 		}
-		return;
+		return true;
 	}
 
 	QHash<QString, osg::Matrixd> Tq;
 	QString err;
 	if (!UrdfRobotLoader::computeMeshWorldMatrices(req.urdfPath, toQVector(q), Tq, &err, req.meshVerticesInLinkFrame))
-		return;
+	{
+		return false;
+	}
 
 	const bool useBindPose = !req.fkMeshWorldT0.isEmpty() && !req.outerWorldAtBindByBackendId.isEmpty();
 	const engine::RigidTransform T_world_base = rigidFromBackend(req.T_world_urdfBase);
@@ -98,16 +104,20 @@ void updateRobotPoses(const PlanRequest& req, const std::vector<double>& q)
 	{
 		const auto tqIt = Tq.constFind(it.key());
 		if (tqIt == Tq.constEnd())
-			continue;
+		{
+			return false;
+		}
 
 		if (useBindPose)
 		{
 			const auto t0It = req.fkMeshWorldT0.constFind(it.key());
 			const QString bid = QString::fromStdString(it.value().backendId);
 			const auto m0It = req.outerWorldAtBindByBackendId.constFind(bid);
+			// 缺绑定时不得跳过，否则沿用陈旧位姿 → 规划器假无碰、画面复验才撞上
 			if (t0It == req.fkMeshWorldT0.constEnd() || m0It == req.outerWorldAtBindByBackendId.constEnd())
-				continue;
-			// 与 RobotSceneKinematics::applyPerLinkRobotBasePlacement 同一式（OSG 直接乘，无 Backend 往返）
+			{
+				return false;
+			}
 			const osg::Matrixd Mworld =
 				(*m0It) * osg::Matrixd::inverse(*t0It) * (*tqIt) * req.robotBasePlacementWorld;
 			req.world->setWorldPose(it.value(), collisionMat4FromRigid(engine::rigidTransformFromOsg(Mworld)),
@@ -119,6 +129,7 @@ void updateRobotPoses(const PlanRequest& req, const std::vector<double>& q)
 		const engine::RigidTransform T_world_mesh = T_world_base.composeScene(T_base_mesh);
 		req.world->setWorldPose(it.value(), collisionMat4FromRigid(T_world_mesh), "fk");
 	}
+	return true;
 }
 
 } // namespace
@@ -160,7 +171,8 @@ bool isStateValid(const PlanRequest& req, const JointLimits& lim, const std::vec
 	if (!req.options.checkCollision || !req.world)
 		return true;
 	req.world->setSecurityMarginMm(req.options.securityMarginMm);
-	updateRobotPoses(req, q);
+	if (!updateRobotPoses(req, q))
+		return false;
 	const collision::CollisionQueryResult hit = req.world->checkAll(4);
 	return !hit.inCollision;
 }
@@ -181,7 +193,8 @@ std::string describeStateInvalid(const PlanRequest& req, const JointLimits& lim,
 	if (!req.options.checkCollision || !req.world)
 		return {};
 	req.world->setSecurityMarginMm(req.options.securityMarginMm);
-	updateRobotPoses(req, q);
+	if (!updateRobotPoses(req, q))
+		return "failed to update robot collision poses (FK/bind incomplete)";
 	const collision::CollisionQueryResult hit = req.world->checkAll(4);
 	if (!hit.inCollision)
 		return {};

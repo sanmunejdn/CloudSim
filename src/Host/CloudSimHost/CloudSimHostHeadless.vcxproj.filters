@@ -332,18 +332,6 @@
     <ClInclude Include="inc\HostRenderViewFactory.h">
       <Filter>inc\Visual</Filter>
     </ClInclude>
-    <ClInclude Include="inc\visual\BackendVisualEnsure.h">
-      <Filter>inc\Visual</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\visual\BackendVisualSyncEngine.h">
-      <Filter>inc\Visual</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\visual\KinematicsBatchScope.h">
-      <Filter>inc\Visual</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\visual\VisualAspect.h">
-      <Filter>inc\Visual</Filter>
-    </ClInclude>
     <ClInclude Include="inc\io\CustomDeviceHostOps.h">
       <Filter>inc\io</Filter>
     </ClInclude>
@@ -370,6 +358,18 @@
     </ClInclude>
     <ClInclude Include="inc\UrdfRobotImport.h">
       <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\BackendVisualEnsure.h">
+      <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\BackendVisualSyncEngine.h">
+      <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\KinematicsBatchScope.h">
+      <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\VisualAspect.h">
+      <Filter>inc\Visual</Filter>
     </ClInclude>
     <ClInclude Include="inc\widget_global.h">
       <Filter>inc\Global</Filter>
@@ -547,18 +547,6 @@
     <ClCompile Include="source\follow\SelectionVisualService.cpp">
       <Filter>src\follow</Filter>
     </ClCompile>
-    <ClCompile Include="source\headless\HeadlessInstructionPropertyDelegate.cpp">
-      <Filter>src\headless</Filter>
-    </ClCompile>
-    <ClCompile Include="source\headless\HeadlessPointCloudBridge.cpp">
-      <Filter>src\headless</Filter>
-    </ClCompile>
-    <ClCompile Include="source\headless\HeadlessRobotContext.cpp">
-      <Filter>src\headless</Filter>
-    </ClCompile>
-    <ClCompile Include="source\headless\HeadlessTrajectorySession.cpp">
-      <Filter>src\headless</Filter>
-    </ClCompile>
     <ClCompile Include="source\headless\HeadlessAiBridge.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
@@ -571,7 +559,13 @@
     <ClCompile Include="source\headless\HeadlessGeomodelBridge.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
+    <ClCompile Include="source\headless\HeadlessInstructionPropertyDelegate.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
     <ClCompile Include="source\headless\HeadlessLabelingBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessPointCloudBridge.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
     <ClCompile Include="source\headless\HeadlessProcessFlowBridge.cpp">
@@ -583,25 +577,22 @@
     <ClCompile Include="source\headless\HeadlessRobotCollisionBridge.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
+    <ClCompile Include="source\headless\HeadlessRobotContext.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
     <ClCompile Include="source\headless\HeadlessRobotExportBridge.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
     <ClCompile Include="source\headless\HeadlessRobotPlaybackBridge.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
+    <ClCompile Include="source\headless\HeadlessTrajectorySession.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
     <ClCompile Include="source\headless\OsgWidgetSceneBridge_Headless.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
     <ClCompile Include="source\HostRenderViewFactory.cpp">
-      <Filter>src\Visual</Filter>
-    </ClCompile>
-    <ClCompile Include="source\visual\BackendVisualEnsure.cpp">
-      <Filter>src\Visual</Filter>
-    </ClCompile>
-    <ClCompile Include="source\visual\BackendVisualSyncEngine.cpp">
-      <Filter>src\Visual</Filter>
-    </ClCompile>
-    <ClCompile Include="source\visual\KinematicsBatchScope.cpp">
       <Filter>src\Visual</Filter>
     </ClCompile>
     <ClCompile Include="source\import\BackendFileImport.cpp">
@@ -616,10 +607,10 @@
     <ClCompile Include="source\io\CustomDeviceHostOps.cpp">
       <Filter>src\io</Filter>
     </ClCompile>
-    <ClCompile Include="source\io\CustomDeviceRobotMountOps.cpp">
+    <ClCompile Include="source\io\CustomDevicePoseMotionHost.cpp">
       <Filter>src\io</Filter>
     </ClCompile>
-    <ClCompile Include="source\io\CustomDevicePoseMotionHost.cpp">
+    <ClCompile Include="source\io\CustomDeviceRobotMountOps.cpp">
       <Filter>src\io</Filter>
     </ClCompile>
     <ClCompile Include="source\io\IoSignalNetwork.cpp">
@@ -658,6 +649,15 @@
     <ClCompile Include="source\robot\UrdfRobotImport.cpp">
       <Filter>src\robot</Filter>
     </ClCompile>
+    <ClCompile Include="source\visual\BackendVisualEnsure.cpp">
+      <Filter>src\Visual</Filter>
+    </ClCompile>
+    <ClCompile Include="source\visual\BackendVisualSyncEngine.cpp">
+      <Filter>src\Visual</Filter>
+    </ClCompile>
+    <ClCompile Include="source\visual\KinematicsBatchScope.cpp">
+      <Filter>src\Visual</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="..\..\UI\CloudSimPluginHost\inc\PluginHostContext.h">
@@ -669,17 +669,17 @@
     <QtMoc Include="inc\DocumentHost.h">
       <Filter>inc\DocumentHost</Filter>
     </QtMoc>
-    <QtMoc Include="inc\io\IoSignalNetwork.h">
-      <Filter>inc\io</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\io\CustomDevicePoseMotionHost.h">
-      <Filter>inc\io</Filter>
-    </QtMoc>
     <QtMoc Include="inc\headless\HeadlessRobotPlaybackBridge.h">
       <Filter>inc\headless</Filter>
     </QtMoc>
     <QtMoc Include="inc\headless_stub\OsgWidget.h">
       <Filter>inc\headless_stub</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\io\CustomDevicePoseMotionHost.h">
+      <Filter>inc\io</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\io\IoSignalNetwork.h">
+      <Filter>inc\io</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

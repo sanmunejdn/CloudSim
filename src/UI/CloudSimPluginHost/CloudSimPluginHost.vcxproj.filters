@@ -110,6 +110,9 @@
     <ClInclude Include="inc\Ai\AiDomainRouter.h">
       <Filter>inc\Ai\Domains</Filter>
     </ClInclude>
+    <ClInclude Include="inc\Ai\AiFeatureComposeSteps.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
     <ClInclude Include="inc\Ai\AiHostButtonApiDispatch.h">
       <Filter>inc\Ai\Core</Filter>
     </ClInclude>
@@ -146,14 +149,17 @@
     <ClInclude Include="inc\Ai\CatalogActionPlanDomainHandler.h">
       <Filter>inc\Ai\Agent</Filter>
     </ClInclude>
-    <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h">
+    <ClInclude Include="inc\Ai\DesignPartsCatalog.h">
+      <Filter>inc\Ai\Catalog</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\DesignPartsDomainHandler.h">
       <Filter>inc\Ai\Domains</Filter>
     </ClInclude>
     <ClInclude Include="inc\Ai\FeatureComposeDomainHandler.h">
       <Filter>inc\Ai\Domains</Filter>
     </ClInclude>
-    <ClInclude Include="inc\Ai\AiFeatureComposeSteps.h">
-      <Filter>inc\Ai\Agent</Filter>
+    <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h">
+      <Filter>inc\Ai\Domains</Filter>
     </ClInclude>
     <ClInclude Include="inc\Ai\MeshComposeDomainHandler.h">
       <Filter>inc\Ai\Domains</Filter>
@@ -183,9 +189,6 @@
       <Filter>inc\PluginHost</Filter>
     </ClInclude>
     <ClInclude Include="inc\PluginHostContext.h">
-      <Filter>inc\PluginHost</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginManager.h">
       <Filter>inc\PluginHost</Filter>
     </ClInclude>
     <ClInclude Include="inc\PluginPointCloudHostImpl.h">
@@ -238,10 +241,16 @@
     <ClCompile Include="source\Ai\AiDomainRouter.cpp">
       <Filter>src\Ai\Domains</Filter>
     </ClCompile>
+    <ClCompile Include="source\Ai\AiFeatureComposeSteps.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
     <ClCompile Include="source\Ai\AiHostButtonApiDispatch.cpp">
       <Filter>src\Ai\Core</Filter>
     </ClCompile>
     <ClCompile Include="source\Ai\AiHttpsPost.cpp">
+      <Filter>src\Ai\Llm</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiIntentClassifier.cpp">
       <Filter>src\Ai\Llm</Filter>
     </ClCompile>
     <ClCompile Include="source\Ai\AiIntentParser.cpp">
@@ -271,14 +280,17 @@
     <ClCompile Include="source\Ai\CatalogActionPlanDomainHandler.cpp">
       <Filter>src\Ai\Agent</Filter>
     </ClCompile>
-    <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp">
+    <ClCompile Include="source\Ai\DesignPartsCatalog.cpp">
+      <Filter>src\Ai\Catalog</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\DesignPartsDomainHandler.cpp">
       <Filter>src\Ai\Domains</Filter>
     </ClCompile>
     <ClCompile Include="source\Ai\FeatureComposeDomainHandler.cpp">
       <Filter>src\Ai\Domains</Filter>
     </ClCompile>
-    <ClCompile Include="source\Ai\AiFeatureComposeSteps.cpp">
-      <Filter>src\Ai\Agent</Filter>
+    <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp">
+      <Filter>src\Ai\Domains</Filter>
     </ClCompile>
     <ClCompile Include="source\Ai\MeshComposeDomainHandler.cpp">
       <Filter>src\Ai\Domains</Filter>
@@ -307,9 +319,6 @@
     <ClCompile Include="source\PluginHostContext.cpp">
       <Filter>src\PluginHost</Filter>
     </ClCompile>
-    <ClCompile Include="source\PluginManager.cpp">
-      <Filter>src\PluginHost</Filter>
-    </ClCompile>
     <ClCompile Include="source\PluginPointCloudHostImpl.cpp">
       <Filter>src\PluginHost</Filter>
     </ClCompile>
@@ -319,9 +328,6 @@
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="inc\PluginHostContext.h">
-      <Filter>inc\PluginHost</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\PluginManager.h">
       <Filter>inc\PluginHost</Filter>
     </QtMoc>
   </ItemGroup>

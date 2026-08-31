@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
@@ -8,44 +8,49 @@
     <Filter Include="inc\Global">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000002}</UniqueIdentifier>
     </Filter>
-    <Filter Include="inc\Motion">
-      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000003}</UniqueIdentifier>
-    </Filter>
     <Filter Include="inc\Graph">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000004}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Solvers">
-      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000005}</UniqueIdentifier>
     </Filter>
     <Filter Include="inc\Model">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000006}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Motion">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Solvers">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000005}</UniqueIdentifier>
+    </Filter>
     <Filter Include="source">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000007}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
     <Filter Include="source\Global">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000008}</UniqueIdentifier>
     </Filter>
-    <Filter Include="source\Motion">
-      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000009}</UniqueIdentifier>
-    </Filter>
     <Filter Include="source\Graph">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC000000000A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="source\Solvers">
-      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC000000000B}</UniqueIdentifier>
     </Filter>
     <Filter Include="source\Model">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC000000000C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="source\Motion">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC0000000009}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Solvers">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-KC000000000B}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\kinematic_core_global.h">
-      <Filter>inc\Global</Filter>
+    <ClInclude Include="inc\AxisDescriptor.h">
+      <Filter>inc\Model</Filter>
     </ClInclude>
-    <ClInclude Include="inc\KinematicCoreVersion.h">
-      <Filter>inc\Global</Filter>
+    <ClInclude Include="inc\DlsPoseIk.h">
+      <Filter>inc\Solvers</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometricJacobian.h">
+      <Filter>inc\Solvers</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IKinematicModel.h">
+      <Filter>inc\Model</Filter>
     </ClInclude>
     <ClInclude Include="inc\JointMotion1D.h">
       <Filter>inc\Motion</Filter>
@@ -53,61 +58,55 @@
     <ClInclude Include="inc\JointMotionEval.h">
       <Filter>inc\Motion</Filter>
     </ClInclude>
-    <ClInclude Include="inc\Mat4Ops.h">
-      <Filter>inc\Motion</Filter>
+    <ClInclude Include="inc\kinematic_core_global.h">
+      <Filter>inc\Global</Filter>
     </ClInclude>
-    <ClInclude Include="inc\KinematicLink.h">
+    <ClInclude Include="inc\KinematicCoreVersion.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KinematicGraph.h">
       <Filter>inc\Graph</Filter>
     </ClInclude>
     <ClInclude Include="inc\KinematicJoint.h">
       <Filter>inc\Graph</Filter>
     </ClInclude>
-    <ClInclude Include="inc\KinematicGraph.h">
+    <ClInclude Include="inc\KinematicLink.h">
       <Filter>inc\Graph</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Mat4Ops.h">
+      <Filter>inc\Motion</Filter>
     </ClInclude>
     <ClInclude Include="inc\TreeForwardKinematics.h">
       <Filter>inc\Solvers</Filter>
     </ClInclude>
-    <ClInclude Include="inc\GeometricJacobian.h">
-      <Filter>inc\Solvers</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\DlsPoseIk.h">
-      <Filter>inc\Solvers</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IKinematicModel.h">
-      <Filter>inc\Model</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\AxisDescriptor.h">
-      <Filter>inc\Model</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\KinematicCoreVersion.cpp">
-      <Filter>source\Global</Filter>
+    <ClCompile Include="source\AxisDescriptor.cpp">
+      <Filter>source\Model</Filter>
     </ClCompile>
-    <ClCompile Include="source\JointMotionEval.cpp">
-      <Filter>source\Motion</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Mat4Ops.cpp">
-      <Filter>source\Motion</Filter>
-    </ClCompile>
-    <ClCompile Include="source\KinematicGraph.cpp">
-      <Filter>source\Graph</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TreeForwardKinematics.cpp">
+    <ClCompile Include="source\DlsPoseIk.cpp">
       <Filter>source\Solvers</Filter>
     </ClCompile>
     <ClCompile Include="source\GeometricJacobian.cpp">
       <Filter>source\Solvers</Filter>
     </ClCompile>
-    <ClCompile Include="source\DlsPoseIk.cpp">
-      <Filter>source\Solvers</Filter>
-    </ClCompile>
     <ClCompile Include="source\IKinematicModel.cpp">
       <Filter>source\Model</Filter>
     </ClCompile>
-    <ClCompile Include="source\AxisDescriptor.cpp">
-      <Filter>source\Model</Filter>
+    <ClCompile Include="source\JointMotionEval.cpp">
+      <Filter>source\Motion</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicCoreVersion.cpp">
+      <Filter>source\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicGraph.cpp">
+      <Filter>source\Graph</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Mat4Ops.cpp">
+      <Filter>source\Motion</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TreeForwardKinematics.cpp">
+      <Filter>source\Solvers</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

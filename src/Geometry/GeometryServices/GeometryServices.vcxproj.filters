@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{9D4785D7-E73A-4294-9C8F-A3F9BE2C88B0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{ACD8E260-33C0-4972-A5D4-1F4FF31B7F66}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{09CF3B72-CF46-413E-BA1A-A4FA3A51E191}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Global">
+      <UniqueIdentifier>{B1FBB4E8-9F6B-4D25-B2BA-925ABE871587}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\geometry_services_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometryBackendOps.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometryRef.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBoolean.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pch.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendOps.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\GeometryBackendOps.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBoolean.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointCloudBackendOps.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

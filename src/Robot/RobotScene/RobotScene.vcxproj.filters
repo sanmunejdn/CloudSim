@@ -69,18 +69,45 @@
     <Filter Include="src\Trajectory">
       <UniqueIdentifier>{8F594546-B7D6-4ECE-A6E5-16BF32FE82BE}</UniqueIdentifier>
     </Filter>
+    <Filter Include="third_party">
+      <UniqueIdentifier>{950509B8-9098-4A90-B821-6F8C4AFBFA59}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\ruckig">
+      <UniqueIdentifier>{3E2AFCD3-A1FF-4630-8A06-B83FF20C330B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\ruckig\src">
+      <UniqueIdentifier>{027242DE-5254-4CAE-84B5-F444C1F00886}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\ruckig\src\ruckig">
+      <UniqueIdentifier>{AAE01E2E-CB46-41AD-A963-6A79E70B93D8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\CustomDeviceKinematics.h">
-      <Filter>inc\Other</Filter>
+    <ClInclude Include="inc\CompositeKinematicModel.h">
+      <Filter>inc\KinematicCore</Filter>
     </ClInclude>
     <ClInclude Include="inc\CustomDeviceAssemblyCommit.h">
       <Filter>inc\Other</Filter>
     </ClInclude>
-    <ClInclude Include="inc\ExternalAxisSearchService.h">
-      <Filter>inc\KinematicsFrames</Filter>
+    <ClInclude Include="inc\CustomDeviceGraphBuilder.h">
+      <Filter>inc\KinematicCore</Filter>
     </ClInclude>
-    <ClInclude Include="inc\TrajectoryReachabilityProbeService.h">
+    <ClInclude Include="inc\CustomDeviceKinematicModel.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CustomDeviceKinematics.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CustomDeviceMat4Layout.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ExternalAxisGraphBuilder.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ExternalAxisKinematicModel.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ExternalAxisSearchService.h">
       <Filter>inc\KinematicsFrames</Filter>
     </ClInclude>
     <ClInclude Include="inc\InstructionProgramDocument.h">
@@ -94,6 +121,18 @@
     </ClInclude>
     <ClInclude Include="inc\IRobotSimulationDocument.h">
       <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\JointMotionAdapters.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KinematicModelApply.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KinematicModelIk.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KinematicModelRegistry.h">
+      <Filter>inc\KinematicCore</Filter>
     </ClInclude>
     <ClInclude Include="inc\MeshTrajectoryIngress.h">
       <Filter>inc\Trajectory</Filter>
@@ -131,6 +170,9 @@
     <ClInclude Include="inc\RobotExternalAxes.h">
       <Filter>inc\KinematicsFrames</Filter>
     </ClInclude>
+    <ClInclude Include="inc\RobotExternalAxisSceneApply.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
     <ClInclude Include="inc\RobotInstructionAttribute.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
@@ -144,6 +186,12 @@
       <Filter>inc\Instructions</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionFactory.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionIkContext.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionIkRequest.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionModel.h">
@@ -161,14 +209,17 @@
     <ClInclude Include="inc\RobotInstructionTransform.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
-    <ClInclude Include="inc\RobotInstructionIkContext.h">
-      <Filter>inc\Instructions</Filter>
+    <ClInclude Include="inc\RobotKinematicApplyContext.h">
+      <Filter>inc\KinematicCore</Filter>
     </ClInclude>
-    <ClInclude Include="inc\RobotInstructionIkRequest.h">
-      <Filter>inc\Instructions</Filter>
+    <ClInclude Include="inc\RobotKinematicModelRegistration.h">
+      <Filter>inc\KinematicCore</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotMatrixOsgBridge.h">
       <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotPerLinkKinematicsApply.h">
+      <Filter>inc\KinematicCore</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotPerLinkKinematicsSliceOsg.h">
       <Filter>inc\KinematicsFrames</Filter>
@@ -197,6 +248,9 @@
     <ClInclude Include="inc\RobotTeachIk.h">
       <Filter>inc\KinematicsFrames</Filter>
     </ClInclude>
+    <ClInclude Include="inc\RuckigPtpTrajectory.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
     <ClInclude Include="inc\TrajectoryGeometryResolver.h">
       <Filter>inc\Trajectory</Filter>
     </ClInclude>
@@ -212,55 +266,16 @@
     <ClInclude Include="inc\TrajectoryPipelineTypes.h">
       <Filter>inc\Trajectory</Filter>
     </ClInclude>
+    <ClInclude Include="inc\TrajectoryReachabilityProbeService.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
     <ClInclude Include="inc\TubularGrindingTrajectoryIngress.h">
       <Filter>inc\Trajectory</Filter>
     </ClInclude>
     <ClInclude Include="inc\UnifiedTrajectory.h">
       <Filter>inc\Trajectory</Filter>
     </ClInclude>
-    <ClInclude Include="inc\CustomDeviceGraphBuilder.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CustomDeviceMat4Layout.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CustomDeviceKinematicModel.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\JointMotionAdapters.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\KinematicModelRegistry.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ExternalAxisGraphBuilder.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CompositeKinematicModel.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ExternalAxisKinematicModel.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\KinematicModelApply.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotKinematicApplyContext.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
     <ClInclude Include="inc\UrdfRobotKinematicModelSink.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\KinematicModelIk.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotExternalAxisSceneApply.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotKinematicModelRegistration.h">
-      <Filter>inc\KinematicCore</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotPerLinkKinematicsApply.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
   </ItemGroup>
@@ -268,20 +283,47 @@
     <ClCompile Include="source\CloudSimCoreExport.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
-    <ClCompile Include="source\CustomDeviceKinematics.cpp">
-      <Filter>src\Other</Filter>
+    <ClCompile Include="source\CompositeKinematicModel.cpp">
+      <Filter>src\KinematicCore</Filter>
     </ClCompile>
     <ClCompile Include="source\CustomDeviceAssemblyCommit.cpp">
       <Filter>src\Other</Filter>
     </ClCompile>
-    <ClCompile Include="source\ExternalAxisSearchService.cpp">
-      <Filter>src\KinematicsFrames</Filter>
+    <ClCompile Include="source\CustomDeviceGraphBuilder.cpp">
+      <Filter>src\KinematicCore</Filter>
     </ClCompile>
-    <ClCompile Include="source\TrajectoryReachabilityProbeService.cpp">
+    <ClCompile Include="source\CustomDeviceKinematicModel.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceKinematics.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CustomDeviceMat4Layout.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ExternalAxisGraphBuilder.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ExternalAxisKinematicModel.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ExternalAxisSearchService.cpp">
       <Filter>src\KinematicsFrames</Filter>
     </ClCompile>
     <ClCompile Include="source\InstructionProgramDocument.cpp">
       <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\JointMotionAdapters.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicModelApply.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicModelIk.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicModelRegistry.cpp">
+      <Filter>src\KinematicCore</Filter>
     </ClCompile>
     <ClCompile Include="source\MeshTrajectoryIngress.cpp">
       <Filter>src\Trajectory</Filter>
@@ -319,6 +361,9 @@
     <ClCompile Include="source\RobotExternalAxes.cpp">
       <Filter>src\KinematicsFrames</Filter>
     </ClCompile>
+    <ClCompile Include="source\RobotExternalAxisSceneApply.cpp">
+      <Filter>src\KinematicCore</Filter>
+    </ClCompile>
     <ClCompile Include="source\RobotInstructionAttribute.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
@@ -334,6 +379,12 @@
     <ClCompile Include="source\RobotInstructionFactory.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
+    <ClCompile Include="source\RobotInstructionIkContext.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionIkRequest.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
     <ClCompile Include="source\RobotInstructionModel.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
@@ -346,14 +397,14 @@
     <ClCompile Include="source\RobotInstructionTransform.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotInstructionIkContext.cpp">
-      <Filter>src\Instructions</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionIkRequest.cpp">
-      <Filter>src\Instructions</Filter>
+    <ClCompile Include="source\RobotKinematicModelRegistration.cpp">
+      <Filter>src\KinematicCore</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotMatrixOsgBridge.cpp">
       <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotPerLinkKinematicsApply.cpp">
+      <Filter>src\KinematicCore</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotProgramCatalog.cpp">
       <Filter>src\ProgramExport</Filter>
@@ -373,6 +424,9 @@
     <ClCompile Include="source\RobotTeachIk.cpp">
       <Filter>src\KinematicsFrames</Filter>
     </ClCompile>
+    <ClCompile Include="source\RuckigPtpTrajectory.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
     <ClCompile Include="source\TrajectoryGeometryResolver.cpp">
       <Filter>src\Trajectory</Filter>
     </ClCompile>
@@ -385,53 +439,50 @@
     <ClCompile Include="source\TrajectoryPipelineEngine.cpp">
       <Filter>src\Trajectory</Filter>
     </ClCompile>
+    <ClCompile Include="source\TrajectoryReachabilityProbeService.cpp">
+      <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
     <ClCompile Include="source\TubularGrindingTrajectoryIngress.cpp">
       <Filter>src\Trajectory</Filter>
     </ClCompile>
     <ClCompile Include="source\UnifiedTrajectory.cpp">
       <Filter>src\Trajectory</Filter>
     </ClCompile>
-    <ClCompile Include="source\CustomDeviceGraphBuilder.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\CustomDeviceMat4Layout.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\CustomDeviceKinematicModel.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\JointMotionAdapters.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\KinematicModelRegistry.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ExternalAxisGraphBuilder.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\CompositeKinematicModel.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ExternalAxisKinematicModel.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\KinematicModelApply.cpp">
-      <Filter>src\KinematicCore</Filter>
-    </ClCompile>
     <ClCompile Include="source\UrdfRobotKinematicModelSink.cpp">
       <Filter>src\KinematicCore</Filter>
     </ClCompile>
-    <ClCompile Include="source\KinematicModelIk.cpp">
-      <Filter>src\KinematicCore</Filter>
+    <ClCompile Include="third_party\ruckig\src\ruckig\brake.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotExternalAxisSceneApply.cpp">
-      <Filter>src\KinematicCore</Filter>
+    <ClCompile Include="third_party\ruckig\src\ruckig\position_first_step1.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotKinematicModelRegistration.cpp">
-      <Filter>src\KinematicCore</Filter>
+    <ClCompile Include="third_party\ruckig\src\ruckig\position_first_step2.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotPerLinkKinematicsApply.cpp">
-      <Filter>src\KinematicCore</Filter>
+    <ClCompile Include="third_party\ruckig\src\ruckig\position_second_step1.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\ruckig\src\ruckig\position_second_step2.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\ruckig\src\ruckig\position_third_step1.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\ruckig\src\ruckig\position_third_step2.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\ruckig\src\ruckig\velocity_second_step1.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\ruckig\src\ruckig\velocity_second_step2.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\ruckig\src\ruckig\velocity_third_step1.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\ruckig\src\ruckig\velocity_third_step2.cpp">
+      <Filter>third_party\ruckig\src\ruckig</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

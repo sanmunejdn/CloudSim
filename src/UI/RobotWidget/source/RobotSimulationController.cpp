@@ -82,11 +82,12 @@
 #include <QTemporaryFile>
 #include <QTimer>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
-#include <random>
-#include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <optional>
+#include <random>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -2732,12 +2733,59 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 		return;
 	}
 
-	QVector<double> startQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*startIns);
-	if (startQ.isEmpty())
-		startQ = m_host->robotAxisControlPage()->jointAnglesRad();
-	if (startQ.isEmpty())
+	// 指令不落盘关节（persist 会 erase CSV）；起点关节与预览同源现算
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	const QString robotBackendId = m_host->simulationCommandPage()->currentRobotBackendId();
+	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
+		urdfPath, m_host->simulationCommandPage()->selectedTcpLink());
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (nj <= 0 || urdfPath.isEmpty())
 	{
-		setUiStatus(QStringLiteral("起点无示教关节角，且轴控为空，无法规划"), false);
+		setUiStatus(QStringLiteral("机器人运动学不可用"), false);
+		return;
+	}
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	const QVector<double> programStartQ = motionPreviewProgramStartJointsLocal(nj, jointOffset);
+	QVector<double> chainSeedQ;
+	int startMotionIndex = -1;
+	bool chainReliable = true;
+	if (!buildChainSeedJointRadForInstruction(startIns, chainSeedQ, &startMotionIndex, &chainReliable))
+	{
+		chainSeedQ = programStartQ;
+		chainReliable = false;
+	}
+	const QVector<double> seedForStart = chainReliable ? chainSeedQ : programStartQ;
+	RobotInstruction::PlanResult startPlan{};
+	std::string startIkErr;
+	const RobotCoordinate::RobotCoordinateFrameSet& framesForStart =
+		doc->robotCoordinateFramesForInstance(instIdx);
+	// 此处只要起点关节；勿用「到起点的路径」碰撞门控（leave-at-hit 后旧稠密轨迹会误拦，OMPL 永远进不去）
+	const RobotCollision::Settings colBackupForStart = doc->robotCollisionSettings();
+	{
+		RobotCollision::Settings colSkip = colBackupForStart;
+		colSkip.enabled = false;
+		doc->robotCollisionSettings() = colSkip;
+	}
+	const bool startOk = planMotionConsistentWithPreview(
+		*startIns, seedForStart, programStartQ, instIdx, urdfPath, defaultTcpLinkName, robotBackendId, framesForStart,
+		startPlan, &startIkErr, /*persistTaughtOnSuccess=*/false, /*gateTaughtResidual=*/true);
+	doc->robotCollisionSettings() = colBackupForStart;
+	if (!startOk)
+	{
+		const QString detail =
+			startIkErr.empty() ? QStringLiteral("起点 IK 失败") : QString::fromStdString(startIkErr);
+		if (m_host->runInfoPage())
+			m_host->appendRunWarning(detail);
+		setUiStatus(QStringLiteral("起点 IK 失败（见日志）"), false);
+		return;
+	}
+	QVector<double> startQ;
+	startQ.reserve(static_cast<int>(startPlan.jointTargetsRad.size()));
+	for (double v : startPlan.jointTargetsRad)
+		startQ.push_back(v);
+	if (startQ.size() != nj)
+	{
+		setUiStatus(QStringLiteral("起点 IK 关节维数不匹配"), false);
 		return;
 	}
 
@@ -2760,8 +2808,6 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 	m_motionPathStartInstructionId = startId;
 	m_motionPathEndInstructionId = endId;
 
-
-	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
 	RobotCoordinate::RobotCoordinateFrameSet frames = doc->robotCoordinateFramesForInstance(instIdx);
 	const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames);
 	QString flangeLink = activeTool
@@ -2892,6 +2938,13 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 	req.meshVerticesInLinkFrame = pl.meshVerticesInLinkFrame;
 	req.options.securityMarginMm = col.securityMarginMm;
 	req.options.checkCollision = col.enabled;
+	// 场景有障碍时禁用关节直达，避免粗检漏过中段穿模；走 OMPL 绕障
+	if (col.enabled && m_collisionWorld
+		&& m_collisionWorld->bodyCount() > static_cast<std::size_t>(linkBodies.size()))
+	{
+		req.options.allowDirectJointLerp = false;
+	}
+
 
 	robot_path::PathResult plan;
 	if (!robot_path::planToTcpPose(req, plan) || !plan.ok)
@@ -2899,23 +2952,45 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 		const QString err = QString::fromStdString(plan.errMsg.empty() ? "motion planning failed" : plan.errMsg);
 		if (m_host->runInfoPage())
 			m_host->appendRunWarning(err);
-		setUiStatus(err, false);
+		// 状态栏只留短提示，详情走日志栏
+		setUiStatus(QStringLiteral("规划失败（见日志）"), false);
 		m_lastMotionPathRawValid = false;
 		return;
 	}
 
-	// 画面复验（与 Run 同源）；失败则拒绝，避免插入不可仿真路径
+	// 画面复验（与 Run 同源）；Direct 漏检时禁用直达再采一次
 	if (col.enabled && m_collisionWorld)
 	{
 		std::string osgColErr;
-		if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(), instIdx, startQ,
-														   plan.jointTrajectoryRad, col, &osgColErr, osg))
+		auto sceneCheck = [&](const bool restoreOnHit) {
+			return BackendCollisionSync::validateJointTrajectory(
+				*m_collisionWorld, doc, doc->backend(), instIdx, startQ, plan.jointTrajectoryRad, col, &osgColErr, osg,
+				/*rebuildWorldFirst=*/true, restoreOnHit);
+		};
+		// 命中不回滚，便于画面停在中段碰撞姿态（起点有缝≠路径安全）
+		bool accepted = sceneCheck(/*restoreOnHit=*/false);
+		if (!accepted && plan.plannerName == "Direct")
 		{
-			const QString err = QStringLiteral("规划路径未通过画面碰撞校验：%1")
-									.arg(QString::fromStdString(osgColErr));
+			QVector<double> aggRestore;
+			(void)doc->applyJointAnglesRad(instIdx, startQ, aggRestore);
+			req.options.allowDirectJointLerp = false;
+			robot_path::PathResult retry{};
+			if (robot_path::planToTcpPose(req, retry) && retry.ok)
+			{
+				plan = std::move(retry);
+				osgColErr.clear();
+				accepted = sceneCheck(/*restoreOnHit=*/false);
+			}
+		}
+		if (!accepted)
+		{
 			if (m_host->runInfoPage())
-				m_host->appendRunWarning(err);
-			setUiStatus(err, false);
+			{
+				m_host->appendRunWarning(
+					QStringLiteral("路径中段碰撞（直线/绕障均未通过画面复验）：%1")
+						.arg(QString::fromStdString(osgColErr)));
+			}
+			setUiStatus(QStringLiteral("路径中段碰撞（见日志；画面已停在碰撞姿态）"), false);
 			m_lastMotionPathRawValid = false;
 			return;
 		}
@@ -7298,6 +7373,12 @@ void RobotSimulationController::onSimulationStartTriggered()
 		}
 		return;
 	}
+	// 碰撞页绕障结果仅预览；未确认插入时 Run 仍按原指令 Direct，易全员穿模失败
+	if (m_motionPathPreviewActive && m_lastMotionPathRawValid && m_host->runInfoPage())
+	{
+		m_host->appendRunWarning(QStringLiteral(
+			"绕障路径仍为预览：请先在「碰撞与规划」点「确认插入中间点」，再运行；否则按原指令直线规划，易穿模失败。"));
+	}
 	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
 	if (instIdx < 0)
 	{
@@ -7900,7 +7981,8 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 						std::string colErr;
 						if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(),
 																		   instanceIndex, chainSeedQ, seg, colGate,
-																		   &colErr, m_host->osgView()))
+																		   &colErr, m_host->osgView(),
+																		   /*rebuildWorldFirst=*/false))
 						{
 							cacheOk = false;
 						}
@@ -8163,8 +8245,140 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 						*m_collisionWorld, doc, doc->backend(), instanceIndex, chainSeedQ, seg, colGate, &colErr,
 						m_host->osgView(), /*rebuildWorldFirst=*/!collisionWorldReady))
 				{
-					lastErr = colErr.empty() ? "Collision detected" : colErr;
-					return false;
+					// Direct/指令轨迹穿模：有场景障碍时改走关节空间 OMPL（与碰撞页同源）
+					bool omplOk = false;
+					cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+					const int nLinks = static_cast<int>(
+						doc->robotPerLinkKinematicsForInstance(instanceIndex, pl) ? pl.linkNameToBackendId.size() : 0);
+					if (m_collisionWorld->bodyCount() > static_cast<std::size_t>(std::max(0, nLinks)) && nLinks > 0
+						&& chainSeedQ.size() == nj && resultQ.size() == nj)
+					{
+						// 与碰撞页一致：先落到起点再采 OSG 绑定位姿，否则 nearStart 检碰因缺 linkWorldAtStart 直接失败
+						QVector<double> aggOmpl;
+						(void)doc->applyJointAnglesRad(instanceIndex, chainSeedQ, aggOmpl);
+						BackendCollisionSync::updatePoses(*m_collisionWorld, doc, doc->backend(), m_host->osgView());
+
+						robot_path::PlanRequest req;
+						req.urdfPath = urdfPath;
+						req.startJointRad.assign(chainSeedQ.begin(), chainSeedQ.end());
+						req.goalJointRad.assign(resultQ.begin(), resultQ.end());
+						req.world = m_collisionWorld.get();
+						req.meshVerticesInLinkFrame = pl.meshVerticesInLinkFrame;
+						req.options.checkCollision = true;
+						req.options.allowDirectJointLerp = false;
+						req.options.securityMarginMm = colGate.securityMarginMm;
+						req.robotBasePlacementWorld =
+							RobotSimulationMath::osgMatrixFromCoreMat4(pl.robotBasePlacementWorld);
+						for (auto it = pl.fkMeshWorldT0.constBegin(); it != pl.fkMeshWorldT0.constEnd(); ++it)
+							req.fkMeshWorldT0.insert(it.key(), RobotSimulationMath::osgMatrixFromCoreMat4(it.value()));
+						for (auto it = pl.outerWorldAtBindByBackendId.constBegin();
+							 it != pl.outerWorldAtBindByBackendId.constEnd(); ++it)
+							req.outerWorldAtBindByBackendId.insert(
+								it.key(), RobotSimulationMath::osgMatrixFromCoreMat4(it.value()));
+						auto backendFromOsgPacked = [](const cloudsim::core::Mat4& packed) {
+							return RobotMatrixOsg::backendColMajorFromMatrix(
+								RobotSimulationMath::osgMatrixFromCoreMat4(packed));
+						};
+						for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd();
+							 ++it)
+						{
+							collision::CollisionBodyId id;
+							id.kind = "robotLink";
+							id.backendId = it.value().toStdString();
+							id.linkName = it.key().toStdString();
+							req.linkBodies.insert(it.key(), id);
+							if (osg)
+							{
+								cloudsim::core::Mat4 wCm{};
+								if (osg->getBackendRootWorldMatrix(it.value().toStdString(), wCm))
+									req.linkWorldAtStart.insert(it.key(), backendFromOsgPacked(wCm));
+							}
+						}
+						{
+							const QString refBid = doc->robotFrameWorldReferenceBackendId(instanceIndex);
+							QString refLink;
+							for (auto it = pl.linkNameToBackendId.constBegin();
+								 it != pl.linkNameToBackendId.constEnd(); ++it)
+							{
+								if (it.value() == refBid)
+								{
+									refLink = it.key();
+									break;
+								}
+							}
+							if (!refLink.isEmpty())
+							{
+								QHash<QString, osg::Matrixd> meshFk;
+								QString fkErr;
+								if (UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, chainSeedQ, meshFk, &fkErr,
+																			  pl.meshVerticesInLinkFrame))
+								{
+									const auto fkIt = meshFk.constFind(refLink);
+									auto be = doc->backend().getData(refBid.toStdString());
+									if (fkIt != meshFk.constEnd() && be)
+									{
+										const engine::RigidTransform T_be = engine::rigidTransformFromColMajor([&] {
+											engine::ColMajorMat4 cm{};
+											BackendMat4 W = be->worldMatrix();
+											cloudsim::core::Mat4 osgPacked{};
+											if (osg && osg->getBackendRootWorldMatrix(refBid.toStdString(), osgPacked))
+											{
+												W = RobotMatrixOsg::backendColMajorFromMatrix(
+													RobotSimulationMath::osgMatrixFromCoreMat4(osgPacked));
+											}
+											for (int i = 0; i < 16; ++i)
+												cm[static_cast<size_t>(i)] = W.v[i];
+											return cm;
+										}());
+										const engine::RigidTransform T_fk = engine::rigidTransformFromOsg(*fkIt);
+										const engine::RigidTransform T_wb = T_be.composeScene(T_fk.inverse());
+										const engine::ColMajorMat4 cm = engine::colMajorFromRigidTransform(T_wb);
+										for (int i = 0; i < 16; ++i)
+											req.T_world_urdfBase.v[i] = cm[static_cast<size_t>(i)];
+									}
+								}
+							}
+						}
+						const RobotCoordinate::RobotToolFrame* activeTool =
+							RobotCoordinate::activeToolFrame(frames);
+						QString flangeLink =
+							activeTool ? QString::fromStdString(
+											 RobotCoordinate::effectiveFlangeLinkName(frames, *activeTool))
+									   : QString();
+						if (flangeLink.isEmpty())
+							flangeLink = defaultTcpLinkName;
+						req.flangeLinkName = flangeLink;
+						if (activeTool)
+							req.T_flange_tool = RobotCoordinate::frameToMat4(activeTool->T_flange_tool);
+						robot_path::PathResult ompl;
+						if (robot_path::planToTcpPose(req, ompl) && ompl.ok && !ompl.jointTrajectoryRad.empty())
+						{
+							std::string omplColErr;
+							if (BackendCollisionSync::validateJointTrajectory(
+									*m_collisionWorld, doc, doc->backend(), instanceIndex, chainSeedQ,
+									ompl.jointTrajectoryRad, colGate, &omplColErr, m_host->osgView(),
+									/*rebuildWorldFirst=*/false))
+							{
+								plan.jointTrajectoryRad = std::move(ompl.jointTrajectoryRad);
+								plan.plannerName = ompl.plannerName.empty() ? "OMPL" : ompl.plannerName;
+								plan.summary += " | ompl avoidance after direct collision";
+								omplOk = true;
+							}
+							else
+							{
+								colErr = omplColErr.empty() ? colErr : omplColErr;
+							}
+						}
+						else if (!ompl.errMsg.empty())
+						{
+							colErr = colErr + "; ompl: " + ompl.errMsg;
+						}
+					}
+					if (!omplOk)
+					{
+						lastErr = colErr.empty() ? "Collision detected" : colErr;
+						return false;
+					}
 				}
 			}
 		}
@@ -9343,9 +9557,9 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 			if (cacheOk)
 			{
 				alignTrajectoryAfterTargetNormalize(plan, targetsBeforeNorm);
-				// R1 后无论稠密/端点，均复验碰撞（与 finalizeAccept 对齐）
+				// 播放中缓存入库时已验碰，勿每 tick 重复 24 点 apply+重建
 				const RobotCollision::Settings& colGate = doc->robotCollisionSettings();
-				if (colGate.enabled && m_collisionWorld)
+				if (colGate.enabled && m_collisionWorld && !m_programExecutor.isRunning())
 				{
 					std::vector<std::vector<double>> seg = plan.jointTrajectoryRad;
 					if (seg.empty())
@@ -9355,7 +9569,7 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 					std::string colErr;
 					if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(),
 																	   instIdx, rollingQ, seg, colGate, &colErr,
-																	   m_host->osgView()))
+																	   m_host->osgView(), /*rebuildWorldFirst=*/false))
 					{
 						cacheOk = false;
 					}
@@ -9631,7 +9845,8 @@ void RobotSimulationController::tickLookaheadPlanning()
 							std::string colErr;
 							if (!BackendCollisionSync::validateJointTrajectory(
 									*m_collisionWorld, doc, doc->backend(), jobResult->instanceIndex,
-									jobResult->seedJointRad, seg, colGate, &colErr, m_host->osgView()))
+									jobResult->seedJointRad, seg, colGate, &colErr, m_host->osgView(),
+									/*rebuildWorldFirst=*/false))
 							{
 								return;
 							}
