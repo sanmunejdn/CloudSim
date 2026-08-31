@@ -67,6 +67,7 @@ void RobotProgramExecutor::stop()
 	m_deviceAxisQ1 = 0.0;
 	m_inWaitForSignal = false;
 	m_waitCondition = {};
+	m_waitingForLazyPlan = false;
 }
 
 void RobotProgramExecutor::setPlaybackRate(double rate)
@@ -141,6 +142,10 @@ const RobotInstruction::Base* RobotProgramExecutor::currentInstruction() const
 
 double RobotProgramExecutor::motionSegmentProgress01() const
 {
+	if (m_waitingForLazyPlan)
+	{
+		return 0.0;
+	}
 	if (!m_inMotion || !m_activeMotion || m_segDurationSec <= 1e-9)
 	{
 		return 1.0;
@@ -191,20 +196,19 @@ bool RobotProgramExecutor::applyJointAngles(IRobotSimulationDocument* doc, IRobo
 bool RobotProgramExecutor::startMotionSegment(const RobotInstruction::Base& ins)
 {
 	const RobotInstruction::PlanResult* plan = planForMotion(ins);
-	// 规划失败段：停在此前缀末端，不插值、不跳过（lazyPending 应由 Controller 在 tick 前消掉）
+	if (plan && plan->plannerName == "lazyPending")
+	{
+		m_activeMotion = &ins;
+		m_inMotion = false;
+		m_waitingForLazyPlan = true;
+		return true;
+	}
 	if (!plan || !plan->ok)
 	{
 		m_activeMotion = &ins;
 		m_inMotion = false;
 		m_abortedDueToFailedPlan = true;
-		if (plan && plan->plannerName == "lazyPending")
-		{
-			m_lastAbortSummary = "motion plan still pending";
-		}
-		else
-		{
-			m_lastAbortSummary = plan ? plan->summary : "missing motion plan";
-		}
+		m_lastAbortSummary = plan ? plan->summary : "missing motion plan";
 		if (m_lastAbortSummary.empty())
 		{
 			m_lastAbortSummary = "motion planning failed";
@@ -212,6 +216,7 @@ bool RobotProgramExecutor::startMotionSegment(const RobotInstruction::Base& ins)
 		RunLogger::warn(std::string("RobotProgramExecutor: stop before failed motion plan: ") + m_lastAbortSummary);
 		return false;
 	}
+	m_waitingForLazyPlan = false;
 
 	m_inMotion = true;
 	m_activeMotion = &ins;
@@ -639,6 +644,7 @@ bool RobotProgramExecutor::tryStart(IRobotSimulationDocument* doc, IRobotBackend
 	m_inMotion = false;
 	m_inDeviceAxis = false;
 	m_inWaitForSignal = false;
+	m_waitingForLazyPlan = false;
 	RunLogger::info("RobotProgramExecutor started.");
 	return true;
 }
@@ -653,6 +659,32 @@ RobotInstructionPlaybackTickResult RobotProgramExecutor::tick(IRobotSimulationDo
 	{
 		stop();
 		return RobotInstructionPlaybackTickResult::Aborted;
+	}
+
+	if (m_waitingForLazyPlan && m_activeMotion)
+	{
+		const RobotInstruction::PlanResult* plan = planForMotion(*m_activeMotion);
+		if (plan && plan->ok)
+		{
+			m_waitingForLazyPlan = false;
+			if (!startMotionSegment(*m_activeMotion))
+			{
+				stop();
+				return RobotInstructionPlaybackTickResult::Aborted;
+			}
+		}
+		else if (plan && plan->plannerName != "lazyPending")
+		{
+			m_abortedDueToFailedPlan = true;
+			m_lastAbortSummary = plan->summary.empty() ? plan->plannerName : plan->summary;
+			stop();
+			return RobotInstructionPlaybackTickResult::Aborted;
+		}
+		else
+		{
+			(void)applyJointAngles(doc, osg);
+			return RobotInstructionPlaybackTickResult::Continue;
+		}
 	}
 
 	if (m_inMotion)

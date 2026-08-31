@@ -106,6 +106,8 @@ private:
 
 	bool m_inWaitForSignal = false;
 	RobotInstruction::Condition m_waitCondition{};
+	/// 等前瞻写入计划；播放中 UI 现算会把倍速卡顿
+	bool m_waitingForLazyPlan = false;
 
 	QHash<QString, osg::Matrixd> m_fkMeshWorldT0;
 	std::unordered_map<std::string, osg::Matrixd> m_outerWorldAtStart;

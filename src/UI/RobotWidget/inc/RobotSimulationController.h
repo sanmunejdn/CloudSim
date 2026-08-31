@@ -388,6 +388,10 @@ private:
 	};
 	LookaheadConfig m_lookaheadConfig;
 	int m_lookaheadPendingJobs = 0;
+	QSet<size_t> m_lookaheadInFlight;
+	/// 同指纹折圈失败不再投前瞻，避免每 tick 刷日志
+	QSet<QString> m_lookaheadFailedFingerprints;
+	QElapsedTimer m_playbackHoldTimer;
 	std::vector<const RobotInstruction::Base*> m_currentRunMotions;
 	std::string m_lastHighlightedInstructionId;
 	size_t m_playbackMotionIndex = 0;
@@ -409,7 +413,13 @@ private:
 
 	void tickLookaheadPlanning();
 	void ensurePlaybackPlansReady();
-	bool syncPlanMotionAtIndex(size_t motionIndex);
+	/// 前瞻结果入库；播放中不做场景碰撞复验（会把未来段关节写进画面）
+	bool tryCommitLookaheadPlan(const RobotInstruction::Base* ins, size_t motionIndex, const QString& insIdQ,
+								const QString& fingerprint, const QVector<double>& seedJointRad,
+								RobotInstruction::PlanResult plan);
+	/// 折圈失败写入执行器；留着 lazyPending 会被超时重算并继续播
+	void failPlaybackMotionPlan(const RobotInstruction::Base* ins, const std::string& summary);
+	bool syncPlanMotionAtIndex(size_t motionIndex, bool allowHeavyPlan = true);
 	static bool isPlaybackUiInteractionBusy();
 	bool trySeedJointRadForMotionIndex(size_t targetMotionIndex, const QVector<double>& programStartQ,
 									   const QString& urdfPath, const QString& tcpLinkName, int jointCount,
