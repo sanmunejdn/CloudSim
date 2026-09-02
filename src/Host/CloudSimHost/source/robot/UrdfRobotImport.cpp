@@ -356,9 +356,9 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		}
 		else
 		{
-			// 新机 mesh 已在 Tbind(q0)；勿全文档 apply（会误写实例 0），也勿再 FK（M0/T0 已采集，改场景不更新绑定）
+			// M0/T0 已从 Data.Tbind 采集。reparent 后 OSG 本地矩阵未对齐，从 OSG 反推会污染 M0 致连杆飞散
 			robotDoc->noteRobotJointAnglesAppliedForInstance(instIdx, q0);
-			ctx.urdfImportReconcilePerLinkBind(instIdx, q0);
+			robotDoc->notifyRobotKinematicsAppliedToScene();
 		}
 	}
 

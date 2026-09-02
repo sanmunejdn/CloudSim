@@ -58,6 +58,7 @@
 #include "RobotSimulationDockWidget.h"
 #include "RobotSimulationMath.h"
 #include "RobotTeachIk.h"
+#include "RobotJointWrap.h"
 #include "RunLogger.h"
 #include "SimulationCommandWidget.h"
 #include "TrajectoryEditPageWidget.h"
@@ -787,173 +788,6 @@ QVector<double> clampJointAnglesToInstanceLimits(IRobotDocumentHost* doc, const 
 	return out;
 }
 
-/// TRAC-IK normalize_seed：回转关节归一到离参照最近的圈数。
-/// 任一关节归一后越限则失败（拒绝远圈候选），无有效限位时整体不动
-bool normalizeJointRevolutionsToReference(std::vector<double>& q, const std::vector<double>& ref,
-										  const QVector<double>& lowerRad, const QVector<double>& upperRad)
-{
-	const size_t n = q.size();
-	if (ref.size() != n)
-	{
-		return false;
-	}
-	const bool hasLimits = lowerRad.size() == static_cast<int>(n) && upperRad.size() == static_cast<int>(n);
-	if (!hasLimits)
-	{
-		return false;
-	}
-	constexpr double kTwoPi = 6.283185307179586;
-	for (size_t j = 0; j < n; ++j)
-	{
-		const double shifted = q[j] - kTwoPi * std::round((q[j] - ref[j]) / kTwoPi);
-		const int ji = static_cast<int>(j);
-		if (shifted < lowerRad[ji] - 1e-9 || shifted > upperRad[ji] + 1e-9)
-		{
-			return false;
-		}
-		q[j] = shifted;
-	}
-	return true;
-}
-
-/// 折圈失败时生成面向用户的中文说明（角度制）；|折回差| > 180° 视为分支跨越
-std::string describeJointNormalizeFailure(const std::vector<double>& q, const std::vector<double>& ref,
-										  const QVector<double>& lowerRad, const QVector<double>& upperRad)
-{
-	constexpr double kTwoPi = 6.283185307179586;
-	constexpr double kPi = 3.141592653589793;
-	constexpr double kRadToDeg = 180.0 / kPi;
-	int worstJ = -1;
-	double worstOver = -1.0;
-	double qDeg = 0.0;
-	double refDeg = 0.0;
-	double shiftedDeg = 0.0;
-	double loDeg = 0.0;
-	double hiDeg = 0.0;
-	double foldedAbsDeg = 0.0;
-	for (size_t j = 0; j < q.size() && j < ref.size(); ++j)
-	{
-		const int ji = static_cast<int>(j);
-		if (ji >= lowerRad.size() || ji >= upperRad.size())
-		{
-			continue;
-		}
-		const double shifted = q[j] - kTwoPi * std::round((q[j] - ref[j]) / kTwoPi);
-		const double over = std::max(lowerRad[ji] - shifted, shifted - upperRad[ji]);
-		if (over > worstOver)
-		{
-			worstOver = over;
-			worstJ = ji;
-			qDeg = q[j] * kRadToDeg;
-			refDeg = ref[j] * kRadToDeg;
-			shiftedDeg = shifted * kRadToDeg;
-			loDeg = lowerRad[ji] * kRadToDeg;
-			hiDeg = upperRad[ji] * kRadToDeg;
-			double d = q[j] - ref[j];
-			d -= kTwoPi * std::round(d / kTwoPi);
-			foldedAbsDeg = std::abs(d) * kRadToDeg;
-		}
-	}
-	if (worstJ < 0)
-	{
-		return QStringLiteral("关节转数折回失败：最接近的整圈超出限位").toStdString();
-	}
-	const double unfoldAbsDeg = std::abs(qDeg - refDeg);
-	if (foldedAbsDeg > 180.0)
-	{
-		return QStringLiteral("分支跨越被拒：J%1 最短连续转动 %2°（链种子 %3° → IK %4°），超出物理连续性限制。"
-							  "折回最近圈得 %5°，限位 [%6°, %7°]。请在相邻指令间插入 PTP 或重新示教。")
-			.arg(worstJ + 1)
-			.arg(foldedAbsDeg, 0, 'f', 1)
-			.arg(refDeg, 0, 'f', 1)
-			.arg(qDeg, 0, 'f', 1)
-			.arg(shiftedDeg, 0, 'f', 1)
-			.arg(loDeg, 0, 'f', 1)
-			.arg(hiDeg, 0, 'f', 1)
-			.toStdString();
-	}
-	return QStringLiteral("关节转数折回失败：J%1 链种子 %2°，IK 解 %3°（未折圈差 %4°）。"
-						  "折回最近圈得 %5°，超出限位 [%6°, %7°]。连续 LINE 无法跨圈，请改用 PTP 过渡或重新示教。")
-		.arg(worstJ + 1)
-		.arg(refDeg, 0, 'f', 1)
-		.arg(qDeg, 0, 'f', 1)
-		.arg(unfoldAbsDeg, 0, 'f', 1)
-		.arg(shiftedDeg, 0, 'f', 1)
-		.arg(loDeg, 0, 'f', 1)
-		.arg(hiDeg, 0, 'f', 1)
-		.toStdString();
-}
-
-/// R1 改写终点后按同量平移整条轨迹，避免 clear 后回放路径与已校验碰撞分叉
-void shiftJointTrajectoryByTargetDelta(std::vector<std::vector<double>>& traj,
-									   const std::vector<double>& targetsBefore,
-									   const std::vector<double>& targetsAfter)
-{
-	if (traj.empty() || targetsBefore.size() != targetsAfter.size() || targetsAfter.empty())
-	{
-		return;
-	}
-	const size_t n = targetsAfter.size();
-	std::vector<double> delta(n, 0.0);
-	bool any = false;
-	for (size_t j = 0; j < n; ++j)
-	{
-		delta[j] = targetsAfter[j] - targetsBefore[j];
-		if (std::abs(delta[j]) > 1e-12)
-		{
-			any = true;
-		}
-	}
-	if (!any)
-	{
-		return;
-	}
-	for (std::vector<double>& sample : traj)
-	{
-		if (sample.size() != n)
-		{
-			continue;
-		}
-		for (size_t j = 0; j < n; ++j)
-		{
-			sample[j] += delta[j];
-		}
-	}
-}
-
-bool jointTrajectoryTailMatchesTargets(const std::vector<std::vector<double>>& traj,
-									   const std::vector<double>& targets, const double eps = 1e-6)
-{
-	if (traj.empty() || traj.back().size() != targets.size())
-	{
-		return false;
-	}
-	const auto& back = traj.back();
-	for (size_t j = 0; j < targets.size(); ++j)
-	{
-		if (std::abs(back[j] - targets[j]) > eps)
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-/// 折圈后对齐轨迹；仍不一致则剥轨迹（调用方须复验碰撞）
-void alignTrajectoryAfterTargetNormalize(RobotInstruction::PlanResult& plan,
-										 const std::vector<double>& targetsBeforeNormalize)
-{
-	if (plan.jointTrajectoryRad.size() < 2U)
-	{
-		return;
-	}
-	shiftJointTrajectoryByTargetDelta(plan.jointTrajectoryRad, targetsBeforeNormalize, plan.jointTargetsRad);
-	if (!jointTrajectoryTailMatchesTargets(plan.jointTrajectoryRad, plan.jointTargetsRad))
-	{
-		plan.jointTrajectoryRad.clear();
-	}
-}
-
 /// Lookahead/worker 入库前：R1 + 轨迹对齐；失败则标记不可缓存
 bool prepareWorkerPlanForCache(RobotInstruction::PlanResult& plan, const QVector<double>& chainSeedQ,
 							   const QVector<double>& limLo, const QVector<double>& limHi)
@@ -967,15 +801,7 @@ bool prepareWorkerPlanForCache(RobotInstruction::PlanResult& plan, const QVector
 		return true;
 	}
 	std::vector<double> refQ(chainSeedQ.begin(), chainSeedQ.end());
-	const std::vector<double> before = plan.jointTargetsRad;
-	if (!normalizeJointRevolutionsToReference(plan.jointTargetsRad, refQ, limLo, limHi))
-	{
-		plan.ok = false;
-		plan.summary = describeJointNormalizeFailure(before, refQ, limLo, limHi);
-		return false;
-	}
-	alignTrajectoryAfterTargetNormalize(plan, before);
-	return true;
+	return applyJointWrapToPlan(plan, refQ, limLo, limHi);
 }
 
 double maxUnfoldedJointAbsDelta(const QVector<double>& a, const QVector<double>& b)
@@ -1638,25 +1464,100 @@ void RobotSimulationController::bindJointUiToDocument(IRobotDocumentHost* doc)
 	{
 		return;
 	}
-	const int total = doc->robotRevoluteJointNames().size();
-	m_aggregatedJointAnglesRad = QVector<double>(total, 0.0);
+	resyncAggregatedJointAnglesFromDocument(doc);
+}
+
+void RobotSimulationController::resyncAggregatedJointAnglesFromDocument(IRobotDocumentHost* doc)
+{
+	if (!doc || !doc->hasRobotSimulationContext())
+	{
+		m_aggregatedJointAnglesRad.clear();
+		m_syncedRobotSceneBackendIds.clear();
+		return;
+	}
+
 	const int n = doc->robotKinematicInstanceCount();
-	m_syncedRobotSceneBackendIds.reserve(n);
+	QStringList backendIds;
+	backendIds.reserve(n);
 	for (int i = 0; i < n; ++i)
 	{
-		const QString root = doc->robotSceneBackendIdForInstance(i);
-		m_syncedRobotSceneBackendIds.append(root);
+		backendIds.append(doc->robotSceneBackendIdForInstance(i));
+	}
+
+	QHash<QString, QVector<double>> preservedByRoot;
+	{
+		int oldOff = 0;
+		bool layoutTrusted = true;
+		for (const QString& oldId : m_syncedRobotSceneBackendIds)
+		{
+			int oldInst = -1;
+			for (int i = 0; i < n; ++i)
+			{
+				if (backendIds[i] == oldId)
+				{
+					oldInst = i;
+					break;
+				}
+			}
+			if (oldInst < 0)
+			{
+				// 中间删机后旧槽位长度未知，放弃前缀映射，改走文档局部角
+				layoutTrusted = false;
+				break;
+			}
+			const int nj = doc->robotRevoluteJointCountForInstance(oldInst);
+			if (nj <= 0 || oldOff + nj > m_aggregatedJointAnglesRad.size())
+			{
+				layoutTrusted = false;
+				break;
+			}
+			preservedByRoot.insert(oldId, m_aggregatedJointAnglesRad.mid(oldOff, nj));
+			oldOff += nj;
+		}
+		if (!layoutTrusted)
+		{
+			preservedByRoot.clear();
+		}
+	}
+
+	const int total = doc->robotRevoluteJointNames().size();
+	QVector<double> next(total, 0.0);
+	for (int i = 0; i < n; ++i)
+	{
+		const QString& root = backendIds[i];
+		const int offset = doc->robotJointOffsetInAggregatedVector(i);
+		const int nj = doc->robotRevoluteJointCountForInstance(i);
+		if (nj <= 0 || offset + nj > total)
+		{
+			continue;
+		}
+		const auto pit = preservedByRoot.constFind(root);
+		if (pit != preservedByRoot.cend() && pit->size() == nj)
+		{
+			for (int j = 0; j < nj; ++j)
+			{
+				next[offset + j] = (*pit)[j];
+			}
+			continue;
+		}
 		QVector<double> local;
 		if (!doc->robotLocalJointAnglesForSceneRoot(root, local))
 		{
 			continue;
 		}
-		const int offset = doc->robotJointOffsetInAggregatedVector(i);
-		const int nj = doc->robotRevoluteJointCountForInstance(i);
-		for (int j = 0; j < nj && j < local.size() && offset + j < total; ++j)
+		for (int j = 0; j < nj && j < local.size(); ++j)
 		{
-			m_aggregatedJointAnglesRad[offset + j] = local[j];
+			next[offset + j] = local[j];
 		}
+	}
+
+	m_aggregatedJointAnglesRad = std::move(next);
+	m_syncedRobotSceneBackendIds = backendIds;
+	if (!m_boundDocumentId.isEmpty())
+	{
+		DocumentJointUiState& stash = m_jointUiByDocumentId[m_boundDocumentId];
+		stash.aggregatedJointAnglesRad = m_aggregatedJointAnglesRad;
+		stash.syncedRobotSceneBackendIds = m_syncedRobotSceneBackendIds;
 	}
 }
 
@@ -1722,7 +1623,8 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 			labels.append(doc->robotDisplayLabelForInstance(i));
 			backendIds.append(doc->robotSceneBackendIdForInstance(i));
 		}
-		// 先刷实例列表再读 currentIndex；否则 activeProgram 的 backendId 映射会错位
+		// 聚合角须先按 sceneBackendId 对齐；setRobotInstances 会立刻触发选中回调读聚合向量
+		resyncAggregatedJointAnglesFromDocument(doc);
 		m_host->simulationCommandPage()->setRobotInstances(labels, backendIds);
 		refreshAxisControlTargets();
 		if (m_customDeviceSim)
@@ -1791,51 +1693,6 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		}
 		syncRobotAxisControlExternalAxes(instIdx);
 
-		{
-			const int total = doc->robotRevoluteJointNames().size();
-			// 同文档内删机再导：DOF 常相同，仅当 sceneBackendId 集合无交集时清零
-			if (backendIds != m_syncedRobotSceneBackendIds)
-			{
-				bool overlap = false;
-				for (const QString& id : backendIds)
-				{
-					if (m_syncedRobotSceneBackendIds.contains(id))
-					{
-						overlap = true;
-						break;
-					}
-				}
-				if (!overlap)
-				{
-					m_aggregatedJointAnglesRad = QVector<double>(total, 0.0);
-				}
-				else if (m_aggregatedJointAnglesRad.size() != total)
-				{
-					const int oldSize = m_aggregatedJointAnglesRad.size();
-					m_aggregatedJointAnglesRad.resize(total);
-					for (int i = oldSize; i < total; ++i)
-					{
-						m_aggregatedJointAnglesRad[i] = 0.0;
-					}
-				}
-				m_syncedRobotSceneBackendIds = backendIds;
-			}
-			else if (m_aggregatedJointAnglesRad.size() != total)
-			{
-				const int oldSize = m_aggregatedJointAnglesRad.size();
-				m_aggregatedJointAnglesRad.resize(total);
-				for (int i = oldSize; i < total; ++i)
-				{
-					m_aggregatedJointAnglesRad[i] = 0.0;
-				}
-			}
-			if (!m_boundDocumentId.isEmpty())
-			{
-				DocumentJointUiState& stash = m_jointUiByDocumentId[m_boundDocumentId];
-				stash.aggregatedJointAnglesRad = m_aggregatedJointAnglesRad;
-				stash.syncedRobotSceneBackendIds = m_syncedRobotSceneBackendIds;
-			}
-		}
 		// 切文档只同步轴控 UI；场景位姿由各 DocumentPage 自持，勿每次重推 FK
 		{
 			const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
@@ -1997,7 +1854,7 @@ void RobotSimulationController::applyProgramStartPoseAfterProjectLoadImpl()
 			const QStringList jnamesAll = doc->robotRevoluteJointNames();
 			if (m_aggregatedJointAnglesRad.size() != jnamesAll.size())
 			{
-				m_aggregatedJointAnglesRad = QVector<double>(jnamesAll.size(), 0.0);
+				resyncAggregatedJointAnglesFromDocument(doc);
 			}
 			for (int j = 0; j < nj && jointOffset + j < m_aggregatedJointAnglesRad.size(); ++j)
 			{
@@ -2966,6 +2823,9 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 	req.meshVerticesInLinkFrame = pl.meshVerticesInLinkFrame;
 	req.options.securityMarginMm = col.securityMarginMm;
 	req.options.checkCollision = col.enabled;
+	req.options.planningSpace = col.planningSpace.empty() ? "Auto" : col.planningSpace;
+	req.options.plannerId = col.plannerId.empty() ? "Auto" : col.plannerId;
+	req.options.planningTimeSec = col.planningTimeSec;
 	// 场景有障碍时禁用关节直达，避免粗检漏过中段穿模；走 OMPL 绕障
 	if (col.enabled && m_collisionWorld
 		&& m_collisionWorld->bodyCount() > static_cast<std::size_t>(linkBodies.size()))
@@ -3502,7 +3362,7 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 				jointQ[j] = m_aggregatedJointAnglesRad[jointOffset + j];
 			}
 		}
-		else if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() > 0)
+		else if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == nj)
 		{
 			jointQ = m_host->robotAxisControlPage()->jointAnglesRad();
 		}
@@ -3816,7 +3676,7 @@ void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<doub
 	}
 	if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
 	{
-		m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
+		resyncAggregatedJointAnglesFromDocument(doc);
 	}
 	// 须走 doc->applyJointAnglesRad：KinematicsBatchScope + notify + Follow 批末求解
 	if (!doc->applyJointAnglesRad(instIdx, jointAnglesRad, m_aggregatedJointAnglesRad))
@@ -3901,7 +3761,7 @@ void RobotSimulationController::applyAxisControlExternalPose(const int instanceI
 	{
 		if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
 		{
-			m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
+			resyncAggregatedJointAnglesFromDocument(doc);
 		}
 		(void)doc->applyJointAnglesRad(instanceIndex, joints, m_aggregatedJointAnglesRad);
 	}
@@ -4828,7 +4688,7 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		{
 			if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
 			{
-				m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
+				resyncAggregatedJointAnglesFromDocument(doc);
 			}
 			for (int j = 0; j < njInst && jointOffset + j < m_aggregatedJointAnglesRad.size(); ++j)
 			{
@@ -5080,7 +4940,7 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	m_tcpDragLastAppliedJointRad = qClamped;
 	if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
 	{
-		m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
+		resyncAggregatedJointAnglesFromDocument(doc);
 	}
 	for (int j = 0; j < njInst && jointOffset + j < m_aggregatedJointAnglesRad.size(); ++j)
 	{
@@ -6424,7 +6284,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(
 	const QStringList jnamesAll = doc->robotRevoluteJointNames();
 	if (m_aggregatedJointAnglesRad.size() != jnamesAll.size())
 	{
-		m_aggregatedJointAnglesRad = QVector<double>(jnamesAll.size(), 0.0);
+		resyncAggregatedJointAnglesFromDocument(doc);
 	}
 	for (int j = 0; j < nj && jointOffset + j < m_aggregatedJointAnglesRad.size(); ++j)
 	{
@@ -8295,6 +8155,9 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 						req.options.checkCollision = true;
 						req.options.allowDirectJointLerp = false;
 						req.options.securityMarginMm = colGate.securityMarginMm;
+						req.options.planningSpace = colGate.planningSpace.empty() ? "Auto" : colGate.planningSpace;
+						req.options.plannerId = colGate.plannerId.empty() ? "Auto" : colGate.plannerId;
+						req.options.planningTimeSec = colGate.planningTimeSec;
 						req.robotBasePlacementWorld =
 							RobotSimulationMath::osgMatrixFromCoreMat4(pl.robotBasePlacementWorld);
 						for (auto it = pl.fkMeshWorldT0.constBegin(); it != pl.fkMeshWorldT0.constEnd(); ++it)

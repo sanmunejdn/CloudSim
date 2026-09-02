@@ -4,9 +4,11 @@
 #include "RobotPathPlanning.h"
 
 #include "CollisionValidity.h"
+#include "JointSpaceDijkstraPlanner.h"
 #include "JointSpaceRrtPlanner.h"
 #include "OmplJointSpacePlanner.h"
 #include "PathPostProcess.h"
+#include "TaskSpaceRrtPlanner.h"
 
 #include "ToolKinematics.h"
 #include "Adapters.h"
@@ -15,6 +17,9 @@
 #include "UrdfRobotLoader.h"
 
 #include <cmath>
+
+#include <algorithm>
+#include <string>
 
 #include <QHash>
 #include <QString>
@@ -95,7 +100,58 @@ bool solveGoalJoints(const PlanRequest& req, std::vector<double>& goalQ, std::st
 	return true;
 }
 
+bool isAutoPlannerId(const std::string& id)
+{
+	return id.empty() || id == "Auto" || id == "auto";
+}
+
+std::string normalizePlanningSpace(const std::string& id)
+{
+	if (id == "Joint" || id == "joint")
+		return "Joint";
+	if (id == "Cartesian" || id == "cartesian")
+		return "Cartesian";
+	return "Auto";
+}
+
+std::string normalizeExplicitPlannerId(const std::string& id)
+{
+	if (id == "BIT*" || id == "BITstar")
+		return "BITstar";
+	if (id == "RRT*")
+		return "RRTstar";
+	if (id == "InformedRRT*")
+		return "InformedRRTstar";
+	if (id == "RRTConnect" || id == "RRTstar" || id == "InformedRRTstar" || id == "Dijkstra")
+		return id;
+	return "RRTConnect";
+}
+
+bool plannerRequiresOmpl(const std::string& id)
+{
+	return id == "BITstar" || id == "InformedRRTstar" || id == "RRTstar";
+}
+
 } // namespace
+
+std::vector<std::string> supportedPlanningSpaces()
+{
+	return {"Auto", "Joint", "Cartesian"};
+}
+
+std::vector<std::string> supportedPlannerIds()
+{
+	std::vector<std::string> ids;
+	ids.push_back("Auto");
+#if defined(CLOUDSIM_HAS_OMPL)
+	ids.push_back("BITstar");
+	ids.push_back("InformedRRTstar");
+	ids.push_back("RRTstar");
+#endif
+	ids.push_back("RRTConnect");
+	ids.push_back("Dijkstra");
+	return ids;
+}
 
 bool planToTcpPose(const PlanRequest& req, PathResult& out)
 {
@@ -280,6 +336,54 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 			}
 			return true;
 		};
+
+		const std::string requested = armReq.options.plannerId;
+		if (!isAutoPlannerId(requested))
+		{
+			std::string selected = normalizeExplicitPlannerId(requested);
+			if (selected == "Dijkstra")
+			{
+				PlanRequest tryReq = armReq;
+				tryReq.options.plannerId = "Dijkstra";
+				if (detail::planJointSpaceDijkstra(tryReq, lim, goalQ, out))
+				{
+					std::string densifyErr;
+					if (snapGoalAndDensify(densifyErr))
+						return true;
+					lastErr = densifyErr;
+					out = PathResult{};
+				}
+				else
+				{
+					lastErr = out.errMsg.empty() ? lastErr : out.errMsg;
+				}
+				if (out.errMsg.empty())
+					out.errMsg = lastErr.empty() ? "planner Dijkstra failed" : lastErr;
+				return false;
+			}
+#if !defined(CLOUDSIM_HAS_OMPL)
+			if (plannerRequiresOmpl(selected))
+			{
+				selected = "RRTConnect";
+				lastErr = "OMPL not available; using built-in RRTConnect for " + requested;
+			}
+#endif
+			const bool useOmpl = [&] {
+#if defined(CLOUDSIM_HAS_OMPL)
+				return plannerRequiresOmpl(selected) || selected == "RRTConnect";
+#else
+				(void)selected;
+				return false;
+#endif
+			}();
+			const double minTime = selected == "RRTConnect" ? 5.0 : (selected == "RRTstar" ? 8.0 : 10.0);
+			if (tryOne(selected.c_str(), minTime, useOmpl))
+				return true;
+			if (out.errMsg.empty())
+				out.errMsg = lastErr.empty() ? ("planner " + selected + " failed") : lastErr;
+			return false;
+		}
+
 #if defined(CLOUDSIM_HAS_OMPL)
 		if (tryOne("BITstar", 10.0, true))
 			return true;
@@ -296,6 +400,76 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 			out.errMsg = lastErr.empty() ? "motion planning failed" : lastErr;
 		return false;
 	};
+
+	auto finalizePath = [&]() -> bool {
+		detail::fillTcpPosesFromJoints(armReq, out);
+		if (out.tcpPoses.size() != out.jointTrajectoryRad.size())
+		{
+			out.ok = false;
+			out.errMsg = "TCP pose count mismatch after FK";
+			return false;
+		}
+		detail::computePathMetrics(out);
+		constexpr double kMinUsefulTcpMm = 1.0;
+		constexpr double kMinUsefulJointRad = 0.02;
+		if (out.pathLengthTcpMm < kMinUsefulTcpMm && out.pathLengthRad < kMinUsefulJointRad)
+		{
+			out.ok = false;
+			out.errMsg = "planned path too short (TCP=" + std::to_string(out.pathLengthTcpMm) +
+						 "mm); start/goal poses nearly coincident";
+			out.jointTrajectoryRad.clear();
+			out.tcpPoses.clear();
+			return false;
+		}
+		out.ok = true;
+		return true;
+	};
+
+	auto tryTaskSpaceRrt = [&]() -> bool {
+		if (!detail::planTaskSpaceRrt(armReq, lim, goalQ, out))
+			return false;
+		std::string densifyErr;
+		if (snapGoalAndDensify(densifyErr))
+			return true;
+		// densify 关节插值可能穿模；树边已是 TCP-IK 小步，粗路径段检通过则仍可用
+		if (!out.jointTrajectoryRad.empty())
+		{
+			bool coarseOk = true;
+			for (std::size_t i = 0; i + 1 < out.jointTrajectoryRad.size(); ++i)
+			{
+				if (!detail::isStateValid(armReq, lim, out.jointTrajectoryRad[i])
+					|| !detail::isSegmentValid(armReq, lim, out.jointTrajectoryRad[i],
+											   out.jointTrajectoryRad[i + 1],
+											   armReq.options.longestValidSegmentRad))
+				{
+					coarseOk = false;
+					break;
+				}
+			}
+			if (coarseOk && detail::isStateValid(armReq, lim, out.jointTrajectoryRad.back()))
+			{
+				out.ok = true;
+				return true;
+			}
+		}
+		out = PathResult{};
+		out.errMsg = densifyErr.empty() ? "TaskSpaceRRT post-process failed" : densifyErr;
+		return false;
+	};
+
+	const std::string planningSpace = normalizePlanningSpace(armReq.options.planningSpace);
+	if (planningSpace == "Cartesian")
+	{
+		if (!tryTaskSpaceRrt())
+			return false;
+		return finalizePath();
+	}
+	if (planningSpace == "Auto")
+	{
+		if (tryTaskSpaceRrt())
+			return finalizePath();
+		out = PathResult{};
+	}
 
 	bool usedDirect = false;
 	// 无障碍/直达可行时：关节直线最短且可复现
@@ -333,28 +507,7 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 		}
 	}
 
-	detail::fillTcpPosesFromJoints(armReq, out);
-	if (out.tcpPoses.size() != out.jointTrajectoryRad.size())
-	{
-		out.ok = false;
-		out.errMsg = "TCP pose count mismatch after FK";
-		return false;
-	}
-	detail::computePathMetrics(out);
-	// 关节差极小或 IK 落到近起点时 metrics 可近零，与「规划成功」语义不符
-	constexpr double kMinUsefulTcpMm = 1.0;
-	constexpr double kMinUsefulJointRad = 0.02;
-	if (out.pathLengthTcpMm < kMinUsefulTcpMm && out.pathLengthRad < kMinUsefulJointRad)
-	{
-		out.ok = false;
-		out.errMsg = "planned path too short (TCP=" + std::to_string(out.pathLengthTcpMm) +
-					 "mm); start/goal poses nearly coincident";
-		out.jointTrajectoryRad.clear();
-		out.tcpPoses.clear();
-		return false;
-	}
-	out.ok = true;
-	return true;
+	return finalizePath();
 }
 
 } // namespace robot_path

@@ -18,6 +18,12 @@ struct ROBOT_SCENE_API Settings
 {
 	bool enabled = false;
 	double securityMarginMm = 1.0;
+	/// 规划空间：Auto / Joint / Cartesian
+	std::string planningSpace = "Auto";
+	/// 路径规划器：Auto=级联；否则 BITstar / InformedRRTstar / RRTstar / RRTConnect / Dijkstra
+	std::string plannerId = "Auto";
+	/// 单次规划时限（秒），读写钳位 1–120
+	double planningTimeSec = 10.0;
 	/// 白名单 backendId：组内互不检；仅与黑名单互检
 	std::vector<std::string> whiteListBackendIds;
 	/// 黑名单 backendId：组内互不检；仅与白名单互检

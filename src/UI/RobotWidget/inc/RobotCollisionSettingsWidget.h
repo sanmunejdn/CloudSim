@@ -57,6 +57,7 @@ signals:
 
 private slots:
 	void onFieldChanged();
+	void onPlanningSpaceChanged();
 	void onAddToWhite();
 	void onAddToBlack();
 	void onRemoveFromWhite();
@@ -69,6 +70,11 @@ private:
 	QStringList selectedPoolIds() const;
 	void moveSelectedPoolToList(bool toWhite);
 	void removeSelectedFromTable(QTableWidget* table);
+	void rebuildPlannerCombo();
+	void rebuildPlanningSpaceCombo();
+	void refreshPlannerComboEnabled();
+	QString plannerDisplayLabel(const QString& id) const;
+	QString planningSpaceDisplayLabel(const QString& id) const;
 
 	QGroupBox* m_collisionGroup = nullptr;
 	QCheckBox* m_enabledCheck = nullptr;
@@ -85,6 +91,12 @@ private:
 	QPushButton* m_addBlackBtn = nullptr;
 	QPushButton* m_removeWhiteBtn = nullptr;
 	QPushButton* m_removeBlackBtn = nullptr;
+	QLabel* m_plannerLabel = nullptr;
+	QComboBox* m_plannerCombo = nullptr;
+	QLabel* m_planningSpaceLabel = nullptr;
+	QComboBox* m_planningSpaceCombo = nullptr;
+	QLabel* m_planTimeLabel = nullptr;
+	QDoubleSpinBox* m_planTimeSpin = nullptr;
 	QPushButton* m_refreshObjectsBtn = nullptr;
 
 	QGroupBox* m_planGroup = nullptr;

@@ -68,6 +68,21 @@ void RobotProgramStore::setRobotInstances(const QStringList& labels, const QStri
 	ensureActiveCatalog();
 }
 
+bool RobotProgramStore::ensureRobotBackendId(const QString& sceneBackendId, const QString& label)
+{
+	if (sceneBackendId.isEmpty())
+		return false;
+	if (!m_backendIds.contains(sceneBackendId))
+	{
+		m_backendIds.append(sceneBackendId);
+		m_labels.append(label.isEmpty() ? sceneBackendId : label);
+	}
+	if (!m_catalogs.contains(sceneBackendId))
+		m_catalogs.insert(sceneBackendId, RobotInstruction::RobotProgramCatalog::withDefaultMain());
+	setActiveRobotBackendId(sceneBackendId);
+	return true;
+}
+
 RobotInstruction::RobotProgramCatalog& RobotProgramStore::catalogFor(const QString& sceneBackendId)
 {
 	if (!m_catalogs.contains(sceneBackendId))

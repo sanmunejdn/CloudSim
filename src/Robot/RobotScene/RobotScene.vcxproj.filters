@@ -209,6 +209,9 @@
     <ClInclude Include="inc\RobotInstructionTransform.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
+    <ClInclude Include="inc\RobotJointWrap.h">
+      <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
     <ClInclude Include="inc\RobotKinematicApplyContext.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
@@ -396,6 +399,9 @@
     </ClCompile>
     <ClCompile Include="source\RobotInstructionTransform.cpp">
       <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotJointWrap.cpp">
+      <Filter>src\KinematicCore</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotKinematicModelRegistration.cpp">
       <Filter>src\KinematicCore</Filter>

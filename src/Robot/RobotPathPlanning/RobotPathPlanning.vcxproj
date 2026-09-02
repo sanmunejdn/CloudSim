@@ -166,17 +166,21 @@
     <ClInclude Include="inc\robot_path_planning_global.h" />
     <ClInclude Include="inc\RobotPathPlanning.h" />
     <ClInclude Include="inc\CollisionValidity.h" />
+    <ClInclude Include="inc\JointSpaceDijkstraPlanner.h" />
     <ClInclude Include="inc\JointSpaceRrtPlanner.h" />
     <ClInclude Include="inc\OmplJointSpacePlanner.h" />
     <ClInclude Include="inc\PathPostProcess.h" />
+    <ClInclude Include="inc\TaskSpaceRrtPlanner.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\CollisionValidity.cpp" />
+    <ClCompile Include="source\JointSpaceDijkstraPlanner.cpp" />
     <ClCompile Include="source\JointSpaceRrtPlanner.cpp" />
     <ClCompile Include="source\OmplJointSpacePlanner.cpp" />
     <ClCompile Include="source\PathPostProcess.cpp" />
     <ClCompile Include="source\PlanToTcpPose.cpp" />
     <ClCompile Include="source\SelfTest.cpp" />
+    <ClCompile Include="source\TaskSpaceRrtPlanner.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Geometry\CollisionAlgorithm\CollisionAlgorithm.vcxproj">

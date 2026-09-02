@@ -37,6 +37,8 @@ core::RobotRegistrationDto RobotServiceAdapter::registerUrdfRobot(const QString&
 	const core::RobotRegistrationDto result = importUrdfRobot(*ctx, urdfPath, options);
 	if (result.ok)
 	{
+		if (!result.sceneRootBackendId.isEmpty())
+			m_programs.ensureRobotBackendId(result.sceneRootBackendId);
 		publishBackendObjectRegistered(m_host, result.sceneRootBackendId, QStringLiteral("RobotURDF"));
 	}
 	return result;
@@ -88,6 +90,16 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 	if (outAggregated && outAggregated->size() == totalJoints)
 	{
 		aggregated = *outAggregated;
+	}
+	else if (outAggregated && !outAggregated->isEmpty() && outAggregated->size() < totalJoints)
+	{
+		// 连续导入时聚合向量常尚未扩容：保留前缀，勿整表清零
+		aggregated = *outAggregated;
+		aggregated.resize(totalJoints);
+		for (int i = outAggregated->size(); i < totalJoints; ++i)
+		{
+			aggregated[i] = 0.0;
+		}
 	}
 	else
 	{

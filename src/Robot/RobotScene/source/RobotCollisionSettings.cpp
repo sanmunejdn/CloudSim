@@ -7,6 +7,28 @@ namespace RobotCollision
 {
 namespace
 {
+constexpr double kMinPlanningTimeSec = 1.0;
+constexpr double kMaxPlanningTimeSec = 120.0;
+
+double clampPlanningTimeSec(const double sec)
+{
+	if (sec < kMinPlanningTimeSec)
+		return kMinPlanningTimeSec;
+	if (sec > kMaxPlanningTimeSec)
+		return kMaxPlanningTimeSec;
+	return sec;
+}
+
+bool isKnownPlannerId(const std::string& id)
+{
+	return id == "Auto" || id == "BITstar" || id == "InformedRRTstar" || id == "RRTstar" || id == "RRTConnect"
+		   || id == "Dijkstra";
+}
+
+bool isKnownPlanningSpace(const std::string& id)
+{
+	return id == "Auto" || id == "Joint" || id == "Cartesian";
+}
 void writeIdArray(nlohmann::json& out, const char* key, const std::vector<std::string>& ids)
 {
 	nlohmann::json arr = nlohmann::json::array();
@@ -39,6 +61,9 @@ void writeSettingsToJson(const Settings& s, nlohmann::json& out)
 	out = nlohmann::json::object();
 	out["enabled"] = s.enabled;
 	out["securityMarginMm"] = s.securityMarginMm;
+	out["planningSpace"] = s.planningSpace.empty() ? "Auto" : s.planningSpace;
+	out["plannerId"] = s.plannerId.empty() ? "Auto" : s.plannerId;
+	out["planningTimeSec"] = clampPlanningTimeSec(s.planningTimeSec);
 	writeIdArray(out, "whiteListBackendIds", s.whiteListBackendIds);
 	writeIdArray(out, "blackListBackendIds", s.blackListBackendIds);
 }
@@ -54,6 +79,18 @@ bool readSettingsFromJson(const nlohmann::json& in, Settings& out)
 		s.securityMarginMm = in["securityMarginMm"].get<double>();
 	if (s.securityMarginMm < 0.0)
 		s.securityMarginMm = 0.0;
+	if (in.contains("planningSpace") && in["planningSpace"].is_string())
+	{
+		const std::string ps = in["planningSpace"].get<std::string>();
+		s.planningSpace = isKnownPlanningSpace(ps) ? ps : "Auto";
+	}
+	if (in.contains("plannerId") && in["plannerId"].is_string())
+	{
+		const std::string pid = in["plannerId"].get<std::string>();
+		s.plannerId = isKnownPlannerId(pid) ? pid : "Auto";
+	}
+	if (in.contains("planningTimeSec") && in["planningTimeSec"].is_number())
+		s.planningTimeSec = clampPlanningTimeSec(in["planningTimeSec"].get<double>());
 	readIdArray(in, "whiteListBackendIds", s.whiteListBackendIds);
 	readIdArray(in, "blackListBackendIds", s.blackListBackendIds);
 	out = s;

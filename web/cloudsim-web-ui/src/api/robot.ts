@@ -145,14 +145,20 @@ export type RunProgramBody = {
   sceneRootBackendId?: string;
   programId?: string;
   playbackRate?: number;
+  /** FromInstruction|Chain|FromCurrentPose|Current */
+  seedPolicy?: string;
 };
+
+export type IkSeedPolicy = "FromInstruction" | "FromCurrentPose";
 
 export type PlaybackStatus = {
   ok: boolean;
   running?: boolean;
   sceneRootBackendId?: string;
   jointAnglesRad?: number[];
+  abortSummary?: string;
   error?: string;
+  seedPolicy?: string;
 };
 
 export type ExportProgramBody = {
@@ -204,6 +210,9 @@ export type CollisionSettings = {
   securityMarginMm?: number;
   whiteListBackendIds?: string[];
   blackListBackendIds?: string[];
+  startInstructionId?: string;
+  endInstructionId?: string;
+  sceneRootBackendId?: string;
 };
 
 export const fetchCollisionSettings = () =>
@@ -212,18 +221,37 @@ export const fetchCollisionSettings = () =>
 export const putCollisionSettings = (body: CollisionSettings) =>
   putJson<ApiOk>("/api/robot/collision-settings", body);
 
-/** 规划路由未上线时由面板回退为仅保存设置 */
 export async function postCollisionPlan(
   body: CollisionSettings,
-): Promise<{ ok: boolean; error?: string; routeMissing?: boolean }> {
+): Promise<{
+  ok: boolean;
+  error?: string;
+  routeMissing?: boolean;
+  plannerName?: string;
+  pointCount?: number;
+  pathLengthTcpMm?: number;
+}> {
   const r = await fetch("/api/robot/collision/plan", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (r.status === 404) return { ok: false, routeMissing: true };
-  return (await r.json()) as { ok: boolean; error?: string };
+  return (await r.json()) as {
+    ok: boolean;
+    error?: string;
+    plannerName?: string;
+    pointCount?: number;
+    pathLengthTcpMm?: number;
+  };
 }
+
+export const postCollisionConfirm = (body: {
+  sceneRootBackendId?: string;
+  startInstructionId?: string;
+  endInstructionId?: string;
+}) =>
+  postJson<{ ok: boolean; insertedCount?: number; error?: string }>("/api/robot/collision/confirm", body);
 
 export const switchRobotProgram = (programId: string, sceneRootBackendId?: string) =>
   postJson<{ ok: boolean; programId?: string; programName?: string; error?: string }>(
@@ -242,3 +270,59 @@ export const redoProgramEdit = (body: { sceneRootBackendId?: string } = {}) =>
     "/api/robot/program-edit/redo",
     body,
   );
+
+export const robotGroupCrud = (body: {
+  action: "list" | "create" | "remove" | "dissolve" | "rename";
+  sceneRootBackendId?: string;
+  name?: string;
+  groupId?: string;
+  memberInstructionIds?: string[];
+}) =>
+  postJson<{
+    ok: boolean;
+    groups?: { id: string; name: string; memberCount?: number; memberInstructionIds?: string[] }[];
+    error?: string;
+  }>("/api/robot/program-edit/groups", body);
+
+export const robotProgramCrud = (body: {
+  action: "create" | "rename" | "delete" | "remove";
+  sceneRootBackendId?: string;
+  programId?: string;
+  name?: string;
+}) =>
+  postJson<{ ok: boolean; programId?: string; activeProgramId?: string; error?: string }>(
+    "/api/robot/programs/crud",
+    body,
+  );
+
+export type ExternalAxisConfig = {
+  enabled?: boolean;
+  displayName?: string;
+  jointName?: string;
+  kind?: string;
+  motionType?: string;
+  attachment?: string;
+  isPrismatic?: boolean;
+  lower?: number;
+  upper?: number;
+  home?: number;
+  axis?: number[];
+  originMm?: number[];
+  boundBackendId?: string;
+  workingFrameId?: string;
+};
+
+export const fetchExternalAxes = (sceneRootBackendId: string) =>
+  apiJson<{
+    ok: boolean;
+    sceneRootBackendId?: string;
+    externalAxes?: { axes?: ExternalAxisConfig[] };
+    axes?: ExternalAxisConfig[];
+    error?: string;
+  }>(`/api/robot/external-axes?sceneRootBackendId=${encodeURIComponent(sceneRootBackendId)}`);
+
+export const putExternalAxes = (body: {
+  sceneRootBackendId: string;
+  axes?: ExternalAxisConfig[];
+  externalAxes?: { axes?: ExternalAxisConfig[] };
+}) => putJson<ApiOk>("/api/robot/external-axes", body);

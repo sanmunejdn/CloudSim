@@ -2,7 +2,7 @@
 
 ## 1. 模块定位
 
-关节空间避障路径规划（MoveIt/OMPL 风格，无 ROS）：TCP 位姿目标 → IK → **BIT***（路径长度 anytime 最优）→ 路径简化 → densify → 关节轨迹 + TCP 点列。
+关节/任务空间避障路径规划（MoveIt/OMPL 风格，无 ROS）：TCP 位姿目标 → IK → **关节空间**或 **TaskSpaceRRT** → 路径简化 → densify → 关节轨迹 + TCP 点列。
 
 | 属性 | 说明 |
 |------|------|
@@ -11,9 +11,19 @@
 | 单位 | mm / rad |
 | 构建 | **Debug\|x64** 与 **Release\|x64** 均须通过（产物分别在仓库根 `bin\x64d\` / `bin\x64\`） |
 
-**非职责**：不写程序指令、不挂 PathPlan 流水线、不保证笛卡尔直线。
+**非职责**：不写程序指令、不挂 PathPlan 流水线、不保证笛卡尔直线（TaskSpaceRRT 可绕障但 TCP 非直线）。
 
-## 2. MoveIt / GitHub 对照
+## 2. 规划空间（Planning Space）
+
+| `planningSpace` | 行为 |
+|-----------------|------|
+| **Joint** | 仅关节空间：Direct → BIT*/RRT*/Dijkstra |
+| **Cartesian** | 仅 `TaskSpaceRRT`（SE(3) 采样 + IK + 关节碰撞门控） |
+| **Auto** | 先 TaskSpaceRRT，失败再关节级联 |
+
+UI/持久化：`RobotCollision::Settings::planningSpace` + `plannerId` / `planningTimeSec`；`supportedPlanningSpaces()` / `supportedPlannerIds()`。
+
+## 3. MoveIt / GitHub 对照
 
 | 参考 | CloudSim |
 |------|----------|
@@ -21,11 +31,13 @@
 | [BIT*](https://robotic-esp.com/code/bitstar/) 批量启发树 | 默认 `BITstar` + `PathLengthOptimizationObjective` + `goalRegionCostToGo` |
 | [Informed RRT*](https://robotic-esp.com/code/informed-rrtstar/) | cascade 次选（勿再 `setFocusSearch(true)`，会打开构造函数已关闭的 new-state rejection） |
 | MoveIt：阈值 0 | 用满时限返回当前最优 |
-| OMPL `PathSimplifier::simplifyMax` | `interpolate` 后简化 |
+| [personalrobotics/pycbirrt](https://github.com/personalrobotics/pycbirrt) CBiRRT | `TaskSpaceRrtPlanner` 双向 RRT + 任务空间采样 |
 
-规划顺序：`BITstar` → `InformedRRTstar` → `RRTstar` → `RRTConnect`（连通兜底）→ 内置 RRT。
+规划顺序（`plannerId=Auto`）：`BITstar` → `InformedRRTstar` → `RRTstar` → `RRTConnect`（连通兜底）→ 内置 RRT。显式 `plannerId` 时只跑所选算法。**Dijkstra**：关节均匀网格稀疏 Dijkstra（步长≈`longestValidSegmentRad`，单关节最多 48 档），适合低维确定性绕障；高维或粗网格无解时可改 Auto/RRT*。
 
-## 3. 碰撞位姿（与画面一致）
+UI/持久化：`RobotCollision::Settings::planningSpace` / `plannerId` / `planningTimeSec`；Dock「碰撞与规划」规划空间 + 规划算法 Combo + 时限 Spin；`supportedPlanningSpaces()` / `supportedPlannerIds()` 供 UI 枚举。
+
+## 4. 碰撞位姿（与画面一致）
 
 规划采样写 `CollisionWorld` 时须与 `RobotSceneKinematics::applyPerLinkRobotBasePlacement` 同式：
 
@@ -60,6 +72,7 @@ M(q) = m0 * inv(T0) * Tq * P
 
 ## 6. 相关文档
 
+- [**规划算法原理图与说明**](../../../docs/RobotPathPlanning/PLANNERS_规划算法原理.md)（Direct / TaskSpaceRRT / Dijkstra / BIT* / RRT* 系 / Auto）
 - [`../../../docs/RobotPathPlanning/`](../../../docs/RobotPathPlanning/)
 - [`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
 - [`../../UI/RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md)（碰撞页 UI、黑白名单、确认插入）

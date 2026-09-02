@@ -17,6 +17,7 @@
 #include "RobotPerLinkKinematicsSliceOsg.h"
 #include "RobotProgramStore.h"
 #include "RobotExternalAxes.h"
+#include "RobotMatrixOsgBridge.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 #include "ViewportToolBar.h"
@@ -842,7 +843,7 @@ void DocumentPage::clearContentForProjectOpen()
 	render().clearAllAnnotations();
 	invalidateFollowReverseIndex();
 	clearFollowDirtyBackendIds();
-	m_robotCollisionSettings = RobotCollision::Settings{};
+	robotCollisionSettings() = RobotCollision::Settings{};
 }
 
 void DocumentPage::clearRobotSimulationIfContains(const QString& removedBackendId)
@@ -1158,13 +1159,28 @@ void DocumentPage::reconcilePerLinkOuterBindFromScene(const int instanceIndex, c
 		{
 			continue;
 		}
+		// FK/导入先写 Data；OSG 可能尚未 flush，优先用 Data 世界矩阵反推 M0
 		osg::Matrixd world;
-		cloudsim::core::Mat4 worldMat;
-		if (!osg->getBackendRootWorldMatrix(linkBackendId.toStdString(), worldMat))
+		bool haveWorld = false;
+		if (const auto meshPtr =
+				std::dynamic_pointer_cast<MeshBackendData>(findObject(linkBackendId.toStdString())))
+		{
+			world = RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix());
+			haveWorld = true;
+		}
+		else
+		{
+			cloudsim::core::Mat4 worldMat;
+			if (osg->getBackendRootWorldMatrix(linkBackendId.toStdString(), worldMat))
+			{
+				world = osgFromMat4(worldMat);
+				haveWorld = true;
+			}
+		}
+		if (!haveWorld)
 		{
 			continue;
 		}
-		world = osgFromMat4(worldMat);
 		const osg::Matrixd m0Bind = world * Pinv * osg::Matrixd::inverse(tqIt.value()) * t0It.value();
 		updateRobotLinkOuterBindFromWorld(instanceIndex, linkBackendId, mat4FromOsg(m0Bind));
 	}

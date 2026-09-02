@@ -44,10 +44,16 @@
     <ClInclude Include="inc\CollisionValidity.h">
       <Filter>inc\Collision</Filter>
     </ClInclude>
+    <ClInclude Include="inc\JointSpaceDijkstraPlanner.h">
+      <Filter>inc\Planner</Filter>
+    </ClInclude>
     <ClInclude Include="inc\JointSpaceRrtPlanner.h">
       <Filter>inc\Planner</Filter>
     </ClInclude>
     <ClInclude Include="inc\OmplJointSpacePlanner.h">
+      <Filter>inc\Planner</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TaskSpaceRrtPlanner.h">
       <Filter>inc\Planner</Filter>
     </ClInclude>
     <ClInclude Include="inc\PathPostProcess.h">
@@ -64,6 +70,9 @@
     <ClCompile Include="source\CollisionValidity.cpp">
       <Filter>src\Collision</Filter>
     </ClCompile>
+    <ClCompile Include="source\JointSpaceDijkstraPlanner.cpp">
+      <Filter>src\Planner</Filter>
+    </ClCompile>
     <ClCompile Include="source\JointSpaceRrtPlanner.cpp">
       <Filter>src\Planner</Filter>
     </ClCompile>
@@ -78,6 +87,9 @@
     </ClCompile>
     <ClCompile Include="source\SelfTest.cpp">
       <Filter>src\SelfTest</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TaskSpaceRrtPlanner.cpp">
+      <Filter>src\Planner</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

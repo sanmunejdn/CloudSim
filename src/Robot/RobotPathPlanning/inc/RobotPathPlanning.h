@@ -54,9 +54,16 @@ struct ROBOT_PATH_PLANNING_API PlanRequest
 
 	struct Options
 	{
-		/// BITstar：路径长度 anytime 最优；RRTConnect 仅作连通兜底
-		std::string plannerId = "BITstar";
+		/// Auto / Joint / Cartesian（任务空间 RRT）
+		std::string planningSpace = "Auto";
+		/// Auto=级联；BITstar / InformedRRTstar / RRTstar / RRTConnect / Dijkstra=仅跑该算法
+		std::string plannerId = "Auto";
 		double planningTimeSec = 10.0;
+		/// 任务空间 RRT：单步平移/姿态上限、目标偏置、采样盒扩展
+		double taskSpaceMaxStepMm = 20.0;
+		double taskSpaceMaxStepRad = 0.15;
+		double taskSpaceGoalBias = 0.15;
+		double taskSpaceSampleBoxMarginMm = 300.0;
 		double longestValidSegmentRad = 0.05;
 		double securityMarginMm = 1.0;
 		bool useOrientation = true;
@@ -80,8 +87,14 @@ struct ROBOT_PATH_PLANNING_API PathResult
 	double pathLengthTcpMm = 0.0;
 };
 
-/// TCP 位姿目标 → 关节空间 OMPL/RRT 规划；输出双轨路径
+/// TCP 位姿目标 → 关节/任务空间规划；输出双轨路径
 ROBOT_PATH_PLANNING_API bool planToTcpPose(const PlanRequest& req, PathResult& out);
+
+/// UI：Auto / Joint / Cartesian
+ROBOT_PATH_PLANNING_API std::vector<std::string> supportedPlanningSpaces();
+
+/// UI/校验用：Auto + 当前构建可用的显式规划器 ID
+ROBOT_PATH_PLANNING_API std::vector<std::string> supportedPlannerIds();
 
 ROBOT_PATH_PLANNING_API bool runSelfTest(std::vector<std::string>& failures);
 

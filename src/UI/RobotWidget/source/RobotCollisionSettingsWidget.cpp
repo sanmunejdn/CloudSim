@@ -4,6 +4,7 @@
 #include "RobotCollisionSettingsWidget.h"
 
 #include "CollisionWorld.h"
+#include "RobotPathPlanning.h"
 
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -138,9 +139,25 @@ RobotCollisionSettingsWidget::RobotCollisionSettingsWidget(QWidget* parent) : QW
 	m_endCombo = new QComboBox(m_planGroup);
 	m_startLabel = new QLabel(m_planGroup);
 	m_endLabel = new QLabel(m_planGroup);
+	m_plannerCombo = new QComboBox(m_planGroup);
+	m_planningSpaceCombo = new QComboBox(m_planGroup);
+	m_planTimeSpin = new QDoubleSpinBox(m_planGroup);
+	m_planTimeSpin->setRange(1.0, 120.0);
+	m_planTimeSpin->setDecimals(1);
+	m_planTimeSpin->setSingleStep(1.0);
+	m_planTimeSpin->setValue(10.0);
+	m_planTimeSpin->setSuffix(QStringLiteral(" s"));
+	m_plannerLabel = new QLabel(m_planGroup);
+	m_planningSpaceLabel = new QLabel(m_planGroup);
+	m_planTimeLabel = new QLabel(m_planGroup);
 	wpForm->addRow(m_startLabel, m_startCombo);
 	wpForm->addRow(m_endLabel, m_endCombo);
+	wpForm->addRow(m_planningSpaceLabel, m_planningSpaceCombo);
+	wpForm->addRow(m_plannerLabel, m_plannerCombo);
+	wpForm->addRow(m_planTimeLabel, m_planTimeSpin);
 	planLayout->addLayout(wpForm);
+	rebuildPlanningSpaceCombo();
+	rebuildPlannerCombo();
 
 	auto* btnRow = new QHBoxLayout();
 	m_planBtn = new QPushButton(m_planGroup);
@@ -163,6 +180,12 @@ RobotCollisionSettingsWidget::RobotCollisionSettingsWidget(QWidget* parent) : QW
 
 	connect(m_enabledCheck, &QCheckBox::toggled, this, &RobotCollisionSettingsWidget::onFieldChanged);
 	connect(m_marginSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			&RobotCollisionSettingsWidget::onFieldChanged);
+	connect(m_plannerCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&RobotCollisionSettingsWidget::onFieldChanged);
+	connect(m_planningSpaceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&RobotCollisionSettingsWidget::onPlanningSpaceChanged);
+	connect(m_planTimeSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
 			&RobotCollisionSettingsWidget::onFieldChanged);
 	connect(m_planBtn, &QPushButton::clicked, this, &RobotCollisionSettingsWidget::planRequested);
 	connect(m_clearPreviewBtn, &QPushButton::clicked, this, &RobotCollisionSettingsWidget::clearPreviewRequested);
@@ -190,6 +213,90 @@ void RobotCollisionSettingsWidget::setUseChinese(const bool chinese)
 	refreshEnabledState();
 }
 
+void RobotCollisionSettingsWidget::rebuildPlanningSpaceCombo()
+{
+	if (!m_planningSpaceCombo)
+		return;
+	const QString keep = m_planningSpaceCombo->currentData().toString();
+	m_planningSpaceCombo->clear();
+	for (const std::string& id : robot_path::supportedPlanningSpaces())
+	{
+		const QString qid = QString::fromStdString(id);
+		m_planningSpaceCombo->addItem(planningSpaceDisplayLabel(qid), qid);
+	}
+	const int idx = m_planningSpaceCombo->findData(keep.isEmpty() ? QStringLiteral("Auto") : keep);
+	m_planningSpaceCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+	refreshPlannerComboEnabled();
+}
+
+QString RobotCollisionSettingsWidget::planningSpaceDisplayLabel(const QString& id) const
+{
+	if (id == QStringLiteral("Auto"))
+		return m_chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+	if (id == QStringLiteral("Joint"))
+		return m_chinese ? QStringLiteral("角度空间") : QStringLiteral("Joint");
+	if (id == QStringLiteral("Cartesian"))
+		return m_chinese ? QStringLiteral("笛卡尔空间") : QStringLiteral("Cartesian");
+	return id;
+}
+
+void RobotCollisionSettingsWidget::refreshPlannerComboEnabled()
+{
+	if (!m_plannerCombo || !m_planningSpaceCombo)
+		return;
+	const QString space = m_planningSpaceCombo->currentData().toString();
+	const bool cartOnly = space == QStringLiteral("Cartesian");
+	m_plannerCombo->setEnabled(!cartOnly);
+	if (cartOnly)
+	{
+		m_plannerCombo->setToolTip(
+			m_chinese ? QStringLiteral("笛卡尔模式使用 TaskSpaceRRT，关节算法仅 Auto 回退时生效")
+					  : QStringLiteral("Cartesian uses TaskSpaceRRT; joint planners apply on Auto fallback only"));
+	}
+	else
+	{
+		m_plannerCombo->setToolTip(QString());
+	}
+}
+
+void RobotCollisionSettingsWidget::onPlanningSpaceChanged()
+{
+	refreshPlannerComboEnabled();
+	onFieldChanged();
+}
+
+void RobotCollisionSettingsWidget::rebuildPlannerCombo()
+{
+	if (!m_plannerCombo)
+		return;
+	const QString keep = m_plannerCombo->currentData().toString();
+	m_plannerCombo->clear();
+	for (const std::string& id : robot_path::supportedPlannerIds())
+	{
+		const QString qid = QString::fromStdString(id);
+		m_plannerCombo->addItem(plannerDisplayLabel(qid), qid);
+	}
+	const int idx = m_plannerCombo->findData(keep.isEmpty() ? QStringLiteral("Auto") : keep);
+	m_plannerCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+}
+
+QString RobotCollisionSettingsWidget::plannerDisplayLabel(const QString& id) const
+{
+	if (id == QStringLiteral("Auto"))
+		return m_chinese ? QStringLiteral("自动（级联）") : QStringLiteral("Auto (cascade)");
+	if (id == QStringLiteral("BITstar"))
+		return QStringLiteral("BIT*");
+	if (id == QStringLiteral("InformedRRTstar"))
+		return QStringLiteral("Informed RRT*");
+	if (id == QStringLiteral("RRTstar"))
+		return QStringLiteral("RRT*");
+	if (id == QStringLiteral("RRTConnect"))
+		return QStringLiteral("RRTConnect");
+	if (id == QStringLiteral("Dijkstra"))
+		return QStringLiteral("Dijkstra");
+	return id;
+}
+
 void RobotCollisionSettingsWidget::setSettings(const RobotCollision::Settings& s)
 {
 	m_block = true;
@@ -202,7 +309,28 @@ void RobotCollisionSettingsWidget::setSettings(const RobotCollision::Settings& s
 	for (const std::string& id : s.blackListBackendIds)
 		m_blackIds.push_back(QString::fromStdString(id));
 	rebuildListTables();
+	if (m_planTimeSpin)
+		m_planTimeSpin->setValue(s.planningTimeSec);
+	if (m_plannerCombo)
+	{
+		const QString pid = QString::fromStdString(s.plannerId.empty() ? "Auto" : s.plannerId);
+		const int idx = m_plannerCombo->findData(pid);
+		if (idx >= 0)
+			m_plannerCombo->setCurrentIndex(idx);
+		else
+			m_plannerCombo->setCurrentIndex(0);
+	}
+	if (m_planningSpaceCombo)
+	{
+		const QString ps = QString::fromStdString(s.planningSpace.empty() ? "Auto" : s.planningSpace);
+		const int idx = m_planningSpaceCombo->findData(ps);
+		if (idx >= 0)
+			m_planningSpaceCombo->setCurrentIndex(idx);
+		else
+			m_planningSpaceCombo->setCurrentIndex(0);
+	}
 	m_block = false;
+	refreshPlannerComboEnabled();
 	refreshEnabledState();
 }
 
@@ -215,6 +343,16 @@ RobotCollision::Settings RobotCollisionSettingsWidget::settings() const
 		s.whiteListBackendIds.push_back(id.toStdString());
 	for (const QString& id : tableIds(m_blackTable))
 		s.blackListBackendIds.push_back(id.toStdString());
+	if (m_plannerCombo)
+		s.plannerId = m_plannerCombo->currentData().toString().toStdString();
+	if (s.plannerId.empty())
+		s.plannerId = "Auto";
+	if (m_planningSpaceCombo)
+		s.planningSpace = m_planningSpaceCombo->currentData().toString().toStdString();
+	if (s.planningSpace.empty())
+		s.planningSpace = "Auto";
+	if (m_planTimeSpin)
+		s.planningTimeSec = m_planTimeSpin->value();
 	return s;
 }
 
@@ -425,6 +563,14 @@ void RobotCollisionSettingsWidget::retranslateUi()
 		m_startLabel->setText(m_chinese ? QStringLiteral("起点路点") : QStringLiteral("Start waypoint"));
 	if (m_endLabel)
 		m_endLabel->setText(m_chinese ? QStringLiteral("终点路点") : QStringLiteral("Goal waypoint"));
+	if (m_plannerLabel)
+		m_plannerLabel->setText(m_chinese ? QStringLiteral("规划算法（角度空间）") : QStringLiteral("Planner (joint)"));
+	if (m_planningSpaceLabel)
+		m_planningSpaceLabel->setText(m_chinese ? QStringLiteral("规划空间") : QStringLiteral("Planning space"));
+	if (m_planTimeLabel)
+		m_planTimeLabel->setText(m_chinese ? QStringLiteral("规划时限") : QStringLiteral("Time limit"));
+	rebuildPlanningSpaceCombo();
+	rebuildPlannerCombo();
 	if (m_planBtn)
 		m_planBtn->setText(m_chinese ? QStringLiteral("规划") : QStringLiteral("Plan"));
 	if (m_clearPreviewBtn)

@@ -220,6 +220,7 @@
     <ClInclude Include="inc\RobotInstructionPropertySchema.h" />
     <ClInclude Include="inc\robot_scene_global.h" />
     <ClInclude Include="inc\RobotInstructionPlaybackEngine.h" />
+    <ClInclude Include="inc\RobotJointWrap.h" />
     <ClInclude Include="inc\RobotProgramExecutor.h" />
     <ClInclude Include="inc\RobotProgramExport.h" />
     <ClInclude Include="inc\RobotInstructionTransform.h" />
@@ -305,6 +306,7 @@
     <ClCompile Include="source\RobotInstructionModel.cpp" />
     <ClCompile Include="source\RobotInstructionProgram.cpp" />
     <ClCompile Include="source\RobotInstructionPlaybackEngine.cpp" />
+    <ClCompile Include="source\RobotJointWrap.cpp" />
     <ClCompile Include="source\RobotProgramExecutor.cpp" />
     <ClCompile Include="source\RobotProgramExport.cpp" />
     <ClCompile Include="source\RobotInstructionTransform.cpp" />

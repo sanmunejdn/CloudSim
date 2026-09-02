@@ -316,6 +316,8 @@ private:
 	};
 	QHash<QString, DocumentJointUiState> m_jointUiByDocumentId;
 	void bindJointUiToDocument(IRobotDocumentHost* doc);
+	/// 按 sceneBackendId 重映射聚合角；须在 setRobotInstances 之前调用，避免选中回调读到短向量
+	void resyncAggregatedJointAnglesFromDocument(IRobotDocumentHost* doc);
 	/// 轴控制已应用到基座的外轴量（与 UI 滑条对应，用于差分更新 P）
 	QVector<double> m_axisControlExternalQApplied;
 	double m_axisControlExternalAxis[3]{1.0, 0.0, 0.0};
