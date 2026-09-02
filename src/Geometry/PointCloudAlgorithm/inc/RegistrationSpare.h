@@ -39,6 +39,7 @@ struct SpareRegisterParams
 
 struct SpareRegisterResult
 {
+	/// 终态对应点平均点面距离（mm；normalize 时已反缩放）
 	double meanErrorMm = 0.0;
 	double meshScale = 1.0;
 	int deformationNodeCount = 0;

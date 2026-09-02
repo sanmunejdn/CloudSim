@@ -9,11 +9,11 @@
 | 工程 | `PointCloudPlugin.vcxproj`（x64，v142，Qt 5.14.2） |
 | 链接 | **仅** `CloudSimPluginSDK.lib` |
 | 部署 | `bin/x64(d)/plugins/com.cloudsim.pointcloud/plugin.json` + `PointCloudPlugin.dll` |
-| `minHostVersion` | `"1.17.0"`（SDF/DDF 非刚性配准 + SPARE + 分割标注宿主 API） |
+| `minHostVersion` | `"1.53.0"`（几何金字塔 + SDF/DDF + SPARE + 分割标注宿主 API） |
 
 ## 运行时
 
-- 侧栏 Tab **点云** / **Point Cloud**：导入、列表、下采样、裁剪（包围盒/球/多边形）、预处理、**ICP / SPARE / SDF·DDF 配准**、重建
+- 侧栏 Tab **点云** / **Point Cloud**：导入、列表、下采样、裁剪（包围盒/球/多边形）、预处理、**ICP / SPARE / SDF·DDF / 几何金字塔配准**、重建
 - 侧栏 Tab **特征构建** / **Feature Build**（**1.15.0+**）：管状铸件 Phase 1–4 分阶段调试（见下节）
 - 菜单 **Tools → Point Cloud**（中文下子菜单标题为 **点云**）
 - 语言：默认中文；切换 **设置 → Language → 中文/English** 时侧栏与菜单同步更新
@@ -44,11 +44,11 @@
 
 原理与调参通俗说明见 [`docs/spare_nonrigid_registration.md`](../../../docs/_archive/spare_nonrigid_registration.md)。
 
-侧栏「配准」区：**方法** 下拉可选 **刚性 ICP**、**SPARE 非刚性**（**1.16.0+**）或 **SDF/DDF 非刚性**（**1.17.0+**）。
+侧栏「配准」区：**方法** 下拉可选 **刚性 ICP**、**SPARE 非刚性**（**1.16.0+**）、**SDF/DDF 非刚性**（**1.17.0+**）或 **几何金字塔**（**1.53.0+**）。
 
 | 控件 | 说明 |
 |------|------|
-| 非刚性源 / 目标 | 独立下拉，列出点云与网格（SPARE 与 SDF 共用） |
+| 非刚性源 / 目标 | 独立下拉，列出点云与网格（SPARE / SDF / 金字塔共用；金字塔限网格） |
 | SPARE 选项 | 体素预滤波 (mm)、刚性预对齐、输出为新对象 |
 | 执行 SPARE | `nonRigidRegisterSpare(...)` |
 
@@ -74,6 +74,21 @@
 | 执行 | `nonRigidRegisterSdf(doc, sourceBackendId, PluginPointCloudSdfParams, onFinished)` |
 
 须与宿主同时升级到 **1.17.0+**（vtable）。算法见 PointCloudAlgorithm §3.6。
+
+## 几何多分辨率金字塔（1.53.0+）
+
+独立于单次 SPARE/SDF 调用：侧栏方法选 **几何金字塔**，源/目标须为网格。
+
+| 控件 | 说明 |
+|------|------|
+| 基准边长 h (mm) | 0=源中位边长；L0=4h，其后对变形结果加密到 2h/h |
+| 层求解器 | SDF（默认）或 SPARE |
+| 刚性预对齐（仅粗层） | 仅 L0 交给求解器 ICP |
+| 末层开启细阶段 | 默认关（大网格更稳） |
+| 输出为新对象 | 默认开；拓扑为 **细层 remesh**，非原始源 |
+| 执行 | `nonRigidRegisterPyramid(doc, sourceBackendId, PluginPointCloudPyramidParams, onFinished)` |
+
+须宿主 **1.53.0+**。算法见 PointCloudAlgorithm §3.7。
 
 ## 网格后处理（1.9.0+，需 VcgAlgorithms.dll）
 

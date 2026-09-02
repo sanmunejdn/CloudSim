@@ -89,4 +89,18 @@
 | 命名参数面 MVP、椭圆 GCS、Convert 保型、样条双模式 | 已交付 | `docs/_archive/草图硬化/` |
 | JSON 导入导出 / Compose 文件 / `cloudsim_geom` | 已交付 | `docs/_archive/脚本建模/` |
 
+## 8. 网页对等（Headless / GeomodelingShell）
+
+内核仍是 Data `ParametricBrepModel::rebuild`。网页 **GeomodelingShell** 覆盖桌面 Ribbon 的实体特征与特征史 IO；下列交互 **不** 进网页：
+
+| 桌面 | 网页 |
+|------|------|
+| PlaneGCS 视口绘制 / 约束 / 尺寸 / 修剪 / 镜像草图 | 轮廓模板 + `polyline` / 导入 JSON |
+| 选面、投影边、Convert、Offset | 边/面 **索引手填** |
+| DatumPlane overlay、原点平面可见性开关 | `plane=XY\|XZ\|YZ` 模板 |
+| CommandStack Undo | `op=undo\|redo` 特征史快照 |
+| `feature.compose` / Python `cloudsim_geom` | 未接网页 AI 域 |
+
+对照表：[CloudSim/README.md](../../README.md)「几何建模：桌面逻辑 → 网页」；契约：[网页端全量对等/API_CONTRACT.md](../网页端全量对等/API_CONTRACT.md)。
+
 下一期增量见 [ROADMAP.md](ROADMAP.md)。

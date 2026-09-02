@@ -66,6 +66,7 @@ private slots:
 	void onIcpClicked();
 	void onSpareRegisterClicked();
 	void onSdfRegisterClicked();
+	void onPyramidRegisterClicked();
 	void onRegistrationMethodChanged();
 	void onReconstructPoissonAutoClicked();
 	void onReconstructScaleSpaceClicked();
@@ -152,6 +153,12 @@ private:
 	QComboBox* m_sdfFineTermCombo = nullptr;
 	QCheckBox* m_sdfRigidPreAlignCheck = nullptr;
 	QCheckBox* m_sdfCreateNewCheck = nullptr;
+	QWidget* m_pyramidOptionsWidget = nullptr;
+	QDoubleSpinBox* m_pyramidEdgeSpin = nullptr;
+	QComboBox* m_pyramidSolverCombo = nullptr;
+	QCheckBox* m_pyramidRigidPreAlignCheck = nullptr;
+	QCheckBox* m_pyramidFineLastCheck = nullptr;
+	QCheckBox* m_pyramidCreateNewCheck = nullptr;
 	QComboBox* m_meshExportCombo = nullptr;
 	QPushButton* m_importBtn = nullptr;
 	QPushButton* m_refreshBtn = nullptr;

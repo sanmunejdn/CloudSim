@@ -10,6 +10,8 @@
 #include "RobotInstructionController.h"
 #include "RobotInstructionFactory.h"
 #include "RobotInstructionIkContext.h"
+#include "RobotJointWrap.h"
+#include "UrdfRobotLoader.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -251,6 +253,49 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 			row.append(v);
 		}
 		out.jointTrajectoryRad.append(std::move(row));
+	}
+	if (out.ok && !out.jointTargetsRad.isEmpty())
+	{
+		QStringList jointNames;
+		QVector<double> loRad, hiRad;
+		if (UrdfRobotLoader::loadRevoluteJointMeta(urdfPath, jointNames, loRad, hiRad, nullptr) &&
+			loRad.size() == out.jointTargetsRad.size())
+		{
+			RobotInstruction::PlanResult wrapPlan{};
+			wrapPlan.ok = true;
+			wrapPlan.jointTargetsRad.assign(out.jointTargetsRad.begin(), out.jointTargetsRad.end());
+			for (const QVector<double>& row : out.jointTrajectoryRad)
+			{
+				wrapPlan.jointTrajectoryRad.emplace_back(row.begin(), row.end());
+			}
+			std::vector<double> seedRef(context.seedJointRad.begin(), context.seedJointRad.end());
+			if (!applyJointWrapToPlan(wrapPlan, seedRef, loRad, hiRad))
+			{
+				out.ok = false;
+				out.error = QString::fromStdString(wrapPlan.summary);
+				if (outError)
+				{
+					*outError = out.error;
+				}
+				return false;
+			}
+			out.jointTargetsRad.clear();
+			for (double v : wrapPlan.jointTargetsRad)
+			{
+				out.jointTargetsRad.append(v);
+			}
+			out.jointTrajectoryRad.clear();
+			for (const std::vector<double>& sample : wrapPlan.jointTrajectoryRad)
+			{
+				QVector<double> row;
+				row.reserve(static_cast<int>(sample.size()));
+				for (double v : sample)
+				{
+					row.append(v);
+				}
+				out.jointTrajectoryRad.append(std::move(row));
+			}
+		}
 	}
 	return out.ok;
 }

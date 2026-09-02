@@ -85,7 +85,7 @@ public:
 	/// 右侧面板 Tab 父 widget；UI 未就绪可为 null
 	virtual QWidget* sidePanelTabParent() const = 0;
 
-	/// 右侧 Workspace/AI 旁加 Tab，避开仿真 UI
+	/// 右侧 Workspace/AI 旁加 Tab，避开仿真 UI；≥0 成功（含按偏好隐藏、尚未插入页签）
 	virtual int registerSidePanelTab(const char* titleUtf8, QWidget* widget) = 0;
 	virtual void unregisterSidePanelTab(QWidget* widget) = 0;
 

@@ -36,9 +36,39 @@
 | 宿主 | 完整 Qt/OSG UI | Headless Host + HTTP/WS 网关 |
 | 默认访问 | 桌面窗口 | `http://127.0.0.1:8787`（可用 `--port=` 改端口） |
 | TCP 拖动示教 | 末端局部轴；目标姿态用四元数真值，避免欧拉往返 | 同源：`TransformControls` 固定 `local`；`/api/robot/tcp-ik` 追赶只截断平移；落点优先罗盘矩阵 |
+| 几何建模 | 插件 Ribbon + PlaneGCS 草图 + 特征树；Host ABI 写 `ParametricBrepModel` | 同一 Body/rebuild；`HeadlessGeomodelBridge` + `/api/geomodeling/*`；工作区保留 3D |
 | 架构图 | [`docs/architecture/desktop.html`](docs/architecture/desktop.html) | [`docs/architecture/web.html`](docs/architecture/web.html) |
 
 两套 sln **互不引入**对方的 UI/Web 工程；桌面用 `CloudSimHost`，网页用 `CloudSimHostHeadless`；共享 `CloudSimCore` / `Data` / 机器人与几何等后端 DLL。
+
+## 几何建模：桌面逻辑 → 网页
+
+内核与桌面相同：形状真源是 Data 的 `ParametricBrepModel` + `parametricHistory`，`rebuild()` 走 `GeometryAlgorithm`（Pad/Pocket/Fillet/Revolve/阵列等）。桌面 Qt 插件（Ribbon、PlaneGCS 视口绘制、选面）**不进** Headless；网页只换交互壳。
+
+```text
+桌面: WorkspaceModeBar → GeometricModelingPlugin → IPluginGeometryHost → ParametricBrep + rebuild
+网页: 顶栏 geomodeling → GeomodelingShell → REST → HeadlessGeomodelBridge → 同一 ParametricBrep + rebuild
+      视口仍走 GET /api/mesh/:id（Three.js）
+```
+
+| 桌面能力 | 网页落点 | 说明 |
+|----------|----------|------|
+| 顶栏进入 `com.cloudsim.geomodeling` | 顶栏 `workspaceMode=geomodeling` | 左树+参数，中 Ribbon+3D，右仅 AI |
+| 原点平面 XY / XZ / YZ | `plane=XY\|XZ\|YZ` | 轮廓嵌入该平面后 Pad/扫描/放样 |
+| 长方体 / 圆柱 / 多边形 / 槽口 / 椭圆凸台 | `op=primitive` | 轮廓模板 + Pad |
+| 草图轮廓模板 | `op=append` `kind=Sketch` | 矩形/圆/多边形/槽口/椭圆；**无** PlaneGCS 视口绘制 |
+| 选面草图 + 约束/标注/修剪/投影/Convert/Offset | 桌面专用 | 网页可用模板、`polyline` 或导入特征史 JSON |
+| 基准面 DatumPlane overlay | 桌面专用 | 不进 Parametric tip |
+| Pad / Pocket | `op=extrude`；Pad 可 `useLastSketch` | 终止条件、拔模角、startOffset 与桌面字段一致 |
+| 扫描 / 扫描切除 / 放样 / 放样切除 | `op=append` `kind=Sweep\|SweepCut\|Loft\|LoftCut` | 路径默认沿平面 Y；扭转=轮廓预旋转（与桌面同源） |
+| 圆角 / 倒角 / 旋转 / 阵列 / 镜像 / 抽壳 / 拔模 | `op=append` `kind=…` | 边/面索引须手填（网页无 OSG 拾取） |
+| Undo / Redo | `op=undo\|redo` | Host 侧特征史快照，非桌面 CommandStack |
+| 导出 / 导入替换 / 导入新建 | `op=exportHistory\|importHistory` | JSON 与 `parametricHistory` 同构 |
+| 改尺寸 / 抑制 / 可见 / 删除 / 重建 | `op=patch\|delete\|rebuild` | 改完即 rebuild，SSE 刷新网格 |
+| 特征树 | `GET /api/geomodeling/summary` | Body + features[] |
+| Python 控制台 / `feature.compose` AI | 桌面 / 侧车 | 网页 AI 域仍是 scene/robot/process |
+
+契约与算子清单：[docs/网页端全量对等/API_CONTRACT.md](docs/网页端全量对等/API_CONTRACT.md)；桌面功能表：[docs/几何建模/FEATURES.md](docs/几何建模/FEATURES.md)。
 
 ## 网页版源码
 

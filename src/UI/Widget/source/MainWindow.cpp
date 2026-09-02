@@ -122,6 +122,7 @@ bool MainWindow::sidePanelTabSavedVisible(const QString& key, const bool default
 
 void MainWindow::applySavedViewLayout()
 {
+	const bool wasRestoring = m_restoringUiPreferences;
 	m_restoringUiPreferences = true;
 	setLeftSidePanelVisible(m_uiPreferences.leftPanelVisible);
 	setRightSidePanelVisible(m_uiPreferences.rightPanelVisible);
@@ -136,9 +137,31 @@ void MainWindow::applySavedViewLayout()
 		resizeDocks({m_unitDock}, {m_rightDockSavedWidth}, Qt::Horizontal);
 	}
 
+	// 清掉已被插件 delete、仅剩悬空 key 的登记
+	{
+		QList<QWidget*> deadKeys;
+		for (auto it = m_sidePanelTabToggles.begin(); it != m_sidePanelTabToggles.end(); ++it)
+		{
+			if (!it.value().guard)
+			{
+				if (it.value().viewAction && m_viewMenu)
+				{
+					m_viewMenu->removeAction(it.value().viewAction);
+					delete it.value().viewAction;
+					it.value().viewAction = nullptr;
+				}
+				deadKeys.append(it.key());
+			}
+		}
+		for (QWidget* key : deadKeys)
+		{
+			m_sidePanelTabToggles.remove(key);
+		}
+	}
+
 	for (auto it = m_sidePanelTabToggles.constBegin(); it != m_sidePanelTabToggles.constEnd(); ++it)
 	{
-		QWidget* widget = it.key();
+		QWidget* widget = it.value().guard.data();
 		if (!widget)
 		{
 			continue;
@@ -153,7 +176,8 @@ void MainWindow::applySavedViewLayout()
 		applySidePanelTabToggleVisibility(widget, visible);
 	}
 	syncSidePanelToggleUi();
-	m_restoringUiPreferences = false;
+	// 嵌套在 restoreUiPreferencesAfterPlugins 时勿提前清标志
+	m_restoringUiPreferences = wasRestoring;
 }
 
 void MainWindow::applyLanguage()
@@ -1062,7 +1086,7 @@ void MainWindow::persistUiPreferencesToStorage()
 	m_uiPreferences.sidePanelTabs.clear();
 	for (auto it = m_sidePanelTabToggles.constBegin(); it != m_sidePanelTabToggles.constEnd(); ++it)
 	{
-		const QWidget* widget = it.key();
+		const QWidget* widget = it.value().guard.data();
 		if (!widget)
 		{
 			continue;

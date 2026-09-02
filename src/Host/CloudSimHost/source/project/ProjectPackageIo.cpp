@@ -15,6 +15,7 @@
 #include "IRobotUrdfImportContext.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
+#include "RobotCollisionSettings.h"
 #include "RobotProjectKinematicsRestore.h"
 #include "RobotSceneKinematics.h"
 
@@ -22,9 +23,12 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonValue>
 #include <chrono>
 #include <fstream>
+
+#include <json.hpp>
 
 #include <osg/Vec3f>
 
@@ -360,6 +364,22 @@ bool applyRestoredJointAnglesToScene(IRobotUrdfImportContext& ctx, const QVector
 
 bool loadRobotProgramsFromProjectJson(DocumentHost& host, const QJsonObject& projectRoot, QString* outError)
 {
+	if (const QJsonValue cv = projectRoot.value(QStringLiteral("robotCollision")); cv.isObject())
+	{
+		const QByteArray raw = QJsonDocument(cv.toObject()).toJson(QJsonDocument::Compact);
+		try
+		{
+			const nlohmann::json j = nlohmann::json::parse(raw.constData(), raw.constData() + raw.size());
+			RobotCollision::Settings s;
+			if (RobotCollision::readSettingsFromJson(j, s))
+				host.robotCollisionSettings() = s;
+		}
+		catch (...)
+		{
+			// 坏 JSON 时保留默认设置，与桌面打开工程一致
+		}
+	}
+
 	const QJsonArray programs = projectRoot.value(QStringLiteral("robotPrograms")).toArray();
 	if (programs.isEmpty())
 	{
@@ -378,6 +398,15 @@ void mergeRobotProgramsIntoProjectRoot(DocumentHost& host, QJsonObject& root)
 	else
 	{
 		root.insert(QStringLiteral("robotPrograms"), programs);
+	}
+
+	{
+		nlohmann::json colJ;
+		RobotCollision::writeSettingsToJson(host.robotCollisionSettings(), colJ);
+		const QByteArray raw = QByteArray::fromStdString(colJ.dump());
+		const QJsonDocument jd = QJsonDocument::fromJson(raw);
+		if (jd.isObject())
+			root.insert(QStringLiteral("robotCollision"), jd.object());
 	}
 }
 

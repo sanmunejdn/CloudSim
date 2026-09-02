@@ -208,6 +208,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_regMethodCombo->addItem(QStringLiteral("ICP"), QStringLiteral("icp"));
 	m_regMethodCombo->addItem(QStringLiteral("SPARE"), QStringLiteral("spare"));
 	m_regMethodCombo->addItem(QStringLiteral("SDF/DDF"), QStringLiteral("sdf"));
+	m_regMethodCombo->addItem(QStringLiteral("Pyramid"), QStringLiteral("pyramid"));
 	methodRow->addWidget(m_regMethodLabel);
 	methodRow->addWidget(m_regMethodCombo, 1);
 	icpLayout->addLayout(methodRow);
@@ -293,6 +294,38 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	sdfOptLayout->addWidget(m_sdfRigidPreAlignCheck);
 	sdfOptLayout->addWidget(m_sdfCreateNewCheck);
 	icpLayout->addWidget(m_sdfOptionsWidget);
+
+	m_pyramidOptionsWidget = new QWidget(m_icpGroup);
+	auto* pyrOptLayout = new QVBoxLayout(m_pyramidOptionsWidget);
+	pyrOptLayout->setContentsMargins(0, 0, 0, 0);
+	auto* pyrEdgeRow = new QHBoxLayout;
+	auto* pyrEdgeLabel = new QLabel(m_pyramidOptionsWidget);
+	pyrEdgeLabel->setObjectName(QStringLiteral("pyramidEdgeLabel"));
+	m_pyramidEdgeSpin = new QDoubleSpinBox(m_pyramidOptionsWidget);
+	m_pyramidEdgeSpin->setRange(0.0, 100.0);
+	m_pyramidEdgeSpin->setDecimals(3);
+	m_pyramidEdgeSpin->setValue(0.0);
+	pyrEdgeRow->addWidget(pyrEdgeLabel);
+	pyrEdgeRow->addWidget(m_pyramidEdgeSpin);
+	pyrOptLayout->addLayout(pyrEdgeRow);
+	auto* pyrSolverRow = new QHBoxLayout;
+	auto* pyrSolverLabel = new QLabel(m_pyramidOptionsWidget);
+	pyrSolverLabel->setObjectName(QStringLiteral("pyramidSolverLabel"));
+	m_pyramidSolverCombo = new QComboBox(m_pyramidOptionsWidget);
+	m_pyramidSolverCombo->addItem(QStringLiteral("SDF"), 0);
+	m_pyramidSolverCombo->addItem(QStringLiteral("SPARE"), 1);
+	pyrSolverRow->addWidget(pyrSolverLabel);
+	pyrSolverRow->addWidget(m_pyramidSolverCombo, 1);
+	pyrOptLayout->addLayout(pyrSolverRow);
+	m_pyramidRigidPreAlignCheck = new QCheckBox(m_pyramidOptionsWidget);
+	m_pyramidRigidPreAlignCheck->setChecked(true);
+	m_pyramidFineLastCheck = new QCheckBox(m_pyramidOptionsWidget);
+	m_pyramidCreateNewCheck = new QCheckBox(m_pyramidOptionsWidget);
+	m_pyramidCreateNewCheck->setChecked(true);
+	pyrOptLayout->addWidget(m_pyramidRigidPreAlignCheck);
+	pyrOptLayout->addWidget(m_pyramidFineLastCheck);
+	pyrOptLayout->addWidget(m_pyramidCreateNewCheck);
+	icpLayout->addWidget(m_pyramidOptionsWidget);
 	layout->addWidget(m_icpGroup);
 
 	m_reconGroup = new QGroupBox(m_scrollContent);
@@ -986,6 +1019,10 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 				{
 					onSdfRegisterClicked();
 				}
+				else if (method == QStringLiteral("pyramid"))
+				{
+					onPyramidRegisterClicked();
+				}
 				else
 				{
 					onIcpClicked();
@@ -1371,6 +1408,10 @@ void PointCloudDockWidget::applyLanguage()
 		{
 			m_regMethodCombo->setItemText(2, i18n(QStringLiteral("SDF/DDF non-rigid"), QStringLiteral("SDF/DDF 非刚性")));
 		}
+		if (m_regMethodCombo->count() > 3)
+		{
+			m_regMethodCombo->setItemText(3, i18n(QStringLiteral("Geometric pyramid"), QStringLiteral("几何金字塔")));
+		}
 	}
 	if (m_spareSourceLabel)
 	{
@@ -1430,6 +1471,32 @@ void PointCloudDockWidget::applyLanguage()
 		m_sdfFineTermCombo->setItemText(0, i18n(QStringLiteral("Point-to-plane"), QStringLiteral("点-面")));
 		m_sdfFineTermCombo->setItemText(1, i18n(QStringLiteral("DDF"), QStringLiteral("DDF")));
 		m_sdfFineTermCombo->setItemText(2, i18n(QStringLiteral("SDF"), QStringLiteral("SDF")));
+	}
+	if (QWidget* pyrRoot = m_pyramidOptionsWidget)
+	{
+		if (QLabel* lab = pyrRoot->findChild<QLabel*>(QStringLiteral("pyramidEdgeLabel")))
+		{
+			lab->setText(
+				i18n(QStringLiteral("Base edge h (mm, 0=auto)"), QStringLiteral("基准边长 h (mm, 0=自动)")));
+		}
+		if (QLabel* lab = pyrRoot->findChild<QLabel*>(QStringLiteral("pyramidSolverLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Layer solver"), QStringLiteral("层求解器")));
+		}
+	}
+	if (m_pyramidRigidPreAlignCheck)
+	{
+		m_pyramidRigidPreAlignCheck->setText(
+			i18n(QStringLiteral("Rigid pre-align (L0)"), QStringLiteral("刚性预对齐（仅粗层）")));
+	}
+	if (m_pyramidFineLastCheck)
+	{
+		m_pyramidFineLastCheck->setText(
+			i18n(QStringLiteral("Fine stage on last layer"), QStringLiteral("末层开启细阶段")));
+	}
+	if (m_pyramidCreateNewCheck)
+	{
+		m_pyramidCreateNewCheck->setText(i18n(QStringLiteral("Create new object"), QStringLiteral("输出为新对象")));
 	}
 	updateRegistrationUi();
 	m_voxelBtn->setText(i18n(QStringLiteral("Voxel downsample"), QStringLiteral("体素下采样")));
@@ -1814,8 +1881,12 @@ void PointCloudDockWidget::runFinished(const bool ok, const QString& error, cons
 	}
 	if (ok)
 	{
-		QString msg = i18n(QStringLiteral("Done. Points: %1"), QStringLiteral("完成。点数: %1"))
-						  .arg(static_cast<qulonglong>(result.pointCountAfter));
+		QString msg =
+			result.countAfterIsFaces
+				? i18n(QStringLiteral("Done. Faces: %1"), QStringLiteral("完成。面数: %1"))
+					  .arg(static_cast<qulonglong>(result.pointCountAfter))
+				: i18n(QStringLiteral("Done. Points: %1"), QStringLiteral("完成。点数: %1"))
+					  .arg(static_cast<qulonglong>(result.pointCountAfter));
 		if (!result.newBackendId.empty())
 		{
 			msg += i18n(QStringLiteral("; new object: %1"), QStringLiteral("；新对象: %1"))
@@ -1823,7 +1894,12 @@ void PointCloudDockWidget::runFinished(const bool ok, const QString& error, cons
 		}
 		if (result.rmseMm > 0.0)
 		{
-			msg += i18n(QStringLiteral("; RMSE: %1 mm"), QStringLiteral("；RMSE: %1 mm")).arg(result.rmseMm, 0, 'f', 3);
+			msg += result.rmseIsMeanPointToPlane
+					   ? i18n(QStringLiteral("; mean point-to-plane: %1 mm"),
+							  QStringLiteral("；平均点面误差: %1 mm"))
+							 .arg(result.rmseMm, 0, 'f', 3)
+					   : i18n(QStringLiteral("; RMSE: %1 mm"), QStringLiteral("；RMSE: %1 mm"))
+							 .arg(result.rmseMm, 0, 'f', 3);
 		}
 		if (result.hasMeshRepairReport)
 		{
@@ -2160,7 +2236,8 @@ void PointCloudDockWidget::updateRegistrationUi()
 		m_regMethodCombo ? m_regMethodCombo->currentData().toString() : QStringLiteral("icp");
 	const bool spare = method == QStringLiteral("spare");
 	const bool sdf = method == QStringLiteral("sdf");
-	const bool nonRigid = spare || sdf;
+	const bool pyramid = method == QStringLiteral("pyramid");
+	const bool nonRigid = spare || sdf || pyramid;
 	if (m_spareSourceLabel)
 	{
 		m_spareSourceLabel->setVisible(nonRigid);
@@ -2193,9 +2270,17 @@ void PointCloudDockWidget::updateRegistrationUi()
 	{
 		m_sdfOptionsWidget->setVisible(sdf);
 	}
+	if (m_pyramidOptionsWidget)
+	{
+		m_pyramidOptionsWidget->setVisible(pyramid);
+	}
 	if (m_icpBtn)
 	{
-		if (sdf)
+		if (pyramid)
+		{
+			m_icpBtn->setText(i18n(QStringLiteral("Pyramid register"), QStringLiteral("几何金字塔配准")));
+		}
+		else if (sdf)
 		{
 			m_icpBtn->setText(i18n(QStringLiteral("SDF/DDF register"), QStringLiteral("SDF/DDF 配准")));
 		}
@@ -2345,8 +2430,8 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 								   if (ok)
 								   {
 									   const QString msg =
-										   i18n(QStringLiteral("SPARE done: mean err %1 mm, nodes %2"),
-												QStringLiteral("SPARE 完成: 平均误差 %1 mm, 变形节点 %2"))
+										   i18n(QStringLiteral("SPARE done: mean point-to-plane %1 mm, nodes %2"),
+												QStringLiteral("SPARE 完成: 平均点面误差 %1 mm, 变形节点 %2"))
 											   .arg(result.rmseMm, 0, 'f', 3)
 											   .arg(result.spareDeformationNodeCount);
 									   m_host->logInfo(msg);
@@ -2401,8 +2486,8 @@ void PointCloudDockWidget::onSdfRegisterClicked()
 								 if (ok)
 								 {
 									 const QString msg =
-										 i18n(QStringLiteral("SDF/DDF done: mean err %1 mm, nodes %2"),
-											  QStringLiteral("SDF/DDF 完成: 平均误差 %1 mm, 变形节点 %2"))
+										 i18n(QStringLiteral("SDF/DDF done: mean point-to-plane %1 mm, nodes %2"),
+											  QStringLiteral("SDF/DDF 完成: 平均点面误差 %1 mm, 变形节点 %2"))
 											 .arg(result.rmseMm, 0, 'f', 3)
 											 .arg(result.spareDeformationNodeCount);
 									 m_host->logInfo(msg);
@@ -2427,6 +2512,68 @@ void PointCloudDockWidget::onSdfRegisterClicked()
 								 }
 								 runFinished(ok, error, result);
 							 });
+}
+
+void PointCloudDockWidget::onPyramidRegisterClicked()
+{
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	if (!pch || !doc || !m_spareSourceCombo || !m_spareTargetCombo)
+	{
+		return;
+	}
+	if (m_spareSourceCombo->currentIndex() < 0 || m_spareTargetCombo->currentIndex() < 0)
+	{
+		m_host->logWarn(
+			i18n(QStringLiteral("Select pyramid source and target meshes"), QStringLiteral("请选择金字塔源/目标网格")));
+		return;
+	}
+
+	const std::string sourceId = m_spareSourceCombo->currentData().toString().toStdString();
+	const QString sourceKind = m_spareSourceCombo->currentData(Qt::UserRole + 1).toString();
+	const std::string targetId = m_spareTargetCombo->currentData().toString().toStdString();
+	const QString targetKind = m_spareTargetCombo->currentData(Qt::UserRole + 1).toString();
+	if (sourceKind != QStringLiteral("mesh") || targetKind != QStringLiteral("mesh"))
+	{
+		m_host->logWarn(i18n(QStringLiteral("Geometric pyramid requires mesh source and target"),
+							 QStringLiteral("几何金字塔要求源与目标均为网格")));
+		return;
+	}
+	if (sourceId.empty() || targetId.empty() || targetId == sourceId)
+	{
+		m_host->logWarn(
+			i18n(QStringLiteral("Select a different pyramid target"), QStringLiteral("请为金字塔选择不同的目标网格")));
+		return;
+	}
+
+	setBusy(true);
+	PluginPointCloudPyramidParams params;
+	params.targetBackendIdUtf8 = targetId;
+	params.baseEdgeLengthMm = m_pyramidEdgeSpin ? m_pyramidEdgeSpin->value() : 0.0;
+	params.solver = m_pyramidSolverCombo ? m_pyramidSolverCombo->currentData().toInt() : 0;
+	params.rigidPreAlign = m_pyramidRigidPreAlignCheck && m_pyramidRigidPreAlignCheck->isChecked();
+	params.useFineRegOnLastLayer = m_pyramidFineLastCheck && m_pyramidFineLastCheck->isChecked();
+	params.createNewObject = m_pyramidCreateNewCheck && m_pyramidCreateNewCheck->isChecked();
+	params.applyDeformationToSource = !params.createNewObject;
+	pch->nonRigidRegisterPyramid(doc, sourceId, params,
+								 [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+								 {
+									 if (ok)
+									 {
+										 const QString msg =
+											 i18n(QStringLiteral("Pyramid done: mean point-to-plane %1 mm, nodes %2"),
+												  QStringLiteral("几何金字塔完成: 平均点面误差 %1 mm, 变形节点 %2"))
+												 .arg(result.rmseMm, 0, 'f', 3)
+												 .arg(result.spareDeformationNodeCount);
+										 m_host->logInfo(msg);
+										 if (!result.debugReport.empty())
+										 {
+											 m_host->logInfo(QString::fromStdString(result.debugReport));
+										 }
+										 refreshSpareObjectLists();
+									 }
+									 runFinished(ok, error, result);
+								 });
 }
 
 void PointCloudDockWidget::onIcpClicked()

@@ -741,6 +741,26 @@ void WebGateway::registerApiRoutes(cloudsim::host::DocumentHost* host)
 			Qt::BlockingQueuedConnection);
 		writeJsonOk(res, ok, err, QJsonObject{});
 	});
+	m_impl->svr.Get("/api/robot/external-axes", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QByteArray body;
+		const QString rootId = QString::fromStdString(req.get_param_value("sceneRootBackendId"));
+		QMetaObject::invokeMethod(
+			this, [this, rootId, &body]() { body = robotExternalAxesJsonOnGuiThread(rootId); },
+			Qt::BlockingQueuedConnection);
+		res.set_content(body.constData(), body.size(), "application/json; charset=utf-8");
+	});
+	m_impl->svr.Put("/api/robot/external-axes", [this](const httplib::Request& req, httplib::Response& res)
+	{
+		QString err;
+		bool ok = false;
+		QMetaObject::invokeMethod(
+			this,
+			[this, body = QByteArray::fromStdString(req.body), &err, &ok]()
+			{ ok = putRobotExternalAxesOnGuiThread(body, &err); },
+			Qt::BlockingQueuedConnection);
+		writeJsonOk(res, ok, err, QJsonObject{});
+	});
 	m_impl->svr.Post("/api/robot/frames/mutate", [this](const httplib::Request& req, httplib::Response& res)
 	{
 		QString err;
@@ -1742,6 +1762,7 @@ bool WebGateway::openProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 	}
 
 	host->data().clear();
+	host->resetHeadlessGeomodelHistory();
 	host->backendSourcePath().clear();
 	host->backendSourceType().clear();
 	host->backendParentId().clear();

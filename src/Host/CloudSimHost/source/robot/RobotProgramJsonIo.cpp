@@ -128,6 +128,8 @@ bool robotProgramsFromJson(RobotProgramStore& store, const QJsonArray& programs,
 			}
 		}
 		store.catalogFor(sceneBackendId) = std::move(catalog);
+		// PUT/工程加载只写 catalog 时也要登记实例，否则 activeCatalog 仍是静态空目录
+		store.ensureRobotBackendId(sceneBackendId);
 	}
 	return true;
 }

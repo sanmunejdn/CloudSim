@@ -158,15 +158,7 @@ RobotInstruction::RobotProgramCatalog* HeadlessTrajectorySession::catalog()
 	{
 		const QString sid = QString::fromStdString(m_sceneBackendId);
 		auto& store = m_host.robotProgramStore();
-		if (!store.robotBackendIds().contains(sid))
-		{
-			QStringList labels = store.robotLabels();
-			QStringList ids = store.robotBackendIds();
-			labels.append(sid);
-			ids.append(sid);
-			store.setRobotInstances(labels, ids);
-		}
-		store.setActiveRobotBackendId(sid);
+		store.ensureRobotBackendId(sid);
 		return &store.catalogFor(sid);
 	}
 	return &m_host.robotProgramStore().activeCatalog();

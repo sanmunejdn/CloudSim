@@ -8,6 +8,7 @@
 - 草图：PlaneGCS 约束求解 + 多种绘制/标注/引用工具
 - 实体：Pad/Pocket、Sweep、Fillet/Chamfer、Revolve、Pattern、Mirror、Loft、Shell、Draft、DatumPlane
 - Body 落在 `ParametricBrepModel`；特征历史经 Host/Data rebuild
+- **网页端**：同一 rebuild，经 `HeadlessGeomodelBridge` / `/api/geomodeling/*`；实体特征（含扫描/放样）、撤销重做、特征史导入导出已进 `GeomodelingShell`。PlaneGCS 视口草图与拾取仍仅桌面。对照见 [CloudSim/README.md](../../README.md)「几何建模：桌面逻辑 → 网页」；清单 §8 见 [FEATURES.md](FEATURES.md)
 
 ## 本目录
 

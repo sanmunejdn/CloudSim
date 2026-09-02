@@ -43,6 +43,7 @@
 | `RegistrationNonRigid.h` | TPS 形变 |
 | `RegistrationSpare.h` | **SPARE** 非刚性配准（对称点-面 + 变形图 + ARAP；点云/网格 soup） |
 | `RegistrationSdf.h` | **SDF/DDF** 混合非刚性配准（粗场残差 + 细默认点-面；独立于 SPARE） |
+| `RegistrationPyramid.h` | **几何金字塔**编排（分层 remesh + prolongate + 调用 SDF/SPARE；不改求解器） |
 | `Preprocess.h` | 法线、离群、平滑、重建前管线 |
 | `ReconstructionPoisson.h` | Poisson 隐式重建（定向点云）；`reconstructPoisson` / `Auto` |
 | `ReconstructionScaleSpace.h` | Scale-space 重建（仅坐标）；`reconstructScaleSpace` |
@@ -72,8 +73,9 @@
 | 维度 | Poisson（隐式重建） | Scale-space（尺度空间重建） |
 |------|---------------------|-----------------------------|
 | CGAL 入口 | `CGAL::poisson_surface_reconstruction_delaunay` | `CGAL::Scale_space_surface_reconstruction_3` |
+| 内部离散 | **3D Delaunay 三角剖分**（`Poisson_reconstruction_function` + Delaunay refinement）；**非** 原论文的自适应八叉树 | 尺度空间平滑 + 表面提取（无 Poisson 隐式场） |
 | 输入 | **点坐标 + 定向法线**（`Point_with_normal`） | **仅点坐标**（`Point_3`） |
-| 原理 | 将定向点云视为泊松方程约束，求解隐式指示函数后提取等值面 | 多尺度平滑点集，在尺度序列上提取稳定表面 |
+| 原理 | 将定向点云视为泊松方程约束，在 Delaunay 网格上求解分段线性隐式函数，再 Delaunay refinement 提取等值面 | 多尺度平滑点集，在尺度序列上提取稳定表面 |
 | 对法线要求 | **强依赖**；法线方向错误会导致翻面或空洞 | **不依赖法线**；内部自行平滑与连面 |
 | 典型优势 | 闭合、水密倾向好；细节与平滑度可通过 spacing / 平滑参数调节 | 对噪声、非均匀采样更宽容；无需 MST 定向 |
 | 典型劣势 | 法线差或开口扫描易失败；需预处理链 | 尖锐特征易钝化；`smoothIterations` 过大可能过度平滑 |
@@ -103,10 +105,10 @@ xyz [+ 可选已有 normals]
 
 | 参数 | 默认值 | 含义 |
 |------|--------|------|
-| `spacingMm` | 0（自动平均间距） | 八叉树深度 / 体素尺度 |
-| `smAngleDeg` | 20° | 表面平滑：角度阈值 |
-| `smRadiusRel` | 30 | 表面平滑：半径（相对 spacing） |
-| `smDistanceRel` | 0.375 | 表面平滑：距离（相对 spacing） |
+| `spacingMm` | 0（自动平均间距） | Delaunay 网格尺度（≤0 时 `computeAverageSpacingMm(xyz, 6)`）；越小精度越高、耗时越长 |
+| `smAngleDeg` | 20° | 表面 Delaunay refinement：最小面角（°） |
+| `smRadiusRel` | 30 | 表面 Delaunay refinement：球半径上界（× spacing） |
+| `smDistanceRel` | 0.375 | 表面 Delaunay refinement：中心距上界（× spacing） |
 
 Data 层：`reconstructMeshFromPointCloudPoisson` → `reconstructPoissonAuto`；若点云**无法线**且走显式 Poisson 路径会报错 `"Poisson requires normals"`。
 
@@ -238,11 +240,22 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 插件：点云侧栏配准方法下拉「SDF/DDF 非刚性」→ Host `nonRigidRegisterSdf`（1.17.0+）。
 
+### 3.7 几何多分辨率金字塔（`RegistrationPyramid.h`）
+
+独立编排层（**不修改** SPARE/SDF 求解器）。每层对**原始**源/目标做 `isotropicRemesh(4h→2h→h)`；L1/L2 用上一层 **rest→def 位移经 NN prolongate** 作为初值再求解（不对变形结果整网 remesh）。粗/中层关细阶段；末层细阶段由 `useFineRegOnLastLayer` 控制。
+
+| 入口 | 说明 |
+|------|------|
+| `pyramidRegisterMeshSoupToMeshSoup` | 网格↔网格；**输出为细层 remesh 拓扑**（非原始源三角） |
+| `PyramidRegisterParams` | `baseEdgeLengthMm`（0=源中位边长）、`solver`、`rigidPreAlign`、透传 `sdf`/`spare` |
+
+插件：侧栏「几何金字塔」→ Host `nonRigidRegisterPyramid`（**1.53.0+**）。Backend：`nonRigidRegisterMeshPyramid`。
+
 ---
 
 ## 4. GeometryServices 薄包装
 
-[`PointCloudBackendOps.h`](../GeometryServices/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`，已迁至 GeometryServices）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、**SDF/DDF**、Poisson/Scale-space 重建。
+[`PointCloudBackendOps.h`](../GeometryServices/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`，已迁至 GeometryServices）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、**SDF/DDF**、**几何金字塔**、Poisson/Scale-space 重建。
 
 常用入口：
 
@@ -251,6 +264,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 - `rigidRegisterPointCloudsIcp`
 - `nonRigidRegisterPointCloudsSpare` / `nonRigidRegisterPointCloudToMeshSpare` / `nonRigidRegisterMeshSpare`（`PointCloudSpareParams`）
 - `nonRigidRegisterPointCloudsSdf` / `nonRigidRegisterPointCloudToMeshSdf` / `nonRigidRegisterMeshSdf`（`PointCloudSdfParams`）
+- `nonRigidRegisterMeshPyramid`（`PointCloudPyramidParams`；网格↔网格）
 - `reconstructMeshFromPointCloudPoisson`（Poisson Auto）
 
 插件侧映射见 [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) §点云 SDK。

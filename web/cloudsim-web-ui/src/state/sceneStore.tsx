@@ -22,6 +22,7 @@ import { useStatus } from "./statusStore";
 
 export type InteractMode = "view" | "select";
 export type GizmoTransformMode = "translate" | "rotate";
+export type GizmoSpace = "local" | "world";
 
 export type RobotDragTeachPose = {
   positionMm: [number, number, number];
@@ -35,15 +36,21 @@ type SceneCtx = {
   interactMode: InteractMode;
   robotDragMode: boolean;
   gizmoTransformMode: GizmoTransformMode;
+  gizmoSpace: GizmoSpace;
   robotDragTeachPose: RobotDragTeachPose | null;
   refreshObjects: () => Promise<void>;
   selectObject: (id: string | null) => Promise<void>;
   setInteractMode: (m: InteractMode) => void;
   setRobotDragMode: (v: boolean) => void;
   setGizmoTransformMode: (m: GizmoTransformMode) => void;
+  setGizmoSpace: (s: GizmoSpace) => void;
   setRobotDragTeachPose: (p: RobotDragTeachPose | null) => void;
   doImport: () => Promise<void>;
   doOpenModel: () => Promise<void>;
+  doOpenPointCloud: () => Promise<void>;
+  /** 插入配合：0=固定面 1=动件面；null=关闭 */
+  mateFacePickSlot: 0 | 1 | null;
+  setMateFacePickSlot: (s: 0 | 1 | null) => void;
   focusRequest: number;
   requestFocus: () => void;
 };
@@ -58,7 +65,9 @@ export function SceneProvider({ children }: { children: ReactNode }) {
   const [interactMode, setInteractMode] = useState<InteractMode>("view");
   const [robotDragMode, setRobotDragModeState] = useState(false);
   const [gizmoTransformMode, setGizmoTransformMode] = useState<GizmoTransformMode>("translate");
+  const [gizmoSpace, setGizmoSpace] = useState<GizmoSpace>("local");
   const [robotDragTeachPose, setRobotDragTeachPose] = useState<RobotDragTeachPose | null>(null);
+  const [mateFacePickSlot, setMateFacePickSlot] = useState<0 | 1 | null>(null);
   const [focusRequest, setFocusRequest] = useState(0);
   const robotDragModeRef = useRef(false);
   robotDragModeRef.current = robotDragMode;
@@ -203,6 +212,31 @@ export function SceneProvider({ children }: { children: ReactNode }) {
     if (okN > 0) requestFocus();
   }, [refreshObjects, setStatus, requestFocus]);
 
+  // 对齐桌面「打开点云」：dialog 过滤器走 Host purpose=pointcloud
+  const doOpenPointCloud = useCallback(async () => {
+    const d = await dialogOpen({ purpose: "pointcloud", title: "打开点云" });
+    if (!d.ok) return;
+    const paths = dialogPaths(d);
+    if (!paths.length) return;
+    let okN = 0;
+    let lastErr = "";
+    for (const p of paths) {
+      const r = await importObject(p, true);
+      if (r.ok) ++okN;
+      else lastErr = r.error || "打开点云失败";
+    }
+    setStatus(
+      okN === paths.length
+        ? `已打开 ${okN} 个点云`
+        : okN > 0
+          ? `已打开 ${okN}/${paths.length}；失败：${lastErr}`
+          : lastErr || "打开点云失败",
+      okN > 0 ? "info" : "err",
+    );
+    await refreshObjects();
+    if (okN > 0) requestFocus();
+  }, [refreshObjects, setStatus, requestFocus]);
+
   const value = useMemo(
     () => ({
       objects,
@@ -210,15 +244,20 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       interactMode,
       robotDragMode,
       gizmoTransformMode,
+      gizmoSpace,
       robotDragTeachPose,
       refreshObjects,
       selectObject,
       setInteractMode,
       setRobotDragMode,
       setGizmoTransformMode,
+      setGizmoSpace,
       setRobotDragTeachPose,
       doImport,
       doOpenModel,
+      doOpenPointCloud,
+      mateFacePickSlot,
+      setMateFacePickSlot,
       focusRequest,
       requestFocus,
     }),
@@ -228,12 +267,15 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       interactMode,
       robotDragMode,
       gizmoTransformMode,
+      gizmoSpace,
       robotDragTeachPose,
       refreshObjects,
       selectObject,
       setRobotDragMode,
       doImport,
       doOpenModel,
+      doOpenPointCloud,
+      mateFacePickSlot,
       focusRequest,
       requestFocus,
     ],

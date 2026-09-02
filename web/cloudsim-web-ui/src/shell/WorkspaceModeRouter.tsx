@@ -8,15 +8,16 @@ import LabelingShell from "../workspaces/LabelingShell";
 
 type Props = {
   scene3dChildren: ReactNode;
+  sideVisible?: boolean;
 };
 
 /** 按 workspaceMode 侧车切换中央工作区壳 */
-export default function WorkspaceModeRouter({ scene3dChildren }: Props) {
+export default function WorkspaceModeRouter({ scene3dChildren, sideVisible = true }: Props) {
   const { mode } = useProject();
 
   switch (mode) {
     case "geomodeling":
-      return <GeomodelingShell />;
+      return <GeomodelingShell sideVisible={sideVisible}>{scene3dChildren}</GeomodelingShell>;
     case "processflow":
       return <ProcessFlowShell />;
     case "drawing":

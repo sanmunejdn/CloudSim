@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 export type PrimaryTab = "workspace" | "ai" | "cloud" | "geometry";
 export type WsTab = "units" | "devices" | "annotations";
 export type DeviceMode = "robot" | "customDevice";
-export type RobotTab = "cmd" | "joint" | "trajGen" | "trajEdit" | "frame" | "collision";
+export type RobotTab = "cmd" | "joint" | "trajGen" | "trajEdit" | "frame" | "collision" | "extAxis" | "comm";
 export type DeviceTab = "cmd" | "joint";
 
 type DockNav = {

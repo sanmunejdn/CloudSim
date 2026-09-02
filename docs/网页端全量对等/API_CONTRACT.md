@@ -121,7 +121,38 @@ DES 仿真启动。
 
 ### `GET /api/geomodeling/summary`
 
-特征树 / Body 摘要（GM-1）。
+特征树 / Body 摘要。每条 Body 含 `features[]`（id / kind / 抑制 / Pad 深度等）。
+
+### `GET /api/geomodeling/history?backendId=`
+
+返回 `{ ok, backendId, history }`，`history` 与 Data `parametricHistory` 同构（`seq` + `features`）。
+
+### `PUT /api/geomodeling/history`
+
+```json
+{ "backendId": "uuid", "history": { "seq": 3, "features": [] } }
+```
+
+整表替换特征链并 rebuild。
+
+### `POST /api/geomodeling/op`
+
+分发字段 `op`：
+
+| op | 作用 |
+|----|------|
+| `primitive` | 新建 Body：`kind=box\|cylinder\|polygon\|slot\|ellipse`（轮廓模板 + Pad） |
+| `extrude` | Pad/Pocket：`mode=pad\|pocket`，`profile=rectangle\|circle\|polygon\|polyline\|slot\|ellipse`，`plane=XY\|XZ\|YZ`，`useLastSketch` |
+| `append` | 追加 `kind=Sketch\|Fillet\|Chamfer\|Revolve\|RevolveCut\|LinearPattern\|CircularPattern\|Mirror3D\|Shell\|Draft\|Sweep\|SweepCut\|Loft\|LoftCut`；Sweep/Loft/Revolve/Pad/Sketch 可无 `backendId` 新建 |
+| `patch` | 改单特征参数（`lengthMm` / `radiusMm` / `twistDeg` / `suppressed` / `visible`…）后 rebuild |
+| `delete` | 删除 `featureId` 后 rebuild |
+| `rebuild` | 仅重放特征链 |
+| `setHistory` | 同 PUT history |
+| `undo` / `redo` | Host 特征史快照；`summary` 含 `undoCount`/`redoCount` |
+| `exportHistory` | `{ backendId, path }` 写出 JSON |
+| `importHistory` | `{ path, createNew, backendId? }` 读入 JSON |
+
+内核与桌面 `ParametricBrepBackendData::rebuild` 相同；不加载 `GeometricModelingPlugin`。
 
 ### `GET /api/labeling/tasks`
 

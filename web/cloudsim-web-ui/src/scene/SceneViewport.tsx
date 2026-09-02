@@ -122,6 +122,8 @@ export type SceneViewportHandle = {
   setViewDirection: (eyeWorld: [number, number, number], upWorld?: [number, number, number]) => void;
   setOverlayPolylines: (polys: number[][][]) => void;
   setOverlaySoup: (soup: Float32Array | null) => void;
+  setWireframe: (on: boolean) => void;
+  capturePng: () => void;
 };
 
 type RobotMeta = {
@@ -133,7 +135,7 @@ type RobotMeta = {
 
 const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, ref) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const { objects, selectedId, selectObject, interactMode, robotDragMode, gizmoTransformMode, focusRequest, refreshObjects, setGizmoTransformMode, setRobotDragTeachPose } =
+  const { objects, selectedId, selectObject, interactMode, robotDragMode, gizmoTransformMode, gizmoSpace, focusRequest, refreshObjects, setGizmoTransformMode, setRobotDragTeachPose, mateFacePickSlot, setMateFacePickSlot } =
     useScene();
   const { setStatus } = useStatus();
   const { pickMode, featureEditActive, workpieceId, setWorkpieceId } = useTrajectory();
@@ -166,6 +168,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
   const selectedInstrRef = useRef(selectedInstrId);
   const selectedPreferViaRef = useRef(selectedInstrPreferVia);
   const waypointPickModeRef = useRef(waypointPickMode);
+  const mateFacePickSlotRef = useRef(mateFacePickSlot);
   const playingRef = useRef(playing);
   const [robotMeta, setRobotMeta] = useState<RobotMeta>({ isRobot: false });
   const gizmoCtxRef = useRef({
@@ -173,6 +176,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     interactMode: "view" as "view" | "select",
     robotDragMode: false,
     gizmoTransformMode: "translate" as "translate" | "rotate",
+    gizmoSpace: "local" as "local" | "world",
     robotMeta: { isRobot: false } as RobotMeta,
     activeRootId: null as string | null,
     refreshObjects: (async () => {}) as () => Promise<void>,
@@ -183,16 +187,19 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     setRobotDragTeachPose: ((_p: ReturnType<typeof poseFromMatrix4Elements> & { jointRadCsv?: string } | null) =>
       {}) as (p: (ReturnType<typeof poseFromMatrix4Elements> & { jointRadCsv?: string }) | null) => void,
   });
+  const wireframeOnRef = useRef(false);
   instrStepsRef.current = activeProgram?.instructions || [];
   selectedInstrRef.current = selectedInstrId;
   selectedPreferViaRef.current = selectedInstrPreferVia;
   waypointPickModeRef.current = waypointPickMode;
+  mateFacePickSlotRef.current = mateFacePickSlot;
   playingRef.current = playing;
   gizmoCtxRef.current = {
     selectedId,
     interactMode,
     robotDragMode,
     gizmoTransformMode,
+    gizmoSpace,
     robotMeta,
     activeRootId,
     refreshObjects,
@@ -258,6 +265,29 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       );
       mesh.name = "pickSoup";
       g.add(mesh);
+    },
+    setWireframe(on) {
+      wireframeOnRef.current = on;
+      const root = contentRef.current;
+      if (!root) return;
+      root.traverse((o) => {
+        if (o.userData?.isPointCloud) return;
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.material) return;
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const m of mats) {
+          if (m && "wireframe" in m) (m as THREE.MeshBasicMaterial).wireframe = on;
+        }
+      });
+    },
+    capturePng() {
+      const renderer = rendererRef.current;
+      if (!renderer) return;
+      const url = renderer.domElement.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cloudsim-viewport-${Date.now()}.png`;
+      a.click();
     },
   }));
 
@@ -640,7 +670,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
         transform.attach(proxy);
         const mode = gizmoCtxRef.current.gizmoTransformMode;
         transform.setMode(mode);
-        transform.setSpace("local");
+        transform.setSpace(gizmoCtxRef.current.gizmoSpace);
         transform.getHelper().visible = true;
         syncActiveToolOverlayFromProxy(frameOverlayRef.current, proxy);
       })();
@@ -670,7 +700,7 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
       {
         const mode = gizmoCtxRef.current.gizmoTransformMode;
         transform.setMode(mode);
-        transform.setSpace("local");
+        transform.setSpace(gizmoCtxRef.current.gizmoSpace);
       }
       transform.getHelper().visible = true;
       return;
@@ -687,12 +717,12 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     {
       const mode = gizmoCtxRef.current.gizmoTransformMode;
       transform.setMode(mode);
-      transform.setSpace("local");
+      transform.setSpace(gizmoCtxRef.current.gizmoSpace);
     }
     transform.getHelper().visible = true;
   }, [selectedId, interactMode, robotDragMode, robotMeta, objects, activeRootId]);
 
-  // 切换移动/旋转时只改罗盘模式，不重贴 TCP（避免把未提交拖动清掉）
+  // 切换移动/旋转或物体系/世界系时只改罗盘，不重贴 TCP
   useEffect(() => {
     const transform = transformRef.current;
     const proxy = dragProxyRef.current;
@@ -700,8 +730,8 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     // 局部轴：旋转后切回移动，平移轴跟着 TCP 姿态走
     proxy?.updateMatrixWorld(true);
     transform.setMode(gizmoTransformMode);
-    transform.setSpace("local");
-  }, [gizmoTransformMode]);
+    transform.setSpace(gizmoSpace);
+  }, [gizmoTransformMode, gizmoSpace]);
 
   // G=移动 R=旋转（对齐旧版；状态栏/日志提示，无工具栏态）
   useEffect(() => {
@@ -1055,6 +1085,49 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
         return;
       }
       const ray = worldRay(ev);
+      const mateSlot = mateFacePickSlotRef.current;
+      if (mateSlot != null) {
+        const wp = ray.hitBackendId;
+        if (!wp || !ray.hitPointWorldMm) {
+          setStatus("配合拾取：未命中 B-rep", "warn");
+          return;
+        }
+        const body = {
+          mode: "face" as const,
+          workpieceBackendId: wp,
+          originMm: ray.originMm,
+          dir: ray.dir,
+          hitPointWorldMm: ray.hitPointWorldMm,
+          hitNormalWorld: ray.hitNormalWorld,
+        };
+        const r = await pickHover(body);
+        if (!r.ok) {
+          setStatus(String(r.error || "配合面拾取失败"), "err");
+          return;
+        }
+        const faceIndex = Number(r.faceIndex ?? -1);
+        const hitArr = Array.isArray(r.hitPointWorldMm)
+          ? (r.hitPointWorldMm as number[])
+          : ray.hitPointWorldMm;
+        if (faceIndex < 0) {
+          setStatus("需要有效 B-rep 面", "err");
+          return;
+        }
+        setMateFacePickSlot(null);
+        window.dispatchEvent(
+          new CustomEvent("cloudsim-mate-face", {
+            detail: {
+              slot: mateSlot,
+              backendId: String(r.workpieceBackendId || wp),
+              faceIndex,
+              pickWorldMm: hitArr.slice(0, 3),
+              soupWorldMm: r.soupWorldMm,
+            },
+          }),
+        );
+        setStatus(mateSlot === 0 ? "已拾取固定面" : "已拾取动件面");
+        return;
+      }
       if (pickMode && featureEditActive) {
         const wp = ray.hitBackendId || workpieceId;
         if (wp) setWorkpieceId(wp);
@@ -1121,6 +1194,38 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
         renderer.domElement.style.cursor = hit ? "pointer" : "crosshair";
         return;
       }
+      if (mateFacePickSlotRef.current != null) {
+        renderer.domElement.style.cursor = "crosshair";
+        if (hoverTimer) window.clearTimeout(hoverTimer);
+        hoverTimer = window.setTimeout(async () => {
+          const seq = ++hoverPickSeqRef.current;
+          const ray = worldRay(ev);
+          const wp = ray.hitBackendId;
+          if (!wp || !ray.hitPointWorldMm) {
+            if (seq === hoverPickSeqRef.current) clearHl();
+            return;
+          }
+          const r = await pickHover({
+            mode: "face",
+            workpieceBackendId: wp,
+            originMm: ray.originMm,
+            dir: ray.dir,
+            hitPointWorldMm: ray.hitPointWorldMm,
+            hitNormalWorld: ray.hitNormalWorld,
+          });
+          if (seq !== hoverPickSeqRef.current) return;
+          if (!r.ok) {
+            clearHl();
+            return;
+          }
+          window.dispatchEvent(
+            new CustomEvent("cloudsim-pick-highlight", {
+              detail: { clear: false, soupWorldMm: r.soupWorldMm, mode: "face" },
+            }),
+          );
+        }, 80);
+        return;
+      }
       if (!pickMode || !featureEditActive) return;
       if (hoverTimer) window.clearTimeout(hoverTimer);
       hoverTimer = window.setTimeout(async () => {
@@ -1184,6 +1289,8 @@ const SceneViewport = forwardRef<SceneViewportHandle>(function SceneViewport(_, 
     polylinePickActive,
     addPolylinePoint,
     polylineScreenXy,
+    mateFacePickSlot,
+    setMateFacePickSlot,
   ]);
 
   // 多边形拾取屏幕折线叠加

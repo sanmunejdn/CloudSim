@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -28,6 +29,7 @@ type ProjectCtx = {
   mode: string;
   setMode: (m: string) => void;
   docTitle: string;
+  dirty: boolean;
   refreshHealth: () => Promise<void>;
   doNew: () => Promise<void>;
   doOpen: () => Promise<void>;
@@ -38,6 +40,15 @@ type ProjectCtx = {
 
 const Ctx = createContext<ProjectCtx | null>(null);
 
+/** 对齐桌面关页：未保存时先问是否保存，再问是否丢弃 */
+async function confirmDiscardIfDirty(dirty: boolean, title: string, doSave: () => Promise<boolean>): Promise<boolean> {
+  if (!dirty) return true;
+  if (window.confirm(`「${title}」有未保存更改。\n确定：保存后继续\n取消：下一步选择是否丢弃`)) {
+    return doSave();
+  }
+  return window.confirm(`丢弃对「${title}」的未保存更改？`);
+}
+
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const { setStatus } = useStatus();
   const [health, setHealth] = useState<Health | null>(null);
@@ -45,6 +56,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [modes, setModes] = useState<{ id: string; title: string }[]>([]);
   const [mode, setModeState] = useState("scene3d");
   const [bump, setBump] = useState(0);
+  const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
 
   const docTitle = path ? path.split(/[/\\]/).pop() || path : "未命名1";
 
@@ -70,13 +84,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     const t = setInterval(() => void refreshHealth(), 5000);
     eventHub.start();
     const offAny = eventHub.onAny((_d, type) => {
+      if (type === "ProjectLoaded" || type === "ProjectSaved") {
+        setDirty(false);
+        setBump((n) => n + 1);
+        return;
+      }
       if (
-        type === "ProjectLoaded" ||
-        type === "ProjectSaved" ||
         type === "BackendObjectCreated" ||
+        type === "BackendObjectRegistered" ||
         type === "BackendObjectRemoved" ||
+        type === "PoseCommitted" ||
+        type === "ObjectPatched" ||
+        type === "SceneChanged" ||
         type === "message"
       ) {
+        if (
+          type === "BackendObjectCreated" ||
+          type === "BackendObjectRegistered" ||
+          type === "BackendObjectRemoved" ||
+          type === "PoseCommitted" ||
+          type === "ObjectPatched" ||
+          type === "SceneChanged"
+        ) {
+          setDirty(true);
+        }
         setBump((n) => n + 1);
       }
     });
@@ -96,48 +127,62 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshHealth]);
 
-  const doNew = useCallback(async () => {
-    const r = await newProject();
-    setStatus(r.ok ? "已新建工程" : r.error || "新建失败", r.ok ? "info" : "err");
-    setPath("");
-    setBump((n) => n + 1);
-  }, [setStatus]);
-
-  const doOpen = useCallback(async () => {
-    const d = await dialogOpen({ purpose: "project", title: "打开工程" });
-    if (!d.ok || !d.path) return;
-    const r = await openProject(d.path);
-    if (r.ok) {
-      setPath(d.path);
-      setStatus(`已打开（${r.objectCount ?? 0} 对象）`);
-      setBump((n) => n + 1);
-    } else setStatus(r.error || "打开失败", "err");
-  }, [setStatus]);
-
-  const doOpenFolder = useCallback(async () => {
-    const d = await dialogOpen({ purpose: "directory", title: "打开文件夹", directory: true });
-    if (!d.ok || !d.path) return;
-    const r = await openProject(d.path);
-    if (r.ok) {
-      setPath(d.path);
-      setStatus(`已打开文件夹`);
-      setBump((n) => n + 1);
-    } else setStatus(r.error || "打开失败", "err");
-  }, [setStatus]);
-
-  const doSave = useCallback(async () => {
+  const saveNow = useCallback(async (): Promise<boolean> => {
     let p = path;
     if (!p) {
       const d = await dialogOpen({ purpose: "saveProject", title: "保存工程" });
-      if (!d.ok || !d.path) return;
+      if (!d.ok || !d.path) return false;
       p = d.path;
     }
     const r = await saveProject(p);
     if (r.ok) {
       setPath(r.path || p);
+      setDirty(false);
       setStatus("已保存");
-    } else setStatus(r.error || "保存失败", "err");
+      return true;
+    }
+    setStatus(r.error || "保存失败", "err");
+    return false;
   }, [path, setStatus]);
+
+  const doNew = useCallback(async () => {
+    if (!(await confirmDiscardIfDirty(dirtyRef.current, docTitle, saveNow))) return;
+    const r = await newProject();
+    setStatus(r.ok ? "已新建工程" : r.error || "新建失败", r.ok ? "info" : "err");
+    setPath("");
+    setDirty(false);
+    setBump((n) => n + 1);
+  }, [docTitle, saveNow, setStatus]);
+
+  const doOpen = useCallback(async () => {
+    if (!(await confirmDiscardIfDirty(dirtyRef.current, docTitle, saveNow))) return;
+    const d = await dialogOpen({ purpose: "project", title: "打开工程" });
+    if (!d.ok || !d.path) return;
+    const r = await openProject(d.path);
+    if (r.ok) {
+      setPath(d.path);
+      setDirty(false);
+      setStatus(`已打开（${r.objectCount ?? 0} 对象）`);
+      setBump((n) => n + 1);
+    } else setStatus(r.error || "打开失败", "err");
+  }, [docTitle, saveNow, setStatus]);
+
+  const doOpenFolder = useCallback(async () => {
+    if (!(await confirmDiscardIfDirty(dirtyRef.current, docTitle, saveNow))) return;
+    const d = await dialogOpen({ purpose: "directory", title: "打开文件夹", directory: true });
+    if (!d.ok || !d.path) return;
+    const r = await openProject(d.path);
+    if (r.ok) {
+      setPath(d.path);
+      setDirty(false);
+      setStatus(`已打开文件夹`);
+      setBump((n) => n + 1);
+    } else setStatus(r.error || "打开失败", "err");
+  }, [docTitle, saveNow, setStatus]);
+
+  const doSave = useCallback(async () => {
+    await saveNow();
+  }, [saveNow]);
 
   const value = useMemo(
     () => ({
@@ -148,6 +193,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       mode,
       setMode,
       docTitle,
+      dirty,
       refreshHealth,
       doNew,
       doOpen,
@@ -155,7 +201,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       doSave,
       onProjectChanged: bump,
     }),
-    [health, path, modes, mode, setMode, docTitle, refreshHealth, doNew, doOpen, doOpenFolder, doSave, bump],
+    [health, path, modes, mode, setMode, docTitle, dirty, refreshHealth, doNew, doOpen, doOpenFolder, doSave, bump],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

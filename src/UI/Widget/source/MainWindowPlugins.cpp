@@ -7,6 +7,7 @@
 #include "PluginManager.h"
 
 #include <QAction>
+#include <QPointer>
 #include <QSignalBlocker>
 #include <QTabWidget>
 #include <QTimer>
@@ -41,6 +42,7 @@ void MainWindow::registerSidePanelTabToggle(QWidget* widget, const QString& titl
 	}
 
 	SidePanelTabToggleEntry entry;
+	entry.guard = widget;
 	entry.title = title;
 	entry.viewAction = new QAction(title, this);
 	entry.viewAction->setCheckable(true);
@@ -54,8 +56,16 @@ void MainWindow::registerSidePanelTabToggle(QWidget* widget, const QString& titl
 		m_viewMenu->addAction(entry.viewAction);
 	}
 
+	const QPointer<QWidget> guard = widget;
 	connect(entry.viewAction, &QAction::toggled, this,
-			[this, widget](const bool checked) { applySidePanelTabToggleVisibility(widget, checked); });
+			[this, guard](const bool checked)
+			{
+				if (!guard)
+				{
+					return;
+				}
+				applySidePanelTabToggleVisibility(guard.data(), checked);
+			});
 
 	m_sidePanelTabToggles.insert(widget, entry);
 	applySidePanelTabToggleVisibility(widget, visible);
@@ -69,20 +79,43 @@ void MainWindow::applySidePanelTabToggleVisibility(QWidget* widget, const bool v
 	}
 
 	const auto it = m_sidePanelTabToggles.constFind(widget);
-	const QString title = it != m_sidePanelTabToggles.cend() ? it.value().title : QString();
+	if (it == m_sidePanelTabToggles.cend() || !it.value().guard)
+	{
+		return;
+	}
+	widget = it.value().guard.data();
+	if (!widget)
+	{
+		return;
+	}
 
+	// 交替侧栏已剥离工作区/插件页签；再 addTab 会与 detach 打架
+	if (m_processFlowSideUiActive &&
+		static_cast<const void*>(widget) != static_cast<const void*>(m_aiAssistantPage))
+	{
+		return;
+	}
+
+	const QString title = it.value().title;
 	int tabIdx = m_rightPanelTabs->indexOf(widget);
 	if (visible)
 	{
 		if (tabIdx < 0)
 		{
+			if (widget->parentWidget() != nullptr && m_rightPanelTabs->isAncestorOf(widget))
+			{
+				widget->setParent(nullptr);
+			}
 			tabIdx = m_rightPanelTabs->addTab(widget, title);
 		}
 		else if (!title.isEmpty())
 		{
 			m_rightPanelTabs->setTabText(tabIdx, title);
 		}
-		m_rightPanelTabs->setCurrentIndex(tabIdx);
+		if (tabIdx >= 0)
+		{
+			m_rightPanelTabs->setCurrentIndex(tabIdx);
+		}
 		if (!m_restoringUiPreferences)
 		{
 			persistUiPreferencesToStorage();
@@ -124,18 +157,22 @@ void MainWindow::unregisterSidePanelTabToggle(QWidget* widget)
 
 	if (m_rightPanelTabs)
 	{
-		const int tabIdx = m_rightPanelTabs->indexOf(widget);
-		if (tabIdx >= 0)
+		QWidget* live = it.value().guard.data();
+		if (live)
 		{
-			if (m_rightPanelTabs->currentWidget() == widget)
+			const int tabIdx = m_rightPanelTabs->indexOf(live);
+			if (tabIdx >= 0)
 			{
-				const int workspaceIdx = workspaceTabIndex(m_rightPanelTabs);
-				if (workspaceIdx >= 0)
+				if (m_rightPanelTabs->currentWidget() == live)
 				{
-					m_rightPanelTabs->setCurrentIndex(workspaceIdx);
+					const int workspaceIdx = workspaceTabIndex(m_rightPanelTabs);
+					if (workspaceIdx >= 0)
+					{
+						m_rightPanelTabs->setCurrentIndex(workspaceIdx);
+					}
 				}
+				m_rightPanelTabs->removeTab(tabIdx);
 			}
-			m_rightPanelTabs->removeTab(tabIdx);
 		}
 	}
 
@@ -164,13 +201,14 @@ void MainWindow::setPluginSidePanelTabTitle(QWidget* widget, const QString& titl
 		}
 	}
 
-	if (m_rightPanelTabs)
+	if (!m_rightPanelTabs)
 	{
-		const int tabIdx = m_rightPanelTabs->indexOf(widget);
-		if (tabIdx >= 0)
-		{
-			m_rightPanelTabs->setTabText(tabIdx, title);
-		}
+		return;
+	}
+	const int idx = m_rightPanelTabs->indexOf(widget);
+	if (idx >= 0)
+	{
+		m_rightPanelTabs->setTabText(idx, title);
 	}
 }
 
@@ -190,20 +228,30 @@ int MainWindow::addPluginSidePanelTab(const QString& title, QWidget* widget)
 	const bool visible =
 		m_uiPreferences.sidePanelTabs.contains(tabKey) ? m_uiPreferences.sidePanelTabs.value(tabKey) : true;
 	registerSidePanelTabToggle(widget, title, visible);
-	return m_rightPanelTabs->indexOf(widget);
+	if (!m_sidePanelTabToggles.contains(widget) || !m_sidePanelTabToggles.value(widget).guard)
+	{
+		return -1;
+	}
+	// 按偏好隐藏时 indexOf==-1，仍算注册成功（否则插件会 delete，留下悬空登记）
+	const int idx = m_rightPanelTabs->indexOf(widget);
+	return idx >= 0 ? idx : 0;
 }
 
 void MainWindow::restoreUiPreferencesAfterPlugins()
 {
 	m_restoringUiPreferences = true;
-	if (!m_uiPreferences.workspaceModeId.isEmpty() && m_pluginManager && m_pluginManager->hostContext())
-	{
-		m_pluginManager->hostContext()->enterWorkspaceMode(m_uiPreferences.workspaceModeId);
-	}
+	// 先恢复侧栏可见性，再进工作区模式（模式会 detach 页签；若先模式后 layout 会把页签加回并崩）
 	QTimer::singleShot(0, this, [this]() {
 		applySavedViewLayout();
+		if (!m_uiPreferences.workspaceModeId.isEmpty() && m_pluginManager && m_pluginManager->hostContext())
+		{
+			m_pluginManager->hostContext()->enterWorkspaceMode(m_uiPreferences.workspaceModeId);
+		}
 		QTimer::singleShot(100, this, [this]() {
-			applySavedViewLayout();
+			if (!m_processFlowSideUiActive)
+			{
+				applySavedViewLayout();
+			}
 			m_restoringUiPreferences = false;
 		});
 	});

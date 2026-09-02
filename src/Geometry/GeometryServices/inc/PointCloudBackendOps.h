@@ -203,6 +203,35 @@ GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterMeshSdf(MeshBackendData& sourceMes
 										 const MeshBackendData* targetMesh, PointCloudSdfResult& out,
 										 const PointCloudSdfParams& params, std::string* errMsg = nullptr);
 
+struct PointCloudPyramidResult
+{
+	double meanErrorMm = 0.0;
+	int deformationNodeCount = 0;
+	double baseEdgeLengthMmUsed = 0.0;
+	int layersRun = 0;
+	std::string debugSummary;
+};
+
+struct PointCloudPyramidParams
+{
+	double baseEdgeLengthMm = 0.0;
+	int layers = 3;
+	double layerScale = 2.0;
+	bool rigidPreAlign = true;
+	bool useFineRegOnLastLayer = false;
+	int solver = 0; ///< 0=SDF 1=SPARE
+	PointCloudSdfParams sdf;
+	PointCloudSpareParams spare;
+	int remeshIterations = 3;
+};
+
+/// 网格↔网格几何金字塔；写出细层 remesh 拓扑（非原始源三角拓扑）
+GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterMeshPyramid(MeshBackendData& sourceMeshInOut,
+														  const MeshBackendData& targetMesh,
+														  PointCloudPyramidResult& out,
+														  const PointCloudPyramidParams& params,
+														  std::string* errMsg = nullptr);
+
 GEOMETRY_SERVICES_EXPORT bool deformPointCloudTpsFromControls(PointCloudBackendData& data,
 												 const std::vector<std::size_t>& controlPointIndices,
 												 const std::vector<float>& controlDisplacementXyz,

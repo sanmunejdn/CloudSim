@@ -90,7 +90,7 @@
       <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;POINT_CLOUD_ALGORITHM_STATIC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../VcgAlgorithms/inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -107,7 +107,7 @@
       <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;POINT_CLOUD_ALGORITHM_STATIC;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../VcgAlgorithms/inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -125,7 +125,7 @@
       <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;POINT_CLOUD_ALGORITHM_STATIC;_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../VcgAlgorithms/inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -142,7 +142,7 @@
       <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;POINT_CLOUD_ALGORITHM_STATIC;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../VcgAlgorithms/inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -163,6 +163,7 @@
     <ClInclude Include="inc\RegistrationNonRigid.h" />
     <ClInclude Include="inc\RegistrationSpare.h" />
     <ClInclude Include="inc\RegistrationSdf.h" />
+    <ClInclude Include="inc\RegistrationPyramid.h" />
     <ClInclude Include="inc\Preprocess.h" />
     <ClInclude Include="inc\Reconstruction.h" />
     <ClInclude Include="inc\ReconstructionPoisson.h" />
@@ -192,6 +193,7 @@
     <ClCompile Include="source\RegistrationNonRigid.cpp" />
     <ClCompile Include="source\RegistrationSpare.cpp" />
     <ClCompile Include="source\RegistrationSdf.cpp" />
+    <ClCompile Include="source\RegistrationPyramid.cpp" />
     <ClCompile Include="source\Preprocess.cpp" />
     <ClCompile Include="source\ReconstructionPoisson.cpp" />
     <ClCompile Include="source\ReconstructionScaleSpace.cpp" />
@@ -205,6 +207,11 @@
     <ClCompile Include="source\sdf\DistanceField.cpp" />
     <ClCompile Include="source\sdf\SdfNodeSampler.cpp" />
     <ClCompile Include="source\sdf\SdfDeformSolver.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VcgAlgorithms\VcgAlgorithms.vcxproj">
+      <Project>{a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

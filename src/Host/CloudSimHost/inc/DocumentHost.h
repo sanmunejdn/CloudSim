@@ -43,6 +43,7 @@ class BackendSceneDocumentFacade;
 #include "BackendFollowReverseIndex.h"
 #include "OsgWidgetSceneBridge.h"
 #include "NamedSignalTable.h"
+#include "RobotCollisionSettings.h"
 
 namespace cloudsim::host
 {
@@ -104,6 +105,8 @@ public:
 	/// 枚举全部对象（替代 UI 直调 backend().listData）
 	std::vector<std::shared_ptr<BackendDataBase>> listObjects() const;
 	RobotProgramStore& robotProgramStore();
+	RobotCollision::Settings& robotCollisionSettings() { return m_robotCollisionSettings; }
+	const RobotCollision::Settings& robotCollisionSettings() const { return m_robotCollisionSettings; }
 	BackendHierarchyModel& hierarchyModel();
 	const BackendHierarchyModel& hierarchyModel() const;
 	/// Follow 反向索引（经 IDataService.followTargetId 重建）
@@ -181,6 +184,7 @@ public:
 	HeadlessProcessFlowBridge* headlessProcessFlowBridge() const;
 	HeadlessDrawingBridge* headlessDrawingBridge() const;
 	HeadlessGeomodelBridge* headlessGeomodelBridge() const;
+	void resetHeadlessGeomodelHistory();
 	HeadlessLabelingBridge* headlessLabelingBridge() const;
 
 	/// 多 Owner IO 网（工程侧车 ioSignalNetwork）；旧 API 经 primary 表兼容
@@ -221,6 +225,7 @@ private:
 	std::unique_ptr<cloudsim::core::IRenderView> m_renderView;
 	std::unique_ptr<BackendDataManager> m_backend;
 	std::unique_ptr<RobotProgramStore> m_robotProgramStore;
+	RobotCollision::Settings m_robotCollisionSettings;
 	std::unique_ptr<BackendHierarchyModel> m_hierarchyModel;
 	BackendFollowReverseIndex m_followReverseIndex;
 	OsgWidgetSceneBridge m_sceneBridge;

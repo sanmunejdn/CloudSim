@@ -56,7 +56,10 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 	{
 		if (host->registerSidePanelTab(featureTabTitle, m_featureBuildWidget) < 0)
 		{
-			return false;
+			host->logWarn(host->useChinese() ? QStringLiteral("特征构建侧栏注册失败，点云主功能仍可用。")
+											 : QStringLiteral("Feature Build tab failed; Point Cloud tab remains."));
+			delete m_featureBuildWidget;
+			m_featureBuildWidget = nullptr;
 		}
 	}
 

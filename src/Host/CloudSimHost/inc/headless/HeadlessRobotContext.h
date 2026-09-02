@@ -14,6 +14,7 @@
 #include "RobotExternalAxes.h"
 
 #include <QHash>
+#include <QJsonObject>
 #include <QMap>
 #include <QString>
 #include <QStringList>
@@ -63,6 +64,11 @@ public:
 	bool jointMetaForSceneRoot(const QString& sceneRootBackendId, QStringList& outNames, QVector<double>& outLower,
 							   QVector<double>& outUpper, QVector<double>& outAngles) const;
 	void recordJointAnglesForSceneRoot(const QString& sceneRootBackendId, const QVector<double>& localAnglesRad);
+
+	/// 桌面工程 JSON 同形：`{ "axes": [...] }`
+	bool getExternalAxesJson(const QString& sceneRootBackendId, QJsonObject& outConfigSet, QString* outError = nullptr) const;
+	bool setExternalAxesJson(const QString& sceneRootBackendId, const QJsonObject& axesOrConfigSet,
+							 QString* outError = nullptr);
 
 	/// 任意连杆/场景根 → 实例；非机器人返回 -1
 	int robotInstanceIndexForBackendId(const QString& backendId, bool* outIsSceneRoot = nullptr) const;

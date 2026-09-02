@@ -108,6 +108,7 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `clearTubularGrindingSession` | **1.15.0+** 清除会话及临时着色/辅助对象 |
 | `nonRigidRegisterSpare` | **1.16.0+** SPARE 非刚性配准；源/目标可为点云或网格（`PluginPointCloudSpareParams`） |
 | `nonRigidRegisterSdf` | **1.17.0+** SDF/DDF 混合非刚性配准（`PluginPointCloudSdfParams`） |
+| `nonRigidRegisterPyramid` | **1.53.0+** 几何多分辨率金字塔（`PluginPointCloudPyramidParams`；网格↔网格） |
 
 **ABI 注意**：`IPluginPointCloudHost` 新增虚函数**只能追加在接口末尾**。在中间插入会导致插件与宿主 vtable 错位（例如 `queryMeshInfo` 误调到 `simplifyMesh` 并崩溃）。升级 SPARE / SDF 接口后须**同时**重编 `CloudSimHost.dll` 与 `PointCloudPlugin.dll`。
 

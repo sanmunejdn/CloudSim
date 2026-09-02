@@ -23,6 +23,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonDocument>
 
 #include <algorithm>
 #include <cmath>
@@ -193,6 +194,78 @@ void HeadlessRobotContext::recordJointAnglesForSceneRoot(const QString& sceneRoo
 	m_robots[idx].lastLocalJointAnglesRad = localAnglesRad;
 	m_robots[idx].tcpDragChaseValid = false;
 	m_robots[idx].tcpDragOriLocked = false;
+}
+
+bool HeadlessRobotContext::getExternalAxesJson(const QString& sceneRootBackendId, QJsonObject& outConfigSet,
+											   QString* outError) const
+{
+	outConfigSet = QJsonObject{};
+	const int idx = robotInstanceIndexForSceneBackendId(sceneRootBackendId);
+	if (idx < 0)
+	{
+		if (outError)
+			*outError = QStringLiteral("unknown sceneRootBackendId");
+		return false;
+	}
+	nlohmann::json eaJ;
+	RobotExternal::writeExternalAxisConfigSetToJson(m_robots[idx].externalAxes, eaJ);
+	const QByteArray raw = QByteArray::fromStdString(eaJ.dump());
+	const QJsonDocument doc = QJsonDocument::fromJson(raw);
+	if (!doc.isObject())
+	{
+		if (outError)
+			*outError = QStringLiteral("externalAxes serialize failed");
+		return false;
+	}
+	outConfigSet = doc.object();
+	return true;
+}
+
+bool HeadlessRobotContext::setExternalAxesJson(const QString& sceneRootBackendId, const QJsonObject& axesOrConfigSet,
+											   QString* outError)
+{
+	const int idx = robotInstanceIndexForSceneBackendId(sceneRootBackendId);
+	if (idx < 0)
+	{
+		if (outError)
+			*outError = QStringLiteral("unknown sceneRootBackendId");
+		return false;
+	}
+	// 兼容 PUT `{axes:[]}` / 完整 `{axes:[]}` 配置集 / 嵌套 externalAxes
+	QJsonObject configObj = axesOrConfigSet;
+	if (configObj.contains(QStringLiteral("externalAxes")) && configObj.value(QStringLiteral("externalAxes")).isObject())
+		configObj = configObj.value(QStringLiteral("externalAxes")).toObject();
+	if (!configObj.contains(QStringLiteral("axes")) && axesOrConfigSet.contains(QStringLiteral("axes")))
+		configObj = QJsonObject{{QStringLiteral("axes"), axesOrConfigSet.value(QStringLiteral("axes"))}};
+
+	const QByteArray raw = QJsonDocument(configObj).toJson(QJsonDocument::Compact);
+	try
+	{
+		const nlohmann::json eaJ = nlohmann::json::parse(raw.constData(), raw.constData() + raw.size());
+		RobotExternal::RobotExternalAxisConfigSet axes;
+		if (!RobotExternal::readExternalAxisConfigSetFromJson(eaJ, axes))
+		{
+			if (outError)
+				*outError = QStringLiteral("invalid externalAxes JSON");
+			return false;
+		}
+		std::string validateErr;
+		if (!RobotExternal::validateExternalAxisConfigSet(axes, &validateErr))
+		{
+			if (outError)
+				*outError = validateErr.empty() ? QStringLiteral("externalAxes validation failed")
+												: QString::fromStdString(validateErr);
+			return false;
+		}
+		m_robots[idx].externalAxes = std::move(axes);
+		return true;
+	}
+	catch (...)
+	{
+		if (outError)
+			*outError = QStringLiteral("externalAxes JSON parse failed");
+		return false;
+	}
 }
 
 int HeadlessRobotContext::robotInstanceIndexForBackendId(const QString& backendId, bool* outIsSceneRoot) const

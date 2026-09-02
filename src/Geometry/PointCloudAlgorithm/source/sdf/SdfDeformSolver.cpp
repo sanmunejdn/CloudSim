@@ -592,7 +592,8 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 		stats->errFinalMean = std::get<0>(errFinal);
 		stats->errFinalNormal = std::get<1>(errFinal);
 		stats->errFinalTangential = std::get<2>(errFinal);
-		stats->meanErrorMm = meanErr;
+		// 上报终态平均点面距离（与 errFinalNormal 一致），不用优化过程残差
+		stats->meanErrorMm = std::get<1>(errFinal);
 		stats->sourceVertexCount = static_cast<int>(n);
 		stats->meshEdgeCount = meshEdges ? static_cast<int>(meshEdges->size()) : 0;
 		stats->usedMeshTopology = adjPtr != nullptr;

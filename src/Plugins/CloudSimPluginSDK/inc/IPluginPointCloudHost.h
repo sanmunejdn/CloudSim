@@ -174,6 +174,11 @@ public:
 	virtual void nonRigidRegisterSdf(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
 									 const PluginPointCloudSdfParams& params,
 									 PluginPointCloudFinishedFn onFinished) = 0;
+
+	/// 1.53.0+：几何多分辨率金字塔（网格↔网格；输出细层 remesh 拓扑）
+	virtual void nonRigidRegisterPyramid(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
+										 const PluginPointCloudPyramidParams& params,
+										 PluginPointCloudFinishedFn onFinished) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINPOINTCLOUDHOST_H

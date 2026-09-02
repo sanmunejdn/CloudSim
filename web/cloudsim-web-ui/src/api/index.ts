@@ -10,3 +10,5 @@ export * from "./ioSignals";
 export * from "./ioNetwork";
 export * from "./customDevices";
 export * from "./sidecar";
+export * from "./assembly";
+export * from "./geomodeling";

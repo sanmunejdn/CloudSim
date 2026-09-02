@@ -13,15 +13,15 @@
 namespace pclalgo
 {
 /**
- * CGAL poisson_surface_reconstruction_delaunay：将定向点云作为泊松约束求指示函数并提取等值面
+ * CGAL poisson_surface_reconstruction_delaunay：Delaunay 网格上求隐式指示函数并 refinement 提取等值面
  * 强依赖法线方向；开口扫描或法线错误易空洞/翻面
  * @param xyz 3*N float，mm
  * @param normalsNxNyNz 3*N，与 xyz 同序
  * @param triangleSoupOut 9*T float，每三角 3 顶点 xyz
- * @param spacingMm 八叉树/体素尺度；≤0 时用平均点距（k=6），仍≤0 则兜底 1.0
- * @param smAngleDeg 表面平滑角度阈值，默认 20°
- * @param smRadiusRel 平滑半径（相对 spacing），默认 30
- * @param smDistanceRel 平滑距离（相对 spacing），默认 0.375
+ * @param spacingMm Delaunay 网格尺度 mm；≤0 时用平均点距（k=6），仍≤0 则兜底 1.0
+ * @param smAngleDeg 表面 Delaunay refinement 最小面角（°），默认 20
+ * @param smRadiusRel 表面 Delaunay 球半径上界（× spacing），默认 30
+ * @param smDistanceRel 表面 Delaunay 中心距上界（× spacing），默认 0.375
  * @return false：xyz/法线长度不符、点数<3、CGAL 失败或输出空（errMsg）
  */
 POINT_CLOUD_ALGORITHM_API bool reconstructPoisson(const std::vector<float>& xyz,

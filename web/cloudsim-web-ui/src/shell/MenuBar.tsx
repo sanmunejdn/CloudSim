@@ -6,14 +6,34 @@ import { importUrdf } from "../api/robot";
 import { useStatus } from "../state/statusStore";
 import { useI18n } from "../i18n/useI18n";
 
-type Props = {
-  onInsertFrame: () => void;
-  onFocus: () => void;
+type DockProps = {
+  leftVisible: boolean;
+  rightVisible: boolean;
+  setLeftVisible: (v: boolean) => void;
+  setRightVisible: (v: boolean) => void;
+  resetLayout: () => void;
 };
 
-export default function MenuBar({ onInsertFrame, onFocus }: Props) {
+type Props = {
+  onInsertFrame: () => void;
+  onInsertMate: () => void;
+  onFocus: () => void;
+  onAbout: () => void;
+  docks: DockProps;
+};
+
+export default function MenuBar({ onInsertFrame, onInsertMate, onFocus, onAbout, docks }: Props) {
   const { health, modes, mode, setMode, doNew, doOpen, doOpenFolder, doSave } = useProject();
-  const { interactMode, setInteractMode, doImport, doOpenModel, requestFocus } = useScene();
+  const {
+    interactMode,
+    setInteractMode,
+    gizmoSpace,
+    setGizmoSpace,
+    doImport,
+    doOpenModel,
+    doOpenPointCloud,
+    requestFocus,
+  } = useScene();
   const { setStatus } = useStatus();
   const { t, lang, setLang, theme, toggleTheme } = useI18n();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -39,6 +59,9 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
           <button type="button" onClick={() => void doOpenModel()}>
             打开模型…
           </button>
+          <button type="button" onClick={() => void doOpenPointCloud()}>
+            打开点云…
+          </button>
           <button type="button" onClick={() => void doSave()}>
             保存
           </button>
@@ -52,6 +75,24 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
           视图
         </button>
         <div className="menu-drop">
+          <button type="button" onClick={() => docks.resetLayout()}>
+            重置布局
+          </button>
+          <button
+            type="button"
+            className={`menu-check ${docks.leftVisible ? "on" : ""}`}
+            onClick={() => docks.setLeftVisible(!docks.leftVisible)}
+          >
+            左侧面板
+          </button>
+          <button
+            type="button"
+            className={`menu-check ${docks.rightVisible ? "on" : ""}`}
+            onClick={() => docks.setRightVisible(!docks.rightVisible)}
+          >
+            右侧面板
+          </button>
+          <hr className="menu-sep" />
           <button
             type="button"
             className={`menu-check ${interactMode === "view" ? "on" : ""}`}
@@ -65,6 +106,21 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
             onClick={() => setInteractMode("select")}
           >
             对象选择
+          </button>
+          <hr className="menu-sep" />
+          <button
+            type="button"
+            className={`menu-check ${gizmoSpace === "local" ? "on" : ""}`}
+            onClick={() => setGizmoSpace("local")}
+          >
+            变换：物体系
+          </button>
+          <button
+            type="button"
+            className={`menu-check ${gizmoSpace === "world" ? "on" : ""}`}
+            onClick={() => setGizmoSpace("world")}
+          >
+            变换：世界系
           </button>
           <hr className="menu-sep" />
           <button
@@ -96,6 +152,9 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
           </button>
           <button type="button" onClick={onInsertFrame}>
             坐标系…
+          </button>
+          <button type="button" onClick={onInsertMate}>
+            配合…
           </button>
         </div>
       </div>
@@ -131,7 +190,7 @@ export default function MenuBar({ onInsertFrame, onFocus }: Props) {
           帮助
         </button>
         <div className="menu-drop">
-          <button type="button" onClick={() => setStatus(t("app.title", "CloudSim Web"))}>
+          <button type="button" onClick={onAbout}>
             关于 CloudSim Web
           </button>
         </div>

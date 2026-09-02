@@ -95,6 +95,8 @@ private:
 	QByteArray robotTcpPoseJsonOnGuiThread(const QString& sceneRootBackendId);
 	QByteArray robotFramesJsonOnGuiThread(const QString& sceneRootBackendId);
 	bool putRobotFramesOnGuiThread(const QByteArray& body, QString* err);
+	QByteArray robotExternalAxesJsonOnGuiThread(const QString& sceneRootBackendId);
+	bool putRobotExternalAxesOnGuiThread(const QByteArray& body, QString* err);
 	bool mutateRobotFramesOnGuiThread(const QByteArray& body, QString* err, QJsonObject* out);
 	bool captureRobotToolFrameOnGuiThread(const QByteArray& body, QString* err);
 	bool captureRobotUserFrameOnGuiThread(const QByteArray& body, QString* err);

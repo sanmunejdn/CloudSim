@@ -188,6 +188,11 @@ bool runSpareCore(spare::SpareSurface& source, spare::SpareSurface& target, cons
 		stats->meanErrorMm = static_cast<double>(solver.meanError());
 		stats->meshScale = meshScale;
 		stats->deformationNodeCount = internal.numSampleNodes;
+		// 求解在单位包围盒内；反缩放到 mm（与 SDF 一致）
+		if (params.normalizeScale && meshScale > 1e-12)
+		{
+			stats->meanErrorMm /= meshScale;
+		}
 	}
 	return true;
 }

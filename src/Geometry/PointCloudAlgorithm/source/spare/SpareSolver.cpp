@@ -771,7 +771,10 @@ Scalar SpareSolver::computeMeanCorrespondenceError(const std::vector<SpareCorres
 	for (const SpareCorrespondence& c : corres)
 	{
 		const Vector3 srcPos = deformedPoints_.segment(c.srcIdx * 3, 3);
-		sum += (srcPos - c.position).norm();
+		const Vector3 d = srcPos - c.position;
+		const Scalar nLen = c.normal.norm();
+		// 有目标法线时用法向间隙；否则退回欧氏距离
+		sum += (nLen > static_cast<Scalar>(1e-12)) ? std::abs(d.dot(c.normal / nLen)) : d.norm();
 	}
 	return sum / static_cast<Scalar>(corres.size());
 }

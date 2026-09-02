@@ -484,6 +484,8 @@ protected:
 	QAction* m_toggleAiAssistantAction = nullptr;
 	struct SidePanelTabToggleEntry
 	{
+		/// 与 key 同步；控件被插件误删后可判空，避免解引用悬空 key
+		QPointer<QWidget> guard;
 		QAction* viewAction = nullptr;
 		QString title;
 	};

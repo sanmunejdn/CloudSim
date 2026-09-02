@@ -59,8 +59,13 @@ struct PluginPointCloudJobResult
 {
 	std::string newBackendId;
 	PluginMat4 icpTransform{};
+	/// ICP：真 RMSE；非刚体（SPARE/SDF/金字塔）：平均点面距离 mm
 	double rmseMm = 0.0;
 	std::size_t pointCountAfter = 0U;
+	/// true：pointCountAfter 为三角面数（网格输出）；false：点数
+	bool countAfterIsFaces = false;
+	/// true：rmseMm 为平均点面误差（非刚体），勿当 ICP RMSE 展示
+	bool rmseIsMeanPointToPlane = false;
 	int spareDeformationNodeCount = 0;
 	bool hasMeshRepairReport = false;
 	PluginMeshRepairReport meshRepairReport{};
@@ -206,6 +211,18 @@ struct PluginPointCloudSdfParams
 	bool rigidPreAlign = true;
 	double voxelPrefilterMm = 0.0;
 	int maxOuterIters = 30;
+	bool applyDeformationToSource = true;
+	bool createNewObject = false;
+	PluginMeshCreateOptions newObjectOptions{};
+};
+
+struct PluginPointCloudPyramidParams
+{
+	std::string targetBackendIdUtf8;
+	double baseEdgeLengthMm = 0.0; ///< h；0=源中位边长
+	bool rigidPreAlign = true;
+	bool useFineRegOnLastLayer = false;
+	int solver = 0; ///< 0=SDF 1=SPARE
 	bool applyDeformationToSource = true;
 	bool createNewObject = false;
 	PluginMeshCreateOptions newObjectOptions{};

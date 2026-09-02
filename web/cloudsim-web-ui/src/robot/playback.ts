@@ -78,7 +78,7 @@ export async function waitServerPlayback(
         }
         try {
           const st = await fetchPlaybackStatus();
-          if (st.ok && !st.running) end(true);
+          if (st.ok && !st.running) end(true, st.abortSummary);
         } catch {
           /* 轮询兜底 */
         }
@@ -110,31 +110,23 @@ export function reshapeJointFrames(flat: number[] | undefined, dof: number): num
   return [arr.slice(0, dof)];
 }
 
-function taughtJointCsvFromStep(step: Instruction): string {
-  return (step.extensions && step.extensions["context.currentJointRadCsv"]) || "";
-}
-
-function parseJointCsv(csv: string): number[] {
-  return csv
-    .split(",")
-    .map((s) => Number(s.trim()))
-    .filter((n) => !Number.isNaN(n));
-}
-
-export function buildPlanBody(rootId: string, step: Instruction, jointRadCsvFallback = "") {
+export function buildPlanBody(
+  rootId: string,
+  step: Instruction,
+  jointRadCsvFallback = "",
+  seedPolicy: "FromInstruction" | "FromCurrentPose" = "FromInstruction",
+) {
   const type = String(step.type || "").toLowerCase();
-  const taughtJointRadCsv = taughtJointCsvFromStep(step);
-  // seed=当前链；taught=示教落点（勿再把示教关节塞进 seed，否则会当成「已在目标」去解笛卡尔 IK）
   const body: Record<string, unknown> = {
     sceneRootBackendId: rootId,
     instructionType: type,
     jointRadCsv: jointRadCsvFallback || "",
+    seedPolicy,
     targetPose: {
       positionMm: [step.pose?.x || 0, step.pose?.y || 0, step.pose?.z || 0],
       eulerDeg: [step.eulerDeg?.x || 0, step.eulerDeg?.y || 0, step.eulerDeg?.z || 0],
     },
   };
-  if (taughtJointRadCsv) body.taughtJointRadCsv = taughtJointRadCsv;
   if (type === "arc") {
     body.extensions = {
       viaPose: step.viaPose || { x: 0, y: 0, z: 0 },
@@ -147,6 +139,7 @@ export function buildPlanBody(rootId: string, step: Instruction, jointRadCsvFall
 export async function planStepFrames(
   rootId: string,
   step: Instruction,
+  seedPolicy: "FromInstruction" | "FromCurrentPose" = "FromInstruction",
 ): Promise<{ ok: true; frames: number[][] } | { ok: false; error: string }> {
   const type = String(step.type || "").toLowerCase();
   if (!["ptp", "line", "arc"].includes(type)) return { ok: false, error: "非运动指令" };
@@ -162,15 +155,7 @@ export async function planStepFrames(
   } catch {
     /* 用默认 DOF */
   }
-  // 对齐桌面：PTP 优先示教关节，避免罗盘位姿与钳制关节不一致时再解 IK 超限
-  if (type === "ptp") {
-    const taught = parseJointCsv(taughtJointCsvFromStep(step));
-    if (taught.length) {
-      if (dof < 1) dof = taught.length;
-      return { ok: true, frames: [taught] };
-    }
-  }
-  const r = await planInstruction(buildPlanBody(rootId, step, jointCsv));
+  const r = await planInstruction(buildPlanBody(rootId, step, jointCsv, seedPolicy));
   if (!r.ok) return { ok: false, error: r.error || "规划失败" };
   const frames = reshapeJointFrames(r.jointTargetsRad, dof);
   if (!frames.length) return { ok: false, error: "规划无关节结果" };

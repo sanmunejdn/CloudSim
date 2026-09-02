@@ -18,6 +18,9 @@
 #include "ProjectPackageIo.h"
 #include "RobotCoordinateFrameOps.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotInstructionModel.h"
+#include "RobotProgramCatalog.h"
+#include "RobotProgramStore.h"
 #include "StoreZipExtract.h"
 #include "WebGatewaySidecars.h"
 #include "headless/HeadlessDrawingBridge.h"
@@ -37,6 +40,7 @@
 
 #include <json.hpp>
 #include <memory>
+#include <vector>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -94,6 +98,38 @@ QString jsonEscapeApi(const QString& s)
 	if (quoted.size() >= 4)
 		return QString::fromUtf8(quoted.mid(2, quoted.size() - 4));
 	return s;
+}
+
+std::shared_ptr<RobotInstruction::Base>
+findInstructionInStepsApi(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& idUtf8)
+{
+	for (const auto& step : steps)
+	{
+		if (!step)
+			continue;
+		if (step->id() == idUtf8)
+			return step;
+		if (auto hit = findInstructionInStepsApi(step->nestedSteps(), idUtf8))
+			return hit;
+		if (auto hit = findInstructionInStepsApi(step->elseSteps(), idUtf8))
+			return hit;
+	}
+	return nullptr;
+}
+
+std::shared_ptr<RobotInstruction::Base> findSeedInstructionApi(RobotProgramStore& store, const QString& instructionId)
+{
+	const std::string idUtf8 = instructionId.toStdString();
+	const auto& catalogs = store.allCatalogs();
+	for (auto it = catalogs.constBegin(); it != catalogs.constEnd(); ++it)
+	{
+		for (const RobotInstruction::RobotProgram& prog : it.value().programs())
+		{
+			if (auto hit = findInstructionInStepsApi(prog.steps, idUtf8))
+				return hit;
+		}
+	}
+	return nullptr;
 }
 
 cloudsim::core::PoseDto poseFromJson(const QJsonObject& o)
@@ -168,6 +204,7 @@ bool WebGateway::newProjectOnGuiThread(cloudsim::host::DocumentHost* host, QStri
 		return false;
 	}
 	host->data().clear();
+	host->resetHeadlessGeomodelHistory();
 	host->backendSourcePath().clear();
 	host->backendSourceType().clear();
 	host->backendParentId().clear();
@@ -819,9 +856,91 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		ctx.extensions.insert(QStringLiteral("sceneRootBackendId"), sceneRoot);
 	if (o.contains(QStringLiteral("urdfPath")))
 		ctx.urdfPath = o.value(QStringLiteral("urdfPath")).toString();
-	// jointRadCsv = 链式种子；示教目标走 taughtJointRadCsv，勿混用
-	if (!instr.jointRadCsv.isEmpty())
+
+	const QString seedPolicyRaw = o.value(QStringLiteral("seedPolicy")).toString();
+	const QString seedInstructionId = o.value(QStringLiteral("seedInstructionId")).toString().trimmed();
+	// Chain/Current 为网页别名，对齐桌面 IkSeedPolicy
+	const bool fromCurrentPose = seedPolicyRaw.compare(QStringLiteral("FromCurrentPose"), Qt::CaseInsensitive) == 0 ||
+								 seedPolicyRaw.compare(QStringLiteral("Current"), Qt::CaseInsensitive) == 0;
+	const bool fromInstruction = seedPolicyRaw.isEmpty() ||
+								 seedPolicyRaw.compare(QStringLiteral("FromInstruction"), Qt::CaseInsensitive) == 0 ||
+								 seedPolicyRaw.compare(QStringLiteral("Chain"), Qt::CaseInsensitive) == 0;
+	if (!seedPolicyRaw.isEmpty() && !fromCurrentPose && !fromInstruction)
 	{
+		if (err)
+			*err = QStringLiteral("invalid seedPolicy; expected FromInstruction|Chain|FromCurrentPose|Current");
+		return false;
+	}
+	if (!seedPolicyRaw.isEmpty())
+		ctx.extensions.insert(QStringLiteral("seedPolicy"), seedPolicyRaw);
+	if (!seedInstructionId.isEmpty())
+		ctx.extensions.insert(QStringLiteral("seedInstructionId"), seedInstructionId);
+
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto fillLiveSeed = [&]() -> bool
+	{
+		if (!host || !host->headlessRobotContext())
+			return false;
+		QStringList names;
+		QVector<double> lo, hi, ang;
+		if (!host->headlessRobotContext()->jointMetaForSceneRoot(sceneRoot, names, lo, hi, ang) || ang.isEmpty())
+			return false;
+		ctx.seedJointRad = ang;
+		return true;
+	};
+
+	if (fromCurrentPose)
+	{
+		// 当前位姿优先：忽略 jointRadCsv 作主种子
+		if (!fillLiveSeed())
+		{
+			if (err)
+				*err = QStringLiteral("current pose seed unavailable");
+			return false;
+		}
+	}
+	else if (!seedInstructionId.isEmpty())
+	{
+		if (!host)
+		{
+			if (err)
+				*err = QStringLiteral("no document host");
+			return false;
+		}
+		const auto seedIns = findSeedInstructionApi(host->robotProgramStore(), seedInstructionId);
+		if (!seedIns)
+		{
+			if (err)
+				*err = QStringLiteral("seed instruction not found: %1").arg(seedInstructionId);
+			return false;
+		}
+		// 无会话 PlanResult 缓存时仅能读临时扩展；缺失则硬失败，禁止静默降级
+		const auto& ext = seedIns->extensionProperties();
+		const auto csvIt = ext.find("context.currentJointRadCsv");
+		if (csvIt == ext.end() || csvIt->second.empty())
+		{
+			if (err)
+				*err = QStringLiteral(
+					"seed instruction has no planned joints yet; plan the referenced waypoint first");
+			return false;
+		}
+		const QStringList parts =
+			QString::fromStdString(csvIt->second).split(QLatin1Char(','), Qt::SkipEmptyParts);
+		ctx.seedJointRad.clear();
+		ctx.seedJointRad.reserve(parts.size());
+		for (const QString& p : parts)
+			ctx.seedJointRad.append(p.trimmed().toDouble());
+		if (ctx.seedJointRad.isEmpty())
+		{
+			if (err)
+				*err = QStringLiteral(
+					"seed instruction has no planned joints yet; plan the referenced waypoint first");
+			return false;
+		}
+	}
+	else if (!instr.jointRadCsv.isEmpty())
+	{
+		// jointRadCsv = 链式种子；示教目标走 taughtJointRadCsv，勿混用
 		const QStringList parts = instr.jointRadCsv.split(QLatin1Char(','), Qt::SkipEmptyParts);
 		ctx.seedJointRad.reserve(parts.size());
 		for (const QString& p : parts)
@@ -832,16 +951,11 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		for (const auto& v : o.value(QStringLiteral("seedJointRad")).toArray())
 			ctx.seedJointRad.append(v.toDouble());
 	}
-	else if (auto* host = cloudsim::host::documentHostFromScope(m_document.get()))
+	else if (!fillLiveSeed())
 	{
-		if (cloudsim::host::HeadlessRobotContext* hrc = host->headlessRobotContext())
-		{
-			QStringList names;
-			QVector<double> lo, hi, ang;
-			if (hrc->jointMetaForSceneRoot(sceneRoot, names, lo, hi, ang))
-				ctx.seedJointRad = ang;
-		}
+		// 无显式种子时回退当前关节
 	}
+
 	cloudsim::core::PlanResultDto result;
 	if (!m_document->robot().planInstruction(instr, ctx, result, err))
 		return false;
@@ -1013,6 +1127,57 @@ bool WebGateway::putRobotFramesOnGuiThread(const QByteArray& body, QString* err)
 	cur = newFrames;
 	cloudsim::host::syncProgramToolContextAfterFrameChange(host->robotProgramStore(), rootId, oldFrames, cur);
 	pushEvent(QStringLiteral("{\"type\":\"RobotCoordinateFramesChanged\",\"sceneRootBackendId\":\"%1\"}")
+				  .arg(jsonEscapeApi(rootId)));
+	return true;
+}
+
+QByteArray WebGateway::robotExternalAxesJsonOnGuiThread(const QString& sceneRootBackendId)
+{
+	QJsonObject root;
+	root.insert(QStringLiteral("ok"), false);
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		root.insert(QStringLiteral("error"), QStringLiteral("no headless robot context"));
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	const QString rootId = resolveSceneRootId(hrc, sceneRootBackendId);
+	QJsonObject ea;
+	QString err;
+	if (!hrc->getExternalAxesJson(rootId, ea, &err))
+	{
+		root.insert(QStringLiteral("error"), err.isEmpty() ? QStringLiteral("get externalAxes failed") : err);
+		return QJsonDocument(root).toJson(QJsonDocument::Compact);
+	}
+	root.insert(QStringLiteral("ok"), true);
+	root.insert(QStringLiteral("sceneRootBackendId"), rootId);
+	root.insert(QStringLiteral("externalAxes"), ea);
+	return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+bool WebGateway::putRobotExternalAxesOnGuiThread(const QByteArray& body, QString* err)
+{
+	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	auto* hrc = host ? host->headlessRobotContext() : nullptr;
+	if (!hrc)
+	{
+		if (err)
+			*err = QStringLiteral("no headless robot context");
+		return false;
+	}
+	const QJsonDocument doc = QJsonDocument::fromJson(body);
+	if (!doc.isObject())
+	{
+		if (err)
+			*err = QStringLiteral("invalid json");
+		return false;
+	}
+	const QJsonObject o = doc.object();
+	const QString rootId = resolveSceneRootId(hrc, o.value(QStringLiteral("sceneRootBackendId")).toString());
+	if (!hrc->setExternalAxesJson(rootId, o, err))
+		return false;
+	pushEvent(QStringLiteral("{\"type\":\"RobotExternalAxesChanged\",\"sceneRootBackendId\":\"%1\"}")
 				  .arg(jsonEscapeApi(rootId)));
 	return true;
 }

@@ -264,7 +264,7 @@ OsgWidget 信号的**唯一边界**。所有 OsgWidget 的 Qt 信号（拾取、
 loadPlugins 完成 → restoreUiPreferencesAfterPlugins()（插件 tab + 工作区模式）
 用户改语言/主题/模式/视图勾选 → 即时 persistUiPreferencesToStorage()
 关窗 closeEvent / aboutToQuit → persistUiPreferencesToStorage()
-loadPlugins 完成 → 先恢复工作区模式，再 applySavedViewLayout()（避免插件模式覆盖侧栏可见性）
+loadPlugins 完成 → 先 applySavedViewLayout()，再 enterWorkspaceMode()（模式会 detach 页签；若顺序反了会 addTab 崩）
 ```
 
 **侧栏页签键**：优先 `QWidget::objectName()`；插件侧栏应在注册前设稳定 objectName，避免用标题（随语言变化）。

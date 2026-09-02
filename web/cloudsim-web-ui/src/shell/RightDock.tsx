@@ -6,13 +6,17 @@ import TrajectoryGenPanel from "../docks/robot/TrajectoryGenPanel";
 import TrajectoryEditPanel from "../docks/robot/TrajectoryEditPanel";
 import FramesPanel from "../docks/robot/FramesPanel";
 import CollisionPanel from "../docks/robot/CollisionPanel";
+import ExternalAxesPanel from "../docks/robot/ExternalAxesPanel";
+import CommPanel from "../docks/robot/CommPanel";
 import DeviceCommandPanel from "../docks/devices/DeviceCommandPanel";
 import AiPanel from "../docks/ai/AiPanel";
 import PointCloudPanel from "../docks/cloud/PointCloudPanel";
 import GeometryPanel from "../docks/geometry/GeometryPanel";
 import { useDockNav } from "../state/dockNavStore";
+import { useProject } from "../state/projectStore";
 
 export default function RightDock() {
+  const { mode } = useProject();
   const {
     primary,
     setPrimary,
@@ -25,6 +29,18 @@ export default function RightDock() {
     deviceTab,
     setDeviceTab,
   } = useDockNav();
+
+  // 对齐桌面 enterAlternateSideUi(..., nullptr)：右栏只留 AI
+  if (mode === "geomodeling") {
+    return (
+      <aside className="right dock">
+        <div className="dock-tabs primary">
+          <span className="tab active">AI 助手</span>
+        </div>
+        <AiPanel />
+      </aside>
+    );
+  }
 
   return (
     <aside className="right dock">
@@ -93,7 +109,9 @@ export default function RightDock() {
                         ["trajGen", "轨迹生成"],
                         ["trajEdit", "轨迹编辑"],
                         ["frame", "坐标系"],
+                        ["extAxis", "外轴"],
                         ["collision", "碰撞"],
+                        ["comm", "通讯"],
                       ] as const
                     ).map(([k, label]) => (
                       <button
@@ -111,7 +129,9 @@ export default function RightDock() {
                   {robot === "trajGen" && <TrajectoryGenPanel />}
                   {robot === "trajEdit" && <TrajectoryEditPanel />}
                   {robot === "frame" && <FramesPanel />}
+                  {robot === "extAxis" && <ExternalAxesPanel />}
                   {robot === "collision" && <CollisionPanel />}
+                  {robot === "comm" && <CommPanel />}
                 </>
               ) : (
                 <>

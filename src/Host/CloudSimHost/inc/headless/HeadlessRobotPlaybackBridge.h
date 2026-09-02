@@ -11,7 +11,9 @@
 #include <QJsonObject>
 #include <QObject>
 #include <QTimer>
+#include <QVector>
 #include <functional>
+#include <vector>
 
 namespace cloudsim::host
 {
@@ -32,10 +34,18 @@ public:
 	QJsonObject statusJson() const;
 
 private:
+	enum class SeedPolicy
+	{
+		FromInstruction, // Chain
+		FromCurrentPose  // Current：每段以实时关节为种子
+	};
+
 	void onTimerTick();
+	void fillLazyPlans();
 	bool buildPlanResults(const QString& sceneRootBackendId, int instIdx,
 						  const std::vector<std::shared_ptr<RobotInstruction::Base>>& instructions,
 						  std::vector<RobotInstruction::PlanResult>& outPlans, QString* err);
+	bool readLiveJointSeed(const QString& sceneRootBackendId, int instIdx, QVector<double>& outSeed) const;
 
 	DocumentHost& m_host;
 	RobotProgramExecutor m_executor;
@@ -43,6 +53,9 @@ private:
 	QString m_sceneRootId;
 	int m_instanceIndex = -1;
 	EventPushFn m_pushEvent;
+	std::vector<const RobotInstruction::Base*> m_motions;
+	QVector<double> m_rollingSeedQ;
+	SeedPolicy m_seedPolicy = SeedPolicy::FromInstruction;
 };
 
 } // namespace cloudsim::host

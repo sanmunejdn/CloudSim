@@ -850,6 +850,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 				return;
 			}
 			jobResult.rmseMm = result->spare.meanErrorMm;
+			jobResult.rmseIsMeanPointToPlane = true;
 			jobResult.spareDeformationNodeCount = result->spare.deformationNodeCount;
 
 			if (sourceIsMesh)
@@ -882,6 +883,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 						return;
 					}
 					jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9U;
+					jobResult.countAfterIsFaces = true;
 				}
 				else if (params.applyDeformationToSource)
 				{
@@ -892,6 +894,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 						(void)osg->loadMeshFromBackendData(*sourceMesh, &geomErr, false, true, true);
 					}
 					jobResult.pointCountAfter = sourceMesh->triangleSoup().size() / 9U;
+					jobResult.countAfterIsFaces = true;
 				}
 			}
 			else if (params.createNewObject)
@@ -1179,6 +1182,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 				return;
 			}
 			jobResult.rmseMm = result->sdf.meanErrorMm;
+			jobResult.rmseIsMeanPointToPlane = true;
 			jobResult.spareDeformationNodeCount = result->sdf.deformationNodeCount;
 			jobResult.debugReport = result->sdf.debugSummary;
 
@@ -1225,6 +1229,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 						return;
 					}
 					jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9U;
+					jobResult.countAfterIsFaces = true;
 				}
 				else if (params.applyDeformationToSource)
 				{
@@ -1235,6 +1240,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 						(void)osg->loadMeshFromBackendData(*sourceMesh, &geomErr, false, true, true);
 					}
 					jobResult.pointCountAfter = sourceMesh->triangleSoup().size() / 9U;
+					jobResult.countAfterIsFaces = true;
 				}
 			}
 			else if (params.createNewObject)
@@ -1293,6 +1299,132 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 				sourcePc->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
 				document_point_cloud_ops::commitPointCloudVisual(page, *sourcePc);
 				jobResult.pointCountAfter = sourcePc->geometryElementCount();
+			}
+			onFinished(true, QString(), jobResult);
+		});
+}
+
+void PluginPointCloudHostImpl::nonRigidRegisterPyramid(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
+													   const PluginPointCloudPyramidParams& params,
+													   PluginPointCloudFinishedFn onFinished)
+{
+	if (!m_host || !onFinished)
+	{
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	std::string resolveErr;
+
+	const auto sourceMesh = document_point_cloud_ops::resolveMesh(page, sourceBackendIdUtf8, &resolveErr);
+	if (!sourceMesh)
+	{
+		onFinished(false, QString::fromStdString(resolveErr.empty() ? "Pyramid: source must be a mesh" : resolveErr),
+				   {});
+		return;
+	}
+	const auto targetMesh = document_point_cloud_ops::resolveMesh(page, params.targetBackendIdUtf8, &resolveErr);
+	if (!targetMesh)
+	{
+		onFinished(false, QString::fromStdString(resolveErr.empty() ? "Pyramid: target must be a mesh" : resolveErr),
+				   {});
+		return;
+	}
+
+	struct PyramidWorkResult
+	{
+		point_cloud_backend_ops::PointCloudPyramidResult pyramid;
+		std::vector<float> newMeshSoup;
+		std::string error;
+		bool ok = false;
+		bool resultInWorldFrame = false;
+	};
+	auto result = std::make_shared<PyramidWorkResult>();
+
+	point_cloud_backend_ops::PointCloudPyramidParams coreParams;
+	coreParams.baseEdgeLengthMm = params.baseEdgeLengthMm;
+	coreParams.rigidPreAlign = params.rigidPreAlign;
+	coreParams.useFineRegOnLastLayer = params.useFineRegOnLastLayer;
+	coreParams.solver = params.solver;
+	coreParams.sdf.rigidPreAlign = params.rigidPreAlign;
+	coreParams.spare.rigidPreAlign = params.rigidPreAlign;
+
+	m_host->enqueueJob(
+		QStringLiteral("Geometric pyramid non-rigid registration"),
+		[sourceMesh, targetMesh, coreParams, result](const PluginJobProgressFn& report)
+		{
+			report(0.1, QStringLiteral("Pyramid L0..L2 (world frame)..."));
+			auto meshCopy = std::make_shared<MeshBackendData>();
+			meshCopy->setTriangleSoup(sourceMesh->worldTriangleSoup());
+			auto tgtWorld = std::make_shared<MeshBackendData>();
+			tgtWorld->setTriangleSoup(targetMesh->worldTriangleSoup());
+			result->ok = point_cloud_backend_ops::nonRigidRegisterMeshPyramid(
+				*meshCopy, *tgtWorld, result->pyramid, coreParams, &result->error);
+			if (result->ok)
+			{
+				result->newMeshSoup = meshCopy->triangleSoup();
+				result->resultInWorldFrame = true;
+			}
+			report(1.0, QStringLiteral("Done"));
+		},
+		[m_host = m_host, page, sourceMesh, params, result,
+		 onFinished = std::move(onFinished)](const bool threw, const QString& throwMessage)
+		{
+			PluginPointCloudJobResult jobResult;
+			if (threw)
+			{
+				onFinished(false, throwMessage, jobResult);
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, QString::fromStdString(result->error), jobResult);
+				return;
+			}
+			jobResult.rmseMm = result->pyramid.meanErrorMm;
+			jobResult.rmseIsMeanPointToPlane = true;
+			jobResult.spareDeformationNodeCount = result->pyramid.deformationNodeCount;
+			jobResult.debugReport = result->pyramid.debugSummary;
+
+			std::vector<float> soup = result->newMeshSoup;
+			if (result->resultInWorldFrame)
+			{
+				triangleSoupWorldToStored(*sourceMesh, soup);
+			}
+			if (params.createNewObject)
+			{
+				auto meshPtr = std::make_shared<MeshBackendData>();
+				meshPtr->setTriangleSoup(std::move(soup));
+				PluginMeshCreateOptions options = params.newObjectOptions;
+				inheritSourceWorldPoseForMeshCreate(*sourceMesh, options);
+				if (options.displayName.isEmpty())
+				{
+					const QString base = QString::fromStdString(sourceMesh->name());
+					options.displayName =
+						base.isEmpty() ? QStringLiteral("Pyramid") : base + QStringLiteral("_Pyramid");
+				}
+				options.selectInTree = true;
+				options.sourcePath = QStringLiteral("plugin://pointcloud/pyramid");
+				std::string regErr;
+				jobResult.newBackendId = document_point_cloud_ops::registerReconstructedMesh(
+					page, m_host->mainWindowHost(), meshPtr, options, &regErr);
+				if (jobResult.newBackendId.empty())
+				{
+					onFinished(false, QString::fromStdString(regErr), jobResult);
+					return;
+				}
+				jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9U;
+				jobResult.countAfterIsFaces = true;
+			}
+			else if (params.applyDeformationToSource)
+			{
+				sourceMesh->setTriangleSoup(std::move(soup));
+				if (OsgWidget* osg = widgetOsgFromPage(page))
+				{
+					QString geomErr;
+					(void)osg->loadMeshFromBackendData(*sourceMesh, &geomErr, false, true, true);
+				}
+				jobResult.pointCountAfter = sourceMesh->triangleSoup().size() / 9U;
+				jobResult.countAfterIsFaces = true;
 			}
 			onFinished(true, QString(), jobResult);
 		});

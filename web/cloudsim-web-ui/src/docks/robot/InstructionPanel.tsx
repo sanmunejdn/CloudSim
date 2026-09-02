@@ -13,6 +13,9 @@ import {
   switchRobotProgram,
   undoProgramEdit,
   redoProgramEdit,
+  robotGroupCrud,
+  robotProgramCrud,
+  type IkSeedPolicy,
   type Instruction,
 } from "../../api";
 import { dialogOpen } from "../../api/project";
@@ -120,6 +123,8 @@ export default function InstructionPanel() {
   const { bindPlan, reloadPathPlans, setFeatures } = useTrajectory();
   const [simRate, setSimRate] = useState(1);
   const [exportBrand, setExportBrand] = useState<string>(ROBOT_EXPORT_BRANDS[0].id);
+  const [seedPolicy, setSeedPolicy] = useState<IkSeedPolicy>("FromInstruction");
+  const [groupSel, setGroupSel] = useState("");
   const abortRef = useRef(false);
   const [urdfPath, setUrdfPath] = useState("");
   const [jointsCsv, setJointsCsv] = useState("0,0,0,0,0,0");
@@ -265,7 +270,7 @@ export default function InstructionPanel() {
       return;
     }
     if (!["ptp", "line", "arc"].includes(type)) return;
-    const planned = await planStepFrames(activeRootId, step);
+    const planned = await planStepFrames(activeRootId, step, seedPolicy);
     if (!planned.ok) {
       setStatus(planned.error || "跳转失败", "err");
       return;
@@ -315,6 +320,7 @@ export default function InstructionPanel() {
           sceneRootBackendId: activeRootId,
           programId: activeProgram?.id,
           playbackRate: simRate,
+          seedPolicy,
         },
         () => abortRef.current,
         (frame) => {
@@ -386,7 +392,7 @@ export default function InstructionPanel() {
         continue;
       }
       if (!["ptp", "line", "arc"].includes(type)) continue;
-      const planned = await planStepFrames(activeRootId, step);
+      const planned = await planStepFrames(activeRootId, step, seedPolicy);
       if (!planned.ok) {
         setStatus(planned.error || `规划失败: ${step.id}`, "err");
         break;
@@ -498,6 +504,82 @@ export default function InstructionPanel() {
         <button
           type="button"
           className="btn-ghost"
+          title="新建程序"
+          onClick={async () => {
+            if (!activeRootId) {
+              setStatus("请先导入机器人", "warn");
+              return;
+            }
+            const name = window.prompt("新程序名称", `Program_${programs.length + 1}`);
+            if (!name) return;
+            const r = await robotProgramCrud({
+              action: "create",
+              name,
+              sceneRootBackendId: activeRootId,
+            });
+            if (!r.ok) {
+              setStatus(r.error || "新建失败", "err");
+              return;
+            }
+            await reloadPrograms();
+            if (r.programId) await switchProgram(r.programId);
+            setStatus(`已新建 ${name}`);
+          }}
+        >
+          新建
+        </button>
+        <button
+          type="button"
+          className="btn-ghost"
+          title="重命名当前程序"
+          onClick={async () => {
+            if (!activeProgramId) return;
+            const name = window.prompt("程序名称", activeProgram?.name || activeProgramId);
+            if (!name) return;
+            const r = await robotProgramCrud({
+              action: "rename",
+              programId: activeProgramId,
+              name,
+              sceneRootBackendId: activeRootId || undefined,
+            });
+            setStatus(r.ok ? "已重命名" : r.error || "重命名失败", r.ok ? "info" : "err");
+            if (r.ok) await reloadPrograms();
+          }}
+        >
+          改名
+        </button>
+        <button
+          type="button"
+          className="btn-ghost danger"
+          title="删除当前程序"
+          onClick={async () => {
+            if (!activeProgramId) return;
+            if (!window.confirm(`删除程序「${activeProgram?.name || activeProgramId}」？`)) return;
+            const r = await robotProgramCrud({
+              action: "delete",
+              programId: activeProgramId,
+              sceneRootBackendId: activeRootId || undefined,
+            });
+            setStatus(r.ok ? "已删除程序" : r.error || "删除失败", r.ok ? "info" : "err");
+            await reloadPrograms();
+          }}
+        >
+          删程序
+        </button>
+        <label className="inline">
+          IK种子
+          <select
+            value={seedPolicy}
+            onChange={(e) => setSeedPolicy(e.target.value as IkSeedPolicy)}
+            title="链式=沿程序滚动；当前=每段用实时关节"
+          >
+            <option value="FromInstruction">链式</option>
+            <option value="FromCurrentPose">当前</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          className="btn-ghost"
           title="规划选中指令"
           onClick={() => selectedInstrId && void selectAndJump(selectedInstrId)}
         >
@@ -505,6 +587,77 @@ export default function InstructionPanel() {
         </button>
         <button type="button" className="btn-ghost danger" onClick={() => void delSelected()}>
           删除
+        </button>
+      </div>
+      <div className="toolbar-row">
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={!selectedInstrId}
+          onClick={async () => {
+            if (!selectedInstrId) return;
+            const name = window.prompt("组名称", "Group");
+            if (!name) return;
+            const r = await robotGroupCrud({
+              action: "create",
+              name,
+              memberInstructionIds: [selectedInstrId],
+              sceneRootBackendId: activeRootId || undefined,
+            });
+            setStatus(r.ok ? `已建组 ${name}` : r.error || "建组失败", r.ok ? "info" : "err");
+            if (r.ok) await reloadPrograms();
+          }}
+        >
+          建组
+        </button>
+        <select value={groupSel} onChange={(e) => setGroupSel(e.target.value)}>
+          <option value="">组…</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name || g.id}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={!groupSel}
+          onClick={async () => {
+            if (!groupSel) return;
+            const cur = groups.find((g) => g.id === groupSel);
+            const name = window.prompt("组名称", cur?.name || "");
+            if (!name) return;
+            const r = await robotGroupCrud({
+              action: "rename",
+              groupId: groupSel,
+              name,
+              sceneRootBackendId: activeRootId || undefined,
+            });
+            setStatus(r.ok ? "组已改名" : r.error || "改名失败", r.ok ? "info" : "err");
+            if (r.ok) await reloadPrograms();
+          }}
+        >
+          组改名
+        </button>
+        <button
+          type="button"
+          className="btn-ghost danger"
+          disabled={!groupSel}
+          onClick={async () => {
+            if (!groupSel) return;
+            const r = await robotGroupCrud({
+              action: "dissolve",
+              groupId: groupSel,
+              sceneRootBackendId: activeRootId || undefined,
+            });
+            setStatus(r.ok ? "组已解散" : r.error || "解散失败", r.ok ? "info" : "err");
+            if (r.ok) {
+              setGroupSel("");
+              await reloadPrograms();
+            }
+          }}
+        >
+          解散组
         </button>
       </div>
       <div className="section-title">指令</div>

@@ -15,6 +15,7 @@
 #include "RegistrationRigid.h"
 #include "RegistrationSpare.h"
 #include "RegistrationSdf.h"
+#include "RegistrationPyramid.h"
 #include "Transform.h"
 #include "spare/SpareSurface.h"
 
@@ -623,6 +624,37 @@ bool nonRigidRegisterMeshSdf(MeshBackendData& sourceMeshInOut, const PointCloudB
 	out.meanErrorMm = stats.meanErrorMm;
 	out.deformationNodeCount = stats.deformationNodeCount;
 	out.fieldVoxelMmUsed = stats.fieldVoxelMmUsed;
+	out.debugSummary = stats.debugSummary;
+	return true;
+}
+
+bool nonRigidRegisterMeshPyramid(MeshBackendData& sourceMeshInOut, const MeshBackendData& targetMesh,
+								 PointCloudPyramidResult& out, const PointCloudPyramidParams& params,
+								 std::string* errMsg)
+{
+	pclalgo::PyramidRegisterParams core;
+	core.baseEdgeLengthMm = params.baseEdgeLengthMm;
+	core.layers = params.layers;
+	core.layerScale = params.layerScale;
+	core.rigidPreAlign = params.rigidPreAlign;
+	core.useFineRegOnLastLayer = params.useFineRegOnLastLayer;
+	core.solver = (params.solver == 1) ? pclalgo::PyramidSolver::Spare : pclalgo::PyramidSolver::Sdf;
+	core.sdf = toSdfRegisterParams(params.sdf);
+	core.spare = toSpareRegisterParams(params.spare);
+	core.remeshIterations = params.remeshIterations;
+
+	std::vector<float> soupOut;
+	pclalgo::PyramidRegisterResult stats;
+	if (!pclalgo::pyramidRegisterMeshSoupToMeshSoup(sourceMeshInOut.triangleSoup(), targetMesh.triangleSoup(), soupOut,
+													core, &stats, errMsg))
+	{
+		return false;
+	}
+	sourceMeshInOut.setTriangleSoup(std::move(soupOut));
+	out.meanErrorMm = stats.meanErrorMm;
+	out.deformationNodeCount = stats.deformationNodeCount;
+	out.baseEdgeLengthMmUsed = stats.baseEdgeLengthMmUsed;
+	out.layersRun = stats.layersRun;
 	out.debugSummary = stats.debugSummary;
 	return true;
 }

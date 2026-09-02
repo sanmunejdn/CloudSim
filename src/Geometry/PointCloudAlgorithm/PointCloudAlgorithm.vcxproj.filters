@@ -98,6 +98,9 @@
     <ClInclude Include="inc\RegistrationNonRigid.h">
       <Filter>inc\Registration</Filter>
     </ClInclude>
+    <ClInclude Include="inc\RegistrationPyramid.h">
+      <Filter>inc\Registration</Filter>
+    </ClInclude>
     <ClInclude Include="inc\RegistrationRigid.h">
       <Filter>inc\Registration</Filter>
     </ClInclude>
@@ -173,6 +176,9 @@
       <Filter>src\Registration</Filter>
     </ClCompile>
     <ClCompile Include="source\RegistrationNonRigid.cpp">
+      <Filter>src\Registration</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RegistrationPyramid.cpp">
       <Filter>src\Registration</Filter>
     </ClCompile>
     <ClCompile Include="source\RegistrationRigid.cpp">

@@ -341,6 +341,12 @@ HeadlessGeomodelBridge* DocumentHost::headlessGeomodelBridge() const
 	return m_headlessGeomodelBridge.get();
 }
 
+void DocumentHost::resetHeadlessGeomodelHistory()
+{
+	if (m_headlessGeomodelBridge)
+		m_headlessGeomodelBridge->resetHistoryStack();
+}
+
 HeadlessLabelingBridge* DocumentHost::headlessLabelingBridge() const
 {
 	return m_headlessLabelingBridge.get();
