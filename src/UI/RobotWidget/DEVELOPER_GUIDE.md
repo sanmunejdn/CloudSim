@@ -1,4 +1,6 @@
-# RobotWidget Developer Guide
+﻿# RobotWidget Developer Guide
+
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — per-link FK、工具轴叠加、TCP 拖动示教均须遵守；实现见 `RobotSimulationMathExports.cpp`、`refreshRobotCoordinateFrameOverlays`。
 
@@ -22,7 +24,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | **自定义设备组装** | `CustomDeviceAssemblyDialog`；「3D 选择零件」→ `beginPickSolidInView` / `extractBrepSolidByFace`；提交 `CustomDeviceAssemblyCommit` |
 | **设备指令（姿态库 + DI 信号驱动）** | `DeviceCommandPageWidget` + `CustomDeviceSimService`；姿态/`poseSignalBindings`/`signals` 在 `CustomDeviceBackendData`；DI 来自本设备信号表 |
 | **IO 网络 / 连接站** | 桌面：`IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站；Tab stash `ioSignalNetworkCache`。网页/Headless：Host `IoSignalNetwork`（同侧车 JSON）+ Gateway `/api/io/network*`，见 [`docs/网页端信号网络与自定义设备/`](../../../docs/网页端信号网络与自定义设备/)。过程稿 [`docs/_archive/IO信号与流程/`](../../../docs/_archive/IO信号与流程/) |
-| **碰撞与关节路径规划** | Dock「碰撞与规划」：`RobotCollisionSettingsWidget`（启用/安全余量、未分配池、白/黑名单、**规划算法/时限**、起终点路点下拉、规划/清除/确认插入）；算法见 `RobotPathPlanning`、原理说明见 [`docs/RobotPathPlanning/PLANNERS_规划算法原理.md`](../../../docs/RobotPathPlanning/PLANNERS_规划算法原理.md)；场景同步 `BackendCollisionSync` |
+| **碰撞与关节路径规划** | Dock「碰撞与规划」：`RobotCollisionSettingsWidget`（启用/安全余量、未分配池、白/黑名单、**规划算法/时限**、起终点路点下拉、规划/清除/确认插入）；算法见 `RobotPathPlanning`、原理说明见 [`docs/机器人路径规划/PLANNERS_规划算法原理.md`](../../../docs/机器人路径规划/PLANNERS_规划算法原理.md)；场景同步 `BackendCollisionSync` |
 | Orchestration | `RobotSimulationController`（门面；含 `IoSignalNetworkService` 等小服务） |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
@@ -62,7 +64,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 - Output: `bin/x64(d)/RobotWidget.dll`.
 - Depends: `RobotScene`, `RobotUrdf`, `RobotKinematics`, `GeometryEngine`, `Data`, `RunLogger`, `OsgWidgetCore`, `BackendVisual`, OSG.
 
-See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §3.3 / §13–§16 and [文档索引](../../../docs/README.md) §6.4.
+See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §3.3 / §13–§16 and [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §6.4.
 
 ### UI 图标（`CloudSimUiAssets`）
 
@@ -419,7 +421,7 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 
 轴控、姿态库、`DeviceAxisInstruction` 只消费投影后的扁平接口；新功能优先挂图。
 
-**机器人法兰挂载**（`CustomDeviceRobotMountComponent` + 设备根 **显式** `FollowAttachment`）：组装完成后在组装对话框选择机器人与安装坐标系（须在设备根或 fixed Link 下）；挂载时 bake `T_local = T_tool × inv(T_frame_in_device)`，设备根 Follow 法兰（跨部件）。同部件 STEP 子 Solid **不**装 hierarchy Follow，靠 `applyToSink` / `backend_compound` 刚体随动。机器人 FK 后经 `runBackendFollowSolveAndSync`（内含挂载 refresh + compound 后再解跟子件的 Follow）更新并 flush。轴控 `applyQ` 末尾 `syncMotionCenterFramesFromOrigins`。工具系变更时 `rebakeMountedCustomDevicesFollowLocals`。Host：`mountCustomDeviceToRobotFlange` / `unmountCustomDeviceFromRobotFlange`；Web：`POST /api/custom-devices/{id}/mount`。概念见 `docs/Follow与Compound分流/`。
+**机器人法兰挂载**（`CustomDeviceRobotMountComponent` + 设备根 **显式** `FollowAttachment`）：组装完成后在组装对话框选择机器人与安装坐标系（须在设备根或 fixed Link 下）；挂载时 bake `T_local = T_tool × inv(T_frame_in_device)`，设备根 Follow 法兰（跨部件）。同部件 STEP 子 Solid **不**装 hierarchy Follow，靠 `applyToSink` / `backend_compound` 刚体随动。机器人 FK 后经 `runBackendFollowSolveAndSync`（内含挂载 refresh + compound 后再解跟子件的 Follow）更新并 flush。轴控 `applyQ` 末尾 `syncMotionCenterFramesFromOrigins`。工具系变更时 `rebakeMountedCustomDevicesFollowLocals`。Host：`mountCustomDeviceToRobotFlange` / `unmountCustomDeviceFromRobotFlange`；Web：`POST /api/custom-devices/{id}/mount`。概念见 `docs/_archive/Follow与Compound分流/`。
 
 i18n：`setUseChinese` ← `MainWindow::applyLanguage`。
 
@@ -515,7 +517,7 @@ Dock 页「碰撞与规划」（`RobotCollisionSettingsWidget`）：
 
 1. `BackendCollisionSync::rebuildWorld` + 起点 `applyJointAnglesRad` + `updatePoses`
 2. 绑定 `fkMeshWorldT0` / `outerWorldAtBind` / `robotBasePlacementWorld`（OSG）填入 `PlanRequest`
-3. `robot_path::planToTcpPose`（`plannerId`：`Auto`=BIT*→…→RRTConnect 级联；显式含 **Dijkstra** 网格最短路；见 [`RobotPathPlanning/DEVELOPER_GUIDE.md`](../../Robot/RobotPathPlanning/DEVELOPER_GUIDE.md)）
+3. `robot_path::planToTcpPose`（`plannerId`：`Auto`=BIT*→…→RRTConnect 级联；显式含 **Dijkstra** 网格最短路；见 [`机器人路径规划/DEVELOPER_GUIDE.md`](../../Robot/RobotPathPlanning/DEVELOPER_GUIDE.md)）
 4. densify 后 `BackendCollisionSync::validateJointTrajectory`（画面 apply + OSG）闸门
 5. 预览折线；确认后 `insertRawTrajectoryBetween`（Pmid 进分组，夹在起终点之间）+ 示教关节 CSV
 
@@ -984,8 +986,8 @@ MVP 桩 `importTubularGrindingPointsToRawTrajectory` 返回 `false`，`errMsg = 
 
 ## 相关文档
 
-- 总架构：[文档索引](../../../docs/README.md)
-- 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../docs/MODULE_DEVELOPER_GUIDES.md)
+- 总架构：[全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md)
+- 模块索引：[`../../../docs/MODULE_DEVELOPER_GUIDES.md`](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 - Host 工程包 / kinematics：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.2c
 - Widget 宿主 / TCP / 保存流程：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6、§13.1
 - 自定义设备过程稿：[`docs/_archive/自定义设备/`](../../../docs/_archive/自定义设备/)

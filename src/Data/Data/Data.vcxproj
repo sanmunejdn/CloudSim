@@ -175,8 +175,13 @@
     <ClInclude Include="inc\FollowAttachmentComponent.h" />
     <ClInclude Include="inc\CustomDeviceRobotMountComponent.h" />
     <ClInclude Include="inc\BackendDataBase.h" />
+    <ClInclude Include="inc\BackendPropertyBinding.h" />
+    <ClInclude Include="inc\BackendExternalPropertySchemaRegistry.h" />
     <ClInclude Include="inc\BackendObjectAttribute.h" />
     <ClInclude Include="inc\BackendPropertyRow.h" />
+    <ClInclude Include="inc\BackendPropertySchema.h" />
+    <ClInclude Include="inc\BackendPropertyVisualAspect.h" />
+    <ClInclude Include="inc\BackendPropertyBindingSelfTest.h" />
     <ClInclude Include="inc\BackendDataManager.h" />
     <ClInclude Include="inc\BackendManagerDataService.h" />
     <ClInclude Include="inc\BackendHierarchyChange.h" />
@@ -208,7 +213,9 @@
     <ClCompile Include="source\CustomDeviceRobotMountComponent.cpp" />
     <ClCompile Include="source\BackendDataBase.cpp" />
     <ClCompile Include="source\BackendPropertyVisualAspect.cpp" />
-    <ClCompile Include="source\BackendObjectAttribute.cpp" />
+    <ClCompile Include="source\BackendPropertyBindings.cpp" />
+    <ClCompile Include="source\BackendExternalPropertySchemaRegistry.cpp" />
+    <ClCompile Include="source\BackendPropertyBindingSelfTest.cpp" />
     <ClCompile Include="source\BackendDataManager.cpp" />
     <ClCompile Include="source\BackendHierarchyModel.cpp" />
     <ClCompile Include="source\geometry_base64.cpp" />

@@ -1,4 +1,4 @@
-# DESIGN — 自定义设备机器人法兰挂载
+﻿# DESIGN — 自定义设备机器人法兰挂载
 
 ## 数据
 
@@ -34,7 +34,7 @@ notifyRobotKinematicsAppliedToScene
 - 通用 Follow 求解器**跳过**已挂载 `CustomDevice` 根的世界写入（由 `updateMountedDeviceWorldFromRobotTcp` 独占）。
 - 同部件 STEP 子件：**无** hierarchy Follow；由 `backend_compound` / `applyToSink` 刚体更新。**禁止**在 `flushCustomDeviceLinkGeometryVisual` 内再调 `runFollowSolveAndSync`。
 - 工具系变更：`rebakeMountedCustomDevicesFollowLocals` 重算 `T_local`。
-- 概念细则：`docs/Follow与Compound分流/CONSENSUS_Follow与Compound分流.md`。
+- 概念细则：`docs/_archive/Follow与Compound分流/CONSENSUS_Follow与Compound分流.md`。
 
 ## Phase 1 约束
 

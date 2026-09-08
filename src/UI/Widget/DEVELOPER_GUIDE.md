@@ -1,4 +1,6 @@
-# Widget 模块开发文档
+﻿# Widget 模块开发文档
+
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；Widget 侧属性编辑经 `doc->data().applyPropertyChange`，由 Host `BackendVisualSync` 同步 OSG。
 
@@ -294,6 +296,8 @@ loadPlugins 完成 → 先 applySavedViewLayout()，再 enterWorkspaceMode()（�
             → BackendVisualSync::afterDataServicePropertyChange()
 ```
 
+descriptor / 编辑器类型按选中对象 **className**（后端 Binding schema）或指令 **Type**（`InstructionPropertyBinding`）查找；未知 key 的 visual aspect 为 0（不全脏）。详见 [`Data` §5](../../Data/Data/DEVELOPER_GUIDE.md)、[`RobotScene` §10](../../Robot/RobotScene/DEVELOPER_GUIDE.md)。
+
 ### 5.2 指令属性刷新
 
 仿真指令属性同样使用防抖：
@@ -522,7 +526,7 @@ w.showMaximized();
 
 | 文档 | 内容 |
 |------|------|
-| [文档索引](../../../docs/README.md) | 全局架构与依赖图 |
+| [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) | 全局架构与依赖图 |
 | [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) | 文档宿主、Core 适配器、组合根 |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | 契约接口与 DTO |
 | [`RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) | 仿真 UI、轨迹编辑 |
@@ -577,4 +581,4 @@ w.showMaximized();
 
 ## ViewportInteraction（2026-08）
 
-拾取交互经 `ViewportInteractionController`：`IViewportPickEngine` 唯一 `queryPick`；`IPointerTool` / `IOverlayOp` 分手势与罗盘；`IHitResolvePolicy` 归并；`IInteractionSession` 业务消费。旧 `set*PickMode` 为门面。详见 `docs/视口拾取重构/`。
+拾取交互经 `ViewportInteractionController`：`IViewportPickEngine` 唯一 `queryPick`；`IPointerTool` / `IOverlayOp` 分手势与罗盘；`IHitResolvePolicy` 归并；`IInteractionSession` 业务消费。旧 `set*PickMode` 为门面。详见 `docs/_archive/视口拾取重构/`。

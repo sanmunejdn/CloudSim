@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Fix relative links in CloudSim first-party markdown guides."""
 from __future__ import annotations
 
@@ -144,7 +144,7 @@ for path in SRC_GUIDES:
         text = text.replace(f"](../../{old})", f"](../../../{new})")  # leftover shallow
 
     # Avoid double _archive
-    text = text.replace("docs/_archive/_archive/", "docs/_archive/")
+    text = text.replace("docs/_archive/", "docs/_archive/")
 
     if text != orig:
         path.write_text(text, encoding="utf-8-sig", newline="\r\n")

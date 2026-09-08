@@ -118,6 +118,8 @@
     <ClInclude Include="inc\PluginPointCloudHostImpl.h" />
     <ClInclude Include="inc\plugin_host_global.h" />
     <ClInclude Include="inc\PluginDelegatedBackend.h" />
+    <ClInclude Include="inc\PluginPropertyBindingRegistry.h" />
+    <ClInclude Include="inc\PluginPropertyBindingSelfTest.h" />
     <ClInclude Include="inc\PluginDocumentAdapter.h" />
     <ClInclude Include="inc\Ai\AiMeshDefaults.h" />
     <ClInclude Include="inc\PluginHostContext.h" />
@@ -162,6 +164,8 @@
     <ClCompile Include="source\DocumentGeometryOps.cpp" />
     <ClCompile Include="source\DocumentPointCloudOps.cpp" />
     <ClCompile Include="source\PluginDelegatedBackend.cpp" />
+    <ClCompile Include="source\PluginPropertyBindingRegistry.cpp" />
+    <ClCompile Include="source\PluginPropertyBindingSelfTest.cpp" />
     <ClCompile Include="source\PluginDocumentAdapter.cpp" />
     <ClCompile Include="source\PluginHostContext.cpp" />
     <ClCompile Include="source\PluginGeometryHostImpl.cpp" />

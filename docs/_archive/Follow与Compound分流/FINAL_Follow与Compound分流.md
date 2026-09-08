@@ -1,4 +1,4 @@
-# FINAL — Follow 与 Compound 分流
+﻿# FINAL — Follow 与 Compound 分流
 
 ## 交付摘要
 
@@ -15,7 +15,7 @@
 
 ## 文档
 
-- `docs/Follow与Compound分流/CONSENSUS_*.md` / `ACCEPTANCE_*.md`
+- `docs/_archive/Follow与Compound分流/CONSENSUS_*.md` / `ACCEPTANCE_*.md`
 - Host / Data / RobotScene / RobotWidget DEVELOPER_GUIDE
 - `docs/自定义设备机器人挂载/DESIGN_*.md`
 

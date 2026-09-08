@@ -3,8 +3,6 @@
 
 #include "CustomDeviceBackendData.h"
 
-#include "../../PropertyCore/inc/PropertyAttribute.h"
-#include "BackendObjectAttribute.h"
 #include "BackendTypeIdentity.h"
 #include "CustomDeviceRobotMountComponent.h"
 #include "RunLogger.h"
@@ -574,7 +572,6 @@ bool readCustomDevicePoseSignalBindingsFromJson(const nlohmann::json& in,
 CustomDeviceBackendData::CustomDeviceBackendData()
 {
 	setName(backend_type::kCatalogCustomDevice);
-	appendStandardAttributesForCapabilities(*this, m_attributes);
 	m_baseWorldW0 = BackendMat4::identity();
 	m_baseWorldW0Valid = true;
 }
@@ -784,22 +781,9 @@ void CustomDeviceBackendData::setIoSignalsJson(nlohmann::json signalsJson)
 	m_ioSignalsJson = std::move(signalsJson);
 }
 
-nlohmann::json CustomDeviceBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
+const std::vector<BackendPropertyBinding>& CustomDeviceBackendData::extraPropertyBindings() const
 {
-	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
-	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
-	return rows;
-}
-
-bool CustomDeviceBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-												  const BackendDataManager* mgr)
-{
-	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
-																					  errMsg))
-	{
-		return true;
-	}
-	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
+	return backend_property_binding_extras::axisLengthExtras();
 }
 
 void CustomDeviceBackendData::saveDerivedJson(nlohmann::json& out) const

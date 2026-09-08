@@ -189,6 +189,8 @@
     <ClInclude Include="inc\IRobotSimulationDocument.h" />
     <ClInclude Include="inc\RobotPerLinkKinematicsSliceOsg.h" />
     <ClInclude Include="inc\RobotInstructionAxisConfiguration.h" />
+    <ClInclude Include="inc\InstructionPropertyBinding.h" />
+    <ClInclude Include="inc\InstructionPropertyBindingSelfTest.h" />
     <ClInclude Include="inc\RobotInstructionAttribute.h" />
     <ClInclude Include="inc\RobotInstructionCondition.h" />
     <ClInclude Include="inc\RobotCoordinateFrames.h" />
@@ -277,7 +279,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
-    <ClCompile Include="source\RobotInstructionAttribute.cpp" />
+    <ClCompile Include="source\InstructionPropertyBindingSelfTest.cpp" />
+    <ClCompile Include="source\InstructionPropertyBindings.cpp" />
     <ClCompile Include="source\RobotInstructionCondition.cpp" />
     <ClCompile Include="source\NamedSignalTable.cpp" />
     <ClCompile Include="source\RobotCoordinateFrames.cpp" />

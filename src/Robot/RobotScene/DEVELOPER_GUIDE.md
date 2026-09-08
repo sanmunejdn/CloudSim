@@ -1,5 +1,7 @@
 ﻿# RobotScene 模块开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — per-link FK：`M = M0·inv(T0)·Tq·P`（§8.1）；**P** 与 **M0** 分离，禁止把场景 **W** 写入 **M0**。
 
 ## 1. 模块定位
@@ -328,7 +330,7 @@ M_link = M0 · inv(T0) · Tq · P
 
 ### 规划真值一致性（Pose vs TargetTransform）
 
-- `pose/euler` 与 `context.targetTransform*` 必须保持同源一致；改显示分量走 `applyTargetDisplayComponent` / `writeTargetTransformToInstruction`（`PoseAttribute`/`EulerAttribute` 已挂钩）。
+- `pose/euler` 与 `context.targetTransform*` 必须保持同源一致；改显示分量走 `applyTargetDisplayComponent` / `writeTargetTransformToInstruction`（Binding apply 已挂钩）。
 - 规划准备：`RobotInstruction::prepareInstructionIkContext` 先 `syncToolContextFromFrames`（跟随 active 用当前激活工具），再写种子与工具矩阵；Host/Widget 不得再维护副本。
 - 轨迹编辑预览会临时写入 `context.targetTransform*`。当上层（RobotWidget）执行快照恢复时，若快照里不存在该键，必须显式清理旧键后再恢复扩展属性。
 - `restoreInstructionPose` 整体替换 extension（规划期新增键会被擦除）。
@@ -407,16 +409,19 @@ M_link = M0 · inv(T0) · Tq · P
 
 ---
 
-## 10. 属性 Schema（`RobotInstructionPropertySchema.h`）
+## 10. 属性 Binding（`InstructionPropertyBinding`）
 
-| 函数 | objectTypeId |
-|------|----------------|
-| `ptpInstructionPropertySchema()` | `robot_instruction.ptp` |
-| `lineInstructionPropertySchema()` | `robot_instruction.line` |
-| `waitInstructionPropertySchema()` | `robot_instruction.wait` |
-| `setDoInstructionPropertySchema()` | `robot_instruction.set_do` |
-| `setAoInstructionPropertySchema()` | `robot_instruction.set_ao` |
-| `schemaForInstructionType(Type)` | 分发 |
+面板 / schema **唯一清单**为类型级静态 Binding（`InstructionPropertyBindings.cpp`），不再使用 Attribute / `m_attributes`。
+
+| API | 说明 |
+|-----|------|
+| `collectBindings(cmd)` | 按 `has*` / 条件门控组装 |
+| `schemaForInstructionType(Type)` | 由 Binding 生成并缓存 |
+| `findInstructionPropertyDescriptor(Type, key)` | 面板应按指令 Type 查 |
+| `snapshotPropertyRows` / `applyPropertyChange` | 只走 Binding；未知 key → `"Unknown property key."` |
+| `m_extensionProperties` | 仅 load/save 兼容，不进 snapshot / apply |
+
+自检：`runInstructionPropertyBindingSelfTest`（Debug 下首次取 schema once）。设计见 [`docs/指令与插件属性Binding/DESIGN_指令与插件属性Binding.md`](../../../docs/指令与插件属性Binding/DESIGN_指令与插件属性Binding.md)。
 
 ---
 
@@ -620,4 +625,4 @@ Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`../../../docs/�
 - DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)
 - 特征离散：[`../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1
 - UI 轨迹生成：[`../RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成
-- 轴配置详解：[文档索引](../../../docs/README.md) §4.8.1–4.8.3
+- 轴配置详解：[全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §4.8.1–4.8.3

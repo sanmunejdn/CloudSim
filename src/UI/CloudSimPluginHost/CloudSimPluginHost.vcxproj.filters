@@ -194,6 +194,12 @@
     <ClInclude Include="inc\PluginPointCloudHostImpl.h">
       <Filter>inc\PluginHost</Filter>
     </ClInclude>
+    <ClInclude Include="inc\PluginPropertyBindingRegistry.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginPropertyBindingSelfTest.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
     <ClInclude Include="inc\PluginSceneBridgeAdapter.h">
       <Filter>inc\PluginHost</Filter>
     </ClInclude>
@@ -320,6 +326,12 @@
       <Filter>src\PluginHost</Filter>
     </ClCompile>
     <ClCompile Include="source\PluginPointCloudHostImpl.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginPropertyBindingRegistry.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginPropertyBindingSelfTest.cpp">
       <Filter>src\PluginHost</Filter>
     </ClCompile>
     <ClCompile Include="source\PluginSceneBridgeAdapter.cpp">

@@ -11,8 +11,6 @@
 #include <string>
 #include <vector>
 
-class BackendAttributeBase;
-
 struct DATA_EXPORT MeshHierarchyPart
 {
 	std::string partPath;
@@ -91,9 +89,7 @@ public:
 	static bool loadDxfHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
 										 std::string* errMsg = nullptr);
 
-	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
-	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-							 const BackendDataManager* mgr = nullptr) override;
+	const std::vector<BackendPropertyBinding>& extraPropertyBindings() const override;
 
 	/// true 时以 mesh 原点为枢轴（URDF 连杆系），非 bbox 中心
 	void setTransformPivotAtOrigin(bool atOrigin) { m_transformPivotAtOrigin = atOrigin; }

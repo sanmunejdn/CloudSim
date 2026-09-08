@@ -1,6 +1,7 @@
 ﻿# CloudSim 各子模块开发文档索引
 
-本文档列出各 Visual Studio 子工程（模块）的 **DEVELOPER_GUIDE.md** 入口；总架构与业务流程见 [文档索引](README.md)（含**按软件模式 / 按插件类型**）；目录说明见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)；**源码格式（编码/头卫/clang-format/筛选器）见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md)**。
+本文档列出各 Visual Studio 子工程（模块）的 **DEVELOPER_GUIDE.md** 入口。  
+**全库入口**：[仓库根 docs](../../docs/README.md) · [全量目录](../../docs/全量目录.md) · [开发手册](../../docs/开发手册/01-总览.md)；**产品索引**见 [文档索引](README.md)（含**按软件模式 / 按插件类型**）；目录说明见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)；**源码格式（编码/头卫/clang-format/筛选器）见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md)**。
 
 ---
 
@@ -32,7 +33,7 @@
 | **RobotWidget** | 仿真/设备 Dock UI、`RobotSimulationController`、**CAD/Mesh 轨迹生成**、**轨迹编辑**、工艺化配方 JSON | [RobotWidget/DEVELOPER_GUIDE.md](../src/UI/RobotWidget/DEVELOPER_GUIDE.md) |
 | **CloudSimWebGateway** | 网页 HTTP/REST + SSE；静态托管；链入 `CloudSimWeb.exe` | [CloudSimWebGateway/DEVELOPER_GUIDE.md](../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) |
 | **cloudsim-web-ui** | Vite+React 网页坞：场景/轨迹生成编辑/指令树；产物 `bin\x64*\web` | [web/cloudsim-web-ui/DEVELOPER_GUIDE.md](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)；过程稿 [_archive/网页端React轨迹对齐/](_archive/网页端React轨迹对齐/) |
-| **Data** | 后端对象模型、属性、层级、跟随求解；**`geometry_backend_ops` / `GeometryRef`**；工程 **v4** 持久化 | [Data/DEVELOPER_GUIDE.md](../src/Data/Data/DEVELOPER_GUIDE.md)、[_archive/backend_persistence/](_archive/backend_persistence/) |
+| **Data** | 后端对象模型、属性 Binding、层级、跟随求解；**`geometry_backend_ops` / `GeometryRef`**；工程 **v4** 持久化 | [Data/DEVELOPER_GUIDE.md](../src/Data/Data/DEVELOPER_GUIDE.md)、[后端属性Binding](后端属性Binding/)、[_archive/backend_persistence/](_archive/backend_persistence/) |
 | **BackendVisual** | 后端 → OSG 分支构建策略 | [BackendVisual/DEVELOPER_GUIDE.md](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) |
 | **OsgWidgetCore** | 纯 OSG 场景、拾取、gizmo、绑定索引 | [OsgWidgetCore/DEVELOPER_GUIDE.md](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |
 | **GeometryEngine** | `RigidTransform`、`BackendWorldPose`、坐标 FK、`OSG`/`BackendMat4` 适配 | [GeometryEngine/DEVELOPER_GUIDE.md](../src/Geometry/GeometryEngine/DEVELOPER_GUIDE.md)、[CONVENTIONS.md](../src/Geometry/GeometryEngine/CONVENTIONS.md) |
@@ -40,14 +41,14 @@
 | **GeometryAlgorithm** | OCC/CGAL 离散、求交、布尔；**FeatureSpec**；Mesh 轨迹；B-rep 更新与**网格曲面重构/管状特征** | [GeometryAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1a–§3.5 |
 | **RobotKinematics** | DH 串联 FK / 数值 IK | [RobotKinematics/DEVELOPER_GUIDE.md](../src/Robot/RobotKinematics/DEVELOPER_GUIDE.md) |
 | **RobotUrdf** | URDF 解析、层级场景、**prismatic FK**、每连杆后端 | [RobotUrdf/DEVELOPER_GUIDE.md](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) |
-| **RobotScene** | 指令模型、规划、回放、**RawTrajectory**、特征/配方/轨迹流水线 Command | [RobotScene/DEVELOPER_GUIDE.md](../src/Robot/RobotScene/DEVELOPER_GUIDE.md) |
-| **RobotPathPlanning** | 关节空间避障（OMPL BIT*/RRT* 级联）、`planToTcpPose`；碰撞位姿与画面 FK 对齐 | [RobotPathPlanning/DEVELOPER_GUIDE.md](../src/Robot/RobotPathPlanning/DEVELOPER_GUIDE.md)、[docs/RobotPathPlanning/](RobotPathPlanning/) |
+| **RobotScene** | 指令模型（属性 Binding）、规划、回放、**RawTrajectory**、特征/配方/轨迹流水线 Command | [RobotScene/DEVELOPER_GUIDE.md](../src/Robot/RobotScene/DEVELOPER_GUIDE.md)、[指令与插件属性Binding](指令与插件属性Binding/) |
+| **RobotPathPlanning** | 关节空间避障（OMPL BIT*/RRT* 级联）、`planToTcpPose`；碰撞位姿与画面 FK 对齐 | [RobotPathPlanning/DEVELOPER_GUIDE.md](../src/Robot/RobotPathPlanning/DEVELOPER_GUIDE.md)、[docs/机器人路径规划/](机器人路径规划/) |
 | **TrajectoryAlgorithm** | `ITrajectoryOp` 框架、Registry、Codec、ConfigRegistry | [TrajectoryAlgorithm/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithm/DEVELOPER_GUIDE.md) |
 | **TrajectoryAlgorithmBuiltins** | 18 种原子块实现、`UnifiedTrajectoryPathMath`、注册注入 | [TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md) |
 | **RunLogger** | 文件/控制台/UI 日志；x64 动态 DLL | [RunLogger/DEVELOPER_GUIDE.md](../src/Infra/RunLogger/DEVELOPER_GUIDE.md) |
-| **CloudSimPluginSDK** | 动态插件 ABI、宿主上下文、几何/点云 API | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
+| **CloudSimPluginSDK** | 动态插件 ABI、宿主上下文、几何/点云 API；**1.54.0+** Path B `propertyBindings` | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)、[指令与插件属性Binding](指令与插件属性Binding/) |
 | **CloudSimMeshTrajectorySDK** | Mesh 轨迹会话、区域选择、`generateRawPath`；由 RobotWidget 直连 | [CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md) |
-| **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、`PluginHostContext`；**编入 `CloudSimHost.dll`**；UI 经 `IPluginMainWindowHost` | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)、[文档索引](README.md) |
+| **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、`PluginHostContext`、Binding 注册表；**编入 `CloudSimHost.dll`**；UI 经 `IPluginMainWindowHost` | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)、[文档索引](README.md) |
 | **插件开发示例** | 参见 CloudSimPluginSDK 开发指南中的插件模块示例工程 | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
 | **CloudSimAiSDK** | AI 插件 ABI、分域专模、`ai_config` 与训练文档入口 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)、[配置](../tools/ai-training/CONFIGURATION.md)、[训练](../tools/ai-training/README.md)、[**AI 轨迹特征**](_archive/trajectory_feature_ai.md) |
 | **AiWidget** | AI 助手 Dock、`AiAssistantCoordinator`、与 `trajectory.feature` 会话 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)、[trajectory_feature_ai.md](_archive/trajectory_feature_ai.md) |

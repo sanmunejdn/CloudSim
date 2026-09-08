@@ -1,4 +1,4 @@
-# FINAL — RobotPathPlanning
+﻿# FINAL — RobotPathPlanning
 
 ## 交付摘要
 
@@ -12,7 +12,7 @@
 | Debug | `bin/x64d/RobotPathPlanning.dll` |
 | Release | `bin/x64/RobotPathPlanning.dll` |
 | 公共头 | `inc/RobotPathPlanning.h` |
-| 文档 | `CloudSim/docs/RobotPathPlanning/`、`DEVELOPER_GUIDE.md` |
+| 文档 | `CloudSim/docs/机器人路径规划/`、`DEVELOPER_GUIDE.md` |
 
 已加入 `CloudSim.sln`、`CloudSimWeb.sln`；`RobotWidget` 链入并暴露 Dock 入口。
 

@@ -3,8 +3,6 @@
 
 #include "pch.h"
 
-#include "../../PropertyCore/inc/PropertyAttribute.h"
-#include "BackendObjectAttribute.h"
 #include "BackendTypeIdentity.h"
 #include "FrameBackendData.h"
 #include "RunLogger.h"
@@ -12,7 +10,6 @@
 FrameBackendData::FrameBackendData()
 {
 	setName(backend_type::kCatalogCoordinateFrame);
-	appendStandardAttributesForCapabilities(*this, m_attributes);
 }
 
 std::string FrameBackendData::className() const
@@ -55,23 +52,9 @@ void FrameBackendData::setAxisLengthMm(const float mm)
 	RunLogger::warn("[FrameBackendData] setAxisLengthMm: ignore non-positive value.");
 }
 
-nlohmann::json FrameBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
+const std::vector<BackendPropertyBinding>& FrameBackendData::extraPropertyBindings() const
 {
-	// 构造期已挂 pose/rotation attribute，须走 Pipeline，否则面板只有 pose.frame
-	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
-	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
-	return rows;
-}
-
-bool FrameBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-										   const BackendDataManager* mgr)
-{
-	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
-																					  errMsg))
-	{
-		return true;
-	}
-	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
+	return backend_property_binding_extras::axisLengthExtras();
 }
 
 void FrameBackendData::saveDerivedJson(nlohmann::json& out) const
@@ -83,7 +66,6 @@ void FrameBackendData::saveDerivedJson(nlohmann::json& out) const
 
 bool FrameBackendData::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)
 {
-	// C2: 与 brep 的严格检查不统一；frame 的 kind 错了也无实际危害，故仅注释说明
 	(void)errMsg;
 	if (in.contains("axisLengthMm") && in["axisLengthMm"].is_number())
 	{

@@ -1,4 +1,4 @@
-# ROADMAP — 已知债与里程碑
+﻿# ROADMAP — 已知债与里程碑
 
 ## 官方优先栈（锁定）
 
@@ -7,7 +7,7 @@
 | 1 | 命名参数面 MVP | **已交付**（`docs/_archive/草图硬化/`） |
 | 2 | 椭圆 GCS / Convert 保圆弧 / 样条双模式 | **已交付**（包 A） |
 | 3 | 拉伸 startOffset·双向深度、圆周阵列、成角基准面 | **已交付**（`docs/_archive/特征阵列与拉伸深化/`，Host ABI **1.48.0**） |
-| 4 | TopoNaming 自研渐进 | **下期独立专题**（见 `docs/TopoNaming/`） |
+| 4 | TopoNaming 自研渐进 | **下期独立专题**（见 `docs/拓扑命名/`） |
 | — | JSON / Python 脚本建模 | **已交付**（`docs/_archive/脚本建模/`；一期无 ABI bump） |
 
 参考 Yi3D 语义，不移植 Transaction/Element。
@@ -45,7 +45,7 @@
 | 阶段 | 内容 |
 |------|------|
 | 包 D 起步 | 视口点选硬化、特征 Suppress；可与 TopoNaming P0 并行 |
-| TopoNaming 专题 | 见 [`docs/TopoNaming/ALIGNMENT_TopoNaming.md`](../TopoNaming/ALIGNMENT_TopoNaming.md)；弱命名表 → rebuild 映射 → Host API |
+| TopoNaming 专题 | 见 [`docs/拓扑命名/ALIGNMENT_TopoNaming.md`](../拓扑命名/ALIGNMENT_TopoNaming.md)；弱命名表 → rebuild 映射 → Host API |
 
 ## 4b. 脚本建模（已交付）
 

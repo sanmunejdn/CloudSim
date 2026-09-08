@@ -1,5 +1,7 @@
 ﻿# CloudSimAiSDK 开发指南
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 ## 1. 定位
 
 | 组件 | 说明 |
@@ -283,6 +285,6 @@ LLM grounding：`catalogSliceUtf8` 中 `displayIndex` / `candidateId` / `summary
 |------|------|
 | [`tools/ai-training/CONFIGURATION.md`](../../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 全字段 |
 | [`tools/ai-training/README.md`](../../../tools/ai-training/README.md) | 训练、LLaMA-Factory、Ollama 导出 |
-| [文档索引](../../../docs/README.md) §6.1.1 | 产品级流程说明 |
+| [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §6.1.1 | 产品级流程说明 |
 | [`docs/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md) | AI 轨迹特征端到端、状态机、验收 |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 宿主 API 与插件 |

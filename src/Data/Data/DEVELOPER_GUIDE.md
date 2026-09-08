@@ -1,5 +1,7 @@
 ﻿# Data 模块开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 > **空间契约 v2**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — **Breaking**：JSON 仅 `worldMatrix`（16 元）；`pose`/`rotation` 为分解视图；`p_world = p_geometry × worldMatrix`。
 
 ### Breaking: v2 坐标模型
@@ -469,29 +471,38 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 | `toJson()` | 序列化；同名异型按**类型名字典序**取首个（跨运行输出确定） |
 | `setWarningHook(hook)` | 默认已接 `RunLogger::warn`，测试可替换 |
 
+**真源边界**：pose / color / visible / `worldMatrix` 以 Domain typed API 与工程 JSON 顶层字段为准；`PropertyBag` **不再**在 `setPose`/`setWorldMatrix` 上影子同步。Follow 仍可写 `follow.targetName` 到 bag。旧工程 bag 里的 `pose.x` 加载时忽略（v2+ 以 `worldMatrix` 为准）。
+
 ### 5.2 `backend_property_json`（`BackendPropertyRow.h`）
 
 行格式：`{ key, labelEn, editable, value }`。
 
-### 5.3 `backend_property_schema`（`BackendPropertySchema.h`）
+### 5.3 Binding（`BackendPropertyBinding.h`）——面板 / schema 唯一清单
+
+| 概念 | 说明 |
+|------|------|
+| `BackendPropertyBinding` | `PropertyDescriptor` + `formatValue` / `applyValue`（字符串 ↔ typed setter） |
+| `collectBindings(data)` | 按 `hasPose/Rotation/Color` 追加标准包 + 全员 `visible` + `extraPropertyBindings()` |
+| `schemaForClassName` / `schemaForBackendClassName` | 由 Binding 表生成并缓存；未知 className 先查外部注册表，仍无则 warn 一次后**空** schema |
+| `extraPropertyBindings()` | Model：`mesh.triangle_count`；Frame/CustomDevice：`axisLengthMm`；其余默认空 |
+| `BackendExternalPropertySchemaRegistry` | 插件等外部类型 `registerSchema` / `invalidateSchemaCache`（避免 PluginHost↔Data 循环依赖） |
+
+基类 `snapshotPropertyRows` / `applyPropertyChange` 为**默认**实现（仍 virtual，供 `PluginDelegatedBackend` 覆盖）：identity 行 + Binding + component。未知 key → `"Unknown property key."`（不再 Legacy 全脏）。
+
+自检：`runBackendPropertyBindingSelfTest`（Debug 下首次取 schema 时 once 跑）。设计见 [`docs/后端属性Binding/DESIGN_后端属性Binding.md`](../../../docs/后端属性Binding/DESIGN_后端属性Binding.md)；指令/插件扩展见 [`docs/指令与插件属性Binding/`](../../../docs/指令与插件属性Binding/)。
+
+### 5.4 `backend_property_schema` + 视觉 aspect
 
 | 函数 | 产出 |
 |------|------|
-| `pointCloudBackendSchema()` / `meshBackendSchema()` | PropertyCore `PropertySchema`（五类内建均含 `visible` 描述符） |
-| `followAttachmentBackendPropertySchema()` | `follow.targetName` 等 |
-| `schemaForBackendClassName(className)` | 分发；未知 className warn 一次后落 mesh schema |
-| `tagPoseRotationColorSemantics` | `pose.*` → 影响世界变换；`color.*` → 仅颜色 |
+| `schemaForBackendClassName(className)` | 转调 Binding |
+| `followAttachmentBackendPropertySchema()` | `follow.targetName`（组件，不进 Binding 表） |
+| `findBackendPropertyDescriptor(className, key)` | **按类型**查；面板应传选中对象 className |
+| `findAnyBackendPropertyDescriptor(key)` | 无 className 时扫六类 builtin（兼容） |
 
-**aspect 映射**（`BackendPropertyVisualAspect.cpp`）：键按 schema `semanticFlags` → 视觉 aspect；未知键前缀**精确**匹配（`pose.`/`rotation.`/`color.`/`visible.`），不做子串猜测（`transposedXxx` 不误判）；仍未知时返回全量 aspect（安全默认）。
+**aspect 映射**（`BackendPropertyVisualAspect.cpp`）：只认该 class 的 schema `semanticFlags`；查不到 key → **0**（禁止前缀猜 + 全量 aspect）。
 
-### 5.4 `BackendAttributeBase` 工厂
-
-| 工厂 | 绑定属性 |
-|------|----------|
-| `makeBackendPoseAttribute()` | pose.x/y/z |
-| `makeBackendRotationAttribute()` | rotation.x/y/z |
-| `makeBackendDisplayColorAttribute()` | color.r/g/b/a |
-| `appendStandardAttributesForCapabilities(self, out)` | 按对象 `hasPoseProperty()` / `hasRotationProperty()` / `hasColorProperty()` 声明统一追加标准 attribute；派生类构造函数**必须**调它而非手工 push——手工 push 与 `has*Property()` 无关联，漏推时面板静默少行 |
+`BackendObjectAttribute.h` 仅为弃用 shim，指向 Binding。
 
 ---
 
@@ -549,7 +560,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 同部件 Data 子树：\(\Delta=W_{new}\cdot W_{old}^{-1}\)。跳过自身已启用 Follow 的节点（跨部件位姿由 Follow 独占）。`CustomDeviceKinematicModel::applyToSink` 与 Host `propagateCompoundAfterRootWorldChange` 共用。
 
-跨部件 vs 同部件约定见 [`docs/Follow与Compound分流/`](../../../docs/Follow与Compound分流/)。
+跨部件 vs 同部件约定见 [`docs/_archive/Follow与Compound分流/`](../../../docs/_archive/Follow与Compound分流/)。
 
 ---
 
@@ -659,6 +670,7 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 - 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../../UI/BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
 - 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) §6.1、§11；插件宿主：[`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - Units 显示树：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)；契约：[`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) §2
-- 文档索引：[`../../../docs/README.md`](../../../docs/README.md)
+- 全库入口：[`../../../../docs/README.md`](../../../../docs/README.md)；产品索引：[`../../../docs/README.md`](../../../docs/README.md)
 - 后端类型三键 / 侧车 / 工作区模式：[`../../docs/后端对象与软件模式/`](../../../docs/后端对象与软件模式/)
+- 属性 Binding：[`../../docs/后端属性Binding/`](../../../docs/后端属性Binding/)；指令/插件：[`../../docs/指令与插件属性Binding/`](../../../docs/指令与插件属性Binding/)
 - 持久化设计/任务/回归：[`../../docs/_archive/backend_persistence/`](../../../docs/_archive/backend_persistence/)

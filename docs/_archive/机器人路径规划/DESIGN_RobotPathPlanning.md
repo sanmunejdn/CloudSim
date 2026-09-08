@@ -1,4 +1,4 @@
-# DESIGN — RobotPathPlanning
+﻿# DESIGN — RobotPathPlanning
 
 ## 架构
 
@@ -14,7 +14,7 @@ flowchart LR
 
 ## API
 
-见 [`RobotPathPlanning/inc/RobotPathPlanning.h`](../../src/Robot/RobotPathPlanning/inc/RobotPathPlanning.h)。
+见 [`机器人路径规划/inc/RobotPathPlanning.h`](../../src/Robot/RobotPathPlanning/inc/RobotPathPlanning.h)。
 
 ## 碰撞有效性
 

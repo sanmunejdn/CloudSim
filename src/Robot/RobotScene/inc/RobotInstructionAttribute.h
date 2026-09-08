@@ -3,76 +3,8 @@
 
 /// @file RobotInstructionAttribute.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief RobotInstructionAttribute 接口
+/// @brief 兼容 shim：请使用 InstructionPropertyBinding.h
 
-#include "robot_scene_global.h"
-
-#include "../../Data/PropertyCore/inc/PropertyAttribute.h"
-#include "../../Data/PropertyCore/inc/PropertyEnumAttribute.h"
-#include "../../Data/PropertyCore/inc/PropertyScalarAttribute.h"
-#include "../../Data/PropertyCore/inc/PropertyVec3Attribute.h"
-
-#include <memory>
-#include <string>
-#include <vector>
-
-#include <json.hpp>
-
-namespace RobotInstruction
-{
-class Base;
-struct Vec3;
-
-class ROBOT_SCENE_API AttributeBase : public property_core::PropertyAttribute<Base>
-{
-public:
-	virtual ~AttributeBase() = default;
-};
-
-class ROBOT_SCENE_API PoseAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
-{
-public:
-	PoseAttribute();
-	bool apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const override;
-};
-
-class ROBOT_SCENE_API EulerAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
-{
-public:
-	EulerAttribute();
-	bool apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const override;
-};
-
-class ROBOT_SCENE_API ViaPoseAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
-{
-public:
-	ViaPoseAttribute();
-	bool apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const override;
-};
-
-class ROBOT_SCENE_API ViaEulerAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
-{
-public:
-	ViaEulerAttribute();
-	bool apply(Base& context, const std::string& key, const std::string& value, std::string* errMsg) const override;
-};
-
-using AttributePtr = std::shared_ptr<AttributeBase>;
-
-ROBOT_SCENE_API AttributePtr makeScalarDoubleAttribute(bool (*hasProperty)(const Base&), double (*getter)(const Base&),
-													   void (*setter)(Base&, const double&), const char* key,
-													   const char* label);
-
-ROBOT_SCENE_API AttributePtr makeEnumAttribute(bool (*hasProperty)(const Base&), std::string (*getter)(const Base&),
-											   void (*setter)(Base&, const std::string&), const char* key,
-											   const char* label, bool (*isValidFn)(const std::string&) = nullptr);
-
-ROBOT_SCENE_API AttributePtr makeSpeedAttribute();
-ROBOT_SCENE_API AttributePtr makeAccelAttribute();
-ROBOT_SCENE_API AttributePtr makeAxisConfigAttribute();
-ROBOT_SCENE_API std::vector<AttributePtr> makeMotionAxisConfigAttributes();
-ROBOT_SCENE_API AttributePtr makeBlendRadiusAttribute();
-
-} // namespace RobotInstruction
+#include "InstructionPropertyBinding.h"
 
 #endif // ROBOTSCENE_ROBOTINSTRUCTIONATTRIBUTE_H

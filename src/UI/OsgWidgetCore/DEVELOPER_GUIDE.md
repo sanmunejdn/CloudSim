@@ -1,5 +1,7 @@
 ﻿# OsgWidgetCore 模块开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — gizmo 读写总位姿；内旋 ZYX 存盘；Gizmo World/Local 仅交互方式不同；`modelCenter` 仅聚焦与外包络。
 
 ## 1. 模块定位
@@ -266,7 +268,7 @@ UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syn
 3. **RMB 旋转** → `cacheRotatePivot`（世界枢轴）→ `beginGizmoScreenRotate` → `gizmoScreenRotateDeltaRad` → `adjustCenterPlusPoseForRotationDelta` → `applyToOuter` → `selectedObjectRotationChanged`
 4. 拖动中 → `MainWindow::syncPropertyPanelGizmoLiveValues` 从 gizmo 直写属性行；释放 → `writeActiveBackendPoseFromOsg` → `transformGizmoCommitted` → 全量 `updatePropertyPanel`
 
-详见 [文档索引](../../../docs/README.md)「近期热点」与 Widget §13.1（TCP 示教）。
+详见 [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md)「近期热点」与 Widget §13.1（TCP 示教）。
 
 ---
 
@@ -288,4 +290,4 @@ UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syn
 
 ## ViewportInteraction（2026-08）
 
-拾取交互经 `ViewportInteractionController`：`IViewportPickEngine` 唯一 `queryPick`；`IPointerTool` / `IOverlayOp` 分手势与罗盘；`IHitResolvePolicy` 归并；`IInteractionSession` 业务消费。旧 `set*PickMode` 为门面。详见 `docs/视口拾取重构/`。
+拾取交互经 `ViewportInteractionController`：`IViewportPickEngine` 唯一 `queryPick`；`IPointerTool` / `IOverlayOp` 分手势与罗盘；`IHitResolvePolicy` 归并；`IInteractionSession` 业务消费。旧 `set*PickMode` 为门面。详见 `docs/_archive/视口拾取重构/`。

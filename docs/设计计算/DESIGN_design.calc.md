@@ -1,4 +1,4 @@
-# DESIGN — design.calc
+﻿# DESIGN — design.calc
 
 ```mermaid
 flowchart LR
@@ -19,7 +19,7 @@ flowchart LR
 | 查表 | `tools/design-calc/tables/` | CSV 真源（自 xls 导出后清洗） |
 | 映射 | `design_calc/to_feature_compose.py` | geometry_dim → compose steps |
 | 模板 | `tools/design-calc/templates/` | 毛坯 compose 样例 |
-| 文档 | `docs/design.calc/` | CATALOG / CONSENSUS / ACCEPTANCE |
+| 文档 | `docs/设计计算/` | CATALOG / CONSENSUS / ACCEPTANCE |
 
 ## feature.compose 映射约定（V1 毛坯）
 

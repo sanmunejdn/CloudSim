@@ -7,8 +7,8 @@
 #include "BackendComponentCodecRegistry.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
+#include "BackendPropertyBinding.h"
 #include "BackendPropertyRow.h"
-#include "PropertyRowsCompatAdapter.h"
 #include "RunLogger.h"
 
 #include <algorithm>
@@ -218,11 +218,6 @@ void BackendDataBase::markIdRegistered(bool registered)
 	m_idRegistered = registered;
 }
 
-void BackendDataBase::syncPropertyBagFromState()
-{
-	property_rows_compat::syncTransformColorToBag(m_propertyBag, *this);
-}
-
 const std::string& BackendDataBase::name() const
 {
 	return m_name;
@@ -388,7 +383,6 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 			return false;
 		}
 		setWorldMatrix(world);
-		syncPropertyBagFromState();
 	}
 	else if (hasPoseProperty())
 	{
@@ -402,7 +396,6 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 	{
 		return false;
 	}
-	syncPropertyBagFromState();
 	return true;
 }
 
@@ -430,7 +423,6 @@ void BackendDataBase::setPose(const BackendVec3& position)
 		return;
 	}
 	m_worldMatrix = backend_world_mat_replace_translation(m_worldMatrix, position);
-	syncPropertyBagFromState();
 	bumpPoseRevision();
 }
 
@@ -461,7 +453,6 @@ void BackendDataBase::setRotation(const BackendVec3& eulerDeg)
 		return;
 	}
 	m_worldMatrix = proposed;
-	syncPropertyBagFromState();
 	bumpPoseRevision();
 }
 
@@ -477,7 +468,6 @@ void BackendDataBase::applyBackendWorldPose(const BackendVec3& centerWorld, cons
 		return;
 	}
 	m_worldMatrix = proposed;
-	syncPropertyBagFromState();
 	bumpPoseRevision();
 }
 
@@ -568,7 +558,6 @@ void BackendDataBase::setPoseInFrame(const BackendVec3& value, BackendPoseRefere
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, value, rotationInFrame(frame, mgr), frame, mgr, worldPose, worldEuler);
 	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
-	syncPropertyBagFromState();
 	bumpPoseRevision();
 }
 
@@ -583,7 +572,6 @@ void BackendDataBase::setRotationInFrame(const BackendVec3& value, BackendPoseRe
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, poseInFrame(frame, mgr), value, frame, mgr, worldPose, worldEuler);
 	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
-	syncPropertyBagFromState();
 	bumpPoseRevision();
 }
 
@@ -602,7 +590,6 @@ void BackendDataBase::setPoseValue(const BackendPoseValue& value, BackendPoseRef
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, value.position, value.eulerDeg, frame, mgr, worldPose, worldEuler);
 	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
-	syncPropertyBagFromState();
 	bumpPoseRevision();
 }
 
@@ -622,7 +609,6 @@ void BackendDataBase::setWorldMatrix(const BackendMat4& world)
 		return;
 	}
 	m_worldMatrix = world;
-	syncPropertyBagFromState();
 	bumpPoseRevision();
 }
 
@@ -635,7 +621,6 @@ void BackendDataBase::applyWorldMatrixIncrement(const BackendMat4& incrementWorl
 	BackendMat4 combined{};
 	backend_mat4_multiply(incrementWorld, m_worldMatrix, combined);
 	m_worldMatrix = combined;
-	syncPropertyBagFromState();
 	bumpPoseRevision();
 }
 
@@ -673,17 +658,19 @@ void BackendDataBase::collectReferencedBackendIds(std::vector<std::string>& out)
 	}
 }
 
+const std::vector<BackendPropertyBinding>& BackendDataBase::extraPropertyBindings() const
+{
+	return backend_property_binding_extras::emptyExtras();
+}
+
 nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* mgr) const
 {
-	ensureBackendComponentCodecBuiltinsRegistered();	nlohmann::json rows = nlohmann::json::array();
+	ensureBackendComponentCodecBuiltinsRegistered();
+	nlohmann::json rows = nlohmann::json::array();
 	backend_property_json::appendRow(rows, "core.id", "ID", false, m_id);
 	backend_property_json::appendRow(rows, "core.name", "Name", true, m_name);
 	backend_property_json::appendRow(rows, "core.class", "Class", false, className());
-	if (hasPoseProperty())
-	{
-		const std::string frameText = (m_poseReferenceFrame == BackendPoseReferenceFrame::Parent) ? "parent" : "world";
-		backend_property_json::appendRow(rows, "pose.frame", "Pose frame (world|parent)", true, frameText);
-	}
+	backend_property_binding::appendBindingRows(*this, rows);
 	for (const BackendComponentPtr& component : listComponents())
 	{
 		if (component)
@@ -725,26 +712,24 @@ bool BackendDataBase::applyPropertyChange(const std::string& key, const std::str
 		setName(trimmed);
 		return true;
 	}
-	if (key == "pose.frame")
 	{
-		const std::string frame = toLowerAscii(trimUtf8Whitespace(value));
-		if (frame == "world")
+		const std::vector<BackendPropertyBinding> bindings = backend_property_binding::collectBindings(*this);
+		for (const BackendPropertyBinding& b : bindings)
 		{
-			m_poseReferenceFrame = BackendPoseReferenceFrame::World;
-			m_propertyBag.set<std::string>("pose.frame", "world");
-			return true;
+			if (b.desc.key != key)
+			{
+				continue;
+			}
+			if (!b.desc.editable || !b.applyValue)
+			{
+				if (errMsg)
+				{
+					*errMsg = "Property is read-only for this object type.";
+				}
+				return false;
+			}
+			return b.applyValue(*this, value, errMsg);
 		}
-		if (frame == "parent")
-		{
-			m_poseReferenceFrame = BackendPoseReferenceFrame::Parent;
-			m_propertyBag.set<std::string>("pose.frame", "parent");
-			return true;
-		}
-		if (errMsg)
-		{
-			*errMsg = "pose.frame only supports 'world' or 'parent'.";
-		}
-		return false;
 	}
 	const BackendComponentCodecRegistry& registry = BackendComponentCodecRegistry::instance();
 	const std::string prefixType = registry.componentTypeForPropertyPrefix(key);
@@ -764,7 +749,7 @@ bool BackendDataBase::applyPropertyChange(const std::string& key, const std::str
 	}
 	if (errMsg)
 	{
-		*errMsg = "Property is read-only for this object type.";
+		*errMsg = "Unknown property key.";
 	}
 	return false;
 }

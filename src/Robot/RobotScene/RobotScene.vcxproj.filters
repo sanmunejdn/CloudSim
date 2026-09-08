@@ -113,6 +113,12 @@
     <ClInclude Include="inc\InstructionProgramDocument.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
+    <ClInclude Include="inc\InstructionPropertyBinding.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\InstructionPropertyBindingSelfTest.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\IRobotBackendPoseSink.h">
       <Filter>inc\Interfaces</Filter>
     </ClInclude>
@@ -316,6 +322,12 @@
     <ClCompile Include="source\InstructionProgramDocument.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
+    <ClCompile Include="source\InstructionPropertyBindings.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\InstructionPropertyBindingSelfTest.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\JointMotionAdapters.cpp">
       <Filter>src\KinematicCore</Filter>
     </ClCompile>
@@ -366,9 +378,6 @@
     </ClCompile>
     <ClCompile Include="source\RobotExternalAxisSceneApply.cpp">
       <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionAttribute.cpp">
-      <Filter>src\Instructions</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp">
       <Filter>src\Instructions</Filter>

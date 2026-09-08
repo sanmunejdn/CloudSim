@@ -1,10 +1,10 @@
-# CloudSim
+﻿# CloudSim
 
 工业机器人仿真双端：几何内核 OCC/CGAL（建模、点云、碰撞），桌面 Qt+OSG / 网页 React+Three.js 渲染与交互，能力由 Data 后端对象、URDF/运动规划/轨迹及可扩展插件定义。
 
 | 桌面端 | 网页端 |
 |:------:|:------:|
-| ![桌面端界面](docs/images/desktop-ui.png) | ![网页端界面](docs/images/web-ui.png) |
+| ![桌面端界面](docs/图片/desktop-ui.png) | ![网页端界面](docs/图片/web-ui.png) |
 
 ## 快速入口
 
@@ -37,7 +37,7 @@
 | 默认访问 | 桌面窗口 | `http://127.0.0.1:8787`（可用 `--port=` 改端口） |
 | TCP 拖动示教 | 末端局部轴；目标姿态用四元数真值，避免欧拉往返 | 同源：`TransformControls` 固定 `local`；`/api/robot/tcp-ik` 追赶只截断平移；落点优先罗盘矩阵 |
 | 几何建模 | 插件 Ribbon + PlaneGCS 草图 + 特征树；Host ABI 写 `ParametricBrepModel` | 同一 Body/rebuild；`HeadlessGeomodelBridge` + `/api/geomodeling/*`；工作区保留 3D |
-| 架构图 | [`docs/architecture/desktop.html`](docs/architecture/desktop.html) | [`docs/architecture/web.html`](docs/architecture/web.html) |
+| 架构图 | [`docs/架构/desktop.html`](docs/架构/desktop.html) | [`docs/架构/web.html`](docs/架构/web.html) |
 
 两套 sln **互不引入**对方的 UI/Web 工程；桌面用 `CloudSimHost`，网页用 `CloudSimHostHeadless`；共享 `CloudSimCore` / `Data` / 机器人与几何等后端 DLL。
 

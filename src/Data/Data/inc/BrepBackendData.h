@@ -66,10 +66,6 @@ public:
 	static bool loadStepHierarchyFromFile(const std::string& path, std::vector<BrepHierarchyPart>& outParts,
 										  std::string* errMsg = nullptr, geoalgo::ShapeHandle* outAssembly = nullptr);
 
-	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
-	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-							 const BackendDataManager* mgr = nullptr) override;
-
 protected:
 	void recomputeBounds();
 	void saveDerivedJson(nlohmann::json& out) const override;

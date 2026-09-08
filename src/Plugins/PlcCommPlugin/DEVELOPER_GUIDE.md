@@ -1,4 +1,6 @@
-# PlcCommPlugin 开发指南
+﻿# PlcCommPlugin 开发指南
+
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 CloudSim 动态插件：将 **PlcCommUI** 注册为右侧栏 **PLC 通讯** 页签。
 
@@ -72,4 +74,4 @@ bin/x64(d)/
 
 - SDK：[`../PlcCommSDK/DEVELOPER_GUIDE.md`](../PlcCommSDK/DEVELOPER_GUIDE.md)
 - UI：[`../PlcCommUI/DEVELOPER_GUIDE.md`](../PlcCommUI/DEVELOPER_GUIDE.md)
-- 插件系统：[文档索引](../../../docs/README.md) §10
+- 插件系统：[全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §10

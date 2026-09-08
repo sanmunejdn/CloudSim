@@ -1,5 +1,7 @@
 ﻿# RobotKinematics 模块开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 ## 1. 模块定位
 
 `RobotKinematics` 提供：① **CircularArcGeometry**（圆弧采样，与 DH 无关）；② **SerialLinkKinematics** 修正 DH FK + **仅位置** DLS（**legacy**：仅无 URDF 时回退）。有 URDF 时生产路径保持空 `dhRows`，IK 走 `RobotUrdf::UrdfNumericalIk` / `RobotTeachIk`。

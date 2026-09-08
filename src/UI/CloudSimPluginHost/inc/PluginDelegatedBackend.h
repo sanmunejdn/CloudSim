@@ -10,17 +10,27 @@
 
 #include <memory>
 
+struct PluginDelegatedBackendOptions
+{
+	bool supportsTransform = true;
+	bool supportsVisibility = true;
+	bool usePropertyBindings = false;
+};
+
 /// IPluginBackendObject 适配为 BackendDataBase（BackendRegistry）
 class PluginDelegatedBackend : public BackendDataBase
 {
 public:
-	explicit PluginDelegatedBackend(std::shared_ptr<IPluginBackendObject> delegate);
+	PluginDelegatedBackend(std::shared_ptr<IPluginBackendObject> delegate, PluginDelegatedBackendOptions options);
 
 	std::string className() const override;
 	bool hasGeometry() const override;
 	BackendBoundingBox geometryBounds() const override;
 	std::size_t geometryElementCount() const override;
 	void clearGeometry() override;
+
+	bool hasPoseProperty() const override;
+	bool hasRotationProperty() const override;
 
 	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
@@ -30,6 +40,7 @@ public:
 
 private:
 	std::shared_ptr<IPluginBackendObject> m_delegate;
+	PluginDelegatedBackendOptions m_options;
 };
 
 #endif // CLOUDSIMPLUGINHOST_PLUGINDELEGATEDBACKEND_H

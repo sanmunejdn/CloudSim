@@ -1,4 +1,6 @@
-# PlcCommSDK 开发指南
+﻿# PlcCommSDK 开发指南
+
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 基于 [libplctag](https://github.com/libplctag/libplctag) 的 PLC 通讯后端 DLL，支持 **Allen-Bradley EtherNet/IP** 与 **Modbus TCP**。与 CloudSim 主程序、插件宿主 **解耦**（仅头文件 + `PlcCommSDK.lib`）。
 
@@ -121,4 +123,4 @@ protocol=ab_eip&gateway=192.168.0.10&path=1,0&cpu=lgx&name=MyTag&elem_count=1
 
 - UI：[`../PlcCommUI/DEVELOPER_GUIDE.md`](../PlcCommUI/DEVELOPER_GUIDE.md)
 - CloudSim 插件：[`../PlcCommPlugin/DEVELOPER_GUIDE.md`](../PlcCommPlugin/DEVELOPER_GUIDE.md)
-- 架构总览：[文档索引](../../../docs/README.md) §10.5
+- 架构总览：[全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §10.5

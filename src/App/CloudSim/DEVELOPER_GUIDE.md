@@ -1,5 +1,8 @@
 ﻿# CloudSim 可执行入口开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
+
 ## 1. 模块定位
 
 `CloudSim` 工程是解决方案的 **bootstrap 层**：仅包含 `main.cpp`，负责进程级初始化后创建并显示 `MainWindow`。业务逻辑在 `Widget.dll` 及其他引擎/功能 DLL 中。
@@ -113,5 +116,6 @@ return ret;
 
 ## 5. 相关文档
 
-- 总览：[文档索引](../../../docs/README.md)
-- 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+- 全库入口：[`../../../../docs/README.md`](../../../../docs/README.md)
+- 产品索引：[`../../../docs/README.md`](../../../docs/README.md)
+- 模块索引：[`../../../docs/MODULE_DEVELOPER_GUIDES.md`](../../../docs/MODULE_DEVELOPER_GUIDES.md)

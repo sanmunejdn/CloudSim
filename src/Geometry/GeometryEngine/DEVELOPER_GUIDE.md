@@ -1,5 +1,7 @@
 ﻿# GeometryEngine 模块开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 ## 1. 模块定位
 
 `GeometryEngine` 提供全应用统一的 **刚体变换真值**（`engine::RigidTransform`，内部 `Eigen::Isometry3d`），以及 OSG / `BackendMat4` 列主序之间的适配。不依赖 Qt、URDF、Widget。
@@ -128,4 +130,4 @@ flowchart LR
 - [`CONVENTIONS.md`](CONVENTIONS.md)
 - [`../RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §8.3
 - [`../RobotUrdf/DEVELOPER_GUIDE.md`](../../Robot/RobotUrdf/DEVELOPER_GUIDE.md) §10
-- [文档索引](../../../docs/README.md) §6.4
+- [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §6.4

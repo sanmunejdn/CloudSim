@@ -1,4 +1,4 @@
-# ACCEPTANCE / FINAL — Host 筛选器整理与 API 文档
+﻿# ACCEPTANCE / FINAL — Host 筛选器整理与 API 文档
 
 ## 完成情况
 
@@ -14,7 +14,7 @@
 
 - `CloudSim/src/Host/CloudSimHost/CloudSimHost.vcxproj.filters`
 - `CloudSim/src/Host/CloudSimHost/DEVELOPER_GUIDE.md`
-- `CloudSim/docs/HostOptimization/INTERFACE_CATALOG.md`（小补）
+- `CloudSim/docs/Host优化/INTERFACE_CATALOG.md`（小补）
 - 本目录 ALIGNMENT / CONSENSUS / ACCEPTANCE
 
 ## TODO

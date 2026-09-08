@@ -3,9 +3,6 @@
 
 #include "pch.h"
 
-#include "../../PropertyCore/inc/PropertyAttribute.h"
-#include "BackendObjectAttribute.h"
-#include "BackendPropertyRow.h"
 #include "BackendTypeIdentity.h"
 #include "MeshBackendData.h"
 #include "RunLogger.h"
@@ -20,9 +17,6 @@ MeshBackendData::MeshBackendData()
 	c.b = 0.95f;
 	c.a = 1.0f;
 	m_color = c;
-
-	// 按 has*Property() 声明统一追加，避免手工 push 漏推导致面板静默少行
-	appendStandardAttributesForCapabilities(*this, m_attributes);
 }
 
 std::string MeshBackendData::className() const
@@ -69,25 +63,9 @@ BackendColor MeshBackendData::color() const
 	return m_color;
 }
 
-nlohmann::json MeshBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
+const std::vector<BackendPropertyBinding>& MeshBackendData::extraPropertyBindings() const
 {
-	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
-	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
-
-	backend_property_json::appendRow(rows, "mesh.triangle_count", "Triangles", false,
-									 std::to_string(geometryElementCount()));
-	return rows;
-}
-
-bool MeshBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-										  const BackendDataManager* mgr)
-{
-	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
-																					  errMsg))
-	{
-		return true;
-	}
-	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
+	return backend_property_binding_extras::meshExtras();
 }
 
 void MeshBackendData::setTriangleSoup(std::vector<float> xyzPerTriangleVertex)

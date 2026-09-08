@@ -28,9 +28,7 @@ public:
 	float axisLengthMm() const { return m_axisLengthMm; }
 	void setAxisLengthMm(float mm);
 
-	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
-	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-							 const BackendDataManager* mgr = nullptr) override;
+	const std::vector<BackendPropertyBinding>& extraPropertyBindings() const override;
 
 private:
 	void saveDerivedJson(nlohmann::json& out) const override;

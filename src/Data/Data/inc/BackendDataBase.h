@@ -9,7 +9,7 @@
 
 #include "BackendComponent.h"
 #include "BackendFollowMath.h"
-#include "BackendObjectAttribute.h"
+#include "BackendPropertyBinding.h"
 #include "PropertyBag.h"
 
 #include <atomic>
@@ -131,6 +131,10 @@ public:
 	nlohmann::json saveToJson() const;
 	bool loadFromJson(const nlohmann::json& in, std::string* errMsg = nullptr);
 
+	/// 类型专有面板行（三角数、轴长等）；标准 pose/color/visible 由基类组装
+	virtual const std::vector<BackendPropertyBinding>& extraPropertyBindings() const;
+
+	/// 默认走 Binding；插件委托对象可 override
 	virtual nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const;
 	virtual bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 									 const BackendDataManager* mgr = nullptr);
@@ -179,11 +183,8 @@ public:
 protected:
 	void bumpGeometryRevision() { m_geometryRevision.fetch_add(1U, std::memory_order_relaxed); }
 	void bumpPoseRevision() { m_poseRevision.fetch_add(1U, std::memory_order_relaxed); }
-	void syncPropertyBagFromState();
 	virtual void saveDerivedJson(nlohmann::json& out) const;
 	virtual bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg);
-
-	std::vector<std::shared_ptr<BackendAttributeBase>> m_attributes;
 
 private:
 	std::string m_id;

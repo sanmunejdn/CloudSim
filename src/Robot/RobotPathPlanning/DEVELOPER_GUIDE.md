@@ -1,4 +1,6 @@
-# RobotPathPlanning 模块开发文档
+﻿# RobotPathPlanning 模块开发文档
+
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 ## 1. 模块定位
 
@@ -72,7 +74,7 @@ M(q) = m0 * inv(T0) * Tq * P
 
 ## 6. 相关文档
 
-- [**规划算法原理图与说明**](../../../docs/RobotPathPlanning/PLANNERS_规划算法原理.md)（Direct / TaskSpaceRRT / Dijkstra / BIT* / RRT* 系 / Auto）
-- [`../../../docs/RobotPathPlanning/`](../../../docs/RobotPathPlanning/)
+- [**规划算法原理图与说明**](../../../docs/机器人路径规划/PLANNERS_规划算法原理.md)（Direct / TaskSpaceRRT / Dijkstra / BIT* / RRT* 系 / Auto）
+- [`../../../docs/机器人路径规划/`](../../../docs/机器人路径规划/)
 - [`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
 - [`../../UI/RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md)（碰撞页 UI、黑白名单、确认插入）

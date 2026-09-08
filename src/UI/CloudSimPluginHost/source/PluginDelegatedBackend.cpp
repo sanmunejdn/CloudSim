@@ -3,12 +3,14 @@
 
 #include "PluginDelegatedBackend.h"
 
+#include "PluginPropertyBindingRegistry.h"
 #include "RunLogger.h"
 
 #include <json.hpp>
 
-PluginDelegatedBackend::PluginDelegatedBackend(std::shared_ptr<IPluginBackendObject> delegate)
-	: m_delegate(std::move(delegate))
+PluginDelegatedBackend::PluginDelegatedBackend(std::shared_ptr<IPluginBackendObject> delegate,
+											   PluginDelegatedBackendOptions options)
+	: m_delegate(std::move(delegate)), m_options(options)
 {
 	if (m_delegate)
 	{
@@ -39,9 +41,41 @@ std::size_t PluginDelegatedBackend::geometryElementCount() const
 
 void PluginDelegatedBackend::clearGeometry() {}
 
+bool PluginDelegatedBackend::hasPoseProperty() const
+{
+	return m_options.supportsTransform;
+}
+
+bool PluginDelegatedBackend::hasRotationProperty() const
+{
+	return m_options.supportsTransform;
+}
+
 nlohmann::json PluginDelegatedBackend::snapshotPropertyRows(const BackendDataManager* mgr) const
 {
-	(void)mgr;
+	if (m_options.usePropertyBindings)
+	{
+		nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
+		plugin_property_binding_registry::Entry entry;
+		if (plugin_property_binding_registry::tryGet(className(), entry) && m_delegate)
+		{
+			for (const PluginPropertyBindingEntry& b : entry.bindings)
+			{
+				if (!b.key || !b.formatValue)
+				{
+					continue;
+				}
+				nlohmann::json row;
+				row["key"] = b.key;
+				row["labelEn"] = b.label ? b.label : b.key;
+				row["editable"] = b.editable;
+				row["value"] = b.formatValue(m_delegate.get());
+				rows.push_back(std::move(row));
+			}
+		}
+		return rows;
+	}
+
 	if (!m_delegate)
 	{
 		return nlohmann::json::array();
@@ -64,7 +98,44 @@ nlohmann::json PluginDelegatedBackend::snapshotPropertyRows(const BackendDataMan
 bool PluginDelegatedBackend::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 												 const BackendDataManager* mgr)
 {
-	(void)mgr;
+	if (m_options.usePropertyBindings)
+	{
+		std::string baseErr;
+		if (BackendDataBase::applyPropertyChange(key, value, &baseErr, mgr))
+		{
+			if (errMsg)
+			{
+				*errMsg = baseErr;
+			}
+			return true;
+		}
+		plugin_property_binding_registry::Entry entry;
+		if (plugin_property_binding_registry::tryGet(className(), entry) && m_delegate)
+		{
+			for (const PluginPropertyBindingEntry& b : entry.bindings)
+			{
+				if (!b.key || key != b.key)
+				{
+					continue;
+				}
+				if (!b.editable || !b.applyValue)
+				{
+					if (errMsg)
+					{
+						*errMsg = "Property is read-only for this object type.";
+					}
+					return false;
+				}
+				return b.applyValue(m_delegate.get(), value.c_str(), errMsg);
+			}
+		}
+		if (errMsg)
+		{
+			*errMsg = baseErr.empty() ? "Unknown property key." : baseErr;
+		}
+		return false;
+	}
+
 	if (!m_delegate)
 	{
 		if (errMsg)

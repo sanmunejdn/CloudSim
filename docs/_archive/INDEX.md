@@ -1,4 +1,4 @@
-# docs/_archive 索引
+﻿# docs/_archive 索引
 
 历史专题任务文档（6A 归档）。原路径均为 `docs/<名称>`，现位于 `docs/_archive/<名称>`。
 
@@ -72,8 +72,22 @@
 | `自定义设备画布组装/` | 自定义设备画布组装 |
 | `自定义设备URDF导出/` | 自定义设备 URDF 导出 |
 | `AI助手计划校验观测确认单轨/` | AI 助手计划/校验/观测单轨 |
-| `HostOptimization/` | Host 优化与 WebH2 6A 过程稿（活跃目录仍在 `docs/HostOptimization/`） |
+| `HostOptimization/` | Host 优化与 WebH2 6A 过程稿（**活跃常读现为** [`docs/Host优化/`](../Host优化/)） |
+| `HostFiltersAndApiDocs/` | Host 筛选器与 API 文档（已从活跃区迁入） |
+| `Follow与Compound分流/` | Follow / Compound 分流（已从活跃区迁入） |
+| `UI思想落地/` | UI 思想落地（已从活跃区迁入） |
+| `视口拾取重构/` | 视口拾取重构（已从活跃区迁入） |
+| `机器人挂载跟随修复/` | 挂载跟随修复（已从活跃区迁入） |
+| `网页端机器人页完整同步/` | 网页机器人页同步（已从活跃区迁入） |
+| `网页端主程序壳对等/` | 网页主程序壳对等（已从活跃区迁入） |
+| `网页端指令IK播放对等/` | 网页指令 IK 播放对等（已从活跃区迁入） |
+| `开发文档整理/` | CloudSim 侧文档整理 6A（脚本见 [`docs/文档工具/`](../文档工具/)） |
+| `机器人路径规划/` | 路径规划 6A（活跃区仅留 PLANNERS + README） |
+| `指令IK轨迹重构/` | 指令 IK 6A（活跃区仅留 DEVELOPER + README） |
 | `后端对象与软件模式/` | P0 三键 6A 过程稿（活跃 README 仍在 `docs/后端对象与软件模式/`） |
+
+根级归档文件另含：`large_nonrigid_registration_acceleration_framework.html`（无引用单页，自活跃区迁入）。
+
 
 ## 根级归档文件
 

@@ -1,4 +1,6 @@
-# KinematicCore 模块开发文档
+﻿# KinematicCore 模块开发文档
+
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 > **运动副全景**（分层架构、FK 组合、矩阵布局、Frame 烘焙）：[`docs/运动副/`](../../../docs/运动副/README.md) · [架构图](../../../docs/运动副/运动副架构图.html)
 

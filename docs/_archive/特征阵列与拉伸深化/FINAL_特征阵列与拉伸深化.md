@@ -1,8 +1,8 @@
-# FINAL — 特征阵列与拉伸深化
+﻿# FINAL — 特征阵列与拉伸深化
 
 ## 交付摘要
 
-包 B+C 子集已落地：Pattern 特征贡献 seed、成角铰链边向、圆周文档对齐、拉伸 startOffset + TwoDirections（Host ABI **1.48.0**）。TopoNaming 仅锁定 `docs/TopoNaming/ALIGNMENT_TopoNaming.md`，无命名引擎代码。
+包 B+C 子集已落地：Pattern 特征贡献 seed、成角铰链边向、圆周文档对齐、拉伸 startOffset + TwoDirections（Host ABI **1.48.0**）。TopoNaming 仅锁定 `docs/拓扑命名/ALIGNMENT_TopoNaming.md`，无命名引擎代码。
 
 ## 编译
 
@@ -23,7 +23,7 @@
 | T2 铰链边向 | `GeometricModelingPlugin` 成角基准面 |
 | T3 文档 | FEATURES / ROADMAP |
 | T4 拉伸 | `SketchExtrude` + Parametric/FeatureDocument/Plugin/UI；ABI `0x00013000` |
-| Topo 锁定 | `docs/TopoNaming/ALIGNMENT_TopoNaming.md` |
+| Topo 锁定 | `docs/拓扑命名/ALIGNMENT_TopoNaming.md` |
 
 ## 文档
 

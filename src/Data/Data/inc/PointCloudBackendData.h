@@ -6,7 +6,6 @@
 /// @brief 点云后端：交错 xyz 浮点缓冲与可选每顶点 RGBA，支持 PLY 等加载与工程内嵌序列化
 
 #include "BackendDataBase.h"
-#include "BackendObjectAttribute.h"
 
 #include <memory>
 #include <string>
@@ -61,10 +60,6 @@ public:
 
 	/// 返回世界坐标系下的 xyz 坐标（应用 worldMatrix 变换后的副本）
 	std::vector<float> worldPositionsXyz() const;
-
-	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
-	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-							 const BackendDataManager* mgr = nullptr) override;
 
 private:
 	void recomputeBoundsFromPoints();

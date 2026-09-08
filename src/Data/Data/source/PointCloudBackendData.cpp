@@ -5,7 +5,6 @@
 
 #include "BackendImporters.h"
 #include "RunLogger.h"
-#include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendSpatial.h"
 #include "BackendTypeIdentity.h"
 #include "PlyIo.h"
@@ -38,7 +37,6 @@ PointCloudBackendData::PointCloudBackendData()
 	c.b = 0.95f;
 	c.a = 1.0f;
 	m_color = c;
-	appendStandardAttributesForCapabilities(*this, m_attributes);
 }
 
 std::string PointCloudBackendData::className() const
@@ -850,24 +848,6 @@ std::vector<float> PointCloudBackendData::worldPositionsXyz() const
 	std::vector<float> transformed = m_xyz;
 	transformXyzToWorld(transformed, worldMatrix());
 	return transformed;
-}
-
-nlohmann::json PointCloudBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
-{
-	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
-	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
-	return rows;
-}
-
-bool PointCloudBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-												const BackendDataManager* mgr)
-{
-	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
-																					  errMsg))
-	{
-		return true;
-	}
-	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
 }
 
 void PointCloudBackendData::saveDerivedJson(nlohmann::json& out) const

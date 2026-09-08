@@ -1,5 +1,7 @@
 ﻿# CloudSimMeshTrajectorySDK 开发指南
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 ## 定位
 
 `CloudSimMeshTrajectorySDK.dll` 提供 **无 Qt 依赖** 的 mesh 轨迹会话：三角 soup 快照、区域选择缓冲、参数 POD、调用 `geoalgo::generateMeshTrajectory`。

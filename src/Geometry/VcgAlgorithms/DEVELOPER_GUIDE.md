@@ -1,5 +1,7 @@
 ﻿# VcgAlgorithms 模块开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 ## 1. 模块定位
 
 `VcgAlgorithms` 是基于 vcglib 的 **网格后处理独立 DLL**：简化、平滑、修复、各向同性重网格，以及 CGAL 重建 + vcglib 后处理管线。
@@ -186,6 +188,6 @@ const bool ok = vcgalgo::runSelfTest(failures);
 
 - [`PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)
 - [`GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)
-- [文档索引](../../../docs/README.md)
+- [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md)
 - [`docs/vcglib_integration/`](../../../docs/_archive/vcglib_integration/)
 - vcglib 仓库：https://github.com/cnr-isti-vclab/vcglib

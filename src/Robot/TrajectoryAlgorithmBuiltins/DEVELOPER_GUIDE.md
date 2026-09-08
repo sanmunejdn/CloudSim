@@ -1,5 +1,7 @@
 ﻿# TrajectoryAlgorithmBuiltins 模块开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 ## 1. 模块定位
 
 `TrajectoryAlgorithmBuiltins` 是轨迹管道的 **内置原子块实现库**，依赖 [`TrajectoryAlgorithm`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md) 框架，向 `TrajectoryOpRegistry` / `TrajectoryOpConfigRegistry` 注册全部 `TrajectoryOpKind` 实现。
@@ -259,4 +261,4 @@ std::unique_ptr<IOpParamConfig> makeFooOpConfig()
 - 管道引擎 / Command：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §13
 - UI 预览分支：[`../UI/RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §轨迹编辑
 - JSON 资源：[`../RobotScene/resource/trajectory/README.md`](../RobotScene/resource/trajectory/README.md)
-- 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+- 模块索引：[`../../../docs/MODULE_DEVELOPER_GUIDES.md`](../../../docs/MODULE_DEVELOPER_GUIDES.md)

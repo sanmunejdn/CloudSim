@@ -10,4 +10,4 @@
 
 **实现：** [`../tools/design-calc/`](../../tools/design-calc/)
 
-标准件库见 [`../design.parts/`](../design.parts/)。
+标准件库见 [`../标准件/`](../标准件/)。

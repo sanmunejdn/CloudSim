@@ -74,6 +74,9 @@
     <ClInclude Include="inc\BackendDataManager.h">
       <Filter>inc\Core</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendExternalPropertySchemaRegistry.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BackendFollowTransformSolver.h">
       <Filter>inc\HierarchyFollow</Filter>
     </ClInclude>
@@ -95,7 +98,19 @@
     <ClInclude Include="inc\BackendPrimitiveGeometry.h">
       <Filter>inc\SpatialPrimitive</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendPropertyBinding.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPropertyBindingSelfTest.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BackendPropertyRow.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPropertySchema.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPropertyVisualAspect.h">
       <Filter>inc\Core</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendSpatial.h">
@@ -157,6 +172,9 @@
     <ClCompile Include="source\BackendDataManager.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
+    <ClCompile Include="source\BackendExternalPropertySchemaRegistry.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\BackendFollowMath.cpp">
       <Filter>src\HierarchyFollow</Filter>
     </ClCompile>
@@ -169,11 +187,14 @@
     <ClCompile Include="source\BackendImporters.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
-    <ClCompile Include="source\BackendObjectAttribute.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
     <ClCompile Include="source\BackendPrimitiveGeometry.cpp">
       <Filter>src\SpatialPrimitive</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendPropertyBindings.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendPropertyBindingSelfTest.cpp">
+      <Filter>src\Core</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendPropertyVisualAspect.cpp">
       <Filter>src\Core</Filter>

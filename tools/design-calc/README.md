@@ -1,4 +1,4 @@
-# design-calc（Wave A/B/C）
+﻿# design-calc（Wave A/B/C）
 
 自《非标设计最强自动计算》改写的可测计算库，并可导出 **`feature.compose`** 毛坯计划。
 
@@ -30,4 +30,4 @@ python cli.py gear --compose-out templates/out.compose.json
 
 ## 文档
 
-`CloudSim/docs/design.calc/`
+`CloudSim/docs/设计计算/`

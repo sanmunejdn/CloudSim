@@ -1,5 +1,7 @@
 ﻿# CloudSimPluginHost 开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 ## 1. 模块定位
 
 `CloudSimPluginHost` 是 **动态插件的宿主实现**：扫描 `plugins/`、`QPluginLoader` 加载、`IPluginHostContext` / `IPluginDocument` 适配到 `DocumentHost` 与 Host 契约。**源码在** `src/UI/CloudSimPluginHost/`，**编译进 `CloudSimHost.dll`**（非独立 DLL，也不再编入 `Widget.dll`）。
@@ -87,9 +89,17 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 
 委托 **`DocumentHost::sceneFacade()`**：`setBackendObjectVisible` 经 `BackendSceneEntity`；矩阵/分支 API 经 `IBackendSceneBridge`。
 
-### 2.6 `PluginDelegatedBackend`
+### 2.6 `PluginDelegatedBackend` + Binding 注册表（1.54.0+）
 
 将插件 `IPluginBackendObject` 适配为 `BackendDataBase`，供 `registerBackendType` 注册进 `BackendRegistry`。
+
+| 模式 | 行为 |
+|------|------|
+| `propertyBindings` 非空 | 写入 `PluginPropertyBindingRegistry` + Data `BackendExternalPropertySchemaRegistry`；snapshot/apply 走基类标准包（`supportsTransform`→pose/rotation）+ 插件 Binding 行；**忽略** `propertyRowsJson` 真源 |
+| `propertyBindings` 空 | 兼容旧路径：仅解析 `propertyRowsJson` / 转发 `applyPropertyChange` |
+| schema / aspect | `schemaForBackendClassName` 合并外部 descriptors；`visualAspectsForPropertyKey` 认 `semanticFlags` |
+
+Debug 下 `PluginHostContext` 构造会 once 跑 `runPluginPropertyBindingSelfTest`。专题：[`docs/指令与插件属性Binding/`](../../../docs/指令与插件属性Binding/)。
 
 ---
 
@@ -242,7 +252,7 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 | [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) | `DocumentImportFacade`、`DocumentHost::sceneFacade()`、`osgWidgetFrom` |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService`、`EventHub` |
 | [`Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) | `MainWindow` 实现 `IPluginMainWindowHost`、JobSystem |
-| [文档索引](../../../docs/README.md) §10 | 插件运行时与目录约定 |
+| [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §10 | 插件运行时与目录约定 |
 | [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) | 模板 B-rep + 点云配准与面更新 |
 | [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI 助手、`ai_config`、训练索引 |
 | [`tools/ai-training/CONFIGURATION.md`](../../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 字段 |

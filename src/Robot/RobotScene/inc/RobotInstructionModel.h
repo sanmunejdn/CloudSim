@@ -62,8 +62,6 @@ ROBOT_SCENE_API Category categoryForType(Type t);
 ROBOT_SCENE_API std::string typeToString(Type t);
 ROBOT_SCENE_API bool typeFromString(const std::string& s, Type& out);
 
-class AttributeBase;
-
 class ROBOT_SCENE_API Base
 {
 public:
@@ -165,9 +163,6 @@ public:
 	void setExtensionProperty(const std::string& key, const std::string& value) { m_extensionProperties[key] = value; }
 	void eraseExtensionProperty(const std::string& key) { (void)m_extensionProperties.erase(key); }
 
-protected:
-	void addAttribute(const std::shared_ptr<AttributeBase>& attr);
-
 private:
 	static const Condition s_emptyCondition;
 	static const std::string s_emptyString;
@@ -177,7 +172,6 @@ private:
 	std::string m_name;
 	Type m_type = Type::PTP;
 	Category m_category = Category::Motion;
-	std::vector<std::shared_ptr<AttributeBase>> m_attributes;
 	std::unordered_map<std::string, std::string> m_extensionProperties;
 };
 

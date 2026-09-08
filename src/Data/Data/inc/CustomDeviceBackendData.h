@@ -160,9 +160,7 @@ public:
 	const nlohmann::json& ioSignalsJson() const { return m_ioSignalsJson; }
 	void setIoSignalsJson(nlohmann::json signalsJson);
 
-	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
-	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-							 const BackendDataManager* mgr = nullptr) override;
+	const std::vector<BackendPropertyBinding>& extraPropertyBindings() const override;
 
 	void collectReferencedBackendIds(std::vector<std::string>& out) const override;
 

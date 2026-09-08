@@ -2,6 +2,7 @@
 /// @brief 属性面板绑定
 
 #include "../RobotWidget/inc/InstructionPropertyPanel.h"
+#include "BackendDataBase.h"
 #include "BackendPropertyRow.h"
 #include "BackendPropertySchema.h"
 #include "BackendTypeIds.h"
@@ -40,25 +41,58 @@ using namespace mainwindow_detail;
 
 namespace
 {
+int& panelInstructionTypeSlot()
+{
+	static int s = -1;
+	return s;
+}
+} // namespace
+
+void mainwindow_setPanelInstructionType(int typeOrMinusOne)
+{
+	panelInstructionTypeSlot() = typeOrMinusOne;
+}
+
+namespace
+{
 const property_core::PropertyDescriptor* instructionPropertyDescriptorForKey(const QString& key)
 {
 	const std::string keyStd = key.toStdString();
+	if (panelInstructionTypeSlot() >= 0)
+	{
+		return RobotInstruction::findInstructionPropertyDescriptor(
+			static_cast<RobotInstruction::Type>(panelInstructionTypeSlot()), keyStd);
+	}
 	return RobotInstruction::findInstructionPropertyDescriptor(keyStd);
 }
 
-const property_core::PropertyDescriptor* backendPropertyDescriptorForKey(const QString& key)
+/// updatePropertyPanel 期间写入，供 editor type / 约束按 class 查 Binding
+QString& panelBackendClassNameSlot()
+{
+	static QString s;
+	return s;
+}
+
+const property_core::PropertyDescriptor* backendPropertyDescriptorForKey(const QString& key,
+																		 const QString& className = QString())
 {
 	const std::string keyStd = key.toStdString();
+	const QString cn = !className.isEmpty() ? className : panelBackendClassNameSlot();
+	if (!cn.isEmpty())
+	{
+		return backend_property_schema::findBackendPropertyDescriptor(cn.toStdString(), keyStd);
+	}
 	return backend_property_schema::findAnyBackendPropertyDescriptor(keyStd);
 }
 
-const property_core::PropertyDescriptor* panelPropertyDescriptorForKey(const QString& key)
+const property_core::PropertyDescriptor* panelPropertyDescriptorForKey(const QString& key,
+																	   const QString& backendClassName = QString())
 {
 	if (const property_core::PropertyDescriptor* d = instructionPropertyDescriptorForKey(key))
 	{
 		return d;
 	}
-	return backendPropertyDescriptorForKey(key);
+	return backendPropertyDescriptorForKey(key, backendClassName);
 }
 
 QString snapshotPropertyValueForKey(const nlohmann::json& rows, const QString& key)
@@ -651,6 +685,14 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	{
 		return tr(QStringLiteral("Follow target (object name)"), QStringLiteral("跟随目标（对象名称）"));
 	}
+	if (key == QStringLiteral("visible"))
+	{
+		return tr(QStringLiteral("Visible"), QStringLiteral("可见"));
+	}
+	if (key == QStringLiteral("axisLengthMm"))
+	{
+		return tr(QStringLiteral("Axis length (mm)"), QStringLiteral("轴长 (mm)"));
+	}
 	if (key == QStringLiteral("mesh.triangle_count"))
 	{
 		return tr(QStringLiteral("Triangle count"), QStringLiteral("三角形数"));
@@ -810,6 +852,7 @@ void MainWindow::applySuggestedAxisPresetFromSeedIfNeeded(
 void MainWindow::updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
 												const bool refreshFeasibleAxisOptions)
 {
+	mainwindow_setPanelInstructionType(instruction ? static_cast<int>(instruction->type()) : -1);
 	if (instruction)
 	{
 		const QString instructionId = QString::fromStdString(instruction->id());
@@ -1245,6 +1288,7 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 	m_variantManager->clear();
 	if (backendId.isEmpty())
 	{
+		panelBackendClassNameSlot().clear();
 		endPropertyBrowserProgrammaticUpdate();
 		return;
 	}
@@ -1259,6 +1303,8 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 	QColor objectColor;
 	const bool hasObjectColor = colorFromPropertyRows(rows, &objectColor);
 	const auto backendObj = docPage->findObject(backendId.toStdString());
+	panelBackendClassNameSlot() =
+		backendObj ? QString::fromStdString(backendObj->className()) : QString();
 	const bool hasFixedRgbAxes =
 		backendObj && (backend_type::isCoordinateFrameClassName(backendObj->className()) ||
 					   backend_type::isCustomDeviceClassName(backendObj->className()));

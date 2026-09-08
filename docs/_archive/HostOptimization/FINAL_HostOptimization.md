@@ -1,4 +1,4 @@
-# FINAL — HostOptimization（路径 B）
+﻿# FINAL — HostOptimization（路径 B）
 
 ## 交付摘要
 
@@ -8,7 +8,7 @@
 
 | 路径 | 说明 |
 |------|------|
-| `docs/HostOptimization/*` | ALIGNMENT / CONSENSUS / INTERFACE_CATALOG / BACKEND 清单 / Headless 对齐 / 可选评估 / ACCEPTANCE |
+| `docs/Host优化/*` | ALIGNMENT / CONSENSUS / INTERFACE_CATALOG / BACKEND 清单 / Headless 对齐 / 可选评估 / ACCEPTANCE |
 | `IDataService::findByClassName` | Core 契约扩展 |
 | `IRobotDocumentHost::documentData` | Robot UI 契约数据面 |
 | `CloudSimHost/inc/{import,project,robot,headless,follow}` | 逻辑分层 + 根目录 shim |

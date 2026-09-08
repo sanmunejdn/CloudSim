@@ -1,5 +1,7 @@
 ﻿# CloudSim Web UI（Vite + React）
 
+> **文档导航**：[全库入口](../../../docs/README.md) · [全量目录](../../../docs/全量目录.md) · [开发手册·网页端](../../../docs/开发手册/08-网页端.md) · [产品索引](../../docs/README.md) · [模块总表](../../docs/MODULE_DEVELOPER_GUIDES.md) · [Gateway](../../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md)
+
 正式静态根：`CloudSimWeb.exe` 旁的 `web/`（仓库 `bin\x64d\web` / `bin\x64\web`）。  
 行为以 `_archive/public-fallback/` 为金标对照；默认部署产物来自本目录源码，**不要**只改 fallback 或只拷到 `CloudSim\bin\...\web`。
 

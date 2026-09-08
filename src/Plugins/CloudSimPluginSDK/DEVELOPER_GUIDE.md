@@ -1,12 +1,14 @@
 ﻿# CloudSimPluginSDK 开发指南
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 ## 定位
 
 `CloudSimPluginSDK.dll` 是 **插件与宿主之间的唯一稳定 ABI**。插件工程只链接本 SDK，不得链接 `Widget.lib` / `RobotScene.lib`。
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00012700` = 1.39.0；含扫描扭转/拉伸到顶点·到面偏移/拔模 Host API）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00013600` = 1.54.0；含 `PluginPropertyBindingEntry` / Path B Binding 注册）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
 - `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；**1.12.0+** `reconstructSurfaceFromMesh`（网格 → 新 `BrepModel`，源网格保留）；**1.13.0+** `beginMeshSurfaceReconstructSession` / `runMeshSurfaceReconstructStage` / `clearMeshSurfaceReconstructSession`（曲面重构分阶段调试，`PluginMeshSurfaceReconstructStage`）；**1.15.0+** `beginTubularGrindingSession` / `runTubularGrindingStage` / `clearTubularGrindingSession`（管状铸件特征构建 Phase 1–4，`PluginTubularGrindingStage`）；新 API 均追加在 vtable 末尾；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
@@ -60,7 +62,7 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `registerMenuPath` / `registerAction` | 菜单与动作 |
 | `importFileIntoActiveDocument` | 活动文档导入文件；返回 root `backendId`（UTF-8） |
 | `createPrimitiveMesh` | box/cylinder/cone/sphere → Host 注册 + OSG |
-| `registerBackendType` | 自定义 `className`（`PluginDelegatedBackend`） |
+| `registerBackendType` | 自定义 `className`（`PluginDelegatedBackend`）；**1.54.0+** 可填 `propertyBindings`（Binding 真源），空则回退 `propertyRowsJson` |
 | `registerTriangleMesh` | 三角 soup → `registerAdoptedMesh` |
 | `enqueueJob` / `invokeOnUiThread` | 线程边界 |
 | `pointCloudHost()` | **1.2.0+** 点云算法宿主（见下节） |

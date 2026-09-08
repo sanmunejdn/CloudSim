@@ -5,8 +5,6 @@
 
 #include "../../PropertyCore/inc/PropertyTypes.h"
 
-#include <algorithm>
-
 namespace backend_property_schema
 {
 namespace
@@ -32,20 +30,7 @@ std::uint32_t aspectsFromSemanticFlags(const PropertySemanticFlags flags)
 	{
 		aspects |= kVisualAspectGeometry;
 	}
-	if ((flags & PropertySemanticFlags::LegacyFullCommitBehavior) != PropertySemanticFlags::None)
-	{
-		aspects |= kVisualAspectTransform | kVisualAspectAppearance | kVisualAspectSelection;
-	}
 	return aspects;
-}
-
-const PropertyDescriptor* findDescriptorForClass(const std::string& className, const std::string& key)
-{
-	if (const PropertyDescriptor* d = schemaForBackendClassName(className).find(key))
-	{
-		return d;
-	}
-	return findAnyBackendPropertyDescriptor(key);
 }
 
 } // namespace
@@ -56,36 +41,16 @@ std::uint32_t visualAspectsForPropertyKey(const std::string& className, const st
 	{
 		return 0u;
 	}
-	if (key == "visible")
-	{
-		return kVisualAspectVisibility;
-	}
-	if (const PropertyDescriptor* d = findDescriptorForClass(className, key))
-	{
-		const std::uint32_t aspects = aspectsFromSemanticFlags(d->semanticFlags);
-		if (aspects != 0u)
-		{
-			return aspects;
-		}
-	}
 	if (key.rfind("follow.", 0) == 0)
 	{
 		return 0u;
 	}
-	if (key.rfind("pose.", 0) == 0 || key.rfind("rotation.", 0) == 0)
+	if (const PropertyDescriptor* d = findBackendPropertyDescriptor(className, key))
 	{
-		return kVisualAspectTransform;
+		return aspectsFromSemanticFlags(d->semanticFlags);
 	}
-	// 前缀精确匹配，避免 "discolorXxx"/"invisibleXxx" 这类键被子串误判
-	if (key.rfind("color.", 0) == 0)
-	{
-		return kVisualAspectAppearance;
-	}
-	if (key.rfind("visible.", 0) == 0)
-	{
-		return kVisualAspectVisibility;
-	}
-	return kVisualAspectTransform | kVisualAspectAppearance | kVisualAspectSelection;
+	// 未知 key：不再全量脏
+	return 0u;
 }
 
 bool propertyCommitsPoseFromSchema(const std::string& className, const std::string& key)
@@ -99,7 +64,6 @@ bool propertyCommitsPoseFromSchema(const std::string& className, const std::stri
 	{
 		return true;
 	}
-	// 前缀精确匹配，避免 "transposedXxx" 这类键被 "pose" 子串误判为位姿提交
 	return key.rfind("pose.", 0) == 0 || key.rfind("rotation.", 0) == 0;
 }
 

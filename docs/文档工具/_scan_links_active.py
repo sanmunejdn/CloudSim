@@ -51,7 +51,7 @@ for md in md_files:
             rel = str(md.relative_to(CLOUD)).replace("\\", "/")
             broken[rel].append(path_part)
 
-out = CLOUD / "docs" / "开发文档整理" / "_link_scan_active.txt"
+out = CLOUD / "docs" / "文档工具" / "_link_scan_active.txt"
 lines = [f"files={len(md_files)} checked={checked} broken_files={len(broken)} broken_links={sum(len(v) for v in broken.values())}", ""]
 for src in sorted(broken):
     lines.append(f"--- {src}")

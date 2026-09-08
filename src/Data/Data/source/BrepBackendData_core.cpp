@@ -3,9 +3,6 @@
 
 #include "pch.h"
 
-#include "../../PropertyCore/inc/PropertyAttribute.h"
-#include "BackendObjectAttribute.h"
-#include "BackendPropertyRow.h"
 #include "BackendSpatial.h"
 #include "BrepBackendData.h"
 
@@ -21,7 +18,6 @@ BrepBackendData::BrepBackendData()
 	c.b = 0.95f;
 	c.a = 1.0f;
 	m_color = c;
-	appendStandardAttributesForCapabilities(*this, m_attributes);
 }
 
 std::string BrepBackendData::className() const
@@ -156,25 +152,6 @@ geoalgo::ShapeHandle BrepBackendData::worldShape() const
 
 	// 调用 GeometryAlgorithm 的变换函数
 	return geoalgo::transformShape(m_shape, iso);
-}
-
-nlohmann::json BrepBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
-{
-	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
-	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
-	backend_property_json::appendRow(rows, "brep.has_shape", "B-rep", false, hasGeometry() ? "yes" : "no");
-	return rows;
-}
-
-bool BrepBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-										  const BackendDataManager* mgr)
-{
-	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
-																					  errMsg))
-	{
-		return true;
-	}
-	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
 }
 
 void BrepBackendData::saveDerivedJson(nlohmann::json& out) const

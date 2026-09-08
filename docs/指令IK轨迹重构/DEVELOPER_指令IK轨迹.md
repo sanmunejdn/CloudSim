@@ -5,4 +5,4 @@
 3. **IK（KinematicCore）**：Pinocchio 形契约（目标 SE3 + q 种子）；本阶段不整库 Pinocchio。
 4. **Ruckig（PTP）**：`PtpPlanner` 在 IK 成功后生成 `jointTrajectoryRad`；回放引擎按轨迹插补。LINE/ARC 仍笛卡尔采样。
 
-详见 [CONSENSUS_指令IK轨迹重构.md](./CONSENSUS_指令IK轨迹重构.md)。
+详见 [CONSENSUS_指令IK轨迹重构.md](../_archive/指令IK轨迹重构/CONSENSUS_指令IK轨迹重构.md)。

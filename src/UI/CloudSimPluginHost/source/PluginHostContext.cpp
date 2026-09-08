@@ -27,6 +27,9 @@
 #include "MeshBoolean.h"
 #include "PrimitiveBrep.h"
 #include "PluginDelegatedBackend.h"
+#include "PluginPropertyBindingRegistry.h"
+#include "PluginPropertyBindingSelfTest.h"
+#include "RunLogger.h"
 #include "PluginDocumentAdapter.h"
 #include "PluginGeometryHostImpl.h"
 #include "PluginLabelingHostImpl.h"
@@ -139,6 +142,12 @@ PluginHostContext::PluginHostContext(IPluginMainWindowHost* mainWindowHost, QObj
 	  m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
 {
 	ensureBuiltinMainWorkspaceMode();
+#ifndef NDEBUG
+	if (!runPluginPropertyBindingSelfTest(nullptr))
+	{
+		RunLogger::error("PluginPropertyBindingSelfTest failed.");
+	}
+#endif
 }
 
 PluginHostContext::~PluginHostContext() = default;
@@ -1441,17 +1450,28 @@ bool PluginHostContext::registerBackendType(const PluginBackendMeta& meta, QStri
 		return false;
 	}
 
+	const bool useBindings = !meta.propertyBindings.empty();
+	if (useBindings)
+	{
+		plugin_property_binding_registry::Entry entry;
+		entry.supportsTransform = meta.supportsTransform;
+		entry.supportsVisibility = meta.supportsVisibility;
+		entry.bindings = meta.propertyBindings;
+		plugin_property_binding_registry::registerType(meta.className, std::move(entry));
+	}
+
 	BackendMeta reg;
 	reg.className = meta.className;
 	reg.displayName = meta.displayName.empty() ? meta.className : meta.displayName;
-	reg.factory = [factory = meta.factory]() -> std::shared_ptr<BackendDataBase>
+	const PluginDelegatedBackendOptions opts{meta.supportsTransform, meta.supportsVisibility, useBindings};
+	reg.factory = [factory = meta.factory, opts]() -> std::shared_ptr<BackendDataBase>
 	{
 		const std::shared_ptr<IPluginBackendObject> delegate = factory();
 		if (!delegate)
 		{
 			return nullptr;
 		}
-		return std::make_shared<PluginDelegatedBackend>(delegate);
+		return std::make_shared<PluginDelegatedBackend>(delegate, opts);
 	};
 
 	BackendRegistry::instance().registerType(reg);

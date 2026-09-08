@@ -1,4 +1,4 @@
-# ACCEPTANCE — 开发文档全面整理（第二轮）
+﻿# ACCEPTANCE — 开发文档全面整理（第二轮）
 
 | 项 | 状态 |
 |----|------|
@@ -15,5 +15,5 @@
 ## 抽查命令
 
 ```bash
-python docs/开发文档整理/_scan_links_active.py
+python docs/文档工具/_scan_links_active.py
 ```

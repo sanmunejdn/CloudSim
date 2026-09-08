@@ -1,5 +1,7 @@
 ﻿# CloudSimHost 模块开发文档
 
+> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；URDF 导入、层级 mesh/BREP、配准写回须走 `BackendWorldPose` / `osgMatrixFromRigidTransform` 单一路径。
 
 ## 1. 模块定位
@@ -28,7 +30,7 @@
 
 ## 2. 目录与编译单元
 
-> **功能域索引（路径 B）**：[`docs/HostOptimization/INTERFACE_CATALOG.md`](../../../docs/HostOptimization/INTERFACE_CATALOG.md)；`backend()` 清单见同目录 `BACKEND_CALLSITE_INVENTORY.md`。
+> **功能域索引（路径 B）**：[`docs/Host优化/INTERFACE_CATALOG.md`](../../../docs/Host优化/INTERFACE_CATALOG.md)；`backend()` 清单见同目录 `BACKEND_CALLSITE_INVENTORY.md`。
 
 ```text
 CloudSimHost/
@@ -559,7 +561,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 | 文档 | 内容 |
 |------|------|
-| [文档索引](../../../docs/README.md) §2.1、§4.0.1 | 全局边界与运行时 DLL |
+| [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §2.1、§4.0.1 | 全局边界与运行时 DLL |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService` / `IRenderView` / `EventHub` 与 Host 行为对照 |
 | [`Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) | 主窗口与 `DocumentPage`（UI 仍描述 OsgWidget 行为，实现位于 Host） |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 动态插件宿主（**编入 Host**）、`PluginHostContext` 与 Facade 接线 |
@@ -614,7 +616,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 ## 10. Host API 全量参考
 
-> **索引**：契约实现细节仍以 [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) 为准；稳定面白名单见 [`docs/HostOptimization/INTERFACE_CATALOG.md`](../../../docs/HostOptimization/INTERFACE_CATALOG.md)。  
+> **索引**：契约实现细节仍以 [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) 为准；稳定面白名单见 [`docs/Host优化/INTERFACE_CATALOG.md`](../../../docs/Host优化/INTERFACE_CATALOG.md)。  
 > 本节按**调用入口**列出 Host 当前支持的全部对外 API（含 Core 三件套经 Adapter 落地的方法）。插件/AI 的 SDK 面见 PluginHost / AiSDK 指南；下表只列同 DLL 内 Host 侧入口。
 
 ### 10.0 入口分层
