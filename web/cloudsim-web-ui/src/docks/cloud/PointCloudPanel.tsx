@@ -61,6 +61,7 @@ export default function PointCloudPanel() {
   const [spareTargetId, setSpareTargetId] = useState("");
   const [spareVoxelMm, setSpareVoxelMm] = useState(0);
   const [spareRigidPreAlign, setSpareRigidPreAlign] = useState(false);
+  const [spareCoarseGlobalAlign, setSpareCoarseGlobalAlign] = useState(false);
   const [spareCreateNew, setSpareCreateNew] = useState(false);
   const [sdfFieldMode, setSdfFieldMode] = useState(1);
   const [sdfFieldVoxelMm, setSdfFieldVoxelMm] = useState(0);
@@ -250,6 +251,7 @@ export default function PointCloudPanel() {
           targetId: spareTargetId,
           voxelPrefilterMm: spareVoxelMm,
           rigidPreAlign: spareRigidPreAlign,
+          coarseGlobalAlign: spareCoarseGlobalAlign,
           createNewObject: spareCreateNew,
         }),
       );
@@ -558,6 +560,14 @@ export default function PointCloudPanel() {
                     onChange={(e) => setSpareRigidPreAlign(e.target.checked)}
                   />
                   刚性预对齐 (ICP)
+                </label>
+                <label className="pc-check">
+                  <input
+                    type="checkbox"
+                    checked={spareCoarseGlobalAlign}
+                    onChange={(e) => setSpareCoarseGlobalAlign(e.target.checked)}
+                  />
+                  全局粗对齐 (特征 RANSAC)
                 </label>
                 <label className="pc-check">
                   <input type="checkbox" checked={spareCreateNew} onChange={(e) => setSpareCreateNew(e.target.checked)} />

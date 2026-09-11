@@ -71,6 +71,7 @@ struct PointCloudSpareResult
 {
 	double meanErrorMm = 0.0;
 	int deformationNodeCount = 0;
+	std::string preAlignNote;
 };
 
 struct PointCloudSpareParams

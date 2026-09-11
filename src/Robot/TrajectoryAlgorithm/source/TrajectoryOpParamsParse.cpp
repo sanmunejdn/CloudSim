@@ -402,7 +402,14 @@ RobotInstruction::NonRigidRegistrationParams parseNonRigidRegistrationParams(con
 	out.sampleRadiusRatio = trajectoryParamDouble(params, "nrr.sampleRadiusRatio", out.sampleRadiusRatio);
 	out.maxOuterIters = trajectoryParamInt(params, "nrr.maxOuterIters", out.maxOuterIters);
 	out.rigidPreAlign = trajectoryParamBool(params, "nrr.rigidPreAlign", out.rigidPreAlign);
+	out.coarseGlobalAlign = trajectoryParamBool(params, "nrr.coarseGlobalAlign", out.coarseGlobalAlign);
 	out.voxelPrefilterMm = trajectoryParamDouble(params, "nrr.voxelPrefilterMm", out.voxelPrefilterMm);
+	out.solver = trajectoryParamInt(params, "nrr.solver", static_cast<int>(out.solver)) == 1
+					 ? RobotInstruction::NonRigidRegistrationSolver::Sdf
+					 : RobotInstruction::NonRigidRegistrationSolver::Spare;
+	out.sdfFieldMode = trajectoryParamInt(params, "nrr.sdfFieldMode", out.sdfFieldMode);
+	out.sdfFieldVoxelMm = trajectoryParamDouble(params, "nrr.sdfFieldVoxelMm", out.sdfFieldVoxelMm);
+	out.sdfFineDataTerm = trajectoryParamInt(params, "nrr.sdfFineDataTerm", out.sdfFineDataTerm);
 	return out;
 }
 
@@ -414,7 +421,12 @@ void writeNonRigidRegistrationParams(nlohmann::json& params, const RobotInstruct
 	setTrajectoryParamDouble(params, "nrr.sampleRadiusRatio", value.sampleRadiusRatio);
 	setTrajectoryParamInt(params, "nrr.maxOuterIters", value.maxOuterIters);
 	setTrajectoryParamBool(params, "nrr.rigidPreAlign", value.rigidPreAlign);
+	setTrajectoryParamBool(params, "nrr.coarseGlobalAlign", value.coarseGlobalAlign);
 	setTrajectoryParamDouble(params, "nrr.voxelPrefilterMm", value.voxelPrefilterMm);
+	setTrajectoryParamInt(params, "nrr.solver", static_cast<int>(value.solver));
+	setTrajectoryParamInt(params, "nrr.sdfFieldMode", value.sdfFieldMode);
+	setTrajectoryParamDouble(params, "nrr.sdfFieldVoxelMm", value.sdfFieldVoxelMm);
+	setTrajectoryParamInt(params, "nrr.sdfFineDataTerm", value.sdfFineDataTerm);
 }
 
 RobotInstruction::ToWorkpieceInHandParams parseToWorkpieceInHandParams(const nlohmann::json& params)

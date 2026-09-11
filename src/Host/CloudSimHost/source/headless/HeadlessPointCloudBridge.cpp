@@ -19,7 +19,6 @@
 #include <MeshSurfaceReconstruction.h>
 
 #include <QDir>
-#include <QFile>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QTemporaryFile>
@@ -784,7 +783,7 @@ QJsonObject HeadlessPointCloudBridge::meshExportPly(const QJsonObject& body)
 		tmp.close();
 	}
 	std::string err;
-	if (!document_point_cloud_ops::exportMeshToPly(&m_host, id.toStdString(), QFile::encodeName(path).constData(), &err))
+	if (!document_point_cloud_ops::exportMeshToPly(&m_host, id.toStdString(), path.toUtf8().toStdString(), &err))
 		return fail(QString::fromStdString(err));
 	return okExtra({{QStringLiteral("path"), path}, {QStringLiteral("backendId"), id}});
 }

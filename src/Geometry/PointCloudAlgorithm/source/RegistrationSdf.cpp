@@ -1,6 +1,8 @@
 #include "RegistrationSdf.h"
 
 #include "Downsample.h"
+#include "KdTreePointSet.h"
+#include "PointCloudBuffer.h"
 #include "Preprocess.h"
 #include "RegistrationRigid.h"
 #include "Transform.h"
@@ -11,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <map>
 #include <sstream>
 #include <utility>
@@ -31,6 +34,81 @@ bool ensureNormals(std::vector<float>& xyz, std::vector<float>& normals, std::st
 		return false;
 	}
 	return orientNormalsMst(xyz, normals, 12U, nullptr, errMsg);
+}
+
+// 与 ICP 默认配对半径同量级；内点比例过低时仍做质心平移
+constexpr double kOverlapNnFrac = 0.05;
+constexpr double kOverlapInlierRatio = 0.5;
+
+double bboxDiag(const std::vector<float>& xyz)
+{
+	if (xyz.size() < 3U)
+	{
+		return 1.0;
+	}
+	Eigen::AlignedBox3d box;
+	for (std::size_t i = 0; i + 2U < xyz.size(); i += 3U)
+	{
+		box.extend(Eigen::Vector3d(xyz[i], xyz[i + 1U], xyz[i + 2U]));
+	}
+	return std::max(1e-6, box.diagonal().norm());
+}
+
+void transformNormalsInPlace(std::vector<float>& normals, const Eigen::Isometry3d& t)
+{
+	if (normals.size() < 3U)
+	{
+		return;
+	}
+	const Eigen::Matrix3d rot = t.linear();
+	for (std::size_t i = 0; i + 2U < normals.size(); i += 3U)
+	{
+		Eigen::Vector3d n(normals[i], normals[i + 1U], normals[i + 2U]);
+		n = rot * n;
+		const double len = n.norm();
+		if (len > 1e-12)
+		{
+			n /= len;
+		}
+		normals[i] = static_cast<float>(n.x());
+		normals[i + 1U] = static_cast<float>(n.y());
+		normals[i + 2U] = static_cast<float>(n.z());
+	}
+}
+
+// 多数采样点已落到目标附近时跳过质心平移，避免把局部重叠拉开
+bool alreadyOverlapping(const std::vector<float>& srcXyz, const std::vector<float>& tgtXyz, const double diag)
+{
+	if (diag <= 1e-9 || srcXyz.size() < 3U || tgtXyz.size() < 3U)
+	{
+		return false;
+	}
+	const KdTreePointSet tree(tgtXyz);
+	if (tree.empty())
+	{
+		return false;
+	}
+	const std::size_t n = pointCountFromXyz(srcXyz);
+	const std::size_t step = std::max<std::size_t>(1U, n / 400U);
+	std::size_t sampled = 0;
+	std::size_t closeHits = 0;
+	const double closeDistSq = (diag * kOverlapNnFrac) * (diag * kOverlapNnFrac);
+	for (std::size_t i = 0; i < n; i += step)
+	{
+		++sampled;
+		const std::size_t b = i * 3U;
+		double d2 = 0.0;
+		if (tree.findNearest(static_cast<double>(srcXyz[b]), static_cast<double>(srcXyz[b + 1U]),
+							 static_cast<double>(srcXyz[b + 2U]), closeDistSq, d2) != static_cast<std::size_t>(-1))
+		{
+			++closeHits;
+		}
+	}
+	if (sampled < 16U)
+	{
+		return false;
+	}
+	return static_cast<double>(closeHits) / static_cast<double>(sampled) >= kOverlapInlierRatio;
 }
 
 /**
@@ -87,8 +165,8 @@ bool prepareCloud(std::vector<float>& xyz, std::vector<float>& normals, const Sd
 {
 	if (params.voxelPrefilterMm > 0.0)
 	{
-		std::vector<float>* nPtr = normals.empty() ? nullptr : &normals;
-		if (!downsampleVoxelGrid(xyz, params.voxelPrefilterMm, 1U, nPtr))
+		// 第四参是 RGBA 不是法线；体素后点数变了，旧法线作废
+		if (!downsampleVoxelGrid(xyz, params.voxelPrefilterMm, 1U, nullptr))
 		{
 			if (errMsg)
 			{
@@ -96,6 +174,7 @@ bool prepareCloud(std::vector<float>& xyz, std::vector<float>& normals, const Sd
 			}
 			return false;
 		}
+		normals.clear();
 	}
 	return ensureNormals(xyz, normals, errMsg);
 }
@@ -107,45 +186,19 @@ bool maybeRigidPreAlign(std::vector<float>& srcXyz, std::vector<float>& srcNorma
 	{
 		return true;
 	}
-	Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+
+	// 宽半径点-点 ICP 易锁错局部解；PCA 法线再加 45° 门控会把正确对应滤掉
+	Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
 	double rmse = 0.0;
-	if (!rigidRegisterPointToPlaneIcp(srcXyz, srcNormals, tgtXyz, tgtNormals, T, &rmse,
-									  params.rigidPreAlignMaxIterations, 0.01, params.rigidPreAlignMaxPairDistanceMm,
-									  params.rigidPreAlignMaxPoints, errMsg))
+	if (!rigidRegisterPointToPlaneIcp(srcXyz, srcNormals, tgtXyz, tgtNormals, t, &rmse,
+									 params.rigidPreAlignMaxIterations, 0.01, params.rigidPreAlignMaxPairDistanceMm,
+									 params.rigidPreAlignMaxPoints, errMsg))
 	{
 		return false;
 	}
-	transformXyzInPlace(srcXyz, T);
-	// 旋转法线
-	const Eigen::Matrix3d R = T.linear();
-	for (std::size_t i = 0; i + 2U < srcNormals.size(); i += 3U)
-	{
-		Eigen::Vector3d n(srcNormals[i], srcNormals[i + 1U], srcNormals[i + 2U]);
-		n = R * n;
-		const double len = n.norm();
-		if (len > 1e-12)
-		{
-			n /= len;
-		}
-		srcNormals[i] = static_cast<float>(n.x());
-		srcNormals[i + 1U] = static_cast<float>(n.y());
-		srcNormals[i + 2U] = static_cast<float>(n.z());
-	}
+	transformXyzInPlace(srcXyz, t);
+	transformNormalsInPlace(srcNormals, t);
 	return true;
-}
-
-double bboxDiag(const std::vector<float>& xyz)
-{
-	if (xyz.size() < 3U)
-	{
-		return 1.0;
-	}
-	Eigen::AlignedBox3d box;
-	for (std::size_t i = 0; i + 2U < xyz.size(); i += 3U)
-	{
-		box.extend(Eigen::Vector3d(xyz[i], xyz[i + 1U], xyz[i + 2U]));
-	}
-	return std::max(1e-6, box.diagonal().norm());
 }
 
 void scaleCloud(std::vector<float>& xyz, double s)
@@ -316,7 +369,12 @@ bool runCore(std::vector<float>& srcXyz, std::vector<float>& srcNormals, std::ve
 	};
 	traceBbox("input", srcXyz);
 
-	if (!prepareCloud(srcXyz, srcNormals, params, errMsg))
+	SdfRegisterParams srcPrepare = params;
+	if (meshEdges != nullptr)
+	{
+		srcPrepare.voxelPrefilterMm = 0.0;
+	}
+	if (!prepareCloud(srcXyz, srcNormals, srcPrepare, errMsg))
 	{
 		return false;
 	}
@@ -326,12 +384,12 @@ bool runCore(std::vector<float>& srcXyz, std::vector<float>& srcNormals, std::ve
 	}
 	traceBbox("afterPrepare", srcXyz);
 
-	// 先把源质心对齐到目标，避免未预对齐时 NN 对应到轴向远端
-	const Eigen::Vector3d srcC0 = cloudCentroid(srcXyz);
-	const Eigen::Vector3d tgtC0 = cloudCentroid(tgtXyz);
-	const Eigen::Vector3d centroidShift = tgtC0 - srcC0;
-	translateCloud(srcXyz, centroidShift);
-	traceBbox("afterCentroidShift", srcXyz);
+	const double tgtDiag = bboxDiag(tgtXyz);
+	if (!alreadyOverlapping(srcXyz, tgtXyz, tgtDiag))
+	{
+		translateCloud(srcXyz, cloudCentroid(tgtXyz) - cloudCentroid(srcXyz));
+		traceBbox("afterCentroidShift", srcXyz);
+	}
 
 	if (!maybeRigidPreAlign(srcXyz, srcNormals, tgtXyz, tgtNormals, params, errMsg))
 	{

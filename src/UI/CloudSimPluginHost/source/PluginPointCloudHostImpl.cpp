@@ -852,6 +852,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 			jobResult.rmseMm = result->spare.meanErrorMm;
 			jobResult.rmseIsMeanPointToPlane = true;
 			jobResult.spareDeformationNodeCount = result->spare.deformationNodeCount;
+			jobResult.debugReport = result->spare.preAlignNote;
 
 			if (sourceIsMesh)
 			{

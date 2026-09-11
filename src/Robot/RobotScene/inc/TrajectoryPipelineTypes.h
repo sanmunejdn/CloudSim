@@ -172,6 +172,12 @@ struct ROBOT_SCENE_API ProjectToGeometryParams
 	double pointCloudHitRadiusMm = 2.0;
 };
 
+enum class NonRigidRegistrationSolver : int
+{
+	Spare = 0,
+	Sdf = 1,
+};
+
 struct ROBOT_SCENE_API NonRigidRegistrationParams
 {
 	std::string sourceBackendId;
@@ -180,7 +186,12 @@ struct ROBOT_SCENE_API NonRigidRegistrationParams
 	double sampleRadiusRatio = 0.0;
 	int maxOuterIters = 30;
 	bool rigidPreAlign = false;
+	bool coarseGlobalAlign = false;
 	double voxelPrefilterMm = 0.0;
+	NonRigidRegistrationSolver solver = NonRigidRegistrationSolver::Spare;
+	int sdfFieldMode = 1;	   ///< 0=DDF 1=有符号 SDF
+	double sdfFieldVoxelMm = 0.0;
+	int sdfFineDataTerm = 0; ///< 0=点-面 1=DDF 2=SDF
 };
 
 /// 工具型→工件型：外部 TCP 参数；参考位姿由 ExecutionContext 注入

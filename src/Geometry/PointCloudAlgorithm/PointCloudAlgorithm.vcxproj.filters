@@ -26,6 +26,9 @@
     <Filter Include="inc\spare">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\pcl">
+      <UniqueIdentifier>{E5F6A7B8-C9D0-1234-EF01-456789012345}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{C86CDAA3-8C72-46AA-87A5-86D90CFF3B67}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
@@ -47,6 +50,9 @@
     </Filter>
     <Filter Include="src\spare">
       <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pcl">
+      <UniqueIdentifier>{F6A7B8C9-D0E1-2345-F012-567890123456}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -97,6 +103,12 @@
     </ClInclude>
     <ClInclude Include="inc\RegistrationNonRigid.h">
       <Filter>inc\Registration</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RegistrationGlobalPcl.h">
+      <Filter>inc\Registration</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pcl\PclCloudConvert.h">
+      <Filter>inc\pcl</Filter>
     </ClInclude>
     <ClInclude Include="inc\RegistrationPyramid.h">
       <Filter>inc\Registration</Filter>
@@ -174,6 +186,12 @@
     </ClCompile>
     <ClCompile Include="source\RegistrationGlobal.cpp">
       <Filter>src\Registration</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pcl\RegistrationGlobalPcl.cpp">
+      <Filter>src\pcl</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pcl\PclCloudConvert.cpp">
+      <Filter>src\pcl</Filter>
     </ClCompile>
     <ClCompile Include="source\RegistrationNonRigid.cpp">
       <Filter>src\Registration</Filter>

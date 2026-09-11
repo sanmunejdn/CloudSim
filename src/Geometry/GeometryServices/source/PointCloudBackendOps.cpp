@@ -440,6 +440,7 @@ bool nonRigidRegisterPointCloudsSpare(PointCloudBackendData& sourceInOut, const 
 	sourceInOut.setPointBuffers(std::move(deformed), sourceInOut.pointVertexRgba(), std::move(deformedNormals));
 	out.meanErrorMm = stats.meanErrorMm;
 	out.deformationNodeCount = stats.deformationNodeCount;
+	out.preAlignNote = stats.preAlignNote;
 	return true;
 }
 
@@ -494,6 +495,7 @@ bool nonRigidRegisterMeshSpare(MeshBackendData& sourceMeshInOut, const PointClou
 	sourceMeshInOut.setTriangleSoup(std::move(soupOut));
 	out.meanErrorMm = stats.meanErrorMm;
 	out.deformationNodeCount = stats.deformationNodeCount;
+	out.preAlignNote = stats.preAlignNote;
 	return true;
 }
 

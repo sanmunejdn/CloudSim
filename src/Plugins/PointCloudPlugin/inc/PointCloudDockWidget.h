@@ -144,7 +144,9 @@ private:
 	QDoubleSpinBox* m_prefilterSpin = nullptr;
 	QComboBox* m_icpTargetCombo = nullptr;
 	QDoubleSpinBox* m_spareVoxelSpin = nullptr;
+	QDoubleSpinBox* m_spareSampleRadiusSpin = nullptr;
 	QCheckBox* m_spareRigidPreAlignCheck = nullptr;
+	QCheckBox* m_spareCoarseGlobalAlignCheck = nullptr;
 	QCheckBox* m_spareCreateNewCheck = nullptr;
 	QWidget* m_spareOptionsWidget = nullptr;
 	QWidget* m_sdfOptionsWidget = nullptr;

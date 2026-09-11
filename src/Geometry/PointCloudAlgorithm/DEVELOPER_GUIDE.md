@@ -9,8 +9,8 @@
 | 属性 | 说明 |
 |------|------|
 | 输出 | 静态库 `PointCloudAlgorithm.lib`（**仅**链入 `Data.dll`，x64 无独立 DLL） |
-| 命名空间 | `pclalgo` |
-| 依赖 | Eigen（`bin/SDK/eigen`）、CGAL 5.5.2、Boost、GMP、TBB（可选，用于并行化） |
+| 命名空间 | `pclalgo`（**勿与**第三方 PCL 库混淆） |
+| 依赖 | Eigen（`bin/SDK/eigen`）、CGAL 5.5.2、Boost、GMP、TBB（可选，用于并行化）；**可选** PCL 1.13.1（`bin/SDK/pcl`，宏 `CLOUDSIM_HAS_PCL`） |
 
 ---
 
@@ -41,7 +41,8 @@
 | `Crop.h` | AABB / 球裁剪 |
 | `Downsample.h` | CGAL 体素 / 随机下采样 |
 | `RegistrationRigid.h` | 点-点 / 点-面 ICP + 法线门控 |
-| `RegistrationGlobal.h` | FPFH + 特征匹配 + RANSAC + Kabsch（`rigidRegisterFeatureRansac`） |
+| `RegistrationGlobal.h` | FPFH + 特征匹配 + RANSAC + Kabsch（自研 `rigidRegisterFeatureRansac`） |
+| `RegistrationGlobalPcl.h` | **可选** PCL FPFH + SampleConsensusPrerejective（`rigidRegisterFeatureRansacPcl`；需 `CLOUDSIM_HAS_PCL`） |
 | `RegistrationNonRigid.h` | TPS 形变 |
 | `RegistrationSpare.h` | **SPARE** 非刚性配准（对称点-面 + 变形图 + ARAP；点云/网格 soup） |
 | `RegistrationSdf.h` | **SDF/DDF** 混合非刚性配准（粗场残差 + 细默认点-面；独立于 SPARE） |
@@ -198,17 +199,28 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 通过 `ParallelUtils::isParallelEnabled()` 可运行时控制。
 
-### 3.4 全局粗配准（`RegistrationGlobal.h`）
+### 3.4 全局粗配准（`RegistrationGlobal.h` / `RegistrationGlobalPcl.h`）
 
-用于 `geometry_backend_ops::alignScanToTemplateRegistration` 世界系粗配（`enableRansacCoarseMatch=true`）。
+用于 `geometry_backend_ops::alignScanToTemplateRegistration` 世界系粗配（`enableRansacCoarseMatch=true`），以及 SPARE `coarseGlobalAlign`。
 
 | 项 | 说明 |
 |----|------|
-| `rigidRegisterFeatureRansac` | 体素下采样 → SPFH/FPFH → 互匹配+ratio test → RANSAC → Kabsch → 可选点-面 ICP（`refineWithIcp`） |
-| `RigidRegisterRansacParams` | `featureVoxelMm`、`inlierDistanceMm`、`minInliers`、`maxIterations` 等；0 表示按 modelDiag 自动 |
-| 失败 | 不阻断流水线，继续粗 ICP |
+| `rigidRegisterFeatureRansac` | 自研：体素 → SPFH/FPFH → 互匹配+ratio → RANSAC → Kabsch → 可选点-面 ICP |
+| `rigidRegisterFeatureRansacPcl` | PCL：VoxelGrid → **强制重估法线** → FPFH → SAC → ICP → **双向内点 + 全体均 NN** 校验；可选反向择优 |
+| 优先级 | 定义 `CLOUDSIM_HAS_PCL` 时：**先 PCL，失败再自研**；再失败则 SPARE 退回质心+点-面 ICP |
+| `RigidRegisterRansacParams` / `PclGlobalAlignParams` | 体素/内点距离等；0 表示按 modelDiag 自动 |
+| 失败 | 不阻断模板流水线（继续粗 ICP）；SPARE 有 ICP fallback |
 
 预对齐插件路径**跳过** RANSAC；见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)。
+
+### 3.4.1 PCL 与 CGAL 分工（互补）
+
+| 能力 | 后端 |
+|------|------|
+| Poisson / Scale-space、法线 MST、离群、SPARE / SDF / 金字塔 | **CGAL + 自研** |
+| 全局特征粗配（FPFH+SAC）、标准 VoxelGrid（PCL 路径内） | **PCL（可选优先）** |
+
+部署与构建：[`bin/SDK/pcl/README.md`](../../../../bin/SDK/pcl/README.md)。工程通过 [`CloudSim/PCL.props`](../../../PCL.props) 在检测到 `install/include/pcl-1.13` 时自动定义 `CLOUDSIM_HAS_PCL`。**ABI**：CloudSim Debug\|x64 为 `/MD` + `_ITERATOR_DEBUG_LEVEL=0`，PCL 须同 ABI（见 README）。
 
 ### 3.5 SPARE 非刚性配准（`RegistrationSpare.h`）
 

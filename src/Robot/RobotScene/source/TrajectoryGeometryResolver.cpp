@@ -559,7 +559,32 @@ point_cloud_backend_ops::PointCloudSpareParams toSpareParams(const NonRigidRegis
 	out.sampleRadiusRatio = params.sampleRadiusRatio;
 	out.maxOuterIters = params.maxOuterIters;
 	out.rigidPreAlign = params.rigidPreAlign;
+	out.coarseGlobalAlign = params.coarseGlobalAlign;
 	out.voxelPrefilterMm = params.voxelPrefilterMm;
+	return out;
+}
+
+point_cloud_backend_ops::PointCloudSdfParams toSdfParams(const NonRigidRegistrationParams& params)
+{
+	point_cloud_backend_ops::PointCloudSdfParams out;
+	out.fieldMode = params.sdfFieldMode == 0 ? 0 : 1;
+	out.fieldVoxelMm = params.sdfFieldVoxelMm;
+	if (params.sdfFineDataTerm == 1)
+	{
+		out.fineDataTerm = 1;
+	}
+	else if (params.sdfFineDataTerm == 2)
+	{
+		out.fineDataTerm = 2;
+	}
+	else
+	{
+		out.fineDataTerm = 0;
+	}
+	out.sampleRadiusRatio = params.sampleRadiusRatio;
+	out.rigidPreAlign = params.rigidPreAlign;
+	out.voxelPrefilterMm = params.voxelPrefilterMm;
+	out.maxOuterIters = params.maxOuterIters;
 	return out;
 }
 
@@ -594,7 +619,12 @@ struct NonRigidSpareCacheKey
 	double sampleRadiusRatio = 0.0;
 	int maxOuterIters = 0;
 	bool rigidPreAlign = false;
+	bool coarseGlobalAlign = false;
 	double voxelPrefilterMm = 0.0;
+	int solver = 0;
+	int sdfFieldMode = 1;
+	double sdfFieldVoxelMm = 0.0;
+	int sdfFineDataTerm = 0;
 };
 
 struct NonRigidSpareCache
@@ -747,7 +777,9 @@ bool cacheKeyEqual(const NonRigidSpareCacheKey& a, const NonRigidSpareCacheKey& 
 		   stampEqual(a.srcStamp, b.srcStamp) && stampEqual(a.tgtStamp, b.tgtStamp) &&
 		   a.maxBindDistanceMm == b.maxBindDistanceMm && a.sampleRadiusRatio == b.sampleRadiusRatio &&
 		   a.maxOuterIters == b.maxOuterIters && a.rigidPreAlign == b.rigidPreAlign &&
-		   a.voxelPrefilterMm == b.voxelPrefilterMm;
+		   a.coarseGlobalAlign == b.coarseGlobalAlign && a.voxelPrefilterMm == b.voxelPrefilterMm &&
+		   a.solver == b.solver && a.sdfFieldMode == b.sdfFieldMode && a.sdfFieldVoxelMm == b.sdfFieldVoxelMm &&
+		   a.sdfFineDataTerm == b.sdfFineDataTerm;
 }
 
 NonRigidSpareCacheKey makeSpareCacheKey(const TrajectoryGeometrySnapshot& srcSnap,
@@ -765,7 +797,12 @@ NonRigidSpareCacheKey makeSpareCacheKey(const TrajectoryGeometrySnapshot& srcSna
 	key.sampleRadiusRatio = params.sampleRadiusRatio;
 	key.maxOuterIters = params.maxOuterIters;
 	key.rigidPreAlign = params.rigidPreAlign;
+	key.coarseGlobalAlign = params.coarseGlobalAlign;
 	key.voxelPrefilterMm = params.voxelPrefilterMm;
+	key.solver = static_cast<int>(params.solver);
+	key.sdfFieldMode = params.sdfFieldMode;
+	key.sdfFieldVoxelMm = params.sdfFieldVoxelMm;
+	key.sdfFineDataTerm = params.sdfFineDataTerm;
 	return key;
 }
 
@@ -777,7 +814,7 @@ NonRigidRegistrationParams withEffectiveSpareParams(const TrajectoryGeometrySnap
 	if (effective.sampleRadiusRatio <= 0.0 && srcSnap.kind == TrajectoryGeometryKind::TriangleMesh &&
 		geometryPrimitiveCount(srcSnap) > 20000U)
 	{
-		effective.sampleRadiusRatio = 5.0;
+		effective.sampleRadiusRatio = 3.0;
 	}
 	return effective;
 }
@@ -872,6 +909,96 @@ bool runSpareRegistration(const TrajectoryGeometrySnapshot& srcSnap, const Traje
 	cache.deformationNodeCount = spareResult.deformationNodeCount;
 	cache.valid = true;
 	spareOut = spareResult;
+	return true;
+}
+
+bool runSdfRegistration(const TrajectoryGeometrySnapshot& srcSnap, const TrajectoryGeometrySnapshot& tgtSnap,
+						const NonRigidRegistrationParams& params, std::vector<float>& deformedMeshSoupOut,
+						std::vector<float>& deformedPointCloudOut, point_cloud_backend_ops::PointCloudSdfResult& sdfOut,
+						bool& fromCacheOut, std::string* errMsg)
+{
+	fromCacheOut = false;
+	sdfOut = point_cloud_backend_ops::PointCloudSdfResult{};
+	const NonRigidRegistrationParams effective = withEffectiveSpareParams(srcSnap, params);
+	const NonRigidSpareCacheKey key = makeSpareCacheKey(srcSnap, tgtSnap, effective);
+	NonRigidSpareCache& cache = nonRigidSpareCache();
+	if (cache.valid && cacheKeyEqual(cache.key, key))
+	{
+		deformedMeshSoupOut = cache.deformedMeshSoup;
+		deformedPointCloudOut = cache.deformedPointCloud;
+		sdfOut.meanErrorMm = cache.meanErrorMm;
+		sdfOut.deformationNodeCount = cache.deformationNodeCount;
+		fromCacheOut = true;
+		return true;
+	}
+
+	const point_cloud_backend_ops::PointCloudSdfParams sdfParams = toSdfParams(effective);
+	point_cloud_backend_ops::PointCloudSdfResult sdfResult;
+
+	if (srcSnap.kind == TrajectoryGeometryKind::TriangleMesh && tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh)
+	{
+		MeshBackendData srcMesh;
+		fillMeshFromWorldSoup(srcMesh, srcSnap.triangleSoupWorldMm);
+		MeshBackendData tgtMesh;
+		fillMeshFromWorldSoup(tgtMesh, tgtSnap.triangleSoupWorldMm);
+		if (!point_cloud_backend_ops::nonRigidRegisterMeshSdf(srcMesh, nullptr, &tgtMesh, sdfResult, sdfParams, errMsg))
+		{
+			return false;
+		}
+		deformedMeshSoupOut = srcMesh.triangleSoup();
+	}
+	else if (srcSnap.kind == TrajectoryGeometryKind::TriangleMesh && tgtSnap.kind == TrajectoryGeometryKind::PointCloud)
+	{
+		MeshBackendData srcMesh;
+		fillMeshFromWorldSoup(srcMesh, srcSnap.triangleSoupWorldMm);
+		PointCloudBackendData tgtPc;
+		fillPointCloudFromWorldXyz(tgtPc, tgtSnap.positionsWorldMm);
+		if (!point_cloud_backend_ops::nonRigidRegisterMeshSdf(srcMesh, &tgtPc, nullptr, sdfResult, sdfParams, errMsg))
+		{
+			return false;
+		}
+		deformedMeshSoupOut = srcMesh.triangleSoup();
+	}
+	else if (srcSnap.kind == TrajectoryGeometryKind::PointCloud && tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh)
+	{
+		PointCloudBackendData srcPc;
+		fillPointCloudFromWorldXyz(srcPc, srcSnap.positionsWorldMm);
+		MeshBackendData tgtMesh;
+		fillMeshFromWorldSoup(tgtMesh, tgtSnap.triangleSoupWorldMm);
+		if (!point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSdf(srcPc, tgtMesh, sdfResult, sdfParams, errMsg))
+		{
+			return false;
+		}
+		deformedPointCloudOut = srcPc.pointPositionsXyz();
+	}
+	else if (srcSnap.kind == TrajectoryGeometryKind::PointCloud && tgtSnap.kind == TrajectoryGeometryKind::PointCloud)
+	{
+		PointCloudBackendData srcPc;
+		fillPointCloudFromWorldXyz(srcPc, srcSnap.positionsWorldMm);
+		PointCloudBackendData tgtPc;
+		fillPointCloudFromWorldXyz(tgtPc, tgtSnap.positionsWorldMm);
+		if (!point_cloud_backend_ops::nonRigidRegisterPointCloudsSdf(srcPc, tgtPc, sdfResult, sdfParams, errMsg))
+		{
+			return false;
+		}
+		deformedPointCloudOut = srcPc.pointPositionsXyz();
+	}
+	else
+	{
+		if (errMsg)
+		{
+			*errMsg = "unsupported source/target geometry combination";
+		}
+		return false;
+	}
+
+	cache.key = key;
+	cache.deformedMeshSoup = deformedMeshSoupOut;
+	cache.deformedPointCloud = deformedPointCloudOut;
+	cache.meanErrorMm = sdfResult.meanErrorMm;
+	cache.deformationNodeCount = sdfResult.deformationNodeCount;
+	cache.valid = true;
+	sdfOut = sdfResult;
 	return true;
 }
 
@@ -1213,7 +1340,8 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		(void)xyzCentroid3(srcWorldSoup, srcC);
 		(void)xyzCentroid3(tgtWorldSoup, tgtC);
 		std::ostringstream os;
-		os << "[非刚性配准] 诊断 source=" << params.sourceBackendId << " target=" << params.targetBackendId;
+		os << "[非刚性配准] 诊断 source=" << params.sourceBackendId << " target=" << params.targetBackendId
+		   << " 算法=" << (params.solver == NonRigidRegistrationSolver::Sdf ? "SDF" : "SPARE");
 		if (!trajWp.empty())
 		{
 			os << " 轨迹工件=" << trajWp;
@@ -1261,8 +1389,19 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 	std::vector<float> deformedPointCloud;
 	point_cloud_backend_ops::PointCloudSpareResult spareResult;
 	bool spareFromCache = false;
-	if (!runSpareRegistration(srcForSpare, tgtForSpare, params, deformedMeshSoup, deformedPointCloud, spareResult,
-							  spareFromCache, errMsg))
+	if (params.solver == NonRigidRegistrationSolver::Sdf)
+	{
+		point_cloud_backend_ops::PointCloudSdfResult sdfResult;
+		if (!runSdfRegistration(srcForSpare, tgtForSpare, params, deformedMeshSoup, deformedPointCloud, sdfResult,
+								spareFromCache, errMsg))
+		{
+			return false;
+		}
+		spareResult.meanErrorMm = sdfResult.meanErrorMm;
+		spareResult.deformationNodeCount = sdfResult.deformationNodeCount;
+	}
+	else if (!runSpareRegistration(srcForSpare, tgtForSpare, params, deformedMeshSoup, deformedPointCloud, spareResult,
+								   spareFromCache, errMsg))
 	{
 		return false;
 	}
@@ -1328,7 +1467,8 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		os << "[非刚性配准] 绑定成功=" << bind.bindOk << " 失败=" << bind.bindFail
 		   << " 模式=" << (bindInWorkpieceModel ? "工件模型系" : "世界系")
 		   << " 距离min/mean/max=" << bind.bindDistMinMm << "/" << bind.bindDistMeanMm << "/" << bind.bindDistMaxMm
-		   << " mm SPARE均值误差=" << spareResult.meanErrorMm << " mm 变形节点=" << spareResult.deformationNodeCount
+		   << " mm 算法=" << (params.solver == NonRigidRegistrationSolver::Sdf ? "SDF" : "SPARE")
+		   << " 均值误差=" << spareResult.meanErrorMm << " mm 变形节点=" << spareResult.deformationNodeCount
 		   << (spareFromCache ? " (缓存)" : "") << " 写回后轨迹质心W=(" << outC[0] << "," << outC[1] << "," << outC[2]
 		   << ")";
 		RunLogger::info(os.str());

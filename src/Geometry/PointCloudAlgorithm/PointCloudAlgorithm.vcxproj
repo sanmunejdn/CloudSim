@@ -53,6 +53,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(MSBuildThisFileDirectory)..\..\..\PCL.props" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\PCL.props')" />
   <ImportGroup Label="ExtensionSettings" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -159,6 +160,8 @@
     <ClInclude Include="inc\Downsample.h" />
     <ClInclude Include="inc\RegistrationRigid.h" />
     <ClInclude Include="inc\RegistrationGlobal.h" />
+    <ClInclude Include="inc\RegistrationGlobalPcl.h" />
+    <ClInclude Include="inc\pcl\PclCloudConvert.h" />
     <ClInclude Include="inc\PointFeatures.h" />
     <ClInclude Include="inc\RegistrationNonRigid.h" />
     <ClInclude Include="inc\RegistrationSpare.h" />
@@ -189,6 +192,8 @@
     <ClCompile Include="source\Downsample.cpp" />
     <ClCompile Include="source\RegistrationRigid.cpp" />
     <ClCompile Include="source\RegistrationGlobal.cpp" />
+    <ClCompile Include="source\pcl\RegistrationGlobalPcl.cpp" />
+    <ClCompile Include="source\pcl\PclCloudConvert.cpp" />
     <ClCompile Include="source\PointFeatures.cpp" />
     <ClCompile Include="source\RegistrationNonRigid.cpp" />
     <ClCompile Include="source\RegistrationSpare.cpp" />

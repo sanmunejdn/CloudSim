@@ -16,7 +16,7 @@ namespace pclalgo
 /// SPARE 求解参数（研究用途；详见 docs/spare_nonrigid_registration.md）
 struct SpareRegisterParams
 {
-	double sampleRadiusRatio = 0.0;		 ///< 变形节点采样半径比；0=自动
+	double sampleRadiusRatio = 0.0;		 ///< 变形节点采样半径（平均边长倍数）；0=自动(3)
 	double wSmo = 0.01;					 ///< 平滑项权重
 	double wRot = 1e-4;					 ///< 旋转正则
 	double wArapCoarse = 500.0;			 ///< 粗阶段 ARAP 权重
@@ -43,6 +43,7 @@ struct SpareRegisterResult
 	double meanErrorMm = 0.0;
 	double meshScale = 1.0;
 	int deformationNodeCount = 0;
+	std::string preAlignNote; ///< 如 pcl/selfRansac/icp；便于对照终态误差
 };
 
 /**

@@ -249,9 +249,24 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	spareVoxelRow->addWidget(spareVoxelLabel);
 	spareVoxelRow->addWidget(m_spareVoxelSpin);
 	spareOptLayout->addLayout(spareVoxelRow);
+	auto* spareSampleRow = new QHBoxLayout;
+	auto* spareSampleLabel = new QLabel(m_spareOptionsWidget);
+	spareSampleLabel->setObjectName(QStringLiteral("spareSampleRadiusLabel"));
+	m_spareSampleRadiusSpin = new QDoubleSpinBox(m_spareOptionsWidget);
+	m_spareSampleRadiusSpin->setRange(0.0, 20.0);
+	m_spareSampleRadiusSpin->setDecimals(2);
+	m_spareSampleRadiusSpin->setSingleStep(0.5);
+	m_spareSampleRadiusSpin->setValue(0.0);
+	m_spareSampleRadiusSpin->setToolTip(
+		QStringLiteral("0=auto(~3×edge). Smaller = denser deformation nodes."));
+	spareSampleRow->addWidget(spareSampleLabel);
+	spareSampleRow->addWidget(m_spareSampleRadiusSpin);
+	spareOptLayout->addLayout(spareSampleRow);
 	m_spareRigidPreAlignCheck = new QCheckBox(m_spareOptionsWidget);
+	m_spareCoarseGlobalAlignCheck = new QCheckBox(m_spareOptionsWidget);
 	m_spareCreateNewCheck = new QCheckBox(m_spareOptionsWidget);
 	spareOptLayout->addWidget(m_spareRigidPreAlignCheck);
+	spareOptLayout->addWidget(m_spareCoarseGlobalAlignCheck);
 	spareOptLayout->addWidget(m_spareCreateNewCheck);
 	icpLayout->addWidget(m_spareOptionsWidget);
 
@@ -1426,6 +1441,11 @@ void PointCloudDockWidget::applyLanguage()
 		m_spareRigidPreAlignCheck->setText(
 			i18n(QStringLiteral("Rigid pre-align (ICP)"), QStringLiteral("刚性预对齐 (ICP)")));
 	}
+	if (m_spareCoarseGlobalAlignCheck)
+	{
+		m_spareCoarseGlobalAlignCheck->setText(
+			i18n(QStringLiteral("Global coarse align (RANSAC)"), QStringLiteral("全局粗对齐 (特征 RANSAC)")));
+	}
 	if (m_spareCreateNewCheck)
 	{
 		m_spareCreateNewCheck->setText(i18n(QStringLiteral("Create new object"), QStringLiteral("输出为新对象")));
@@ -1435,6 +1455,11 @@ void PointCloudDockWidget::applyLanguage()
 		if (QLabel* spareVoxelLabel = spareRoot->findChild<QLabel*>(QStringLiteral("spareVoxelLabel")))
 		{
 			spareVoxelLabel->setText(i18n(QStringLiteral("Voxel prefilter (mm):"), QStringLiteral("体素预滤波 (mm):")));
+		}
+		if (QLabel* spareSampleLabel = spareRoot->findChild<QLabel*>(QStringLiteral("spareSampleRadiusLabel")))
+		{
+			spareSampleLabel->setText(
+				i18n(QStringLiteral("Sample radius (×edge, 0=auto):"), QStringLiteral("采样半径(×边长, 0=自动):")));
 		}
 	}
 	if (m_sdfRigidPreAlignCheck)
@@ -2421,7 +2446,9 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 		targetKind == QStringLiteral("mesh") ? PluginSpareTargetKind::Mesh : PluginSpareTargetKind::PointCloud;
 	params.targetBackendIdUtf8 = targetId;
 	params.voxelPrefilterMm = m_spareVoxelSpin ? m_spareVoxelSpin->value() : 0.0;
+	params.sampleRadiusRatio = m_spareSampleRadiusSpin ? m_spareSampleRadiusSpin->value() : 0.0;
 	params.rigidPreAlign = m_spareRigidPreAlignCheck && m_spareRigidPreAlignCheck->isChecked();
+	params.coarseGlobalAlign = m_spareCoarseGlobalAlignCheck && m_spareCoarseGlobalAlignCheck->isChecked();
 	params.createNewObject = m_spareCreateNewCheck && m_spareCreateNewCheck->isChecked();
 	params.applyDeformationToSource = !params.createNewObject;
 	pch->nonRigidRegisterSpare(doc, sourceId, params,
@@ -2435,6 +2462,11 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 											   .arg(result.rmseMm, 0, 'f', 3)
 											   .arg(result.spareDeformationNodeCount);
 									   m_host->logInfo(msg);
+									   if (!result.debugReport.empty())
+									   {
+										   m_host->logInfo(QStringLiteral("SPARE 预对齐: %1")
+															   .arg(QString::fromStdString(result.debugReport)));
+									   }
 									   refreshSpareObjectLists();
 								   }
 									   runFinished(ok, error, result);

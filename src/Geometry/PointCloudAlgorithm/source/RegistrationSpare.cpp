@@ -9,6 +9,7 @@
 #include "PointCloudBuffer.h"
 #include "Preprocess.h"
 #include "RegistrationGlobal.h"
+#include "RegistrationGlobalPcl.h"
 #include "RegistrationRigid.h"
 #include "Transform.h"
 #include "spare/SpareSolver.h"
@@ -17,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <sstream>
 
 namespace pclalgo
 {
@@ -46,8 +48,8 @@ void transformNormalsInPlace(std::vector<float>& normals, const Eigen::Isometry3
 	}
 }
 
-bool copyNormalsOrEstimate(const std::vector<float>& xyz, const std::vector<float>& normalsIn,
-						   std::vector<float>& normalsOut, std::string* errMsg)
+bool copyNormalsOrEstimate(std::vector<float>& xyz, const std::vector<float>& normalsIn, std::vector<float>& normalsOut,
+						   std::string* errMsg)
 {
 	if (normalsIn.size() == xyz.size() && !normalsIn.empty())
 	{
@@ -55,12 +57,51 @@ bool copyNormalsOrEstimate(const std::vector<float>& xyz, const std::vector<floa
 		return true;
 	}
 	normalsOut.clear();
-	std::vector<float> xyzMutable = xyz;
-	if (!estimateNormalsPca(xyzMutable, normalsOut, 12U, errMsg))
+	if (!estimateNormalsPca(xyz, normalsOut, 12U, errMsg))
 	{
 		return false;
 	}
-	return orientNormalsMst(xyzMutable, normalsOut, 12U, nullptr, errMsg);
+	// MST 会裁掉无法定向的点；必须写回 xyz，否则后续点-面 ICP 报 normal buffer length mismatch
+	return orientNormalsMst(xyz, normalsOut, 12U, nullptr, errMsg);
+}
+
+// 与 SDF / ICP 默认配对半径同量级；内点过少时仍做质心平移
+constexpr double kOverlapNnFrac = 0.05;
+constexpr double kOverlapInlierRatio = 0.5;
+constexpr std::size_t kMinFpfhPoints = 50U;
+
+bool alreadyOverlapping(const std::vector<float>& srcXyz, const std::vector<float>& tgtXyz, const double diag)
+{
+	if (diag <= 1e-9 || srcXyz.size() < 3U || tgtXyz.size() < 3U)
+	{
+		return false;
+	}
+	const KdTreePointSet tree(tgtXyz);
+	if (tree.empty())
+	{
+		return false;
+	}
+	const std::size_t n = pointCountFromXyz(srcXyz);
+	const std::size_t step = std::max<std::size_t>(1U, n / 400U);
+	std::size_t sampled = 0;
+	std::size_t closeHits = 0;
+	const double closeDistSq = (diag * kOverlapNnFrac) * (diag * kOverlapNnFrac);
+	for (std::size_t i = 0; i < n; i += step)
+	{
+		++sampled;
+		const std::size_t b = i * 3U;
+		double d2 = 0.0;
+		if (tree.findNearest(static_cast<double>(srcXyz[b]), static_cast<double>(srcXyz[b + 1U]),
+							 static_cast<double>(srcXyz[b + 2U]), closeDistSq, d2) != static_cast<std::size_t>(-1))
+		{
+			++closeHits;
+		}
+	}
+	if (sampled < 16U)
+	{
+		return false;
+	}
+	return static_cast<double>(closeHits) / static_cast<double>(sampled) >= kOverlapInlierRatio;
 }
 
 spare::SpareInternalParams toInternalParams(const SpareRegisterParams& params)
@@ -81,29 +122,16 @@ spare::SpareInternalParams toInternalParams(const SpareRegisterParams& params)
 	return out;
 }
 
-bool applyPreAlign(std::vector<float>& sourceXyz, std::vector<float>& sourceNormals,
-				   const std::vector<float>& targetXyz, const std::vector<float>& targetNormals,
-				   const SpareRegisterParams& params, std::string* errMsg)
+bool applyRigidIcpPreAlign(std::vector<float>& sourceXyz, std::vector<float>& sourceNormals,
+						   const std::vector<float>& targetXyz, const std::vector<float>& targetNormals,
+						   const SpareRegisterParams& params, std::string* errMsg)
 {
-	if (params.coarseGlobalAlign)
+	const double tgtDiag = std::max(1e-6, computeBoundingBox(targetXyz).diagonal().norm());
+	if (!alreadyOverlapping(sourceXyz, targetXyz, tgtDiag))
 	{
-		RigidRegisterRansacParams ransacParams;
-		ransacParams.refineWithIcp = true;
-		Eigen::Isometry3d transform = Eigen::Isometry3d::Identity();
-		double inlierRatio = 0.0;
-		if (!rigidRegisterFeatureRansac(sourceXyz, sourceNormals, targetXyz, targetNormals, transform, &inlierRatio,
-										ransacParams, errMsg))
-		{
-			return false;
-		}
-		transformXyzInPlace(sourceXyz, transform);
-		transformNormalsInPlace(sourceNormals, transform);
-		return true;
-	}
-
-	if (!params.rigidPreAlign)
-	{
-		return true;
+		Eigen::Isometry3d shift = Eigen::Isometry3d::Identity();
+		shift.translation() = computeCentroid(targetXyz) - computeCentroid(sourceXyz);
+		transformXyzInPlace(sourceXyz, shift);
 	}
 
 	Eigen::Isometry3d transform = Eigen::Isometry3d::Identity();
@@ -119,24 +147,116 @@ bool applyPreAlign(std::vector<float>& sourceXyz, std::vector<float>& sourceNorm
 	return true;
 }
 
+bool applyPreAlign(std::vector<float>& sourceXyz, std::vector<float>& sourceNormals,
+				   const std::vector<float>& targetXyz, const std::vector<float>& targetNormals,
+				   const SpareRegisterParams& params, std::string* errMsg, std::string* preAlignNote)
+{
+	auto setNote = [&](const std::string& note) {
+		if (preAlignNote)
+		{
+			*preAlignNote = note;
+		}
+	};
+
+	if (params.coarseGlobalAlign)
+	{
+		const bool enoughForFpfh =
+			pointCountFromXyz(sourceXyz) >= kMinFpfhPoints && pointCountFromXyz(targetXyz) >= kMinFpfhPoints;
+		if (enoughForFpfh)
+		{
+			Eigen::Isometry3d transform = Eigen::Isometry3d::Identity();
+			double inlierRatio = 0.0;
+			bool ok = false;
+			const char* stage = nullptr;
+			std::string stageErr;
+#ifdef CLOUDSIM_HAS_PCL
+			{
+				PclGlobalAlignParams pclParams;
+				pclParams.refineWithIcp = true;
+				ok = rigidRegisterFeatureRansacPcl(sourceXyz, sourceNormals, targetXyz, targetNormals, transform,
+												   &inlierRatio, pclParams, &stageErr);
+				if (ok)
+				{
+					stage = "pcl";
+				}
+			}
+			// 有 PCL 时不再回退自研 FPFH：后者常以 ~20% 内点“成功”却留下大转角误差
+#else
+			{
+				RigidRegisterRansacParams ransacParams;
+				ransacParams.refineWithIcp = true;
+				ransacParams.skipTranslationCap = true;
+				ok = rigidRegisterFeatureRansac(sourceXyz, sourceNormals, targetXyz, targetNormals, transform,
+												&inlierRatio, ransacParams, &stageErr);
+				if (ok && inlierRatio >= 0.30)
+				{
+					stage = "selfRansac";
+				}
+				else if (ok)
+				{
+					ok = false;
+					std::ostringstream oss;
+					oss << "selfRansac inlier too low: " << inlierRatio;
+					stageErr = oss.str();
+				}
+			}
+#endif
+			if (ok)
+			{
+				transformXyzInPlace(sourceXyz, transform);
+				transformNormalsInPlace(sourceNormals, transform);
+				std::ostringstream oss;
+				oss << (stage ? stage : "ransac") << " inlier=" << inlierRatio;
+				setNote(oss.str());
+				return true;
+			}
+			if (preAlignNote && !stageErr.empty())
+			{
+				*preAlignNote = std::string("ransacFail→icp: ") + stageErr;
+			}
+		}
+		else
+		{
+			setNote("tooFewPts→icp");
+		}
+		// FPFH 点数不够或 RANSAC 失败时退回质心+点-面 ICP，避免整次 SPARE 中断
+		if (errMsg)
+		{
+			errMsg->clear();
+		}
+		const bool icpOk = applyRigidIcpPreAlign(sourceXyz, sourceNormals, targetXyz, targetNormals, params, errMsg);
+		if (icpOk && preAlignNote && preAlignNote->empty())
+		{
+			setNote("icp");
+		}
+		return icpOk;
+	}
+
+	if (!params.rigidPreAlign)
+	{
+		setNote("none");
+		return true;
+	}
+
+	const bool icpOk = applyRigidIcpPreAlign(sourceXyz, sourceNormals, targetXyz, targetNormals, params, errMsg);
+	if (icpOk)
+	{
+		setNote("icp");
+	}
+	return icpOk;
+}
+
 bool resolveSampleRadius(const spare::SpareSurface& source, const SpareRegisterParams& params,
 						 spare::SpareInternalParams& internal)
 {
+	(void)source;
 	if (params.sampleRadiusRatio > 0.0)
 	{
 		internal.uniSampleRatio = params.sampleRadiusRatio;
 		return true;
 	}
-
-	std::vector<float> xyz;
-	std::vector<float> nrm;
-	spare::spareSurfaceToXyz(source, xyz, nrm);
-	const double spacing = computeAverageSpacingMm(xyz, 6U);
-	if (spacing <= 1e-9)
-	{
-		return false;
-	}
-	internal.uniSampleRatio = spacing * 10.0;
+	// 无量纲：采样半径 = 比 × 平均边长；越小节点越密（旧 spacing×10 量纲错，大网格常只剩几十节点）
+	internal.uniSampleRatio = 3.0;
 	return true;
 }
 
@@ -248,9 +368,14 @@ bool spareRegisterPointClouds(const std::vector<float>& sourceXyz, const std::ve
 		}
 	}
 
-	if (!applyPreAlign(srcXyz, srcNormals, tgtXyz, tgtNormals, params, errMsg))
+	std::string preAlignNote;
+	if (!applyPreAlign(srcXyz, srcNormals, tgtXyz, tgtNormals, params, errMsg, &preAlignNote))
 	{
 		return false;
+	}
+	if (stats)
+	{
+		stats->preAlignNote = preAlignNote;
 	}
 
 	spare::SpareSurface source;
@@ -267,6 +392,10 @@ bool spareRegisterPointClouds(const std::vector<float>& sourceXyz, const std::ve
 	if (!runSpareCore(source, target, params, stats, errMsg))
 	{
 		return false;
+	}
+	if (stats && stats->preAlignNote.empty())
+	{
+		stats->preAlignNote = preAlignNote;
 	}
 
 	spare::spareSurfaceToXyz(source, sourceXyzDeformedOut, sourceNormalsDeformedOut);
@@ -365,9 +494,14 @@ bool spareRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const s
 		return true;
 	}
 
-	if (!applyPreAlign(srcXyz, srcNormals, tgtXyz, tgtNormals, params, errMsg))
+	std::string preAlignNote;
+	if (!applyPreAlign(srcXyz, srcNormals, tgtXyz, tgtNormals, params, errMsg, &preAlignNote))
 	{
 		return false;
+	}
+	if (stats)
+	{
+		stats->preAlignNote = preAlignNote;
 	}
 
 	spare::SpareSurface target;
@@ -386,6 +520,10 @@ bool spareRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const s
 	if (!runSpareCore(source, target, params, stats, errMsg))
 	{
 		return false;
+	}
+	if (stats && stats->preAlignNote.empty())
+	{
+		stats->preAlignNote = preAlignNote;
 	}
 
 	spare::spareSurfaceToMeshSoup(source, sourceSoup, sourceSoupDeformedOut);

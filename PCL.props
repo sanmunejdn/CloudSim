@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 可选 PCL：install 存在则定义 CLOUDSIM_HAS_PCL 并追加头/库路径 -->
+<Project>
+  <PropertyGroup>
+    <CloudSimPclRoot>$(CloudSimRepoRoot)bin\SDK\pcl\install</CloudSimPclRoot>
+    <CloudSimPclInclude>$(CloudSimPclRoot)\include\pcl-1.13</CloudSimPclInclude>
+    <CloudSimFlannInclude>$(CloudSimRepoRoot)bin\SDK\pcl\thirdparty\flann\install\include</CloudSimFlannInclude>
+    <CloudSimLz4Include>$(CloudSimRepoRoot)bin\SDK\pcl\thirdparty\lz4\install\include</CloudSimLz4Include>
+    <CloudSimQhullInclude>$(CloudSimRepoRoot)bin\SDK\pcl\thirdparty\qhull\install\include</CloudSimQhullInclude>
+    <CloudSimHasPcl Condition="Exists('$(CloudSimPclInclude)\pcl\point_cloud.h')">true</CloudSimHasPcl>
+    <CloudSimHasPcl Condition="'$(CloudSimHasPcl)' == ''">false</CloudSimHasPcl>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(CloudSimHasPcl)' == 'true'">
+    <ClCompile>
+      <PreprocessorDefinitions>CLOUDSIM_HAS_PCL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(CloudSimPclRoot)\include;$(CloudSimPclInclude);$(CloudSimFlannInclude);$(CloudSimLz4Include);$(CloudSimQhullInclude);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(CloudSimPclRoot)\lib;$(CloudSimRepoRoot)bin\SDK\pcl\thirdparty\flann\install\lib;$(CloudSimRepoRoot)bin\SDK\pcl\thirdparty\lz4\install\lib;$(CloudSimRepoRoot)bin\SDK\pcl\thirdparty\qhull\install\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>pcl_common.lib;pcl_kdtree.lib;pcl_octree.lib;pcl_search.lib;pcl_sample_consensus.lib;pcl_filters.lib;pcl_features.lib;pcl_registration.lib;flann_cpp.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

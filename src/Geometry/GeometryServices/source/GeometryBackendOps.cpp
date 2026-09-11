@@ -24,6 +24,7 @@
 #include <MeshSurfaceReconstruction.h>
 #include <Preprocess.h>
 #include <RegistrationGlobal.h>
+#include <RegistrationGlobalPcl.h>
 #include <RegistrationRigid.h>
 #include <ShapeQuery.h>
 #include <TemplateBrepRegistration.h>
@@ -1141,11 +1142,27 @@ bool tryCoarseFeatureRansacAlign(const char* stageLabel, const std::vector<float
 		Eigen::Isometry3d rawStep = Eigen::Isometry3d::Identity();
 		double inlierRatio = 0.0;
 		std::string ransacErr;
-		const bool ok =
-			reverse ? pclalgo::rigidRegisterFeatureRansac(workXyz, workNormals, templateSoupXyz, templateSoupNormals,
-														  rawStep, &inlierRatio, ransacParams, &ransacErr)
-					: pclalgo::rigidRegisterFeatureRansac(templateSoupXyz, templateSoupNormals, workXyz, workNormals,
-														  rawStep, &inlierRatio, ransacParams, &ransacErr);
+		bool ok = false;
+#ifdef CLOUDSIM_HAS_PCL
+		{
+			pclalgo::PclGlobalAlignParams pclParams = pclalgo::pclParamsFromRigidRansac(ransacParams);
+			ok = reverse ? pclalgo::rigidRegisterFeatureRansacPcl(workXyz, workNormals, templateSoupXyz,
+																 templateSoupNormals, rawStep, &inlierRatio, pclParams,
+																 &ransacErr)
+						 : pclalgo::rigidRegisterFeatureRansacPcl(templateSoupXyz, templateSoupNormals, workXyz,
+																  workNormals, rawStep, &inlierRatio, pclParams,
+																  &ransacErr);
+		}
+#endif
+		if (!ok)
+		{
+			ok = reverse ? pclalgo::rigidRegisterFeatureRansac(workXyz, workNormals, templateSoupXyz,
+															   templateSoupNormals, rawStep, &inlierRatio, ransacParams,
+															   &ransacErr)
+						 : pclalgo::rigidRegisterFeatureRansac(templateSoupXyz, templateSoupNormals, workXyz,
+															   workNormals, rawStep, &inlierRatio, ransacParams,
+															   &ransacErr);
+		}
 		if (!ok)
 		{
 			RunLogger::info(std::string("[TemplateBrepUpdate] coarseStage=") + stageLabel +

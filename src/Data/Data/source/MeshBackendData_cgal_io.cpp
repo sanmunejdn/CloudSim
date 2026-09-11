@@ -9,9 +9,116 @@
 #include "MeshBackendData_loaders.h"
 #include "RunLogger.h"
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include <filesystem>
+#include <fstream>
 
 using namespace mesh_backend_load;
+
+namespace
+{
+using PlyK = CGAL::Simple_cartesian<double>;
+using PlyPoint_3 = PlyK::Point_3;
+
+std::filesystem::path pathFromUtf8Bytes(const std::string& utf8Path)
+{
+#ifdef _WIN32
+	if (utf8Path.empty())
+	{
+		return {};
+	}
+	const int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8Path.data(),
+									  static_cast<int>(utf8Path.size()), nullptr, 0);
+	if (n <= 0)
+	{
+		return {};
+	}
+	std::wstring wide(static_cast<std::size_t>(n), L'\0');
+	if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8Path.data(), static_cast<int>(utf8Path.size()),
+							wide.data(), n) <= 0)
+	{
+		return {};
+	}
+	return std::filesystem::path(wide);
+#else
+	try
+	{
+		return std::filesystem::u8path(utf8Path);
+	}
+	catch (...)
+	{
+		return {};
+	}
+#endif
+}
+
+void soupToPlyGeometry(const std::vector<float>& soup, std::vector<PlyPoint_3>& points,
+					   std::vector<std::vector<std::size_t>>& polygons)
+{
+	const std::size_t triCount = soup.size() / 9U;
+	points.clear();
+	polygons.clear();
+	points.reserve(triCount * 3U);
+	polygons.reserve(triCount);
+	for (std::size_t t = 0; t < triCount; ++t)
+	{
+		const std::size_t base = t * 9U;
+		const std::size_t vBase = t * 3U;
+		points.emplace_back(static_cast<double>(soup[base]), static_cast<double>(soup[base + 1U]),
+							static_cast<double>(soup[base + 2U]));
+		points.emplace_back(static_cast<double>(soup[base + 3U]), static_cast<double>(soup[base + 4U]),
+							static_cast<double>(soup[base + 5U]));
+		points.emplace_back(static_cast<double>(soup[base + 6U]), static_cast<double>(soup[base + 7U]),
+							static_cast<double>(soup[base + 8U]));
+		polygons.push_back({vBase, vBase + 1U, vBase + 2U});
+	}
+}
+
+bool writeSoupPlyFile(const std::string& utf8Path, const std::vector<float>& soup, std::string* errMsg)
+{
+	if (soup.empty() || (soup.size() % 9U) != 0U)
+	{
+		meshLoadErr(errMsg, "No triangle mesh geometry to write.");
+		return false;
+	}
+
+	std::vector<PlyPoint_3> points;
+	std::vector<std::vector<std::size_t>> polygons;
+	soupToPlyGeometry(soup, points, polygons);
+
+	const std::filesystem::path outPath = pathFromUtf8Bytes(utf8Path);
+	if (outPath.empty())
+	{
+		meshLoadErr(errMsg, "Invalid PLY path encoding.");
+		return false;
+	}
+
+	// CGAL write_polygon_soup 走 ofstream(string)，Windows 上按 ANSI 建文件，UTF-8 中文名会乱码
+	std::ofstream ofs(outPath, std::ios::out | std::ios::binary | std::ios::trunc);
+	if (!ofs)
+	{
+		meshLoadErr(errMsg, "Cannot open file for writing.");
+		return false;
+	}
+	CGAL::IO::set_mode(ofs, CGAL::IO::BINARY);
+	if (!CGAL::IO::write_PLY(ofs, points, polygons))
+	{
+		meshLoadErr(errMsg, "Failed to write mesh PLY.");
+		return false;
+	}
+	RunLogger::info("[MeshBackendData] Triangle mesh PLY exported successfully.");
+	return true;
+}
+} // namespace
 
 bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg, const int meshImportQuality)
 {
@@ -25,83 +132,13 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg,
 
 bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, std::string* errMsg) const
 {
-	if (m_triangleSoup.empty() || (m_triangleSoup.size() % 9U) != 0U)
-	{
-		meshLoadErr(errMsg, "No triangle mesh geometry to write.");
-		return false;
-	}
-
-	using K = CGAL::Simple_cartesian<double>;
-	using Point_3 = K::Point_3;
-	const std::size_t triCount = m_triangleSoup.size() / 9U;
-	std::vector<Point_3> points;
-	points.reserve(triCount * 3U);
-	std::vector<std::vector<std::size_t>> polygons;
-	polygons.reserve(triCount);
-	for (std::size_t t = 0; t < triCount; ++t)
-	{
-		const std::size_t base = t * 9U;
-		const std::size_t vBase = t * 3U;
-		points.emplace_back(static_cast<double>(m_triangleSoup[base]), static_cast<double>(m_triangleSoup[base + 1U]),
-							static_cast<double>(m_triangleSoup[base + 2U]));
-		points.emplace_back(static_cast<double>(m_triangleSoup[base + 3U]),
-							static_cast<double>(m_triangleSoup[base + 4U]),
-							static_cast<double>(m_triangleSoup[base + 5U]));
-		points.emplace_back(static_cast<double>(m_triangleSoup[base + 6U]),
-							static_cast<double>(m_triangleSoup[base + 7U]),
-							static_cast<double>(m_triangleSoup[base + 8U]));
-		polygons.push_back({vBase, vBase + 1U, vBase + 2U});
-	}
-
-	// §4.0.1 统一约定：本地路径按本地编码构造，禁止 u8path（中文 Windows 非法 UTF-8 序列会抛）
-	const std::filesystem::path outPath(utf8Path);
-	if (!CGAL::IO::write_polygon_soup(outPath.string(), points, polygons))
-	{
-		meshLoadErr(errMsg, "Failed to write mesh PLY.");
-		return false;
-	}
-	RunLogger::info("[MeshBackendData] Triangle mesh PLY exported successfully.");
-	return true;
+	return writeSoupPlyFile(utf8Path, m_triangleSoup, errMsg);
 }
 
 bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, const std::vector<float>& soupOverride,
 										   std::string* errMsg) const
 {
-	if (soupOverride.empty() || (soupOverride.size() % 9U) != 0U)
-	{
-		meshLoadErr(errMsg, "No triangle mesh geometry to write.");
-		return false;
-	}
-
-	using K = CGAL::Simple_cartesian<double>;
-	using Point_3 = K::Point_3;
-	const std::size_t triCount = soupOverride.size() / 9U;
-	std::vector<Point_3> points;
-	points.reserve(triCount * 3U);
-	std::vector<std::vector<std::size_t>> polygons;
-	polygons.reserve(triCount);
-	for (std::size_t t = 0; t < triCount; ++t)
-	{
-		const std::size_t base = t * 9U;
-		const std::size_t vBase = t * 3U;
-		points.emplace_back(static_cast<double>(soupOverride[base]), static_cast<double>(soupOverride[base + 1U]),
-							static_cast<double>(soupOverride[base + 2U]));
-		points.emplace_back(static_cast<double>(soupOverride[base + 3U]), static_cast<double>(soupOverride[base + 4U]),
-							static_cast<double>(soupOverride[base + 5U]));
-		points.emplace_back(static_cast<double>(soupOverride[base + 6U]), static_cast<double>(soupOverride[base + 7U]),
-							static_cast<double>(soupOverride[base + 8U]));
-		polygons.push_back({vBase, vBase + 1U, vBase + 2U});
-	}
-
-	// §4.0.1 统一约定：本地路径按本地编码构造，禁止 u8path（中文 Windows 非法 UTF-8 序列会抛）
-	const std::filesystem::path outPath(utf8Path);
-	if (!CGAL::IO::write_polygon_soup(outPath.string(), points, polygons))
-	{
-		meshLoadErr(errMsg, "Failed to write mesh PLY.");
-		return false;
-	}
-	RunLogger::info("[MeshBackendData] Triangle mesh PLY exported successfully.");
-	return true;
+	return writeSoupPlyFile(utf8Path, soupOverride, errMsg);
 }
 
 std::vector<float> MeshBackendData::worldTriangleSoup() const

@@ -18,6 +18,7 @@
 #include <limits>
 #include <random>
 #include <sstream>
+#include <utility>
 
 #include <Eigen/SVD>
 
@@ -298,7 +299,13 @@ bool prepareFeatureCloud(std::vector<float>& xyz, std::vector<float>& normalsOut
 
 	if (voxelMm > 0.0)
 	{
+		std::vector<float> beforeVoxel = xyz;
 		(void)downsampleVoxelGrid(xyz, voxelMm, 1U, nullptr);
+		// 自动体素相对大件过粗时会把特征点抽干，改用原点云
+		if (pointCountFromXyz(xyz) < 20U)
+		{
+			xyz = std::move(beforeVoxel);
+		}
 	}
 
 	if (pointCountFromXyz(xyz) > maxPoints)
@@ -563,6 +570,25 @@ bool rigidRegisterFeatureRansac(const std::vector<float>& sourceXyz, const std::
 	if (inlierRatio)
 	{
 		*inlierRatio = static_cast<double>(bestInliers) / static_cast<double>(pointCountFromXyz(srcXyz));
+	}
+
+	// 仅 minInliers 会放过“绝对内点够、占比很低”的错转角
+	const double finalRatio = static_cast<double>(bestInliers) / static_cast<double>(pointCountFromXyz(srcXyz));
+	constexpr double kMinAcceptInlierRatio = 0.30;
+	if (finalRatio < kMinAcceptInlierRatio)
+	{
+		if (errMsg)
+		{
+			std::ostringstream oss;
+			oss << "RANSAC inlier ratio too low: " << finalRatio << " < " << kMinAcceptInlierRatio;
+			*errMsg = oss.str();
+		}
+		sourceToTarget = Eigen::Isometry3d::Identity();
+		if (inlierRatio)
+		{
+			*inlierRatio = 0.0;
+		}
+		return false;
 	}
 
 	const double transCapMm = std::max(params.modelDiagMm * 0.25, params.inlierDistanceMm * 2.0);

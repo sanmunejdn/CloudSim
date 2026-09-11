@@ -12,6 +12,7 @@
 #include "Reconstruction.h"
 #include "ReconstructionConfig.h"
 #include "RegistrationGlobal.h"
+#include "RegistrationGlobalPcl.h"
 #include "RegistrationNonRigid.h"
 #include "RegistrationRigid.h"
 #include "RegistrationSpare.h"
@@ -165,6 +166,41 @@ bool runSelfTest(std::vector<std::string>& failures)
 		expectNear(failures, "ransac.tz", est.translation().z(), gt.translation().z(), 1.0);
 	}
 
+#ifdef CLOUDSIM_HAS_PCL
+	{
+		std::vector<float> src = makePlanePointCloud(50, 0.0);
+		std::vector<float> tgt = src;
+		Eigen::Isometry3d gt = Eigen::Isometry3d::Identity();
+		gt.linear() = Eigen::AngleAxisd(0.25, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+		gt.translation() = Eigen::Vector3d(12.0, -8.0, 5.0);
+		transformXyzInPlace(tgt, gt);
+
+		std::vector<float> srcNormals;
+		std::vector<float> tgtNormals;
+		expectTrue(failures, "ransac.pcl.normals.src", estimateNormalsPca(src, srcNormals, 12U));
+		expectTrue(failures, "ransac.pcl.normals.tgt", estimateNormalsPca(tgt, tgtNormals, 12U));
+		(void)orientNormalsMst(src, srcNormals, 12U, nullptr, nullptr);
+		(void)orientNormalsMst(tgt, tgtNormals, 12U, nullptr, nullptr);
+
+		Eigen::Isometry3d est = Eigen::Isometry3d::Identity();
+		double inlierRatio = 0.0;
+		PclGlobalAlignParams pclParams;
+		pclParams.maxIterations = 20000;
+		pclParams.inlierFraction = 0.2f;
+		pclParams.minAcceptInlierRatio = 0.2f;
+		pclParams.minAcceptReverseInlierRatio = 0.15f;
+		pclParams.maxAcceptMeanNnFactor = 2.5;
+		pclParams.featureVoxelMm = 1.5;
+		pclParams.tryReverse = false;
+		expectTrue(failures, "ransac.pcl.ok",
+				   rigidRegisterFeatureRansacPcl(src, srcNormals, tgt, tgtNormals, est, &inlierRatio, pclParams));
+		expectTrue(failures, "ransac.pcl.inlierRatio", inlierRatio > 0.2);
+		expectNear(failures, "ransac.pcl.tx", est.translation().x(), gt.translation().x(), 2.0);
+		expectNear(failures, "ransac.pcl.ty", est.translation().y(), gt.translation().y(), 2.0);
+		expectNear(failures, "ransac.pcl.tz", est.translation().z(), gt.translation().z(), 2.0);
+	}
+#endif
+
 	// 测试并行化工具类
 	{
 		const bool tbbAvailable = ParallelUtils::isTbbAvailable();
@@ -239,6 +275,27 @@ bool runSelfTest(std::vector<std::string>& failures)
 											&spareResult, &spareErr));
 		expectTrue(failures, "spare.deformed", deformed.size() == src.size());
 		expectTrue(failures, "spare.finiteError", std::isfinite(spareResult.meanErrorMm));
+	}
+
+	{
+		std::vector<float> src = makePlanePointCloud(16, 0.0);
+		std::vector<float> tgt = makePlanePointCloud(16, 0.0);
+		for (std::size_t i = 0; i < tgt.size(); i += 3U)
+		{
+			tgt[i] += 0.15f;
+		}
+		std::vector<float> deformed;
+		std::vector<float> deformedNormals;
+		SpareRegisterParams spareParams;
+		spareParams.maxOuterIters = 5;
+		spareParams.rigidPreAlign = true;
+		SpareRegisterResult spareResult;
+		std::string spareErr;
+		expectTrue(failures, "spare.noNormals.ok",
+				   spareRegisterPointClouds(src, {}, tgt, {}, deformed, deformedNormals, spareParams, &spareResult,
+											&spareErr));
+		expectTrue(failures, "spare.noNormals.errEmpty", spareErr.find("mismatch") == std::string::npos);
+		expectTrue(failures, "spare.noNormals.deformed", !deformed.empty());
 	}
 
 	{
