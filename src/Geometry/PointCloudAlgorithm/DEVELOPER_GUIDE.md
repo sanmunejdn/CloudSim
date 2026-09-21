@@ -46,7 +46,8 @@
 | `RegistrationNonRigid.h` | TPS 形变 |
 | `RegistrationSpare.h` | **SPARE** 非刚性配准（对称点-面 + 变形图 + ARAP；点云/网格 soup） |
 | `RegistrationSdf.h` | **SDF/DDF** 混合非刚性配准（粗场残差 + 细默认点-面；独立于 SPARE） |
-| `RegistrationPyramid.h` | **几何金字塔**编排（分层 remesh + prolongate + 调用 SDF/SPARE；不改求解器） |
+| `RegistrationPyramid.h` | **几何金字塔**编排（分层 remesh + prolongate + 调用 SDF/SPARE；可选末层自适应边长） |
+| `AdaptiveRemesh.h` | 曲率自适应各向同性 remesh（均匀底网 + 局部 split/collapse） |
 | `Preprocess.h` | 法线、离群、平滑、重建前管线 |
 | `ReconstructionPoisson.h` | Poisson 隐式重建（定向点云）；`reconstructPoisson` / `Auto` |
 | `ReconstructionScaleSpace.h` | Scale-space 重建（仅坐标）；`reconstructScaleSpace` |
@@ -256,14 +257,20 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 ### 3.7 几何多分辨率金字塔（`RegistrationPyramid.h`）
 
-独立编排层（**不修改** SPARE/SDF 求解器）。每层对**原始**源/目标做 `isotropicRemesh(4h→2h→h)`；L1/L2 用上一层 **rest→def 位移经 NN prolongate** 作为初值再求解（不对变形结果整网 remesh）。粗/中层关细阶段；末层细阶段由 `useFineRegOnLastLayer` 控制。
+独立编排层（**不修改** SPARE/SDF 求解器）。每层对**原始**源/目标做 remesh；默认均匀 `isotropicRemesh(4h→2h→h)`。可选 **末层曲率自适应边长**（`useAdaptiveDensityOnLastLayer`，默认关）：先均匀底网到 \(L_{\max}\)，再按
+
+\[
+L(v)=\mathrm{clamp}\big(\sqrt{6\varepsilon/(|\kappa|+\delta)},\,L_{\min},\,L_{\max}\big)
+\]
+
+做有限次 split/collapse（见 `AdaptiveRemesh.h`）。自适应失败时回退该层均匀 remesh，并写入 `debugSummary`。L1/L2 用上一层 **rest→def 位移** prolongate：粗层间 NN；进入自适应末层时 **k=3 距离加权**。粗/中层关细阶段；末层细阶段由 `useFineRegOnLastLayer` 控制。
 
 | 入口 | 说明 |
 |------|------|
 | `pyramidRegisterMeshSoupToMeshSoup` | 网格↔网格；**输出为细层 remesh 拓扑**（非原始源三角） |
-| `PyramidRegisterParams` | `baseEdgeLengthMm`（0=源中位边长）、`solver`、`rigidPreAlign`、透传 `sdf`/`spare` |
+| `PyramidRegisterParams` | `baseEdgeLengthMm`（0=源中位边长）、`solver`、`rigidPreAlign`、末层自适应开关与 \(\varepsilon/L_{\min}/L_{\max}\) 比率、透传 `sdf`/`spare` |
 
-插件：侧栏「几何金字塔」→ Host `nonRigidRegisterPyramid`（**1.53.0+**）。Backend：`nonRigidRegisterMeshPyramid`。
+插件：侧栏「几何金字塔」→ Host `nonRigidRegisterPyramid`（**1.53.0+**）；勾选「末层曲率自适应边长」。Backend：`nonRigidRegisterMeshPyramid`。
 
 ---
 

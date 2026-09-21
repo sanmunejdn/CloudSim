@@ -167,6 +167,7 @@
     <ClInclude Include="inc\RegistrationSpare.h" />
     <ClInclude Include="inc\RegistrationSdf.h" />
     <ClInclude Include="inc\RegistrationPyramid.h" />
+    <ClInclude Include="inc\AdaptiveRemesh.h" />
     <ClInclude Include="inc\Preprocess.h" />
     <ClInclude Include="inc\Reconstruction.h" />
     <ClInclude Include="inc\ReconstructionPoisson.h" />
@@ -199,6 +200,7 @@
     <ClCompile Include="source\RegistrationSpare.cpp" />
     <ClCompile Include="source\RegistrationSdf.cpp" />
     <ClCompile Include="source\RegistrationPyramid.cpp" />
+    <ClCompile Include="source\AdaptiveRemesh.cpp" />
     <ClCompile Include="source\Preprocess.cpp" />
     <ClCompile Include="source\ReconstructionPoisson.cpp" />
     <ClCompile Include="source\ReconstructionScaleSpace.cpp" />

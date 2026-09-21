@@ -30,6 +30,11 @@ struct PyramidRegisterParams
 	double layerScale = 2.0;
 	bool rigidPreAlign = true; ///< 仅最粗层交给求解器做 ICP
 	bool useFineRegOnLastLayer = false;
+	/// 仅末层：曲率自适应边长；默认关以保持与现网一致
+	bool useAdaptiveDensityOnLastLayer = false;
+	double adaptiveApproxTolMm = 0.0;	 ///< ε；0 → 0.02 * h
+	double adaptiveEdgeMinRatio = 0.25; ///< Lmin = ratio * h
+	double adaptiveEdgeMaxRatio = 2.0;	 ///< Lmax = ratio * h
 	PyramidSolver solver = PyramidSolver::Sdf;
 	SdfRegisterParams sdf;
 	SpareRegisterParams spare;

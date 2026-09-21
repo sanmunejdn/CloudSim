@@ -3,6 +3,7 @@
 
 #include "RegistrationPyramid.h"
 
+#include "AdaptiveRemesh.h"
 #include "KdTreePointSet.h"
 
 #include <MeshRemesh.h>
@@ -12,6 +13,7 @@
 #include <limits>
 #include <sstream>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace pclalgo
@@ -142,10 +144,10 @@ bool deformedVertsFromRestWeld(const WeldedSoup& restWeld, const std::vector<flo
 	return true;
 }
 
-/// 粗层 rest→def 位移经 NN 抬到细层 rest，作 warm-start
-bool prolongateByNearestNeighbor(const std::vector<float>& coarseRestSoup, const std::vector<float>& coarseDefSoup,
-								 const std::vector<float>& fineRestSoup, std::vector<float>& fineWarmSoupOut,
-								 std::string* errMsg)
+/// 粗层 rest→def 位移经 NN / kNN 抬到细层 rest，作 warm-start
+bool prolongateDisplacement(const std::vector<float>& coarseRestSoup, const std::vector<float>& coarseDefSoup,
+							const std::vector<float>& fineRestSoup, std::vector<float>& fineWarmSoupOut, const int knn,
+							std::string* errMsg)
 {
 	WeldedSoup coarseRest;
 	WeldedSoup fineRest;
@@ -161,21 +163,61 @@ bool prolongateByNearestNeighbor(const std::vector<float>& coarseRestSoup, const
 
 	KdTreePointSet tree(coarseRest.xyz);
 	std::vector<float> fineDefXyz = fineRest.xyz;
+	const int kUse = std::max(1, knn);
 	for (std::size_t v = 0; v * 3U + 2U < fineRest.xyz.size(); ++v)
 	{
 		const std::size_t b = v * 3U;
-		double distSq = 0.0;
-		const std::size_t nn =
-			tree.findNearest(fineRest.xyz[b], fineRest.xyz[b + 1U], fineRest.xyz[b + 2U],
-							 std::numeric_limits<double>::max(), distSq);
-		if (nn == static_cast<std::size_t>(-1))
+		if (kUse <= 1)
+		{
+			double distSq = 0.0;
+			const std::size_t nn =
+				tree.findNearest(fineRest.xyz[b], fineRest.xyz[b + 1U], fineRest.xyz[b + 2U],
+								 std::numeric_limits<double>::max(), distSq);
+			if (nn == static_cast<std::size_t>(-1))
+			{
+				continue;
+			}
+			const std::size_t cb = nn * 3U;
+			fineDefXyz[b] = fineRest.xyz[b] + (coarseDefXyz[cb] - coarseRest.xyz[cb]);
+			fineDefXyz[b + 1U] = fineRest.xyz[b + 1U] + (coarseDefXyz[cb + 1U] - coarseRest.xyz[cb + 1U]);
+			fineDefXyz[b + 2U] = fineRest.xyz[b + 2U] + (coarseDefXyz[cb + 2U] - coarseRest.xyz[cb + 2U]);
+			continue;
+		}
+
+		std::vector<std::size_t> nnIdx;
+		std::vector<double> nnDistSq;
+		tree.findKNearest(fineRest.xyz[b], fineRest.xyz[b + 1U], fineRest.xyz[b + 2U],
+						  static_cast<unsigned int>(kUse), nnIdx, nnDistSq);
+		if (nnIdx.empty() || nnIdx.size() != nnDistSq.size())
 		{
 			continue;
 		}
-		const std::size_t cb = nn * 3U;
-		fineDefXyz[b] = fineRest.xyz[b] + (coarseDefXyz[cb] - coarseRest.xyz[cb]);
-		fineDefXyz[b + 1U] = fineRest.xyz[b + 1U] + (coarseDefXyz[cb + 1U] - coarseRest.xyz[cb + 1U]);
-		fineDefXyz[b + 2U] = fineRest.xyz[b + 2U] + (coarseDefXyz[cb + 2U] - coarseRest.xyz[cb + 2U]);
+		double wSum = 0.0;
+		double dx = 0.0;
+		double dy = 0.0;
+		double dz = 0.0;
+		for (std::size_t i = 0; i < nnIdx.size(); ++i)
+		{
+			if (nnIdx[i] == static_cast<std::size_t>(-1))
+			{
+				continue;
+			}
+			const std::size_t cb = nnIdx[i] * 3U;
+			const double dist = std::sqrt(std::max(0.0, nnDistSq[i]));
+			const double w = 1.0 / (dist + 1e-6);
+			wSum += w;
+			dx += w * static_cast<double>(coarseDefXyz[cb] - coarseRest.xyz[cb]);
+			dy += w * static_cast<double>(coarseDefXyz[cb + 1U] - coarseRest.xyz[cb + 1U]);
+			dz += w * static_cast<double>(coarseDefXyz[cb + 2U] - coarseRest.xyz[cb + 2U]);
+		}
+		if (wSum <= 0.0)
+		{
+			continue;
+		}
+		const double inv = 1.0 / wSum;
+		fineDefXyz[b] = fineRest.xyz[b] + static_cast<float>(dx * inv);
+		fineDefXyz[b + 1U] = fineRest.xyz[b + 1U] + static_cast<float>(dy * inv);
+		fineDefXyz[b + 2U] = fineRest.xyz[b + 2U] + static_cast<float>(dz * inv);
 	}
 	return writeSoupFromVerts(fineRest, fineDefXyz, fineWarmSoupOut, errMsg);
 }
@@ -237,7 +279,8 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 
 	std::ostringstream dbg;
 	dbg << "[Pyramid] h=" << baseH << " mm layers=" << layers << " solver="
-		<< (params.solver == PyramidSolver::Spare ? "SPARE" : "SDF") << " mode=prolongate\n";
+		<< (params.solver == PyramidSolver::Spare ? "SPARE" : "SDF")
+		<< " mode=prolongate adaptiveLast=" << (params.useAdaptiveDensityOnLastLayer ? "1" : "0") << "\n";
 
 	std::vector<float> prevRest;
 	std::vector<float> prevDef;
@@ -248,39 +291,81 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 	for (int level = 0; level < layers; ++level)
 	{
 		const double edge = layerEdgeLengthMm(baseH, scale, layers, level);
-		dbg << "[Pyramid] L" << level << " edge=" << edge << " mm\n";
+		const bool lastLayer = (level + 1 == layers);
+		dbg << "[Pyramid] L" << level << " edge=" << edge << " mm"
+			<< (lastLayer && params.useAdaptiveDensityOnLastLayer ? " (adaptive)" : "") << "\n";
 
 		// 每层从原始几何 remesh；层间只传位移场，不对变形结果整网 remesh
 		std::vector<float> srcLevel;
 		std::vector<float> tgtLevel;
-		if (!vcgalgo::isotropicRemesh(sourceSoup, edge, srcLevel, params.remeshIterations, 30.0, errMsg))
+		const bool useAdaptive = lastLayer && params.useAdaptiveDensityOnLastLayer;
+		if (useAdaptive)
 		{
-			if (errMsg && errMsg->empty())
+			AdaptiveRemeshParams adapt;
+			adapt.characteristicEdgeMm = edge;
+			adapt.approxTolMm = params.adaptiveApproxTolMm;
+			adapt.edgeMinMm = params.adaptiveEdgeMinRatio * edge;
+			adapt.edgeMaxMm = params.adaptiveEdgeMaxRatio * edge;
+			adapt.baseRemeshIterations = params.remeshIterations;
+			std::string adaptErr;
+			if (!adaptiveIsotropicRemesh(sourceSoup, srcLevel, adapt, &adaptErr))
 			{
-				*errMsg = "Pyramid: source remesh failed";
+				dbg << "[Pyramid] L" << level << " adaptive src failed, fallback uniform: " << adaptErr << "\n";
+				if (!vcgalgo::isotropicRemesh(sourceSoup, edge, srcLevel, params.remeshIterations, 30.0, errMsg))
+				{
+					if (errMsg && errMsg->empty())
+					{
+						*errMsg = "Pyramid: source remesh failed";
+					}
+					return false;
+				}
 			}
-			return false;
+			adaptErr.clear();
+			if (!adaptiveIsotropicRemesh(targetSoup, tgtLevel, adapt, &adaptErr))
+			{
+				dbg << "[Pyramid] L" << level << " adaptive tgt failed, fallback uniform: " << adaptErr << "\n";
+				if (!vcgalgo::isotropicRemesh(targetSoup, edge, tgtLevel, params.remeshIterations, 30.0, errMsg))
+				{
+					if (errMsg && errMsg->empty())
+					{
+						*errMsg = "Pyramid: target remesh failed";
+					}
+					return false;
+				}
+			}
 		}
-		if (!vcgalgo::isotropicRemesh(targetSoup, edge, tgtLevel, params.remeshIterations, 30.0, errMsg))
+		else
 		{
-			if (errMsg && errMsg->empty())
+			if (!vcgalgo::isotropicRemesh(sourceSoup, edge, srcLevel, params.remeshIterations, 30.0, errMsg))
 			{
-				*errMsg = "Pyramid: target remesh failed";
+				if (errMsg && errMsg->empty())
+				{
+					*errMsg = "Pyramid: source remesh failed";
+				}
+				return false;
 			}
-			return false;
+			if (!vcgalgo::isotropicRemesh(targetSoup, edge, tgtLevel, params.remeshIterations, 30.0, errMsg))
+			{
+				if (errMsg && errMsg->empty())
+				{
+					*errMsg = "Pyramid: target remesh failed";
+				}
+				return false;
+			}
 		}
 
 		std::vector<float> srcWarm = srcLevel;
 		if (level > 0)
 		{
-			if (!prolongateByNearestNeighbor(prevRest, prevDef, srcLevel, srcWarm, errMsg))
+			// 进入自适应末层时用 k=3 加权，减轻粗均匀→细局部加密的位移噪声
+			const int knn = (useAdaptive ? 3 : 1);
+			if (!prolongateDisplacement(prevRest, prevDef, srcLevel, srcWarm, knn, errMsg))
 			{
 				return false;
 			}
-			dbg << "[Pyramid] L" << level << " prolongate ok\n";
+			dbg << "[Pyramid] L" << level << " prolongate ok knn=" << knn << "\n";
 		}
 
-		const bool lastLayer = (level + 1 == layers);
 		const int layerOuter =
 			lastLayer ? std::max(params.sdf.maxOuterIters, params.spare.maxOuterIters)
 					  : (level == 0 ? kCoarseMaxOuter : kCoarseMaxOuter + 5);

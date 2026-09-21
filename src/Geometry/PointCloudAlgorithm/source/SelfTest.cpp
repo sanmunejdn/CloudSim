@@ -17,6 +17,7 @@
 #include "RegistrationRigid.h"
 #include "RegistrationSpare.h"
 #include "RegistrationSdf.h"
+#include "AdaptiveRemesh.h"
 #include "Transform.h"
 
 #include <cmath>
@@ -61,6 +62,83 @@ std::vector<float> makePlanePointCloud(const std::size_t grid, const double z)
 		}
 	}
 	return xyz;
+}
+
+/// 左半平坦、右半高频起伏的高度场面片，用于验证自适应边长
+std::vector<float> makeWavyPlateSoup(const int n, const double spacing)
+{
+	std::vector<float> soup;
+	soup.reserve(static_cast<std::size_t>((n - 1) * (n - 1) * 2 * 9));
+	auto height = [&](const int i, const int j) -> double
+	{
+		const double x = i * spacing;
+		const double y = j * spacing;
+		if (x < 0.5 * (n - 1) * spacing)
+		{
+			return 0.0;
+		}
+		return 1.2 * std::sin(x * 3.5) * std::cos(y * 3.5);
+	};
+	for (int i = 0; i < n - 1; ++i)
+	{
+		for (int j = 0; j < n - 1; ++j)
+		{
+			const double x00 = i * spacing;
+			const double y00 = j * spacing;
+			const double x10 = (i + 1) * spacing;
+			const double y10 = j * spacing;
+			const double x01 = i * spacing;
+			const double y01 = (j + 1) * spacing;
+			const double x11 = (i + 1) * spacing;
+			const double y11 = (j + 1) * spacing;
+			const double z00 = height(i, j);
+			const double z10 = height(i + 1, j);
+			const double z01 = height(i, j + 1);
+			const double z11 = height(i + 1, j + 1);
+			auto pushTri = [&](double ax, double ay, double az, double bx, double by, double bz, double cx, double cy,
+							   double cz)
+			{
+				soup.push_back(static_cast<float>(ax));
+				soup.push_back(static_cast<float>(ay));
+				soup.push_back(static_cast<float>(az));
+				soup.push_back(static_cast<float>(bx));
+				soup.push_back(static_cast<float>(by));
+				soup.push_back(static_cast<float>(bz));
+				soup.push_back(static_cast<float>(cx));
+				soup.push_back(static_cast<float>(cy));
+				soup.push_back(static_cast<float>(cz));
+			};
+			pushTri(x00, y00, z00, x10, y10, z10, x11, y11, z11);
+			pushTri(x00, y00, z00, x11, y11, z11, x01, y01, z01);
+		}
+	}
+	return soup;
+}
+
+double meanEdgeLengthInXRange(const std::vector<float>& soup, const double xMin, const double xMax)
+{
+	double sum = 0.0;
+	int count = 0;
+	auto edgeLen = [](float ax, float ay, float az, float bx, float by, float bz)
+	{
+		const double dx = bx - ax;
+		const double dy = by - ay;
+		const double dz = bz - az;
+		return std::sqrt(dx * dx + dy * dy + dz * dz);
+	};
+	for (std::size_t i = 0; i + 8U < soup.size(); i += 9U)
+	{
+		const float cx = (soup[i] + soup[i + 3U] + soup[i + 6U]) / 3.0f;
+		if (cx < xMin || cx > xMax)
+		{
+			continue;
+		}
+		sum += edgeLen(soup[i], soup[i + 1U], soup[i + 2U], soup[i + 3U], soup[i + 4U], soup[i + 5U]);
+		sum += edgeLen(soup[i + 3U], soup[i + 4U], soup[i + 5U], soup[i + 6U], soup[i + 7U], soup[i + 8U]);
+		sum += edgeLen(soup[i + 6U], soup[i + 7U], soup[i + 8U], soup[i], soup[i + 1U], soup[i + 2U]);
+		count += 3;
+	}
+	return count > 0 ? (sum / static_cast<double>(count)) : 0.0;
 }
 
 } // namespace
@@ -335,6 +413,23 @@ bool runSelfTest(std::vector<std::string>& failures)
 		expectTrue(failures, "sdf.deformed", deformed.size() == src.size());
 		expectTrue(failures, "sdf.finiteError", std::isfinite(sdfResult.meanErrorMm));
 		expectTrue(failures, "sdf.fieldVoxel", sdfResult.fieldVoxelMmUsed > 0.0);
+	}
+
+	{
+		const std::vector<float> wavy = makeWavyPlateSoup(24, 1.0);
+		std::vector<float> adapted;
+		AdaptiveRemeshParams adapt;
+		adapt.characteristicEdgeMm = 1.0;
+		adapt.refineIterations = 3;
+		adapt.baseRemeshIterations = 2;
+		std::string adaptErr;
+		expectTrue(failures, "adaptiveRemesh.ok", adaptiveIsotropicRemesh(wavy, adapted, adapt, &adaptErr));
+		expectTrue(failures, "adaptiveRemesh.nonempty", !adapted.empty());
+		const double flatMean = meanEdgeLengthInXRange(adapted, 0.0, 10.0);
+		const double wavyMean = meanEdgeLengthInXRange(adapted, 14.0, 23.0);
+		expectTrue(failures, "adaptiveRemesh.flatMean", flatMean > 0.0);
+		expectTrue(failures, "adaptiveRemesh.wavyMean", wavyMean > 0.0);
+		expectTrue(failures, "adaptiveRemesh.density", wavyMean < flatMean * 0.95);
 	}
 
 	return failures.empty();

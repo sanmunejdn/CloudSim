@@ -640,6 +640,10 @@ bool nonRigidRegisterMeshPyramid(MeshBackendData& sourceMeshInOut, const MeshBac
 	core.layerScale = params.layerScale;
 	core.rigidPreAlign = params.rigidPreAlign;
 	core.useFineRegOnLastLayer = params.useFineRegOnLastLayer;
+	core.useAdaptiveDensityOnLastLayer = params.useAdaptiveDensityOnLastLayer;
+	core.adaptiveApproxTolMm = params.adaptiveApproxTolMm;
+	core.adaptiveEdgeMinRatio = params.adaptiveEdgeMinRatio;
+	core.adaptiveEdgeMaxRatio = params.adaptiveEdgeMaxRatio;
 	core.solver = (params.solver == 1) ? pclalgo::PyramidSolver::Spare : pclalgo::PyramidSolver::Sdf;
 	core.sdf = toSdfRegisterParams(params.sdf);
 	core.spare = toSpareRegisterParams(params.spare);

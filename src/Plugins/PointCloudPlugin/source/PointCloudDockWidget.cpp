@@ -335,10 +335,13 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_pyramidRigidPreAlignCheck = new QCheckBox(m_pyramidOptionsWidget);
 	m_pyramidRigidPreAlignCheck->setChecked(true);
 	m_pyramidFineLastCheck = new QCheckBox(m_pyramidOptionsWidget);
+	m_pyramidAdaptiveLastCheck = new QCheckBox(m_pyramidOptionsWidget);
+	m_pyramidAdaptiveLastCheck->setChecked(false);
 	m_pyramidCreateNewCheck = new QCheckBox(m_pyramidOptionsWidget);
 	m_pyramidCreateNewCheck->setChecked(true);
 	pyrOptLayout->addWidget(m_pyramidRigidPreAlignCheck);
 	pyrOptLayout->addWidget(m_pyramidFineLastCheck);
+	pyrOptLayout->addWidget(m_pyramidAdaptiveLastCheck);
 	pyrOptLayout->addWidget(m_pyramidCreateNewCheck);
 	icpLayout->addWidget(m_pyramidOptionsWidget);
 	layout->addWidget(m_icpGroup);
@@ -1519,6 +1522,11 @@ void PointCloudDockWidget::applyLanguage()
 		m_pyramidFineLastCheck->setText(
 			i18n(QStringLiteral("Fine stage on last layer"), QStringLiteral("末层开启细阶段")));
 	}
+	if (m_pyramidAdaptiveLastCheck)
+	{
+		m_pyramidAdaptiveLastCheck->setText(
+			i18n(QStringLiteral("Curvature-adaptive last layer"), QStringLiteral("末层曲率自适应边长")));
+	}
 	if (m_pyramidCreateNewCheck)
 	{
 		m_pyramidCreateNewCheck->setText(i18n(QStringLiteral("Create new object"), QStringLiteral("输出为新对象")));
@@ -2585,6 +2593,7 @@ void PointCloudDockWidget::onPyramidRegisterClicked()
 	params.solver = m_pyramidSolverCombo ? m_pyramidSolverCombo->currentData().toInt() : 0;
 	params.rigidPreAlign = m_pyramidRigidPreAlignCheck && m_pyramidRigidPreAlignCheck->isChecked();
 	params.useFineRegOnLastLayer = m_pyramidFineLastCheck && m_pyramidFineLastCheck->isChecked();
+	params.useAdaptiveDensityOnLastLayer = m_pyramidAdaptiveLastCheck && m_pyramidAdaptiveLastCheck->isChecked();
 	params.createNewObject = m_pyramidCreateNewCheck && m_pyramidCreateNewCheck->isChecked();
 	params.applyDeformationToSource = !params.createNewObject;
 	pch->nonRigidRegisterPyramid(doc, sourceId, params,

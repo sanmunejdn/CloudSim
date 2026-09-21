@@ -222,6 +222,10 @@ struct PluginPointCloudPyramidParams
 	double baseEdgeLengthMm = 0.0; ///< h；0=源中位边长
 	bool rigidPreAlign = true;
 	bool useFineRegOnLastLayer = false;
+	bool useAdaptiveDensityOnLastLayer = false;
+	double adaptiveApproxTolMm = 0.0;
+	double adaptiveEdgeMinRatio = 0.25;
+	double adaptiveEdgeMaxRatio = 2.0;
 	int solver = 0; ///< 0=SDF 1=SPARE
 	bool applyDeformationToSource = true;
 	bool createNewObject = false;

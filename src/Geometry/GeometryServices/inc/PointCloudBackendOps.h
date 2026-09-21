@@ -220,6 +220,10 @@ struct PointCloudPyramidParams
 	double layerScale = 2.0;
 	bool rigidPreAlign = true;
 	bool useFineRegOnLastLayer = false;
+	bool useAdaptiveDensityOnLastLayer = false;
+	double adaptiveApproxTolMm = 0.0;
+	double adaptiveEdgeMinRatio = 0.25;
+	double adaptiveEdgeMaxRatio = 2.0;
 	int solver = 0; ///< 0=SDF 1=SPARE
 	PointCloudSdfParams sdf;
 	PointCloudSpareParams spare;

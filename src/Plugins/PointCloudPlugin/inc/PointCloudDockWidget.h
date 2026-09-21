@@ -160,6 +160,7 @@ private:
 	QComboBox* m_pyramidSolverCombo = nullptr;
 	QCheckBox* m_pyramidRigidPreAlignCheck = nullptr;
 	QCheckBox* m_pyramidFineLastCheck = nullptr;
+	QCheckBox* m_pyramidAdaptiveLastCheck = nullptr;
 	QCheckBox* m_pyramidCreateNewCheck = nullptr;
 	QComboBox* m_meshExportCombo = nullptr;
 	QPushButton* m_importBtn = nullptr;

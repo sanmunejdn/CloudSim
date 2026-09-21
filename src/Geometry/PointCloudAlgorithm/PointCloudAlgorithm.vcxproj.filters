@@ -11,6 +11,9 @@
     <Filter Include="inc\Global">
       <UniqueIdentifier>{1CD24129-1AB8-42DB-A458-4044E66478E8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{8961BBD7-9FB5-4077-B383-85671A9B77DA}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\Preprocess">
       <UniqueIdentifier>{04557B7C-3354-4119-957A-43ACD2DEE390}</UniqueIdentifier>
     </Filter>
@@ -20,14 +23,14 @@
     <Filter Include="inc\Registration">
       <UniqueIdentifier>{554FAE8B-8BDB-4E94-85AC-1861C527F0F7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\pcl">
+      <UniqueIdentifier>{E5F6A7B8-C9D0-1234-EF01-456789012345}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\sdf">
       <UniqueIdentifier>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</UniqueIdentifier>
     </Filter>
     <Filter Include="inc\spare">
       <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\pcl">
-      <UniqueIdentifier>{E5F6A7B8-C9D0-1234-EF01-456789012345}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{C86CDAA3-8C72-46AA-87A5-86D90CFF3B67}</UniqueIdentifier>
@@ -35,6 +38,9 @@
     </Filter>
     <Filter Include="src\Core">
       <UniqueIdentifier>{CA6F5923-7028-45D4-B997-F9F703D5CBE9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{C25CA2EF-B5BF-4D98-96B6-8C5EC84A69CA}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Preprocess">
       <UniqueIdentifier>{B9B06104-E903-45F5-A12C-317F22A917CF}</UniqueIdentifier>
@@ -45,17 +51,20 @@
     <Filter Include="src\Registration">
       <UniqueIdentifier>{E0DF82A2-D32A-4260-8696-FA8E7D06987C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\pcl">
+      <UniqueIdentifier>{F6A7B8C9-D0E1-2345-F012-567890123456}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\sdf">
       <UniqueIdentifier>{D4E5F6A7-B8C9-0123-DEF0-234567890123}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\spare">
       <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\pcl">
-      <UniqueIdentifier>{F6A7B8C9-D0E1-2345-F012-567890123456}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\AdaptiveRemesh.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\Crop.h">
       <Filter>inc\Preprocess</Filter>
     </ClInclude>
@@ -70,6 +79,9 @@
     </ClInclude>
     <ClInclude Include="inc\ParallelUtils.h">
       <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pcl\PclCloudConvert.h">
+      <Filter>inc\pcl</Filter>
     </ClInclude>
     <ClInclude Include="inc\PerformanceTest.h">
       <Filter>inc\Core</Filter>
@@ -101,14 +113,11 @@
     <ClInclude Include="inc\RegistrationGlobal.h">
       <Filter>inc\Registration</Filter>
     </ClInclude>
-    <ClInclude Include="inc\RegistrationNonRigid.h">
-      <Filter>inc\Registration</Filter>
-    </ClInclude>
     <ClInclude Include="inc\RegistrationGlobalPcl.h">
       <Filter>inc\Registration</Filter>
     </ClInclude>
-    <ClInclude Include="inc\pcl\PclCloudConvert.h">
-      <Filter>inc\pcl</Filter>
+    <ClInclude Include="inc\RegistrationNonRigid.h">
+      <Filter>inc\Registration</Filter>
     </ClInclude>
     <ClInclude Include="inc\RegistrationPyramid.h">
       <Filter>inc\Registration</Filter>
@@ -151,6 +160,9 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\AdaptiveRemesh.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\Crop.cpp">
       <Filter>src\Preprocess</Filter>
     </ClCompile>
@@ -162,6 +174,12 @@
     </ClCompile>
     <ClCompile Include="source\ParallelUtils.cpp">
       <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pcl\PclCloudConvert.cpp">
+      <Filter>src\pcl</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pcl\RegistrationGlobalPcl.cpp">
+      <Filter>src\pcl</Filter>
     </ClCompile>
     <ClCompile Include="source\PerformanceTest.cpp">
       <Filter>src\Core</Filter>
@@ -186,12 +204,6 @@
     </ClCompile>
     <ClCompile Include="source\RegistrationGlobal.cpp">
       <Filter>src\Registration</Filter>
-    </ClCompile>
-    <ClCompile Include="source\pcl\RegistrationGlobalPcl.cpp">
-      <Filter>src\pcl</Filter>
-    </ClCompile>
-    <ClCompile Include="source\pcl\PclCloudConvert.cpp">
-      <Filter>src\pcl</Filter>
     </ClCompile>
     <ClCompile Include="source\RegistrationNonRigid.cpp">
       <Filter>src\Registration</Filter>
