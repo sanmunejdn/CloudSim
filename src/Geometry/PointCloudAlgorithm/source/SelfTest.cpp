@@ -115,6 +115,41 @@ std::vector<float> makeWavyPlateSoup(const int n, const double spacing)
 	return soup;
 }
 
+std::vector<float> makeFlatPlateSoup(const int n, const double spacing)
+{
+	std::vector<float> soup;
+	soup.reserve(static_cast<std::size_t>((n - 1) * (n - 1) * 2 * 9));
+	for (int i = 0; i < n - 1; ++i)
+	{
+		for (int j = 0; j < n - 1; ++j)
+		{
+			const float x00 = static_cast<float>(i * spacing);
+			const float y00 = static_cast<float>(j * spacing);
+			const float x10 = static_cast<float>((i + 1) * spacing);
+			const float y10 = static_cast<float>(j * spacing);
+			const float x01 = static_cast<float>(i * spacing);
+			const float y01 = static_cast<float>((j + 1) * spacing);
+			const float x11 = static_cast<float>((i + 1) * spacing);
+			const float y11 = static_cast<float>((j + 1) * spacing);
+			auto pushTri = [&](float ax, float ay, float bx, float by, float cx, float cy)
+			{
+				soup.push_back(ax);
+				soup.push_back(ay);
+				soup.push_back(0.0f);
+				soup.push_back(bx);
+				soup.push_back(by);
+				soup.push_back(0.0f);
+				soup.push_back(cx);
+				soup.push_back(cy);
+				soup.push_back(0.0f);
+			};
+			pushTri(x00, y00, x10, y10, x11, y11);
+			pushTri(x00, y00, x11, y11, x01, y01);
+		}
+	}
+	return soup;
+}
+
 double meanEdgeLengthInXRange(const std::vector<float>& soup, const double xMin, const double xMax)
 {
 	double sum = 0.0;
@@ -430,6 +465,39 @@ bool runSelfTest(std::vector<std::string>& failures)
 		expectTrue(failures, "adaptiveRemesh.flatMean", flatMean > 0.0);
 		expectTrue(failures, "adaptiveRemesh.wavyMean", wavyMean > 0.0);
 		expectTrue(failures, "adaptiveRemesh.density", wavyMean < flatMean * 0.95);
+	}
+
+	{
+		// 平坦板 + 左侧高残差 → 左侧应更密（与曲率无关）
+		const std::vector<float> flat = makeFlatPlateSoup(20, 1.0);
+		AdaptiveRemeshParams adapt;
+		adapt.characteristicEdgeMm = 1.0;
+		adapt.approxTolMm = 0.5;
+		adapt.edgeMinMm = 0.25;
+		adapt.edgeMaxMm = 2.0;
+		adapt.refineIterations = 4;
+		adapt.baseRemeshIterations = 2;
+		for (int i = 0; i <= 20; ++i)
+		{
+			for (int j = 0; j <= 20; ++j)
+			{
+				const float x = static_cast<float>(i);
+				const float y = static_cast<float>(j);
+				adapt.residualSampleXyz.push_back(x);
+				adapt.residualSampleXyz.push_back(y);
+				adapt.residualSampleXyz.push_back(0.0f);
+				adapt.residualMm.push_back(x < 10.0f ? 2.0f : 0.05f);
+			}
+		}
+		std::vector<float> adapted;
+		std::string adaptErr;
+		expectTrue(failures, "adaptiveRemesh.residual.ok",
+				   adaptiveIsotropicRemesh(flat, adapted, adapt, &adaptErr));
+		const double highResMean = meanEdgeLengthInXRange(adapted, 0.0, 8.0);
+		const double lowResMean = meanEdgeLengthInXRange(adapted, 12.0, 20.0);
+		expectTrue(failures, "adaptiveRemesh.residual.highMean", highResMean > 0.0);
+		expectTrue(failures, "adaptiveRemesh.residual.lowMean", lowResMean > 0.0);
+		expectTrue(failures, "adaptiveRemesh.residual.density", highResMean < lowResMean * 0.95);
 	}
 
 	return failures.empty();

@@ -28,6 +28,9 @@ bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>
 
 bool meshLoadStepSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg);
 bool meshLoadDxfSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg);
+bool meshLoad3dxmlSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg);
+bool meshLoad3dxmlHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
+									std::string* errMsg);
 bool meshLoadCgalMeshFile(MeshBackendData& mesh, const std::string& path, const std::string& ext, std::string* errMsg,
 						  int meshImportQuality = 1);
 

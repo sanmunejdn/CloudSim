@@ -114,10 +114,24 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\GeometryImportUiFilters.h" />
     <ClInclude Include="inc\cloudsim_host_global.h" />
     <ClInclude Include="inc\CloudSimHost.h" />
     <ClInclude Include="inc\DocumentProjectSidecar.h" />
     <ClInclude Include="inc\DocumentFollowState.h" />
+    <ClInclude Include="inc\headless\HeadlessAiBridge.h" />
+    <ClInclude Include="inc\headless\HeadlessDrawingBridge.h" />
+    <ClInclude Include="inc\headless\HeadlessGeometryBridge.h" />
+    <ClInclude Include="inc\headless\HeadlessGeomodelBridge.h" />
+    <ClInclude Include="inc\headless\HeadlessLabelingBridge.h" />
+    <ClInclude Include="inc\headless\HeadlessProcessFlowBridge.h" />
+    <ClInclude Include="inc\headless\HeadlessProgramEditBridge.h" />
+    <ClInclude Include="inc\headless\HeadlessRobotCollisionBridge.h" />
+    <ClInclude Include="inc\headless\HeadlessRobotExportBridge.h" />
+    <ClInclude Include="inc\import\ApplyGeometryImportParse.h" />
+    <ClInclude Include="inc\import\GeometryFileImporterRegistry.h" />
+    <ClInclude Include="inc\import\GeometryImportUiFilters.h" />
+    <ClInclude Include="inc\import\IGeometryFileImporter.h" />
     <ClInclude Include="inc\widget_global.h" />
     <ClInclude Include="inc\HostRenderViewFactory.h" />
     <ClInclude Include="inc\adapters\DataServiceAdapter.h" />
@@ -156,6 +170,7 @@
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginGeometryHostImpl.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPointCloudHostImpl.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginDelegatedBackend.h" />
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPropertyBindingRegistry.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginDocumentAdapter.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginSceneBridgeAdapter.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiActionPlanExecutor.h" />
@@ -201,6 +216,10 @@
     </ClCompile>
     <ClCompile Include="source\DocumentHost.cpp" />
     <ClCompile Include="source\headless\HeadlessRobotContext.cpp" />
+    <ClCompile Include="source\import\ApplyGeometryImportParse.cpp" />
+    <ClCompile Include="source\import\GeometryFileImporterRegistry.cpp" />
+    <ClCompile Include="source\import\GeometryImportUiFilters.cpp" />
+    <ClCompile Include="source\import\GeometryImportersBuiltins.cpp" />
     <ClCompile Include="source\robot\RobotCoordinateFrameOps.cpp" />
     <ClCompile Include="source\headless\HeadlessPointCloudBridge.cpp" />
     <ClCompile Include="source\headless\HeadlessRobotPlaybackBridge.cpp" />
@@ -253,6 +272,7 @@
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPointCloudHostImpl.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginLabelingHostImpl.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginDelegatedBackend.cpp" />
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPropertyBindingRegistry.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginDocumentAdapter.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginHostContext.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginManager.cpp" />

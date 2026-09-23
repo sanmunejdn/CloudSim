@@ -583,16 +583,12 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 		return {};
 	}
 
-	// 仅明显走错分支时跳过精修；86mm/11° 类近解仍需 pos-then-ori
-	constexpr double kSkipRefinePosMm = 150.0;
-	constexpr double kSkipRefineRotRad = 45.0 * 3.14159265358979323846 / 180.0;
-	constexpr double kSkipRefinePosHardMm = 400.0;
-	constexpr double kSkipRefineRotHardRad = 70.0 * 3.14159265358979323846 / 180.0;
-	// 明显不可达或随机重启野种子：跳过昂贵 pos-then-ori（86mm 类近解仍保留）
-	constexpr double kSkipRefinePosAloneMm = 150.0;
-	const bool hopeless = bestPosErr > kSkipRefinePosHardMm || bestRotErr > kSkipRefineRotHardRad ||
-						  (bestPosErr > kSkipRefinePosMm && bestRotErr > kSkipRefineRotRad) ||
-						  bestPosErr > kSkipRefinePosAloneMm;
+	// 仅明显不可达才跳过精修。勿用「位姿>150mm 即 hopeless」：
+	// 规划常从家位到示教点（日志见 ~337mm/180°），pos-then-ori 仍可能收敛。
+	constexpr double kSkipRefinePosHardMm = 800.0;
+	constexpr double kSkipRefineRotHardRad = 170.0 * 3.14159265358979323846 / 180.0;
+	const bool hopeless =
+		bestPosErr > kSkipRefinePosHardMm && bestRotErr > kSkipRefineRotHardRad;
 	if (hopeless)
 	{
 		if (failReason)

@@ -167,6 +167,23 @@ bool loadMeshFromFile(MeshBackendData& mesh, const std::string& path, std::strin
 		return true;
 	}
 
+	if (ext == "3dxml")
+	{
+		std::vector<float> soup;
+		if (!meshLoad3dxmlSingleFile(path, soup, errMsg))
+		{
+			return false;
+		}
+		if (soup.empty())
+		{
+			meshLoadErr(errMsg, "3DXML produced empty soup.");
+			return false;
+		}
+		mesh.setTriangleSoup(std::move(soup));
+		RunLogger::info("[backend_io] 3DXML mesh loaded successfully.");
+		return true;
+	}
+
 	// OBJ 保留 vn 供光照（CGAL soup 会丢 vn）
 	if (ext == "obj")
 	{
@@ -192,30 +209,6 @@ bool loadBrepFromStepFile(BrepBackendData& brep, const std::string& path, std::s
 		return false;
 	}
 	brep.setShape(std::move(shape));
-	return true;
-}
-
-bool loadMeshStepHierarchy(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg)
-{
-	outParts.clear();
-	std::vector<geoalgo::MeshHierarchyPart> parts;
-	geoalgo::TessellateParams params;
-	params.flipReversedFaces = kMeshStepFlipReversedFaceWinding;
-	if (!geoalgo::tessellateStepHierarchy(path, params, parts, errMsg))
-	{
-		return false;
-	}
-	outParts.reserve(parts.size());
-	for (const geoalgo::MeshHierarchyPart& p : parts)
-	{
-		MeshHierarchyPart mp;
-		mp.partPath = p.partPath;
-		mp.parentPartPath = p.parentPartPath;
-		mp.displayName = p.displayName;
-		mp.triangleSoup = p.triangleSoup;
-		outParts.push_back(std::move(mp));
-	}
-	RunLogger::info("[backend_io] STEP mesh hierarchy loaded successfully.");
 	return true;
 }
 

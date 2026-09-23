@@ -1251,7 +1251,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 			}
 		}
 	}
-	// 有真实工具偏置：目标是工具原点，必须解法兰；否则按示教 tcpLink（勿因 context 里挂着 flange 名抢链）
+	// 有真实工具偏置：目标是工具原点，必须解法兰；否则优先示教 tcpLink
 	std::string ikLinkName;
 	if (toolHasOffset)
 	{
@@ -1270,6 +1270,12 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		ikLinkName = (itTcp != ext.end() && !itTcp->second.empty())
 						 ? itTcp->second
 						 : ((itFlange != ext.end()) ? itFlange->second : std::string());
+		// FANUC 等：示教 FK 在 link_6，tcp 却落成固定叶 flange(Rxπ) → 姿态差 180° 永不可达
+		if (itFlange != ext.end() && !itFlange->second.empty() && !ikLinkName.empty() &&
+			ikLinkName != itFlange->second)
+		{
+			ikLinkName = itFlange->second;
+		}
 	}
 	if (ikLinkName.empty())
 	{
@@ -1302,9 +1308,6 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	const double target[3] = {linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2]};
 	const bool useOrientation = linkTarget.hasOrientation;
 	const osg::Quat targetQuat = useOrientation ? linkTarget.quat : osg::Quat();
-	engine::RigidTransform targetToolRt{};
-	const bool hasTargetToolRt = RobotInstruction::readTargetTransformFromInstruction(cmd, targetToolRt);
-	(void)hasTargetToolRt;
 	BackendMat4 T_flange_tool = T_flange_toolProbe;
 	const engine::RigidTransform flangeToolRt = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
 	(void)flangeToolRt;
@@ -1702,8 +1705,8 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		poseTarget.quatXyzw[3] = targetQuat.w();
 	}
 	UrdfRobotLoader::UrdfIkSolverOptions opt{};
-	opt.maxIterations = 80;
-	opt.maxPosThenOriAttempts = 6;
+	opt.maxIterations = 120;
+	opt.maxPosThenOriAttempts = 18;
 	constexpr double kAcceptPosMm = 3.0;
 	constexpr double kAcceptRotDeg = 5.0;
 	const std::vector<std::string> jointNames = revoluteJointNamesFromInstructionContext(cmd);
@@ -2089,7 +2092,8 @@ public:
 								   RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
 		if (preferUrdfIk)
 		{
-			if (cmd.hasMotionAxisConfigurationProperty())
+			// 仅显式轴约束走 axis_cfg；AUTO 用普通 URDF IK（expandSeedVariants）
+			if (constrainAxis)
 			{
 				targetQ = solveIkWithAxisConfiguration(cmd, &ikFailReason);
 				if (!targetQ.empty())

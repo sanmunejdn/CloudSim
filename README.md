@@ -41,6 +41,8 @@
 
 两套 sln **互不引入**对方的 UI/Web 工程；桌面用 `CloudSimHost`，网页用 `CloudSimHostHeadless`；共享 `CloudSimCore` / `Data` / 机器人与几何等后端 DLL。
 
+Host 共享源同步：[`docs/桌面网页Host同步/README.md`](docs/桌面网页Host同步/README.md)（`python scripts/check_host_headless_sources.py`）。
+
 ## 几何建模：桌面逻辑 → 网页
 
 内核与桌面相同：形状真源是 Data 的 `ParametricBrepModel` + `parametricHistory`，`rebuild()` 走 `GeometryAlgorithm`（Pad/Pocket/Fillet/Revolve/阵列等）。桌面 Qt 插件（Ribbon、PlaneGCS 视口绘制、选面）**不进** Headless；网页只换交互壳。

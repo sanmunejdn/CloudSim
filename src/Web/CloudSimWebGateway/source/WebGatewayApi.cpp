@@ -27,6 +27,7 @@
 #include "headless/HeadlessLabelingBridge.h"
 #include "headless/HeadlessProcessFlowBridge.h"
 #include "NamedSignalTable.h"
+#include "RobotPlanInstruction.h"
 
 #include <QDir>
 #include <QFile>
@@ -691,6 +692,36 @@ QByteArray WebGateway::robotResolveJsonOnGuiThread(const QString& backendId)
 	return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }
 
+namespace
+{
+/// tcp-ik / tcp-pose 共用：示教落盘字段（FK 实际到达）
+void appendTcpPoseCaptureTeachFields(QJsonObject& out,
+									 const cloudsim::host::HeadlessRobotContext::TcpPoseCapture& pose)
+{
+	out.insert(QStringLiteral("positionMm"),
+			   QJsonArray{pose.positionMm[0], pose.positionMm[1], pose.positionMm[2]});
+	out.insert(QStringLiteral("eulerDeg"), QJsonArray{pose.eulerDeg[0], pose.eulerDeg[1], pose.eulerDeg[2]});
+	if (!pose.jointRadCsv.isEmpty())
+		out.insert(QStringLiteral("jointRadCsv"), pose.jointRadCsv);
+	if (!pose.targetTransformQuatCsv.isEmpty())
+		out.insert(QStringLiteral("targetTransformQuatCsv"), pose.targetTransformQuatCsv);
+	if (!pose.targetTransformTransMmCsv.isEmpty())
+		out.insert(QStringLiteral("targetTransformTransMmCsv"), pose.targetTransformTransMmCsv);
+	if (!pose.tcpLinkName.isEmpty())
+		out.insert(QStringLiteral("tcpLinkName"), pose.tcpLinkName);
+	if (!pose.flangeLinkName.isEmpty())
+		out.insert(QStringLiteral("flangeLinkName"), pose.flangeLinkName);
+	if (!pose.urdfPath.isEmpty())
+		out.insert(QStringLiteral("urdfPath"), pose.urdfPath);
+	if (!pose.toolFrameMat4Csv.isEmpty())
+		out.insert(QStringLiteral("toolFrameMat4Csv"), pose.toolFrameMat4Csv);
+	if (!pose.activeToolFrameId.isEmpty())
+		out.insert(QStringLiteral("activeToolFrameId"), pose.activeToolFrameId);
+	if (!pose.activeUserFrameId.isEmpty())
+		out.insert(QStringLiteral("activeUserFrameId"), pose.activeUserFrameId);
+}
+} // namespace
+
 bool WebGateway::placeRobotOnGuiThread(const QByteArray& body, QString* err)
 {
 	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
@@ -766,8 +797,9 @@ bool WebGateway::tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJs
 	QVector<double> joints;
 	QString ikErr;
 	bool incomplete = false;
+	cloudsim::host::HeadlessRobotContext::TcpPoseCapture teachTarget;
 	if (!host->headlessRobotContext()->applyIkFromFlangeThreeJsMatrix(flangeId, m16, &joints, &ikErr, &incomplete,
-																	  translateOnly))
+																	  translateOnly, &teachTarget))
 	{
 		if (err)
 			*err = ikErr.isEmpty() ? QStringLiteral("tcp IK failed") : ikErr;
@@ -789,6 +821,14 @@ bool WebGateway::tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJs
 		(*out)[QStringLiteral("sceneRootBackendId")] = rootId;
 		(*out)[QStringLiteral("jointAnglesRad")] = ja;
 		(*out)[QStringLiteral("incomplete")] = incomplete;
+		// FK 实际到达（对齐桌面 m_lastTcpDragTargetInBase），非罗盘期望
+		appendTcpPoseCaptureTeachFields(*out, teachTarget);
+		if (teachTarget.urdfPath.isEmpty() && instIdx >= 0)
+		{
+			const QString urdf = host->headlessRobotContext()->robotUrdfAbsolutePathForInstance(instIdx);
+			if (!urdf.isEmpty())
+				(*out)[QStringLiteral("urdfPath")] = urdf;
+		}
 	}
 	QJsonArray a;
 	for (double d : joints)
@@ -856,6 +896,10 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		ctx.extensions.insert(QStringLiteral("sceneRootBackendId"), sceneRoot);
 	if (o.contains(QStringLiteral("urdfPath")))
 		ctx.urdfPath = o.value(QStringLiteral("urdfPath")).toString();
+	if (o.contains(QStringLiteral("tcpLinkName")))
+		ctx.tcpLinkName = o.value(QStringLiteral("tcpLinkName")).toString().trimmed();
+	if (ctx.tcpLinkName.isEmpty() && instr.extensions.contains(QStringLiteral("context.tcpLinkName")))
+		ctx.tcpLinkName = instr.extensions.value(QStringLiteral("context.tcpLinkName")).toString().trimmed();
 
 	const QString seedPolicyRaw = o.value(QStringLiteral("seedPolicy")).toString();
 	const QString seedInstructionId = o.value(QStringLiteral("seedInstructionId")).toString().trimmed();
@@ -877,6 +921,25 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		ctx.extensions.insert(QStringLiteral("seedInstructionId"), seedInstructionId);
 
 	auto* host = cloudsim::host::documentHostFromScope(m_document.get());
+	// 对齐桌面：从实例解析 URDF + 真实末端连杆（禁止假名 tool0）
+	if (host && host->headlessRobotContext() && !sceneRoot.isEmpty())
+	{
+		auto* hrc = host->headlessRobotContext();
+		const int instIdx = hrc->robotInstanceIndexForSceneBackendId(sceneRoot);
+		if (instIdx >= 0)
+		{
+			if (ctx.urdfPath.isEmpty())
+				ctx.urdfPath = hrc->robotUrdfAbsolutePathForInstance(instIdx);
+			if (ctx.tcpLinkName.isEmpty())
+			{
+				const QString flange = QString::fromStdString(hrc->robotCoordinateFramesForInstance(instIdx).flangeLinkName);
+				if (!flange.isEmpty())
+					ctx.tcpLinkName = flange;
+			}
+			if (ctx.tcpLinkName.isEmpty())
+				ctx.tcpLinkName = cloudsim::host::defaultTcpLinkForUrdf(ctx.urdfPath);
+		}
+	}
 	auto fillLiveSeed = [&]() -> bool
 	{
 		if (!host || !host->headlessRobotContext())
@@ -1007,11 +1070,17 @@ QByteArray WebGateway::robotTcpPoseJsonOnGuiThread(const QString& sceneRootBacke
 	}
 	root.insert(QStringLiteral("ok"), true);
 	root.insert(QStringLiteral("sceneRootBackendId"), rootId);
-	root.insert(QStringLiteral("flangeLinkName"), pose.flangeLinkName);
-	root.insert(QStringLiteral("jointRadCsv"), pose.jointRadCsv);
-	root.insert(QStringLiteral("positionMm"),
-				QJsonArray{pose.positionMm[0], pose.positionMm[1], pose.positionMm[2]});
-	root.insert(QStringLiteral("eulerDeg"), QJsonArray{pose.eulerDeg[0], pose.eulerDeg[1], pose.eulerDeg[2]});
+	appendTcpPoseCaptureTeachFields(root, pose);
+	if (pose.urdfPath.isEmpty())
+	{
+		const int instIdx = host->headlessRobotContext()->robotInstanceIndexForSceneBackendId(rootId);
+		if (instIdx >= 0)
+		{
+			const QString urdf = host->headlessRobotContext()->robotUrdfAbsolutePathForInstance(instIdx);
+			if (!urdf.isEmpty())
+				root.insert(QStringLiteral("urdfPath"), urdf);
+		}
+	}
 	QJsonArray mat;
 	for (int c = 0; c < 4; ++c)
 	{

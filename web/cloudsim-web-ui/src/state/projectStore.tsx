@@ -20,6 +20,7 @@ import {
 } from "../api";
 import { eventHub } from "../sse/EventHub";
 import { useStatus } from "./statusStore";
+import { showConfirm } from "../ui/Dialog";
 
 type ProjectCtx = {
   health: Health | null;
@@ -43,10 +44,22 @@ const Ctx = createContext<ProjectCtx | null>(null);
 /** 对齐桌面关页：未保存时先问是否保存，再问是否丢弃 */
 async function confirmDiscardIfDirty(dirty: boolean, title: string, doSave: () => Promise<boolean>): Promise<boolean> {
   if (!dirty) return true;
-  if (window.confirm(`「${title}」有未保存更改。\n确定：保存后继续\n取消：下一步选择是否丢弃`)) {
+  if (
+    await showConfirm({
+      title: "未保存更改",
+      message: `「${title}」有未保存更改。\n确定：保存后继续`,
+      confirmText: "保存并继续",
+      cancelText: "不保存…",
+    })
+  ) {
     return doSave();
   }
-  return window.confirm(`丢弃对「${title}」的未保存更改？`);
+  return showConfirm({
+    title: "丢弃更改",
+    message: `丢弃对「${title}」的未保存更改？`,
+    confirmText: "丢弃",
+    cancelText: "取消",
+  });
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
@@ -89,26 +102,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         setBump((n) => n + 1);
         return;
       }
+      // 对象变更由 sceneStore 刷新；此处只标脏，避免与 SSE 双拉 objects
       if (
         type === "BackendObjectCreated" ||
         type === "BackendObjectRegistered" ||
         type === "BackendObjectRemoved" ||
         type === "PoseCommitted" ||
         type === "ObjectPatched" ||
-        type === "SceneChanged" ||
-        type === "message"
+        type === "SceneChanged"
       ) {
-        if (
-          type === "BackendObjectCreated" ||
-          type === "BackendObjectRegistered" ||
-          type === "BackendObjectRemoved" ||
-          type === "PoseCommitted" ||
-          type === "ObjectPatched" ||
-          type === "SceneChanged"
-        ) {
-          setDirty(true);
-        }
-        setBump((n) => n + 1);
+        setDirty(true);
       }
     });
     const offMode = eventHub.on("WorkspaceModeChanged", (data) => {

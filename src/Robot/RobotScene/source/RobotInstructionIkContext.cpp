@@ -79,7 +79,18 @@ void prepareInstructionIkContext(Base& ins, const std::vector<double>& rollingQ,
 	// 仅本次 plan 临时注入种子；调用方须 backup/restore，禁止当作指令持久化字段
 	ins.setExtensionProperty("context.currentJointRadCsv", encodeJointRadCsv(rollingQ));
 	ins.setExtensionProperty("context.urdfPath", urdfPath);
-	ins.setExtensionProperty("context.tcpLinkName", defaultTcpLinkName);
+	// 示教已写入 tcpLink 则保留，避免被空/错误默认覆盖
+	{
+		const auto& ext = ins.extensionProperties();
+		const auto itTcp = ext.find("context.tcpLinkName");
+		if (itTcp == ext.end() || itTcp->second.empty())
+		{
+			if (!defaultTcpLinkName.empty())
+			{
+				ins.setExtensionProperty("context.tcpLinkName", defaultTcpLinkName);
+			}
+		}
+	}
 	if (!frames)
 	{
 		return;

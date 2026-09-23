@@ -9,7 +9,6 @@ import {
   importUrdf,
   postJoints,
   patchIoNetworkRuntime,
-  fetchIoNetwork,
   switchRobotProgram,
   undoProgramEdit,
   redoProgramEdit,
@@ -31,62 +30,10 @@ import {
   probeServerPlayback,
   startServerPlayback,
 } from "../../robot/playback";
+import { showConfirm, showPrompt } from "../../ui/Dialog";
+import { uiEvents, UI_EVT } from "../../ui/uiEvents";
+import { doValueText, resolveIoPort, waitIoCondition, type IoStepFields } from "../../robot/ioProgramSteps";
 import InstructionTree, { CMD_LABEL } from "./InstructionTree";
-
-type IoStepFields = Instruction & {
-  port?: number;
-  value?: boolean | number | string;
-  signalName?: string;
-  ioPort?: number;
-  digitalValue?: boolean | number | string;
-  analogValue?: number;
-  ioBoolValue?: boolean;
-  ioAnalogValue?: number;
-};
-
-async function resolveIoPort(
-  step: IoStepFields,
-  kind: "DO" | "AO",
-): Promise<{ ownerId: string; port: number }> {
-  const net = await fetchIoNetwork();
-  const ownerId = net.primaryOwnerId || Object.keys(net.owners || {})[0] || "";
-  const signals = (ownerId && net.owners?.[ownerId]?.signals) || [];
-  const name = String(step.signalName || "").trim();
-  if (name) {
-    const hit = signals.find((s) => s.kind === kind && s.name === name);
-    if (hit) return { ownerId, port: Number(hit.port) || 0 };
-  }
-  const raw = step.port ?? step.ioPort;
-  const port = Number(raw);
-  return { ownerId, port: Number.isFinite(port) ? port : 0 };
-}
-
-function doValueText(step: IoStepFields): string {
-  const raw = step.value ?? step.digitalValue ?? step.ioBoolValue;
-  if (raw === false || raw === 0 || raw === "0" || raw === "false") return "0";
-  if (raw === true || raw === 1 || raw === "1" || raw === "true") return "1";
-  // Host 默认写 true；缺省按拉高处理
-  return "1";
-}
-
-async function waitIoCondition(step: Instruction, abort: () => boolean): Promise<boolean> {
-  const cond = step.condition;
-  if (!cond || cond.kind !== "io") return true;
-  const port = Number(cond.port ?? cond.ioPort);
-  const name = cond.signalName || "";
-  for (let i = 0; i < 600; i++) {
-    if (abort()) return false;
-    const net = await fetchIoNetwork();
-    const oid = net.primaryOwnerId || "";
-    const signals = (oid && net.owners?.[oid]?.signals) || [];
-    const hit = signals.find(
-      (s) => s.kind === "DI" && ((name && s.name === name) || (Number.isFinite(port) && s.port === port)),
-    );
-    if (hit && hit.value === "1") return true;
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  return false;
-}
 function newId() {
   return `INS_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -234,12 +181,59 @@ export default function InstructionPanel() {
       return;
     }
     const pose = await tcpPose(activeRootId);
-    const fromDrag = robotDragMode && robotDragTeachPose;
-    const pos = fromDrag ? robotDragTeachPose.positionMm : pose.positionMm;
-    const eu = fromDrag ? robotDragTeachPose.eulerDeg : pose.eulerDeg;
-    const jointCsv = fromDrag
-      ? robotDragTeachPose.jointRadCsv || pose.jointRadCsv
-      : pose.jointRadCsv;
+    // 有末次拖动示教缓存则用之（FK 实际到达）；否则当前 tcp-pose
+    const fromTeach = robotDragTeachPose;
+    const pos = fromTeach ? robotDragTeachPose.positionMm : pose.positionMm;
+    const eu = fromTeach ? robotDragTeachPose.eulerDeg : pose.eulerDeg;
+    const tcpLink =
+      (fromTeach ? robotDragTeachPose.tcpLinkName : undefined) ||
+      pose.tcpLinkName ||
+      (fromTeach ? robotDragTeachPose.flangeLinkName : undefined) ||
+      pose.flangeLinkName ||
+      "";
+    const flangeLink =
+      (fromTeach ? robotDragTeachPose.flangeLinkName : undefined) || pose.flangeLinkName || tcpLink;
+    const urdf = (fromTeach ? robotDragTeachPose.urdfPath : undefined) || pose.urdfPath || "";
+    const quatCsv =
+      (fromTeach ? robotDragTeachPose.targetTransformQuatCsv : undefined) ||
+      pose.targetTransformQuatCsv ||
+      "";
+    const transCsv =
+      (fromTeach ? robotDragTeachPose.targetTransformTransMmCsv : undefined) ||
+      pose.targetTransformTransMmCsv ||
+      "";
+    const toolMat =
+      (fromTeach ? robotDragTeachPose.toolFrameMat4Csv : undefined) || pose.toolFrameMat4Csv || "";
+    const toolFrameId =
+      (fromTeach ? robotDragTeachPose.activeToolFrameId : undefined) || pose.activeToolFrameId || "";
+    const userFrameId =
+      (fromTeach ? robotDragTeachPose.activeUserFrameId : undefined) || pose.activeUserFrameId || "";
+    // 对齐桌面示教落盘：只写 TCP/坐标系上下文，不写 currentJointRadCsv
+    const extensions: Record<string, string> = {};
+    if (tcpLink) {
+      extensions["context.tcpLinkName"] = tcpLink;
+      extensions["context.capturedTcpLinkName"] = tcpLink;
+      extensions["render.tcpLinkName"] = tcpLink;
+    }
+    if (flangeLink) extensions["context.flangeLinkName"] = flangeLink;
+    if (urdf) extensions["context.urdfPath"] = urdf;
+    if (quatCsv) extensions["context.targetTransformQuatCsv"] = quatCsv;
+    if (transCsv) extensions["context.targetTransformTransMmCsv"] = transCsv;
+    // 对齐桌面：路点轴优先用示教世界矩阵，避免欧拉在 ±90° 反号
+    const wmTeach = pose.worldMatrix;
+    if (Array.isArray(wmTeach) && wmTeach.length >= 16) {
+      extensions["render.tcpWorldMat4"] = wmTeach.map((v) => Number(v)).join(",");
+    }
+    if (toolMat) {
+      extensions["context.toolFrameMat4"] = toolMat;
+    }
+    if (toolFrameId) {
+      extensions["context.activeToolFrameId"] = toolFrameId;
+      extensions["motion.tool.frameId"] = toolFrameId;
+    }
+    if (userFrameId) extensions["motion.user.frameId"] = userFrameId;
+    extensions["context.poseFrame"] = "base_tool_origin";
+    extensions["motion.target.frame"] = "base";
     const ins: Instruction = {
       id: newId(),
       type,
@@ -249,7 +243,7 @@ export default function InstructionPanel() {
       speed: type === "ptp" ? 100 : 200,
       accel: type === "ptp" ? 100 : 200,
       blendRadius: type === "line" || type === "arc" ? 0 : undefined,
-      extensions: jointCsv ? { "context.currentJointRadCsv": jointCsv } : undefined,
+      extensions: Object.keys(extensions).length ? extensions : undefined,
     };
     await updateActiveProgram((p) => ({ ...p, instructions: [...(p.instructions || []), ins] }));
     setSelectedInstrId(ins.id);
@@ -258,7 +252,7 @@ export default function InstructionPanel() {
 
   const selectAndJump = async (id: string) => {
     setSelectedInstrId(id);
-    window.dispatchEvent(new CustomEvent("cloudsim-focus-props"));
+    uiEvents.emit(UI_EVT.focusProps, undefined);
     const step = steps.find((s) => s.id === id);
     if (!step || !activeRootId) return;
     const type = String(step.type || "").toLowerCase();
@@ -328,6 +322,7 @@ export default function InstructionPanel() {
         },
       );
       setPlaying(false);
+      await refreshObjects();
       if (played.ok) {
         if (!abortRef.current) {
           setStatus(played.abortSummary ? `运行结束: ${played.abortSummary}` : "运行完成", played.abortSummary ? "warn" : "info");
@@ -434,7 +429,7 @@ export default function InstructionPanel() {
       }
       outputPath = d.path;
     } catch {
-      outputPath = window.prompt("导出路径")?.trim() || "";
+      outputPath = (await showPrompt({ title: "导出路径", placeholder: "完整文件路径" }))?.trim() || "";
       if (!outputPath) return;
     }
     const r = await exportProgram({
@@ -510,7 +505,10 @@ export default function InstructionPanel() {
               setStatus("请先导入机器人", "warn");
               return;
             }
-            const name = window.prompt("新程序名称", `Program_${programs.length + 1}`);
+            const name = await showPrompt({
+              title: "新程序名称",
+              defaultValue: `Program_${programs.length + 1}`,
+            });
             if (!name) return;
             const r = await robotProgramCrud({
               action: "create",
@@ -534,7 +532,10 @@ export default function InstructionPanel() {
           title="重命名当前程序"
           onClick={async () => {
             if (!activeProgramId) return;
-            const name = window.prompt("程序名称", activeProgram?.name || activeProgramId);
+            const name = await showPrompt({
+              title: "程序名称",
+              defaultValue: activeProgram?.name || activeProgramId,
+            });
             if (!name) return;
             const r = await robotProgramCrud({
               action: "rename",
@@ -554,7 +555,14 @@ export default function InstructionPanel() {
           title="删除当前程序"
           onClick={async () => {
             if (!activeProgramId) return;
-            if (!window.confirm(`删除程序「${activeProgram?.name || activeProgramId}」？`)) return;
+            if (
+              !(await showConfirm({
+                title: "删除程序",
+                message: `删除程序「${activeProgram?.name || activeProgramId}」？`,
+                confirmText: "删除",
+              }))
+            )
+              return;
             const r = await robotProgramCrud({
               action: "delete",
               programId: activeProgramId,
@@ -596,7 +604,7 @@ export default function InstructionPanel() {
           disabled={!selectedInstrId}
           onClick={async () => {
             if (!selectedInstrId) return;
-            const name = window.prompt("组名称", "Group");
+            const name = await showPrompt({ title: "组名称", defaultValue: "Group" });
             if (!name) return;
             const r = await robotGroupCrud({
               action: "create",
@@ -625,7 +633,7 @@ export default function InstructionPanel() {
           onClick={async () => {
             if (!groupSel) return;
             const cur = groups.find((g) => g.id === groupSel);
-            const name = window.prompt("组名称", cur?.name || "");
+            const name = await showPrompt({ title: "组名称", defaultValue: cur?.name || "" });
             if (!name) return;
             const r = await robotGroupCrud({
               action: "rename",

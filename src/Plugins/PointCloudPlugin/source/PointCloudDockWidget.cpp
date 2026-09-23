@@ -1525,7 +1525,8 @@ void PointCloudDockWidget::applyLanguage()
 	if (m_pyramidAdaptiveLastCheck)
 	{
 		m_pyramidAdaptiveLastCheck->setText(
-			i18n(QStringLiteral("Curvature-adaptive last layer"), QStringLiteral("末层曲率自适应边长")));
+			i18n(QStringLiteral("Curvature+residual adaptive last layer"),
+				 QStringLiteral("末层曲率+残差自适应边长")));
 	}
 	if (m_pyramidCreateNewCheck)
 	{

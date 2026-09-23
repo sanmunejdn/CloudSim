@@ -1,50 +1,50 @@
-import { useEffect, useState } from "react";
+/// @file LeftDock.tsx
+/// @brief 左坞：属性 / 设备 / 信号 / PLC / 相机
+
+import { useEffect } from "react";
 import PropsPanel from "../docks/props/PropsPanel";
 import DevicesPanel from "../docks/devices/DevicesPanel";
 import SignalsPanel from "../docks/signals/SignalsPanel";
 import PlcPanel from "../docks/devices/PlcPanel";
 import CameraPanel from "../docks/devices/CameraPanel";
 import { useRobotProgram } from "../state/robotProgramStore";
+import { useDockNav, type LeftTab } from "../state/dockNavStore";
+
+const LEFT_TABS: { id: LeftTab; label: string }[] = [
+  { id: "props", label: "属性" },
+  { id: "devices", label: "设备" },
+  { id: "signals", label: "信号" },
+  { id: "plc", label: "PLC" },
+  { id: "camera", label: "相机" },
+];
 
 export default function LeftDock() {
-  const [tab, setTab] = useState<"props" | "devices" | "signals" | "plc" | "camera">("props");
+  const { left, setLeft, focusProps } = useDockNav();
   const { selectedInstrId } = useRobotProgram();
 
-  // 对齐旧版 focusLeftPropsTab：选中指令时切到属性页
   useEffect(() => {
-    if (selectedInstrId) setTab("props");
-  }, [selectedInstrId]);
-
-  useEffect(() => {
-    const onFocus = () => setTab("props");
-    window.addEventListener("cloudsim-focus-props", onFocus);
-    return () => window.removeEventListener("cloudsim-focus-props", onFocus);
-  }, []);
+    if (selectedInstrId) focusProps();
+  }, [selectedInstrId, focusProps]);
 
   return (
     <aside className="left dock">
       <div className="dock-tabs primary">
-        <button type="button" className={`tab ${tab === "props" ? "active" : ""}`} onClick={() => setTab("props")}>
-          属性
-        </button>
-        <button type="button" className={`tab ${tab === "devices" ? "active" : ""}`} onClick={() => setTab("devices")}>
-          设备
-        </button>
-        <button type="button" className={`tab ${tab === "signals" ? "active" : ""}`} onClick={() => setTab("signals")}>
-          信号
-        </button>
-        <button type="button" className={`tab ${tab === "plc" ? "active" : ""}`} onClick={() => setTab("plc")}>
-          PLC
-        </button>
-        <button type="button" className={`tab ${tab === "camera" ? "active" : ""}`} onClick={() => setTab("camera")}>
-          相机
-        </button>
+        {LEFT_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`tab ${left === t.id ? "active" : ""}`}
+            onClick={() => setLeft(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
-      {tab === "props" ? <PropsPanel /> : null}
-      {tab === "devices" ? <DevicesPanel /> : null}
-      {tab === "signals" ? <SignalsPanel /> : null}
-      {tab === "plc" ? <PlcPanel /> : null}
-      {tab === "camera" ? <CameraPanel /> : null}
+      {left === "props" ? <PropsPanel /> : null}
+      {left === "devices" ? <DevicesPanel /> : null}
+      {left === "signals" ? <SignalsPanel /> : null}
+      {left === "plc" ? <PlcPanel /> : null}
+      {left === "camera" ? <CameraPanel /> : null}
     </aside>
   );
 }

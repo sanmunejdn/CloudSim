@@ -7,6 +7,7 @@ import {
 } from "../api/assembly";
 import { useScene } from "../state/sceneStore";
 import { useStatus } from "../state/statusStore";
+import { uiEvents, UI_EVT, type MateFaceDetail } from "../ui/uiEvents";
 
 const KIND_OPTS: { id: MateKind; label: string }[] = [
   { id: "coincident", label: "重合" },
@@ -60,18 +61,12 @@ export default function AssemblyMateDialog({ open, onClose }: Props) {
       setMateFacePickSlot(null);
       return;
     }
-    const onFace = (ev: Event) => {
-      const d = (ev as CustomEvent).detail as {
-        slot: 0 | 1;
-        backendId: string;
-        faceIndex: number;
-        pickWorldMm: number[];
-      };
+    const onFace = (d: MateFaceDetail) => {
       if (!d?.backendId || d.faceIndex < 0) return;
       const ref: MateFaceRef = {
         backendId: d.backendId,
         faceIndex: d.faceIndex,
-        pickWorldMm: d.pickWorldMm,
+        pickWorldMm: d.pickWorldMm || [],
       };
       if (d.slot === 0) {
         setFace1(ref);
@@ -85,8 +80,7 @@ export default function AssemblyMateDialog({ open, onClose }: Props) {
         snapshotRef.current = null;
       }
     };
-    window.addEventListener("cloudsim-mate-face", onFace);
-    return () => window.removeEventListener("cloudsim-mate-face", onFace);
+    return uiEvents.on(UI_EVT.mateFace, onFace);
   }, [open, face1, setMateFacePickSlot, setStatus]);
 
   const runMate = useCallback(

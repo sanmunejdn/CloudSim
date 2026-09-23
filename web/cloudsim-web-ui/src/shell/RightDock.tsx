@@ -1,3 +1,7 @@
+/// @file RightDock.tsx
+/// @brief 右坞：工作区 / AI / 点云 / 几何；设备子 Tab 主路径 + 更多
+
+import { useMemo, useState } from "react";
 import UnitsTree from "../docks/workspace/UnitsTree";
 import AnnotationsPanel from "../docks/workspace/AnnotationsPanel";
 import InstructionPanel from "../docks/robot/InstructionPanel";
@@ -12,8 +16,31 @@ import DeviceCommandPanel from "../docks/devices/DeviceCommandPanel";
 import AiPanel from "../docks/ai/AiPanel";
 import PointCloudPanel from "../docks/cloud/PointCloudPanel";
 import GeometryPanel from "../docks/geometry/GeometryPanel";
-import { useDockNav } from "../state/dockNavStore";
+import { useDockNav, ROBOT_MORE_TABS, ROBOT_PRIMARY_TABS, type RobotTab } from "../state/dockNavStore";
 import { useProject } from "../state/projectStore";
+
+function RobotPanel({ robot }: { robot: RobotTab }) {
+  switch (robot) {
+    case "cmd":
+      return <InstructionPanel />;
+    case "joint":
+      return <JointAxesPanel />;
+    case "trajGen":
+      return <TrajectoryGenPanel />;
+    case "trajEdit":
+      return <TrajectoryEditPanel />;
+    case "frame":
+      return <FramesPanel />;
+    case "extAxis":
+      return <ExternalAxesPanel />;
+    case "collision":
+      return <CollisionPanel />;
+    case "comm":
+      return <CommPanel />;
+    default:
+      return null;
+  }
+}
 
 export default function RightDock() {
   const { mode } = useProject();
@@ -29,8 +56,10 @@ export default function RightDock() {
     deviceTab,
     setDeviceTab,
   } = useDockNav();
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  // 对齐桌面 enterAlternateSideUi(..., nullptr)：右栏只留 AI
+  const robotInMore = useMemo(() => ROBOT_MORE_TABS.some((t) => t.id === robot), [robot]);
+
   if (mode === "geomodeling") {
     return (
       <aside className="right dock">
@@ -102,36 +131,46 @@ export default function RightDock() {
               {deviceMode === "robot" ? (
                 <>
                   <div className="dock-tabs tertiary">
-                    {(
-                      [
-                        ["cmd", "指令"],
-                        ["joint", "轴控制"],
-                        ["trajGen", "轨迹生成"],
-                        ["trajEdit", "轨迹编辑"],
-                        ["frame", "坐标系"],
-                        ["extAxis", "外轴"],
-                        ["collision", "碰撞"],
-                        ["comm", "通讯"],
-                      ] as const
-                    ).map(([k, label]) => (
+                    {ROBOT_PRIMARY_TABS.map((t) => (
                       <button
-                        key={k}
+                        key={t.id}
                         type="button"
-                        className={`tab ${robot === k ? "active" : ""}`}
-                        onClick={() => setRobot(k)}
+                        className={`tab ${robot === t.id ? "active" : ""}`}
+                        onClick={() => {
+                          setMoreOpen(false);
+                          setRobot(t.id);
+                        }}
                       >
-                        {label}
+                        {t.label}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className={`tab ${robotInMore || moreOpen ? "active" : ""}`}
+                      onClick={() => setMoreOpen((v) => !v)}
+                      title="坐标系 / 外轴 / 碰撞 / 通讯"
+                    >
+                      更多{moreOpen ? "▾" : "▸"}
+                    </button>
                   </div>
-                  {robot === "cmd" && <InstructionPanel />}
-                  {robot === "joint" && <JointAxesPanel />}
-                  {robot === "trajGen" && <TrajectoryGenPanel />}
-                  {robot === "trajEdit" && <TrajectoryEditPanel />}
-                  {robot === "frame" && <FramesPanel />}
-                  {robot === "extAxis" && <ExternalAxesPanel />}
-                  {robot === "collision" && <CollisionPanel />}
-                  {robot === "comm" && <CommPanel />}
+                  {moreOpen || robotInMore ? (
+                    <div className="dock-tabs tertiary">
+                      {ROBOT_MORE_TABS.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className={`tab ${robot === t.id ? "active" : ""}`}
+                          onClick={() => {
+                            setRobot(t.id);
+                            setMoreOpen(true);
+                          }}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  <RobotPanel robot={robot} />
                 </>
               ) : (
                 <>

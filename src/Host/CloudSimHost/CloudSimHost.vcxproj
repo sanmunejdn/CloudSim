@@ -132,6 +132,11 @@
     <ClInclude Include="inc\HierarchyMeshImport.h" />
     <ClInclude Include="inc\AssemblyMateApply.h" />
     <ClInclude Include="inc\DocumentImportFacade.h" />
+    <ClInclude Include="inc\import\IGeometryFileImporter.h" />
+    <ClInclude Include="inc\import\GeometryFileImporterRegistry.h" />
+    <ClInclude Include="inc\import\GeometryImportUiFilters.h" />
+    <ClInclude Include="inc\GeometryImportUiFilters.h" />
+    <ClInclude Include="inc\import\ApplyGeometryImportParse.h" />
     <ClInclude Include="inc\BackendFollowSolve.h" />
     <ClInclude Include="inc\ProjectPackageIo.h" />
     <ClInclude Include="inc\BackendVisualSync.h" />
@@ -230,6 +235,10 @@
     <ClCompile Include="source\import\HierarchyMeshImport.cpp" />
     <ClCompile Include="source\import\AssemblyMateApply.cpp" />
     <ClCompile Include="source\import\DocumentImportFacade.cpp" />
+    <ClCompile Include="source\import\GeometryFileImporterRegistry.cpp" />
+    <ClCompile Include="source\import\GeometryImportersBuiltins.cpp" />
+    <ClCompile Include="source\import\GeometryImportUiFilters.cpp" />
+    <ClCompile Include="source\import\ApplyGeometryImportParse.cpp" />
     <ClCompile Include="source\follow\BackendFollowSolve.cpp" />
     <ClCompile Include="source\project\ProjectPackageIo.cpp" />
     <ClCompile Include="source\follow\BackendVisualSync.cpp" />

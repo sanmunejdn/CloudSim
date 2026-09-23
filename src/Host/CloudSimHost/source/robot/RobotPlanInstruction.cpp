@@ -10,23 +10,29 @@
 #include "RobotInstructionController.h"
 #include "RobotInstructionFactory.h"
 #include "RobotInstructionIkContext.h"
+#include "RobotInstructionTransform.h"
 #include "RobotJointWrap.h"
+#include "RobotMatrixOsgBridge.h"
 #include "UrdfRobotLoader.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStringList>
+#include <QHash>
 
 #include <json.hpp>
+#include <cmath>
+#include <osg/Matrixd>
+#include <Adapters.h>
+#include <RigidTransform.h>
 
 namespace cloudsim::host
 {
 namespace
 {
 nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
-{
-	nlohmann::json j;
+{	nlohmann::json j;
 	j["type"] = instruction.instructionType.toStdString();
 	nlohmann::json pose;
 	pose["x"] = instruction.targetPose.positionMm.x;
@@ -48,20 +54,20 @@ nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 	if (!instruction.extensions.isEmpty())
 	{
 		const QByteArray raw = QJsonDocument(instruction.extensions).toJson(QJsonDocument::Compact);
-		const nlohmann::json ext =
+		nlohmann::json ext =
 			nlohmann::json::parse(std::string(raw.constData(), static_cast<size_t>(raw.size())), nullptr, false);
 		if (ext.is_object())
 		{
-			for (auto it = ext.begin(); it != ext.end(); ++it)
+			if (ext.contains("context") && ext["context"].is_object())
 			{
-				j[it.key()] = it.value();
+				ext["context"].erase("currentJointRadCsv");
+				ext["context"].erase("taughtJointRadCsv");
 			}
+			ext.erase("context.currentJointRadCsv");
+			ext.erase("context.taughtJointRadCsv");
+			// 必须进 extensions 子对象，createFromJson 才认示教 tcpLink/urdf
+			j["extensions"] = std::move(ext);
 		}
-	}
-	if (j.contains("context") && j["context"].is_object())
-	{
-		j["context"].erase("currentJointRadCsv");
-		j["context"].erase("taughtJointRadCsv");
 	}
 	return j;
 }
@@ -97,8 +103,25 @@ core::MotionInstructionDto motionDtoFromInstructionJson(const nlohmann::json& j)
 	for (auto it = j.begin(); it != j.end(); ++it)
 	{
 		const std::string key = it.key();
-		if (key == "type" || key == "pose" || key == "eulerDeg" || key == "axisConfiguration" || key == "context")
+		if (key == "type" || key == "pose" || key == "eulerDeg" || key == "axisConfiguration" || key == "context" ||
+			key == "id" || key == "name" || key == "robotId" || key == "speed" || key == "accel" ||
+			key == "blendRadius" || key == "viaPose" || key == "viaEulerDeg" || key == "durationSec" ||
+			key == "pointIndex" || key == "axisConfig" || key == "condition" || key == "then" || key == "else" ||
+			key == "body")
 		{
+			continue;
+		}
+		// 示教 flat 键在 j["extensions"] 内，必须摊平，否则 createFromJson 只认字符串会丢掉全部上下文
+		if (key == "extensions" && it.value().is_object())
+		{
+			for (auto eit = it.value().begin(); eit != it.value().end(); ++eit)
+			{
+				if (eit.value().is_string())
+				{
+					extObj.insert(QString::fromStdString(eit.key()),
+								  QString::fromStdString(eit.value().get<std::string>()));
+				}
+			}
 			continue;
 		}
 		if (it.value().is_object() || it.value().is_array())
@@ -169,6 +192,21 @@ QVector<double> parseJointCsv(const QString& csv)
 
 } // namespace
 
+QString defaultTcpLinkForUrdf(const QString& urdfPath)
+{
+	QString preferred;
+	if (UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, preferred, nullptr) && !preferred.isEmpty())
+	{
+		return preferred;
+	}
+	QStringList childLinks;
+	if (UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr) && !childLinks.isEmpty())
+	{
+		return childLinks.back();
+	}
+	return QString();
+}
+
 bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstructionDto& instruction,
 						   const core::PlanContextDto& context, core::PlanResultDto& out, QString* outError)
 {
@@ -208,12 +246,45 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 	{
 		urdfPath = simDoc->robotUrdfAbsolutePathForInstance(instIdx);
 	}
-	std::string tcpLink = context.tcpLinkName.toStdString();
+	RobotCoordinate::RobotCoordinateFrameSet& frames = ctx.robotCoordinateFramesForInstance(instIdx);
+	// 示教 tcp 优先；PlanContext.defaultTcp（常为 flange 叶）不得覆盖 link_6
+	std::string tcpLink;
+	{
+		const auto& ext = ins->extensionProperties();
+		const auto itTcp = ext.find("context.tcpLinkName");
+		if (itTcp != ext.end() && !itTcp->second.empty())
+		{
+			tcpLink = itTcp->second;
+		}
+		else
+		{
+			const auto itCap = ext.find("context.capturedTcpLinkName");
+			if (itCap != ext.end() && !itCap->second.empty())
+			{
+				tcpLink = itCap->second;
+			}
+		}
+	}
+	if (tcpLink.empty() && !frames.flangeLinkName.empty())
+	{
+		tcpLink = frames.flangeLinkName;
+	}
+	if (tcpLink.empty() && !context.tcpLinkName.isEmpty())
+	{
+		tcpLink = context.tcpLinkName.toStdString();
+	}
 	if (tcpLink.empty())
 	{
-		tcpLink = "tool0";
+		tcpLink = defaultTcpLinkForUrdf(urdfPath).toStdString();
 	}
-	RobotCoordinate::RobotCoordinateFrameSet& frames = ctx.robotCoordinateFramesForInstance(instIdx);
+	if (tcpLink.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("cannot resolve TCP link for IK (empty after URDF lookup)");
+		}
+		return false;
+	}
 	std::vector<double> seedStd(context.seedJointRad.begin(), context.seedJointRad.end());
 	RobotInstruction::prepareInstructionIkContext(*ins, seedStd, urdfPath.toStdString(), tcpLink, &frames);
 

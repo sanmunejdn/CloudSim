@@ -238,6 +238,12 @@
     <ClCompile Include="source\MeshBackendData_dxf.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
+    <ClCompile Include="source\MeshBackendData_3dxml.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\tinyxml2\tinyxml2.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
     <ClCompile Include="source\MeshBackendData_load_common.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>

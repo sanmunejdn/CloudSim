@@ -221,6 +221,7 @@ struct PointCloudPyramidParams
 	bool rigidPreAlign = true;
 	bool useFineRegOnLastLayer = false;
 	bool useAdaptiveDensityOnLastLayer = false;
+	bool useResidualDrivenSizingOnLastLayer = true;
 	double adaptiveApproxTolMm = 0.0;
 	double adaptiveEdgeMinRatio = 0.25;
 	double adaptiveEdgeMaxRatio = 2.0;

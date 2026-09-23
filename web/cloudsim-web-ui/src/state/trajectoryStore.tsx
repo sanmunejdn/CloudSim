@@ -8,6 +8,7 @@ import {
 } from "react";
 import { trajSession, trajBeginEdit, trajCancelEdit, trajPathPlans, trajBind } from "../api";
 import { publishRawPreview } from "../scene/rawPreview";
+import { uiEvents, UI_EVT } from "../ui/uiEvents";
 import { useStatus } from "./statusStore";
 
 export type TrajFeature = {
@@ -85,7 +86,7 @@ export function TrajectoryProvider({ children }: { children: ReactNode }) {
     setEdit(false);
     setEditUiEpoch((n) => n + 1);
     publishRawPreview(null, EMPTY_AXIS);
-    window.dispatchEvent(new CustomEvent("cloudsim-pick-highlight", { detail: { clear: true } }));
+    uiEvents.emit(UI_EVT.pickHighlight, { clear: true });
   }, []);
 
   const syncSession = useCallback(async () => {

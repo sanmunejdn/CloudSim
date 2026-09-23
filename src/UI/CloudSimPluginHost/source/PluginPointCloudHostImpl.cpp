@@ -1346,6 +1346,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterPyramid(IPluginDocument* doc, con
 	coreParams.rigidPreAlign = params.rigidPreAlign;
 	coreParams.useFineRegOnLastLayer = params.useFineRegOnLastLayer;
 	coreParams.useAdaptiveDensityOnLastLayer = params.useAdaptiveDensityOnLastLayer;
+	coreParams.useResidualDrivenSizingOnLastLayer = params.useResidualDrivenSizingOnLastLayer;
 	coreParams.adaptiveApproxTolMm = params.adaptiveApproxTolMm;
 	coreParams.adaptiveEdgeMinRatio = params.adaptiveEdgeMinRatio;
 	coreParams.adaptiveEdgeMaxRatio = params.adaptiveEdgeMaxRatio;

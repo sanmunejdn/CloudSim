@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { eulerZyxDegToQuat } from "./objectMesh";
+import { uiEvents, UI_EVT } from "../ui/uiEvents";
 
 export type RawPreviewPayload = {
   ok?: boolean;
@@ -146,5 +147,5 @@ export function applyRawPreviewToGroup(group: THREE.Group, preview: RawPreviewPa
 }
 
 export function publishRawPreview(preview: RawPreviewPayload | null, axisOpts: PreviewAxisOpts) {
-  window.dispatchEvent(new CustomEvent("cloudsim-raw-preview", { detail: { preview, axisOpts } }));
+  uiEvents.emit(UI_EVT.rawPreview, { preview, axisOpts });
 }

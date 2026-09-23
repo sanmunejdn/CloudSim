@@ -8,6 +8,7 @@
 
 #include <MeshRemesh.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -222,6 +223,106 @@ bool prolongateDisplacement(const std::vector<float>& coarseRestSoup, const std:
 	return writeSoupFromVerts(fineRest, fineDefXyz, fineWarmSoupOut, errMsg);
 }
 
+/// 前层变形相对目标的点面残差，采样在 rest 焊点上供末层 sizing 查询
+bool computeSourceResiduals(const std::vector<float>& srcRestSoup, const std::vector<float>& srcDefSoup,
+							const std::vector<float>& tgtSoup, std::vector<float>& sampleXyzOut,
+							std::vector<float>& residualMmOut, double& medianResidualOut, std::string* errMsg)
+{
+	sampleXyzOut.clear();
+	residualMmOut.clear();
+	medianResidualOut = 0.0;
+
+	WeldedSoup rest;
+	WeldedSoup tgt;
+	if (!weldSoup(srcRestSoup, rest, errMsg) || !weldSoup(tgtSoup, tgt, errMsg))
+	{
+		return false;
+	}
+	std::vector<float> defXyz;
+	if (!deformedVertsFromRestWeld(rest, srcDefSoup, defXyz, errMsg))
+	{
+		return false;
+	}
+
+	const std::size_t nTgt = tgt.xyz.size() / 3U;
+	std::vector<double> nx(nTgt, 0.0);
+	std::vector<double> ny(nTgt, 0.0);
+	std::vector<double> nz(nTgt, 0.0);
+	for (std::size_t c = 0; c + 2U < tgt.cornerToVert.size(); c += 3U)
+	{
+		const std::size_t i0 = tgt.cornerToVert[c];
+		const std::size_t i1 = tgt.cornerToVert[c + 1U];
+		const std::size_t i2 = tgt.cornerToVert[c + 2U];
+		const std::size_t b0 = i0 * 3U;
+		const std::size_t b1 = i1 * 3U;
+		const std::size_t b2 = i2 * 3U;
+		const double ax = static_cast<double>(tgt.xyz[b1] - tgt.xyz[b0]);
+		const double ay = static_cast<double>(tgt.xyz[b1 + 1U] - tgt.xyz[b0 + 1U]);
+		const double az = static_cast<double>(tgt.xyz[b1 + 2U] - tgt.xyz[b0 + 2U]);
+		const double bx = static_cast<double>(tgt.xyz[b2] - tgt.xyz[b0]);
+		const double by = static_cast<double>(tgt.xyz[b2 + 1U] - tgt.xyz[b0 + 1U]);
+		const double bz = static_cast<double>(tgt.xyz[b2 + 2U] - tgt.xyz[b0 + 2U]);
+		const double cx = ay * bz - az * by;
+		const double cy = az * bx - ax * bz;
+		const double cz = ax * by - ay * bx;
+		nx[i0] += cx;
+		ny[i0] += cy;
+		nz[i0] += cz;
+		nx[i1] += cx;
+		ny[i1] += cy;
+		nz[i1] += cz;
+		nx[i2] += cx;
+		ny[i2] += cy;
+		nz[i2] += cz;
+	}
+	for (std::size_t i = 0; i < nTgt; ++i)
+	{
+		const double len = std::sqrt(nx[i] * nx[i] + ny[i] * ny[i] + nz[i] * nz[i]);
+		if (len > 1e-12)
+		{
+			nx[i] /= len;
+			ny[i] /= len;
+			nz[i] /= len;
+		}
+	}
+
+	KdTreePointSet tree(tgt.xyz);
+	const std::size_t nSrc = rest.xyz.size() / 3U;
+	sampleXyzOut = rest.xyz;
+	residualMmOut.resize(nSrc, 0.0f);
+	std::vector<double> sorted;
+	sorted.reserve(nSrc);
+	for (std::size_t v = 0; v < nSrc; ++v)
+	{
+		const std::size_t b = v * 3U;
+		double distSq = 0.0;
+		const std::size_t nn =
+			tree.findNearest(defXyz[b], defXyz[b + 1U], defXyz[b + 2U], std::numeric_limits<double>::max(), distSq);
+		if (nn == static_cast<std::size_t>(-1) || nn >= nTgt)
+		{
+			continue;
+		}
+		const std::size_t tb = nn * 3U;
+		const double dx = static_cast<double>(defXyz[b] - tgt.xyz[tb]);
+		const double dy = static_cast<double>(defXyz[b + 1U] - tgt.xyz[tb + 1U]);
+		const double dz = static_cast<double>(defXyz[b + 2U] - tgt.xyz[tb + 2U]);
+		double e = std::abs(dx * nx[nn] + dy * ny[nn] + dz * nz[nn]);
+		if (!(e > 0.0))
+		{
+			e = std::sqrt(std::max(0.0, distSq));
+		}
+		residualMmOut[v] = static_cast<float>(e);
+		sorted.push_back(e);
+	}
+	if (!sorted.empty())
+	{
+		std::nth_element(sorted.begin(), sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2U),
+						 sorted.end());
+		medianResidualOut = sorted[sorted.size() / 2U];
+	}
+	return !sampleXyzOut.empty() && sampleXyzOut.size() == residualMmOut.size() * 3U;
+}
+
 double layerEdgeLengthMm(double baseH, double layerScale, int layers, int level)
 {
 	double edge = baseH;
@@ -280,11 +381,15 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 	std::ostringstream dbg;
 	dbg << "[Pyramid] h=" << baseH << " mm layers=" << layers << " solver="
 		<< (params.solver == PyramidSolver::Spare ? "SPARE" : "SDF")
-		<< " mode=prolongate adaptiveLast=" << (params.useAdaptiveDensityOnLastLayer ? "1" : "0") << "\n";
+		<< " mode=prolongate adaptiveLast=" << (params.useAdaptiveDensityOnLastLayer ? "1" : "0")
+		<< " residualLast="
+		<< (params.useAdaptiveDensityOnLastLayer && params.useResidualDrivenSizingOnLastLayer ? "1" : "0") << "\n";
 
 	std::vector<float> prevRest;
 	std::vector<float> prevDef;
 	std::vector<float> lastDef;
+	std::vector<float> residualSampleXyz;
+	std::vector<float> residualMm;
 	double lastMeanErr = 0.0;
 	int lastNodes = 0;
 
@@ -292,13 +397,15 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 	{
 		const double edge = layerEdgeLengthMm(baseH, scale, layers, level);
 		const bool lastLayer = (level + 1 == layers);
+		const bool useAdaptive = lastLayer && params.useAdaptiveDensityOnLastLayer;
+		const bool useResidual =
+			useAdaptive && params.useResidualDrivenSizingOnLastLayer && !residualSampleXyz.empty();
 		dbg << "[Pyramid] L" << level << " edge=" << edge << " mm"
-			<< (lastLayer && params.useAdaptiveDensityOnLastLayer ? " (adaptive)" : "") << "\n";
+			<< (useAdaptive ? (useResidual ? " (adaptive+residual)" : " (adaptive)") : "") << "\n";
 
 		// 每层从原始几何 remesh；层间只传位移场，不对变形结果整网 remesh
 		std::vector<float> srcLevel;
 		std::vector<float> tgtLevel;
-		const bool useAdaptive = lastLayer && params.useAdaptiveDensityOnLastLayer;
 		if (useAdaptive)
 		{
 			AdaptiveRemeshParams adapt;
@@ -307,6 +414,11 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 			adapt.edgeMinMm = params.adaptiveEdgeMinRatio * edge;
 			adapt.edgeMaxMm = params.adaptiveEdgeMaxRatio * edge;
 			adapt.baseRemeshIterations = params.remeshIterations;
+			if (useResidual)
+			{
+				adapt.residualSampleXyz = residualSampleXyz;
+				adapt.residualMm = residualMm;
+			}
 			std::string adaptErr;
 			if (!adaptiveIsotropicRemesh(sourceSoup, srcLevel, adapt, &adaptErr))
 			{
@@ -320,6 +432,13 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 					return false;
 				}
 			}
+			else if (useResidual)
+			{
+				dbg << "[Pyramid] L" << level << " residual samples=" << residualMm.size() << "\n";
+			}
+			// 目标仅曲率自适应；残差场定义在源配准误差上
+			adapt.residualSampleXyz.clear();
+			adapt.residualMm.clear();
 			adaptErr.clear();
 			if (!adaptiveIsotropicRemesh(targetSoup, tgtLevel, adapt, &adaptErr))
 			{
@@ -411,6 +530,25 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 			if (!sdfStats.debugSummary.empty())
 			{
 				dbg << sdfStats.debugSummary << "\n";
+			}
+		}
+
+		// 下一层为自适应末层时，用本层残差驱动源网格 densify
+		if (!lastLayer && (level + 2 == layers) && params.useAdaptiveDensityOnLastLayer &&
+			params.useResidualDrivenSizingOnLastLayer)
+		{
+			double medianE = 0.0;
+			std::string resErr;
+			if (computeSourceResiduals(srcLevel, srcDef, tgtLevel, residualSampleXyz, residualMm, medianE, &resErr))
+			{
+				dbg << "[Pyramid] L" << level << " residual median=" << medianE << " mm n=" << residualMm.size()
+					<< "\n";
+			}
+			else
+			{
+				residualSampleXyz.clear();
+				residualMm.clear();
+				dbg << "[Pyramid] L" << level << " residual sample failed: " << resErr << "\n";
 			}
 		}
 

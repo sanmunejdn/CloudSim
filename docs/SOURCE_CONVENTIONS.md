@@ -122,6 +122,20 @@ python scripts/fix_chinese_mojibake.py
 
 ---
 
+## 6.1 桌面 Host ↔ 网页 Headless 源清单
+
+`CloudSimHost.vcxproj` 与 `CloudSimHostHeadless.vcxproj` 共享大量 `source/**` 与 `CloudSimPluginHost/**`。只改桌面会导致网页 **LNK2019**。
+
+```bash
+python scripts/check_host_headless_sources.py
+python scripts/check_host_headless_sources.py --fix   # 有漂移时
+python scripts/generate_vcxproj_filters.py --sync --project CloudSimHostHeadless
+```
+
+而后 **Debug|x64 + Release|x64** 编译 `CloudSimHostHeadless`。说明见 [`桌面网页Host同步/README.md`](桌面网页Host同步/README.md)；Cursor 规则：`host-headless-sync.mdc`。
+
+---
+
 ## 7. 推荐维护流水线
 
 ```text
@@ -130,6 +144,7 @@ python scripts/fix_chinese_mojibake.py
   → run_clang_format
   → normalize_source_encoding
   → generate_vcxproj_filters --sync（新增源文件后必做）
+  → check_host_headless_sources（改 Host / PluginHost 共享源后必做）
 ```
 
 ---

@@ -191,7 +191,24 @@ export const ROBOT_EXPORT_BRANDS = [
 
 export const placeRobot = (body: unknown) => postJson<ApiOk>("/api/robot/place", body);
 export const tcpIk = (body: unknown) =>
-  postJson<{ ok: boolean; jointAnglesRad?: number[]; incomplete?: boolean; error?: string }>("/api/robot/tcp-ik", body);
+  postJson<{
+    ok: boolean;
+    jointAnglesRad?: number[];
+    incomplete?: boolean;
+    /** FK 实际到达基座系目标（对齐桌面 m_lastTcpDragTargetInBase） */
+    positionMm?: number[];
+    eulerDeg?: number[];
+    jointRadCsv?: string;
+    targetTransformQuatCsv?: string;
+    targetTransformTransMmCsv?: string;
+    tcpLinkName?: string;
+    flangeLinkName?: string;
+    urdfPath?: string;
+    toolFrameMat4Csv?: string;
+    activeToolFrameId?: string;
+    activeUserFrameId?: string;
+    error?: string;
+  }>("/api/robot/tcp-ik", body);
 export const tcpPose = (sceneRootBackendId: string) =>
   apiJson<{
     ok: boolean;
@@ -199,6 +216,14 @@ export const tcpPose = (sceneRootBackendId: string) =>
     eulerDeg?: number[];
     jointRadCsv?: string;
     worldMatrix?: number[];
+    tcpLinkName?: string;
+    flangeLinkName?: string;
+    urdfPath?: string;
+    toolFrameMat4Csv?: string;
+    activeToolFrameId?: string;
+    activeUserFrameId?: string;
+    targetTransformQuatCsv?: string;
+    targetTransformTransMmCsv?: string;
     error?: string;
   }>(`/api/robot/tcp-pose?sceneRootBackendId=${encodeURIComponent(sceneRootBackendId)}`);
 

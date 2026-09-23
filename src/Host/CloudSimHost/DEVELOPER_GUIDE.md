@@ -161,7 +161,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 | 模块 | 说明 |
 |------|------|
-| `importFileIntoDocument` | 点云 / 简单网格 / dxf·step·层级 统一路由；层级导入后 Host 内聚焦 |
+| `importFileIntoDocument` | 点云 / 网格·CAD 统一路由（`importMeshFileExtended` → Registry）；层级导入后 Host 内聚焦 |
 | `registerAdoptedMesh` / `registerAdoptedPointCloud` | 已构造 mesh/点云注册（AI、插件、ply Job 完成回调）；内部 `registerAdopted*AndLoadScene` + `BackendObjectRegistered` |
 | `PointCloudBackgroundLoadState` | 后台 Job 读 ply/xyz（Widget 不接触 `PointCloudBackendData`）：`executeLoad` → UI 线程 `adoptIntoDocument` |
 | `runBackendFollowSolveAndSync` | Follow 求解 + `sceneBridge().syncOuterPatFromBackend`；`FollowSolveContext` 由 Widget 注入守卫 |
@@ -277,7 +277,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | API | 说明 |
 |-----|------|
 | `importMeshHierarchyParts` | 空壳父节点 + 按 `MeshHierarchyPart` 分件 `registerAdoptedMeshAndLoadScene` |
-| `importMeshFileExtended` | dxf → `loadDxfHierarchyFromFile`；**step 一层子装配**（`collectBrepTopLevelShapeParts`）；单件整件；失败则 CGAL/OSG |
+| `importMeshFileExtended` | `GeometryFileImporterRegistry::find(ext)` → `parse` → `applyGeometryImportParse`（dxf/3dxml/step/brep/cgal mesh/osg） |
+| `geometryOpenModelFileFilter` | 由注册表生成 Qt 过滤器；网页 `includeOsgCapture=false` |
 
 **DXF/STEP 分件约定（勿与工程 `edges` 跟随混用）**
 
@@ -290,7 +291,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 ### 4.4.1b STEP B-rep（一层子装配导入 + 按需抽 Solid）
 
-Open Model / `importMeshFileExtended`：`loadStepHierarchyFromFile` → `collectBrepTopLevelShapeParts`。根 Compound **只拆直接子 Shape**（子装配内多个 Solid 仍绑在同一子件上）；仅 1 块时整件 `BrepModel`。Insert「配合」仍按当前选中件整件刚体定位；自定义设备「3D 选择零件」可再 `extractBrepSolidByFace`。
+Open Model / Registry `StepGeometryImporter`：`BrepBackendData::loadStepHierarchyFromFile` → `collectBrepTopLevelShapeParts`。根 Compound **只拆直接子 Shape**（子装配内多个 Solid 仍绑在同一子件上）；仅 1 块时整件 `BrepModel`。Insert「配合」仍按当前选中件整件刚体定位；自定义设备「3D 选择零件」可再 `extractBrepSolidByFace`。
 
 | API | 说明 |
 |-----|------|
@@ -490,6 +491,15 @@ Open Model / `importMeshFileExtended`：`loadStepHierarchyFromFile` → `collect
 ### 5.1 链接依赖（`CloudSimHost.vcxproj`）
 
 `CloudSimCore`、`OsgWidgetCore`、`BackendVisual`、`Data`、`RunLogger`、`GeometryEngine`、`GeometryAlgorithm`、`RobotScene`、`RobotUrdf`、`RobotKinematics`、`CloudSimPluginSDK`、`CloudSimAiSDK`（工程引用，保证生成顺序）。**不再链接 `RobotWidget.lib`**（`RobotProgramStore` 已在 RobotScene）。**`CloudSimPluginHost` 全部 `.cpp` 编入本 vcxproj**（非 Widget）。
+
+网页工程 `CloudSimHostHeadless.vcxproj` 与本工程共享上述业务源（不含 OSG 视口 / SelfTest）。新增共享 `.cpp`/`.h` 后务必：
+
+```bash
+python scripts/check_host_headless_sources.py --fix
+python scripts/generate_vcxproj_filters.py --sync --project CloudSimHostHeadless
+```
+
+并 Debug|x64 + Release|x64 编译 Headless。详见 [`docs/桌面网页Host同步/README.md`](../../docs/桌面网页Host同步/README.md)。
 
 ### 5.2 输出与链接路径
 

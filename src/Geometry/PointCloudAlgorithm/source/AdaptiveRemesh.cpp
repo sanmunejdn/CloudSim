@@ -3,6 +3,8 @@
 
 #include "AdaptiveRemesh.h"
 
+#include "KdTreePointSet.h"
+
 #include <MeshRemesh.h>
 
 #include <algorithm>
@@ -42,6 +44,31 @@ constexpr double kEps = 1e-12;
 constexpr double kSplitRatio = 4.0 / 3.0;
 constexpr double kCollapseRatio = 4.0 / 5.0;
 
+struct ResidualField
+{
+	KdTreePointSet tree;
+	std::vector<float> values;
+	double scaleC = 0.0;
+	double floorMm = 1e-6;
+	bool active = false;
+
+	double lookup(const double x, const double y, const double z) const
+	{
+		if (!active)
+		{
+			return 0.0;
+		}
+		double distSq = 0.0;
+		const std::size_t nn =
+			tree.findNearest(x, y, z, std::numeric_limits<double>::max(), distSq);
+		if (nn == static_cast<std::size_t>(-1) || nn >= values.size())
+		{
+			return 0.0;
+		}
+		return static_cast<double>(values[nn]);
+	}
+};
+
 bool resolveBounds(const AdaptiveRemeshParams& params, double& eps, double& lMin, double& lMax, std::string* errMsg)
 {
 	const double h = params.characteristicEdgeMm;
@@ -57,6 +84,50 @@ bool resolveBounds(const AdaptiveRemeshParams& params, double& eps, double& lMin
 		return false;
 	}
 	return true;
+}
+
+void buildResidualField(const AdaptiveRemeshParams& params, const double characteristicH, ResidualField& out)
+{
+	out = ResidualField{};
+	out.floorMm = params.residualFloorMm > 0.0 ? params.residualFloorMm : 1e-6;
+	const std::size_t n = params.residualMm.size();
+	if (n == 0U || params.residualSampleXyz.size() != n * 3U)
+	{
+		return;
+	}
+	out.tree.build(params.residualSampleXyz);
+	out.values = params.residualMm;
+	if (out.tree.empty())
+	{
+		return;
+	}
+
+	std::vector<double> sorted;
+	sorted.reserve(n);
+	for (const float e : params.residualMm)
+	{
+		if (std::isfinite(e) && e >= 0.0f)
+		{
+			sorted.push_back(static_cast<double>(e));
+		}
+	}
+	if (sorted.empty())
+	{
+		return;
+	}
+	std::nth_element(sorted.begin(), sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2U), sorted.end());
+	const double medianE = sorted[sorted.size() / 2U];
+
+	if (params.residualEdgeScale > 0.0)
+	{
+		out.scaleC = params.residualEdgeScale;
+	}
+	else
+	{
+		const double h = characteristicH > 0.0 ? characteristicH : 1.0;
+		out.scaleC = h * std::sqrt(medianE + out.floorMm);
+	}
+	out.active = out.scaleC > 0.0;
 }
 
 bool soupToMesh(const std::vector<float>& soup, Mesh& mesh, std::string* errMsg)
@@ -126,7 +197,15 @@ void meshToSoup(const Mesh& mesh, std::vector<float>& soupOut)
 	soupOut.reserve(static_cast<std::size_t>(mesh.number_of_faces()) * 9U);
 	for (const F f : mesh.faces())
 	{
+		if (mesh.is_removed(f))
+		{
+			continue;
+		}
 		H h = mesh.halfedge(f);
+		if (CGAL::halfedges_around_face(h, mesh).size() != 3)
+		{
+			continue;
+		}
 		for (int i = 0; i < 3; ++i)
 		{
 			const Point_3& p = mesh.point(mesh.target(h));
@@ -153,13 +232,25 @@ double dihedralAngleDeg(const Mesh& mesh, const E e)
 	}
 	const F f0 = mesh.face(h);
 	const F f1 = mesh.face(mesh.opposite(h));
-	if (f0 == Mesh::null_face() || f1 == Mesh::null_face())
+	if (f0 == Mesh::null_face() || f1 == Mesh::null_face() || mesh.is_removed(f0) || mesh.is_removed(f1))
+	{
+		return 0.0;
+	}
+	// 非三角面（例如只 split_edge 未 split_face）上 compute_face_normal 会踩坏数据
+	if (CGAL::halfedges_around_face(h, mesh).size() != 3 ||
+		CGAL::halfedges_around_face(mesh.opposite(h), mesh).size() != 3)
 	{
 		return 0.0;
 	}
 	const Vector_3 n0 = PMP::compute_face_normal(f0, mesh);
 	const Vector_3 n1 = PMP::compute_face_normal(f1, mesh);
-	double c = n0 * n1;
+	const double l0 = n0.squared_length();
+	const double l1 = n1.squared_length();
+	if (l0 < kEps || l1 < kEps)
+	{
+		return 0.0;
+	}
+	double c = (n0 * n1) / std::sqrt(l0 * l1);
 	c = std::max(-1.0, std::min(1.0, c));
 	return std::acos(c) * (180.0 / 3.14159265358979323846);
 }
@@ -196,21 +287,29 @@ void estimateMaxCurvature(Mesh& mesh, std::unordered_map<V, double>& kappaOut)
 	mesh.remove_property_map(vnormals);
 }
 
-double targetLengthAt(const V v, const std::unordered_map<V, double>& kappa, const double eps, const double lMin,
-					  const double lMax)
+double targetLengthAt(const Mesh& mesh, const V v, const std::unordered_map<V, double>& kappa, const double eps,
+					  const double lMin, const double lMax, const ResidualField* residual)
 {
 	const auto it = kappa.find(v);
 	const double k = (it != kappa.end()) ? it->second : 0.0;
-	const double raw = std::sqrt(6.0 * eps / (k + 1e-9));
+	const double rawK = std::sqrt(6.0 * eps / (k + 1e-9));
+	double raw = rawK;
+	if (residual && residual->active)
+	{
+		const Point_3& p = mesh.point(v);
+		const double e = residual->lookup(p.x(), p.y(), p.z());
+		const double rawE = residual->scaleC / std::sqrt(e + residual->floorMm);
+		raw = std::min(rawK, rawE);
+	}
 	return std::max(lMin, std::min(lMax, raw));
 }
 
 double targetLengthEdge(const Mesh& mesh, const E e, const std::unordered_map<V, double>& kappa, const double eps,
-						const double lMin, const double lMax)
+						const double lMin, const double lMax, const ResidualField* residual)
 {
 	const H h = mesh.halfedge(e);
-	const double la = targetLengthAt(mesh.source(h), kappa, eps, lMin, lMax);
-	const double lb = targetLengthAt(mesh.target(h), kappa, eps, lMin, lMax);
+	const double la = targetLengthAt(mesh, mesh.source(h), kappa, eps, lMin, lMax, residual);
+	const double lb = targetLengthAt(mesh, mesh.target(h), kappa, eps, lMin, lMax, residual);
 	return 0.5 * (la + lb);
 }
 
@@ -220,14 +319,14 @@ bool isFeatureEdge(const Mesh& mesh, const E e, const double featureAngleDeg)
 }
 
 void splitLongEdges(Mesh& mesh, const std::unordered_map<V, double>& kappa, const double eps, const double lMin,
-					const double lMax)
+					const double lMax, const ResidualField* residual)
 {
 	std::vector<E> longEdges;
 	longEdges.reserve(mesh.number_of_edges());
 	for (const E e : mesh.edges())
 	{
 		const double len = edgeLength(mesh, e);
-		const double lt = targetLengthEdge(mesh, e, kappa, eps, lMin, lMax);
+		const double lt = targetLengthEdge(mesh, e, kappa, eps, lMin, lMax, residual);
 		if (len > kSplitRatio * lt)
 		{
 			longEdges.push_back(e);
@@ -244,7 +343,7 @@ void splitLongEdges(Mesh& mesh, const std::unordered_map<V, double>& kappa, cons
 			continue;
 		}
 		const double len = edgeLength(mesh, e);
-		const double lt = targetLengthEdge(mesh, e, kappa, eps, lMin, lMax);
+		const double lt = targetLengthEdge(mesh, e, kappa, eps, lMin, lMax, residual);
 		if (len <= kSplitRatio * lt)
 		{
 			continue;
@@ -253,11 +352,21 @@ void splitLongEdges(Mesh& mesh, const std::unordered_map<V, double>& kappa, cons
 		const Point_3 mid = CGAL::midpoint(mesh.point(mesh.source(h)), mesh.point(mesh.target(h)));
 		const H hNew = CGAL::Euler::split_edge(h, mesh);
 		mesh.point(mesh.target(hNew)) = mid;
+		// split_edge 会使邻面变四边形，须再 split_face 才能保持三角网格
+		if (!mesh.is_border(hNew))
+		{
+			CGAL::Euler::split_face(hNew, mesh.next(mesh.next(hNew)), mesh);
+		}
+		const H hOpp = mesh.opposite(hNew);
+		if (!mesh.is_border(hOpp))
+		{
+			CGAL::Euler::split_face(mesh.prev(hOpp), mesh.next(hOpp), mesh);
+		}
 	}
 }
 
 void collapseShortEdges(Mesh& mesh, const std::unordered_map<V, double>& kappa, const double eps, const double lMin,
-						const double lMax, const double featureAngleDeg)
+						const double lMax, const double featureAngleDeg, const ResidualField* residual)
 {
 	std::vector<E> shortEdges;
 	shortEdges.reserve(mesh.number_of_edges());
@@ -268,7 +377,7 @@ void collapseShortEdges(Mesh& mesh, const std::unordered_map<V, double>& kappa, 
 			continue;
 		}
 		const double len = edgeLength(mesh, e);
-		const double lt = targetLengthEdge(mesh, e, kappa, eps, lMin, lMax);
+		const double lt = targetLengthEdge(mesh, e, kappa, eps, lMin, lMax, residual);
 		if (len < kCollapseRatio * lt)
 		{
 			shortEdges.push_back(e);
@@ -288,7 +397,7 @@ void collapseShortEdges(Mesh& mesh, const std::unordered_map<V, double>& kappa, 
 			continue;
 		}
 		const double len = edgeLength(mesh, e);
-		const double lt = targetLengthEdge(mesh, e, kappa, eps, lMin, lMax);
+		const double lt = targetLengthEdge(mesh, e, kappa, eps, lMin, lMax, residual);
 		if (len >= kCollapseRatio * lt)
 		{
 			continue;
@@ -347,6 +456,9 @@ bool adaptiveIsotropicRemesh(const std::vector<float>& triangleSoupIn, std::vect
 		return false;
 	}
 
+	ResidualField residual;
+	buildResidualField(params, params.characteristicEdgeMm > 0.0 ? params.characteristicEdgeMm : lMax, residual);
+
 	std::vector<float> baseSoup;
 	if (!vcgalgo::isotropicRemesh(triangleSoupIn, lMax, baseSoup, params.baseRemeshIterations, params.featureAngleDeg,
 								  errMsg))
@@ -364,14 +476,15 @@ bool adaptiveIsotropicRemesh(const std::vector<float>& triangleSoupIn, std::vect
 		return false;
 	}
 
+	const ResidualField* residualPtr = residual.active ? &residual : nullptr;
 	const int iters = std::max(1, params.refineIterations);
 	for (int i = 0; i < iters; ++i)
 	{
 		std::unordered_map<V, double> kappa;
 		estimateMaxCurvature(mesh, kappa);
-		splitLongEdges(mesh, kappa, eps, lMin, lMax);
+		splitLongEdges(mesh, kappa, eps, lMin, lMax, residualPtr);
 		estimateMaxCurvature(mesh, kappa);
-		collapseShortEdges(mesh, kappa, eps, lMin, lMax, params.featureAngleDeg);
+		collapseShortEdges(mesh, kappa, eps, lMin, lMax, params.featureAngleDeg, residualPtr);
 		equalizeValence(mesh, params.featureAngleDeg);
 		PMP::tangential_relaxation(mesh);
 	}

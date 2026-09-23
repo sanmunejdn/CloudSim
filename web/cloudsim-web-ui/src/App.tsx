@@ -155,13 +155,16 @@ function Shell() {
                     className={interactMode === "select" ? "active" : ""}
                     onClick={() => setInteractMode(interactMode === "select" ? "view" : "select")}
                   >
-                    ✥
+                    <span className="tb-ico">✥</span>
+                    <span className="tb-lab">选择</span>
                   </button>
                   <button type="button" title="聚焦" onClick={() => sceneRef.current?.focusAll()}>
-                    ⌂
+                    <span className="tb-ico">⌂</span>
+                    <span className="tb-lab">聚焦</span>
                   </button>
                   <button type="button" title="主视图" onClick={() => sceneRef.current?.homeView()}>
-                    ◎
+                    <span className="tb-ico">◎</span>
+                    <span className="tb-lab">主视</span>
                   </button>
                   <button
                     type="button"
@@ -173,10 +176,12 @@ function Shell() {
                       sceneRef.current?.setWireframe(next);
                     }}
                   >
-                    ▦
+                    <span className="tb-ico">▦</span>
+                    <span className="tb-lab">线框</span>
                   </button>
                   <button type="button" title="截图" onClick={() => sceneRef.current?.capturePng()}>
-                    📷
+                    <span className="tb-ico">📷</span>
+                    <span className="tb-lab">截图</span>
                   </button>
                   <button
                     type="button"
@@ -184,7 +189,8 @@ function Shell() {
                     className={docks.leftVisible ? "active" : ""}
                     onClick={() => docks.setLeftVisible(!docks.leftVisible)}
                   >
-                    ◧
+                    <span className="tb-ico">◧</span>
+                    <span className="tb-lab">左栏</span>
                   </button>
                   <button
                     type="button"
@@ -192,7 +198,8 @@ function Shell() {
                     className={docks.rightVisible ? "active" : ""}
                     onClick={() => docks.setRightVisible(!docks.rightVisible)}
                   >
-                    ◨
+                    <span className="tb-ico">◨</span>
+                    <span className="tb-lab">右栏</span>
                   </button>
                 </div>
               </div>

@@ -3,6 +3,7 @@
 
 #include "HierarchyMeshImport.h"
 
+#include "ApplyGeometryImportParse.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
@@ -10,9 +11,10 @@
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
+#include "GeometryFileImporterRegistry.h"
+#include "IGeometryFileImporter.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
-#include "OsgWidgetCaptureController.h"
 #include "Types.h"
 
 #include <QByteArray>
@@ -82,65 +84,6 @@ bool registerHierarchyPartMeshes(DocumentHost& host, const QString& sourceFilePa
 		pathToBackendId[partPath] = selfId;
 		lastLoadedMesh = partMesh;
 		out.partBackendIds.append(selfId);
-		++registered;
-	}
-	if (registered == 0)
-	{
-		return false;
-	}
-	out.ok = true;
-	out.importParent = importParent;
-	out.lastRegisteredMesh = lastLoadedMesh;
-	out.registeredPartCount = registered;
-	return true;
-}
-
-bool registerCapturedHierarchyParts(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
-									const QString& defaultBaseName, const std::vector<MeshCapturedPart>& parts,
-									const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
-									QString* outError)
-{
-	if (parts.size() <= 1U)
-	{
-		return false;
-	}
-	auto importParent = std::make_shared<MeshBackendData>();
-	importParent->setName(defaultBaseName.toStdString());
-	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath, catalogTypeName, QString(), outError))
-	{
-		return false;
-	}
-	const QString importParentId = QString::fromStdString(importParent->id());
-	QHash<QString, QString> pathToBackendId;
-	std::shared_ptr<MeshBackendData> lastLoadedMesh;
-	int registered = 0;
-	for (const MeshCapturedPart& p : parts)
-	{
-		if (p.triangleSoup.empty())
-		{
-			continue;
-		}
-		auto partMesh = std::make_shared<MeshBackendData>();
-		partMesh->setTriangleSoup(p.triangleSoup);
-		const QString displayName = p.displayName.isEmpty() ? defaultBaseName : p.displayName;
-		partMesh->setName(displayName.toStdString());
-		const QString parentId =
-			pathToBackendId.contains(p.parentPartPath) ? pathToBackendId.value(p.parentPartPath) : importParentId;
-		QString meshRegErr;
-		if (!registerAdoptedMeshAndLoadScene(host, partMesh, sourceFilePath, catalogTypeName, parentId, false,
-											 &meshRegErr, false))
-		{
-			if (outError)
-			{
-				*outError = meshRegErr.isEmpty() ? QStringLiteral("Failed to register hierarchical backend object.")
-												 : meshRegErr;
-			}
-			return false;
-		}
-		const QString selfId = QString::fromStdString(partMesh->id());
-		(void)onParentFollow;
-		pathToBackendId[p.partPath] = selfId;
-		lastLoadedMesh = partMesh;
 		++registered;
 	}
 	if (registered == 0)
@@ -479,175 +422,33 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 	const QString ext = fileInfo.suffix().toLower();
 	const QByteArray nativeEnc = QFile::encodeName(filePath);
 	const std::string nativePath(nativeEnc.constData(), static_cast<std::size_t>(nativeEnc.size()));
-	const QString defaultBaseName = fileInfo.completeBaseName();
 
-	if (ext == QLatin1String("dxf"))
-	{
-		std::vector<MeshHierarchyPart> dxfParts;
-		std::string dxfErr;
-		if (MeshBackendData::loadDxfHierarchyFromFile(nativePath, dxfParts, &dxfErr) && !dxfParts.empty())
-		{
-			if (importMeshHierarchyParts(host, filePath, catalogTypeName, dxfParts, defaultBaseName, onParentFollow,
-										 out, outError, fileInfo.fileName()))
-			{
-				return true;
-			}
-			out.ok = false;
-			if (outError && outError->isEmpty())
-			{
-				*outError = QStringLiteral("DXF hierarchy import produced no registrable mesh parts.");
-			}
-			return true;
-		}
-	}
-	if (ext == QLatin1String("step") || ext == QLatin1String("stp"))
-	{
-		// 根 Compound 只拆一层子装配；单件仍整件导入
-		std::vector<BrepHierarchyPart> brepParts;
-		geoalgo::ShapeHandle assembly;
-		std::string stepErr;
-		if (BrepBackendData::loadStepHierarchyFromFile(nativePath, brepParts, &stepErr, &assembly) &&
-			brepParts.size() > 1U)
-		{
-			if (importBrepHierarchyParts(host, filePath, catalogTypeName, brepParts, defaultBaseName, onParentFollow,
-										 out, outError, fileInfo.fileName(), assembly))
-			{
-				return true;
-			}
-			out.ok = false;
-			if (outError && outError->isEmpty())
-			{
-				*outError = QStringLiteral("STEP hierarchy import produced no registrable B-rep parts.");
-			}
-			return true;
-		}
-		auto brep = std::make_shared<BrepBackendData>();
-		brep->setName(fileInfo.fileName().toStdString());
-		if (brepParts.size() == 1U && !brepParts.front().shapeRef.isNull())
-		{
-			brep->setShape(brepParts.front().shapeRef);
-		}
-		else if (!brep->loadFromStepFile(nativePath, &stepErr) || !brep->hasGeometry())
-		{
-			if (outError)
-			{
-				*outError =
-					QString::fromStdString(stepErr.empty() ? std::string("Failed to load STEP as B-rep.") : stepErr);
-			}
-			out.ok = false;
-			return true;
-		}
-		QString regErr;
-		if (!registerAdoptedBrepAndLoadScene(host, brep, filePath, QLatin1String(backend_type::kCatalogBrepModel),
-											 QString(), true, &regErr))
-		{
-			if (outError)
-			{
-				*outError = regErr.isEmpty() ? QStringLiteral("Failed to register B-rep.") : regErr;
-			}
-			out.ok = false;
-			return true;
-		}
-		out.ok = true;
-		out.lastRegisteredBrep = brep;
-		out.registeredPartCount = 1;
-		return true;
-	}
-
-	auto mesh = std::make_shared<MeshBackendData>();
-	mesh->setName(fileInfo.fileName().toStdString());
-	std::string backendErr;
-	const bool cgalOk = mesh->loadFromFile(nativePath, &backendErr, meshImportQuality);
-	if (!cgalOk)
-	{
-		static const QStringList kOsgOnly{
-			QStringLiteral("dae"),
-			QStringLiteral("3ds"),
-			QStringLiteral("fbx"),
-		};
-		OsgWidget* osg = osgWidgetFrom(host);
-		if (!kOsgOnly.contains(ext) || !osg)
-		{
-			if (outError)
-			{
-				*outError =
-					QString::fromStdString(backendErr.empty() ? std::string("Failed to load mesh.") : backendErr);
-			}
-			out.ok = false;
-			return true;
-		}
-		QString importErr;
-		if (!osg->importModelFile(filePath, &importErr))
-		{
-			if (outError)
-			{
-				*outError = importErr.isEmpty() ? QStringLiteral("Failed to import model.") : importErr;
-			}
-			out.ok = false;
-			return true;
-		}
-		std::vector<MeshCapturedPart> parts;
-		QString hierarchyErr;
-		const bool hasHierarchy = osg->captureImportedMeshBackendHierarchy(parts, &hierarchyErr);
-		if (hasHierarchy && parts.size() > 1U)
-		{
-			if (registerCapturedHierarchyParts(host, filePath, catalogTypeName, fileInfo.fileName(), parts,
-											   onParentFollow, out, outError))
-			{
-				osg->clearStagingGeometry();
-				return true;
-			}
-			if (outError && outError->isEmpty())
-			{
-				*outError = hierarchyErr.isEmpty() ? QStringLiteral("Failed to register hierarchical model parts.")
-												   : hierarchyErr;
-			}
-			osg->clearStagingGeometry();
-			out.ok = false;
-			return true;
-		}
-		QString capErr;
-		if (!osg->captureImportedMeshBackend(*mesh, &capErr) || mesh->triangleSoup().empty())
-		{
-			osg->clearStagingGeometry();
-			if (outError)
-			{
-				*outError = QStringLiteral("Could not copy mesh into backend.\n%1").arg(capErr);
-			}
-			out.ok = false;
-			return true;
-		}
-		osg->clearStagingGeometry();
-		QString regErr;
-		if (!registerAdoptedMeshAndLoadScene(host, mesh, filePath, catalogTypeName, QString(), true, &regErr))
-		{
-			if (outError)
-			{
-				*outError = regErr.isEmpty() ? QStringLiteral("Failed to register mesh.") : regErr;
-			}
-			out.ok = false;
-			return true;
-		}
-		out.ok = true;
-		out.lastRegisteredMesh = mesh;
-		out.registeredPartCount = 1;
-		return true;
-	}
-
-	QString regErr;
-	if (!registerAdoptedMeshAndLoadScene(host, mesh, filePath, catalogTypeName, QString(), true, &regErr))
+	GeometryFileImporterRegistry& registry = GeometryFileImporterRegistry::instance();
+	const IGeometryFileImporter* importer = registry.find(ext.toStdString());
+	if (!importer)
 	{
 		if (outError)
 		{
-			*outError = regErr.isEmpty() ? QStringLiteral("Failed to register mesh.") : regErr;
+			*outError = QStringLiteral("Unsupported mesh import path.");
 		}
 		out.ok = false;
 		return true;
 	}
-	out.ok = true;
-	out.lastRegisteredMesh = mesh;
-	out.registeredPartCount = 1;
-	return true;
+
+	ImportParseOptions opt;
+	opt.meshImportQuality = meshImportQuality;
+	ImportParseResult parsed;
+	std::string parseErr;
+	if (!importer->parse(nativePath, opt, parsed, &parseErr) || !parsed.ok)
+	{
+		if (outError)
+		{
+			*outError = QString::fromStdString(parseErr.empty() ? std::string("Import failed.") : parseErr);
+		}
+		out.ok = false;
+		return true;
+	}
+	return applyGeometryImportParse(host, filePath, catalogTypeName, parsed, onParentFollow, out, outError);
 }
 
 } // namespace cloudsim::host

@@ -46,6 +46,7 @@
 | [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md) | `src/` 域划分、工程对照、构建输出 |
 | [`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md) | 各模块 `DEVELOPER_GUIDE.md` 索引 |
 | [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md) | 编码、头卫、clang-format、筛选器 |
+| [`桌面网页Host同步/README.md`](桌面网页Host同步/README.md) | Host ↔ Headless 源清单检查与能力对等流程 |
 | [`spatial_contract_world_pose.md`](spatial_contract_world_pose.md) | 世界坐标 / `worldMatrix` 契约 |
 | [`后端对象与软件模式/README.md`](后端对象与软件模式/README.md) | 后端类型三键、侧车键、工作区模式 vs Data |
 | [`Host优化/`](Host优化/) | 接口目录、backend 调用清单、Headless 运维 |
@@ -57,9 +58,10 @@
 | [`指令IK轨迹重构/`](指令IK轨迹重构/) | `DEVELOPER_指令IK轨迹.md`（常读）；6A 在 [`_archive/指令IK轨迹重构/`](_archive/指令IK轨迹重构/) |
 | [`设计计算/`](设计计算/)、[`标准件/`](标准件/) | 设计计算 / 标准件领域资产 |
 | [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md) | 网页正式壳 |
+| [`网页端交互优化/`](网页端交互优化/) | SSE 防抖、坞导航、uiEvents、对话框 |
 | [`src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md`](../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) | 网页 Gateway |
 
-Cursor 规则：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-architecture.mdc`、`cloudsim-vcxproj-filters.mdc`、`vs-build-configurations.mdc`。
+Cursor 规则：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-architecture.mdc`、`cloudsim-vcxproj-filters.mdc`、`host-headless-sync.mdc`、`vs-build-configurations.mdc`。
 
 ## 近期热点（改相关代码前先看）
 

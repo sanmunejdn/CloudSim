@@ -30,9 +30,6 @@ DATA_EXPORT bool loadMeshFromFile(MeshBackendData& mesh, const std::string& path
 
 DATA_EXPORT bool loadBrepFromStepFile(BrepBackendData& brep, const std::string& path, std::string* errMsg = nullptr);
 
-DATA_EXPORT bool loadMeshStepHierarchy(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
-									   std::string* errMsg = nullptr);
-
 DATA_EXPORT bool loadBrepStepHierarchy(const std::string& path, std::vector<BrepHierarchyPart>& outParts,
 									   std::string* errMsg = nullptr, geoalgo::ShapeHandle* outAssembly = nullptr);
 } // namespace backend_io

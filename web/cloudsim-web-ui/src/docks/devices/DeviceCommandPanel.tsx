@@ -13,6 +13,7 @@ import { useDeviceRuntime } from "../../state/deviceRuntimeStore";
 import { useProject } from "../../state/projectStore";
 import { useScene } from "../../state/sceneStore";
 import { useStatus } from "../../state/statusStore";
+import { showConfirm, showPrompt } from "../../ui/Dialog";
 
 function newPoseId() {
   return `pose_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -114,7 +115,10 @@ export default function DeviceCommandPanel() {
     const defaultName = renameId
       ? poses.find((p) => p.id === renameId)?.name || "姿态"
       : `姿态${poses.length + 1}`;
-    const name = window.prompt(renameId ? "重命名姿态" : "示教姿态名称", defaultName);
+    const name = await showPrompt({
+      title: renameId ? "重命名姿态" : "示教姿态名称",
+      defaultValue: defaultName,
+    });
     if (name == null || !name.trim()) return;
     const snapshot = [...q];
     let nextPoses = [...poses];
@@ -159,7 +163,10 @@ export default function DeviceCommandPanel() {
               className="btn-ghost"
               disabled={busy}
               onClick={async () => {
-                const name = window.prompt("新姿态名称", `姿态${poses.length + 1}`);
+                const name = await showPrompt({
+                  title: "新姿态名称",
+                  defaultValue: `姿态${poses.length + 1}`,
+                });
                 if (name == null || !name.trim()) return;
                 const next = [...poses, { id: newPoseId(), name: name.trim(), q: [...q] }];
                 if (await persist({ namedPoses: next })) setStatus("已新建姿态");
@@ -208,7 +215,14 @@ export default function DeviceCommandPanel() {
                   className="btn-ghost"
                   disabled={busy}
                   onClick={async () => {
-                    if (!window.confirm(`删除姿态「${p.name}」？`)) return;
+                    if (
+                      !(await showConfirm({
+                        title: "删除姿态",
+                        message: `删除姿态「${p.name}」？`,
+                        confirmText: "删除",
+                      }))
+                    )
+                      return;
                     const nextPoses = poses.filter((x) => x.id !== p.id);
                     const nextBinds = bindings
                       .map((b) => (b.poseId === p.id ? { ...b, poseId: "" } : b))

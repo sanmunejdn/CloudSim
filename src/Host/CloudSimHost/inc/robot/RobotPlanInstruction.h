@@ -28,6 +28,9 @@ CLOUDSIM_HOST_EXPORT bool planMotionInstruction(IRobotUrdfImportContext& ctx,
 												const core::PlanContextDto& context, core::PlanResultDto& out,
 												QString* outError = nullptr);
 
+/// 与桌面 defaultTcpLinkNameForUrdf 一致：primary terminal → 末关节子连杆
+CLOUDSIM_HOST_EXPORT QString defaultTcpLinkForUrdf(const QString& urdfPath);
+
 /// 已 prepare 指令规划
 CLOUDSIM_HOST_EXPORT bool planRobotInstruction(IRobotUrdfImportContext& ctx, RobotInstruction::Base& instruction,
 											   const QVector<double>& seedJointRad, int instanceIndex,

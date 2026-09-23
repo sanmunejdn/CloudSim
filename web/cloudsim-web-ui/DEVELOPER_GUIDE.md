@@ -26,10 +26,10 @@
 
 ## 打开模型
 
-- 菜单 **文件 → 打开模型…**（视口工具条「模型」同入口）：`dialogOpen({ purpose: "model" })` → 多选 `paths[]` → 逐个 `/api/objects/import` 且 **`isPointCloud: false`**
-- 过滤器对齐桌面：obj/stl/ply/off/dxf/dae/3ds/fbx/step/stp/igs/iges
-- 组装对话框「导入模型…」同样多选
-- 与「导入…」区分：后者也可多选，并按扩展名走点云；打开模型始终走网格/CAD 路径
+- 菜单 **文件 → 打开模型…**：`dialogOpen({ purpose: "model" })` → 多选 `paths[]` → 逐个 `/api/objects/import` 且 **`isPointCloud: false`** → 选中末次成功 id 并 `requestFocus`
+- 过滤器由 Host `geometryOpenModelFileFilter(false)` 从 `GeometryFileImporterRegistry` 生成（含 3dxml/dxf/brep/step 等；**不含** 需桌面 OsgWidget 的 dae/3ds/fbx）
+- 组装对话框「导入模型…」同样走 `purpose: "model"`
+- 与「导入…」区分：后者用 `geometryMixedImportFileFilter`，并按扩展名启发式走点云；打开模型始终走网格/CAD 路径
 
 ## 日常开发
 
@@ -80,15 +80,23 @@ _archive/public-fallback/   # 旧单文件壳，对照用，不参与默认部�
 
 ### WebGL 生命周期（`SceneViewport`）
 
-集合变化时对 `content` 子节点走 `disposeObject3D` 再重建；FK 仅同步 `worldMatrix`。
+集合变化时对 `content` 子节点走 `disposeObject3D` 再重建；FK 仅同步 `worldMatrix`。装载辅助见 `scene/meshLoad.ts`。视口按职责拆在 `scene/viewport/`：
+
+| 模块 | 职责 |
+|------|------|
+| `useViewportCore` | 场景挂载、渲染循环、dispose |
+| `useMeshSync` | 网格/点云签名重建与 matrix 同步 |
+| `useRobotTeach` | Gizmo / place / tcp-ik |
+| `useViewportInteraction` | 点选、配合、轨迹拾取、多边形 |
+| `useSceneOverlays` | 坐标系轴、Raw、路点、高亮、聚焦 |
 
 | 路径 | 现状 |
 |------|------|
 | 几何签名变化重建 | 遍历 `content.children` → `disposeObject3D`；清 `idToMesh` |
-| effect unmount | dispose controls / HUD / `renderer`；**未**遍历场景 mesh 图 |
-| React `StrictMode` | 开发态双挂载会放大未 dispose 的 GPU 缓冲风险 |
+| effect unmount | `drainGroup` 清 content/overlay/frame/raw/instr/root/scene 后 dispose renderer |
+| React `StrictMode` | 开发态双挂载；unmount 与 rebuild 已对齐 dispose |
 
-**已知风险（行为修复待审）：** unmount 与 rebuild 的 dispose 应对齐。网关 SSE 见 [`CloudSimWebGateway/DEVELOPER_GUIDE.md`](../../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) §2。
+网关 SSE 见 [`CloudSimWebGateway/DEVELOPER_GUIDE.md`](../../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md) §2。场景全量刷新由 `sceneStore` 防抖合并。
 
 ## 轨迹生成（`TrajectoryGenPanel`）
 
@@ -154,8 +162,10 @@ _archive/public-fallback/   # 旧单文件壳，对照用，不参与默认部�
 |-------|------|
 | `trajectoryStore` | PathPlan、特征、编辑门闩、`exitEditAfterCommit` / `editUiEpoch` |
 | `robotProgramStore` | 程序目录、指令树 |
-| `dockNavStore` | 右坞 Tab；`goTrajGen` / `goCmd` |
-| `sceneStore` | 对象列表、选择、交互模式 |
+| `dockNavStore` | 左右坞 Tab；`focusProps` / `goTrajGen` / `goCmd`；机器人「更多」Tab |
+| `sceneStore` | 对象列表、选择、交互模式；SSE 全量刷新防抖 |
+
+领域事件：`src/ui/uiEvents.ts`（勿再挂 `window` CustomEvent）。对话框：`src/ui/Dialog.tsx`。交互优化说明：[`docs/网页端交互优化/`](../../docs/网页端交互优化/)。
 
 ## 要求
 

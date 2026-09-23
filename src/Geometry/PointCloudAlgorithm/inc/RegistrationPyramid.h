@@ -32,6 +32,8 @@ struct PyramidRegisterParams
 	bool useFineRegOnLastLayer = false;
 	/// 仅末层：曲率自适应边长；默认关以保持与现网一致
 	bool useAdaptiveDensityOnLastLayer = false;
+	/// 末层自适应开启且存在前层时：用前层点面残差收紧边长；仅作用于源
+	bool useResidualDrivenSizingOnLastLayer = true;
 	double adaptiveApproxTolMm = 0.0;	 ///< ε；0 → 0.02 * h
 	double adaptiveEdgeMinRatio = 0.25; ///< Lmin = ratio * h
 	double adaptiveEdgeMaxRatio = 2.0;	 ///< Lmax = ratio * h

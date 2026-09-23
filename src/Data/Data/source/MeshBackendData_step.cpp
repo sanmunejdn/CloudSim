@@ -1,10 +1,8 @@
 ﻿/// @file MeshBackendData_step.cpp
-/// @brief Mesh STEP 辅助与层级加载转发
+/// @brief Mesh STEP 单文件 tessellate（层级 STEP 走 BrepBackendData）
 
 #include "pch.h"
 
-#include "BackendImporters.h"
-#include "MeshBackendData.h"
 #include "MeshBackendData_loaders.h"
 
 #include <Discretize.h>
@@ -20,9 +18,3 @@ bool meshLoadStepSingleFile(const std::string& path, std::vector<float>& soup, s
 }
 
 } // namespace mesh_backend_load
-
-bool MeshBackendData::loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
-												std::string* errMsg)
-{
-	return backend_io::loadMeshStepHierarchy(path, outParts, errMsg);
-}

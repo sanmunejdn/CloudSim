@@ -155,6 +155,8 @@ python scripts/generate_vcxproj_filters.py --full
 
 脚本按 `CloudSim.sln` 扫描产品工程，写出 UTF-8 BOM + CRLF；不修改 `.vcxproj` 本体。完整约定见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md) §6；Cursor 规则：`.cursor/rules/cloudsim-vcxproj-filters.mdc`。
 
+**Host 双工程**：改 `CloudSimHost` / `CloudSimPluginHost` 共享源后须跑 `python scripts/check_host_headless_sources.py`（必要时 `--fix`），并 Debug+Release 编 `CloudSimHostHeadless`。见 [`桌面网页Host同步/README.md`](桌面网页Host同步/README.md)。
+
 ## 源码注释约定（code-comment）
 
 - 只写 **Why**：业务背景、非显然算法、边界兜底、危险操作；不写「这段代码做什么」。

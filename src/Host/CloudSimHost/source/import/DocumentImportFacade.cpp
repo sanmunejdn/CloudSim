@@ -3,12 +3,15 @@
 
 #include "DocumentImportFacade.h"
 
+#include "ApplyGeometryImportParse.h"
 #include "BackendFileImport.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
+#include "GeometryFileImporterRegistry.h"
 #include "HierarchyMeshImport.h"
+#include "IGeometryFileImporter.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
@@ -50,21 +53,6 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 		return result;
 	}
 
-	const QString ext = fileInfo.suffix().toLower();
-	static const QStringList kSimpleMesh{QStringLiteral("obj"), QStringLiteral("stl"), QStringLiteral("ply"),
-										 QStringLiteral("off")};
-	if (kSimpleMesh.contains(ext))
-	{
-		const QString id = importMeshFile(host, filePath, options, outError);
-		if (id.isEmpty())
-		{
-			return result;
-		}
-		result.ok = true;
-		result.rootBackendId = id;
-		return result;
-	}
-
 	// 空回调：层级分件世界坐标，勿在导入期写 Follow（见 HierarchyMeshImport）
 	const HierarchyFollowBindingFn followBinding;
 	QString extendedErr;
@@ -87,8 +75,12 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 	}
 
 	result.ok = true;
-	result.hierarchyImport = true;
-	result.skipFollowOnImport = true;
+	const bool hasImportParent = static_cast<bool>(result.hierarchyDetail.importParent);
+	result.hierarchyImport = hasImportParent || result.hierarchyDetail.registeredPartCount > 1;
+	// 单件 mesh（obj/stl…）保持可 Follow；层级/B-rep 分件为世界坐标勿导入期 Follow
+	result.skipFollowOnImport =
+		hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
+		result.hierarchyDetail.registeredPartCount > 1;
 
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (osg)
@@ -249,14 +241,6 @@ AdoptRegistrationResult PointCloudBackgroundLoadState::adoptIntoDocument(Documen
 	return registerAdoptedPointCloud(host, m_impl->pointCloud, options, outError);
 }
 
-enum class ModelLoadKind
-{
-	UseSyncExtended,
-	SimpleBrep,
-	SimpleMesh,
-	BrepHierarchy,
-};
-
 void logBrepImportTimings(const geoalgo::BrepImportBuildTimings& timings)
 {
 	RunLogger::info("[Import] brep mesh_ms=" + std::to_string(timings.meshMs) +
@@ -329,6 +313,12 @@ bool warmBrepImportPickArtifactsForShape(const geoalgo::ShapeHandle& shape, QStr
 	return true;
 }
 
+enum class ModelLoadKind
+{
+	UseSyncExtended,
+	ParsedReady,
+};
+
 struct ModelBackgroundLoadState::Impl
 {
 	QString filePath;
@@ -336,10 +326,7 @@ struct ModelBackgroundLoadState::Impl
 	QString catalogTypeName;
 	int meshImportQuality = 1;
 	ModelLoadKind kind = ModelLoadKind::UseSyncExtended;
-	std::shared_ptr<BrepBackendData> brep;
-	std::shared_ptr<MeshBackendData> mesh;
-	std::vector<BrepHierarchyPart> brepHierarchyParts;
-	geoalgo::ShapeHandle brepHierarchyAssembly;
+	ImportParseResult parsed;
 };
 
 ModelBackgroundLoadState::ModelBackgroundLoadState(const QString& filePath, const QString& displayName,
@@ -378,96 +365,60 @@ bool ModelBackgroundLoadState::executeLoad(
 		}
 	};
 
-	if (ext == QLatin1String("step") || ext == QLatin1String("stp"))
+	const IGeometryFileImporter* importer = GeometryFileImporterRegistry::instance().find(ext.toStdString());
+	if (!importer)
 	{
-		report(0.05, QStringLiteral("Reading STEP..."));
-		std::string stepErr;
-		std::vector<BrepHierarchyPart> hierarchyParts;
-		geoalgo::ShapeHandle assembly;
-		report(0.15, QStringLiteral("Reading STEP..."));
-		if (!BrepBackendData::loadStepHierarchyFromFile(nativePath, hierarchyParts, &stepErr, &assembly))
+		m_impl->kind = ModelLoadKind::UseSyncExtended;
+		report(1.0, QString());
+		return true;
+	}
+
+	// OSG / 需视口捕获的格式仍走同步 extended
+	ImportParseOptions opt;
+	opt.meshImportQuality = m_impl->meshImportQuality;
+	ImportParseResult probe;
+	std::string probeErr;
+	if (!importer->parse(nativePath, opt, probe, &probeErr))
+	{
+		if (outError)
 		{
-			if (outError)
-			{
-				*outError = stepErr.empty() ? QStringLiteral("Failed to load STEP.") : QString::fromStdString(stepErr);
-			}
-			return false;
+			*outError = QString::fromStdString(probeErr.empty() ? std::string("Import failed.") : probeErr);
 		}
-		if (hierarchyParts.size() > 1U)
-		{
-			m_impl->brepHierarchyParts = std::move(hierarchyParts);
-			m_impl->brepHierarchyAssembly = assembly;
-			m_impl->kind = ModelLoadKind::BrepHierarchy;
-			return warmBrepHierarchyPartsDisplayFromAssembly(m_impl->brepHierarchyAssembly, m_impl->brepHierarchyParts,
-															 report, outError);
-		}
-		m_impl->brep = std::make_shared<BrepBackendData>();
-		m_impl->brep->setName(m_impl->displayName.toStdString());
-		if (hierarchyParts.size() == 1U && !hierarchyParts.front().shapeRef.isNull())
-		{
-			m_impl->brep->setShape(hierarchyParts.front().shapeRef);
-		}
-		else if (!assembly.isNull())
-		{
-			m_impl->brep->setShape(assembly);
-		}
-		else if (!m_impl->brep->loadFromStepFile(nativePath, &stepErr))
-		{
-			if (outError)
-			{
-				*outError = stepErr.empty() ? QStringLiteral("Failed to load STEP.") : QString::fromStdString(stepErr);
-			}
-			return false;
-		}
-		m_impl->kind = ModelLoadKind::SimpleBrep;
+		return false;
+	}
+	if (probe.kind == ImportParseKind::OsgCapture || probe.kind == ImportParseKind::MeshHierarchy)
+	{
+		m_impl->kind = ModelLoadKind::UseSyncExtended;
+		report(1.0, QString());
+		return true;
+	}
+
+	report(0.15, QStringLiteral("Reading model..."));
+	m_impl->parsed = std::move(probe);
+	if (!m_impl->displayName.isEmpty())
+	{
+		m_impl->parsed.displayNameHint = m_impl->displayName.toStdString();
+	}
+
+	if (m_impl->parsed.kind == ImportParseKind::BrepHierarchy)
+	{
+		m_impl->kind = ModelLoadKind::ParsedReady;
+		return warmBrepHierarchyPartsDisplayFromAssembly(m_impl->parsed.brepAssembly, m_impl->parsed.brepParts, report,
+														 outError);
+	}
+	if (m_impl->parsed.kind == ImportParseKind::BrepSingle)
+	{
+		m_impl->kind = ModelLoadKind::ParsedReady;
 		report(0.4, QStringLiteral("Meshing B-rep..."));
-		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.9, 1.0, outError))
+		if (!warmBrepImportArtifactsDisplayOnly(m_impl->parsed.brepSingle, report, 0.9, 1.0, outError))
 		{
 			return false;
 		}
 		return true;
 	}
-
-	if (ext == QLatin1String("brep"))
+	if (m_impl->parsed.kind == ImportParseKind::MeshSingleSoup)
 	{
-		m_impl->brep = std::make_shared<BrepBackendData>();
-		m_impl->brep->setName(m_impl->displayName.toStdString());
-		report(0.15, QStringLiteral("Reading BREP..."));
-		std::string brepErr;
-		if (!m_impl->brep->loadFromBrepFile(nativePath, &brepErr))
-		{
-			if (outError)
-			{
-				*outError = brepErr.empty() ? QStringLiteral("Failed to load BREP.") : QString::fromStdString(brepErr);
-			}
-			return false;
-		}
-		m_impl->kind = ModelLoadKind::SimpleBrep;
-		report(0.4, QStringLiteral("Meshing B-rep..."));
-		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.9, 1.0, outError))
-		{
-			return false;
-		}
-		return true;
-	}
-
-	static const QStringList kSimpleMesh{QStringLiteral("obj"), QStringLiteral("stl"), QStringLiteral("ply"),
-										 QStringLiteral("off")};
-	if (kSimpleMesh.contains(ext))
-	{
-		m_impl->mesh = std::make_shared<MeshBackendData>();
-		m_impl->mesh->setName(m_impl->displayName.toStdString());
-		report(0.1, QStringLiteral("Reading mesh..."));
-		std::string meshErr;
-		if (!m_impl->mesh->loadFromFile(nativePath, &meshErr, m_impl->meshImportQuality))
-		{
-			if (outError)
-			{
-				*outError = meshErr.empty() ? QStringLiteral("Failed to load mesh.") : QString::fromStdString(meshErr);
-			}
-			return false;
-		}
-		m_impl->kind = ModelLoadKind::SimpleMesh;
+		m_impl->kind = ModelLoadKind::ParsedReady;
 		report(1.0, QString());
 		return true;
 	}
@@ -496,83 +447,75 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(DocumentHost& host
 
 	ImportFileResult result;
 	const HierarchyFollowBindingFn followBinding;
-	const QFileInfo fileInfo(m_impl->filePath);
-
-	if (m_impl->kind == ModelLoadKind::BrepHierarchy)
+	if (!applyGeometryImportParse(host, m_impl->filePath, m_impl->catalogTypeName, m_impl->parsed, followBinding,
+								  result.hierarchyDetail, outError) ||
+		!result.hierarchyDetail.ok)
 	{
-		if (!importBrepHierarchyParts(host, m_impl->filePath, m_impl->catalogTypeName, m_impl->brepHierarchyParts,
-									  fileInfo.completeBaseName(), followBinding, result.hierarchyDetail, outError,
-									  fileInfo.fileName(), m_impl->brepHierarchyAssembly))
+		if (outError && outError->isEmpty())
 		{
-			if (outError && outError->isEmpty())
-			{
-				*outError = QStringLiteral("STEP hierarchy import failed.");
-			}
-			return result;
-		}
-		result.ok = true;
-		result.hierarchyImport = true;
-		result.skipFollowOnImport = true;
-		if (OsgWidget* osg = osgWidgetFrom(host))
-		{
-			if (result.hierarchyDetail.importParent)
-			{
-				result.rootBackendId = QString::fromStdString(result.hierarchyDetail.importParent->id());
-				osg->focusCameraOnBackend(result.hierarchyDetail.importParent->id());
-				osg->requestRedraw();
-			}
+			*outError = QStringLiteral("Import failed.");
 		}
 		return result;
 	}
 
-	if (m_impl->kind == ModelLoadKind::SimpleBrep && m_impl->brep)
-	{
-		QString regErr;
-		if (!registerAdoptedBrepAndLoadScene(host, m_impl->brep, m_impl->filePath, QLatin1String(backend_type::kCatalogBrepModel),
-											 QString(), options.resetViewToHome, &regErr))
-		{
-			if (outError)
-			{
-				*outError = regErr.isEmpty() ? QStringLiteral("Failed to register B-rep.") : regErr;
-			}
-			return result;
-		}
-		result.ok = true;
-		result.rootBackendId = QString::fromStdString(m_impl->brep->id());
-		return result;
-	}
+	result.ok = true;
+	const bool hasImportParent = static_cast<bool>(result.hierarchyDetail.importParent);
+	result.hierarchyImport = hasImportParent || result.hierarchyDetail.registeredPartCount > 1;
+	result.skipFollowOnImport =
+		hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
+		result.hierarchyDetail.registeredPartCount > 1;
 
-	if (m_impl->kind == ModelLoadKind::SimpleMesh && m_impl->mesh)
+	OsgWidget* osg = osgWidgetFrom(host);
+	if (osg)
 	{
-		QString regErr;
-		if (!registerAdoptedMeshAndLoadScene(host, m_impl->mesh, m_impl->filePath, m_impl->catalogTypeName, QString(),
-											 options.resetViewToHome, &regErr))
+		if (result.hierarchyDetail.importParent)
 		{
-			if (outError)
-			{
-				*outError = regErr.isEmpty() ? QStringLiteral("Failed to register mesh.") : regErr;
-			}
-			return result;
+			result.rootBackendId = QString::fromStdString(result.hierarchyDetail.importParent->id());
+			osg->focusCameraOnBackend(result.hierarchyDetail.importParent->id());
+			osg->requestRedraw();
 		}
-		result.ok = true;
-		result.rootBackendId = QString::fromStdString(m_impl->mesh->id());
-		return result;
+		else if (result.hierarchyDetail.lastRegisteredBrep)
+		{
+			result.rootBackendId = QString::fromStdString(result.hierarchyDetail.lastRegisteredBrep->id());
+			if (options.resetViewToHome)
+			{
+				osg->focusCameraOnBackend(result.hierarchyDetail.lastRegisteredBrep->id());
+			}
+			osg->requestRedraw();
+		}
+		else if (result.hierarchyDetail.lastRegisteredMesh)
+		{
+			result.rootBackendId = QString::fromStdString(result.hierarchyDetail.lastRegisteredMesh->id());
+			if (options.resetViewToHome)
+			{
+				osg->focusCameraOnBackend(result.hierarchyDetail.lastRegisteredMesh->id());
+			}
+			osg->requestRedraw();
+		}
 	}
-
-	if (outError)
+	else if (result.hierarchyDetail.importParent)
 	{
-		*outError = QStringLiteral("Model load state has no geometry.");
+		result.rootBackendId = QString::fromStdString(result.hierarchyDetail.importParent->id());
+	}
+	else if (result.hierarchyDetail.lastRegisteredBrep)
+	{
+		result.rootBackendId = QString::fromStdString(result.hierarchyDetail.lastRegisteredBrep->id());
+	}
+	else if (result.hierarchyDetail.lastRegisteredMesh)
+	{
+		result.rootBackendId = QString::fromStdString(result.hierarchyDetail.lastRegisteredMesh->id());
 	}
 	return result;
 }
 
 bool ModelBackgroundLoadState::needsPickArtifactWarm() const
 {
-	if (!m_impl)
+	if (!m_impl || m_impl->kind != ModelLoadKind::ParsedReady)
 	{
 		return false;
 	}
-	return m_impl->kind == ModelLoadKind::SimpleBrep || m_impl->kind == ModelLoadKind::BrepHierarchy;
+	return m_impl->parsed.kind == ImportParseKind::BrepSingle ||
+		   m_impl->parsed.kind == ImportParseKind::BrepHierarchy;
 }
 
 bool ModelBackgroundLoadState::warmPickArtifacts(QString* outError)
@@ -581,10 +524,9 @@ bool ModelBackgroundLoadState::warmPickArtifacts(QString* outError)
 	{
 		return true;
 	}
-	geoalgo::ShapeHandle shape;
-	if (m_impl->kind == ModelLoadKind::BrepHierarchy && !m_impl->brepHierarchyParts.empty())
+	if (m_impl->parsed.kind == ImportParseKind::BrepHierarchy && !m_impl->parsed.brepParts.empty())
 	{
-		for (const BrepHierarchyPart& p : m_impl->brepHierarchyParts)
+		for (const BrepHierarchyPart& p : m_impl->parsed.brepParts)
 		{
 			if (!warmBrepImportPickArtifactsForShape(p.shapeRef, outError))
 			{
@@ -593,11 +535,11 @@ bool ModelBackgroundLoadState::warmPickArtifacts(QString* outError)
 		}
 		return true;
 	}
-	else if (m_impl->kind == ModelLoadKind::SimpleBrep && m_impl->brep)
+	if (m_impl->parsed.kind == ImportParseKind::BrepSingle)
 	{
-		shape = m_impl->brep->shapeRef();
+		return warmBrepImportPickArtifactsForShape(m_impl->parsed.brepSingle, outError);
 	}
-	return warmBrepImportPickArtifactsForShape(shape, outError);
+	return true;
 }
 
 QString ImportFileResult::hierarchyFocusBackendId() const

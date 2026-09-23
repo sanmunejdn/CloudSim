@@ -21,6 +21,25 @@ export function clearInstrMarkerGroup(group: THREE.Group) {
   }
 }
 
+function quatFromCsv(csv: string | undefined): THREE.Quaternion | null {
+  if (!csv) return null;
+  const p = csv.split(",").map((s) => Number(String(s).trim()));
+  if (p.length < 4 || p.some((n) => !Number.isFinite(n))) return null;
+  return new THREE.Quaternion(p[0], p[1], p[2], p[3]).normalize();
+}
+
+function mat4CsvToPose(csv: string | undefined): { position: THREE.Vector3; quaternion: THREE.Quaternion } | null {
+  if (!csv) return null;
+  const p = csv.split(",").map((s) => Number(String(s).trim()));
+  if (p.length < 16 || p.some((n) => !Number.isFinite(n))) return null;
+  const m = new THREE.Matrix4().fromArray(p);
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  m.decompose(position, quaternion, scale);
+  return { position, quaternion };
+}
+
 function addPoseMarker(
   group: THREE.Group,
   pose: { x?: number; y?: number; z?: number } | undefined,
@@ -28,13 +47,22 @@ function addPoseMarker(
   selected: boolean,
   instructionId: string,
   isArcVia: boolean,
+  extensions?: Record<string, string>,
 ) {
   if (!pose || !instructionId) return;
   const g = new THREE.Group();
   g.userData.instrId = instructionId;
   g.userData.isArcVia = isArcVia;
   g.position.set(Number(pose.x) || 0, Number(pose.y) || 0, Number(pose.z) || 0);
-  if (euler) {
+  const quatCsvQ = quatFromCsv(extensions?.["context.targetTransformQuatCsv"]);
+  const worldMatPose = mat4CsvToPose(extensions?.["render.tcpWorldMat4"]);
+  // ±90° 时显示欧拉可与真实姿态差 180°，优先四元数/世界矩阵
+  if (quatCsvQ) {
+    g.quaternion.copy(quatCsvQ);
+  } else if (worldMatPose) {
+    g.position.copy(worldMatPose.position);
+    g.quaternion.copy(worldMatPose.quaternion);
+  } else if (euler) {
     g.quaternion.copy(eulerZyxDegToQuat(Number(euler.x) || 0, Number(euler.y) || 0, Number(euler.z) || 0));
   }
   const len = selected ? 50 : 40;
@@ -93,6 +121,7 @@ export function refreshInstrMarkers(
         isSel && preferVia,
         step.id,
         true,
+        step.extensions,
       );
     }
     addPoseMarker(
@@ -102,6 +131,7 @@ export function refreshInstrMarkers(
       isSel && !preferVia,
       step.id,
       false,
+      step.extensions,
     );
   }
 

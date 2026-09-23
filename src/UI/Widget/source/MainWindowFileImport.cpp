@@ -17,6 +17,7 @@
 #include "CustomDeviceBackendData.h"
 #include "DocumentImportFacade.h"
 #include "FrameBackendData.h"
+#include "GeometryImportUiFilters.h"
 #include "MainWindowRobotHost.h"
 
 #include <memory>
@@ -100,8 +101,7 @@ bool MainWindow::registerBackendObject(const QString& filePath, const QString& t
 
 void MainWindow::onOpenModel()
 {
-	const QString filter = QStringLiteral(
-		"Model Files (*.obj *.stl *.ply *.off *.dxf *.dae *.3ds *.fbx *.step *.stp *.igs *.iges);;All Files (*.*)");
+	const QString filter = cloudsim::host::geometryOpenModelFileFilter(/*includeOsgCapture=*/true);
 	const QStringList filePaths =
 		QFileDialog::getOpenFileNames(this, QStringLiteral("Open Model"), QString(), filter);
 	if (filePaths.isEmpty())

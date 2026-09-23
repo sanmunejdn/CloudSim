@@ -127,8 +127,17 @@ export function buildPlanBody(
       eulerDeg: [step.eulerDeg?.x || 0, step.eulerDeg?.y || 0, step.eulerDeg?.z || 0],
     },
   };
+  const ext = step.extensions || {};
+  const tcpLink = ext["context.tcpLinkName"] || ext["context.capturedTcpLinkName"] || "";
+  const urdf = ext["context.urdfPath"] || "";
+  if (tcpLink) body.tcpLinkName = tcpLink;
+  if (urdf) body.urdfPath = urdf;
+  if (Object.keys(ext).length) {
+    body.extensions = { ...ext };
+  }
   if (type === "arc") {
     body.extensions = {
+      ...(body.extensions as Record<string, unknown> | undefined),
       viaPose: step.viaPose || { x: 0, y: 0, z: 0 },
       viaEulerDeg: step.viaEulerDeg || { x: 0, y: 0, z: 0 },
     };

@@ -269,7 +269,7 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 | `transformVerticesColumnMajorHomogeneous4x4(colMajor16)` | 列主序 4×4 烘焙顶点（URDF 世界烘焙、配准等）；**同时**旋转 `triangleVertexNormals` |
 | `setTransformPivotAtOrigin(true)` | 烘焙后枢轴在原点；外包络 `modelCenter` 仍可非零，**不参与** pose 分解 |
 | `loadFromFile` | 见 §4.2.1；实现见 `backend_io::loadMeshFromFile` |
-| `loadStepHierarchyFromFile` / `loadDxfHierarchyFromFile` | 静态；STEP 实现见 `backend_io::loadMeshStepHierarchy` |
+| `loadStepHierarchyFromFile` / `loadDxfHierarchyFromFile` / `load3dxmlHierarchyFromFile` | 静态；STEP 实现见 `backend_io::loadMeshStepHierarchy`；3DXML 见 `MeshBackendData_3dxml.cpp` |
 
 ### 4.2.1 网格文件导入（`loadFromFile`）
 

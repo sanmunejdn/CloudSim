@@ -141,15 +141,7 @@ bool readTargetTransformFromInstruction(const Base& cmd, engine::RigidTransform&
 		Eigen::Vector3d t = Eigen::Vector3d::Zero();
 		if (parseQuatCsv(itQ->second, q) && parseTransCsv(itT->second, t))
 		{
-			// 与示教拖动一致：界面 euler 为真源，context 四元数仅作落盘
-			if (cmd.hasEulerProperty())
-			{
-				const Vec3 p = cmd.pose();
-				const Vec3 e = cmd.eulerDeg();
-				outTargetInBase =
-					engine::RigidTransform::fromTranslationEulerDeg(p.x, p.y, p.z, e.x, e.y, e.z);
-				return true;
-			}
+			// 优先四元数：eulerDegForDisplay 在万向节附近不可逆（如 180/-90/0），用欧拉重建会导致 IK 无解
 			outTargetInBase = engine::RigidTransform::fromTranslationQuat(t, q);
 			return true;
 		}

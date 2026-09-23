@@ -326,6 +326,21 @@
     <ClInclude Include="inc\DocumentImportFacade.h">
       <Filter>inc\import</Filter>
     </ClInclude>
+    <ClInclude Include="inc\import\IGeometryFileImporter.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\GeometryFileImporterRegistry.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\GeometryImportUiFilters.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometryImportUiFilters.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\ApplyGeometryImportParse.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
     <ClInclude Include="inc\DocumentProjectSidecar.h">
       <Filter>inc\DocumentHost</Filter>
     </ClInclude>
@@ -716,6 +731,18 @@
       <Filter>src\import</Filter>
     </ClCompile>
     <ClCompile Include="source\import\HierarchyMeshImport.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\GeometryFileImporterRegistry.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\GeometryImportersBuiltins.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\GeometryImportUiFilters.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\ApplyGeometryImportParse.cpp">
       <Filter>src\import</Filter>
     </ClCompile>
     <ClCompile Include="source\io\CustomDeviceHostOps.cpp">

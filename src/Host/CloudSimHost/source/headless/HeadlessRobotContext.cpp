@@ -17,13 +17,16 @@
 #include "RobotTeachIk.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
+#include "robot/RobotPlanInstruction.h"
 
 #include <Adapters.h>
 #include <RigidTransform.h>
 
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 
 #include <algorithm>
 #include <cmath>
@@ -490,7 +493,8 @@ bool HeadlessRobotContext::applyFkFromGizmoAnchorThreeJsMatrix(const QString& an
 bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeBackendId,
 														  const QVector<double>& threeJsColMajor16,
 														  QVector<double>* outJointAnglesRad, QString* outError,
-														  bool* outIncomplete, const bool translateOnly)
+														  bool* outIncomplete, const bool translateOnly,
+														  TcpPoseCapture* outReachedTeachTarget)
 {
 	if (outIncomplete)
 	{
@@ -663,15 +667,20 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 			flangeId = ri.linkNameToBackendId.value(eff);
 		}
 	}
+	// 对齐桌面 OsgWidget::tcpTeachSetTargetFromToolWorld：勿用 OSG 行链 *inv(P)
+	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(P);
+	auto tcpInBaseFromScene = [&](const osg::Matrixd& tcpScene) -> engine::RigidTransform {
+		const engine::RigidTransform toolW = engine::rigidTransformFromOsg(tcpScene);
+		return baseW.inverse().composeColumn(toolW);
+	};
 
 	auto solveIkAtSceneTrans = [&](const osg::Vec3d& t, QVector<double>* outQ, QString* solveErr) -> bool {
 		osg::Matrixd tcpScene = tcpSceneDesired;
 		tcpScene.setTrans(t);
-		const osg::Matrixd tcpInBaseOsg = tcpScene * osg::Matrixd::inverse(P);
 		RobotTeachIk::TeachIkContext ctx;
 		ctx.urdfPath = ri.urdfAbsolutePath;
 		ctx.ikLinkName = flangeLinkForIk;
-		ctx.T_base_target = engine::rigidTransformFromOsg(tcpInBaseOsg);
+		ctx.T_base_target = tcpInBaseFromScene(tcpScene);
 		ctx.seedJointRad.clear();
 		ctx.seedJointRad.reserve(static_cast<size_t>(seedQ.size()));
 		for (double v : seedQ)
@@ -797,6 +806,24 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 	{
 		*outIncomplete = chaseClipped || jointStepClipped;
 	}
+	// 对齐桌面：落盘/示教缓存用 FK 实际到达，不用罗盘期望目标
+	if (outReachedTeachTarget)
+	{
+		if (!captureTcpPose(ri.sceneBackendId, *outReachedTeachTarget, nullptr))
+		{
+			*outReachedTeachTarget = {};
+			QStringList parts;
+			parts.reserve(qRad.size());
+			for (double v : qRad)
+			{
+				parts.push_back(QString::number(v, 'g', 12));
+			}
+			outReachedTeachTarget->jointRadCsv = parts.join(QLatin1Char(','));
+			outReachedTeachTarget->flangeLinkName = flangeLinkForIk;
+			outReachedTeachTarget->tcpLinkName = flangeLinkForIk;
+			outReachedTeachTarget->urdfPath = ri.urdfAbsolutePath;
+		}
+	}
 	return true;
 }
 
@@ -865,6 +892,8 @@ bool HeadlessRobotContext::captureTcpPose(const QString& sceneRootBackendId, Tcp
 	}
 
 	BackendMat4 toolMat = BackendMat4::identity();
+	QString toolFrameMat4Csv;
+	QString activeToolFrameId;
 	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(ri.coordinateFrames))
 	{
 		toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
@@ -874,13 +903,46 @@ bool HeadlessRobotContext::captureTcpPose(const QString& sceneRootBackendId, Tcp
 		{
 			flangeLink = eff;
 		}
+		// 有激活工具才落盘；单位阵不写，避免无偏置时误走法兰链/与 tcpLink 脱节
+		const BackendMat4 id = BackendMat4::identity();
+		bool toolHasOffset = false;
+		for (int i = 0; i < 16; ++i)
+		{
+			if (std::abs(toolMat.v[i] - id.v[i]) > 1e-9)
+			{
+				toolHasOffset = true;
+				break;
+			}
+		}
+		if (toolHasOffset)
+		{
+			toolFrameMat4Csv = QString::fromStdString(RobotCoordinate::encodeMat4Csv(toolMat));
+		}
+		activeToolFrameId = QString::fromStdString(tool->id);
 	}
 	const BackendMat4 TBaseTargetBm =
 		RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(linkWorld.value(flangeLink), toolMat);
 	const engine::RigidTransform T = RobotCoordinate::rigidTransformFromBackendMat4(TBaseTargetBm);
 	T.translationMm(out.positionMm[0], out.positionMm[1], out.positionMm[2]);
 	T.eulerDegForDisplay(out.eulerDeg[0], out.eulerDeg[1], out.eulerDeg[2]);
+	{
+		const Eigen::Quaterniond q = T.rotation().normalized();
+		const Eigen::Vector3d tMm = T.translationMm();
+		out.targetTransformQuatCsv =
+			QStringLiteral("%1,%2,%3,%4").arg(q.x(), 0, 'g', 17).arg(q.y(), 0, 'g', 17).arg(q.z(), 0, 'g', 17).arg(q.w(), 0, 'g', 17);
+		out.targetTransformTransMmCsv =
+			QStringLiteral("%1,%2,%3").arg(tMm.x(), 0, 'g', 17).arg(tMm.y(), 0, 'g', 17).arg(tMm.z(), 0, 'g', 17);
+	}
+	out.urdfPath = ri.urdfAbsolutePath;
 	out.flangeLinkName = flangeLink;
+	// 无工具偏置时规划用 tcpLinkName 做 IK 链，必须与上方 FK 连杆一致（勿用可能≠法兰的 tool0 叶节点）
+	out.tcpLinkName = flangeLink;
+	out.toolFrameMat4Csv = toolFrameMat4Csv;
+	out.activeToolFrameId = activeToolFrameId;
+	if (const RobotCoordinate::RobotUserFrame* uf = RobotCoordinate::activeUserFrame(ri.coordinateFrames))
+	{
+		out.activeUserFrameId = QString::fromStdString(uf->id);
+	}
 	// 与 overlays 一致：FK 基系 TCP × 基座放置 P（OSG 后乘）
 	cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
 	cloudsim::core::Mat4 basePlacement = cloudsim::core::PlanContextDto::identityMat4();

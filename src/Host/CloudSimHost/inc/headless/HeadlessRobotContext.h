@@ -81,22 +81,37 @@ public:
 	/// worldMatrix 编码与 GET /api/objects 的 Three.js 列主序一致（16 元）
 	bool applyFkFromGizmoAnchorThreeJsMatrix(const QString& anchorBackendId, const QVector<double>& threeJsColMajor16,
 											 QString* outError = nullptr);
-	/// 拖法兰：世界位姿 → 示教 IK → 更新关节（基座 P 不变）
-	/// outIncomplete：单步 chase/关节台阶未追到目标时为 true，供网页继续推同一目标
-	/// translateOnly：FK 锁姿 + 笛卡尔追赶；禁用关节 lerp，避免拧 TCP / 拖不动
-	bool applyIkFromFlangeThreeJsMatrix(const QString& flangeBackendId, const QVector<double>& threeJsColMajor16,
-										QVector<double>* outJointAnglesRad = nullptr, QString* outError = nullptr,
-										bool* outIncomplete = nullptr, bool translateOnly = false);
 
 	struct TcpPoseCapture
 	{
 		double positionMm[3]{0.0, 0.0, 0.0};
 		double eulerDeg[3]{0.0, 0.0, 0.0};
 		QString jointRadCsv;
+		/// 对齐桌面 context.tcpLinkName：与 capture FK 所用连杆一致（无工具偏置时即 IK 链）
+		QString tcpLinkName;
+		/// 对齐桌面 context.flangeLinkName（工具有效法兰）
 		QString flangeLinkName;
+		QString urdfPath;
+		/// 有真实工具偏置时写入；单位阵不写（避免规划误判）
+		QString toolFrameMat4Csv;
+		QString activeToolFrameId;
+		QString activeUserFrameId;
+		/// 对齐桌面 writeTargetTransformToInstruction（x,y,z,w / mm）
+		QString targetTransformQuatCsv;
+		QString targetTransformTransMmCsv;
 		/// 场景系 TCP（与 objects.worldMatrix 同 BackendMat4 布局），供网页罗盘贴合
 		BackendMat4 worldMat = BackendMat4::identity();
 	};
+
+	/// 拖法兰：世界位姿 → 示教 IK → 更新关节（基座 P 不变）
+	/// outIncomplete：单步 chase/关节台阶未追到目标时为 true，供网页继续推同一目标
+	/// translateOnly：FK 锁姿 + 笛卡尔追赶；禁用关节 lerp，避免拧 TCP / 拖不动
+	/// outReachedTeachTarget：IK 后 FK 实际到达位姿（对齐桌面 m_lastTcpDragTargetInBase）
+	bool applyIkFromFlangeThreeJsMatrix(const QString& flangeBackendId, const QVector<double>& threeJsColMajor16,
+										QVector<double>* outJointAnglesRad = nullptr, QString* outError = nullptr,
+										bool* outIncomplete = nullptr, bool translateOnly = false,
+										TcpPoseCapture* outReachedTeachTarget = nullptr);
+
 	/// 当前关节下基座系 TCP（工具原点）示教位姿
 	bool captureTcpPose(const QString& sceneRootBackendId, TcpPoseCapture& out, QString* outError = nullptr) const;
 

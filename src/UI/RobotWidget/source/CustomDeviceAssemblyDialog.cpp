@@ -803,8 +803,10 @@ void CustomDeviceAssemblyDialog::onImportModels()
 	{
 		return;
 	}
+	// 与 Host geometryOpenModelFileFilter(true) 对齐；本工程不链 CloudSimHost
 	const QString filter = QStringLiteral(
-		"Model Files (*.obj *.stl *.ply *.off *.dxf *.dae *.3ds *.fbx *.step *.stp *.igs *.iges);;All Files (*.*)");
+		"Model Files (*.obj *.stl *.ply *.off *.dxf *.3dxml *.dae *.3ds *.fbx *.step *.stp *.igs *.iges "
+		"*.brep);;All Files (*.*)");
 	const QStringList paths = QFileDialog::getOpenFileNames(
 		this, i18n(QStringLiteral("Select Model"), QStringLiteral("选择模型")), QString(), filter);
 	if (paths.isEmpty())

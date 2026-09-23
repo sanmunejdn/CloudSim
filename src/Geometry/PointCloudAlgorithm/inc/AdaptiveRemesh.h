@@ -3,7 +3,7 @@
 
 /// @file AdaptiveRemesh.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief 曲率自适应各向同性重网格（CGAL 5.5；无 Adaptive_sizing_field）
+/// @brief 曲率/残差自适应各向同性重网格（CGAL 5.5；无 Adaptive_sizing_field）
 
 #include "point_cloud_algorithm_global.h"
 
@@ -22,10 +22,17 @@ struct AdaptiveRemeshParams
 	int refineIterations = 5;
 	double featureAngleDeg = 30.0;
 	int baseRemeshIterations = 3;
+	/// 残差点（通常前层 rest 焊点）；与 residualMm 等长时启用残差边长
+	std::vector<float> residualSampleXyz; ///< 3*N
+	std::vector<float> residualMm;		  ///< N，绝对点面/点距残差（mm）
+	/// L_e = c / √(e+δ)；0 → h * √(median(e)+δ)，使中位残差处 L_e≈h
+	double residualEdgeScale = 0.0;
+	double residualFloorMm = 1e-6; ///< δ，避免 √0
 };
 
 /**
- * 先均匀 remesh 到 Lmax，再按曲率边长场做有限次 split/collapse/flip/平滑
+ * 先均匀 remesh 到 Lmax，再按 L=min(L_κ, L_e) 做有限次 split/collapse/flip/平滑
+ * L_κ=√(6ε/κ)；有残差点时 L_e=c/√(e+δ)
  * @return false：soup 非法、参数无效或 remesh 失败
  */
 POINT_CLOUD_ALGORITHM_API bool adaptiveIsotropicRemesh(const std::vector<float>& triangleSoupIn,

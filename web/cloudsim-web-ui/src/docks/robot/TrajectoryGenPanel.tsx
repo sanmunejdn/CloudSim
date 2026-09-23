@@ -18,6 +18,7 @@ import {
   strategyFilterForFeature,
   type StrategyInfo,
 } from "./featureStrategy";
+import { uiEvents, UI_EVT, type PickCommitDetail } from "../../ui/uiEvents";
 import { makeFeatureParams } from "./featureSchema";
 import FeatureParamForm from "./FeatureParamForm";
 import { publishRawPreview, type RawPreviewPayload } from "../../scene/rawPreview";
@@ -145,15 +146,15 @@ export default function TrajectoryGenPanel() {
   };
 
   useEffect(() => {
-    const onCommit = (ev: Event) => {
+    const onCommit = (d: PickCommitDetail) => {
       if (!featureEditActive || !pickMode) return;
-      const d = (ev as CustomEvent).detail as {
+      const detail = d as {
         workpieceBackendId?: string;
         result?: { faceIndex?: number; edgeIndex?: number };
       };
-      if (d.workpieceBackendId) setWorkpieceId(d.workpieceBackendId);
-      const faceIndex = d.result?.faceIndex;
-      const edgeIndex = d.result?.edgeIndex;
+      if (detail.workpieceBackendId) setWorkpieceId(detail.workpieceBackendId);
+      const faceIndex = detail.result?.faceIndex;
+      const edgeIndex = detail.result?.edgeIndex;
       const strategy = resolveFeatureStrategy(pickMode, strategyId, strategies);
       setStrategyId(strategy);
       const geom = {
@@ -191,8 +192,7 @@ export default function TrajectoryGenPanel() {
       setPickMode(null);
       if (appendMode && featSel >= 0) scheduleAutoDiscretize();
     };
-    window.addEventListener("cloudsim-pick-commit", onCommit);
-    return () => window.removeEventListener("cloudsim-pick-commit", onCommit);
+    return uiEvents.on(UI_EVT.pickCommit, onCommit);
   }, [
     featureEditActive,
     pickMode,

@@ -641,6 +641,7 @@ bool nonRigidRegisterMeshPyramid(MeshBackendData& sourceMeshInOut, const MeshBac
 	core.rigidPreAlign = params.rigidPreAlign;
 	core.useFineRegOnLastLayer = params.useFineRegOnLastLayer;
 	core.useAdaptiveDensityOnLastLayer = params.useAdaptiveDensityOnLastLayer;
+	core.useResidualDrivenSizingOnLastLayer = params.useResidualDrivenSizingOnLastLayer;
 	core.adaptiveApproxTolMm = params.adaptiveApproxTolMm;
 	core.adaptiveEdgeMinRatio = params.adaptiveEdgeMinRatio;
 	core.adaptiveEdgeMaxRatio = params.adaptiveEdgeMaxRatio;

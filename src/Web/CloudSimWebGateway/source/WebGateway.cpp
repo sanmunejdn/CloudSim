@@ -12,6 +12,7 @@
 #include "DeviceCatalogScan.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
+#include "GeometryImportUiFilters.h"
 #include "HeadlessRobotContext.h"
 #include "HeadlessPointCloudBridge.h"
 #include "io/IoSignalNetwork.h"
@@ -2118,13 +2119,11 @@ QByteArray WebGateway::nativeDialogOnGuiThread(const QByteArray& body)
 	}
 	else if (purpose == QStringLiteral("model"))
 	{
-		// 对齐桌面「打开模型」：多选网格/CAD，不当作点云
+		// 对齐桌面「打开模型」；网页无 OsgWidget，排除 dae/3ds/fbx
 		const QString caption = o.value(QStringLiteral("title")).toString(QStringLiteral("打开模型"));
 		const QString filter =
 			o.value(QStringLiteral("filter"))
-				.toString(QStringLiteral(
-					"模型文件 (*.obj *.stl *.ply *.off *.dxf *.dae *.3ds *.fbx *.step *.stp *.igs "
-					"*.iges);;所有文件 (*.*)"));
+				.toString(cloudsim::host::geometryOpenModelFileFilter(/*includeOsgCapture=*/false));
 		const QStringList files = QFileDialog::getOpenFileNames(&dialogParent, caption, startDir, filter);
 		if (files.isEmpty())
 		{
@@ -2145,9 +2144,7 @@ QByteArray WebGateway::nativeDialogOnGuiThread(const QByteArray& body)
 		const QString caption = o.value(QStringLiteral("title")).toString(QStringLiteral("选择文件"));
 		const QString filter =
 			o.value(QStringLiteral("filter"))
-				.toString(QStringLiteral(
-					"Models (*.stl *.obj *.ply *.step *.stp *.iges *.igs);;Point Clouds (*.pcd *.ply *.las "
-					"*.laz);;All Files (*.*)"));
+				.toString(cloudsim::host::geometryMixedImportFileFilter(/*includeOsgCapture=*/false));
 		const QStringList files = QFileDialog::getOpenFileNames(&dialogParent, caption, startDir, filter);
 		if (files.isEmpty())
 		{

@@ -16,6 +16,8 @@
 #include "PluginLabelingTypes.h"
 #include "PluginPointCloudTypes.h"
 
+#include "GeometryImportUiFilters.h"
+
 #include <QEventLoop>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -390,8 +392,9 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 			if (!g_allowModalDialogs)
 				return doneFail(QStringLiteral("缺少 path（应由确认面板提供）。"));
 			QString picked;
-			const QString filter = isPc ? QStringLiteral("Point Cloud (*.ply *.xyz *.las *.laz);;All (*.*)")
-										: QStringLiteral("Mesh (*.obj *.stl *.ply *.off *.step *.stp *.dxf);;All (*.*)");
+			const QString filter =
+				isPc ? QStringLiteral("点云 (*.ply *.xyz *.las *.laz *.pcd);;所有文件 (*.*)")
+					 : cloudsim::host::geometryOpenModelFileFilter(/*includeOsgCapture=*/true);
 			if (!AiAgentPickDialog::pickOpenFilePath(dialogParent(host), QStringLiteral("选择导入文件"), filter, &picked))
 				return doneFail(QStringLiteral("已取消选择导入文件。"));
 			path = picked.toStdString();

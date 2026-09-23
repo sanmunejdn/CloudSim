@@ -113,17 +113,6 @@ void overlaySettingsFromBody(const QJsonObject& body, RobotCollision::Settings& 
 		readIds(body.value(QStringLiteral("blackListBackendIds")), s.blackListBackendIds);
 }
 
-QString defaultTcpLinkForUrdf(const QString& urdfPath)
-{
-	QString preferred;
-	if (UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, preferred, nullptr) && !preferred.isEmpty())
-		return preferred;
-	QStringList childLinks;
-	if (UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr) && !childLinks.isEmpty())
-		return childLinks.back();
-	return QString();
-}
-
 std::shared_ptr<RobotInstruction::Base> findInstructionById(
 	const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& id)
 {

@@ -13,6 +13,7 @@
 #include "io/IoSignalNetwork.h"
 
 #include <QJsonArray>
+#include <QJsonObject>
 #include <QMetaObject>
 
 #include <algorithm>
@@ -27,17 +28,6 @@ QJsonArray jointsToJson(const QVector<double>& q)
 	for (double v : q)
 		arr.append(v);
 	return arr;
-}
-
-QString defaultTcpLinkForUrdf(const QString& urdfPath)
-{
-	QString preferred;
-	if (UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, preferred, nullptr) && !preferred.isEmpty())
-		return preferred;
-	QStringList childLinks;
-	if (UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr) && !childLinks.isEmpty())
-		return childLinks.back();
-	return QString();
 }
 } // namespace
 

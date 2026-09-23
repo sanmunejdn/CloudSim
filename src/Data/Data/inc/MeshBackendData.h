@@ -84,10 +84,10 @@ public:
 
 	/// 返回世界坐标系下的三角形 soup（应用 worldMatrix 变换后的副本）
 	std::vector<float> worldTriangleSoup() const;
-	static bool loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
-										  std::string* errMsg = nullptr);
 	static bool loadDxfHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
 										 std::string* errMsg = nullptr);
+	static bool load3dxmlHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
+										   std::string* errMsg = nullptr);
 
 	const std::vector<BackendPropertyBinding>& extraPropertyBindings() const override;
 

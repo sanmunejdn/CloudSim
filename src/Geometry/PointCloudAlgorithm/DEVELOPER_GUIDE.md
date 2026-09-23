@@ -47,7 +47,7 @@
 | `RegistrationSpare.h` | **SPARE** 非刚性配准（对称点-面 + 变形图 + ARAP；点云/网格 soup） |
 | `RegistrationSdf.h` | **SDF/DDF** 混合非刚性配准（粗场残差 + 细默认点-面；独立于 SPARE） |
 | `RegistrationPyramid.h` | **几何金字塔**编排（分层 remesh + prolongate + 调用 SDF/SPARE；可选末层自适应边长） |
-| `AdaptiveRemesh.h` | 曲率自适应各向同性 remesh（均匀底网 + 局部 split/collapse） |
+| `AdaptiveRemesh.h` | 曲率/残差自适应各向同性 remesh（均匀底网 + 局部 split/collapse） |
 | `Preprocess.h` | 法线、离群、平滑、重建前管线 |
 | `ReconstructionPoisson.h` | Poisson 隐式重建（定向点云）；`reconstructPoisson` / `Auto` |
 | `ReconstructionScaleSpace.h` | Scale-space 重建（仅坐标）；`reconstructScaleSpace` |
@@ -260,17 +260,23 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 独立编排层（**不修改** SPARE/SDF 求解器）。每层对**原始**源/目标做 remesh；默认均匀 `isotropicRemesh(4h→2h→h)`。可选 **末层曲率自适应边长**（`useAdaptiveDensityOnLastLayer`，默认关）：先均匀底网到 \(L_{\max}\)，再按
 
 \[
-L(v)=\mathrm{clamp}\big(\sqrt{6\varepsilon/(|\kappa|+\delta)},\,L_{\min},\,L_{\max}\big)
+L_\kappa(v)=\sqrt{6\varepsilon/(|\kappa|+\delta)}
 \]
 
-做有限次 split/collapse（见 `AdaptiveRemesh.h`）。自适应失败时回退该层均匀 remesh，并写入 `debugSummary`。L1/L2 用上一层 **rest→def 位移** prolongate：粗层间 NN；进入自适应末层时 **k=3 距离加权**。粗/中层关细阶段；末层细阶段由 `useFineRegOnLastLayer` 控制。
+做有限次 split/collapse（见 `AdaptiveRemesh.h`）。当 `useResidualDrivenSizingOnLastLayer`（默认开，且依赖自适应开关）且层数≥2 时，在倒数第二层求解后对**源**采样点面残差 \(e(v)\)，末层源 remesh 使用
+
+\[
+L(v)=\mathrm{clamp}\big(\min(L_\kappa(v),\,c/\sqrt{e(v)+\delta}),\,L_{\min},\,L_{\max}\big)
+\]
+
+（\(c\) 默认 \(h\sqrt{\mathrm{median}(e)+\delta}\)；目标仍仅曲率）。自适应失败时回退该层均匀 remesh，并写入 `debugSummary`。L1/L2 用上一层 **rest→def 位移** prolongate：粗层间 NN；进入自适应末层时 **k=3 距离加权**。粗/中层关细阶段；末层细阶段由 `useFineRegOnLastLayer` 控制。
 
 | 入口 | 说明 |
 |------|------|
 | `pyramidRegisterMeshSoupToMeshSoup` | 网格↔网格；**输出为细层 remesh 拓扑**（非原始源三角） |
-| `PyramidRegisterParams` | `baseEdgeLengthMm`（0=源中位边长）、`solver`、`rigidPreAlign`、末层自适应开关与 \(\varepsilon/L_{\min}/L_{\max}\) 比率、透传 `sdf`/`spare` |
+| `PyramidRegisterParams` | `baseEdgeLengthMm`（0=源中位边长）、`solver`、`rigidPreAlign`、末层自适应/残差开关与 \(\varepsilon/L_{\min}/L_{\max}\) 比率、透传 `sdf`/`spare` |
 
-插件：侧栏「几何金字塔」→ Host `nonRigidRegisterPyramid`（**1.53.0+**）；勾选「末层曲率自适应边长」。Backend：`nonRigidRegisterMeshPyramid`。
+插件：侧栏「几何金字塔」→ Host `nonRigidRegisterPyramid`（**1.53.0+**）；勾选「末层曲率+残差自适应边长」。Backend：`nonRigidRegisterMeshPyramid`。
 
 ---
 

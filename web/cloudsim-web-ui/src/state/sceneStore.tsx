@@ -28,6 +28,17 @@ export type RobotDragTeachPose = {
   positionMm: [number, number, number];
   eulerDeg: [number, number, number];
   jointRadCsv?: string;
+  /** 对齐桌面 context.tcpLinkName */
+  tcpLinkName?: string;
+  /** 对齐桌面 context.flangeLinkName */
+  flangeLinkName?: string;
+  urdfPath?: string;
+  toolFrameMat4Csv?: string;
+  activeToolFrameId?: string;
+  activeUserFrameId?: string;
+  /** 对齐桌面 context.targetTransform*（FK 实际到达） */
+  targetTransformQuatCsv?: string;
+  targetTransformTransMmCsv?: string;
 };
 
 type SceneCtx = {
@@ -74,11 +85,15 @@ export function SceneProvider({ children }: { children: ReactNode }) {
 
   const setRobotDragMode = useCallback((v: boolean) => {
     setRobotDragModeState(v);
-    if (!v) setRobotDragTeachPose(null);
+    // 退出拖动仍保留末次示教目标，供 PTP 落盘（对齐桌面 m_lastTcpDragTargetValid）
   }, []);
 
+  const refreshGenRef = useRef(0);
   const refreshObjects = useCallback(async () => {
+    const gen = ++refreshGenRef.current;
     const list = await fetchObjects();
+    // 并发拉取时只认最新一次，避免慢响应盖住回放中的新矩阵
+    if (gen !== refreshGenRef.current) return;
     setObjects(list.objects || []);
     if (list.projectPath) setPath(list.projectPath);
   }, [setPath]);
@@ -102,6 +117,66 @@ export function SceneProvider({ children }: { children: ReactNode }) {
   }, [onProjectChanged, refreshObjects]);
 
   useEffect(() => {
+    let debounceTimer = 0;
+    let maxWaitTimer = 0;
+    let lastFireAt = 0;
+    let playbackUntil = 0;
+    let pbTimer = 0;
+    let lastPbFireAt = 0;
+
+    const fireRefresh = () => {
+      lastFireAt = Date.now();
+      void refreshObjects();
+    };
+
+    // 普通 SceneChanged：trailing + maxWait，避免偶发脏场景不刷新
+    const scheduleFullRefresh = () => {
+      const now = Date.now();
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = 0;
+        if (maxWaitTimer) {
+          window.clearTimeout(maxWaitTimer);
+          maxWaitTimer = 0;
+        }
+        fireRefresh();
+      }, 80);
+      if (!maxWaitTimer) {
+        const wait = lastFireAt ? Math.max(0, 120 - (now - lastFireAt)) : 0;
+        maxWaitTimer = window.setTimeout(() => {
+          maxWaitTimer = 0;
+          if (debounceTimer) {
+            window.clearTimeout(debounceTimer);
+            debounceTimer = 0;
+          }
+          fireRefresh();
+        }, wait);
+      }
+    };
+
+    // 回放：跟服务端 40ms tick 对齐，且勿与 SceneChanged 叠加重拉
+    const schedulePlaybackRefresh = () => {
+      const now = Date.now();
+      playbackUntil = now + 250;
+      const gap = now - lastPbFireAt;
+      if (gap >= 40) {
+        if (pbTimer) {
+          window.clearTimeout(pbTimer);
+          pbTimer = 0;
+        }
+        lastPbFireAt = now;
+        fireRefresh();
+        return;
+      }
+      if (!pbTimer) {
+        pbTimer = window.setTimeout(() => {
+          pbTimer = 0;
+          lastPbFireAt = Date.now();
+          fireRefresh();
+        }, Math.max(0, 40 - gap));
+      }
+    };
+
     const off = eventHub.onAny((_d, type) => {
       if (type === "RobotKinematicsApplied" && robotDragModeRef.current) {
         return;
@@ -117,31 +192,31 @@ export function SceneProvider({ children }: { children: ReactNode }) {
         } catch {
           /* 无 payload 则全量 */
         }
-        void refreshObjects();
+        scheduleFullRefresh();
         return;
       }
       if (type === "RobotKinematicsApplied") {
-        try {
-          const j = JSON.parse(_d) as { sceneRootBackendId?: string; backendId?: string };
-          const id = j.sceneRootBackendId || j.backendId;
-          if (id) {
-            void mergeObjectById(id);
-            return;
-          }
-        } catch {
-          /* fallthrough */
-        }
-        void refreshObjects();
+        // per-link FK 改的是各连杆 worldMatrix，只 merge 根节点看不见运动
+        scheduleFullRefresh();
+        return;
+      }
+      if (type === "PlaybackFrame") {
+        schedulePlaybackRefresh();
+        return;
+      }
+      if (type === "SceneChanged") {
+        // 回放中 SceneChanged 与 PlaybackFrame 同频，交给 PlaybackFrame 节流即可
+        if (Date.now() < playbackUntil) return;
+        scheduleFullRefresh();
         return;
       }
       if (
-        type === "SceneChanged" ||
         type === "BackendObjectCreated" ||
         type === "BackendObjectRegistered" ||
         type === "BackendObjectRemoved" ||
         type === "ProjectLoaded"
       ) {
-        void refreshObjects();
+        scheduleFullRefresh();
       }
       if (type === "SelectionChanged") {
         try {
@@ -152,7 +227,12 @@ export function SceneProvider({ children }: { children: ReactNode }) {
         }
       }
     });
-    return off;
+    return () => {
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      if (maxWaitTimer) window.clearTimeout(maxWaitTimer);
+      if (pbTimer) window.clearTimeout(pbTimer);
+      off();
+    };
   }, [refreshObjects, mergeObjectById]);
 
   const selectObject = useCallback(async (id: string | null) => {
@@ -187,7 +267,7 @@ export function SceneProvider({ children }: { children: ReactNode }) {
 
   const requestFocus = useCallback(() => setFocusRequest((n) => n + 1), []);
 
-  // 对齐桌面「打开模型」：多选；始终按网格/CAD 导入
+  // 对齐桌面「打开模型」：多选；始终按网格/CAD 导入；选中末件并聚焦
   const doOpenModel = useCallback(async () => {
     const d = await dialogOpen({ purpose: "model", title: "打开模型" });
     if (!d.ok) return;
@@ -195,10 +275,13 @@ export function SceneProvider({ children }: { children: ReactNode }) {
     if (!paths.length) return;
     let okN = 0;
     let lastErr = "";
+    let lastId: string | null = null;
     for (const p of paths) {
       const r = await importObject(p, false);
-      if (r.ok) ++okN;
-      else lastErr = r.error || "打开模型失败";
+      if (r.ok) {
+        ++okN;
+        if (r.id) lastId = r.id;
+      } else lastErr = r.error || "打开模型失败";
     }
     setStatus(
       okN === paths.length
@@ -209,8 +292,11 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       okN > 0 ? "info" : "err",
     );
     await refreshObjects();
-    if (okN > 0) requestFocus();
-  }, [refreshObjects, setStatus, requestFocus]);
+    if (okN > 0) {
+      if (lastId) await selectObject(lastId);
+      requestFocus();
+    }
+  }, [refreshObjects, setStatus, requestFocus, selectObject]);
 
   // 对齐桌面「打开点云」：dialog 过滤器走 Host purpose=pointcloud
   const doOpenPointCloud = useCallback(async () => {
@@ -220,10 +306,13 @@ export function SceneProvider({ children }: { children: ReactNode }) {
     if (!paths.length) return;
     let okN = 0;
     let lastErr = "";
+    let lastId: string | null = null;
     for (const p of paths) {
       const r = await importObject(p, true);
-      if (r.ok) ++okN;
-      else lastErr = r.error || "打开点云失败";
+      if (r.ok) {
+        ++okN;
+        if (r.id) lastId = r.id;
+      } else lastErr = r.error || "打开点云失败";
     }
     setStatus(
       okN === paths.length
@@ -234,8 +323,11 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       okN > 0 ? "info" : "err",
     );
     await refreshObjects();
-    if (okN > 0) requestFocus();
-  }, [refreshObjects, setStatus, requestFocus]);
+    if (okN > 0) {
+      if (lastId) await selectObject(lastId);
+      requestFocus();
+    }
+  }, [refreshObjects, setStatus, requestFocus, selectObject]);
 
   const value = useMemo(
     () => ({
