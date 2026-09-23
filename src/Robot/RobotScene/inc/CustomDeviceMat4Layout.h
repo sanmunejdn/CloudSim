@@ -1,8 +1,12 @@
-#ifndef ROBOTSCENE_CUSTOMDEVICEMAT4LAYOUT_H
+﻿#ifndef ROBOTSCENE_CUSTOMDEVICEMAT4LAYOUT_H
 #define ROBOTSCENE_CUSTOMDEVICEMAT4LAYOUT_H
 
-#include "BackendFollowMath.h"
+/// @file CustomDeviceMat4Layout.h
+/// @brief Backend/OSG 打包矩阵（平移 v[3,7,11]）→ KinematicCore 列主序（平移 v[12..14]）
+
 #include "robot_scene_global.h"
+
+#include "BackendFollowMath.h"
 
 namespace CustomDeviceMat4Layout
 {

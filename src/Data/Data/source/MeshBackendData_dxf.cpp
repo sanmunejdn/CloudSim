@@ -84,12 +84,14 @@ public:
 						const std::size_t i10 = (static_cast<std::size_t>(i) + 1) * n + j;
 						const std::size_t i11 = (static_cast<std::size_t>(i) + 1) * n + (j + 1);
 						const std::size_t i01 = static_cast<std::size_t>(i) * n + (j + 1);
-						mesh_backend_load::meshPushTri(soup, m_verts[i00 * 3], m_verts[i00 * 3 + 1], m_verts[i00 * 3 + 2],
-													   m_verts[i10 * 3], m_verts[i10 * 3 + 1], m_verts[i10 * 3 + 2],
-													   m_verts[i11 * 3], m_verts[i11 * 3 + 1], m_verts[i11 * 3 + 2]);
-						mesh_backend_load::meshPushTri(soup, m_verts[i00 * 3], m_verts[i00 * 3 + 1], m_verts[i00 * 3 + 2],
-													   m_verts[i11 * 3], m_verts[i11 * 3 + 1], m_verts[i11 * 3 + 2],
-													   m_verts[i01 * 3], m_verts[i01 * 3 + 1], m_verts[i01 * 3 + 2]);
+						mesh_backend_load::meshPushTri(soup, m_verts[i00 * 3], m_verts[i00 * 3 + 1],
+													   m_verts[i00 * 3 + 2], m_verts[i10 * 3], m_verts[i10 * 3 + 1],
+													   m_verts[i10 * 3 + 2], m_verts[i11 * 3], m_verts[i11 * 3 + 1],
+													   m_verts[i11 * 3 + 2]);
+						mesh_backend_load::meshPushTri(soup, m_verts[i00 * 3], m_verts[i00 * 3 + 1],
+													   m_verts[i00 * 3 + 2], m_verts[i11 * 3], m_verts[i11 * 3 + 1],
+													   m_verts[i11 * 3 + 2], m_verts[i01 * 3], m_verts[i01 * 3 + 1],
+													   m_verts[i01 * 3 + 2]);
 					}
 				}
 			}
@@ -164,10 +166,7 @@ public:
 private:
 	DxfPolylineAccumulator m_poly;
 
-	bool entityVisible()
-	{
-		return hiddenLayers.find(getAttributes().getLayer()) == hiddenLayers.end();
-	}
+	bool entityVisible() { return hiddenLayers.find(getAttributes().getLayer()) == hiddenLayers.end(); }
 
 	void flushPolyline() { m_poly.flush(soup); }
 };
@@ -374,10 +373,7 @@ private:
 	std::vector<std::string> m_blockStack;
 	DxfPolylineAccumulator m_poly;
 
-	bool entityVisible()
-	{
-		return hiddenLayers.find(getAttributes().getLayer()) == hiddenLayers.end();
-	}
+	bool entityVisible() { return hiddenLayers.find(getAttributes().getLayer()) == hiddenLayers.end(); }
 
 	std::vector<float>& targetSoup()
 	{

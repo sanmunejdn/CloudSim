@@ -1,4 +1,4 @@
-#ifndef WIDGET_QTKEYBOARDMAP_H
+﻿#ifndef WIDGET_QTKEYBOARDMAP_H
 #define WIDGET_QTKEYBOARDMAP_H
 
 /// @file QtKeyboardMap.h

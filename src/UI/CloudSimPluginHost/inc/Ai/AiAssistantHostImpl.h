@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
 #define CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
 
 /// @file AiAssistantHostImpl.h
@@ -92,4 +92,4 @@ private:
 	std::unique_ptr<AiAgentRuntime> m_agentRuntime;
 };
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H

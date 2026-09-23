@@ -1,11 +1,10 @@
-/// @file HikMv3dCamera.cpp
+﻿/// @file HikMv3dCamera.cpp
 /// @brief 海康 Mv3dRgbd：定义 CLOUDSIM_HAS_HIK_MV3D 后启用
 
 #include "HikMv3dCamera.h"
 
 namespace industrial_camera
 {
-
 bool HikMv3dCamera::sdkAvailable()
 {
 #if defined(CLOUDSIM_HAS_HIK_MV3D)

@@ -1,4 +1,4 @@
-/// @file HeadlessLabelingBridge.cpp
+﻿/// @file HeadlessLabelingBridge.cpp
 
 #include "headless/HeadlessLabelingBridge.h"
 

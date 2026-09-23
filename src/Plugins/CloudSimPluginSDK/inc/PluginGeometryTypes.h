@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
+﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
 #define CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
 
 /// @file PluginGeometryTypes.h
@@ -450,9 +450,8 @@ struct PluginSupportPlaneCandidate
 	float halfExtentMm = 40.f;
 };
 
-using PluginSupportPlanePickedFn =
-	std::function<void(bool ok, const QString& error, PluginOriginPlaneKind kind, const PluginSketchPlane& plane,
-					   const QString& tag)>;
+using PluginSupportPlanePickedFn = std::function<void(bool ok, const QString& error, PluginOriginPlaneKind kind,
+													  const PluginSketchPlane& plane, const QString& tag)>;
 
 /// 1.33.0+：单视图 HLR 折线（xy 交错，无 z）
 struct PluginDrawingHlrViewResult

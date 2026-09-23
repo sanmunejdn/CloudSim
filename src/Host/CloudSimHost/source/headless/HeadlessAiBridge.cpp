@@ -1,4 +1,4 @@
-/// @file HeadlessAiBridge.cpp
+﻿/// @file HeadlessAiBridge.cpp
 
 #include "headless/HeadlessAiBridge.h"
 
@@ -54,8 +54,7 @@ QJsonObject HeadlessAiBridge::chat(const QJsonObject& body)
 	const QString systemPrompt =
 		body.value(QStringLiteral("systemPrompt"))
 			.toString(QStringLiteral("You are CloudSim assistant. Reply concisely in the user's language."));
-	const AiLlmClient::TextChatResult result =
-		AiLlmClient::chatText(systemPrompt, userText, cfg);
+	const AiLlmClient::TextChatResult result = AiLlmClient::chatText(systemPrompt, userText, cfg);
 
 	if (!result.ok)
 		return fail(result.errorMessage);

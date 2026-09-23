@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_DOCUMENTPROJECTSIDECAR_H
+﻿#ifndef CLOUDSIMHOST_DOCUMENTPROJECTSIDECAR_H
 #define CLOUDSIMHOST_DOCUMENTPROJECTSIDECAR_H
 
 /// @file DocumentProjectSidecar.h
@@ -35,4 +35,4 @@ private:
 
 } // namespace cloudsim::host
 
-#endif
+#endif // CLOUDSIMHOST_DOCUMENTPROJECTSIDECAR_H

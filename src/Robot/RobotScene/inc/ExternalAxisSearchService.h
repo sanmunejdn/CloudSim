@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_EXTERNALAXISSEARCHSERVICE_H
+﻿#ifndef ROBOTSCENE_EXTERNALAXISSEARCHSERVICE_H
 #define ROBOTSCENE_EXTERNALAXISSEARCHSERVICE_H
 
 /// @file ExternalAxisSearchService.h
@@ -7,10 +7,10 @@
 
 #include "robot_scene_global.h"
 
-#include <IExternalAxisSearchService.h>
-
 #include <QString>
 #include <vector>
+
+#include <IExternalAxisSearchService.h>
 
 namespace RobotInstruction
 {

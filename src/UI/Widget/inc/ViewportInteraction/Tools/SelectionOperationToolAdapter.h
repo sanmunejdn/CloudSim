@@ -10,8 +10,6 @@
 
 #include <string>
 
-#include "SelectionOperation.h"
-
 class SelectionOperationToolAdapter final : public IPointerTool
 {
 public:

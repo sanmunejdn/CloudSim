@@ -1,20 +1,19 @@
-/// @file HandEyeEnsemble.cpp
+﻿/// @file HandEyeEnsemble.cpp
 /// @brief 多算法手眼标定 + 残差择优（Eigen）
 
 #include "HandEyeTypes.h"
+
+#include <cmath>
+#include <limits>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <Eigen/SVD>
 
-#include <cmath>
-#include <limits>
-
 namespace industrial_camera
 {
 namespace
 {
-
 using Mat3 = Eigen::Matrix3d;
 using Vec3 = Eigen::Vector3d;
 using Isom = Eigen::Isometry3d;
@@ -74,8 +73,8 @@ struct MotionPair
 	Vec3 ta, tb;
 };
 
-std::vector<MotionPair> buildMotionPairs(const std::vector<Isom>& A, const std::vector<Isom>& B,
-										 double minDeg, double maxDeg, int* kept)
+std::vector<MotionPair> buildMotionPairs(const std::vector<Isom>& A, const std::vector<Isom>& B, double minDeg,
+										 double maxDeg, int* kept)
 {
 	std::vector<MotionPair> pairs;
 	const size_t n = A.size();
@@ -155,8 +154,8 @@ bool solveTsai(const std::vector<MotionPair>& pairs, Isom& X)
 	const Vec3 Pcg_prime = A.colPivHouseholderQr().solve(b);
 	const double n = Pcg_prime.norm();
 	Vec3 Pcg = 2.0 * Pcg_prime / std::sqrt(1.0 + n * n);
-	Mat3 R = (1.0 - 0.5 * Pcg.squaredNorm()) * Mat3::Identity()
-			 + 0.5 * (Pcg * Pcg.transpose() + std::sqrt(std::max(0.0, 4.0 - Pcg.squaredNorm())) * skew(Pcg));
+	Mat3 R = (1.0 - 0.5 * Pcg.squaredNorm()) * Mat3::Identity() +
+			 0.5 * (Pcg * Pcg.transpose() + std::sqrt(std::max(0.0, 4.0 - Pcg.squaredNorm())) * skew(Pcg));
 
 	Eigen::MatrixXd C(3 * pairs.size(), 3);
 	Eigen::VectorXd d(3 * pairs.size());
@@ -241,8 +240,8 @@ bool solveDaniilidis(const std::vector<MotionPair>& pairs, Isom& X)
 	return true;
 }
 
-void scoreCandidate(const std::vector<MotionPair>& pairs, const Isom& X, HandEyeMethodScore& s,
-					double wR, double wT, double L)
+void scoreCandidate(const std::vector<MotionPair>& pairs, const Isom& X, HandEyeMethodScore& s, double wR, double wT,
+					double L)
 {
 	double sumR = 0.0;
 	double sumT = 0.0;

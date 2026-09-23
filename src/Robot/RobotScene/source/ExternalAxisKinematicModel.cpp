@@ -1,7 +1,9 @@
+﻿/// @file ExternalAxisKinematicModel.cpp
+/// @brief ExternalAxisKinematicModel 实现
+
 #include "ExternalAxisKinematicModel.h"
 
 #include "ExternalAxisGraphBuilder.h"
-
 #include "TreeForwardKinematics.h"
 
 namespace ExternalAxisKinematicModel

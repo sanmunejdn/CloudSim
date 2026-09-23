@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDFOLLOWMATH_H
+﻿#ifndef DATA_BACKENDFOLLOWMATH_H
 #define DATA_BACKENDFOLLOWMATH_H
 
 /// @file BackendFollowMath.h

@@ -23,7 +23,6 @@
 #include "TemplateBrepUpdate.h"
 #include "WidgetDocumentAccess.h"
 
-#include <QLatin1String>
 #include <atomic>
 #include <cmath>
 #include <functional>
@@ -35,6 +34,7 @@
 #include <BrepImportArtifacts.h>
 #include <GeometryBackendOps.h>
 #include <MeshSurfaceReconstruction.h>
+#include <QLatin1String>
 #include <TubularGrinding.h>
 #include <osg/Matrixd>
 #include <osg/Quat>
@@ -66,9 +66,9 @@ void rotateNormalsByWorldMatrix(std::vector<float>& normals, const BackendMat4& 
 	const BackendVec3 origin = backend_mat4_transform_point(world, BackendVec3{0.0, 0.0, 0.0});
 	for (std::size_t i = 0; i + 2U < normals.size(); i += 3U)
 	{
-		const BackendVec3 tip = backend_mat4_transform_point(
-			world, BackendVec3{static_cast<double>(normals[i]), static_cast<double>(normals[i + 1U]),
-							   static_cast<double>(normals[i + 2U])});
+		const BackendVec3 tip = backend_mat4_transform_point(world, BackendVec3{static_cast<double>(normals[i]),
+																				static_cast<double>(normals[i + 1U]),
+																				static_cast<double>(normals[i + 2U])});
 		double nx = tip.x - origin.x;
 		double ny = tip.y - origin.y;
 		double nz = tip.z - origin.z;
@@ -759,7 +759,8 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 		{
 			report(0.15, QStringLiteral("Running SPARE (world frame)..."));
 			// 与 SDF 一致：在世界系配准，避免源/目标 local 位姿不一致
-			auto makeWorldTargetPc = [&]() -> std::shared_ptr<PointCloudBackendData> {
+			auto makeWorldTargetPc = [&]() -> std::shared_ptr<PointCloudBackendData>
+			{
 				auto w = std::make_shared<PointCloudBackendData>();
 				std::vector<float> xyz = targetPc->worldPositionsXyz();
 				std::vector<float> normals = targetPc->pointNormalsNxNyNz();
@@ -767,7 +768,8 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 				w->setPointBuffers(std::move(xyz), {}, std::move(normals));
 				return w;
 			};
-			auto makeWorldTargetMesh = [&]() -> std::shared_ptr<MeshBackendData> {
+			auto makeWorldTargetMesh = [&]() -> std::shared_ptr<MeshBackendData>
+			{
 				auto w = std::make_shared<MeshBackendData>();
 				w->setTriangleSoup(targetMesh->worldTriangleSoup());
 				return w;
@@ -958,7 +960,6 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 		});
 }
 
-
 namespace
 {
 point_cloud_backend_ops::PointCloudSdfParams buildSdfParams(const PluginPointCloudSdfParams& params)
@@ -1058,7 +1059,8 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 		{
 			report(0.15, QStringLiteral("Running SDF/DDF (world frame)..."));
 			// 在世界系配准，避免源/目标 local 位姿不一致导致「形变不大却看起来乱」
-			auto makeWorldTargetPc = [&]() -> std::shared_ptr<PointCloudBackendData> {
+			auto makeWorldTargetPc = [&]() -> std::shared_ptr<PointCloudBackendData>
+			{
 				auto w = std::make_shared<PointCloudBackendData>();
 				std::vector<float> xyz = targetPc->worldPositionsXyz();
 				std::vector<float> normals = targetPc->pointNormalsNxNyNz();
@@ -1066,7 +1068,8 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 				w->setPointBuffers(std::move(xyz), {}, std::move(normals));
 				return w;
 			};
-			auto makeWorldTargetMesh = [&]() -> std::shared_ptr<MeshBackendData> {
+			auto makeWorldTargetMesh = [&]() -> std::shared_ptr<MeshBackendData>
+			{
 				auto w = std::make_shared<MeshBackendData>();
 				w->setTriangleSoup(targetMesh->worldTriangleSoup());
 				return w;
@@ -1098,8 +1101,8 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 					tgtPcWorld = makeWorldTargetPc();
 					tgtPcPtr = tgtPcWorld.get();
 				}
-				result->ok = point_cloud_backend_ops::nonRigidRegisterMeshSdf(
-					*meshCopy, tgtPcPtr, tgtMeshPtr, result->sdf, coreParams, &result->error);
+				result->ok = point_cloud_backend_ops::nonRigidRegisterMeshSdf(*meshCopy, tgtPcPtr, tgtMeshPtr,
+																			  result->sdf, coreParams, &result->error);
 				if (result->ok)
 				{
 					result->newMeshSoup = meshCopy->triangleSoup();
@@ -1152,8 +1155,8 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 				rotateNormalsByWorldMatrix(normals, sourcePc->worldMatrix());
 				pcCopy->setPointBuffers(std::move(xyz), sourcePc->pointVertexRgba(), std::move(normals));
 				auto tgtPcWorld = makeWorldTargetPc();
-				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudsSdf(
-					*pcCopy, *tgtPcWorld, result->sdf, coreParams, &result->error);
+				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudsSdf(*pcCopy, *tgtPcWorld, result->sdf,
+																					 coreParams, &result->error);
 				if (result->ok)
 				{
 					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
@@ -1163,8 +1166,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 			}
 			if (result->ok && !sourceIsMesh)
 			{
-				result->sdf.debugSummary =
-					std::string("[SDF-debug] frame=world\n") + result->sdf.debugSummary;
+				result->sdf.debugSummary = std::string("[SDF-debug] frame=world\n") + result->sdf.debugSummary;
 			}
 			report(1.0, QStringLiteral("Done"));
 		},
@@ -1216,8 +1218,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 					if (options.displayName.isEmpty())
 					{
 						const QString base = QString::fromStdString(sourceMesh->name());
-						options.displayName =
-							base.isEmpty() ? QStringLiteral("SDF") : base + QStringLiteral("_SDF");
+						options.displayName = base.isEmpty() ? QStringLiteral("SDF") : base + QStringLiteral("_SDF");
 					}
 					options.selectInTree = true;
 					options.sourcePath = QStringLiteral("plugin://pointcloud/sdf");
@@ -1363,8 +1364,8 @@ void PluginPointCloudHostImpl::nonRigidRegisterPyramid(IPluginDocument* doc, con
 			meshCopy->setTriangleSoup(sourceMesh->worldTriangleSoup());
 			auto tgtWorld = std::make_shared<MeshBackendData>();
 			tgtWorld->setTriangleSoup(targetMesh->worldTriangleSoup());
-			result->ok = point_cloud_backend_ops::nonRigidRegisterMeshPyramid(
-				*meshCopy, *tgtWorld, result->pyramid, coreParams, &result->error);
+			result->ok = point_cloud_backend_ops::nonRigidRegisterMeshPyramid(*meshCopy, *tgtWorld, result->pyramid,
+																			  coreParams, &result->error);
 			if (result->ok)
 			{
 				result->newMeshSoup = meshCopy->triangleSoup();
@@ -2050,9 +2051,9 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 	if (!backend_mat4_nearly_equal(templateBrep->worldMatrix(), m_templateBrepAlignCache.templateWorldMatrixAtRegister,
 								   1e-5))
 	{
-		onFinished(false,
-				   QStringLiteral("Template B-rep has moved since registration; re-run scan-to-template matching first"),
-				   {});
+		onFinished(
+			false,
+			QStringLiteral("Template B-rep has moved since registration; re-run scan-to-template matching first"), {});
 		return;
 	}
 	const QString templateStepPath =
@@ -2159,7 +2160,8 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 			constexpr bool kResetViewToHome = false;
 			QString regErr;
 			const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
-				*page, result->brep, sourcePath, QLatin1String(backend_type::kCatalogBrepModel), QString(), kResetViewToHome, &regErr);
+				*page, result->brep, sourcePath, QLatin1String(backend_type::kCatalogBrepModel), QString(),
+				kResetViewToHome, &regErr);
 			if (!registerOk)
 			{
 				onFinished(false, regErr.isEmpty() ? QStringLiteral("Register updated B-rep failed") : regErr,
@@ -3230,8 +3232,8 @@ bool registerReconstructedBrepFromShape(PluginHostContext* host, cloudsim::host:
 	constexpr bool kResetViewToHome = false;
 	QString regErr;
 	const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
-		*page, brep, QStringLiteral("plugin://pointcloud/surface-reconstruct"), QLatin1String(backend_type::kCatalogBrepModel), QString(),
-		kResetViewToHome, &regErr);
+		*page, brep, QStringLiteral("plugin://pointcloud/surface-reconstruct"),
+		QLatin1String(backend_type::kCatalogBrepModel), QString(), kResetViewToHome, &regErr);
 	if (!registerOk)
 	{
 		if (errMsg)

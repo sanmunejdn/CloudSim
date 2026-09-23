@@ -1,15 +1,19 @@
+﻿/// @file SdfDeformSolver.cpp
+/// @brief SdfDeformSolver 实现
+
 #include "sdf/SdfDeformSolver.h"
 
 #include "KdTreePointSet.h"
 #include "Measure.h"
 #include "Preprocess.h"
 
-#include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
 #include <sstream>
 #include <tuple>
 #include <vector>
+
+#include <Eigen/Dense>
 
 namespace pclalgo
 {
@@ -17,7 +21,6 @@ namespace sdf
 {
 namespace
 {
-
 Eigen::Vector3d readP(const std::vector<float>& xyz, std::size_t i)
 {
 	return Eigen::Vector3d(xyz[i * 3U], xyz[i * 3U + 1U], xyz[i * 3U + 2U]);
@@ -191,14 +194,16 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 	// 数据项放大：2500 个采样点驱动 511 节点，需足够大梯度才能看到非刚性位移
 	double dataGain = 20.0;
 
-	auto applyNodes = [&]() {
+	auto applyNodes = [&]()
+	{
 		for (std::size_t i = 0; i < n; ++i)
 		{
 			writeP(xyzInOut, i, readP(restXyz, i) + skinnedDelta(graph, i, nodeT));
 		}
 	};
 
-	auto smoothNodes = [&]() {
+	auto smoothNodes = [&]()
+	{
 		std::vector<Eigen::Vector3d> smoothed = nodeT;
 		for (std::size_t j = 0; j < nodeT.size(); ++j)
 		{
@@ -221,7 +226,8 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 	};
 
 	auto optimizeNodes = [&](bool coarse, int* outSampled, int* outAccepted, int* outRejPair, int* outRejN,
-							 int* outRejTang, double* outCancelRatio) -> double {
+							 int* outRejTang, double* outCancelRatio) -> double
+	{
 		const int iters = std::max(1, params.maxOuterIters);
 		double nu2 = std::max(sampleR * sampleR, (diag * 0.015) * (diag * 0.015));
 		double meanErr = 0.0;
@@ -276,7 +282,8 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 					++lastRejTang;
 					continue;
 				}
-				const Eigen::Vector3d residual = residualAt(x, s, coarse, params.fieldMode, params.fineDataTerm) * dataGain;
+				const Eigen::Vector3d residual =
+					residualAt(x, s, coarse, params.fieldMode, params.fineDataTerm) * dataGain;
 				const double r2 = residual.squaredNorm();
 				const double alpha = welsch(r2, nu2);
 				const double rMag = std::sqrt(r2);
@@ -411,7 +418,8 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 	double cancelRatio = 1.0;
 
 	// 残差分解：总残差 / 法向分量 / 切向分量（normalize 单位）
-	auto errDecomp = [&]() {
+	auto errDecomp = [&]()
+	{
 		double sumR = 0.0;
 		double sumN = 0.0;
 		double sumT = 0.0;
@@ -456,12 +464,14 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 			wEdge = 0.0;
 			const double savedGain = dataGain;
 			dataGain *= 3.0;
-			meanErr = optimizeNodes(false, &corrSampled, &corrAccepted, &corrRejPair, &corrRejN, &corrRejTang, &cancelRatio);
+			meanErr =
+				optimizeNodes(false, &corrSampled, &corrAccepted, &corrRejPair, &corrRejN, &corrRejTang, &cancelRatio);
 			dataGain = savedGain;
 		}
 		else
 		{
-			meanErr = optimizeNodes(false, &corrSampled, &corrAccepted, &corrRejPair, &corrRejN, &corrRejTang, &cancelRatio);
+			meanErr =
+				optimizeNodes(false, &corrSampled, &corrAccepted, &corrRejPair, &corrRejN, &corrRejTang, &cancelRatio);
 		}
 	}
 	applyNodes();
@@ -679,7 +689,8 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 			stats->edgeStretchOver10 = over10;
 			if (!ratios.empty())
 			{
-				std::nth_element(ratios.begin(), ratios.begin() + static_cast<std::ptrdiff_t>(ratios.size() * 95U / 100U),
+				std::nth_element(ratios.begin(),
+								 ratios.begin() + static_cast<std::ptrdiff_t>(ratios.size() * 95U / 100U),
 								 ratios.end());
 				stats->edgeStretchP95 = ratios[ratios.size() * 95U / 100U];
 			}
@@ -688,10 +699,10 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 		std::ostringstream oss;
 		oss << "[SDF-debug] verts=" << n << " nodes=" << graph.nodeRest.size()
 			<< " meshTopo=" << (stats->usedMeshTopology ? 1 : 0) << " edges=" << stats->meshEdgeCount << "\n";
-		oss << "[SDF-debug] sampleR=" << sampleR << " maxPair=" << maxPair << " maxTang=" << maxTang
-			<< " wSmo=" << wSmo << " wEdge=" << wEdge << " maxStep=" << maxNodeStep << "\n";
-		oss << "[SDF-debug] corr sampled=" << corrSampled << " accepted=" << corrAccepted
-			<< " rejPair=" << corrRejPair << " rejNormal=" << corrRejN << " rejTang=" << corrRejTang;
+		oss << "[SDF-debug] sampleR=" << sampleR << " maxPair=" << maxPair << " maxTang=" << maxTang << " wSmo=" << wSmo
+			<< " wEdge=" << wEdge << " maxStep=" << maxNodeStep << "\n";
+		oss << "[SDF-debug] corr sampled=" << corrSampled << " accepted=" << corrAccepted << " rejPair=" << corrRejPair
+			<< " rejNormal=" << corrRejN << " rejTang=" << corrRejTang;
 		if (corrSampled > 0)
 		{
 			oss << " acceptRate=" << (100.0 * corrAccepted / corrSampled) << "%";

@@ -1,15 +1,17 @@
+﻿/// @file KinematicCoreUrdfIk.cpp
+/// @brief 一次 FK：tip（OSG）+ 几何雅可比
+
 #include "KinematicCoreUrdfIk.h"
 
+#include "KinematicGraph.h"
 #include "UrdfKinematicsWorkspace.h"
 #include "UrdfRobotLoader.h"
 
-#include "KinematicGraph.h"
-
 #include <QVector>
-
 #include <algorithm>
 #include <array>
 #include <cmath>
+
 #include <osg/Quat>
 
 namespace UrdfRobotLoader
@@ -120,13 +122,11 @@ void clampQToGraphLimits(const kinematic_core::KinematicGraph& graph, std::vecto
 {
 	for (const kinematic_core::KinematicJoint& j : graph.joints)
 	{
-		if (j.qIndex < 0 || !j.motion.enabled || !j.motion.hasLimit ||
-			static_cast<std::size_t>(j.qIndex) >= q.size())
+		if (j.qIndex < 0 || !j.motion.enabled || !j.motion.hasLimit || static_cast<std::size_t>(j.qIndex) >= q.size())
 		{
 			continue;
 		}
-		q[static_cast<size_t>(j.qIndex)] =
-			std::clamp(q[static_cast<size_t>(j.qIndex)], j.motion.lower, j.motion.upper);
+		q[static_cast<size_t>(j.qIndex)] = std::clamp(q[static_cast<size_t>(j.qIndex)], j.motion.lower, j.motion.upper);
 	}
 }
 
@@ -286,7 +286,8 @@ std::vector<double> runWristOnlyOrientationRefine(const QString& urdfPath, const
 	QVector<double> qRad;
 	qRad.resize(n);
 
-	auto fkErrors = [&](const std::vector<double>& qIn, double& posErr, double& rotErr) -> bool {
+	auto fkErrors = [&](const std::vector<double>& qIn, double& posErr, double& rotErr) -> bool
+	{
 		for (int j = 0; j < n; ++j)
 		{
 			qRad[j] = qIn[static_cast<size_t>(j)];
@@ -371,8 +372,7 @@ std::vector<double> runWristOnlyOrientationRefine(const QString& urdfPath, const
 				for (int w = 0; w < kWristDof; ++w)
 				{
 					const int jCol = wristStart + w;
-					s += ws.J[static_cast<size_t>((3 + r) * n + jCol)] *
-						 ws.J[static_cast<size_t>((3 + c) * n + jCol)];
+					s += ws.J[static_cast<size_t>((3 + r) * n + jCol)] * ws.J[static_cast<size_t>((3 + c) * n + jCol)];
 				}
 				JJt[static_cast<size_t>(r * 3 + c)] = s;
 			}
@@ -587,8 +587,7 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 	// 规划常从家位到示教点（日志见 ~337mm/180°），pos-then-ori 仍可能收敛。
 	constexpr double kSkipRefinePosHardMm = 800.0;
 	constexpr double kSkipRefineRotHardRad = 170.0 * 3.14159265358979323846 / 180.0;
-	const bool hopeless =
-		bestPosErr > kSkipRefinePosHardMm && bestRotErr > kSkipRefineRotHardRad;
+	const bool hopeless = bestPosErr > kSkipRefinePosHardMm && bestRotErr > kSkipRefineRotHardRad;
 	if (hopeless)
 	{
 		if (failReason)
@@ -659,10 +658,9 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 	const int jWrist = n >= 2 ? n - 2 : -1;
 	const double qTail0 = (jTail >= 0) ? qPos[static_cast<size_t>(jTail)] : 0.0;
 	const double qWrist0 = (jWrist >= 0) ? qPos[static_cast<size_t>(jWrist)] : 0.0;
-	const double kTailOffsets[] = {0.0,	 0.25 * kPi, -0.25 * kPi, 0.5 * kPi, -0.5 * kPi,
-								   0.75 * kPi, -0.75 * kPi, kPi,	   -kPi};
-	const int maxRefineAttempts =
-		options.maxPosThenOriAttempts > 0 ? options.maxPosThenOriAttempts : 18;
+	const double kTailOffsets[] = {0.0,		   0.25 * kPi,	-0.25 * kPi, 0.5 * kPi, -0.5 * kPi,
+								   0.75 * kPi, -0.75 * kPi, kPi,		 -kPi};
+	const int maxRefineAttempts = options.maxPosThenOriAttempts > 0 ? options.maxPosThenOriAttempts : 18;
 	std::string refineFail;
 	for (int wristFlip = 0; wristFlip < 2; ++wristFlip)
 	{
@@ -683,8 +681,8 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 			}
 			clampQToGraphLimits(graph, qSeed);
 			++refineAttempts;
-			std::vector<double> qOri = runWristOnlyOrientationRefine(urdfPath, ikLink, graph, linkIdx, target, qSeed,
-																	 oriOpt);
+			std::vector<double> qOri =
+				runWristOnlyOrientationRefine(urdfPath, ikLink, graph, linkIdx, target, qSeed, oriOpt);
 			if (qOri.empty())
 			{
 				qOri = runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, target, std::move(qSeed), oriOpt, &refineFail,

@@ -4,7 +4,7 @@
 > 完整许可见 [`../LICENSE`](../LICENSE)。
 
 各子工程旁的 **`DEVELOPER_GUIDE.md` / `README.md`** 是模块级真源。  
-全库入口：[`../../docs/README.md`](../../docs/README.md) · [全量目录](../../docs/全量目录.md) · [开发手册](../../docs/开发手册/01-总览.md)；产品索引：[`../docs/README.md`](../docs/README.md)。
+全库入口：[`README.md`](README.md) · [全量目录](README.md) · [开发手册](开发手册/01-总览.md)；产品索引：[`docs/README.md`](docs/README.md)。
 
 | 域 | 路径 | 说明 |
 |----|------|------|

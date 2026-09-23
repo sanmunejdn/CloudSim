@@ -1,10 +1,9 @@
-/// @file SheetSnapEngine.cpp
+﻿/// @file SheetSnapEngine.cpp
 /// @brief 图纸对象捕捉实现
 
 #include "SheetSnapEngine.h"
 
 #include <QtMath>
-
 #include <cmath>
 
 bool SheetSnapEngine::segmentIntersection(const QLineF& a, const QLineF& b, QPointF& out)
@@ -23,7 +22,8 @@ SheetSnapResult SheetSnapEngine::snap(const QPointF& raw, double tolMm, const QP
 	best.pos = raw;
 	double bestD = tolMm;
 
-	auto consider = [&](const QPointF& p, const QString& kind) {
+	auto consider = [&](const QPointF& p, const QString& kind)
+	{
 		const double d = QLineF(raw, p).length();
 		if (d <= bestD)
 		{

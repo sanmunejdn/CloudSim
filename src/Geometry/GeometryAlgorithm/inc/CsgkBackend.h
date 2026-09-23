@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_CSGKBACKEND_H
+﻿#ifndef GEOMETRYALGORITHM_CSGKBACKEND_H
 #define GEOMETRYALGORITHM_CSGKBACKEND_H
 
 /// @file CsgkBackend.h
@@ -14,7 +14,8 @@ namespace geoalgo
 {
 #ifdef CLOUDSIM_USE_CSGK
 /** 读 `.csgb`（csgk native）到 ShapeHandle */
-GEOMETRY_ALGORITHM_API bool readCsgkNativeFile(const std::string& pathLocal, ShapeHandle& outShape, std::string* errMsg);
+GEOMETRY_ALGORITHM_API bool readCsgkNativeFile(const std::string& pathLocal, ShapeHandle& outShape,
+											   std::string* errMsg);
 
 /** 离散 csgk 后端 ShapeHandle 为三角 soup */
 GEOMETRY_ALGORITHM_API bool discretizeCsgkShapeToSoup(const ShapeHandle& shape, const TessellateParams& params,
@@ -26,4 +27,4 @@ GEOMETRY_ALGORITHM_API int csgkShapeEdgeCount(const ShapeHandle& shape);
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_CSGKBACKEND_H

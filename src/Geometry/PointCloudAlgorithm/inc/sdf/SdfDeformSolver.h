@@ -1,5 +1,5 @@
-#ifndef POINTCLOUDALGORITHM_SDF_DEFORMSOLVER_H
-#define POINTCLOUDALGORITHM_SDF_DEFORMSOLVER_H
+﻿#ifndef POINTCLOUDALGORITHM_SDFDEFORMSOLVER_H
+#define POINTCLOUDALGORITHM_SDFDEFORMSOLVER_H
 
 /// @file SdfDeformSolver.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -17,7 +17,6 @@ namespace pclalgo
 {
 namespace sdf
 {
-
 /// meshEdges：焊点后网格边；有则加边长保持，抑制蜘蛛网长三角
 bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut, DistanceField& field,
 				  const SdfRegisterParams& params, SdfRegisterResult* stats, std::string* errMsg,
@@ -26,4 +25,4 @@ bool runSdfDeform(std::vector<float>& xyzInOut, std::vector<float>& normalsInOut
 } // namespace sdf
 } // namespace pclalgo
 
-#endif // POINTCLOUDALGORITHM_SDF_DEFORMSOLVER_H
+#endif // POINTCLOUDALGORITHM_SDFDEFORMSOLVER_H

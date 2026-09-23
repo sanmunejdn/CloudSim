@@ -1,4 +1,4 @@
-/// @file PipelineDraftEditStack.cpp
+﻿/// @file PipelineDraftEditStack.cpp
 /// @brief 轨迹流水线草稿撤销栈
 
 #include "PipelineDraftEditStack.h"

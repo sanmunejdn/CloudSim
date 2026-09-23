@@ -1,4 +1,4 @@
-/// @file CatalogActionPlanDomainHandler.cpp
+﻿/// @file CatalogActionPlanDomainHandler.cpp
 /// @brief 通用 Catalog ActionPlan 域 Handler
 
 #include "Ai/CatalogActionPlanDomainHandler.h"
@@ -6,9 +6,9 @@
 #include "Ai/AiActionPlanExecutor.h"
 #include "PluginHostContext.h"
 
-#include <json.hpp>
-
 #include <unordered_set>
+
+#include <json.hpp>
 
 CatalogActionPlanDomainHandler::CatalogActionPlanDomainHandler(QString domainId, QByteArray catalogJsonUtf8)
 	: m_domainId(std::move(domainId)), m_catalogJsonUtf8(std::move(catalogJsonUtf8))
@@ -78,8 +78,8 @@ bool CatalogActionPlanDomainHandler::validateOutput(const QByteArray& jsonUtf8, 
 		if (api.empty() || allowed.find(api) == allowed.end())
 		{
 			if (err)
-				*err = QStringLiteral("API '%1' not allowed in domain %2.")
-						   .arg(QString::fromStdString(api), m_domainId);
+				*err =
+					QStringLiteral("API '%1' not allowed in domain %2.").arg(QString::fromStdString(api), m_domainId);
 			return false;
 		}
 	}

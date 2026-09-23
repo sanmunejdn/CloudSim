@@ -1,8 +1,7 @@
-/// @file CameraFactory.cpp
+﻿/// @file CameraFactory.cpp
 /// @brief 按品牌创建/枚举相机
 
 #include "ICamera.h"
-
 #include "SimulatedCamera.h"
 #include "hik/HikMv3dCamera.h"
 #include "hik/HikMvsCamera.h"
@@ -12,7 +11,6 @@ namespace industrial_camera
 {
 namespace
 {
-
 class CameraFactory final : public ICameraFactory
 {
 public:

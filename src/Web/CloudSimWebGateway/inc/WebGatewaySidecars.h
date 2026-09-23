@@ -1,5 +1,8 @@
-#ifndef CLOUDSIMWEBGATEWAY_WEBGATEWAYSIDECARS_H
+﻿#ifndef CLOUDSIMWEBGATEWAY_WEBGATEWAYSIDECARS_H
 #define CLOUDSIMWEBGATEWAY_WEBGATEWAYSIDECARS_H
+
+/// @file WebGatewaySidecars.h
+/// @brief WebGatewaySidecars 接口
 
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 #include <QJsonObject>
@@ -17,4 +20,4 @@ void webGatewaySyncSidecarsToHost(cloudsim::host::DocumentHost* host, const QJso
 void webGatewayMergeHostSidecarsIntoProject(cloudsim::host::DocumentHost* host, QJsonObject& projectRoot);
 } // namespace cloudsim::web
 
-#endif
+#endif // CLOUDSIMWEBGATEWAY_WEBGATEWAYSIDECARS_H

@@ -1,4 +1,4 @@
-/// @file AiAgentTrace.cpp
+﻿/// @file AiAgentTrace.cpp
 /// @brief 追加一行 JSONL 便于复盘
 
 #include "Ai/AiAgentTrace.h"

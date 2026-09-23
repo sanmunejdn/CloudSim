@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIACTIONPLANEXECUTOR_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIACTIONPLANEXECUTOR_H
 #define CLOUDSIMPLUGINHOST_AIACTIONPLANEXECUTOR_H
 
 /// @file AiActionPlanExecutor.h
@@ -16,6 +16,6 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 
 /// create_mesh / Agent 确认前：预览草图+拉伸等步骤文案（非参数化基本体返回空）
 QString previewCreateMeshFeatureSteps(const QByteArray& createMeshOrArgsJsonUtf8);
-}
+} // namespace AiActionPlanExecutor
 
 #endif // CLOUDSIMPLUGINHOST_AIACTIONPLANEXECUTOR_H

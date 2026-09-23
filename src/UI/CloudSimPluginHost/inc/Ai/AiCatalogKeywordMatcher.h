@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AICATALOGKEYWORDMATCHER_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AICATALOGKEYWORDMATCHER_H
 #define CLOUDSIMPLUGINHOST_AICATALOGKEYWORDMATCHER_H
 
 /// @file AiCatalogKeywordMatcher.h
@@ -26,4 +26,4 @@ MatchResult tryMatch(const QByteArray& catalogJsonUtf8, const QString& userText,
 					 const QStringList& excludeApiIds = {});
 } // namespace AiCatalogKeywordMatcher
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AICATALOGKEYWORDMATCHER_H

@@ -1,4 +1,4 @@
-/// @file HeadlessDrawingBridge.cpp
+﻿/// @file HeadlessDrawingBridge.cpp
 
 #include "headless/HeadlessDrawingBridge.h"
 
@@ -30,8 +30,7 @@ QJsonObject HeadlessDrawingBridge::exportDrawing(const QJsonObject& body)
 
 void HeadlessDrawingBridge::loadSidecarFromProject(const QJsonObject& projectRoot)
 {
-	m_engineeringDrawing =
-		projectRoot.value(QLatin1String(backend_type::kProjectKeyEngineeringDrawing)).toObject();
+	m_engineeringDrawing = projectRoot.value(QLatin1String(backend_type::kProjectKeyEngineeringDrawing)).toObject();
 }
 
 void HeadlessDrawingBridge::mergeSidecarIntoProject(QJsonObject& projectRoot) const

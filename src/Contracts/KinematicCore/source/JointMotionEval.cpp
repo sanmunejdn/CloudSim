@@ -1,3 +1,6 @@
+﻿/// @file JointMotionEval.cpp
+/// @brief JointMotionEval 实现
+
 #include "JointMotionEval.h"
 
 #include "Mat4Ops.h"

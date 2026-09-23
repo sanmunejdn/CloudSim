@@ -1,7 +1,6 @@
-/// @file SketchEditSession.h
+﻿/// @file SketchEditSession.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 草图编辑会话：平面、工具、尺寸、overlay、求解诊断
-
 #ifndef GEOMETRICMODELINGPLUGIN_SKETCHEDITSESSION_H
 #define GEOMETRICMODELINGPLUGIN_SKETCHEDITSESSION_H
 
@@ -81,10 +80,8 @@ public:
 
 private:
 	void applySnap(SkVec2& uv);
-	void syncConstraintsToSolver(class SketchConstraintSolver& solver,
-								 std::unordered_map<int, int>& pointIdToIdx,
-								 std::unordered_map<int, int>& lineIdToIdx,
-								 std::unordered_map<int, int>& arcIdToIdx,
+	void syncConstraintsToSolver(class SketchConstraintSolver& solver, std::unordered_map<int, int>& pointIdToIdx,
+								 std::unordered_map<int, int>& lineIdToIdx, std::unordered_map<int, int>& arcIdToIdx,
 								 std::unordered_map<int, int>& constraintTagToDocIndex);
 	void rebuildDiagEntitySets();
 	bool promptAndAddConstraint(SkConstraintKind kind, int a, int b, double defaultValue, QString* err);
@@ -135,4 +132,4 @@ private:
 	std::function<void(std::vector<PluginSketchOverlaySegment>&)> m_backgroundOverlay;
 };
 
-#endif
+#endif // GEOMETRICMODELINGPLUGIN_SKETCHEDITSESSION_H

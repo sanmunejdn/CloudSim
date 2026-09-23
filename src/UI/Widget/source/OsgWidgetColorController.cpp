@@ -40,8 +40,7 @@ void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color, bool useSc
 			{
 				return;
 			}
-			const bool wireOverlay = (geode.getName() == "meshWireOverlay") ||
-									 (geode.getName() == "brepWireOverlay") ||
+			const bool wireOverlay = (geode.getName() == "meshWireOverlay") || (geode.getName() == "brepWireOverlay") ||
 									 (geode.getName() == "brepViewportWireframe");
 			const osg::Vec4 c = wireOverlay
 									? osg::Vec4(std::max(0.12f, clr.r() * 0.38f), std::max(0.12f, clr.g() * 0.38f),

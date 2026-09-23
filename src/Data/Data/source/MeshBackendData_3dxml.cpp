@@ -1,15 +1,12 @@
-/// @file MeshBackendData_3dxml.cpp
+﻿/// @file MeshBackendData_3dxml.cpp
 /// @brief 3DXML（ZIP+PolygonalRep）→ 三角 soup / 装配层级；解析对齐 robdts dxmlRead/dxmlStructureRead
 
 #include "pch.h"
 
+#include "../third_party/tinyxml2/tinyxml2.h"
 #include "MeshBackendData.h"
 #include "MeshBackendData_loaders.h"
 #include "RunLogger.h"
-
-#include "../third_party/tinyxml2/tinyxml2.h"
-
-#include <zlib.h>
 
 #include <cstdint>
 #include <cstring>
@@ -20,6 +17,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <zlib.h>
 
 namespace mesh_backend_load
 {
@@ -144,8 +143,8 @@ public:
 			{
 				const auto* p = reinterpret_cast<const unsigned char*>(tail.data() + i);
 				const std::uint32_t sig = static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8) |
-										 (static_cast<std::uint32_t>(p[2]) << 16) |
-										 (static_cast<std::uint32_t>(p[3]) << 24);
+										  (static_cast<std::uint32_t>(p[2]) << 16) |
+										  (static_cast<std::uint32_t>(p[3]) << 24);
 				if (sig == 0x06054b50u)
 				{
 					eocdOff = fileSize - readSpan + i;
@@ -570,8 +569,7 @@ bool matrixFlipsWinding(const std::vector<float>& m12)
 	{
 		return false;
 	}
-	const float det = m12[0] * (m12[4] * m12[8] - m12[5] * m12[7]) -
-					  m12[3] * (m12[1] * m12[8] - m12[2] * m12[7]) +
+	const float det = m12[0] * (m12[4] * m12[8] - m12[5] * m12[7]) - m12[3] * (m12[1] * m12[8] - m12[2] * m12[7]) +
 					  m12[6] * (m12[1] * m12[5] - m12[2] * m12[4]);
 	return det < 0.0f;
 }
@@ -598,8 +596,8 @@ void tessellateRep(const DxmlRepBundle& rep, const std::vector<float>& m12, std:
 			{
 				const bool reverse = reverseSolid ^ ((f % 2) != 0);
 				pushTriFromIndices(soup, verts, strip[static_cast<std::size_t>(f)],
-								   strip[static_cast<std::size_t>(f + 1)], strip[static_cast<std::size_t>(f + 2)], reverse,
-								   m12);
+								   strip[static_cast<std::size_t>(f + 1)], strip[static_cast<std::size_t>(f + 2)],
+								   reverse, m12);
 			}
 		}
 		for (const auto& tri : face.triangles)
@@ -772,7 +770,8 @@ bool buildProductsFromStructure(DxmlZipArchive& zip, std::vector<DxmlProduct>* p
 
 	std::map<std::string, std::unique_ptr<DxmlTreeNode>> nodes;
 
-	for (XMLElement* el = ps->FirstChildElement("Reference3D"); el != nullptr; el = el->NextSiblingElement("Reference3D"))
+	for (XMLElement* el = ps->FirstChildElement("Reference3D"); el != nullptr;
+		 el = el->NextSiblingElement("Reference3D"))
 	{
 		const char* id = el->Attribute("id");
 		if (!id)
@@ -804,7 +803,8 @@ bool buildProductsFromStructure(DxmlZipArchive& zip, std::vector<DxmlProduct>* p
 		}
 	}
 
-	for (XMLElement* el = ps->FirstChildElement("ReferenceRep"); el != nullptr; el = el->NextSiblingElement("ReferenceRep"))
+	for (XMLElement* el = ps->FirstChildElement("ReferenceRep"); el != nullptr;
+		 el = el->NextSiblingElement("ReferenceRep"))
 	{
 		const char* id = el->Attribute("id");
 		if (!id)
@@ -826,7 +826,8 @@ bool buildProductsFromStructure(DxmlZipArchive& zip, std::vector<DxmlProduct>* p
 		}
 	}
 
-	for (XMLElement* el = ps->FirstChildElement("InstanceRep"); el != nullptr; el = el->NextSiblingElement("InstanceRep"))
+	for (XMLElement* el = ps->FirstChildElement("InstanceRep"); el != nullptr;
+		 el = el->NextSiblingElement("InstanceRep"))
 	{
 		XMLElement* by = el->FirstChildElement("IsAggregatedBy");
 		XMLElement* of = el->FirstChildElement("IsInstanceOf");
@@ -982,8 +983,7 @@ bool productsToHierarchy(const std::vector<DxmlProduct>& products, const std::st
 		const std::size_t n = product.reps.size();
 		for (std::size_t i = 0; i < n; ++i)
 		{
-			const std::vector<float>& m12 =
-				(i < product.matrices.size()) ? product.matrices[i] : identityMatrix12();
+			const std::vector<float>& m12 = (i < product.matrices.size()) ? product.matrices[i] : identityMatrix12();
 			tessellateRep(product.reps[i], m12, soup);
 		}
 		if (soup.empty())
@@ -1051,7 +1051,7 @@ bool meshLoad3dxmlSingleFile(const std::string& path, std::vector<float>& soup, 
 } // namespace mesh_backend_load
 
 bool MeshBackendData::load3dxmlHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
-												std::string* errMsg)
+												 std::string* errMsg)
 {
 	return mesh_backend_load::meshLoad3dxmlHierarchyFromFile(path, outParts, errMsg);
 }

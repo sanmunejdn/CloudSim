@@ -1,4 +1,4 @@
-/// @file ProcessFlowNodeProps.cpp
+﻿/// @file ProcessFlowNodeProps.cpp
 /// @brief 节点属性默认值与 JSON
 
 #include "ProcessFlowNodeProps.h"
@@ -202,16 +202,15 @@ QString ProcessFlowNodeProps::displayNameEn(const QString& kind)
 
 QStringList ProcessFlowNodeProps::allKinds()
 {
-	return {QStringLiteral("start"),	 QStringLiteral("station"),	  QStringLiteral("buffer"),
-			QStringLiteral("warehouse"), QStringLiteral("conveyor"),  QStringLiteral("agv"),
-			QStringLiteral("assembly"),	 QStringLiteral("inspect"),	  QStringLiteral("end")};
+	return {QStringLiteral("start"),	 QStringLiteral("station"),	 QStringLiteral("buffer"),
+			QStringLiteral("warehouse"), QStringLiteral("conveyor"), QStringLiteral("agv"),
+			QStringLiteral("assembly"),	 QStringLiteral("inspect"),	 QStringLiteral("end")};
 }
 
 bool ProcessFlowNodeProps::isMachineKind(const QString& kind)
 {
 	return kind == QStringLiteral("station") || kind == QStringLiteral("inspect") ||
-		   kind == QStringLiteral("assembly") || kind == QStringLiteral("conveyor") ||
-		   kind == QStringLiteral("agv");
+		   kind == QStringLiteral("assembly") || kind == QStringLiteral("conveyor") || kind == QStringLiteral("agv");
 }
 
 bool ProcessFlowNodeProps::isBufferKind(const QString& kind)

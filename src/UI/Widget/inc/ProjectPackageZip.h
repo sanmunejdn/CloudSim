@@ -1,4 +1,4 @@
-#ifndef WIDGET_PROJECTPACKAGEZIP_H
+﻿#ifndef WIDGET_PROJECTPACKAGEZIP_H
 #define WIDGET_PROJECTPACKAGEZIP_H
 
 /// @file ProjectPackageZip.h

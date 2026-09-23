@@ -1,4 +1,4 @@
-/// @file DesignPartsDomainHandler.cpp
+﻿/// @file DesignPartsDomainHandler.cpp
 /// @brief design.parts Domain：校验后走 feature.compose 执行器
 
 #include "Ai/DesignPartsDomainHandler.h"

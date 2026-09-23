@@ -6,8 +6,8 @@
 #include "IoSignalNetworkService.h"
 #include "NamedSignalTable.h"
 
-#include <QLabel>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>

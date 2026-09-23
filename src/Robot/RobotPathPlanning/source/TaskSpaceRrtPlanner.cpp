@@ -1,4 +1,4 @@
-/// @file TaskSpaceRrtPlanner.cpp
+﻿/// @file TaskSpaceRrtPlanner.cpp
 /// @brief SE(3) 任务空间 RRTConnect + IK
 
 #include "TaskSpaceRrtPlanner.h"
@@ -9,8 +9,6 @@
 #include "UrdfNumericalIk.h"
 #include "UrdfRobotLoader.h"
 
-#include <Eigen/Geometry>
-
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -18,13 +16,14 @@
 #include <random>
 #include <vector>
 
+#include <Eigen/Geometry>
+
 namespace robot_path
 {
 namespace detail
 {
 namespace
 {
-
 engine::RigidTransform rigidFromTcpPose(const TcpPose& p)
 {
 	Eigen::Quaterniond q(p.quatXyzw[3], p.quatXyzw[0], p.quatXyzw[1], p.quatXyzw[2]);
@@ -86,8 +85,8 @@ bool ikToolInBase(const PlanRequest& req, const TcpPose& toolInBase, const std::
 
 	UrdfRobotLoader::UrdfIkSolverOptions opts{};
 	std::string ikFail;
-	outQ = UrdfRobotLoader::solveArmPoseDampedLeastSquares(req.urdfPath, req.flangeLinkName, target, seedQ, opts,
-														   &ikFail);
+	outQ =
+		UrdfRobotLoader::solveArmPoseDampedLeastSquares(req.urdfPath, req.flangeLinkName, target, seedQ, opts, &ikFail);
 	return !outQ.empty();
 }
 
@@ -257,11 +256,10 @@ TcpPose sampleRandomPose(const TcpPose& startPose, const TcpPose& goalPose, std:
 	const TcpPose orient = interpolateTcp(startPose, goalPose, u01(rng));
 	std::uniform_real_distribution<double> ang(-0.25, 0.25);
 	Eigen::Quaterniond qBase(orient.quatXyzw[3], orient.quatXyzw[0], orient.quatXyzw[1], orient.quatXyzw[2]);
-	const Eigen::Quaterniond qPert =
-		(Eigen::Quaterniond(Eigen::AngleAxisd(ang(rng), Eigen::Vector3d::UnitZ()))
-		 * Eigen::Quaterniond(Eigen::AngleAxisd(ang(rng), Eigen::Vector3d::UnitY()))
-		 * Eigen::Quaterniond(Eigen::AngleAxisd(ang(rng), Eigen::Vector3d::UnitX())))
-			.normalized();
+	const Eigen::Quaterniond qPert = (Eigen::Quaterniond(Eigen::AngleAxisd(ang(rng), Eigen::Vector3d::UnitZ())) *
+									  Eigen::Quaterniond(Eigen::AngleAxisd(ang(rng), Eigen::Vector3d::UnitY())) *
+									  Eigen::Quaterniond(Eigen::AngleAxisd(ang(rng), Eigen::Vector3d::UnitX())))
+										 .normalized();
 	const Eigen::Quaterniond q = (qPert * qBase).normalized();
 	out.quatXyzw[0] = q.x();
 	out.quatXyzw[1] = q.y();
@@ -300,7 +298,8 @@ bool mergeStartGoalPaths(const std::vector<std::vector<double>>& pathStart,
 {
 	// pathGoalToRoot：goal→…→nearGoal；反转为 nearGoal→…→goal
 	out.jointTrajectoryRad = pathStart;
-	auto almostSame = [](const std::vector<double>& a, const std::vector<double>& b) {
+	auto almostSame = [](const std::vector<double>& a, const std::vector<double>& b)
+	{
 		if (a.size() != b.size())
 			return false;
 		double dq = 0.0;
@@ -331,8 +330,7 @@ bool mergeStartGoalPaths(const std::vector<std::vector<double>>& pathStart,
 
 } // namespace
 
-bool planTaskSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std::vector<double>& goalQ,
-					  PathResult& out)
+bool planTaskSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std::vector<double>& goalQ, PathResult& out)
 {
 	out = PathResult{};
 	const double maxStepMm = std::max(5.0, req.options.taskSpaceMaxStepMm);
@@ -390,15 +388,14 @@ bool planTaskSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std:
 		const TcpPose& sampleGoal = growStart ? goalPose : startPose;
 
 		std::uniform_real_distribution<double> u01(0.0, 1.0);
-		const TcpPose rnd =
-			(u01(rng) < goalBias) ? sampleGoal : sampleRandomPose(startPose, goalPose, rng, marginMm);
+		const TcpPose rnd = (u01(rng) < goalBias) ? sampleGoal : sampleRandomPose(startPose, goalPose, rng, marginMm);
 
 		const int nn = nearestNode(ta, rnd, kRotWeightMmPerRad);
 		const TcpPose steered = steerTcp(ta[static_cast<size_t>(nn)].pose, rnd, maxStepMm, maxStepRad);
 		std::vector<TcpPose> chainPoses;
 		std::vector<std::vector<double>> chainQs;
-		if (!connectPoses(req, lim, ta[static_cast<size_t>(nn)].q, ta[static_cast<size_t>(nn)].pose, steered,
-						  maxStepMm, maxStepRad, chainPoses, chainQs))
+		if (!connectPoses(req, lim, ta[static_cast<size_t>(nn)].q, ta[static_cast<size_t>(nn)].pose, steered, maxStepMm,
+						  maxStepRad, chainPoses, chainQs))
 		{
 			growStart = !growStart;
 			continue;
@@ -416,7 +413,8 @@ bool planTaskSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std:
 			const double dist = poseDistanceMm(ta[static_cast<size_t>(newIdx)].pose,
 											   tb[static_cast<size_t>(nearB)].pose, kRotWeightMmPerRad);
 
-			auto tryBridge = [&](int startIdx, int goalIdx) -> bool {
+			auto tryBridge = [&](int startIdx, int goalIdx) -> bool
+			{
 				std::vector<TcpPose> bridgePoses;
 				std::vector<std::vector<double>> bridgeQs;
 				if (!connectPoses(req, lim, treeStart[static_cast<size_t>(startIdx)].q,
@@ -439,19 +437,18 @@ bool planTaskSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std:
 				break;
 			}
 
-			const TcpPose toward = steerTcp(ta[static_cast<size_t>(newIdx)].pose,
-											tb[static_cast<size_t>(nearB)].pose, maxStepMm, maxStepRad);
+			const TcpPose toward = steerTcp(ta[static_cast<size_t>(newIdx)].pose, tb[static_cast<size_t>(nearB)].pose,
+											maxStepMm, maxStepRad);
 			std::vector<TcpPose> morePoses;
 			std::vector<std::vector<double>> moreQs;
-			if (!connectPoses(req, lim, ta[static_cast<size_t>(newIdx)].q, ta[static_cast<size_t>(newIdx)].pose,
-							  toward, maxStepMm, maxStepRad, morePoses, moreQs))
+			if (!connectPoses(req, lim, ta[static_cast<size_t>(newIdx)].q, ta[static_cast<size_t>(newIdx)].pose, toward,
+							  maxStepMm, maxStepRad, morePoses, moreQs))
 				break;
 			newIdx = appendChain(ta, newIdx, morePoses, moreQs);
 
 			const int nearB2 = nearestNode(tb, ta[static_cast<size_t>(newIdx)].pose, kRotWeightMmPerRad);
 			if (poseDistanceMm(ta[static_cast<size_t>(newIdx)].pose, tb[static_cast<size_t>(nearB2)].pose,
-							   kRotWeightMmPerRad)
-				< kReachMm)
+							   kRotWeightMmPerRad) < kReachMm)
 			{
 				if (growStart)
 					connected = tryBridge(newIdx, nearB2);
@@ -465,8 +462,8 @@ bool planTaskSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std:
 		{
 			std::vector<std::vector<double>> pathStart;
 			std::vector<std::vector<double>> pathGoal;
-			if (extractJointPath(treeStart, idxStart, pathStart) && extractJointPath(treeGoal, idxGoal, pathGoal)
-				&& mergeStartGoalPaths(pathStart, bridgeStartToGoal, pathGoal, out))
+			if (extractJointPath(treeStart, idxStart, pathStart) && extractJointPath(treeGoal, idxGoal, pathGoal) &&
+				mergeStartGoalPaths(pathStart, bridgeStartToGoal, pathGoal, out))
 			{
 				if (!out.jointTrajectoryRad.empty() && out.jointTrajectoryRad.back().size() == goalQ.size())
 				{

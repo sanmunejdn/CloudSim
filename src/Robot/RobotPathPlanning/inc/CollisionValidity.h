@@ -1,5 +1,8 @@
-#ifndef ROBOTPATHPLANNING_COLLISIONVALIDITY_H
+﻿#ifndef ROBOTPATHPLANNING_COLLISIONVALIDITY_H
 #define ROBOTPATHPLANNING_COLLISIONVALIDITY_H
+
+/// @file CollisionValidity.h
+/// @brief 失败原因（限位 / 碰撞摘要）；有效时返回空
 
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 #include "RobotPathPlanning.h"
@@ -10,7 +13,6 @@ namespace robot_path
 {
 namespace detail
 {
-
 struct JointLimits
 {
 	std::vector<double> lowerRad;
@@ -33,4 +35,4 @@ bool isSegmentValid(const PlanRequest& req, const JointLimits& lim, const std::v
 } // namespace detail
 } // namespace robot_path
 
-#endif
+#endif // ROBOTPATHPLANNING_COLLISIONVALIDITY_H

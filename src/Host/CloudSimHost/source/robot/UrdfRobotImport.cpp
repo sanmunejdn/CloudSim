@@ -1,4 +1,4 @@
-/// @file UrdfRobotImport.cpp
+﻿/// @file UrdfRobotImport.cpp
 /// @brief URDF 每连杆导入
 
 #include "UrdfRobotImport.h"
@@ -10,9 +10,9 @@
 #include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotKinematicModelRegistration.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPerLinkKinematicsSliceOsg.h"
-#include "RobotKinematicModelRegistration.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 

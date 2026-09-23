@@ -1,4 +1,4 @@
-/// @file SelfTest.cpp
+﻿/// @file SelfTest.cpp
 /// @brief FK/J/DLS 自检：最小链 fixture + 有限差分
 
 #include "SelfTest.h"
@@ -63,8 +63,7 @@ bool nearlyEqual(double a, double b, double tol)
 
 QString resolveIrb1100UrdfPath()
 {
-	const QString rel =
-		QStringLiteral("resource/models/Robot/ABB/IRB 1100-4-0.58/urdf/IRB 1100-4-0.58.urdf");
+	const QString rel = QStringLiteral("resource/models/Robot/ABB/IRB 1100-4-0.58/urdf/IRB 1100-4-0.58.urdf");
 	const QStringList candidates = {
 		QDir::current().filePath(rel),
 		QDir(QCoreApplication::applicationDirPath()).filePath(rel),
@@ -93,7 +92,8 @@ bool runIrb1100FkGolden(std::vector<std::string>& failures)
 		return false;
 	}
 	const QString flangeLink = childLinks.back();
-	const auto checkQ = [&](const QVector<double>& q, const char* label) -> bool {
+	const auto checkQ = [&](const QVector<double>& q, const char* label) -> bool
+	{
 		double legacyPos[3] = {};
 		std::vector<double> J;
 		if (!computeLinkPoseAndGeometricJacobian(urdf, q, flangeLink, legacyPos, nullptr, J, false, 1.0, nullptr))
@@ -238,7 +238,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 	posOnly.posMm[1] = pos[1];
 	posOnly.posMm[2] = pos[2];
 	posOnly.hasOrientation = false;
-	std::vector<double> qCore = solveArmPoseViaKinematicCore(urdf, QStringLiteral("link2"), posOnly, seed, opt, &ikFail);
+	std::vector<double> qCore =
+		solveArmPoseViaKinematicCore(urdf, QStringLiteral("link2"), posOnly, seed, opt, &ikFail);
 	if (qCore.empty())
 	{
 		failures.push_back(std::string("KinematicCore IK failed: ") + ikFail);

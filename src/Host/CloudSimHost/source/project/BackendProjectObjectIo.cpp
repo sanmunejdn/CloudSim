@@ -18,7 +18,6 @@
 #include "FollowAttachmentComponent.h"
 #include "FrameBackendData.h"
 #include "IDataService.h"
-#include "io/CustomDeviceHostOps.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "ParametricBrepBackendData.h"
@@ -26,6 +25,7 @@
 #include "RobotProjectKinematicsRestore.h"
 #include "RunLogger.h"
 #include "ViewTessellate.h"
+#include "io/CustomDeviceHostOps.h"
 
 #include <QDir>
 #include <QFile>
@@ -237,7 +237,8 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 		if (!mesh->hasGeometry() && robotLinkReloadHint)
 		{
 			QString reloadErr;
-			if (!reloadRobotLinkMeshFromUrdfHint(*mesh, *robotLinkReloadHint, &reloadErr) && outError && !reloadErr.isEmpty())
+			if (!reloadRobotLinkMeshFromUrdfHint(*mesh, *robotLinkReloadHint, &reloadErr) && outError &&
+				!reloadErr.isEmpty())
 			{
 				*outError = reloadErr;
 			}
@@ -285,42 +286,42 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 			}
 			else
 			{
-			// 回退到旧的 brepSidecar 格式
-			QString brepRel = emb.value(QStringLiteral("brepSidecar")).toString();
-			if (brepRel.isEmpty())
-			{
-				brepRel = objectJson.value(QStringLiteral("assetRelativePath")).toString();
-			}
-			const QString brepPath = resolveProjectObjectLoadPath(projectDir, sourcePath, brepRel);
-			if (!brepPath.isEmpty())
-			{
-				attemptedSidecar = true;
-				const QByteArray enc = QFile::encodeName(brepPath);
-				const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
-				std::string loadErr;
-				if (!brep->loadFromBrepFile(nativePath, &loadErr))
+				// 回退到旧的 brepSidecar 格式
+				QString brepRel = emb.value(QStringLiteral("brepSidecar")).toString();
+				if (brepRel.isEmpty())
 				{
-					if (outError)
+					brepRel = objectJson.value(QStringLiteral("assetRelativePath")).toString();
+				}
+				const QString brepPath = resolveProjectObjectLoadPath(projectDir, sourcePath, brepRel);
+				if (!brepPath.isEmpty())
+				{
+					attemptedSidecar = true;
+					const QByteArray enc = QFile::encodeName(brepPath);
+					const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+					std::string loadErr;
+					if (!brep->loadFromBrepFile(nativePath, &loadErr))
 					{
-						*outError = loadErr.empty() ? QStringLiteral("Failed to load B-rep sidecar")
-													: QString::fromStdString(loadErr);
+						if (outError)
+						{
+							*outError = loadErr.empty() ? QStringLiteral("Failed to load B-rep sidecar")
+														: QString::fromStdString(loadErr);
+						}
+						return false;
 					}
-					return false;
+					if (!brepRel.isEmpty())
+					{
+						brep->setBrepSidecarRelativePath(brepRel.toStdString());
+					}
 				}
-				if (!brepRel.isEmpty())
+				// sidecar 路径存在但文件实际缺失/加载失败后仍空：告警提示工程文件不完整
+				if (!brep->hasGeometry() && attemptedSidecar)
 				{
-					brep->setBrepSidecarRelativePath(brepRel.toStdString());
+					RunLogger::warn("[ProjectIo] brep \"" + brep->id() +
+									"\" sidecar referenced but geometry still empty after load attempt. "
+									"Sidecar file may be missing or renamed.");
 				}
-			}
-			// sidecar 路径存在但文件实际缺失/加载失败后仍空：告警提示工程文件不完整
-			if (!brep->hasGeometry() && attemptedSidecar)
-			{
-				RunLogger::warn("[ProjectIo] brep \"" + brep->id() +
-								"\" sidecar referenced but geometry still empty after load attempt. "
-								"Sidecar file may be missing or renamed.");
 			}
 		}
-	}
 	}
 	if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(backendObject))
 	{
@@ -354,10 +355,9 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 		const qint64 declared = static_cast<qint64>(geomJson.value(QStringLiteral("pointCount")).toDouble(0.0));
 		if (declared > 0 && static_cast<qint64>(pc->geometryElementCount()) != declared)
 		{
-			RunLogger::warn("[ProjectIo] point cloud \"" + pc->id() + "\" declares pointCount=" +
-							std::to_string(declared) + " but loaded " +
-							std::to_string(pc->geometryElementCount()) +
-							". PLY sidecar may be missing or renamed.");
+			RunLogger::warn("[ProjectIo] point cloud \"" + pc->id() +
+							"\" declares pointCount=" + std::to_string(declared) + " but loaded " +
+							std::to_string(pc->geometryElementCount()) + ". PLY sidecar may be missing or renamed.");
 		}
 	}
 	OsgWidget* osg = osgWidgetFrom(host);
@@ -438,10 +438,9 @@ QString importProjectObjectFromFile(DocumentHost& host, const QString& loadPath,
 	opt.quietUi = true;
 	opt.resetViewToHome = false;
 	opt.persistedId = persistedId;
-	opt.catalogTypeName = catalogTypeName.isEmpty()
-							  ? (isPointCloud ? QLatin1String(backend_type::kCatalogPointCloud)
-											  : QLatin1String(backend_type::kCatalogModel))
-							  : catalogTypeName;
+	opt.catalogTypeName = catalogTypeName.isEmpty() ? (isPointCloud ? QLatin1String(backend_type::kCatalogPointCloud)
+																	: QLatin1String(backend_type::kCatalogModel))
+													: catalogTypeName;
 	if (isPointCloud)
 	{
 		return importPointCloudFile(host, loadPath, opt, outError);
@@ -604,9 +603,8 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 			backend_type::isCustomDeviceClassName(classNameUtf8) ||
 			sourceType.compare(QLatin1String(backend_type::kCatalogCustomDevice), Qt::CaseInsensitive) == 0;
 		// URDF 空壳根常无内嵌几何；勿因缺 sourcePath 直接跳过
-		const bool isUrdfRobotShellHint =
-			sourceType.compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0 ||
-			persistedId.startsWith(QStringLiteral("RobotURDF_"));
+		const bool isUrdfRobotShellHint = sourceType.compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0 ||
+										  persistedId.startsWith(QStringLiteral("RobotURDF_"));
 		const bool isRobotLinkMesh = options.robotLinkMeshBackendIds.contains(persistedId);
 
 		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty() && !isCoordinateFrame && !isCustomDevice &&
@@ -693,10 +691,8 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 				}
 				continue;
 			}
-			appendProjectLoadWarning(
-				outWarnings,
-				QStringLiteral("URDF robot root shell register failed (id=%1): %2")
-					.arg(persistedId, !regErr.isEmpty() ? regErr : visualErr));
+			appendProjectLoadWarning(outWarnings, QStringLiteral("URDF robot root shell register failed (id=%1): %2")
+													  .arg(persistedId, !regErr.isEmpty() ? regErr : visualErr));
 			continue;
 		}
 
@@ -711,10 +707,9 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		const bool isPc =
 			sourceType.compare(QLatin1String(backend_type::kCatalogPointCloud), Qt::CaseInsensitive) == 0 ||
 			backend_type::isPointCloudClassName(classNameUtf8);
-		const QString catalogType =
-			sourceType.isEmpty()
-				? (isPc ? QLatin1String(backend_type::kCatalogPointCloud) : QLatin1String(backend_type::kCatalogModel))
-				: sourceType;
+		const QString catalogType = sourceType.isEmpty() ? (isPc ? QLatin1String(backend_type::kCatalogPointCloud)
+																 : QLatin1String(backend_type::kCatalogModel))
+														 : sourceType;
 		QString importErr;
 		QString importedId = importProjectObjectFromFile(host, loadPath, persistedId, catalogType, isPc, &importErr);
 		// las/laz 等 importPointCloudFile 失败时的 Widget 回退（与 importFileIntoDocument 一致）
@@ -794,8 +789,8 @@ bool exportBackendTriangleSoupMm(DocumentHost& host, const QString& backendId, s
 		{
 			if (outError)
 			{
-				*outError = tessErr.empty() ? QStringLiteral("B-rep tessellation failed.")
-											: QString::fromStdString(tessErr);
+				*outError =
+					tessErr.empty() ? QStringLiteral("B-rep tessellation failed.") : QString::fromStdString(tessErr);
 			}
 			outSoup.clear();
 			return false;

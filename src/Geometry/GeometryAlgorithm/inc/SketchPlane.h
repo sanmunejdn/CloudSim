@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_SKETCHPLANE_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHPLANE_H
 #define GEOMETRYALGORITHM_SKETCHPLANE_H
 
 /// @file SketchPlane.h
@@ -27,4 +27,4 @@ GEOMETRY_ALGORITHM_API bool queryPlanarFaceSketchPlane(const ShapeHandle& shape,
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHPLANE_H

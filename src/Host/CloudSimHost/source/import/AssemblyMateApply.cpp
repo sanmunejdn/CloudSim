@@ -1,4 +1,4 @@
-/// @file AssemblyMateApply.cpp
+﻿/// @file AssemblyMateApply.cpp
 /// @brief 装配一次定位写回 worldMatrix（对齐 ICP 左乘）
 
 #include "AssemblyMateApply.h"
@@ -13,8 +13,9 @@
 #include "RigidTransform.h"
 #include "ShapeQuery.h"
 
-#include <Eigen/Geometry>
 #include <memory>
+
+#include <Eigen/Geometry>
 
 namespace cloudsim::host
 {
@@ -63,9 +64,9 @@ std::shared_ptr<BrepBackendData> asBrep(DocumentHost& host, const std::string& i
 
 } // namespace
 
-bool resolveAssemblyMatePick(DocumentHost& host, const std::string& brepId, const int faceIndex, const double pickWorldX,
-							 const double pickWorldY, const double pickWorldZ, AssemblyMateFaceRef& out,
-							 QString* outError)
+bool resolveAssemblyMatePick(DocumentHost& host, const std::string& brepId, const int faceIndex,
+							 const double pickWorldX, const double pickWorldY, const double pickWorldZ,
+							 AssemblyMateFaceRef& out, QString* outError)
 {
 	out = {};
 	const auto brep = asBrep(host, brepId, outError);

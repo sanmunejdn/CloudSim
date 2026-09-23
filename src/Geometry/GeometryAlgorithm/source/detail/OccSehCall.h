@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_OCCSEHCALL_H
+#define GEOMETRYALGORITHM_OCCSEHCALL_H
+
+/// @file OccSehCall.h
+/// @brief 在 SEH 中调用 fn(arg)；成功返回 fn 返回值，访问冲突等返回 0
 
 namespace geoalgo
 {
@@ -9,3 +13,5 @@ int sehCall(int (*fn)(void*), void* arg);
 
 } // namespace detail
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_OCCSEHCALL_H

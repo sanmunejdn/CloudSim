@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_HLRPROJECT_H
+﻿#ifndef GEOMETRYALGORITHM_HLRPROJECT_H
 #define GEOMETRYALGORITHM_HLRPROJECT_H
 
 /// @file HlrProject.h
@@ -15,7 +15,6 @@
 
 namespace geoalgo
 {
-
 enum class HlrViewKind
 {
 	Front = 0,
@@ -117,13 +116,11 @@ GEOMETRY_ALGORITHM_API bool projectShapeHlrDrawingBundle(const ShapeHandle& shap
 														 std::string* errMsg = nullptr);
 
 /// 带运行选项（快速预览 / Iso 计数）；各视图并行 HLR
-GEOMETRY_ALGORITHM_API bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle,
-														 bool includeIso, bool includeSection,
-														 DrawingSectionPlane sectionPlane, bool customSection,
-														 const double originMm[3], const double normal[3],
-														 const TessellateParams& params,
-														 const DrawingHlrRunOptions& options, HlrDrawingBundle& out,
-														 std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool
+projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle, bool includeIso, bool includeSection,
+							 DrawingSectionPlane sectionPlane, bool customSection, const double originMm[3],
+							 const double normal[3], const TessellateParams& params,
+							 const DrawingHlrRunOptions& options, HlrDrawingBundle& out, std::string* errMsg = nullptr);
 
 } // namespace geoalgo
 

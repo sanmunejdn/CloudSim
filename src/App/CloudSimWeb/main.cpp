@@ -1,4 +1,4 @@
-/// @file main.cpp
+﻿/// @file main.cpp
 /// @brief CloudSimWeb 独立进程入口（与桌面 CloudSim.exe 互不影响）
 
 #include "CloudSimBootstrap.h"
@@ -10,8 +10,9 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
-#include <QtWidgets/QApplication>
 #include <cstring>
+
+#include <QtWidgets/QApplication>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -34,9 +35,9 @@ void configureWindowsDllSearchPath()
 	const QString appDir = QCoreApplication::applicationDirPath();
 	// 先本目录（Host/Data 等），再 OSG 运行时
 	prependPathIfExists(appDir);
-	for (const QString& c : {QDir(appDir).absoluteFilePath("../SDK/OSG3.6.5/bin"),
-							 QDir(appDir).absoluteFilePath("../../SDK/OSG3.6.5/bin"),
-							 QDir(appDir).absoluteFilePath("OSG3.6.5/bin")})
+	for (const QString& c :
+		 {QDir(appDir).absoluteFilePath("../SDK/OSG3.6.5/bin"), QDir(appDir).absoluteFilePath("../../SDK/OSG3.6.5/bin"),
+		  QDir(appDir).absoluteFilePath("OSG3.6.5/bin")})
 	{
 		prependPathIfExists(QDir(c).absolutePath());
 	}

@@ -13,7 +13,6 @@
 #include <QSizePolicy>
 #include <QSpinBox>
 #include <QVBoxLayout>
-
 #include <algorithm>
 
 namespace
@@ -449,10 +448,9 @@ void TrajectoryOpParamPanel::updateScopeHint()
 	}
 	if (scopeToken == "PointIndexRange" && m_pointIndexLimit > 0)
 	{
-		m_scopeHintLabel->setText(m_useChinese
-									  ? QStringLiteral("P 范围为离散点序号 1…%1，算子仅作用于该区间")
-											.arg(m_pointIndexLimit)
-									  : QStringLiteral("Point range is 1…%1 on the discrete cloud").arg(m_pointIndexLimit));
+		m_scopeHintLabel->setText(
+			m_useChinese ? QStringLiteral("P 范围为离散点序号 1…%1，算子仅作用于该区间").arg(m_pointIndexLimit)
+						 : QStringLiteral("Point range is 1…%1 on the discrete cloud").arg(m_pointIndexLimit));
 		m_scopeHintLabel->setVisible(true);
 		return;
 	}
@@ -569,9 +567,8 @@ void TrajectoryOpParamPanel::rebuildForOp(const RobotInstruction::TrajectoryOpDe
 		{
 			if (m_externalTcpBackendCombo)
 			{
-				auto* label = new QLabel(m_useChinese ? QStringLiteral("外部 TCP 坐标系")
-													  : QStringLiteral("External TCP Frame"),
-										 this);
+				auto* label = new QLabel(
+					m_useChinese ? QStringLiteral("外部 TCP 坐标系") : QStringLiteral("External TCP Frame"), this);
 				m_externalTcpBackendCombo->setFixedHeight(26);
 				applyFieldWidthPolicy(m_externalTcpBackendCombo);
 				m_form->addRow(label, m_externalTcpBackendCombo);
@@ -594,9 +591,9 @@ void TrajectoryOpParamPanel::rebuildForOp(const RobotInstruction::TrajectoryOpDe
 			continue;
 		}
 		// 选中坐标系后隐藏手动六参数
-		if (field.key == "toWorkpiece.externalTcpXMm" || field.key == "toWorkpiece.externalTcpYMm"
-			|| field.key == "toWorkpiece.externalTcpZMm" || field.key == "toWorkpiece.externalTcpRxDeg"
-			|| field.key == "toWorkpiece.externalTcpRyDeg" || field.key == "toWorkpiece.externalTcpRzDeg")
+		if (field.key == "toWorkpiece.externalTcpXMm" || field.key == "toWorkpiece.externalTcpYMm" ||
+			field.key == "toWorkpiece.externalTcpZMm" || field.key == "toWorkpiece.externalTcpRxDeg" ||
+			field.key == "toWorkpiece.externalTcpRyDeg" || field.key == "toWorkpiece.externalTcpRzDeg")
 		{
 			const std::string tcpBackendId = RobotInstruction::trajectoryOpToWorkpieceExternalTcpBackendId(op);
 			if (!tcpBackendId.empty())

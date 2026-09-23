@@ -1,26 +1,15 @@
-/// @file SketchDraft.cpp
-
-
+﻿/// @file SketchDraft.cpp
 
 #include "SketchDraft.h"
 
-
-
 #include "ShapeQuery.h"
-
 #include "detail/OccIncludes.h"
-
-
-
-#include <BRepOffsetAPI_DraftAngle.hxx>
-
-#include <TopoDS.hxx>
-
-#include <TopoDS_Face.hxx>
 
 #include <cmath>
 
-
+#include <BRepOffsetAPI_DraftAngle.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
 
 #ifndef M_PI
 
@@ -28,12 +17,9 @@
 
 #endif
 
-
-
 namespace geoalgo
 
 {
-
 bool draftFacesToHandle(const ShapeHandle& base, const std::vector<int>& faceIndices, double angleDeg,
 
 						double neutralNx, double neutralNy, double neutralNz, double ox, double oy, double oz,
@@ -41,17 +27,14 @@ bool draftFacesToHandle(const ShapeHandle& base, const std::vector<int>& faceInd
 						ShapeHandle& outShape, std::string* errMsg)
 
 {
-
 	if (std::abs(angleDeg) < 1e-6)
 
 	{
-
 		if (errMsg)
 
 			*errMsg = "draft angle too small";
 
 		return false;
-
 	}
 
 	TopoDS_Shape shape;
@@ -59,26 +42,21 @@ bool draftFacesToHandle(const ShapeHandle& base, const std::vector<int>& faceInd
 	if (!ShapeHandleAccess::nativeShape(base, &shape) || shape.IsNull())
 
 	{
-
 		if (errMsg)
 
 			*errMsg = "invalid base solid";
 
 		return false;
-
 	}
 
 	try
 
 	{
-
 		const double angleRad = angleDeg * M_PI / 180.0;
 
 		gp_Dir pullDir(neutralNx, neutralNy, neutralNz);
 
 		const gp_Pln neutral(gp_Pnt(ox, oy, oz), pullDir);
-
-
 
 		BRepOffsetAPI_DraftAngle draft(shape);
 
@@ -87,7 +65,6 @@ bool draftFacesToHandle(const ShapeHandle& base, const std::vector<int>& faceInd
 		for (int idx : faceIndices)
 
 		{
-
 			TopoDS_Face face;
 
 			if (!shapeFaceAtIndex(shape, idx, face, nullptr))
@@ -103,19 +80,16 @@ bool draftFacesToHandle(const ShapeHandle& base, const std::vector<int>& faceInd
 			else
 
 				draft.Remove(face);
-
 		}
 
 		if (added == 0)
 
 		{
-
 			if (errMsg)
 
 				*errMsg = "no valid faces for draft";
 
 			return false;
-
 		}
 
 		draft.Build();
@@ -123,13 +97,11 @@ bool draftFacesToHandle(const ShapeHandle& base, const std::vector<int>& faceInd
 		if (!draft.IsDone())
 
 		{
-
 			if (errMsg)
 
 				*errMsg = "draft failed";
 
 			return false;
-
 		}
 
 		const TopoDS_Shape result = draft.Shape();
@@ -137,25 +109,17 @@ bool draftFacesToHandle(const ShapeHandle& base, const std::vector<int>& faceInd
 		outShape = ShapeHandleAccess::fromNativeShape(&result);
 
 		return !outShape.isNull();
-
 	}
 
 	catch (...)
 
 	{
-
 		if (errMsg)
 
 			*errMsg = "draft exception";
 
 		return false;
-
 	}
-
 }
 
-
-
 } // namespace geoalgo
-
-

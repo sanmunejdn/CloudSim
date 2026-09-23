@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H
+﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H
 #define CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H
 
 /// @file PluginPointCloudTypes.h
@@ -197,9 +197,9 @@ struct PluginPointCloudSdfParams
 	PluginSdfSourceKind sourceKind = PluginSdfSourceKind::PointCloud;
 	PluginSdfTargetKind targetKind = PluginSdfTargetKind::PointCloud;
 	std::string targetBackendIdUtf8;
-	int fieldMode = 1;		 ///< 0=DDF 1=SDF（默认 SDF/法向主导）
+	int fieldMode = 1; ///< 0=DDF 1=SDF（默认 SDF/法向主导）
 	double fieldVoxelMm = 0.0;
-	int fineDataTerm = 0;	 ///< 0=点-面 1=DDF 2=SDF
+	int fineDataTerm = 0; ///< 0=点-面 1=DDF 2=SDF
 	double sampleRadiusRatio = 0.0;
 	double wSmo = 1.0;
 	double wRot = 1e-4;

@@ -1,11 +1,11 @@
-/// @file IndustrialCameraPlugin.cpp
+﻿/// @file IndustrialCameraPlugin.cpp
 /// @brief 注册工业相机侧栏（内嵌相机/手眼 Tab）
 
 #include "IndustrialCameraPlugin.h"
 
 #include "CameraResourceStore.h"
-#include "IndustrialCameraDockWidget.h"
 #include "IPluginHostContext.h"
+#include "IndustrialCameraDockWidget.h"
 
 QString IndustrialCameraPlugin::pluginId() const
 {

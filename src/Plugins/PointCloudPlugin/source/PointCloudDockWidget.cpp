@@ -257,8 +257,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_spareSampleRadiusSpin->setDecimals(2);
 	m_spareSampleRadiusSpin->setSingleStep(0.5);
 	m_spareSampleRadiusSpin->setValue(0.0);
-	m_spareSampleRadiusSpin->setToolTip(
-		QStringLiteral("0=auto(~3×edge). Smaller = denser deformation nodes."));
+	m_spareSampleRadiusSpin->setToolTip(QStringLiteral("0=auto(~3×edge). Smaller = denser deformation nodes."));
 	spareSampleRow->addWidget(spareSampleLabel);
 	spareSampleRow->addWidget(m_spareSampleRadiusSpin);
 	spareOptLayout->addLayout(spareSampleRow);
@@ -1424,7 +1423,8 @@ void PointCloudDockWidget::applyLanguage()
 		m_regMethodCombo->setItemText(1, i18n(QStringLiteral("SPARE non-rigid"), QStringLiteral("SPARE 非刚性")));
 		if (m_regMethodCombo->count() > 2)
 		{
-			m_regMethodCombo->setItemText(2, i18n(QStringLiteral("SDF/DDF non-rigid"), QStringLiteral("SDF/DDF 非刚性")));
+			m_regMethodCombo->setItemText(2,
+										  i18n(QStringLiteral("SDF/DDF non-rigid"), QStringLiteral("SDF/DDF 非刚性")));
 		}
 		if (m_regMethodCombo->count() > 3)
 		{
@@ -1504,8 +1504,7 @@ void PointCloudDockWidget::applyLanguage()
 	{
 		if (QLabel* lab = pyrRoot->findChild<QLabel*>(QStringLiteral("pyramidEdgeLabel")))
 		{
-			lab->setText(
-				i18n(QStringLiteral("Base edge h (mm, 0=auto)"), QStringLiteral("基准边长 h (mm, 0=自动)")));
+			lab->setText(i18n(QStringLiteral("Base edge h (mm, 0=auto)"), QStringLiteral("基准边长 h (mm, 0=自动)")));
 		}
 		if (QLabel* lab = pyrRoot->findChild<QLabel*>(QStringLiteral("pyramidSolverLabel")))
 		{
@@ -1525,8 +1524,7 @@ void PointCloudDockWidget::applyLanguage()
 	if (m_pyramidAdaptiveLastCheck)
 	{
 		m_pyramidAdaptiveLastCheck->setText(
-			i18n(QStringLiteral("Curvature+residual adaptive last layer"),
-				 QStringLiteral("末层曲率+残差自适应边长")));
+			i18n(QStringLiteral("Curvature+residual adaptive last layer"), QStringLiteral("末层曲率+残差自适应边长")));
 	}
 	if (m_pyramidCreateNewCheck)
 	{
@@ -1915,12 +1913,11 @@ void PointCloudDockWidget::runFinished(const bool ok, const QString& error, cons
 	}
 	if (ok)
 	{
-		QString msg =
-			result.countAfterIsFaces
-				? i18n(QStringLiteral("Done. Faces: %1"), QStringLiteral("完成。面数: %1"))
-					  .arg(static_cast<qulonglong>(result.pointCountAfter))
-				: i18n(QStringLiteral("Done. Points: %1"), QStringLiteral("完成。点数: %1"))
-					  .arg(static_cast<qulonglong>(result.pointCountAfter));
+		QString msg = result.countAfterIsFaces
+						  ? i18n(QStringLiteral("Done. Faces: %1"), QStringLiteral("完成。面数: %1"))
+								.arg(static_cast<qulonglong>(result.pointCountAfter))
+						  : i18n(QStringLiteral("Done. Points: %1"), QStringLiteral("完成。点数: %1"))
+								.arg(static_cast<qulonglong>(result.pointCountAfter));
 		if (!result.newBackendId.empty())
 		{
 			msg += i18n(QStringLiteral("; new object: %1"), QStringLiteral("；新对象: %1"))
@@ -1929,8 +1926,7 @@ void PointCloudDockWidget::runFinished(const bool ok, const QString& error, cons
 		if (result.rmseMm > 0.0)
 		{
 			msg += result.rmseIsMeanPointToPlane
-					   ? i18n(QStringLiteral("; mean point-to-plane: %1 mm"),
-							  QStringLiteral("；平均点面误差: %1 mm"))
+					   ? i18n(QStringLiteral("; mean point-to-plane: %1 mm"), QStringLiteral("；平均点面误差: %1 mm"))
 							 .arg(result.rmseMm, 0, 'f', 3)
 					   : i18n(QStringLiteral("; RMSE: %1 mm"), QStringLiteral("；RMSE: %1 mm"))
 							 .arg(result.rmseMm, 0, 'f', 3);
@@ -2266,8 +2262,7 @@ void PointCloudDockWidget::onRegistrationMethodChanged()
 
 void PointCloudDockWidget::updateRegistrationUi()
 {
-	const QString method =
-		m_regMethodCombo ? m_regMethodCombo->currentData().toString() : QStringLiteral("icp");
+	const QString method = m_regMethodCombo ? m_regMethodCombo->currentData().toString() : QStringLiteral("icp");
 	const bool spare = method == QStringLiteral("spare");
 	const bool sdf = method == QStringLiteral("sdf");
 	const bool pyramid = method == QStringLiteral("pyramid");
@@ -2460,26 +2455,25 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 	params.coarseGlobalAlign = m_spareCoarseGlobalAlignCheck && m_spareCoarseGlobalAlignCheck->isChecked();
 	params.createNewObject = m_spareCreateNewCheck && m_spareCreateNewCheck->isChecked();
 	params.applyDeformationToSource = !params.createNewObject;
-	pch->nonRigidRegisterSpare(doc, sourceId, params,
-							   [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
-							   {
-								   if (ok)
-								   {
-									   const QString msg =
-										   i18n(QStringLiteral("SPARE done: mean point-to-plane %1 mm, nodes %2"),
-												QStringLiteral("SPARE 完成: 平均点面误差 %1 mm, 变形节点 %2"))
-											   .arg(result.rmseMm, 0, 'f', 3)
-											   .arg(result.spareDeformationNodeCount);
-									   m_host->logInfo(msg);
-									   if (!result.debugReport.empty())
-									   {
-										   m_host->logInfo(QStringLiteral("SPARE 预对齐: %1")
-															   .arg(QString::fromStdString(result.debugReport)));
-									   }
-									   refreshSpareObjectLists();
-								   }
-									   runFinished(ok, error, result);
-							   });
+	pch->nonRigidRegisterSpare(
+		doc, sourceId, params,
+		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+		{
+			if (ok)
+			{
+				const QString msg = i18n(QStringLiteral("SPARE done: mean point-to-plane %1 mm, nodes %2"),
+										 QStringLiteral("SPARE 完成: 平均点面误差 %1 mm, 变形节点 %2"))
+										.arg(result.rmseMm, 0, 'f', 3)
+										.arg(result.spareDeformationNodeCount);
+				m_host->logInfo(msg);
+				if (!result.debugReport.empty())
+				{
+					m_host->logInfo(QStringLiteral("SPARE 预对齐: %1").arg(QString::fromStdString(result.debugReport)));
+				}
+				refreshSpareObjectLists();
+			}
+			runFinished(ok, error, result);
+		});
 }
 
 void PointCloudDockWidget::onSdfRegisterClicked()
@@ -2535,8 +2529,7 @@ void PointCloudDockWidget::onSdfRegisterClicked()
 									 if (!result.debugReport.empty())
 									 {
 										 const QString report = QString::fromStdString(result.debugReport);
-										 const QStringList lines =
-											 report.split(QChar('\n'), Qt::SkipEmptyParts);
+										 const QStringList lines = report.split(QChar('\n'), Qt::SkipEmptyParts);
 										 for (const QString& line : lines)
 										 {
 											 if (line.contains(QStringLiteral("[SDF-WARN]")))

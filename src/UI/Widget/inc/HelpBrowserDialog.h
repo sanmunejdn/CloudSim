@@ -1,4 +1,4 @@
-#ifndef WIDGET_HELPBROWSERDIALOG_H
+﻿#ifndef WIDGET_HELPBROWSERDIALOG_H
 #define WIDGET_HELPBROWSERDIALOG_H
 
 /// @file HelpBrowserDialog.h

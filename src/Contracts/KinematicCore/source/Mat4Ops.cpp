@@ -1,3 +1,6 @@
+﻿/// @file Mat4Ops.cpp
+/// @brief Mat4Ops 实现
+
 #include "Mat4Ops.h"
 
 namespace kinematic_core

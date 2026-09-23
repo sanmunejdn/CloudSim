@@ -1,4 +1,4 @@
-#ifndef GEOMETRYSERVICES_MESHBOOLEAN_H
+﻿#ifndef GEOMETRYSERVICES_MESHBOOLEAN_H
 #define GEOMETRYSERVICES_MESHBOOLEAN_H
 
 /// @file MeshBoolean.h
@@ -20,8 +20,8 @@ enum class MeshBooleanOp
 namespace MeshBoolean
 {
 /// 两三角 soup（世界坐标 mm，9 float/三角）布尔运算；输出新 soup
-GEOMETRY_SERVICES_EXPORT bool compute(const std::vector<float>& targetSoup, const std::vector<float>& toolSoup, MeshBooleanOp op,
-						 std::vector<float>& outSoup, std::string* errMsg = nullptr);
+GEOMETRY_SERVICES_EXPORT bool compute(const std::vector<float>& targetSoup, const std::vector<float>& toolSoup,
+									  MeshBooleanOp op, std::vector<float>& outSoup, std::string* errMsg = nullptr);
 
 /// 开发/CI 自检：box-cylinder 差集
 GEOMETRY_SERVICES_EXPORT bool runSelfTest(std::string* errMsg = nullptr);

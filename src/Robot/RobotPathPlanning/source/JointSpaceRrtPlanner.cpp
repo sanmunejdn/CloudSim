@@ -1,4 +1,4 @@
-/// @file JointSpaceRrtPlanner.cpp
+﻿/// @file JointSpaceRrtPlanner.cpp
 /// @brief RRTConnect / RRT* 关节空间采样规划
 
 #include "JointSpaceRrtPlanner.h"
@@ -16,7 +16,6 @@ namespace detail
 {
 namespace
 {
-
 struct Node
 {
 	std::vector<double> q;
@@ -153,8 +152,8 @@ bool planRrtConnect(const PlanRequest& req, const JointLimits& lim, const std::v
 
 		const int nearB = nearestNode(tb, qNew);
 		const std::vector<double> qConnect = steer(tb[static_cast<std::size_t>(nearB)].q, qNew, step);
-		if (distL2(qConnect, qNew) < 1e-6
-			&& isSegmentValid(req, lim, tb[static_cast<std::size_t>(nearB)].q, qNew, req.options.longestValidSegmentRad))
+		if (distL2(qConnect, qNew) < 1e-6 &&
+			isSegmentValid(req, lim, tb[static_cast<std::size_t>(nearB)].q, qNew, req.options.longestValidSegmentRad))
 		{
 			std::vector<std::vector<double>> pathA;
 			std::vector<std::vector<double>> pathB;
@@ -209,19 +208,22 @@ bool planRrtStar(const PlanRequest& req, const JointLimits& lim, const std::vect
 		if (!isSegmentValid(req, lim, nodes[static_cast<std::size_t>(nn)].q, qNew, req.options.longestValidSegmentRad))
 			continue;
 
-		const double gamma = 2.0 * std::pow(1.0 + 1.0 / static_cast<double>(lim.lowerRad.size()), 1.0 / lim.lowerRad.size());
-		const double radius = std::min(step * 4.0, gamma * std::pow(std::log(static_cast<double>(nodes.size()) + 1.0)
-																	  / static_cast<double>(nodes.size() + 1),
-																  1.0 / lim.lowerRad.size()));
+		const double gamma =
+			2.0 * std::pow(1.0 + 1.0 / static_cast<double>(lim.lowerRad.size()), 1.0 / lim.lowerRad.size());
+		const double radius = std::min(step * 4.0, gamma * std::pow(std::log(static_cast<double>(nodes.size()) + 1.0) /
+																		static_cast<double>(nodes.size() + 1),
+																	1.0 / lim.lowerRad.size()));
 		const std::vector<int> nbs = nearNodes(nodes, qNew, radius);
 
 		int bestParent = nn;
-		double bestCost = nodes[static_cast<std::size_t>(nn)].cost + distL2(nodes[static_cast<std::size_t>(nn)].q, qNew);
+		double bestCost =
+			nodes[static_cast<std::size_t>(nn)].cost + distL2(nodes[static_cast<std::size_t>(nn)].q, qNew);
 		for (int nb : nbs)
 		{
-			const double c = nodes[static_cast<std::size_t>(nb)].cost + distL2(nodes[static_cast<std::size_t>(nb)].q, qNew);
-			if (c < bestCost
-				&& isSegmentValid(req, lim, nodes[static_cast<std::size_t>(nb)].q, qNew, req.options.longestValidSegmentRad))
+			const double c =
+				nodes[static_cast<std::size_t>(nb)].cost + distL2(nodes[static_cast<std::size_t>(nb)].q, qNew);
+			if (c < bestCost && isSegmentValid(req, lim, nodes[static_cast<std::size_t>(nb)].q, qNew,
+											   req.options.longestValidSegmentRad))
 			{
 				bestCost = c;
 				bestParent = nb;
@@ -236,19 +238,18 @@ bool planRrtStar(const PlanRequest& req, const JointLimits& lim, const std::vect
 		{
 			if (nb == bestParent)
 				continue;
-			const double c = nodes[static_cast<std::size_t>(newIdx)].cost
-							 + distL2(nodes[static_cast<std::size_t>(newIdx)].q, nodes[static_cast<std::size_t>(nb)].q);
-			if (c < nodes[static_cast<std::size_t>(nb)].cost
-				&& isSegmentValid(req, lim, nodes[static_cast<std::size_t>(newIdx)].q, nodes[static_cast<std::size_t>(nb)].q,
-								  req.options.longestValidSegmentRad))
+			const double c = nodes[static_cast<std::size_t>(newIdx)].cost +
+							 distL2(nodes[static_cast<std::size_t>(newIdx)].q, nodes[static_cast<std::size_t>(nb)].q);
+			if (c < nodes[static_cast<std::size_t>(nb)].cost &&
+				isSegmentValid(req, lim, nodes[static_cast<std::size_t>(newIdx)].q,
+							   nodes[static_cast<std::size_t>(nb)].q, req.options.longestValidSegmentRad))
 			{
 				nodes[static_cast<std::size_t>(nb)].parent = newIdx;
 				nodes[static_cast<std::size_t>(nb)].cost = c;
 			}
 		}
 
-		if (distL2(qNew, goalQ) < step
-			&& isSegmentValid(req, lim, qNew, goalQ, req.options.longestValidSegmentRad))
+		if (distL2(qNew, goalQ) < step && isSegmentValid(req, lim, qNew, goalQ, req.options.longestValidSegmentRad))
 		{
 			const double gc = nodes[static_cast<std::size_t>(newIdx)].cost + distL2(qNew, goalQ);
 			if (gc < bestGoalCost)
@@ -272,7 +273,8 @@ bool planRrtStar(const PlanRequest& req, const JointLimits& lim, const std::vect
 
 } // namespace
 
-bool planJointSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std::vector<double>& goalQ, PathResult& out)
+bool planJointSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std::vector<double>& goalQ,
+					   PathResult& out)
 {
 	const std::vector<double>& startQ = req.startJointRad;
 	if (startQ.size() != lim.lowerRad.size() || goalQ.size() != lim.lowerRad.size())

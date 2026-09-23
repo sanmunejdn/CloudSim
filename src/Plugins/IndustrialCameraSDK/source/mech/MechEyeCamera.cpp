@@ -1,4 +1,4 @@
-/// @file MechEyeCamera.cpp
+﻿/// @file MechEyeCamera.cpp
 /// @brief 梅卡 Mech-Eye：定义 CLOUDSIM_HAS_MECH_EYE 后链真 SDK
 
 #include "MechEyeCamera.h"
@@ -19,7 +19,6 @@ using mmind::eye::Frame2DAnd3D;
 
 namespace industrial_camera
 {
-
 bool MechEyeCamera::sdkAvailable()
 {
 #if defined(CLOUDSIM_HAS_MECH_EYE)

@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDREGISTRYBUILTINS_H
+﻿#ifndef DATA_BACKENDREGISTRYBUILTINS_H
 #define DATA_BACKENDREGISTRYBUILTINS_H
 
 /// @file BackendRegistryBuiltins.h
@@ -18,49 +18,52 @@
 inline void ensureBackendBuiltinsRegistered()
 {
 	static std::once_flag once;
-	std::call_once(once,
-				   []()
-				   {
-	BackendMeta pointCloudMeta;
-	pointCloudMeta.className = backend_type::kClassPointCloud;
-	pointCloudMeta.displayName = backend_type::kDisplayPointCloud;
-	pointCloudMeta.factory = []()
-	{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<PointCloudBackendData>()); };
-	BackendRegistry::instance().registerType(pointCloudMeta);
+	std::call_once(
+		once,
+		[]()
+		{
+			BackendMeta pointCloudMeta;
+			pointCloudMeta.className = backend_type::kClassPointCloud;
+			pointCloudMeta.displayName = backend_type::kDisplayPointCloud;
+			pointCloudMeta.factory = []()
+			{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<PointCloudBackendData>()); };
+			BackendRegistry::instance().registerType(pointCloudMeta);
 
-	BackendMeta meshMeta;
-	meshMeta.className = backend_type::kClassModel;
-	meshMeta.displayName = backend_type::kDisplayMesh;
-	meshMeta.factory = []() { return std::static_pointer_cast<BackendDataBase>(std::make_shared<MeshBackendData>()); };
-	BackendRegistry::instance().registerType(meshMeta);
+			BackendMeta meshMeta;
+			meshMeta.className = backend_type::kClassModel;
+			meshMeta.displayName = backend_type::kDisplayMesh;
+			meshMeta.factory = []()
+			{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<MeshBackendData>()); };
+			BackendRegistry::instance().registerType(meshMeta);
 
-	BackendMeta brepMeta;
-	brepMeta.className = backend_type::kClassBrepModel;
-	brepMeta.displayName = backend_type::kDisplayBrepModel;
-	brepMeta.factory = []() { return std::static_pointer_cast<BackendDataBase>(std::make_shared<BrepBackendData>()); };
-	BackendRegistry::instance().registerType(brepMeta);
+			BackendMeta brepMeta;
+			brepMeta.className = backend_type::kClassBrepModel;
+			brepMeta.displayName = backend_type::kDisplayBrepModel;
+			brepMeta.factory = []()
+			{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<BrepBackendData>()); };
+			BackendRegistry::instance().registerType(brepMeta);
 
-	BackendMeta parametricMeta;
-	parametricMeta.className = backend_type::kClassParametricBrep;
-	parametricMeta.displayName = backend_type::kDisplayParametricBrep;
-	parametricMeta.factory = []()
-	{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<ParametricBrepBackendData>()); };
-	BackendRegistry::instance().registerType(parametricMeta);
+			BackendMeta parametricMeta;
+			parametricMeta.className = backend_type::kClassParametricBrep;
+			parametricMeta.displayName = backend_type::kDisplayParametricBrep;
+			parametricMeta.factory = []()
+			{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<ParametricBrepBackendData>()); };
+			BackendRegistry::instance().registerType(parametricMeta);
 
-	BackendMeta frameMeta;
-	frameMeta.className = backend_type::kClassFrame;
-	frameMeta.displayName = backend_type::kDisplayCoordinateFrame;
-	frameMeta.factory = []()
-	{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<FrameBackendData>()); };
-	BackendRegistry::instance().registerType(frameMeta);
+			BackendMeta frameMeta;
+			frameMeta.className = backend_type::kClassFrame;
+			frameMeta.displayName = backend_type::kDisplayCoordinateFrame;
+			frameMeta.factory = []()
+			{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<FrameBackendData>()); };
+			BackendRegistry::instance().registerType(frameMeta);
 
-	BackendMeta customDeviceMeta;
-	customDeviceMeta.className = backend_type::kClassCustomDevice;
-	customDeviceMeta.displayName = backend_type::kDisplayCustomDevice;
-	customDeviceMeta.factory = []()
-	{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<CustomDeviceBackendData>()); };
-	BackendRegistry::instance().registerType(customDeviceMeta);
-				   });
+			BackendMeta customDeviceMeta;
+			customDeviceMeta.className = backend_type::kClassCustomDevice;
+			customDeviceMeta.displayName = backend_type::kDisplayCustomDevice;
+			customDeviceMeta.factory = []()
+			{ return std::static_pointer_cast<BackendDataBase>(std::make_shared<CustomDeviceBackendData>()); };
+			BackendRegistry::instance().registerType(customDeviceMeta);
+		});
 }
 
 #endif // DATA_BACKENDREGISTRYBUILTINS_H

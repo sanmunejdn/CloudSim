@@ -1,4 +1,4 @@
-#ifndef DATA_CUSTOMDEVICEBACKENDDATA_H
+﻿#ifndef DATA_CUSTOMDEVICEBACKENDDATA_H
 #define DATA_CUSTOMDEVICEBACKENDDATA_H
 
 /// @file CustomDeviceBackendData.h
@@ -97,15 +97,15 @@ DATA_EXPORT void writeCustomDeviceLinksToJson(const std::vector<CustomDeviceLink
 DATA_EXPORT bool readCustomDeviceLinksFromJson(const nlohmann::json& in, std::vector<CustomDeviceLink>& out);
 DATA_EXPORT void writeCustomDeviceJointsToJson(const std::vector<CustomDeviceJoint>& joints, nlohmann::json& out);
 DATA_EXPORT bool readCustomDeviceJointsFromJson(const nlohmann::json& in, std::vector<CustomDeviceJoint>& out);
-DATA_EXPORT void writeCustomDeviceNamedPosesToJson(const std::vector<CustomDeviceNamedPose>& poses, nlohmann::json& out);
+DATA_EXPORT void writeCustomDeviceNamedPosesToJson(const std::vector<CustomDeviceNamedPose>& poses,
+												   nlohmann::json& out);
 DATA_EXPORT bool readCustomDeviceNamedPosesFromJson(const nlohmann::json& in, std::vector<CustomDeviceNamedPose>& out);
 DATA_EXPORT void writeCustomDevicePoseSignalBindingsToJson(const std::vector<CustomDevicePoseSignalBinding>& bindings,
-														  nlohmann::json& out);
+														   nlohmann::json& out);
 DATA_EXPORT bool readCustomDevicePoseSignalBindingsFromJson(const nlohmann::json& in,
-														   std::vector<CustomDevicePoseSignalBinding>& out);
+															std::vector<CustomDevicePoseSignalBinding>& out);
 DATA_EXPORT std::string makeCustomDevicePoseId();
 DATA_EXPORT std::string makeCustomDevicePoseBindingId();
-
 
 class DATA_EXPORT CustomDeviceBackendData : public BackendDataBase
 {

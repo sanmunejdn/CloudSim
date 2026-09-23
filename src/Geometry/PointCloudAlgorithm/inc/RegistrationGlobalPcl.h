@@ -1,4 +1,4 @@
-#ifndef POINTCLOUDALGORITHM_REGISTRATIONGLOBALPCL_H
+﻿#ifndef POINTCLOUDALGORITHM_REGISTRATIONGLOBALPCL_H
 #define POINTCLOUDALGORITHM_REGISTRATIONGLOBALPCL_H
 
 /// @file RegistrationGlobalPcl.h
@@ -6,6 +6,7 @@
 /// @brief PCL FPFH + SAC 全局粗配（可选；需 CLOUDSIM_HAS_PCL）
 
 #include "point_cloud_algorithm_global.h"
+
 #include "RegistrationGlobal.h"
 
 #include <cstddef>
@@ -19,16 +20,16 @@ namespace pclalgo
 /// PCL 全局粗配参数；距离类 ≤0 时按包围盒对角自动
 struct PclGlobalAlignParams
 {
-	double featureVoxelMm = 0.0;	 ///< 体素 mm；0=自动（对角×1.5%）
-	double normalRadiusMm = 0.0;	 ///< 法线半径；0=2.5×体素
-	double fpfhRadiusMm = 0.0;		 ///< FPFH 半径；0=5×体素
-	double inlierDistanceMm = 0.0;	 ///< 对应距离 mm；0=对角×2.5%
+	double featureVoxelMm = 0.0;   ///< 体素 mm；0=自动（对角×1.5%）
+	double normalRadiusMm = 0.0;   ///< 法线半径；0=2.5×体素
+	double fpfhRadiusMm = 0.0;	   ///< FPFH 半径；0=5×体素
+	double inlierDistanceMm = 0.0; ///< 对应距离 mm；0=对角×2.5%
 	double similarityThreshold = 0.92;
-	float inlierFraction = 0.25f; ///< SAC 搜索门槛
-	float minAcceptInlierRatio = 0.45f; ///< 正向内点比；过低易接受错转角
+	float inlierFraction = 0.25f;			   ///< SAC 搜索门槛
+	float minAcceptInlierRatio = 0.45f;		   ///< 正向内点比；过低易接受错转角
 	float minAcceptReverseInlierRatio = 0.35f; ///< 反向（目标→源）内点比
-	double maxAcceptMeanNnFactor = 1.2; ///< 全体点均 NN ≤ inlierDistance×此系数
-	double icpMaxNormalAngleDeg = 45.0; ///< ICP 精修法线门 °；≤0 关门
+	double maxAcceptMeanNnFactor = 1.2;		   ///< 全体点均 NN ≤ inlierDistance×此系数
+	double icpMaxNormalAngleDeg = 45.0;		   ///< ICP 精修法线门 °；≤0 关门
 	int maxIterations = 50000;
 	int numberOfSamples = 3;
 	int correspondenceRandomness = 15;

@@ -1,4 +1,4 @@
-/// @file CircularArcGeometry.cpp
+﻿/// @file CircularArcGeometry.cpp
 /// @brief 三点定圆与弧采样
 
 #include "CircularArcGeometry.h"
@@ -213,9 +213,7 @@ bool sampleArcByChord(const Circle3Fit& fit, double chordMm, int minSamples, int
 		us.push_back(uVia);
 	}
 	std::sort(us.begin(), us.end());
-	us.erase(std::unique(us.begin(), us.end(),
-						 [](double a, double b) { return std::abs(a - b) < 1e-9; }),
-			 us.end());
+	us.erase(std::unique(us.begin(), us.end(), [](double a, double b) { return std::abs(a - b) < 1e-9; }), us.end());
 
 	outPositionsXyzFlat.reserve(us.size() * 3u);
 	if (outU01)

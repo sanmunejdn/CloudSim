@@ -1,5 +1,8 @@
-#ifndef ROBOTSCENE_ROBOTKINEMATICAPPLYCONTEXT_H
+﻿#ifndef ROBOTSCENE_ROBOTKINEMATICAPPLYCONTEXT_H
 #define ROBOTSCENE_ROBOTKINEMATICAPPLYCONTEXT_H
+
+/// @file RobotKinematicApplyContext.h
+/// @brief RobotKinematicApplyContext 接口
 
 class IRobotBackendPoseSink;
 class IRobotSimulationDocument;

@@ -1,4 +1,4 @@
-/// @file MainWindow.cpp
+﻿/// @file MainWindow.cpp
 /// @brief 主窗口编排
 
 #include "MainWindow.h"
@@ -6,20 +6,20 @@
 #include "../RobotWidget/inc/DeviceCommandPageWidget.h"
 #include "../RobotWidget/inc/FeatureTrajectoryPageWidget.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "../RobotWidget/inc/IoSignalNetworkService.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
-#include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
 #include "../RobotWidget/inc/RobotCollisionSettingsWidget.h"
 #include "../RobotWidget/inc/RobotCommPageWidget.h"
+#include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
 #include "../RobotWidget/inc/RobotFrameSettingsWidget.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
-#include "../RobotWidget/inc/IoSignalNetworkService.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 #include "../RobotWidget/inc/TrajectoryEditPageWidget.h"
 #include "../RobotWidget/inc/TrajectoryGenerationPageWidget.h"
 #include "AiAssistantDockWidget.h"
-#include "ApplicationStyle.h"
 #include "ApplicationSettings.h"
+#include "ApplicationStyle.h"
 #include "AssemblyMatePanel.h"
 #include "BackendFollowSolve.h"
 #include "BackendHierarchyFollow.h"
@@ -29,15 +29,16 @@
 #include "DevicePageWidget.h"
 #include "DocumentHostEvents.h"
 #include "DocumentPage.h"
-#include "io/CustomDeviceRobotMountOps.h"
-#include "IoSignalPageWidget.h"
 #include "IDataService.h"
 #include "IRenderView.h"
 #include "IRobotBackendPoseSink.h"
+#include "IoSignalPageWidget.h"
 #include "JobSystem.h"
 #include "MainWindowRobotHost.h"
 #include "MainWindowSelectionService.h"
 #include "MainWindow_p.h"
+#include "PluginHostContext.h"
+#include "PluginManager.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
@@ -47,8 +48,7 @@
 #include "RunLogger.h"
 #include "StyledDockTitleBar.h"
 #include "WidgetRenderAccess.h"
-#include "PluginHostContext.h"
-#include "PluginManager.h"
+#include "io/CustomDeviceRobotMountOps.h"
 #include "qteditorfactory.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
@@ -68,16 +68,16 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QRegularExpression>
 #include <QSet>
 #include <QSignalBlocker>
 #include <QSizePolicy>
-#include <QToolBar>
-#include <QMetaObject>
 #include <QStatusBar>
 #include <QStringList>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QToolBar>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QVBoxLayout>
@@ -238,8 +238,7 @@ void MainWindow::applyLanguage()
 		m_helpMenu->setTitle(i18n(QStringLiteral("Help"), QStringLiteral("帮助")));
 	if (m_helpDocumentationAction)
 	{
-		m_helpDocumentationAction->setText(
-			i18n(QStringLiteral("Documentation"), QStringLiteral("帮助文档")));
+		m_helpDocumentationAction->setText(i18n(QStringLiteral("Documentation"), QStringLiteral("帮助文档")));
 	}
 	if (m_aboutAction)
 	{
@@ -322,18 +321,16 @@ void MainWindow::applyLanguage()
 	{
 		// 几何建模等会设 panel windowTitle；无则仍是工艺流程节点库
 		QWidget* leftW = m_processFlowLeftDock->widget();
-		m_processFlowLeftDock->setWindowTitle(
-			(leftW && !leftW->windowTitle().isEmpty())
-				? leftW->windowTitle()
-				: i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")));
+		m_processFlowLeftDock->setWindowTitle((leftW && !leftW->windowTitle().isEmpty())
+												  ? leftW->windowTitle()
+												  : i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")));
 	}
 	if (m_processFlowRightDock)
 	{
 		QWidget* rightW = m_processFlowRightDock->widget();
-		m_processFlowRightDock->setWindowTitle(
-			(rightW && !rightW->windowTitle().isEmpty())
-				? rightW->windowTitle()
-				: i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
+		m_processFlowRightDock->setWindowTitle((rightW && !rightW->windowTitle().isEmpty())
+												   ? rightW->windowTitle()
+												   : i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
 	}
 	if (m_rightPanelTabs && m_rightPanelTabs->count() >= 1 && !m_processFlowSideUiActive && m_unitDockTabs)
 	{
@@ -1071,8 +1068,7 @@ void MainWindow::persistUiPreferencesToStorage()
 		m_processFlowSideUiActive ? sideDockShown(m_processFlowLeftDock) : sideDockShown(m_propertyDock);
 	m_uiPreferences.rightPanelVisible =
 		m_processFlowSideUiActive
-			? (sideDockShown(m_unitDock)
-			   || (m_processFlowUsesRightDock && sideDockShown(m_processFlowRightDock)))
+			? (sideDockShown(m_unitDock) || (m_processFlowUsesRightDock && sideDockShown(m_processFlowRightDock)))
 			: sideDockShown(m_unitDock);
 	if (m_propertyDock && m_propertyDock->width() >= kMinRestorableDockWidth)
 	{
@@ -1092,9 +1088,9 @@ void MainWindow::persistUiPreferencesToStorage()
 			continue;
 		}
 		const QString key = ApplicationSettings::sidePanelTabKey(widget);
-		const bool visible =
-			it.value().viewAction ? it.value().viewAction->isChecked()
-								  : (m_rightPanelTabs && m_rightPanelTabs->indexOf(const_cast<QWidget*>(widget)) >= 0);
+		const bool visible = it.value().viewAction
+								 ? it.value().viewAction->isChecked()
+								 : (m_rightPanelTabs && m_rightPanelTabs->indexOf(const_cast<QWidget*>(widget)) >= 0);
 		m_uiPreferences.sidePanelTabs.insert(key, visible);
 	}
 
@@ -1213,8 +1209,7 @@ void MainWindow::syncSidePanelToggleUi()
 		m_processFlowSideUiActive ? sideDockShown(m_processFlowLeftDock) : sideDockShown(m_propertyDock);
 	const bool rightVisible =
 		m_processFlowSideUiActive
-			? (sideDockShown(m_unitDock)
-			   || (m_processFlowUsesRightDock && sideDockShown(m_processFlowRightDock)))
+			? (sideDockShown(m_unitDock) || (m_processFlowUsesRightDock && sideDockShown(m_processFlowRightDock)))
 			: sideDockShown(m_unitDock);
 
 	if (m_toggleLeftPanelAction)
@@ -1436,8 +1431,7 @@ void MainWindow::showCentralAlternate()
 
 bool MainWindow::isShowingCentralAlternate() const
 {
-	const cloudsim::host::DocumentHost* doc =
-		const_cast<MainWindow*>(this)->currentDocumentHost();
+	const cloudsim::host::DocumentHost* doc = const_cast<MainWindow*>(this)->currentDocumentHost();
 	return doc && doc->isShowingCentralAlternate();
 }
 
@@ -1594,9 +1588,9 @@ void MainWindow::rebuildWorkspaceModeSwitcher()
 	}
 	if (items.empty())
 		items.push_back({QString(), QStringLiteral("主程序"), QStringLiteral("Main")});
-	const QString cur =
-		(m_pluginManager && m_pluginManager->hostContext()) ? m_pluginManager->hostContext()->currentWorkspaceMode()
-															: QString();
+	const QString cur = (m_pluginManager && m_pluginManager->hostContext())
+							? m_pluginManager->hostContext()->currentWorkspaceMode()
+							: QString();
 	const bool zh = useChinese();
 
 	if (!m_workspaceModeMenu || !m_workspaceModeActionGroup)
@@ -1636,8 +1630,7 @@ void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 
 	if (!m_processFlowLeftDock)
 	{
-		m_processFlowLeftDock =
-			new QDockWidget(i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")), this);
+		m_processFlowLeftDock = new QDockWidget(i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")), this);
 		m_processFlowLeftDock->setObjectName(QStringLiteral("ProcessFlowLeftDock"));
 		m_processFlowLeftDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 		applyStyledDockTitleBar(m_processFlowLeftDock);
@@ -1649,10 +1642,9 @@ void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 	}
 
 	{
-		const QString leftTitle =
-			(leftPanel && !leftPanel->windowTitle().isEmpty())
-				? leftPanel->windowTitle()
-				: i18n(QStringLiteral("Node Library"), QStringLiteral("节点库"));
+		const QString leftTitle = (leftPanel && !leftPanel->windowTitle().isEmpty())
+									  ? leftPanel->windowTitle()
+									  : i18n(QStringLiteral("Node Library"), QStringLiteral("节点库"));
 		m_processFlowLeftDock->setWindowTitle(leftTitle);
 	}
 
@@ -1668,10 +1660,9 @@ void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 			addDockWidget(Qt::RightDockWidgetArea, m_processFlowRightDock);
 		}
 		{
-			const QString rightTitle =
-				!rightPanel->windowTitle().isEmpty()
-					? rightPanel->windowTitle()
-					: i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板"));
+			const QString rightTitle = !rightPanel->windowTitle().isEmpty()
+										   ? rightPanel->windowTitle()
+										   : i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板"));
 			m_processFlowRightDock->setWindowTitle(rightTitle);
 		}
 		if (!qobject_cast<StyledDockTitleBar*>(m_processFlowRightDock->titleBarWidget()))
@@ -1792,7 +1783,8 @@ void MainWindow::restoreRightTabsAfterProcessFlow()
 	}
 
 	std::sort(m_processFlowDetachedRightTabs.begin(), m_processFlowDetachedRightTabs.end(),
-			  [](const ProcessFlowDetachedRightTab& a, const ProcessFlowDetachedRightTab& b) { return a.index < b.index; });
+			  [](const ProcessFlowDetachedRightTab& a, const ProcessFlowDetachedRightTab& b)
+			  { return a.index < b.index; });
 	for (const ProcessFlowDetachedRightTab& d : m_processFlowDetachedRightTabs)
 	{
 		QWidget* w = d.widget.data();

@@ -1,4 +1,4 @@
-/// @file DrawingSheetModel.cpp
+﻿/// @file DrawingSheetModel.cpp
 /// @brief 视图折线 → 场景 QPainterPath 缓存
 
 #include "DrawingSheetModel.h"
@@ -88,7 +88,8 @@ bool DrawingSheetModel::hasPath(const QString& viewId) const
 void DrawingSheetModel::rebuildPath(const DrawingSheetCanvasWidget::DrawingView& view) const
 {
 	ViewPaths paths;
-	auto appendPolys = [](QPainterPath& path, const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys) {
+	auto appendPolys = [](QPainterPath& path, const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys)
+	{
 		for (const DrawingSheetCanvasWidget::Polyline2d& poly : polys)
 		{
 			if (poly.points.size() < 2)

@@ -1,16 +1,15 @@
-/// @file BackendUnitsTreeBinder.cpp
+﻿/// @file BackendUnitsTreeBinder.cpp
 /// @brief Units 树文档作用域绑定（QTreeView 便于长列表滚动复用 viewport）
 
 #include "BackendUnitsTreeBinder.h"
 
 #include "MainWindow_p.h"
 
+#include <QModelIndex>
 #include <QSignalBlocker>
 #include <QStandardItem>
 #include <QStandardItemModel>
 #include <QTreeView>
-
-#include <QModelIndex>
 
 using namespace mainwindow_detail;
 

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_ROBOTPROJECTKINEMATICSRESTORE_H
+﻿#ifndef CLOUDSIMHOST_ROBOTPROJECTKINEMATICSRESTORE_H
 #define CLOUDSIMHOST_ROBOTPROJECTKINEMATICSRESTORE_H
 
 /// @file RobotProjectKinematicsRestore.h
@@ -34,12 +34,12 @@ CLOUDSIM_HOST_EXPORT QSet<QString> collectRobotLinkMeshBackendIds(const QJsonObj
 CLOUDSIM_HOST_EXPORT QSet<QString> collectRobotSceneRootBackendIds(const QJsonObject& projectRoot);
 
 /// 连杆 backendId → URDF 网格回退
-CLOUDSIM_HOST_EXPORT QHash<QString, RobotLinkUrdfReloadHint> collectRobotLinkUrdfReloadHints(
-	const QJsonObject& projectRoot);
+CLOUDSIM_HOST_EXPORT QHash<QString, RobotLinkUrdfReloadHint>
+collectRobotLinkUrdfReloadHints(const QJsonObject& projectRoot);
 
 /// 内嵌几何为空时从 URDF 重载连杆 mesh
-CLOUDSIM_HOST_EXPORT bool reloadRobotLinkMeshFromUrdfHint(MeshBackendData& mesh,
-															const RobotLinkUrdfReloadHint& hint, QString* outError);
+CLOUDSIM_HOST_EXPORT bool reloadRobotLinkMeshFromUrdfHint(MeshBackendData& mesh, const RobotLinkUrdfReloadHint& hint,
+														  QString* outError);
 
 /// 按 URDF 父子表重建 Data 层级（edges 缺失/悬空时兜底）
 CLOUDSIM_HOST_EXPORT void reapplyUrdfRobotHierarchyEdges(BackendDataManager& backend, const QString& urdfPath,

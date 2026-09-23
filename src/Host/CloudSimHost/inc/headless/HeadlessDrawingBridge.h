@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_HEADLESSDRAWINGBRIDGE_H
+﻿#ifndef CLOUDSIMHOST_HEADLESSDRAWINGBRIDGE_H
 #define CLOUDSIMHOST_HEADLESSDRAWINGBRIDGE_H
 
 /// @file HeadlessDrawingBridge.h
@@ -32,4 +32,4 @@ private:
 
 } // namespace cloudsim::host
 
-#endif
+#endif // CLOUDSIMHOST_HEADLESSDRAWINGBRIDGE_H

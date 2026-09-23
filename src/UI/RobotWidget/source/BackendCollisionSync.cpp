@@ -1,4 +1,4 @@
-/// @file BackendCollisionSync.cpp
+﻿/// @file BackendCollisionSync.cpp
 /// @brief 后端几何 → CollisionWorld；轨迹抽样校验
 
 #include "BackendCollisionSync.h"
@@ -12,12 +12,11 @@
 #include "MeshDiscretize.h"
 #include "UrdfRobotLoader.h"
 
-#include <Adapters.h>
-
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
 
+#include <Adapters.h>
 #include <osg/Matrixd>
 
 namespace BackendCollisionSync
@@ -160,7 +159,8 @@ void applyWhiteBlackListFilter(collision::CollisionWorld& world, const RobotColl
 	std::unordered_set<std::string> white(settings.whiteListBackendIds.begin(), settings.whiteListBackendIds.end());
 	std::unordered_set<std::string> black(settings.blackListBackendIds.begin(), settings.blackListBackendIds.end());
 
-	auto listOf = [&](const collision::CollisionBodyId& id) -> int {
+	auto listOf = [&](const collision::CollisionBodyId& id) -> int
+	{
 		if (white.count(id.backendId) > 0)
 			return 1;
 		if (black.count(id.backendId) > 0)
@@ -314,8 +314,8 @@ void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc, Back
 bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHost* doc, BackendDataManager& backend,
 							 const int instanceIndex, const QVector<double>& seedJointsBefore,
 							 const std::vector<std::vector<double>>& jointTrajectoryRad,
-							 const RobotCollision::Settings& settings, std::string* failSummary,
-							 IRobotOsgViewHost* osg, const bool rebuildWorldFirst, const bool restorePoseOnHit)
+							 const RobotCollision::Settings& settings, std::string* failSummary, IRobotOsgViewHost* osg,
+							 const bool rebuildWorldFirst, const bool restorePoseOnHit)
 {
 	if (!settings.enabled || !doc)
 		return true;

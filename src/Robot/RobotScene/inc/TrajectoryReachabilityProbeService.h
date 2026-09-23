@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_TRAJECTORYREACHABILITYPROBESERVICE_H
+﻿#ifndef ROBOTSCENE_TRAJECTORYREACHABILITYPROBESERVICE_H
 #define ROBOTSCENE_TRAJECTORYREACHABILITYPROBESERVICE_H
 
 /// @file TrajectoryReachabilityProbeService.h
@@ -7,11 +7,11 @@
 
 #include "robot_scene_global.h"
 
-#include <ITrajectoryReachabilityProbe.h>
-
 #include <QString>
 #include <cstddef>
 #include <vector>
+
+#include <ITrajectoryReachabilityProbe.h>
 
 namespace RobotInstruction
 {

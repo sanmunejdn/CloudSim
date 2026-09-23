@@ -1,21 +1,7 @@
-/// @file DrawingSidePanel.cpp
+﻿/// @file DrawingSidePanel.cpp
 /// @brief 工程图左侧：模型 + 视角缩略图拖放
 
 #include "DrawingSidePanel.h"
-
-#include <QCheckBox>
-#include <QColorDialog>
-#include <QComboBox>
-#include <QDoubleSpinBox>
-#include <QHBoxLayout>
-#include <QInputDialog>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QListWidgetItem>
-#include <QPushButton>
-#include <QSignalBlocker>
-#include <QVBoxLayout>
 
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -30,6 +16,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QListWidgetItem>
 #include <QMimeData>
 #include <QPainter>
 #include <QPushButton>
@@ -65,8 +52,7 @@ protected:
 		o.insert(QStringLiteral("kind"), item->data(Qt::UserRole).toString());
 		o.insert(QStringLiteral("title"), item->text());
 		auto* mime = new QMimeData;
-		mime->setData(QString::fromLatin1(drawingViewMimeType()),
-					  QJsonDocument(o).toJson(QJsonDocument::Compact));
+		mime->setData(QString::fromLatin1(drawingViewMimeType()), QJsonDocument(o).toJson(QJsonDocument::Compact));
 		auto* drag = new QDrag(this);
 		drag->setMimeData(mime);
 		const QPixmap pm = item->icon().pixmap(iconSize());
@@ -81,7 +67,8 @@ QRectF polyBounds(const QVector<DrawingSheetCanvasWidget::Polyline2d>& visible,
 {
 	bool any = false;
 	double minX = 0, minY = 0, maxX = 0, maxY = 0;
-	auto acc = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys) {
+	auto acc = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys)
+	{
 		for (const auto& poly : polys)
 		{
 			for (const QPointF& p : poly.points)
@@ -124,7 +111,8 @@ QPixmap renderDrawingViewThumbnail(const QVector<DrawingSheetCanvasWidget::Polyl
 	const QPointF origin(size.width() * 0.5, size.height() * 0.5);
 	const QPointF center = box.center();
 	auto mapPt = [&](const QPointF& pt) { return origin + (pt - center) * scale; };
-	auto fitCircle = [&](const QVector<QPointF>& pts, QPointF& c, double& r) -> bool {
+	auto fitCircle = [&](const QVector<QPointF>& pts, QPointF& c, double& r) -> bool
+	{
 		if (pts.size() < 5)
 			return false;
 		double sx = 0, sy = 0;
@@ -145,7 +133,8 @@ QPixmap renderDrawingViewThumbnail(const QVector<DrawingSheetCanvasWidget::Polyl
 			err = qMax(err, std::abs(QLineF(c, p).length() - r));
 		return err <= qMax(0.03 * r, 0.25);
 	};
-	auto drawPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, const QPen& pen) {
+	auto drawPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, const QPen& pen)
+	{
 		p.setPen(pen);
 		p.setBrush(Qt::NoBrush);
 		for (const auto& poly : polys)
@@ -274,153 +263,188 @@ DrawingSidePanel::DrawingSidePanel(QWidget* parent) : QWidget(parent)
 	root->addWidget(layerStyle);
 	root->addWidget(layerFlags);
 
-	connect(m_modelList, &QListWidget::currentRowChanged, this, [this](int row) {
-		if (row < 0 || row >= m_backendIds.size())
-		{
-			emit selectionChanged(QString());
-			return;
-		}
-		emit selectionChanged(m_backendIds.at(row));
-	});
-	connect(m_viewList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
-		if (!item || !item->data(Qt::UserRole + 1).toBool())
-			return;
-		emit viewTemplateActivated(item->data(Qt::UserRole).toString());
-	});
-	connect(m_layerList, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
-		if (m_layerUiBusy || !m_canvas || !item)
-			return;
-		m_canvas->setCurrentLayer(item->data(Qt::UserRole).toString());
-		rebuildLayerList();
-	});
-	connect(m_layerList, &QListWidget::currentItemChanged, this, [this](QListWidgetItem*, QListWidgetItem*) {
-		if (!m_layerUiBusy)
-			syncLayerStyleUi();
-	});
-	connect(m_layerList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
-		if (m_layerUiBusy || !m_canvas || !item)
-			return;
-		const QString id = item->data(Qt::UserRole).toString();
-		const auto* L = m_canvas->layerById(id);
-		if (!L)
-			return;
-		m_canvas->setLayerLocked(id, !L->locked);
-		rebuildLayerList();
-	});
-	connect(m_layerList, &QListWidget::itemChanged, this, [this](QListWidgetItem* item) {
-		if (m_layerUiBusy || !m_canvas || !item)
-			return;
-		const QString id = item->data(Qt::UserRole).toString();
-		const bool vis = item->checkState() == Qt::Checked;
-		m_canvas->setLayerVisible(id, vis);
-	});
-	connect(m_layerColorBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_canvas)
-			return;
-		const QString id = selectedLayerId();
-		const auto* L = m_canvas->layerById(id);
-		if (!L)
-			return;
-		const QColor c = QColorDialog::getColor(L->color, this, m_useChinese ? QStringLiteral("图层颜色")
-																			 : QStringLiteral("Layer Color"));
-		if (!c.isValid())
-			return;
-		m_canvas->setLayerColor(id, c);
-		rebuildLayerList();
-	});
-	connect(m_layerLineTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-		if (m_layerUiBusy || !m_canvas || !m_layerLineTypeCombo)
-			return;
-		const QString id = selectedLayerId();
-		const SheetLineType t = static_cast<SheetLineType>(m_layerLineTypeCombo->currentData().toInt());
-		m_canvas->setLayerLineType(id, t);
-	});
-	connect(m_layerWidthSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double w) {
-		if (m_layerUiBusy || !m_canvas)
-			return;
-		m_canvas->setLayerLineWidth(selectedLayerId(), w);
-	});
-	connect(m_layerFrozenCheck, &QCheckBox::toggled, this, [this](bool on) {
-		if (m_layerUiBusy || !m_canvas)
-			return;
-		m_canvas->setLayerFrozen(selectedLayerId(), on);
-	});
-	connect(m_layerPlotCheck, &QCheckBox::toggled, this, [this](bool on) {
-		if (m_layerUiBusy || !m_canvas)
-			return;
-		m_canvas->setLayerPlottable(selectedLayerId(), on);
-	});
-	connect(m_layerAddBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_canvas)
-			return;
-		bool ok = false;
-		const QString name = QInputDialog::getText(this, QStringLiteral("新建图层"), QStringLiteral("名称"),
-												   QLineEdit::Normal, QStringLiteral("图层"), &ok);
-		if (!ok)
-			return;
-		m_canvas->addLayer(name);
-		rebuildLayerList();
-	});
-	connect(m_layerRenameBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_canvas || !m_layerList || !m_layerList->currentItem())
-			return;
-		const QString id = m_layerList->currentItem()->data(Qt::UserRole).toString();
-		const auto* L = m_canvas->layerById(id);
-		if (!L)
-			return;
-		bool ok = false;
-		const QString name =
-			QInputDialog::getText(this, QStringLiteral("重命名图层"), QStringLiteral("名称"), QLineEdit::Normal, L->name,
-								  &ok);
-		if (!ok || name.trimmed().isEmpty())
-			return;
-		if (!m_canvas->renameLayer(id, name))
-			return;
-		rebuildLayerList();
-	});
-	connect(m_layerDeleteBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_canvas || !m_layerList || !m_layerList->currentItem())
-			return;
-		const QString id = m_layerList->currentItem()->data(Qt::UserRole).toString();
-		if (!m_canvas->removeLayer(id))
-			return;
-		rebuildLayerList();
-	});
-	connect(m_layerMoveBtn, &QPushButton::clicked, this, [this]() {
-		if (m_canvas)
-			m_canvas->reassignSelectionToCurrentLayer();
-	});
-	connect(m_detailRenameBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_canvas || !m_detailList || !m_detailList->currentItem())
-			return;
-		const QString id = m_detailList->currentItem()->data(Qt::UserRole).toString();
-		bool ok = false;
-		const QString name = QInputDialog::getText(this, QStringLiteral("局部视图"), QStringLiteral("标题"),
-												   QLineEdit::Normal, m_detailList->currentItem()->text(), &ok);
-		if (!ok || name.trimmed().isEmpty())
-			return;
-		m_canvas->renameView(id, name);
-		rebuildDetailList();
-	});
-	connect(m_detailScaleBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_canvas || !m_detailList || !m_detailList->currentItem())
-			return;
-		const QString id = m_detailList->currentItem()->data(Qt::UserRole).toString();
-		const double cur = m_detailList->currentItem()->data(Qt::UserRole + 1).toDouble();
-		bool ok = false;
-		const double scale =
-			QInputDialog::getDouble(this, QStringLiteral("局部倍率"), QStringLiteral("倍率"), cur, 1.5, 10.0, 1, &ok);
-		if (!ok)
-			return;
-		m_canvas->setDetailViewScale(id, scale);
-		rebuildDetailList();
-	});
-	connect(m_detailDeleteBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_canvas || !m_detailList || !m_detailList->currentItem())
-			return;
-		m_canvas->removeView(m_detailList->currentItem()->data(Qt::UserRole).toString());
-		rebuildDetailList();
-	});
+	connect(m_modelList, &QListWidget::currentRowChanged, this,
+			[this](int row)
+			{
+				if (row < 0 || row >= m_backendIds.size())
+				{
+					emit selectionChanged(QString());
+					return;
+				}
+				emit selectionChanged(m_backendIds.at(row));
+			});
+	connect(m_viewList, &QListWidget::itemDoubleClicked, this,
+			[this](QListWidgetItem* item)
+			{
+				if (!item || !item->data(Qt::UserRole + 1).toBool())
+					return;
+				emit viewTemplateActivated(item->data(Qt::UserRole).toString());
+			});
+	connect(m_layerList, &QListWidget::itemClicked, this,
+			[this](QListWidgetItem* item)
+			{
+				if (m_layerUiBusy || !m_canvas || !item)
+					return;
+				m_canvas->setCurrentLayer(item->data(Qt::UserRole).toString());
+				rebuildLayerList();
+			});
+	connect(m_layerList, &QListWidget::currentItemChanged, this,
+			[this](QListWidgetItem*, QListWidgetItem*)
+			{
+				if (!m_layerUiBusy)
+					syncLayerStyleUi();
+			});
+	connect(m_layerList, &QListWidget::itemDoubleClicked, this,
+			[this](QListWidgetItem* item)
+			{
+				if (m_layerUiBusy || !m_canvas || !item)
+					return;
+				const QString id = item->data(Qt::UserRole).toString();
+				const auto* L = m_canvas->layerById(id);
+				if (!L)
+					return;
+				m_canvas->setLayerLocked(id, !L->locked);
+				rebuildLayerList();
+			});
+	connect(m_layerList, &QListWidget::itemChanged, this,
+			[this](QListWidgetItem* item)
+			{
+				if (m_layerUiBusy || !m_canvas || !item)
+					return;
+				const QString id = item->data(Qt::UserRole).toString();
+				const bool vis = item->checkState() == Qt::Checked;
+				m_canvas->setLayerVisible(id, vis);
+			});
+	connect(m_layerColorBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (!m_canvas)
+					return;
+				const QString id = selectedLayerId();
+				const auto* L = m_canvas->layerById(id);
+				if (!L)
+					return;
+				const QColor c = QColorDialog::getColor(
+					L->color, this, m_useChinese ? QStringLiteral("图层颜色") : QStringLiteral("Layer Color"));
+				if (!c.isValid())
+					return;
+				m_canvas->setLayerColor(id, c);
+				rebuildLayerList();
+			});
+	connect(m_layerLineTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				if (m_layerUiBusy || !m_canvas || !m_layerLineTypeCombo)
+					return;
+				const QString id = selectedLayerId();
+				const SheetLineType t = static_cast<SheetLineType>(m_layerLineTypeCombo->currentData().toInt());
+				m_canvas->setLayerLineType(id, t);
+			});
+	connect(m_layerWidthSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double w)
+			{
+				if (m_layerUiBusy || !m_canvas)
+					return;
+				m_canvas->setLayerLineWidth(selectedLayerId(), w);
+			});
+	connect(m_layerFrozenCheck, &QCheckBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_layerUiBusy || !m_canvas)
+					return;
+				m_canvas->setLayerFrozen(selectedLayerId(), on);
+			});
+	connect(m_layerPlotCheck, &QCheckBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_layerUiBusy || !m_canvas)
+					return;
+				m_canvas->setLayerPlottable(selectedLayerId(), on);
+			});
+	connect(m_layerAddBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (!m_canvas)
+					return;
+				bool ok = false;
+				const QString name = QInputDialog::getText(this, QStringLiteral("新建图层"), QStringLiteral("名称"),
+														   QLineEdit::Normal, QStringLiteral("图层"), &ok);
+				if (!ok)
+					return;
+				m_canvas->addLayer(name);
+				rebuildLayerList();
+			});
+	connect(m_layerRenameBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (!m_canvas || !m_layerList || !m_layerList->currentItem())
+					return;
+				const QString id = m_layerList->currentItem()->data(Qt::UserRole).toString();
+				const auto* L = m_canvas->layerById(id);
+				if (!L)
+					return;
+				bool ok = false;
+				const QString name = QInputDialog::getText(this, QStringLiteral("重命名图层"), QStringLiteral("名称"),
+														   QLineEdit::Normal, L->name, &ok);
+				if (!ok || name.trimmed().isEmpty())
+					return;
+				if (!m_canvas->renameLayer(id, name))
+					return;
+				rebuildLayerList();
+			});
+	connect(m_layerDeleteBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (!m_canvas || !m_layerList || !m_layerList->currentItem())
+					return;
+				const QString id = m_layerList->currentItem()->data(Qt::UserRole).toString();
+				if (!m_canvas->removeLayer(id))
+					return;
+				rebuildLayerList();
+			});
+	connect(m_layerMoveBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (m_canvas)
+					m_canvas->reassignSelectionToCurrentLayer();
+			});
+	connect(m_detailRenameBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (!m_canvas || !m_detailList || !m_detailList->currentItem())
+					return;
+				const QString id = m_detailList->currentItem()->data(Qt::UserRole).toString();
+				bool ok = false;
+				const QString name = QInputDialog::getText(this, QStringLiteral("局部视图"), QStringLiteral("标题"),
+														   QLineEdit::Normal, m_detailList->currentItem()->text(), &ok);
+				if (!ok || name.trimmed().isEmpty())
+					return;
+				m_canvas->renameView(id, name);
+				rebuildDetailList();
+			});
+	connect(m_detailScaleBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (!m_canvas || !m_detailList || !m_detailList->currentItem())
+					return;
+				const QString id = m_detailList->currentItem()->data(Qt::UserRole).toString();
+				const double cur = m_detailList->currentItem()->data(Qt::UserRole + 1).toDouble();
+				bool ok = false;
+				const double scale = QInputDialog::getDouble(this, QStringLiteral("局部倍率"), QStringLiteral("倍率"),
+															 cur, 1.5, 10.0, 1, &ok);
+				if (!ok)
+					return;
+				m_canvas->setDetailViewScale(id, scale);
+				rebuildDetailList();
+			});
+	connect(m_detailDeleteBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (!m_canvas || !m_detailList || !m_detailList->currentItem())
+					return;
+				m_canvas->removeView(m_detailList->currentItem()->data(Qt::UserRole).toString());
+				rebuildDetailList();
+			});
 
 	// 占位：尚未投影时仍显示四视角卡片
 	QVector<DrawingViewTemplate> placeholders;
@@ -469,10 +493,12 @@ void DrawingSidePanel::bindCanvas(DrawingSheetCanvasWidget* canvas)
 	if (m_canvas)
 	{
 		connect(m_canvas, &DrawingSheetCanvasWidget::layersChanged, this, [this]() { rebuildLayerList(); });
-		connect(m_canvas, &DrawingSheetCanvasWidget::sheetChanged, this, [this]() {
-			rebuildLayerList();
-			rebuildDetailList();
-		});
+		connect(m_canvas, &DrawingSheetCanvasWidget::sheetChanged, this,
+				[this]()
+				{
+					rebuildLayerList();
+					rebuildDetailList();
+				});
 	}
 	rebuildLayerList();
 	rebuildDetailList();
@@ -507,7 +533,8 @@ void DrawingSidePanel::rebuildLayerList()
 		return;
 	}
 	const QString current = m_canvas->currentLayerId();
-	auto lineTypeName = [this](SheetLineType t) -> QString {
+	auto lineTypeName = [this](SheetLineType t) -> QString
+	{
 		switch (t)
 		{
 		case SheetLineType::Dashed:
@@ -538,13 +565,12 @@ void DrawingSidePanel::rebuildLayerList()
 		item->setCheckState(L.visible ? Qt::Checked : Qt::Unchecked);
 		item->setForeground(L.color);
 		const QString tip =
-			m_useChinese
-				? QStringLiteral("%1 · %2 mm · 单击当前层；勾选显示；双击锁定；下方冻结/打印")
-					  .arg(lineTypeName(L.lineType))
-					  .arg(L.lineWidthMm, 0, 'f', 2)
-				: QStringLiteral("%1 · %2 mm · click=current; check=visible; dbl=lock; freeze/plot below")
-					  .arg(lineTypeName(L.lineType))
-					  .arg(L.lineWidthMm, 0, 'f', 2);
+			m_useChinese ? QStringLiteral("%1 · %2 mm · 单击当前层；勾选显示；双击锁定；下方冻结/打印")
+							   .arg(lineTypeName(L.lineType))
+							   .arg(L.lineWidthMm, 0, 'f', 2)
+						 : QStringLiteral("%1 · %2 mm · click=current; check=visible; dbl=lock; freeze/plot below")
+							   .arg(lineTypeName(L.lineType))
+							   .arg(L.lineWidthMm, 0, 'f', 2);
 		item->setToolTip(tip);
 		m_layerList->addItem(item);
 		if (L.id == current)
@@ -585,9 +611,9 @@ void DrawingSidePanel::syncLayerStyleUi()
 		m_layerLineTypeCombo->setCurrentIndex(idx);
 	m_layerWidthSpin->setValue(L->lineWidthMm);
 	m_layerColorBtn->setStyleSheet(QStringLiteral("QPushButton { background-color: %1; color: %2; }")
-									   .arg(L->color.name(QColor::HexRgb),
-											L->color.lightness() > 140 ? QStringLiteral("#111")
-																	   : QStringLiteral("#fff")));
+									   .arg(L->color.name(QColor::HexRgb), L->color.lightness() > 140
+																			   ? QStringLiteral("#111")
+																			   : QStringLiteral("#fff")));
 	if (m_layerFrozenCheck)
 	{
 		const QSignalBlocker b(m_layerFrozenCheck);
@@ -605,7 +631,8 @@ void DrawingSidePanel::rebuildViewList()
 	if (!m_viewList)
 		return;
 	m_viewList->clear();
-	auto titleOf = [this](const QString& kind) -> QString {
+	auto titleOf = [this](const QString& kind) -> QString
+	{
 		if (kind == QLatin1String("front"))
 			return m_useChinese ? QStringLiteral("正视图") : QStringLiteral("Front");
 		if (kind == QLatin1String("top"))
@@ -642,10 +669,9 @@ void DrawingSidePanel::rebuildViewList()
 		item->setData(Qt::UserRole + 1, ready);
 		item->setFlags(ready ? (Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled)
 							 : (Qt::ItemIsEnabled | Qt::ItemIsSelectable));
-		item->setToolTip(ready ? (m_useChinese ? QStringLiteral("拖到图幅添加此视图")
-											   : QStringLiteral("Drag onto sheet to add"))
-							   : (m_useChinese ? QStringLiteral("先选择模型并生成图纸")
-											   : QStringLiteral("Generate drawing first")));
+		item->setToolTip(
+			ready ? (m_useChinese ? QStringLiteral("拖到图幅添加此视图") : QStringLiteral("Drag onto sheet to add"))
+				  : (m_useChinese ? QStringLiteral("先选择模型并生成图纸") : QStringLiteral("Generate drawing first")));
 		m_viewList->addItem(item);
 	}
 }

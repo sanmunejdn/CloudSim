@@ -12,10 +12,10 @@
 #include "Reconstruction.h"
 #include "ReconstructionConfig.h"
 #include "RegistrationNonRigid.h"
-#include "RegistrationRigid.h"
-#include "RegistrationSpare.h"
-#include "RegistrationSdf.h"
 #include "RegistrationPyramid.h"
+#include "RegistrationRigid.h"
+#include "RegistrationSdf.h"
+#include "RegistrationSpare.h"
 #include "Transform.h"
 #include "spare/SpareSurface.h"
 

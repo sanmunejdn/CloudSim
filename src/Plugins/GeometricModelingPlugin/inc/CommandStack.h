@@ -1,4 +1,4 @@
-#ifndef GEOMETRICMODELINGPLUGIN_COMMANDSTACK_H
+﻿#ifndef GEOMETRICMODELINGPLUGIN_COMMANDSTACK_H
 #define GEOMETRICMODELINGPLUGIN_COMMANDSTACK_H
 
 /// @file CommandStack.h
@@ -42,4 +42,4 @@ private:
 	std::vector<std::unique_ptr<GeomodelingCommand>> m_redo;
 };
 
-#endif
+#endif // GEOMETRICMODELINGPLUGIN_COMMANDSTACK_H

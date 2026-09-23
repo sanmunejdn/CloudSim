@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_PLUGINGEOMETRYHOSTIMPL_H
+﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINGEOMETRYHOSTIMPL_H
 #define CLOUDSIMPLUGINHOST_PLUGINGEOMETRYHOSTIMPL_H
 
 /// @file PluginGeometryHostImpl.h
@@ -90,8 +90,8 @@ public:
 	void extrudeSketchProfileToBrep(IPluginDocument* doc, const std::vector<float>& closedPolylineXyzMm,
 									const PluginSketchPlane& plane, const PluginSketchExtrudeParams& params,
 									PluginGeometryFinishedFn onFinished) override;
-	bool queryParametricBodyHistoryJson(IPluginDocument* doc, const std::string& backendIdUtf8,
-										QByteArray& outJsonUtf8, QString* outError = nullptr) override;
+	bool queryParametricBodyHistoryJson(IPluginDocument* doc, const std::string& backendIdUtf8, QByteArray& outJsonUtf8,
+										QString* outError = nullptr) override;
 	void setParametricBodyHistoryJson(IPluginDocument* doc, const std::string& backendIdUtf8,
 									  const QByteArray& historyJsonUtf8, PluginGeometryFinishedFn onFinished) override;
 	bool beginSketchInput(IPluginDocument* doc, const PluginSketchPlane& plane, PluginSketchInputFn onInput,
@@ -104,7 +104,8 @@ public:
 	void previewSketchExtrude(IPluginDocument* doc, const std::vector<float>& closedPolylineXyzMm,
 							  const PluginSketchPlane& plane, const PluginSketchExtrudeParams& params) override;
 	void clearSketchExtrudePreview(IPluginDocument* doc) override;
-	bool listParametricBodyIds(IPluginDocument* doc, std::vector<std::string>& outIds, QString* outError = nullptr) override;
+	bool listParametricBodyIds(IPluginDocument* doc, std::vector<std::string>& outIds,
+							   QString* outError = nullptr) override;
 	void pickParametricFeatureForEdit(IPluginDocument* doc, PluginParametricFeaturePickedFn onFinished) override;
 	bool previewSketchSweep(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
 							const std::vector<float>& pathPolylineXyzMm, const PluginSketchSweepParams& params,
@@ -124,8 +125,8 @@ public:
 	bool previewSketchRevolve(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
 							  const PluginSketchRevolveParams& params, QString* errOut = nullptr) override;
 	void revolveSketchProfileToBrep(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
-								  const PluginSketchRevolveParams& params,
-								  PluginGeometryFinishedFn onFinished) override;
+									const PluginSketchRevolveParams& params,
+									PluginGeometryFinishedFn onFinished) override;
 	bool previewLinearPattern(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
 							  QString* errOut = nullptr) override;
 	void linearPatternBodyToBrep(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
@@ -156,8 +157,7 @@ public:
 										 const PluginDrawingProjectParams& params,
 										 PluginDrawingHlrFinishedFn onFinished) override;
 
-	void setOriginReferenceVisibility(IPluginDocument* doc,
-									  const PluginOriginReferenceVisibility& visibility) override;
+	void setOriginReferenceVisibility(IPluginDocument* doc, const PluginOriginReferenceVisibility& visibility) override;
 
 	bool previewCircularPattern(IPluginDocument* doc, const PluginSketchCircularPatternParams& params,
 								QString* errOut = nullptr) override;

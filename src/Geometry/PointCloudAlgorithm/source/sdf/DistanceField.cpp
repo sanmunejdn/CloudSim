@@ -1,11 +1,15 @@
+﻿/// @file DistanceField.cpp
+/// @brief DistanceField 实现
+
 #include "sdf/DistanceField.h"
 
 #include "Measure.h"
 
-#include <Eigen/Geometry>
 #include <algorithm>
 #include <cmath>
 #include <limits>
+
+#include <Eigen/Geometry>
 
 namespace pclalgo
 {
@@ -13,7 +17,6 @@ namespace sdf
 {
 namespace
 {
-
 double autoVoxelMm(const std::vector<float>& xyz, double requested)
 {
 	if (requested > 0.0)

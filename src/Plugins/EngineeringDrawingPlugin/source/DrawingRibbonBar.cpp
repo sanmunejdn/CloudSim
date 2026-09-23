@@ -1,4 +1,4 @@
-/// @file DrawingRibbonBar.cpp
+﻿/// @file DrawingRibbonBar.cpp
 /// @brief 工程图模式条：工具分组 + 出图/图幅/导出
 
 #include "DrawingRibbonBar.h"
@@ -23,8 +23,8 @@
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QToolButton>
-#include <QVariant>
 #include <QVBoxLayout>
+#include <QVariant>
 
 namespace
 {
@@ -677,8 +677,7 @@ DrawingRibbonBar::DrawingRibbonBar(QWidget* parent) : QWidget(parent)
 	m_snapNear = new QCheckBox(QStringLiteral("最近点"), snap);
 	m_snapPolar = new QCheckBox(QStringLiteral("极轴"), snap);
 	m_orthoCheck = new QCheckBox(QStringLiteral("正交"), snap);
-	for (QCheckBox* c :
-		 {m_snapEnd, m_snapMid, m_snapInt, m_snapCen, m_snapPerp, m_snapNear, m_snapPolar, m_orthoCheck})
+	for (QCheckBox* c : {m_snapEnd, m_snapMid, m_snapInt, m_snapCen, m_snapPerp, m_snapNear, m_snapPolar, m_orthoCheck})
 	{
 		c->setObjectName(QStringLiteral("RibbonCheck"));
 		c->setChecked(c == m_snapEnd || c == m_snapMid || c == m_snapInt || c == m_snapCen);
@@ -889,12 +888,10 @@ DrawingRibbonBar::DrawingRibbonBar(QWidget* parent) : QWidget(parent)
 	connect(m_halfSectionCheck, &QCheckBox::toggled, this, &DrawingRibbonBar::halfSectionChanged);
 	connect(m_btnFitWindow, &QToolButton::clicked, this, &DrawingRibbonBar::fitWindowRequested);
 	connect(m_fitPaperBtn, &QPushButton::clicked, this, &DrawingRibbonBar::fitPaperRequested);
-	connect(m_btnAlignLeft, &QToolButton::clicked, this,
-			[this]() { emit viewAlignRequested(ViewAlignMode::Left); });
+	connect(m_btnAlignLeft, &QToolButton::clicked, this, [this]() { emit viewAlignRequested(ViewAlignMode::Left); });
 	connect(m_btnAlignHCenter, &QToolButton::clicked, this,
 			[this]() { emit viewAlignRequested(ViewAlignMode::HCenter); });
-	connect(m_btnAlignRight, &QToolButton::clicked, this,
-			[this]() { emit viewAlignRequested(ViewAlignMode::Right); });
+	connect(m_btnAlignRight, &QToolButton::clicked, this, [this]() { emit viewAlignRequested(ViewAlignMode::Right); });
 	connect(m_btnAlignTop, &QToolButton::clicked, this, [this]() { emit viewAlignRequested(ViewAlignMode::Top); });
 	connect(m_btnAlignVCenter, &QToolButton::clicked, this,
 			[this]() { emit viewAlignRequested(ViewAlignMode::VCenter); });
@@ -907,26 +904,36 @@ DrawingRibbonBar::DrawingRibbonBar(QWidget* parent) : QWidget(parent)
 	connect(m_sectionPlaneCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			[this](int) { updateCustomSectionUi(); });
 	connect(m_sectionCheck, &QCheckBox::toggled, this, [this](bool) { updateCustomSectionUi(); });
-	connect(m_paperCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-		updateCustomPaperUi();
-		emit sheetSettingsChanged(false);
-	});
-	connect(m_paperWSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double) {
-		if (m_paperCombo && m_paperCombo->currentData().toString() == QLatin1String("CUSTOM"))
-			emit sheetSettingsChanged(false);
-	});
-	connect(m_paperHSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double) {
-		if (m_paperCombo && m_paperCombo->currentData().toString() == QLatin1String("CUSTOM"))
-			emit sheetSettingsChanged(false);
-	});
-	connect(m_scaleCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-		updateCustomScaleUi();
-		emit sheetSettingsChanged(true);
-	});
-	connect(m_scaleSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double) {
-		if (m_scaleCombo && qFuzzyIsNull(m_scaleCombo->currentData().toDouble()))
-			emit sheetSettingsChanged(true);
-	});
+	connect(m_paperCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				updateCustomPaperUi();
+				emit sheetSettingsChanged(false);
+			});
+	connect(m_paperWSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double)
+			{
+				if (m_paperCombo && m_paperCombo->currentData().toString() == QLatin1String("CUSTOM"))
+					emit sheetSettingsChanged(false);
+			});
+	connect(m_paperHSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double)
+			{
+				if (m_paperCombo && m_paperCombo->currentData().toString() == QLatin1String("CUSTOM"))
+					emit sheetSettingsChanged(false);
+			});
+	connect(m_scaleCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				updateCustomScaleUi();
+				emit sheetSettingsChanged(true);
+			});
+	connect(m_scaleSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double)
+			{
+				if (m_scaleCombo && qFuzzyIsNull(m_scaleCombo->currentData().toDouble()))
+					emit sheetSettingsChanged(true);
+			});
 	connect(m_titleEdit, &QLineEdit::editingFinished, this, [this]() { emit sheetSettingsChanged(false); });
 	connect(m_ltScaleSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
 			[this](double v) { emit ltScaleChanged(v); });
@@ -938,10 +945,10 @@ DrawingRibbonBar::DrawingRibbonBar(QWidget* parent) : QWidget(parent)
 void DrawingRibbonBar::updateCustomSectionUi()
 {
 	const bool custom = customSection() && includeSection();
-	for (QWidget* w : {static_cast<QWidget*>(m_secOxLabel), static_cast<QWidget*>(m_secOx),
-					   static_cast<QWidget*>(m_secOy), static_cast<QWidget*>(m_secOz),
-					   static_cast<QWidget*>(m_secNxLabel), static_cast<QWidget*>(m_secNx),
-					   static_cast<QWidget*>(m_secNy), static_cast<QWidget*>(m_secNz)})
+	for (QWidget* w :
+		 {static_cast<QWidget*>(m_secOxLabel), static_cast<QWidget*>(m_secOx), static_cast<QWidget*>(m_secOy),
+		  static_cast<QWidget*>(m_secOz), static_cast<QWidget*>(m_secNxLabel), static_cast<QWidget*>(m_secNx),
+		  static_cast<QWidget*>(m_secNy), static_cast<QWidget*>(m_secNz)})
 	{
 		if (w)
 			w->setVisible(custom);
@@ -974,7 +981,8 @@ void DrawingRibbonBar::applySheetSettings(DrawingSheetCanvasWidget* canvas, bool
 	paper.visible = true;
 	paper.date = QDate::currentDate().toString(Qt::ISODate);
 	const QString key = m_paperCombo ? m_paperCombo->currentData().toString() : QStringLiteral("A4L");
-	auto setIso = [&](DrawingPaperSize size, bool landscape) {
+	auto setIso = [&](DrawingPaperSize size, bool landscape)
+	{
 		paper.size = size;
 		paper.landscape = landscape;
 	};
@@ -1111,7 +1119,8 @@ void DrawingRibbonBar::syncFromCanvas(const DrawingSheetCanvasWidget* canvas)
 		m_ltScaleSpin->setValue(canvas->ltScale());
 	}
 	const SheetSnapFlags sf = canvas->snapFlags();
-	auto setSnap = [](QCheckBox* c, bool on) {
+	auto setSnap = [](QCheckBox* c, bool on)
+	{
 		if (!c)
 			return;
 		const QSignalBlocker b(c);
@@ -1432,8 +1441,8 @@ void DrawingRibbonBar::applyLanguage(bool useChinese)
 	if (m_coarseViewCheck)
 	{
 		m_coarseViewCheck->setText(tr(QStringLiteral("Coarse"), QStringLiteral("快速预览")));
-		m_coarseViewCheck->setToolTip(tr(QStringLiteral("Mesh HLR preview"),
-										 QStringLiteral("网格 HLR 预览（圆呈多边形）；正式出图请关闭")));
+		m_coarseViewCheck->setToolTip(
+			tr(QStringLiteral("Mesh HLR preview"), QStringLiteral("网格 HLR 预览（圆呈多边形）；正式出图请关闭")));
 	}
 	if (m_sectionCheck)
 		m_sectionCheck->setText(tr(QStringLiteral("Section"), QStringLiteral("剖视")));

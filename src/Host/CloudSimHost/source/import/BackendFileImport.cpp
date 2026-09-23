@@ -1,7 +1,6 @@
-/// @file BackendFileImport.cpp
+﻿/// @file BackendFileImport.cpp
 /// @brief 后端文件导入注册
 
-#include "CustomDeviceUrdfExporter.h"
 #include "BackendFileImport.h"
 
 #include "BackendDataBase.h"
@@ -10,6 +9,7 @@
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "CustomDeviceBackendData.h"
+#include "CustomDeviceUrdfExporter.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
@@ -21,8 +21,9 @@
 
 #include <QFile>
 #include <QFileInfo>
-#include <QLatin1String>
 #include <memory>
+
+#include <QLatin1String>
 
 namespace cloudsim::host
 {
@@ -431,8 +432,7 @@ bool registerAdoptedFrameAndLoadScene(DocumentHost& host, const std::shared_ptr<
 	return true;
 }
 
-bool registerAdoptedCustomDeviceAndLoadScene(DocumentHost& host,
-											 const std::shared_ptr<CustomDeviceBackendData>& device,
+bool registerAdoptedCustomDeviceAndLoadScene(DocumentHost& host, const std::shared_ptr<CustomDeviceBackendData>& device,
 											 const QString& catalogTypeName, const QString& parentId,
 											 const bool resetViewToHome, QString* outError)
 {

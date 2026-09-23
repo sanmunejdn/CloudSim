@@ -1,4 +1,4 @@
-/// @file ProcessFlowReportPanel.cpp
+﻿/// @file ProcessFlowReportPanel.cpp
 /// @brief 报表摘要 + 结果对话框入口
 
 #include "ProcessFlowReportPanel.h"
@@ -18,7 +18,6 @@
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
-
 #include <algorithm>
 
 ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent)
@@ -96,9 +95,8 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	m_summary->setWordWrap(true);
 
 	m_machineTable = new QTableWidget(0, 5, this);
-	m_machineTable->setHorizontalHeaderLabels(
-		{QStringLiteral("节点"), QStringLiteral("利用率"), QStringLiteral("忙时"), QStringLiteral("阻塞"),
-		 QStringLiteral("均队长")});
+	m_machineTable->setHorizontalHeaderLabels({QStringLiteral("节点"), QStringLiteral("利用率"), QStringLiteral("忙时"),
+											   QStringLiteral("阻塞"), QStringLiteral("均队长")});
 	m_machineTable->horizontalHeader()->setStretchLastSection(true);
 	m_machineTable->setMaximumHeight(120);
 
@@ -147,8 +145,10 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	connect(m_stopBtn, &QPushButton::clicked, this, &ProcessFlowReportPanel::stopClicked);
 	connect(m_exportJsonBtn, &QPushButton::clicked, this, &ProcessFlowReportPanel::exportJsonClicked);
 	connect(m_exportCsvBtn, &QPushButton::clicked, this, &ProcessFlowReportPanel::exportCsvClicked);
-	connect(m_ganttBtn, &QPushButton::clicked, this, [this]() { openResultDialog(ProcessFlowResultDialog::Mode::Gantt); });
-	connect(m_traceBtn, &QPushButton::clicked, this, [this]() { openResultDialog(ProcessFlowResultDialog::Mode::Trace); });
+	connect(m_ganttBtn, &QPushButton::clicked, this,
+			[this]() { openResultDialog(ProcessFlowResultDialog::Mode::Gantt); });
+	connect(m_traceBtn, &QPushButton::clicked, this,
+			[this]() { openResultDialog(ProcessFlowResultDialog::Mode::Trace); });
 	connect(m_compareViewBtn, &QPushButton::clicked, this,
 			[this]() { openResultDialog(ProcessFlowResultDialog::Mode::Compare); });
 	connect(m_playBtn, &QPushButton::clicked, this,
@@ -205,11 +205,11 @@ void ProcessFlowReportPanel::applyLanguage(bool useChinese)
 								 QStringLiteral("阻塞"), QStringLiteral("均队长")}
 				   : QStringList{QStringLiteral("Node"), QStringLiteral("Util"), QStringLiteral("Busy"),
 								 QStringLiteral("Block"), QStringLiteral("Queue")});
-	m_bufferTable->setHorizontalHeaderLabels(
-		useChinese ? QStringList{QStringLiteral("缓冲段"), QStringLiteral("均库存"), QStringLiteral("峰库存"),
-								 QStringLiteral("满次")}
-				   : QStringList{QStringLiteral("Buffer"), QStringLiteral("Avg"), QStringLiteral("Max"),
-								 QStringLiteral("Full")});
+	m_bufferTable->setHorizontalHeaderLabels(useChinese
+												 ? QStringList{QStringLiteral("缓冲段"), QStringLiteral("均库存"),
+															   QStringLiteral("峰库存"), QStringLiteral("满次")}
+												 : QStringList{QStringLiteral("Buffer"), QStringLiteral("Avg"),
+															   QStringLiteral("Max"), QStringLiteral("Full")});
 	if (m_ganttDialog)
 		m_ganttDialog->applyLanguage(useChinese);
 	if (m_traceDialog)
@@ -261,7 +261,7 @@ void ProcessFlowReportPanel::setCompareRows(const QVector<PolicyCompareRow>& row
 }
 
 void ProcessFlowReportPanel::setCompareResult(const QVector<PolicyCompareRow>& rows,
-											 const QVector<SimStatistics>& perPolicy)
+											  const QVector<SimStatistics>& perPolicy)
 {
 	m_compareRows = rows;
 	m_compareStats = perPolicy;
@@ -415,7 +415,8 @@ void ProcessFlowReportPanel::rebuildSummary(const SimStatistics& stats)
 {
 	m_summary->setText(
 		(m_zh ? QStringLiteral("完成=%1  报废=%2  释放=%3  Makespan=%4s\n吞吐=%5 件/时  WIP均/峰=%6/%7  瓶颈=%8")
-			  : QStringLiteral("done=%1  scrap=%2  released=%3  makespan=%4s\nthroughput=%5 /h  WIP avg/max=%6/%7  bottleneck=%8"))
+			  : QStringLiteral(
+					"done=%1  scrap=%2  released=%3  makespan=%4s\nthroughput=%5 /h  WIP avg/max=%6/%7  bottleneck=%8"))
 			.arg(stats.completedJobs)
 			.arg(stats.scrappedJobs)
 			.arg(stats.releasedJobs)
@@ -430,7 +431,8 @@ void ProcessFlowReportPanel::rebuildSummary(const SimStatistics& stats)
 	{
 		const MachineStat& m = stats.machines[r];
 		m_machineTable->setItem(r, 0, new QTableWidgetItem(m.title.isEmpty() ? QString::number(m.nodeId) : m.title));
-		m_machineTable->setItem(r, 1, new QTableWidgetItem(QString::number(m.utilization * 100.0, 'f', 1) + QLatin1Char('%')));
+		m_machineTable->setItem(
+			r, 1, new QTableWidgetItem(QString::number(m.utilization * 100.0, 'f', 1) + QLatin1Char('%')));
 		m_machineTable->setItem(r, 2, new QTableWidgetItem(QString::number(m.busyTimeSec, 'f', 1)));
 		m_machineTable->setItem(r, 3, new QTableWidgetItem(QString::number(m.blockedTimeSec, 'f', 1)));
 		m_machineTable->setItem(r, 4, new QTableWidgetItem(QString::number(m.avgQueueLen, 'f', 2)));

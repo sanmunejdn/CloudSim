@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_ICUSTOMDEVICEASSEMBLYHOST_H
+﻿#ifndef ROBOTWIDGET_ICUSTOMDEVICEASSEMBLYHOST_H
 #define ROBOTWIDGET_ICUSTOMDEVICEASSEMBLYHOST_H
 
 /// @file ICustomDeviceAssemblyHost.h
@@ -7,13 +7,12 @@
 
 #include "robotwidget_global.h"
 
-#include <functional>
-#include <memory>
-
 #include <QString>
 #include <QStringList>
 #include <QVector>
 #include <QWidget>
+#include <functional>
+#include <memory>
 
 class CustomDeviceBackendData;
 class IRobotDocumentHost;

@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_CUSTOMDEVICEKINEMATICS_H
+﻿#ifndef ROBOTSCENE_CUSTOMDEVICEKINEMATICS_H
 #define ROBOTSCENE_CUSTOMDEVICEKINEMATICS_H
 
 /// @file CustomDeviceKinematics.h
@@ -56,7 +56,7 @@ ROBOT_SCENE_API void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData&
 
 /// applyQ 后：按父连杆 FK × originMm 回写旋转中心坐标系世界位姿（仅 Frame，不含 Link 几何）
 ROBOT_SCENE_API void syncMotionCenterFramesFromOrigins(CustomDeviceBackendData& device, BackendDataManager* mgr,
-													  IRobotBackendPoseSink* sink, const std::vector<double>& q);
+													   IRobotBackendPoseSink* sink, const std::vector<double>& q);
 
 /// 世界点 → 设备 W0 局部 mm；失败返回 false
 ROBOT_SCENE_API bool worldPointToDeviceLocalMm(const BackendMat4& w0, double worldX, double worldY, double worldZ,

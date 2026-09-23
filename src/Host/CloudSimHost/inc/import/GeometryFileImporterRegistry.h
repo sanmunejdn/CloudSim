@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_GEOMETRYFILEIMPORTERREGISTRY_H
+﻿#ifndef CLOUDSIMHOST_GEOMETRYFILEIMPORTERREGISTRY_H
 #define CLOUDSIMHOST_GEOMETRYFILEIMPORTERREGISTRY_H
 
 /// @file GeometryFileImporterRegistry.h
@@ -15,7 +15,6 @@
 
 namespace cloudsim::host
 {
-
 class CLOUDSIM_HOST_EXPORT GeometryFileImporterRegistry
 {
 public:

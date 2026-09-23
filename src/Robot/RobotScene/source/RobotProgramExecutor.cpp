@@ -3,16 +3,15 @@
 
 #include "RobotProgramExecutor.h"
 
-#include "IRobotBackendPoseSink.h"
-#include "IRobotSimulationDocument.h"
+#include "BackendDataManager.h"
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceKinematics.h"
+#include "IRobotBackendPoseSink.h"
+#include "IRobotSimulationDocument.h"
 #include "RobotInstructionProgram.h"
 #include "RobotSceneKinematics.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
-
-#include "BackendDataManager.h"
 
 #include <QByteArray>
 #include <QString>
@@ -266,8 +265,7 @@ bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRob
 			for (int j = 0; j < m_jointCount; ++j)
 			{
 				const int gi = m_jointOffset + j;
-				const double q0 = (i0 == 0U) ? m_segStartJointAngles[gi]
-											 : traj[i0 - 1U][static_cast<size_t>(j)];
+				const double q0 = (i0 == 0U) ? m_segStartJointAngles[gi] : traj[i0 - 1U][static_cast<size_t>(j)];
 				const double q1 = traj[i1 - 1U][static_cast<size_t>(j)];
 				m_jointAnglesRad[gi] = lerpRevoluteShortest(q0, q1, t);
 			}

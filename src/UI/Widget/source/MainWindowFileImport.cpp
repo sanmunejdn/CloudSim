@@ -1,14 +1,6 @@
 ﻿/// @file MainWindowFileImport.cpp
 /// @brief 模型与点云导入
 
-#include "DocumentPage.h"
-#include "MainWindow.h"
-#include "MainWindowImportCaptureRenderController.h"
-#include "MainWindowSelectionService.h"
-#include "MainWindow_p.h"
-#include "RunInfoPage.h"
-#include "WidgetRenderAccess.h"
-
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
@@ -16,11 +8,17 @@
 #include "CustomDeviceAssemblyDialog.h"
 #include "CustomDeviceBackendData.h"
 #include "DocumentImportFacade.h"
+#include "DocumentPage.h"
 #include "FrameBackendData.h"
 #include "GeometryImportUiFilters.h"
+#include "MainWindow.h"
+#include "MainWindowImportCaptureRenderController.h"
 #include "MainWindowRobotHost.h"
+#include "MainWindowSelectionService.h"
+#include "MainWindow_p.h"
+#include "RunInfoPage.h"
+#include "WidgetRenderAccess.h"
 
-#include <memory>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -31,10 +29,12 @@
 #include <QFormLayout>
 #include <QInputDialog>
 #include <QLabel>
-#include <QLatin1String>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QVBoxLayout>
+#include <memory>
+
+#include <QLatin1String>
 
 using namespace mainwindow_detail;
 
@@ -102,8 +102,7 @@ bool MainWindow::registerBackendObject(const QString& filePath, const QString& t
 void MainWindow::onOpenModel()
 {
 	const QString filter = cloudsim::host::geometryOpenModelFileFilter(/*includeOsgCapture=*/true);
-	const QStringList filePaths =
-		QFileDialog::getOpenFileNames(this, QStringLiteral("Open Model"), QString(), filter);
+	const QStringList filePaths = QFileDialog::getOpenFileNames(this, QStringLiteral("Open Model"), QString(), filter);
 	if (filePaths.isEmpty())
 	{
 		return;
@@ -180,8 +179,7 @@ void MainWindow::onCreateCoordinateFrame()
 	if (!host || !renderWidgetFromPage(currentPage()))
 	{
 		QMessageBox::warning(
-			this,
-			i18n(QStringLiteral("Coordinate Frame"), QStringLiteral("坐标系")),
+			this, i18n(QStringLiteral("Coordinate Frame"), QStringLiteral("坐标系")),
 			i18n(QStringLiteral("No active document / 3D view."), QStringLiteral("没有活动文档或三维视图。")));
 		return;
 	}
@@ -251,12 +249,11 @@ void MainWindow::onCreateCoordinateFrame()
 	}
 
 	QString err;
-	if (!cloudsim::host::registerAdoptedFrameAndLoadScene(*host, frame, QLatin1String(backend_type::kCatalogCoordinateFrame),
-														  parentId, false, &err))
+	if (!cloudsim::host::registerAdoptedFrameAndLoadScene(
+			*host, frame, QLatin1String(backend_type::kCatalogCoordinateFrame), parentId, false, &err))
 	{
 		QMessageBox::warning(
-			this,
-			i18n(QStringLiteral("Coordinate Frame"), QStringLiteral("坐标系")),
+			this, i18n(QStringLiteral("Coordinate Frame"), QStringLiteral("坐标系")),
 			err.isEmpty() ? i18n(QStringLiteral("Failed to create frame."), QStringLiteral("创建坐标系失败。")) : err);
 		return;
 	}
@@ -264,9 +261,8 @@ void MainWindow::onCreateCoordinateFrame()
 	focusBackendInTreeAfterImport(QString::fromStdString(frame->id()));
 	if (m_runInfoPage)
 	{
-		m_runInfoPage->appendInfo(
-			i18n(QStringLiteral("Coordinate frame created: %1").arg(name),
-				 QStringLiteral("已创建坐标系：%1").arg(name)));
+		m_runInfoPage->appendInfo(i18n(QStringLiteral("Coordinate frame created: %1").arg(name),
+									   QStringLiteral("已创建坐标系：%1").arg(name)));
 	}
 }
 
@@ -309,13 +305,8 @@ void MainWindow::onEditCustomDevice()
 
 	bool ok = false;
 	const QString picked = QInputDialog::getItem(
-		this,
-		i18n(QStringLiteral("Edit Custom Device"), QStringLiteral("编辑自定义设备")),
-		i18n(QStringLiteral("Select device:"), QStringLiteral("选择要修改的设备：")),
-		labels,
-		0,
-		false,
-		&ok);
+		this, i18n(QStringLiteral("Edit Custom Device"), QStringLiteral("编辑自定义设备")),
+		i18n(QStringLiteral("Select device:"), QStringLiteral("选择要修改的设备：")), labels, 0, false, &ok);
 	if (!ok || picked.isEmpty())
 	{
 		return;
@@ -362,9 +353,9 @@ bool MainWindow::exportCustomDeviceUrdfInteractive(const QString& deviceBackendI
 		}
 		if (labels.isEmpty())
 		{
-			QMessageBox::information(
-				this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
-				i18n(QStringLiteral("No custom device to export."), QStringLiteral("当前文档没有可导出的自定义设备。")));
+			QMessageBox::information(this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
+									 i18n(QStringLiteral("No custom device to export."),
+										  QStringLiteral("当前文档没有可导出的自定义设备。")));
 			return false;
 		}
 		bool ok = false;
@@ -393,8 +384,8 @@ bool MainWindow::exportCustomDeviceUrdfInteractive(const QString& deviceBackendI
 	QString urdfPath;
 	QString packageRoot;
 	QString err;
-	if (!cloudsim::host::exportCustomDeviceUrdfPackage(*host, deviceId.toStdString(), parentDir, &urdfPath, &packageRoot,
-													   &err))
+	if (!cloudsim::host::exportCustomDeviceUrdfPackage(*host, deviceId.toStdString(), parentDir, &urdfPath,
+													   &packageRoot, &err))
 	{
 		QMessageBox::warning(this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")), err);
 		return false;
@@ -402,13 +393,12 @@ bool MainWindow::exportCustomDeviceUrdfInteractive(const QString& deviceBackendI
 
 	if (m_runInfoPage)
 	{
-		m_runInfoPage->appendInfo(i18n(QStringLiteral("URDF exported: %1").arg(urdfPath),
-									   QStringLiteral("已导出 URDF：%1").arg(urdfPath)));
+		m_runInfoPage->appendInfo(
+			i18n(QStringLiteral("URDF exported: %1").arg(urdfPath), QStringLiteral("已导出 URDF：%1").arg(urdfPath)));
 	}
-	QMessageBox::information(
-		this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
-		i18n(QStringLiteral("Package written to:\n%1\n\nURDF:\n%2").arg(packageRoot, urdfPath),
-			 QStringLiteral("已写出 ROS 包：\n%1\n\nURDF：\n%2").arg(packageRoot, urdfPath)));
+	QMessageBox::information(this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
+							 i18n(QStringLiteral("Package written to:\n%1\n\nURDF:\n%2").arg(packageRoot, urdfPath),
+								  QStringLiteral("已写出 ROS 包：\n%1\n\nURDF：\n%2").arg(packageRoot, urdfPath)));
 	return true;
 }
 

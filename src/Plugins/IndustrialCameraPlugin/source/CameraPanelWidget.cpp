@@ -1,4 +1,4 @@
-/// @file CameraPanelWidget.cpp
+﻿/// @file CameraPanelWidget.cpp
 /// @brief 相机侧栏实现
 
 #include "CameraPanelWidget.h"
@@ -34,11 +34,8 @@ using industrial_camera::CapPointCloud;
 using industrial_camera::PixelFormat;
 
 CameraPanelWidget::CameraPanelWidget(IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent)
-	, host_(host)
-	, factory_(industrial_camera::createCameraFactory())
-	, last2d_(std::make_unique<CameraFrame2D>())
-	, last3d_(std::make_unique<CameraFrame3D>())
+	: QWidget(parent), host_(host), factory_(industrial_camera::createCameraFactory()),
+	  last2d_(std::make_unique<CameraFrame2D>()), last3d_(std::make_unique<CameraFrame3D>())
 {
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(12, 12, 12, 12);
@@ -130,7 +127,8 @@ CameraPanelWidget::CameraPanelWidget(IPluginHostContext* host, QWidget* parent)
 
 	connect(enumBtn, &QPushButton::clicked, this, &CameraPanelWidget::onEnumerate);
 	connect(brandCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CameraPanelWidget::onBrandChanged);
-	connect(deviceCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CameraPanelWidget::onDevicePicked);
+	connect(deviceCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&CameraPanelWidget::onDevicePicked);
 	connect(connBtn, &QPushButton::clicked, this, &CameraPanelWidget::onConnect);
 	connect(discBtn, &QPushButton::clicked, this, &CameraPanelWidget::onDisconnect);
 	connect(grabBtn, &QPushButton::clicked, this, &CameraPanelWidget::onGrab);
@@ -157,7 +155,8 @@ void CameraPanelWidget::setUseChinese(bool zh)
 
 void CameraPanelWidget::applyLanguage()
 {
-	auto title = [this](QGroupBox* b, const char* zh, const char* en) {
+	auto title = [this](QGroupBox* b, const char* zh, const char* en)
+	{
 		if (b)
 			b->setTitle(zh_ ? QString::fromUtf8(zh) : QString::fromUtf8(en));
 	};
@@ -195,12 +194,12 @@ void CameraPanelWidget::appendLog(const QString& s)
 	if (!host_)
 		return;
 	// 错误类文案走 logError，其余进宿主日志页
-	const bool isErr = s.contains(QStringLiteral("失败"), Qt::CaseInsensitive)
-					   || s.contains(QStringLiteral("fail"), Qt::CaseInsensitive)
-					   || s.contains(QStringLiteral("错误"), Qt::CaseInsensitive)
-					   || s.contains(QStringLiteral("无法"), Qt::CaseInsensitive)
-					   || s.contains(QStringLiteral("未发现"), Qt::CaseInsensitive)
-					   || s.contains(QStringLiteral("No "), Qt::CaseInsensitive);
+	const bool isErr = s.contains(QStringLiteral("失败"), Qt::CaseInsensitive) ||
+					   s.contains(QStringLiteral("fail"), Qt::CaseInsensitive) ||
+					   s.contains(QStringLiteral("错误"), Qt::CaseInsensitive) ||
+					   s.contains(QStringLiteral("无法"), Qt::CaseInsensitive) ||
+					   s.contains(QStringLiteral("未发现"), Qt::CaseInsensitive) ||
+					   s.contains(QStringLiteral("No "), Qt::CaseInsensitive);
 	const QString msg = QStringLiteral("[工业相机] %1").arg(s);
 	if (isErr)
 		host_->logError(msg);
@@ -262,17 +261,15 @@ void CameraPanelWidget::onEnumerate()
 	const auto list = factory_->enumerate(brand);
 	if (list.empty())
 	{
-		appendLog(factory_->lastError().empty()
-					  ? (zh_ ? QStringLiteral("未发现设备") : QStringLiteral("No devices"))
-					  : QString::fromStdString(factory_->lastError()));
+		appendLog(factory_->lastError().empty() ? (zh_ ? QStringLiteral("未发现设备") : QStringLiteral("No devices"))
+												: QString::fromStdString(factory_->lastError()));
 		return;
 	}
 	for (const auto& d : list)
 	{
 		const QString text = QStringLiteral("%1 | %2 | %3")
 								 .arg(QString::fromStdString(d.ip.empty() ? "-" : d.ip),
-									  QString::fromStdString(d.serial),
-									  QString::fromStdString(d.model));
+									  QString::fromStdString(d.serial), QString::fromStdString(d.model));
 		deviceCombo_->addItem(text, QVariant::fromValue(QString::fromStdString(d.serial + "\n" + d.ip)));
 	}
 	appendLog(zh_ ? QStringLiteral("枚举到 %1 台").arg(list.size()) : QStringLiteral("Found %1").arg(list.size()));
@@ -368,7 +365,8 @@ void CameraPanelWidget::updatePreview(const CameraFrame2D& f)
 		img = QImage(f.bytes.data(), f.width, f.height, f.width * 3, QImage::Format_RGB888).rgbSwapped().copy();
 	else
 		img = QImage(f.bytes.data(), f.width, f.height, f.width, QImage::Format_Grayscale8).copy();
-	preview_->setPixmap(QPixmap::fromImage(img).scaled(preview_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+	preview_->setPixmap(
+		QPixmap::fromImage(img).scaled(preview_->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
 void CameraPanelWidget::onSave()

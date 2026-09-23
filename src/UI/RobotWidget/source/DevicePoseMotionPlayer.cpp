@@ -50,8 +50,7 @@ bool DevicePoseMotionPlayer::applyQNow(const QString& deviceId, const std::vecto
 	{
 		return false;
 	}
-	const auto device =
-		std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(deviceId.toStdString()));
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(deviceId.toStdString()));
 	if (!device)
 	{
 		return false;
@@ -81,16 +80,15 @@ void DevicePoseMotionPlayer::ensureTimer()
 	}
 }
 
-bool DevicePoseMotionPlayer::start(const QString& deviceId, const QString& poseName,
-								   const std::vector<double>& targetQ, const double durationSec)
+bool DevicePoseMotionPlayer::start(const QString& deviceId, const QString& poseName, const std::vector<double>& targetQ,
+								   const double durationSec)
 {
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	if (!doc || deviceId.isEmpty() || targetQ.empty())
 	{
 		return false;
 	}
-	const auto device =
-		std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(deviceId.toStdString()));
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(deviceId.toStdString()));
 	if (!device)
 	{
 		return false;

@@ -1,4 +1,4 @@
-/// @file RobotPlanInstruction.cpp
+﻿/// @file RobotPlanInstruction.cpp
 /// @brief 规划指令 Host 路径
 
 #include "RobotPlanInstruction.h"
@@ -15,24 +15,25 @@
 #include "RobotMatrixOsgBridge.h"
 #include "UrdfRobotLoader.h"
 
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStringList>
-#include <QHash>
-
-#include <json.hpp>
 #include <cmath>
-#include <osg/Matrixd>
+
 #include <Adapters.h>
 #include <RigidTransform.h>
+#include <json.hpp>
+#include <osg/Matrixd>
 
 namespace cloudsim::host
 {
 namespace
 {
 nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
-{	nlohmann::json j;
+{
+	nlohmann::json j;
 	j["type"] = instruction.instructionType.toStdString();
 	nlohmann::json pose;
 	pose["x"] = instruction.targetPose.positionMm.x;

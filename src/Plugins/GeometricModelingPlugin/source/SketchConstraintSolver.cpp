@@ -1,4 +1,4 @@
-/// @file SketchConstraintSolver.cpp
+﻿/// @file SketchConstraintSolver.cpp
 /// @brief 调用 vendored PlaneGCS（LGPL）
 
 #include "SketchConstraintSolver.h"
@@ -190,8 +190,7 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 				sys.addConstraintVertical(glines[static_cast<std::size_t>(c.a)], tag);
 			break;
 		case SketchConstraintKind::EqualLength:
-			if (c.a >= 0 && c.b >= 0 && c.a < static_cast<int>(glines.size()) &&
-				c.b < static_cast<int>(glines.size()))
+			if (c.a >= 0 && c.b >= 0 && c.a < static_cast<int>(glines.size()) && c.b < static_cast<int>(glines.size()))
 				sys.addConstraintEqualLength(glines[static_cast<std::size_t>(c.a)],
 											 glines[static_cast<std::size_t>(c.b)], tag);
 			break;
@@ -200,20 +199,17 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 			sys.addConstraintEqual(gpts[static_cast<std::size_t>(c.a)].y, gpts[static_cast<std::size_t>(c.b)].y, tag);
 			break;
 		case SketchConstraintKind::Parallel:
-			if (c.a >= 0 && c.b >= 0 && c.a < static_cast<int>(glines.size()) &&
-				c.b < static_cast<int>(glines.size()))
+			if (c.a >= 0 && c.b >= 0 && c.a < static_cast<int>(glines.size()) && c.b < static_cast<int>(glines.size()))
 				sys.addConstraintParallel(glines[static_cast<std::size_t>(c.a)], glines[static_cast<std::size_t>(c.b)],
 										  tag);
 			break;
 		case SketchConstraintKind::Perpendicular:
-			if (c.a >= 0 && c.b >= 0 && c.a < static_cast<int>(glines.size()) &&
-				c.b < static_cast<int>(glines.size()))
+			if (c.a >= 0 && c.b >= 0 && c.a < static_cast<int>(glines.size()) && c.b < static_cast<int>(glines.size()))
 				sys.addConstraintPerpendicular(glines[static_cast<std::size_t>(c.a)],
 											   glines[static_cast<std::size_t>(c.b)], tag);
 			break;
 		case SketchConstraintKind::Angle:
-			if (c.a >= 0 && c.b >= 0 && c.a < static_cast<int>(glines.size()) &&
-				c.b < static_cast<int>(glines.size()))
+			if (c.a >= 0 && c.b >= 0 && c.a < static_cast<int>(glines.size()) && c.b < static_cast<int>(glines.size()))
 			{
 				angleStorage.push_back(c.value * M_PI / 180.0);
 				sys.addConstraintL2LAngle(glines[static_cast<std::size_t>(c.a)], glines[static_cast<std::size_t>(c.b)],
@@ -224,8 +220,8 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 			if (c.a >= 0 && c.a < static_cast<int>(garcs.size()))
 			{
 				radStorage[static_cast<std::size_t>(c.a)] = c.value;
-				sys.addConstraintArcRadius(garcs[static_cast<std::size_t>(c.a)], &radStorage[static_cast<std::size_t>(c.a)],
-										   tag);
+				sys.addConstraintArcRadius(garcs[static_cast<std::size_t>(c.a)],
+										   &radStorage[static_cast<std::size_t>(c.a)], tag);
 			}
 			break;
 		case SketchConstraintKind::Radius:
@@ -239,10 +235,10 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 			{
 				if (c.b >= 0 && c.b < static_cast<int>(garcs.size()))
 					sys.addConstraintTangent(glines[static_cast<std::size_t>(c.a)],
-											   garcs[static_cast<std::size_t>(c.b)], tag);
+											 garcs[static_cast<std::size_t>(c.b)], tag);
 				else if (c.b >= 0 && c.b < static_cast<int>(gcircles.size()))
 					sys.addConstraintTangent(glines[static_cast<std::size_t>(c.a)],
-											   gcircles[static_cast<std::size_t>(c.b)], tag);
+											 gcircles[static_cast<std::size_t>(c.b)], tag);
 			}
 			break;
 		case SketchConstraintKind::Symmetric:
@@ -252,8 +248,7 @@ int SketchConstraintSolver::solve(std::string* errMsg)
 											  glines[static_cast<std::size_t>(c.c)], tag);
 			break;
 		case SketchConstraintKind::Midpoint:
-			if (c.a >= 0 && c.a < static_cast<int>(gpts.size()) && c.b >= 0 &&
-				c.b < static_cast<int>(glines.size()))
+			if (c.a >= 0 && c.a < static_cast<int>(gpts.size()) && c.b >= 0 && c.b < static_cast<int>(glines.size()))
 			{
 				// 线段中点与目标点重合：退化第二段为点-点
 				GCS::Line& ln = glines[static_cast<std::size_t>(c.b)];

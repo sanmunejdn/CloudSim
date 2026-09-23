@@ -1,4 +1,4 @@
-/// @file RobotInstructionPlaybackEngine.cpp
+﻿/// @file RobotInstructionPlaybackEngine.cpp
 /// @brief 指令回放引擎
 
 #include "RobotInstructionPlaybackEngine.h"
@@ -149,11 +149,11 @@ bool RobotInstructionPlaybackEngine::tryStart(IRobotSimulationDocument* doc, IRo
 			 ++it)
 		{
 			osg::Matrixd M;
-		cloudsim::core::Mat4 mat;
-		if (osg->getBackendRootWorldMatrix(it.value().toStdString(), mat))
-		{
-			m_outerWorldAtStart[it.value().toStdString()] = RobotSceneKinematics::osgMatrixFromCoreMat4(mat);
-		}
+			cloudsim::core::Mat4 mat;
+			if (osg->getBackendRootWorldMatrix(it.value().toStdString(), mat))
+			{
+				m_outerWorldAtStart[it.value().toStdString()] = RobotSceneKinematics::osgMatrixFromCoreMat4(mat);
+			}
 		}
 	}
 

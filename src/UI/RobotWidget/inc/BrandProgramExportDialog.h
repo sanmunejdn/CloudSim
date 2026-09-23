@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_BRANDPROGRAMEXPORTDIALOG_H
+﻿#ifndef ROBOTWIDGET_BRANDPROGRAMEXPORTDIALOG_H
 #define ROBOTWIDGET_BRANDPROGRAMEXPORTDIALOG_H
 
 /// @file BrandProgramExportDialog.h
@@ -15,7 +15,6 @@ class QComboBox;
 
 namespace RobotWidget
 {
-
 struct BrandExportChoice
 {
 	QString brandId;	// abb / air / fanuc / inovance / lineheating / rokae
@@ -34,8 +33,8 @@ class ROBOTWIDGET_EXPORT BrandProgramExportDialog : public QDialog
 {
 	Q_OBJECT
 public:
-	explicit BrandProgramExportDialog(const QVector<BrandExportProgramItem>& programs,
-									  const QString& activeProgramId, QWidget* parent = nullptr);
+	explicit BrandProgramExportDialog(const QVector<BrandExportProgramItem>& programs, const QString& activeProgramId,
+									  QWidget* parent = nullptr);
 
 	BrandExportChoice selectedBrand() const;
 	QString selectedProgramId() const;
@@ -51,4 +50,4 @@ private:
 
 } // namespace RobotWidget
 
-#endif
+#endif // ROBOTWIDGET_BRANDPROGRAMEXPORTDIALOG_H

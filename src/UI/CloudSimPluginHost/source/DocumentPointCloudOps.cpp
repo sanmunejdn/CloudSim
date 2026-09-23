@@ -27,13 +27,13 @@
 
 #include <QByteArray>
 #include <QFile>
-#include <QLatin1String>
 #include <QString>
 #include <cmath>
 #include <functional>
 #include <sstream>
 
 #include <BrepImportArtifacts.h>
+#include <QLatin1String>
 #include <RigidTransform.h>
 #include <ShapeHandle.h>
 #include <ShapeIo.h>
@@ -537,8 +537,7 @@ void logRegistrationCentroidDiagnostic(cloudsim::host::DocumentHost* page, const
 		return;
 	}
 	const auto scanObj = page->findObject(scanBackendIdUtf8);
-	const auto templateBrep =
-		std::dynamic_pointer_cast<BrepBackendData>(page->findObject(templateBackendIdUtf8));
+	const auto templateBrep = std::dynamic_pointer_cast<BrepBackendData>(page->findObject(templateBackendIdUtf8));
 	if (!scanObj || !templateBrep)
 	{
 		return;

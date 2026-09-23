@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_MESHTRAJECTORY_H
+﻿#ifndef GEOMETRYALGORITHM_MESHTRAJECTORY_H
 #define GEOMETRYALGORITHM_MESHTRAJECTORY_H
 
 /// @file MeshTrajectory.h
@@ -17,8 +17,8 @@ namespace geoalgo
 {
 enum class MeshTrajectoryMethod
 {
-	CrossSection,  ///< 平面 ∩ 网格 → 弧长重采样
-	BsplineRegion  ///< 选中区域拟合 B 样条 → UV 栅格/蛇形
+	CrossSection, ///< 平面 ∩ 网格 → 弧长重采样
+	BsplineRegion ///< 选中区域拟合 B 样条 → UV 栅格/蛇形
 };
 
 enum class MeshTrajectoryUvTraceMode
@@ -42,15 +42,15 @@ struct MeshTrajectoryRegion
 struct MeshTrajectoryCrossSection
 {
 	double planeOriginMm[3]{0.0, 0.0, 0.0}; ///< 截面平面原点（模型 mm）
-	double planeNormal[3]{0.0, 0.0, 1.0};    ///< 截面法向（不必单位化，内部归一）
+	double planeNormal[3]{0.0, 0.0, 1.0};	///< 截面法向（不必单位化，内部归一）
 };
 
 struct MeshTrajectoryBsplineParams
 {
-	int uvCountU = 16;                    ///< 拟合格网基数，≥4
+	int uvCountU = 16; ///< 拟合格网基数，≥4
 	int uvCountV = 16;
-	double gridAngleDeg = 0.0;            ///< 区域 UV 系内扫描方向旋转（°）
-	double fitUvSpacingMm = 0.0;          ///< >0 时按 UV 跨度自动收紧格点数
+	double gridAngleDeg = 0.0;	 ///< 区域 UV 系内扫描方向旋转（°）
+	double fitUvSpacingMm = 0.0; ///< >0 时按 UV 跨度自动收紧格点数
 	MeshTrajectoryUvTraceMode traceMode = MeshTrajectoryUvTraceMode::USerpentine;
 	MeshSurfaceNurbsFitMode fitMode = MeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts;
 	double controlPointDensityFactor = 0.5;
@@ -66,7 +66,7 @@ struct MeshTrajectorySpec
 	MeshTrajectoryMethod method = MeshTrajectoryMethod::CrossSection;
 	MeshTrajectoryRegion region;
 	MeshTrajectoryCrossSection crossSection;
-	DiscretizeParams discretize;          ///< CrossSection 用 stepMm；BsplineRegion 不用 stepMm
+	DiscretizeParams discretize; ///< CrossSection 用 stepMm；BsplineRegion 不用 stepMm
 	MeshTrajectoryBsplineParams bspline;
 };
 

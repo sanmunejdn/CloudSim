@@ -1,4 +1,4 @@
-/// @file HeadlessRobotPlaybackBridge.cpp
+﻿/// @file HeadlessRobotPlaybackBridge.cpp
 /// @brief 服务端程序回放
 
 #include "headless/HeadlessRobotPlaybackBridge.h"
@@ -15,7 +15,6 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QMetaObject>
-
 #include <algorithm>
 
 namespace cloudsim::host
@@ -208,8 +207,8 @@ QJsonObject HeadlessRobotPlaybackBridge::start(const QJsonObject& body)
 
 	IRobotBackendPoseSink* sink = hrc->urdfImportScenePoseSink();
 	QString startErr;
-	if (!m_executor.tryStart(hrc, sink, &m_host.ioSignalNetwork(), m_instanceIndex, instructions, plans,
-							 initialAngles, &startErr))
+	if (!m_executor.tryStart(hrc, sink, &m_host.ioSignalNetwork(), m_instanceIndex, instructions, plans, initialAngles,
+							 &startErr))
 	{
 		return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), startErr}};
 	}
@@ -236,9 +235,9 @@ QJsonObject HeadlessRobotPlaybackBridge::start(const QJsonObject& body)
 	QJsonObject o;
 	o.insert(QStringLiteral("ok"), true);
 	o.insert(QStringLiteral("status"), QStringLiteral("running"));
-	o.insert(QStringLiteral("seedPolicy"),
-			 m_seedPolicy == SeedPolicy::FromCurrentPose ? QStringLiteral("FromCurrentPose")
-														 : QStringLiteral("FromInstruction"));
+	o.insert(QStringLiteral("seedPolicy"), m_seedPolicy == SeedPolicy::FromCurrentPose
+											   ? QStringLiteral("FromCurrentPose")
+											   : QStringLiteral("FromInstruction"));
 	return o;
 }
 
@@ -310,8 +309,8 @@ void HeadlessRobotPlaybackBridge::fillLazyPlans()
 		RobotInstruction::PlanResult pr;
 		QString planErr;
 		RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motion);
-		const bool ok = planRobotInstruction(*hrc, *ins, seed, m_instanceIndex, urdfPath, defaultTcp, m_sceneRootId,
-											 pr, &planErr);
+		const bool ok =
+			planRobotInstruction(*hrc, *ins, seed, m_instanceIndex, urdfPath, defaultTcp, m_sceneRootId, pr, &planErr);
 		if (!ok || !pr.ok)
 		{
 			RobotInstruction::PlanResult failed{};
@@ -376,9 +375,9 @@ QJsonObject HeadlessRobotPlaybackBridge::statusJson() const
 	o.insert(QStringLiteral("running"), m_executor.isRunning());
 	o.insert(QStringLiteral("sceneRootBackendId"), m_sceneRootId);
 	o.insert(QStringLiteral("jointAnglesRad"), jointsToJson(m_executor.jointAnglesRad()));
-	o.insert(QStringLiteral("seedPolicy"),
-			 m_seedPolicy == SeedPolicy::FromCurrentPose ? QStringLiteral("FromCurrentPose")
-														 : QStringLiteral("FromInstruction"));
+	o.insert(QStringLiteral("seedPolicy"), m_seedPolicy == SeedPolicy::FromCurrentPose
+											   ? QStringLiteral("FromCurrentPose")
+											   : QStringLiteral("FromInstruction"));
 	if (!m_executor.isRunning() && !m_executor.lastAbortSummary().empty())
 		o.insert(QStringLiteral("abortSummary"), QString::fromStdString(m_executor.lastAbortSummary()));
 	return o;

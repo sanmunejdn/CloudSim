@@ -1,4 +1,4 @@
-#ifndef WIDGET_WIDGET_GLOBAL_H
+﻿#ifndef WIDGET_WIDGET_GLOBAL_H
 #define WIDGET_WIDGET_GLOBAL_H
 
 /// @file widget_global.h

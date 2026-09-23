@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_BACKENDVISUALENSURE_H
+﻿#ifndef CLOUDSIMHOST_BACKENDVISUALENSURE_H
 #define CLOUDSIMHOST_BACKENDVISUALENSURE_H
 
 /// @file BackendVisualEnsure.h
@@ -36,8 +36,7 @@ struct EnsureVisualResult
 };
 
 CLOUDSIM_HOST_EXPORT EnsureVisualResult ensureVisual(DocumentHost& host, const std::string& backendId,
-													 EnsureVisualPolicy policy,
-													 const EnsureVisualOptions& opts = {});
+													 EnsureVisualPolicy policy, const EnsureVisualOptions& opts = {});
 
 } // namespace cloudsim::host
 

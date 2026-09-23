@@ -36,8 +36,8 @@ std::filesystem::path pathFromUtf8Bytes(const std::string& utf8Path)
 	{
 		return {};
 	}
-	const int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8Path.data(),
-									  static_cast<int>(utf8Path.size()), nullptr, 0);
+	const int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8Path.data(), static_cast<int>(utf8Path.size()),
+									  nullptr, 0);
 	if (n <= 0)
 	{
 		return {};
@@ -125,7 +125,8 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg,
 	if (meshImportQuality == 0)
 	{
 		// 抽稀已移出导入源路径（B3），该参数不再生效；告警防调用方误以为会抽稀
-		RunLogger::warn("[MeshBackendData] meshImportQuality=0 is deprecated and has no effect (no decimation on import).");
+		RunLogger::warn(
+			"[MeshBackendData] meshImportQuality=0 is deprecated and has no effect (no decimation on import).");
 	}
 	return backend_io::loadMeshFromFile(*this, path, errMsg, meshImportQuality);
 }

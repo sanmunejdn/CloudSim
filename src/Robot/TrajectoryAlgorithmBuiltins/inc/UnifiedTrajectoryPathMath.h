@@ -1,4 +1,4 @@
-#ifndef TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYPATHMATH_H
+﻿#ifndef TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYPATHMATH_H
 #define TRAJECTORYALGORITHMBUILTINS_UNIFIEDTRAJECTORYPATHMATH_H
 
 /// @file UnifiedTrajectoryPathMath.h
@@ -6,8 +6,8 @@
 /// @brief UnifiedTrajectoryPathMath 接口
 
 // UnifiedTrajectory 路径几何原语，供原子块复用
-#include "TrajectoryPipelineTypes.h"
 #include "TrajectoryOpExecutionContext.h"
+#include "TrajectoryPipelineTypes.h"
 #include "TrajectoryUnifiedScope.h"
 #include "UnifiedTrajectory.h"
 
@@ -24,8 +24,7 @@ void weaveUnified(RobotInstruction::UnifiedTrajectory& traj, double amplitudeMm,
 bool reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
 							   bool useOrientation, double residualTolMm, std::string* errMsg);
 /// 无配置时为 no-op；有配置时委托 ctx.externalAxisSearch
-void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj,
-							   const TrajectoryOpExecutionContext& ctx);
+void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx);
 
 void resampleUnifiedTrajectoryInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
 									  const RobotInstruction::RobotProgram* program, double stepMm);

@@ -2,10 +2,6 @@
 /// @brief 文档宿主与场景桥接
 
 #include "DocumentHost.h"
-#include "CloudSimHost.h"
-#include "io/CustomDeviceHostOps.h"
-#include "io/IoSignalNetwork.h"
-#include "HeadlessRobotContext.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
@@ -13,26 +9,17 @@
 #include "BackendFollowReverseIndex.h"
 #include "BackendHierarchyModel.h"
 #include "BackendSceneDocumentFacade.h"
+#include "CloudSimHost.h"
 #include "DocumentHostEvents.h"
 #include "FollowAttachmentComponent.h"
-#include "HostRenderViewFactory.h"
 #include "HeadlessInstructionPropertyDelegate.h"
+#include "HeadlessPointCloudBridge.h"
 #include "HeadlessRobotContext.h"
 #include "HeadlessTrajectorySession.h"
-#include "HeadlessPointCloudBridge.h"
-#include "headless/HeadlessRobotPlaybackBridge.h"
-#include "headless/HeadlessRobotExportBridge.h"
-#include "headless/HeadlessGeometryBridge.h"
-#include "headless/HeadlessAiBridge.h"
-#include "headless/HeadlessRobotCollisionBridge.h"
-#include "headless/HeadlessProgramEditBridge.h"
-#include "headless/HeadlessProcessFlowBridge.h"
-#include "headless/HeadlessDrawingBridge.h"
-#include "headless/HeadlessGeomodelBridge.h"
-#include "headless/HeadlessLabelingBridge.h"
+#include "HostRenderViewFactory.h"
 #include "IRobotInstructionPropertyDelegate.h"
-#include "IRobotUrdfImportContext.h"
 #include "IRobotSimulationDocument.h"
+#include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
 #include "NullCoreServices.h"
 #include "OsgWidget.h"
@@ -40,14 +27,26 @@
 #include "PointCloudBackendData.h"
 #include "RobotProgramStore.h"
 #include "adapters/DataServiceAdapter.h"
+#include "headless/HeadlessAiBridge.h"
+#include "headless/HeadlessDrawingBridge.h"
+#include "headless/HeadlessGeometryBridge.h"
+#include "headless/HeadlessGeomodelBridge.h"
+#include "headless/HeadlessLabelingBridge.h"
+#include "headless/HeadlessProcessFlowBridge.h"
+#include "headless/HeadlessProgramEditBridge.h"
+#include "headless/HeadlessRobotCollisionBridge.h"
+#include "headless/HeadlessRobotExportBridge.h"
+#include "headless/HeadlessRobotPlaybackBridge.h"
+#include "io/CustomDeviceHostOps.h"
+#include "io/IoSignalNetwork.h"
 #ifndef CLOUDSIM_HOST_HEADLESS_ONLY
 #include "adapters/OsgRenderViewAdapter.h"
 #endif
 #include "adapters/RobotServiceAdapter.h"
 #include "visual/BackendVisualSyncEngine.h"
 
-#include <Qt>
 #include <QVBoxLayout>
+#include <Qt>
 
 namespace cloudsim::host
 {
@@ -76,9 +75,9 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 		// OSG 直挂 layout：勿用 QStackedWidget 包 OpenGL，Windows 上会拖视图卡顿
 		m_osgWidget = new OsgWidget(this);
 		m_osgWidget->setPoseSyncBackendManager(m_backend.get());
-		m_osgWidget->setVisualSyncMarkDirty([this](const std::string& id, const std::uint32_t aspects) {
-			m_visualSyncEngine.markDirty(id, static_cast<VisualAspect>(aspects), VisualChangeReason::FkWrite);
-		});
+		m_osgWidget->setVisualSyncMarkDirty(
+			[this](const std::string& id, const std::uint32_t aspects)
+			{ m_visualSyncEngine.markDirty(id, static_cast<VisualAspect>(aspects), VisualChangeReason::FkWrite); });
 		m_sceneBridge.setOsgWidget(m_osgWidget);
 		m_centralLayout->addWidget(m_osgWidget);
 		m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget, *this);
@@ -114,7 +113,8 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 
 	m_ioSignalNetwork = std::make_unique<IoSignalNetwork>(this);
 	QObject::connect(m_ioSignalNetwork.get(), &IoSignalNetwork::ownerIoChanged, this,
-					 [this](const QString& ownerId) {
+					 [this](const QString& ownerId)
+					 {
 						 if (m_ioSignalNetwork->ownerKind(ownerId) == IoSignalOwnerKind::Device)
 						 {
 							 processCustomDevicePoseRisingEdges(*this, *m_ioSignalNetwork, ownerId);
@@ -127,9 +127,8 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 								 processCustomDevicePoseRisingEdges(*this, *m_ioSignalNetwork, id);
 						 }
 					 });
-	QObject::connect(m_ioSignalNetwork.get(), &IoSignalNetwork::networkChanged, this, [this]() {
-		primeCustomDevicePoseEdgeMemory(*m_ioSignalNetwork);
-	});
+	QObject::connect(m_ioSignalNetwork.get(), &IoSignalNetwork::networkChanged, this,
+					 [this]() { primeCustomDevicePoseEdgeMemory(*m_ioSignalNetwork); });
 
 	m_dataService = std::make_unique<DataServiceAdapter>(*this);
 	m_robotService = std::make_unique<RobotServiceAdapter>(*this, *m_robotProgramStore);

@@ -1,4 +1,4 @@
-/// @file TrajectoryEditSession.cpp
+﻿/// @file TrajectoryEditSession.cpp
 /// @brief TrajectoryEdit会话
 
 #include "TrajectoryEditSession.h"
@@ -13,9 +13,9 @@
 #include "ProgramEditCommand.h"
 #include "RawTrajectory.h"
 #include "RecipeBlueprint.h"
+#include "RobotExternalAxes.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
-#include "RobotExternalAxes.h"
 #include "RobotSimulationController.h"
 #include "RobotSimulationMath.h"
 #include "RunLogger.h"
@@ -547,17 +547,16 @@ void TrajectoryEditSession::reportNonRigidStatsIfAny() const
 	{
 		return;
 	}
-	QString msg =
-		QStringLiteral("非刚性配准：绑定成功 %1，失败 %2；模式=%3；绑定距离 min/mean/max=%4/%5/%6 mm；"
-					   "SPARE 均值误差 %7 mm，变形节点 %8")
-			.arg(static_cast<qulonglong>(stats.bindOk))
-			.arg(static_cast<qulonglong>(stats.bindFail))
-			.arg(stats.bindMode == 1 ? QStringLiteral("工件模型系") : QStringLiteral("世界系"))
-			.arg(stats.bindDistMinMm, 0, 'f', 3)
-			.arg(stats.bindDistMeanMm, 0, 'f', 3)
-			.arg(stats.bindDistMaxMm, 0, 'f', 3)
-			.arg(stats.meanErrorMm, 0, 'f', 3)
-			.arg(stats.deformationNodeCount);
+	QString msg = QStringLiteral("非刚性配准：绑定成功 %1，失败 %2；模式=%3；绑定距离 min/mean/max=%4/%5/%6 mm；"
+								 "SPARE 均值误差 %7 mm，变形节点 %8")
+					  .arg(static_cast<qulonglong>(stats.bindOk))
+					  .arg(static_cast<qulonglong>(stats.bindFail))
+					  .arg(stats.bindMode == 1 ? QStringLiteral("工件模型系") : QStringLiteral("世界系"))
+					  .arg(stats.bindDistMinMm, 0, 'f', 3)
+					  .arg(stats.bindDistMeanMm, 0, 'f', 3)
+					  .arg(stats.bindDistMaxMm, 0, 'f', 3)
+					  .arg(stats.meanErrorMm, 0, 'f', 3)
+					  .arg(stats.deformationNodeCount);
 	if (stats.spareFromCache)
 	{
 		msg += QStringLiteral("（缓存）");
@@ -731,12 +730,12 @@ bool TrajectoryEditSession::rebuildUnifiedFromSourceRaw(const RobotInstruction::
 		RobotInstruction::RawTrajectory worldRaw;
 		std::string worldErr;
 		if (!feature_pick_transform::transformRawTrajectoryToWorld(m_simController->host()->osgView(), backendId,
-																  sourceRaw, worldRaw, &worldErr))
+																   sourceRaw, worldRaw, &worldErr))
 		{
 			if (outError)
 			{
-				*outError = worldErr.empty() ? QStringLiteral("轨迹变换到世界坐标失败")
-											: QString::fromStdString(worldErr);
+				*outError =
+					worldErr.empty() ? QStringLiteral("轨迹变换到世界坐标失败") : QString::fromStdString(worldErr);
 			}
 			return false;
 		}
@@ -1626,8 +1625,7 @@ void TrajectoryEditSession::setRawTrajectory(RobotInstruction::RawTrajectory tra
 	else if (m_store && !m_boundPathPlanId.empty())
 	{
 		RobotInstruction::RobotProgramCatalog& catalog = m_store->activeCatalog();
-		RobotInstruction::PathPlanInstruction* pp =
-			catalog.findPathPlan(catalog.activeProgramId(), m_boundPathPlanId);
+		RobotInstruction::PathPlanInstruction* pp = catalog.findPathPlan(catalog.activeProgramId(), m_boundPathPlanId);
 		if (pp)
 		{
 			pp->setSourceFeatureJson(m_rawTrajectory->sourceFeatureJson);

@@ -44,7 +44,8 @@ void registerBuiltins()
 		backend_type::kClassPointCloud,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<PointCloudBackendVisual>(); });
 	BackendVisualRegistry::registerType(
-		backend_type::kClassModel, []() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
+		backend_type::kClassModel,
+		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
 	BackendVisualRegistry::registerType(
 		backend_type::kClassModelVisualAlias,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });

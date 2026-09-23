@@ -1,4 +1,4 @@
-/// @file FollowAttachmentComponent.cpp
+﻿/// @file FollowAttachmentComponent.cpp
 /// @brief Follow 附着组件
 
 #include "FollowAttachmentComponent.h"
@@ -15,8 +15,8 @@ namespace
 /// 布尔解析统一入口，follow.* 各键保持一致
 bool parseFollowBool(const std::string& value)
 {
-	return value == "1" || value == "true" || value == "True" || value == "TRUE" || value == "yes" ||
-		   value == "Yes" || value == "on";
+	return value == "1" || value == "true" || value == "True" || value == "TRUE" || value == "yes" || value == "Yes" ||
+		   value == "on";
 }
 
 std::string trimUtf8Whitespace(const std::string& s)
@@ -179,11 +179,9 @@ bool FollowAttachmentComponent::appendDefaultPropertyRowsWhenAbsent(nlohmann::js
 	return true;
 }
 
-void FollowAttachmentComponent::syncTargetNameInOwnerPropertyBag(BackendDataBase& owner,
-																const BackendDataManager* mgr)
+void FollowAttachmentComponent::syncTargetNameInOwnerPropertyBag(BackendDataBase& owner, const BackendDataManager* mgr)
 {
-	const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-		owner.getComponent(typeKeyStatic()));
+	const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(owner.getComponent(typeKeyStatic()));
 	if (!follow || !mgr)
 	{
 		return;

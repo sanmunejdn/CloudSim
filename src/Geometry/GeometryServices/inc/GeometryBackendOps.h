@@ -1,4 +1,4 @@
-#ifndef GEOMETRYSERVICES_GEOMETRYBACKENDOPS_H
+﻿#ifndef GEOMETRYSERVICES_GEOMETRYBACKENDOPS_H
 #define GEOMETRYSERVICES_GEOMETRYBACKENDOPS_H
 
 /// @file GeometryBackendOps.h
@@ -170,13 +170,16 @@ GEOMETRY_SERVICES_EXPORT void fillMeshReport(const std::vector<float>& soup, geo
 
 /// 从三角 soup 均匀采样顶点（与 B-rep display soup 提取策略一致），供模板面重构 mesh 输入
 GEOMETRY_SERVICES_EXPORT bool sampleTriangleSoupToPointBuffers(const std::vector<float>& triangleSoup,
-												  const std::vector<float>& triangleVertexNormals,
-												  std::vector<float>& outXyz, std::vector<float>& outNormals,
-												  std::size_t maxPoints, std::string* errMsg = nullptr);
+															   const std::vector<float>& triangleVertexNormals,
+															   std::vector<float>& outXyz,
+															   std::vector<float>& outNormals, std::size_t maxPoints,
+															   std::string* errMsg = nullptr);
 
 /// mesh → 临时点云视图（几何系顶点 + 继承 worldMatrix），不注册 backend
-GEOMETRY_SERVICES_EXPORT bool buildPointCloudFromMeshForTemplateBrep(const MeshBackendData& mesh, PointCloudBackendData& outScan,
-														std::size_t maxPoints = 120000U, std::string* errMsg = nullptr);
+GEOMETRY_SERVICES_EXPORT bool buildPointCloudFromMeshForTemplateBrep(const MeshBackendData& mesh,
+																	 PointCloudBackendData& outScan,
+																	 std::size_t maxPoints = 120000U,
+																	 std::string* errMsg = nullptr);
 
 /// CAD 模板 B-rep + 扫描点云：ICP 对齐后逐面更新几何，输出新 BrepBackendData
 
@@ -186,10 +189,11 @@ registerScanToCadTemplate(const BrepBackendData& templateBrep, const PointCloudB
 						  std::string* errMsg = nullptr, const std::string& templateStepPathUtf8 = std::string(),
 						  geoalgo::TemplateBrepRegistrationCheckpoint* registrationCheckpoint = nullptr);
 
-GEOMETRY_SERVICES_EXPORT bool updateBrepFromAlignedScan(const BrepBackendData& templateBrep, const PointCloudBackendData& scanCloud,
-										   geoalgo::TemplateBrepUpdateParams params, BrepBackendData& brepOut,
-										   geoalgo::TemplateBrepUpdateResult& outReport, std::string* errMsg = nullptr,
-										   const std::string& templateStepPathUtf8 = std::string());
+GEOMETRY_SERVICES_EXPORT bool
+updateBrepFromAlignedScan(const BrepBackendData& templateBrep, const PointCloudBackendData& scanCloud,
+						  geoalgo::TemplateBrepUpdateParams params, BrepBackendData& brepOut,
+						  geoalgo::TemplateBrepUpdateResult& outReport, std::string* errMsg = nullptr,
+						  const std::string& templateStepPathUtf8 = std::string());
 
 GEOMETRY_SERVICES_EXPORT bool updateBrepFromCadTemplate(
 
@@ -210,117 +214,122 @@ GEOMETRY_SERVICES_EXPORT bool updateBrepFromCadTemplate(
 GEOMETRY_SERVICES_EXPORT bool registrationCoarsePipelineSelfTest(std::string* errMsg = nullptr);
 
 /// Vcg 修复 + 法矢光顺（曲面重构预处理）
-GEOMETRY_SERVICES_EXPORT bool preprocessMeshSoupForSurfaceReconstruct(const std::vector<float>& soup,
-														 const geoalgo::MeshSurfaceReconstructParams& params,
-														 std::vector<float>& outSoup,
-														 geoalgo::MeshSurfaceReconstructReport& report,
-														 std::string* errMsg = nullptr);
+GEOMETRY_SERVICES_EXPORT bool preprocessMeshSoupForSurfaceReconstruct(
+	const std::vector<float>& soup, const geoalgo::MeshSurfaceReconstructParams& params, std::vector<float>& outSoup,
+	geoalgo::MeshSurfaceReconstructReport& report, std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT geoalgo::MeshSurfaceReconstructSessionPtr
 createMeshSurfaceReconstructSession(std::vector<float> preprocessedSoup);
 
 GEOMETRY_SERVICES_EXPORT bool runMeshSurfaceReconstructStage(geoalgo::MeshSurfaceReconstructSession& session,
-												geoalgo::MeshSurfaceReconstructStage stage,
-												const geoalgo::MeshSurfaceReconstructParams& params,
-												geoalgo::ShapeHandle* outShape,
-												geoalgo::MeshSurfaceReconstructReport& report,
-												std::string* errMsg = nullptr);
+															 geoalgo::MeshSurfaceReconstructStage stage,
+															 const geoalgo::MeshSurfaceReconstructParams& params,
+															 geoalgo::ShapeHandle* outShape,
+															 geoalgo::MeshSurfaceReconstructReport& report,
+															 std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT bool buildPartitionColoredMeshSoup(const geoalgo::MeshSurfaceReconstructSession& session,
-											   std::vector<float>& outSoup, std::vector<float>& outRgbPerVertex,
-											   std::string* errMsg = nullptr);
-
-GEOMETRY_SERVICES_EXPORT bool buildSamplePointsCloud(const geoalgo::MeshSurfaceReconstructSession& session,
-										std::vector<float>& outXyz, std::vector<float>& outRgba,
-										std::string* errMsg = nullptr);
-
-GEOMETRY_SERVICES_EXPORT bool buildFitPreviewShape(const geoalgo::MeshSurfaceReconstructSession& session,
-									  geoalgo::ShapeHandle& outShape, std::string* errMsg = nullptr);
-
-GEOMETRY_SERVICES_EXPORT bool meshSurfaceReconstructShapeToBrep(const geoalgo::ShapeHandle& shape,
-												   std::shared_ptr<BrepBackendData>& outBrep,
-												   std::string* errMsg = nullptr);
-
-/// 网格 soup → B 样条 B-rep 曲面重构（含可选 vcg 预处理）
-GEOMETRY_SERVICES_EXPORT bool reconstructBrepFromMeshSoup(const std::vector<float>& soup,
-											 const geoalgo::MeshSurfaceReconstructParams& params,
-											 std::shared_ptr<BrepBackendData>& outBrep,
-											 geoalgo::MeshSurfaceReconstructReport& report,
-											 std::string* errMsg = nullptr);
-
-GEOMETRY_SERVICES_EXPORT geoalgo::TubularGrindingSessionPtr createTubularGrindingSession(std::vector<float> sourceSoup);
-
-GEOMETRY_SERVICES_EXPORT geoalgo::TubularGrindingSessionPtr createTubularGrindingSessionFromPointCloud(std::vector<float> pointXyz);
-
-GEOMETRY_SERVICES_EXPORT bool runTubularGrindingStage(geoalgo::TubularGrindingSession& session, geoalgo::TubularGrindingStage stage,
-										 const geoalgo::TubularGrindingParams& params,
-										 geoalgo::TubularGrindingReport& report, std::string* errMsg = nullptr);
-
-GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingSegmentColoredMeshSoup(const geoalgo::TubularGrindingSession& session,
 															std::vector<float>& outSoup,
 															std::vector<float>& outRgbPerVertex,
 															std::string* errMsg = nullptr);
 
-GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingFpfhRegionColoredMeshSoup(const geoalgo::TubularGrindingSession& session,
-															   std::vector<float>& outSoup,
-															   std::vector<float>& outRgbPerVertex,
-															   std::string* errMsg = nullptr);
+GEOMETRY_SERVICES_EXPORT bool buildSamplePointsCloud(const geoalgo::MeshSurfaceReconstructSession& session,
+													 std::vector<float>& outXyz, std::vector<float>& outRgba,
+													 std::string* errMsg = nullptr);
+
+GEOMETRY_SERVICES_EXPORT bool buildFitPreviewShape(const geoalgo::MeshSurfaceReconstructSession& session,
+												   geoalgo::ShapeHandle& outShape, std::string* errMsg = nullptr);
+
+GEOMETRY_SERVICES_EXPORT bool meshSurfaceReconstructShapeToBrep(const geoalgo::ShapeHandle& shape,
+																std::shared_ptr<BrepBackendData>& outBrep,
+																std::string* errMsg = nullptr);
+
+/// 网格 soup → B 样条 B-rep 曲面重构（含可选 vcg 预处理）
+GEOMETRY_SERVICES_EXPORT bool reconstructBrepFromMeshSoup(const std::vector<float>& soup,
+														  const geoalgo::MeshSurfaceReconstructParams& params,
+														  std::shared_ptr<BrepBackendData>& outBrep,
+														  geoalgo::MeshSurfaceReconstructReport& report,
+														  std::string* errMsg = nullptr);
+
+GEOMETRY_SERVICES_EXPORT geoalgo::TubularGrindingSessionPtr createTubularGrindingSession(std::vector<float> sourceSoup);
+
+GEOMETRY_SERVICES_EXPORT geoalgo::TubularGrindingSessionPtr
+createTubularGrindingSessionFromPointCloud(std::vector<float> pointXyz);
+
+GEOMETRY_SERVICES_EXPORT bool runTubularGrindingStage(geoalgo::TubularGrindingSession& session,
+													  geoalgo::TubularGrindingStage stage,
+													  const geoalgo::TubularGrindingParams& params,
+													  geoalgo::TubularGrindingReport& report,
+													  std::string* errMsg = nullptr);
+
+GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingSegmentColoredMeshSoup(const geoalgo::TubularGrindingSession& session,
+																		 std::vector<float>& outSoup,
+																		 std::vector<float>& outRgbPerVertex,
+																		 std::string* errMsg = nullptr);
+
+GEOMETRY_SERVICES_EXPORT bool
+buildTubularGrindingFpfhRegionColoredMeshSoup(const geoalgo::TubularGrindingSession& session,
+											  std::vector<float>& outSoup, std::vector<float>& outRgbPerVertex,
+											  std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingRingColoredMeshSoup(const geoalgo::TubularGrindingSession& session,
-														 std::vector<float>& outSoup,
-														 std::vector<float>& outRgbPerVertex,
-														 std::string* errMsg = nullptr);
+																	  std::vector<float>& outSoup,
+																	  std::vector<float>& outRgbPerVertex,
+																	  std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingRingCenterPointsCloud(const geoalgo::TubularGrindingSession& session,
-														   std::vector<float>& outXyz, std::vector<float>& outRgba,
-														   std::string* errMsg = nullptr);
+																		std::vector<float>& outXyz,
+																		std::vector<float>& outRgba,
+																		std::string* errMsg = nullptr);
 
-GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingFaceNormalAxisLineSegments(const geoalgo::TubularGrindingSession& session,
-																const geoalgo::TubularGrindingParams& params,
-																std::vector<float>& outLineXyz,
-																std::string* errMsg = nullptr);
+GEOMETRY_SERVICES_EXPORT bool
+buildTubularGrindingFaceNormalAxisLineSegments(const geoalgo::TubularGrindingSession& session,
+											   const geoalgo::TubularGrindingParams& params,
+											   std::vector<float>& outLineXyz, std::string* errMsg = nullptr);
 
 /// Phase 1 局部轴线线段（双向可视化）
 GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingLocalAxisLineSegments(const geoalgo::TubularGrindingSession& session,
-														   const geoalgo::TubularGrindingParams& params,
-														   std::vector<float>& outLineXyz,
-														   std::string* errMsg = nullptr);
-
-/// 椭圆拟合残差报告（每环 RMS + 全局摘要）
-GEOMETRY_SERVICES_EXPORT bool computeTubularGrindingEllipseResidualReport(const geoalgo::TubularGrindingSession& session,
-															 const geoalgo::TubularGrindingParams& params,
-															 std::vector<double>& outPerRingRmsResiduals,
-															 std::string& outSummaryText,
-															 std::string* errMsg = nullptr);
-
-GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingCenterlinePointsCloud(const geoalgo::TubularGrindingSession& session,
-														   std::vector<float>& outXyz, std::vector<float>& outRgba,
-														   std::string* errMsg = nullptr);
-
-GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingCenterlinePolylineXyz(const geoalgo::TubularGrindingSession& session,
-														   std::vector<float>& outXyz, std::string* errMsg = nullptr);
-
-GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingCenterlinePcaAxisArrowLineSegments(const geoalgo::TubularGrindingSession& session,
+																		const geoalgo::TubularGrindingParams& params,
 																		std::vector<float>& outLineXyz,
 																		std::string* errMsg = nullptr);
 
+/// 椭圆拟合残差报告（每环 RMS + 全局摘要）
+GEOMETRY_SERVICES_EXPORT bool computeTubularGrindingEllipseResidualReport(
+	const geoalgo::TubularGrindingSession& session, const geoalgo::TubularGrindingParams& params,
+	std::vector<double>& outPerRingRmsResiduals, std::string& outSummaryText, std::string* errMsg = nullptr);
+
+GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingCenterlinePointsCloud(const geoalgo::TubularGrindingSession& session,
+																		std::vector<float>& outXyz,
+																		std::vector<float>& outRgba,
+																		std::string* errMsg = nullptr);
+
+GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingCenterlinePolylineXyz(const geoalgo::TubularGrindingSession& session,
+																		std::vector<float>& outXyz,
+																		std::string* errMsg = nullptr);
+
+GEOMETRY_SERVICES_EXPORT bool
+buildTubularGrindingCenterlinePcaAxisArrowLineSegments(const geoalgo::TubularGrindingSession& session,
+													   std::vector<float>& outLineXyz, std::string* errMsg = nullptr);
+
 GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingTemplatePointsCloud(const geoalgo::TubularGrindingSession& session,
-														 std::vector<float>& outXyz, std::vector<float>& outRgba,
-														 std::string* errMsg = nullptr);
+																	  std::vector<float>& outXyz,
+																	  std::vector<float>& outRgba,
+																	  std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingProjectedPointsCloud(const geoalgo::TubularGrindingSession& session,
-														  std::vector<float>& outXyz, std::vector<float>& outRgba,
-														  std::string* errMsg = nullptr);
+																	   std::vector<float>& outXyz,
+																	   std::vector<float>& outRgba,
+																	   std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT int tubularGrindingIterationSnapshotCount(const geoalgo::TubularGrindingSession& session);
 
 GEOMETRY_SERVICES_EXPORT int tubularGrindingIterationSnapshotIteration(const geoalgo::TubularGrindingSession& session,
-														  int snapshotIndex);
+																	   int snapshotIndex);
 
-GEOMETRY_SERVICES_EXPORT bool buildTubularGrindingIterationSnapshotPointsCloud(const geoalgo::TubularGrindingSession& session,
-																  int snapshotIndex, std::vector<float>& outXyz,
-																  std::vector<float>& outRgba,
-																  std::string* errMsg = nullptr);
+GEOMETRY_SERVICES_EXPORT bool
+buildTubularGrindingIterationSnapshotPointsCloud(const geoalgo::TubularGrindingSession& session, int snapshotIndex,
+												 std::vector<float>& outXyz, std::vector<float>& outRgba,
+												 std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT bool
 buildTubularGrindingIterationSnapshotContractedPointsCloud(const geoalgo::TubularGrindingSession& session,

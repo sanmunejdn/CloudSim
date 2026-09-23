@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_HEADLESSROBOTPLAYBACKBRIDGE_H
+﻿#ifndef CLOUDSIMHOST_HEADLESSROBOTPLAYBACKBRIDGE_H
 #define CLOUDSIMHOST_HEADLESSROBOTPLAYBACKBRIDGE_H
 
 /// @file HeadlessRobotPlaybackBridge.h
@@ -37,7 +37,7 @@ private:
 	enum class SeedPolicy
 	{
 		FromInstruction, // Chain
-		FromCurrentPose  // Current：每段以实时关节为种子
+		FromCurrentPose	 // Current：每段以实时关节为种子
 	};
 
 	void onTimerTick();
@@ -60,4 +60,4 @@ private:
 
 } // namespace cloudsim::host
 
-#endif
+#endif // CLOUDSIMHOST_HEADLESSROBOTPLAYBACKBRIDGE_H

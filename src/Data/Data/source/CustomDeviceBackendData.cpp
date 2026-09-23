@@ -421,9 +421,8 @@ void advanceIdCounterFromLoaded(std::atomic<unsigned long long>& counter, const 
 	{
 		const unsigned long long parsed = std::stoull(id.substr(prefixLen));
 		unsigned long long expected = counter.load(std::memory_order_relaxed);
-		while (parsed >= expected &&
-			   !counter.compare_exchange_weak(expected, parsed + 1ULL, std::memory_order_relaxed,
-											  std::memory_order_relaxed))
+		while (parsed >= expected && !counter.compare_exchange_weak(expected, parsed + 1ULL, std::memory_order_relaxed,
+																	std::memory_order_relaxed))
 		{
 		}
 	}
@@ -506,7 +505,7 @@ bool readCustomDeviceNamedPosesFromJson(const nlohmann::json& in, std::vector<Cu
 }
 
 void writeCustomDevicePoseSignalBindingsToJson(const std::vector<CustomDevicePoseSignalBinding>& bindings,
-											  nlohmann::json& out)
+											   nlohmann::json& out)
 {
 	out = nlohmann::json::array();
 	for (const CustomDevicePoseSignalBinding& b : bindings)
@@ -522,7 +521,7 @@ void writeCustomDevicePoseSignalBindingsToJson(const std::vector<CustomDevicePos
 }
 
 bool readCustomDevicePoseSignalBindingsFromJson(const nlohmann::json& in,
-											   std::vector<CustomDevicePoseSignalBinding>& out)
+												std::vector<CustomDevicePoseSignalBinding>& out)
 {
 	out.clear();
 	if (!in.is_array())
@@ -607,9 +606,7 @@ std::size_t CustomDeviceBackendData::geometryElementCount() const
 	return 0U;
 }
 
-void CustomDeviceBackendData::clearGeometry()
-{
-}
+void CustomDeviceBackendData::clearGeometry() {}
 
 void CustomDeviceBackendData::collectReferencedBackendIds(std::vector<std::string>& out) const
 {

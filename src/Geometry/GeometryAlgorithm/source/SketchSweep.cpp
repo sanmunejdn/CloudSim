@@ -1,4 +1,4 @@
-/// @file SketchSweep.cpp
+﻿/// @file SketchSweep.cpp
 /// @brief 闭合轮廓沿路径扫描（显式对齐截面 + 单边 spine + PipeShell/MakePipe）
 
 #include "SketchSweep.h"
@@ -6,6 +6,11 @@
 #include "BrepBoolean.h"
 #include "detail/OccIncludes.h"
 #include "detail/SketchCurveWireOcc.h"
+
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <vector>
 
 #include <BRepAdaptor_CompCurve.hxx>
 #include <BRepAdaptor_Curve.hxx>
@@ -39,11 +44,6 @@
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
 
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <vector>
-
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -76,8 +76,8 @@ bool makeProfileFace(const std::vector<float>& xyz, const SketchSweepParams& par
 		double nx = 0, ny = 0, nz = 1;
 		if (xyz.size() >= 9)
 			(void)estimatePolylinePlaneNormal(xyz, nx, ny, nz);
-		else if (params.profileSegments[0].kind == SketchCurveSegKind::Circle
-				 || params.profileSegments[0].kind == SketchCurveSegKind::Ellipse)
+		else if (params.profileSegments[0].kind == SketchCurveSegKind::Circle ||
+				 params.profileSegments[0].kind == SketchCurveSegKind::Ellipse)
 		{
 			const auto& s = params.profileSegments[0];
 			const double len = std::sqrt(s.mx * s.mx + s.my * s.my + s.mz * s.mz);
@@ -327,8 +327,7 @@ bool tryPlanarPathBinormal(const TopoDS_Wire& pathWire, gp_Dir& outBi)
 		constexpr int n = 16;
 		for (int i = 0; i <= n; ++i)
 		{
-			const double u =
-				c.FirstParameter() + (c.LastParameter() - c.FirstParameter()) * static_cast<double>(i) / n;
+			const double u = c.FirstParameter() + (c.LastParameter() - c.FirstParameter()) * static_cast<double>(i) / n;
 			appendUnique(pts, c.Value(u));
 		}
 	}

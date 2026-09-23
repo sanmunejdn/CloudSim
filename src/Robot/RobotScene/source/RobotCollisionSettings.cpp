@@ -1,4 +1,4 @@
-/// @file RobotCollisionSettings.cpp
+﻿/// @file RobotCollisionSettings.cpp
 /// @brief RobotCollisionSettings JSON 读写
 
 #include "RobotCollisionSettings.h"
@@ -21,8 +21,8 @@ double clampPlanningTimeSec(const double sec)
 
 bool isKnownPlannerId(const std::string& id)
 {
-	return id == "Auto" || id == "BITstar" || id == "InformedRRTstar" || id == "RRTstar" || id == "RRTConnect"
-		   || id == "Dijkstra";
+	return id == "Auto" || id == "BITstar" || id == "InformedRRTstar" || id == "RRTstar" || id == "RRTConnect" ||
+		   id == "Dijkstra";
 }
 
 bool isKnownPlanningSpace(const std::string& id)

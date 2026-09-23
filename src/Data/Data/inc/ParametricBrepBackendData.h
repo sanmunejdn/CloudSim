@@ -1,4 +1,4 @@
-#ifndef DATA_PARAMETRICBREPBACKENDDATA_H
+﻿#ifndef DATA_PARAMETRICBREPBACKENDDATA_H
 #define DATA_PARAMETRICBREPBACKENDDATA_H
 
 /// @file ParametricBrepBackendData.h
@@ -29,14 +29,14 @@ public:
 	std::string addChamfer(const std::vector<int>& edgeIndices, double distanceMm);
 	std::string addRevolve(const std::string& sketchId, double angleDeg, double ox, double oy, double oz, double dx,
 						   double dy, double dz, bool cut);
-	std::string addLinearPattern(int count, double dx, double dy, double dz,
-								 const std::string& sourceFeatureId = {});
+	std::string addLinearPattern(int count, double dx, double dy, double dz, const std::string& sourceFeatureId = {});
 	std::string addCircularPattern(int count, double angleDeg, double ox, double oy, double oz, double dx, double dy,
 								   double dz, const std::string& sourceFeatureId = {});
 	std::string addMirror3D(const ParametricSketchPlane& plane, bool keepOriginal);
 	std::string addLoft(const std::string& sketchA, const std::string& sketchB, bool cut);
 	std::string addShell(const std::vector<int>& faceIndices, double thicknessMm);
-	std::string addDraft(const std::vector<int>& faceIndices, double angleDeg, const ParametricSketchPlane& neutralPlane);
+	std::string addDraft(const std::vector<int>& faceIndices, double angleDeg,
+						 const ParametricSketchPlane& neutralPlane);
 	bool setProfile(const std::string& sketchId, const std::vector<float>& xyz);
 	bool setLength(const std::string& featureId, double lengthMm);
 	ParametricFeature* findFeature(const std::string& id);
@@ -75,4 +75,4 @@ private:
 	std::unordered_map<std::string, geoalgo::ShapeHandle> m_tipAfterFeature;
 };
 
-#endif
+#endif // DATA_PARAMETRICBREPBACKENDDATA_H

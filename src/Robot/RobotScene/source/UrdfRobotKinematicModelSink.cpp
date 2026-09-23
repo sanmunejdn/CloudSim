@@ -1,3 +1,6 @@
+﻿/// @file UrdfRobotKinematicModelSink.cpp
+/// @brief UrdfRobotKinematicModelSink 实现
+
 #include "UrdfRobotKinematicModelSink.h"
 
 #include "BackendDataManager.h"
@@ -10,7 +13,8 @@ namespace UrdfRobotKinematicModelSink
 bool applyToSink(const UrdfRobotKinematicModel::Model& model, const RobotKinematicApplyContext::Context& ctx,
 				 const std::vector<double>& localArmQ, QVector<double>& aggregatedAnglesRad)
 {
-	(void)model;	if (!ctx.doc || !ctx.sink || ctx.instanceIndex < 0)
+	(void)model;
+	if (!ctx.doc || !ctx.sink || ctx.instanceIndex < 0)
 	{
 		return false;
 	}

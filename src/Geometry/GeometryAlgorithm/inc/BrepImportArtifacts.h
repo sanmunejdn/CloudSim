@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_BREPIMPORTARTIFACTS_H
+﻿#ifndef GEOMETRYALGORITHM_BREPIMPORTARTIFACTS_H
 #define GEOMETRYALGORITHM_BREPIMPORTARTIFACTS_H
 
 /// @file BrepImportArtifacts.h
@@ -21,14 +21,14 @@ namespace geoalgo
 /** BREP 导入预处理产物：显示/拾取/线框共用，避免重复 OCCT 离散 */
 struct GEOMETRY_ALGORITHM_API BrepImportArtifacts
 {
-	std::vector<float> displaySoup;          ///< 9T float 显示三角（mm）
-	std::vector<float> displayNormals;       ///< 与 displaySoup 同布局，预计算光照法线
-	std::vector<int> triangleFaceIndex;      ///< 每三角 → shapeFaceAtIndex 面索引
-	std::vector<std::vector<float>> faceSoups; ///< 每面局部 soup（面拾取/高亮）
+	std::vector<float> displaySoup;				   ///< 9T float 显示三角（mm）
+	std::vector<float> displayNormals;			   ///< 与 displaySoup 同布局，预计算光照法线
+	std::vector<int> triangleFaceIndex;			   ///< 每三角 → shapeFaceAtIndex 面索引
+	std::vector<std::vector<float>> faceSoups;	   ///< 每面局部 soup（面拾取/高亮）
 	std::vector<std::vector<float>> edgePolylines; ///< Phase2 边线框折线
 	std::vector<std::vector<int>> faceEdgeIndices; ///< 每面边界边 global index
 
-	std::atomic<bool> pickReady{false};      ///< Phase2 是否已构建
+	std::atomic<bool> pickReady{false}; ///< Phase2 是否已构建
 	mutable std::mutex pickBuildMutex;
 	ShapeHandle pickShapeKey;
 
@@ -37,8 +37,8 @@ struct GEOMETRY_ALGORITHM_API BrepImportArtifacts
 
 struct GEOMETRY_ALGORITHM_API BrepImportBuildTimings
 {
-	std::int64_t meshMs = 0;       ///< Phase1 耗时
-	std::int64_t pickMs = 0;       ///< Phase2 耗时
+	std::int64_t meshMs = 0; ///< Phase1 耗时
+	std::int64_t pickMs = 0; ///< Phase2 耗时
 	std::size_t triangleCount = 0;
 };
 

@@ -1,6 +1,6 @@
 ﻿# GeometryAlgorithm 模块开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 编码约定见 [`CONVENTIONS.md`](CONVENTIONS.md)。
 
@@ -235,7 +235,7 @@ Phase2（边折线）
 
 ### 3.3 模板 B-rep 面更新（`TemplateBrepUpdate.h`）
 
-扫描点云（STEP 模型坐标 mm）驱动模板 shape 逐面调整。编排与 ICP 在 `GeometryServices/GeometryBackendOps.cpp`；**完整流程与守卫逻辑**见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) §4。
+扫描点云（STEP 模型坐标 mm）驱动模板 shape 逐面调整。编排与 ICP 在 `GeometryServices/GeometryBackendOps.cpp`；**完整流程与守卫逻辑**见 `docs/ARCHIVE_ZIP_LOCATION.txt` §4。
 
 | API | 说明 |
 |-----|------|
@@ -301,7 +301,7 @@ Phase2（边折线）
 | `passesSampleQuality` | `diagRatio ≥ 0.75` 且 `unique ≥ 0.65` |
 | `buildSamplePointsCloud` | 合并各 patch 采样点为场景点云 |
 
-详见 [`docs/mesh_surface_reconstruction.md`](../../../docs/_archive/mesh_surface_reconstruction.md)。
+详见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ### 3.5 管状铸件特征构建（`TubularGrinding.h`，1.15.0+）
 
@@ -667,6 +667,6 @@ const bool ok = geoalgo::runSelfTest(&err);
 - [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../../Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) — 特征构建 UI 与调参
-- [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
-- [`docs/mesh_surface_reconstruction.md`](../../../docs/_archive/mesh_surface_reconstruction.md)
+- `docs/ARCHIVE_ZIP_LOCATION.txt`
+- `docs/ARCHIVE_ZIP_LOCATION.txt`
 - [`RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §14 — `RawTrajectory` 编辑流水线；`TubularGrindingTrajectoryIngress`（桩）

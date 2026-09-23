@@ -4,10 +4,10 @@
 #include "PointCloudBackendData.h"
 
 #include "BackendImporters.h"
-#include "RunLogger.h"
 #include "BackendSpatial.h"
 #include "BackendTypeIdentity.h"
 #include "PlyIo.h"
+#include "RunLogger.h"
 #include "geometry_base64.h"
 
 #include <algorithm>
@@ -600,9 +600,12 @@ static bool readBinaryPlyFlexible(const std::string& utf8Path, const PlyHeaderIn
 			return false;
 		}
 		const auto& props = scan.vertexProperties;
-		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.ix), props[static_cast<std::size_t>(scan.ix)].type));
-		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.iy), props[static_cast<std::size_t>(scan.iy)].type));
-		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.iz), props[static_cast<std::size_t>(scan.iz)].type));
+		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.ix),
+										   props[static_cast<std::size_t>(scan.ix)].type));
+		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.iy),
+										   props[static_cast<std::size_t>(scan.iy)].type));
+		xyz.push_back(readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.iz),
+										   props[static_cast<std::size_t>(scan.iz)].type));
 		if (wantRgb)
 		{
 			const float r = readPlyScalarAsFloat(row.data(), plyPropertyOffset(scan, scan.ir),

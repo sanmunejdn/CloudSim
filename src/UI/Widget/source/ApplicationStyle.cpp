@@ -48,13 +48,11 @@ public:
 			QPolygonF poly;
 			if (option->state & State_Open)
 			{
-				poly << QPointF(cx - s, cy - s * 0.55) << QPointF(cx + s, cy - s * 0.55)
-					 << QPointF(cx, cy + s * 0.85);
+				poly << QPointF(cx - s, cy - s * 0.55) << QPointF(cx + s, cy - s * 0.55) << QPointF(cx, cy + s * 0.85);
 			}
 			else
 			{
-				poly << QPointF(cx - s * 0.55, cy - s) << QPointF(cx + s * 0.85, cy)
-					 << QPointF(cx - s * 0.55, cy + s);
+				poly << QPointF(cx - s * 0.55, cy - s) << QPointF(cx + s * 0.85, cy) << QPointF(cx - s * 0.55, cy + s);
 			}
 			painter->drawPolygon(poly);
 			painter->restore();

@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_PYTHONSCRIPTCALLER_H
+﻿#ifndef ROBOTWIDGET_PYTHONSCRIPTCALLER_H
 #define ROBOTWIDGET_PYTHONSCRIPTCALLER_H
 
 /// @file PythonScriptCaller.h
@@ -11,7 +11,6 @@
 
 namespace RobotWidget
 {
-
 /// 进程级单例：初始化 SDK python311，按脚本路径调用入口函数
 class ROBOTWIDGET_EXPORT PythonScriptCaller
 {
@@ -40,4 +39,4 @@ private:
 
 } // namespace RobotWidget
 
-#endif
+#endif // ROBOTWIDGET_PYTHONSCRIPTCALLER_H

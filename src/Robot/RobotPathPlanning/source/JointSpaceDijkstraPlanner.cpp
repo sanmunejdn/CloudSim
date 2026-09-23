@@ -1,4 +1,4 @@
-/// @file JointSpaceDijkstraPlanner.cpp
+﻿/// @file JointSpaceDijkstraPlanner.cpp
 /// @brief 关节空间均匀网格 Dijkstra
 
 #include "JointSpaceDijkstraPlanner.h"
@@ -17,7 +17,6 @@ namespace detail
 {
 namespace
 {
-
 struct GridSpec
 {
 	std::vector<int> dims;
@@ -54,8 +53,8 @@ struct GridSpec
 			else
 			{
 				const double span = upperRad[i] - lowerRad[i];
-				q[i] = lowerRad[i] + span * static_cast<double>(cell[static_cast<std::size_t>(i)])
-					   / static_cast<double>(dims[static_cast<std::size_t>(i)] - 1);
+				q[i] = lowerRad[i] + span * static_cast<double>(cell[static_cast<std::size_t>(i)]) /
+										 static_cast<double>(dims[static_cast<std::size_t>(i)] - 1);
 			}
 		}
 		return q;

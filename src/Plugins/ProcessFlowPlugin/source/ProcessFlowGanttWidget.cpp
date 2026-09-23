@@ -1,4 +1,4 @@
-/// @file ProcessFlowGanttWidget.cpp
+﻿/// @file ProcessFlowGanttWidget.cpp
 /// @brief 甘特绘制
 
 #include "ProcessFlowGanttWidget.h"
@@ -173,8 +173,7 @@ void ProcessFlowGanttWidget::paintEvent(QPaintEvent*)
 		const int y = m_topPad + r * m_rowH;
 		p.fillRect(0, y, m_labelW - 4, m_rowH, QColor(QStringLiteral("#EEF2FF")));
 		p.setPen(QColor(QStringLiteral("#1E293B")));
-		p.drawText(QRect(4, y, m_labelW - 8, m_rowH), Qt::AlignVCenter | Qt::AlignLeft,
-				   m_machineTitles.value(mid));
+		p.drawText(QRect(4, y, m_labelW - 8, m_rowH), Qt::AlignVCenter | Qt::AlignLeft, m_machineTitles.value(mid));
 		p.setPen(QColor(QStringLiteral("#E2E8F0")));
 		p.drawLine(0, y + m_rowH, width(), y + m_rowH);
 

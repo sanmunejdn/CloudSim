@@ -1,5 +1,5 @@
-#ifndef GEOMETRY_SERVICES_PCH_H
-#define GEOMETRY_SERVICES_PCH_H
+﻿#ifndef GEOMETRYSERVICES_PCH_H
+#define GEOMETRYSERVICES_PCH_H
 
 /// @file pch.h
 /// @brief GeometryServices 预编译头
@@ -21,4 +21,4 @@
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Surface_mesh.h>
 
-#endif // GEOMETRY_SERVICES_PCH_H
+#endif // GEOMETRYSERVICES_PCH_H

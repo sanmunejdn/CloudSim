@@ -1,4 +1,4 @@
-/// @file ProcessFlowPageWidget.cpp
+﻿/// @file ProcessFlowPageWidget.cpp
 /// @brief 中央流程页实现
 
 #include "ProcessFlowPageWidget.h"
@@ -51,7 +51,7 @@ ProcessFlowPageWidget::ProcessFlowPageWidget(QWidget* parent) : QWidget(parent)
 			[this]()
 			{
 				const QString path = QFileDialog::getSaveFileName(this, QStringLiteral("导出流程 JSON"), QString(),
-																 QStringLiteral("JSON (*.json)"));
+																  QStringLiteral("JSON (*.json)"));
 				if (path.isEmpty())
 				{
 					return;

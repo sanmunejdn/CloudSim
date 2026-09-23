@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_TRAJECTORYEDITSESSION_H
+﻿#ifndef ROBOTWIDGET_TRAJECTORYEDITSESSION_H
 #define ROBOTWIDGET_TRAJECTORYEDITSESSION_H
 
 /// @file TrajectoryEditSession.h
@@ -7,13 +7,13 @@
 
 #include "robotwidget_global.h"
 
+#include "ExternalAxisSearchService.h"
 #include "ProgramEditService.h"
 #include "RawTrajectory.h"
-#include "ExternalAxisSearchService.h"
-#include "TrajectoryReachabilityProbeService.h"
 #include "RobotProgramStore.h"
 #include "TrajectoryPipelineEngine.h"
 #include "TrajectoryPipelineTypes.h"
+#include "TrajectoryReachabilityProbeService.h"
 #include "UnifiedTrajectory.h"
 
 #include <QObject>

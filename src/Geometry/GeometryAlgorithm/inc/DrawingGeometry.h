@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_DRAWINGGEOMETRY_H
+﻿#ifndef GEOMETRYALGORITHM_DRAWINGGEOMETRY_H
 #define GEOMETRYALGORITHM_DRAWINGGEOMETRY_H
 
 /// @file DrawingGeometry.h
@@ -9,13 +9,12 @@
 
 #include "Types.h"
 
-#include <TopoDS_Edge.hxx>
-
 #include <vector>
+
+#include <TopoDS_Edge.hxx>
 
 namespace geoalgo
 {
-
 enum class DrawingEdgeClass
 {
 	Sharp = 0,

@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_INSTRUCTIONPROPERTYBINDING_H
+﻿#ifndef ROBOTSCENE_INSTRUCTIONPROPERTYBINDING_H
 #define ROBOTSCENE_INSTRUCTIONPROPERTYBINDING_H
 
 /// @file InstructionPropertyBinding.h
@@ -37,8 +37,7 @@ ROBOT_SCENE_API const property_core::PropertySchema& schemaForType(Type type);
 
 ROBOT_SCENE_API void appendBindingRows(const Base& cmd, nlohmann::json& rows);
 
-ROBOT_SCENE_API bool applyBindingKey(Base& cmd, const std::string& key, const std::string& value,
-									 std::string* errMsg);
+ROBOT_SCENE_API bool applyBindingKey(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg);
 } // namespace instruction_property_binding
 
 } // namespace RobotInstruction

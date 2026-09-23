@@ -146,7 +146,9 @@ QString composeSystemPrompt()
 	const auto d = AiMeshDefaults::activeDefaults();
 	return QStringLiteral(
 			   "You are a text-to-CAD planner for CloudSim. Output ActionPlan JSON version 2 ONLY (no markdown).\n"
-			   "Schema: {\"version\":2,\"domain\":\"mesh.compose\",\"steps\":[{\"id\":\"...\",\"api\":\"...\",\"args\":{...}}]}.\n"
+			   "Schema: "
+			   "{\"version\":2,\"domain\":\"mesh.compose\",\"steps\":[{\"id\":\"...\",\"api\":\"...\",\"args\":{...}}]}"
+			   ".\n"
 			   "Use mesh boolean CSG for through-holes / boolean ops (not parametric history).\n"
 			   "Clarify-before-draw: if specs incomplete, ONE askClarify step and STOP.\n"
 			   "APIs: askClarify; createPrimitiveMesh; booleanMesh.\n"
@@ -162,31 +164,44 @@ QString featureComposeSystemPrompt()
 {
 	return QStringLiteral(
 		"You are a parametric text-to-CAD planner for CloudSim. Output ActionPlan JSON version 2 ONLY (no markdown).\n"
-		"Schema: {\"version\":2,\"domain\":\"feature.compose\",\"steps\":[{\"id\":\"...\",\"api\":\"...\",\"args\":{...}}]}.\n"
-		"Philosophy (Text2CAD): SEQUENCE of real features — Pad → Pocket → Fillet/Chamfer → Revolve → Pattern → Sweep/Loft → Shell/Draft.\n"
-		"Through-holes / cutouts on a plate MUST be Pocket on \"$priorBody\" (end_condition through_all). NEVER use booleanMesh.\n"
+		"Schema: "
+		"{\"version\":2,\"domain\":\"feature.compose\",\"steps\":[{\"id\":\"...\",\"api\":\"...\",\"args\":{...}}]}.\n"
+		"Philosophy (Text2CAD): SEQUENCE of real features — Pad → Pocket → Fillet/Chamfer → Revolve → Pattern → "
+		"Sweep/Loft → Shell/Draft.\n"
+		"Through-holes / cutouts on a plate MUST be Pocket on \"$priorBody\" (end_condition through_all). NEVER use "
+		"booleanMesh.\n"
 		"All dimensions in mm. Prefer clarify over inventing sizes.\n"
 		"Clarify-before-draw (Pro-CAD): if critical sizes missing, ONE step askClarify with questions[] and STOP.\n"
 		"APIs:\n"
 		"1) askClarify args: questions (string array).\n"
 		"2) extrudeSketchProfileToBrep args:\n"
-		"   mode: pad|pocket; profile: rectangle|polygon|circle; length_mm+width_mm (rect) or sides+radius_mm (polygon)\n"
+		"   mode: pad|pocket; profile: rectangle|polygon|circle; length_mm+width_mm (rect) or sides+radius_mm "
+		"(polygon)\n"
 		"   or diameter_mm/radius_mm + optional center_u_mm/center_v_mm (circle);\n"
-		"   extrude_mm (depth); end_condition: blind|through_all; optional name; pocket requires target \"$priorStepId\".\n"
+		"   extrude_mm (depth); end_condition: blind|through_all; optional name; pocket requires target "
+		"\"$priorStepId\".\n"
 		"   Optional profile_xyz_mm closed polyline (xyz interleaved) instead of profile helpers.\n"
-		"3) filletEdgesToBrep args: target \"$stepId\", radius_mm, edge_indices int[] OR edges:\"longest\"|\"top_boundary\"|\"all\".\n"
+		"3) filletEdgesToBrep args: target \"$stepId\", radius_mm, edge_indices int[] OR "
+		"edges:\"longest\"|\"top_boundary\"|\"all\".\n"
 		"   Default edges=longest (top-K, edge_count default 4). Prefer longest/top_boundary over all.\n"
 		"4) chamferEdgesToBrep args: target \"$stepId\", distance_mm, same edges options as fillet.\n"
 		"5) revolveSketchProfileToBrep args: mode boss|cut; same profile helpers as extrude; angle_deg (default 360);\n"
 		"   default axis origin +Y (axis_dy=1); cut requires target \"$stepId\".\n"
-		"6) linearPatternBodyToBrep args: target \"$stepId\", count>=2, dx_mm, dy_mm, dz_mm; optional source_feature_id.\n"
+		"6) linearPatternBodyToBrep args: target \"$stepId\", count>=2, dx_mm, dy_mm, dz_mm; optional "
+		"source_feature_id.\n"
 		"7) sweepSketchProfileToBrep args: mode boss|cut; same profile helpers as extrude; path path_xyz_mm float[] OR "
-		"path line_z (path_length_mm along +Z) OR path line with path_dx/dy/dz_mm; optional twist_deg; cut requires target \"$stepId\".\n"
-		"8) loftSketchProfilesToBrep args: mode boss|cut; profile_a/profile_b helpers (profile_a rectangle + length_a_mm etc.) "
-		"or profile_a_xyz_mm/profile_b_xyz_mm; profile_b_z_mm (default 10) separates sections; cut requires target \"$stepId\".\n"
-		"9) shellFacesToBrep args: target \"$stepId\", thickness_mm, face_indices int[] (required; Host has no faces=all).\n"
-		"10) draftFacesToBrep args: target \"$stepId\", angle_deg, face_indices int[]; optional neutral_ox/oy/oz, neutral_nx/ny/nz (default XY).\n"
-		"11) circularPatternBodyToBrep args: target \"$stepId\", count>=2, angle_deg (default 360), axis_ox/oy/oz, axis_dx/dy/dz (default +Z); optional source_feature_id.\n"
+		"path line_z (path_length_mm along +Z) OR path line with path_dx/dy/dz_mm; optional twist_deg; cut requires "
+		"target \"$stepId\".\n"
+		"8) loftSketchProfilesToBrep args: mode boss|cut; profile_a/profile_b helpers (profile_a rectangle + "
+		"length_a_mm etc.) "
+		"or profile_a_xyz_mm/profile_b_xyz_mm; profile_b_z_mm (default 10) separates sections; cut requires target "
+		"\"$stepId\".\n"
+		"9) shellFacesToBrep args: target \"$stepId\", thickness_mm, face_indices int[] (required; Host has no "
+		"faces=all).\n"
+		"10) draftFacesToBrep args: target \"$stepId\", angle_deg, face_indices int[]; optional neutral_ox/oy/oz, "
+		"neutral_nx/ny/nz (default XY).\n"
+		"11) circularPatternBodyToBrep args: target \"$stepId\", count>=2, angle_deg (default 360), axis_ox/oy/oz, "
+		"axis_dx/dy/dz (default +Z); optional source_feature_id.\n"
 		"Example plate 100x80x40 with center through-hole d10:\n"
 		"{\"version\":2,\"domain\":\"feature.compose\",\"steps\":["
 		"{\"id\":\"body\",\"api\":\"extrudeSketchProfileToBrep\",\"args\":{\"mode\":\"pad\",\"profile\":\"rectangle\","
@@ -444,9 +459,9 @@ ToolProposeResult chatWithTools(const QString& userText, const AiLlmConfig& conf
 		return out;
 	}
 
-	const QString sys = QStringLiteral(
-		"You are CloudSim CAD agent. Call exactly one tool when the user asks to change the scene. "
-		"After tool results, call the next tool if needed, or reply with short plain text to finish.");
+	const QString sys =
+		QStringLiteral("You are CloudSim CAD agent. Call exactly one tool when the user asks to change the scene. "
+					   "After tool results, call the next tool if needed, or reply with short plain text to finish.");
 
 	nlohmann::json messages;
 	if (inoutMessages && inoutMessages->is_array() && !inoutMessages->empty())
@@ -521,9 +536,8 @@ ToolProposeResult chatWithTools(const QString& userText, const AiLlmConfig& conf
 		{
 			if (!inoutMessages->is_array() || inoutMessages->empty())
 				*inoutMessages = messages;
-			inoutMessages->push_back(assistantMsg.is_object() ? assistantMsg
-															  : nlohmann::json{{"role", "assistant"},
-																			   {"content", content}});
+			inoutMessages->push_back(
+				assistantMsg.is_object() ? assistantMsg : nlohmann::json{{"role", "assistant"}, {"content", content}});
 		}
 	};
 
@@ -657,7 +671,8 @@ PlanJsonResult chatPlanJson(const QString& userText, const AiLlmConfig& config, 
 		"You are CloudSim CAD planner. Decompose the user request into an ordered list of catalog API steps. "
 		"Reply with ONLY one JSON object: "
 		"{\"summary\":\"...\",\"steps\":[{\"api_id\":\"...\",\"args\":{},\"rationale\":\"...\"}]}. "
-		"Use only api_id values from the provided catalog. If nothing applies, return {\"summary\":\"\",\"steps\":[]}.");
+		"Use only api_id values from the provided catalog. If nothing applies, return "
+		"{\"summary\":\"\",\"steps\":[]}.");
 
 	const QString userPrompt =
 		QStringLiteral("User: %1\nDomain: %2\nCatalog tools:\n%3\nScene:\n%4\nSession:\n%5")

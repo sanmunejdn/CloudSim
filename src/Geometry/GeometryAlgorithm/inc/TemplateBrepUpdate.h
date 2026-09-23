@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H
+﻿#ifndef GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H
 #define GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H
 
 /// @file TemplateBrepUpdate.h
@@ -47,9 +47,9 @@ struct FaceUpdateReport
 
 enum class TemplateBrepRegistrationStage
 {
-	Full = 0,      ///< 粗配 + 精配一步
+	Full = 0, ///< 粗配 + 精配一步
 	CoarseOnly = 1,
-	FineOnly = 2,  ///< 需 checkpoint
+	FineOnly = 2, ///< 需 checkpoint
 };
 
 /** 粗配完成后保存，供精配门控与增量链抵消使用；精配 soup 按当前模板 worldMatrix 重建，不在此缓存 */
@@ -63,13 +63,13 @@ struct TemplateBrepUpdateParams
 {
 	double voxelPrefilterMm = 1.0;
 	double outlierRemovalPercent = 0.0;
-	double icpMaxPairDistanceMm = 0.0;     ///< 0=自动
+	double icpMaxPairDistanceMm = 0.0; ///< 0=自动
 	std::size_t icpMaxPoints = 8000U;
-	double faceBandMm = 2.0;               ///< 点面归属带宽（mm）
+	double faceBandMm = 2.0; ///< 点面归属带宽（mm）
 	double normalThresholdDeg = 35.0;
 	std::size_t minPointsPerFace = 30U;
 	double maxAllowedDeviationMm = 0.5;
-	double sampleSpacingMm = 2.0;          ///< 模板面采样间距（mm）
+	double sampleSpacingMm = 2.0; ///< 模板面采样间距（mm）
 	double maxIcpRmseToFaceBandRatio = 8.0;
 	double minIcpRmseGateMm = 12.0;
 	bool enableRansacCoarseMatch = true;
@@ -78,7 +78,7 @@ struct TemplateBrepUpdateParams
 	double registrationMatchVoxelMm = 0.0; ///< 0=未启用
 	std::vector<int> selectedFaceIndices;  ///< 空=全部面
 	double bsplineAdjustThresholdMm = 0.0; ///< 0=默认 0.5mm
-	double bsplineMaxPoleMoveMm = 0.0;   ///< 0=自动 max(3×threshold, 1.0)
+	double bsplineMaxPoleMoveMm = 0.0;	   ///< 0=自动 max(3×threshold, 1.0)
 	std::size_t maxAssignPointsPerFace = 800U;
 	int bsplineUvGridCellsU = 24;
 	int bsplineUvGridCellsV = 12;
@@ -92,7 +92,8 @@ struct TemplateBrepUpdateResult
 	/// 例外：FineOnly 且粗配后用户拖过模板时为增量链值 fine×coarse（精配 soup 按当前 worldMatrix 重建，
 	/// fine 相对当前帧），正典消费方式是 report.icpDeltaWorld × inv(checkpoint.icpDeltaWorld) 左乘当前世界
 	Eigen::Isometry3d icpDeltaWorld = Eigen::Isometry3d::Identity();
-	Eigen::Isometry3d templateToScan = Eigen::Isometry3d::Identity(); ///< 遗留别名：与 icpDeltaWorld 恒同值，仅为兼容保留，新代码勿消费
+	Eigen::Isometry3d templateToScan =
+		Eigen::Isometry3d::Identity(); ///< 遗留别名：与 icpDeltaWorld 恒同值，仅为兼容保留，新代码勿消费
 	double icpRmseMm = 0.0;
 	bool icpRmseGatePassed = false;
 	double registrationOverlapMaxDevMm = 0.0;

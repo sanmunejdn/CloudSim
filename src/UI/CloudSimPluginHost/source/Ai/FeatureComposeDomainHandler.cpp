@@ -1,4 +1,4 @@
-/// @file FeatureComposeDomainHandler.cpp
+﻿/// @file FeatureComposeDomainHandler.cpp
 /// @brief feature.compose 校验与执行
 
 #include "Ai/FeatureComposeDomainHandler.h"
@@ -96,8 +96,7 @@ bool FeatureComposeDomainHandler::validatePlanJson(const nlohmann::json& root, Q
 				!definedIds.contains(QString::fromStdString(target.substr(1))))
 			{
 				if (err)
-					*err = QStringLiteral("%1 requires target $stepId.")
-							   .arg(QString::fromStdString(api));
+					*err = QStringLiteral("%1 requires target $stepId.").arg(QString::fromStdString(api));
 				return false;
 			}
 		}
@@ -129,12 +128,10 @@ bool FeatureComposeDomainHandler::validatePlanJson(const nlohmann::json& root, Q
 		}
 		if (api == "shellFacesToBrep" || api == "draftFacesToBrep")
 		{
-			if (!args.contains("face_indices") || !args["face_indices"].is_array() ||
-				args["face_indices"].empty())
+			if (!args.contains("face_indices") || !args["face_indices"].is_array() || args["face_indices"].empty())
 			{
 				if (err)
-					*err = QStringLiteral("%1 requires non-empty face_indices int[].")
-							   .arg(QString::fromStdString(api));
+					*err = QStringLiteral("%1 requires non-empty face_indices int[].").arg(QString::fromStdString(api));
 				return false;
 			}
 		}
@@ -184,8 +181,8 @@ bool FeatureComposeDomainHandler::validateOutput(const QByteArray& jsonUtf8, QSt
 	return validatePlanJson(j, err);
 }
 
-bool FeatureComposeDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost,
-										  QString* summary, QString* err)
+bool FeatureComposeDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host,
+										  IAiAssistantHost* aiHost, QString* summary, QString* err)
 {
 	(void)aiHost;
 	auto* ph = dynamic_cast<PluginHostContext*>(host);

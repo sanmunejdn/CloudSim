@@ -1,16 +1,14 @@
-/// @file InstructionPropertyBindings.cpp
+﻿/// @file InstructionPropertyBindings.cpp
 /// @brief 指令属性 Binding 包：snapshot / schema / apply
 
+#include "../../Data/PropertyCore/inc/PropertyAttributeHelpers.h"
+#include "../../Data/PropertyCore/inc/PropertyTypes.h"
 #include "InstructionPropertyBinding.h"
 #include "InstructionPropertyBindingSelfTest.h"
-
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionTransform.h"
 #include "RunLogger.h"
-
-#include "../../Data/PropertyCore/inc/PropertyAttributeHelpers.h"
-#include "../../Data/PropertyCore/inc/PropertyTypes.h"
 
 #include <memory>
 #include <mutex>
@@ -815,12 +813,12 @@ const std::vector<InstructionPropertyBinding>& allCandidateBindings()
 		 applyTargetEulerRy, isActiveHasEuler},
 		{makeDesc("motion.target.euler.rz", "Euler RZ (deg)", PropertyType::Double, true, kMotion), formatTargetEulerRz,
 		 applyTargetEulerRz, isActiveHasEuler},
-		{makeDesc("motion.via.pose.x", "Via X (mm)", PropertyType::Double, true, kMotion), formatViaPoseX, applyViaPoseX,
-		 isActiveHasViaPose},
-		{makeDesc("motion.via.pose.y", "Via Y (mm)", PropertyType::Double, true, kMotion), formatViaPoseY, applyViaPoseY,
-		 isActiveHasViaPose},
-		{makeDesc("motion.via.pose.z", "Via Z (mm)", PropertyType::Double, true, kMotion), formatViaPoseZ, applyViaPoseZ,
-		 isActiveHasViaPose},
+		{makeDesc("motion.via.pose.x", "Via X (mm)", PropertyType::Double, true, kMotion), formatViaPoseX,
+		 applyViaPoseX, isActiveHasViaPose},
+		{makeDesc("motion.via.pose.y", "Via Y (mm)", PropertyType::Double, true, kMotion), formatViaPoseY,
+		 applyViaPoseY, isActiveHasViaPose},
+		{makeDesc("motion.via.pose.z", "Via Z (mm)", PropertyType::Double, true, kMotion), formatViaPoseZ,
+		 applyViaPoseZ, isActiveHasViaPose},
 		{makeDesc("motion.via.euler.rx", "Via Euler RX (deg)", PropertyType::Double, true, kMotion), formatViaEulerRx,
 		 applyViaEulerRx, isActiveHasViaEuler},
 		{makeDesc("motion.via.euler.ry", "Via Euler RY (deg)", PropertyType::Double, true, kMotion), formatViaEulerRy,
@@ -854,8 +852,7 @@ const std::vector<InstructionPropertyBinding>& allCandidateBindings()
 		{makeEnumDesc("motion.axisConfig.turn.j6", "J6 turn", "AUTO", RobotInstruction::motionAxisTurnTokens(), true,
 					  kMotion),
 		 formatAxisTurnJ6, applyAxisTurnJ6, isActiveHasMotionAxisCfg},
-		{makeEnumDesc("logic.condition.kind", "Condition kind", "always",
-					  {"never", "io", "compare", "always"}),
+		{makeEnumDesc("logic.condition.kind", "Condition kind", "always", {"never", "io", "compare", "always"}),
 		 formatConditionKind, applyConditionKind, isActiveHasCondition},
 		{makeDesc("logic.condition.signalName", "Signal name", PropertyType::String, true), formatConditionSignalName,
 		 applyConditionSignalName, isActiveConditionIo},
@@ -886,8 +883,8 @@ const std::vector<InstructionPropertyBinding>& allCandidateBindings()
 		 applyPlanningOutputGroupId, isActivePathPlan},
 		{makeDesc("planning.rawTrajectoryKey", "Raw key", PropertyType::String, true), formatPlanningRawTrajectoryKey,
 		 applyPlanningRawTrajectoryKey, isActivePathPlan},
-		{makeDesc("planning.pipelineOpCount", "Pipeline ops", PropertyType::Double, false), formatPlanningPipelineOpCount,
-		 applyReadOnly, isActivePathPlan},
+		{makeDesc("planning.pipelineOpCount", "Pipeline ops", PropertyType::Double, false),
+		 formatPlanningPipelineOpCount, applyReadOnly, isActivePathPlan},
 		{makeDesc("planning.rawRevision", "Raw revision", PropertyType::Double, false), formatPlanningRawRevision,
 		 applyReadOnly, isActivePathPlan},
 	};

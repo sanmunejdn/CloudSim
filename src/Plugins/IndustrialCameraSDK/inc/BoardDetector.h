@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_BOARDDETECTOR_H
+﻿#ifndef INDUSTRIALCAMERASDK_BOARDDETECTOR_H
 #define INDUSTRIALCAMERASDK_BOARDDETECTOR_H
 
 /// @file BoardDetector.h
@@ -11,7 +11,6 @@
 
 namespace industrial_camera
 {
-
 enum class BoardType
 {
 	Chessboard = 0,
@@ -21,8 +20,8 @@ enum class BoardType
 struct BoardDetectParams
 {
 	BoardType type = BoardType::Chessboard;
-	int cornersX = 9;  // 内角点列
-	int cornersY = 6;  // 内角点行
+	int cornersX = 9; // 内角点列
+	int cornersY = 6; // 内角点行
 	double squareSizeMm = 20.0;
 	int arucoDictId = 0; // DICT_4X4_50
 	float arucoMarkerLengthMm = 40.f;
@@ -36,8 +35,7 @@ struct BoardDetectResult
 };
 
 INDUSTRIAL_CAMERA_SDK_EXPORT bool openCvAvailable();
-INDUSTRIAL_CAMERA_SDK_EXPORT BoardDetectResult detectBoardPose(const CameraFrame2D& image,
-															   const CameraIntrinsics& K,
+INDUSTRIAL_CAMERA_SDK_EXPORT BoardDetectResult detectBoardPose(const CameraFrame2D& image, const CameraIntrinsics& K,
 															   const BoardDetectParams& params);
 
 } // namespace industrial_camera

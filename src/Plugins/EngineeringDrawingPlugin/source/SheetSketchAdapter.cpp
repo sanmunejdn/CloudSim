@@ -1,11 +1,10 @@
-/// @file SheetSketchAdapter.cpp
+﻿/// @file SheetSketchAdapter.cpp
 
 #include "SheetSketchAdapter.h"
 
 #include <QLineF>
 #include <QRectF>
 #include <QtGlobal>
-
 #include <algorithm>
 #include <cmath>
 
@@ -22,7 +21,8 @@ void appendArcUv(std::vector<SkVec2>& out, const SkVec2& s, const SkVec2& m, con
 		return;
 	}
 	auto ang = [&](const SkVec2& p) { return std::atan2(p.v - cen.v, p.u - cen.u); };
-	auto norm = [](double a) {
+	auto norm = [](double a)
+	{
 		constexpr double kPi2 = 2.0 * 3.141592653589793;
 		while (a < 0)
 			a += kPi2;
@@ -169,7 +169,8 @@ void SheetSketchAdapter::move(const QPointF& scene, double snapTolMm, const QVec
 QVector<SheetSketchPolyline> SheetSketchAdapter::tessellate() const
 {
 	QVector<SheetSketchPolyline> out;
-	auto push = [&](const std::vector<SkVec2>& uv, bool construction, int entityId) {
+	auto push = [&](const std::vector<SkVec2>& uv, bool construction, int entityId)
+	{
 		if (uv.size() < 2)
 			return;
 		SheetSketchPolyline poly;
@@ -271,11 +272,11 @@ int SheetSketchAdapter::hitTestEntity(const QPointF& scene, double tolMm) const
 	return hitTestEntity(scene, tolMm, {});
 }
 
-int SheetSketchAdapter::hitTestEntity(const QPointF& scene, double tolMm,
-									  const std::function<bool(int)>& accept) const
+int SheetSketchAdapter::hitTestEntity(const QPointF& scene, double tolMm, const std::function<bool(int)>& accept) const
 {
 	const SkVec2 uv = toUv(scene);
-	auto tryId = [&](int id) -> int {
+	auto tryId = [&](int id) -> int
+	{
 		if (id < 0)
 			return -1;
 		if (accept && !accept(id))
@@ -328,7 +329,8 @@ void SheetSketchAdapter::remapLayer(const QString& fromId, const QString& toId)
 int SheetSketchAdapter::maxEntityId() const
 {
 	int m = 0;
-	auto bump = [&](int id) {
+	auto bump = [&](int id)
+	{
 		if (id > m)
 			m = id;
 	};
@@ -586,21 +588,24 @@ bool SheetSketchAdapter::filletLinesAt(const QPointF& scene, double radiusMm, do
 	const Edge E1 = edges[0];
 	const Edge E2 = edges[1];
 
-	auto dirToward = [](const QPointF& from, const QPointF& towardHint) {
+	auto dirToward = [](const QPointF& from, const QPointF& towardHint)
+	{
 		QLineF d(from, towardHint);
 		if (d.length() < 1e-9)
 			return QPointF(1, 0);
 		d.setLength(1.0);
 		return d.p2() - d.p1();
 	};
-	auto arcCenter = [](const Edge& e, QPointF& c, double& r) -> bool {
+	auto arcCenter = [](const Edge& e, QPointF& c, double& r) -> bool
+	{
 		SkVec2 out;
 		if (!sketchCircumcenter(toUv(e.a), toUv(e.mid), toUv(e.b), out, r))
 			return false;
 		c = toScene(out);
 		return r > 1e-9;
 	};
-	auto edgeDirAt = [&](const Edge& e, const QPointF& at) -> QPointF {
+	auto edgeDirAt = [&](const Edge& e, const QPointF& at) -> QPointF
+	{
 		if (e.kind == Edge::Kind::Line)
 			return dirToward(at, (e.a + e.b) * 0.5);
 		QPointF c;
@@ -675,13 +680,15 @@ bool SheetSketchAdapter::filletLinesAt(const QPointF& scene, double radiusMm, do
 	m_entityLayer.remove(E2.id);
 
 	const int beforeMax = maxEntityId();
-	auto keepLineFar = [&](const Edge& L, const QPointF& touch) {
+	auto keepLineFar = [&](const Edge& L, const QPointF& touch)
+	{
 		const QPointF far = QLineF(L.a, i).length() >= QLineF(L.b, i).length() ? L.a : L.b;
 		const int pA = m_doc.addPoint(far.x(), far.y());
 		const int pB = m_doc.addPoint(touch.x(), touch.y());
 		return m_doc.addLine(pA, pB, false);
 	};
-	auto keepArcFar = [&](const Edge& A, const QPointF& touch) {
+	auto keepArcFar = [&](const Edge& A, const QPointF& touch)
+	{
 		const QPointF far = QLineF(A.a, i).length() >= QLineF(A.b, i).length() ? A.a : A.b;
 		const QPointF nm = (touch + far) * 0.5 + (A.mid - (A.a + A.b) * 0.5) * 0.35;
 		const int ps = m_doc.addPoint(touch.x(), touch.y());
@@ -801,7 +808,8 @@ bool SheetSketchAdapter::chamferLinesAt(const QPointF& scene, double distMm, dou
 	else
 		i = ((L1.a + L1.b) * 0.5 + (L2.a + L2.b) * 0.5) * 0.5;
 
-	auto dirToward = [](const QPointF& from, const QPointF& towardHint) {
+	auto dirToward = [](const QPointF& from, const QPointF& towardHint)
+	{
 		QLineF d(from, towardHint);
 		if (d.length() < 1e-9)
 			return QPointF(1, 0);
@@ -819,13 +827,15 @@ bool SheetSketchAdapter::chamferLinesAt(const QPointF& scene, double distMm, dou
 	m_entityLayer.remove(L2.id);
 
 	const int beforeMax = maxEntityId();
-	auto keepLineFar = [&](const Cand& L, const QPointF& touch) {
+	auto keepLineFar = [&](const Cand& L, const QPointF& touch)
+	{
 		const QPointF far = QLineF(L.a, i).length() >= QLineF(L.b, i).length() ? L.a : L.b;
 		const int pA = m_doc.addPoint(far.x(), far.y());
 		const int pB = m_doc.addPoint(touch.x(), touch.y());
 		return m_doc.addLine(pA, pB, false);
 	};
-	auto keepArcFar = [&](const Cand& A, const QPointF& touch) {
+	auto keepArcFar = [&](const Cand& A, const QPointF& touch)
+	{
 		const QPointF far = QLineF(A.a, i).length() >= QLineF(A.b, i).length() ? A.a : A.b;
 		const QPointF nm = (touch + far) * 0.5;
 		const int ps = m_doc.addPoint(touch.x(), touch.y());
@@ -1037,7 +1047,8 @@ bool SheetSketchAdapter::stretchInWindow(const QRectF& winScene, const QPointF& 
 int SheetSketchAdapter::duplicateEntityTranslated(int entityId, const QPointF& delta, const QString& layerFallback)
 {
 	const QString lid = layerOf(entityId).isEmpty() ? layerFallback : layerOf(entityId);
-	auto mapPt = [&](int pid) -> int {
+	auto mapPt = [&](int pid) -> int
+	{
 		const SkPoint* p = m_doc.findPoint(pid);
 		if (!p)
 			return -1;
@@ -1095,7 +1106,8 @@ int SheetSketchAdapter::duplicateEntityRotated(int entityId, const QPointF& pivo
 {
 	const QString lid = layerOf(entityId).isEmpty() ? layerFallback : layerOf(entityId);
 	const double c = std::cos(angleRad), s = std::sin(angleRad);
-	auto mapPt = [&](int pid) -> int {
+	auto mapPt = [&](int pid) -> int
+	{
 		const SkPoint* p = m_doc.findPoint(pid);
 		if (!p)
 			return -1;

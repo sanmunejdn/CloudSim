@@ -1,10 +1,11 @@
-#ifndef CLOUDSIMHOST_BACKENDVISUALSYNCENGINE_H
+﻿#ifndef CLOUDSIMHOST_BACKENDVISUALSYNCENGINE_H
 #define CLOUDSIMHOST_BACKENDVISUALSYNCENGINE_H
 
 /// @file BackendVisualSyncEngine.h
 /// @brief 后端 worldMatrix → OSG 单轨同步调度
 
 #include "cloudsim_host_global.h"
+
 #include "visual/VisualAspect.h"
 
 #include <string>
@@ -24,7 +25,8 @@ class CLOUDSIM_HOST_EXPORT BackendVisualSyncEngine
 public:
 	explicit BackendVisualSyncEngine(DocumentHost& host);
 
-	void markDirty(const std::string& backendId, VisualAspect aspects, VisualChangeReason reason = VisualChangeReason::Manual);
+	void markDirty(const std::string& backendId, VisualAspect aspects,
+				   VisualChangeReason reason = VisualChangeReason::Manual);
 	void clear();
 
 	int kinematicsBatchDepth() const { return m_kinematicsBatchDepth; }

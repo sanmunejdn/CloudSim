@@ -1,8 +1,12 @@
-#ifndef KINEMATICCORE_AXISDESCRIPTOR_H
+﻿#ifndef KINEMATICCORE_AXISDESCRIPTOR_H
 #define KINEMATICCORE_AXISDESCRIPTOR_H
 
-#include "JointMotion1D.h"
+/// @file AxisDescriptor.h
+/// @brief AxisDescriptor 接口
+
 #include "kinematic_core_global.h"
+
+#include "JointMotion1D.h"
 
 #include <string>
 

@@ -1,6 +1,6 @@
 ﻿# PointCloudPlugin 示例
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 点云处理插件，演示 **1.2.0+** SDK：`IPluginPointCloudHost` + 侧栏 UI。
 
@@ -40,11 +40,11 @@
 2. 3D 视图手动对齐点云/网格与 CAD
 3. 侧栏「CAD 模板 B-rep 更新」：**扫描数据** 下拉选点云或网格；选择模板 B-rep；可选 **选择面…**（`geometryHost()->pickStepElementFromViewport`）累积面索引，空列表=全部面
 4. **匹配 (ICP)** → `registerScanToCadTemplate`
-5. **面重构** → `updateTemplateBrepFromAlignedScan`（须先匹配）；详见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
+5. **面重构** → `updateTemplateBrepFromAlignedScan`（须先匹配）；详见 `docs/ARCHIVE_ZIP_LOCATION.txt`
 
 ## SPARE 非刚性配准（1.16.0+）
 
-原理与调参通俗说明见 [`docs/spare_nonrigid_registration.md`](../../../docs/_archive/spare_nonrigid_registration.md)。
+原理与调参通俗说明见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 侧栏「配准」区：**方法** 下拉可选 **刚性 ICP**、**SPARE 非刚性**（**1.16.0+**）、**SDF/DDF 非刚性**（**1.17.0+**）或 **几何金字塔**（**1.53.0+**）。
 
@@ -65,7 +65,7 @@
 
 ## SDF/DDF 混合非刚性配准（1.17.0+）
 
-原理见 [`docs/_archive/sdf_nonrigid_registration.md`](../../../docs/_archive/sdf_nonrigid_registration.md)。
+原理见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 | 控件 | 说明 |
 |------|------|
@@ -160,7 +160,7 @@
 
 菜单：**Tools → 点云 → 曲面重构**（触发全流程）
 
-详见 [`docs/mesh_surface_reconstruction.md`](../../../docs/_archive/mesh_surface_reconstruction.md)。
+详见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ## 特征构建（1.15.0+，管状铸件打磨 MVP）
 
@@ -347,5 +347,5 @@ Host 可视化（Centerline 阶段完成后）：
 
 - SDK：[`../CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - 宿主：[`../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
-- 模板 B-rep 更新：[`../../docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
+- 模板 B-rep 更新：`docs/ARCHIVE_ZIP_LOCATION.txt`
 - VcgAlgorithms：[`../../Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md`](../../Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md)

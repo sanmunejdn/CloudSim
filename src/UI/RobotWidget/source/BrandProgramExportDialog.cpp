@@ -1,4 +1,4 @@
-/// @file BrandProgramExportDialog.cpp
+﻿/// @file BrandProgramExportDialog.cpp
 /// @brief 品牌导出对话框
 
 #include "BrandProgramExportDialog.h"
@@ -10,14 +10,12 @@
 
 namespace RobotWidget
 {
-
 QVector<BrandExportChoice> BrandProgramExportDialog::allBrands()
 {
 	return {
 		{QStringLiteral("abb"), QStringLiteral("ABBExport"), QStringLiteral(".MOD"),
 		 QStringLiteral("ABB RAPID (*.MOD)")},
-		{QStringLiteral("air"), QStringLiteral("AIRExport"), QStringLiteral(".arl"),
-		 QStringLiteral("AIR ARL (*.arl)")},
+		{QStringLiteral("air"), QStringLiteral("AIRExport"), QStringLiteral(".arl"), QStringLiteral("AIR ARL (*.arl)")},
 		{QStringLiteral("fanuc"), QStringLiteral("FANUCExport"), QStringLiteral(".LS"),
 		 QStringLiteral("FANUC LS (*.LS)")},
 		{QStringLiteral("inovance"), QStringLiteral("INOVANCEExport"), QStringLiteral(".pro"),

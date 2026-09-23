@@ -1,4 +1,4 @@
-#ifndef ENGINEERINGDRAWINGPLUGIN_DRAWINGSHEETCANVASWIDGET_H
+﻿#ifndef ENGINEERINGDRAWINGPLUGIN_DRAWINGSHEETCANVASWIDGET_H
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGSHEETCANVASWIDGET_H
 
 /// @file DrawingSheetCanvasWidget.h
@@ -737,17 +737,17 @@ private:
 	QString m_lastPickTip;
 };
 
-QVector<DrawingSheetCanvasWidget::DrawingView> layoutEngineeringViews(
-	DrawingProjectionMethod method, bool hasIso, bool hasSection,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& frontVis,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& frontHid,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& topVis,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& topHid,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& rightVis,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& rightHid,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& isoVis,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& isoHid,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& sectionVis,
-	const QVector<DrawingSheetCanvasWidget::Polyline2d>& sectionHid);
+QVector<DrawingSheetCanvasWidget::DrawingView>
+layoutEngineeringViews(DrawingProjectionMethod method, bool hasIso, bool hasSection,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& frontVis,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& frontHid,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& topVis,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& topHid,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& rightVis,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& rightHid,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& isoVis,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& isoHid,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& sectionVis,
+					   const QVector<DrawingSheetCanvasWidget::Polyline2d>& sectionHid);
 
-#endif
+#endif // ENGINEERINGDRAWINGPLUGIN_DRAWINGSHEETCANVASWIDGET_H

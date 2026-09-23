@@ -1,4 +1,4 @@
-/// @file SketchExtrude.cpp
+﻿/// @file SketchExtrude.cpp
 /// @brief 移植 FreeCAD FeatureExtrude：BRepPrimAPI_MakePrism + Fuse/Cut
 
 #include "SketchExtrude.h"
@@ -7,6 +7,8 @@
 #include "detail/OccIncludes.h"
 #include "detail/SketchCurveWireOcc.h"
 
+#include <cmath>
+
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepOffsetAPI_DraftAngle.hxx>
@@ -14,7 +16,6 @@
 #include <GeomAbs_SurfaceType.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
-#include <cmath>
 #include <gp_Dir.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
@@ -162,9 +163,8 @@ bool sketchExtrudeProfileNative(const TopoDS_Shape& profileFaceOrWire, const Ske
 		dir.Reverse();
 
 	// Blind/双向：先把轮廓沿拉伸向偏置，再做棱柱
-	if (std::abs(params.startOffsetMm) > 1e-9
-		&& (params.endCondition == SketchExtrudeEndCondition::Blind
-			|| params.endCondition == SketchExtrudeEndCondition::TwoDirections))
+	if (std::abs(params.startOffsetMm) > 1e-9 && (params.endCondition == SketchExtrudeEndCondition::Blind ||
+												  params.endCondition == SketchExtrudeEndCondition::TwoDirections))
 	{
 		gp_Trsf tr;
 		tr.SetTranslation(gp_Vec(dir.XYZ() * params.startOffsetMm));
@@ -180,8 +180,8 @@ bool sketchExtrudeProfileNative(const TopoDS_Shape& profileFaceOrWire, const Ske
 
 	TopoDS_Shape tool;
 	// 对称 / 双向：正反棱柱各自拔模后再 Fuse
-	if (params.endCondition == SketchExtrudeEndCondition::MidPlane
-		|| params.endCondition == SketchExtrudeEndCondition::TwoDirections)
+	if (params.endCondition == SketchExtrudeEndCondition::MidPlane ||
+		params.endCondition == SketchExtrudeEndCondition::TwoDirections)
 	{
 		double fwdLen = 0.0;
 		double bwdLen = 0.0;
@@ -330,9 +330,9 @@ bool resolveSketchExtrudeLengthMm(const SketchExtrudeParams& params, double& out
 		return true;
 	}
 
-	if ((params.endCondition == SketchExtrudeEndCondition::UpToFace
-		 || params.endCondition == SketchExtrudeEndCondition::OffsetFromFace)
-		&& params.hasUpToFace)
+	if ((params.endCondition == SketchExtrudeEndCondition::UpToFace ||
+		 params.endCondition == SketchExtrudeEndCondition::OffsetFromFace) &&
+		params.hasUpToFace)
 	{
 		gp_Dir faceN(params.upNormalX, params.upNormalY, params.upNormalZ);
 		const double denom = dir.Dot(faceN);

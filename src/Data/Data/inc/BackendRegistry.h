@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDREGISTRY_H
+﻿#ifndef DATA_BACKENDREGISTRY_H
 #define DATA_BACKENDREGISTRY_H
 
 /// @file BackendRegistry.h

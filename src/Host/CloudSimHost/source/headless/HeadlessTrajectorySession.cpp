@@ -1,4 +1,4 @@
-/// @file HeadlessTrajectorySession.cpp
+﻿/// @file HeadlessTrajectorySession.cpp
 /// @brief Web 轨迹会话实现
 
 #include "HeadlessTrajectorySession.h"
@@ -22,21 +22,19 @@
 #include "TrajectoryPipelineEngine.h"
 #include "UnifiedTrajectory.h"
 
-#include <Adapters.h>
-#include <Discretize.h>
-#include <FeatureDiscretizerBridge.h>
-#include <MeshBackendData.h>
-#include <RigidTransform.h>
-
-#include <Eigen/Core>
-
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
 #include <QStandardPaths>
-
 #include <cmath>
+
+#include <Adapters.h>
+#include <Discretize.h>
+#include <Eigen/Core>
+#include <FeatureDiscretizerBridge.h>
+#include <MeshBackendData.h>
+#include <RigidTransform.h>
 
 namespace cloudsim::host
 {
@@ -325,7 +323,8 @@ QJsonObject HeadlessTrajectorySession::sessionSummaryJson() const
 	if (!hasRaw())
 		rawStatus = QStringLiteral("请先在轨迹生成页离散");
 	else if (m_emitDisabledAfterApply)
-		rawStatus = QStringLiteral("Raw %1 点（已应用，生成已禁用）").arg(o.value(QStringLiteral("rawPointCount")).toInt());
+		rawStatus =
+			QStringLiteral("Raw %1 点（已应用，生成已禁用）").arg(o.value(QStringLiteral("rawPointCount")).toInt());
 	else
 		rawStatus = QStringLiteral("Raw %1 点").arg(o.value(QStringLiteral("rawPointCount")).toInt());
 	o.insert(QStringLiteral("rawStatusText"), rawStatus);
@@ -404,8 +403,7 @@ bool HeadlessTrajectorySession::modelFromWorldDir(const std::string& backendId, 
 	if (!data)
 		return false;
 	const Eigen::Vector3d out =
-		rigidFromBackendMat4(data->worldMatrix()).inverse().isometry().linear() *
-		Eigen::Vector3d(wx, wy, wz);
+		rigidFromBackendMat4(data->worldMatrix()).inverse().isometry().linear() * Eigen::Vector3d(wx, wy, wz);
 	const double len = out.norm();
 	if (len < 1e-12)
 		return false;
@@ -549,15 +547,13 @@ bool HeadlessTrajectorySession::pickShapeRay(const QByteArray& body, bool requir
 	const QJsonArray hitWorld = o.value(QStringLiteral("hitPointWorldMm")).toArray();
 	const QJsonArray hitNormal = o.value(QStringLiteral("hitNormalWorld")).toArray();
 	double hitMx = 0, hitMy = 0, hitMz = 0;
-	const bool haveHit =
-		hitWorld.size() >= 3 &&
-		modelFromWorldPoint(workpiece.toStdString(), hitWorld[0].toDouble(), hitWorld[1].toDouble(),
-							hitWorld[2].toDouble(), hitMx, hitMy, hitMz);
+	const bool haveHit = hitWorld.size() >= 3 &&
+						 modelFromWorldPoint(workpiece.toStdString(), hitWorld[0].toDouble(), hitWorld[1].toDouble(),
+											 hitWorld[2].toDouble(), hitMx, hitMy, hitMz);
 	double nMx = 0, nMy = 0, nMz = 0;
-	const bool haveNormal =
-		haveHit && hitNormal.size() >= 3 &&
-		modelFromWorldDir(workpiece.toStdString(), hitNormal[0].toDouble(), hitNormal[1].toDouble(),
-						  hitNormal[2].toDouble(), nMx, nMy, nMz);
+	const bool haveNormal = haveHit && hitNormal.size() >= 3 &&
+							modelFromWorldDir(workpiece.toStdString(), hitNormal[0].toDouble(), hitNormal[1].toDouble(),
+											  hitNormal[2].toDouble(), nMx, nMy, nMz);
 
 	if (faceMode)
 	{
@@ -600,8 +596,9 @@ bool HeadlessTrajectorySession::pickShapeRay(const QByteArray& body, bool requir
 	{
 		// 网页 mesh 命中点 → 最近 BRep 边（与桌面 OsgSceneBrepPick 兜底一致）
 		if (haveHit)
-			ok = geoalgo::pickShapeEdgeByModelPoint(shape, geoalgo::Point3d{hitMx, hitMy, hitMz}, 5.0, pick, &pickErr) &&
-				 pick.hit;
+			ok =
+				geoalgo::pickShapeEdgeByModelPoint(shape, geoalgo::Point3d{hitMx, hitMy, hitMz}, 5.0, pick, &pickErr) &&
+				pick.hit;
 		// 无三角面命中时才走射线找边，避免同路径二次踩坏边
 		if (!ok && !haveHit)
 			ok = geoalgo::pickShapeEdgeByModelRay(shape, originM, dirM, 5.0, pick, &pickErr);
@@ -656,8 +653,7 @@ bool HeadlessTrajectorySession::pickShapeRay(const QByteArray& body, bool requir
 			};
 			if (faceMode && pick.faceIndex >= 0)
 			{
-				const QString cacheKey =
-					workpiece + QLatin1Char('#') + QString::number(pick.faceIndex);
+				const QString cacheKey = workpiece + QLatin1Char('#') + QString::number(pick.faceIndex);
 				if (m_faceHighlightSoup.contains(cacheKey))
 				{
 					(*out)[QStringLiteral("soupWorldMm")] = m_faceHighlightSoup.value(cacheKey);
@@ -672,8 +668,7 @@ bool HeadlessTrajectorySession::pickShapeRay(const QByteArray& body, bool requir
 						for (size_t i = 0; i + 2 < soupModel.size(); i += 3)
 						{
 							double wx = 0, wy = 0, wz = 0;
-							if (!worldFromModelPoint(bid, soupModel[i], soupModel[i + 1], soupModel[i + 2], wx, wy,
-													 wz))
+							if (!worldFromModelPoint(bid, soupModel[i], soupModel[i + 1], soupModel[i + 2], wx, wy, wz))
 							{
 								wx = soupModel[i];
 								wy = soupModel[i + 1];
@@ -752,8 +747,8 @@ bool HeadlessTrajectorySession::featureCatalogJson(const QString& workpieceBacke
 	geoalgo::WorkpieceRef wpRef;
 	std::string geoErr;
 	if (geometry_backend_ops::resolveWorkpieceShape(workpieceBackendId.toStdString(), m_host.backend(), {}, shape,
-													wpRef, &geoErr) ==
-		geometry_backend_ops::WorkpieceShapeSource::Unavailable)
+													wpRef,
+													&geoErr) == geometry_backend_ops::WorkpieceShapeSource::Unavailable)
 	{
 		if (err)
 			*err = geoErr.empty() ? QStringLiteral("无法解析工件") : QString::fromStdString(geoErr);
@@ -1015,11 +1010,10 @@ bool HeadlessTrajectorySession::setPipelineJson(const QByteArray& pipelineJson, 
 		return false;
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops;
 	std::string jerr;
-	const auto j = nlohmann::json::parse(pipelineJson.constData(), pipelineJson.constData() + pipelineJson.size(),
-										 nullptr, false);
-	if (j.is_discarded() ||
-		!RobotInstruction::trajectoryPipelineFromJson(
-			j.is_array() ? j : j.value("pipeline", nlohmann::json::array()), ops, &jerr))
+	const auto j =
+		nlohmann::json::parse(pipelineJson.constData(), pipelineJson.constData() + pipelineJson.size(), nullptr, false);
+	if (j.is_discarded() || !RobotInstruction::trajectoryPipelineFromJson(
+								j.is_array() ? j : j.value("pipeline", nlohmann::json::array()), ops, &jerr))
 	{
 		if (err)
 			*err = jerr.empty() ? QStringLiteral("pipeline JSON 无效") : QString::fromStdString(jerr);
@@ -1077,8 +1071,7 @@ void HeadlessTrajectorySession::injectWorkpieceReferenceOnEngine()
 	else
 	{
 		const engine::RigidTransform ref = engine::RigidTransform::fromTranslationEulerDeg(
-			tcp.positionMm[0], tcp.positionMm[1], tcp.positionMm[2], tcp.eulerDeg[0], tcp.eulerDeg[1],
-			tcp.eulerDeg[2]);
+			tcp.positionMm[0], tcp.positionMm[1], tcp.positionMm[2], tcp.eulerDeg[0], tcp.eulerDeg[1], tcp.eulerDeg[2]);
 		eng.setWorkpieceReferenceInBase(&ref);
 	}
 
@@ -1107,10 +1100,9 @@ bool HeadlessTrajectorySession::runPipelineOnWorldRaw(RobotInstruction::RawTraje
 	eng.clear();
 	eng.setUsingRaw(true);
 	eng.setSourceRaw(worldRawInOut);
-	eng.setRawRebuildFn(
-		[](const RobotInstruction::RawTrajectory& sourceRaw, RobotInstruction::UnifiedTrajectory& outUnified,
-		   std::string* errMsg) -> bool
-		{ return RobotInstruction::unifiedTrajectoryFromRaw(sourceRaw, outUnified, errMsg); });
+	eng.setRawRebuildFn([](const RobotInstruction::RawTrajectory& sourceRaw,
+						   RobotInstruction::UnifiedTrajectory& outUnified, std::string* errMsg) -> bool
+						{ return RobotInstruction::unifiedTrajectoryFromRaw(sourceRaw, outUnified, errMsg); });
 	if (auto* prog = catalog()->mainProgram())
 		eng.setProgramContext(prog);
 	eng.setOps(m_ops);
@@ -1375,8 +1367,8 @@ const RobotInstruction::RawTrajectory* HeadlessTrajectorySession::raw() const
 
 QString HeadlessTrajectorySession::templatesDir(const QString& kind) const
 {
-	const QString root =
-		QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/CloudSim/templates/") + kind;
+	const QString root = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+						 QStringLiteral("/CloudSim/templates/") + kind;
 	QDir().mkpath(root);
 	return root;
 }

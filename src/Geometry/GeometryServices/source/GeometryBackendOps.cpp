@@ -1146,22 +1146,21 @@ bool tryCoarseFeatureRansacAlign(const char* stageLabel, const std::vector<float
 #ifdef CLOUDSIM_HAS_PCL
 		{
 			pclalgo::PclGlobalAlignParams pclParams = pclalgo::pclParamsFromRigidRansac(ransacParams);
-			ok = reverse ? pclalgo::rigidRegisterFeatureRansacPcl(workXyz, workNormals, templateSoupXyz,
-																 templateSoupNormals, rawStep, &inlierRatio, pclParams,
-																 &ransacErr)
-						 : pclalgo::rigidRegisterFeatureRansacPcl(templateSoupXyz, templateSoupNormals, workXyz,
-																  workNormals, rawStep, &inlierRatio, pclParams,
-																  &ransacErr);
+			ok =
+				reverse
+					? pclalgo::rigidRegisterFeatureRansacPcl(workXyz, workNormals, templateSoupXyz, templateSoupNormals,
+															 rawStep, &inlierRatio, pclParams, &ransacErr)
+					: pclalgo::rigidRegisterFeatureRansacPcl(templateSoupXyz, templateSoupNormals, workXyz, workNormals,
+															 rawStep, &inlierRatio, pclParams, &ransacErr);
 		}
 #endif
 		if (!ok)
 		{
-			ok = reverse ? pclalgo::rigidRegisterFeatureRansac(workXyz, workNormals, templateSoupXyz,
-															   templateSoupNormals, rawStep, &inlierRatio, ransacParams,
-															   &ransacErr)
-						 : pclalgo::rigidRegisterFeatureRansac(templateSoupXyz, templateSoupNormals, workXyz,
-															   workNormals, rawStep, &inlierRatio, ransacParams,
-															   &ransacErr);
+			ok = reverse
+					 ? pclalgo::rigidRegisterFeatureRansac(workXyz, workNormals, templateSoupXyz, templateSoupNormals,
+														   rawStep, &inlierRatio, ransacParams, &ransacErr)
+					 : pclalgo::rigidRegisterFeatureRansac(templateSoupXyz, templateSoupNormals, workXyz, workNormals,
+														   rawStep, &inlierRatio, ransacParams, &ransacErr);
 		}
 		if (!ok)
 		{

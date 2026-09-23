@@ -1,11 +1,11 @@
-/// @file AiAgentPlanBuilder.cpp
+﻿/// @file AiAgentPlanBuilder.cpp
 /// @brief scene 规则 → 多 keyword 串联 → LLM JSON 规划
 
 #include "Ai/AiAgentPlanBuilder.h"
 
 #include "Ai/AiCatalogKeywordMatcher.h"
-#include "Ai/AiSceneOpsRules.h"
 #include "Ai/AiProcessFlowRules.h"
+#include "Ai/AiSceneOpsRules.h"
 #include "AiDomainTypes.h"
 #include "AiLlmClient.h"
 
@@ -78,8 +78,7 @@ AiAgentPlan validateAndTrim(AiAgentPlan plan, const QSet<QString>& allowed, int 
 bool hasMultiCue(const QString& t)
 {
 	return t.contains(QStringLiteral("然后")) || t.contains(QStringLiteral("再")) ||
-		   t.contains(QStringLiteral("并且")) || t.contains(QStringLiteral("接着")) ||
-		   t.contains(QStringLiteral("先"));
+		   t.contains(QStringLiteral("并且")) || t.contains(QStringLiteral("接着")) || t.contains(QStringLiteral("先"));
 }
 
 /// 按「然后/再」切段，每段各自最长 keyword 命中（允许同 api）

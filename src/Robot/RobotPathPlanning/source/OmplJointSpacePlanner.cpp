@@ -1,9 +1,12 @@
-/// @file OmplJointSpacePlanner.cpp
+﻿/// @file OmplJointSpacePlanner.cpp
 /// @brief OMPL BIT* / InformedRRT* / RRT* / RRTConnect（CLOUDSIM_HAS_OMPL）
 
 #include "OmplJointSpacePlanner.h"
 
 #if defined(CLOUDSIM_HAS_OMPL)
+
+#include <cmath>
+#include <string>
 
 #include <ompl/base/ScopedState.h>
 #include <ompl/base/objectives/PathLengthOptimizationObjective.h>
@@ -16,16 +19,12 @@
 #include <ompl/geometric/planners/rrt/RRTstar.h>
 #include <ompl/util/RandomNumbers.h>
 
-#include <cmath>
-#include <string>
-
 namespace robot_path
 {
 namespace detail
 {
 namespace
 {
-
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 
@@ -60,10 +59,7 @@ public:
 	{
 	}
 
-	bool checkMotion(const ob::State* s1, const ob::State* s2) const override
-	{
-		return checkSegment(s1, s2);
-	}
+	bool checkMotion(const ob::State* s1, const ob::State* s2) const override { return checkSegment(s1, s2); }
 
 	bool checkMotion(const ob::State* s1, const ob::State* s2, std::pair<ob::State*, double>& lastValid) const override
 	{
@@ -120,7 +116,8 @@ double pathLengthL2(const std::vector<std::vector<double>>& path)
 
 } // namespace
 
-bool planJointSpaceOmpl(const PlanRequest& req, const JointLimits& lim, const std::vector<double>& goalQ, PathResult& out)
+bool planJointSpaceOmpl(const PlanRequest& req, const JointLimits& lim, const std::vector<double>& goalQ,
+						PathResult& out)
 {
 	const std::size_t dim = lim.lowerRad.size();
 	if (req.startJointRad.size() != dim || goalQ.size() != dim)
@@ -238,7 +235,8 @@ bool planJointSpaceOmpl(const PlanRequest& req, const JointLimits& lim, const st
 		out.jointTrajectoryRad.push_back(std::move(q));
 	}
 
-	auto distL2 = [](const std::vector<double>& a, const std::vector<double>& b) {
+	auto distL2 = [](const std::vector<double>& a, const std::vector<double>& b)
+	{
 		double s = 0.0;
 		for (std::size_t i = 0; i < a.size(); ++i)
 		{
@@ -253,8 +251,8 @@ bool planJointSpaceOmpl(const PlanRequest& req, const JointLimits& lim, const st
 	{
 		if (!isSegmentValid(req, lim, out.jointTrajectoryRad.back(), goalQ, req.options.longestValidSegmentRad))
 		{
-			out.errMsg = std::string("OMPL path does not reach goal (") + st.asString() + ", dq=" +
-						 std::to_string(endDq) + ")";
+			out.errMsg =
+				std::string("OMPL path does not reach goal (") + st.asString() + ", dq=" + std::to_string(endDq) + ")";
 			out.ok = false;
 			out.jointTrajectoryRad.clear();
 			return false;

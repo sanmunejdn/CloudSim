@@ -1,4 +1,4 @@
-/// @file GeometryImportUiFilters.cpp
+﻿/// @file GeometryImportUiFilters.cpp
 /// @brief 打开模型 / 混合导入 Qt 过滤器
 
 #include "GeometryImportUiFilters.h"
@@ -6,7 +6,6 @@
 #include "GeometryFileImporterRegistry.h"
 
 #include <QStringList>
-
 #include <algorithm>
 #include <string>
 

@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_VIEWTESSELLATE_H
+﻿#ifndef GEOMETRYALGORITHM_VIEWTESSELLATE_H
 #define GEOMETRYALGORITHM_VIEWTESSELLATE_H
 
 /// @file ViewTessellate.h
@@ -16,7 +16,7 @@ namespace geoalgo
 {
 struct ViewTessellateParams
 {
-	double pixelsPerEdge = 2.0;           ///< 屏幕像素/边，越大越细
+	double pixelsPerEdge = 2.0; ///< 屏幕像素/边，越大越细
 	double minLinearDeflectionMm = 0.0001;
 	double maxLinearDeflectionMm = 1.0;
 	double angularDeflectionDeg = 0.35;

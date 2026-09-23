@@ -278,6 +278,12 @@
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPointCloudHostImpl.h">
       <Filter>External\UI\CloudSimPluginHost\inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPropertyBindingRegistry.h">
+      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPropertyBindingSelfTest.h">
+      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginSceneBridgeAdapter.h">
       <Filter>External\UI\CloudSimPluginHost\inc</Filter>
     </ClInclude>
@@ -326,23 +332,11 @@
     <ClInclude Include="inc\DocumentImportFacade.h">
       <Filter>inc\import</Filter>
     </ClInclude>
-    <ClInclude Include="inc\import\IGeometryFileImporter.h">
-      <Filter>inc\import</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\import\GeometryFileImporterRegistry.h">
-      <Filter>inc\import</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\import\GeometryImportUiFilters.h">
-      <Filter>inc\import</Filter>
+    <ClInclude Include="inc\DocumentProjectSidecar.h">
+      <Filter>inc\DocumentHost</Filter>
     </ClInclude>
     <ClInclude Include="inc\GeometryImportUiFilters.h">
       <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\import\ApplyGeometryImportParse.h">
-      <Filter>inc\import</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\DocumentProjectSidecar.h">
-      <Filter>inc\DocumentHost</Filter>
     </ClInclude>
     <ClInclude Include="inc\headless\HeadlessAiBridge.h">
       <Filter>inc\headless</Filter>
@@ -388,6 +382,18 @@
     </ClInclude>
     <ClInclude Include="inc\HostRenderViewFactory.h">
       <Filter>inc\Visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\ApplyGeometryImportParse.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\GeometryFileImporterRegistry.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\GeometryImportUiFilters.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\IGeometryFileImporter.h">
+      <Filter>inc\import</Filter>
     </ClInclude>
     <ClInclude Include="inc\io\CustomDeviceHostOps.h">
       <Filter>inc\io</Filter>
@@ -562,6 +568,12 @@
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPointCloudHostImpl.cpp">
       <Filter>External\UI\CloudSimPluginHost\source</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPropertyBindingRegistry.cpp">
+      <Filter>External\UI\CloudSimPluginHost\source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPropertyBindingSelfTest.cpp">
+      <Filter>External\UI\CloudSimPluginHost\source</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginSceneBridgeAdapter.cpp">
       <Filter>External\UI\CloudSimPluginHost\source</Filter>
     </ClCompile>
@@ -721,6 +733,9 @@
     <ClCompile Include="source\HostRenderViewFactory.cpp">
       <Filter>src\Visual</Filter>
     </ClCompile>
+    <ClCompile Include="source\import\ApplyGeometryImportParse.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
     <ClCompile Include="source\import\AssemblyMateApply.cpp">
       <Filter>src\import</Filter>
     </ClCompile>
@@ -728,9 +743,6 @@
       <Filter>src\import</Filter>
     </ClCompile>
     <ClCompile Include="source\import\DocumentImportFacade.cpp">
-      <Filter>src\import</Filter>
-    </ClCompile>
-    <ClCompile Include="source\import\HierarchyMeshImport.cpp">
       <Filter>src\import</Filter>
     </ClCompile>
     <ClCompile Include="source\import\GeometryFileImporterRegistry.cpp">
@@ -742,7 +754,7 @@
     <ClCompile Include="source\import\GeometryImportUiFilters.cpp">
       <Filter>src\import</Filter>
     </ClCompile>
-    <ClCompile Include="source\import\ApplyGeometryImportParse.cpp">
+    <ClCompile Include="source\import\HierarchyMeshImport.cpp">
       <Filter>src\import</Filter>
     </ClCompile>
     <ClCompile Include="source\io\CustomDeviceHostOps.cpp">

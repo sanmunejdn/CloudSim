@@ -1,12 +1,12 @@
-/// @file RobotProjectKinematicsRestore.cpp
+﻿/// @file RobotProjectKinematicsRestore.cpp
 /// @brief 工程运动学恢复
 
 #include "RobotProjectKinematicsRestore.h"
 
-#include "BackendProjectObjectIo.h"
 #include "BackendDataManager.h"
-#include "DocumentHost.h"
+#include "BackendProjectObjectIo.h"
 #include "CoreTypes.h"
+#include "DocumentHost.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
@@ -14,9 +14,8 @@
 #include "RobotExternalAxes.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPerLinkKinematicsSliceOsg.h"
-#include "UrdfRobotLoader.h"
-
 #include "RunLogger.h"
+#include "UrdfRobotLoader.h"
 
 #include <QFileInfo>
 #include <QJsonArray>
@@ -221,7 +220,8 @@ void reapplyAllRobotHierarchyFromProjectJson(DocumentHost& host, const QJsonObje
 }
 
 void reapplyUrdfRobotHierarchyEdges(BackendDataManager& backend, const QString& urdfPath,
-									const QString& sceneRootBackendId, const QHash<QString, QString>& linkNameToBackendId)
+									const QString& sceneRootBackendId,
+									const QHash<QString, QString>& linkNameToBackendId)
 {
 	if (urdfPath.isEmpty() || sceneRootBackendId.isEmpty() || linkNameToBackendId.isEmpty())
 	{
@@ -391,8 +391,7 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		cloudsim::core::Mat4 basePlacement{};
 		for (int i = 0; i < 16; ++i)
 		{
-			basePlacement[static_cast<size_t>(i)] =
-				basePlacementArr.at(i).toDouble((i % 5 == 0) ? 1.0 : 0.0);
+			basePlacement[static_cast<size_t>(i)] = basePlacementArr.at(i).toDouble((i % 5 == 0) ? 1.0 : 0.0);
 		}
 		const int instIdx = ctx.robotKinematicInstanceCount() - 1;
 		if (instIdx >= 0)

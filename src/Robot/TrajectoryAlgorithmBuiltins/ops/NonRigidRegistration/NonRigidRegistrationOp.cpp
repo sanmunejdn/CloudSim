@@ -64,8 +64,8 @@ std::vector<TrajectoryOpParamField> NonRigidRegistrationOp::paramFields() const
 									   "目标几何 backend（点云或 mesh）。", 1));
 	fields.push_back(doubleParamField("nrr.maxBindDistanceMm", "Max Bind Distance", "绑定最大距离", "mm", 0.1, 10000.0,
 									  0.1, 30.0, 2, "nrr"));
-	fields.push_back(enumParamField("nrr.solver", "Solver", "算法", {"0", "1"}, {"SPARE", "SDF/DDF"}, {"SPARE", "SDF/DDF"},
-									0, 3, "nrr"));
+	fields.push_back(enumParamField("nrr.solver", "Solver", "算法", {"0", "1"}, {"SPARE", "SDF/DDF"},
+									{"SPARE", "SDF/DDF"}, 0, 3, "nrr"));
 	fields.push_back(intParamField("nrr.maxOuterIters", "Outer Iters", "外轮数", 1, 200, 30, 4, "nrr"));
 	fields.push_back(boolParamField("nrr.rigidPreAlign", "Rigid Pre-Align", "刚性预对齐", false, 5, "nrr"));
 
@@ -77,8 +77,8 @@ std::vector<TrajectoryOpParamField> NonRigidRegistrationOp::paramFields() const
 
 	fields.push_back(doubleParamField("nrr.voxelPrefilterMm", "Voxel Prefilter", "体素预滤波", "mm", 0.0, 1000.0, 0.1,
 									  0.0, 7, "nrr"));
-	fields.push_back(doubleParamField("nrr.sampleRadiusRatio", "Sample Radius Ratio", "采样半径比", "", 0.0, 100.0, 0.01,
-									  0.0, 8, "nrr"));
+	fields.push_back(doubleParamField("nrr.sampleRadiusRatio", "Sample Radius Ratio", "采样半径比", "", 0.0, 100.0,
+									  0.01, 0.0, 8, "nrr"));
 
 	TrajectoryOpParamField fieldMode =
 		enumParamField("nrr.sdfFieldMode", "Field Mode", "场模式", {"0", "1"}, {"DDF 有向距离", "有符号 SDF"},

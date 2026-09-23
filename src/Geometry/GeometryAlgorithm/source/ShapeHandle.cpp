@@ -46,10 +46,10 @@ ShapeHandle::~ShapeHandle() = default;
 
 bool ShapeHandle::isNull() const
 {
-	if(!m_impl)
+	if (!m_impl)
 		return true;
 #ifdef CLOUDSIM_USE_CSGK
-	if(m_impl->csgkBackend)
+	if (m_impl->csgkBackend)
 		return m_impl->csgkBody.isNull();
 #endif
 	return m_impl->shape.IsNull();
@@ -67,10 +67,10 @@ bool ShapeHandle::isSame(const ShapeHandle& other) const
 ShapeHandle ShapeHandle::clone() const
 {
 	ShapeHandle out;
-	if(isNull())
+	if (isNull())
 		return out;
 #ifdef CLOUDSIM_USE_CSGK
-	if(m_impl->csgkBackend)
+	if (m_impl->csgkBackend)
 	{
 		out.m_impl = std::make_shared<Impl>();
 		out.m_impl->csgkBackend = true;
@@ -87,13 +87,13 @@ ShapeHandle ShapeHandle::clone() const
 ShapeHandle::BoundsMm ShapeHandle::boundingBoxMm() const
 {
 	BoundsMm b;
-	if(isNull())
+	if (isNull())
 		return b;
 #ifdef CLOUDSIM_USE_CSGK
-	if(m_impl->csgkBackend)
+	if (m_impl->csgkBackend)
 	{
 		const csgk::Bounds3d box = m_impl->csgkBody.boundingBoxMm();
-		if(!box.valid)
+		if (!box.valid)
 			return b;
 		b.minX = box.minX;
 		b.minY = box.minY;
@@ -130,10 +130,10 @@ ShapeHandle::BoundsMm ShapeHandle::boundingBoxMm() const
 
 bool ShapeHandleAccess::nativeShape(const ShapeHandle& handle, void* outTopoDsShapeStorage)
 {
-	if(!outTopoDsShapeStorage || handle.isNull())
+	if (!outTopoDsShapeStorage || handle.isNull())
 		return false;
 #ifdef CLOUDSIM_USE_CSGK
-	if(handle.m_impl && handle.m_impl->csgkBackend)
+	if (handle.m_impl && handle.m_impl->csgkBackend)
 		return false;
 #endif
 	auto* out = static_cast<TopoDS_Shape*>(outTopoDsShapeStorage);
@@ -162,7 +162,7 @@ ShapeHandle ShapeHandleAccess::fromNativeShape(const void* topoDsShapeStorage)
 ShapeHandle ShapeHandleAccess::fromCsgkBody(const csgk::BodyHandle& body)
 {
 	ShapeHandle out;
-	if(body.isNull())
+	if (body.isNull())
 		return out;
 	out.m_impl = std::make_shared<ShapeHandle::Impl>();
 	out.m_impl->csgkBackend = true;
@@ -172,7 +172,7 @@ ShapeHandle ShapeHandleAccess::fromCsgkBody(const csgk::BodyHandle& body)
 
 bool ShapeHandleAccess::tryGetCsgkBody(const ShapeHandle& handle, csgk::BodyHandle& outBody)
 {
-	if(handle.isNull() || !handle.m_impl || !handle.m_impl->csgkBackend)
+	if (handle.isNull() || !handle.m_impl || !handle.m_impl->csgkBackend)
 		return false;
 	outBody = handle.m_impl->csgkBody;
 	return !outBody.isNull();

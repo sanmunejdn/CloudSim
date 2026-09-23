@@ -1,4 +1,4 @@
-#ifndef WIDGET_QWIDGETVIEWER_H
+﻿#ifndef WIDGET_QWIDGETVIEWER_H
 #define WIDGET_QWIDGETVIEWER_H
 
 /// @file QWidgetViewer.h

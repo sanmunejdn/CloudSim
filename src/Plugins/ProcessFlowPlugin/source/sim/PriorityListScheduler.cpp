@@ -1,4 +1,4 @@
-/// @file PriorityListScheduler.cpp
+﻿/// @file PriorityListScheduler.cpp
 /// @brief 轻量离线启发式，输出推荐 DES 策略
 
 #include "sim/IScheduler.h"
@@ -29,9 +29,7 @@ Schedule PriorityListScheduler::solve(const JobSet& jobs, const PlantGraph& /*pl
 	}
 	out.ok = true;
 	out.recommendedPolicy = policy;
-	out.message = QStringLiteral("recommend policy=%1 (ops=%2 totalWork=%3)")
-					  .arg(policy)
-					  .arg(ops)
-					  .arg(total, 0, 'f', 1);
+	out.message =
+		QStringLiteral("recommend policy=%1 (ops=%2 totalWork=%3)").arg(policy).arg(ops).arg(total, 0, 'f', 1);
 	return out;
 }

@@ -13,7 +13,6 @@
 #include <QSet>
 #include <QSignalBlocker>
 #include <QVariant>
-
 #include <atomic>
 
 namespace
@@ -501,8 +500,7 @@ void IoSignalNetworkService::flushDeviceTablesToDocument(IRobotDocumentHost* doc
 		{
 			continue;
 		}
-		const auto device =
-			std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(it.key().toStdString()));
+		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(it.key().toStdString()));
 		if (!device)
 		{
 			continue;

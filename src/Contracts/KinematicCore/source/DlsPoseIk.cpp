@@ -1,3 +1,6 @@
+﻿/// @file DlsPoseIk.cpp
+/// @brief DlsPoseIk 实现
+
 #include "DlsPoseIk.h"
 
 #include "GeometricJacobian.h"
@@ -182,13 +185,11 @@ void clampJointAnglesToGraphLimits(const KinematicGraph& graph, std::vector<doub
 {
 	for (const KinematicJoint& j : graph.joints)
 	{
-		if (j.qIndex < 0 || !j.motion.enabled || !j.motion.hasLimit ||
-			static_cast<std::size_t>(j.qIndex) >= q.size())
+		if (j.qIndex < 0 || !j.motion.enabled || !j.motion.hasLimit || static_cast<std::size_t>(j.qIndex) >= q.size())
 		{
 			continue;
 		}
-		q[static_cast<size_t>(j.qIndex)] =
-			std::clamp(q[static_cast<size_t>(j.qIndex)], j.motion.lower, j.motion.upper);
+		q[static_cast<size_t>(j.qIndex)] = std::clamp(q[static_cast<size_t>(j.qIndex)], j.motion.lower, j.motion.upper);
 	}
 }
 
@@ -196,8 +197,7 @@ bool linkPose(const KinematicGraph& graph, const double baseWorld[16], const std
 			  double outPos[3], double outQuat[4])
 {
 	std::vector<std::array<double, 16>> linkWorld(graph.links.size());
-	if (!forwardKinematicsTree(graph, baseWorld, q.data(), q.size(),
-							   reinterpret_cast<double(*)[16]>(linkWorld.data())))
+	if (!forwardKinematicsTree(graph, baseWorld, q.data(), q.size(), reinterpret_cast<double(*)[16]>(linkWorld.data())))
 	{
 		return false;
 	}
@@ -269,8 +269,7 @@ DlsPoseIkResult solvePoseDampedLeastSquares(const KinematicGraph& graph, const d
 			errVec[3] = eRot[0] * opt.orientationWeight;
 			errVec[4] = eRot[1] * opt.orientationWeight;
 			errVec[5] = eRot[2] * opt.orientationWeight;
-			result.orientationErrorRad =
-				std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
+			result.orientationErrorRad = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
 		}
 
 		if (result.positionErrorMm <= opt.positionToleranceMm &&

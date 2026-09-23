@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H
+﻿#ifndef ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H
 #define ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H
 
 /// @file TrajectoryPipelineEngine.h
@@ -13,15 +13,15 @@
 #include "TrajectoryPipelineTypes.h"
 #include "UnifiedTrajectory.h"
 
-#include <IExternalAxisSearchService.h>
-#include <ITrajectoryReachabilityProbe.h>
-#include <RigidTransform.h>
-
 #include <cstddef>
 #include <functional>
 #include <optional>
 #include <string>
 #include <vector>
+
+#include <IExternalAxisSearchService.h>
+#include <ITrajectoryReachabilityProbe.h>
+#include <RigidTransform.h>
 
 namespace RobotInstruction
 {

@@ -1,4 +1,4 @@
-#ifndef DATA_PROPERTYBAG_H
+﻿#ifndef DATA_PROPERTYBAG_H
 #define DATA_PROPERTYBAG_H
 
 /// @file PropertyBag.h
@@ -227,7 +227,8 @@ private:
 #ifdef DATA_BUILD_DLL
 	static inline WarningHook s_warningHook = [](const std::string& message) { RunLogger::warn(message); };
 #else
-	static inline WarningHook s_warningHook = [](const std::string& message) { PropertyBagDetail::defaultWarn(message); };
+	static inline WarningHook s_warningHook = [](const std::string& message)
+	{ PropertyBagDetail::defaultWarn(message); };
 #endif
 };
 

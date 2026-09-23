@@ -1,4 +1,4 @@
-/// @file HierarchyMeshImport.cpp
+﻿/// @file HierarchyMeshImport.cpp
 /// @brief 层级网格导入
 
 #include "HierarchyMeshImport.h"
@@ -21,10 +21,10 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
-#include <QLatin1String>
 
 #include <BrepImportArtifacts.h>
 #include <Discretize.h>
+#include <QLatin1String>
 #include <ShapeHandle.h>
 #include <ShapeQuery.h>
 
@@ -113,8 +113,8 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 	importParent->setName(parentLabel.toStdString());
 	// 空壳父：勿挂整装配 Shape，否则选中根节点会 ensureSelectionVisual 把整件再上屏，子件勾选隐藏无效
 	(void)assemblyShape;
-	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath, QLatin1String(backend_type::kCatalogBrepModel), QString(),
-									  outError))
+	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath,
+									  QLatin1String(backend_type::kCatalogBrepModel), QString(), outError))
 	{
 		return false;
 	}
@@ -137,8 +137,9 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 		const QString parentId =
 			pathToBackendId.contains(parentPartPath) ? pathToBackendId.value(parentPartPath) : importParentId;
 		QString regErr;
-		if (!registerAdoptedBrepAndLoadScene(host, partBrep, sourceFilePath, QLatin1String(backend_type::kCatalogBrepModel), parentId,
-											 false, &regErr, false, true))
+		if (!registerAdoptedBrepAndLoadScene(host, partBrep, sourceFilePath,
+											 QLatin1String(backend_type::kCatalogBrepModel), parentId, false, &regErr,
+											 false, true))
 		{
 			if (outError)
 			{
@@ -212,7 +213,8 @@ bool warmBrepHierarchyPartsDisplayFromAssembly(
 		for (std::size_t i = 0; i < n; ++i)
 		{
 			const double p1 = 0.4 + 0.5 * (static_cast<double>(i + 1) / static_cast<double>(n));
-			report(0.4 + 0.5 * (static_cast<double>(i) / static_cast<double>(n)), QStringLiteral("Meshing B-rep parts..."));
+			report(0.4 + 0.5 * (static_cast<double>(i) / static_cast<double>(n)),
+				   QStringLiteral("Meshing B-rep parts..."));
 			if (!warmOne(parts[i].shapeRef, p1))
 			{
 				return false;

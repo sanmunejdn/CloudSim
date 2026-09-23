@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file UpdateSketchAttachmentCommand.h
  * @brief Re-sync a host-attached sketch's (frozen) plane to its host face's current position.
  *
@@ -6,37 +6,39 @@
  * re-derive the sketch plane from the host face's current geometry (after upstream edits
  * moved it) and regenerate downstream features.
  */
-#ifndef ONECAD_APP_COMMANDS_UPDATESKETCHATTACHMENTCOMMAND_H
-#define ONECAD_APP_COMMANDS_UPDATESKETCHATTACHMENTCOMMAND_H
+#ifndef GEOMETRICMODELINGPLUGIN_UPDATESKETCHATTACHMENTCOMMAND_H
+#define GEOMETRICMODELINGPLUGIN_UPDATESKETCHATTACHMENTCOMMAND_H
 
+#include "../../core/sketch/Sketch.h" // core::sketch::SketchPlane
 #include "Command.h"
-#include "../../core/sketch/Sketch.h"  // core::sketch::SketchPlane
 
 #include <string>
 
-namespace onecad::app {
+namespace onecad::app
+{
 class Document;
 }
 
-namespace onecad::app::commands {
-
-class UpdateSketchAttachmentCommand : public Command {
+namespace onecad::app::commands
+{
+class UpdateSketchAttachmentCommand : public Command
+{
 public:
-    UpdateSketchAttachmentCommand(Document* document, std::string sketchId);
+	UpdateSketchAttachmentCommand(Document* document, std::string sketchId);
 
-    bool execute() override;
-    bool undo() override;
-    std::string label() const override { return "Update Sketch Attachment"; }
+	bool execute() override;
+	bool undo() override;
+	std::string label() const override { return "Update Sketch Attachment"; }
 
 private:
-    Document* document_ = nullptr;
-    std::string sketchId_;
-    core::sketch::SketchPlane oldPlane_;
-    std::string oldBodyId_;
-    std::string oldFaceId_;
-    bool hasOldState_ = false;
+	Document* document_ = nullptr;
+	std::string sketchId_;
+	core::sketch::SketchPlane oldPlane_;
+	std::string oldBodyId_;
+	std::string oldFaceId_;
+	bool hasOldState_ = false;
 };
 
 } // namespace onecad::app::commands
 
-#endif // ONECAD_APP_COMMANDS_UPDATESKETCHATTACHMENTCOMMAND_H
+#endif // GEOMETRICMODELINGPLUGIN_UPDATESKETCHATTACHMENTCOMMAND_H

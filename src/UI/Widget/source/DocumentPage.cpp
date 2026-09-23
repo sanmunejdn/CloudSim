@@ -14,20 +14,19 @@
 #include "MeshBackendData.h"
 #include "OsgScene.h"
 #include "OsgWidget.h"
-#include "RobotPerLinkKinematicsSliceOsg.h"
-#include "RobotProgramStore.h"
 #include "RobotExternalAxes.h"
 #include "RobotMatrixOsgBridge.h"
+#include "RobotPerLinkKinematicsSliceOsg.h"
+#include "RobotProgramStore.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 #include "ViewportToolBar.h"
 #include "io/CustomDeviceRobotMountOps.h"
 
-#include <algorithm>
-
 #include <QSet>
 #include <QTabWidget>
 #include <QUuid>
+#include <algorithm>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -244,11 +243,10 @@ void DocumentPage::appendHierarchicalRobotSimulationContext(
 	rebuildHierarchicalRobotAggregates();
 }
 
-void DocumentPage::setRobotPerLinkKinematicsBinding(const QString& importKey,
-													const QHash<QString, QString>& linkNameToBackendId,
-													const QHash<QString, cloudsim::core::Mat4>& fkMeshWorldT0,
-													const QHash<QString, cloudsim::core::Mat4>& outerWorldAtBindByBackendId,
-													bool meshVerticesInLinkFrame)
+void DocumentPage::setRobotPerLinkKinematicsBinding(
+	const QString& importKey, const QHash<QString, QString>& linkNameToBackendId,
+	const QHash<QString, cloudsim::core::Mat4>& fkMeshWorldT0,
+	const QHash<QString, cloudsim::core::Mat4>& outerWorldAtBindByBackendId, bool meshVerticesInLinkFrame)
 {
 	QString jointPrefix = importKey;
 	if (jointPrefix.endsWith(QStringLiteral("_ctx")))
@@ -400,7 +398,7 @@ QString DocumentPage::robotFrameWorldReferenceBackendId(const int instanceIndex)
 	const auto pickPreferredName = [&](const QStringList& names) -> QString
 	{
 		static const QString kPreferred[] = {QStringLiteral("base_link"), QStringLiteral("base"),
-											QStringLiteral("root")};
+											 QStringLiteral("root")};
 		for (const QString& want : kPreferred)
 		{
 			for (const QString& name : names)
@@ -542,11 +540,10 @@ bool DocumentPage::robotPerLinkKinematicsForInstance(int instanceIndex,
 	out.linkNameToBackendId = ri.linkNameToBackendId;
 	out.fkMeshWorldT0 = ri.fkMeshWorldT0;
 	out.outerWorldAtBindByBackendId = ri.outerWorldAtBindByBackendId;
-	RobotExternal::composeBasePlacementWithExternalAxis(ri.basePlacementWorld.data(), ri.externalAxes,
-														ri.externalAxisQ.empty()
-															? std::vector<double>{ri.externalAxisQMm}
-															: ri.externalAxisQ,
-														out.robotBasePlacementWorld.data());
+	RobotExternal::composeBasePlacementWithExternalAxis(
+		ri.basePlacementWorld.data(), ri.externalAxes,
+		ri.externalAxisQ.empty() ? std::vector<double>{ri.externalAxisQMm} : ri.externalAxisQ,
+		out.robotBasePlacementWorld.data());
 	out.meshVerticesInLinkFrame = ri.meshVerticesInLinkFrame;
 	return true;
 }
@@ -754,7 +751,7 @@ void DocumentPage::ensureWorkpieceExternalBasePlacement(const int instanceIndex,
 }
 
 cloudsim::core::Mat4 DocumentPage::workpieceWorkingFrameOffset(const int instanceIndex,
-															  const QString& boundBackendId) const
+															   const QString& boundBackendId) const
 {
 	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || boundBackendId.isEmpty())
 	{
@@ -1162,8 +1159,7 @@ void DocumentPage::reconcilePerLinkOuterBindFromScene(const int instanceIndex, c
 		// FK/导入先写 Data；OSG 可能尚未 flush，优先用 Data 世界矩阵反推 M0
 		osg::Matrixd world;
 		bool haveWorld = false;
-		if (const auto meshPtr =
-				std::dynamic_pointer_cast<MeshBackendData>(findObject(linkBackendId.toStdString())))
+		if (const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(findObject(linkBackendId.toStdString())))
 		{
 			world = RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix());
 			haveWorld = true;

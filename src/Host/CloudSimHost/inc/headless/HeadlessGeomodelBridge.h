@@ -9,7 +9,6 @@
 #include <QByteArray>
 #include <QJsonObject>
 #include <QString>
-
 #include <memory>
 #include <vector>
 
@@ -69,4 +68,4 @@ private:
 
 } // namespace cloudsim::host
 
-#endif
+#endif // CLOUDSIMHOST_HEADLESSGEOMODELBRIDGE_H

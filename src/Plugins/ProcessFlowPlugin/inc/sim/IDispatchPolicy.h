@@ -1,5 +1,5 @@
-#ifndef PROCESSFLOWPLUGIN_SIM_IDISPATCHPOLICY_H
-#define PROCESSFLOWPLUGIN_SIM_IDISPATCHPOLICY_H
+﻿#ifndef PROCESSFLOWPLUGIN_IDISPATCHPOLICY_H
+#define PROCESSFLOWPLUGIN_IDISPATCHPOLICY_H
 
 /// @file IDispatchPolicy.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -33,4 +33,4 @@ public:
 	virtual int select(const DispatchContext& ctx) const = 0;
 };
 
-#endif
+#endif // PROCESSFLOWPLUGIN_IDISPATCHPOLICY_H

@@ -1,4 +1,4 @@
-#ifndef ROBOTURDF_CUSTOMDEVICEURDFEXPORTER_H
+﻿#ifndef ROBOTURDF_CUSTOMDEVICEURDFEXPORTER_H
 #define ROBOTURDF_CUSTOMDEVICEURDFEXPORTER_H
 
 /// @file CustomDeviceUrdfExporter.h
@@ -32,8 +32,8 @@ struct ROBOT_URDF_API CustomDeviceUrdfExportResult
 };
 
 /// 写出可被现有 importUrdfRobot 回灌的包；.urdf 长度单位为米
-ROBOT_URDF_API CustomDeviceUrdfExportResult
-exportCustomDeviceUrdfPackage(const CustomDeviceBackendData& device, const BackendDataManager& backend,
-							  const CustomDeviceUrdfExportOptions& options);
+ROBOT_URDF_API CustomDeviceUrdfExportResult exportCustomDeviceUrdfPackage(const CustomDeviceBackendData& device,
+																		  const BackendDataManager& backend,
+																		  const CustomDeviceUrdfExportOptions& options);
 
 #endif // ROBOTURDF_CUSTOMDEVICEURDFEXPORTER_H

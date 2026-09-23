@@ -1,11 +1,10 @@
-/// @file WebGatewayTrajectory.cpp
+﻿/// @file WebGatewayTrajectory.cpp
 /// @brief 轨迹 / 特征拾取 GUI 线程 API
-
-#include "WebGateway.h"
 
 #include "CloudSimHost.h"
 #include "DocumentHost.h"
 #include "HeadlessTrajectorySession.h"
+#include "WebGateway.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>

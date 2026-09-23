@@ -1,22 +1,21 @@
-/// @file AiHostButtonApiDispatch.cpp
+﻿/// @file AiHostButtonApiDispatch.cpp
 /// @brief Dock 按钮 Host API 分发；缺参时弹出 Agent 对话框
 
-#include "Ai/AiAgentPickDialog.h"
 #include "Ai/AiHostButtonApiDispatch.h"
-#include "IPluginMainWindowHost.h"
-#include "IProcessFlowAiBridge.h"
-#include "PluginDocumentAdapter.h"
-#include "PluginHostContext.h"
 
+#include "Ai/AiAgentPickDialog.h"
+#include "GeometryImportUiFilters.h"
 #include "IPluginDocument.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginLabelingHost.h"
+#include "IPluginMainWindowHost.h"
 #include "IPluginPointCloudHost.h"
+#include "IProcessFlowAiBridge.h"
+#include "PluginDocumentAdapter.h"
 #include "PluginGeometryTypes.h"
+#include "PluginHostContext.h"
 #include "PluginLabelingTypes.h"
 #include "PluginPointCloudTypes.h"
-
-#include "GeometryImportUiFilters.h"
 
 #include <QEventLoop>
 #include <QJsonArray>
@@ -24,7 +23,6 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QWidget>
-
 #include <functional>
 #include <string>
 
@@ -179,12 +177,13 @@ bool waitPcJob(const std::function<void(PluginPointCloudFinishedFn)>& start, QSt
 	QEventLoop loop;
 	bool ok = false;
 	QString err;
-	start([&](bool success, const QString& error, const PluginPointCloudJobResult&)
-		  {
-			  ok = success;
-			  err = error;
-			  loop.quit();
-		  });
+	start(
+		[&](bool success, const QString& error, const PluginPointCloudJobResult&)
+		{
+			ok = success;
+			err = error;
+			loop.quit();
+		});
 	loop.exec();
 	if (!ok)
 		setErr(outError, err.isEmpty() ? QStringLiteral("点云操作失败。") : err);
@@ -201,12 +200,13 @@ bool waitGeomJob(const std::function<void(PluginGeometryFinishedFn)>& start, QSt
 	QEventLoop loop;
 	bool ok = false;
 	QString err;
-	start([&](bool success, const QString& error, const PluginGeometryJobResult&)
-		  {
-			  ok = success;
-			  err = error;
-			  loop.quit();
-		  });
+	start(
+		[&](bool success, const QString& error, const PluginGeometryJobResult&)
+		{
+			ok = success;
+			err = error;
+			loop.quit();
+		});
 	loop.exec();
 	if (!ok)
 		setErr(outError, err.isEmpty() ? QStringLiteral("几何操作失败。") : err);
@@ -260,7 +260,8 @@ bool ensureLabelingSession(PluginHostContext& host, const std::string& backendId
 	return true;
 }
 
-bool ensureSurfaceSession(IPluginPointCloudHost* pch, IPluginDocument* doc, const std::string& meshId, QString* outError)
+bool ensureSurfaceSession(IPluginPointCloudHost* pch, IPluginDocument* doc, const std::string& meshId,
+						  QString* outError)
 {
 	if (g_surface.sessionId.valid() && g_surface.meshBackendId == meshId)
 		return true;
@@ -276,7 +277,8 @@ bool ensureSurfaceSession(IPluginPointCloudHost* pch, IPluginDocument* doc, cons
 	return true;
 }
 
-bool ensureTubularSession(IPluginPointCloudHost* pch, IPluginDocument* doc, const std::string& meshId, QString* outError)
+bool ensureTubularSession(IPluginPointCloudHost* pch, IPluginDocument* doc, const std::string& meshId,
+						  QString* outError)
 {
 	if (g_tubular.sessionId.valid() && g_tubular.meshBackendId == meshId)
 		return true;
@@ -392,10 +394,10 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 			if (!g_allowModalDialogs)
 				return doneFail(QStringLiteral("缺少 path（应由确认面板提供）。"));
 			QString picked;
-			const QString filter =
-				isPc ? QStringLiteral("点云 (*.ply *.xyz *.las *.laz *.pcd);;所有文件 (*.*)")
-					 : cloudsim::host::geometryOpenModelFileFilter(/*includeOsgCapture=*/true);
-			if (!AiAgentPickDialog::pickOpenFilePath(dialogParent(host), QStringLiteral("选择导入文件"), filter, &picked))
+			const QString filter = isPc ? QStringLiteral("点云 (*.ply *.xyz *.las *.laz *.pcd);;所有文件 (*.*)")
+										: cloudsim::host::geometryOpenModelFileFilter(/*includeOsgCapture=*/true);
+			if (!AiAgentPickDialog::pickOpenFilePath(dialogParent(host), QStringLiteral("选择导入文件"), filter,
+													 &picked))
 				return doneFail(QStringLiteral("已取消选择导入文件。"));
 			path = picked.toStdString();
 		}
@@ -464,7 +466,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 			QString pickErr;
 			PluginPointCloudCropPolylineParams cropParams;
 			pch->pickPolylineFromViewport(
-				doc, [&](bool ok, const QString& error, const PluginPointCloudPolylinePickResult& pick)
+				doc,
+				[&](bool ok, const QString& error, const PluginPointCloudPolylinePickResult& pick)
 				{
 					pickOk = ok;
 					pickErr = error;
@@ -554,8 +557,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		auto* doc = requireDoc(host, outError);
 		if (!doc)
 			return true;
-		const std::string id =
-			resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Mesh, QStringLiteral("选择网格"));
+		const std::string id = resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Mesh,
+												QStringLiteral("选择网格"));
 		if (id.empty())
 			return true;
 		std::string path = argString(args, "path");
@@ -565,7 +568,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 				return doneFail(QStringLiteral("缺少 path（应由确认面板提供）。"));
 			QString picked;
 			if (!AiAgentPickDialog::pickSaveFilePath(dialogParent(host), QStringLiteral("导出 PLY"),
-													 QStringLiteral("PLY (*.ply)"), QStringLiteral("export.ply"), &picked))
+													 QStringLiteral("PLY (*.ply)"), QStringLiteral("export.ply"),
+													 &picked))
 				return doneFail(QStringLiteral("已取消导出路径选择。"));
 			path = picked.toStdString();
 		}
@@ -600,7 +604,7 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 			std::vector<AiAgentPickDialog::BackendEntry> both = scans;
 			both.insert(both.end(), templates.begin(), templates.end());
 			if (!AiAgentPickDialog::pickSourceAndTarget(dialogParent(host), both, QStringLiteral("选择扫描与 CAD 模板"),
-													   &s, &t))
+														&s, &t))
 				return doneFail(QStringLiteral("已取消选择扫描/模板。"));
 			scanId = s.toStdString();
 			templ = t.toStdString();
@@ -613,7 +617,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 			bool ok = false;
 			QString err;
 			pch->updateTemplateBrepFromAlignedScan(
-				doc, scanId, p, [&](bool success, const QString& error, const PluginPointCloudTemplateBrepUpdateResult&)
+				doc, scanId, p,
+				[&](bool success, const QString& error, const PluginPointCloudTemplateBrepUpdateResult&)
 				{
 					ok = success;
 					err = error;
@@ -631,7 +636,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		bool ok = false;
 		QString err;
 		pch->registerScanToCadTemplate(
-			doc, scanId, p, [&](bool success, const QString& error, const PluginPointCloudTemplateBrepRegisterResult&)
+			doc, scanId, p,
+			[&](bool success, const QString& error, const PluginPointCloudTemplateBrepRegisterResult&)
 			{
 				ok = success;
 				err = error;
@@ -650,8 +656,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		auto* doc = requireDoc(host, outError);
 		if (!pch || !doc)
 			return true;
-		const std::string id =
-			resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Mesh, QStringLiteral("选择网格"));
+		const std::string id = resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Mesh,
+												QStringLiteral("选择网格"));
 		if (id.empty())
 			return true;
 		if (api == "simplifyMesh")
@@ -724,21 +730,22 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		auto* doc = requireDoc(host, outError);
 		if (!pch || !doc)
 			return true;
-		const std::string id =
-			resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Mesh, QStringLiteral("选择网格"));
+		const std::string id = resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Mesh,
+												QStringLiteral("选择网格"));
 		if (id.empty())
 			return true;
 		PluginMeshSurfaceReconstructParams p;
 		QEventLoop loop;
 		bool ok = false;
 		QString err;
-		pch->reconstructSurfaceFromMesh(doc, id, p,
-										[&](bool success, const QString& error, const PluginMeshSurfaceReconstructReport&)
-										{
-											ok = success;
-											err = error;
-											loop.quit();
-										});
+		pch->reconstructSurfaceFromMesh(
+			doc, id, p,
+			[&](bool success, const QString& error, const PluginMeshSurfaceReconstructReport&)
+			{
+				ok = success;
+				err = error;
+				loop.quit();
+			});
 		loop.exec();
 		if (!ok)
 			setErr(outError, err.isEmpty() ? QStringLiteral("全流程曲面重构失败。") : err);
@@ -803,8 +810,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		{
 			if (!g_allowModalDialogs)
 			{
-				const std::string id = resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Brep,
-														QStringLiteral("选择 B-rep"));
+				const std::string id = resolveBackendId(
+					host, args, outError, AiAgentPickDialog::BackendKindFilter::Brep, QStringLiteral("选择 B-rep"));
 				if (id.empty())
 					return true;
 				path = id;
@@ -815,8 +822,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 				if (!AiAgentPickDialog::pickOpenFilePath(dialogParent(host), QStringLiteral("选择 STEP"),
 														 QStringLiteral("STEP (*.step *.stp);;All (*.*)"), &picked))
 				{
-					const std::string id = resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Brep,
-															QStringLiteral("选择 B-rep"));
+					const std::string id = resolveBackendId(
+						host, args, outError, AiAgentPickDialog::BackendKindFilter::Brep, QStringLiteral("选择 B-rep"));
 					if (id.empty())
 						return true;
 					path = id; // backend path resolved inside host by id-as-path convention used by dock
@@ -829,7 +836,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		PluginMeshCreateOptions opt;
 		opt.displayName = QStringLiteral("AiDiscretizedMesh");
 		opt.selectInTree = true;
-		waitGeomJob([&](PluginGeometryFinishedFn cb) { geo->discretizeBackendToMesh(doc, path, p, opt, cb); }, outError);
+		waitGeomJob([&](PluginGeometryFinishedFn cb) { geo->discretizeBackendToMesh(doc, path, p, opt, cb); },
+					outError);
 		return true;
 	}
 	if (api == "pickStepElementEdge" || api == "pickStepElementFace")
@@ -887,19 +895,19 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		{
 			if (g_lastEdge.edgeIndex < 0 || g_lastFace.faceIndex < 0)
 				return doneFail(QStringLiteral("请先点选边与点选面。"));
-		waitGeomJob(
-			[&](PluginGeometryFinishedFn cb)
-			{
-				geo->intersectEdgeFace(
-					doc, g_lastEdge, g_lastFace, p,
-					[&](bool success, const QString& error, const PluginGeometryJobResult& result)
-					{
-						if (success && !result.polylines.empty())
-							g_lastPolylineXyz = result.polylines.front();
-						cb(success, error, result);
-					});
-			},
-			outError);
+			waitGeomJob(
+				[&](PluginGeometryFinishedFn cb)
+				{
+					geo->intersectEdgeFace(
+						doc, g_lastEdge, g_lastFace, p,
+						[&](bool success, const QString& error, const PluginGeometryJobResult& result)
+						{
+							if (success && !result.polylines.empty())
+								g_lastPolylineXyz = result.polylines.front();
+							cb(success, error, result);
+						});
+				},
+				outError);
 		}
 		else
 		{
@@ -908,14 +916,13 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 			waitGeomJob(
 				[&](PluginGeometryFinishedFn cb)
 				{
-					geo->intersectFaces(
-						doc, g_lastFaceA, g_lastFaceB, p,
-						[&](bool success, const QString& error, const PluginGeometryJobResult& result)
-						{
-							if (success && !result.polylines.empty())
-								g_lastPolylineXyz = result.polylines.front();
-							cb(success, error, result);
-						});
+					geo->intersectFaces(doc, g_lastFaceA, g_lastFaceB, p,
+										[&](bool success, const QString& error, const PluginGeometryJobResult& result)
+										{
+											if (success && !result.polylines.empty())
+												g_lastPolylineXyz = result.polylines.front();
+											cb(success, error, result);
+										});
 				},
 				outError);
 		}
@@ -948,13 +955,15 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		return true;
 	}
 
-	if (api == "labelingPickClick" || api == "labelingPickBrush" || api == "labelingPickLasso" || api == "labelingErase")
+	if (api == "labelingPickClick" || api == "labelingPickBrush" || api == "labelingPickLasso" ||
+		api == "labelingErase")
 	{
 		IPluginLabelingHost* lh = host.labelingHost();
 		if (!lh)
 			return doneFail(QStringLiteral("标注宿主不可用。"));
-		const std::string id = resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::PointCloudOrMesh,
-												QStringLiteral("选择标注对象"));
+		const std::string id =
+			resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::PointCloudOrMesh,
+							 QStringLiteral("选择标注对象"));
 		if (id.empty())
 			return true;
 		if (!ensureLabelingSession(host, id, outError))
@@ -977,9 +986,11 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		if (api == "labelingPickBrush")
 		{
 			if (mesh)
-				lh->brushMeshFaces(g_labeling.sessionId, 16.f, [](const PluginLabelingSelectionResult&) {}, onPick);
+				lh->brushMeshFaces(
+					g_labeling.sessionId, 16.f, [](const PluginLabelingSelectionResult&) {}, onPick);
 			else
-				lh->brushStroke(g_labeling.sessionId, 16.f, [](const PluginLabelingSelectionResult&) {}, onPick);
+				lh->brushStroke(
+					g_labeling.sessionId, 16.f, [](const PluginLabelingSelectionResult&) {}, onPick);
 		}
 		else if (api == "labelingPickLasso")
 			lh->pickPolylineRegion(g_labeling.sessionId, onPick);
@@ -1047,8 +1058,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		IPluginDocument* doc = requireDoc(host, outError);
 		if (!doc)
 			return true;
-		const std::string id =
-			resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Any, QStringLiteral("选择对象"));
+		const std::string id = resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Any,
+												QStringLiteral("选择对象"));
 		if (id.empty())
 			return true;
 		std::string err;
@@ -1078,8 +1089,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		auto* adapter = dynamic_cast<PluginDocumentAdapter*>(doc);
 		if (!adapter)
 			return doneFail(QStringLiteral("文档适配器不可用。"));
-		const std::string id =
-			resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Any, QStringLiteral("选择对象"));
+		const std::string id = resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Any,
+												QStringLiteral("选择对象"));
 		if (id.empty())
 			return true;
 		PluginDocumentAdapter::WorldPoseMm pose;
@@ -1152,7 +1163,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 				if (args["auto_layout"].is_boolean())
 					autoLayout = args["auto_layout"].get<bool>();
 				else if (args["auto_layout"].is_string())
-					autoLayout = QString::fromStdString(args["auto_layout"].get<std::string>()) != QStringLiteral("false");
+					autoLayout =
+						QString::fromStdString(args["auto_layout"].get<std::string>()) != QStringLiteral("false");
 			}
 			QString err;
 			if (!bridge->applyFlowJson(flow, autoLayout, &err))
@@ -1198,7 +1210,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 			if (args["horizonSec"].is_number())
 				cfg.insert(QStringLiteral("horizonSec"), args["horizonSec"].get<double>());
 			else if (args["horizonSec"].is_string())
-				cfg.insert(QStringLiteral("horizonSec"), QString::fromStdString(args["horizonSec"].get<std::string>()).toDouble());
+				cfg.insert(QStringLiteral("horizonSec"),
+						   QString::fromStdString(args["horizonSec"].get<std::string>()).toDouble());
 		}
 		if (args.contains("policy") && args["policy"].is_string())
 			cfg.insert(QStringLiteral("policy"), QString::fromStdString(args["policy"].get<std::string>()));
@@ -1245,7 +1258,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 	return false;
 }
 
-AiToolResult execute(PluginHostContext& host, const std::string& api, const nlohmann::json& args, bool allowModalDialogs)
+AiToolResult execute(PluginHostContext& host, const std::string& api, const nlohmann::json& args,
+					 bool allowModalDialogs)
 {
 	QString err;
 	QString summary;

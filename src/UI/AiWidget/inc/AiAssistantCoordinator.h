@@ -1,4 +1,4 @@
-#ifndef AIWIDGET_AIASSISTANTCOORDINATOR_H
+﻿#ifndef AIWIDGET_AIASSISTANTCOORDINATOR_H
 #define AIWIDGET_AIASSISTANTCOORDINATOR_H
 
 /// @file AiAssistantCoordinator.h
@@ -65,7 +65,8 @@ private:
 	bool shouldUseAgentRuntime(const QString& resolvedDomainId) const;
 	void startAgentTurn(const QString& text, const QString& domainId);
 	void beginUnifiedDomainConfirm(AiAgentConfirmKind kind, const QByteArray& payload, const QString& title,
-								   const QString& confirmLabel, const QString& secondaryLabel, const QString& parserVia);
+								   const QString& confirmLabel, const QString& secondaryLabel,
+								   const QString& parserVia);
 	void handleAgentEvent(const AiAgentEvent& ev);
 	/// 模态离散对话框（经 Runtime TrajectoryCommit）；返回重选保留会话
 	void openTrajectoryDiscretizeDialog(const QString& pendingId, const QByteArray& planIn, bool showRetry);
@@ -92,4 +93,4 @@ private:
 	bool m_trajCatalogRetryUsed = false;
 };
 
-#endif
+#endif // AIWIDGET_AIASSISTANTCOORDINATOR_H

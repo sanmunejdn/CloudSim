@@ -1,4 +1,4 @@
-#ifndef WIDGET_APPLICATIONSTYLE_H
+﻿#ifndef WIDGET_APPLICATIONSTYLE_H
 #define WIDGET_APPLICATIONSTYLE_H
 
 /// @file ApplicationStyle.h

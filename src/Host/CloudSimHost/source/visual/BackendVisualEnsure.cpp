@@ -1,4 +1,4 @@
-/// @file BackendVisualEnsure.cpp
+﻿/// @file BackendVisualEnsure.cpp
 /// @brief ensureVisual 实现：委托 sceneFacade + SyncEngine
 
 #include "visual/BackendVisualEnsure.h"

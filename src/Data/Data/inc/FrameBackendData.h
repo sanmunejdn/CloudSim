@@ -1,4 +1,4 @@
-#ifndef DATA_FRAMEBACKENDDATA_H
+﻿#ifndef DATA_FRAMEBACKENDDATA_H
 #define DATA_FRAMEBACKENDDATA_H
 
 /// @file FrameBackendData.h

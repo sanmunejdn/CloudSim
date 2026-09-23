@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H
+﻿#ifndef CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H
 #define CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H
 
 /// @file DocumentImportFacade.h
@@ -11,10 +11,11 @@
 #include "CoreTypes.h"
 #include "HierarchyMeshImport.h"
 
-#include <QLatin1String>
 #include <QString>
 #include <functional>
 #include <memory>
+
+#include <QLatin1String>
 
 class BrepBackendData;
 class MeshBackendData;

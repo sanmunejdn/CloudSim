@@ -30,7 +30,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <vector>
 
 #include <RigidTransform.h>
 #include <osg/Array>
@@ -313,9 +312,9 @@ public:
 	void clearWaypointIndexLabels();
 	void setInstructionWaypointPickMode(bool enabled);
 	bool instructionWaypointPickMode() const { return m_instructionWaypointPickMode; }
-	void setInstructionWaypointPickCallbacks(
-		std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
-		std::function<void()> onCanceled);
+	void
+	setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
+										std::function<void()> onCanceled);
 
 	/// TCP 末端拖动示教：场景 overlay 罗盘，拖动发位姿信号（不写指令）
 	bool isTcpDragTeachActive() const { return m_tcpTeachActive; }
@@ -645,8 +644,7 @@ private:
 	std::function<void(const std::string&, bool)> m_instructionWaypointPicked;
 	std::function<void()> m_instructionWaypointPickCanceled;
 	bool tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string& outInstructionId,
-									  cloudsim::core::Vec3* outPositionMm = nullptr,
-									  bool* outIsArcVia = nullptr) const;
+									  cloudsim::core::Vec3* outPositionMm = nullptr, bool* outIsArcVia = nullptr) const;
 	void ensureWaypointPickHoverRing();
 	void updateWaypointPickHoverAt(int mouseX, int mouseY);
 	void clearWaypointPickHover();

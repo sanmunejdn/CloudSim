@@ -1,4 +1,4 @@
-/// @file AiFeatureComposeSteps.cpp
+﻿/// @file AiFeatureComposeSteps.cpp
 /// @brief feature.compose 步骤实现
 
 #include "Ai/AiFeatureComposeSteps.h"
@@ -109,9 +109,8 @@ std::vector<float> closedCircleXy(double cx, double cy, double radiusMm, int seg
 
 nlohmann::json emptyGeomArrays()
 {
-	return nlohmann::json{{"arcs", nlohmann::json::array()},
-						  {"ellipses", nlohmann::json::array()},
-						  {"splines", nlohmann::json::array()}};
+	return nlohmann::json{
+		{"arcs", nlohmann::json::array()}, {"ellipses", nlohmann::json::array()}, {"splines", nlohmann::json::array()}};
 }
 
 std::string sketchJsonRectangle(double lengthMm, double widthMm)
@@ -119,23 +118,21 @@ std::string sketchJsonRectangle(double lengthMm, double widthMm)
 	// 固定原点角点，边长用 Distance，双击草图可改尺寸后 rebuild
 	nlohmann::json root = emptyGeomArrays();
 	root["seq"] = 9;
-	root["points"] = nlohmann::json::array(
-		{{{ "id", 1 }, { "u", 0.0 }, { "v", 0.0 }, { "fixed", true }},
-		 {{ "id", 2 }, { "u", lengthMm }, { "v", 0.0 }, { "fixed", false }},
-		 {{ "id", 3 }, { "u", lengthMm }, { "v", widthMm }, { "fixed", false }},
-		 {{ "id", 4 }, { "u", 0.0 }, { "v", widthMm }, { "fixed", false }}});
-	root["lines"] = nlohmann::json::array({{{ "id", 5 }, { "p1", 1 }, { "p2", 2 }, { "construction", false }},
-										   {{ "id", 6 }, { "p1", 2 }, { "p2", 3 }, { "construction", false }},
-										   {{ "id", 7 }, { "p1", 3 }, { "p2", 4 }, { "construction", false }},
-										   {{ "id", 8 }, { "p1", 4 }, { "p2", 1 }, { "construction", false }}});
+	root["points"] = nlohmann::json::array({{{"id", 1}, {"u", 0.0}, {"v", 0.0}, {"fixed", true}},
+											{{"id", 2}, {"u", lengthMm}, {"v", 0.0}, {"fixed", false}},
+											{{"id", 3}, {"u", lengthMm}, {"v", widthMm}, {"fixed", false}},
+											{{"id", 4}, {"u", 0.0}, {"v", widthMm}, {"fixed", false}}});
+	root["lines"] = nlohmann::json::array({{{"id", 5}, {"p1", 1}, {"p2", 2}, {"construction", false}},
+										   {{"id", 6}, {"p1", 2}, {"p2", 3}, {"construction", false}},
+										   {{"id", 7}, {"p1", 3}, {"p2", 4}, {"construction", false}},
+										   {{"id", 8}, {"p1", 4}, {"p2", 1}, {"construction", false}}});
 	root["circles"] = nlohmann::json::array();
-	root["constraints"] = nlohmann::json::array(
-		{{{ "kind", kSkHorizontal }, { "a", 5 }, { "b", -1 }, { "value", 0.0 }},
-		 {{ "kind", kSkVertical }, { "a", 6 }, { "b", -1 }, { "value", 0.0 }},
-		 {{ "kind", kSkHorizontal }, { "a", 7 }, { "b", -1 }, { "value", 0.0 }},
-		 {{ "kind", kSkVertical }, { "a", 8 }, { "b", -1 }, { "value", 0.0 }},
-		 {{ "kind", kSkDistance }, { "a", 1 }, { "b", 2 }, { "value", lengthMm }},
-		 {{ "kind", kSkDistance }, { "a", 1 }, { "b", 4 }, { "value", widthMm }}});
+	root["constraints"] = nlohmann::json::array({{{"kind", kSkHorizontal}, {"a", 5}, {"b", -1}, {"value", 0.0}},
+												 {{"kind", kSkVertical}, {"a", 6}, {"b", -1}, {"value", 0.0}},
+												 {{"kind", kSkHorizontal}, {"a", 7}, {"b", -1}, {"value", 0.0}},
+												 {{"kind", kSkVertical}, {"a", 8}, {"b", -1}, {"value", 0.0}},
+												 {{"kind", kSkDistance}, {"a", 1}, {"b", 2}, {"value", lengthMm}},
+												 {{"kind", kSkDistance}, {"a", 1}, {"b", 4}, {"value", widthMm}}});
 	return root.dump();
 }
 
@@ -153,10 +150,7 @@ std::string sketchJsonPolygon(int sides, double radiusMm)
 		const double a = (2.0 * kPi * i) / n;
 		const int id = nextId++;
 		pids.push_back(id);
-		points.push_back({{ "id", id },
-						  { "u", radiusMm * std::cos(a) },
-						  { "v", radiusMm * std::sin(a) },
-						  { "fixed", i == 0 }});
+		points.push_back({{"id", id}, {"u", radiusMm * std::cos(a)}, {"v", radiusMm * std::sin(a)}, {"fixed", i == 0}});
 	}
 	std::vector<int> lids;
 	lids.reserve(static_cast<size_t>(n));
@@ -164,10 +158,10 @@ std::string sketchJsonPolygon(int sides, double radiusMm)
 	{
 		const int id = nextId++;
 		lids.push_back(id);
-		lines.push_back({{ "id", id },
-						 { "p1", pids[static_cast<size_t>(i)] },
-						 { "p2", pids[static_cast<size_t>((i + 1) % n)] },
-						 { "construction", false }});
+		lines.push_back({{"id", id},
+						 {"p1", pids[static_cast<size_t>(i)]},
+						 {"p2", pids[static_cast<size_t>((i + 1) % n)]},
+						 {"construction", false}});
 	}
 	root["seq"] = nextId;
 	root["points"] = std::move(points);
@@ -181,13 +175,11 @@ std::string sketchJsonCircle(double cx, double cy, double radiusMm)
 {
 	nlohmann::json root = emptyGeomArrays();
 	root["seq"] = 3;
-	root["points"] = nlohmann::json::array(
-		{{{ "id", 1 }, { "u", cx }, { "v", cy }, { "fixed", true }}});
+	root["points"] = nlohmann::json::array({{{"id", 1}, {"u", cx}, {"v", cy}, {"fixed", true}}});
 	root["lines"] = nlohmann::json::array();
-	root["circles"] = nlohmann::json::array(
-		{{{ "id", 2 }, { "center", 1 }, { "radius", radiusMm }, { "construction", false }}});
-	root["constraints"] = nlohmann::json::array(
-		{{{ "kind", kSkRadius }, { "a", 2 }, { "b", -1 }, { "value", radiusMm }}});
+	root["circles"] =
+		nlohmann::json::array({{{"id", 2}, {"center", 1}, {"radius", radiusMm}, {"construction", false}}});
+	root["constraints"] = nlohmann::json::array({{{"kind", kSkRadius}, {"a", 2}, {"b", -1}, {"value", radiusMm}}});
 	return root.dump();
 }
 
@@ -219,18 +211,12 @@ std::string sketchJsonFromPolylineXy(const std::vector<float>& xyz)
 	{
 		const int id = nextId++;
 		pids.push_back(id);
-		points.push_back({{ "id", id },
-						  { "u", xyz[i * 3] },
-						  { "v", xyz[i * 3 + 1] },
-						  { "fixed", i == 0 }});
+		points.push_back({{"id", id}, {"u", xyz[i * 3]}, {"v", xyz[i * 3 + 1]}, {"fixed", i == 0}});
 	}
 	for (size_t i = 0; i < n; ++i)
 	{
 		const int id = nextId++;
-		lines.push_back({{ "id", id },
-						 { "p1", pids[i] },
-						 { "p2", pids[(i + 1) % n] },
-						 { "construction", false }});
+		lines.push_back({{"id", id}, {"p1", pids[i]}, {"p2", pids[(i + 1) % n]}, {"construction", false}});
 	}
 	root["seq"] = nextId;
 	root["points"] = std::move(points);
@@ -255,7 +241,7 @@ nlohmann::json profileArgsForKey(const nlohmann::json& args, const char* key)
 		if (args.contains("profile_xyz_mm") && args["profile_xyz_mm"].is_array())
 			sub["profile_xyz_mm"] = args["profile_xyz_mm"];
 		sub["profile"] = args.value("profile", "rectangle");
-		const char* keys[] = {"length_mm",	 "width_mm",	"radius_mm",	"diameter_mm",	"sides",
+		const char* keys[] = {"length_mm",	 "width_mm",	"radius_mm",   "diameter_mm", "sides",
 							  "center_u_mm", "center_v_mm", "center_x_mm", "center_y_mm"};
 		for (const char* nk : keys)
 		{
@@ -576,10 +562,9 @@ bool executeExtrude(PluginHostContext& host, const nlohmann::json& args, const s
 	PluginGeometryJobResult job;
 	const double planeOz = args.value("plane_oz", args.value("sketch_z_mm", 0.0));
 	const PluginSketchPlane sketchPlane = xyPlaneAtZ(planeOz);
-	if (!waitGeomJobResult(
-			[&](PluginGeometryFinishedFn cb)
-			{ geo->extrudeSketchProfileToBrep(doc, profile.polyline, sketchPlane, p, std::move(cb)); },
-			&job, outError))
+	if (!waitGeomJobResult([&](PluginGeometryFinishedFn cb)
+						   { geo->extrudeSketchProfileToBrep(doc, profile.polyline, sketchPlane, p, std::move(cb)); },
+						   &job, outError))
 		return false;
 
 	if (!stepId.empty() && !job.newBackendId.empty())
@@ -743,10 +728,9 @@ bool executeRevolve(PluginHostContext& host, const nlohmann::json& args, const s
 	}
 
 	PluginGeometryJobResult job;
-	if (!waitGeomJobResult(
-			[&](PluginGeometryFinishedFn cb)
-			{ geo->revolveSketchProfileToBrep(doc, profile.polyline, p, std::move(cb)); },
-			&job, outError))
+	if (!waitGeomJobResult([&](PluginGeometryFinishedFn cb)
+						   { geo->revolveSketchProfileToBrep(doc, profile.polyline, p, std::move(cb)); },
+						   &job, outError))
 		return false;
 
 	if (!stepId.empty() && !job.newBackendId.empty())
@@ -834,10 +818,9 @@ bool executeSweep(PluginHostContext& host, const nlohmann::json& args, const std
 		p.targetParametricBackendIdUtf8 = target.toStdString();
 
 	PluginGeometryJobResult job;
-	if (!waitGeomJobResult(
-			[&](PluginGeometryFinishedFn cb)
-			{ geo->sweepSketchProfileToBrep(doc, profile.polyline, path.polyline, p, std::move(cb)); },
-			&job, outError))
+	if (!waitGeomJobResult([&](PluginGeometryFinishedFn cb)
+						   { geo->sweepSketchProfileToBrep(doc, profile.polyline, path.polyline, p, std::move(cb)); },
+						   &job, outError))
 		return false;
 
 	if (!stepId.empty() && !job.newBackendId.empty())
@@ -1000,9 +983,8 @@ bool executeCircularPattern(PluginHostContext& host, const nlohmann::json& args,
 		p.sourceFeatureIdUtf8 = args["source_feature_id"].get<std::string>();
 
 	PluginGeometryJobResult job;
-	if (!waitGeomJobResult(
-			[&](PluginGeometryFinishedFn cb) { geo->circularPatternBodyToBrep(doc, p, std::move(cb)); }, &job,
-			outError))
+	if (!waitGeomJobResult([&](PluginGeometryFinishedFn cb) { geo->circularPatternBodyToBrep(doc, p, std::move(cb)); },
+						   &job, outError))
 		return false;
 
 	if (!stepId.empty())

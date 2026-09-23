@@ -1,3 +1,6 @@
+﻿/// @file RobotPerLinkKinematicsApply.cpp
+/// @brief RobotPerLinkKinematicsApply 实现
+
 #include "RobotPerLinkKinematicsApply.h"
 
 #include "BackendDataManager.h"
@@ -19,8 +22,7 @@ BackendMat4 osgMatToBackendColMajor(const osg::Matrixd& m)
 } // namespace
 
 bool applyLinkWorldFromCoreFk(IRobotBackendPoseSink* osg, BackendDataManager& mgr,
-							  const RobotPerLinkKinematicsSlice& slice,
-							  const QHash<QString, osg::Matrixd>& meshWorldTq)
+							  const RobotPerLinkKinematicsSlice& slice, const QHash<QString, osg::Matrixd>& meshWorldTq)
 {
 	const QHash<QString, QString>& linkToId = slice.linkNameToBackendId;
 	if (linkToId.isEmpty())

@@ -1,5 +1,8 @@
-#ifndef KINEMATICCORE_KINEMATICLINK_H
+﻿#ifndef KINEMATICCORE_KINEMATICLINK_H
 #define KINEMATICCORE_KINEMATICLINK_H
+
+/// @file KinematicLink.h
+/// @brief KinematicLink 接口
 
 #include "kinematic_core_global.h"
 

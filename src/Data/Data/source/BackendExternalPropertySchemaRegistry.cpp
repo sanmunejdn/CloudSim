@@ -1,7 +1,8 @@
-/// @file BackendExternalPropertySchemaRegistry.cpp
+﻿/// @file BackendExternalPropertySchemaRegistry.cpp
 /// @brief 外部 schema 注册表
 
 #include "BackendExternalPropertySchemaRegistry.h"
+
 #include "BackendPropertyBinding.h"
 
 #include <mutex>

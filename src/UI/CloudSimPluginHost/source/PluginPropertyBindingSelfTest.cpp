@@ -1,16 +1,15 @@
-/// @file PluginPropertyBindingSelfTest.cpp
+﻿/// @file PluginPropertyBindingSelfTest.cpp
 /// @brief 插件 Binding 注册表 mock 回归（Debug）
 
 #include "PluginPropertyBindingSelfTest.h"
 
+#include "../../Data/PropertyCore/inc/PropertyTypes.h"
 #include "BackendExternalPropertySchemaRegistry.h"
 #include "BackendPropertySchema.h"
 #include "BackendPropertyVisualAspect.h"
 #include "PluginBackendMeta.h"
 #include "PluginPropertyBindingRegistry.h"
 #include "RunLogger.h"
-
-#include "../../Data/PropertyCore/inc/PropertyTypes.h"
 
 namespace
 {

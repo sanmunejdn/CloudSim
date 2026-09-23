@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERAPLUGIN_HANDEYEPANELWIDGET_H
+﻿#ifndef INDUSTRIALCAMERAPLUGIN_HANDEYEPANELWIDGET_H
 #define INDUSTRIALCAMERAPLUGIN_HANDEYEPANELWIDGET_H
 
 /// @file HandEyePanelWidget.h
@@ -27,8 +27,7 @@ class HandEyePanelWidget : public QWidget
 {
 	Q_OBJECT
 public:
-	explicit HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHostContext* host,
-								QWidget* parent = nullptr);
+	explicit HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHostContext* host, QWidget* parent = nullptr);
 
 	void setUseChinese(bool zh);
 	void applyLanguage();

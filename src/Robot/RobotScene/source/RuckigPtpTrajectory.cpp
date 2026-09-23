@@ -1,4 +1,4 @@
-/// @file RuckigPtpTrajectory.cpp
+﻿/// @file RuckigPtpTrajectory.cpp
 /// @brief PTP Ruckig 轨迹（本文件须 C++20）
 
 #include "RuckigPtpTrajectory.h"

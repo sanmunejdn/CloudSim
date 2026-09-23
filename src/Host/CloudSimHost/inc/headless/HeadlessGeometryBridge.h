@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_HEADLESSGEOMETRYBRIDGE_H
+﻿#ifndef CLOUDSIMHOST_HEADLESSGEOMETRYBRIDGE_H
 #define CLOUDSIMHOST_HEADLESSGEOMETRYBRIDGE_H
 
 /// @file HeadlessGeometryBridge.h
@@ -30,4 +30,4 @@ private:
 
 } // namespace cloudsim::host
 
-#endif
+#endif // CLOUDSIMHOST_HEADLESSGEOMETRYBRIDGE_H

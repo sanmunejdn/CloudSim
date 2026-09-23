@@ -1,4 +1,4 @@
-#ifndef DATA_BREPBACKENDDATA_H
+﻿#ifndef DATA_BREPBACKENDDATA_H
 #define DATA_BREPBACKENDDATA_H
 
 /// @file BrepBackendData.h

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_BACKENDFOLLOWSOLVE_H
+﻿#ifndef CLOUDSIMHOST_BACKENDFOLLOWSOLVE_H
 #define CLOUDSIMHOST_BACKENDFOLLOWSOLVE_H
 
 /// @file BackendFollowSolve.h
@@ -32,9 +32,10 @@ CLOUDSIM_HOST_EXPORT void runBackendFollowSolveAndSync(DocumentHost& page, OsgWi
 													   const std::string* manualPoseAuthorityBackendId = nullptr);
 
 /// 同部件：根世界从 wOld→wNew 后刚体推 Data 子树（跳过自身已启用 Follow 的节点）
-CLOUDSIM_HOST_EXPORT std::unordered_set<std::string>
-propagateCompoundAfterRootWorldChange(DocumentHost& host, const std::string& rootId, const BackendMat4& wOld,
-									  const BackendMat4& wNew);
+CLOUDSIM_HOST_EXPORT std::unordered_set<std::string> propagateCompoundAfterRootWorldChange(DocumentHost& host,
+																						   const std::string& rootId,
+																						   const BackendMat4& wOld,
+																						   const BackendMat4& wNew);
 
 /// follow.* 属性提交后重算局部偏移并置脏
 CLOUDSIM_HOST_EXPORT void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId,

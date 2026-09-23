@@ -1,4 +1,4 @@
-#ifndef AIWIDGET_AIASSISTANTDOCKWIDGET_H
+﻿#ifndef AIWIDGET_AIASSISTANTDOCKWIDGET_H
 #define AIWIDGET_AIASSISTANTDOCKWIDGET_H
 
 /// @file AiAssistantDockWidget.h
@@ -72,4 +72,4 @@ private:
 	QPushButton* m_sendBtn = nullptr;
 };
 
-#endif
+#endif // AIWIDGET_AIASSISTANTDOCKWIDGET_H

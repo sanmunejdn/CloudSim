@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H
 
 /// @file RobotInstructionPropertySchema.h
@@ -16,15 +16,15 @@ inline const property_core::PropertySchema& schemaForInstructionType(const Type 
 }
 
 inline const property_core::PropertyDescriptor* findInstructionPropertyDescriptor(const Type type,
-																				 const std::string& key)
+																				  const std::string& key)
 {
 	return schemaForInstructionType(type).find(key);
 }
 
 inline const property_core::PropertyDescriptor* findInstructionPropertyDescriptor(const std::string& key)
 {
-	static const Type kAllTypes[] = {Type::PTP,	 Type::LINE,	  Type::ARC,	 Type::WAIT,	  Type::IF,
-									 Type::WHILE, Type::SET_DO,	  Type::SET_AO,	 Type::PathPlan, Type::DeviceAxis};
+	static const Type kAllTypes[] = {Type::PTP,	  Type::LINE,	Type::ARC,	  Type::WAIT,	  Type::IF,
+									 Type::WHILE, Type::SET_DO, Type::SET_AO, Type::PathPlan, Type::DeviceAxis};
 	for (const Type t : kAllTypes)
 	{
 		if (const property_core::PropertyDescriptor* d = findInstructionPropertyDescriptor(t, key))

@@ -1,4 +1,4 @@
-/// @file DrawingPageWidget.cpp
+﻿/// @file DrawingPageWidget.cpp
 /// @brief 工程图中央页（仅画布）
 
 #include "DrawingPageWidget.h"
@@ -14,6 +14,4 @@ DrawingPageWidget::DrawingPageWidget(QWidget* parent) : QWidget(parent)
 	root->addWidget(m_canvas, 1);
 }
 
-void DrawingPageWidget::applyLanguage(bool /*useChinese*/)
-{
-}
+void DrawingPageWidget::applyLanguage(bool /*useChinese*/) {}

@@ -1,3 +1,6 @@
+﻿/// @file IKinematicModel.cpp
+/// @brief IKinematicModel 实现
+
 #include "IKinematicModel.h"
 
 namespace kinematic_core

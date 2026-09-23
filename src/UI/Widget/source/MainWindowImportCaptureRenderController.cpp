@@ -17,10 +17,11 @@
 #include <QByteArray>
 #include <QFile>
 #include <QFileInfo>
-#include <QLatin1String>
 #include <QMessageBox>
 #include <QPointer>
 #include <memory>
+
+#include <QLatin1String>
 
 bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& mw, const QString& filePath,
 																	const QString& typeName, bool isPointCloud,
@@ -246,7 +247,8 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 					loadState->finishIntoDocument(docRef, importOpt, &importErr);
 				if (!imported.ok)
 				{
-					uiFail(QLatin1String(backend_type::kCatalogModel), importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
+					uiFail(QLatin1String(backend_type::kCatalogModel),
+						   importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
 					return;
 				}
 				mwRef.refreshBackendTree();
@@ -297,7 +299,8 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 		*doc, filePath, cloudsim::host::ImportFileKind::Mesh, importOpt, &importErr);
 	if (!imported.ok)
 	{
-		return reportFail(QLatin1String(backend_type::kCatalogModel), importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
+		return reportFail(QLatin1String(backend_type::kCatalogModel),
+						  importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
 	}
 
 	mw.refreshBackendTree();

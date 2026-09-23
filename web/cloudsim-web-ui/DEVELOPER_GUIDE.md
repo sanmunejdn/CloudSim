@@ -1,11 +1,11 @@
 ﻿# CloudSim Web UI（Vite + React）
 
-> **文档导航**：[全库入口](../../../docs/README.md) · [全量目录](../../../docs/全量目录.md) · [开发手册·网页端](../../../docs/开发手册/08-网页端.md) · [产品索引](../../docs/README.md) · [模块总表](../../docs/MODULE_DEVELOPER_GUIDES.md) · [Gateway](../../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md)
+> **文档导航**：[全库入口](../README.md) · [全量目录](../README.md) · [开发手册·网页端](../开发手册/08-网页端.md) · [产品索引](README.md) · [模块总表](../../docs/MODULE_DEVELOPER_GUIDES.md) · [Gateway](../../src/Web/CloudSimWebGateway/DEVELOPER_GUIDE.md)
 
 正式静态根：`CloudSimWeb.exe` 旁的 `web/`（仓库 `bin\x64d\web` / `bin\x64\web`）。  
 行为以 `_archive/public-fallback/` 为金标对照；默认部署产物来自本目录源码，**不要**只改 fallback 或只拷到 `CloudSim\bin\...\web`。
 
-专题进度见 [`docs/_archive/网页端信号网络与自定义设备/`](../../docs/_archive/网页端信号网络与自定义设备/)、[`docs/_archive/网页端设备页桌面同步/`](../../docs/_archive/网页端设备页桌面同步/)；旧单表 IO 对等见 [`docs/_archive/网页端IO信号对等/`](../../docs/_archive/网页端IO信号对等/)。
+专题进度见 `docs/ARCHIVE_ZIP_LOCATION.txt`、`docs/ARCHIVE_ZIP_LOCATION.txt`；旧单表 IO 对等见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ## IO / 自定义设备（网页）
 
@@ -18,7 +18,7 @@
 
 ## 自定义设备组装（对齐桌面）
 
-对照：[`docs/_archive/网页端设备页桌面同步/ASSEMBLY_桌面对照.md`](../../docs/_archive/网页端设备页桌面同步/ASSEMBLY_桌面对照.md)。
+对照：`docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 - UI：`CustomDeviceAssemblyDialog` — 从场景 / 导入模型、设固定、关节属性（移动/旋转、限位、轴、旋转中心）、Apply
 - API：`ensure` / `attach` / `assembly-candidates` / `POST /api/custom-devices`（提交前 Host 挂父子再 `commitGraph`）/ `export-urdf`
@@ -165,7 +165,7 @@ _archive/public-fallback/   # 旧单文件壳，对照用，不参与默认部�
 | `dockNavStore` | 左右坞 Tab；`focusProps` / `goTrajGen` / `goCmd`；机器人「更多」Tab |
 | `sceneStore` | 对象列表、选择、交互模式；SSE 全量刷新防抖 |
 
-领域事件：`src/ui/uiEvents.ts`（勿再挂 `window` CustomEvent）。对话框：`src/ui/Dialog.tsx`。交互优化说明：[`docs/网页端交互优化/`](../../docs/网页端交互优化/)。
+领域事件：`src/ui/uiEvents.ts`（勿再挂 `window` CustomEvent）。对话框：`src/ui/Dialog.tsx`。交互优化说明：[`docs/features/网页端/交互优化/`](../features/网页端/交互优化/)。
 
 ## 要求
 

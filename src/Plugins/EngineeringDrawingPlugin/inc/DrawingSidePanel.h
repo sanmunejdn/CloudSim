@@ -1,4 +1,4 @@
-#ifndef ENGINEERINGDRAWINGPLUGIN_DRAWINGSIDEPANEL_H
+﻿#ifndef ENGINEERINGDRAWINGPLUGIN_DRAWINGSIDEPANEL_H
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGSIDEPANEL_H
 
 /// @file DrawingSidePanel.h
@@ -30,8 +30,7 @@ inline const char* drawingViewMimeType()
 }
 
 QPixmap renderDrawingViewThumbnail(const QVector<DrawingSheetCanvasWidget::Polyline2d>& visible,
-								   const QVector<DrawingSheetCanvasWidget::Polyline2d>& hidden,
-								   const QSize& size);
+								   const QVector<DrawingSheetCanvasWidget::Polyline2d>& hidden, const QSize& size);
 
 class DrawingSidePanel final : public QWidget
 {
@@ -87,4 +86,4 @@ private:
 	bool m_layerUiBusy = false;
 };
 
-#endif
+#endif // ENGINEERINGDRAWINGPLUGIN_DRAWINGSIDEPANEL_H

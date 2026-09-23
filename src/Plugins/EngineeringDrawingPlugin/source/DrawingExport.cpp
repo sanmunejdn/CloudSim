@@ -1,4 +1,4 @@
-/// @file DrawingExport.cpp
+﻿/// @file DrawingExport.cpp
 /// @brief SVG / ASCII DXF 导出（插件内自写，不链 OCC/dxflib）
 
 #include "DrawingExport.h"
@@ -11,7 +11,6 @@
 #include <QStringList>
 #include <QTextStream>
 #include <QtMath>
-
 #include <cmath>
 #include <limits>
 
@@ -140,11 +139,12 @@ QSizeF paperSizeMm(const DrawingSheetCanvasWidget::SheetPaper& paper)
 
 QRectF boundsOf(const QVector<DrawingSheetCanvasWidget::DrawingView>& views,
 				const QVector<DrawingSheetCanvasWidget::SheetDimension>& dims,
-				const QVector<DrawingSheetCanvasWidget::SheetNote>& notes,
-				const QVector<SheetSketchPolyline>& sketch, const DrawingSheetCanvasWidget::SheetPaper& paper)
+				const QVector<DrawingSheetCanvasWidget::SheetNote>& notes, const QVector<SheetSketchPolyline>& sketch,
+				const DrawingSheetCanvasWidget::SheetPaper& paper)
 {
 	QRectF box;
-	auto addPt = [&](const QPointF& p) {
+	auto addPt = [&](const QPointF& p)
+	{
 		if (!box.isValid())
 			box = QRectF(p, QSizeF(1, 1));
 		else
@@ -197,7 +197,8 @@ QString esc(const QString& s)
 	return o;
 }
 
-void emitPaperSvg(QTextStream& ts, const DrawingSheetCanvasWidget::SheetPaper& paper, DrawingProjectionMethod projection)
+void emitPaperSvg(QTextStream& ts, const DrawingSheetCanvasWidget::SheetPaper& paper,
+				  DrawingProjectionMethod projection)
 {
 	if (!paper.visible)
 		return;
@@ -237,7 +238,7 @@ bool layerVisible(const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers, c
 }
 
 const DrawingSheetCanvasWidget::SheetLayer* findLayer(const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers,
-													 const QString& layerId)
+													  const QString& layerId)
 {
 	const QString id = layerId.isEmpty() ? QStringLiteral("L0") : layerId;
 	for (const auto& L : layers)
@@ -319,9 +320,8 @@ int colorToAci(const QColor& c)
 		int r, g, b;
 	};
 	static const Entry kTable[] = {
-		{1, 255, 0, 0},		{2, 255, 255, 0},	{3, 0, 255, 0},		{4, 0, 255, 255},
-		{5, 0, 0, 255},		{6, 255, 0, 255},	{7, 255, 255, 255}, {8, 128, 128, 128},
-		{9, 192, 192, 192},
+		{1, 255, 0, 0},	  {2, 255, 255, 0},	  {3, 0, 255, 0},	  {4, 0, 255, 255},	  {5, 0, 0, 255},
+		{6, 255, 0, 255}, {7, 255, 255, 255}, {8, 128, 128, 128}, {9, 192, 192, 192},
 	};
 	int best = 7;
 	int bestD = 1 << 30;
@@ -365,10 +365,9 @@ struct DxfUserLayer
 
 bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::DrawingView>& views,
 			  const QVector<DrawingSheetCanvasWidget::SheetDimension>& dims,
-			  const QVector<DrawingSheetCanvasWidget::SheetNote>& notes,
-			  const QVector<SheetSketchPolyline>& sketch, const DrawingSheetCanvasWidget::SheetPaper& paper,
-			  DrawingProjectionMethod projection, const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers,
-			  const QHash<int, QString>& sketchLayers)
+			  const QVector<DrawingSheetCanvasWidget::SheetNote>& notes, const QVector<SheetSketchPolyline>& sketch,
+			  const DrawingSheetCanvasWidget::SheetPaper& paper, DrawingProjectionMethod projection,
+			  const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers, const QHash<int, QString>& sketchLayers)
 {
 	const QRectF box = boundsOf(views, dims, notes, sketch, paper);
 	QFile f(path);
@@ -383,8 +382,9 @@ bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 	   << box.height() << "\" fill=\"#F5F7FA\"/>\n";
 	emitPaperSvg(ts, paper, projection);
 
-	auto emitPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, const QString& stroke, double width,
-						 const QString& dash) {
+	auto emitPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, const QString& stroke,
+						 double width, const QString& dash)
+	{
 		for (const auto& poly : polys)
 		{
 			if (poly.points.size() < 2)
@@ -475,18 +475,18 @@ bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 		}
 		else if (d.kind == DrawingSheetCanvasWidget::SheetDimension::Kind::Angle)
 		{
-			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p2.x() << "\" y2=\"" << d.p2.y()
-			   << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
-			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p3.x() << "\" y2=\"" << d.p3.y()
-			   << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
+			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p2.x() << "\" y2=\""
+			   << d.p2.y() << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
+			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p3.x() << "\" y2=\""
+			   << d.p3.y() << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
 			const QPointF mid = d.p1 + ((d.p2 - d.p1) + (d.p3 - d.p1)) * 0.15;
 			ts << "<text x=\"" << mid.x() << "\" y=\"" << mid.y() << "\" font-size=\"9\" fill=\"" << stroke << "\">"
 			   << esc(dimText(d)) << "</text>\n";
 		}
 		else
 		{
-			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p2.x() << "\" y2=\"" << d.p2.y()
-			   << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
+			ts << "<line x1=\"" << d.p1.x() << "\" y1=\"" << d.p1.y() << "\" x2=\"" << d.p2.x() << "\" y2=\""
+			   << d.p2.y() << "\" stroke=\"" << stroke << "\" stroke-width=\"" << w << "\"" << dashAttr << "/>\n";
 			const QPointF t = d.p2 + d.textOffset;
 			ts << "<text x=\"" << t.x() << "\" y=\"" << t.y() << "\" font-size=\"9\" fill=\"" << stroke << "\">"
 			   << esc(dimText(d)) << "</text>\n";
@@ -514,10 +514,9 @@ bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 
 bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::DrawingView>& views,
 			  const QVector<DrawingSheetCanvasWidget::SheetDimension>& dims,
-			  const QVector<DrawingSheetCanvasWidget::SheetNote>& notes,
-			  const QVector<SheetSketchPolyline>& sketch, const DrawingSheetCanvasWidget::SheetPaper& paper,
-			  DrawingProjectionMethod projection, const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers,
-			  const QHash<int, QString>& sketchLayers,
+			  const QVector<DrawingSheetCanvasWidget::SheetNote>& notes, const QVector<SheetSketchPolyline>& sketch,
+			  const DrawingSheetCanvasWidget::SheetPaper& paper, DrawingProjectionMethod projection,
+			  const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers, const QHash<int, QString>& sketchLayers,
 			  const QVector<DrawingSheetCanvasWidget::SheetHatch>& hatches,
 			  const QVector<DrawingSheetCanvasWidget::SheetBlockDef>& blockDefs,
 			  const QVector<DrawingSheetCanvasWidget::SheetBlockRef>& blockRefs,
@@ -529,13 +528,25 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 	QTextStream ts(&f);
 	ts.setRealNumberPrecision(6);
 
-	auto entLine = [&](double x1, double y1, double x2, double y2, int color, const QString& layer,
-					   const QString& ltype) {
-		ts << "0\nLINE\n8\n" << layer << "\n6\n" << ltype << "\n62\n" << color << "\n10\n" << x1 << "\n20\n" << y1
-		   << "\n30\n0\n11\n" << x2 << "\n21\n" << y2 << "\n31\n0\n";
+	auto entLine =
+		[&](double x1, double y1, double x2, double y2, int color, const QString& layer, const QString& ltype)
+	{
+		ts << "0\nLINE\n8\n"
+		   << layer << "\n6\n"
+		   << ltype << "\n62\n"
+		   << color << "\n10\n"
+		   << x1 << "\n20\n"
+		   << y1 << "\n30\n0\n11\n"
+		   << x2 << "\n21\n"
+		   << y2 << "\n31\n0\n";
 	};
-	auto entText = [&](double x, double y, const QString& text, int color, const QString& layer) {
-		ts << "0\nTEXT\n8\n" << layer << "\n62\n" << color << "\n10\n" << x << "\n20\n" << y << "\n30\n0\n40\n3\n1\n"
+	auto entText = [&](double x, double y, const QString& text, int color, const QString& layer)
+	{
+		ts << "0\nTEXT\n8\n"
+		   << layer << "\n62\n"
+		   << color << "\n10\n"
+		   << x << "\n20\n"
+		   << y << "\n30\n0\n40\n3\n1\n"
 		   << text << "\n";
 	};
 
@@ -587,8 +598,10 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 	for (const auto& def : blockDefs)
 	{
 		const QString bname = sanitizeDxfLayerName(def.name.isEmpty() ? def.id : def.name);
-		ts << "0\nBLOCK\n8\n0\n2\n" << bname << "\n70\n0\n10\n" << def.base.x() << "\n20\n" << def.base.y()
-		   << "\n30\n0\n";
+		ts << "0\nBLOCK\n8\n0\n2\n"
+		   << bname << "\n70\n0\n10\n"
+		   << def.base.x() << "\n20\n"
+		   << def.base.y() << "\n30\n0\n";
 		for (const auto& poly : def.geometry)
 		{
 			for (int i = 1; i < poly.points.size(); ++i)
@@ -600,8 +613,12 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 		for (const auto& a : def.attrDefs)
 		{
 			const QPointF p = def.base + a.position;
-			ts << "0\nATTDEF\n8\n0\n10\n" << p.x() << "\n20\n" << p.y() << "\n30\n0\n40\n3.5\n1\n"
-			   << a.defaultValue << "\n2\n" << a.tag << "\n3\n" << a.prompt << "\n70\n0\n";
+			ts << "0\nATTDEF\n8\n0\n10\n"
+			   << p.x() << "\n20\n"
+			   << p.y() << "\n30\n0\n40\n3.5\n1\n"
+			   << a.defaultValue << "\n2\n"
+			   << a.tag << "\n3\n"
+			   << a.prompt << "\n70\n0\n";
 		}
 		ts << "0\nENDBLK\n";
 	}
@@ -627,15 +644,21 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 	}
 
 	auto emitPolys = [&](const QVector<DrawingSheetCanvasWidget::Polyline2d>& polys, int color, const QString& layer,
-						 const QString& ltype) {
+						 const QString& ltype)
+	{
 		for (const auto& poly : polys)
 		{
 			QPointF c;
 			double r = 0;
 			if (fitClosedCirclePoly(poly.points, c, r))
 			{
-				ts << "0\nCIRCLE\n8\n" << layer << "\n62\n" << color << "\n6\n" << ltype << "\n10\n" << c.x()
-				   << "\n20\n" << c.y() << "\n30\n0\n40\n" << r << "\n";
+				ts << "0\nCIRCLE\n8\n"
+				   << layer << "\n62\n"
+				   << color << "\n6\n"
+				   << ltype << "\n10\n"
+				   << c.x() << "\n20\n"
+				   << c.y() << "\n30\n0\n40\n"
+				   << r << "\n";
 				continue;
 			}
 			for (int i = 1; i < poly.points.size(); ++i)
@@ -677,8 +700,12 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 		const auto* L = findLayer(layers, lid);
 		const QString dxfLayer = sanitizeDxfLayerName(layerNameOf(layers, lid));
 		const int aci = L ? colorToAci(L->color) : 5;
-		ts << "0\nCIRCLE\n8\n" << dxfLayer << "\n62\n" << aci << "\n10\n" << c.center.x() << "\n20\n" << c.center.y()
-		   << "\n30\n0\n40\n" << c.radius << "\n";
+		ts << "0\nCIRCLE\n8\n"
+		   << dxfLayer << "\n62\n"
+		   << aci << "\n10\n"
+		   << c.center.x() << "\n20\n"
+		   << c.center.y() << "\n30\n0\n40\n"
+		   << c.radius << "\n";
 	}
 	for (const DxfSketchArc& a : sketchArcs)
 	{
@@ -691,8 +718,14 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 		const auto* L = findLayer(layers, lid);
 		const QString dxfLayer = sanitizeDxfLayerName(layerNameOf(layers, lid));
 		const int aci = L ? colorToAci(L->color) : 5;
-		ts << "0\nARC\n8\n" << dxfLayer << "\n62\n" << aci << "\n10\n" << a.center.x() << "\n20\n" << a.center.y()
-		   << "\n30\n0\n40\n" << a.radius << "\n50\n" << a.startDeg << "\n51\n" << a.endDeg << "\n";
+		ts << "0\nARC\n8\n"
+		   << dxfLayer << "\n62\n"
+		   << aci << "\n10\n"
+		   << a.center.x() << "\n20\n"
+		   << a.center.y() << "\n30\n0\n40\n"
+		   << a.radius << "\n50\n"
+		   << a.startDeg << "\n51\n"
+		   << a.endDeg << "\n";
 	}
 	for (const auto& poly : sketch)
 	{
@@ -734,13 +767,24 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 				mid = (a + b) * 0.5;
 			}
 			// 写出 DIMENSION（线性对齐），便于 AutoCAD 识别
-			ts << "0\nDIMENSION\n8\n" << dxfLayer << "\n62\n" << aci << "\n"
-			   << "10\n" << mid.x() << "\n20\n" << mid.y() << "\n30\n0\n"
-			   << "11\n" << mid.x() << "\n21\n" << mid.y() << "\n31\n0\n"
+			ts << "0\nDIMENSION\n8\n"
+			   << dxfLayer << "\n62\n"
+			   << aci << "\n"
+			   << "10\n"
+			   << mid.x() << "\n20\n"
+			   << mid.y() << "\n30\n0\n"
+			   << "11\n"
+			   << mid.x() << "\n21\n"
+			   << mid.y() << "\n31\n0\n"
 			   << "70\n1\n" // aligned
-			   << "13\n" << d.p1.x() << "\n23\n" << d.p1.y() << "\n33\n0\n"
-			   << "14\n" << d.p2.x() << "\n24\n" << d.p2.y() << "\n34\n0\n"
-			   << "1\n" << dimText(d) << "\n";
+			   << "13\n"
+			   << d.p1.x() << "\n23\n"
+			   << d.p1.y() << "\n33\n0\n"
+			   << "14\n"
+			   << d.p2.x() << "\n24\n"
+			   << d.p2.y() << "\n34\n0\n"
+			   << "1\n"
+			   << dimText(d) << "\n";
 			entLine(a.x(), a.y(), b.x(), b.y(), aci, dxfLayer, ltype);
 		}
 		else if (d.kind == DrawingSheetCanvasWidget::SheetDimension::Kind::Angle)
@@ -755,13 +799,23 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 		{
 			// 半径/直径：DIMENSION(径向) + 辅助线/文字，AC1009 兼容
 			const QPointF mid = (d.p1 + d.p2) * 0.5;
-			ts << "0\nDIMENSION\n8\n" << dxfLayer << "\n62\n" << aci << "\n"
-			   << "10\n" << mid.x() << "\n20\n" << mid.y() << "\n30\n0\n"
-			   << "11\n" << d.p2.x() << "\n21\n" << d.p2.y() << "\n31\n0\n"
+			ts << "0\nDIMENSION\n8\n"
+			   << dxfLayer << "\n62\n"
+			   << aci << "\n"
+			   << "10\n"
+			   << mid.x() << "\n20\n"
+			   << mid.y() << "\n30\n0\n"
+			   << "11\n"
+			   << d.p2.x() << "\n21\n"
+			   << d.p2.y() << "\n31\n0\n"
 			   << "70\n4\n" // radius
-			   << "15\n" << d.p1.x() << "\n25\n" << d.p1.y() << "\n35\n0\n"
-			   << "40\n" << QLineF(d.p1, d.p2).length() << "\n"
-			   << "1\n" << dimText(d) << "\n";
+			   << "15\n"
+			   << d.p1.x() << "\n25\n"
+			   << d.p1.y() << "\n35\n0\n"
+			   << "40\n"
+			   << QLineF(d.p1, d.p2).length() << "\n"
+			   << "1\n"
+			   << dimText(d) << "\n";
 			entLine(d.p1.x(), d.p1.y(), d.p2.x(), d.p2.y(), aci, dxfLayer, ltype);
 			const QPointF t = d.p2 + d.textOffset;
 			entText(t.x(), t.y(), dimText(d), aci, dxfLayer);
@@ -791,8 +845,14 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 		const QString dxfLayer = sanitizeDxfLayerName(layerNameOf(layers, r.layerId));
 		const auto* L = findLayer(layers, r.layerId);
 		const int aci = L ? colorToAci(L->color) : 7;
-		ts << "0\nINSERT\n8\n" << dxfLayer << "\n62\n" << aci << "\n2\n" << bname << "\n10\n" << r.insert.x()
-		   << "\n20\n" << r.insert.y() << "\n30\n0\n41\n" << r.scale << "\n42\n" << r.scale << "\n50\n"
+		ts << "0\nINSERT\n8\n"
+		   << dxfLayer << "\n62\n"
+		   << aci << "\n2\n"
+		   << bname << "\n10\n"
+		   << r.insert.x() << "\n20\n"
+		   << r.insert.y() << "\n30\n0\n41\n"
+		   << r.scale << "\n42\n"
+		   << r.scale << "\n50\n"
 		   << r.rotationDeg << "\n66\n1\n";
 		const DrawingSheetCanvasWidget::SheetBlockDef* defPtr = nullptr;
 		for (const auto& def : blockDefs)
@@ -812,8 +872,12 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 				QPointF ap = r.insert + a.position;
 				if (a.position.isNull())
 					ap = r.insert + QPointF(6.0, -6.0 - row * 5.0);
-				ts << "0\nATTRIB\n8\n" << dxfLayer << "\n10\n" << ap.x() << "\n20\n" << ap.y()
-				   << "\n30\n0\n40\n3.5\n1\n" << val << "\n2\n" << a.tag << "\n70\n0\n";
+				ts << "0\nATTRIB\n8\n"
+				   << dxfLayer << "\n10\n"
+				   << ap.x() << "\n20\n"
+				   << ap.y() << "\n30\n0\n40\n3.5\n1\n"
+				   << val << "\n2\n"
+				   << a.tag << "\n70\n0\n";
 				++row;
 			}
 		}
@@ -837,12 +901,15 @@ bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::Drawi
 		const QString dxfLayer = sanitizeDxfLayerName(layerNameOf(layers, h.layerId));
 		const auto* L = findLayer(layers, h.layerId);
 		const int aci = L ? colorToAci(L->color) : 3;
-		ts << "0\nHATCH\n8\n" << dxfLayer << "\n62\n" << aci << "\n70\n1\n71\n0\n91\n1\n92\n1\n93\n"
+		ts << "0\nHATCH\n8\n"
+		   << dxfLayer << "\n62\n"
+		   << aci << "\n70\n1\n71\n0\n91\n1\n92\n1\n93\n"
 		   << h.boundary.size() << "\n";
 		for (const QPointF& pt : h.boundary)
 			ts << "10\n" << pt.x() << "\n20\n" << pt.y() << "\n";
-		ts << "97\n0\n75\n0\n76\n1\n98\n1\n10\n" << h.boundary.first().x() << "\n20\n" << h.boundary.first().y()
-		   << "\n";
+		ts << "97\n0\n75\n0\n76\n1\n98\n1\n10\n"
+		   << h.boundary.first().x() << "\n20\n"
+		   << h.boundary.first().y() << "\n";
 	}
 
 	ts << "0\nENDSEC\n0\nEOF\n";

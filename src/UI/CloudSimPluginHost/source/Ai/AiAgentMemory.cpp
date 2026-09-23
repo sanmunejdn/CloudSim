@@ -1,4 +1,4 @@
-/// @file AiAgentMemory.cpp
+﻿/// @file AiAgentMemory.cpp
 /// @brief Agent 偏好（全局 + 按文档）与会话摘要
 
 #include "Ai/AiAgentMemory.h"
@@ -106,8 +106,8 @@ QByteArray sessionSummaryUtf8()
 void appendSessionStep(const QString& toolId, bool ok, const QString& summary)
 {
 	QMutexLocker lock(&g_mu);
-	g_steps.push_back(QStringLiteral("[%1] %2 %3")
-						  .arg(ok ? QStringLiteral("ok") : QStringLiteral("fail"), toolId, summary));
+	g_steps.push_back(
+		QStringLiteral("[%1] %2 %3").arg(ok ? QStringLiteral("ok") : QStringLiteral("fail"), toolId, summary));
 	if (g_steps.size() > 64)
 		g_steps.remove(0, g_steps.size() - 64);
 }

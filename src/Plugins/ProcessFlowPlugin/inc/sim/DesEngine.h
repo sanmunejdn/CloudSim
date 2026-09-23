@@ -1,5 +1,5 @@
-#ifndef PROCESSFLOWPLUGIN_SIM_DESENGINE_H
-#define PROCESSFLOWPLUGIN_SIM_DESENGINE_H
+﻿#ifndef PROCESSFLOWPLUGIN_DESENGINE_H
+#define PROCESSFLOWPLUGIN_DESENGINE_H
 
 /// @file DesEngine.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -23,12 +23,12 @@ public:
 	void setDispatchPolicy(std::unique_ptr<IDispatchPolicy> policy);
 	void setStationExecutor(std::unique_ptr<IStationExecutor> executor);
 
-	SimStatistics run(const PlantGraph& plant, const JobSet& jobSet, double interarrivalSec,
-					  const SimRunConfig& config, std::atomic_bool* cancelFlag = nullptr);
+	SimStatistics run(const PlantGraph& plant, const JobSet& jobSet, double interarrivalSec, const SimRunConfig& config,
+					  std::atomic_bool* cancelFlag = nullptr);
 
 private:
 	std::unique_ptr<IDispatchPolicy> m_policy;
 	std::unique_ptr<IStationExecutor> m_executor;
 };
 
-#endif
+#endif // PROCESSFLOWPLUGIN_DESENGINE_H

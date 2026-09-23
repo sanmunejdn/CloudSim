@@ -1,4 +1,4 @@
-/// @file IndustrialCameraDockWidget.cpp
+﻿/// @file IndustrialCameraDockWidget.cpp
 /// @brief 单侧栏 + 内嵌 Tab
 
 #include "IndustrialCameraDockWidget.h"
@@ -11,8 +11,7 @@
 #include <QVBoxLayout>
 
 IndustrialCameraDockWidget::IndustrialCameraDockWidget(IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent)
-	, host_(host)
+	: QWidget(parent), host_(host)
 {
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(0, 0, 0, 0);

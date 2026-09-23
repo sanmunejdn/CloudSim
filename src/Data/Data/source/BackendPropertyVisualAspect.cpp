@@ -1,4 +1,4 @@
-/// @file BackendPropertyVisualAspect.cpp
+﻿/// @file BackendPropertyVisualAspect.cpp
 /// @brief 属性语义 → 视觉同步面映射
 
 #include "BackendPropertyVisualAspect.h"

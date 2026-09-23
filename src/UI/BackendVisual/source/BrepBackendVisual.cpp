@@ -15,10 +15,10 @@
 #include "BackendGeometryMetrics.h"
 #include "BackendIdUserData.h"
 #include "BackendPoseOsg.h"
+#include "BackendTypeIds.h"
 #include "BackendVisualMath.h"
 #include "BrepBackendData.h"
 #include "BrepBackendVisual.h"
-#include "BackendTypeIds.h"
 
 #include <cmath>
 #include <string>

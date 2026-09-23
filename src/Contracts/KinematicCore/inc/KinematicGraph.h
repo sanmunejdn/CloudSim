@@ -1,9 +1,13 @@
-#ifndef KINEMATICCORE_KINEMATICGRAPH_H
+﻿#ifndef KINEMATICCORE_KINEMATICGRAPH_H
 #define KINEMATICCORE_KINEMATICGRAPH_H
+
+/// @file KinematicGraph.h
+/// @brief KinematicGraph 接口
+
+#include "kinematic_core_global.h"
 
 #include "KinematicJoint.h"
 #include "KinematicLink.h"
-#include "kinematic_core_global.h"
 
 #include <string>
 #include <vector>

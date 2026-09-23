@@ -1,4 +1,4 @@
-/// @file CustomDeviceAssemblyCanvasWidget.cpp
+﻿/// @file CustomDeviceAssemblyCanvasWidget.cpp
 /// @brief 自定义设备组装画布实现
 
 #include "CustomDeviceAssemblyCanvasWidget.h"
@@ -8,7 +8,6 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QWheelEvent>
-
 #include <cmath>
 #include <cstring>
 
@@ -139,7 +138,7 @@ void CustomDeviceAssemblyCanvasWidget::ensureUniqueFixed(const QString& preferId
 }
 
 QString CustomDeviceAssemblyCanvasWidget::addLinkBlock(const QString& displayName, const QString& geometryBackendId,
-													  const QPointF& pos, const bool fixed)
+													   const QPointF& pos, const bool fixed)
 {
 	Node n;
 	n.id = QStringLiteral("L%1").arg(m_idSeq++);
@@ -278,7 +277,7 @@ QVector<CustomDeviceJoint> CustomDeviceAssemblyCanvasWidget::joints() const
 }
 
 void CustomDeviceAssemblyCanvasWidget::setGraph(const QVector<CustomDeviceLink>& links,
-											   const QVector<CustomDeviceJoint>& joints)
+												const QVector<CustomDeviceJoint>& joints)
 {
 	m_nodes.clear();
 	m_edges.clear();
@@ -471,7 +470,8 @@ void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 	p.restore();
 
 	const QString tip = m_connectionMode
-							? (m_useChinese ? QStringLiteral("连接模式：从父块拖到子块") : QStringLiteral("Connect: drag parent → child"))
+							? (m_useChinese ? QStringLiteral("连接模式：从父块拖到子块")
+											: QStringLiteral("Connect: drag parent → child"))
 							: (m_useChinese ? QStringLiteral("选择 / 拖动块") : QStringLiteral("Select / drag blocks"));
 	const QRect tipBar(0, height() - 28, width(), 28);
 	p.fillRect(tipBar, QColor(255, 255, 255, 210));

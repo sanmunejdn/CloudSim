@@ -1,10 +1,9 @@
-/// @file HeadlessProcessFlowBridge.cpp
+﻿/// @file HeadlessProcessFlowBridge.cpp
 
 #include "headless/HeadlessProcessFlowBridge.h"
 
 #include "BackendTypeIds.h"
 #include "DocumentHost.h"
-
 #include "sim/DesEngine.h"
 
 namespace cloudsim::host

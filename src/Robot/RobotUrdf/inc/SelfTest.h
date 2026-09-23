@@ -1,4 +1,4 @@
-#ifndef ROBOTURDF_SELFTEST_H
+﻿#ifndef ROBOTURDF_SELFTEST_H
 #define ROBOTURDF_SELFTEST_H
 
 /// @file SelfTest.h

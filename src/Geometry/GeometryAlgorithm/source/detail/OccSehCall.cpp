@@ -1,4 +1,4 @@
-/// @file OccSehCall.cpp
+﻿/// @file OccSehCall.cpp
 /// @brief MSVC SEH 包装：捕获 OCCT 内 AV（Standard_Failure 捕不到）
 
 #include "detail/OccSehCall.h"

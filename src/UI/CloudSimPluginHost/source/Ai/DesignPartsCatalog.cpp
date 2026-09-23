@@ -1,4 +1,4 @@
-/// @file DesignPartsCatalog.cpp
+﻿/// @file DesignPartsCatalog.cpp
 /// @brief 标准件库加载与模板实例化
 
 #include "Ai/DesignPartsCatalog.h"
@@ -10,10 +10,10 @@
 #include <QPair>
 #include <QRegularExpression>
 #include <QtMath>
-
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+
 #include <json.hpp>
 
 namespace
@@ -222,7 +222,8 @@ QVector<const DesignPartInfo*> DesignPartsCatalog::search(const QString& query) 
 			score += 3;
 		if (q.contains(QStringLiteral("垫")) && pid.contains(QStringLiteral("washer")))
 			score += 3;
-		if ((q.contains(QStringLiteral("销")) || q.contains(QStringLiteral("pin"))) && pid.startsWith(QStringLiteral("pin.")))
+		if ((q.contains(QStringLiteral("销")) || q.contains(QStringLiteral("pin"))) &&
+			pid.startsWith(QStringLiteral("pin.")))
 			score += 3;
 		if (q.contains(QStringLiteral("齿轮")) && pid.startsWith(QStringLiteral("gear.")))
 			score += 3;
@@ -401,17 +402,16 @@ bool DesignPartsCatalog::instantiate(const QString& partId, const QByteArray& pa
 						{"head_style", "cylinder_approx"},
 						{"params", vars}};
 		plan["steps"] = nlohmann::json::array();
-		plan["steps"].push_back(
-			{{"id", "bolt"},
-			 {"api", "revolveSketchProfileToBrep"},
-			 {"args",
-			  {{"mode", "boss"},
-			   {"profile_xyz_mm", xyz},
-			   {"angle_deg", 360.0},
-			   {"axis_dx", 0.0},
-			   {"axis_dy", 1.0},
-			   {"axis_dz", 0.0},
-			   {"name", "HexBoltBlank"}}}});
+		plan["steps"].push_back({{"id", "bolt"},
+								 {"api", "revolveSketchProfileToBrep"},
+								 {"args",
+								  {{"mode", "boss"},
+								   {"profile_xyz_mm", xyz},
+								   {"angle_deg", 360.0},
+								   {"axis_dx", 0.0},
+								   {"axis_dy", 1.0},
+								   {"axis_dz", 0.0},
+								   {"name", "HexBoltBlank"}}}});
 		if (outPlanUtf8)
 			*outPlanUtf8 = QByteArray::fromStdString(plan.dump());
 		return true;
@@ -495,7 +495,8 @@ bool DesignPartsCatalog::tryParseUserText(const QString& text, QByteArray* outPl
 	{
 		QRegularExpression mRe(QStringLiteral("(?:模数|m)\\s*[=:]?\\s*(\\d+(?:\\.\\d+)?)"),
 							   QRegularExpression::CaseInsensitiveOption);
-		QRegularExpression zRe(QStringLiteral("(?:齿数|Z)\\s*[=:]?\\s*(\\d+)"), QRegularExpression::CaseInsensitiveOption);
+		QRegularExpression zRe(QStringLiteral("(?:齿数|Z)\\s*[=:]?\\s*(\\d+)"),
+							   QRegularExpression::CaseInsensitiveOption);
 		const auto mm = mRe.match(text);
 		const auto zm = zRe.match(text);
 		if (mm.hasMatch())
@@ -519,6 +520,7 @@ bool DesignPartsCatalog::tryParseUserText(const QString& text, QByteArray* outPl
 	if (partId)
 		*partId = part->id;
 	if (hint)
-		*hint = QStringLiteral("已匹配标准件 %1（毛坯）").arg(part->displayName.isEmpty() ? part->id : part->displayName);
+		*hint =
+			QStringLiteral("已匹配标准件 %1（毛坯）").arg(part->displayName.isEmpty() ? part->id : part->displayName);
 	return true;
 }

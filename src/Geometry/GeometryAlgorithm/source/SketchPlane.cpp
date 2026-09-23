@@ -1,4 +1,4 @@
-/// @file SketchPlane.cpp
+﻿/// @file SketchPlane.cpp
 
 #include "SketchPlane.h"
 

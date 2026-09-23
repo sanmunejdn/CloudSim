@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_TRAJECTORYPIPELINETYPES_H
+﻿#ifndef ROBOTSCENE_TRAJECTORYPIPELINETYPES_H
 #define ROBOTSCENE_TRAJECTORYPIPELINETYPES_H
 
 /// @file TrajectoryPipelineTypes.h
@@ -189,7 +189,7 @@ struct ROBOT_SCENE_API NonRigidRegistrationParams
 	bool coarseGlobalAlign = false;
 	double voxelPrefilterMm = 0.0;
 	NonRigidRegistrationSolver solver = NonRigidRegistrationSolver::Spare;
-	int sdfFieldMode = 1;	   ///< 0=DDF 1=有符号 SDF
+	int sdfFieldMode = 1; ///< 0=DDF 1=有符号 SDF
 	double sdfFieldVoxelMm = 0.0;
 	int sdfFineDataTerm = 0; ///< 0=点-面 1=DDF 2=SDF
 };

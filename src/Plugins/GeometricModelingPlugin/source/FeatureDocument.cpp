@@ -1,11 +1,10 @@
-/// @file FeatureDocument.cpp
+﻿/// @file FeatureDocument.cpp
 
 #include "FeatureDocument.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
-
 #include <algorithm>
 
 QString FeatureDocument::nextId(const char* prefix)
@@ -55,8 +54,8 @@ QString FeatureDocument::addDatumPlaneOffset(const PluginSketchPlane& plane, Geo
 }
 
 QString FeatureDocument::addDatumPlaneAngle(const PluginSketchPlane& plane, double angleDeg,
-										   const PluginPoint3d& hingeOrigin, const PluginPoint3d& hingeDir,
-										   const QString& name)
+											const PluginPoint3d& hingeOrigin, const PluginPoint3d& hingeDir,
+											const QString& name)
 {
 	GeomodelingFeature f;
 	f.id = nextId("DatumPlane");
@@ -157,8 +156,8 @@ bool FeatureDocument::setReversed(const QString& featureId, bool reversed)
 }
 
 bool FeatureDocument::setExtrudeEnd(const QString& featureId, GeomodelingExtrudeEnd end,
-								   const PluginSketchPlane* upToFace, const QString& upToFaceBackendId,
-								   int upToFaceIndex)
+									const PluginSketchPlane* upToFace, const QString& upToFaceBackendId,
+									int upToFaceIndex)
 {
 	if (auto* f = find(featureId))
 	{
@@ -473,10 +472,12 @@ void FeatureDocument::fromJson(const QJsonObject& obj)
 		if (o.contains(QStringLiteral("upToFacePlane")))
 		{
 			const QJsonObject up = o.value(QStringLiteral("upToFacePlane")).toObject();
-			f.upToFacePlane.origin = {up.value(QStringLiteral("ox")).toDouble(), up.value(QStringLiteral("oy")).toDouble(),
-									 up.value(QStringLiteral("oz")).toDouble()};
-			f.upToFacePlane.normal = {up.value(QStringLiteral("nx")).toDouble(), up.value(QStringLiteral("ny")).toDouble(),
-									 up.value(QStringLiteral("nz")).toDouble()};
+			f.upToFacePlane.origin = {up.value(QStringLiteral("ox")).toDouble(),
+									  up.value(QStringLiteral("oy")).toDouble(),
+									  up.value(QStringLiteral("oz")).toDouble()};
+			f.upToFacePlane.normal = {up.value(QStringLiteral("nx")).toDouble(),
+									  up.value(QStringLiteral("ny")).toDouble(),
+									  up.value(QStringLiteral("nz")).toDouble()};
 			f.upToFacePlane.isPlanar = up.value(QStringLiteral("planar")).toBool(true);
 			f.hasUpToFacePlane = true;
 		}
@@ -579,7 +580,8 @@ void FeatureDocument::fromJson(const QJsonObject& obj)
 		const QString skDoc = o.value(QStringLiteral("sketchDocument")).toString();
 		if (!skDoc.isEmpty())
 			f.sketchDocumentUtf8 = skDoc.toUtf8();
-		f.datumSourceKind = static_cast<GeomodelingDatumSourceKind>(o.value(QStringLiteral("datumSourceKind")).toInt(0));
+		f.datumSourceKind =
+			static_cast<GeomodelingDatumSourceKind>(o.value(QStringLiteral("datumSourceKind")).toInt(0));
 		f.datumOriginPlaneIndex = o.value(QStringLiteral("datumOriginPlaneIndex")).toInt(0);
 		f.datumFaceBackendId = o.value(QStringLiteral("datumFaceBackendId")).toString();
 		f.datumFaceIndex = o.value(QStringLiteral("datumFaceIndex")).toInt(-1);
@@ -589,8 +591,8 @@ void FeatureDocument::fromJson(const QJsonObject& obj)
 		{
 			const QJsonObject hinge = o.value(QStringLiteral("datumHinge")).toObject();
 			f.datumHingeOrigin = {static_cast<float>(hinge.value(QStringLiteral("ox")).toDouble()),
-								 static_cast<float>(hinge.value(QStringLiteral("oy")).toDouble()),
-								 static_cast<float>(hinge.value(QStringLiteral("oz")).toDouble())};
+								  static_cast<float>(hinge.value(QStringLiteral("oy")).toDouble()),
+								  static_cast<float>(hinge.value(QStringLiteral("oz")).toDouble())};
 			f.datumHingeDir = {static_cast<float>(hinge.value(QStringLiteral("dx")).toDouble()),
 							   static_cast<float>(hinge.value(QStringLiteral("dy")).toDouble()),
 							   static_cast<float>(hinge.value(QStringLiteral("dz")).toDouble())};
@@ -835,8 +837,7 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 		if (f.upToFaceIndex >= 0)
 			o.insert(QStringLiteral("upToFaceIndex"), f.upToFaceIndex);
 		if (f.hasUpToVertex)
-			o.insert(QStringLiteral("upToVertex"),
-					  vec3(f.upToVertex.x, f.upToVertex.y, f.upToVertex.z));
+			o.insert(QStringLiteral("upToVertex"), vec3(f.upToVertex.x, f.upToVertex.y, f.upToVertex.z));
 		if (std::abs(f.offsetFromFaceMm) > 1e-9)
 			o.insert(QStringLiteral("offsetFromFaceMm"), f.offsetFromFaceMm);
 		o.insert(QStringLiteral("sketchRefId"), f.sketchRefId);
@@ -875,7 +876,8 @@ QByteArray FeatureDocument::toParametricHistoryJson() const
 			o.insert(QStringLiteral("patternSourceFeatureId"), f.patternSourceFeatureId);
 		{
 			QJsonObject mp;
-			mp.insert(QStringLiteral("origin"), vec3(f.mirrorPlane.origin.x, f.mirrorPlane.origin.y, f.mirrorPlane.origin.z));
+			mp.insert(QStringLiteral("origin"),
+					  vec3(f.mirrorPlane.origin.x, f.mirrorPlane.origin.y, f.mirrorPlane.origin.z));
 			mp.insert(QStringLiteral("axisX"),
 					  vec3(f.mirrorPlane.axisX.x, f.mirrorPlane.axisX.y, f.mirrorPlane.axisX.z));
 			mp.insert(QStringLiteral("axisY"),
@@ -1028,13 +1030,14 @@ bool FeatureDocument::fromParametricHistoryJson(const QByteArray& utf8)
 		{
 			const QJsonObject hinge = o.value(QStringLiteral("datumHinge")).toObject();
 			f.datumHingeOrigin = {static_cast<float>(hinge.value(QStringLiteral("ox")).toDouble()),
-								 static_cast<float>(hinge.value(QStringLiteral("oy")).toDouble()),
-								 static_cast<float>(hinge.value(QStringLiteral("oz")).toDouble())};
+								  static_cast<float>(hinge.value(QStringLiteral("oy")).toDouble()),
+								  static_cast<float>(hinge.value(QStringLiteral("oz")).toDouble())};
 			f.datumHingeDir = {static_cast<float>(hinge.value(QStringLiteral("dx")).toDouble()),
 							   static_cast<float>(hinge.value(QStringLiteral("dy")).toDouble()),
 							   static_cast<float>(hinge.value(QStringLiteral("dz")).toDouble(1.0))};
 		}
-		f.datumSourceKind = static_cast<GeomodelingDatumSourceKind>(o.value(QStringLiteral("datumSourceKind")).toInt(0));
+		f.datumSourceKind =
+			static_cast<GeomodelingDatumSourceKind>(o.value(QStringLiteral("datumSourceKind")).toInt(0));
 		f.datumOriginPlaneIndex = o.value(QStringLiteral("datumOriginPlaneIndex")).toInt(0);
 		f.datumFaceBackendId = o.value(QStringLiteral("datumFaceBackendId")).toString();
 		f.datumFaceIndex = o.value(QStringLiteral("datumFaceIndex")).toInt(-1);

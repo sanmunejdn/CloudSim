@@ -1,4 +1,4 @@
-/// @file BackendPropertyBindingSelfTest.cpp
+﻿/// @file BackendPropertyBindingSelfTest.cpp
 /// @brief Binding / schema / visible / axisLength 回归
 
 #include "BackendPropertyBindingSelfTest.h"
@@ -124,7 +124,8 @@ bool runBackendPropertyBindingSelfTest(std::vector<std::string>* failures)
 	check(schemaKeys(backend_type::kClassFrame).count("visible") == 1, "Frame schema missing visible");
 	check(schemaKeys(backend_type::kClassCustomDevice).count("axisLengthMm") == 1,
 		  "CustomDevice schema missing axisLengthMm");
-	check(schemaKeys(backend_type::kClassModel).count("mesh.triangle_count") == 1, "Mesh schema missing triangle_count");
+	check(schemaKeys(backend_type::kClassModel).count("mesh.triangle_count") == 1,
+		  "Mesh schema missing triangle_count");
 	check(schemaKeys(backend_type::kClassPointCloud).count("color.r") == 1, "PointCloud schema missing color.r");
 	check(schemaKeys(backend_type::kClassPointCloud).count("visible") == 1, "PointCloud schema missing visible");
 

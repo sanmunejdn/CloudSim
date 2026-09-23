@@ -1,4 +1,4 @@
-/// @file ProcessFlowSimController.cpp
+﻿/// @file ProcessFlowSimController.cpp
 /// @brief 从图快照后台跑 DES / 多策略对比 / 启发式优化
 
 #include "ProcessFlowSimController.h"
@@ -13,7 +13,6 @@
 
 #include <QJsonObject>
 #include <QVector>
-
 #include <exception>
 #include <memory>
 
@@ -66,7 +65,8 @@ void ProcessFlowSimController::optimizeThenStart(ProcessFlowCanvasWidget* canvas
 	runInternal(canvas, {m_config.policy}, false);
 }
 
-void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, const QStringList& policies, bool compareMode)
+void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, const QStringList& policies,
+										   bool compareMode)
 {
 	if (!m_host || !canvas || m_running)
 		return;
@@ -122,8 +122,8 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 					row.makespan = st.makespan;
 					row.completed = st.completedJobs;
 					row.throughput = st.throughputPerHour;
-					row.bottleneck = st.bottleneckTitle.isEmpty() ? QString::number(st.bottleneckNodeId)
-																 : st.bottleneckTitle;
+					row.bottleneck =
+						st.bottleneckTitle.isEmpty() ? QString::number(st.bottleneckNodeId) : st.bottleneckTitle;
 					compareHolder->append(row);
 					if (keepTraces || !compareMode)
 						compareStatsHolder->append(st);

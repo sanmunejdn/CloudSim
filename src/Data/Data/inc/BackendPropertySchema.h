@@ -1,15 +1,14 @@
-#ifndef DATA_BACKENDPROPERTYSCHEMA_H
+﻿#ifndef DATA_BACKENDPROPERTYSCHEMA_H
 #define DATA_BACKENDPROPERTYSCHEMA_H
 
 /// @file BackendPropertySchema.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端属性 schema：由 Binding 表生成（薄分发）
 
-#include "BackendPropertyBinding.h"
-#include "BackendTypeIdentity.h"
-
 #include "../../PropertyCore/inc/PropertySchema.h"
 #include "../../PropertyCore/inc/PropertyTypes.h"
+#include "BackendPropertyBinding.h"
+#include "BackendTypeIdentity.h"
 
 /// 后端对象属性 schema（真源为 Binding）
 namespace backend_property_schema
@@ -41,7 +40,7 @@ inline const property_core::PropertySchema& followAttachmentBackendPropertySchem
 
 /// 按 className 查 key；未知 class 不猜其它类型的 color.*
 inline const property_core::PropertyDescriptor* findBackendPropertyDescriptor(const std::string& className,
-																			 const std::string& key)
+																			  const std::string& key)
 {
 	if (const property_core::PropertyDescriptor* d = schemaForBackendClassName(className).find(key))
 	{

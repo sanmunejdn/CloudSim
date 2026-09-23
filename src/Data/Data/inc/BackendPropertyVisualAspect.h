@@ -1,11 +1,12 @@
-#ifndef DATA_BACKENDPROPERTYVISUALASPECT_H
+﻿#ifndef DATA_BACKENDPROPERTYVISUALASPECT_H
 #define DATA_BACKENDPROPERTYVISUALASPECT_H
 
 /// @file BackendPropertyVisualAspect.h
 /// @brief 属性 key → 视觉同步面（无 OSG 依赖）
 
-#include "BackendPropertySchema.h"
 #include "data_global.h"
+
+#include "BackendPropertySchema.h"
 
 #include <cstdint>
 #include <string>

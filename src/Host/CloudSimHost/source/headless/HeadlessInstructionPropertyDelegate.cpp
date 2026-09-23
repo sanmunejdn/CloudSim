@@ -1,14 +1,14 @@
-/// @file HeadlessInstructionPropertyDelegate.cpp
+﻿/// @file HeadlessInstructionPropertyDelegate.cpp
 /// @brief Web Headless 指令属性：直接改 ProgramStore，不经 Widget
 
 #include "HeadlessInstructionPropertyDelegate.h"
 
 #include "DocumentHost.h"
-#include "io/IoSignalNetwork.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionPropertyDto.h"
 #include "RobotProgramCatalog.h"
 #include "RobotProgramStore.h"
+#include "io/IoSignalNetwork.h"
 
 #include <memory>
 
@@ -16,8 +16,8 @@ namespace cloudsim::host
 {
 namespace
 {
-std::shared_ptr<RobotInstruction::Base>
-findInSteps(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& idUtf8)
+std::shared_ptr<RobotInstruction::Base> findInSteps(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps,
+													const std::string& idUtf8)
 {
 	for (const auto& step : steps)
 	{

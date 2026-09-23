@@ -1,5 +1,5 @@
-#ifndef PROCESSFLOWPLUGIN_SIM_DISPATCHPOLICIES_H
-#define PROCESSFLOWPLUGIN_SIM_DISPATCHPOLICIES_H
+﻿#ifndef PROCESSFLOWPLUGIN_DISPATCHPOLICIES_H
+#define PROCESSFLOWPLUGIN_DISPATCHPOLICIES_H
 
 /// @file DispatchPolicies.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -42,4 +42,4 @@ public:
 std::unique_ptr<IDispatchPolicy> createDispatchPolicy(const QString& name);
 QStringList allDispatchPolicyNames();
 
-#endif
+#endif // PROCESSFLOWPLUGIN_DISPATCHPOLICIES_H

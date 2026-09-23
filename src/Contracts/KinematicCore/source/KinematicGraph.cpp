@@ -1,3 +1,6 @@
+﻿/// @file KinematicGraph.cpp
+/// @brief KinematicGraph 实现
+
 #include "KinematicGraph.h"
 
 #include <queue>

@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_SKETCHPATTERN_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHPATTERN_H
 #define GEOMETRYALGORITHM_SKETCHPATTERN_H
 
 /// @file SketchPattern.h
@@ -6,6 +6,7 @@
 /// @brief 体线性/圆周阵列与相对平面镜像
 
 #include "geometry_algorithm_global.h"
+
 #include "ShapeHandle.h"
 
 #include <string>
@@ -59,4 +60,4 @@ GEOMETRY_ALGORITHM_API bool mirrorBodyToHandle(const ShapeHandle& seed, const Sk
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHPATTERN_H

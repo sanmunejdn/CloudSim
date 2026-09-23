@@ -1,13 +1,13 @@
-/// @file AiSceneOpsRules.cpp
+﻿/// @file AiSceneOpsRules.cpp
 /// @brief 多段增量/删除口语拆成可重复同 api 的步骤
 
 #include "Ai/AiSceneOpsRules.h"
 
 #include <QRegularExpression>
-
 #include <algorithm>
-#include <json.hpp>
 #include <vector>
+
+#include <json.hpp>
 
 namespace AiSceneOpsRules
 {
@@ -75,8 +75,8 @@ AiAgentPlan tryBuildPlan(const QString& userText, const QByteArray& sceneSnapsho
 		t.contains(QStringLiteral("删除所有")) || t.contains(QStringLiteral("Delete all"), Qt::CaseInsensitive) ||
 		t.contains(QStringLiteral("Clear scene"), Qt::CaseInsensitive))
 	{
-		plan.steps.append(makeStep(QStringLiteral("removeAllSceneObjects"), nlohmann::json::object(),
-								   QStringLiteral("清空场景")));
+		plan.steps.append(
+			makeStep(QStringLiteral("removeAllSceneObjects"), nlohmann::json::object(), QStringLiteral("清空场景")));
 		plan.summary = QStringLiteral("删除全部对象");
 		return plan;
 	}
@@ -185,8 +185,7 @@ AiAgentPlan tryBuildPlan(const QString& userText, const QByteArray& sceneSnapsho
 		ordered.push_back(std::move(os));
 	}
 
-	std::sort(ordered.begin(), ordered.end(),
-			  [](const OrderedStep& a, const OrderedStep& b) { return a.pos < b.pos; });
+	std::sort(ordered.begin(), ordered.end(), [](const OrderedStep& a, const OrderedStep& b) { return a.pos < b.pos; });
 	for (auto& os : ordered)
 		plan.steps.append(std::move(os.step));
 

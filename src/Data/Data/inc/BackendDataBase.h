@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDDATABASE_H
+﻿#ifndef DATA_BACKENDDATABASE_H
 #define DATA_BACKENDDATABASE_H
 
 /// @file BackendDataBase.h

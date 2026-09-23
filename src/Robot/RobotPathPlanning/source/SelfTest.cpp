@@ -1,9 +1,8 @@
-/// @file SelfTest.cpp
+﻿/// @file SelfTest.cpp
 /// @brief 无 URDF 场景的 API 与 RRT 烟雾测试
 
-#include "RobotPathPlanning.h"
-
 #include "CollisionWorld.h"
+#include "RobotPathPlanning.h"
 
 #include <cmath>
 
@@ -11,7 +10,6 @@ namespace robot_path
 {
 namespace
 {
-
 bool testEmptyRequest(PathResult& scratch)
 {
 	PlanRequest req;

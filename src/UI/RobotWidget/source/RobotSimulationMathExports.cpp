@@ -1,4 +1,4 @@
-/// @file RobotSimulationMathExports.cpp
+﻿/// @file RobotSimulationMathExports.cpp
 /// @brief 仿真数学导出（文档宿主侧）
 
 #include "IRobotDocumentHost.h"
@@ -239,7 +239,8 @@ bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgViewHost*
 		}
 	}
 	const QString sceneRootId = doc->robotSceneBackendIdForInstance(instIdx);
-	if (osg && !sceneRootId.isEmpty() && RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, sceneRootId.toStdString(), outWorld))
+	if (osg && !sceneRootId.isEmpty() &&
+		RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, sceneRootId.toStdString(), outWorld))
 	{
 		return true;
 	}
@@ -248,7 +249,8 @@ bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgViewHost*
 	{
 		refId = sceneRootId;
 	}
-	if (osg && !refId.isEmpty() && RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, refId.toStdString(), outWorld))
+	if (osg && !refId.isEmpty() &&
+		RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, refId.toStdString(), outWorld))
 	{
 		return true;
 	}

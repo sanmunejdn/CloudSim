@@ -204,13 +204,12 @@ void AiAssistantDockWidget::showTrajectoryFeatureResult(const QByteArray& planJs
 		{
 			const int matched = slice.value("matchedTotal", 0);
 			const int shown = slice.value("shownCount", 0);
-			body += m_useChinese
-						? QStringLiteral("\n（列表已截断：显示 %1 / 共 %2；可用「选 face_N」点名未列出的面）")
-							  .arg(shown)
-							  .arg(matched)
-						: QStringLiteral("\n(Truncated: showing %1 / %2; use face_N to pick omitted ones.)")
-							  .arg(shown)
-							  .arg(matched);
+			body += m_useChinese ? QStringLiteral("\n（列表已截断：显示 %1 / 共 %2；可用「选 face_N」点名未列出的面）")
+									   .arg(shown)
+									   .arg(matched)
+								 : QStringLiteral("\n(Truncated: showing %1 / %2; use face_N to pick omitted ones.)")
+									   .arg(shown)
+									   .arg(matched);
 		}
 	}
 	catch (...)
@@ -324,18 +323,21 @@ QString AiAssistantDockWidget::prefixWithParser(const QString& parserVia, const 
 void AiAssistantDockWidget::appendUserMessage(const QString& text)
 {
 	const QString who = m_useChinese ? QStringLiteral("你") : QStringLiteral("You");
-	m_history->append(QStringLiteral("<b>%1:</b> %2").arg(who, text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
+	m_history->append(QStringLiteral("<b>%1:</b> %2")
+						  .arg(who, text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
 }
 
 void AiAssistantDockWidget::appendAssistantMessage(const QString& text)
 {
 	const QString who = m_useChinese ? QStringLiteral("助手") : QStringLiteral("Assistant");
-	m_history->append(QStringLiteral("<b>%1:</b> %2").arg(who, text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
+	m_history->append(QStringLiteral("<b>%1:</b> %2")
+						  .arg(who, text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
 }
 
 void AiAssistantDockWidget::appendSystemMessage(const QString& text)
 {
-	m_history->append(QStringLiteral("<i>%1</i>").arg(text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
+	m_history->append(
+		QStringLiteral("<i>%1</i>").arg(text.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br/>"))));
 }
 
 void AiAssistantDockWidget::setBusy(bool busy)

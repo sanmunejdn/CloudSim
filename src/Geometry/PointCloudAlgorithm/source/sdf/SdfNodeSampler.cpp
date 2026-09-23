@@ -1,3 +1,6 @@
+﻿/// @file SdfNodeSampler.cpp
+/// @brief 沿网格邻接找最近 k 个变形节点；搜索半径只作权重尺度，收齐 k 个前不硬截断
+
 #include "sdf/SdfNodeSampler.h"
 
 #include "KdTreePointSet.h"
@@ -13,7 +16,6 @@ namespace sdf
 {
 namespace
 {
-
 void normalizeSkin(std::vector<SkinWeight>& skin)
 {
 	double sumW = 0.0;
@@ -176,7 +178,8 @@ bool buildDeformGraph(const std::vector<float>& xyz, double sampleRadiusMm, int 
 	nodes.push_back(0);
 	taken[0] = 1;
 	std::vector<double> minDist2(n, std::numeric_limits<double>::max());
-	auto updateDist = [&](std::size_t seed) {
+	auto updateDist = [&](std::size_t seed)
+	{
 		const double sx = xyz[seed * 3U];
 		const double sy = xyz[seed * 3U + 1U];
 		const double sz = xyz[seed * 3U + 2U];
@@ -356,16 +359,16 @@ bool buildDeformGraph(const std::vector<float>& xyz, double sampleRadiusMm, int 
 		{
 			auto& list = cand[i];
 			std::sort(list.begin(), list.end(),
-					  [](const std::pair<double, int>& a, const std::pair<double, int>& b) {
-						  return a.first < b.first;
-					  });
+					  [](const std::pair<double, int>& a, const std::pair<double, int>& b)
+					  { return a.first < b.first; });
 			// 同一节点可能被多次写入，去重
 			std::vector<std::pair<double, int>> unique;
 			unique.reserve(static_cast<std::size_t>(kSkin));
 			std::vector<char> seen(nodes.size(), 0);
 			for (const auto& h : list)
 			{
-				if (h.second < 0 || static_cast<std::size_t>(h.second) >= seen.size() || seen[static_cast<std::size_t>(h.second)])
+				if (h.second < 0 || static_cast<std::size_t>(h.second) >= seen.size() ||
+					seen[static_cast<std::size_t>(h.second)])
 				{
 					continue;
 				}
@@ -381,8 +384,8 @@ bool buildDeformGraph(const std::vector<float>& xyz, double sampleRadiusMm, int 
 			{
 				std::vector<std::size_t> idx;
 				std::vector<double> d2;
-				nodeTree.findKNearest(xyz[i * 3U], xyz[i * 3U + 1U], xyz[i * 3U + 2U],
-									  static_cast<unsigned int>(kSkin), idx, d2);
+				nodeTree.findKNearest(xyz[i * 3U], xyz[i * 3U + 1U], xyz[i * 3U + 2U], static_cast<unsigned int>(kSkin),
+									  idx, d2);
 				const double rEff = (!d2.empty()) ? std::max(influenceR, std::sqrt(d2.back()) * 1.05) : influenceR;
 				for (std::size_t k = 0; k < idx.size(); ++k)
 				{

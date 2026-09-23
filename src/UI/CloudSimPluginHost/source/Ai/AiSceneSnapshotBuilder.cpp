@@ -1,10 +1,10 @@
-/// @file AiSceneSnapshotBuilder.cpp
+﻿/// @file AiSceneSnapshotBuilder.cpp
 /// @brief 枚举活动文档后端供 Agent 注入
 
 #include "Ai/AiSceneSnapshotBuilder.h"
 
-#include "PluginHostContext.h"
 #include "IPluginDocument.h"
+#include "PluginHostContext.h"
 
 #include <json.hpp>
 

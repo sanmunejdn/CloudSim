@@ -1,13 +1,16 @@
+﻿/// @file RobotExternalAxisSceneApply.cpp
+/// @brief RobotExternalAxisSceneApply 实现
+
 #include "RobotExternalAxisSceneApply.h"
 
 #include "IRobotBackendPoseSink.h"
 #include "IRobotSimulationDocument.h"
 #include "RobotExternalAxes.h"
 
-#include <CoreTypes.h>
-
 #include <QSet>
 #include <QString>
+
+#include <CoreTypes.h>
 
 namespace RobotExternalAxisSceneApply
 {

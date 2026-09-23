@@ -1,3 +1,6 @@
+﻿/// @file KinematicModelIk.cpp
+/// @brief KinematicModelIk 实现
+
 #include "KinematicModelIk.h"
 
 namespace KinematicModelIk

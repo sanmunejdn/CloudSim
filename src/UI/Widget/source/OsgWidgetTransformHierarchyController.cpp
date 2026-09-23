@@ -77,7 +77,7 @@ void OsgWidgetTransformHierarchyController::reattachChildBackendRoots(
 }
 
 void OsgWidgetTransformHierarchyController::placeBackendOuterInScene(OsgWidget& self, const std::string& backendId,
-																	osg::MatrixTransform* outer)
+																	 osg::MatrixTransform* outer)
 {
 	if (!outer)
 	{

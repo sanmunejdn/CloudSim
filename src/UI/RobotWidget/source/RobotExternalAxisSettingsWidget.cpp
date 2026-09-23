@@ -1,4 +1,4 @@
-/// @file RobotExternalAxisSettingsWidget.cpp
+﻿/// @file RobotExternalAxisSettingsWidget.cpp
 /// @brief 外部轴配置：多轴、运动类型、挂接与 backend 绑定
 
 #include "RobotExternalAxisSettingsWidget.h"
@@ -31,10 +31,10 @@ QDoubleSpinBox* makeSpin(QWidget* parent, const double lo, const double hi, cons
 QString axisListLabel(const RobotExternal::RobotExternalAxisConfig& a)
 {
 	const QString name = QString::fromStdString(a.displayName.empty() ? a.jointName : a.displayName);
-	const QString motion = a.motionType == RobotExternal::RobotExternalMotionType::Rotate ? QStringLiteral("R")
-																						 : QStringLiteral("T");
-	const QString att = a.attachment == RobotExternal::RobotExternalAttachment::Workpiece ? QStringLiteral("W")
-																						  : QStringLiteral("B");
+	const QString motion =
+		a.motionType == RobotExternal::RobotExternalMotionType::Rotate ? QStringLiteral("R") : QStringLiteral("T");
+	const QString att =
+		a.attachment == RobotExternal::RobotExternalAttachment::Workpiece ? QStringLiteral("W") : QStringLiteral("B");
 	return QStringLiteral("%1 [%2/%3]%4").arg(name, motion, att, a.enabled ? QString() : QStringLiteral(" [off]"));
 }
 } // namespace
@@ -67,7 +67,8 @@ RobotExternalAxisSettingsWidget::RobotExternalAxisSettingsWidget(QWidget* parent
 	m_jointCombo = new QComboBox(m_editorGroup);
 	m_jointCombo->setEditable(true);
 	m_motionCombo = new QComboBox(m_editorGroup);
-	m_motionCombo->addItem(QStringLiteral("Translate"), static_cast<int>(RobotExternal::RobotExternalMotionType::Translate));
+	m_motionCombo->addItem(QStringLiteral("Translate"),
+						   static_cast<int>(RobotExternal::RobotExternalMotionType::Translate));
 	m_motionCombo->addItem(QStringLiteral("Rotate"), static_cast<int>(RobotExternal::RobotExternalMotionType::Rotate));
 	m_attachmentCombo = new QComboBox(m_editorGroup);
 	m_attachmentCombo->addItem(QStringLiteral("RobotBase"),
@@ -121,7 +122,8 @@ RobotExternalAxisSettingsWidget::RobotExternalAxisSettingsWidget(QWidget* parent
 	connect(m_attachmentCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&RobotExternalAxisSettingsWidget::onFieldChanged);
 	connect(m_backendCombo, &QComboBox::currentTextChanged, this, &RobotExternalAxisSettingsWidget::onFieldChanged);
-	connect(m_workingFrameCombo, &QComboBox::currentTextChanged, this, &RobotExternalAxisSettingsWidget::onFieldChanged);
+	connect(m_workingFrameCombo, &QComboBox::currentTextChanged, this,
+			&RobotExternalAxisSettingsWidget::onFieldChanged);
 	connect(m_lowerSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
 			&RobotExternalAxisSettingsWidget::onFieldChanged);
 	connect(m_upperSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
@@ -165,18 +167,19 @@ void RobotExternalAxisSettingsWidget::setUseChinese(const bool chinese)
 	if (m_form)
 	{
 		const QStringList labels =
-			chinese ? QStringList{QStringLiteral("启用"),		 QStringLiteral("显示名"),	 QStringLiteral("关节名"),
-								  QStringLiteral("运动类型"), QStringLiteral("作用对象"), QStringLiteral("绑定backend"),
-								  QStringLiteral("工作架"),	 QStringLiteral("下限"),		 QStringLiteral("上限"),
-								  QStringLiteral("回零"),		 QStringLiteral("轴 X"),		 QStringLiteral("轴 Y"),
-								  QStringLiteral("轴 Z"),		 QStringLiteral("原点 X(mm)"), QStringLiteral("原点 Y(mm)"),
-								  QStringLiteral("原点 Z(mm)")}
-					: QStringList{QStringLiteral("Enabled"),		QStringLiteral("Name"),			QStringLiteral("Joint"),
-								  QStringLiteral("Motion"),		QStringLiteral("Attachment"),	QStringLiteral("Backend"),
-								  QStringLiteral("WorkingFrame"), QStringLiteral("Lower"),		QStringLiteral("Upper"),
-								  QStringLiteral("Home"),		QStringLiteral("Axis X"),		QStringLiteral("Axis Y"),
-								  QStringLiteral("Axis Z"),		QStringLiteral("Origin X"),		QStringLiteral("Origin Y"),
-								  QStringLiteral("Origin Z")};
+			chinese
+				? QStringList{QStringLiteral("启用"),	   QStringLiteral("显示名"),	 QStringLiteral("关节名"),
+							  QStringLiteral("运动类型"),  QStringLiteral("作用对象"),	 QStringLiteral("绑定backend"),
+							  QStringLiteral("工作架"),	   QStringLiteral("下限"),		 QStringLiteral("上限"),
+							  QStringLiteral("回零"),	   QStringLiteral("轴 X"),		 QStringLiteral("轴 Y"),
+							  QStringLiteral("轴 Z"),	   QStringLiteral("原点 X(mm)"), QStringLiteral("原点 Y(mm)"),
+							  QStringLiteral("原点 Z(mm)")}
+				: QStringList{QStringLiteral("Enabled"),	  QStringLiteral("Name"),		QStringLiteral("Joint"),
+							  QStringLiteral("Motion"),		  QStringLiteral("Attachment"), QStringLiteral("Backend"),
+							  QStringLiteral("WorkingFrame"), QStringLiteral("Lower"),		QStringLiteral("Upper"),
+							  QStringLiteral("Home"),		  QStringLiteral("Axis X"),		QStringLiteral("Axis Y"),
+							  QStringLiteral("Axis Z"),		  QStringLiteral("Origin X"),	QStringLiteral("Origin Y"),
+							  QStringLiteral("Origin Z")};
 		for (int i = 0; i < labels.size() && i < m_form->rowCount(); ++i)
 		{
 			if (QLabel* lab = qobject_cast<QLabel*>(m_form->itemAt(i, QFormLayout::LabelRole)->widget()))
@@ -236,7 +239,7 @@ void RobotExternalAxisSettingsWidget::setBackendIdOptions(const QStringList& bac
 {
 	m_backendIds = backendIds;
 	const QString cur = m_backendCombo->currentData().toString().isEmpty() ? m_backendCombo->currentText()
-																		  : m_backendCombo->currentData().toString();
+																		   : m_backendCombo->currentData().toString();
 	const QString curWork = m_workingFrameCombo->currentData().toString();
 	m_blockSignals = true;
 	m_backendCombo->clear();
@@ -303,10 +306,10 @@ void RobotExternalAxisSettingsWidget::rebuildList()
 
 void RobotExternalAxisSettingsWidget::refreshMotionDependentUi()
 {
-	const bool rotate = m_motionCombo->currentData().toInt() ==
-						static_cast<int>(RobotExternal::RobotExternalMotionType::Rotate);
-	const bool workpiece = m_attachmentCombo->currentData().toInt() ==
-						   static_cast<int>(RobotExternal::RobotExternalAttachment::Workpiece);
+	const bool rotate =
+		m_motionCombo->currentData().toInt() == static_cast<int>(RobotExternal::RobotExternalMotionType::Rotate);
+	const bool workpiece =
+		m_attachmentCombo->currentData().toInt() == static_cast<int>(RobotExternal::RobotExternalAttachment::Workpiece);
 	for (int i = 0; i < 3; ++i)
 	{
 		m_originSpin[i]->setEnabled(rotate);
@@ -318,8 +321,8 @@ void RobotExternalAxisSettingsWidget::refreshMotionDependentUi()
 
 void RobotExternalAxisSettingsWidget::refreshLimitSuffixes()
 {
-	const bool rotate = m_motionCombo->currentData().toInt() ==
-						static_cast<int>(RobotExternal::RobotExternalMotionType::Rotate);
+	const bool rotate =
+		m_motionCombo->currentData().toInt() == static_cast<int>(RobotExternal::RobotExternalMotionType::Rotate);
 	const QString suf = rotate ? (m_useChinese ? QStringLiteral(" rad") : QStringLiteral(" rad"))
 							   : (m_useChinese ? QStringLiteral(" mm") : QStringLiteral(" mm"));
 	m_lowerSpin->setSuffix(suf);
@@ -489,9 +492,9 @@ void RobotExternalAxisSettingsWidget::refreshEmptyHint()
 	}
 	if (m_axes.axes.empty())
 	{
-		m_emptyHint->setText(m_useChinese
-								 ? QStringLiteral("未配置外部轴：联动求解不会启用。可添加平移/旋转轴，挂接机器人或工件。")
-								 : QStringLiteral("No external axis: add Translate/Rotate axes on RobotBase or Workpiece."));
+		m_emptyHint->setText(
+			m_useChinese ? QStringLiteral("未配置外部轴：联动求解不会启用。可添加平移/旋转轴，挂接机器人或工件。")
+						 : QStringLiteral("No external axis: add Translate/Rotate axes on RobotBase or Workpiece."));
 		m_emptyHint->show();
 	}
 	else

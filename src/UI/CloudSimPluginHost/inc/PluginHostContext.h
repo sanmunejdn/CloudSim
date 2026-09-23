@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H
+﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H
 #define CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H
 
 /// @file PluginHostContext.h
@@ -54,7 +54,7 @@ public:
 	void enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
 					std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
 	quint64 enqueueCancellableJob(const QString& title, PluginCancellableJobWorkFn work,
-								 std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
+								  std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
 	bool cancelJob(quint64 jobId) override;
 	IPluginDocument* documentById(const QString& documentId) override;
 	const IPluginDocument* documentById(const QString& documentId) const override;

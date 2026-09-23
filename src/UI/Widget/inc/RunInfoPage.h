@@ -1,4 +1,4 @@
-#ifndef WIDGET_RUNINFOPAGE_H
+﻿#ifndef WIDGET_RUNINFOPAGE_H
 #define WIDGET_RUNINFOPAGE_H
 
 /// @file RunInfoPage.h

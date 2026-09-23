@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIAGENTMEMORY_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIAGENTMEMORY_H
 #define CLOUDSIMPLUGINHOST_AIAGENTMEMORY_H
 
 /// @file AiAgentMemory.h
@@ -23,4 +23,4 @@ void appendSessionStep(const QString& toolId, bool ok, const QString& summary);
 void clearSession();
 } // namespace AiAgentMemory
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIAGENTMEMORY_H

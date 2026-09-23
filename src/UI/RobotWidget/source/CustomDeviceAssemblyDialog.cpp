@@ -1,4 +1,4 @@
-/// @file CustomDeviceAssemblyDialog.cpp
+﻿/// @file CustomDeviceAssemblyDialog.cpp
 /// @brief 自定义设备组装对话框
 
 #include "CustomDeviceAssemblyDialog.h"
@@ -9,9 +9,9 @@
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceKinematics.h"
 #include "CustomDeviceRobotMountComponent.h"
-#include "RobotExternalAxes.h"
 #include "ICustomDeviceAssemblyHost.h"
 #include "IRobotDocumentHost.h"
+#include "RobotExternalAxes.h"
 
 #include <QAbstractItemView>
 #include <QComboBox>
@@ -30,7 +30,6 @@
 #include <QSet>
 #include <QSplitter>
 #include <QVBoxLayout>
-
 #include <cmath>
 #include <unordered_set>
 
@@ -45,36 +44,35 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	setModal(false);
 	setWindowModality(Qt::NonModal);
 	resize(1040, 680);
-	setStyleSheet(QStringLiteral(
-		"#CustomDeviceAssemblyDialog {"
-		"  background-color: #f4f5f7;"
-		"}"
-		"#CustomDeviceAssemblyDialog QFrame#assemblyHeader,"
-		"#CustomDeviceAssemblyDialog QFrame#assemblyProps {"
-		"  background-color: #ffffff;"
-		"  border: 1px solid #dadcde;"
-		"  border-radius: 8px;"
-		"}"
-		"#CustomDeviceAssemblyDialog QLabel#assemblyPropsTitle {"
-		"  color: #1c1c1e;"
-		"  font-weight: 600;"
-		"  font-size: 13px;"
-		"  padding-bottom: 4px;"
-		"}"
-		"#CustomDeviceAssemblyDialog QSplitter::handle {"
-		"  background-color: transparent;"
-		"  width: 8px;"
-		"}"
-		"#CustomDeviceAssemblyDialog QPushButton:checked {"
-		"  background-color: #0066cc;"
-		"  color: #ffffff;"
-		"  border: 1px solid #0055aa;"
-		"}"
-		"#CustomDeviceAssemblyDialog CustomDeviceAssemblyCanvasWidget {"
-		"  border: 1px solid #dadcde;"
-		"  border-radius: 8px;"
-		"  background-color: #eef1f5;"
-		"}"));
+	setStyleSheet(QStringLiteral("#CustomDeviceAssemblyDialog {"
+								 "  background-color: #f4f5f7;"
+								 "}"
+								 "#CustomDeviceAssemblyDialog QFrame#assemblyHeader,"
+								 "#CustomDeviceAssemblyDialog QFrame#assemblyProps {"
+								 "  background-color: #ffffff;"
+								 "  border: 1px solid #dadcde;"
+								 "  border-radius: 8px;"
+								 "}"
+								 "#CustomDeviceAssemblyDialog QLabel#assemblyPropsTitle {"
+								 "  color: #1c1c1e;"
+								 "  font-weight: 600;"
+								 "  font-size: 13px;"
+								 "  padding-bottom: 4px;"
+								 "}"
+								 "#CustomDeviceAssemblyDialog QSplitter::handle {"
+								 "  background-color: transparent;"
+								 "  width: 8px;"
+								 "}"
+								 "#CustomDeviceAssemblyDialog QPushButton:checked {"
+								 "  background-color: #0066cc;"
+								 "  color: #ffffff;"
+								 "  border: 1px solid #0055aa;"
+								 "}"
+								 "#CustomDeviceAssemblyDialog CustomDeviceAssemblyCanvasWidget {"
+								 "  border: 1px solid #dadcde;"
+								 "  border-radius: 8px;"
+								 "  background-color: #eef1f5;"
+								 "}"));
 
 	if (m_editMode && m_host && m_host->document())
 	{
@@ -82,8 +80,9 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 			m_host->document()->findObject(existingDeviceBackendId.toStdString()));
 		if (!m_device)
 		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Edit Custom Device"), QStringLiteral("编辑自定义设备")),
-								 i18n(QStringLiteral("Custom device not found."), QStringLiteral("未找到自定义设备。")));
+			QMessageBox::warning(
+				this, i18n(QStringLiteral("Edit Custom Device"), QStringLiteral("编辑自定义设备")),
+				i18n(QStringLiteral("Custom device not found."), QStringLiteral("未找到自定义设备。")));
 		}
 	}
 
@@ -100,8 +99,7 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	m_nameEdit = new QLineEdit(header);
 	if (m_editMode && m_device)
 	{
-		m_nameEdit->setText(
-			QString::fromStdString(m_device->name().empty() ? m_device->id() : m_device->name()));
+		m_nameEdit->setText(QString::fromStdString(m_device->name().empty() ? m_device->id() : m_device->name()));
 	}
 	else
 	{
@@ -116,22 +114,18 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 
 	auto* toolRow = new QHBoxLayout();
 	toolRow->setSpacing(6);
-	auto* fromSceneBtn =
-		new QPushButton(i18n(QStringLiteral("From scene…"), QStringLiteral("从场景选择…")), header);
-	m_pickSolidBtn =
-		new QPushButton(i18n(QStringLiteral("Pick solid in 3D"), QStringLiteral("3D 选择零件")), header);
+	auto* fromSceneBtn = new QPushButton(i18n(QStringLiteral("From scene…"), QStringLiteral("从场景选择…")), header);
+	m_pickSolidBtn = new QPushButton(i18n(QStringLiteral("Pick solid in 3D"), QStringLiteral("3D 选择零件")), header);
 	m_pickSolidBtn->setCheckable(true);
 	m_pickSolidBtn->setToolTip(
 		i18n(QStringLiteral("Click a face on an assembly in the 3D view to extract that Solid as a link."),
 			 QStringLiteral("在视口中点击装配体的一个面，抽出该 Solid 作为独立连杆。")));
-	auto* importFileBtn =
-		new QPushButton(i18n(QStringLiteral("Import model…"), QStringLiteral("导入模型…")), header);
+	auto* importFileBtn = new QPushButton(i18n(QStringLiteral("Import model…"), QStringLiteral("导入模型…")), header);
 	m_connectBtn = new QPushButton(i18n(QStringLiteral("Connect"), QStringLiteral("连接")), header);
 	m_connectBtn->setCheckable(true);
 	auto* removeBtn = new QPushButton(i18n(QStringLiteral("Remove"), QStringLiteral("移除")), header);
 	auto* setFixedBtn = new QPushButton(i18n(QStringLiteral("Set Fixed"), QStringLiteral("设为固定")), header);
-	auto* exportUrdfBtn =
-		new QPushButton(i18n(QStringLiteral("Export URDF…"), QStringLiteral("导出 URDF…")), header);
+	auto* exportUrdfBtn = new QPushButton(i18n(QStringLiteral("Export URDF…"), QStringLiteral("导出 URDF…")), header);
 	for (QPushButton* b : {fromSceneBtn, m_pickSolidBtn, importFileBtn, m_connectBtn, setFixedBtn, exportUrdfBtn})
 	{
 		b->setProperty("btnRole", QStringLiteral("secondary"));
@@ -160,8 +154,7 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	auto* propsLayout = new QVBoxLayout(m_props);
 	propsLayout->setContentsMargins(12, 12, 12, 12);
 	propsLayout->setSpacing(8);
-	auto* propsTitle =
-		new QLabel(i18n(QStringLiteral("Joint Properties"), QStringLiteral("运动副属性")), m_props);
+	auto* propsTitle = new QLabel(i18n(QStringLiteral("Joint Properties"), QStringLiteral("运动副属性")), m_props);
 	propsTitle->setObjectName(QStringLiteral("assemblyPropsTitle"));
 	propsLayout->addWidget(propsTitle);
 	m_motionCombo = new QComboBox(m_props);
@@ -217,10 +210,12 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 		new QLabel(i18n(QStringLiteral("Mount to Robot Flange"), QStringLiteral("安装到机器人法兰")), m_mountFrame);
 	mountTitle->setObjectName(QStringLiteral("assemblyPropsTitle"));
 	mountLayout->addWidget(mountTitle);
-	auto* mountHint = new QLabel(
-		i18n(QStringLiteral("Mount frame must be on the device root or a fixed link. On confirm, the device root follows the robot flange via Follow (install frame aligns with TCP)."),
-			 QStringLiteral("安装坐标系须位于设备根或 fixed 连杆下。确认后设备根通过 Follow 跟随机器人法兰（安装坐标系与 TCP 对齐）。")),
-		m_mountFrame);
+	auto* mountHint =
+		new QLabel(i18n(QStringLiteral("Mount frame must be on the device root or a fixed link. On confirm, the device "
+									   "root follows the robot flange via Follow (install frame aligns with TCP)."),
+						QStringLiteral("安装坐标系须位于设备根或 fixed 连杆下。确认后设备根通过 Follow "
+									   "跟随机器人法兰（安装坐标系与 TCP 对齐）。")),
+				   m_mountFrame);
 	mountHint->setWordWrap(true);
 	mountLayout->addWidget(mountHint);
 	auto* mountForm = new QFormLayout();
@@ -293,16 +288,18 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 			[this](int) { refillMountUi(); });
 	connect(buttons, &QDialogButtonBox::accepted, this, &CustomDeviceAssemblyDialog::onApplyAccepted);
 	connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-	connect(this, &QDialog::finished, this, [this]() {
-		if (m_pickSolidBtn)
-		{
-			m_pickSolidBtn->setChecked(false);
-		}
-		if (m_host)
-		{
-			m_host->endPickSolidInView();
-		}
-	});
+	connect(this, &QDialog::finished, this,
+			[this]()
+			{
+				if (m_pickSolidBtn)
+				{
+					m_pickSolidBtn->setChecked(false);
+				}
+				if (m_host)
+				{
+					m_host->endPickSolidInView();
+				}
+			});
 }
 
 QString CustomDeviceAssemblyDialog::i18n(const QString& en, const QString& zh) const
@@ -342,11 +339,10 @@ void CustomDeviceAssemblyDialog::refillCenterOptions()
 			continue;
 		}
 		seenGeom.insert(gid);
-		const QString title =
-			QString::fromStdString(L.displayName.empty() ? L.geometryBackendId : L.displayName);
-		m_centerFrameCombo->addItem(i18n(QStringLiteral("Model: %1 [%2]").arg(title, gid),
-										 QStringLiteral("模型：%1 [%2]").arg(title, gid)),
-									gid);
+		const QString title = QString::fromStdString(L.displayName.empty() ? L.geometryBackendId : L.displayName);
+		m_centerFrameCombo->addItem(
+			i18n(QStringLiteral("Model: %1 [%2]").arg(title, gid), QStringLiteral("模型：%1 [%2]").arg(title, gid)),
+			gid);
 	}
 	for (const auto& data : m_host->document()->listObjects())
 	{
@@ -356,9 +352,8 @@ void CustomDeviceAssemblyDialog::refillCenterOptions()
 		}
 		const QString id = QString::fromStdString(data->id());
 		const QString name = QString::fromStdString(data->name().empty() ? data->id() : data->name());
-		m_centerFrameCombo->addItem(i18n(QStringLiteral("Frame: %1 [%2]").arg(name, id),
-										 QStringLiteral("坐标系：%1 [%2]").arg(name, id)),
-									id);
+		m_centerFrameCombo->addItem(
+			i18n(QStringLiteral("Frame: %1 [%2]").arg(name, id), QStringLiteral("坐标系：%1 [%2]").arg(name, id)), id);
 	}
 	const int fi = m_centerFrameCombo->findData(keep);
 	m_centerFrameCombo->setCurrentIndex(fi >= 0 ? fi : 0);
@@ -548,8 +543,8 @@ bool CustomDeviceAssemblyDialog::attachChildId(const QString& childId, QString* 
 	{
 		if (outErr)
 		{
-			*outErr = i18n(QStringLiteral("Cannot attach the device to itself."),
-						   QStringLiteral("不能把设备挂到自身下。"));
+			*outErr =
+				i18n(QStringLiteral("Cannot attach the device to itself."), QStringLiteral("不能把设备挂到自身下。"));
 		}
 		return false;
 	}
@@ -660,10 +655,9 @@ void CustomDeviceAssemblyDialog::onExportUrdf()
 	}
 	if (!m_device)
 	{
-		QMessageBox::information(
-			this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
-			i18n(QStringLiteral("Create or open a device first (add a component)."),
-				 QStringLiteral("请先添加组件以创建设备，或打开已有设备后再导出。")));
+		QMessageBox::information(this, i18n(QStringLiteral("Export URDF"), QStringLiteral("导出 URDF")),
+								 i18n(QStringLiteral("Create or open a device first (add a component)."),
+									  QStringLiteral("请先添加组件以创建设备，或打开已有设备后再导出。")));
 		return;
 	}
 	if (!m_device->usesLinkJointGraph())
@@ -699,9 +693,9 @@ void CustomDeviceAssemblyDialog::onFromScene()
 	pickDlg.setWindowFlags(pickDlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
 	pickDlg.resize(420, 360);
 	auto* pickLayout = new QVBoxLayout(&pickDlg);
-	pickLayout->addWidget(new QLabel(
-		i18n(QStringLiteral("Hold Ctrl/Shift to multi-select."), QStringLiteral("按住 Ctrl/Shift 可多选。")),
-		&pickDlg));
+	pickLayout->addWidget(
+		new QLabel(i18n(QStringLiteral("Hold Ctrl/Shift to multi-select."), QStringLiteral("按住 Ctrl/Shift 可多选。")),
+				   &pickDlg));
 	auto* list = new QListWidget(&pickDlg);
 	list->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	for (const auto& data : m_host->document()->listObjects())
@@ -720,16 +714,14 @@ void CustomDeviceAssemblyDialog::onFromScene()
 			continue;
 		}
 		const QString id = QString::fromStdString(data->id());
-		auto* item =
-			new QListWidgetItem(QStringLiteral("%1 [%2]").arg(QString::fromStdString(data->name()), id), list);
+		auto* item = new QListWidgetItem(QStringLiteral("%1 [%2]").arg(QString::fromStdString(data->name()), id), list);
 		item->setData(Qt::UserRole, id);
 	}
 	if (list->count() == 0)
 	{
-		QMessageBox::information(
-			this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-			i18n(QStringLiteral("No available Mesh / STEP objects in the scene."),
-				 QStringLiteral("场景中没有可挂接的网格 / STEP 对象。")));
+		QMessageBox::information(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+								 i18n(QStringLiteral("No available Mesh / STEP objects in the scene."),
+									  QStringLiteral("场景中没有可挂接的网格 / STEP 对象。")));
 		return;
 	}
 	pickLayout->addWidget(list, 1);
@@ -783,18 +775,20 @@ void CustomDeviceAssemblyDialog::onPickSolidToggled(const bool on)
 		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")), err);
 		return;
 	}
-	m_host->beginPickSolidInView([this](const QString& partId) {
-		if (partId.isEmpty() || m_childRootIds.contains(partId))
+	m_host->beginPickSolidInView(
+		[this](const QString& partId)
 		{
-			return;
-		}
-		QString attachErr;
-		if (!attachChildId(partId, &attachErr) && !attachErr.isEmpty())
-		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-								 attachErr);
-		}
-	});
+			if (partId.isEmpty() || m_childRootIds.contains(partId))
+			{
+				return;
+			}
+			QString attachErr;
+			if (!attachChildId(partId, &attachErr) && !attachErr.isEmpty())
+			{
+				QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+									 attachErr);
+			}
+		});
 }
 
 void CustomDeviceAssemblyDialog::onImportModels()
@@ -804,9 +798,9 @@ void CustomDeviceAssemblyDialog::onImportModels()
 		return;
 	}
 	// 与 Host geometryOpenModelFileFilter(true) 对齐；本工程不链 CloudSimHost
-	const QString filter = QStringLiteral(
-		"Model Files (*.obj *.stl *.ply *.off *.dxf *.3dxml *.dae *.3ds *.fbx *.step *.stp *.igs *.iges "
-		"*.brep);;All Files (*.*)");
+	const QString filter =
+		QStringLiteral("Model Files (*.obj *.stl *.ply *.off *.dxf *.3dxml *.dae *.3ds *.fbx *.step *.stp *.igs *.iges "
+					   "*.brep);;All Files (*.*)");
 	const QStringList paths = QFileDialog::getOpenFileNames(
 		this, i18n(QStringLiteral("Select Model"), QStringLiteral("选择模型")), QString(), filter);
 	if (paths.isEmpty())
@@ -849,24 +843,25 @@ void CustomDeviceAssemblyDialog::onApplyAccepted()
 	}
 	if (!m_device)
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-							 i18n(QStringLiteral("Add at least one component."), QStringLiteral("请至少添加一个组件。")));
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+			i18n(QStringLiteral("Add at least one component."), QStringLiteral("请至少添加一个组件。")));
 		return;
 	}
 	const QVector<CustomDeviceLink> links = m_canvas->links();
 	const QVector<CustomDeviceJoint> joints = m_canvas->joints();
 	if (links.isEmpty())
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-							 i18n(QStringLiteral("Add at least one Link block."), QStringLiteral("请至少添加一个 Link 块。")));
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+			i18n(QStringLiteral("Add at least one Link block."), QStringLiteral("请至少添加一个 Link 块。")));
 		return;
 	}
 	if (joints.isEmpty())
 	{
-		QMessageBox::warning(
-			this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
-			i18n(QStringLiteral("Connect Links to define at least one joint."),
-				 QStringLiteral("请连接块以定义至少一个运动副。")));
+		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),
+							 i18n(QStringLiteral("Connect Links to define at least one joint."),
+								  QStringLiteral("请连接块以定义至少一个运动副。")));
 		return;
 	}
 
@@ -887,11 +882,10 @@ void CustomDeviceAssemblyDialog::onApplyAccepted()
 	m_host->refreshBackendTree();
 	m_host->focusBackendInTree(QString::fromStdString(m_device->id()));
 	const QString name = QString::fromStdString(m_device->name());
-	m_host->appendRunInfo(m_editMode
-							  ? i18n(QStringLiteral("Custom device updated: %1").arg(name),
-									 QStringLiteral("已更新自定义设备：%1").arg(name))
-							  : i18n(QStringLiteral("Custom device assembled: %1").arg(name),
-									 QStringLiteral("已组装自定义设备：%1").arg(name)));
+	m_host->appendRunInfo(m_editMode ? i18n(QStringLiteral("Custom device updated: %1").arg(name),
+											QStringLiteral("已更新自定义设备：%1").arg(name))
+									 : i18n(QStringLiteral("Custom device assembled: %1").arg(name),
+											QStringLiteral("已组装自定义设备：%1").arg(name)));
 	refillMountUi();
 	updateMountControlsEnabled();
 	accept();
@@ -962,8 +956,8 @@ void CustomDeviceAssemblyDialog::refillMountUi()
 	{
 		if (!deviceId.isEmpty() && m_host->isDeviceMountedToRobot(deviceId))
 		{
-			m_mountStatusLabel->setText(i18n(QStringLiteral("Status: mounted to robot."),
-										   QStringLiteral("状态：已挂载到机器人。")));
+			m_mountStatusLabel->setText(
+				i18n(QStringLiteral("Status: mounted to robot."), QStringLiteral("状态：已挂载到机器人。")));
 		}
 		else
 		{
@@ -1000,9 +994,9 @@ void CustomDeviceAssemblyDialog::onMountToRobot()
 	}
 	if (!m_device->usesLinkJointGraph())
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Mount"), QStringLiteral("安装")),
-							 i18n(QStringLiteral("Apply assembly before mounting."),
-								  QStringLiteral("请先应用组装（Link/Joint 图）。")));
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Mount"), QStringLiteral("安装")),
+			i18n(QStringLiteral("Apply assembly before mounting."), QStringLiteral("请先应用组装（Link/Joint 图）。")));
 		return;
 	}
 	if (m_mountRobotCombo->count() <= 0)
@@ -1013,8 +1007,9 @@ void CustomDeviceAssemblyDialog::onMountToRobot()
 	}
 	const int rIdx = m_mountRobotCombo->currentIndex();
 	const QString robotSceneId = m_mountRobotCombo->itemData(rIdx).toString();
-	const QString flangeLink = m_mountFlangeCombo->count() > 0 ? m_mountFlangeCombo->currentData().toString()
-															   : m_mountRobotCombo->itemData(rIdx, Qt::UserRole + 1).toString();
+	const QString flangeLink = m_mountFlangeCombo->count() > 0
+								   ? m_mountFlangeCombo->currentData().toString()
+								   : m_mountRobotCombo->itemData(rIdx, Qt::UserRole + 1).toString();
 	const QString flangeBackendId = m_mountRobotCombo->itemData(rIdx, Qt::UserRole + 2).toString();
 	const QString mountFrameId = m_mountFrameCombo->currentData().toString();
 	const QString deviceId = QString::fromStdString(m_device->id());
@@ -1025,8 +1020,8 @@ void CustomDeviceAssemblyDialog::onMountToRobot()
 		return;
 	}
 	refillMountUi();
-	m_host->appendRunInfo(i18n(QStringLiteral("Device mounted to robot flange."),
-							   QStringLiteral("设备已挂载到机器人法兰。")));
+	m_host->appendRunInfo(
+		i18n(QStringLiteral("Device mounted to robot flange."), QStringLiteral("设备已挂载到机器人法兰。")));
 }
 
 void CustomDeviceAssemblyDialog::onUnmountFromRobot()
@@ -1044,6 +1039,6 @@ void CustomDeviceAssemblyDialog::onUnmountFromRobot()
 	}
 	m_host->runFollowSolveAndSync();
 	refillMountUi();
-	m_host->appendRunInfo(i18n(QStringLiteral("Device unmounted from robot."),
-							   QStringLiteral("设备已从机器人解除挂载。")));
+	m_host->appendRunInfo(
+		i18n(QStringLiteral("Device unmounted from robot."), QStringLiteral("设备已从机器人解除挂载。")));
 }

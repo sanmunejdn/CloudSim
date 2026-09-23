@@ -1,4 +1,4 @@
-/// @file ProcessFlowCanvasWidget.cpp
+﻿/// @file ProcessFlowCanvasWidget.cpp
 /// @brief 自研流程画布实现
 
 #include "ProcessFlowCanvasWidget.h"
@@ -8,6 +8,7 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QFile>
+#include <QHash>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -21,12 +22,9 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPainterPathStroker>
-#include <QWheelEvent>
-
-#include <QHash>
 #include <QQueue>
 #include <QSet>
-
+#include <QWheelEvent>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -131,9 +129,9 @@ void ProcessFlowCanvasWidget::removeSelectedNode()
 	const int id = m_selectedNodeId;
 	m_nodes.erase(std::remove_if(m_nodes.begin(), m_nodes.end(), [id](const Node& n) { return n.id == id; }),
 				  m_nodes.end());
-	m_edges.erase(std::remove_if(m_edges.begin(), m_edges.end(),
-								 [id](const Edge& e) { return e.from == id || e.to == id; }),
-				  m_edges.end());
+	m_edges.erase(
+		std::remove_if(m_edges.begin(), m_edges.end(), [id](const Edge& e) { return e.from == id || e.to == id; }),
+		m_edges.end());
 	m_selectedEdgeIndex = -1;
 	setSelectedNode(-1);
 	emitGraphChanged();
@@ -158,9 +156,9 @@ bool ProcessFlowCanvasWidget::removeNodeById(int id)
 		return false;
 	m_nodes.erase(std::remove_if(m_nodes.begin(), m_nodes.end(), [id](const Node& n) { return n.id == id; }),
 				  m_nodes.end());
-	m_edges.erase(std::remove_if(m_edges.begin(), m_edges.end(),
-								 [id](const Edge& e) { return e.from == id || e.to == id; }),
-				  m_edges.end());
+	m_edges.erase(
+		std::remove_if(m_edges.begin(), m_edges.end(), [id](const Edge& e) { return e.from == id || e.to == id; }),
+		m_edges.end());
 	if (m_selectedNodeId == id)
 		setSelectedNode(-1);
 	emitGraphChanged();
@@ -392,7 +390,8 @@ void ProcessFlowCanvasWidget::autoLayout()
 				keyed.append({std::isnan(key) ? id : key, id});
 			}
 			std::stable_sort(keyed.begin(), keyed.end(),
-							 [](const QPair<double, int>& a, const QPair<double, int>& b) { return a.first < b.first; });
+							 [](const QPair<double, int>& a, const QPair<double, int>& b)
+							 { return a.first < b.first; });
 			buckets[L].clear();
 			for (const auto& k : keyed)
 			{
@@ -414,7 +413,8 @@ void ProcessFlowCanvasWidget::autoLayout()
 				keyed.append({std::isnan(key) ? id : key, id});
 			}
 			std::stable_sort(keyed.begin(), keyed.end(),
-							 [](const QPair<double, int>& a, const QPair<double, int>& b) { return a.first < b.first; });
+							 [](const QPair<double, int>& a, const QPair<double, int>& b)
+							 { return a.first < b.first; });
 			buckets[L].clear();
 			for (const auto& k : keyed)
 			{
@@ -575,7 +575,8 @@ bool ProcessFlowCanvasWidget::fromJson(const QJsonObject& root)
 		node.color = QColor(item.value(QStringLiteral("color")).toString(QStringLiteral("#2E7DD1")));
 		const double w = item.value(QStringLiteral("width")).toDouble(kNodeWidth);
 		const double h = item.value(QStringLiteral("height")).toDouble(kNodeHeight);
-		node.rect = QRectF(item.value(QStringLiteral("x")).toDouble(), item.value(QStringLiteral("y")).toDouble(), w, h);
+		node.rect =
+			QRectF(item.value(QStringLiteral("x")).toDouble(), item.value(QStringLiteral("y")).toDouble(), w, h);
 		if (item.contains(QStringLiteral("props")) && item.value(QStringLiteral("props")).isObject())
 		{
 			node.props = ProcessFlowNodeProps::fromJson(item.value(QStringLiteral("props")).toObject());
@@ -726,9 +727,8 @@ void ProcessFlowCanvasWidget::contextMenuEvent(QContextMenuEvent* event)
 	const QAction* chosen = menu.exec(event->globalPos());
 	if (chosen == addAction)
 	{
-		addNode(QStringLiteral("节点 %1").arg(m_nextNodeId), QStringLiteral("右键添加"),
-				defaultNodeColor(m_nextNodeId), scenePoint - QPointF(kNodeWidth / 2.0, kNodeHeight / 2.0),
-				QStringLiteral("station"));
+		addNode(QStringLiteral("节点 %1").arg(m_nextNodeId), QStringLiteral("右键添加"), defaultNodeColor(m_nextNodeId),
+				scenePoint - QPointF(kNodeWidth / 2.0, kNodeHeight / 2.0), QStringLiteral("station"));
 	}
 	else if (chosen == layoutAction)
 	{
@@ -1043,9 +1043,8 @@ void ProcessFlowCanvasWidget::editNodeTitle(int id)
 		return;
 	}
 	bool ok = false;
-	const QString title =
-		QInputDialog::getText(this, QStringLiteral("重命名节点"), QStringLiteral("节点名称"), QLineEdit::Normal,
-							  node->title, &ok);
+	const QString title = QInputDialog::getText(this, QStringLiteral("重命名节点"), QStringLiteral("节点名称"),
+												QLineEdit::Normal, node->title, &ok);
 	if (!ok || title.trimmed().isEmpty())
 	{
 		return;
@@ -1063,9 +1062,8 @@ void ProcessFlowCanvasWidget::editEdgeLabel(int index)
 	}
 	Edge& edge = m_edges[index];
 	bool ok = false;
-	const QString label =
-		QInputDialog::getText(this, QStringLiteral("编辑连线标签"), QStringLiteral("连线标签"), QLineEdit::Normal,
-							  edge.label, &ok);
+	const QString label = QInputDialog::getText(this, QStringLiteral("编辑连线标签"), QStringLiteral("连线标签"),
+												QLineEdit::Normal, edge.label, &ok);
 	if (!ok)
 	{
 		return;
@@ -1165,10 +1163,10 @@ void ProcessFlowCanvasWidget::drawNode(QPainter* painter, const Node& node, bool
 	// 边距随 zoom 缩放；固定像素 + AlignVCenter 会在放大后把三行挤到同一垂直中线
 	const double s = std::max(0.25, m_zoom);
 	painter->save();
-	painter->setPen(QPen(selected ? QColor(QStringLiteral("#111827"))
-								  : (m_busyNodeIds.contains(node.id) ? QColor(QStringLiteral("#DC2626"))
-																	: node.color.darker(115)),
-						 selected ? 3 : (m_busyNodeIds.contains(node.id) ? 3 : 2)));
+	painter->setPen(
+		QPen(selected ? QColor(QStringLiteral("#111827"))
+					  : (m_busyNodeIds.contains(node.id) ? QColor(QStringLiteral("#DC2626")) : node.color.darker(115)),
+			 selected ? 3 : (m_busyNodeIds.contains(node.id) ? 3 : 2)));
 	painter->setBrush(m_busyNodeIds.contains(node.id) ? QColor(QStringLiteral("#FEF2F2"))
 													  : QColor(QStringLiteral("#FFFFFF")));
 	const double cornerR = 8.0 * s;

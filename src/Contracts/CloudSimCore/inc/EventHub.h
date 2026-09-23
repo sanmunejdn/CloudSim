@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMCORE_EVENTHUB_H
+﻿#ifndef CLOUDSIMCORE_EVENTHUB_H
 #define CLOUDSIMCORE_EVENTHUB_H
 
 /// @file EventHub.h

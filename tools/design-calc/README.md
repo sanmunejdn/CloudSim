@@ -30,4 +30,4 @@ python cli.py gear --compose-out templates/out.compose.json
 
 ## 文档
 
-`CloudSim/docs/设计计算/`
+`docs/features/设计计算/`

@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_ROBOTCOLLISIONSETTINGS_H
+﻿#ifndef ROBOTSCENE_ROBOTCOLLISIONSETTINGS_H
 #define ROBOTSCENE_ROBOTCOLLISIONSETTINGS_H
 
 /// @file RobotCollisionSettings.h
@@ -7,10 +7,10 @@
 
 #include "robot_scene_global.h"
 
-#include <json.hpp>
-
 #include <string>
 #include <vector>
+
+#include <json.hpp>
 
 namespace RobotCollision
 {

@@ -1,4 +1,4 @@
-#ifndef POINTCLOUDALGORITHM_ADAPTIVEREMESH_H
+﻿#ifndef POINTCLOUDALGORITHM_ADAPTIVEREMESH_H
 #define POINTCLOUDALGORITHM_ADAPTIVEREMESH_H
 
 /// @file AdaptiveRemesh.h
@@ -12,13 +12,12 @@
 
 namespace pclalgo
 {
-
 struct AdaptiveRemeshParams
 {
-	double approxTolMm = 0.0;			 ///< ε；0 → 0.02 * characteristicEdgeMm
-	double edgeMinMm = 0.0;				 ///< 0 → 0.25 * characteristicEdgeMm
-	double edgeMaxMm = 0.0;				 ///< 0 → 2.0 * characteristicEdgeMm
-	double characteristicEdgeMm = 0.0;	 ///< 特征边长 h（mm），须 >0 或由 edgeMin/Max 显式给出
+	double approxTolMm = 0.0;		   ///< ε；0 → 0.02 * characteristicEdgeMm
+	double edgeMinMm = 0.0;			   ///< 0 → 0.25 * characteristicEdgeMm
+	double edgeMaxMm = 0.0;			   ///< 0 → 2.0 * characteristicEdgeMm
+	double characteristicEdgeMm = 0.0; ///< 特征边长 h（mm），须 >0 或由 edgeMin/Max 显式给出
 	int refineIterations = 5;
 	double featureAngleDeg = 30.0;
 	int baseRemeshIterations = 3;
@@ -37,7 +36,8 @@ struct AdaptiveRemeshParams
  */
 POINT_CLOUD_ALGORITHM_API bool adaptiveIsotropicRemesh(const std::vector<float>& triangleSoupIn,
 													   std::vector<float>& triangleSoupOut,
-													   const AdaptiveRemeshParams& params, std::string* errMsg = nullptr);
+													   const AdaptiveRemeshParams& params,
+													   std::string* errMsg = nullptr);
 
 } // namespace pclalgo
 

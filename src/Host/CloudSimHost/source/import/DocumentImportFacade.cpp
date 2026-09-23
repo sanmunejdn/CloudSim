@@ -18,10 +18,10 @@
 
 #include <QFile>
 #include <QFileInfo>
-#include <QLatin1String>
 #include <chrono>
 
 #include <BrepImportArtifacts.h>
+#include <QLatin1String>
 #include <RunLogger.h>
 
 namespace cloudsim::host
@@ -78,9 +78,8 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 	const bool hasImportParent = static_cast<bool>(result.hierarchyDetail.importParent);
 	result.hierarchyImport = hasImportParent || result.hierarchyDetail.registeredPartCount > 1;
 	// 单件 mesh（obj/stl…）保持可 Follow；层级/B-rep 分件为世界坐标勿导入期 Follow
-	result.skipFollowOnImport =
-		hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
-		result.hierarchyDetail.registeredPartCount > 1;
+	result.skipFollowOnImport = hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
+								result.hierarchyDetail.registeredPartCount > 1;
 
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (osg)
@@ -461,9 +460,8 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(DocumentHost& host
 	result.ok = true;
 	const bool hasImportParent = static_cast<bool>(result.hierarchyDetail.importParent);
 	result.hierarchyImport = hasImportParent || result.hierarchyDetail.registeredPartCount > 1;
-	result.skipFollowOnImport =
-		hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
-		result.hierarchyDetail.registeredPartCount > 1;
+	result.skipFollowOnImport = hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
+								result.hierarchyDetail.registeredPartCount > 1;
 
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (osg)
@@ -514,8 +512,7 @@ bool ModelBackgroundLoadState::needsPickArtifactWarm() const
 	{
 		return false;
 	}
-	return m_impl->parsed.kind == ImportParseKind::BrepSingle ||
-		   m_impl->parsed.kind == ImportParseKind::BrepHierarchy;
+	return m_impl->parsed.kind == ImportParseKind::BrepSingle || m_impl->parsed.kind == ImportParseKind::BrepHierarchy;
 }
 
 bool ModelBackgroundLoadState::warmPickArtifacts(QString* outError)

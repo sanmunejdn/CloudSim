@@ -1,4 +1,4 @@
-/// @file ProcessFlowPropertyPanel.cpp
+﻿/// @file ProcessFlowPropertyPanel.cpp
 /// @brief 节点属性面板（按类型显隐）
 
 #include "ProcessFlowPropertyPanel.h"
@@ -9,7 +9,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QVBoxLayout>
-
 #include <algorithm>
 
 namespace
@@ -216,9 +215,8 @@ void ProcessFlowPropertyPanel::applyLanguage(bool useChinese)
 	m_kindCombo->clear();
 	for (const QString& kind : ProcessFlowNodeProps::allKinds())
 	{
-		m_kindCombo->addItem(useChinese ? ProcessFlowNodeProps::displayNameZh(kind)
-										: ProcessFlowNodeProps::displayNameEn(kind),
-							 kind);
+		m_kindCombo->addItem(
+			useChinese ? ProcessFlowNodeProps::displayNameZh(kind) : ProcessFlowNodeProps::displayNameEn(kind), kind);
 	}
 	const int idx = m_kindCombo->findData(curKind);
 	if (idx >= 0)

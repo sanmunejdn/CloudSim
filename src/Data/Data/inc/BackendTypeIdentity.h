@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDTYPEIDENTITY_H
+﻿#ifndef DATA_BACKENDTYPEIDENTITY_H
 #define DATA_BACKENDTYPEIDENTITY_H
 
 /// @file BackendTypeIdentity.h

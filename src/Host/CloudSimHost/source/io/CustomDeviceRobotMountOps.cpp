@@ -1,44 +1,43 @@
-/// @file CustomDeviceRobotMountOps.cpp
+﻿/// @file CustomDeviceRobotMountOps.cpp
 /// @brief 自定义设备机器人法兰挂载（Follow + 位姿）
 
 #include "CustomDeviceRobotMountOps.h"
 
+#include "Adapters.h"
+#include "BackendFollowMath.h"
+#include "BackendHierarchyFollow.h"
 #include "BackendSceneDocumentFacade.h"
 #include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "CustomDeviceBackendData.h"
-#include "IDataService.h"
+#include "CustomDeviceKinematicModel.h"
 #include "CustomDeviceKinematics.h"
 #include "CustomDeviceMat4Layout.h"
-#include "CustomDeviceKinematicModel.h"
 #include "CustomDeviceRobotMountComponent.h"
-#include "io/CustomDeviceHostOps.h"
-#include "BackendFollowMath.h"
-#include "BackendHierarchyFollow.h"
 #include "DocumentHostAccess.h"
-#include "OsgWidget.h"
 #include "FollowAttachmentComponent.h"
 #include "HeadlessRobotContext.h"
+#include "IDataService.h"
 #include "IPerLinkRobotStateAccessor.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotUrdfImportContext.h"
+#include "OsgWidget.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotSceneKinematics.h"
 #include "ToolKinematics.h"
 #include "UrdfRobotLoader.h"
+#include "io/CustomDeviceHostOps.h"
 
-#include "Adapters.h"
-
-#include <BackendDataManager.h>
-
-#include <array>
 #include <algorithm>
+#include <array>
 #include <cmath>
-#include <osg/Matrixd>
 #include <queue>
 #include <sstream>
 #include <unordered_set>
+
+#include <BackendDataManager.h>
+#include <osg/Matrixd>
 
 namespace cloudsim::host
 {
@@ -223,9 +222,9 @@ bool resolveBackendWorldMatrix(DocumentHost& host, BackendDataManager& mgr, cons
 }
 
 bool tryResolveMountFlangeTcpFromUrdfFk(DocumentHost& host, const QString& robotSceneBackendId,
-										  const QString& flangeLinkName, const QString& flangeBackendId,
-										  const BackendMat4& toolInFlange, const QVector<double>* jointAnglesOverride,
-										  BackendMat4& outFlangeWorld, BackendMat4& outTcpWorld)
+										const QString& flangeLinkName, const QString& flangeBackendId,
+										const BackendMat4& toolInFlange, const QVector<double>* jointAnglesOverride,
+										BackendMat4& outFlangeWorld, BackendMat4& outTcpWorld)
 {
 	IRobotUrdfImportContext* ctx = host.headlessRobotContext();
 	if (!ctx)
@@ -337,8 +336,7 @@ bool tryResolveMountFlangeTcpFromUrdfFk(DocumentHost& host, const QString& robot
 	const osg::Matrixd P = RobotSceneKinematics::osgMatrixFromCoreMat4(basePlacement);
 	const osg::Matrixd flangeOsg = linkWorld.value(resolvedFlangeLink);
 	outFlangeWorld = RobotMatrixOsg::backendColMajorFromMatrix(flangeOsg * P);
-	outTcpWorld =
-		RobotMatrixOsg::backendColMajorFromMatrix(RobotMatrixOsg::matrixFromBackendColMajor(tcpInBase) * P);
+	outTcpWorld = RobotMatrixOsg::backendColMajorFromMatrix(RobotMatrixOsg::matrixFromBackendColMajor(tcpInBase) * P);
 	return true;
 }
 
@@ -751,7 +749,8 @@ bool resolveMountFrameWorldForMount(DocumentHost& host, BackendDataManager& mgr,
 		return true;
 	}
 
-	if (resolveMountFrameWorldByAncestorChain(host, mgr, device, mountFrameId, outFrameW, outParentId, outAncestorChain))
+	if (resolveMountFrameWorldByAncestorChain(host, mgr, device, mountFrameId, outFrameW, outParentId,
+											  outAncestorChain))
 	{
 		outUsedHierarchyResolve = true;
 		if (!outParentId.empty())
@@ -780,8 +779,8 @@ bool resolveMountFrameWorldForMount(DocumentHost& host, BackendDataManager& mgr,
 	return resolveBackendWorldMatrix(host, mgr, mountFrameId, outFrameW);
 }
 
-void clearConflictingFollowOnMountFrame(DocumentHost& host, BackendDataManager& mgr, const CustomDeviceBackendData& device,
-										const std::string& frameBackendId)
+void clearConflictingFollowOnMountFrame(DocumentHost& host, BackendDataManager& mgr,
+										const CustomDeviceBackendData& device, const std::string& frameBackendId)
 {
 	const auto frame = mgr.getData(frameBackendId);
 	if (!frame || !frame->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
@@ -879,8 +878,8 @@ bool validateMountFrameOnRootOrFixedLink(const CustomDeviceBackendData& device, 
 			{
 				if (err)
 				{
-					*err = QStringLiteral(
-						"mount frame must be on the device root or under a fixed link; movable links are not supported in this version");
+					*err = QStringLiteral("mount frame must be on the device root or under a fixed link; movable links "
+										  "are not supported in this version");
 				}
 				return false;
 			}
@@ -913,8 +912,8 @@ bool validateMountFrameOnRootOrFixedLink(const CustomDeviceBackendData& device, 
 			{
 				if (err)
 				{
-					*err = QStringLiteral(
-						"mount frame must be on the device root or under a fixed link; movable links are not supported in this version");
+					*err = QStringLiteral("mount frame must be on the device root or under a fixed link; movable links "
+										  "are not supported in this version");
 				}
 				return false;
 			}
@@ -1024,10 +1023,9 @@ bool updateMountedDeviceWorldFromRobotTcp(CustomDeviceBackendData& device, Docum
 		return false;
 	}
 	BackendMat4 tcpWorld{};
-	if (!resolveTcpWorldForMount(host, QString::fromStdString(mount->robotSceneBackendId()),
-								 QString::fromStdString(mount->flangeLinkName()),
-								 QString::fromStdString(mount->flangeBackendId()), mount->toolFrameInFlange(), nullptr,
-								 nullptr, tcpWorld))
+	if (!resolveTcpWorldForMount(
+			host, QString::fromStdString(mount->robotSceneBackendId()), QString::fromStdString(mount->flangeLinkName()),
+			QString::fromStdString(mount->flangeBackendId()), mount->toolFrameInFlange(), nullptr, nullptr, tcpWorld))
 	{
 		return false;
 	}
@@ -1120,8 +1118,7 @@ QString resolveMountFrameBackendId(DocumentHost& host, const CustomDeviceBackend
 	}
 	for (const CustomDeviceJoint& joint : device.joints())
 	{
-		if (!joint.motion.motionCenterFrameBackendId.empty() &&
-			mgr.contains(joint.motion.motionCenterFrameBackendId))
+		if (!joint.motion.motionCenterFrameBackendId.empty() && mgr.contains(joint.motion.motionCenterFrameBackendId))
 		{
 			return QString::fromStdString(joint.motion.motionCenterFrameBackendId);
 		}
@@ -1144,7 +1141,8 @@ bool rebakeDeviceRootFollowLocal(CustomDeviceBackendData& device, DocumentHost& 
 	{
 		return false;
 	}
-	BackendMat4 toolInFlange = resolveActiveToolFrameInFlange(host, QString::fromStdString(mount->robotSceneBackendId()));
+	BackendMat4 toolInFlange =
+		resolveActiveToolFrameInFlange(host, QString::fromStdString(mount->robotSceneBackendId()));
 	mount->setToolFrameInFlange(toolInFlange);
 	BackendMat4 followLocal{};
 	if (!computeMountFollowLocal(toolInFlange, mount->frameInDeviceW0(), followLocal))
@@ -1157,10 +1155,9 @@ bool rebakeDeviceRootFollowLocal(CustomDeviceBackendData& device, DocumentHost& 
 }
 } // namespace
 
-bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& host,
-							   const QString& robotSceneBackendId, const QString& flangeLinkName,
-							   const QString& flangeBackendIdIn, const QString& mountFrameBackendIdIn,
-							   const BackendMat4& toolFrameInFlange,
+bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& host, const QString& robotSceneBackendId,
+							   const QString& flangeLinkName, const QString& flangeBackendIdIn,
+							   const QString& mountFrameBackendIdIn, const BackendMat4& toolFrameInFlange,
 							   const QVector<double>* localJointAnglesRadForMount,
 							   const BackendMat4* mountTcpWorldForAlign, QString* err)
 {
@@ -1228,9 +1225,9 @@ bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& ho
 	std::string mountFrameAncestorChain;
 	BackendMat4 mountFrameParentW = BackendMat4::identity();
 	bool usedHierarchyResolve = false;
-	if (!resolveMountFrameWorldForMount(host, mgr, device, mountFrameBackendId.toStdString(), frameW, mountFrameParentId,
-									  mountFrameParentW, usedHierarchyResolve, mountFrameMgrParentId,
-									  mountFrameAncestorChain))
+	if (!resolveMountFrameWorldForMount(host, mgr, device, mountFrameBackendId.toStdString(), frameW,
+										mountFrameParentId, mountFrameParentW, usedHierarchyResolve,
+										mountFrameMgrParentId, mountFrameAncestorChain))
 	{
 		if (err)
 		{

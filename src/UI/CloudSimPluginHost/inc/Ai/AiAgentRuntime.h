@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIAGENTRUNTIME_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIAGENTRUNTIME_H
 #define CLOUDSIMPLUGINHOST_AIAGENTRUNTIME_H
 
 /// @file AiAgentRuntime.h
@@ -106,4 +106,4 @@ private:
 	std::unique_ptr<Pending> m_pending;
 };
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIAGENTRUNTIME_H

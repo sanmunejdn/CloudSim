@@ -1,4 +1,4 @@
-/// @file DrawingInfoPanel.cpp
+﻿/// @file DrawingInfoPanel.cpp
 /// @brief 选中实体特性编辑
 
 #include "DrawingInfoPanel.h"
@@ -75,109 +75,137 @@ DrawingInfoPanel::DrawingInfoPanel(QWidget* parent) : QWidget(parent)
 
 	applyLanguage(true);
 
-	connect(m_layerCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-		if (!m_busy)
-			applyUiToSelection();
-	});
-	connect(m_colorByLayer, &QCheckBox::toggled, this, [this](bool on) {
-		if (m_busy)
-			return;
-		if (on && m_colorByBlock)
-		{
-			const QSignalBlocker b(m_colorByBlock);
-			m_colorByBlock->setChecked(false);
-		}
-		applyUiToSelection();
-	});
-	connect(m_colorByBlock, &QCheckBox::toggled, this, [this](bool on) {
-		if (m_busy)
-			return;
-		if (on && m_colorByLayer)
-		{
-			const QSignalBlocker b(m_colorByLayer);
-			m_colorByLayer->setChecked(false);
-		}
-		applyUiToSelection();
-	});
-	connect(m_ltByLayer, &QCheckBox::toggled, this, [this](bool on) {
-		if (m_busy)
-			return;
-		if (on && m_ltByBlock)
-		{
-			const QSignalBlocker b(m_ltByBlock);
-			m_ltByBlock->setChecked(false);
-		}
-		applyUiToSelection();
-	});
-	connect(m_ltByBlock, &QCheckBox::toggled, this, [this](bool on) {
-		if (m_busy)
-			return;
-		if (on && m_ltByLayer)
-		{
-			const QSignalBlocker b(m_ltByLayer);
-			m_ltByLayer->setChecked(false);
-		}
-		applyUiToSelection();
-	});
-	connect(m_lwByLayer, &QCheckBox::toggled, this, [this](bool on) {
-		if (m_busy)
-			return;
-		if (on && m_lwByBlock)
-		{
-			const QSignalBlocker b(m_lwByBlock);
-			m_lwByBlock->setChecked(false);
-		}
-		applyUiToSelection();
-	});
-	connect(m_lwByBlock, &QCheckBox::toggled, this, [this](bool on) {
-		if (m_busy)
-			return;
-		if (on && m_lwByLayer)
-		{
-			const QSignalBlocker b(m_lwByLayer);
-			m_lwByLayer->setChecked(false);
-		}
-		applyUiToSelection();
-	});
-	connect(m_lineTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-		if (!m_busy)
-			applyUiToSelection();
-	});
-	connect(m_widthSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double) {
-		if (!m_busy)
-			applyUiToSelection();
-	});
-	connect(m_showTol, &QCheckBox::toggled, this, [this](bool) {
-		if (!m_busy)
-			applyUiToSelection();
-	});
-	connect(m_tolPlus, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double) {
-		if (!m_busy)
-			applyUiToSelection();
-	});
-	connect(m_tolMinus, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double) {
-		if (!m_busy)
-			applyUiToSelection();
-	});
-	connect(m_colorBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_canvas)
-			return;
-		SheetEntityStyle s;
-		QString lid;
-		if (!m_canvas->selectionStyle(s, lid))
-			return;
-		const QColor c = QColorDialog::getColor(s.color, this, QStringLiteral("实体颜色"));
-		if (!c.isValid())
-			return;
-		s.color = c;
-		s.colorByLayer = false;
-		m_canvas->applyStyleToSelection(s, lid);
-		refreshFromSelection();
-	});
-	connect(m_matchBtn, &QPushButton::clicked, this, [this]() {
-		if (m_canvas)
-			m_canvas->matchPropFromSelection();
-	});
+	connect(m_layerCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				if (!m_busy)
+					applyUiToSelection();
+			});
+	connect(m_colorByLayer, &QCheckBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_busy)
+					return;
+				if (on && m_colorByBlock)
+				{
+					const QSignalBlocker b(m_colorByBlock);
+					m_colorByBlock->setChecked(false);
+				}
+				applyUiToSelection();
+			});
+	connect(m_colorByBlock, &QCheckBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_busy)
+					return;
+				if (on && m_colorByLayer)
+				{
+					const QSignalBlocker b(m_colorByLayer);
+					m_colorByLayer->setChecked(false);
+				}
+				applyUiToSelection();
+			});
+	connect(m_ltByLayer, &QCheckBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_busy)
+					return;
+				if (on && m_ltByBlock)
+				{
+					const QSignalBlocker b(m_ltByBlock);
+					m_ltByBlock->setChecked(false);
+				}
+				applyUiToSelection();
+			});
+	connect(m_ltByBlock, &QCheckBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_busy)
+					return;
+				if (on && m_ltByLayer)
+				{
+					const QSignalBlocker b(m_ltByLayer);
+					m_ltByLayer->setChecked(false);
+				}
+				applyUiToSelection();
+			});
+	connect(m_lwByLayer, &QCheckBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_busy)
+					return;
+				if (on && m_lwByBlock)
+				{
+					const QSignalBlocker b(m_lwByBlock);
+					m_lwByBlock->setChecked(false);
+				}
+				applyUiToSelection();
+			});
+	connect(m_lwByBlock, &QCheckBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_busy)
+					return;
+				if (on && m_lwByLayer)
+				{
+					const QSignalBlocker b(m_lwByLayer);
+					m_lwByLayer->setChecked(false);
+				}
+				applyUiToSelection();
+			});
+	connect(m_lineTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				if (!m_busy)
+					applyUiToSelection();
+			});
+	connect(m_widthSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double)
+			{
+				if (!m_busy)
+					applyUiToSelection();
+			});
+	connect(m_showTol, &QCheckBox::toggled, this,
+			[this](bool)
+			{
+				if (!m_busy)
+					applyUiToSelection();
+			});
+	connect(m_tolPlus, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double)
+			{
+				if (!m_busy)
+					applyUiToSelection();
+			});
+	connect(m_tolMinus, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			[this](double)
+			{
+				if (!m_busy)
+					applyUiToSelection();
+			});
+	connect(m_colorBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (!m_canvas)
+					return;
+				SheetEntityStyle s;
+				QString lid;
+				if (!m_canvas->selectionStyle(s, lid))
+					return;
+				const QColor c = QColorDialog::getColor(s.color, this, QStringLiteral("实体颜色"));
+				if (!c.isValid())
+					return;
+				s.color = c;
+				s.colorByLayer = false;
+				m_canvas->applyStyleToSelection(s, lid);
+				refreshFromSelection();
+			});
+	connect(m_matchBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (m_canvas)
+					m_canvas->matchPropFromSelection();
+			});
 	applyLanguage(true);
 	refreshFromSelection();
 }

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_FEATURECOMPOSEDOMAINHANDLER_H
+﻿#ifndef CLOUDSIMPLUGINHOST_FEATURECOMPOSEDOMAINHANDLER_H
 #define CLOUDSIMPLUGINHOST_FEATURECOMPOSEDOMAINHANDLER_H
 
 /// @file FeatureComposeDomainHandler.h
@@ -20,4 +20,4 @@ public:
 	static bool validatePlanJson(const nlohmann::json& root, QString* err);
 };
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_FEATURECOMPOSEDOMAINHANDLER_H

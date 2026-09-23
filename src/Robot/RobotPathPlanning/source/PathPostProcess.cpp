@@ -1,4 +1,4 @@
-/// @file PathPostProcess.cpp
+﻿/// @file PathPostProcess.cpp
 /// @brief 关节路径 → TCP 位姿列
 
 #include "PathPostProcess.h"
@@ -16,7 +16,6 @@ namespace detail
 {
 namespace
 {
-
 engine::RigidTransform rigidFromBackend(const BackendMat4& m)
 {
 	engine::ColMajorMat4 cm{};

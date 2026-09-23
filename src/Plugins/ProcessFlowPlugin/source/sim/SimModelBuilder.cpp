@@ -1,4 +1,4 @@
-/// @file SimModelBuilder.cpp
+﻿/// @file SimModelBuilder.cpp
 /// @brief 从图 JSON 构建 PlantGraph 与自动工艺路径
 
 #include "sim/SimModelBuilder.h"

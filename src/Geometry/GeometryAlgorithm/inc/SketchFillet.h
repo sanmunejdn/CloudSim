@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_SKETCHFILLET_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHFILLET_H
 #define GEOMETRYALGORITHM_SKETCHFILLET_H
 
 /// @file SketchFillet.h
@@ -6,6 +6,7 @@
 /// @brief 实体边圆角 / 倒角（OCC MakeFillet / MakeChamfer）
 
 #include "geometry_algorithm_global.h"
+
 #include "ShapeHandle.h"
 
 #include <string>
@@ -22,4 +23,4 @@ GEOMETRY_ALGORITHM_API bool chamferEdgesToHandle(const ShapeHandle& base, const 
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHFILLET_H

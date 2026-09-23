@@ -1,4 +1,4 @@
-#ifndef PROCESSFLOWPLUGIN_PROCESSFLOWNODEPROPS_H
+﻿#ifndef PROCESSFLOWPLUGIN_PROCESSFLOWNODEPROPS_H
 #define PROCESSFLOWPLUGIN_PROCESSFLOWNODEPROPS_H
 
 /// @file ProcessFlowNodeProps.h
@@ -42,4 +42,4 @@ inline const char* processFlowNodeMimeType()
 	return "application/x-cloudsim-processflow-node";
 }
 
-#endif
+#endif // PROCESSFLOWPLUGIN_PROCESSFLOWNODEPROPS_H

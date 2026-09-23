@@ -1,4 +1,4 @@
-/// @file CustomDevicePoseMotionHost.cpp
+﻿/// @file CustomDevicePoseMotionHost.cpp
 /// @brief Web/Headless 自定义设备姿态插值
 
 #include "CustomDevicePoseMotionHost.h"
@@ -10,7 +10,6 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QTimer>
-
 #include <algorithm>
 #include <cmath>
 
@@ -36,7 +35,8 @@ CustomDevicePoseMotionHost::CustomDevicePoseMotionHost(DocumentHost& host, QObje
 
 CustomDevicePoseMotionHost& CustomDevicePoseMotionHost::forHost(DocumentHost& host)
 {
-	CustomDevicePoseMotionHost* existing = host.findChild<CustomDevicePoseMotionHost*>(QString(), Qt::FindDirectChildrenOnly);
+	CustomDevicePoseMotionHost* existing =
+		host.findChild<CustomDevicePoseMotionHost*>(QString(), Qt::FindDirectChildrenOnly);
 	if (existing)
 		return *existing;
 	return *new CustomDevicePoseMotionHost(host, &host);
@@ -64,8 +64,7 @@ bool CustomDevicePoseMotionHost::start(const QString& deviceId, const std::vecto
 {
 	if (deviceId.isEmpty() || targetQ.empty())
 		return false;
-	const auto device =
-		std::dynamic_pointer_cast<CustomDeviceBackendData>(m_host.findObject(deviceId.toStdString()));
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(m_host.findObject(deviceId.toStdString()));
 	if (!device)
 		return false;
 	device->syncAxesFromJoints();

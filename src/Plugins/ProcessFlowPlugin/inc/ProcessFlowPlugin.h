@@ -1,4 +1,4 @@
-#ifndef PROCESSFLOWPLUGIN_PROCESSFLOWPLUGIN_H
+﻿#ifndef PROCESSFLOWPLUGIN_PROCESSFLOWPLUGIN_H
 #define PROCESSFLOWPLUGIN_PROCESSFLOWPLUGIN_H
 
 /// @file ProcessFlowPlugin.h
@@ -79,4 +79,4 @@ private:
 	bool m_flowDirty = false;
 };
 
-#endif
+#endif // PROCESSFLOWPLUGIN_PROCESSFLOWPLUGIN_H

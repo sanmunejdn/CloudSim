@@ -1,4 +1,4 @@
-/// @file SketchLoft.cpp
+﻿/// @file SketchLoft.cpp
 
 #include "SketchLoft.h"
 

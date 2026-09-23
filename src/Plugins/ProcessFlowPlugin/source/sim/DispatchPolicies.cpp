@@ -1,4 +1,4 @@
-/// @file DispatchPolicies.cpp
+﻿/// @file DispatchPolicies.cpp
 /// @brief FIFO / SPT / LPT / EDD / CR
 
 #include "sim/DispatchPolicies.h"
@@ -21,7 +21,8 @@ bool betterPriorityThenFifo(const ReadyOpCandidate& a, const ReadyOpCandidate& b
 	return a.enqueueTime < b.enqueueTime;
 }
 
-int pickBy(const DispatchContext& ctx, const std::function<bool(const ReadyOpCandidate&, const ReadyOpCandidate&)>& better)
+int pickBy(const DispatchContext& ctx,
+		   const std::function<bool(const ReadyOpCandidate&, const ReadyOpCandidate&)>& better)
 {
 	if (ctx.candidates.isEmpty())
 	{
@@ -89,9 +90,9 @@ int CrPolicy::select(const DispatchContext& ctx) const
 				  [&ctx](const ReadyOpCandidate& a, const ReadyOpCandidate& b)
 				  {
 					  const double ra = a.remainingWorkSec > 1e-9 ? (a.dueDateSec - ctx.now) / a.remainingWorkSec
-																 : std::numeric_limits<double>::infinity();
+																  : std::numeric_limits<double>::infinity();
 					  const double rb = b.remainingWorkSec > 1e-9 ? (b.dueDateSec - ctx.now) / b.remainingWorkSec
-																 : std::numeric_limits<double>::infinity();
+																  : std::numeric_limits<double>::infinity();
 					  if (ra < rb - 1e-12)
 						  return true;
 					  if (std::abs(ra - rb) <= 1e-12)

@@ -1,11 +1,12 @@
-/// @file BackendPropertyBindings.cpp
+﻿/// @file BackendPropertyBindings.cpp
 /// @brief 标准包 + Binding 收集 / schema 缓存
 
+#include "../../PropertyCore/inc/PropertyAttributeHelpers.h"
+#include "../../PropertyCore/inc/PropertyTypes.h"
+#include "BackendDataBase.h"
+#include "BackendExternalPropertySchemaRegistry.h"
 #include "BackendPropertyBinding.h"
 #include "BackendPropertyBindingSelfTest.h"
-#include "BackendExternalPropertySchemaRegistry.h"
-
-#include "BackendDataBase.h"
 #include "BackendPropertyRow.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
@@ -14,9 +15,6 @@
 #include "FrameBackendData.h"
 #include "MeshBackendData.h"
 #include "RunLogger.h"
-
-#include "../../PropertyCore/inc/PropertyAttributeHelpers.h"
-#include "../../PropertyCore/inc/PropertyTypes.h"
 
 #include <cctype>
 #include <memory>
@@ -313,9 +311,9 @@ bool applyAxisLengthMm(BackendDataBase& d, const std::string& value, std::string
 void appendPosePack(std::vector<BackendPropertyBinding>& out)
 {
 	const auto xform = PropertySemanticFlags::AffectsBackendRootWorldXform;
-	out.push_back({makeDesc("pose.frame", "Pose frame (world|parent)", PropertyType::String, true,
-							 PropertySemanticFlags::None),
-				   formatPoseFrame, applyPoseFrame});
+	out.push_back(
+		{makeDesc("pose.frame", "Pose frame (world|parent)", PropertyType::String, true, PropertySemanticFlags::None),
+		 formatPoseFrame, applyPoseFrame});
 	out.push_back({makeDesc("pose.x", "Pose X", PropertyType::Double, true, xform), formatPoseX, applyPoseX});
 	out.push_back({makeDesc("pose.y", "Pose Y", PropertyType::Double, true, xform), formatPoseY, applyPoseY});
 	out.push_back({makeDesc("pose.z", "Pose Z", PropertyType::Double, true, xform), formatPoseZ, applyPoseZ});
@@ -454,8 +452,7 @@ const property_core::PropertySchema& schemaForClassName(const std::string& class
 		std::lock_guard<std::mutex> lock(schemaCacheMutex());
 		if (schemaWarned().insert(className).second)
 		{
-			RunLogger::warn("[BackendPropertyBinding] unknown className \"" + className +
-							"\", empty schema.");
+			RunLogger::warn("[BackendPropertyBinding] unknown className \"" + className + "\", empty schema.");
 		}
 		auto inserted = schemaCache().emplace(className, property_core::PropertySchema{});
 		return inserted.first->second;
@@ -557,8 +554,9 @@ const std::vector<BackendPropertyBinding>& meshExtras()
 	static const std::vector<BackendPropertyBinding> k = []
 	{
 		std::vector<BackendPropertyBinding> v;
-		v.push_back({makeDesc("mesh.triangle_count", "Triangles", PropertyType::Int, false, PropertySemanticFlags::None),
-					 formatMeshTriangleCount, applyReadOnly});
+		v.push_back(
+			{makeDesc("mesh.triangle_count", "Triangles", PropertyType::Int, false, PropertySemanticFlags::None),
+			 formatMeshTriangleCount, applyReadOnly});
 		return v;
 	}();
 	return k;

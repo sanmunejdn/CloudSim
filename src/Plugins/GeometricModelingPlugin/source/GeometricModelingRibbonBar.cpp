@@ -1,7 +1,8 @@
-/// @file GeometricModelingRibbonBar.cpp
+﻿/// @file GeometricModelingRibbonBar.cpp
 /// @brief CAD 模式条：卡片分组 + 青绿强调（与灰阶宿主工具栏区分）
 
 #include "GeometricModelingRibbonBar.h"
+
 #include "GeomodelingI18n.h"
 
 #include <QAbstractButton>
@@ -16,15 +17,14 @@
 #include <QScrollArea>
 #include <QSizePolicy>
 #include <QToolButton>
-#include <QVariant>
 #include <QVBoxLayout>
-
+#include <QVariant>
 #include <cmath>
 
 namespace
 {
 // 工程青绿：浅色/深色共用同一强调，避免紫粉 AI 默认色
-constexpr QRgb kAccent = 0xff0f766e;	  // teal-700
+constexpr QRgb kAccent = 0xff0f766e;	 // teal-700
 constexpr QRgb kAccentSoft = 0xff14b8a6; // teal-500
 
 QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
@@ -523,7 +523,6 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	return QIcon(pm);
 }
 
-
 QToolButton* makeRibbonButton(QWidget* parent, const QString& text, const QString& kind, const QString& role,
 							  bool compact = false)
 {
@@ -637,31 +636,39 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	m_btnNewSketch =
 		makeRibbonButton(sketch, QStringLiteral("新建"), QStringLiteral("sketch"), QStringLiteral("normal"), true);
 	auto* newSketch = m_btnNewSketch;
-	m_btnDatumPlane =
-		makeRibbonButton(sketch, QStringLiteral("基准面"), QStringLiteral("datumPlane"), QStringLiteral("normal"), true);
+	m_btnDatumPlane = makeRibbonButton(sketch, QStringLiteral("基准面"), QStringLiteral("datumPlane"),
+									   QStringLiteral("normal"), true);
 	m_btnLine = makeRibbonButton(sketch, QStringLiteral("直线"), QStringLiteral("line"), QStringLiteral("draw"), true);
 	m_btnArc = makeRibbonButton(sketch, QStringLiteral("圆弧"), QStringLiteral("arc"), QStringLiteral("draw"), true);
-	m_btnCircle = makeRibbonButton(sketch, QStringLiteral("圆"), QStringLiteral("circle"), QStringLiteral("draw"), true);
+	m_btnCircle =
+		makeRibbonButton(sketch, QStringLiteral("圆"), QStringLiteral("circle"), QStringLiteral("draw"), true);
 	m_btnRect = makeRibbonButton(sketch, QStringLiteral("矩形"), QStringLiteral("rect"), QStringLiteral("draw"), true);
-	m_btnEllipse = makeRibbonButton(sketch, QStringLiteral("椭圆"), QStringLiteral("ellipse"), QStringLiteral("draw"), true);
-	m_btnPolygon = makeRibbonButton(sketch, QStringLiteral("多边形"), QStringLiteral("polygon"), QStringLiteral("draw"), true);
+	m_btnEllipse =
+		makeRibbonButton(sketch, QStringLiteral("椭圆"), QStringLiteral("ellipse"), QStringLiteral("draw"), true);
+	m_btnPolygon =
+		makeRibbonButton(sketch, QStringLiteral("多边形"), QStringLiteral("polygon"), QStringLiteral("draw"), true);
 	m_btnSlot = makeRibbonButton(sketch, QStringLiteral("槽口"), QStringLiteral("slot"), QStringLiteral("draw"), true);
-	m_btnSpline = makeRibbonButton(sketch, QStringLiteral("样条"), QStringLiteral("spline"), QStringLiteral("draw"), true);
-	m_btnConstr = makeRibbonButton(sketch, QStringLiteral("构造线"), QStringLiteral("constr"), QStringLiteral("draw"), true);
+	m_btnSpline =
+		makeRibbonButton(sketch, QStringLiteral("样条"), QStringLiteral("spline"), QStringLiteral("draw"), true);
+	m_btnConstr =
+		makeRibbonButton(sketch, QStringLiteral("构造线"), QStringLiteral("constr"), QStringLiteral("draw"), true);
 	m_btnTrim = makeRibbonButton(sketch, QStringLiteral("修剪"), QStringLiteral("trim"), QStringLiteral("draw"), true);
-	m_btnMirror = makeRibbonButton(sketch, QStringLiteral("镜像"), QStringLiteral("mirror"), QStringLiteral("draw"), true);
-	m_btnDelete = makeRibbonButton(sketch, QStringLiteral("删除"), QStringLiteral("delete"), QStringLiteral("draw"), true);
-	m_btnProjectEdges =
-		makeRibbonButton(sketch, QStringLiteral("投影边"), QStringLiteral("projectEdges"), QStringLiteral("draw"), true);
+	m_btnMirror =
+		makeRibbonButton(sketch, QStringLiteral("镜像"), QStringLiteral("mirror"), QStringLiteral("draw"), true);
+	m_btnDelete =
+		makeRibbonButton(sketch, QStringLiteral("删除"), QStringLiteral("delete"), QStringLiteral("draw"), true);
+	m_btnProjectEdges = makeRibbonButton(sketch, QStringLiteral("投影边"), QStringLiteral("projectEdges"),
+										 QStringLiteral("draw"), true);
 	m_btnConvertEntities = makeRibbonButton(sketch, QStringLiteral("转换实体"), QStringLiteral("convertEntities"),
-											  QStringLiteral("draw"), true);
-	m_btnOffset = makeRibbonButton(sketch, QStringLiteral("等距"), QStringLiteral("offset"), QStringLiteral("draw"), true);
+											QStringLiteral("draw"), true);
+	m_btnOffset =
+		makeRibbonButton(sketch, QStringLiteral("等距"), QStringLiteral("offset"), QStringLiteral("draw"), true);
 	m_btnEndSketch =
 		makeRibbonButton(sketch, QStringLiteral("结束"), QStringLiteral("endSketch"), QStringLiteral("danger"), true);
 	auto* endSketch = m_btnEndSketch;
-	for (QToolButton* b : {m_btnLine, m_btnArc, m_btnCircle, m_btnRect, m_btnEllipse, m_btnPolygon, m_btnSlot,
-						   m_btnSpline, m_btnConstr, m_btnTrim, m_btnMirror, m_btnDelete, m_btnProjectEdges,
-						   m_btnConvertEntities, m_btnOffset})
+	for (QToolButton* b :
+		 {m_btnLine, m_btnArc, m_btnCircle, m_btnRect, m_btnEllipse, m_btnPolygon, m_btnSlot, m_btnSpline, m_btnConstr,
+		  m_btnTrim, m_btnMirror, m_btnDelete, m_btnProjectEdges, m_btnConvertEntities, m_btnOffset})
 	{
 		b->setCheckable(true);
 		m_drawTools->addButton(b);
@@ -717,23 +724,36 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	QVBoxLayout* markStack = nullptr;
 	QWidget* marks = makeStackedGroup(host, QStringLiteral("标注"), markStack);
 	m_lblMarks = marks->findChild<QLabel*>(QStringLiteral("RibbonGroupTitle"));
-	m_btnDimLen = makeRibbonButton(marks, QStringLiteral("长度"), QStringLiteral("dimLen"), QStringLiteral("draw"), true);
-	m_btnDimDist = makeRibbonButton(marks, QStringLiteral("距离"), QStringLiteral("dimDist"), QStringLiteral("draw"), true);
-	m_btnDimRad = makeRibbonButton(marks, QStringLiteral("半径"), QStringLiteral("dimRad"), QStringLiteral("draw"), true);
-	m_btnDimAng = makeRibbonButton(marks, QStringLiteral("角度"), QStringLiteral("dimAng"), QStringLiteral("draw"), true);
-	m_btnDimArcR = makeRibbonButton(marks, QStringLiteral("弧半径"), QStringLiteral("dimArcR"), QStringLiteral("draw"), true);
+	m_btnDimLen =
+		makeRibbonButton(marks, QStringLiteral("长度"), QStringLiteral("dimLen"), QStringLiteral("draw"), true);
+	m_btnDimDist =
+		makeRibbonButton(marks, QStringLiteral("距离"), QStringLiteral("dimDist"), QStringLiteral("draw"), true);
+	m_btnDimRad =
+		makeRibbonButton(marks, QStringLiteral("半径"), QStringLiteral("dimRad"), QStringLiteral("draw"), true);
+	m_btnDimAng =
+		makeRibbonButton(marks, QStringLiteral("角度"), QStringLiteral("dimAng"), QStringLiteral("draw"), true);
+	m_btnDimArcR =
+		makeRibbonButton(marks, QStringLiteral("弧半径"), QStringLiteral("dimArcR"), QStringLiteral("draw"), true);
 	m_btnGeomH = makeRibbonButton(marks, QStringLiteral("水平"), QStringLiteral("geomH"), QStringLiteral("draw"), true);
 	m_btnGeomV = makeRibbonButton(marks, QStringLiteral("竖直"), QStringLiteral("geomV"), QStringLiteral("draw"), true);
-	m_btnGeomCoin = makeRibbonButton(marks, QStringLiteral("重合"), QStringLiteral("geomCoin"), QStringLiteral("draw"), true);
-	m_btnGeomPar = makeRibbonButton(marks, QStringLiteral("平行"), QStringLiteral("geomPar"), QStringLiteral("draw"), true);
-	m_btnGeomPerp = makeRibbonButton(marks, QStringLiteral("垂直"), QStringLiteral("geomPerp"), QStringLiteral("draw"), true);
-	m_btnGeomEq = makeRibbonButton(marks, QStringLiteral("等长"), QStringLiteral("geomEq"), QStringLiteral("draw"), true);
-	m_btnGeomTan = makeRibbonButton(marks, QStringLiteral("相切"), QStringLiteral("geomTan"), QStringLiteral("draw"), true);
-	m_btnGeomSym = makeRibbonButton(marks, QStringLiteral("对称"), QStringLiteral("geomSym"), QStringLiteral("draw"), true);
-	m_btnGeomMid = makeRibbonButton(marks, QStringLiteral("中点"), QStringLiteral("geomMid"), QStringLiteral("draw"), true);
-	m_btnGeomFix = makeRibbonButton(marks, QStringLiteral("固定"), QStringLiteral("geomFix"), QStringLiteral("draw"), true);
-	m_btnGeomFixOrigin =
-		makeRibbonButton(marks, QStringLiteral("到原点"), QStringLiteral("geomFixOrigin"), QStringLiteral("draw"), true);
+	m_btnGeomCoin =
+		makeRibbonButton(marks, QStringLiteral("重合"), QStringLiteral("geomCoin"), QStringLiteral("draw"), true);
+	m_btnGeomPar =
+		makeRibbonButton(marks, QStringLiteral("平行"), QStringLiteral("geomPar"), QStringLiteral("draw"), true);
+	m_btnGeomPerp =
+		makeRibbonButton(marks, QStringLiteral("垂直"), QStringLiteral("geomPerp"), QStringLiteral("draw"), true);
+	m_btnGeomEq =
+		makeRibbonButton(marks, QStringLiteral("等长"), QStringLiteral("geomEq"), QStringLiteral("draw"), true);
+	m_btnGeomTan =
+		makeRibbonButton(marks, QStringLiteral("相切"), QStringLiteral("geomTan"), QStringLiteral("draw"), true);
+	m_btnGeomSym =
+		makeRibbonButton(marks, QStringLiteral("对称"), QStringLiteral("geomSym"), QStringLiteral("draw"), true);
+	m_btnGeomMid =
+		makeRibbonButton(marks, QStringLiteral("中点"), QStringLiteral("geomMid"), QStringLiteral("draw"), true);
+	m_btnGeomFix =
+		makeRibbonButton(marks, QStringLiteral("固定"), QStringLiteral("geomFix"), QStringLiteral("draw"), true);
+	m_btnGeomFixOrigin = makeRibbonButton(marks, QStringLiteral("到原点"), QStringLiteral("geomFixOrigin"),
+										  QStringLiteral("draw"), true);
 	for (QToolButton* b : {m_btnDimLen, m_btnDimDist, m_btnDimRad, m_btnDimAng, m_btnDimArcR, m_btnGeomH, m_btnGeomV,
 						   m_btnGeomCoin, m_btnGeomPar, m_btnGeomPerp, m_btnGeomEq, m_btnGeomTan, m_btnGeomSym,
 						   m_btnGeomMid, m_btnGeomFix, m_btnGeomFixOrigin})
@@ -781,37 +801,50 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	QVBoxLayout* featStack = nullptr;
 	QWidget* feat = makeStackedGroup(host, QStringLiteral("特征"), featStack);
 	m_lblFeat = feat->findChild<QLabel*>(QStringLiteral("RibbonGroupTitle"));
-	m_btnSolve = makeRibbonButton(feat, QStringLiteral("求解"), QStringLiteral("solve"), QStringLiteral("normal"), true);
+	m_btnSolve =
+		makeRibbonButton(feat, QStringLiteral("求解"), QStringLiteral("solve"), QStringLiteral("normal"), true);
 	m_btnPad = makeRibbonButton(feat, QStringLiteral("拉伸"), QStringLiteral("pad"), QStringLiteral("primary"), true);
-	m_btnPocket = makeRibbonButton(feat, QStringLiteral("切除"), QStringLiteral("pocket"), QStringLiteral("normal"), true);
-	m_btnSweep = makeRibbonButton(feat, QStringLiteral("扫描"), QStringLiteral("sweep"), QStringLiteral("normal"), true);
-	m_btnSweepCut = makeRibbonButton(feat, QStringLiteral("扫描切除"), QStringLiteral("sweepCut"), QStringLiteral("normal"), true);
-	m_btnFillet = makeRibbonButton(feat, QStringLiteral("圆角"), QStringLiteral("fillet"), QStringLiteral("normal"), true);
-	m_btnChamfer = makeRibbonButton(feat, QStringLiteral("倒角"), QStringLiteral("chamfer"), QStringLiteral("normal"), true);
-	m_btnRevolve = makeRibbonButton(feat, QStringLiteral("旋转"), QStringLiteral("revolve"), QStringLiteral("normal"), true);
-	m_btnRevolveCut =
-		makeRibbonButton(feat, QStringLiteral("旋转切除"), QStringLiteral("revolveCut"), QStringLiteral("normal"), true);
-	m_btnPattern = makeRibbonButton(feat, QStringLiteral("线性阵列"), QStringLiteral("pattern"), QStringLiteral("normal"), true);
-	m_btnCircularPattern =
-		makeRibbonButton(feat, QStringLiteral("圆周阵列"), QStringLiteral("circularPattern"), QStringLiteral("normal"), true);
-	m_btnMirror3d = makeRibbonButton(feat, QStringLiteral("镜像"), QStringLiteral("mirror3d"), QStringLiteral("normal"), true);
+	m_btnPocket =
+		makeRibbonButton(feat, QStringLiteral("切除"), QStringLiteral("pocket"), QStringLiteral("normal"), true);
+	m_btnSweep =
+		makeRibbonButton(feat, QStringLiteral("扫描"), QStringLiteral("sweep"), QStringLiteral("normal"), true);
+	m_btnSweepCut =
+		makeRibbonButton(feat, QStringLiteral("扫描切除"), QStringLiteral("sweepCut"), QStringLiteral("normal"), true);
+	m_btnFillet =
+		makeRibbonButton(feat, QStringLiteral("圆角"), QStringLiteral("fillet"), QStringLiteral("normal"), true);
+	m_btnChamfer =
+		makeRibbonButton(feat, QStringLiteral("倒角"), QStringLiteral("chamfer"), QStringLiteral("normal"), true);
+	m_btnRevolve =
+		makeRibbonButton(feat, QStringLiteral("旋转"), QStringLiteral("revolve"), QStringLiteral("normal"), true);
+	m_btnRevolveCut = makeRibbonButton(feat, QStringLiteral("旋转切除"), QStringLiteral("revolveCut"),
+									   QStringLiteral("normal"), true);
+	m_btnPattern =
+		makeRibbonButton(feat, QStringLiteral("线性阵列"), QStringLiteral("pattern"), QStringLiteral("normal"), true);
+	m_btnCircularPattern = makeRibbonButton(feat, QStringLiteral("圆周阵列"), QStringLiteral("circularPattern"),
+											QStringLiteral("normal"), true);
+	m_btnMirror3d =
+		makeRibbonButton(feat, QStringLiteral("镜像"), QStringLiteral("mirror3d"), QStringLiteral("normal"), true);
 	m_btnLoft = makeRibbonButton(feat, QStringLiteral("放样"), QStringLiteral("loft"), QStringLiteral("normal"), true);
-	m_btnLoftCut = makeRibbonButton(feat, QStringLiteral("放样切除"), QStringLiteral("loftCut"), QStringLiteral("normal"), true);
-	m_btnShell = makeRibbonButton(feat, QStringLiteral("抽壳"), QStringLiteral("shell"), QStringLiteral("normal"), true);
-	m_btnDraft = makeRibbonButton(feat, QStringLiteral("拔模"), QStringLiteral("draft"), QStringLiteral("normal"), true);
-	m_btnRebuild = makeRibbonButton(feat, QStringLiteral("重建"), QStringLiteral("rebuild"), QStringLiteral("normal"), true);
+	m_btnLoftCut =
+		makeRibbonButton(feat, QStringLiteral("放样切除"), QStringLiteral("loftCut"), QStringLiteral("normal"), true);
+	m_btnShell =
+		makeRibbonButton(feat, QStringLiteral("抽壳"), QStringLiteral("shell"), QStringLiteral("normal"), true);
+	m_btnDraft =
+		makeRibbonButton(feat, QStringLiteral("拔模"), QStringLiteral("draft"), QStringLiteral("normal"), true);
+	m_btnRebuild =
+		makeRibbonButton(feat, QStringLiteral("重建"), QStringLiteral("rebuild"), QStringLiteral("normal"), true);
 	m_btnUndo = makeRibbonButton(feat, QStringLiteral("撤销"), QStringLiteral("undo"), QStringLiteral("normal"), true);
 	m_btnRedo = makeRibbonButton(feat, QStringLiteral("重做"), QStringLiteral("redo"), QStringLiteral("normal"), true);
-	m_btnExportHistory =
-		makeRibbonButton(feat, QStringLiteral("导出JSON"), QStringLiteral("exportHistory"), QStringLiteral("normal"), true);
-	m_btnImportReplace =
-		makeRibbonButton(feat, QStringLiteral("导入替换"), QStringLiteral("importReplace"), QStringLiteral("normal"), true);
+	m_btnExportHistory = makeRibbonButton(feat, QStringLiteral("导出JSON"), QStringLiteral("exportHistory"),
+										  QStringLiteral("normal"), true);
+	m_btnImportReplace = makeRibbonButton(feat, QStringLiteral("导入替换"), QStringLiteral("importReplace"),
+										  QStringLiteral("normal"), true);
 	m_btnImportNew =
 		makeRibbonButton(feat, QStringLiteral("导入新建"), QStringLiteral("importNew"), QStringLiteral("normal"), true);
-	m_btnRunCompose =
-		makeRibbonButton(feat, QStringLiteral("运行Compose"), QStringLiteral("runCompose"), QStringLiteral("normal"), true);
-	m_btnPythonConsole =
-		makeRibbonButton(feat, QStringLiteral("Python"), QStringLiteral("pythonConsole"), QStringLiteral("normal"), true);
+	m_btnRunCompose = makeRibbonButton(feat, QStringLiteral("运行Compose"), QStringLiteral("runCompose"),
+									   QStringLiteral("normal"), true);
+	m_btnPythonConsole = makeRibbonButton(feat, QStringLiteral("Python"), QStringLiteral("pythonConsole"),
+										  QStringLiteral("normal"), true);
 	auto* solve = m_btnSolve;
 	auto* pad = m_btnPad;
 	auto* pocket = m_btnPocket;
@@ -958,7 +991,8 @@ GeometricModelingRibbonBar::GeometricModelingRibbonBar(QWidget* parent) : QWidge
 	connect(undo, &QToolButton::clicked, this, &GeometricModelingRibbonBar::undoRequested);
 	connect(redo, &QToolButton::clicked, this, &GeometricModelingRibbonBar::redoRequested);
 	connect(m_btnExportHistory, &QToolButton::clicked, this, &GeometricModelingRibbonBar::exportHistoryRequested);
-	connect(m_btnImportReplace, &QToolButton::clicked, this, &GeometricModelingRibbonBar::importHistoryReplaceRequested);
+	connect(m_btnImportReplace, &QToolButton::clicked, this,
+			&GeometricModelingRibbonBar::importHistoryReplaceRequested);
 	connect(m_btnImportNew, &QToolButton::clicked, this, &GeometricModelingRibbonBar::importHistoryNewRequested);
 	connect(m_btnRunCompose, &QToolButton::clicked, this, &GeometricModelingRibbonBar::runComposeFileRequested);
 	connect(m_btnPythonConsole, &QToolButton::clicked, this, &GeometricModelingRibbonBar::pythonConsoleRequested);
@@ -983,104 +1017,103 @@ void GeometricModelingRibbonBar::clearToolChecks()
 void GeometricModelingRibbonBar::applyTheme(bool dark)
 {
 	m_dark = dark;
-	const QString sheet = dark ? QStringLiteral(
-									 "#GeometricModelingRibbonBar {"
-									 "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-									 "    stop:0 #27272a, stop:1 #18181b);"
-									 "  border-bottom: 2px solid #0f766e;"
-									 "}"
-									 "#RibbonScroll, #RibbonHost { background: transparent; }"
-									 "#RibbonGroup {"
-									 "  background-color: #27272a;"
-									 "  border: 1px solid #3f3f46;"
-									 "  border-radius: 6px;"
-									 "}"
-									 "QFrame#RibbonSep { background: #3f3f46; border: none; }"
-									 "QLabel#RibbonGroupTitle {"
-									 "  color: #a1a1aa;"
-									 "  font-size: 9px;"
-									 "  font-weight: 600;"
-									 "}"
-									 "QToolButton#RibbonBtn {"
-									 "  background-color: #3f3f46;"
-									 "  color: #f4f4f5;"
-									 "  border: 1px solid #52525b;"
-									 "  border-radius: 5px;"
-									 "  padding: 1px;"
-									 "  font-size: 10px;"
-									 "  font-weight: 600;"
-									 "}"
-									 "QToolButton#RibbonBtn:hover {"
-									 "  background-color: #52525b;"
-									 "  border-color: #14b8a6;"
-									 "}"
-									 "QToolButton#RibbonBtn:pressed { background-color: #0f766e; }"
-									 "QToolButton#RibbonBtn:checked {"
-									 "  background-color: #115e59;"
-									 "  border: 2px solid #2dd4bf;"
-									 "  color: #ccfbf1;"
-									 "}"
-									 "QToolButton#RibbonBtn[btnRole=\"primary\"] {"
-									 "  background-color: #0f766e;"
-									 "  border-color: #14b8a6;"
-									 "  color: #ffffff;"
-									 "}"
-									 "QToolButton#RibbonBtn[btnRole=\"primary\"]:hover { background-color: #0d9488; }"
-									 "QToolButton#RibbonBtn[btnRole=\"danger\"] {"
-									 "  background-color: #3f1d1d;"
-									 "  border-color: #7f1d1d;"
-									 "  color: #fecaca;"
-									 "}"
-									 "QToolButton#RibbonBtn[btnRole=\"danger\"]:hover { background-color: #7f1d1d; }")
-							   : QStringLiteral(
-									 "#GeometricModelingRibbonBar {"
-									 "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-									 "    stop:0 #ffffff, stop:1 #f4f4f5);"
-									 "  border-bottom: 2px solid #0f766e;"
-									 "}"
-									 "#RibbonScroll, #RibbonHost { background: transparent; }"
-									 "#RibbonGroup {"
-									 "  background-color: #ffffff;"
-									 "  border: 1px solid #d4d4d8;"
-									 "  border-radius: 6px;"
-									 "}"
-									 "QFrame#RibbonSep { background: #d4d4d8; border: none; }"
-									 "QLabel#RibbonGroupTitle {"
-									 "  color: #71717a;"
-									 "  font-size: 9px;"
-									 "  font-weight: 600;"
-									 "}"
-									 "QToolButton#RibbonBtn {"
-									 "  background-color: #f4f4f5;"
-									 "  color: #18181b;"
-									 "  border: 1px solid #d4d4d8;"
-									 "  border-radius: 5px;"
-									 "  padding: 1px;"
-									 "  font-size: 10px;"
-									 "  font-weight: 600;"
-									 "}"
-									 "QToolButton#RibbonBtn:hover {"
-									 "  background-color: #ecfdf5;"
-									 "  border-color: #14b8a6;"
-									 "}"
-									 "QToolButton#RibbonBtn:pressed { background-color: #ccfbf1; }"
-									 "QToolButton#RibbonBtn:checked {"
-									 "  background-color: #ccfbf1;"
-									 "  border: 2px solid #0f766e;"
-									 "  color: #115e59;"
-									 "}"
-									 "QToolButton#RibbonBtn[btnRole=\"primary\"] {"
-									 "  background-color: #0f766e;"
-									 "  border-color: #0d9488;"
-									 "  color: #ffffff;"
-									 "}"
-									 "QToolButton#RibbonBtn[btnRole=\"primary\"]:hover { background-color: #0d9488; }"
-									 "QToolButton#RibbonBtn[btnRole=\"danger\"] {"
-									 "  background-color: #fef2f2;"
-									 "  border-color: #fca5a5;"
-									 "  color: #b91c1c;"
-									 "}"
-									 "QToolButton#RibbonBtn[btnRole=\"danger\"]:hover { background-color: #fee2e2; }");
+	const QString sheet =
+		dark ? QStringLiteral("#GeometricModelingRibbonBar {"
+							  "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+							  "    stop:0 #27272a, stop:1 #18181b);"
+							  "  border-bottom: 2px solid #0f766e;"
+							  "}"
+							  "#RibbonScroll, #RibbonHost { background: transparent; }"
+							  "#RibbonGroup {"
+							  "  background-color: #27272a;"
+							  "  border: 1px solid #3f3f46;"
+							  "  border-radius: 6px;"
+							  "}"
+							  "QFrame#RibbonSep { background: #3f3f46; border: none; }"
+							  "QLabel#RibbonGroupTitle {"
+							  "  color: #a1a1aa;"
+							  "  font-size: 9px;"
+							  "  font-weight: 600;"
+							  "}"
+							  "QToolButton#RibbonBtn {"
+							  "  background-color: #3f3f46;"
+							  "  color: #f4f4f5;"
+							  "  border: 1px solid #52525b;"
+							  "  border-radius: 5px;"
+							  "  padding: 1px;"
+							  "  font-size: 10px;"
+							  "  font-weight: 600;"
+							  "}"
+							  "QToolButton#RibbonBtn:hover {"
+							  "  background-color: #52525b;"
+							  "  border-color: #14b8a6;"
+							  "}"
+							  "QToolButton#RibbonBtn:pressed { background-color: #0f766e; }"
+							  "QToolButton#RibbonBtn:checked {"
+							  "  background-color: #115e59;"
+							  "  border: 2px solid #2dd4bf;"
+							  "  color: #ccfbf1;"
+							  "}"
+							  "QToolButton#RibbonBtn[btnRole=\"primary\"] {"
+							  "  background-color: #0f766e;"
+							  "  border-color: #14b8a6;"
+							  "  color: #ffffff;"
+							  "}"
+							  "QToolButton#RibbonBtn[btnRole=\"primary\"]:hover { background-color: #0d9488; }"
+							  "QToolButton#RibbonBtn[btnRole=\"danger\"] {"
+							  "  background-color: #3f1d1d;"
+							  "  border-color: #7f1d1d;"
+							  "  color: #fecaca;"
+							  "}"
+							  "QToolButton#RibbonBtn[btnRole=\"danger\"]:hover { background-color: #7f1d1d; }")
+			 : QStringLiteral("#GeometricModelingRibbonBar {"
+							  "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+							  "    stop:0 #ffffff, stop:1 #f4f4f5);"
+							  "  border-bottom: 2px solid #0f766e;"
+							  "}"
+							  "#RibbonScroll, #RibbonHost { background: transparent; }"
+							  "#RibbonGroup {"
+							  "  background-color: #ffffff;"
+							  "  border: 1px solid #d4d4d8;"
+							  "  border-radius: 6px;"
+							  "}"
+							  "QFrame#RibbonSep { background: #d4d4d8; border: none; }"
+							  "QLabel#RibbonGroupTitle {"
+							  "  color: #71717a;"
+							  "  font-size: 9px;"
+							  "  font-weight: 600;"
+							  "}"
+							  "QToolButton#RibbonBtn {"
+							  "  background-color: #f4f4f5;"
+							  "  color: #18181b;"
+							  "  border: 1px solid #d4d4d8;"
+							  "  border-radius: 5px;"
+							  "  padding: 1px;"
+							  "  font-size: 10px;"
+							  "  font-weight: 600;"
+							  "}"
+							  "QToolButton#RibbonBtn:hover {"
+							  "  background-color: #ecfdf5;"
+							  "  border-color: #14b8a6;"
+							  "}"
+							  "QToolButton#RibbonBtn:pressed { background-color: #ccfbf1; }"
+							  "QToolButton#RibbonBtn:checked {"
+							  "  background-color: #ccfbf1;"
+							  "  border: 2px solid #0f766e;"
+							  "  color: #115e59;"
+							  "}"
+							  "QToolButton#RibbonBtn[btnRole=\"primary\"] {"
+							  "  background-color: #0f766e;"
+							  "  border-color: #0d9488;"
+							  "  color: #ffffff;"
+							  "}"
+							  "QToolButton#RibbonBtn[btnRole=\"primary\"]:hover { background-color: #0d9488; }"
+							  "QToolButton#RibbonBtn[btnRole=\"danger\"] {"
+							  "  background-color: #fef2f2;"
+							  "  border-color: #fca5a5;"
+							  "  color: #b91c1c;"
+							  "}"
+							  "QToolButton#RibbonBtn[btnRole=\"danger\"]:hover { background-color: #fee2e2; }");
 	setStyleSheet(sheet);
 	rebuildIcons(dark);
 }
@@ -1098,7 +1131,6 @@ void GeometricModelingRibbonBar::rebuildIcons(bool dark)
 		btn->setIcon(makeGlyphIcon(kind, dark, accent));
 	}
 }
-
 
 void GeometricModelingRibbonBar::setBtnText(QToolButton* btn, const QString& text)
 {

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_HEADLESSROBOTCONTEXT_H
+﻿#ifndef CLOUDSIMHOST_HEADLESSROBOTCONTEXT_H
 #define CLOUDSIMHOST_HEADLESSROBOTCONTEXT_H
 
 /// @file HeadlessRobotContext.h
@@ -7,9 +7,9 @@
 
 #include "cloudsim_host_global.h"
 
-#include "IRobotUrdfImportContext.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotSimulationDocument.h"
+#include "IRobotUrdfImportContext.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotExternalAxes.h"
 
@@ -42,8 +42,7 @@ private:
 };
 
 /// DocumentHost(headless) 持有；实现导入上下文 + 仿真文档视图
-class CLOUDSIM_HOST_EXPORT HeadlessRobotContext final : public IRobotUrdfImportContext,
-														public IRobotSimulationDocument
+class CLOUDSIM_HOST_EXPORT HeadlessRobotContext final : public IRobotUrdfImportContext, public IRobotSimulationDocument
 {
 public:
 	explicit HeadlessRobotContext(DocumentHost& host);
@@ -66,7 +65,8 @@ public:
 	void recordJointAnglesForSceneRoot(const QString& sceneRootBackendId, const QVector<double>& localAnglesRad);
 
 	/// 桌面工程 JSON 同形：`{ "axes": [...] }`
-	bool getExternalAxesJson(const QString& sceneRootBackendId, QJsonObject& outConfigSet, QString* outError = nullptr) const;
+	bool getExternalAxesJson(const QString& sceneRootBackendId, QJsonObject& outConfigSet,
+							 QString* outError = nullptr) const;
 	bool setExternalAxesJson(const QString& sceneRootBackendId, const QJsonObject& axesOrConfigSet,
 							 QString* outError = nullptr);
 

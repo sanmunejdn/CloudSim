@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_DOCUMENTHOST_H
+﻿#ifndef CLOUDSIMHOST_DOCUMENTHOST_H
 #define CLOUDSIMHOST_DOCUMENTHOST_H
 
 /// @file DocumentHost.h
@@ -7,11 +7,11 @@
 
 #include "cloudsim_host_global.h"
 
+#include "DocumentFollowState.h"
+#include "DocumentProjectSidecar.h"
 #include "IDocumentScope.h"
 #include "IPerLinkKinematicsHost.h"
 #include "IPerLinkRobotStateAccessor.h"
-#include "DocumentFollowState.h"
-#include "DocumentProjectSidecar.h"
 #include "visual/BackendVisualSyncEngine.h"
 #include "visual/VisualAspect.h"
 
@@ -41,8 +41,8 @@ class RobotProgramStore;
 class BackendSceneDocumentFacade;
 
 #include "BackendFollowReverseIndex.h"
-#include "OsgWidgetSceneBridge.h"
 #include "NamedSignalTable.h"
+#include "OsgWidgetSceneBridge.h"
 #include "RobotCollisionSettings.h"
 
 namespace cloudsim::host
@@ -209,8 +209,7 @@ public:
 	IPerLinkRobotStateAccessor* perLinkRobotStateAccessor() const;
 
 	/// FK 收口回写：直接记录本机实例当前关节角（local，非聚合），供挂载设备 TCP 重算
-	void noteRobotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId,
-											   const QVector<double>& localJointRad);
+	void noteRobotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId, const QVector<double>& localJointRad);
 	bool robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId, QVector<double>& outLocal) const;
 
 signals:

@@ -3,17 +3,14 @@
 
 #include "../RobotWidget/inc/IRobotDocumentHost.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "../RobotWidget/inc/IoSignalNetworkService.h"
 #include "../RobotWidget/inc/IoSignalPageWidget.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotCollisionSettingsWidget.h"
 #include "../RobotWidget/inc/RobotProjectIoAdapter.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
-#include "../RobotWidget/inc/IoSignalNetworkService.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
-#include "RobotCollisionSettings.h"
-
-#include <json.hpp>
 #include "BackendHierarchyFollow.h"
 #include "BackendProjectObjectIo.h"
 #include "BackendSceneDocumentFacade.h"
@@ -26,17 +23,18 @@
 #include "IRenderView.h"
 #include "IRobotService.h"
 #include "MainWindow.h"
-#include "RunLogger.h"
 #include "MainWindowRobotHost.h"
 #include "MainWindowSelectionService.h"
-#include "PluginManager.h"
 #include "PluginHostContext.h"
+#include "PluginManager.h"
 #include "ProjectPackageIo.h"
 #include "ProjectPackageZip.h"
+#include "RobotCollisionSettings.h"
 #include "RobotInstructionFactory.h"
 #include "RobotProgramStore.h"
 #include "RobotProjectKinematicsRestore.h"
 #include "RunInfoPage.h"
+#include "RunLogger.h"
 
 #include <QByteArray>
 #include <QDir>
@@ -46,7 +44,6 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QLatin1String>
 #include <QList>
 #include <QMessageBox>
 #include <QSet>
@@ -58,6 +55,8 @@
 #include <string>
 #include <vector>
 
+#include <QLatin1String>
+#include <json.hpp>
 #include <osg/Matrixd>
 #include <osg/Vec3f>
 

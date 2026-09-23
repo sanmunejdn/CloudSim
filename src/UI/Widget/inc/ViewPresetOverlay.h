@@ -1,4 +1,4 @@
-#ifndef WIDGET_VIEWPRESETOVERLAY_H
+﻿#ifndef WIDGET_VIEWPRESETOVERLAY_H
 #define WIDGET_VIEWPRESETOVERLAY_H
 
 /// @file ViewPresetOverlay.h

@@ -1,4 +1,4 @@
-/// @file CsgkBackend.cpp
+﻿/// @file CsgkBackend.cpp
 /// @brief CloudSimGeomKernel 适配实现
 
 #include "CsgkBackend.h"
@@ -18,9 +18,9 @@ namespace geoalgo
 bool readCsgkNativeFile(const std::string& pathLocal, ShapeHandle& outShape, std::string* errMsg)
 {
 	const auto loaded = csgk::readNative(pathLocal);
-	if(!loaded.ok())
+	if (!loaded.ok())
 	{
-		if(errMsg)
+		if (errMsg)
 			*errMsg = loaded.message.empty() ? "csgk readNative failed" : loaded.message;
 		return false;
 	}
@@ -32,9 +32,9 @@ bool discretizeCsgkShapeToSoup(const ShapeHandle& shape, const TessellateParams&
 							   std::string* errMsg)
 {
 	csgk::BodyHandle body;
-	if(!ShapeHandleAccess::tryGetCsgkBody(shape, body))
+	if (!ShapeHandleAccess::tryGetCsgkBody(shape, body))
 	{
-		if(errMsg)
+		if (errMsg)
 			*errMsg = "not a csgk-backed shape";
 		return false;
 	}
@@ -42,9 +42,9 @@ bool discretizeCsgkShapeToSoup(const ShapeHandle& shape, const TessellateParams&
 	tp.linearDeflectionMm = params.linearDeflectionMm;
 	tp.angularDeflectionDeg = params.angularDeflectionDeg;
 	tp.linearDeflectionRelative = params.linearDeflectionRelative;
-	if(!csgk::discretizeToSoup(body, tp, outSoup, nullptr))
+	if (!csgk::discretizeToSoup(body, tp, outSoup, nullptr))
 	{
-		if(errMsg)
+		if (errMsg)
 			*errMsg = "csgk discretize failed";
 		return false;
 	}
@@ -54,7 +54,7 @@ bool discretizeCsgkShapeToSoup(const ShapeHandle& shape, const TessellateParams&
 int csgkShapeFaceCount(const ShapeHandle& shape)
 {
 	csgk::BodyHandle body;
-	if(!ShapeHandleAccess::tryGetCsgkBody(shape, body))
+	if (!ShapeHandleAccess::tryGetCsgkBody(shape, body))
 		return 0;
 	return csgk::faceCount(body);
 }
@@ -62,7 +62,7 @@ int csgkShapeFaceCount(const ShapeHandle& shape)
 int csgkShapeEdgeCount(const ShapeHandle& shape)
 {
 	csgk::BodyHandle body;
-	if(!ShapeHandleAccess::tryGetCsgkBody(shape, body))
+	if (!ShapeHandleAccess::tryGetCsgkBody(shape, body))
 		return 0;
 	return csgk::edgeCount(body);
 }

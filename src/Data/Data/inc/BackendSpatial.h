@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDSPATIAL_H
+﻿#ifndef DATA_BACKENDSPATIAL_H
 #define DATA_BACKENDSPATIAL_H
 
 /// @file BackendSpatial.h

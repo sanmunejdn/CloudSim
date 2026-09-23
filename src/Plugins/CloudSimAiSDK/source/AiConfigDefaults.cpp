@@ -27,7 +27,8 @@ AiConfigDto defaultAiConfigDto()
 	AiDomainModelConfig featureCompose;
 	featureCompose.id = AiDomainIds::featureCompose();
 	featureCompose.model = QStringLiteral("qwen2.5:3b");
-	featureCompose.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
+	featureCompose.parserPriority =
+		QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 
 	AiDomainModelConfig geom;
 	geom.id = AiDomainIds::geometryRecognize();
@@ -49,7 +50,8 @@ AiConfigDto defaultAiConfigDto()
 	AiDomainModelConfig processFlow;
 	processFlow.id = AiDomainIds::processFlow();
 	processFlow.model = QStringLiteral("qwen2.5:3b");
-	processFlow.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
+	processFlow.parserPriority =
+		QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 
 	AiDomainModelConfig designParts;
 	designParts.id = AiDomainIds::designParts();

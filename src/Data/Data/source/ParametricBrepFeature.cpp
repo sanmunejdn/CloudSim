@@ -1,4 +1,4 @@
-/// @file ParametricBrepFeature.cpp
+﻿/// @file ParametricBrepFeature.cpp
 
 #include "ParametricBrepFeature.h"
 

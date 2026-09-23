@@ -1,3 +1,6 @@
+﻿/// @file ExternalAxisGraphBuilder.cpp
+/// @brief ExternalAxisGraphBuilder 实现
+
 #include "ExternalAxisGraphBuilder.h"
 
 #include "JointMotionAdapters.h"

@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_ROBOTCOLLISIONSETTINGSWIDGET_H
+﻿#ifndef ROBOTWIDGET_ROBOTCOLLISIONSETTINGSWIDGET_H
 #define ROBOTWIDGET_ROBOTCOLLISIONSETTINGSWIDGET_H
 
 /// @file RobotCollisionSettingsWidget.h
@@ -10,8 +10,8 @@
 #include "MotionPathPlanDialog.h"
 #include "RobotCollisionSettings.h"
 
-#include <QWidget>
 #include <QVector>
+#include <QWidget>
 
 class QCheckBox;
 class QComboBox;

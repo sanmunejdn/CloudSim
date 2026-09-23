@@ -122,25 +122,24 @@ bool BackendDataManager::unregisterData(const std::string& id)
 						m_parentsByChild.erase(parentSetIt);
 						m_primaryParentByChild.erase(childId);
 					}
-				else
-				{
-					const auto primIt = m_primaryParentByChild.find(childId);
-					if (primIt != m_primaryParentByChild.end() && primIt->second == id)
+					else
 					{
-						const std::vector<std::string> remain = sortedKeys(parentSetIt->second);
-						m_primaryParentByChild[childId] = remain.front();
-						// P3-2: 与 primaryParentOf 回退路径的 warn 对齐，注销时不再静默
-						RunLogger::warn("[BackendDataManager] unregisterData: primary parent of \"" + childId +
-										"\" removed, re-pointed to \"" + remain.front() + "\".");
+						const auto primIt = m_primaryParentByChild.find(childId);
+						if (primIt != m_primaryParentByChild.end() && primIt->second == id)
+						{
+							const std::vector<std::string> remain = sortedKeys(parentSetIt->second);
+							m_primaryParentByChild[childId] = remain.front();
+							// P3-2: 与 primaryParentOf 回退路径的 warn 对齐，注销时不再静默
+							RunLogger::warn("[BackendDataManager] unregisterData: primary parent of \"" + childId +
+											"\" removed, re-pointed to \"" + remain.front() + "\".");
+						}
 					}
-				}
 				}
 			}
 			m_childrenByParent.erase(childrenIt);
 		}
 
-		pendingEvents.push_back(
-			BackendHierarchyChangeEvent{BackendHierarchyChangeKind::DataUnregistered, {}, id});
+		pendingEvents.push_back(BackendHierarchyChangeEvent{BackendHierarchyChangeKind::DataUnregistered, {}, id});
 		m_subtreeCache.clear();
 		observerSnapshot = m_hierarchyObservers;
 		for (const auto& kv : m_records)
@@ -162,8 +161,8 @@ bool BackendDataManager::unregisterData(const std::string& id)
 		{
 			if (ref == id)
 			{
-				RunLogger::warn("[BackendDataManager] unregistered \"" + id + "\" still referenced by \"" +
-								obj->id() + "\" (dangling backend id).");
+				RunLogger::warn("[BackendDataManager] unregistered \"" + id + "\" still referenced by \"" + obj->id() +
+								"\" (dangling backend id).");
 				break;
 			}
 		}
@@ -334,62 +333,62 @@ bool BackendDataManager::setParent(const std::string& childId, const std::string
 		{
 			return false;
 		}
-	// 仅校验新边成环
-	std::queue<std::string> queue;
-	std::unordered_set<std::string> visited;
-	queue.push(childId);
-	visited.insert(childId);
-	while (!queue.empty())
-	{
-		const std::string cur = queue.front();
-		queue.pop();
-		if (cur == parentId)
+		// 仅校验新边成环
+		std::queue<std::string> queue;
+		std::unordered_set<std::string> visited;
+		queue.push(childId);
+		visited.insert(childId);
+		while (!queue.empty())
 		{
-			return false;
-		}
-		const auto nextIt = m_childrenByParent.find(cur);
-		if (nextIt == m_childrenByParent.end())
-		{
-			continue;
-		}
-		for (const std::string& next : nextIt->second)
-		{
-			if (visited.insert(next).second)
+			const std::string cur = queue.front();
+			queue.pop();
+			if (cur == parentId)
 			{
-				queue.push(next);
+				return false;
 			}
-		}
-	}
-
-	// 先 detach 旧父
-	auto parentSetIt = m_parentsByChild.find(childId);
-	if (parentSetIt != m_parentsByChild.end())
-	{
-		const std::vector<std::string> oldParents(parentSetIt->second.begin(), parentSetIt->second.end());
-		for (const std::string& oldParent : oldParents)
-		{
-			auto childSetIt = m_childrenByParent.find(oldParent);
-			if (childSetIt != m_childrenByParent.end())
+			const auto nextIt = m_childrenByParent.find(cur);
+			if (nextIt == m_childrenByParent.end())
 			{
-				childSetIt->second.erase(childId);
-				if (childSetIt->second.empty())
+				continue;
+			}
+			for (const std::string& next : nextIt->second)
+			{
+				if (visited.insert(next).second)
 				{
-					m_childrenByParent.erase(childSetIt);
+					queue.push(next);
 				}
 			}
-			pendingEvents.push_back(
-				BackendHierarchyChangeEvent{BackendHierarchyChangeKind::EdgeDetached, oldParent, childId});
 		}
-		m_parentsByChild.erase(parentSetIt);
-	}
 
-	m_childrenByParent[parentId].insert(childId);
-	m_parentsByChild[childId].insert(parentId);
-	m_primaryParentByChild[childId] = parentId;
-	m_subtreeCache.clear();
-	pendingEvents.push_back(
-		BackendHierarchyChangeEvent{BackendHierarchyChangeKind::EdgeAttached, parentId, childId});
-	observerSnapshot = m_hierarchyObservers;
+		// 先 detach 旧父
+		auto parentSetIt = m_parentsByChild.find(childId);
+		if (parentSetIt != m_parentsByChild.end())
+		{
+			const std::vector<std::string> oldParents(parentSetIt->second.begin(), parentSetIt->second.end());
+			for (const std::string& oldParent : oldParents)
+			{
+				auto childSetIt = m_childrenByParent.find(oldParent);
+				if (childSetIt != m_childrenByParent.end())
+				{
+					childSetIt->second.erase(childId);
+					if (childSetIt->second.empty())
+					{
+						m_childrenByParent.erase(childSetIt);
+					}
+				}
+				pendingEvents.push_back(
+					BackendHierarchyChangeEvent{BackendHierarchyChangeKind::EdgeDetached, oldParent, childId});
+			}
+			m_parentsByChild.erase(parentSetIt);
+		}
+
+		m_childrenByParent[parentId].insert(childId);
+		m_parentsByChild[childId].insert(parentId);
+		m_primaryParentByChild[childId] = parentId;
+		m_subtreeCache.clear();
+		pendingEvents.push_back(
+			BackendHierarchyChangeEvent{BackendHierarchyChangeKind::EdgeAttached, parentId, childId});
+		observerSnapshot = m_hierarchyObservers;
 	}
 	dispatchHierarchyEvents(observerSnapshot, pendingEvents);
 	return true;

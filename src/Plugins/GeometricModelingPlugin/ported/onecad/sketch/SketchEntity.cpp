@@ -1,19 +1,19 @@
+﻿/// @file SketchEntity.cpp
+/// @brief SketchEntity 实现
+
 #include "SketchEntity.h"
 
 #include <QUuid>
 
-namespace onecad::core::sketch {
+namespace onecad::core::sketch
+{
+SketchEntity::SketchEntity() : m_id(generateId()) {}
 
-SketchEntity::SketchEntity()
-    : m_id(generateId()) {
-}
+SketchEntity::SketchEntity(const EntityID& id) : m_id(id.empty() ? generateId() : id) {}
 
-SketchEntity::SketchEntity(const EntityID& id)
-    : m_id(id.empty() ? generateId() : id) {
-}
-
-EntityID SketchEntity::generateId() {
-    return QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
+EntityID SketchEntity::generateId()
+{
+	return QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
 }
 
 } // namespace onecad::core::sketch

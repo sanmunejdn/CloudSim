@@ -1,8 +1,9 @@
-/// @file OsgRenderViewAdapter.cpp
+﻿/// @file OsgRenderViewAdapter.cpp
 /// @brief OSG 到 IRenderView
 
 #include "adapters/OsgRenderViewAdapter.h"
 
+#include "../../UI/OsgWidgetCore/inc/RobotOsgUiTypes.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
@@ -14,8 +15,6 @@
 #include "ObjectGizmoFrame.h"
 #include "OsgWidget.h"
 #include "io/CustomDeviceHostOps.h"
-
-#include "../../UI/OsgWidgetCore/inc/RobotOsgUiTypes.h"
 
 #include <Adapters.h>
 #include <RigidTransform.h>

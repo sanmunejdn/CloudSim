@@ -1,11 +1,12 @@
-#ifndef ROBOTSCENE_ROBOTPERLINKKINEMATICSAPPLY_H
+﻿#ifndef ROBOTSCENE_ROBOTPERLINKKINEMATICSAPPLY_H
 #define ROBOTSCENE_ROBOTPERLINKKINEMATICSAPPLY_H
 
 /// @file RobotPerLinkKinematicsApply.h
 /// @brief KinematicCore FK 写 per-link 场景后端（T0/M0 绑定姿不变，仅 Tq 来自 Core）
 
-#include "RobotPerLinkKinematicsSliceOsg.h"
 #include "robot_scene_global.h"
+
+#include "RobotPerLinkKinematicsSliceOsg.h"
 
 #include <QHash>
 
@@ -20,6 +21,6 @@ namespace RobotPerLinkKinematicsApply
 ROBOT_SCENE_API bool applyLinkWorldFromCoreFk(IRobotBackendPoseSink* osg, BackendDataManager& mgr,
 											  const RobotPerLinkKinematicsSlice& slice,
 											  const QHash<QString, osg::Matrixd>& meshWorldTq);
-}
+} // namespace RobotPerLinkKinematicsApply
 
 #endif // ROBOTSCENE_ROBOTPERLINKKINEMATICSAPPLY_H

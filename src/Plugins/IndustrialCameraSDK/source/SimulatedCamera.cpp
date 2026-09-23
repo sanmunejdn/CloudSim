@@ -1,4 +1,4 @@
-/// @file SimulatedCamera.cpp
+﻿/// @file SimulatedCamera.cpp
 /// @brief 模拟相机：合成 2D/点云，IP 可手填
 
 #include "SimulatedCamera.h"
@@ -8,7 +8,6 @@
 
 namespace industrial_camera
 {
-
 std::vector<CameraDeviceInfo> SimulatedCamera::enumerateDevices()
 {
 	CameraDeviceInfo a;
@@ -97,9 +96,9 @@ bool SimulatedCamera::grabOne(CameraFrame2D& out2d, CameraFrame3D* opt3d, int /*
 			}
 		}
 	}
-	out2d.timestampNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
-							std::chrono::steady_clock::now().time_since_epoch())
-							.count();
+	out2d.timestampNs =
+		std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
+			.count();
 
 	if (opt3d && with3d_)
 	{

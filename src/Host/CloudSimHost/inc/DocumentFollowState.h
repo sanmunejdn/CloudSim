@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_DOCUMENTFOLLOWSTATE_H
+﻿#ifndef CLOUDSIMHOST_DOCUMENTFOLLOWSTATE_H
 #define CLOUDSIMHOST_DOCUMENTFOLLOWSTATE_H
 
 /// @file DocumentFollowState.h
@@ -44,4 +44,4 @@ private:
 
 } // namespace cloudsim::host
 
-#endif
+#endif // CLOUDSIMHOST_DOCUMENTFOLLOWSTATE_H

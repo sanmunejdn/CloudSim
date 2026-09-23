@@ -1,4 +1,4 @@
-#ifndef WIDGET_DOCUMENTPAGE_H
+﻿#ifndef WIDGET_DOCUMENTPAGE_H
 #define WIDGET_DOCUMENTPAGE_H
 
 /// @file DocumentPage.h
@@ -23,11 +23,11 @@ namespace cloudsim::core
 {
 class EventHub;
 enum class SelectionSource;
-}
+} // namespace cloudsim::core
 #include "IRobotSimulationDocument.h"
+#include "RobotCollisionSettings.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotExternalAxes.h"
-#include "RobotCollisionSettings.h"
 
 #include <string>
 #include <unordered_set>
@@ -181,8 +181,7 @@ public:
 
 	int robotInstanceIndexForPerLinkBackend(const QString& backendId, bool* outIsSceneRoot = nullptr) const;
 
-	void setRobotBasePlacementWorldForInstance(int instanceIndex,
-											   const cloudsim::core::Mat4& placementWorld) override;
+	void setRobotBasePlacementWorldForInstance(int instanceIndex, const cloudsim::core::Mat4& placementWorld) override;
 	cloudsim::core::Mat4 robotBasePlacementWorldForInstance(int instanceIndex) const;
 	void setRobotExternalAxisQMm(int instanceIndex, double qMm);
 	double robotExternalAxisQMm(int instanceIndex) const;
@@ -190,8 +189,7 @@ public:
 	std::vector<double> robotExternalAxisQ(int instanceIndex) const;
 	/// 工件外轴零位 W0；首次绑定时从场景根矩阵捕获
 	cloudsim::core::Mat4 workpieceExternalBasePlacement(int instanceIndex, const QString& backendId) const;
-	void setWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
-										   const cloudsim::core::Mat4& w0);
+	void setWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId, const cloudsim::core::Mat4& w0);
 	void ensureWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
 											  const cloudsim::core::Mat4& currentWorld);
 	/// 工作架相对 W0 的固定偏置；workingFrameId 空或等于 backend 时为单位阵

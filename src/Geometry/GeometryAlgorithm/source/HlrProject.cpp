@@ -1,4 +1,4 @@
-/// @file HlrProject.cpp
+﻿/// @file HlrProject.cpp
 /// @brief OCC HLR / 剖切投影为图面折线
 
 #include "HlrProject.h"
@@ -8,9 +8,13 @@
 #include "DrawingGeometry.h"
 #include "ShapeHandle.h"
 
+#include <cmath>
+#include <future>
+#include <unordered_set>
+
 #include <BRepAlgoAPI_Section.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBndLib.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
 #include <Bnd_Box.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <TopExp_Explorer.hxx>
@@ -25,15 +29,10 @@
 #include <gp_Pnt.hxx>
 #include <gp_Vec.hxx>
 
-#include <cmath>
-#include <future>
-#include <unordered_set>
-
 namespace geoalgo
 {
 namespace
 {
-
 bool shapeCenterAndBox(const TopoDS_Shape& shape, gp_Pnt& outCenter, Bnd_Box& outBox, std::string* errMsg)
 {
 	BRepBndLib::Add(shape, outBox);
@@ -123,7 +122,8 @@ bool polylinesNearlyEqual2d(const Polyline3d& a, const Polyline3d& b, double tol
 {
 	if (a.xyz.size() < 6 || b.xyz.size() < 6)
 		return false;
-	const auto endPts = [](const Polyline3d& p, float& x0, float& y0, float& x1, float& y1) {
+	const auto endPts = [](const Polyline3d& p, float& x0, float& y0, float& x1, float& y1)
+	{
 		x0 = p.xyz[0];
 		y0 = p.xyz[1];
 		x1 = p.xyz[p.xyz.size() - 3];
@@ -132,7 +132,8 @@ bool polylinesNearlyEqual2d(const Polyline3d& a, const Polyline3d& b, double tol
 	float ax0, ay0, ax1, ay1, bx0, by0, bx1, by1;
 	endPts(a, ax0, ay0, ax1, ay1);
 	endPts(b, bx0, by0, bx1, by1);
-	const auto d2 = [](float x0, float y0, float x1, float y1) {
+	const auto d2 = [](float x0, float y0, float x1, float y1)
+	{
 		const double dx = x0 - x1, dy = y0 - y1;
 		return dx * dx + dy * dy;
 	};
@@ -148,7 +149,8 @@ bool polylinesNearlyEqual2d(const Polyline3d& a, const Polyline3d& b, double tol
 }
 
 /// 递归抽稀（DP）：把近共线点合并，生成阶段一次完成
-void douglasPeucker2d(const std::vector<float>& xyz, std::size_t i0, std::size_t i1, double eps2, std::vector<char>& keep)
+void douglasPeucker2d(const std::vector<float>& xyz, std::size_t i0, std::size_t i1, double eps2,
+					  std::vector<char>& keep)
 {
 	if (i1 <= i0 + 1)
 		return;
@@ -240,8 +242,7 @@ void dedupeDrawingPolylines(std::vector<Polyline3d>& polys, double tolMm)
 				continue;
 			}
 			auto q = [&](float v) { return static_cast<int>(std::lround(v * inv)); };
-			const long long key0 = (static_cast<long long>(q(p.xyz[0])) << 32) |
-								   static_cast<unsigned int>(q(p.xyz[1]));
+			const long long key0 = (static_cast<long long>(q(p.xyz[0])) << 32) | static_cast<unsigned int>(q(p.xyz[1]));
 			const long long key1 = (static_cast<long long>(q(p.xyz[p.xyz.size() - 3])) << 32) |
 								   static_cast<unsigned int>(q(p.xyz[p.xyz.size() - 2]));
 			const long long key = key0 ^ (key1 << 1);
@@ -278,13 +279,13 @@ void dedupeDrawingPolylines(std::vector<Polyline3d>& polys, double tolMm)
 	polys.swap(kept);
 }
 
-void removeHiddenCoveredByVisible(std::vector<Polyline3d>& hidden, const std::vector<Polyline3d>& visible,
-								  double tolMm)
+void removeHiddenCoveredByVisible(std::vector<Polyline3d>& hidden, const std::vector<Polyline3d>& visible, double tolMm)
 {
 	if (hidden.empty() || visible.empty())
 		return;
 	const double inv = 1.0 / (tolMm > 1e-6 ? tolMm : 1e-6);
-	auto endKey = [&](const Polyline3d& p) -> long long {
+	auto endKey = [&](const Polyline3d& p) -> long long
+	{
 		if (p.xyz.size() < 6)
 			return 0;
 		auto q = [&](float v) { return static_cast<int>(std::lround(v * inv)); };
@@ -383,8 +384,7 @@ bool sectionShapeToDrawingPln(const ShapeHandle& shape, const gp_Pln& pln, const
 		std::sqrt((xmax - xmin) * (xmax - xmin) + (ymax - ymin) * (ymax - ymin) + (zmax - zmin) * (zmax - zmin));
 	const double planeSize = (std::max)(diag * 2.0, 100.0);
 
-	const TopoDS_Face planeFace =
-		BRepBuilderAPI_MakeFace(pln, -planeSize, planeSize, -planeSize, planeSize).Face();
+	const TopoDS_Face planeFace = BRepBuilderAPI_MakeFace(pln, -planeSize, planeSize, -planeSize, planeSize).Face();
 	BRepAlgoAPI_Section sec(planeFace, native, Standard_False);
 	sec.Approximation(Standard_True);
 	sec.Build();
@@ -469,12 +469,12 @@ bool projectShapeHlr(const TopoDS_Shape& nativeShapeAlreadyUnified, HlrViewKind 
 		// 网格预览失败时回落精确，避免空视图
 		if (!ok)
 			ok = drawing_engines::extractExactHlrEntities(nativeShapeAlreadyUnified, viewAx, options.nbIso, params,
-														 ents, &engineErr);
+														  ents, &engineErr);
 	}
 	else
 	{
 		ok = drawing_engines::extractExactHlrEntities(nativeShapeAlreadyUnified, viewAx, options.nbIso, params, ents,
-													 &engineErr);
+													  &engineErr);
 	}
 	if (!ok)
 	{
@@ -555,15 +555,15 @@ bool projectShapeHlrThreeViews(const ShapeHandle& shape, HlrProjectionAngle angl
 	const TopoDS_Shape unified = unifySameDomainOnce(native);
 	const DrawingHlrRunOptions opts{};
 	// 各视图独立 HLR 实例，可并行
-	std::future<bool> fFront = std::async(std::launch::async, [&]() {
-		return projectShapeHlr(unified, HlrViewKind::Front, angle, params, opts, out.front, nullptr);
-	});
-	std::future<bool> fTop = std::async(std::launch::async, [&]() {
-		return projectShapeHlr(unified, HlrViewKind::Top, angle, params, opts, out.top, nullptr);
-	});
-	std::future<bool> fRight = std::async(std::launch::async, [&]() {
-		return projectShapeHlr(unified, HlrViewKind::Right, angle, params, opts, out.right, nullptr);
-	});
+	std::future<bool> fFront =
+		std::async(std::launch::async, [&]()
+				   { return projectShapeHlr(unified, HlrViewKind::Front, angle, params, opts, out.front, nullptr); });
+	std::future<bool> fTop =
+		std::async(std::launch::async,
+				   [&]() { return projectShapeHlr(unified, HlrViewKind::Top, angle, params, opts, out.top, nullptr); });
+	std::future<bool> fRight =
+		std::async(std::launch::async, [&]()
+				   { return projectShapeHlr(unified, HlrViewKind::Right, angle, params, opts, out.right, nullptr); });
 	const bool okF = fFront.get();
 	const bool okT = fTop.get();
 	const bool okR = fRight.get();
@@ -634,11 +634,11 @@ bool sectionShapeToDrawing(const ShapeHandle& shape, const double originMm[3], c
 }
 
 bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle, bool includeIso,
-								  bool includeSection, DrawingSectionPlane sectionPlane,
-								  const TessellateParams& params, HlrDrawingBundle& out, std::string* errMsg)
+								  bool includeSection, DrawingSectionPlane sectionPlane, const TessellateParams& params,
+								  HlrDrawingBundle& out, std::string* errMsg)
 {
-	return projectShapeHlrDrawingBundle(shape, angle, includeIso, includeSection, sectionPlane, false, nullptr,
-										nullptr, params, DrawingHlrRunOptions{}, out, errMsg);
+	return projectShapeHlrDrawingBundle(shape, angle, includeIso, includeSection, sectionPlane, false, nullptr, nullptr,
+										params, DrawingHlrRunOptions{}, out, errMsg);
 }
 
 bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle, bool includeIso,
@@ -646,8 +646,8 @@ bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle a
 								  const double originMm[3], const double normal[3], const TessellateParams& params,
 								  HlrDrawingBundle& out, std::string* errMsg)
 {
-	return projectShapeHlrDrawingBundle(shape, angle, includeIso, includeSection, sectionPlane, customSection,
-										originMm, normal, params, DrawingHlrRunOptions{}, out, errMsg);
+	return projectShapeHlrDrawingBundle(shape, angle, includeIso, includeSection, sectionPlane, customSection, originMm,
+										normal, params, DrawingHlrRunOptions{}, out, errMsg);
 }
 
 bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle angle, bool includeIso,
@@ -668,30 +668,32 @@ bool projectShapeHlrDrawingBundle(const ShapeHandle& shape, HlrProjectionAngle a
 	const TopoDS_Shape unified = unifySameDomainOnce(native);
 	const DrawingHlrRunOptions runOpts = options;
 
-	std::future<bool> fFront = std::async(std::launch::async, [&]() {
-		return projectShapeHlr(unified, HlrViewKind::Front, angle, params, runOpts, out.front, nullptr);
-	});
-	std::future<bool> fTop = std::async(std::launch::async, [&]() {
-		return projectShapeHlr(unified, HlrViewKind::Top, angle, params, runOpts, out.top, nullptr);
-	});
-	std::future<bool> fRight = std::async(std::launch::async, [&]() {
-		return projectShapeHlr(unified, HlrViewKind::Right, angle, params, runOpts, out.right, nullptr);
-	});
+	std::future<bool> fFront = std::async(
+		std::launch::async,
+		[&]() { return projectShapeHlr(unified, HlrViewKind::Front, angle, params, runOpts, out.front, nullptr); });
+	std::future<bool> fTop =
+		std::async(std::launch::async, [&]()
+				   { return projectShapeHlr(unified, HlrViewKind::Top, angle, params, runOpts, out.top, nullptr); });
+	std::future<bool> fRight = std::async(
+		std::launch::async,
+		[&]() { return projectShapeHlr(unified, HlrViewKind::Right, angle, params, runOpts, out.right, nullptr); });
 	std::future<bool> fIso;
 	if (includeIso)
 	{
-		fIso = std::async(std::launch::async, [&]() {
-			return projectShapeHlr(unified, HlrViewKind::Iso, angle, params, runOpts, out.iso, nullptr);
-		});
+		fIso = std::async(
+			std::launch::async,
+			[&]() { return projectShapeHlr(unified, HlrViewKind::Iso, angle, params, runOpts, out.iso, nullptr); });
 	}
 	std::future<bool> fSec;
 	if (includeSection)
 	{
-		fSec = std::async(std::launch::async, [&]() {
-			if (customSection && originMm && normal)
-				return sectionShapeToDrawing(shape, originMm, normal, params, out.section, nullptr);
-			return sectionShapeToDrawing(shape, sectionPlane, params, out.section, nullptr);
-		});
+		fSec = std::async(std::launch::async,
+						  [&]()
+						  {
+							  if (customSection && originMm && normal)
+								  return sectionShapeToDrawing(shape, originMm, normal, params, out.section, nullptr);
+							  return sectionShapeToDrawing(shape, sectionPlane, params, out.section, nullptr);
+						  });
 	}
 
 	const bool okF = fFront.get();

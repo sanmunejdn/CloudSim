@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
+﻿#ifndef ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
 #define ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
 
 /// @file RobotSimulationController.h
@@ -8,15 +8,15 @@
 #include "robotwidget_global.h"
 
 #include "IRobotMainWindowHost.h"
+#include "MotionPathPlanDialog.h"
 #include "NamedSignalIoSink.h"
 #include "NamedSignalTable.h"
 #include "PlanResultCache.h"
 #include "RawTrajectory.h"
+#include "RobotCollisionSettingsWidget.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionIkRequest.h"
 #include "RobotProgramExecutor.h"
-#include "MotionPathPlanDialog.h"
-#include "RobotCollisionSettingsWidget.h"
 
 #include <QElapsedTimer>
 #include <QHash>

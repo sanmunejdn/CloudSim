@@ -1,4 +1,4 @@
-/// @file SimulationCommandWidget.cpp
+﻿/// @file SimulationCommandWidget.cpp
 /// @brief 仿真指令坞
 
 #include "SimulationCommandWidget.h"
@@ -157,8 +157,8 @@ QString instructionSummary(const RobotInstruction::Base& ins, bool zh)
 		const RobotInstruction::Condition& c = ins.condition();
 		if (c.kind == RobotInstruction::ConditionKind::Io)
 		{
-			const QString sig = !c.signalName.empty() ? QString::fromStdString(c.signalName)
-													 : QStringLiteral("IO%1").arg(c.ioPort);
+			const QString sig =
+				!c.signalName.empty() ? QString::fromStdString(c.signalName) : QStringLiteral("IO%1").arg(c.ioPort);
 			const QString cond = QStringLiteral("%1==%2").arg(sig).arg(c.ioEquals ? 1 : 0);
 			if (ins.durationSec() > 1e-9)
 			{
@@ -328,8 +328,8 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 		RobotInstruction::Type::ARC,
 	};
 	const RobotInstruction::Type logicTypes[] = {
-		RobotInstruction::Type::WAIT,		 RobotInstruction::Type::IF,		 RobotInstruction::Type::WHILE,
-		RobotInstruction::Type::SET_DO,		 RobotInstruction::Type::SET_AO,	 RobotInstruction::Type::DeviceAxis,
+		RobotInstruction::Type::WAIT,	  RobotInstruction::Type::IF,	  RobotInstruction::Type::WHILE,
+		RobotInstruction::Type::SET_DO,	  RobotInstruction::Type::SET_AO, RobotInstruction::Type::DeviceAxis,
 		RobotInstruction::Type::PathPlan,
 	};
 
@@ -463,15 +463,9 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
 	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
 	connect(m_playbackRateCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-			[this](int)
-			{
-				emit playbackRateChanged(playbackRate());
-			});
+			[this](int) { emit playbackRateChanged(playbackRate()); });
 	connect(m_ikSeedCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-			[this](int)
-			{
-				emit ikSeedPolicyChanged(m_ikSeedCombo->currentData().toInt());
-			});
+			[this](int) { emit ikSeedPolicyChanged(m_ikSeedCombo->currentData().toInt()); });
 
 	UiIconDecorators::apply(m_tcpDragTeachBtn, UiIconId::TcpDragTeach);
 	UiIconDecorators::apply(m_waypointPickBtn, UiIconId::PickFace);
@@ -745,7 +739,7 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	{
 		m_waypointPickBtn->setText(chinese ? QStringLiteral("拾取") : QStringLiteral("Pick"));
 		m_waypointPickBtn->setToolTip(chinese ? QStringLiteral("在 3D 中点击路点，指令树跳转到该指令")
-											 : QStringLiteral("Click a waypoint in 3D to select it in the tree"));
+											  : QStringLiteral("Click a waypoint in 3D to select it in the tree"));
 	}
 	updateTcpDragTeachUi(m_tcpDragTeachMode);
 	updateWaypointPickUi(m_waypointPickMode);
@@ -825,11 +819,10 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 					 : QStringLiteral("Insert LINE motion from current TCP pose");
 			break;
 		case RobotInstruction::Type::ARC:
-			tip = m_arcTeachPending
-					  ? (zh ? QStringLiteral("再点一次：确认圆弧终点（当前 TCP）")
-							: QStringLiteral("Click again: confirm ARC end (current TCP)"))
-					  : (zh ? QStringLiteral("圆弧两步示教：先捕获途经点 Via，再确认终点 End")
-							: QStringLiteral("ARC two-step teach: capture Via, then End"));
+			tip = m_arcTeachPending ? (zh ? QStringLiteral("再点一次：确认圆弧终点（当前 TCP）")
+										  : QStringLiteral("Click again: confirm ARC end (current TCP)"))
+									: (zh ? QStringLiteral("圆弧两步示教：先捕获途经点 Via，再确认终点 End")
+										  : QStringLiteral("ARC two-step teach: capture Via, then End"));
 			break;
 		case RobotInstruction::Type::WAIT:
 			tip = zh ? QStringLiteral("插入等待：延时，或等到 DI 信号（可设超时）")
@@ -840,7 +833,8 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 					 : QStringLiteral("Insert IF with Then/Else (DI signal supported)");
 			break;
 		case RobotInstruction::Type::WHILE:
-			tip = zh ? QStringLiteral("插入循环（可按 DI 信号）") : QStringLiteral("Insert WHILE (DI signal supported)");
+			tip =
+				zh ? QStringLiteral("插入循环（可按 DI 信号）") : QStringLiteral("Insert WHILE (DI signal supported)");
 			break;
 		case RobotInstruction::Type::SET_DO:
 			tip = zh ? QStringLiteral("插入数字量输出") : QStringLiteral("Insert digital output");
@@ -1010,8 +1004,9 @@ void SimulationCommandWidget::refreshEditModeHint()
 	}
 	if (m_waypointPickMode)
 	{
-		m_tcpDragHintLabel->setText(m_useChinese ? QStringLiteral("拾取路点：在 3D 中点击路径点，Esc 退出")
-												 : QStringLiteral("Pick waypoint: click a path point in 3D; Esc to exit"));
+		m_tcpDragHintLabel->setText(m_useChinese
+										? QStringLiteral("拾取路点：在 3D 中点击路径点，Esc 退出")
+										: QStringLiteral("Pick waypoint: click a path point in 3D; Esc to exit"));
 		m_tcpDragHintLabel->setVisible(true);
 		if (m_waypointPickBtn)
 		{

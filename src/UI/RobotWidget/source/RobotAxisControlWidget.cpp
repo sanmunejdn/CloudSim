@@ -50,8 +50,8 @@ void RobotAxisControlWidget::setUseChinese(bool chinese)
 	if (m_reachableWorkspaceDensityLabel)
 	{
 		const int pct = reachableWorkspaceDensityPercent();
-		m_reachableWorkspaceDensityLabel->setText(
-			chinese ? QStringLiteral("密度 %1%").arg(pct) : QStringLiteral("Density %1%").arg(pct));
+		m_reachableWorkspaceDensityLabel->setText(chinese ? QStringLiteral("密度 %1%").arg(pct)
+														  : QStringLiteral("Density %1%").arg(pct));
 	}
 	if (m_reachableWorkspaceDensitySlider)
 	{

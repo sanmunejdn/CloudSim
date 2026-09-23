@@ -45,8 +45,8 @@ void instructionTcpInBase(const RobotInstruction::Base& ins, BackendMat4& out)
 void setInstructionTcpInBase(RobotInstruction::Base& ins, const BackendMat4& T_base_tcp)
 {
 	// IK/路点轴优先读 context.targetTransform*；只改 pose/euler 会与真值脱节
-	RobotInstruction::writeTargetTransformToInstruction(
-		ins, RobotCoordinate::rigidTransformFromBackendMat4(T_base_tcp));
+	RobotInstruction::writeTargetTransformToInstruction(ins,
+														RobotCoordinate::rigidTransformFromBackendMat4(T_base_tcp));
 }
 
 void invalidateSubsequentTaughtJointsAfterPoseEdit(IRobotInstructionPropertyUiHost& host,
@@ -699,8 +699,8 @@ void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
 			}
 			else if (key == QStringLiteral("logic.condition.kind"))
 			{
-				enumOverride = (instruction->type() == RobotInstruction::Type::WAIT) ? &waitModeTokens
-																					 : &conditionKindTokens;
+				enumOverride =
+					(instruction->type() == RobotInstruction::Type::WAIT) ? &waitModeTokens : &conditionKindTokens;
 			}
 			else if (key == QStringLiteral("logic.condition.equals"))
 			{

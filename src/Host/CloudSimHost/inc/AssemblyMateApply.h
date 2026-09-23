@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_ASSEMBLYMATEAPPLY_H
+﻿#ifndef CLOUDSIMHOST_ASSEMBLYMATEAPPLY_H
 #define CLOUDSIMHOST_ASSEMBLYMATEAPPLY_H
 
 /// @file AssemblyMateApply.h
@@ -37,7 +37,8 @@ CLOUDSIM_HOST_EXPORT bool restoreBackendWorldMatrix(DocumentHost& host, const st
 
 /// 从快照左乘增量并同步 OSG；commit 时发 PoseCommitted 并跟 Follow
 CLOUDSIM_HOST_EXPORT bool applyAssemblyMate(DocumentHost& host, const AssemblyMateFaceRef& grounded,
-											const AssemblyMateFaceRef& moving, const geoalgo::AssemblyMateParams& params,
+											const AssemblyMateFaceRef& moving,
+											const geoalgo::AssemblyMateParams& params,
 											const BackendMat4* movingWorldSnapshot, bool commit,
 											QString* outError = nullptr);
 

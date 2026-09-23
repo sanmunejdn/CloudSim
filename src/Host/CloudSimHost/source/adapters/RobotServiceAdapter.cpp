@@ -2,22 +2,22 @@
 /// @brief 机器人到 IRobotService
 
 #include "adapters/RobotServiceAdapter.h"
-#include "visual/KinematicsBatchScope.h"
 
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
 #include "IRobotInstructionPropertyDelegate.h"
+#include "IRobotSimulationDocument.h"
 #include "IRobotUrdfImportContext.h"
 #include "KinematicModelApply.h"
 #include "KinematicModelRegistry.h"
-#include "IRobotSimulationDocument.h"
 #include "OsgWidget.h"
+#include "RobotKinematicApplyContext.h"
 #include "RobotPlanInstruction.h"
 #include "RobotProgramJsonIo.h"
 #include "RobotProgramStore.h"
-#include "RobotKinematicApplyContext.h"
 #include "UrdfRobotImport.h"
+#include "visual/KinematicsBatchScope.h"
 
 namespace cloudsim::host
 {
@@ -110,8 +110,7 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 	applyCtx.doc = doc;
 	applyCtx.sink = poseSink;
 	applyCtx.instanceIndex = instIdx;
-	const std::string registryKey =
-		KinematicModelRegistry::keyRobotInstance(sceneRootBackendId.toStdString());
+	const std::string registryKey = KinematicModelRegistry::keyRobotInstance(sceneRootBackendId.toStdString());
 	std::vector<double> localArmQ(static_cast<size_t>(jointAnglesRad.size()));
 	for (int i = 0; i < jointAnglesRad.size(); ++i)
 	{

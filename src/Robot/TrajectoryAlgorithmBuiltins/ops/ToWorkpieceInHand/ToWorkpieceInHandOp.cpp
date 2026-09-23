@@ -10,12 +10,12 @@
 #include "TrajectoryUnifiedScope.h"
 #include "UnifiedTrajectorySemanticMath.h"
 
-#include <Eigen/Geometry>
-
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
+
+#include <Eigen/Geometry>
 
 namespace trajectory_algo
 {
@@ -196,8 +196,7 @@ bool ToWorkpieceInHandOp::processPath(const RobotInstruction::TrajectoryOpDescri
 		if (hasPrevPose)
 		{
 			alignQuatHemisphere(outQuat, prevOutputQuat);
-			baseToEndOut =
-				engine::RigidTransform::fromTranslationQuat(baseToEndOut.translationMm(), outQuat);
+			baseToEndOut = engine::RigidTransform::fromTranslationQuat(baseToEndOut.translationMm(), outQuat);
 		}
 
 		const Eigen::Vector3d outPos = baseToEndOut.translationMm();

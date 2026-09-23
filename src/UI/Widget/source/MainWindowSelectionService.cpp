@@ -18,8 +18,8 @@
 #include "SimulationCommandWidget.h"
 #include "WidgetRenderAccess.h"
 
-#include <QList>
 #include <QItemSelectionModel>
+#include <QList>
 #include <QModelIndex>
 #include <QSignalBlocker>
 #include <QStandardItem>
@@ -303,8 +303,7 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	const QString id = current->data(kRoleBackendId).toString();
 	const bool rowVisible = current->checkState() != Qt::Unchecked;
 
-	if (!docId.isEmpty() &&
-		(!mainWindow.currentPage() || mainWindow.currentPage()->documentId() != docId))
+	if (!docId.isEmpty() && (!mainWindow.currentPage() || mainWindow.currentPage()->documentId() != docId))
 	{
 		mainWindow.activateDocumentById(docId);
 	}

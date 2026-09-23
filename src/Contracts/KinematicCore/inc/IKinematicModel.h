@@ -1,9 +1,13 @@
-#ifndef KINEMATICCORE_IKINEMATICMODEL_H
+﻿#ifndef KINEMATICCORE_IKINEMATICMODEL_H
 #define KINEMATICCORE_IKINEMATICMODEL_H
+
+/// @file IKinematicModel.h
+/// @brief IKinematicModel 接口
+
+#include "kinematic_core_global.h"
 
 #include "AxisDescriptor.h"
 #include "KinematicGraph.h"
-#include "kinematic_core_global.h"
 
 #include <array>
 #include <vector>
@@ -18,8 +22,7 @@ public:
 	virtual const KinematicGraph& graph() const = 0;
 	virtual int dofCount() const = 0;
 	virtual std::vector<AxisDescriptor> axisDescriptors() const = 0;
-	virtual bool forward(const double* q, std::size_t qCount,
-						 std::vector<std::array<double, 16>>& linkWorld) const = 0;
+	virtual bool forward(const double* q, std::size_t qCount, std::vector<std::array<double, 16>>& linkWorld) const = 0;
 	virtual int revision() const { return 0; }
 };
 

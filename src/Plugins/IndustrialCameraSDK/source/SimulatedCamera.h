@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_SIMULATEDCAMERA_H
+﻿#ifndef INDUSTRIALCAMERASDK_SIMULATEDCAMERA_H
 #define INDUSTRIALCAMERASDK_SIMULATEDCAMERA_H
 
 /// @file SimulatedCamera.h
@@ -8,7 +8,6 @@
 
 namespace industrial_camera
 {
-
 class SimulatedCamera final : public ICamera
 {
 public:

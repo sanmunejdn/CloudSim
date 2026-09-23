@@ -1,4 +1,4 @@
-#ifndef WIDGET_STYLEDDOCKTITLEBAR_H
+﻿#ifndef WIDGET_STYLEDDOCKTITLEBAR_H
 #define WIDGET_STYLEDDOCKTITLEBAR_H
 
 /// @file StyledDockTitleBar.h
@@ -42,4 +42,4 @@ private:
 
 void applyStyledDockTitleBar(QDockWidget* dock);
 
-#endif
+#endif // WIDGET_STYLEDDOCKTITLEBAR_H

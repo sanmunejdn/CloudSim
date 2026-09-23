@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_IROBOTURDFIMPORTCONTEXT_H
+﻿#ifndef CLOUDSIMHOST_IROBOTURDFIMPORTCONTEXT_H
 #define CLOUDSIMHOST_IROBOTURDFIMPORTCONTEXT_H
 
 /// @file IRobotUrdfImportContext.h
@@ -62,11 +62,11 @@ public:
 		const QHash<QString, osg::MatrixTransform*>& jointTransformsPrefixedKeys, const QString& robotSceneBackendId,
 		const QString& jointPrefixRootOverride = QString()) = 0;
 
-	virtual void setRobotPerLinkKinematicsBinding(const QString& importKey,
-												  const QHash<QString, QString>& linkNameToBackendId,
-												  const QHash<QString, cloudsim::core::Mat4>& fkMeshWorldT0,
-												  const QHash<QString, cloudsim::core::Mat4>& outerWorldAtBindByBackendId,
-												  bool meshVerticesInLinkFrame = false) = 0;
+	virtual void
+	setRobotPerLinkKinematicsBinding(const QString& importKey, const QHash<QString, QString>& linkNameToBackendId,
+									 const QHash<QString, cloudsim::core::Mat4>& fkMeshWorldT0,
+									 const QHash<QString, cloudsim::core::Mat4>& outerWorldAtBindByBackendId,
+									 bool meshVerticesInLinkFrame = false) = 0;
 
 	virtual int robotKinematicInstanceCount() const = 0;
 	virtual int robotInstanceIndexForSceneBackendId(const QString& sceneBackendId) const = 0;

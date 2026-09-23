@@ -1,8 +1,10 @@
+﻿/// @file CustomDeviceGraphBuilder.cpp
+/// @brief CustomDeviceGraphBuilder 实现
+
 #include "CustomDeviceGraphBuilder.h"
 
 #include "CustomDeviceMat4Layout.h"
 #include "JointMotionAdapters.h"
-
 #include "Mat4Ops.h"
 
 #include <cstring>
@@ -12,8 +14,7 @@
 
 namespace CustomDeviceGraphBuilder
 {
-void computeParentToChildRestFromLinkRestPoses(const double deviceW0Osg[16],
-											   const std::vector<CustomDeviceLink>& links,
+void computeParentToChildRestFromLinkRestPoses(const double deviceW0Osg[16], const std::vector<CustomDeviceLink>& links,
 											   std::vector<CustomDeviceJoint>& joints)
 {
 	if (links.empty() || joints.empty())

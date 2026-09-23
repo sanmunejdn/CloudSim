@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_HEADLESSTRAJECTORYSESSION_H
+﻿#ifndef CLOUDSIMHOST_HEADLESSTRAJECTORYSESSION_H
 #define CLOUDSIMHOST_HEADLESSTRAJECTORYSESSION_H
 
 /// @file HeadlessTrajectorySession.h
@@ -23,7 +23,7 @@ namespace RobotInstruction
 {
 class RobotProgramCatalog;
 class PathPlanInstruction;
-}
+} // namespace RobotInstruction
 
 namespace cloudsim::host
 {
@@ -119,8 +119,8 @@ private:
 							 double& mz) const;
 	bool modelFromWorldDir(const std::string& backendId, double wx, double wy, double wz, double& mx, double& my,
 						   double& mz) const;
-	bool transformRawToWorld(const RobotInstruction::RawTrajectory& modelRaw,
-							 RobotInstruction::RawTrajectory& worldRaw, QString* err) const;
+	bool transformRawToWorld(const RobotInstruction::RawTrajectory& modelRaw, RobotInstruction::RawTrajectory& worldRaw,
+							 QString* err) const;
 	/// 对齐桌面：注入当前 TCP 参考 + FrameBackendData 解析器（转换工件型依赖）
 	void injectWorkpieceReferenceOnEngine();
 	bool runPipelineOnWorldRaw(RobotInstruction::RawTrajectory& worldRawInOut, QString* err);

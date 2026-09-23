@@ -1,4 +1,4 @@
-/// @file BackendImporters.cpp
+﻿/// @file BackendImporters.cpp
 /// @brief 后端几何文件导入自由函数（CGAL/OCCT IO 实现落点）
 
 #include "BackendImporters.h"
@@ -10,14 +10,14 @@
 #include "PointCloudBackendData.h"
 #include "RunLogger.h"
 
+#include <cctype>
+#include <fstream>
+#include <sstream>
+
 #include <Discretize.h>
 #include <ShapeHandle.h>
 #include <ShapeIo.h>
 #include <Types.h>
-
-#include <cctype>
-#include <fstream>
-#include <sstream>
 
 using namespace mesh_backend_load;
 

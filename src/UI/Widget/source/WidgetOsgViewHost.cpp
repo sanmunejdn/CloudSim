@@ -446,8 +446,7 @@ bool WidgetOsgViewHost::instructionWaypointPickMode() const
 }
 
 void WidgetOsgViewHost::setInstructionWaypointPickCallbacks(
-	std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
-	std::function<void()> onCanceled)
+	std::function<void(const std::string& instructionId, bool isArcVia)> onPicked, std::function<void()> onCanceled)
 {
 	if (OsgWidget* osg = osgWidget())
 	{
@@ -469,10 +468,10 @@ void WidgetOsgViewHost::endTcpDragTeach()
 	}
 }
 
-void WidgetOsgViewHost::beginTcpDragTeach(const std::string& mountBackendId,
-										  const engine::RigidTransform& T_base_target, const float modelDiagonalMm,
-										  std::function<bool(cloudsim::core::Mat4& outRobotBaseWorld)> resolveRobotBaseWorld,
-										  const cloudsim::core::Mat4* toolLocalOnFlange)
+void WidgetOsgViewHost::beginTcpDragTeach(
+	const std::string& mountBackendId, const engine::RigidTransform& T_base_target, const float modelDiagonalMm,
+	std::function<bool(cloudsim::core::Mat4& outRobotBaseWorld)> resolveRobotBaseWorld,
+	const cloudsim::core::Mat4* toolLocalOnFlange)
 {
 	cloudsim::core::IRenderView* rv = renderView();
 	if (!rv)

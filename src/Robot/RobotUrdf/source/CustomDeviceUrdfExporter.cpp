@@ -1,4 +1,4 @@
-/// @file CustomDeviceUrdfExporter.cpp
+﻿/// @file CustomDeviceUrdfExporter.cpp
 /// @brief 自定义设备导出 ROS URDF 包（校验 → 几何落盘 → package/urdf）
 
 #include "CustomDeviceUrdfExporter.h"
@@ -15,7 +15,6 @@
 #include <QFileInfo>
 #include <QTextStream>
 #include <QtGlobal>
-
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
@@ -263,8 +262,7 @@ bool resolveLinkGeometry(const CustomDeviceLink& link, const BackendDataManager&
 		{
 			if (err)
 			{
-				*err = QStringLiteral("写出 PLY 失败（%1）：%2")
-						   .arg(geomId, QString::fromStdString(ioErr));
+				*err = QStringLiteral("写出 PLY 失败（%1）：%2").arg(geomId, QString::fromStdString(ioErr));
 			}
 			return false;
 		}
@@ -289,8 +287,7 @@ bool resolveLinkGeometry(const CustomDeviceLink& link, const BackendDataManager&
 		{
 			if (err)
 			{
-				*err = QStringLiteral("写出 STEP 失败（%1）：%2")
-						   .arg(geomId, QString::fromStdString(ioErr));
+				*err = QStringLiteral("写出 STEP 失败（%1）：%2").arg(geomId, QString::fromStdString(ioErr));
 			}
 			return false;
 		}
@@ -378,8 +375,8 @@ void buildLinkUrdfNames(const CustomDeviceBackendData& device, std::unordered_ma
 	std::unordered_set<std::string> usedLinkNames;
 	for (const CustomDeviceLink& L : device.links())
 	{
-		const QString base = sanitizeUrdfToken(
-			QString::fromStdString(L.displayName.empty() ? L.id : L.displayName), QStringLiteral("link"));
+		const QString base = sanitizeUrdfToken(QString::fromStdString(L.displayName.empty() ? L.id : L.displayName),
+											   QStringLiteral("link"));
 		linkUrdfName[L.id] = uniqueName(base, usedLinkNames);
 	}
 }
@@ -412,15 +409,14 @@ bool resolveAndStageGeometry(const CustomDeviceBackendData& device, const Backen
 
 bool writePackageXml(const QString& packageRoot, const QString& pkgName, QString* err)
 {
-	const QString packageXml = QStringLiteral(
-		"<?xml version=\"1.0\"?>\n"
-		"<package format=\"2\">\n"
-		"  <name>%1</name>\n"
-		"  <version>0.0.1</version>\n"
-		"  <description>CloudSim custom device URDF export</description>\n"
-		"  <maintainer email=\"noreply@cloudsim.local\">CloudSim</maintainer>\n"
-		"  <license>BSD</license>\n"
-		"</package>\n");
+	const QString packageXml = QStringLiteral("<?xml version=\"1.0\"?>\n"
+											  "<package format=\"2\">\n"
+											  "  <name>%1</name>\n"
+											  "  <version>0.0.1</version>\n"
+											  "  <description>CloudSim custom device URDF export</description>\n"
+											  "  <maintainer email=\"noreply@cloudsim.local\">CloudSim</maintainer>\n"
+											  "  <license>BSD</license>\n"
+											  "</package>\n");
 	return writeTextFile(QDir(packageRoot).filePath(QStringLiteral("package.xml")), packageXml.arg(pkgName), err);
 }
 
@@ -435,8 +431,7 @@ bool writeUrdfXml(const CustomDeviceBackendData& device, const QString& packageR
 	for (const CustomDeviceLink& L : device.links())
 	{
 		const QString& lname = linkUrdfName.at(L.id);
-		const QString meshUri =
-			QStringLiteral("package://%1/%2").arg(pkgName, assets.at(L.id).packageRelative);
+		const QString meshUri = QStringLiteral("package://%1/%2").arg(pkgName, assets.at(L.id).packageRelative);
 		urdf += QStringLiteral("  <link name=\"%1\">\n").arg(xmlEscapeAttr(lname));
 		urdf += QStringLiteral("    <visual>\n");
 		urdf += QStringLiteral("      <origin xyz=\"0 0 0\" rpy=\"0 0 0\"/>\n");
@@ -537,8 +532,8 @@ void assembleResult(CustomDeviceUrdfExportResult& result, const QString& package
 } // namespace
 
 CustomDeviceUrdfExportResult exportCustomDeviceUrdfPackage(const CustomDeviceBackendData& device,
-														  const BackendDataManager& backend,
-														  const CustomDeviceUrdfExportOptions& options)
+														   const BackendDataManager& backend,
+														   const CustomDeviceUrdfExportOptions& options)
 {
 	CustomDeviceUrdfExportResult result;
 	QString err;

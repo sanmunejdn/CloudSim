@@ -1,4 +1,4 @@
-/// @file CustomDeviceRobotMountComponent.cpp
+﻿/// @file CustomDeviceRobotMountComponent.cpp
 /// @brief 自定义设备机器人法兰挂载组件
 
 #include "CustomDeviceRobotMountComponent.h"
@@ -184,8 +184,8 @@ void CustomDeviceRobotMountComponent::collectReferencedBackendIds(std::vector<st
 }
 
 bool CustomDeviceRobotMountComponent::computeTFlangeDeviceFromWorldPoses(const BackendMat4& flangeWorld,
-																	  const BackendMat4& deviceWorld,
-																	  BackendMat4& outTFlangeDevice)
+																		 const BackendMat4& deviceWorld,
+																		 BackendMat4& outTFlangeDevice)
 {
 	BackendMat4 invFlange{};
 	if (!backend_mat4_invert_rigid(flangeWorld, invFlange))
@@ -196,8 +196,8 @@ bool CustomDeviceRobotMountComponent::computeTFlangeDeviceFromWorldPoses(const B
 }
 
 bool CustomDeviceRobotMountComponent::computeFrameInDeviceFromWorldPoses(const BackendMat4& deviceWorld,
-																		const BackendMat4& frameWorld,
-																		BackendMat4& outFrameInDevice)
+																		 const BackendMat4& frameWorld,
+																		 BackendMat4& outFrameInDevice)
 {
 	BackendMat4 invDevice{};
 	if (!backend_mat4_invert_rigid(deviceWorld, invDevice))
@@ -207,9 +207,10 @@ bool CustomDeviceRobotMountComponent::computeFrameInDeviceFromWorldPoses(const B
 	return backend_mat4_multiply(invDevice, frameWorld, outFrameInDevice);
 }
 
-bool CustomDeviceRobotMountComponent::computeEffectiveDeviceWorldForFrameTcpAlign(
-	const BackendMat4& flangeWorld, const BackendMat4& toolFrameInFlange, const BackendMat4& frameInDeviceW0,
-	BackendMat4& outDeviceWorld)
+bool CustomDeviceRobotMountComponent::computeEffectiveDeviceWorldForFrameTcpAlign(const BackendMat4& flangeWorld,
+																				  const BackendMat4& toolFrameInFlange,
+																				  const BackendMat4& frameInDeviceW0,
+																				  BackendMat4& outDeviceWorld)
 {
 	BackendMat4 tcpWorld{};
 	if (!backend_mat4_multiply(flangeWorld, toolFrameInFlange, tcpWorld))
@@ -224,14 +225,14 @@ bool CustomDeviceRobotMountComponent::computeEffectiveDeviceWorldForFrameTcpAlig
 	return backend_mat4_multiply(tcpWorld, invFrameInDevice, outDeviceWorld);
 }
 
-std::shared_ptr<CustomDeviceRobotMountComponent> CustomDeviceRobotMountComponent::mountOf(
-	CustomDeviceBackendData& device)
+std::shared_ptr<CustomDeviceRobotMountComponent>
+CustomDeviceRobotMountComponent::mountOf(CustomDeviceBackendData& device)
 {
 	return device.getComponent<CustomDeviceRobotMountComponent>();
 }
 
-std::shared_ptr<const CustomDeviceRobotMountComponent> CustomDeviceRobotMountComponent::mountOf(
-	const CustomDeviceBackendData& device)
+std::shared_ptr<const CustomDeviceRobotMountComponent>
+CustomDeviceRobotMountComponent::mountOf(const CustomDeviceBackendData& device)
 {
 	return device.getComponent<CustomDeviceRobotMountComponent>();
 }

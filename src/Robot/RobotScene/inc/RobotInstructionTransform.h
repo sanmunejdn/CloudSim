@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_ROBOTINSTRUCTIONTRANSFORM_H
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONTRANSFORM_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONTRANSFORM_H
 
 /// @file RobotInstructionTransform.h
@@ -9,9 +9,9 @@
 
 #include "RobotInstructionModel.h"
 
-#include <RigidTransform.h>
-
 #include <string>
+
+#include <RigidTransform.h>
 
 namespace RobotInstruction
 {

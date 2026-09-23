@@ -48,11 +48,12 @@ void touchStaticDiscretizerRegistrations()
 
 void ensureFeatureDiscretizersRegistered()
 {
-	std::call_once(g_builtinsOnce, []()
-	{
-		touchStaticDiscretizerRegistrations();
-		registerDiscretizerConfigs();
-	});
+	std::call_once(g_builtinsOnce,
+				   []()
+				   {
+					   touchStaticDiscretizerRegistrations();
+					   registerDiscretizerConfigs();
+				   });
 }
 
 } // namespace geoalgo

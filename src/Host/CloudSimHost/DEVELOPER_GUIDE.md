@@ -1,6 +1,6 @@
 ﻿# CloudSimHost 模块开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；URDF 导入、层级 mesh/BREP、配准写回须走 `BackendWorldPose` / `osgMatrixFromRigidTransform` 单一路径。
 
@@ -359,7 +359,7 @@ Open Model / Registry `StepGeometryImporter`：`BrepBackendData::loadStepHierarc
 
 **AI ActionPlan（按钮关键词）**：`AiHostButtonApiDispatch` 经 `PluginHostContext` 调用 `pointCloudHost()` / `geometryHost()` / `labelingHost()` 与导入 API，与 PointCloud/Geometry/Labeling Dock 按钮同一套 Host 公共接口；keywords 见 [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) §6。
 
-**AI Agent Runtime**：`AiAgentRuntime` + `AiAgentPlanBuilder`（需求拆分）+ Dock `AiConfirmPanel`；`scene.ops` 经 `removeBackendObject` / `PluginDocumentAdapter::applyWorldPoseMm`。见 [`docs/ai_agent_runtime/`](../../../docs/_archive/ai_agent_runtime/) 与 AiSDK DEVELOPER_GUIDE「Agent 运行时」。
+**AI Agent Runtime**：`AiAgentRuntime` + `AiAgentPlanBuilder`（需求拆分）+ Dock `AiConfirmPanel`；`scene.ops` 经 `removeBackendObject` / `PluginDocumentAdapter::applyWorldPoseMm`。见 `docs/ARCHIVE_ZIP_LOCATION.txt` 与 AiSDK DEVELOPER_GUIDE「Agent 运行时」。
 
 **规划**：`RobotSimulationController` 经 `IRobotMainWindowHost::planRobotMotionInstruction` → `planRobotInstruction` → `planMotionInstruction`（与 `IRobotService::planInstruction` 同 Host 路径）。Run 中并行预读经 `enqueueBackgroundJob` → Widget `JobSystem`（结果回 UI 写 `PlanResultCache`）。
 
@@ -571,12 +571,12 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 | 文档 | 内容 |
 |------|------|
-| [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §2.1、§4.0.1 | 全局边界与运行时 DLL |
+| [全库文档入口](../../README.md) · [产品索引](../README.md) §2.1、§4.0.1 | 全局边界与运行时 DLL |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService` / `IRenderView` / `EventHub` 与 Host 行为对照 |
 | [`Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) | 主窗口与 `DocumentPage`（UI 仍描述 OsgWidget 行为，实现位于 Host） |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 动态插件宿主（**编入 Host**）、`PluginHostContext` 与 Facade 接线 |
 | [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI Domain、Catalog keywords、Agent Runtime / ConfirmPanel |
-| [`docs/ai_agent_runtime/`](../../../docs/_archive/ai_agent_runtime/) | Full Agent Runtime 6A |
+| `docs/ARCHIVE_ZIP_LOCATION.txt` | Full Agent Runtime 6A |
 | [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) | 场景核心、gizmo、拾取索引、HiDPI 屏幕坐标约定 |
 
 ### 变更历史（2026-06）
@@ -598,7 +598,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 6. ~~**API 去重**~~：移除 `DocumentHost` 公开 `registerAdopted*`；Host 内 `osgWidgetFrom` + Widget `widgetOsgFromPage`；删除 Widget 死代码（`syncOsgViewer*`、`backendPropertyCommitted` 等）。
 7. ~~**PluginHost 迁入 Host**~~：`CloudSimPluginHost` 源码编入 `CloudSimHost.vcxproj`；`PluginManager`（`CLOUDSIM_HOST_EXPORT`）+ `IPluginMainWindowHost` 解耦 Widget 类型。
 
-**仍待 / 长期（详见本文件演进说明与 `docs/_archive/架构边界收口/`）**
+**仍待 / 长期（详见本文件演进说明与 `docs/ARCHIVE_ZIP_LOCATION.txt`）**
 
 1. ~~**`RobotSimulationController` 核心逻辑迁入 Host**~~：阶段 1.1-1.5 已完成。运动学（6 处）、坐标系管理、TCP IK 已通过 `IRobotDocumentHost` 委托；规划和程序 JSON 已通过 Host 模块集中。阶段 1.6（导出）待定。
 2. **`IRobotSimulationDocument`**：实例元数据仍留 `DocumentPage` / `RobotWidget`（`RobotSimulationController` 编排）。

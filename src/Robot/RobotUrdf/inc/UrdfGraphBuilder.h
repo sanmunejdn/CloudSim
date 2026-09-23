@@ -1,5 +1,8 @@
-#ifndef ROBOTURDF_URDFGRAPHBUILDER_H
+﻿#ifndef ROBOTURDF_URDFGRAPHBUILDER_H
 #define ROBOTURDF_URDFGRAPHBUILDER_H
+
+/// @file UrdfGraphBuilder.h
+/// @brief UrdfGraphBuilder 接口
 
 #include "robot_urdf_global.h"
 

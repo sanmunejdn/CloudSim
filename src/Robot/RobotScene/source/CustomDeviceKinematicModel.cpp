@@ -1,10 +1,12 @@
-#include "CustomDeviceKinematicModel.h"
+﻿/// @file CustomDeviceKinematicModel.cpp
+/// @brief CustomDeviceKinematicModel 实现
 
-#include "CustomDeviceGraphBuilder.h"
-#include "CustomDeviceMat4Layout.h"
+#include "CustomDeviceKinematicModel.h"
 
 #include "BackendCompoundPropagate.h"
 #include "BackendDataManager.h"
+#include "CustomDeviceGraphBuilder.h"
+#include "CustomDeviceMat4Layout.h"
 #include "IRobotBackendPoseSink.h"
 #include "TreeForwardKinematics.h"
 
@@ -81,8 +83,7 @@ bool Model::forward(const double* q, const std::size_t qCount, std::vector<std::
 	std::vector<std::array<double, 16>> buf(m_graph.links.size());
 	double w0[16];
 	CustomDeviceMat4Layout::backendMat4ToKinematicCore(m_device.baseWorldW0(), w0);
-	if (!kinematic_core::forwardKinematicsTree(m_graph, w0, q, qCount,
-											   reinterpret_cast<double(*)[16]>(buf.data())))
+	if (!kinematic_core::forwardKinematicsTree(m_graph, w0, q, qCount, reinterpret_cast<double(*)[16]>(buf.data())))
 	{
 		return false;
 	}

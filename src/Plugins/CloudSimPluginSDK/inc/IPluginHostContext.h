@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H
+﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H
 #define CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H
 
 /// @file IPluginHostContext.h
@@ -39,10 +39,7 @@ public:
 	PluginJobCancelToken() = default;
 	explicit PluginJobCancelToken(std::function<bool()> check) : m_check(std::move(check)) {}
 
-	bool canceled() const
-	{
-		return m_check && m_check();
-	}
+	bool canceled() const { return m_check && m_check(); }
 
 private:
 	std::function<bool()> m_check;

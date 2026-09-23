@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
+﻿#ifndef GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
 #define GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
 
 /// @file FeatureListDocument.h
@@ -27,15 +27,15 @@ struct Vec3d
 struct WorkpieceRef
 {
 	std::string backendIdUtf8;
-	std::string stepPathUtf8;   ///< 本地窄字节 STEP 路径
+	std::string stepPathUtf8; ///< 本地窄字节 STEP 路径
 	std::string frameId = "workpiece";
 };
 
 /** 策略无关几何索引；策略专有参数在 FeatureEntry::params */
 struct FeatureGeometry
 {
-	std::vector<int> edgeIndices;   ///< shapeEdgeAtIndex 顺序
-	std::vector<int> faceIndices;   ///< shapeFaceAtIndex 顺序
+	std::vector<int> edgeIndices;	///< shapeEdgeAtIndex 顺序
+	std::vector<int> faceIndices;	///< shapeFaceAtIndex 顺序
 	std::vector<float> polylineXyz; ///< SyntheticPolyline 等：3N mm
 };
 
@@ -82,9 +82,9 @@ enum class GeometryAffinity
 
 enum class MergePolicy
 {
-	None = 0,           ///< 逐行离散后拼接
-	LineConnectivity,   ///< 相连边合并 wire
-	FaceUnion           ///< 多面 fuse 后离散
+	None = 0,		  ///< 逐行离散后拼接
+	LineConnectivity, ///< 相连边合并 wire
+	FaceUnion		  ///< 多面 fuse 后离散
 };
 
 enum class FeatureParamType
@@ -163,8 +163,8 @@ struct FeatureDiscretizeInput
 
 struct DiscretizeParams
 {
-	double stepMm = 2.0;                  ///< 弧长重采样间距（mm）
-	double linearDeflectionMm = 0.01;   ///< BREP 边/面离散线性偏差（mm）
+	double stepMm = 2.0;			  ///< 弧长重采样间距（mm）
+	double linearDeflectionMm = 0.01; ///< BREP 边/面离散线性偏差（mm）
 	bool closedPreserveEndpoint = false;
 	bool outputTangent = true;
 	bool outputNormal = true;

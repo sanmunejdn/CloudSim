@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIAGENTPLANBUILDER_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIAGENTPLANBUILDER_H
 #define CLOUDSIMPLUGINHOST_AIAGENTPLANBUILDER_H
 
 /// @file AiAgentPlanBuilder.h
@@ -37,4 +37,4 @@ struct BuildInput
 AiAgentPlan buildPlan(const BuildInput& in, const QString& failureObservation = QString());
 } // namespace AiAgentPlanBuilder
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIAGENTPLANBUILDER_H

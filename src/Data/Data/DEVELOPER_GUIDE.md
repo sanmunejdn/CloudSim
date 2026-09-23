@@ -1,6 +1,6 @@
 ﻿# Data 模块开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 > **空间契约 v2**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — **Breaking**：JSON 仅 `worldMatrix`（16 元）；`pose`/`rotation` 为分解视图；`p_world = p_geometry × worldMatrix`。
 
@@ -416,7 +416,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 ### 4.9 CAD 模板 + 扫描点云 B-rep 更新
 
-**专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
+**专题文档**：`docs/ARCHIVE_ZIP_LOCATION.txt`
 
 | API（`geometry_backend_ops`） | 说明 |
 |-------------------------------|------|
@@ -428,7 +428,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 配准在 Data 层将扫描/模板 soup 变换到世界系（`worldMatrix`）后 ICP；面归属前 `scanPointsToTemplateModelFrame` 变到模板文件系。
 
-面更新算法见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) §3。
+面更新算法见 `docs/ARCHIVE_ZIP_LOCATION.txt` §3。
 
 | `TemplateBrepUpdateParams`（常用） | 说明 |
 |-----------------------------------|------|
@@ -560,7 +560,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 同部件 Data 子树：\(\Delta=W_{new}\cdot W_{old}^{-1}\)。跳过自身已启用 Follow 的节点（跨部件位姿由 Follow 独占）。`CustomDeviceKinematicModel::applyToSink` 与 Host `propagateCompoundAfterRootWorldChange` 共用。
 
-跨部件 vs 同部件约定见 [`docs/_archive/Follow与Compound分流/`](../../../docs/_archive/Follow与Compound分流/)。
+跨部件 vs 同部件约定见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ---
 
@@ -613,7 +613,7 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 | `BackendHierarchyChange` | P1 起供 Units 文档作用域增量；P0 可用 `listObjectSnapshots` 按文档 rebuild |
 | Follow / 属性仍读全图 | 树上看不见的次父边不影响属性与求解 |
 
-专题：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)。
+专题：`docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ---
 
@@ -669,8 +669,8 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 
 - 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../../UI/BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
 - 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) §6.1、§11；插件宿主：[`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
-- Units 显示树：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)；契约：[`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) §2
-- 全库入口：[`../../../../docs/README.md`](../../../../docs/README.md)；产品索引：[`../../../docs/README.md`](../../../docs/README.md)
+- Units 显示树：`docs/ARCHIVE_ZIP_LOCATION.txt`；契约：[`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) §2
+- 全库入口：[`../../README.md`](../../README.md)；产品索引：[`../README.md`](../README.md)
 - 后端类型三键 / 侧车 / 工作区模式：[`../../docs/后端对象与软件模式/`](../../../docs/后端对象与软件模式/)
 - 属性 Binding：[`../../docs/后端属性Binding/`](../../../docs/后端属性Binding/)；指令/插件：[`../../docs/指令与插件属性Binding/`](../../../docs/指令与插件属性Binding/)
-- 持久化设计/任务/回归：[`../../docs/_archive/backend_persistence/`](../../../docs/_archive/backend_persistence/)
+- 持久化设计/任务/回归：`docs/ARCHIVE_ZIP_LOCATION.txt`

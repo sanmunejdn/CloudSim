@@ -1,4 +1,4 @@
-/// @file DimStyleDialog.cpp
+﻿/// @file DimStyleDialog.cpp
 
 #include "DimStyleDialog.h"
 
@@ -13,8 +13,7 @@
 #include <QSpinBox>
 #include <QVBoxLayout>
 
-DimStyleDialog::DimStyleDialog(DrawingSheetCanvasWidget* canvas, QWidget* parent)
-	: QDialog(parent), m_canvas(canvas)
+DimStyleDialog::DimStyleDialog(DrawingSheetCanvasWidget* canvas, QWidget* parent) : QDialog(parent), m_canvas(canvas)
 {
 	setWindowTitle(QStringLiteral("标注样式"));
 	setMinimumWidth(320);
@@ -50,10 +49,12 @@ DimStyleDialog::DimStyleDialog(DrawingSheetCanvasWidget* canvas, QWidget* parent
 	auto* btns = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
 	auto* applyBtn = btns->addButton(QStringLiteral("设为当前"), QDialogButtonBox::ActionRole);
 	root->addWidget(btns);
-	connect(btns, &QDialogButtonBox::accepted, this, [this]() {
-		applyToCanvas();
-		accept();
-	});
+	connect(btns, &QDialogButtonBox::accepted, this,
+			[this]()
+			{
+				applyToCanvas();
+				accept();
+			});
 	connect(btns, &QDialogButtonBox::rejected, this, &QDialog::reject);
 	connect(applyBtn, &QPushButton::clicked, this, [this]() { applyToCanvas(); });
 	connect(m_styleCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) { loadFromCanvas(); });

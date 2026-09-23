@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_TEMPLATEBREPREGISTRATION_H
+﻿#ifndef GEOMETRYALGORITHM_TEMPLATEBREPREGISTRATION_H
 #define GEOMETRYALGORITHM_TEMPLATEBREPREGISTRATION_H
 
 /// @file TemplateBrepRegistration.h
@@ -19,10 +19,10 @@ namespace geoalgo
 {
 struct TemplateBrepRegistrationParams
 {
-	double maxPairMm = 0.0;              ///< 配对距离上限（mm）；0=自动
+	double maxPairMm = 0.0; ///< 配对距离上限（mm）；0=自动
 	int maxIterations = 30;
 	std::size_t icpMaxPoints = 8000U;
-	double normalGateDeg = 0.0;          ///< 法向门限（°）；0=禁用
+	double normalGateDeg = 0.0; ///< 法向门限（°）；0=禁用
 	double convergenceTransMm = 0.005;
 };
 

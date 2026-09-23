@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H
+﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H
 #define CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H
 
 /// @file IPluginGeometryHost.h
@@ -178,16 +178,16 @@ public:
 	virtual bool previewLinearPattern(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
 									  QString* errOut = nullptr) = 0;
 	virtual void linearPatternBodyToBrep(IPluginDocument* doc, const PluginSketchLinearPatternParams& params,
-										PluginGeometryFinishedFn onFinished) = 0;
+										 PluginGeometryFinishedFn onFinished) = 0;
 	/// 1.38.0+：镜像预览 / 提交
 	virtual bool previewMirror3d(IPluginDocument* doc, const PluginSketchMirror3dParams& params,
 								 QString* errOut = nullptr) = 0;
 	virtual void mirror3dBodyToBrep(IPluginDocument* doc, const PluginSketchMirror3dParams& params,
-								  PluginGeometryFinishedFn onFinished) = 0;
+									PluginGeometryFinishedFn onFinished) = 0;
 	/// 1.38.0+：放样预览 / 提交
 	virtual bool previewSketchLoft(IPluginDocument* doc, const std::vector<float>& profilePolylineAXyzMm,
-								   const std::vector<float>& profilePolylineBXyzMm, const PluginSketchLoftParams& params,
-								   QString* errOut = nullptr) = 0;
+								   const std::vector<float>& profilePolylineBXyzMm,
+								   const PluginSketchLoftParams& params, QString* errOut = nullptr) = 0;
 	virtual void loftSketchProfilesToBrep(IPluginDocument* doc, const std::vector<float>& profilePolylineAXyzMm,
 										  const std::vector<float>& profilePolylineBXyzMm,
 										  const PluginSketchLoftParams& params,
@@ -202,7 +202,7 @@ public:
 	virtual bool previewDraftFaces(IPluginDocument* doc, const PluginSketchDraftParams& params,
 								   QString* errOut = nullptr) = 0;
 	virtual void draftFacesToBrep(IPluginDocument* doc, const PluginSketchDraftParams& params,
-								PluginGeometryFinishedFn onFinished) = 0;
+								  PluginGeometryFinishedFn onFinished) = 0;
 
 	/// 1.33.0+：B-rep → 第一角法三视图 HLR 折线（异步）
 	virtual void projectBrepHlrToDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,

@@ -1,11 +1,9 @@
-/// @file AdaptiveRemesh.cpp
+﻿/// @file AdaptiveRemesh.cpp
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 
 #include "AdaptiveRemesh.h"
 
 #include "KdTreePointSet.h"
-
-#include <MeshRemesh.h>
 
 #include <algorithm>
 #include <cmath>
@@ -25,6 +23,7 @@
 #include <CGAL/boost/graph/Euler_operations.h>
 #include <CGAL/boost/graph/helpers.h>
 #include <CGAL/boost/graph/iterator.h>
+#include <MeshRemesh.h>
 
 namespace pclalgo
 {
@@ -59,8 +58,7 @@ struct ResidualField
 			return 0.0;
 		}
 		double distSq = 0.0;
-		const std::size_t nn =
-			tree.findNearest(x, y, z, std::numeric_limits<double>::max(), distSq);
+		const std::size_t nn = tree.findNearest(x, y, z, std::numeric_limits<double>::max(), distSq);
 		if (nn == static_cast<std::size_t>(-1) || nn >= values.size())
 		{
 			return 0.0;

@@ -1,3 +1,6 @@
+﻿/// @file CustomDeviceMat4Layout.cpp
+/// @brief CustomDeviceMat4Layout 实现
+
 #include "CustomDeviceMat4Layout.h"
 
 #include "Mat4Ops.h"

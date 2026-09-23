@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_RUCKIGPTPTRAJECTORY_H
+﻿#ifndef ROBOTSCENE_RUCKIGPTPTRAJECTORY_H
 #define ROBOTSCENE_RUCKIGPTPTRAJECTORY_H
 
 /// @file RuckigPtpTrajectory.h
@@ -20,10 +20,8 @@ struct ROBOT_SCENE_API RuckigPtpLimits
 };
 
 /// 生成 q0→q1 的限 jerk 关节轨迹；失败返回 false（调用方可回退 lerp）
-ROBOT_SCENE_API bool buildRuckigPtpJointTrajectory(const std::vector<double>& q0,
-												   const std::vector<double>& q1,
-												   const RuckigPtpLimits& limits,
-												   double sampleDtSec,
+ROBOT_SCENE_API bool buildRuckigPtpJointTrajectory(const std::vector<double>& q0, const std::vector<double>& q1,
+												   const RuckigPtpLimits& limits, double sampleDtSec,
 												   std::vector<std::vector<double>>& outTrajectoryRad,
 												   double& outDurationSec);
 

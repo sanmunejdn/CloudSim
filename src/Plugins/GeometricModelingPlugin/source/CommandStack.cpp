@@ -1,4 +1,4 @@
-/// @file CommandStack.cpp
+﻿/// @file CommandStack.cpp
 /// @brief 移植自 OneCAD CommandProcessor（简化深度 200）
 
 #include "CommandStack.h"

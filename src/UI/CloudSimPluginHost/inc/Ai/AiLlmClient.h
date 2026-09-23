@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AILLMCLIENT_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AILLMCLIENT_H
 #define CLOUDSIMPLUGINHOST_AILLMCLIENT_H
 
 /// @file AiLlmClient.h
@@ -55,8 +55,8 @@ AIBACKEND_EXPORT ToolProposeResult chatWithTools(const QString& userText, const 
 												 nlohmann::json* inoutMessages = nullptr);
 
 /// 将 tool 观测追加到 messages（OpenAI tool role）
-AIBACKEND_EXPORT void appendToolObservation(nlohmann::json& messages, const QString& toolCallId, const QString& toolName,
-											const QByteArray& observationUtf8);
+AIBACKEND_EXPORT void appendToolObservation(nlohmann::json& messages, const QString& toolCallId,
+											const QString& toolName, const QByteArray& observationUtf8);
 
 struct PlanJsonResult
 {
@@ -69,7 +69,8 @@ struct PlanJsonResult
 /// 将用户需求拆成有序 Catalog 步骤（非 tool_calls）
 AIBACKEND_EXPORT PlanJsonResult chatPlanJson(const QString& userText, const AiLlmConfig& config,
 											 const AiProgressSink& progress, const QByteArray& catalogJsonUtf8,
-											 const QString& domainId, const QByteArray& sceneSnapshotUtf8 = QByteArray(),
+											 const QString& domainId,
+											 const QByteArray& sceneSnapshotUtf8 = QByteArray(),
 											 const QByteArray& sessionSummaryUtf8 = QByteArray());
 
 struct TextChatResult
@@ -80,8 +81,8 @@ struct TextChatResult
 };
 
 /// 纯文本多轮（意图分类等）；无 tools
-AIBACKEND_EXPORT TextChatResult chatText(const QString& systemPrompt, const QString& userText, const AiLlmConfig& config,
-										 const AiProgressSink& progress = {});
+AIBACKEND_EXPORT TextChatResult chatText(const QString& systemPrompt, const QString& userText,
+										 const AiLlmConfig& config, const AiProgressSink& progress = {});
 } // namespace AiLlmClient
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AILLMCLIENT_H

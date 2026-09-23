@@ -296,7 +296,8 @@ void DevicePageWidget::setupUi(QVBoxLayout* rootLayout)
 	connect(m_refreshBtn, &QPushButton::clicked, this, &DevicePageWidget::onRefreshClicked);
 	connect(m_customDeviceBtn, &QPushButton::clicked, this, &DevicePageWidget::customDeviceCreateRequested);
 	connect(m_editCustomDeviceBtn, &QPushButton::clicked, this, &DevicePageWidget::customDeviceEditRequested);
-	connect(m_exportCustomDeviceUrdfBtn, &QPushButton::clicked, this, &DevicePageWidget::customDeviceExportUrdfRequested);
+	connect(m_exportCustomDeviceUrdfBtn, &QPushButton::clicked, this,
+			&DevicePageWidget::customDeviceExportUrdfRequested);
 
 	if (rootLayout)
 	{
@@ -339,7 +340,7 @@ void DevicePageWidget::updateUiLabels()
 	{
 		m_editCustomDeviceBtn->setText(zh ? QStringLiteral("编辑自定义设备…") : QStringLiteral("Edit Custom Device…"));
 		m_editCustomDeviceBtn->setToolTip(zh ? QStringLiteral("打开已有设备的组装画布继续修改")
-											: QStringLiteral("Reopen assembly canvas for an existing device"));
+											 : QStringLiteral("Reopen assembly canvas for an existing device"));
 	}
 	if (m_exportCustomDeviceUrdfBtn)
 	{

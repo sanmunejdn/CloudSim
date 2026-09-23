@@ -1,4 +1,4 @@
-/// @file RobotInstructionController.cpp
+﻿/// @file RobotInstructionController.cpp
 /// @brief Sole tool handling before IK: pose/euler = T_base_target; solver input = T_base_flange only.
 
 #include "RobotInstructionController.h"
@@ -11,11 +11,11 @@
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotTeachIk.h"
+#include "RuckigPtpTrajectory.h"
 #include "RunLogger.h"
 #include "UrdfIkSolverOptions.h"
 #include "UrdfNumericalIk.h"
 #include "UrdfRobotLoader.h"
-#include "RuckigPtpTrajectory.h"
 
 #include <QHash>
 #include <QString>
@@ -50,7 +50,10 @@ double trapezoidDuration(double distance, double vmax, double amax);
 
 struct ActiveExternalAxesGuard
 {
-	explicit ActiveExternalAxesGuard(const RobotExternal::RobotExternalAxisConfigSet* axes) { g_activeExternalAxes = axes; }
+	explicit ActiveExternalAxesGuard(const RobotExternal::RobotExternalAxisConfigSet* axes)
+	{
+		g_activeExternalAxes = axes;
+	}
 	~ActiveExternalAxesGuard() { g_activeExternalAxes = nullptr; }
 	ActiveExternalAxesGuard(const ActiveExternalAxesGuard&) = delete;
 	ActiveExternalAxesGuard& operator=(const ActiveExternalAxesGuard&) = delete;
@@ -148,12 +151,12 @@ void applyLastIkExternalAxisToPlan(RobotInstruction::PlanResult& out)
 		bool isTranslate = true;
 		if (g_activeExternalAxes && i < g_activeExternalAxes->axes.size())
 		{
-			isTranslate =
-				g_activeExternalAxes->axes[i].motionType == RobotExternal::RobotExternalMotionType::Translate;
+			isTranslate = g_activeExternalAxes->axes[i].motionType == RobotExternal::RobotExternalMotionType::Translate;
 		}
 		if (isTranslate)
 		{
-			out.durationSec = std::max(out.durationSec, trapezoidDuration(dQ, kTranslateVMmPerSec, kTranslateAMmPerSec2));
+			out.durationSec =
+				std::max(out.durationSec, trapezoidDuration(dQ, kTranslateVMmPerSec, kTranslateAMmPerSec2));
 		}
 		else
 		{
@@ -1204,8 +1207,7 @@ std::vector<std::vector<double>> buildIkSeedVariants(const std::vector<double>& 
 }
 
 std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction::Base& cmd, std::vector<double> q,
-														 std::string* failReason,
-														 const bool expandSeedVariants = true)
+														 std::string* failReason, const bool expandSeedVariants = true)
 {
 	if (!cmd.hasPoseProperty())
 	{
@@ -1271,8 +1273,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 						 ? itTcp->second
 						 : ((itFlange != ext.end()) ? itFlange->second : std::string());
 		// FANUC 等：示教 FK 在 link_6，tcp 却落成固定叶 flange(Rxπ) → 姿态差 180° 永不可达
-		if (itFlange != ext.end() && !itFlange->second.empty() && !ikLinkName.empty() &&
-			ikLinkName != itFlange->second)
+		if (itFlange != ext.end() && !itFlange->second.empty() && !ikLinkName.empty() && ikLinkName != itFlange->second)
 		{
 			ikLinkName = itFlange->second;
 		}
@@ -1364,9 +1365,9 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 								axisSet.axes[static_cast<size_t>(idx)].attachment ==
 									RobotExternal::RobotExternalAttachment::RobotBase)
 							{
-								qeSeedFull[static_cast<size_t>(idx)] = std::clamp(
-									qScalar, axisSet.axes[static_cast<size_t>(idx)].lower,
-									axisSet.axes[static_cast<size_t>(idx)].upper);
+								qeSeedFull[static_cast<size_t>(idx)] =
+									std::clamp(qScalar, axisSet.axes[static_cast<size_t>(idx)].lower,
+											   axisSet.axes[static_cast<size_t>(idx)].upper);
 								break;
 							}
 						}
@@ -1379,7 +1380,8 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		}
 		noteLastIkExternalAxisSeed(qeSeedFull);
 
-		auto rigidFromColMajor16 = [](const double m[16]) -> engine::RigidTransform {
+		auto rigidFromColMajor16 = [](const double m[16]) -> engine::RigidTransform
+		{
 			BackendMat4 bm{};
 			for (int i = 0; i < 16; ++i)
 			{
@@ -1389,7 +1391,8 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		};
 
 		auto buildDofFromIndices = [&](const std::vector<int>& idxs,
-									   const std::vector<double>& qeFull) -> RobotTeachIk::TeachIkExternalAxisDof {
+									   const std::vector<double>& qeFull) -> RobotTeachIk::TeachIkExternalAxisDof
+		{
 			RobotTeachIk::TeachIkExternalAxisDof dof;
 			dof.qExternal.reserve(idxs.size());
 			for (int idx : idxs)
@@ -1416,8 +1419,9 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 			return dof;
 		};
 
-		auto appendSparseGridSamples = [](const RobotTeachIk::TeachIkExternalAxisDof& dof,
-										  std::vector<std::vector<double>>& samples) {
+		auto appendSparseGridSamples =
+			[](const RobotTeachIk::TeachIkExternalAxisDof& dof, std::vector<std::vector<double>>& samples)
+		{
 			const int dofN = static_cast<int>(dof.axes.size());
 			if (dofN <= 0)
 			{
@@ -1472,8 +1476,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 					const auto& ax = dof.axes[static_cast<size_t>(i)];
 					const int gn = gridN[static_cast<size_t>(i)];
 					const double t =
-						gn <= 1 ? 0.0
-								: static_cast<double>(idx[static_cast<size_t>(i)]) / static_cast<double>(gn - 1);
+						gn <= 1 ? 0.0 : static_cast<double>(idx[static_cast<size_t>(i)]) / static_cast<double>(gn - 1);
 					sample[static_cast<size_t>(i)] = ax.lower + t * (ax.upper - ax.lower);
 				}
 				samples.push_back(std::move(sample));
@@ -1510,7 +1513,8 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		bool bestOk = false;
 
 		auto considerDof = [&](RobotTeachIk::TeachIkExternalAxisDof tryDof, const bool optimize, const int maxIters,
-							   const std::vector<double>& qeTryFull) {
+							   const std::vector<double>& qeTryFull)
+		{
 			tryDof.optimizeExternal = optimize;
 			tryDof.adaptiveExternalDamping = true;
 			ctx.externalAxes = tryDof;
@@ -1563,7 +1567,8 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 			}
 		};
 
-		auto runRobotBaseSearch = [&](const engine::RigidTransform& T_p0_goal, const std::vector<double>& qeTryFull) {
+		auto runRobotBaseSearch = [&](const engine::RigidTransform& T_p0_goal, const std::vector<double>& qeTryFull)
+		{
 			ctx.T_base_target = T_p0_goal;
 			RobotTeachIk::TeachIkExternalAxisDof dof = buildDofFromIndices(robotBaseIdx, qeTryFull);
 			const int dofN = static_cast<int>(dof.axes.size());
@@ -1815,8 +1820,8 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		if (!bestQ.empty())
 		{
 			std::ostringstream os;
-			os << "IK姿态残差超门限(pos=" << bestPosMm << "mm, orient=" << bestRotDeg
-			   << "deg, gate=" << kAcceptRotDeg << "deg)";
+			os << "IK姿态残差超门限(pos=" << bestPosMm << "mm, orient=" << bestRotDeg << "deg, gate=" << kAcceptRotDeg
+			   << "deg)";
 			*failReason = os.str();
 		}
 		else
@@ -2354,9 +2359,9 @@ public:
 		bool usedCartesianSamples = false;
 		engine::RigidTransform T_end{};
 		engine::RigidTransform T_start{};
-		const bool canCartesian =
-			preferUrdfIk && haveCartStart && RobotInstruction::readTargetTransformFromInstruction(cmd, T_end) &&
-			toolOriginTransformFromJoints(cmd, q0, T_start);
+		const bool canCartesian = preferUrdfIk && haveCartStart &&
+								  RobotInstruction::readTargetTransformFromInstruction(cmd, T_end) &&
+								  toolOriginTransformFromJoints(cmd, q0, T_start);
 		if (canCartesian)
 		{
 			// 按路径长度自适应采样，短段少点、长段多点
@@ -2377,7 +2382,8 @@ public:
 			engine::RigidTransform T_backup{};
 			const bool hadBackup = RobotInstruction::readTargetTransformFromInstruction(cmd, T_backup);
 			const RobotInstruction::Vec3 poseBackup = cmd.pose();
-			const RobotInstruction::Vec3 eulerBackup = cmd.hasEulerProperty() ? cmd.eulerDeg() : RobotInstruction::Vec3{};
+			const RobotInstruction::Vec3 eulerBackup =
+				cmd.hasEulerProperty() ? cmd.eulerDeg() : RobotInstruction::Vec3{};
 			std::string quatCsvBackup;
 			std::string transCsvBackup;
 			{
@@ -2402,10 +2408,8 @@ public:
 			for (int i = 1; i <= samples; ++i)
 			{
 				const double u = static_cast<double>(i) / static_cast<double>(samples);
-				const Eigen::Vector3d t =
-					T_start.translationMm() * (1.0 - u) + T_end.translationMm() * u;
-				Eigen::Quaterniond q =
-					T_start.rotation().normalized().slerp(u, T_end.rotation().normalized());
+				const Eigen::Vector3d t = T_start.translationMm() * (1.0 - u) + T_end.translationMm() * u;
+				Eigen::Quaterniond q = T_start.rotation().normalized().slerp(u, T_end.rotation().normalized());
 				if (q.coeffs().hasNaN())
 				{
 					q = T_end.rotation().normalized();
@@ -2458,7 +2462,8 @@ public:
 				}
 				else
 				{
-					mutableCmd.setExtensionProperty(RobotInstruction::kExtContextTargetTransformTransMmCsv, transCsvBackup);
+					mutableCmd.setExtensionProperty(RobotInstruction::kExtContextTargetTransformTransMmCsv,
+													transCsvBackup);
 				}
 			}
 
@@ -2653,7 +2658,8 @@ public:
 		}
 
 		{
-			const double p0[3] = {T_start.translationMm().x(), T_start.translationMm().y(), T_start.translationMm().z()};
+			const double p0[3] = {T_start.translationMm().x(), T_start.translationMm().y(),
+								  T_start.translationMm().z()};
 			const double p1[3] = {T_via.translationMm().x(), T_via.translationMm().y(), T_via.translationMm().z()};
 			const double p2[3] = {T_end.translationMm().x(), T_end.translationMm().y(), T_end.translationMm().z()};
 			robot_kinematics::Circle3Fit fit{};
@@ -2697,7 +2703,8 @@ public:
 			engine::RigidTransform T_backup{};
 			const bool hadBackup = RobotInstruction::readTargetTransformFromInstruction(cmd, T_backup);
 			const RobotInstruction::Vec3 poseBackup = cmd.pose();
-			const RobotInstruction::Vec3 eulerBackup = cmd.hasEulerProperty() ? cmd.eulerDeg() : RobotInstruction::Vec3{};
+			const RobotInstruction::Vec3 eulerBackup =
+				cmd.hasEulerProperty() ? cmd.eulerDeg() : RobotInstruction::Vec3{};
 			std::string quatCsvBackup;
 			std::string transCsvBackup;
 			{

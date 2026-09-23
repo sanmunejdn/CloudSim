@@ -1,4 +1,4 @@
-/// @file RegistrationGlobalPcl.cpp
+﻿/// @file RegistrationGlobalPcl.cpp
 /// @brief PCL FPFH + SampleConsensusPrerejective 全局粗配
 
 #include "RegistrationGlobalPcl.h"
@@ -292,9 +292,8 @@ bool refineWithIcp(const CloudNT& src, const CloudNT& tgt, Eigen::Isometry3d& io
 	}
 	Eigen::Isometry3d icpStep = Eigen::Isometry3d::Identity();
 	double rmse = 0.0;
-	if (!rigidRegisterPointToPlaneIcp(srcXyz, srcN, tgtXyz, tgtN, icpStep, &rmse, 25, 0.005,
-									  params.inlierDistanceMm, params.maxFeaturePoints, nullptr,
-									  params.icpMaxNormalAngleDeg))
+	if (!rigidRegisterPointToPlaneIcp(srcXyz, srcN, tgtXyz, tgtN, icpStep, &rmse, 25, 0.005, params.inlierDistanceMm,
+									  params.maxFeaturePoints, nullptr, params.icpMaxNormalAngleDeg))
 	{
 		return false;
 	}
@@ -362,9 +361,8 @@ bool runSacOnce(const CloudNTPtr& src, const FeatureCloud::Ptr& srcFeat, const C
 
 	const float maxMeanNn = dist * static_cast<float>((std::max)(params.maxAcceptMeanNnFactor, 0.5));
 	const float maxFitness = dist * 0.55f;
-	if (out.inlierRatio < params.minAcceptInlierRatio ||
-		out.reverseInlierRatio < params.minAcceptReverseInlierRatio || out.fitnessMm > maxFitness ||
-		out.meanNnMm > maxMeanNn)
+	if (out.inlierRatio < params.minAcceptInlierRatio || out.reverseInlierRatio < params.minAcceptReverseInlierRatio ||
+		out.fitnessMm > maxFitness || out.meanNnMm > maxMeanNn)
 	{
 		if (errMsg)
 		{
@@ -444,7 +442,8 @@ bool rigidRegisterFeatureRansacPcl(const std::vector<float>& sourceXyz, const st
 	clearNormals(*src);
 	clearNormals(*tgt);
 
-	auto maybeRandomThin = [&](CloudNTPtr& c) {
+	auto maybeRandomThin = [&](CloudNTPtr& c)
+	{
 		if (c->size() <= params.maxFeaturePoints)
 		{
 			return;
@@ -512,10 +511,9 @@ bool rigidRegisterFeatureRansacPcl(const std::vector<float>& sourceXyz, const st
 			const bool reverseOk = reverseCand.inlierRatio >= params.minAcceptInlierRatio &&
 								   reverseCand.reverseInlierRatio >= params.minAcceptReverseInlierRatio &&
 								   reverseCand.fitnessMm <= maxFitness && reverseCand.meanNnMm <= maxMeanNn;
-			if (reverseOk &&
-				(!best.ok || reverseCand.meanNnMm < best.meanNnMm ||
-				 (std::abs(reverseCand.meanNnMm - best.meanNnMm) < 1e-3f &&
-				  reverseCand.inlierRatio > best.inlierRatio)))
+			if (reverseOk && (!best.ok || reverseCand.meanNnMm < best.meanNnMm ||
+							  (std::abs(reverseCand.meanNnMm - best.meanNnMm) < 1e-3f &&
+							   reverseCand.inlierRatio > best.inlierRatio)))
 			{
 				best = reverseCand;
 				best.ok = true;

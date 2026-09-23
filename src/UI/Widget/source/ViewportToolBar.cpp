@@ -147,8 +147,8 @@ class ViewportActionTip : public QWidget
 public:
 	explicit ViewportActionTip()
 		// 不用 Qt::ToolTip：全局 QToolTip 样式会先铺近似方底，叠场景时像多出一页
-		: QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint |
-							   Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus)
+		: QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint | Qt::WindowStaysOnTopHint |
+							   Qt::WindowDoesNotAcceptFocus)
 	{
 		setObjectName(QStringLiteral("ViewportActionTip"));
 		setAttribute(Qt::WA_ShowWithoutActivating, true);
@@ -509,7 +509,8 @@ void ViewportToolBar::updateObjectSelectTip()
 	}
 	static_cast<ViewportIconButton*>(m_objectSelectBtn)
 		->setActionTipText(m_useChinese ? QStringLiteral("对象选择") : QStringLiteral("Object Select"),
-						   m_useChinese ? QStringLiteral("拾取并变换场景对象") : QStringLiteral("Pick and transform objects"));
+						   m_useChinese ? QStringLiteral("拾取并变换场景对象")
+										: QStringLiteral("Pick and transform objects"));
 }
 
 void ViewportToolBar::setSidePanelToggleState(const bool leftVisible, const bool rightVisible)

@@ -1,4 +1,4 @@
-/// @file AiIntentClassifier.cpp
+﻿/// @file AiIntentClassifier.cpp
 /// @brief 规则打分意图分类 + 可选本地小模型选域
 
 #include "Ai/AiIntentClassifier.h"
@@ -41,8 +41,9 @@ Result classifyByRules(const QString& userText, const int minScore)
 
 	QMap<QString, int> scores;
 
-	if (hasAny(t, {"轨迹特征", "识别焊缝", "识别边", "焊缝边", "涂胶轨迹", "打磨面", "打磨轨迹", "线特征", "面特征",
-				   "线特征识别", "面特征识别", "特征识别"},
+	if (hasAny(t,
+			   {"轨迹特征", "识别焊缝", "识别边", "焊缝边", "涂胶轨迹", "打磨面", "打磨轨迹", "线特征", "面特征",
+				"线特征识别", "面特征识别", "特征识别"},
 			   Qt::CaseInsensitive) ||
 		(hasAny(t, {"轨迹"}) && hasAny(t, {"识别", "特征", "焊缝", "涂胶", "打磨", "离散"})) ||
 		(hasAny(t, {"焊缝", "涂胶"}) && hasAny(t, {"识别", "边", "特征", "轨迹"})))
@@ -62,10 +63,10 @@ Result classifyByRules(const QString& userText, const int minScore)
 
 	const bool holeCue = hasAny(t, {"挖孔", "通孔", "盲孔", "穿孔", "钻孔"});
 	const bool booleanCue = hasAny(t, {"布尔", "差集", "并集", "相交", "boolean"}, Qt::CaseInsensitive);
-	const bool featureStrong =
-		hasAny(t, {"拉伸", "凸台", "切除", "草图", "圆角", "倒角", "阵列", "放样", "抽壳", "拔模", "建模",
-				   "生成模型", "text-to-cad", "特征链"},
-			   Qt::CaseInsensitive);
+	const bool featureStrong = hasAny(t,
+									  {"拉伸", "凸台", "切除", "草图", "圆角", "倒角", "阵列", "放样", "抽壳", "拔模",
+									   "建模", "生成模型", "text-to-cad", "特征链"},
+									  Qt::CaseInsensitive);
 	const bool padStockCue = hasAny(t, {"长方体", "正方体", "立方体", "盒子", "板"});
 	// 「建模 … 通孔 d50」/「长方体 … 通孔」优先参数化 Pad+Pocket，压过纯 mesh.create
 	if (holeCue && (featureStrong || padStockCue))
@@ -78,8 +79,9 @@ Result classifyByRules(const QString& userText, const int minScore)
 	if (hasAny(t, {"中心线", "模板点位", "区域划分", "特征构建", "centerline"}, Qt::CaseInsensitive))
 		addScore(scores, AiDomainIds::featureBuild(), 3);
 
-	if (hasAny(t, {"离散生成网格", "线面求交", "面面求交", "管状网格", "带状网格", "点选边", "点选面", "Pick Edge",
-				   "Pick Face"},
+	if (hasAny(t,
+			   {"离散生成网格", "线面求交", "面面求交", "管状网格", "带状网格", "点选边", "点选面", "Pick Edge",
+				"Pick Face"},
 			   Qt::CaseInsensitive))
 		addScore(scores, AiDomainIds::geometryOps(), 3);
 
@@ -90,16 +92,18 @@ Result classifyByRules(const QString& userText, const int minScore)
 		(hasAny(t, {"导入"}) && hasAny(t, {"step", "stp", "ply", "点云", "网格", "文件"}, Qt::CaseInsensitive)))
 		addScore(scores, AiDomainIds::documentImport(), 3);
 
-	if (hasAny(t, {"点云", "下采样", "体素", "配准", "点云匹配", "Poisson", "网格简化", "曲面重构", "point cloud",
-				   "ICP", "SPARE"},
+	if (hasAny(t,
+			   {"点云", "下采样", "体素", "配准", "点云匹配", "Poisson", "网格简化", "曲面重构", "point cloud", "ICP",
+				"SPARE"},
 			   Qt::CaseInsensitive))
 		addScore(scores, AiDomainIds::pointCloudOps(), 3);
 
 	if (hasAny(t, {"工艺流程", "产线", "工位", "节拍", "JobSet", "process flow", "processflow"}, Qt::CaseInsensitive))
 		addScore(scores, AiDomainIds::processFlow(), 3);
 
-	if (hasAny(t, {"标准件", "六角螺栓", "六角螺母", "平垫", "垫圈", "圆柱销", "齿轮毛坯", "hex bolt", "hex nut",
-				   "washer", "dowel"},
+	if (hasAny(t,
+			   {"标准件", "六角螺栓", "六角螺母", "平垫", "垫圈", "圆柱销", "齿轮毛坯", "hex bolt", "hex nut", "washer",
+				"dowel"},
 			   Qt::CaseInsensitive) ||
 		(hasAny(t, {"螺栓", "螺母", "垫圈", "销"}) && hasAny(t, {"创建", "生成", "来一个", "做一个", "M"})) ||
 		(hasAny(t, {"齿轮"}) && hasAny(t, {"模数", "齿数", "毛坯"})))
@@ -107,9 +111,9 @@ Result classifyByRules(const QString& userText, const int minScore)
 
 	const bool sceneVerb = hasAny(t, {"删除全部", "清空场景", "删除对象", "删除选中", "删掉选中"}) ||
 						   hasAny(t, {"Delete all", "Clear scene"}, Qt::CaseInsensitive);
-	const bool sceneMove = (hasAny(t, {"平移", "移动", "旋转", "位姿"}) ||
-							hasAny(t, {"Translate", "Rotate"}, Qt::CaseInsensitive)) &&
-						   hasAny(t, {"选中", "对象", "场景", "沿", "绕", "mm", "毫米", "度"});
+	const bool sceneMove =
+		(hasAny(t, {"平移", "移动", "旋转", "位姿"}) || hasAny(t, {"Translate", "Rotate"}, Qt::CaseInsensitive)) &&
+		hasAny(t, {"选中", "对象", "场景", "沿", "绕", "mm", "毫米", "度"});
 	if (sceneVerb || sceneMove)
 		addScore(scores, AiDomainIds::sceneOps(), 3);
 
@@ -162,12 +166,11 @@ Result classifyByLocalLlm(const QString& userText, const AiConfigDto& config)
 	if (id.isEmpty() || id.compare(QStringLiteral("unknown"), Qt::CaseInsensitive) == 0)
 		return out;
 
-	static const QStringList kAllowed = {AiDomainIds::meshCreate(),		 AiDomainIds::meshCompose(),
-										 AiDomainIds::featureCompose(),	 AiDomainIds::geometryRecognize(),
-										 AiDomainIds::trajectoryFeature(), AiDomainIds::pointCloudOps(),
-										 AiDomainIds::documentImport(),	 AiDomainIds::geometryOps(),
-										 AiDomainIds::featureBuild(),	 AiDomainIds::labelingAnnot(),
-										 AiDomainIds::sceneOps(),		 AiDomainIds::processFlow()};
+	static const QStringList kAllowed = {
+		AiDomainIds::meshCreate(),		  AiDomainIds::meshCompose(),		AiDomainIds::featureCompose(),
+		AiDomainIds::geometryRecognize(), AiDomainIds::trajectoryFeature(), AiDomainIds::pointCloudOps(),
+		AiDomainIds::documentImport(),	  AiDomainIds::geometryOps(),		AiDomainIds::featureBuild(),
+		AiDomainIds::labelingAnnot(),	  AiDomainIds::sceneOps(),			AiDomainIds::processFlow()};
 	if (!kAllowed.contains(id))
 		return out;
 	out.domainId = id;

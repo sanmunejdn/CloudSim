@@ -1,4 +1,4 @@
-#ifndef DATA_FOLLOWATTACHMENTCOMPONENT_H
+﻿#ifndef DATA_FOLLOWATTACHMENTCOMPONENT_H
 #define DATA_FOLLOWATTACHMENTCOMPONENT_H
 
 /// @file FollowAttachmentComponent.h
@@ -11,6 +11,7 @@
 #include "BackendDataBase.h"
 #include "BackendFollowMath.h"
 #include "BackendPropertyRow.h"
+
 #include <string>
 
 #include <json.hpp>

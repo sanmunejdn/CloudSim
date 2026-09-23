@@ -1,10 +1,14 @@
-/// @file AssemblyMate.cpp
+﻿/// @file AssemblyMate.cpp
 /// @brief 装配一次定位：面几何 + 最小运动刚体增量
 
 #include "AssemblyMate.h"
 
 #include "ShapeQuery.h"
 #include "detail/OccIncludes.h"
+
+#include <algorithm>
+#include <cmath>
+#include <string>
 
 #include <BRepAdaptor_Surface.hxx>
 #include <GeomAbs_SurfaceType.hxx>
@@ -14,10 +18,6 @@
 #include <gp_Cylinder.hxx>
 #include <gp_Sphere.hxx>
 #include <gp_Torus.hxx>
-
-#include <algorithm>
-#include <cmath>
-#include <string>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -188,8 +188,9 @@ Eigen::Vector3d applyPt(const Eigen::Isometry3d& d, const Eigen::Vector3d& p)
 	return d * p;
 }
 
-bool planePlaneDistanceAfterOrient(const FaceMateGeom& grounded, const FaceMateGeom& moving, const Eigen::Isometry3d& orient,
-								   const double signedDistMm, Eigen::Isometry3d& out, std::string* err)
+bool planePlaneDistanceAfterOrient(const FaceMateGeom& grounded, const FaceMateGeom& moving,
+								   const Eigen::Isometry3d& orient, const double signedDistMm, Eigen::Isometry3d& out,
+								   std::string* err)
 {
 	Eigen::Vector3d n = toV(grounded.axisUnit);
 	if (!unitOrErr(n, err, "平面法向无效"))
@@ -355,8 +356,8 @@ bool queryFaceMateGeom(const ShapeHandle& shape, const int faceIndex, const Poin
 	return true;
 }
 
-bool computeAssemblyMateDelta(const FaceMateGeom& grounded, const FaceMateGeom& moving, const AssemblyMateParams& params,
-							  Eigen::Isometry3d& outMovingDelta, std::string* errMsg)
+bool computeAssemblyMateDelta(const FaceMateGeom& grounded, const FaceMateGeom& moving,
+							  const AssemblyMateParams& params, Eigen::Isometry3d& outMovingDelta, std::string* errMsg)
 {
 	outMovingDelta = Eigen::Isometry3d::Identity();
 	if (params.kind == AssemblyMateKind::Lock)

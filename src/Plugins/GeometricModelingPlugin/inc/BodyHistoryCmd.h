@@ -1,5 +1,8 @@
-#ifndef GEOMETRICMODELINGPLUGIN_BODYHISTORYCMD_H
+﻿#ifndef GEOMETRICMODELINGPLUGIN_BODYHISTORYCMD_H
 #define GEOMETRICMODELINGPLUGIN_BODYHISTORYCMD_H
+
+/// @file BodyHistoryCmd.h
+/// @brief BodyHistoryCmd 接口
 
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 #include "CommandStack.h"
@@ -17,13 +20,8 @@ class BodyHistoryCmd : public GeomodelingCommand
 public:
 	BodyHistoryCmd(IPluginHostContext* host, IPluginDocument* doc, QString bodyId, QByteArray before, QByteArray after,
 				   std::function<void()> onApplied, bool alreadyApplied = false)
-		: m_host(host)
-		, m_doc(doc)
-		, m_bodyId(std::move(bodyId))
-		, m_before(std::move(before))
-		, m_after(std::move(after))
-		, m_onApplied(std::move(onApplied))
-		, m_alreadyApplied(alreadyApplied)
+		: m_host(host), m_doc(doc), m_bodyId(std::move(bodyId)), m_before(std::move(before)), m_after(std::move(after)),
+		  m_onApplied(std::move(onApplied)), m_alreadyApplied(alreadyApplied)
 	{
 	}
 
@@ -48,14 +46,13 @@ private:
 		if (!geo)
 			return false;
 		bool ok = false;
-		geo->setParametricBodyHistoryJson(
-			m_doc, m_bodyId.toStdString(), hist,
-			[&](bool success, const QString&, const PluginGeometryJobResult&)
-			{
-				ok = success;
-				if (success && m_onApplied)
-					m_onApplied();
-			});
+		geo->setParametricBodyHistoryJson(m_doc, m_bodyId.toStdString(), hist,
+										  [&](bool success, const QString&, const PluginGeometryJobResult&)
+										  {
+											  ok = success;
+											  if (success && m_onApplied)
+												  m_onApplied();
+										  });
 		return ok;
 	}
 
@@ -68,4 +65,4 @@ private:
 	bool m_alreadyApplied = false;
 };
 
-#endif
+#endif // GEOMETRICMODELINGPLUGIN_BODYHISTORYCMD_H

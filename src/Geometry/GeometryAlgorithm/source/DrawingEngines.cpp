@@ -1,7 +1,10 @@
-/// @file DrawingEngines.cpp
+﻿/// @file DrawingEngines.cpp
 /// @brief Exact(HLRBRep_Algo) / Mesh(PolyAlgo) 投影引擎
 
 #include "DrawingEngines.h"
+
+#include <algorithm>
+#include <cmath>
 
 #include <BRepLib.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
@@ -14,24 +17,20 @@
 #include <TopoDS.hxx>
 #include <TopoDS_Edge.hxx>
 
-#include <algorithm>
-#include <cmath>
-
 namespace geoalgo
 {
 namespace drawing_engines
 {
 namespace
 {
-
 void buildCurves3dIfNeeded(TopoDS_Shape& shape)
 {
 	if (!shape.IsNull())
 		BRepLib::BuildCurves3d(shape);
 }
 
-void appendCompoundEntities(TopoDS_Shape compound, DrawingEdgeClass cls, bool hidden,
-							const TessellateParams& params, std::vector<DrawingEntity>& ents)
+void appendCompoundEntities(TopoDS_Shape compound, DrawingEdgeClass cls, bool hidden, const TessellateParams& params,
+							std::vector<DrawingEntity>& ents)
 {
 	if (compound.IsNull())
 		return;
@@ -59,8 +58,8 @@ void extractEdgeSlots(ToShapeT& toShape, const TessellateParams& params, std::ve
 
 } // namespace
 
-bool extractExactHlrEntities(const TopoDS_Shape& shape, const gp_Ax2& viewAx, int nbIso,
-							 const TessellateParams& params, std::vector<DrawingEntity>& out, std::string* errMsg)
+bool extractExactHlrEntities(const TopoDS_Shape& shape, const gp_Ax2& viewAx, int nbIso, const TessellateParams& params,
+							 std::vector<DrawingEntity>& out, std::string* errMsg)
 {
 	out.clear();
 	if (shape.IsNull())
@@ -109,10 +108,8 @@ bool extractMeshHlrEntities(const TopoDS_Shape& shape, const gp_Ax2& viewAx, con
 	{
 		// PolyAlgo 要求整形体已剖分；用较粗弦高换预览速度
 		TopoDS_Shape meshed = shape;
-		const double defl =
-			params.linearDeflectionRelative
-				? (std::max)(0.1, params.linearDeflectionMm * 50.0)
-				: (std::max)(0.1, params.linearDeflectionMm * 2.0);
+		const double defl = params.linearDeflectionRelative ? (std::max)(0.1, params.linearDeflectionMm * 50.0)
+															: (std::max)(0.1, params.linearDeflectionMm * 2.0);
 		BRepMesh_IncrementalMesh(meshed, defl);
 
 		Handle(HLRBRep_PolyAlgo) hlr = new HLRBRep_PolyAlgo();

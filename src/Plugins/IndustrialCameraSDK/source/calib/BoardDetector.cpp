@@ -1,4 +1,4 @@
-/// @file BoardDetector.cpp
+﻿/// @file BoardDetector.cpp
 /// @brief 板检测：CLOUDSIM_HAS_OPENCV 时用 findChessboardCorners / ArUco
 
 #include "BoardDetector.h"
@@ -45,7 +45,8 @@ bool openCvAvailable()
 #endif
 }
 
-BoardDetectResult detectBoardPose(const CameraFrame2D& image, const CameraIntrinsics& K, const BoardDetectParams& params)
+BoardDetectResult detectBoardPose(const CameraFrame2D& image, const CameraIntrinsics& K,
+								  const BoardDetectParams& params)
 {
 	BoardDetectResult r;
 #if !defined(CLOUDSIM_HAS_OPENCV)
@@ -74,8 +75,8 @@ BoardDetectResult detectBoardPose(const CameraFrame2D& image, const CameraIntrin
 	cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) << K.fx, 0, K.cx, 0, K.fy, K.cy, 0, 0, 1);
 	if (K.fx <= 0 || K.fy <= 0)
 	{
-		cameraMatrix = (cv::Mat_<double>(3, 3) << image.width, 0, image.width * 0.5, 0, image.width, image.height * 0.5, 0,
-						0, 1);
+		cameraMatrix =
+			(cv::Mat_<double>(3, 3) << image.width, 0, image.width * 0.5, 0, image.width, image.height * 0.5, 0, 0, 1);
 	}
 	cv::Mat dist = cv::Mat::zeros(5, 1, CV_64F);
 	for (int i = 0; i < 5; ++i)

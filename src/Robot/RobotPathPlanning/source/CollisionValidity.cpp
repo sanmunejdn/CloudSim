@@ -1,4 +1,4 @@
-/// @file CollisionValidity.cpp
+﻿/// @file CollisionValidity.cpp
 /// @brief 关节状态/线段碰撞与限位
 
 #include "CollisionValidity.h"
@@ -15,7 +15,6 @@ namespace detail
 {
 namespace
 {
-
 /// CollisionWorld：Eigen 列主序 t@12..14；勿直接用 colMajorFromRigidTransform（OSG 底行序）
 collision::Mat4 collisionMat4FromRigid(const engine::RigidTransform& rt)
 {
@@ -84,8 +83,7 @@ bool updateRobotPoses(const PlanRequest& req, const std::vector<double>& q)
 				return false;
 			}
 			const osg::Matrixd W0 = osgFromBackend(*w0It);
-			req.world->setWorldPose(it.value(), collisionMat4FromRigid(engine::rigidTransformFromOsg(W0)),
-									"osg-start");
+			req.world->setWorldPose(it.value(), collisionMat4FromRigid(engine::rigidTransformFromOsg(W0)), "osg-start");
 		}
 		return true;
 	}
@@ -118,8 +116,7 @@ bool updateRobotPoses(const PlanRequest& req, const std::vector<double>& q)
 			{
 				return false;
 			}
-			const osg::Matrixd Mworld =
-				(*m0It) * osg::Matrixd::inverse(*t0It) * (*tqIt) * req.robotBasePlacementWorld;
+			const osg::Matrixd Mworld = (*m0It) * osg::Matrixd::inverse(*t0It) * (*tqIt) * req.robotBasePlacementWorld;
 			req.world->setWorldPose(it.value(), collisionMat4FromRigid(engine::rigidTransformFromOsg(Mworld)),
 									"fk-bind");
 			continue;

@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_IROBOTDOCUMENTHOST_H
+﻿#ifndef ROBOTWIDGET_IROBOTDOCUMENTHOST_H
 #define ROBOTWIDGET_IROBOTDOCUMENTHOST_H
 
 /// @file IRobotDocumentHost.h
@@ -8,24 +8,20 @@
 #include "robotwidget_global.h"
 
 #include "BackendFollowMath.h"
-#include "IRobotSimulationDocument.h"
-#include "RobotCoordinateFrames.h"
-#include "RobotExternalAxes.h"
-#include "RobotCollisionSettings.h"
-#include "RobotProgramStore.h"
-
 #include "CoreTypes.h"
 #include "IDataService.h"
-
-#include <memory>
-#include <string>
-#include <vector>
+#include "IRobotSimulationDocument.h"
+#include "RobotCollisionSettings.h"
+#include "RobotCoordinateFrames.h"
+#include "RobotExternalAxes.h"
+#include "RobotProgramStore.h"
 
 #include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVector>
-
+#include <memory>
+#include <string>
 #include <vector>
 
 class BackendDataManager;
@@ -70,8 +66,7 @@ public:
 	virtual const RobotCoordinate::RobotCoordinateFrameSet&
 	robotCoordinateFramesForInstance(int instanceIndex) const = 0;
 	virtual RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) = 0;
-	virtual const RobotExternal::RobotExternalAxisConfigSet&
-	robotExternalAxesForInstance(int instanceIndex) const = 0;
+	virtual const RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) const = 0;
 	virtual RobotCollision::Settings& robotCollisionSettings() = 0;
 	virtual const RobotCollision::Settings& robotCollisionSettings() const = 0;
 	virtual const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const = 0;
@@ -91,7 +86,8 @@ public:
 												   const cloudsim::core::Mat4& w0) = 0;
 	virtual void ensureWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
 													  const cloudsim::core::Mat4& currentWorld) = 0;
-	virtual cloudsim::core::Mat4 workpieceWorkingFrameOffset(int instanceIndex, const QString& boundBackendId) const = 0;
+	virtual cloudsim::core::Mat4 workpieceWorkingFrameOffset(int instanceIndex,
+															 const QString& boundBackendId) const = 0;
 	virtual void ensureWorkpieceWorkingFrameOffset(int instanceIndex, const QString& boundBackendId,
 												   const QString& workingFrameId,
 												   const cloudsim::core::Mat4& workingWorld) = 0;

@@ -1,16 +1,16 @@
-#ifndef GEOMETRYALGORITHM_DETAIL_SKETCHCURVEWIREOCC_H
-#define GEOMETRYALGORITHM_DETAIL_SKETCHCURVEWIREOCC_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHCURVEWIREOCC_H
+#define GEOMETRYALGORITHM_SKETCHCURVEWIREOCC_H
 
 /// @file SketchCurveWireOcc.h
 /// @brief OCC wire/face 构建（仅 GeometryAlgorithm 内部）
 
 #include "SketchCurveWire.h"
 
-#include <TopoDS_Face.hxx>
-#include <TopoDS_Wire.hxx>
-
 #include <string>
 #include <vector>
+
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
 
 namespace geoalgo
 {
@@ -27,12 +27,12 @@ bool makeClosedFaceFromSegments(const std::vector<SketchCurveSegment>& segs, dou
 								double planeNz, TopoDS_Face& outFace, std::string* errMsg = nullptr);
 
 bool makeFaceFromProfileAndHolePolylinesMm(const std::vector<float>& outerXyzMm,
-										  const std::vector<std::vector<float>>& holePolylinesXyzMm, double planeNx,
-										  double planeNy, double planeNz, TopoDS_Face& outFace,
-										  std::string* errMsg = nullptr);
+										   const std::vector<std::vector<float>>& holePolylinesXyzMm, double planeNx,
+										   double planeNy, double planeNz, TopoDS_Face& outFace,
+										   std::string* errMsg = nullptr);
 
 bool estimatePolylinePlaneNormal(const std::vector<float>& xyzMm, double& nx, double& ny, double& nz);
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHCURVEWIREOCC_H

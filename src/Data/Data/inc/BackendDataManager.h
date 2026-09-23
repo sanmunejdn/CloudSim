@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDDATAMANAGER_H
+﻿#ifndef DATA_BACKENDDATAMANAGER_H
 #define DATA_BACKENDDATAMANAGER_H
 
 /// @file BackendDataManager.h
@@ -87,9 +87,8 @@ private:
 	BackendDataManager(const BackendDataManager&) = delete;
 	BackendDataManager& operator=(const BackendDataManager&) = delete;
 
-	static void dispatchHierarchyEvents(
-		const std::vector<std::pair<void*, BackendHierarchyObserver>>& observers,
-		const std::vector<BackendHierarchyChangeEvent>& events);
+	static void dispatchHierarchyEvents(const std::vector<std::pair<void*, BackendHierarchyObserver>>& observers,
+										const std::vector<BackendHierarchyChangeEvent>& events);
 
 	mutable std::shared_mutex m_mutex;
 	std::unordered_map<std::string, std::shared_ptr<BackendDataBase>> m_records;

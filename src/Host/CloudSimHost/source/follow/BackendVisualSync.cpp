@@ -90,12 +90,10 @@ void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& d
 		return;
 	}
 	const std::string className = data.className();
-	const std::uint32_t aspectBits =
-		backend_property_schema::visualAspectsForPropertyKey(className, key.toStdString());
+	const std::uint32_t aspectBits = backend_property_schema::visualAspectsForPropertyKey(className, key.toStdString());
 	const VisualAspect aspects = aspectsFromSchemaBits(aspectBits);
-	const bool commitsPose =
-		backend_property_schema::propertyCommitsPoseFromSchema(className, key.toStdString()) ||
-		key.startsWith(QStringLiteral("follow."));
+	const bool commitsPose = backend_property_schema::propertyCommitsPoseFromSchema(className, key.toStdString()) ||
+							 key.startsWith(QStringLiteral("follow."));
 	if (aspects == VisualAspect::None && !key.startsWith(QStringLiteral("follow.")))
 	{
 		if (commitsPose)

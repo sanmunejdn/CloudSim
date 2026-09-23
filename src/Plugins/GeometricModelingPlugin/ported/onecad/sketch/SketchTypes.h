@@ -1,18 +1,17 @@
-/**
+﻿/**
  * @file SketchTypes.h
  * @brief Core type definitions for the OneCAD sketch system
  *
  * This file contains fundamental types, enums, and forward declarations
  * used throughout the sketch module.
  */
-
-#ifndef ONECAD_CORE_SKETCH_TYPES_H
-#define ONECAD_CORE_SKETCH_TYPES_H
+#ifndef GEOMETRICMODELINGPLUGIN_SKETCHTYPES_H
+#define GEOMETRICMODELINGPLUGIN_SKETCHTYPES_H
 
 #include <string>
 
-namespace onecad::core::sketch {
-
+namespace onecad::core::sketch
+{
 //==============================================================================
 // Entity Types
 //==============================================================================
@@ -20,63 +19,67 @@ namespace onecad::core::sketch {
 /**
  * @brief Enumeration of sketch entity types
  */
-enum class EntityType {
-    Point,
-    Line,
-    Arc,
-    Circle,
-    Ellipse,
-    Spline  // Future: v2
+enum class EntityType
+{
+	Point,
+	Line,
+	Arc,
+	Circle,
+	Ellipse,
+	Spline // Future: v2
 };
 
 /**
  * @brief Enumeration of constraint types
  */
-enum class ConstraintType {
-    // Positional constraints
-    Coincident,
-    Horizontal,
-    Vertical,
-    Fixed,
-    Midpoint,
-    OnCurve,
+enum class ConstraintType
+{
+	// Positional constraints
+	Coincident,
+	Horizontal,
+	Vertical,
+	Fixed,
+	Midpoint,
+	OnCurve,
 
-    // Relational constraints
-    Parallel,
-    Perpendicular,
-    Tangent,
-    Concentric,
-    Equal,
+	// Relational constraints
+	Parallel,
+	Perpendicular,
+	Tangent,
+	Concentric,
+	Equal,
 
-    // Dimensional constraints
-    Distance,
-    HorizontalDistance,
-    VerticalDistance,
-    Angle,
-    Radius,
-    Diameter,
+	// Dimensional constraints
+	Distance,
+	HorizontalDistance,
+	VerticalDistance,
+	Angle,
+	Radius,
+	Diameter,
 
-    // Symmetry
-    Symmetric
+	// Symmetry
+	Symmetric
 };
 
 /**
  * @brief Position specification for PointOnCurve constraints
  */
-enum class CurvePosition {
-    Start,      // Constrain to arc/curve start point
-    End,        // Constrain to arc/curve end point
-    Arbitrary   // Constrain to arbitrary point on curve
+enum class CurvePosition
+{
+	Start,	  // Constrain to arc/curve start point
+	End,	  // Constrain to arc/curve end point
+	Arbitrary // Constrain to arbitrary point on curve
 };
 
 /**
  * @brief Constraint state indicating solve status
  */
-enum class ConstraintState {
-    UnderConstrained,   // DOF > 0 (Blue in UI)
-    FullyConstrained,   // DOF = 0 (Green in UI)
-    OverConstrained,    // Redundant constraints (Orange in UI)
-    Conflicting         // Cannot be solved (Red in UI)
+enum class ConstraintState
+{
+	UnderConstrained, // DOF > 0 (Blue in UI)
+	FullyConstrained, // DOF = 0 (Green in UI)
+	OverConstrained,  // Redundant constraints (Orange in UI)
+	Conflicting		  // Cannot be solved (Red in UI)
 };
 
 //==============================================================================
@@ -105,26 +108,28 @@ using PointID = EntityID;
 /**
  * @brief Simple 2D vector type for sketch-space math
  */
-struct Vec2d {
-    double x = 0.0;
-    double y = 0.0;
+struct Vec2d
+{
+	double x = 0.0;
+	double y = 0.0;
 };
 
 /**
  * @brief Simple 3D vector type for world-space math
  */
-struct Vec3d {
-    double x = 0.0;
-    double y = 0.0;
-    double z = 0.0;
+struct Vec3d
+{
+	double x = 0.0;
+	double y = 0.0;
+	double z = 0.0;
 };
 
 //==============================================================================
 // Constants
 //==============================================================================
 
-namespace constants {
-
+namespace constants
+{
 /// Geometric tolerance for coincidence checks (mm)
 constexpr double COINCIDENCE_TOLERANCE = 1e-6;
 
@@ -170,4 +175,4 @@ class LoopDetector;
 
 } // namespace onecad::core::sketch
 
-#endif // ONECAD_CORE_SKETCH_TYPES_H
+#endif // GEOMETRICMODELINGPLUGIN_SKETCHTYPES_H

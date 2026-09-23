@@ -1,21 +1,23 @@
-#ifndef CLOUDSIMCORE_CORETYPES_H
+﻿#ifndef CLOUDSIMCORE_CORETYPES_H
 #define CLOUDSIMCORE_CORETYPES_H
 
 /// @file CoreTypes.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 三维向量
 
-#include "BackendTypeIds.h"
 #include "cloudsim_core_global.h"
+
+#include "BackendTypeIds.h"
 
 #include <QHash>
 #include <QJsonObject>
-#include <QLatin1String>
 #include <QString>
 #include <QStringList>
 #include <QVector>
 #include <array>
 #include <functional>
+
+#include <QLatin1String>
 
 namespace cloudsim::core
 {

@@ -1,13 +1,13 @@
-/// @file EngineeringDrawingPlugin.cpp
+﻿/// @file EngineeringDrawingPlugin.cpp
 /// @brief 工程图插件二期：轴测/剖视/第三角/标注/拖视图/导出
 
 #include "EngineeringDrawingPlugin.h"
 
 #include "BackendTypeIds.h"
+#include "DimStyleDialog.h"
+#include "DrawingInfoPanel.h"
 #include "DrawingPageWidget.h"
 #include "DrawingRibbonBar.h"
-#include "DrawingInfoPanel.h"
-#include "DimStyleDialog.h"
 #include "DrawingSheetCanvasWidget.h"
 #include "DrawingSidePanel.h"
 #include "IPluginDocument.h"
@@ -21,13 +21,14 @@
 #include <QInputDialog>
 #include <QJsonObject>
 #include <QLabel>
-#include <QLatin1String>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QStringList>
 #include <QVBoxLayout>
+
+#include <QLatin1String>
 
 namespace
 {
@@ -72,23 +73,27 @@ bool EngineeringDrawingPlugin::initialize(IPluginHostContext* host)
 	m_host = host;
 	m_side = new DrawingSidePanel(nullptr);
 	m_info = new DrawingInfoPanel(nullptr);
-	QObject::connect(m_side, &DrawingSidePanel::selectionChanged, this, [this](const QString& backendId) {
-		if (!m_inDrawing || backendId.isEmpty())
-			return;
-		refreshViewPreviews(backendId);
-	});
-	QObject::connect(m_side, &DrawingSidePanel::viewTemplateActivated, this, [this](const QString& kind) {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas())
-			return;
-		QPointF pos(40, 40);
-		if (!page->canvas()->views().isEmpty())
-		{
-			const QRectF last = page->canvas()->views().constLast().frame;
-			pos = QPointF(last.right() + 40.0, last.top());
-		}
-		page->canvas()->addCatalogViewAt(kind, pos);
-	});
+	QObject::connect(m_side, &DrawingSidePanel::selectionChanged, this,
+					 [this](const QString& backendId)
+					 {
+						 if (!m_inDrawing || backendId.isEmpty())
+							 return;
+						 refreshViewPreviews(backendId);
+					 });
+	QObject::connect(m_side, &DrawingSidePanel::viewTemplateActivated, this,
+					 [this](const QString& kind)
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas())
+							 return;
+						 QPointF pos(40, 40);
+						 if (!page->canvas()->views().isEmpty())
+						 {
+							 const QRectF last = page->canvas()->views().constLast().frame;
+							 pos = QPointF(last.right() + 40.0, last.top());
+						 }
+						 page->canvas()->addCatalogViewAt(kind, pos);
+					 });
 
 	host->onActiveDocumentChanged(
 		[this](IPluginDocument*)
@@ -198,207 +203,260 @@ void EngineeringDrawingPlugin::ensureRibbon()
 	QObject::connect(m_ribbon, &DrawingRibbonBar::toolRequested, this,
 					 &EngineeringDrawingPlugin::applyToolToActiveCanvas);
 	QObject::connect(m_ribbon, &DrawingRibbonBar::generateRequested, this, &EngineeringDrawingPlugin::generateViews);
-	QObject::connect(m_ribbon, &DrawingRibbonBar::exportSvgRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas())
-			return;
-		const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 SVG"), QString(),
-														  QStringLiteral("SVG (*.svg)"));
-		if (path.isEmpty())
-			return;
-		if (!page->canvas()->exportSvg(path))
-			QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 SVG。"));
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::exportDxfRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas())
-			return;
-		const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 DXF"), QString(),
-														  QStringLiteral("DXF (*.dxf)"));
-		if (path.isEmpty())
-			return;
-		if (!page->canvas()->exportDxf(path))
-			QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 DXF。"));
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::exportPdfRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas() || !m_ribbon)
-			return;
-		m_ribbon->applySheetSettings(page->canvas(), false);
-		const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 PDF"), QString(),
-														  QStringLiteral("PDF (*.pdf)"));
-		if (path.isEmpty())
-			return;
-		if (!page->canvas()->exportPdf(path))
-			QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 PDF。"));
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::importDxfRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas())
-			return;
-		const QString path = QFileDialog::getOpenFileName(page, QStringLiteral("导入 DXF"), QString(),
-														  QStringLiteral("DXF (*.dxf)"));
-		if (path.isEmpty())
-			return;
-		if (!page->canvas()->importDxf(path))
-			QMessageBox::warning(page, QStringLiteral("导入失败"), QStringLiteral("未能解析 DXF 直线实体。"));
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::printPreviewRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas())
-			return;
-		QDialog dlg(page);
-		dlg.setWindowTitle(QStringLiteral("打印预览"));
-		auto* lay = new QVBoxLayout(&dlg);
-		auto* label = new QLabel(&dlg);
-		label->setPixmap(page->canvas()->renderPrintPreview(QSize(900, 640)));
-		label->setAlignment(Qt::AlignCenter);
-		lay->addWidget(label);
-		dlg.resize(940, 700);
-		dlg.exec();
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::createBlockRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas())
-			return;
-		bool ok = false;
-		const QString name = QInputDialog::getText(page, QStringLiteral("建块"), QStringLiteral("块名"),
+	QObject::connect(m_ribbon, &DrawingRibbonBar::exportSvgRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas())
+							 return;
+						 const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 SVG"), QString(),
+																		   QStringLiteral("SVG (*.svg)"));
+						 if (path.isEmpty())
+							 return;
+						 if (!page->canvas()->exportSvg(path))
+							 QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 SVG。"));
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::exportDxfRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas())
+							 return;
+						 const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 DXF"), QString(),
+																		   QStringLiteral("DXF (*.dxf)"));
+						 if (path.isEmpty())
+							 return;
+						 if (!page->canvas()->exportDxf(path))
+							 QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 DXF。"));
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::exportPdfRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas() || !m_ribbon)
+							 return;
+						 m_ribbon->applySheetSettings(page->canvas(), false);
+						 const QString path = QFileDialog::getSaveFileName(page, QStringLiteral("导出 PDF"), QString(),
+																		   QStringLiteral("PDF (*.pdf)"));
+						 if (path.isEmpty())
+							 return;
+						 if (!page->canvas()->exportPdf(path))
+							 QMessageBox::warning(page, QStringLiteral("导出失败"), QStringLiteral("无法写入 PDF。"));
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::importDxfRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas())
+							 return;
+						 const QString path = QFileDialog::getOpenFileName(page, QStringLiteral("导入 DXF"), QString(),
+																		   QStringLiteral("DXF (*.dxf)"));
+						 if (path.isEmpty())
+							 return;
+						 if (!page->canvas()->importDxf(path))
+							 QMessageBox::warning(page, QStringLiteral("导入失败"),
+												  QStringLiteral("未能解析 DXF 直线实体。"));
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::printPreviewRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas())
+							 return;
+						 QDialog dlg(page);
+						 dlg.setWindowTitle(QStringLiteral("打印预览"));
+						 auto* lay = new QVBoxLayout(&dlg);
+						 auto* label = new QLabel(&dlg);
+						 label->setPixmap(page->canvas()->renderPrintPreview(QSize(900, 640)));
+						 label->setAlignment(Qt::AlignCenter);
+						 lay->addWidget(label);
+						 dlg.resize(940, 700);
+						 dlg.exec();
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::createBlockRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas())
+							 return;
+						 bool ok = false;
+						 const QString name =
+							 QInputDialog::getText(page, QStringLiteral("建块"), QStringLiteral("块名"),
 												   QLineEdit::Normal, QStringLiteral("Block1"), &ok);
-		if (ok)
-			page->canvas()->createBlockFromSelection(name);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::insertBlockRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas() || !m_ribbon)
-			return;
-		const auto& defs = page->canvas()->blockDefs();
-		if (defs.isEmpty())
+						 if (ok)
+							 page->canvas()->createBlockFromSelection(name);
+					 });
+	QObject::connect(
+		m_ribbon, &DrawingRibbonBar::insertBlockRequested, this,
+		[this]()
 		{
-			QMessageBox::information(page, QStringLiteral("插入块"), QStringLiteral("尚无块定义，请先建块。"));
-			return;
-		}
-		QStringList names;
-		QStringList ids;
-		for (const auto& d : defs)
-		{
-			names << (d.name.isEmpty() ? d.id : d.name);
-			ids << d.id;
-		}
-		bool ok = false;
-		const QString pick =
-			QInputDialog::getItem(page, QStringLiteral("插入块"), QStringLiteral("选择块"), names, 0, false, &ok);
-		if (!ok)
-			return;
-		const int idx = names.indexOf(pick);
-		if (idx < 0 || idx >= ids.size())
-			return;
-		page->canvas()->setPendingInsertBlockId(ids.at(idx));
-		page->canvas()->setTool(DrawingCanvasTool::InsertBlock);
-		m_ribbon->setActiveTool(DrawingCanvasTool::InsertBlock);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::dimStyleDialogRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas())
-			return;
-		DimStyleDialog dlg(page->canvas(), page);
-		dlg.exec();
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::titleBlockAttrsRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (page && page->canvas())
-			page->canvas()->editTitleBlockAttrs();
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::ctbEnabledChanged, this, [this](bool on) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
+			DrawingPageWidget* page = ensurePageForActiveDocument();
+			if (!page || !page->canvas() || !m_ribbon)
+				return;
+			const auto& defs = page->canvas()->blockDefs();
+			if (defs.isEmpty())
 			{
-				page->canvas()->setCtbEnabled(on);
-				page->canvas()->update();
+				QMessageBox::information(page, QStringLiteral("插入块"), QStringLiteral("尚无块定义，请先建块。"));
+				return;
 			}
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::ctbTableEditRequested, this, [this]() {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->editCtbTable();
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::recalculateDimsRequested, this, [this]() {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->recalculateDimensions(page->canvas()->selectedDimIndex() >= 0);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::projectionDragLockChanged, this, [this](bool on) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->setProjectionDragLock(on);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::projectionPinnedChanged, this, [this](bool on) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->setProjectionPinned(on);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::halfSectionChanged, this, [this](bool on) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
+			QStringList names;
+			QStringList ids;
+			for (const auto& d : defs)
 			{
-				page->canvas()->setHalfSection(on);
-				if (on)
-					page->canvas()->applyHalfSectionClip();
-				page->canvas()->update();
+				names << (d.name.isEmpty() ? d.id : d.name);
+				ids << d.id;
 			}
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::projectionGuidesVisibleChanged, this, [this](bool on) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->setProjectionGuidesVisible(on);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::snapFlagsChanged, this, [this](SheetSnapFlags flags) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->setSnapFlags(flags);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::ltScaleChanged, this, [this](double scale) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->setLtScale(scale);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::fitWindowRequested, this, [this]() {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->fitToView();
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::viewAlignRequested, this, [this](ViewAlignMode mode) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->alignSelectedViews(mode);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::projectionAlignRequested, this, [this]() {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->alignProjectionViews();
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::fitPaperRequested, this, [this]() {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (!page || !page->canvas() || !m_ribbon)
-			return;
-		m_ribbon->applySheetSettings(page->canvas(), false);
-		if (page->canvas()->fitViewsToPaper())
-			m_ribbon->syncFromCanvas(page->canvas());
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::gridVisibleChanged, this, [this](bool visible) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->setGridVisible(visible);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::detailScaleChanged, this, [this](double scale) {
-		if (DrawingPageWidget* page = ensurePageForActiveDocument())
-			if (page->canvas())
-				page->canvas()->setDetailScale(scale);
-	});
-	QObject::connect(m_ribbon, &DrawingRibbonBar::sheetSettingsChanged, this, [this](bool rescale) {
-		DrawingPageWidget* page = ensurePageForActiveDocument();
-		if (page && page->canvas() && m_ribbon)
-			m_ribbon->applySheetSettings(page->canvas(), rescale);
-	});
+			bool ok = false;
+			const QString pick =
+				QInputDialog::getItem(page, QStringLiteral("插入块"), QStringLiteral("选择块"), names, 0, false, &ok);
+			if (!ok)
+				return;
+			const int idx = names.indexOf(pick);
+			if (idx < 0 || idx >= ids.size())
+				return;
+			page->canvas()->setPendingInsertBlockId(ids.at(idx));
+			page->canvas()->setTool(DrawingCanvasTool::InsertBlock);
+			m_ribbon->setActiveTool(DrawingCanvasTool::InsertBlock);
+		});
+	QObject::connect(m_ribbon, &DrawingRibbonBar::dimStyleDialogRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas())
+							 return;
+						 DimStyleDialog dlg(page->canvas(), page);
+						 dlg.exec();
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::titleBlockAttrsRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (page && page->canvas())
+							 page->canvas()->editTitleBlockAttrs();
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::ctbEnabledChanged, this,
+					 [this](bool on)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+							 {
+								 page->canvas()->setCtbEnabled(on);
+								 page->canvas()->update();
+							 }
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::ctbTableEditRequested, this,
+					 [this]()
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->editCtbTable();
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::recalculateDimsRequested, this,
+					 [this]()
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->recalculateDimensions(page->canvas()->selectedDimIndex() >= 0);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::projectionDragLockChanged, this,
+					 [this](bool on)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->setProjectionDragLock(on);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::projectionPinnedChanged, this,
+					 [this](bool on)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->setProjectionPinned(on);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::halfSectionChanged, this,
+					 [this](bool on)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+							 {
+								 page->canvas()->setHalfSection(on);
+								 if (on)
+									 page->canvas()->applyHalfSectionClip();
+								 page->canvas()->update();
+							 }
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::projectionGuidesVisibleChanged, this,
+					 [this](bool on)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->setProjectionGuidesVisible(on);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::snapFlagsChanged, this,
+					 [this](SheetSnapFlags flags)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->setSnapFlags(flags);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::ltScaleChanged, this,
+					 [this](double scale)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->setLtScale(scale);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::fitWindowRequested, this,
+					 [this]()
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->fitToView();
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::viewAlignRequested, this,
+					 [this](ViewAlignMode mode)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->alignSelectedViews(mode);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::projectionAlignRequested, this,
+					 [this]()
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->alignProjectionViews();
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::fitPaperRequested, this,
+					 [this]()
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (!page || !page->canvas() || !m_ribbon)
+							 return;
+						 m_ribbon->applySheetSettings(page->canvas(), false);
+						 if (page->canvas()->fitViewsToPaper())
+							 m_ribbon->syncFromCanvas(page->canvas());
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::gridVisibleChanged, this,
+					 [this](bool visible)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->setGridVisible(visible);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::detailScaleChanged, this,
+					 [this](double scale)
+					 {
+						 if (DrawingPageWidget* page = ensurePageForActiveDocument())
+							 if (page->canvas())
+								 page->canvas()->setDetailScale(scale);
+					 });
+	QObject::connect(m_ribbon, &DrawingRibbonBar::sheetSettingsChanged, this,
+					 [this](bool rescale)
+					 {
+						 DrawingPageWidget* page = ensurePageForActiveDocument();
+						 if (page && page->canvas() && m_ribbon)
+							 m_ribbon->applySheetSettings(page->canvas(), rescale);
+					 });
 }
 
 void EngineeringDrawingPlugin::applyToolToActiveCanvas(DrawingCanvasTool tool)
@@ -414,7 +472,8 @@ void EngineeringDrawingPlugin::enterDrawing()
 		return;
 	if (!m_host->activeDocument())
 	{
-		m_host->logWarn(m_host->useChinese() ? QStringLiteral("请先打开文档。") : QStringLiteral("Open a document first."));
+		m_host->logWarn(m_host->useChinese() ? QStringLiteral("请先打开文档。")
+											 : QStringLiteral("Open a document first."));
 		return;
 	}
 	DrawingPageWidget* page = ensurePageForActiveDocument();
@@ -520,7 +579,7 @@ void EngineeringDrawingPlugin::refreshBackendList()
 }
 
 void EngineeringDrawingPlugin::applyHlrResultToUi(DrawingPageWidget* page, const QString& backendId, bool thirdAngle,
-												 bool layoutSheet, const PluginDrawingHlrResult& result)
+												  bool layoutSheet, const PluginDrawingHlrResult& result)
 {
 	QVector<DrawingSheetCanvasWidget::Polyline2d> frontVis, frontHid, topVis, topHid, rightVis, rightHid;
 	QVector<DrawingSheetCanvasWidget::Polyline2d> isoVis, isoHid, sectionVis, sectionHid;
@@ -562,7 +621,8 @@ void EngineeringDrawingPlugin::applyHlrResultToUi(DrawingPageWidget* page, const
 	QVector<DrawingViewTemplate> templates;
 	auto pushT = [&](const char* kind, const QString& titleZh, const QString& titleEn,
 					 const QVector<DrawingSheetCanvasWidget::Polyline2d>& vis,
-					 const QVector<DrawingSheetCanvasWidget::Polyline2d>& hid) {
+					 const QVector<DrawingSheetCanvasWidget::Polyline2d>& hid)
+	{
 		DrawingViewTemplate t;
 		t.kind = QString::fromLatin1(kind);
 		t.title = zh ? titleZh : titleEn;
@@ -592,9 +652,9 @@ void EngineeringDrawingPlugin::applyHlrResultToUi(DrawingPageWidget* page, const
 
 	const DrawingProjectionMethod method =
 		thirdAngle ? DrawingProjectionMethod::ThirdAngle : DrawingProjectionMethod::FirstAngle;
-	const QVector<DrawingSheetCanvasWidget::DrawingView> views = layoutEngineeringViews(
-		method, hasIso, hasSection, frontVis, frontHid, topVis, topHid, rightVis, rightHid, isoVis, isoHid, sectionVis,
-		sectionHid);
+	const QVector<DrawingSheetCanvasWidget::DrawingView> views =
+		layoutEngineeringViews(method, hasIso, hasSection, frontVis, frontHid, topVis, topHid, rightVis, rightHid,
+							   isoVis, isoHid, sectionVis, sectionHid);
 	int polyCount = 0;
 	for (const auto& v : views)
 		polyCount += v.visible.size() + v.hidden.size();
@@ -602,10 +662,9 @@ void EngineeringDrawingPlugin::applyHlrResultToUi(DrawingPageWidget* page, const
 	page->canvas()->setViews(views, true);
 	if (m_host)
 	{
-		m_host->logInfo(zh ? QStringLiteral("工程图已生成：%1 视图，%2 条折线。").arg(views.size()).arg(polyCount)
-						   : QStringLiteral("Drawing generated: %1 views, %2 polylines.")
-								 .arg(views.size())
-								 .arg(polyCount));
+		m_host->logInfo(
+			zh ? QStringLiteral("工程图已生成：%1 视图，%2 条折线。").arg(views.size()).arg(polyCount)
+			   : QStringLiteral("Drawing generated: %1 views, %2 polylines.").arg(views.size()).arg(polyCount));
 	}
 }
 
@@ -627,7 +686,8 @@ void EngineeringDrawingPlugin::refreshViewPreviews(const QString& backendId)
 	params.coarseView = m_ribbon && m_ribbon->coarseView();
 	geo->projectBrepToEngineeringDrawing(
 		doc, backendId.toStdString(), params,
-		[this, page, backendId, params](bool ok, const QString& error, const PluginDrawingHlrResult& result) {
+		[this, page, backendId, params](bool ok, const QString& error, const PluginDrawingHlrResult& result)
+		{
 			if (!ok)
 			{
 				if (m_host)
@@ -687,7 +747,8 @@ void EngineeringDrawingPlugin::generateViews()
 	m_ribbon->generateButton()->setEnabled(false);
 	geo->projectBrepToEngineeringDrawing(
 		doc, backendId.toStdString(), params,
-		[this, page, backendId, params](bool ok, const QString& error, const PluginDrawingHlrResult& result) {
+		[this, page, backendId, params](bool ok, const QString& error, const PluginDrawingHlrResult& result)
+		{
 			if (m_ribbon && m_ribbon->generateButton())
 				m_ribbon->generateButton()->setEnabled(true);
 			if (!ok)
@@ -720,8 +781,7 @@ void EngineeringDrawingPlugin::onProjectLoaded(const QString& documentId, const 
 	if (!page || !page->canvas())
 		return;
 	page->canvas()->fromJson(drawing);
-	if (m_inDrawing && m_ribbon && page->canvas() &&
-		m_host && m_host->activeDocument() &&
+	if (m_inDrawing && m_ribbon && page->canvas() && m_host && m_host->activeDocument() &&
 		QString::fromStdString(m_host->activeDocument()->documentId()) == documentId)
 		m_ribbon->syncFromCanvas(page->canvas());
 }

@@ -1,10 +1,13 @@
+﻿/// @file RobotKinematicModelRegistration.cpp
+/// @brief RobotKinematicModelRegistration 实现
+
 #include "RobotKinematicModelRegistration.h"
 
 #include "CompositeKinematicModel.h"
 #include "ExternalAxisKinematicModel.h"
 #include "IRobotSimulationDocument.h"
-#include "RobotExternalAxes.h"
 #include "KinematicModelRegistry.h"
+#include "RobotExternalAxes.h"
 #include "UrdfRobotKinematicModel.h"
 
 namespace RobotKinematicModelRegistration

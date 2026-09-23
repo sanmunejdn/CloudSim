@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_CUSTOMDEVICEROBOTMOUNTOPS_H
+﻿#ifndef CLOUDSIMHOST_CUSTOMDEVICEROBOTMOUNTOPS_H
 #define CLOUDSIMHOST_CUSTOMDEVICEROBOTMOUNTOPS_H
 
 /// @file CustomDeviceRobotMountOps.h
@@ -37,7 +37,8 @@ CLOUDSIM_HOST_EXPORT void refreshCustomDevicesFollowingKinematicsTargets(Documen
 CLOUDSIM_HOST_EXPORT void rebakeMountedCustomDevicesFollowLocals(DocumentHost& host);
 
 /// 安装坐标系位姿被用户修改：更新 frameInDeviceW0 并重烘焙设备根 Follow local
-CLOUDSIM_HOST_EXPORT bool rebakeMountedDeviceFromInstallFramePose(DocumentHost& host, const std::string& frameBackendId);
+CLOUDSIM_HOST_EXPORT bool rebakeMountedDeviceFromInstallFramePose(DocumentHost& host,
+																  const std::string& frameBackendId);
 
 /// @deprecated 使用 refreshCustomDevicesFollowingKinematicsTargets
 CLOUDSIM_HOST_EXPORT void refreshMountedCustomDevicesAfterRobotFk(DocumentHost& host);

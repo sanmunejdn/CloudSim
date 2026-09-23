@@ -1,4 +1,4 @@
-/// @file InstructionPropertyBindingSelfTest.cpp
+﻿/// @file InstructionPropertyBindingSelfTest.cpp
 /// @brief Binding / schema / snapshot 回归
 
 #include "InstructionPropertyBindingSelfTest.h"
@@ -6,7 +6,6 @@
 #include "InstructionPropertyBinding.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionPropertySchema.h"
-
 #include "RunLogger.h"
 
 #include <cmath>

@@ -1,22 +1,24 @@
-/**
+﻿/**
  * @file RollbackCommand.h
  * @brief Command to rollback to a specific operation.
  */
-#ifndef ONECAD_APP_COMMANDS_ROLLBACKCOMMAND_H
-#define ONECAD_APP_COMMANDS_ROLLBACKCOMMAND_H
+#ifndef GEOMETRICMODELINGPLUGIN_ROLLBACKCOMMAND_H
+#define GEOMETRICMODELINGPLUGIN_ROLLBACKCOMMAND_H
 
 #include "Command.h"
+
 #include <cstddef>
 #include <string>
 #include <unordered_map>
 
-namespace onecad {
-namespace app {
-
+namespace onecad
+{
+namespace app
+{
 class Document;
 
-namespace commands {
-
+namespace commands
+{
 /**
  * @brief Undoable command to rollback to a specific operation.
  *
@@ -24,23 +26,24 @@ namespace commands {
  * applied operation cursor so new operations insert after the rollback point.
  * Can be undone to restore the prior suppression map and applied cursor.
  */
-class RollbackCommand : public Command {
+class RollbackCommand : public Command
+{
 public:
-    RollbackCommand(Document* document, const std::string& targetOpId);
+	RollbackCommand(Document* document, const std::string& targetOpId);
 
-    bool execute() override;
-    bool undo() override;
+	bool execute() override;
+	bool undo() override;
 
 private:
-    Document* document_;
-    std::string targetOpId_;
-    std::unordered_map<std::string, bool> previousSuppression_;
-    std::size_t previousAppliedOpCount_ = 0;
-    std::size_t targetAppliedOpCount_ = 0;
+	Document* document_;
+	std::string targetOpId_;
+	std::unordered_map<std::string, bool> previousSuppression_;
+	std::size_t previousAppliedOpCount_ = 0;
+	std::size_t targetAppliedOpCount_ = 0;
 };
 
 } // namespace commands
 } // namespace app
 } // namespace onecad
 
-#endif // ONECAD_APP_COMMANDS_ROLLBACKCOMMAND_H
+#endif // GEOMETRICMODELINGPLUGIN_ROLLBACKCOMMAND_H

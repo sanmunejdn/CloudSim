@@ -680,10 +680,10 @@ void TrajectoryEditPageWidget::setReadOnly(const bool readOnly)
 {
 	m_readOnly = readOnly;
 	QWidget* widgets[] = {
-		m_programCombo,		 m_groupCombo,		   m_palette,			m_pipeline,			  m_scopeGroupCombo,
-		m_paramPanel,		 m_previewCheck,	   m_applyBtn,			m_resetBtn,			  m_undoBtn,
-		m_redoBtn,			 m_templateCombo,	   m_saveTemplateBtn,	m_loadTemplateBtn,	  m_deleteTemplateBtn,
-		m_importTemplateBtn, m_exportTemplateBtn,  m_rawRecipeCombo,
+		m_programCombo,		 m_groupCombo,		  m_palette,		 m_pipeline,		m_scopeGroupCombo,
+		m_paramPanel,		 m_previewCheck,	  m_applyBtn,		 m_resetBtn,		m_undoBtn,
+		m_redoBtn,			 m_templateCombo,	  m_saveTemplateBtn, m_loadTemplateBtn, m_deleteTemplateBtn,
+		m_importTemplateBtn, m_exportTemplateBtn, m_rawRecipeCombo,
 	};
 	for (QWidget* w : widgets)
 	{

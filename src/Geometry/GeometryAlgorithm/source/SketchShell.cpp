@@ -1,4 +1,4 @@
-/// @file SketchShell.cpp
+﻿/// @file SketchShell.cpp
 
 #include "SketchShell.h"
 

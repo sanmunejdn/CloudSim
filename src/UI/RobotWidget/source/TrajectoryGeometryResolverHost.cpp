@@ -1,4 +1,4 @@
-/// @file TrajectoryGeometryResolverHost.cpp
+﻿/// @file TrajectoryGeometryResolverHost.cpp
 /// @brief 轨迹几何解析宿主适配
 
 #include "TrajectoryGeometryResolverHost.h"

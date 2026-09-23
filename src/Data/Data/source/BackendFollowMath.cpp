@@ -1,15 +1,15 @@
-/// @file BackendFollowMath.cpp
+﻿/// @file BackendFollowMath.cpp
 /// @brief Follow 矩阵数学
 
 #include "BackendFollowMath.h"
 
 #include "BackendDataBase.h"
 
+#include <cmath>
+
 #include <Adapters.h>
 #include <BackendWorldPose.h>
 #include <RigidTransform.h>
-
-#include <cmath>
 
 namespace
 {
@@ -73,10 +73,7 @@ bool backend_mat4_is_nearly_rigid(const BackendMat4& m, const double absEps)
 		return std::sqrt(x * x + y * y + z * z);
 	};
 	const auto dotCols = [&](const int a, const int b) -> double
-	{
-		return m.v[a * 4 + 0] * m.v[b * 4 + 0] + m.v[a * 4 + 1] * m.v[b * 4 + 1] +
-			   m.v[a * 4 + 2] * m.v[b * 4 + 2];
-	};
+	{ return m.v[a * 4 + 0] * m.v[b * 4 + 0] + m.v[a * 4 + 1] * m.v[b * 4 + 1] + m.v[a * 4 + 2] * m.v[b * 4 + 2]; };
 	for (int c = 0; c < 3; ++c)
 	{
 		if (std::abs(colLen(c) - 1.0) > absEps)

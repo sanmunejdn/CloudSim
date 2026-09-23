@@ -1,31 +1,30 @@
-/// @file HeadlessPointCloudBridge.cpp
+﻿/// @file HeadlessPointCloudBridge.cpp
 /// @brief Web 点云桥：同步调用 document_point_cloud_ops / point_cloud_backend_ops
 
 #include "HeadlessPointCloudBridge.h"
 
-#include "BackendFileImport.h"
 #include "BackendDataManager.h"
+#include "BackendFileImport.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "BrepImportArtifacts.h"
 #include "DocumentHost.h"
 #include "DocumentPointCloudOps.h"
 #include "MeshBackendData.h"
+#include "PluginPointCloudTypes.h"
 #include "PointCloudBackendData.h"
 #include "PointCloudBackendOps.h"
-#include "PluginPointCloudTypes.h"
-
-#include <GeometryBackendOps.h>
-#include <MeshSurfaceReconstruction.h>
 
 #include <QDir>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QTemporaryFile>
-
 #include <algorithm>
 #include <cmath>
 #include <functional>
+
+#include <GeometryBackendOps.h>
+#include <MeshSurfaceReconstruction.h>
 
 namespace cloudsim::host
 {
@@ -87,7 +86,8 @@ QJsonObject infoToJson(const PluginPointCloudInfo& info)
 	o.insert(QStringLiteral("hasPerVertexColors"), info.hasPerVertexColors);
 	o.insert(QStringLiteral("hasPointNormals"), info.hasPointNormals);
 	o.insert(QStringLiteral("bounds"), boundsToJson(info.bounds));
-	o.insert(QStringLiteral("mixedRenderThreshold"), static_cast<qint64>(HeadlessPointCloudBridge::kMixedRenderThreshold));
+	o.insert(QStringLiteral("mixedRenderThreshold"),
+			 static_cast<qint64>(HeadlessPointCloudBridge::kMixedRenderThreshold));
 	return o;
 }
 
@@ -330,7 +330,7 @@ QJsonObject HeadlessPointCloudBridge::measureJson(const QString& backendId) cons
 }
 
 bool HeadlessPointCloudBridge::previewSoup(const QString& backendId, std::size_t maxPoints, std::vector<float>& outXyz,
-										 QString* err) const
+										   QString* err) const
 {
 	std::string resolveErr;
 	const auto pc = document_point_cloud_ops::resolvePointCloud(&m_host, backendId.toStdString(), &resolveErr);
@@ -422,7 +422,8 @@ QJsonObject HeadlessPointCloudBridge::downsample(const QJsonObject& body)
 		if (!mutatePointCloud(
 				m_host, id,
 				[frac](PointCloudBackendData& data, std::string* err)
-				{ return point_cloud_backend_ops::downsamplePointCloudRandom(data, frac, err); }, &out))
+				{ return point_cloud_backend_ops::downsamplePointCloudRandom(data, frac, err); },
+				&out))
 			return out;
 		return out;
 	}
@@ -431,7 +432,8 @@ QJsonObject HeadlessPointCloudBridge::downsample(const QJsonObject& body)
 	if (!mutatePointCloud(
 			m_host, id,
 			[voxel, minCell](PointCloudBackendData& data, std::string* err)
-			{ return point_cloud_backend_ops::downsamplePointCloudVoxel(data, voxel, minCell, err); }, &out))
+			{ return point_cloud_backend_ops::downsamplePointCloudVoxel(data, voxel, minCell, err); },
+			&out))
 		return out;
 	return out;
 }
@@ -449,7 +451,8 @@ QJsonObject HeadlessPointCloudBridge::crop(const QJsonObject& body)
 		if (!mutatePointCloud(
 				m_host, id,
 				[box](PointCloudBackendData& data, std::string* err)
-				{ return point_cloud_backend_ops::cropPointCloudByBox(data, eigenBoxFromPlugin(box), err); }, &out))
+				{ return point_cloud_backend_ops::cropPointCloudByBox(data, eigenBoxFromPlugin(box), err); },
+				&out))
 			return out;
 		return out;
 	}
@@ -463,7 +466,8 @@ QJsonObject HeadlessPointCloudBridge::crop(const QJsonObject& body)
 		if (!mutatePointCloud(
 				m_host, id,
 				[center, radius](PointCloudBackendData& data, std::string* err)
-				{ return point_cloud_backend_ops::cropPointCloudBySphere(data, center, radius, err); }, &out))
+				{ return point_cloud_backend_ops::cropPointCloudBySphere(data, center, radius, err); },
+				&out))
 			return out;
 		return out;
 	}
@@ -481,10 +485,9 @@ QJsonObject HeadlessPointCloudBridge::crop(const QJsonObject& body)
 		const bool keepInside = body.value(QStringLiteral("keepInside")).toBool(true);
 		if (!mutatePointCloud(
 				m_host, id,
-				[&](PointCloudBackendData& data, std::string* err)
-				{
+				[&](PointCloudBackendData& data, std::string* err) {
 					return point_cloud_backend_ops::cropPointCloudByPolyline2D(data, xy, mvp, mtw, vw, vh, keepInside,
-																			 err);
+																			   err);
 				},
 				&out))
 			return out;
@@ -507,7 +510,8 @@ QJsonObject HeadlessPointCloudBridge::preprocess(const QJsonObject& body)
 		if (!mutatePointCloud(
 				m_host, id,
 				[pct, k](PointCloudBackendData& data, std::string* err)
-				{ return point_cloud_backend_ops::removePointCloudOutliers(data, pct, k, err); }, &out))
+				{ return point_cloud_backend_ops::removePointCloudOutliers(data, pct, k, err); },
+				&out))
 			return out;
 		return out;
 	}
@@ -516,7 +520,8 @@ QJsonObject HeadlessPointCloudBridge::preprocess(const QJsonObject& body)
 		if (!mutatePointCloud(
 				m_host, id,
 				[](PointCloudBackendData& data, std::string* err)
-				{ return point_cloud_backend_ops::smoothPointCloudBilateral(data, err); }, &out))
+				{ return point_cloud_backend_ops::smoothPointCloudBilateral(data, err); },
+				&out))
 			return out;
 		return out;
 	}
@@ -526,7 +531,8 @@ QJsonObject HeadlessPointCloudBridge::preprocess(const QJsonObject& body)
 		if (!mutatePointCloud(
 				m_host, id,
 				[k](PointCloudBackendData& data, std::string* err)
-				{ return point_cloud_backend_ops::estimatePointCloudNormalsPca(data, k, err); }, &out))
+				{ return point_cloud_backend_ops::estimatePointCloudNormalsPca(data, k, err); },
+				&out))
 			return out;
 		return out;
 	}
@@ -536,7 +542,8 @@ QJsonObject HeadlessPointCloudBridge::preprocess(const QJsonObject& body)
 		if (!mutatePointCloud(
 				m_host, id,
 				[k](PointCloudBackendData& data, std::string* err)
-				{ return point_cloud_backend_ops::orientPointCloudNormalsMst(data, k, err); }, &out))
+				{ return point_cloud_backend_ops::orientPointCloudNormalsMst(data, k, err); },
+				&out))
 			return out;
 		return out;
 	}
@@ -568,8 +575,8 @@ QJsonObject HeadlessPointCloudBridge::registerCloud(const QJsonObject& body)
 		const bool apply = body.value(QStringLiteral("applyTransformToSource")).toBool(true);
 		point_cloud_backend_ops::PointCloudIcpResult icp;
 		std::string err;
-		if (!point_cloud_backend_ops::rigidRegisterPointCloudsIcp(*source, *target, icp, maxIter, conv, maxPair,
-																  maxPts, &err))
+		if (!point_cloud_backend_ops::rigidRegisterPointCloudsIcp(*source, *target, icp, maxIter, conv, maxPair, maxPts,
+																  &err))
 			return fail(QString::fromStdString(err));
 		if (apply)
 		{
@@ -603,10 +610,10 @@ QJsonObject HeadlessPointCloudBridge::registerCloud(const QJsonObject& body)
 		sp.maxOuterIters = body.value(QStringLiteral("maxOuterIters")).toInt(30);
 		point_cloud_backend_ops::PointCloudSpareResult result;
 		std::string err;
-		const bool ok = targetPc ? point_cloud_backend_ops::nonRigidRegisterPointCloudsSpare(*source, *targetPc, result,
-																							 sp, &err)
-							   : point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSpare(*source, *targetMesh,
-																								result, sp, &err);
+		const bool ok =
+			targetPc ? point_cloud_backend_ops::nonRigidRegisterPointCloudsSpare(*source, *targetPc, result, sp, &err)
+					 : point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSpare(*source, *targetMesh, result, sp,
+																					  &err);
 		if (!ok)
 			return fail(QString::fromStdString(err));
 		document_point_cloud_ops::commitPointCloudVisual(&m_host, *source);
@@ -639,10 +646,10 @@ QJsonObject HeadlessPointCloudBridge::registerCloud(const QJsonObject& body)
 		sp.maxOuterIters = body.value(QStringLiteral("maxOuterIters")).toInt(30);
 		point_cloud_backend_ops::PointCloudSdfResult result;
 		std::string err;
-		const bool ok = targetPc ? point_cloud_backend_ops::nonRigidRegisterPointCloudsSdf(*source, *targetPc, result,
-																						   sp, &err)
-							   : point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSdf(*source, *targetMesh,
-																							  result, sp, &err);
+		const bool ok =
+			targetPc
+				? point_cloud_backend_ops::nonRigidRegisterPointCloudsSdf(*source, *targetPc, result, sp, &err)
+				: point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSdf(*source, *targetMesh, result, sp, &err);
 		if (!ok)
 			return fail(QString::fromStdString(err));
 		document_point_cloud_ops::commitPointCloudVisual(&m_host, *source);
@@ -697,8 +704,8 @@ QJsonObject HeadlessPointCloudBridge::reconstruct(const QJsonObject& body)
 		document_point_cloud_ops::registerReconstructedMesh(&m_host, nullptr, meshPtr, meshOpt, &err);
 	if (newId.empty())
 		return fail(QString::fromStdString(err));
-	return okExtra({{QStringLiteral("newBackendId"), QString::fromStdString(newId)},
-					{QStringLiteral("sourceBackendId"), id}});
+	return okExtra(
+		{{QStringLiteral("newBackendId"), QString::fromStdString(newId)}, {QStringLiteral("sourceBackendId"), id}});
 }
 
 QJsonObject HeadlessPointCloudBridge::meshPost(const QJsonObject& body)
@@ -723,7 +730,8 @@ QJsonObject HeadlessPointCloudBridge::meshPost(const QJsonObject& body)
 	bool ok = false;
 	if (op == QStringLiteral("simplify"))
 	{
-		ok = point_cloud_backend_ops::simplifyMesh(soupIn, soupOut, body.value(QStringLiteral("targetFaceCount")).toInt(0),
+		ok = point_cloud_backend_ops::simplifyMesh(soupIn, soupOut,
+												   body.value(QStringLiteral("targetFaceCount")).toInt(0),
 												   body.value(QStringLiteral("qualityThreshold")).toDouble(0.3), &err);
 	}
 	else if (op == QStringLiteral("smooth"))
@@ -741,9 +749,9 @@ QJsonObject HeadlessPointCloudBridge::meshPost(const QJsonObject& body)
 	else if (op == QStringLiteral("repair"))
 		ok = point_cloud_backend_ops::repairMesh(soupIn, soupOut, repairFromJson(body), &repairStats, &err);
 	else if (op == QStringLiteral("remesh"))
-		ok = point_cloud_backend_ops::remeshMeshIsotropic(soupIn, soupOut,
-														  body.value(QStringLiteral("targetEdgeLengthMm")).toDouble(2.0),
-														  body.value(QStringLiteral("iterations")).toInt(3), &err);
+		ok = point_cloud_backend_ops::remeshMeshIsotropic(
+			soupIn, soupOut, body.value(QStringLiteral("targetEdgeLengthMm")).toDouble(2.0),
+			body.value(QStringLiteral("iterations")).toInt(3), &err);
 	else
 		return fail(QStringLiteral("mesh op must be simplify, smooth, repair, or remesh"));
 
@@ -825,9 +833,8 @@ QJsonObject HeadlessPointCloudBridge::surfaceRun(const QJsonObject& body)
 		std::string err;
 		if (stage == 1)
 		{
-			if (!geometry_backend_ops::preprocessMeshSoupForSurfaceReconstruct(m_surfaceSession->rawSoup, geoParams,
-																			  m_surfaceSession->workingSoup, report,
-																			  &err))
+			if (!geometry_backend_ops::preprocessMeshSoupForSurfaceReconstruct(
+					m_surfaceSession->rawSoup, geoParams, m_surfaceSession->workingSoup, report, &err))
 				return fail(QString::fromStdString(err));
 			m_surfaceSession->geoSession =
 				geometry_backend_ops::createMeshSurfaceReconstructSession(m_surfaceSession->workingSoup);
@@ -869,10 +876,10 @@ QJsonObject HeadlessPointCloudBridge::surfaceRun(const QJsonObject& body)
 		if (mesh)
 			brep->setColor(mesh->color());
 		const QString displayName = makeUniqueBrepName(
-			m_host, body.value(QStringLiteral("displayName"))
-						.toString(mesh && !mesh->name().empty()
-									  ? QString::fromStdString(mesh->name()) + QStringLiteral("_brep")
-									  : QStringLiteral("ReconstructedBrep")));
+			m_host,
+			body.value(QStringLiteral("displayName"))
+				.toString(mesh && !mesh->name().empty() ? QString::fromStdString(mesh->name()) + QStringLiteral("_brep")
+														: QStringLiteral("ReconstructedBrep")));
 		brep->setName(displayName.toStdString());
 		geoalgo::clearBrepImportArtifactsCache();
 		QString regErr;
@@ -908,9 +915,9 @@ QJsonObject HeadlessPointCloudBridge::surfaceRun(const QJsonObject& body)
 
 	brep->setColor(mesh->color());
 	const QString displayName = makeUniqueBrepName(
-		m_host, body.value(QStringLiteral("displayName")).toString(
-					mesh->name().empty() ? QStringLiteral("ReconstructedBrep")
-										 : QString::fromStdString(mesh->name()) + QStringLiteral("_brep")));
+		m_host, body.value(QStringLiteral("displayName"))
+					.toString(mesh->name().empty() ? QStringLiteral("ReconstructedBrep")
+												   : QString::fromStdString(mesh->name()) + QStringLiteral("_brep")));
 	brep->setName(displayName.toStdString());
 	geoalgo::clearBrepImportArtifactsCache();
 
@@ -920,8 +927,8 @@ QJsonObject HeadlessPointCloudBridge::surfaceRun(const QJsonObject& body)
 		return fail(regErr);
 
 	std::string alignErr;
-	if (!document_point_cloud_ops::inheritBrepVisualPoseFromSourceMesh(&m_host, meshId.toStdString(), brep->id(),
-																	   *brep, &alignErr))
+	if (!document_point_cloud_ops::inheritBrepVisualPoseFromSourceMesh(&m_host, meshId.toStdString(), brep->id(), *brep,
+																	   &alignErr))
 		return fail(QString::fromStdString(alignErr));
 
 	return okExtra({{QStringLiteral("newBackendId"), QString::fromStdString(brep->id())},

@@ -11,13 +11,12 @@
 #include <windows.h>
 #endif
 
+#include "../../OsgWidgetCore/inc/OsgCompassRender.h"
 #include "BackendIdUserData.h"
 #include "BackendPoseOsg.h"
+#include "BackendTypeIds.h"
 #include "FrameBackendData.h"
 #include "FrameBackendVisual.h"
-#include "BackendTypeIds.h"
-
-#include "../../OsgWidgetCore/inc/OsgCompassRender.h"
 
 #include <osg/Geode>
 #include <osg/Geometry>
@@ -69,8 +68,8 @@ std::string FrameBackendVisual::typeKey() const
 	return backend_type::kClassFrame;
 }
 
-bool FrameBackendVisual::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions&,
-										  BranchBuildResult& out, std::string* errorMessage)
+bool FrameBackendVisual::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions&, BranchBuildResult& out,
+										  std::string* errorMessage)
 {
 	const auto* frame = dynamic_cast<const FrameBackendData*>(&data);
 	if (!frame)

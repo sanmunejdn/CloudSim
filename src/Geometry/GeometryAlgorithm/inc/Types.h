@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_TYPES_H
+﻿#ifndef GEOMETRYALGORITHM_TYPES_H
 #define GEOMETRYALGORITHM_TYPES_H
 
 /// @file Types.h
@@ -29,10 +29,10 @@ struct Polyline3d
 /** OCCT BRepMesh 离散精度 */
 struct TessellateParams
 {
-	double linearDeflectionMm = 0.01;       ///< mm；relative=true 时为相对包围盒比例
+	double linearDeflectionMm = 0.01; ///< mm；relative=true 时为相对包围盒比例
 	bool linearDeflectionRelative = true;
-	double angularDeflectionDeg = 0.5;      ///< °
-	bool flipReversedFaces = true;          ///< REVERSED 面翻转三角绕序
+	double angularDeflectionDeg = 0.5; ///< °
+	bool flipReversedFaces = true;	   ///< REVERSED 面翻转三角绕序
 };
 
 enum class MeshDiscretizeMode
@@ -42,9 +42,9 @@ enum class MeshDiscretizeMode
 	UVStructuredGrid,
 	WireTubeMesh,
 	WireRibbonMesh,
-	ProfileSweepMesh,      ///< 当前构建未实现
-	RemeshSoup,            ///< 当前构建未实现
-	PointCloudSurface      ///< 当前构建未实现
+	ProfileSweepMesh, ///< 当前构建未实现
+	RemeshSoup,		  ///< 当前构建未实现
+	PointCloudSurface ///< 当前构建未实现
 };
 
 enum class MeshQualityPreset
@@ -59,8 +59,8 @@ enum class MeshQualityPreset
 enum class MeshDensityControl
 {
 	QualityPreset,
-	TargetEdgeLength,      ///< deflection=target×0.25；refine 至 1.5×target
-	TargetTriangleCount    ///< 相对 deflection 二分，容差 ±15%
+	TargetEdgeLength,	///< deflection=target×0.25；refine 至 1.5×target
+	TargetTriangleCount ///< 相对 deflection 二分，容差 ±15%
 };
 
 struct MeshDiscretizeParams
@@ -68,7 +68,7 @@ struct MeshDiscretizeParams
 	MeshDiscretizeMode mode = MeshDiscretizeMode::AdaptiveTriangulation;
 	MeshQualityPreset quality = MeshQualityPreset::Medium;
 	MeshDensityControl densityControl = MeshDensityControl::QualityPreset;
-	double targetEdgeLengthMm = 0.0;       ///< TargetEdgeLength 模式（mm）
+	double targetEdgeLengthMm = 0.0; ///< TargetEdgeLength 模式（mm）
 	std::size_t targetTriangleCount = 0;
 	TessellateParams tessellate;
 	int uvGridCountU = 32;

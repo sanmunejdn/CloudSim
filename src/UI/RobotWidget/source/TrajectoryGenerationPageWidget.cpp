@@ -247,11 +247,7 @@ void TrajectoryGenerationPageWidget::bindEditService(ProgramEditService* service
 	if (m_editService)
 
 	{
-		connect(m_editService, &ProgramEditService::revisionChanged, this,
-				[this](int)
-				{
-					refreshPathPlanCombo();
-				});
+		connect(m_editService, &ProgramEditService::revisionChanged, this, [this](int) { refreshPathPlanCombo(); });
 	}
 }
 

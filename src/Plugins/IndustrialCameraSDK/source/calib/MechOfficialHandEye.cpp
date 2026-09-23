@@ -1,4 +1,4 @@
-/// @file MechOfficialHandEye.cpp
+﻿/// @file MechOfficialHandEye.cpp
 /// @brief 梅卡 HandEyeCalibration（对齐 SDK 2.5.4 嵌套类型）
 
 #include "MechOfficialHandEye.h"
@@ -18,7 +18,6 @@ using mmind::eye::HandEyeCalibration;
 
 namespace industrial_camera
 {
-
 #if defined(CLOUDSIM_HAS_MECH_EYE)
 namespace
 {
@@ -103,9 +102,8 @@ bool MechOfficialHandEyeSession::begin(ICamera* camera, HandEyeMountMode mode, s
 	}
 	auto* impl = new MechOfficialImpl();
 	impl->cam = static_cast<Camera*>(mechCam->nativeHandle());
-	const auto mount = (mode == HandEyeMountMode::EyeInHand)
-						   ? HandEyeCalibration::CameraMountingMode::EyeInHand
-						   : HandEyeCalibration::CameraMountingMode::EyeToHand;
+	const auto mount = (mode == HandEyeMountMode::EyeInHand) ? HandEyeCalibration::CameraMountingMode::EyeInHand
+															 : HandEyeCalibration::CameraMountingMode::EyeToHand;
 	// 板型号可后续做成 UI 配置；默认 CGB_20
 	const ErrorStatus st =
 		impl->calib.initializeCalibration(*impl->cam, mount, HandEyeCalibration::CalibrationBoardModel::CGB_20);

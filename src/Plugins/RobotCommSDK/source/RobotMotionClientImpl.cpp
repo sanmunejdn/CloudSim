@@ -1,4 +1,4 @@
-/// @file RobotMotionClientImpl.cpp
+﻿/// @file RobotMotionClientImpl.cpp
 /// @brief 经 localhost TCP JSON 与 RobotCommBridge 通讯
 
 #include "RobotMotionClientImpl.h"
@@ -8,12 +8,12 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
 #include <chrono>
 #include <cstring>
 #include <sstream>
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
 
 #pragma comment(lib, "ws2_32.lib")
 

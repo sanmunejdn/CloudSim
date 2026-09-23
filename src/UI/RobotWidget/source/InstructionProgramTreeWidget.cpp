@@ -66,8 +66,8 @@ void collectIdMapRecursive(const std::vector<std::shared_ptr<RobotInstruction::B
 	}
 }
 
-std::shared_ptr<RobotInstruction::Base> findSharedById(
-	const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& id)
+std::shared_ptr<RobotInstruction::Base>
+findSharedById(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& id)
 {
 	std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>> map;
 	collectIdMapRecursive(steps, map);
@@ -358,8 +358,8 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 		const RobotInstruction::Condition& c = ins.condition();
 		if (c.kind == RobotInstruction::ConditionKind::Io)
 		{
-			const QString sig = !c.signalName.empty() ? QString::fromStdString(c.signalName)
-													 : QStringLiteral("IO%1").arg(c.ioPort);
+			const QString sig =
+				!c.signalName.empty() ? QString::fromStdString(c.signalName) : QStringLiteral("IO%1").arg(c.ioPort);
 			summary = QStringLiteral("%1==%2").arg(sig).arg(c.ioEquals ? 1 : 0);
 			if (ins.durationSec() > 1e-9)
 			{
@@ -500,27 +500,25 @@ void InstructionProgramTreeWidget::populateInstructionItem(QTreeWidgetItem* item
 		auto* viaItem = new QTreeWidgetItem(item);
 		viaItem->setData(0, kKindRole, static_cast<int>(NodeKind::WaypointDetail));
 		viaItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-		viaItem->setText(0, m_useChinese
-								? QStringLiteral("  途经  %1, %2, %3")
-									  .arg(via.x, 0, 'f', 1)
-									  .arg(via.y, 0, 'f', 1)
-									  .arg(via.z, 0, 'f', 1)
-								: QStringLiteral("  Via  %1, %2, %3")
-									  .arg(via.x, 0, 'f', 1)
-									  .arg(via.y, 0, 'f', 1)
-									  .arg(via.z, 0, 'f', 1));
+		viaItem->setText(
+			0,
+			m_useChinese
+				? QStringLiteral("  途经  %1, %2, %3").arg(via.x, 0, 'f', 1).arg(via.y, 0, 'f', 1).arg(via.z, 0, 'f', 1)
+				: QStringLiteral("  Via  %1, %2, %3")
+					  .arg(via.x, 0, 'f', 1)
+					  .arg(via.y, 0, 'f', 1)
+					  .arg(via.z, 0, 'f', 1));
 		auto* endItem = new QTreeWidgetItem(item);
 		endItem->setData(0, kKindRole, static_cast<int>(NodeKind::WaypointDetail));
 		endItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-		endItem->setText(0, m_useChinese
-								? QStringLiteral("  终点  %1, %2, %3")
-									  .arg(end.x, 0, 'f', 1)
-									  .arg(end.y, 0, 'f', 1)
-									  .arg(end.z, 0, 'f', 1)
-								: QStringLiteral("  End  %1, %2, %3")
-									  .arg(end.x, 0, 'f', 1)
-									  .arg(end.y, 0, 'f', 1)
-									  .arg(end.z, 0, 'f', 1));
+		endItem->setText(
+			0,
+			m_useChinese
+				? QStringLiteral("  终点  %1, %2, %3").arg(end.x, 0, 'f', 1).arg(end.y, 0, 'f', 1).arg(end.z, 0, 'f', 1)
+				: QStringLiteral("  End  %1, %2, %3")
+					  .arg(end.x, 0, 'f', 1)
+					  .arg(end.y, 0, 'f', 1)
+					  .arg(end.z, 0, 'f', 1));
 		item->setExpanded(true);
 	}
 	else if (ins->type() == RobotInstruction::Type::IF)
@@ -734,8 +732,7 @@ void InstructionProgramTreeWidget::readStepsFromChildren(
 }
 
 void InstructionProgramTreeWidget::syncLogicBranchesFromTreeItem(
-	QTreeWidgetItem* item,
-	const std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& idMap) const
+	QTreeWidgetItem* item, const std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>& idMap) const
 {
 	if (!item || nodeKind(item) != NodeKind::Instruction)
 	{

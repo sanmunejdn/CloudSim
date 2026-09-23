@@ -1,6 +1,6 @@
 ﻿# CloudSimPluginSDK 开发指南
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 ## 定位
 
@@ -93,7 +93,7 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `deformPointCloudTpsFromControls` / `deformPointCloudTpsFitAndDeform` | TPS 形变 |
 | `reconstructMeshPoisson/PoissonAuto/ScaleSpace` | 重建 mesh 并 `registerAdoptedMesh` |
 | `registerScanToCadTemplate` | **v2** 世界系反向 ICP；只更新模板 `worldMatrix`；cache 存 `icpRmseMm` + `templateWorldMatrixAtRegister` |
-| `updateTemplateBrepFromAlignedScan` | **1.8.0+** 基于缓存逐面重构 → 新 `BrepModel`；`selectedFaceIndices` 空=全部面（见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)） |
+| `updateTemplateBrepFromAlignedScan` | **1.8.0+** 基于缓存逐面重构 → 新 `BrepModel`；`selectedFaceIndices` 空=全部面（见 `docs/ARCHIVE_ZIP_LOCATION.txt`） |
 | `queryMeshInfo` | **1.9.0+** 查询网格面数/顶点数（UI 线程） |
 | `simplifyMesh` | **1.9.0+** quadric-edge-collapse 简化，创建新 mesh |
 | `smoothMesh` | **1.9.0+** Laplacian / Implicit Fairing 平滑 |

@@ -1,9 +1,11 @@
-/// @file SketchCurveWire.cpp
+﻿/// @file SketchCurveWire.cpp
 /// @brief 近圆/近椭圆提升 + Line/Arc/Circle/Ellipse 真曲线 wire
 
+#include "detail/OccIncludes.h"
 #include "detail/SketchCurveWireOcc.h"
 
-#include "detail/OccIncludes.h"
+#include <algorithm>
+#include <cmath>
 
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
@@ -17,9 +19,6 @@
 #include <gp_Elips.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Vec.hxx>
-
-#include <algorithm>
-#include <cmath>
 
 namespace geoalgo
 {
@@ -441,8 +440,8 @@ bool makeClosedFaceFromSegments(const std::vector<SketchCurveSegment>& segs, dou
 }
 
 bool makeFaceFromProfileAndHolePolylinesMm(const std::vector<float>& outerXyzMm,
-										  const std::vector<std::vector<float>>& holePolylinesXyzMm, double planeNx,
-										  double planeNy, double planeNz, TopoDS_Face& outFace, std::string* errMsg)
+										   const std::vector<std::vector<float>>& holePolylinesXyzMm, double planeNx,
+										   double planeNy, double planeNz, TopoDS_Face& outFace, std::string* errMsg)
 {
 	TopoDS_Wire outer;
 	if (!makeClosedWireFromPolylineMm(outerXyzMm, planeNx, planeNy, planeNz, outer, errMsg))

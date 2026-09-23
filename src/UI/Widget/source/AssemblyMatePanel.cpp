@@ -1,4 +1,4 @@
-/// @file AssemblyMatePanel.cpp
+﻿/// @file AssemblyMatePanel.cpp
 /// @brief Insert 装配一次定位面板
 
 #include "AssemblyMatePanel.h"
@@ -24,7 +24,7 @@
 namespace
 {
 const char* kKindEn[] = {"Coincident", "Parallel", "Perpendicular", "Tangent",
-						 "Concentric", "Lock",     "Distance",      "Angle"};
+						 "Concentric", "Lock",	   "Distance",		"Angle"};
 const char* kKindZh[] = {"重合", "平行", "垂直", "相切", "同轴心", "锁定", "距离", "角度"};
 
 geoalgo::AssemblyMateKind kindFromId(const int id)
@@ -330,8 +330,8 @@ void AssemblyMatePanel::startFacePick(const int slot)
 	osg->setMeshFacePickMode(true);
 	osg->syncSelectionForBackendId(std::string());
 	osg->setSelectionActive(false);
-	m_mw->m_robotHost->setMeshPickCommittedHandler(
-		[this](const PickResult& pick, const PickKind kind) { onPickCommitted(pick, kind); });
+	m_mw->m_robotHost->setMeshPickCommittedHandler([this](const PickResult& pick, const PickKind kind)
+												   { onPickCommitted(pick, kind); });
 	setStatus(m_mw->i18n(QStringLiteral("Pick a B-rep face in the view"), QStringLiteral("在视口点选 B-rep 面")),
 			  false);
 }

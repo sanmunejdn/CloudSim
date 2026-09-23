@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_ICAMERA_H
+﻿#ifndef INDUSTRIALCAMERASDK_ICAMERA_H
 #define INDUSTRIALCAMERASDK_ICAMERA_H
 
 /// @file ICamera.h
@@ -13,7 +13,6 @@
 
 namespace industrial_camera
 {
-
 class INDUSTRIAL_CAMERA_SDK_EXPORT ICamera
 {
 public:

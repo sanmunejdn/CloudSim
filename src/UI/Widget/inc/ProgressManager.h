@@ -1,4 +1,4 @@
-#ifndef WIDGET_PROGRESSMANAGER_H
+﻿#ifndef WIDGET_PROGRESSMANAGER_H
 #define WIDGET_PROGRESSMANAGER_H
 
 /// @file ProgressManager.h

@@ -1,4 +1,4 @@
-/// @file ShapeQuery.cpp
+﻿/// @file ShapeQuery.cpp
 /// @brief ShapeQuery 实现
 
 #include "ShapeQuery.h"
@@ -15,15 +15,14 @@
 #include "detail/OccIncludes.h"
 #include "detail/OccSehCall.h"
 
-#include <BRepGProp.hxx>
-#include <BRepTools_WireExplorer.hxx>
-#include <GProp_GProps.hxx>
-#include <Standard_Failure.hxx>
-
 #include <algorithm>
 #include <cmath>
 #include <limits>
 
+#include <BRepGProp.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <GProp_GProps.hxx>
+#include <Standard_Failure.hxx>
 #include <TopoDS_Compound.hxx>
 
 #ifndef M_PI
@@ -64,11 +63,11 @@ int shapeEdgeCount(const TopoDS_Shape& shape)
 int shapeHandleEdgeCount(const ShapeHandle& handle)
 {
 #ifdef CLOUDSIM_USE_CSGK
-	if(ShapeHandleAccess::isCsgkBackend(handle))
+	if (ShapeHandleAccess::isCsgkBackend(handle))
 		return csgkShapeEdgeCount(handle);
 #endif
 	TopoDS_Shape native;
-	if(!ShapeHandleAccess::nativeShape(handle, &native) || native.IsNull())
+	if (!ShapeHandleAccess::nativeShape(handle, &native) || native.IsNull())
 		return 0;
 	return shapeEdgeCount(native);
 }
@@ -1310,9 +1309,8 @@ bool extractShapeFaceBoundarySegments(const ShapeHandle& shapeHandle, const int 
 				constexpr int segs = 24;
 				for (int i = 0; i <= segs; ++i)
 				{
-					const double t =
-						c2.FirstParameter() +
-						(c2.LastParameter() - c2.FirstParameter()) * (static_cast<double>(i) / segs);
+					const double t = c2.FirstParameter() +
+									 (c2.LastParameter() - c2.FirstParameter()) * (static_cast<double>(i) / segs);
 					appendPnt(poly.xyz, c2.Value(t));
 				}
 			}
@@ -1356,8 +1354,7 @@ bool selectLongestEdgeIndices(const ShapeHandle& shapeHandle, int topK, std::vec
 			*errMsg = "shape has no edges";
 		return false;
 	}
-	std::sort(scored.begin(), scored.end(),
-			  [](const auto& a, const auto& b) { return a.first > b.first; });
+	std::sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
 	const int k = topK <= 0 ? 4 : topK;
 	const int n = static_cast<int>(std::min(scored.size(), static_cast<size_t>(k)));
 	outEdgeIndices.reserve(static_cast<size_t>(n));
@@ -1366,8 +1363,7 @@ bool selectLongestEdgeIndices(const ShapeHandle& shapeHandle, int topK, std::vec
 	return true;
 }
 
-bool selectTopBoundaryEdgeIndices(const ShapeHandle& shapeHandle, std::vector<int>& outEdgeIndices,
-								  std::string* errMsg)
+bool selectTopBoundaryEdgeIndices(const ShapeHandle& shapeHandle, std::vector<int>& outEdgeIndices, std::string* errMsg)
 {
 	outEdgeIndices.clear();
 	TopoDS_Shape shape;

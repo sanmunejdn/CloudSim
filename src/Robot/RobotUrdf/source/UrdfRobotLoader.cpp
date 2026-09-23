@@ -1,16 +1,15 @@
-/// @file UrdfRobotLoader.cpp
+﻿/// @file UrdfRobotLoader.cpp
 /// @brief 零位姿（q=0）下的 parent_T_child，仅由该关节的 URDF 决定，不依赖 jointAnglesRad 下标顺序
 
 // UrdfRobotLoader：URDF 解析、FK、层级 OSG 场景；多机键前缀由上层加 backendId::
 #include "UrdfRobotLoader.h"
 
+#include "BackendVisualRegistry.h"
 #include "GeometricJacobian.h"
 #include "KinematicGraph.h"
-#include "TreeForwardKinematics.h"
-
-#include "BackendVisualRegistry.h"
 #include "MeshBackendData.h"
 #include "RunLogger.h"
+#include "TreeForwardKinematics.h"
 
 #include <QByteArray>
 #include <QDateTime>
@@ -1142,9 +1141,8 @@ static Mat4 columnMajorToMat4Internal(const double in[16])
 
 static void fillJointMotionFromUrdf(const UrdfJoint& j, kinematic_core::KinematicJoint& kj, int qIndex)
 {
-	const Mat4 T_origin =
-		matFromXyzRpy(j.x * kUrdfOriginXyzMetersToInternalMm, j.y * kUrdfOriginXyzMetersToInternalMm,
-					  j.z * kUrdfOriginXyzMetersToInternalMm, j.roll, j.pitch, j.yaw);
+	const Mat4 T_origin = matFromXyzRpy(j.x * kUrdfOriginXyzMetersToInternalMm, j.y * kUrdfOriginXyzMetersToInternalMm,
+										j.z * kUrdfOriginXyzMetersToInternalMm, j.roll, j.pitch, j.yaw);
 	mat4InternalToColumnMajor(T_origin, kj.parentToChildRest);
 	kj.transformOrder = kinematic_core::JointTransformOrder::RestThenMotion;
 	kj.motion.name = j.name.toStdString();
@@ -1328,7 +1326,8 @@ void computeLinkWorldMatricesFromModel(const UrdfFkModelData& model, const QVect
 	{
 		const Mat4 urdfWorld = columnMajorToMat4Internal(linkWorld[static_cast<size_t>(i)].data());
 		const Mat4 osgWorld = osgWorldFromUrdfMeshFrame(urdfWorld);
-		outLinkNameToLinkWorld.insert(QString::fromStdString(graph.links[static_cast<size_t>(i)].id), mat4ToOsg(osgWorld));
+		outLinkNameToLinkWorld.insert(QString::fromStdString(graph.links[static_cast<size_t>(i)].id),
+									  mat4ToOsg(osgWorld));
 	}
 }
 
@@ -1581,10 +1580,12 @@ bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(const QString& urdfFilePath,
 }
 
 // 给定与各转动关节顺序一致的 jointAnglesRad（弧度），计算每个带 mesh 的连杆对应的 mesh→世界矩阵
-bool UrdfRobotLoader::computeMeshWorldFromCoreLinkWorld(
-	const QString& urdfFilePath, const kinematic_core::KinematicGraph& graph,
-	const std::vector<std::array<double, 16>>& linkWorld, QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
-	const bool meshVerticesAlreadyInLinkFrame, QString* errorMessage)
+bool UrdfRobotLoader::computeMeshWorldFromCoreLinkWorld(const QString& urdfFilePath,
+														const kinematic_core::KinematicGraph& graph,
+														const std::vector<std::array<double, 16>>& linkWorld,
+														QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+														const bool meshVerticesAlreadyInLinkFrame,
+														QString* errorMessage)
 {
 	outLinkNameToMeshWorld.clear();
 	std::shared_ptr<const UrdfFkModelData> model;
@@ -1811,9 +1812,9 @@ bool UrdfRobotLoader::computeLinkWorldPoseAndJacobianFromGraph(const kinematic_c
 			? kinematic_core::computePoseJacobianFromLinkWorld(graph, jointAnglesRad.constData(),
 															   static_cast<std::size_t>(jointAnglesRad.size()), linkIdx,
 															   linkWorld, outJ_rowMajor, jopt)
-			: kinematic_core::computePositionJacobianFromLinkWorld(
-				  graph, jointAnglesRad.constData(), static_cast<std::size_t>(jointAnglesRad.size()), linkIdx, linkWorld,
-				  outJ_rowMajor, jopt);
+			: kinematic_core::computePositionJacobianFromLinkWorld(graph, jointAnglesRad.constData(),
+																   static_cast<std::size_t>(jointAnglesRad.size()),
+																   linkIdx, linkWorld, outJ_rowMajor, jopt);
 	if (!okJ)
 	{
 		if (errorMessage)
@@ -1852,8 +1853,8 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 														  const QVector<double>& jointAnglesRad,
 														  const QString& linkName, double outPosMm[3],
 														  double* outQuatXyzw, std::vector<double>& outJ_rowMajor,
-														  const bool includeOrientation,
-														  const double orientationWeight, QString* errorMessage)
+														  const bool includeOrientation, const double orientationWeight,
+														  QString* errorMessage)
 {
 	return computeLinkPoseAndGeometricJacobian(urdfFilePath, jointAnglesRad, linkName, outPosMm, outQuatXyzw,
 											   outJ_rowMajor, includeOrientation, orientationWeight, errorMessage,
@@ -1864,9 +1865,8 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 														  const QVector<double>& jointAnglesRad,
 														  const QString& linkName, double outPosMm[3],
 														  double* outQuatXyzw, std::vector<double>& outJ_rowMajor,
-														  const bool includeOrientation,
-														  const double orientationWeight, QString* errorMessage,
-														  UrdfKinematicsWorkspace* wsIn)
+														  const bool includeOrientation, const double orientationWeight,
+														  QString* errorMessage, UrdfKinematicsWorkspace* wsIn)
 {
 	outJ_rowMajor.clear();
 	if (!outPosMm || linkName.isEmpty())

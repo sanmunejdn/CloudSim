@@ -240,13 +240,15 @@ QStringList describeFeatureComposePlanLines(const nlohmann::json& root)
 		{
 			const std::string mode = args.value("mode", "boss");
 			lines << QStringLiteral("%1. 草图绘制：%2").arg(n++).arg(describeProfileZh(args));
-			lines << (mode == "cut" ? QStringLiteral("%1. 扫描切除").arg(n++) : QStringLiteral("%1. 扫描凸台").arg(n++));
+			lines << (mode == "cut" ? QStringLiteral("%1. 扫描切除").arg(n++)
+									: QStringLiteral("%1. 扫描凸台").arg(n++));
 			continue;
 		}
 		if (api == "loftSketchProfilesToBrep")
 		{
 			const std::string mode = args.value("mode", "boss");
-			lines << (mode == "cut" ? QStringLiteral("%1. 放样切除").arg(n++) : QStringLiteral("%1. 放样凸台").arg(n++));
+			lines << (mode == "cut" ? QStringLiteral("%1. 放样切除").arg(n++)
+									: QStringLiteral("%1. 放样凸台").arg(n++));
 			continue;
 		}
 		if (api == "shellFacesToBrep")

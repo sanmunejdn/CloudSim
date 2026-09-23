@@ -1,4 +1,4 @@
-/// @file CameraResourceStore.cpp
+﻿/// @file CameraResourceStore.cpp
 /// @brief 抓图/内参/标定结果写入 resource/industrial_camera
 
 #include "CameraResourceStore.h"
@@ -17,7 +17,6 @@ namespace industrial_camera_ui
 {
 namespace
 {
-
 QJsonObject mat4ToJson(const industrial_camera::Mat4& m)
 {
 	QJsonArray a;
@@ -61,10 +60,8 @@ bool ensureIndustrialCameraRoot(QString* err)
 }
 
 QString saveCaptureSession(const industrial_camera::CameraDeviceInfo& info,
-						   const industrial_camera::CameraFrame2D* color,
-						   const industrial_camera::CameraFrame3D* cloud,
-						   const industrial_camera::CameraIntrinsics* intrinsics,
-						   QString* err)
+						   const industrial_camera::CameraFrame2D* color, const industrial_camera::CameraFrame3D* cloud,
+						   const industrial_camera::CameraIntrinsics* intrinsics, QString* err)
 {
 	if (!ensureIndustrialCameraRoot(err))
 		return {};
@@ -97,7 +94,8 @@ QString saveCaptureSession(const industrial_camera::CameraDeviceInfo& info,
 		}
 		else
 		{
-			img = QImage(color->bytes.data(), color->width, color->height, color->width, QImage::Format_Grayscale8).copy();
+			img = QImage(color->bytes.data(), color->width, color->height, color->width, QImage::Format_Grayscale8)
+					  .copy();
 		}
 		const QString imgPath = QDir(dir).filePath(QStringLiteral("color.png"));
 		img.save(imgPath);
@@ -131,8 +129,7 @@ QString saveCaptureSession(const industrial_camera::CameraDeviceInfo& info,
 	return dir;
 }
 
-bool saveDeviceIntrinsics(const industrial_camera::CameraDeviceInfo& info,
-						  const industrial_camera::CameraIntrinsics& K,
+bool saveDeviceIntrinsics(const industrial_camera::CameraDeviceInfo& info, const industrial_camera::CameraIntrinsics& K,
 						  QString* err)
 {
 	if (!ensureIndustrialCameraRoot(err))
@@ -157,10 +154,8 @@ bool saveDeviceIntrinsics(const industrial_camera::CameraDeviceInfo& info,
 	return writeJson(QDir(dir).filePath(QStringLiteral("intrinsics.json")), obj, err);
 }
 
-QString saveCalibrationSession(industrial_camera::HandEyeMountMode mode,
-							   const industrial_camera::HandEyeResult& result,
-							   const industrial_camera::CameraIntrinsics* intrinsicsUsed,
-							   QString* err)
+QString saveCalibrationSession(industrial_camera::HandEyeMountMode mode, const industrial_camera::HandEyeResult& result,
+							   const industrial_camera::CameraIntrinsics* intrinsicsUsed, QString* err)
 {
 	if (!ensureIndustrialCameraRoot(err))
 		return {};
@@ -192,7 +187,8 @@ QString saveCalibrationSession(industrial_camera::HandEyeMountMode mode,
 		m.insert(QStringLiteral("error"), QString::fromStdString(sc.error));
 		if (sc.ok)
 			m.insert(QStringLiteral("T"), mat4ToJson(sc.T));
-		writeJson(QDir(dir).filePath(QStringLiteral("methods/%1.json").arg(QString::fromStdString(sc.name))), m, nullptr);
+		writeJson(QDir(dir).filePath(QStringLiteral("methods/%1.json").arg(QString::fromStdString(sc.name))), m,
+				  nullptr);
 	}
 
 	QJsonObject res;

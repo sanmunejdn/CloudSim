@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIAGENTPICKDIALOG_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIAGENTPICKDIALOG_H
 #define CLOUDSIMPLUGINHOST_AIAGENTPICKDIALOG_H
 
 /// @file AiAgentPickDialog.h
@@ -47,4 +47,4 @@ bool pickSaveFilePath(QWidget* parent, const QString& title, const QString& filt
 bool pickExistingDirectory(QWidget* parent, const QString& title, QString* outDir);
 } // namespace AiAgentPickDialog
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIAGENTPICKDIALOG_H

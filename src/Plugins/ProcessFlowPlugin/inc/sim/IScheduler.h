@@ -1,5 +1,5 @@
-#ifndef PROCESSFLOWPLUGIN_SIM_ISCHEDULER_H
-#define PROCESSFLOWPLUGIN_SIM_ISCHEDULER_H
+﻿#ifndef PROCESSFLOWPLUGIN_ISCHEDULER_H
+#define PROCESSFLOWPLUGIN_ISCHEDULER_H
 
 /// @file IScheduler.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -39,4 +39,4 @@ public:
 	Schedule solve(const JobSet& jobs, const PlantGraph& plant, const SolveConfig& cfg) override;
 };
 
-#endif
+#endif // PROCESSFLOWPLUGIN_ISCHEDULER_H

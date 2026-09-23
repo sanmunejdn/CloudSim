@@ -1,4 +1,4 @@
-/// @file AiConfirmPanel.cpp
+﻿/// @file AiConfirmPanel.cpp
 /// @brief 按 Catalog args_schema 生成确认表单
 
 #include "AiConfirmPanel.h"
@@ -12,12 +12,12 @@
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QLatin1String>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
+#include <QLatin1String>
 #include <json.hpp>
 
 namespace
@@ -351,9 +351,8 @@ void AiConfirmPanel::rebuildForm(const QByteArray& argsSchemaJson, const QByteAr
 			connect(browse, &QPushButton::clicked, this,
 					[this, edit, isDir]()
 					{
-						const QString p =
-							isDir ? QFileDialog::getExistingDirectory(this, m_titleLabel->text())
-								  : QFileDialog::getOpenFileName(this, m_titleLabel->text());
+						const QString p = isDir ? QFileDialog::getExistingDirectory(this, m_titleLabel->text())
+												: QFileDialog::getOpenFileName(this, m_titleLabel->text());
 						if (!p.isEmpty())
 						{
 							edit->setText(p);

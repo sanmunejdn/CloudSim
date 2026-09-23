@@ -50,8 +50,8 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSet>
-#include <QSignalBlocker>
 #include <QShowEvent>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QStringList>
 #include <QStyle>
@@ -155,8 +155,8 @@ void appendModelXyzToWorldPolyline(IRobotOsgViewHost* osg, const std::string& ba
 		osg::Vec3f worldPt;
 		if (!feature_pick_transform::stepModelPointToWorldMm(osg, backendId, modelPt, worldPt, nullptr))
 			worldPt.set(static_cast<float>(modelPt.x), static_cast<float>(modelPt.y), static_cast<float>(modelPt.z));
-		outWorld.push_back({static_cast<double>(worldPt.x()), static_cast<double>(worldPt.y()),
-							static_cast<double>(worldPt.z())});
+		outWorld.push_back(
+			{static_cast<double>(worldPt.x()), static_cast<double>(worldPt.y()), static_cast<double>(worldPt.z())});
 	}
 }
 
@@ -358,8 +358,7 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			[this]()
 			{
-				const QString backendId =
-					m_backendCombo ? m_backendCombo->currentData().toString() : QString();
+				const QString backendId = m_backendCombo ? m_backendCombo->currentData().toString() : QString();
 				if (backendId == m_lastWorkpieceBackendId)
 				{
 					return;
@@ -853,15 +852,15 @@ void FeatureTrajectoryPageWidget::removeGeometryIndicesFromRow(const int row, co
 	dlg.setWindowTitle(removeFaces ? (m_chinese ? QStringLiteral("移除面") : QStringLiteral("Remove faces"))
 								   : (m_chinese ? QStringLiteral("移除边") : QStringLiteral("Remove edges")));
 	auto* layout = new QVBoxLayout(&dlg);
-	layout->addWidget(new QLabel(m_chinese ? QStringLiteral("勾选要移除的项：") : QStringLiteral("Check items to remove:"),
-								 &dlg));
+	layout->addWidget(
+		new QLabel(m_chinese ? QStringLiteral("勾选要移除的项：") : QStringLiteral("Check items to remove:"), &dlg));
 	auto* list = new QListWidget(&dlg);
 	list->setSelectionMode(QAbstractItemView::NoSelection);
 	for (const int idx : indices)
 	{
-		const QString text =
-			removeFaces ? (m_chinese ? QStringLiteral("面 %1").arg(idx) : QStringLiteral("face %1").arg(idx))
-						: (m_chinese ? QStringLiteral("边 %1").arg(idx) : QStringLiteral("edge %1").arg(idx));
+		const QString text = removeFaces
+								 ? (m_chinese ? QStringLiteral("面 %1").arg(idx) : QStringLiteral("face %1").arg(idx))
+								 : (m_chinese ? QStringLiteral("边 %1").arg(idx) : QStringLiteral("edge %1").arg(idx));
 		auto* item = new QListWidgetItem(text, list);
 		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
 		item->setCheckState(Qt::Unchecked);
@@ -948,8 +947,7 @@ bool FeatureTrajectoryPageWidget::beginEditBoundPathPlan(QString* err)
 {
 	if (!m_session || m_session->boundPathPlanId().empty())
 	{
-		const QString msg =
-			m_chinese ? QStringLiteral("请先选择路径规划") : QStringLiteral("Select a path plan first");
+		const QString msg = m_chinese ? QStringLiteral("请先选择路径规划") : QStringLiteral("Select a path plan first");
 		if (err)
 		{
 			*err = msg;
@@ -1260,14 +1258,13 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 	applyBtnRole(m_pickModeNewBtn, appendMode ? "secondary" : "primary");
 	if (m_pickModeAppendBtn)
 	{
-		m_pickModeAppendBtn->setToolTip(
-			m_chinese ? QStringLiteral("拾取结果追加到当前选中特征行")
-					  : QStringLiteral("Append pick result to the selected feature row"));
+		m_pickModeAppendBtn->setToolTip(m_chinese ? QStringLiteral("拾取结果追加到当前选中特征行")
+												  : QStringLiteral("Append pick result to the selected feature row"));
 	}
 	if (m_pickModeNewBtn)
 	{
 		m_pickModeNewBtn->setToolTip(m_chinese ? QStringLiteral("拾取结果新建一行特征")
-											  : QStringLiteral("Create a new feature row from the pick"));
+											   : QStringLiteral("Create a new feature row from the pick"));
 	}
 	if (m_pickEdgeBtn)
 	{
@@ -1295,14 +1292,14 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 	{
 		if (appendMode && sel >= 0)
 		{
-			m_pickStatusLabel->setText(
-				m_chinese ? QStringLiteral("追加边到当前特征（行 %1）：在视口点击…").arg(sel + 1)
-						  : QStringLiteral("Append edge to feature row %1…").arg(sel + 1));
+			m_pickStatusLabel->setText(m_chinese ? QStringLiteral("追加边到当前特征（行 %1）：在视口点击…").arg(sel + 1)
+												 : QStringLiteral("Append edge to feature row %1…").arg(sel + 1));
 		}
 		else if (appendMode)
 		{
-			m_pickStatusLabel->setText(m_chinese ? QStringLiteral("追加模式：请先选中特征行，再在视口点击边…")
-												 : QStringLiteral("Append mode: select a feature row, then click an edge…"));
+			m_pickStatusLabel->setText(m_chinese
+										   ? QStringLiteral("追加模式：请先选中特征行，再在视口点击边…")
+										   : QStringLiteral("Append mode: select a feature row, then click an edge…"));
 		}
 		else
 		{
@@ -1314,14 +1311,14 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 	{
 		if (appendMode && sel >= 0)
 		{
-			m_pickStatusLabel->setText(
-				m_chinese ? QStringLiteral("追加面到当前特征（行 %1）：在视口点击…").arg(sel + 1)
-						  : QStringLiteral("Append face to feature row %1…").arg(sel + 1));
+			m_pickStatusLabel->setText(m_chinese ? QStringLiteral("追加面到当前特征（行 %1）：在视口点击…").arg(sel + 1)
+												 : QStringLiteral("Append face to feature row %1…").arg(sel + 1));
 		}
 		else if (appendMode)
 		{
-			m_pickStatusLabel->setText(m_chinese ? QStringLiteral("追加模式：请先选中特征行，再在视口点击面…")
-												 : QStringLiteral("Append mode: select a feature row, then click a face…"));
+			m_pickStatusLabel->setText(m_chinese
+										   ? QStringLiteral("追加模式：请先选中特征行，再在视口点击面…")
+										   : QStringLiteral("Append mode: select a feature row, then click a face…"));
 		}
 		else
 		{
@@ -1331,14 +1328,15 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 	}
 	else if (appendMode)
 	{
-		m_pickStatusLabel->setText(
-			m_chinese ? QStringLiteral("写入模式：追加到选中 — 选中特征行后点「拾取线/面」")
-					  : QStringLiteral("Write mode: Append — select a row, then Pick edge/face"));
+		m_pickStatusLabel->setText(m_chinese
+									   ? QStringLiteral("写入模式：追加到选中 — 选中特征行后点「拾取线/面」")
+									   : QStringLiteral("Write mode: Append — select a row, then Pick edge/face"));
 	}
 	else
 	{
-		m_pickStatusLabel->setText(m_chinese ? QStringLiteral("写入模式：新建特征 — 点「拾取线/面」将新建一行")
-											 : QStringLiteral("Write mode: New feature — Pick edge/face creates a row"));
+		m_pickStatusLabel->setText(m_chinese
+									   ? QStringLiteral("写入模式：新建特征 — 点「拾取线/面」将新建一行")
+									   : QStringLiteral("Write mode: New feature — Pick edge/face creates a row"));
 	}
 }
 
@@ -1384,7 +1382,8 @@ void FeatureTrajectoryPageWidget::onPickEdge()
 	}
 	else
 	{
-		setStatus(m_chinese ? QStringLiteral("边拾取：将新建特征行") : QStringLiteral("Edge pick: will create a new feature"));
+		setStatus(m_chinese ? QStringLiteral("边拾取：将新建特征行")
+							: QStringLiteral("Edge pick: will create a new feature"));
 	}
 }
 
@@ -1419,7 +1418,8 @@ void FeatureTrajectoryPageWidget::onPickFace()
 	}
 	else
 	{
-		setStatus(m_chinese ? QStringLiteral("面拾取：将新建特征行") : QStringLiteral("Face pick: will create a new feature"));
+		setStatus(m_chinese ? QStringLiteral("面拾取：将新建特征行")
+							: QStringLiteral("Face pick: will create a new feature"));
 	}
 }
 
@@ -1481,7 +1481,7 @@ bool FeatureTrajectoryPageWidget::buildFeatureEntryFromPick(const bool pickFace,
 }
 
 bool FeatureTrajectoryPageWidget::canAppendPickToFeature(const geoalgo::FeatureEntry& entry, const bool pickFace,
-														QString* err)
+														 QString* err)
 {
 	const geoalgo::GeometryAffinity affinity = geometry_backend_ops::featureDiscretizerAffinity(entry.strategyId);
 	if (pickFace)
@@ -1781,13 +1781,12 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 	}
 
 	exitPickMode();
-	setStatus(m_chinese
-				  ? QStringLiteral("%1特征 %2，正在离散…")
-						.arg(appended ? QStringLiteral("已更新") : QStringLiteral("已添加"),
-							 QString::fromStdString(entry.featureId))
-				  : QStringLiteral("%1 feature %2, discretizing…")
-						.arg(appended ? QStringLiteral("Updated") : QStringLiteral("Added"),
-							 QString::fromStdString(entry.featureId)));
+	setStatus(m_chinese ? QStringLiteral("%1特征 %2，正在离散…")
+							  .arg(appended ? QStringLiteral("已更新") : QStringLiteral("已添加"),
+								   QString::fromStdString(entry.featureId))
+						: QStringLiteral("%1 feature %2, discretizing…")
+							  .arg(appended ? QStringLiteral("Updated") : QStringLiteral("Added"),
+								   QString::fromStdString(entry.featureId)));
 	const bool ok = discretizeFromTable(true);
 	--m_strategyRowSyncDepth;
 	if (ok && m_session && m_session->hasRawTrajectory())
@@ -1811,8 +1810,7 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 
 void FeatureTrajectoryPageWidget::refreshBackendCombo()
 {
-	const QString prevBackendId =
-		m_backendCombo ? m_backendCombo->currentData().toString() : QString();
+	const QString prevBackendId = m_backendCombo ? m_backendCombo->currentData().toString() : QString();
 	const QSignalBlocker blocker(m_backendCombo);
 	m_backendCombo->clear();
 	if (!m_host)
@@ -1885,8 +1883,7 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		candidate.backendId = backendId;
 		candidate.label = label;
 		// 仅对真实 STEP 路径去重；ai:// 等虚拟路径按 backendId 保留各自条目
-		candidate.dedupeKey =
-			(!isBrepModel && isStepSourcePath(stepPath)) ? stepPath.toLower() : backendId;
+		candidate.dedupeKey = (!isBrepModel && isStepSourcePath(stepPath)) ? stepPath.toLower() : backendId;
 		candidate.isBrepModel = isBrepModel;
 		candidates.append(candidate);
 	}
@@ -2463,8 +2460,7 @@ bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray&
 				if (artifacts)
 				{
 					(void)geoalgo::ensureBrepImportPickArtifacts(shape, *artifacts, nullptr);
-					const nlohmann::json slice =
-						nlohmann::json::parse(catalogSliceUtf8.constData(), nullptr, true);
+					const nlohmann::json slice = nlohmann::json::parse(catalogSliceUtf8.constData(), nullptr, true);
 					std::unordered_map<int, geoalgo::FeatureGeometry> geomByDisplay;
 					if (slice.contains("candidates") && slice["candidates"].is_array())
 					{
@@ -2486,12 +2482,11 @@ bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray&
 						if (!geometry.edgeIndices.empty() && !artifacts->edgePolylines.empty())
 						{
 							const int edgeIdx = geometry.edgeIndices.front();
-							if (edgeIdx >= 0 &&
-								static_cast<std::size_t>(edgeIdx) < artifacts->edgePolylines.size())
+							if (edgeIdx >= 0 && static_cast<std::size_t>(edgeIdx) < artifacts->edgePolylines.size())
 							{
-								appendModelXyzToWorldPolyline(osg, backendStd,
-															  artifacts->edgePolylines[static_cast<std::size_t>(edgeIdx)],
-															  o.edgePolylineWorldMm);
+								appendModelXyzToWorldPolyline(
+									osg, backendStd, artifacts->edgePolylines[static_cast<std::size_t>(edgeIdx)],
+									o.edgePolylineWorldMm);
 							}
 						}
 						if (highlightFaceBodies && !geometry.faceIndices.empty() && !artifacts->faceSoups.empty())
@@ -2711,7 +2706,7 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 }
 
 int FeatureTrajectoryPageWidget::proposeAndConfirmTrajectoryPlan(const QByteArray& planInUtf8, QByteArray& planOutUtf8,
-																QString* err, const bool showRetry)
+																 QString* err, const bool showRetry)
 {
 	planOutUtf8.clear();
 	try
@@ -2762,7 +2757,7 @@ bool FeatureTrajectoryPageWidget::loadBoundTrajectoryPlanJson(QByteArray& planOu
 	{
 		if (err)
 			*err = m_chinese ? QStringLiteral("当前 PathPlan 无特征离散数据，请先完成离散")
-							: QStringLiteral("No sourceFeatureJson on bound PathPlan");
+							 : QStringLiteral("No sourceFeatureJson on bound PathPlan");
 		return false;
 	}
 	try
@@ -2772,7 +2767,8 @@ bool FeatureTrajectoryPageWidget::loadBoundTrajectoryPlanJson(QByteArray& planOu
 		if (!geometry_backend_ops::featureListFromJson(src, doc, &parseErr) || doc.features.empty())
 		{
 			if (err)
-				*err = parseErr.empty() ? QStringLiteral("无法解析 sourceFeatureJson") : QString::fromStdString(parseErr);
+				*err =
+					parseErr.empty() ? QStringLiteral("无法解析 sourceFeatureJson") : QString::fromStdString(parseErr);
 			return false;
 		}
 		nlohmann::json plan;
@@ -2806,7 +2802,8 @@ bool FeatureTrajectoryPageWidget::loadBoundTrajectoryPlanJson(QByteArray& planOu
 	}
 }
 
-bool FeatureTrajectoryPageWidget::reviseFeaturePlanFromAi(const QByteArray& planJsonUtf8, QString* summary, QString* err)
+bool FeatureTrajectoryPageWidget::reviseFeaturePlanFromAi(const QByteArray& planJsonUtf8, QString* summary,
+														  QString* err)
 {
 	try
 	{

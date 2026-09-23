@@ -41,5 +41,5 @@ Ribbon 分组：草图（绘制/引用）、标注（尺寸/几何约束）、�
 ## 文档
 
 - 活跃：[docs/几何建模/](../../../docs/几何建模/)（功能清单、架构、路线图）  
-- 历史 6A：[docs/_archive/几何建模/](../../../docs/_archive/几何建模/)  
-- 近期专题（均已归档）：`docs/_archive/SW差距续期/`、`docs/_archive/硬化基准面/`、`docs/_archive/特征史AI/`、`docs/_archive/WorkspaceModeSwitcher/`
+- 历史 6A：`docs/ARCHIVE_ZIP_LOCATION.txt`  
+- 近期专题（均已归档）：`docs/ARCHIVE_ZIP_LOCATION.txt`、`docs/ARCHIVE_ZIP_LOCATION.txt`、`docs/ARCHIVE_ZIP_LOCATION.txt`、`docs/ARCHIVE_ZIP_LOCATION.txt`

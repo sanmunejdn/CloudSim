@@ -1,4 +1,4 @@
-#ifndef DATA_PLYIO_H
+﻿#ifndef DATA_PLYIO_H
 #define DATA_PLYIO_H
 
 /// @file PlyIo.h

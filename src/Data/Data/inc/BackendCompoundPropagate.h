@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDCOMPOUNDPROPAGATE_H
+﻿#ifndef DATA_BACKENDCOMPOUNDPROPAGATE_H
 #define DATA_BACKENDCOMPOUNDPROPAGATE_H
 
 /// @file BackendCompoundPropagate.h
@@ -24,8 +24,7 @@ using WorldWriteFn = std::function<void(const std::string& backendId, const Back
 /// @return 被改写世界位姿的 id（不含 root）
 DATA_EXPORT std::unordered_set<std::string>
 propagateRigidDelta(BackendDataManager& mgr, const std::string& rootId, const BackendMat4& delta,
-					const std::unordered_set<std::string>* skipIds = nullptr,
-					const WorldWriteFn& writeWorld = nullptr);
+					const std::unordered_set<std::string>* skipIds = nullptr, const WorldWriteFn& writeWorld = nullptr);
 
 /// Δ = W_new · inv(W_old)，再传播
 DATA_EXPORT std::unordered_set<std::string>

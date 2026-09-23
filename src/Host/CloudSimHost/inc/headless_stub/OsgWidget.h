@@ -1,5 +1,5 @@
-#ifndef WIDGET_OSGWIDGET_H
-#define WIDGET_OSGWIDGET_H
+﻿#ifndef CLOUDSIMHOST_OSGWIDGET_H
+#define CLOUDSIMHOST_OSGWIDGET_H
 
 /// @file OsgWidget.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -119,8 +119,7 @@ public:
 		return false;
 	}
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr,
-								 bool resetViewToHome = true, bool showWireOutline = true,
-								 bool useSceneLighting = true)
+								 bool resetViewToHome = true, bool showWireOutline = true, bool useSceneLighting = true)
 	{
 		(void)data;
 		(void)errorMessage;
@@ -303,10 +302,7 @@ public:
 	void showPinnedMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld) { (void)vertsWorld; }
 	void hidePinnedMeshFaceHighlight() {}
 	void setCrossObjectMeshPick(bool) {}
-	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld)
-	{
-		(void)triangleVertsWorld;
-	}
+	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld) { (void)triangleVertsWorld; }
 	void clearMeshFittedSurfacePreview() {}
 
 	void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
@@ -329,9 +325,9 @@ public:
 	void clearWaypointIndexLabels() {}
 	void setInstructionWaypointPickMode(bool enabled) { (void)enabled; }
 	bool instructionWaypointPickMode() const { return false; }
-	void setInstructionWaypointPickCallbacks(
-		std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
-		std::function<void()> onCanceled)
+	void
+	setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
+										std::function<void()> onCanceled)
 	{
 		(void)onPicked;
 		(void)onCanceled;
@@ -422,4 +418,4 @@ signals:
 	void labelingPickCanceled();
 };
 
-#endif // WIDGET_OSGWIDGET_H
+#endif // CLOUDSIMHOST_OSGWIDGET_H

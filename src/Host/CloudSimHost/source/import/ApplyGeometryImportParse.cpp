@@ -1,4 +1,4 @@
-/// @file ApplyGeometryImportParse.cpp
+﻿/// @file ApplyGeometryImportParse.cpp
 /// @brief ImportParseResult → DocumentHost 注册
 
 #include "ApplyGeometryImportParse.h"
@@ -14,6 +14,7 @@
 
 #include <QFileInfo>
 #include <QHash>
+
 #include <QLatin1String>
 
 namespace cloudsim::host
@@ -116,8 +117,8 @@ bool applyOsgCapture(DocumentHost& host, const QString& sourceFilePath, const QS
 		}
 		if (outError && outError->isEmpty())
 		{
-			*outError = hierarchyErr.isEmpty() ? QStringLiteral("Failed to register hierarchical model parts.")
-											  : hierarchyErr;
+			*outError =
+				hierarchyErr.isEmpty() ? QStringLiteral("Failed to register hierarchical model parts.") : hierarchyErr;
 		}
 		osg->clearStagingGeometry();
 		out.ok = false;
@@ -170,8 +171,17 @@ bool applyGeometryImportParse(DocumentHost& host, const QString& sourceFilePath,
 
 	const QFileInfo fileInfo(sourceFilePath);
 	const QString defaultBaseName = fileInfo.completeBaseName();
-	const QString displayParent =
-		parsed.displayNameHint.empty() ? fileInfo.fileName() : QString::fromStdString(parsed.displayNameHint);
+	// hint 可能被误标为 UTF-8（实际是 encodeName 本地码），解码失败时回退 QFileInfo
+	QString displayParent = fileInfo.fileName();
+	if (!parsed.displayNameHint.empty())
+	{
+		const QString hint =
+			QString::fromUtf8(parsed.displayNameHint.data(), static_cast<int>(parsed.displayNameHint.size()));
+		if (!hint.isEmpty() && !hint.contains(QChar::ReplacementCharacter))
+		{
+			displayParent = hint;
+		}
+	}
 
 	switch (parsed.kind)
 	{

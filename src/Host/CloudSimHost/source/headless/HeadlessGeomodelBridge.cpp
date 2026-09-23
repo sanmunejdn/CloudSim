@@ -14,7 +14,6 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
-
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -234,11 +233,10 @@ std::vector<float> profileFromBody(const QJsonObject& body)
 	}
 	if (profile == QStringLiteral("ellipse"))
 	{
-		return closedEllipseXy(body.value(QStringLiteral("radiusMm")).toDouble(
-								   body.value(QStringLiteral("lengthMm")).toDouble(60.0)),
-							   body.value(QStringLiteral("radiusBMm")).toDouble(
-								   body.value(QStringLiteral("widthMm")).toDouble(30.0)),
-							   body.value(QStringLiteral("segments")).toInt(32));
+		return closedEllipseXy(
+			body.value(QStringLiteral("radiusMm")).toDouble(body.value(QStringLiteral("lengthMm")).toDouble(60.0)),
+			body.value(QStringLiteral("radiusBMm")).toDouble(body.value(QStringLiteral("widthMm")).toDouble(30.0)),
+			body.value(QStringLiteral("segments")).toInt(32));
 	}
 	if (profile == QStringLiteral("slot"))
 	{
@@ -251,7 +249,7 @@ std::vector<float> profileFromBody(const QJsonObject& body)
 }
 
 std::vector<float> defaultSweepPath(const ParametricSketchPlane& pl, double lenMm,
-								   const std::vector<float>& profileWorld)
+									const std::vector<float>& profileWorld)
 {
 	double ox = pl.originX;
 	double oy = pl.originY;
@@ -380,7 +378,8 @@ QByteArray HeadlessGeomodelBridge::captureHistory(const ParametricBrepBackendDat
 	return QByteArray(dumped.data(), static_cast<int>(dumped.size()));
 }
 
-bool HeadlessGeomodelBridge::restoreHistory(ParametricBrepBackendData& body, const QByteArray& bytes, QString* err) const
+bool HeadlessGeomodelBridge::restoreHistory(ParametricBrepBackendData& body, const QByteArray& bytes,
+											QString* err) const
 {
 	if (bytes.isEmpty())
 	{
@@ -442,7 +441,7 @@ QJsonObject HeadlessGeomodelBridge::okBody(const ParametricBrepBackendData& body
 }
 
 QJsonObject HeadlessGeomodelBridge::commitExisting(const std::shared_ptr<ParametricBrepBackendData>& param,
-												  const QByteArray& before)
+												   const QByteArray& before)
 {
 	if (!param)
 		return fail(QStringLiteral("Parametric Body missing."));
@@ -565,7 +564,8 @@ QJsonObject HeadlessGeomodelBridge::applyOp(const QJsonObject& body)
 	if (op == QStringLiteral("exportHistory"))
 		return exportHistoryFile(body);
 	return fail(QStringLiteral(
-		"Unknown op. Use primitive|extrude|append|patch|delete|rebuild|setHistory|undo|redo|importHistory|exportHistory."));
+		"Unknown op. Use "
+		"primitive|extrude|append|patch|delete|rebuild|setHistory|undo|redo|importHistory|exportHistory."));
 }
 
 QJsonObject HeadlessGeomodelBridge::createPrimitive(const QJsonObject& body)
@@ -714,7 +714,8 @@ QJsonObject HeadlessGeomodelBridge::appendFeature(const QJsonObject& body)
 
 	const ParametricSketchPlane plane = planeFromId(body.value(QStringLiteral("plane")).toString());
 	const QByteArray before = createNew ? QByteArray() : captureHistory(*param);
-	auto rollback = [&]() {
+	auto rollback = [&]()
+	{
 		if (!createNew)
 			restoreHistory(*param, before, nullptr);
 	};
@@ -756,15 +757,14 @@ QJsonObject HeadlessGeomodelBridge::appendFeature(const QJsonObject& body)
 		}
 		const QJsonArray axisO = body.value(QStringLiteral("axisO")).toArray();
 		const QJsonArray axisD = body.value(QStringLiteral("axisD")).toArray();
-		param->addRevolve(
-			sketchId, body.value(QStringLiteral("revolveAngleDeg")).toDouble(360.0),
-			axisO.size() > 0 ? axisO.at(0).toDouble() : plane.originX,
-			axisO.size() > 1 ? axisO.at(1).toDouble() : plane.originY,
-			axisO.size() > 2 ? axisO.at(2).toDouble() : plane.originZ,
-			axisD.size() > 0 ? axisD.at(0).toDouble() : plane.axisYX,
-			axisD.size() > 1 ? axisD.at(1).toDouble() : plane.axisYY,
-			axisD.size() > 2 ? axisD.at(2).toDouble() : plane.axisYZ,
-			parsed.value == ParametricFeatureKind::RevolveCut);
+		param->addRevolve(sketchId, body.value(QStringLiteral("revolveAngleDeg")).toDouble(360.0),
+						  axisO.size() > 0 ? axisO.at(0).toDouble() : plane.originX,
+						  axisO.size() > 1 ? axisO.at(1).toDouble() : plane.originY,
+						  axisO.size() > 2 ? axisO.at(2).toDouble() : plane.originZ,
+						  axisD.size() > 0 ? axisD.at(0).toDouble() : plane.axisYX,
+						  axisD.size() > 1 ? axisD.at(1).toDouble() : plane.axisYY,
+						  axisD.size() > 2 ? axisD.at(2).toDouble() : plane.axisYZ,
+						  parsed.value == ParametricFeatureKind::RevolveCut);
 		break;
 	}
 	case ParametricFeatureKind::LinearPattern:
@@ -780,16 +780,15 @@ QJsonObject HeadlessGeomodelBridge::appendFeature(const QJsonObject& body)
 	{
 		const QJsonArray axisO = body.value(QStringLiteral("axisO")).toArray();
 		const QJsonArray axisD = body.value(QStringLiteral("axisD")).toArray();
-		param->addCircularPattern(
-			body.value(QStringLiteral("patternCount")).toInt(4),
-			body.value(QStringLiteral("patternAngleDeg")).toDouble(360.0),
-			axisO.size() > 0 ? axisO.at(0).toDouble() : plane.originX,
-			axisO.size() > 1 ? axisO.at(1).toDouble() : plane.originY,
-			axisO.size() > 2 ? axisO.at(2).toDouble() : plane.originZ,
-			axisD.size() > 0 ? axisD.at(0).toDouble() : plane.normalX,
-			axisD.size() > 1 ? axisD.at(1).toDouble() : plane.normalY,
-			axisD.size() > 2 ? axisD.at(2).toDouble() : plane.normalZ,
-			body.value(QStringLiteral("sourceFeatureId")).toString().toStdString());
+		param->addCircularPattern(body.value(QStringLiteral("patternCount")).toInt(4),
+								  body.value(QStringLiteral("patternAngleDeg")).toDouble(360.0),
+								  axisO.size() > 0 ? axisO.at(0).toDouble() : plane.originX,
+								  axisO.size() > 1 ? axisO.at(1).toDouble() : plane.originY,
+								  axisO.size() > 2 ? axisO.at(2).toDouble() : plane.originZ,
+								  axisD.size() > 0 ? axisD.at(0).toDouble() : plane.normalX,
+								  axisD.size() > 1 ? axisD.at(1).toDouble() : plane.normalY,
+								  axisD.size() > 2 ? axisD.at(2).toDouble() : plane.normalZ,
+								  body.value(QStringLiteral("sourceFeatureId")).toString().toStdString());
 		break;
 	}
 	case ParametricFeatureKind::Mirror3D:
@@ -824,8 +823,7 @@ QJsonObject HeadlessGeomodelBridge::appendFeature(const QJsonObject& body)
 			rollback();
 			return fail(QStringLiteral("Failed to set sweep path."));
 		}
-		const std::string sweepId =
-			param->addSweep(profileId, pathId, parsed.value == ParametricFeatureKind::SweepCut);
+		const std::string sweepId = param->addSweep(profileId, pathId, parsed.value == ParametricFeatureKind::SweepCut);
 		if (ParametricFeature* sw = param->findFeature(sweepId))
 			sw->twistDeg = body.value(QStringLiteral("twistDeg")).toDouble(0.0);
 		break;

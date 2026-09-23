@@ -440,7 +440,8 @@ RobotInstruction::ToWorkpieceInHandParams parseToWorkpieceInHandParams(const nlo
 	out.externalTcpRxDeg = trajectoryParamDouble(params, "toWorkpiece.externalTcpRxDeg", out.externalTcpRxDeg);
 	out.externalTcpRyDeg = trajectoryParamDouble(params, "toWorkpiece.externalTcpRyDeg", out.externalTcpRyDeg);
 	out.externalTcpRzDeg = trajectoryParamDouble(params, "toWorkpiece.externalTcpRzDeg", out.externalTcpRzDeg);
-	out.enableSpeedTransform = trajectoryParamBool(params, "toWorkpiece.enableSpeedTransform", out.enableSpeedTransform);
+	out.enableSpeedTransform =
+		trajectoryParamBool(params, "toWorkpiece.enableSpeedTransform", out.enableSpeedTransform);
 	return out;
 }
 

@@ -1,4 +1,4 @@
-/// @file MainWindowHelp.cpp
+﻿/// @file MainWindowHelp.cpp
 /// @brief 帮助菜单：打开本地 HTML 文档与关于对话框
 
 #include "HelpBrowserDialog.h"
@@ -17,10 +17,9 @@ void MainWindow::onOpenHelpDocumentation()
 
 	if (!QFileInfo::exists(htmlPath))
 	{
-		QMessageBox::warning(
-			this, i18n(QStringLiteral("Help"), QStringLiteral("帮助")),
-			i18n(QStringLiteral("Help documentation was not found:\n%1").arg(htmlPath),
-				 QStringLiteral("未找到帮助文档：\n%1").arg(htmlPath)));
+		QMessageBox::warning(this, i18n(QStringLiteral("Help"), QStringLiteral("帮助")),
+							 i18n(QStringLiteral("Help documentation was not found:\n%1").arg(htmlPath),
+								  QStringLiteral("未找到帮助文档：\n%1").arg(htmlPath)));
 		return;
 	}
 

@@ -1,6 +1,6 @@
 ﻿# RobotScene 模块开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — per-link FK：`M = M0·inv(T0)·Tq·P`（§8.1）；**P** 与 **M0** 分离，禁止把场景 **W** 写入 **M0**。
 
@@ -305,7 +305,7 @@ M_link = M0 · inv(T0) · Tq · P
 
 持久化：`robotKinematicsInstances[].externalAxes`。联动搜索：`ExternalAxisSearchService` + `TeachIk` 多轴 DOF；未启用时 `ExternalAxisSearch` Op 为 no-op。
 
-**存储契约**：`basePlacementWorld` = P0；运行态 `externalAxisQ[]`（兼容 `externalAxisQMm`）；工件零位 `workpieceBasePlacementWorld[backendId]=W0`；工作架偏置 `workpieceWorkingFrameOffsetByBackend`（W0 局部）。FK：`composeBasePlacementWithExternalAxis` → `P_eff`；`composeWorkpiecePlacementWithExternalAxis` → `W_eff`；`composeWorkpieceWorkingFrameInRobotP0` → `T_p0_work`。Mat4 平移在 `[3,7,11]`。专题：[`docs/外部轴类型拓宽/`](../../../docs/_archive/外部轴类型拓宽/)、[`docs/外部轴联动求解/`](../../../docs/_archive/外部轴联动求解/)。
+**存储契约**：`basePlacementWorld` = P0；运行态 `externalAxisQ[]`（兼容 `externalAxisQMm`）；工件零位 `workpieceBasePlacementWorld[backendId]=W0`；工作架偏置 `workpieceWorkingFrameOffsetByBackend`（W0 局部）。FK：`composeBasePlacementWithExternalAxis` → `P_eff`；`composeWorkpiecePlacementWithExternalAxis` → `W_eff`；`composeWorkpieceWorkingFrameInRobotP0` → `T_p0_work`。Mat4 平移在 `[3,7,11]`。专题：`docs/ARCHIVE_ZIP_LOCATION.txt`、`docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 **REP（启用 Workpiece）**：示教/规划 TCP 相对工作架 `T_work`；外层采样工件轴 → `T_p0_goal = T_p0_work(q_w)*T_work`；内层仅 RobotBase TeachIk。Host 经 `Controller::WorkpieceIkFrameContext`（及 `PlanJobPayload`）注入 P0/W0/Offset。
 
@@ -359,7 +359,7 @@ M_link = M0 · inv(T0) · Tq · P
 | `flatMotionSequence` | DFS 运动叶索引，与仿真顺序一致 |
 | `coordinateFrames` | 完整 tool/user 帧定义 |
 
-仿真 **Export…** 写 Canonical 临时文件，再经 RobotWidget `PythonScriptCaller` 调用 `resource/Python/ExportPython/*Export.py` 生成品牌程序（用户对话框选择最终路径）。离线 stub 仍见 `CloudSim/src/UI/RobotWidget/tools/robot_postprocess/`；正式路径以 resource + pybind 为准。详见 [`docs/机器人程序品牌导出/`](../../../docs/_archive/机器人程序品牌导出/)。
+仿真 **Export…** 写 Canonical 临时文件，再经 RobotWidget `PythonScriptCaller` 调用 `resource/Python/ExportPython/*Export.py` 生成品牌程序（用户对话框选择最终路径）。离线 stub 仍见 `CloudSim/src/UI/RobotWidget/tools/robot_postprocess/`；正式路径以 resource + pybind 为准。详见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ### 遗留（`RobotProgramExport.h`）
 
@@ -467,7 +467,7 @@ URDF 导入或轴控注册时写入 `KinematicModelRegistry::keyRobotInstance(sc
 
 Host `RobotServiceAdapter::applyJointAnglesRad` 经 `KinematicsBatchScope` + Registry apply；拖动 IK 经 `MainWindowRobotHost::solveTcpDragTeachIk` → `KinematicModelIk`。
 
-架构图：[`../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html`](../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html) · 热路径：[drag-hotpath-dataflow.html](../../../docs/_archive/robot-kinematics-workspace/diagrams/drag-hotpath-dataflow.html)
+架构图：`docs/ARCHIVE_ZIP_LOCATION.txt` · 热路径：`docs/ARCHIVE_ZIP_LOCATION.txt`
 
 DH：`setDhRows` 仅 **无 URDF** legacy；有 URDF 时保持 `clearDhRows`。
 
@@ -625,4 +625,4 @@ Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`../../../docs/�
 - DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)
 - 特征离散：[`../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1
 - UI 轨迹生成：[`../RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成
-- 轴配置详解：[全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §4.8.1–4.8.3
+- 轴配置详解：[全库文档入口](../../README.md) · [产品索引](../README.md) §4.8.1–4.8.3

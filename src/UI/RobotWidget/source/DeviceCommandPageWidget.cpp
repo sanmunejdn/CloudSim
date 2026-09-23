@@ -135,8 +135,7 @@ DeviceCommandPageWidget::DeviceCommandPageWidget(QWidget* parent) : QWidget(pare
 	auto* runRow = new QHBoxLayout();
 	m_stopBtn = new QPushButton(this);
 	setBtnRole(m_stopBtn, "danger");
-	UiIconDecorators::apply(m_stopBtn, UiIconId::Stop, UiIconDecorators::IconPlacement::Leading,
-							UiIcons::Size::Medium);
+	UiIconDecorators::apply(m_stopBtn, UiIconId::Stop, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Medium);
 	m_statusLabel = new QLabel(this);
 	runRow->addWidget(m_stopBtn);
 	runRow->addWidget(m_statusLabel, 1);
@@ -215,10 +214,10 @@ void DeviceCommandPageWidget::retranslateUi()
 	m_addBindBtn->setText(i18n(QStringLiteral("Add"), QStringLiteral("添加")));
 	m_deleteBindBtn->setText(i18n(QStringLiteral("Delete"), QStringLiteral("删除")));
 	m_stopBtn->setText(i18n(QStringLiteral("Stop"), QStringLiteral("停止")));
-	m_bindTable->setHorizontalHeaderLabels(
-		{i18n(QStringLiteral("On"), QStringLiteral("启用")), i18n(QStringLiteral("DI"), QStringLiteral("DI")),
-		 i18n(QStringLiteral("Pose"), QStringLiteral("姿态")),
-		 i18n(QStringLiteral("Duration (s)"), QStringLiteral("时长 (s)"))});
+	m_bindTable->setHorizontalHeaderLabels({i18n(QStringLiteral("On"), QStringLiteral("启用")),
+											i18n(QStringLiteral("DI"), QStringLiteral("DI")),
+											i18n(QStringLiteral("Pose"), QStringLiteral("姿态")),
+											i18n(QStringLiteral("Duration (s)"), QStringLiteral("时长 (s)"))});
 	updateStatusLabel();
 }
 
@@ -349,7 +348,8 @@ void DeviceCommandPageWidget::fillBindingTable()
 		}
 		m_bindTable->setCellWidget(row, 1, diCombo);
 		connect(diCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-				[this](int) {
+				[this](int)
+				{
 					if (!m_blockBindingEdit)
 					{
 						persistBindingsFromTable();
@@ -365,7 +365,8 @@ void DeviceCommandPageWidget::fillBindingTable()
 		poseCombo->setCurrentIndex(pi >= 0 ? pi : 0);
 		m_bindTable->setCellWidget(row, 2, poseCombo);
 		connect(poseCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-				[this](int) {
+				[this](int)
+				{
 					if (!m_blockBindingEdit)
 					{
 						persistBindingsFromTable();
@@ -435,18 +436,18 @@ void DeviceCommandPageWidget::onTeachPose()
 	const auto device = currentDevicePtr(m_host, currentDeviceId());
 	if (!device)
 	{
-		QMessageBox::information(this, i18n(QStringLiteral("Device"), QStringLiteral("设备")),
-								 i18n(QStringLiteral("Select a custom device first."),
-									  QStringLiteral("请先选择自定义设备。")));
+		QMessageBox::information(
+			this, i18n(QStringLiteral("Device"), QStringLiteral("设备")),
+			i18n(QStringLiteral("Select a custom device first."), QStringLiteral("请先选择自定义设备。")));
 		return;
 	}
 	device->syncAxesFromJoints();
 	device->ensureQSize();
 	bool ok = false;
-	const QString name = QInputDialog::getText(
-		this, i18n(QStringLiteral("Teach pose"), QStringLiteral("示教姿态")),
-		i18n(QStringLiteral("Pose name"), QStringLiteral("姿态名称")), QLineEdit::Normal,
-		i18n(QStringLiteral("Pose"), QStringLiteral("姿态")), &ok);
+	const QString name =
+		QInputDialog::getText(this, i18n(QStringLiteral("Teach pose"), QStringLiteral("示教姿态")),
+							  i18n(QStringLiteral("Pose name"), QStringLiteral("姿态名称")), QLineEdit::Normal,
+							  i18n(QStringLiteral("Pose"), QStringLiteral("姿态")), &ok);
 	if (!ok || name.trimmed().isEmpty())
 	{
 		return;
@@ -514,9 +515,8 @@ void DeviceCommandPageWidget::onDeletePose()
 	device->setNamedPoses(poses);
 	auto bindings = device->poseSignalBindings();
 	bindings.erase(std::remove_if(bindings.begin(), bindings.end(),
-								  [&](const CustomDevicePoseSignalBinding& b) {
-									  return b.poseId == poseId.toStdString();
-								  }),
+								  [&](const CustomDevicePoseSignalBinding& b)
+								  { return b.poseId == poseId.toStdString(); }),
 				   bindings.end());
 	device->setPoseSignalBindings(bindings);
 	fillPoseList();
@@ -537,8 +537,7 @@ void DeviceCommandPageWidget::onGoToPose()
 	{
 		return;
 	}
-	(void)m_player->start(currentDeviceId(), QString::fromStdString(pose->name), pose->q,
-						  m_goDurationSpin->value());
+	(void)m_player->start(currentDeviceId(), QString::fromStdString(pose->name), pose->q, m_goDurationSpin->value());
 }
 
 void DeviceCommandPageWidget::onAddBinding()
@@ -564,10 +563,9 @@ void DeviceCommandPageWidget::onAddBinding()
 	}
 	if (firstDi.isEmpty())
 	{
-		QMessageBox::information(
-			this, i18n(QStringLiteral("Signals"), QStringLiteral("信号")),
-			i18n(QStringLiteral("Define a DI on the Signals page first."),
-				 QStringLiteral("请先在「信号」页添加 DI。")));
+		QMessageBox::information(this, i18n(QStringLiteral("Signals"), QStringLiteral("信号")),
+								 i18n(QStringLiteral("Define a DI on the Signals page first."),
+									  QStringLiteral("请先在「信号」页添加 DI。")));
 		return;
 	}
 	if (device->namedPoses().empty())
@@ -600,9 +598,7 @@ void DeviceCommandPageWidget::onDeleteBinding()
 	const QString bindId = en ? en->data(Qt::UserRole).toString() : QString();
 	auto bindings = device->poseSignalBindings();
 	bindings.erase(std::remove_if(bindings.begin(), bindings.end(),
-								  [&](const CustomDevicePoseSignalBinding& b) {
-									  return b.id == bindId.toStdString();
-								  }),
+								  [&](const CustomDevicePoseSignalBinding& b) { return b.id == bindId.toStdString(); }),
 				   bindings.end());
 	device->setPoseSignalBindings(bindings);
 	fillBindingTable();

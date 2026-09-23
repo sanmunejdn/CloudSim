@@ -1,4 +1,4 @@
-/// @file DeviceCatalogScan.cpp
+﻿/// @file DeviceCatalogScan.cpp
 /// @brief URDF 设备库扫描
 
 #include "DeviceCatalogScan.h"
@@ -13,7 +13,6 @@
 #include <QSet>
 #include <QStringList>
 #include <QUrl>
-
 #include <algorithm>
 
 namespace cloudsim::web
@@ -38,8 +37,8 @@ bool isNonDevicePackageFolderName(const QString& folderName)
 QStringList listUrdfFilesInPackage(const QString& packageRoot)
 {
 	QStringList out;
-	QDirIterator it(packageRoot, QStringList{QStringLiteral("*.urdf"), QStringLiteral("*.URDF")},
-					QDir::Files, QDirIterator::Subdirectories);
+	QDirIterator it(packageRoot, QStringList{QStringLiteral("*.urdf"), QStringLiteral("*.URDF")}, QDir::Files,
+					QDirIterator::Subdirectories);
 	while (it.hasNext())
 	{
 		out.append(QFileInfo(it.next()).absoluteFilePath());

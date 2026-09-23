@@ -1,5 +1,5 @@
-#ifndef PROCESSFLOWPLUGIN_SIM_SIMMODELBUILDER_H
-#define PROCESSFLOWPLUGIN_SIM_SIMMODELBUILDER_H
+﻿#ifndef PROCESSFLOWPLUGIN_SIMMODELBUILDER_H
+#define PROCESSFLOWPLUGIN_SIMMODELBUILDER_H
 
 /// @file SimModelBuilder.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -27,4 +27,4 @@ public:
 	static SimBuildResult fromProcessFlowJson(const QJsonObject& flow, const SimRunConfig& config);
 };
 
-#endif
+#endif // PROCESSFLOWPLUGIN_SIMMODELBUILDER_H

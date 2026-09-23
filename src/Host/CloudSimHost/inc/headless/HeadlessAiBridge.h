@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_HEADLESSAIBRIDGE_H
+﻿#ifndef CLOUDSIMHOST_HEADLESSAIBRIDGE_H
 #define CLOUDSIMHOST_HEADLESSAIBRIDGE_H
 
 /// @file HeadlessAiBridge.h
@@ -28,4 +28,4 @@ private:
 
 } // namespace cloudsim::host
 
-#endif
+#endif // CLOUDSIMHOST_HEADLESSAIBRIDGE_H

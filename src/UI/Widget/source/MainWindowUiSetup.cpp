@@ -1,31 +1,31 @@
-/// @file MainWindowUiSetup.cpp
+﻿/// @file MainWindowUiSetup.cpp
 /// @brief 内容区已有 QTabWidget 时隐藏 Dock 自带标题栏，避免与页签重复。
 
-#include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/DeviceCommandPageWidget.h"
+#include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "AiAssistantCoordinator.h"
 #include "AiAssistantDockWidget.h"
 #include "AppIcon.h"
-#include "ApplicationStyle.h"
 #include "ApplicationSettings.h"
+#include "ApplicationStyle.h"
 #include "AssemblyMatePanel.h"
 #include "CoreEvents.h"
 #include "DevicePageWidget.h"
 #include "DocumentPage.h"
 #include "EventHub.h"
-#include "IoSignalPageWidget.h"
 #include "IoSignalNetworkService.h"
-#include "NamedSignalIoSink.h"
+#include "IoSignalPageWidget.h"
 #include "JobSystem.h"
-#include "PropertyPanelVariantEditorFactory.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
 #include "MainWindowSelectionService.h"
 #include "MainWindow_p.h"
+#include "NamedSignalIoSink.h"
 #include "PluginManager.h"
 #include "ProgressManager.h"
+#include "PropertyPanelVariantEditorFactory.h"
 #include "RunInfoPage.h"
 #include "RunLogger.h"
 #include "UiIconDecorators.h"
@@ -34,7 +34,6 @@
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
 
-#include <QApplication>
 #include <QAbstractItemView>
 #include <QAction>
 #include <QActionGroup>
@@ -44,11 +43,14 @@
 #include <QDir>
 #include <QDockWidget>
 #include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSize>
 #include <QSizePolicy>
 #include <QSplitter>
+#include <QStandardItem>
+#include <QStandardItemModel>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTimer>
@@ -56,9 +58,6 @@
 #include <QTreeView>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
-#include <QItemSelectionModel>
-#include <QStandardItem>
-#include <QStandardItemModel>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <mutex>
@@ -401,10 +400,9 @@ void MainWindow::setupMenuBar()
 				}
 			});
 	m_insertMenu = menuBar()->addMenu(QStringLiteral("Insert"));
-	m_createCoordinateFrameAction = m_insertMenu->addAction(
-		QStringLiteral("Coordinate Frame..."), this, &MainWindow::onCreateCoordinateFrame);
-	m_assemblyMateAction =
-		m_insertMenu->addAction(QStringLiteral("Mate..."), this, &MainWindow::onAssemblyMate);
+	m_createCoordinateFrameAction =
+		m_insertMenu->addAction(QStringLiteral("Coordinate Frame..."), this, &MainWindow::onCreateCoordinateFrame);
+	m_assemblyMateAction = m_insertMenu->addAction(QStringLiteral("Mate..."), this, &MainWindow::onAssemblyMate);
 
 	m_settingsMenu = menuBar()->addMenu(QStringLiteral("Settings"));
 	m_workspaceModeMenu = m_settingsMenu->addMenu(QStringLiteral("Mode Switch"));
@@ -493,7 +491,8 @@ void MainWindow::setupDockWidgets()
 	connect(m_devicePage, &DevicePageWidget::urdfImportRequested, this, &MainWindow::onUrdfImportRequested);
 	connect(m_devicePage, &DevicePageWidget::customDeviceCreateRequested, this, &MainWindow::onCreateCustomDevice);
 	connect(m_devicePage, &DevicePageWidget::customDeviceEditRequested, this, &MainWindow::onEditCustomDevice);
-	connect(m_devicePage, &DevicePageWidget::customDeviceExportUrdfRequested, this, &MainWindow::onExportCustomDeviceUrdf);
+	connect(m_devicePage, &DevicePageWidget::customDeviceExportUrdfRequested, this,
+			&MainWindow::onExportCustomDeviceUrdf);
 	addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
 	m_assemblyMatePanel = new AssemblyMatePanel(this);
 	m_assemblyMateDock = new QDockWidget(QStringLiteral("Mate"), this);
@@ -558,8 +557,7 @@ void MainWindow::setupDockWidgets()
 						net->propagateFrom(m_robotSimulation->ioUiOwnerId());
 					}
 					m_robotSimulation->flushDeviceIoTablesToDocument();
-					if (m_robotSimulation->simulationDock() &&
-						m_robotSimulation->simulationDock()->deviceCommandPage())
+					if (m_robotSimulation->simulationDock() && m_robotSimulation->simulationDock()->deviceCommandPage())
 					{
 						m_robotSimulation->simulationDock()->deviceCommandPage()->refreshDiSignalOptions();
 					}

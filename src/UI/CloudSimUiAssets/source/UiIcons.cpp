@@ -3,14 +3,13 @@
 
 #include "UiIcons.h"
 
+#include <QCoreApplication>
+#include <QDir>
 #include <QHash>
 #include <QIcon>
 #include <QPixmap>
 #include <QSettings>
 #include <QString>
-
-#include <QCoreApplication>
-#include <QDir>
 #include <QtDebug>
 
 inline uint qHash(UiIconId id, uint seed = 0) noexcept
@@ -48,8 +47,7 @@ UiIcons::Theme themeFromSettings()
 	{
 		return UiIcons::Theme::Light;
 	}
-	const QString path =
-		QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("settings.ini"));
+	const QString path = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("settings.ini"));
 	QSettings settings(path, QSettings::IniFormat);
 	settings.beginGroup(QStringLiteral("Appearance"));
 	QString value = settings.value(QStringLiteral("theme")).toString();
@@ -198,8 +196,7 @@ QIcon icon(UiIconId id, Size size, Theme theme)
 
 	const int px = static_cast<int>(size);
 	const QString folder = themeFolder(resolved);
-	const QString path1x =
-		QStringLiteral(":/cloudsim/icons/%1/%2_%3.png").arg(folder, basename, QString::number(px));
+	const QString path1x = QStringLiteral(":/cloudsim/icons/%1/%2_%3.png").arg(folder, basename, QString::number(px));
 	const QString path2x =
 		QStringLiteral(":/cloudsim/icons/%1/%2_%3.png").arg(folder, basename, QString::number(px * 2));
 

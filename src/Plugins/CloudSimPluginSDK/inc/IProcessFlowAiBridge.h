@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINSDK_IPROCESSFLOWAIBRIDGE_H
+﻿#ifndef CLOUDSIMPLUGINSDK_IPROCESSFLOWAIBRIDGE_H
 #define CLOUDSIMPLUGINSDK_IPROCESSFLOWAIBRIDGE_H
 
 /// @file IProcessFlowAiBridge.h
@@ -31,10 +31,9 @@ public:
 							QString* outError = nullptr) = 0;
 
 	/// 多策略对比；config.includeTraces 时 outRows 带 operationTrace；否则仅汇总
-	virtual bool compareSync(const QJsonObject& config, QJsonArray* outRows = nullptr,
-							 QString* outError = nullptr) = 0;
+	virtual bool compareSync(const QJsonObject& config, QJsonArray* outRows = nullptr, QString* outError = nullptr) = 0;
 
 	virtual QJsonObject exportFlowJson() const = 0;
 };
 
-#endif
+#endif // CLOUDSIMPLUGINSDK_IPROCESSFLOWAIBRIDGE_H

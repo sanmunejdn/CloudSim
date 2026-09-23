@@ -221,8 +221,7 @@ QByteArray buildCatalogSliceJson(const geoalgo::FeatureCatalog& catalog, const A
 	}
 
 	const int matchedTotal = static_cast<int>(matched.size());
-	const int showCount =
-		(maxItems <= 0) ? matchedTotal : std::min(matchedTotal, maxItems);
+	const int showCount = (maxItems <= 0) ? matchedTotal : std::min(matchedTotal, maxItems);
 	nlohmann::json arr = nlohmann::json::array();
 	for (int i = 0; i < showCount; ++i)
 	{

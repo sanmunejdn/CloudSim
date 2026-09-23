@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMAISDK_IAIASSISTANTHOST_H
+﻿#ifndef CLOUDSIMAISDK_IAIASSISTANTHOST_H
 #define CLOUDSIMAISDK_IAIASSISTANTHOST_H
 
 /// @file IAiAssistantHost.h
@@ -7,10 +7,10 @@
 
 #include "cloudsim_ai_sdk_global.h"
 
+#include "AiAgentTypes.h"
 #include "AiConfigDto.h"
 #include "AiInferenceTypes.h"
 #include "AiParseTypes.h"
-#include "AiAgentTypes.h"
 
 #include <functional>
 #include <memory>

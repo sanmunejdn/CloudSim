@@ -1,16 +1,14 @@
-/// @file WebGatewayPointCloud.cpp
+﻿/// @file WebGatewayPointCloud.cpp
 /// @brief 点云 REST（GUI 线程 → HeadlessPointCloudBridge）
-
-#include "WebGateway.h"
 
 #include "CloudSimHost.h"
 #include "DocumentHost.h"
 #include "HeadlessPointCloudBridge.h"
+#include "WebGateway.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
-
 #include <cstdlib>
 #include <vector>
 
@@ -70,9 +68,8 @@ bool WebGateway::pointCloudChunkSoupOnGuiThread(const QString& id, int lod, int 
 	return b->chunkSoup(id, lod, index, maxPoints, out, meta, err);
 }
 
-QByteArray WebGateway::pointCloudPostJsonOnGuiThread(const QByteArray& body,
-													  QJsonObject (cloudsim::host::HeadlessPointCloudBridge::*method)(
-														  const QJsonObject&))
+QByteArray WebGateway::pointCloudPostJsonOnGuiThread(
+	const QByteArray& body, QJsonObject (cloudsim::host::HeadlessPointCloudBridge::*method)(const QJsonObject&))
 {
 	QString err;
 	auto* b = pcBridge(m_document ? cloudsim::host::documentHostFromScope(m_document.get()) : nullptr, &err);

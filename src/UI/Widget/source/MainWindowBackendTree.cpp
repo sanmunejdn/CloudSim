@@ -20,7 +20,6 @@
 #include <QAction>
 #include <QFileDialog>
 #include <QHash>
-#include <QLatin1String>
 #include <QList>
 #include <QMenu>
 #include <QMessageBox>
@@ -31,6 +30,8 @@
 #include <QTreeView>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
+
+#include <QLatin1String>
 
 using namespace mainwindow_detail;
 
@@ -267,8 +268,8 @@ void MainWindow::rebuildUnitsDocument(const QString& documentId)
 	{
 		anns = rv->annotationSnapshots();
 	}
-	const BackendUnitsDisplayDocument displayDoc = BackendUnitsDisplayForest::buildDocument(
-		documentId, title, true, page->data().listObjectSnapshots(), anns);
+	const BackendUnitsDisplayDocument displayDoc =
+		BackendUnitsDisplayForest::buildDocument(documentId, title, true, page->data().listObjectSnapshots(), anns);
 	const QString selectedBackendId = m_selectionState.selectedBackendId();
 	m_unitsTreeBinder->syncDocument(displayDoc);
 	if (!selectedBackendId.isEmpty())

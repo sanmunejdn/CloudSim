@@ -1,3 +1,6 @@
+﻿/// @file KinematicModelRegistry.cpp
+/// @brief KinematicModelRegistry 实现
+
 #include "KinematicModelRegistry.h"
 
 namespace KinematicModelRegistry

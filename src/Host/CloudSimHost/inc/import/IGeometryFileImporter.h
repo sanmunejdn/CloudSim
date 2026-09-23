@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_IGEOMETRYFILEIMPORTER_H
+﻿#ifndef CLOUDSIMHOST_IGEOMETRYFILEIMPORTER_H
 #define CLOUDSIMHOST_IGEOMETRYFILEIMPORTER_H
 
 /// @file IGeometryFileImporter.h
@@ -9,14 +9,13 @@
 #include "BrepBackendData.h"
 #include "MeshBackendData.h"
 
-#include <ShapeHandle.h>
-
 #include <string>
 #include <vector>
 
+#include <ShapeHandle.h>
+
 namespace cloudsim::host
 {
-
 enum class ImportParseKind
 {
 	MeshHierarchy = 0,

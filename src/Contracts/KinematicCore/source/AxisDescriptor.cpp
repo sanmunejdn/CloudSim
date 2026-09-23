@@ -1,3 +1,6 @@
+﻿/// @file AxisDescriptor.cpp
+/// @brief AxisDescriptor 实现
+
 #include "AxisDescriptor.h"
 
 namespace kinematic_core

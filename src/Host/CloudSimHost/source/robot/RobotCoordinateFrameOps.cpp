@@ -1,10 +1,14 @@
-/// @file RobotCoordinateFrameOps.cpp
+﻿/// @file RobotCoordinateFrameOps.cpp
 /// @brief 机器人坐标系运算
 
 #include "RobotCoordinateFrameOps.h"
 
+#include "BackendDataManager.h"
+#include "BackendFollowMath.h"
+#include "CoreTypes.h"
 #include "DocumentHost.h"
 #include "HeadlessRobotContext.h"
+#include "MeshBackendData.h"
 #include "RobotExternalAxes.h"
 #include "RobotInstructionIkContext.h"
 #include "RobotMatrixOsgBridge.h"
@@ -13,16 +17,10 @@
 #include "RobotProgramStore.h"
 #include "UrdfRobotLoader.h"
 
-#include "BackendDataManager.h"
-#include "BackendFollowMath.h"
-#include "CoreTypes.h"
-#include "MeshBackendData.h"
-
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
-
 #include <cmath>
 #include <unordered_set>
 
@@ -234,8 +232,8 @@ void resetActiveToolFrame(RobotCoordinate::RobotCoordinateFrameSet& frames)
 	}
 }
 
-bool buildFrameOverlaySnapshot(HeadlessRobotContext& hrc, BackendDataManager& backend, const QString& sceneRootBackendId,
-							   FrameOverlaySnapshot& out, QString* outError)
+bool buildFrameOverlaySnapshot(HeadlessRobotContext& hrc, BackendDataManager& backend,
+							   const QString& sceneRootBackendId, FrameOverlaySnapshot& out, QString* outError)
 {
 	out = {};
 	const int idx = hrc.robotInstanceIndexForSceneBackendId(sceneRootBackendId);
@@ -499,12 +497,14 @@ bool coordinateFrameSetPlanningEquals(const RobotCoordinate::RobotCoordinateFram
 	{
 		aa.userFrames[i].showInScene = bb.userFrames[i].showInScene;
 	}
-	const nlohmann::json ja = [&] {
+	const nlohmann::json ja = [&]
+	{
 		nlohmann::json j;
 		RobotCoordinate::writeCoordinateFrameSetToJson(aa, j);
 		return j;
 	}();
-	const nlohmann::json jb = [&] {
+	const nlohmann::json jb = [&]
+	{
 		nlohmann::json j;
 		RobotCoordinate::writeCoordinateFrameSetToJson(bb, j);
 		return j;

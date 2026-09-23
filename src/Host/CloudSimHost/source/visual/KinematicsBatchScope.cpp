@@ -1,4 +1,4 @@
-/// @file KinematicsBatchScope.cpp
+﻿/// @file KinematicsBatchScope.cpp
 /// @brief FK 批量写 worldMatrix 的 RAII 作用域
 
 #include "visual/KinematicsBatchScope.h"

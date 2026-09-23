@@ -1,5 +1,8 @@
-#ifndef ROBOTPATHPLANNING_JOINTSPACERRTPLANNER_H
+﻿#ifndef ROBOTPATHPLANNING_JOINTSPACERRTPLANNER_H
 #define ROBOTPATHPLANNING_JOINTSPACERRTPLANNER_H
+
+/// @file JointSpaceRrtPlanner.h
+/// @brief 关节空间 RRTConnect / RRT*；OMPL 未链入时使用，API 与 OmplJointSpacePlanner 一致
 
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 #include "CollisionValidity.h"
@@ -9,7 +12,6 @@ namespace robot_path
 {
 namespace detail
 {
-
 /// 关节空间 RRTConnect / RRT*；OMPL 未链入时使用，API 与 OmplJointSpacePlanner 一致
 bool planJointSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std::vector<double>& goalQ,
 					   PathResult& out);
@@ -17,4 +19,4 @@ bool planJointSpaceRrt(const PlanRequest& req, const JointLimits& lim, const std
 } // namespace detail
 } // namespace robot_path
 
-#endif
+#endif // ROBOTPATHPLANNING_JOINTSPACERRTPLANNER_H

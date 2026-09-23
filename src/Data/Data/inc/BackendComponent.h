@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDCOMPONENT_H
+﻿#ifndef DATA_BACKENDCOMPONENT_H
 #define DATA_BACKENDCOMPONENT_H
 
 /// @file BackendComponent.h
@@ -50,10 +50,7 @@ public:
 	}
 
 	/// 该组件引用的其他后端对象 id（unregister 悬挂引用检测用）
-	virtual void collectReferencedBackendIds(std::vector<std::string>& out) const
-	{
-		(void)out;
-	}
+	virtual void collectReferencedBackendIds(std::vector<std::string>& out) const { (void)out; }
 };
 
 using BackendComponentPtr = std::shared_ptr<IBackendComponent>;

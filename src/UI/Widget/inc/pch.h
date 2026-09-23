@@ -1,4 +1,4 @@
-#ifndef WIDGET_PCH_H
+﻿#ifndef WIDGET_PCH_H
 #define WIDGET_PCH_H
 
 /// @file pch.h

@@ -1,6 +1,6 @@
 ﻿# CloudSimCore 模块开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 ## 1. 模块定位
 
@@ -24,7 +24,7 @@ Units 后端对象树是 **UI 显示投影**，不是 Data DAG 的完整镜像�
 - Data 多父边全集（次父仅真源保留，见 Data 指南「Units 显示投影」）
 
 目标框架（实现见专题）：DisplayForest + DocumentScopedBinder。  
-专题：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)。
+专题：`docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ### 树构建相关 API（`IDataService`）
 
@@ -55,4 +55,4 @@ Units 后端对象树是 **UI 显示投影**，不是 Data DAG 的完整镜像�
 
 - Data SSOT：[`../../Data/Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md)
 - Widget Units：[`../../UI/Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md)
-- 显示树专题：[`../../../docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)
+- 显示树专题：`docs/ARCHIVE_ZIP_LOCATION.txt`

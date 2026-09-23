@@ -1,4 +1,4 @@
-/// @file HelpBrowserDialog.cpp
+﻿/// @file HelpBrowserDialog.cpp
 /// @brief 内嵌 HTML 帮助：左侧分级目录，右侧正文
 
 #include "HelpBrowserDialog.h"
@@ -10,8 +10,8 @@
 #include <QTextBrowser>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
-#include <QVBoxLayout>
 #include <QUrl>
+#include <QVBoxLayout>
 
 namespace
 {
@@ -47,8 +47,7 @@ QTreeWidgetItem* addRootPage(QTreeWidget* tree, const QString& title, const QStr
 
 HelpBrowserDialog::HelpBrowserDialog(QWidget* parent, const QString& title, const QString& htmlFilePath,
 									 bool useChinese)
-	: QDialog(parent)
-	, m_useChinese(useChinese)
+	: QDialog(parent), m_useChinese(useChinese)
 {
 	setWindowTitle(title);
 	// 标准最小/最大化，去掉标题栏「?」
@@ -124,8 +123,7 @@ void HelpBrowserDialog::buildTocTree()
 	addPage(gettingStarted, zh ? QStringLiteral("入门与界面") : QStringLiteral("Main Window"),
 			QStringLiteral("getting-started.html"));
 
-	QTreeWidgetItem* basics =
-		addGroup(m_tocTree, nullptr, zh ? QStringLiteral("基础操作") : QStringLiteral("Basics"));
+	QTreeWidgetItem* basics = addGroup(m_tocTree, nullptr, zh ? QStringLiteral("基础操作") : QStringLiteral("Basics"));
 	addPage(basics, zh ? QStringLiteral("工程与文件") : QStringLiteral("Projects & Files"),
 			QStringLiteral("projects.html"));
 	addPage(basics, zh ? QStringLiteral("三维视图") : QStringLiteral("3D View"), QStringLiteral("view-3d.html"));

@@ -1,5 +1,8 @@
-#ifndef ROBOTCOMMSDK_ROBOTMOTIONCLIENTIMPL_H
+﻿#ifndef ROBOTCOMMSDK_ROBOTMOTIONCLIENTIMPL_H
 #define ROBOTCOMMSDK_ROBOTMOTIONCLIENTIMPL_H
+
+/// @file RobotMotionClientImpl.h
+/// @brief RobotMotionClientImpl 接口
 
 #include "IRobotMotionClient.h"
 

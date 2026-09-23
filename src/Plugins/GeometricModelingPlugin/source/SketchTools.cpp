@@ -1,4 +1,4 @@
-/// @file SketchTools.cpp
+﻿/// @file SketchTools.cpp
 
 #include "SketchTools.h"
 

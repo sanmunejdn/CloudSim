@@ -1,4 +1,4 @@
-#ifndef RUNLOGGER_RUNLOGGER_H
+﻿#ifndef RUNLOGGER_RUNLOGGER_H
 #define RUNLOGGER_RUNLOGGER_H
 
 /// @file RunLogger.h

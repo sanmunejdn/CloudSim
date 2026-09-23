@@ -1,4 +1,4 @@
-#ifndef WIDGET_VIEWPORTTOOLBAR_H
+﻿#ifndef WIDGET_VIEWPORTTOOLBAR_H
 #define WIDGET_VIEWPORTTOOLBAR_H
 
 /// @file ViewportToolBar.h

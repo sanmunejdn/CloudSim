@@ -1,4 +1,4 @@
-#ifndef POINTCLOUDALGORITHM_REGISTRATIONPYRAMID_H
+﻿#ifndef POINTCLOUDALGORITHM_REGISTRATIONPYRAMID_H
 #define POINTCLOUDALGORITHM_REGISTRATIONPYRAMID_H
 
 /// @file RegistrationPyramid.h
@@ -16,7 +16,6 @@
 
 namespace pclalgo
 {
-
 enum class PyramidSolver : int
 {
 	Sdf = 0,
@@ -34,9 +33,9 @@ struct PyramidRegisterParams
 	bool useAdaptiveDensityOnLastLayer = false;
 	/// 末层自适应开启且存在前层时：用前层点面残差收紧边长；仅作用于源
 	bool useResidualDrivenSizingOnLastLayer = true;
-	double adaptiveApproxTolMm = 0.0;	 ///< ε；0 → 0.02 * h
+	double adaptiveApproxTolMm = 0.0;	///< ε；0 → 0.02 * h
 	double adaptiveEdgeMinRatio = 0.25; ///< Lmin = ratio * h
-	double adaptiveEdgeMaxRatio = 2.0;	 ///< Lmax = ratio * h
+	double adaptiveEdgeMaxRatio = 2.0;	///< Lmax = ratio * h
 	PyramidSolver solver = PyramidSolver::Sdf;
 	SdfRegisterParams sdf;
 	SpareRegisterParams spare;
@@ -57,10 +56,11 @@ struct PyramidRegisterResult
  * 网格 soup → 网格 soup 几何金字塔；每层从原始几何 remesh，层间 NN 传递位移；输出为细层 remesh 拓扑
  * @return false：soup 非法、remesh/prolongate/求解失败
  */
-POINT_CLOUD_ALGORITHM_API bool
-pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, const std::vector<float>& targetSoup,
-								  std::vector<float>& sourceSoupDeformedOut, const PyramidRegisterParams& params,
-								  PyramidRegisterResult* stats, std::string* errMsg);
+POINT_CLOUD_ALGORITHM_API bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup,
+																 const std::vector<float>& targetSoup,
+																 std::vector<float>& sourceSoupDeformedOut,
+																 const PyramidRegisterParams& params,
+																 PyramidRegisterResult* stats, std::string* errMsg);
 
 } // namespace pclalgo
 

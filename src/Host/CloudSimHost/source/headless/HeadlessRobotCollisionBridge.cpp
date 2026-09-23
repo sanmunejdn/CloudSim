@@ -1,4 +1,4 @@
-/// @file HeadlessRobotCollisionBridge.cpp
+﻿/// @file HeadlessRobotCollisionBridge.cpp
 /// @brief Headless 碰撞设置与起终点关节插值规划
 
 #include "headless/HeadlessRobotCollisionBridge.h"
@@ -15,20 +15,18 @@
 #include "RobotProgramStore.h"
 #include "UrdfRobotLoader.h"
 
-#include <BackendFollowMath.h>
-#include <RigidTransform.h>
-
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QVector>
-
-#include <json.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <BackendFollowMath.h>
+#include <RigidTransform.h>
+#include <json.hpp>
 
 namespace cloudsim::host
 {
@@ -62,9 +60,9 @@ bool settingsFromQJson(const QJsonObject& o, RobotCollision::Settings& out)
 bool bodyHasSettingsFields(const QJsonObject& body)
 {
 	return body.contains(QStringLiteral("enabled")) || body.contains(QStringLiteral("securityMarginMm")) ||
-		   body.contains(QStringLiteral("planningSpace")) || body.contains(QStringLiteral("plannerId"))
-		   || body.contains(QStringLiteral("planningTimeSec")) ||
-		   body.contains(QStringLiteral("whiteListBackendIds")) || body.contains(QStringLiteral("blackListBackendIds"));
+		   body.contains(QStringLiteral("planningSpace")) || body.contains(QStringLiteral("plannerId")) ||
+		   body.contains(QStringLiteral("planningTimeSec")) || body.contains(QStringLiteral("whiteListBackendIds")) ||
+		   body.contains(QStringLiteral("blackListBackendIds"));
 }
 
 /// plan 体可能只带部分设置字段，勿整表覆盖成默认值
@@ -87,8 +85,8 @@ void overlaySettingsFromBody(const QJsonObject& body, RobotCollision::Settings& 
 	if (body.contains(QStringLiteral("plannerId")))
 	{
 		const std::string pid = body.value(QStringLiteral("plannerId")).toString().toStdString();
-		if (pid == "Auto" || pid == "BITstar" || pid == "InformedRRTstar" || pid == "RRTstar" || pid == "RRTConnect"
-			|| pid == "Dijkstra")
+		if (pid == "Auto" || pid == "BITstar" || pid == "InformedRRTstar" || pid == "RRTstar" || pid == "RRTConnect" ||
+			pid == "Dijkstra")
 			s.plannerId = pid;
 	}
 	if (body.contains(QStringLiteral("planningTimeSec")))
@@ -96,7 +94,8 @@ void overlaySettingsFromBody(const QJsonObject& body, RobotCollision::Settings& 
 		const double t = body.value(QStringLiteral("planningTimeSec")).toDouble(s.planningTimeSec);
 		s.planningTimeSec = std::max(1.0, std::min(120.0, t));
 	}
-	auto readIds = [](const QJsonValue& v, std::vector<std::string>& out) {
+	auto readIds = [](const QJsonValue& v, std::vector<std::string>& out)
+	{
 		out.clear();
 		if (!v.isArray())
 			return;
@@ -113,8 +112,8 @@ void overlaySettingsFromBody(const QJsonObject& body, RobotCollision::Settings& 
 		readIds(body.value(QStringLiteral("blackListBackendIds")), s.blackListBackendIds);
 }
 
-std::shared_ptr<RobotInstruction::Base> findInstructionById(
-	const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& id)
+std::shared_ptr<RobotInstruction::Base>
+findInstructionById(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps, const std::string& id)
 {
 	for (const auto& ins : steps)
 	{
@@ -205,7 +204,8 @@ QJsonObject HeadlessRobotCollisionBridge::putSettings(const QJsonObject& body)
 {
 	RobotCollision::Settings s;
 	if (!settingsFromQJson(body, s))
-		return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("Invalid collision settings.")}};
+		return {{QStringLiteral("ok"), false},
+				{QStringLiteral("error"), QStringLiteral("Invalid collision settings.")}};
 	m_host.robotCollisionSettings() = s;
 	return {{QStringLiteral("ok"), true}};
 }
@@ -297,9 +297,9 @@ QJsonObject HeadlessRobotCollisionBridge::plan(const QJsonObject& body)
 	if (!planRobotInstruction(*hrc, *endIns, startQ, instIdx, urdfPath, defaultTcp, sceneRoot, endPlan, &endErr) ||
 		!endPlan.ok || static_cast<int>(endPlan.jointTargetsRad.size()) != nj)
 	{
-		return {{QStringLiteral("ok"), false},
-				{QStringLiteral("error"),
-				 endErr.isEmpty() ? QStringLiteral("Failed to plan end instruction.") : endErr}};
+		return {
+			{QStringLiteral("ok"), false},
+			{QStringLiteral("error"), endErr.isEmpty() ? QStringLiteral("Failed to plan end instruction.") : endErr}};
 	}
 	QVector<double> endQ;
 	endQ.reserve(nj);
@@ -313,8 +313,7 @@ QJsonObject HeadlessRobotCollisionBridge::plan(const QJsonObject& body)
 		if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
 		{
 			T_flange_tool = RobotCoordinate::frameToMat4(tool->T_flange_tool);
-			const QString eff =
-				QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *tool));
+			const QString eff = QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *tool));
 			if (!eff.isEmpty())
 				flangeLink = eff;
 		}
@@ -384,8 +383,7 @@ QJsonObject HeadlessRobotCollisionBridge::confirm(const QJsonObject& body)
 		prog = catalog.mainProgram();
 	if (!prog)
 	{
-		return {{QStringLiteral("ok"), false},
-				{QStringLiteral("error"), QStringLiteral("No active program.")}};
+		return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("No active program.")}};
 	}
 
 	// 起终点已在程序中，只插入中间点
@@ -424,9 +422,9 @@ QJsonObject HeadlessRobotCollisionBridge::confirm(const QJsonObject& body)
 	if (!RobotInstruction::insertRawTrajectoryBetween(mid, *prog, m_planStartInstructionId.toStdString(),
 													  m_planEndInstructionId.toStdString(), &err))
 	{
-		return {{QStringLiteral("ok"), false},
-				{QStringLiteral("error"),
-				 QString::fromStdString(err.empty() ? "insertRawTrajectoryBetween failed" : err)}};
+		return {
+			{QStringLiteral("ok"), false},
+			{QStringLiteral("error"), QString::fromStdString(err.empty() ? "insertRawTrajectoryBetween failed" : err)}};
 	}
 
 	m_hasCachedPlan = false;

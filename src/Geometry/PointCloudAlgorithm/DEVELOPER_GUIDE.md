@@ -1,6 +1,6 @@
 ﻿# PointCloudAlgorithm 模块开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 ## 1. 模块定位
 
@@ -212,7 +212,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 | `RigidRegisterRansacParams` / `PclGlobalAlignParams` | 体素/内点距离等；0 表示按 modelDiag 自动 |
 | 失败 | 不阻断模板流水线（继续粗 ICP）；SPARE 有 ICP fallback |
 
-预对齐插件路径**跳过** RANSAC；见 [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)。
+预对齐插件路径**跳过** RANSAC；见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ### 3.4.1 PCL 与 CGAL 分工（互补）
 
@@ -227,7 +227,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 移植自 [SPARE: Symmetrized Point-to-Plane Distance](https://arxiv.org/abs/2405.20188) 核心求解器（研究用途；源码专利声明见 `bin/SDK/spare-main-extracted/spare-main/README.md`）。基础设施复用本库 CGAL/`KdTreePointSet`/ICP/下采样；**不依赖** OpenMesh 或 `GeometryAlgorithm.dll`。
 
-**原理通俗说明**（对称点-面、粗/细阶段、Welsch、ARAP、调参与流水线）：见 [`docs/spare_nonrigid_registration.md`](../../../docs/_archive/spare_nonrigid_registration.md)。
+**原理通俗说明**（对称点-面、粗/细阶段、Welsch、ARAP、调参与流水线）：见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 | 入口 | 说明 |
 |------|------|
@@ -242,7 +242,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 ### 3.6 SDF/DDF 混合非刚性配准（`RegistrationSdf.h`）
 
-自研模块（**不修改** `spare/` / `RegistrationSpare`）。粗阶段用目标表面 **DDF 有向距离**（或可选有符号 SDF）作数据项，细阶段默认 **点-面**；目标场可体素缓存。原理与调参见 [`docs/_archive/sdf_nonrigid_registration.md`](../../../docs/_archive/sdf_nonrigid_registration.md)。
+自研模块（**不修改** `spare/` / `RegistrationSpare`）。粗阶段用目标表面 **DDF 有向距离**（或可选有符号 SDF）作数据项，细阶段默认 **点-面**；目标场可体素缓存。原理与调参见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 | 入口 | 说明 |
 |------|------|
@@ -327,7 +327,7 @@ const int threads = pclalgo::ParallelUtils::getThreadCount();
 | 各向同性重网格 | `VcgAlgorithms` | 均匀三角形分布 |
 | 重建+后处理管线 | `VcgAlgorithms` | `reconstructAndPostProcess` 调用本模块 Poisson + vcglib 后处理 |
 
-**曲面重构（网格 → NURBS B-rep）** 不在本模块，而在 [`GeometryAlgorithm/MeshSurfaceReconstruction`](../GeometryAlgorithm/inc/MeshSurfaceReconstruction.h)（AMRTO 式调和 UV 栅格 + NURBS 最小二乘拟合）。插件侧栏「曲面重构」经 Data → `geoalgo::reconstructBrepFromMeshSoup` 调用。详见 [`docs/mesh_surface_reconstruction.md`](../../../docs/_archive/mesh_surface_reconstruction.md)。
+**曲面重构（网格 → NURBS B-rep）** 不在本模块，而在 [`GeometryAlgorithm/MeshSurfaceReconstruction`](../GeometryAlgorithm/inc/MeshSurfaceReconstruction.h)（AMRTO 式调和 UV 栅格 + NURBS 最小二乘拟合）。插件侧栏「曲面重构」经 Data → `geoalgo::reconstructBrepFromMeshSoup` 调用。详见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 `Data.dll` 的 `PointCloudBackendOps` 暴露统一 soup-based 接口，运行时 `LoadLibrary("VcgAlgorithms.dll")` 调用。
 
@@ -338,6 +338,6 @@ const int threads = pclalgo::ParallelUtils::getThreadCount();
 - 后端数据：[`../Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md)
 - 刚体矩阵：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)
 - vcglib 网格后处理：[`../VcgAlgorithms/DEVELOPER_GUIDE.md`](../VcgAlgorithms/DEVELOPER_GUIDE.md)
-- 模板 B-rep 配准：[`../../docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
-- 性能优化方案：[`../../docs/mesh_reconstruction_optimization/`](../../../docs/_archive/mesh_reconstruction_optimization/)
-- vcglib 集成方案：[`../../docs/vcglib_integration/`](../../../docs/_archive/vcglib_integration/)
+- 模板 B-rep 配准：`docs/ARCHIVE_ZIP_LOCATION.txt`
+- 性能优化方案：`docs/ARCHIVE_ZIP_LOCATION.txt`
+- vcglib 集成方案：`docs/ARCHIVE_ZIP_LOCATION.txt`

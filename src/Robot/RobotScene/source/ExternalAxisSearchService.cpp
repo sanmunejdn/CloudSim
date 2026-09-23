@@ -1,4 +1,4 @@
-/// @file ExternalAxisSearchService.cpp
+﻿/// @file ExternalAxisSearchService.cpp
 /// @brief 外部轴网格搜索：多轴启用时走 TeachIk 采样+可选联立
 
 #include "ExternalAxisSearchService.h"
@@ -58,7 +58,8 @@ bool ExternalAxisSearchService::search(UnifiedTrajectory& traj,
 		snaps.push_back(snap);
 	}
 
-	auto fillDof = [&](RobotTeachIk::TeachIkExternalAxisDof& dof, const bool optimize) {
+	auto fillDof = [&](RobotTeachIk::TeachIkExternalAxisDof& dof, const bool optimize)
+	{
 		dof = {};
 		dof.optimizeExternal = optimize;
 		dof.adaptiveExternalDamping = true;
@@ -86,8 +87,8 @@ bool ExternalAxisSearchService::search(UnifiedTrajectory& traj,
 		ctx.seedJointRad = seed;
 		ctx.useOrientation = false;
 		ctx.maxIkIterations = 80;
-		ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(tp.poseMm.x, tp.poseMm.y, tp.poseMm.z,
-																			 tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z);
+		ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(
+			tp.poseMm.x, tp.poseMm.y, tp.poseMm.z, tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z);
 		ctx.externalAxisConfigCount = static_cast<int>(enabled.size());
 		fillDof(ctx.externalAxes, false);
 		RobotTeachIk::TeachIkResult r = RobotTeachIk::solveTeachIk(ctx);

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AISCENESNAPSHOTBUILDER_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AISCENESNAPSHOTBUILDER_H
 #define CLOUDSIMPLUGINHOST_AISCENESNAPSHOTBUILDER_H
 
 /// @file AiSceneSnapshotBuilder.h
@@ -14,4 +14,4 @@ namespace AiSceneSnapshotBuilder
 QByteArray buildJson(PluginHostContext& host);
 }
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AISCENESNAPSHOTBUILDER_H

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_GEOMETRYIMPORTUIFILTERS_H
+﻿#ifndef CLOUDSIMHOST_GEOMETRYIMPORTUIFILTERS_H
 #define CLOUDSIMHOST_GEOMETRYIMPORTUIFILTERS_H
 
 /// @file GeometryImportUiFilters.h
@@ -10,7 +10,6 @@
 
 namespace cloudsim::host
 {
-
 /// 打开模型过滤器；网页无 OsgWidget 时令 includeOsgCapture=false
 CLOUDSIM_HOST_EXPORT QString geometryOpenModelFileFilter(bool includeOsgCapture = true);
 

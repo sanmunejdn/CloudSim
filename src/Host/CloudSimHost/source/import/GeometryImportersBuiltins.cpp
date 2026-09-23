@@ -1,10 +1,9 @@
-/// @file GeometryImportersBuiltins.cpp
+﻿/// @file GeometryImportersBuiltins.cpp
 /// @brief 内建几何文件 Importer（后缀 → parse）
-
-#include "GeometryFileImporterRegistry.h"
 
 #include "BackendImporters.h"
 #include "BrepBackendData.h"
+#include "GeometryFileImporterRegistry.h"
 #include "MeshBackendData.h"
 
 #include <filesystem>
@@ -18,7 +17,9 @@ std::string fileStemUtf8Hint(const std::string& nativePath)
 {
 	try
 	{
-		return std::filesystem::path(nativePath).filename().string();
+		// nativePath 来自 QFile::encodeName（Windows 上多为本地窄字符）；.string() 仍是本地码
+		// .u8string() 才是 UTF-8，供后续 QString::fromStdString / fromUtf8 使用
+		return std::filesystem::path(nativePath).filename().u8string();
 	}
 	catch (...)
 	{
@@ -138,10 +139,7 @@ public:
 class CgalMeshGeometryImporter final : public IGeometryFileImporter
 {
 public:
-	std::vector<std::string> extensions() const override
-	{
-		return {"obj", "stl", "ply", "off", "igs", "iges"};
-	}
+	std::vector<std::string> extensions() const override { return {"obj", "stl", "ply", "off", "igs", "iges"}; }
 
 	bool parse(const std::string& nativePath, const ImportParseOptions& opt, ImportParseResult& out,
 			   std::string* errMsg) const override
@@ -150,8 +148,7 @@ public:
 		out.kind = ImportParseKind::MeshSingleSoup;
 		out.displayNameHint = fileStemUtf8Hint(nativePath);
 		MeshBackendData tmp;
-		if (!backend_io::loadMeshFromFile(tmp, nativePath, errMsg, opt.meshImportQuality) ||
-			tmp.triangleSoup().empty())
+		if (!backend_io::loadMeshFromFile(tmp, nativePath, errMsg, opt.meshImportQuality) || tmp.triangleSoup().empty())
 		{
 			return false;
 		}

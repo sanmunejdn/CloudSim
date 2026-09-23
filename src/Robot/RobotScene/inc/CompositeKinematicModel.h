@@ -1,5 +1,8 @@
-#ifndef ROBOTSCENE_COMPOSITEKINEMATICMODEL_H
+﻿#ifndef ROBOTSCENE_COMPOSITEKINEMATICMODEL_H
 #define ROBOTSCENE_COMPOSITEKINEMATICMODEL_H
+
+/// @file CompositeKinematicModel.h
+/// @brief 顺序拼接多段 q： [segment0..., segment1...]
 
 #include "robot_scene_global.h"
 

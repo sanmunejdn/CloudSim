@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_BACKENDPROJECTOBJECTIO_H
+﻿#ifndef CLOUDSIMHOST_BACKENDPROJECTOBJECTIO_H
 #define CLOUDSIMHOST_BACKENDPROJECTOBJECTIO_H
 
 /// @file BackendProjectObjectIo.h
@@ -6,6 +6,7 @@
 /// @brief 工程父子边
 
 #include "cloudsim_host_global.h"
+
 #include "RobotProjectKinematicsRestore.h"
 
 #include <QJsonArray>
@@ -44,11 +45,12 @@ CLOUDSIM_HOST_EXPORT bool decodeBackendObjectFromProjectJson(const QJsonObject& 
 															 QString* outError = nullptr);
 
 /// 内嵌几何注册
-CLOUDSIM_HOST_EXPORT bool registerEmbeddedProjectObject(
-	DocumentHost& host, const QJsonObject& objectJson, const QString& persistedId, const QString& sourcePath,
-	const QString& catalogTypeName, const QString& parentId, bool robotLinkMeshVisual, const QString& projectDir = QString(),
-	const RobotLinkUrdfReloadHint* robotLinkReloadHint = nullptr, QString* outVisualError = nullptr,
-	QString* outError = nullptr);
+CLOUDSIM_HOST_EXPORT bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& objectJson,
+														const QString& persistedId, const QString& sourcePath,
+														const QString& catalogTypeName, const QString& parentId,
+														bool robotLinkMeshVisual, const QString& projectDir = QString(),
+														const RobotLinkUrdfReloadHint* robotLinkReloadHint = nullptr,
+														QString* outVisualError = nullptr, QString* outError = nullptr);
 
 /// 文件回退导入
 CLOUDSIM_HOST_EXPORT QString importProjectObjectFromFile(DocumentHost& host, const QString& loadPath,

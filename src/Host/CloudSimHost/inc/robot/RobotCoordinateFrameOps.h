@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_ROBOTCOORDINATEFRAMEOPS_H
+﻿#ifndef CLOUDSIMHOST_ROBOTCOORDINATEFRAMEOPS_H
 #define CLOUDSIMHOST_ROBOTCOORDINATEFRAMEOPS_H
 
 /// @file RobotCoordinateFrameOps.h
@@ -60,10 +60,10 @@ CLOUDSIM_HOST_EXPORT bool buildFrameOverlaySnapshot(HeadlessRobotContext& hrc, B
 													QString* outError = nullptr);
 
 /// Active/几何变更时同步路点 tool context；DisplayOnly 跳过
-CLOUDSIM_HOST_EXPORT void syncProgramToolContextAfterFrameChange(
-	RobotProgramStore& store, const QString& sceneRootBackendId,
-	const RobotCoordinate::RobotCoordinateFrameSet& oldFrames,
-	const RobotCoordinate::RobotCoordinateFrameSet& newFrames);
+CLOUDSIM_HOST_EXPORT void
+syncProgramToolContextAfterFrameChange(RobotProgramStore& store, const QString& sceneRootBackendId,
+									   const RobotCoordinate::RobotCoordinateFrameSet& oldFrames,
+									   const RobotCoordinate::RobotCoordinateFrameSet& newFrames);
 
 /// 与桌面 robotKinematicsInstances 字段兼容
 CLOUDSIM_HOST_EXPORT void mergeRobotKinematicsIntoProjectRoot(DocumentHost& host, QJsonObject& root);

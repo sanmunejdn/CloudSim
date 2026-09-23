@@ -1,4 +1,4 @@
-/// @file SketchGeom.cpp
+﻿/// @file SketchGeom.cpp
 
 #include "SketchGeom.h"
 
@@ -168,7 +168,8 @@ bool SketchDocument2d::removeLine(int id)
 bool SketchDocument2d::removeArc(int id)
 {
 	const auto n = m_arcs.size();
-	m_arcs.erase(std::remove_if(m_arcs.begin(), m_arcs.end(), [&](const SkArc& a) { return a.id == id; }), m_arcs.end());
+	m_arcs.erase(std::remove_if(m_arcs.begin(), m_arcs.end(), [&](const SkArc& a) { return a.id == id; }),
+				 m_arcs.end());
 	return m_arcs.size() != n;
 }
 
@@ -183,8 +184,9 @@ bool SketchDocument2d::removeCircle(int id)
 bool SketchDocument2d::removeEllipse(int id)
 {
 	const auto n = m_ellipses.size();
-	m_ellipses.erase(std::remove_if(m_ellipses.begin(), m_ellipses.end(), [&](const SkEllipse& e) { return e.id == id; }),
-					 m_ellipses.end());
+	m_ellipses.erase(
+		std::remove_if(m_ellipses.begin(), m_ellipses.end(), [&](const SkEllipse& e) { return e.id == id; }),
+		m_ellipses.end());
 	return m_ellipses.size() != n;
 }
 
@@ -233,7 +235,8 @@ bool SketchDocument2d::removeEntity(int id)
 		return false;
 
 	m_constraints.erase(std::remove_if(m_constraints.begin(), m_constraints.end(),
-									   [&](const SkConstraint& c) {
+									   [&](const SkConstraint& c)
+									   {
 										   if (c.a == id || c.b == id)
 											   return true;
 										   for (int pid : ownedPts)
@@ -245,7 +248,8 @@ bool SketchDocument2d::removeEntity(int id)
 									   }),
 						m_constraints.end());
 
-	auto pointStillUsed = [&](int pid) {
+	auto pointStillUsed = [&](int pid)
+	{
 		for (const SkLine& ln : m_lines)
 		{
 			if (ln.p1 == pid || ln.p2 == pid)
@@ -498,10 +502,10 @@ void sketchSampleCatmullRom(const std::vector<SkVec2>& through, std::vector<SkVe
 			const double t2 = t * t;
 			const double t3 = t2 * t;
 			SkVec2 q;
-			q.u = 0.5 * ((2.0 * p1.u) + (-p0.u + p2.u) * t + (2.0 * p0.u - 5.0 * p1.u + 4.0 * p2.u - p3.u) * t2
-						 + (-p0.u + 3.0 * p1.u - 3.0 * p2.u + p3.u) * t3);
-			q.v = 0.5 * ((2.0 * p1.v) + (-p0.v + p2.v) * t + (2.0 * p0.v - 5.0 * p1.v + 4.0 * p2.v - p3.v) * t2
-						 + (-p0.v + 3.0 * p1.v - 3.0 * p2.v + p3.v) * t3);
+			q.u = 0.5 * ((2.0 * p1.u) + (-p0.u + p2.u) * t + (2.0 * p0.u - 5.0 * p1.u + 4.0 * p2.u - p3.u) * t2 +
+						 (-p0.u + 3.0 * p1.u - 3.0 * p2.u + p3.u) * t3);
+			q.v = 0.5 * ((2.0 * p1.v) + (-p0.v + p2.v) * t + (2.0 * p0.v - 5.0 * p1.v + 4.0 * p2.v - p3.v) * t2 +
+						 (-p0.v + 3.0 * p1.v - 3.0 * p2.v + p3.v) * t3);
 			out.push_back(q);
 		}
 	}
@@ -556,7 +560,8 @@ bool offsetClosedUv(const std::vector<SkVec2>& poly, double dist, std::vector<Sk
 		return left ? SkVec2{nx, ny} : SkVec2{-nx, -ny};
 	};
 
-	auto intersectLines = [](const SkVec2& p1, const SkVec2& d1, const SkVec2& p2, const SkVec2& d2, SkVec2& outPt) -> bool
+	auto intersectLines = [](const SkVec2& p1, const SkVec2& d1, const SkVec2& p2, const SkVec2& d2,
+							 SkVec2& outPt) -> bool
 	{
 		const double cross = d1.u * d2.v - d1.v * d2.u;
 		if (std::abs(cross) < 1e-12)
@@ -638,8 +643,8 @@ bool closedPolylineSelfIntersectsUv(const std::vector<SkVec2>& poly, double eps)
 	};
 	auto onSeg = [eps](const SkVec2& a, const SkVec2& b, const SkVec2& p) -> bool
 	{
-		return p.u >= std::min(a.u, b.u) - eps && p.u <= std::max(a.u, b.u) + eps &&
-			   p.v >= std::min(a.v, b.v) - eps && p.v <= std::max(a.v, b.v) + eps;
+		return p.u >= std::min(a.u, b.u) - eps && p.u <= std::max(a.u, b.u) + eps && p.v >= std::min(a.v, b.v) - eps &&
+			   p.v <= std::max(a.v, b.v) + eps;
 	};
 	auto segmentsIntersect = [&](const SkVec2& a1, const SkVec2& a2, const SkVec2& b1, const SkVec2& b2) -> bool
 	{
@@ -897,7 +902,7 @@ bool SketchDocument2d::exportClosedProfilesUv(std::vector<std::vector<SkVec2>>& 
 }
 
 bool SketchDocument2d::exportClosedProfilesXyz(const PluginSketchPlane& plane,
-											 std::vector<std::vector<float>>& outLoops, std::string* err) const
+											   std::vector<std::vector<float>>& outLoops, std::string* err) const
 {
 	outLoops.clear();
 	std::vector<std::vector<SkVec2>> uvLoops;
@@ -1352,8 +1357,9 @@ constexpr float kHiR = 1.00f, kHiG = 0.92f, kHiB = 0.20f;
 void appendStrokeGlyph(std::vector<std::vector<SkVec2>>& strokes, char ch, const SkVec2& origin, const SkVec2& xu,
 					   const SkVec2& yu)
 {
-	auto P = [&](double x, double y) -> SkVec2
-	{ return {origin.u + xu.u * x + yu.u * y, origin.v + xu.v * x + yu.v * y}; };
+	auto P = [&](double x, double y) -> SkVec2 {
+		return {origin.u + xu.u * x + yu.u * y, origin.v + xu.v * x + yu.v * y};
+	};
 	auto add = [&](std::initializer_list<std::pair<double, double>> pts)
 	{
 		std::vector<SkVec2> s;
@@ -1570,9 +1576,8 @@ void SketchDocument2d::tessellateOverlay(const PluginSketchPlane& plane, std::ve
 			if (!pt)
 				continue;
 			const double s = pt->fixed ? 2.8 : 2.2;
-			const std::array<float, 4> rgba =
-				pt->fixed ? std::array<float, 4>{0.95f, 0.45f, 0.15f, 1.0f}
-						  : std::array<float, 4>{0.95f, 0.95f, 0.98f, 1.0f};
+			const std::array<float, 4> rgba = pt->fixed ? std::array<float, 4>{0.95f, 0.45f, 0.15f, 1.0f}
+														: std::array<float, 4>{0.95f, 0.95f, 0.98f, 1.0f};
 			addSegColored({{pt->p.u - s, pt->p.v - s},
 						   {pt->p.u + s, pt->p.v - s},
 						   {pt->p.u + s, pt->p.v + s},
@@ -2285,9 +2290,8 @@ bool SketchDocument2d::trimLineAt(const SkVec2& uv, double tolMm)
 	const double len = skDist(p1->p, p2->p);
 	if (len < 1e-9)
 		return false;
-	const double clickT =
-		std::clamp(((uv.u - p1->p.u) * (p2->p.u - p1->p.u) + (uv.v - p1->p.v) * (p2->p.v - p1->p.v)) / (len * len), 0.0,
-				   1.0);
+	const double clickT = std::clamp(
+		((uv.u - p1->p.u) * (p2->p.u - p1->p.u) + (uv.v - p1->p.v) * (p2->p.v - p1->p.v)) / (len * len), 0.0, 1.0);
 
 	std::vector<double> ts;
 	ts.push_back(0.0);
@@ -2335,8 +2339,9 @@ bool SketchDocument2d::trimLineAt(const SkVec2& uv, double tolMm)
 	const int oldP2 = target->p2;
 	removeLine(lid);
 
-	auto pointAt = [&](double t) -> SkVec2
-	{ return {p1->p.u + (p2->p.u - p1->p.u) * t, p1->p.v + (p2->p.v - p1->p.v) * t}; };
+	auto pointAt = [&](double t) -> SkVec2 {
+		return {p1->p.u + (p2->p.u - p1->p.u) * t, p1->p.v + (p2->p.v - p1->p.v) * t};
+	};
 
 	if (keepFront)
 	{

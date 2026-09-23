@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_CUSTOMDEVICEASSEMBLYDIALOG_H
+﻿#ifndef ROBOTWIDGET_CUSTOMDEVICEASSEMBLYDIALOG_H
 #define ROBOTWIDGET_CUSTOMDEVICEASSEMBLYDIALOG_H
 
 /// @file CustomDeviceAssemblyDialog.h
@@ -9,7 +9,6 @@
 
 #include <QDialog>
 #include <QString>
-
 #include <memory>
 
 class CustomDeviceAssemblyCanvasWidget;

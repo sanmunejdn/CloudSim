@@ -10,8 +10,8 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QSettings>
-#include <QString>
 #include <QStandardPaths>
+#include <QString>
 #include <QTextStream>
 #include <QWidget>
 
@@ -40,7 +40,7 @@ bool isEphemeralSidePanelTabKey(const QString& key)
 ApplicationStyle::Theme themeFromString(const QString& value)
 {
 	return value.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0 ? ApplicationStyle::Theme::Dark
-																			: ApplicationStyle::Theme::Light;
+																		   : ApplicationStyle::Theme::Light;
 }
 
 QString themeToString(const ApplicationStyle::Theme theme)

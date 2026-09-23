@@ -1,5 +1,5 @@
-/// @file RawTrajectory.cpp
-/// @brief Raw �켣
+﻿/// @file RawTrajectory.cpp
+/// @brief Raw 轨迹
 
 #include "RawTrajectory.h"
 
@@ -17,12 +17,10 @@
 #include <RigidTransform.h>
 #include <json.hpp>
 
-
 namespace RobotInstruction
 {
 namespace
 {
-
 void applyTrajectoryPointToInstruction(Base& ins, const TrajectoryPoint& tp)
 {
 	engine::RigidTransform target;
@@ -43,7 +41,7 @@ void applyTrajectoryPointToInstruction(Base& ins, const TrajectoryPoint& tp)
 		ins.setSpeed(tp.speedMmPerSec);
 	else if (!ins.hasSpeedProperty() || ins.speed() <= 0.0)
 		ins.setSpeed(200.0);
-	// ָ��ֻ�� TCP��jointRad �����滮�Ự��������
+	// 只写 TCP；清 jointRad，避免沿用旧规划结果
 	ins.eraseExtensionProperty("context.currentJointRadCsv");
 }
 
@@ -314,7 +312,7 @@ bool insertRawTrajectoryBetween(const RawTrajectory& trajectory, RobotProgram& p
 		return false;
 	}
 
-	// ������˳���������֮�䣨��滮���յ�˭��˭���޹أ�
+	// 按索引夹在起终点之间（谁先谁后无关）
 	const int iLo = std::min(iStart, iEnd);
 	const int iHi = std::max(iStart, iEnd);
 	if (iHi <= iLo)
@@ -337,9 +335,8 @@ bool insertRawTrajectoryBetween(const RawTrajectory& trajectory, RobotProgram& p
 	for (auto& g : program.groups)
 	{
 		g.memberInstructionIds.erase(std::remove_if(g.memberInstructionIds.begin(), g.memberInstructionIds.end(),
-													 [&removedIds](const std::string& id) {
-														 return removedIds.count(id) != 0;
-													 }),
+													[&removedIds](const std::string& id)
+													{ return removedIds.count(id) != 0; }),
 									 g.memberInstructionIds.end());
 	}
 
@@ -367,7 +364,7 @@ bool insertRawTrajectoryBetween(const RawTrajectory& trajectory, RobotProgram& p
 	const int insertAt = iLo + 1;
 	program.steps.insert(program.steps.begin() + insertAt, inserted.begin(), inserted.end());
 
-	// ���յ�����ͬһ���飬�м�����д������Ա���������ؽ���� Pmid �ֳɷ����Ķ���ڵ�
+	// 起终点同组时重写中间成员，使 Pmid 成为同级节点
 	bool groupUpdated = false;
 	for (auto& g : program.groups)
 	{
@@ -402,7 +399,7 @@ std::string rawTrajectoryWorkpieceBackendId(const RawTrajectory& trajectory)
 	{
 		return {};
 	}
-	// FeatureList v2 �� MeshTrajectorySpec v1 �����ܹ��� sourceFeatureJson
+	// FeatureList v2 与 MeshTrajectorySpec v1 同构，读 sourceFeatureJson
 	geoalgo::FeatureListDocument featureDoc{};
 	std::string err;
 	if (geometry_backend_ops::featureListFromJson(trajectory.sourceFeatureJson, featureDoc, &err) &&

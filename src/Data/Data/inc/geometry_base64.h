@@ -1,4 +1,4 @@
-#ifndef DATA_GEOMETRY_BASE64_H
+﻿#ifndef DATA_GEOMETRY_BASE64_H
 #define DATA_GEOMETRY_BASE64_H
 
 /// @file geometry_base64.h

@@ -1,6 +1,6 @@
 ﻿# RobotUrdf 模块开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 ## 1. 模块定位
 
@@ -169,12 +169,12 @@ CAD 轨迹的外部轴上下文写入 [`RawTrajectory::TrajectoryContext::extern
 - 空间契约：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)
 - 场景 FK 写回：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
 - UI 导入：[`../Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) §`registerUrdfRobot`
-- 架构 §6.1：[全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md)
+- 架构 §6.1：[全库文档入口](../../README.md) · [产品索引](../README.md)
 
 ## 12. 架构图与演进文档
 
-- [target-architecture.html](../../../docs/_archive/robot-kinematics-workspace/diagrams/target-architecture.html)
-- [drag-hotpath-dataflow.html](../../../docs/_archive/robot-kinematics-workspace/diagrams/drag-hotpath-dataflow.html)
-- [`../../../docs/_archive/robot-kinematics-workspace/`](../../../docs/_archive/robot-kinematics-workspace/)
+- `docs/ARCHIVE_ZIP_LOCATION.txt`
+- `docs/ARCHIVE_ZIP_LOCATION.txt`
+- `docs/ARCHIVE_ZIP_LOCATION.txt`
 
 filters：`inc|src\Global` / `Loader` / `Kinematics` / `SelfTest`。

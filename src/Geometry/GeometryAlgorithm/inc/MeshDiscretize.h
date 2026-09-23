@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_MESHDISCRETIZE_H
+﻿#ifndef GEOMETRYALGORITHM_MESHDISCRETIZE_H
 #define GEOMETRYALGORITHM_MESHDISCRETIZE_H
 
 /// @file MeshDiscretize.h
@@ -7,8 +7,8 @@
 
 #include "geometry_algorithm_global.h"
 
-#include "Types.h"
 #include "ShapeHandle.h"
+#include "Types.h"
 
 #include <string>
 #include <vector>

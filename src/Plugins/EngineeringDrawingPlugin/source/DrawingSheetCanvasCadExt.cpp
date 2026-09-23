@@ -1,8 +1,7 @@
-/// @file DrawingSheetCanvasCadExt.cpp
+﻿/// @file DrawingSheetCanvasCadExt.cpp
 /// @brief AutoCAD 对齐扩展：样式解析、修改、捕捉、填充、图块、DXF 读入
 
 #include "DrawingSheetCanvasWidget.h"
-
 #include "DrawingSheetModel.h"
 
 #include <QFile>
@@ -17,7 +16,6 @@
 #include <QStringList>
 #include <QTextStream>
 #include <QtMath>
-
 #include <cmath>
 #include <limits>
 
@@ -90,10 +88,11 @@ SheetEntityStyle DrawingSheetCanvasWidget::styleFromJson(const QJsonObject& o)
 }
 
 QPen DrawingSheetCanvasWidget::resolvePen(const QString& layerId, const SheetEntityStyle& style, bool forceDashed,
-										 bool selected, const SheetEntityStyle* blockCtx,
-										 const QString* blockLayerId) const
+										  bool selected, const SheetEntityStyle* blockCtx,
+										  const QString* blockLayerId) const
 {
-	auto resolveOne = [&](const QString& lid, const SheetEntityStyle& st, bool allowBlock) -> SheetEntityStyle {
+	auto resolveOne = [&](const QString& lid, const SheetEntityStyle& st, bool allowBlock) -> SheetEntityStyle
+	{
 		SheetEntityStyle out = st;
 		const SheetLayer* L = layerById(lid);
 		if (allowBlock && blockCtx && st.colorByBlock)
@@ -197,7 +196,8 @@ void DrawingSheetCanvasWidget::rebuildSnapGeometry()
 {
 	QVector<QLineF> segs;
 	QVector<QPointF> centers;
-	auto addPoly = [&](const QVector<Polyline2d>& polys) {
+	auto addPoly = [&](const QVector<Polyline2d>& polys)
+	{
 		for (const auto& poly : polys)
 		{
 			for (int i = 1; i < poly.points.size(); ++i)
@@ -339,10 +339,9 @@ bool DrawingSheetCanvasWidget::isPickFeedbackTool(DrawingCanvasTool t) const
 {
 	return isDimTool(t) || isModifyTool(t) || t == DrawingCanvasTool::PanSelect ||
 		   t == DrawingCanvasTool::SelectEntity || t == DrawingCanvasTool::HatchPick ||
-		   t == DrawingCanvasTool::TextNote || t == DrawingCanvasTool::NoteLeader ||
-		   t == DrawingCanvasTool::MText || t == DrawingCanvasTool::DetailRegion ||
-		   t == DrawingCanvasTool::ProjectionGuide || t == DrawingCanvasTool::SymRoughness ||
-		   t == DrawingCanvasTool::SymGdt || isSketchTool(t);
+		   t == DrawingCanvasTool::TextNote || t == DrawingCanvasTool::NoteLeader || t == DrawingCanvasTool::MText ||
+		   t == DrawingCanvasTool::DetailRegion || t == DrawingCanvasTool::ProjectionGuide ||
+		   t == DrawingCanvasTool::SymRoughness || t == DrawingCanvasTool::SymGdt || isSketchTool(t);
 }
 
 bool DrawingSheetCanvasWidget::findNearestEdge(const QPointF& scenePos, QLineF& outSeg, int* outSketchId) const
@@ -352,7 +351,8 @@ bool DrawingSheetCanvasWidget::findNearestEdge(const QPointF& scenePos, QLineF& 
 	if (outSketchId)
 		*outSketchId = -1;
 
-	auto considerSeg = [&](const QPointF& a, const QPointF& b, int sketchId) {
+	auto considerSeg = [&](const QPointF& a, const QPointF& b, int sketchId)
+	{
 		const QLineF seg(a, b);
 		if (seg.length() < 1e-9)
 			return;
@@ -455,14 +455,10 @@ void DrawingSheetCanvasWidget::updatePickFeedback(const QPointF& scenePos)
 	if (h.snap.snapped)
 	{
 		static const QHash<QString, QString> kindCn = {
-			{QStringLiteral("end"), QStringLiteral("端点")},
-			{QStringLiteral("mid"), QStringLiteral("中点")},
-			{QStringLiteral("int"), QStringLiteral("交点")},
-			{QStringLiteral("cen"), QStringLiteral("圆心")},
-			{QStringLiteral("perp"), QStringLiteral("垂足")},
-			{QStringLiteral("near"), QStringLiteral("最近点")},
-			{QStringLiteral("ortho"), QStringLiteral("正交")},
-			{QStringLiteral("polar"), QStringLiteral("极轴")},
+			{QStringLiteral("end"), QStringLiteral("端点")},   {QStringLiteral("mid"), QStringLiteral("中点")},
+			{QStringLiteral("int"), QStringLiteral("交点")},   {QStringLiteral("cen"), QStringLiteral("圆心")},
+			{QStringLiteral("perp"), QStringLiteral("垂足")},  {QStringLiteral("near"), QStringLiteral("最近点")},
+			{QStringLiteral("ortho"), QStringLiteral("正交")}, {QStringLiteral("polar"), QStringLiteral("极轴")},
 		};
 		tipParts << QStringLiteral("点:%1").arg(kindCn.value(h.snap.kind, h.snap.kind));
 	}
@@ -486,8 +482,8 @@ void DrawingSheetCanvasWidget::updatePickFeedback(const QPointF& scenePos)
 	if (h.tip != m_lastPickTip)
 	{
 		m_lastPickTip = h.tip;
-		const bool quiet = m_dimPicking || m_notePicking || m_modifyPicking || m_detailDragging ||
-						   m_extendPicking || m_hatchPickPts.size() > 0;
+		const bool quiet = m_dimPicking || m_notePicking || m_modifyPicking || m_detailDragging || m_extendPicking ||
+						   m_hatchPickPts.size() > 0;
 		if (!h.tip.isEmpty() && !quiet)
 			emit statusMessage(h.tip);
 	}
@@ -547,14 +543,10 @@ void DrawingSheetCanvasWidget::drawSnapMarker(QPainter& p, const QPointF& widget
 	f.setBold(true);
 	p.setFont(f);
 	static const QHash<QString, QString> kindLbl = {
-		{QStringLiteral("end"), QStringLiteral("端")},
-		{QStringLiteral("mid"), QStringLiteral("中")},
-		{QStringLiteral("int"), QStringLiteral("交")},
-		{QStringLiteral("cen"), QStringLiteral("心")},
-		{QStringLiteral("perp"), QStringLiteral("垂")},
-		{QStringLiteral("near"), QStringLiteral("近")},
-		{QStringLiteral("ortho"), QStringLiteral("正")},
-		{QStringLiteral("polar"), QStringLiteral("极")},
+		{QStringLiteral("end"), QStringLiteral("端")},	 {QStringLiteral("mid"), QStringLiteral("中")},
+		{QStringLiteral("int"), QStringLiteral("交")},	 {QStringLiteral("cen"), QStringLiteral("心")},
+		{QStringLiteral("perp"), QStringLiteral("垂")},	 {QStringLiteral("near"), QStringLiteral("近")},
+		{QStringLiteral("ortho"), QStringLiteral("正")}, {QStringLiteral("polar"), QStringLiteral("极")},
 	};
 	p.drawText(widgetPos + QPointF(s + 3, -3), kindLbl.value(kind, kind));
 	p.restore();
@@ -589,7 +581,8 @@ void DrawingSheetCanvasWidget::drawDimToolPreview(QPainter& p) const
 	const QColor dimPreview(192, 57, 43);
 	p.setPen(QPen(dimPreview, 1.15, Qt::DashLine));
 
-	auto drawLinearPreview = [&](const QPointF& a, const QPointF& b, double offY) {
+	auto drawLinearPreview = [&](const QPointF& a, const QPointF& b, double offY)
+	{
 		QLineF base(a, b);
 		if (base.length() < 1e-6)
 			return;
@@ -626,8 +619,7 @@ void DrawingSheetCanvasWidget::drawDimToolPreview(QPainter& p) const
 		if (m_dimPickStep >= 2)
 			p.drawLine(sceneToWidget(m_dimP1), sceneToWidget(m_dimP3));
 	}
-	else if ((m_tool == DrawingCanvasTool::DimRadius || m_tool == DrawingCanvasTool::DimDiameter) &&
-			 m_dimPickStep >= 1)
+	else if ((m_tool == DrawingCanvasTool::DimRadius || m_tool == DrawingCanvasTool::DimDiameter) && m_dimPickStep >= 1)
 	{
 		if (m_dimPickStep == 10)
 			p.drawLine(sceneToWidget(m_dimP1), sceneToWidget(m_dimP2));
@@ -641,10 +633,9 @@ void DrawingSheetCanvasWidget::drawDimToolPreview(QPainter& p) const
 			}
 			const double r = QLineF(m_dimP1, m_dimP2).length();
 			p.setPen(QPen(dimPreview, 1.0));
-			p.drawText(sceneToWidget(m_dimP2) + QPointF(6, -4),
-					   m_tool == DrawingCanvasTool::DimDiameter
-						   ? QStringLiteral("Ø%1").arg(r * 2.0, 0, 'f', 2)
-						   : QStringLiteral("R%1").arg(r, 0, 'f', 2));
+			p.drawText(sceneToWidget(m_dimP2) + QPointF(6, -4), m_tool == DrawingCanvasTool::DimDiameter
+																	? QStringLiteral("Ø%1").arg(r * 2.0, 0, 'f', 2)
+																	: QStringLiteral("R%1").arg(r, 0, 'f', 2));
 		}
 	}
 
@@ -701,8 +692,8 @@ void DrawingSheetCanvasWidget::drawPickFeedback(QPainter& p) const
 		p.drawEllipse(sceneToWidget(n.textPos), 6, 6);
 		p.restore();
 	}
-	if (m_pickHover.viewIndex >= 0 && m_pickHover.viewIndex < m_views.size() &&
-		m_pickHover.sketchId < 0 && !m_pickHover.hasEdge && m_pickHover.dimIndex < 0)
+	if (m_pickHover.viewIndex >= 0 && m_pickHover.viewIndex < m_views.size() && m_pickHover.sketchId < 0 &&
+		!m_pickHover.hasEdge && m_pickHover.dimIndex < 0)
 	{
 		p.save();
 		const QRectF fr = m_views[m_pickHover.viewIndex].frame;
@@ -1174,7 +1165,8 @@ void DrawingSheetCanvasWidget::rebuildProjectionGuides()
 	const int top = findViewIndexByKind(QStringLiteral("top"));
 	const int right = findViewIndexByKind(QStringLiteral("right"));
 	QVector<SheetProjectionGuide> next;
-	auto keep = [&](const QString& from, const QString& to, SheetProjectionGuide& out) {
+	auto keep = [&](const QString& from, const QString& to, SheetProjectionGuide& out)
+	{
 		for (const auto& g : m_projectionGuides)
 		{
 			if (g.fromViewId == from && g.toViewId == to)
@@ -1259,7 +1251,8 @@ void DrawingSheetCanvasWidget::setProjectionGuidesVisible(bool visible)
 int DrawingSheetCanvasWidget::recalculateDimensions(bool selectedOnly)
 {
 	int n = 0;
-	auto clearOne = [&](SheetDimension& d) {
+	auto clearOne = [&](SheetDimension& d)
+	{
 		if (std::isfinite(d.overrideValue))
 		{
 			d.overrideValue = std::numeric_limits<double>::quiet_NaN();
@@ -1394,7 +1387,8 @@ void DrawingSheetCanvasWidget::assignDimEdgeKeys(SheetDimension& dim)
 {
 	if (dim.kind != SheetDimension::Kind::Linear)
 		return;
-	auto nearest = [&](const QPointF& p, QString& keyOut) -> bool {
+	auto nearest = [&](const QPointF& p, QString& keyOut) -> bool
+	{
 		double best = snapTolMm() * 8.0;
 		bool found = false;
 		for (const DrawingView& v : m_views)
@@ -1483,8 +1477,8 @@ bool DrawingSheetCanvasWidget::editCtbTable()
 		text += QStringLiteral("%1,%2\n").arg(e.aci).arg(e.widthMm, 0, 'f', 2);
 	if (text.isEmpty())
 		text = QStringLiteral("1,0.25\n7,0.35\n8,0.18\n");
-	text = QInputDialog::getMultiLineText(this, QStringLiteral("CTB 线宽表"),
-										  QStringLiteral("每行：ACI,线宽mm"), text, &ok);
+	text = QInputDialog::getMultiLineText(this, QStringLiteral("CTB 线宽表"), QStringLiteral("每行：ACI,线宽mm"), text,
+										  &ok);
 	if (!ok)
 		return false;
 	QVector<CtbEntry> next;
@@ -1589,7 +1583,8 @@ bool DrawingSheetCanvasWidget::selectionStyle(SheetEntityStyle& outStyle, QStrin
 bool DrawingSheetCanvasWidget::applyStyleToSelection(const SheetEntityStyle& style, const QString& layerId)
 {
 	bool ok = false;
-	auto apply = [&](SheetEntityStyle& s, QString& lid) {
+	auto apply = [&](SheetEntityStyle& s, QString& lid)
+	{
 		s = style;
 		if (!layerId.isEmpty())
 			lid = layerId;
@@ -1649,7 +1644,8 @@ void DrawingSheetCanvasWidget::scaleSelection(const QPointF& pivot, double facto
 	if (!(std::abs(factor) > 1e-9))
 		return;
 	auto scalePt = [&](QPointF& p) { p = pivot + (p - pivot) * factor; };
-	auto scalePoly = [&](QVector<Polyline2d>& polys) {
+	auto scalePoly = [&](QVector<Polyline2d>& polys)
+	{
 		for (auto& poly : polys)
 			for (QPointF& p : poly.points)
 				scalePt(p);
@@ -1797,7 +1793,8 @@ void DrawingSheetCanvasWidget::applyHalfSectionClip()
 		return;
 	DrawingView& front = m_views[frontIdx];
 	const double cx = front.frame.center().x();
-	auto clipSide = [&](QVector<Polyline2d>& polys) {
+	auto clipSide = [&](QVector<Polyline2d>& polys)
+	{
 		QVector<Polyline2d> out;
 		for (const Polyline2d& poly : polys)
 		{
@@ -1900,7 +1897,8 @@ bool DrawingSheetCanvasWidget::arraySelectionPolar(int count, double angleDeg, c
 	if (hadBlock)
 		baseBlock = m_blockRefs[m_selectedBlockRefIndex];
 	const double step = angleDeg * 3.141592653589793 / 180.0;
-	auto rot = [&](QPointF p, double ang) {
+	auto rot = [&](QPointF p, double ang)
+	{
 		const double c = std::cos(ang), s = std::sin(ang);
 		const QPointF d = p - pivot;
 		return pivot + QPointF(d.x() * c - d.y() * s, d.x() * s + d.y() * c);
@@ -2147,7 +2145,8 @@ void DrawingSheetCanvasWidget::transformSelection(const QPointF& delta)
 
 void DrawingSheetCanvasWidget::rotateSelection(const QPointF& pivot, double angleRad)
 {
-	auto rotPoly = [&](QVector<Polyline2d>& polys) {
+	auto rotPoly = [&](QVector<Polyline2d>& polys)
+	{
 		for (auto& poly : polys)
 			for (QPointF& p : poly.points)
 				p = rotPt(p, pivot, angleRad);
@@ -2174,7 +2173,8 @@ void DrawingSheetCanvasWidget::rotateSelection(const QPointF& pivot, double angl
 	}
 	if (m_selectedBlockRefIndex >= 0 && m_selectedBlockRefIndex < m_blockRefs.size())
 	{
-		m_blockRefs[m_selectedBlockRefIndex].insert = rotPt(m_blockRefs[m_selectedBlockRefIndex].insert, pivot, angleRad);
+		m_blockRefs[m_selectedBlockRefIndex].insert =
+			rotPt(m_blockRefs[m_selectedBlockRefIndex].insert, pivot, angleRad);
 		m_blockRefs[m_selectedBlockRefIndex].rotationDeg += angleRad * 180.0 / 3.141592653589793;
 	}
 	emit sheetChanged();
@@ -2183,7 +2183,8 @@ void DrawingSheetCanvasWidget::rotateSelection(const QPointF& pivot, double angl
 
 void DrawingSheetCanvasWidget::mirrorSelection(const QLineF& axis)
 {
-	auto mirPoly = [&](QVector<Polyline2d>& polys) {
+	auto mirPoly = [&](QVector<Polyline2d>& polys)
+	{
 		for (auto& poly : polys)
 			for (QPointF& p : poly.points)
 				p = mirrorPt(p, axis);
@@ -2328,7 +2329,8 @@ void DrawingSheetCanvasWidget::drawBlockRef(QPainter& p, const SheetBlockRef& r)
 	const bool sel = m_selectedBlockRefIndex >= 0 && m_selectedBlockRefIndex < m_blockRefs.size() &&
 					 m_blockRefs[m_selectedBlockRefIndex].id == r.id;
 	const double ang = r.rotationDeg * 3.141592653589793 / 180.0;
-	auto xform = [&](QPointF lp) {
+	auto xform = [&](QPointF lp)
+	{
 		QPointF sp = def->base + (lp - def->base) * r.scale;
 		sp = rotPt(sp, def->base, ang);
 		return sp - def->base + r.insert;
@@ -2524,7 +2526,8 @@ bool DrawingSheetCanvasWidget::importDxf(const QString& filePath)
 		return false;
 	QTextStream ts(&f);
 	QString code, value;
-	auto readPair = [&]() -> bool {
+	auto readPair = [&]() -> bool
+	{
 		if (ts.atEnd())
 			return false;
 		code = ts.readLine().trimmed();
@@ -2542,7 +2545,8 @@ bool DrawingSheetCanvasWidget::importDxf(const QString& filePath)
 	const int circlesBefore = static_cast<int>(m_sketch.document().circles().size());
 	const int arcsBefore = static_cast<int>(m_sketch.document().arcs().size());
 	QHash<QString, QString> layerNameToId;
-	auto mapLayer = [&](const QString& dxfName) -> QString {
+	auto mapLayer = [&](const QString& dxfName) -> QString
+	{
 		if (dxfName.isEmpty())
 			return m_currentLayerId;
 		const auto it = layerNameToId.constFind(dxfName);
@@ -2551,7 +2555,8 @@ bool DrawingSheetCanvasWidget::importDxf(const QString& filePath)
 		return m_currentLayerId;
 	};
 
-	auto aciColor = [](int aci) -> QColor {
+	auto aciColor = [](int aci) -> QColor
+	{
 		switch (aci)
 		{
 		case 1:

@@ -1,4 +1,4 @@
-#ifndef GEOMETRICMODELINGPLUGIN_CLOUDSIMGEOMPYTHON_H
+﻿#ifndef GEOMETRICMODELINGPLUGIN_CLOUDSIMGEOMPYTHON_H
 #define GEOMETRICMODELINGPLUGIN_CLOUDSIMGEOMPYTHON_H
 
 /// @file CloudSimGeomPython.h
@@ -27,4 +27,4 @@ std::vector<std::string> listBodies(std::string* outError);
 void openConsole(QWidget* parent);
 } // namespace CloudSimGeomPython
 
-#endif
+#endif // GEOMETRICMODELINGPLUGIN_CLOUDSIMGEOMPYTHON_H

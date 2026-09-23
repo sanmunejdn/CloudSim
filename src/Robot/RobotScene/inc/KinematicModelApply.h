@@ -1,8 +1,12 @@
-#ifndef ROBOTSCENE_KINEMATICMODELAPPLY_H
+﻿#ifndef ROBOTSCENE_KINEMATICMODELAPPLY_H
 #define ROBOTSCENE_KINEMATICMODELAPPLY_H
 
-#include "RobotKinematicApplyContext.h"
+/// @file KinematicModelApply.h
+/// @brief KinematicModelApply 接口
+
 #include "robot_scene_global.h"
+
+#include "RobotKinematicApplyContext.h"
 
 #include <QVector>
 #include <string>
@@ -20,6 +24,6 @@ ROBOT_SCENE_API bool applyCustomDevice(const std::string& registryKey, CustomDev
 
 ROBOT_SCENE_API bool applyRobotArm(const std::string& registryKey, const RobotKinematicApplyContext::Context& ctx,
 								   const std::vector<double>& localArmQ, QVector<double>& aggregatedAnglesRad);
-}
+} // namespace KinematicModelApply
 
 #endif // ROBOTSCENE_KINEMATICMODELAPPLY_H

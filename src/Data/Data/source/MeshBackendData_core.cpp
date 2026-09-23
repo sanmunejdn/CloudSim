@@ -103,7 +103,8 @@ void MeshBackendData::setTriangleSoupWithVertexColors(std::vector<float> xyzPerT
 	}
 	if (rgbPerTriangleVertex.size() != xyzPerTriangleVertex.size())
 	{
-		RunLogger::warn("[MeshBackendData] setTriangleSoupWithVertexColors: color size mismatch, keep existing geometry.");
+		RunLogger::warn(
+			"[MeshBackendData] setTriangleSoupWithVertexColors: color size mismatch, keep existing geometry.");
 		return;
 	}
 	m_triangleSoup = std::move(xyzPerTriangleVertex);
@@ -287,8 +288,8 @@ bool MeshBackendData::loadDerivedJson(const nlohmann::json& in, std::string* err
 		return false;
 	}
 
-	auto tryLoadOptionalChannel = [&](const char* key, std::vector<float>& dest, const char* label,
-									  const bool requireMatchSoupSize)
+	auto tryLoadOptionalChannel =
+		[&](const char* key, std::vector<float>& dest, const char* label, const bool requireMatchSoupSize)
 	{
 		dest.clear();
 		if (!geo.contains(key) || !geo[key].is_string())

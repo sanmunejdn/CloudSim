@@ -1,4 +1,4 @@
-/// @file PythonScriptCaller.cpp
+﻿/// @file PythonScriptCaller.cpp
 /// @brief 嵌入式 Python 调用实现
 
 #include "PythonScriptCaller.h"
@@ -8,7 +8,6 @@
 #include <string>
 
 #include <Windows.h>
-
 #include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
 
@@ -19,7 +18,6 @@ namespace RobotWidget
 {
 namespace
 {
-
 fs::path resolvePythonHome()
 {
 	wchar_t exePath[MAX_PATH] = {};

@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_ROBOTJOINTWRAP_H
+﻿#ifndef ROBOTSCENE_ROBOTJOINTWRAP_H
 #define ROBOTSCENE_ROBOTJOINTWRAP_H
 
 /// @file RobotJointWrap.h
@@ -27,4 +27,4 @@ ROBOT_SCENE_API void alignTrajectoryAfterTargetNormalize(RobotInstruction::PlanR
 ROBOT_SCENE_API bool applyJointWrapToPlan(RobotInstruction::PlanResult& plan, const std::vector<double>& seedRef,
 										  const QVector<double>& lowerRad, const QVector<double>& upperRad);
 
-#endif
+#endif // ROBOTSCENE_ROBOTJOINTWRAP_H

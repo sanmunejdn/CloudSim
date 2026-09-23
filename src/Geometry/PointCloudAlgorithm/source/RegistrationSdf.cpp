@@ -1,3 +1,6 @@
+﻿/// @file RegistrationSdf.cpp
+/// @brief RegistrationSdf 实现
+
 #include "RegistrationSdf.h"
 
 #include "Downsample.h"
@@ -9,8 +12,6 @@
 #include "sdf/DistanceField.h"
 #include "sdf/SdfDeformSolver.h"
 
-#include <Eigen/Geometry>
-
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -18,11 +19,12 @@
 #include <sstream>
 #include <utility>
 
+#include <Eigen/Geometry>
+
 namespace pclalgo
 {
 namespace
 {
-
 bool ensureNormals(std::vector<float>& xyz, std::vector<float>& normals, std::string* errMsg)
 {
 	if (normals.size() == xyz.size() && !normals.empty())
@@ -191,8 +193,8 @@ bool maybeRigidPreAlign(std::vector<float>& srcXyz, std::vector<float>& srcNorma
 	Eigen::Isometry3d t = Eigen::Isometry3d::Identity();
 	double rmse = 0.0;
 	if (!rigidRegisterPointToPlaneIcp(srcXyz, srcNormals, tgtXyz, tgtNormals, t, &rmse,
-									 params.rigidPreAlignMaxIterations, 0.01, params.rigidPreAlignMaxPairDistanceMm,
-									 params.rigidPreAlignMaxPoints, errMsg))
+									  params.rigidPreAlignMaxIterations, 0.01, params.rigidPreAlignMaxPairDistanceMm,
+									  params.rigidPreAlignMaxPoints, errMsg))
 	{
 		return false;
 	}
@@ -325,7 +327,8 @@ void buildMeshEdges(const std::vector<int>& cornerToVert, std::vector<std::pair<
 		{
 			continue;
 		}
-		auto add = [&](int u, int v) {
+		auto add = [&](int u, int v)
+		{
 			if (u == v)
 			{
 				return;
@@ -349,7 +352,8 @@ bool runCore(std::vector<float>& srcXyz, std::vector<float>& srcNormals, std::ve
 			 std::string* errMsg, const std::vector<std::pair<int, int>>* meshEdges = nullptr)
 {
 	std::string stageTrace;
-	auto traceBbox = [&stageTrace](const char* tag, const std::vector<float>& v) {
+	auto traceBbox = [&stageTrace](const char* tag, const std::vector<float>& v)
+	{
 		if (v.size() < 3U)
 		{
 			return;
@@ -503,9 +507,12 @@ bool sdfRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const std
 		for (std::size_t t = 0; t < tc; ++t)
 		{
 			const float* p = sourceSoup.data() + t * 9U;
-			const double rawE01 = std::sqrt(std::pow(p[3] - p[0], 2) + std::pow(p[4] - p[1], 2) + std::pow(p[5] - p[2], 2));
-			const double rawE12 = std::sqrt(std::pow(p[6] - p[3], 2) + std::pow(p[7] - p[4], 2) + std::pow(p[8] - p[5], 2));
-			const double rawE20 = std::sqrt(std::pow(p[0] - p[6], 2) + std::pow(p[1] - p[7], 2) + std::pow(p[2] - p[8], 2));
+			const double rawE01 =
+				std::sqrt(std::pow(p[3] - p[0], 2) + std::pow(p[4] - p[1], 2) + std::pow(p[5] - p[2], 2));
+			const double rawE12 =
+				std::sqrt(std::pow(p[6] - p[3], 2) + std::pow(p[7] - p[4], 2) + std::pow(p[8] - p[5], 2));
+			const double rawE20 =
+				std::sqrt(std::pow(p[0] - p[6], 2) + std::pow(p[1] - p[7], 2) + std::pow(p[2] - p[8], 2));
 			const double rawMax = std::max({rawE01, rawE12, rawE20});
 			const int ia = cornerToVert[t * 3U];
 			const int ib = cornerToVert[t * 3U + 1U];
@@ -563,9 +570,12 @@ bool sdfRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const std
 		for (std::size_t t = 0; t < triCount; ++t)
 		{
 			const float* p = sourceSoup.data() + t * 9U;
-			const double e01 = std::sqrt(std::pow(p[3] - p[0], 2) + std::pow(p[4] - p[1], 2) + std::pow(p[5] - p[2], 2));
-			const double e12 = std::sqrt(std::pow(p[6] - p[3], 2) + std::pow(p[7] - p[4], 2) + std::pow(p[8] - p[5], 2));
-			const double e20 = std::sqrt(std::pow(p[0] - p[6], 2) + std::pow(p[1] - p[7], 2) + std::pow(p[2] - p[8], 2));
+			const double e01 =
+				std::sqrt(std::pow(p[3] - p[0], 2) + std::pow(p[4] - p[1], 2) + std::pow(p[5] - p[2], 2));
+			const double e12 =
+				std::sqrt(std::pow(p[6] - p[3], 2) + std::pow(p[7] - p[4], 2) + std::pow(p[8] - p[5], 2));
+			const double e20 =
+				std::sqrt(std::pow(p[0] - p[6], 2) + std::pow(p[1] - p[7], 2) + std::pow(p[2] - p[8], 2));
 			const double maxE = std::max({e01, e12, e20});
 			const double ratio = maxE / soupDiag;
 			maxEdgeRatio = std::max(maxEdgeRatio, ratio);
@@ -598,9 +608,8 @@ bool sdfRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const std
 		stats->uniqueVertexCount = static_cast<int>(xyz.size() / 3U);
 		stats->sourceTriangleCount = static_cast<int>(triCount);
 		std::ostringstream weld;
-		weld << "[SDF-debug] weld soupCorners=" << stats->soupCornerCount
-			 << " uniqueVerts=" << stats->uniqueVertexCount << " tris=" << stats->sourceTriangleCount
-			 << " weldRatio="
+		weld << "[SDF-debug] weld soupCorners=" << stats->soupCornerCount << " uniqueVerts=" << stats->uniqueVertexCount
+			 << " tris=" << stats->sourceTriangleCount << " weldRatio="
 			 << (stats->soupCornerCount > 0
 					 ? (100.0 * stats->uniqueVertexCount / static_cast<double>(stats->soupCornerCount))
 					 : 0.0)
@@ -630,9 +639,12 @@ bool sdfRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const std
 		for (std::size_t t = 0; t < tc; ++t)
 		{
 			const float* p = sourceSoup.data() + t * 9U;
-			const double rawE01 = std::sqrt(std::pow(p[3] - p[0], 2) + std::pow(p[4] - p[1], 2) + std::pow(p[5] - p[2], 2));
-			const double rawE12 = std::sqrt(std::pow(p[6] - p[3], 2) + std::pow(p[7] - p[4], 2) + std::pow(p[8] - p[5], 2));
-			const double rawE20 = std::sqrt(std::pow(p[0] - p[6], 2) + std::pow(p[1] - p[7], 2) + std::pow(p[2] - p[8], 2));
+			const double rawE01 =
+				std::sqrt(std::pow(p[3] - p[0], 2) + std::pow(p[4] - p[1], 2) + std::pow(p[5] - p[2], 2));
+			const double rawE12 =
+				std::sqrt(std::pow(p[6] - p[3], 2) + std::pow(p[7] - p[4], 2) + std::pow(p[8] - p[5], 2));
+			const double rawE20 =
+				std::sqrt(std::pow(p[0] - p[6], 2) + std::pow(p[1] - p[7], 2) + std::pow(p[2] - p[8], 2));
 			const double rawMax = std::max({rawE01, rawE12, rawE20});
 			const float* q = sourceSoupDeformedOut.data() + t * 9U;
 			const double outE01 =
@@ -650,9 +662,9 @@ bool sdfRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const std
 				std::ostringstream oss;
 				oss << "[SDF-WARN] 输出撕裂 tri#" << t << " rawMax=" << rawMax << " outMax=" << outMax
 					<< " verts=" << ia << "," << ib << "," << ic << "\n[SDF-WARN] rawCorners: (" << p[0] << "," << p[1]
-					<< "," << p[2] << ") (" << p[3] << "," << p[4] << "," << p[5] << ") (" << p[6] << "," << p[7]
-					<< "," << p[8] << ")\n[SDF-WARN] outCorners: (" << q[0] << "," << q[1] << "," << q[2] << ") ("
-					<< q[3] << "," << q[4] << "," << q[5] << ") (" << q[6] << "," << q[7] << "," << q[8] << ")\n";
+					<< "," << p[2] << ") (" << p[3] << "," << p[4] << "," << p[5] << ") (" << p[6] << "," << p[7] << ","
+					<< p[8] << ")\n[SDF-WARN] outCorners: (" << q[0] << "," << q[1] << "," << q[2] << ") (" << q[3]
+					<< "," << q[4] << "," << q[5] << ") (" << q[6] << "," << q[7] << "," << q[8] << ")\n";
 				stats->debugSummary += oss.str();
 				break;
 			}

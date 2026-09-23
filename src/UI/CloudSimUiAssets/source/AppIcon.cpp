@@ -3,12 +3,11 @@
 
 #include "AppIcon.h"
 
+#include <QCoreApplication>
+#include <QDir>
 #include <QIcon>
 #include <QSettings>
 #include <QString>
-
-#include <QCoreApplication>
-#include <QDir>
 
 static void initLogoResources()
 {
@@ -25,8 +24,7 @@ QString themeFolder()
 	{
 		return QStringLiteral("light");
 	}
-	const QString path =
-		QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("settings.ini"));
+	const QString path = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("settings.ini"));
 	QSettings settings(path, QSettings::IniFormat);
 	settings.beginGroup(QStringLiteral("Appearance"));
 	QString value = settings.value(QStringLiteral("theme")).toString();
@@ -39,7 +37,7 @@ QString themeFolder()
 		legacy.endGroup();
 	}
 	return value.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0 ? QStringLiteral("dark")
-																		  : QStringLiteral("light");
+																		   : QStringLiteral("light");
 }
 
 } // namespace

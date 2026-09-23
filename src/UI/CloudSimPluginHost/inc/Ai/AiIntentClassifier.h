@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIINTENTCLASSIFIER_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIINTENTCLASSIFIER_H
 #define CLOUDSIMPLUGINHOST_AIINTENTCLASSIFIER_H
 
 /// @file AiIntentClassifier.h
@@ -25,4 +25,4 @@ Result classifyByRules(const QString& userText, int minScore = 2);
 Result classifyByLocalLlm(const QString& userText, const AiConfigDto& config);
 } // namespace AiIntentClassifier
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIINTENTCLASSIFIER_H

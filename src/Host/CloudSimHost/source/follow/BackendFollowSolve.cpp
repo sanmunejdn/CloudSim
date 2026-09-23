@@ -1,4 +1,4 @@
-/// @file BackendFollowSolve.cpp
+﻿/// @file BackendFollowSolve.cpp
 /// @brief Follow 脏集求解 + compound 传播
 
 #include "BackendFollowSolve.h"
@@ -20,10 +20,9 @@
 #include "IRobotBackendPoseSink.h"
 #include "OsgWidget.h"
 #include "OsgWidgetSceneBridge.h"
+#include "PropertyBag.h"
 #include "io/CustomDeviceRobotMountOps.h"
 #include "visual/VisualAspect.h"
-
-#include "PropertyBag.h"
 
 #include <QString>
 #include <unordered_map>
@@ -392,7 +391,7 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 	}
 
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&mgr](const std::string& bid,
-																		 BackendMat4& out) -> bool
+																		  BackendMat4& out) -> bool
 	{
 		const auto obj = mgr.getData(bid);
 		if (!obj || !obj->hasPoseProperty())

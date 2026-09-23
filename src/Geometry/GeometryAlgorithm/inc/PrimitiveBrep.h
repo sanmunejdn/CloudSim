@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_PRIMITIVEBREP_H
+﻿#ifndef GEOMETRYALGORITHM_PRIMITIVEBREP_H
 #define GEOMETRYALGORITHM_PRIMITIVEBREP_H
 
 /// @file PrimitiveBrep.h
@@ -33,4 +33,4 @@ struct GEOMETRY_ALGORITHM_API PrimitiveBrepParams
 GEOMETRY_ALGORITHM_API ShapeHandle makePrimitiveShape(const PrimitiveBrepParams& params);
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_PRIMITIVEBREP_H

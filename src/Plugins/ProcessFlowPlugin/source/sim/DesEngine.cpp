@@ -1,4 +1,4 @@
-/// @file DesEngine.cpp
+﻿/// @file DesEngine.cpp
 /// @brief DES：派工 / 交期 / 故障 / 批量 / 装配汇合
 
 #include "sim/DesEngine.h"
@@ -166,8 +166,7 @@ double remainingWork(const QVector<OpSpec>& ops, int fromOp)
 }
 } // namespace
 
-DesEngine::DesEngine()
-	: m_policy(std::make_unique<FifoPolicy>()), m_executor(std::make_unique<NullStationExecutor>())
+DesEngine::DesEngine() : m_policy(std::make_unique<FifoPolicy>()), m_executor(std::make_unique<NullStationExecutor>())
 {
 }
 
@@ -286,8 +285,7 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 		maxWip = std::max(maxWip, static_cast<double>(wip));
 	};
 
-	auto opsOf = [&](const JobState& js) -> const QVector<OpSpec>&
-	{ return jobSet.templates[js.templateIndex].ops; };
+	auto opsOf = [&](const JobState& js) -> const QVector<OpSpec>& { return jobSet.templates[js.templateIndex].ops; };
 
 	auto scheduleFailIfNeeded = [&](MachineRuntime& m, double now)
 	{
@@ -424,8 +422,9 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 				continue;
 			}
 			const OpSpec& hop = hops[head.nextOp];
-			const int need = std::max(1, static_cast<int>(std::floor(
-									   hop.kind == QStringLiteral("assembly") ? hop.requiredInputs : hop.batchSize)));
+			const int need =
+				std::max(1, static_cast<int>(std::floor(hop.kind == QStringLiteral("assembly") ? hop.requiredInputs
+																							   : hop.batchSize)));
 			if (static_cast<int>(m.queue.size()) < need)
 				break;
 
@@ -461,9 +460,9 @@ SimStatistics DesEngine::run(const PlantGraph& plant, const JobSet& jobSet, doub
 			const QVector<OpSpec>& ops = opsOf(js);
 			const int opSeq = js.nextOp;
 			const OpSpec& op = ops[opSeq];
-			const int batchNeed =
-				std::max(1, static_cast<int>(std::floor(op.kind == QStringLiteral("assembly") ? op.requiredInputs
-																							 : op.batchSize)));
+			const int batchNeed = std::max(
+				1,
+				static_cast<int>(std::floor(op.kind == QStringLiteral("assembly") ? op.requiredInputs : op.batchSize)));
 
 			// 收集同机同工序同伴
 			std::vector<int> peers;

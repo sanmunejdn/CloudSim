@@ -229,6 +229,9 @@
     <ClCompile Include="source\geometry_base64.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
+    <ClCompile Include="source\MeshBackendData_3dxml.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
     <ClCompile Include="source\MeshBackendData_cgal_io.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
@@ -236,12 +239,6 @@
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\MeshBackendData_dxf.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBackendData_3dxml.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="third_party\tinyxml2\tinyxml2.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\MeshBackendData_load_common.cpp">
@@ -263,6 +260,9 @@
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
     <ClCompile Include="source\PointCloudBackendData.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\tinyxml2\tinyxml2.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
   </ItemGroup>

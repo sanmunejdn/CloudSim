@@ -1,11 +1,10 @@
-/// @file RobotExternalAxes.cpp
+﻿/// @file RobotExternalAxes.cpp
 /// @brief 外部轴配置 JSON、校验与多轴 FK 合成
 
 #include "RobotExternalAxes.h"
 
-#include "JointMotionAdapters.h"
 #include "BackendFollowMath.h"
-
+#include "JointMotionAdapters.h"
 #include "JointMotionEval.h"
 #include "Mat4Ops.h"
 
@@ -281,8 +280,8 @@ std::vector<const RobotExternalAxisConfig*> enabledExternalAxes(const RobotExter
 	return out;
 }
 
-std::vector<const RobotExternalAxisConfig*>
-enabledExternalAxesForAttachment(const RobotExternalAxisConfigSet& set, const RobotExternalAttachment attachment)
+std::vector<const RobotExternalAxisConfig*> enabledExternalAxesForAttachment(const RobotExternalAxisConfigSet& set,
+																			 const RobotExternalAttachment attachment)
 {
 	std::vector<const RobotExternalAxisConfig*> out;
 	for (const RobotExternalAxisConfig& a : set.axes)

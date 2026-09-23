@@ -1,14 +1,14 @@
-/// @file AiCatalogKeywordMatcher.cpp
+﻿/// @file AiCatalogKeywordMatcher.cpp
 /// @brief Catalog 按钮名最长匹配（最短长度 + 词边界，降低误命中）
 
 #include "Ai/AiCatalogKeywordMatcher.h"
 
 #include "AiDomainTypes.h"
 
-#include <json.hpp>
-
 #include <algorithm>
 #include <vector>
+
+#include <json.hpp>
 
 namespace AiCatalogKeywordMatcher
 {

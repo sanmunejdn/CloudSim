@@ -1,4 +1,4 @@
-/// @file SketchRevolve.cpp
+﻿/// @file SketchRevolve.cpp
 
 #include "SketchRevolve.h"
 
@@ -6,15 +6,15 @@
 #include "detail/OccIncludes.h"
 #include "detail/SketchCurveWireOcc.h"
 
+#include <cmath>
+
 #include <BRepPrimAPI_MakeRevol.hxx>
-#include <gp_Ax1.hxx>
-#include <gp_Dir.hxx>
-#include <gp_Pnt.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
-
-#include <cmath>
+#include <gp_Ax1.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

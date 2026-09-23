@@ -1,4 +1,4 @@
-/// @file ProcessFlowResultDialog.cpp
+﻿/// @file ProcessFlowResultDialog.cpp
 /// @brief 结果大图对话框
 
 #include "ProcessFlowResultDialog.h"
@@ -11,7 +11,6 @@
 #include <QScrollArea>
 #include <QTableWidget>
 #include <QVBoxLayout>
-
 #include <algorithm>
 
 ProcessFlowResultDialog::ProcessFlowResultDialog(Mode mode, QWidget* parent) : QDialog(parent), m_mode(mode)
@@ -36,18 +35,16 @@ ProcessFlowResultDialog::ProcessFlowResultDialog(Mode mode, QWidget* parent) : Q
 	else if (m_mode == Mode::Trace)
 	{
 		m_table = new QTableWidget(0, 5, this);
-		m_table->setHorizontalHeaderLabels(
-			{QStringLiteral("Job"), QStringLiteral("Op"), QStringLiteral("机器"), QStringLiteral("开始"),
-			 QStringLiteral("结束")});
+		m_table->setHorizontalHeaderLabels({QStringLiteral("Job"), QStringLiteral("Op"), QStringLiteral("机器"),
+											QStringLiteral("开始"), QStringLiteral("结束")});
 		m_table->horizontalHeader()->setStretchLastSection(true);
 		layout->addWidget(m_table);
 	}
 	else
 	{
 		m_table = new QTableWidget(0, 5, this);
-		m_table->setHorizontalHeaderLabels(
-			{QStringLiteral("策略"), QStringLiteral("Makespan"), QStringLiteral("完成"), QStringLiteral("吞吐"),
-			 QStringLiteral("瓶颈")});
+		m_table->setHorizontalHeaderLabels({QStringLiteral("策略"), QStringLiteral("Makespan"), QStringLiteral("完成"),
+											QStringLiteral("吞吐"), QStringLiteral("瓶颈")});
 		m_table->horizontalHeader()->setStretchLastSection(true);
 		layout->addWidget(m_table);
 
@@ -71,18 +68,18 @@ void ProcessFlowResultDialog::applyLanguage(bool useChinese)
 	updateWindowTitle();
 	if (m_mode == Mode::Trace && m_table)
 	{
-		m_table->setHorizontalHeaderLabels(
-			{QStringLiteral("Job"), QStringLiteral("Op"), useChinese ? QStringLiteral("机器") : QStringLiteral("Machine"),
-			 useChinese ? QStringLiteral("开始") : QStringLiteral("Start"),
-			 useChinese ? QStringLiteral("结束") : QStringLiteral("End")});
+		m_table->setHorizontalHeaderLabels({QStringLiteral("Job"), QStringLiteral("Op"),
+											useChinese ? QStringLiteral("机器") : QStringLiteral("Machine"),
+											useChinese ? QStringLiteral("开始") : QStringLiteral("Start"),
+											useChinese ? QStringLiteral("结束") : QStringLiteral("End")});
 	}
 	else if (m_mode == Mode::Compare && m_table)
 	{
-		m_table->setHorizontalHeaderLabels(
-			{useChinese ? QStringLiteral("策略") : QStringLiteral("Policy"), QStringLiteral("Makespan"),
-			 useChinese ? QStringLiteral("完成") : QStringLiteral("Done"),
-			 useChinese ? QStringLiteral("吞吐") : QStringLiteral("Throughput"),
-			 useChinese ? QStringLiteral("瓶颈") : QStringLiteral("Bottleneck")});
+		m_table->setHorizontalHeaderLabels({useChinese ? QStringLiteral("策略") : QStringLiteral("Policy"),
+											QStringLiteral("Makespan"),
+											useChinese ? QStringLiteral("完成") : QStringLiteral("Done"),
+											useChinese ? QStringLiteral("吞吐") : QStringLiteral("Throughput"),
+											useChinese ? QStringLiteral("瓶颈") : QStringLiteral("Bottleneck")});
 	}
 }
 

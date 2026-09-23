@@ -1,8 +1,12 @@
-#ifndef KINEMATICCORE_DLSPOSEIK_H
+﻿#ifndef KINEMATICCORE_DLSPOSEIK_H
 #define KINEMATICCORE_DLSPOSEIK_H
 
-#include "KinematicGraph.h"
+/// @file DlsPoseIk.h
+/// @brief 阻尼最小二乘位姿 IK（位置 + 可选姿态）
+
 #include "kinematic_core_global.h"
+
+#include "KinematicGraph.h"
 
 #include <vector>
 
@@ -35,8 +39,9 @@ struct KINEMATIC_CORE_API DlsPoseIkResult
 
 /// 阻尼最小二乘位姿 IK（位置 + 可选姿态）
 KINEMATIC_CORE_API DlsPoseIkResult solvePoseDampedLeastSquares(const KinematicGraph& graph, const double baseWorld[16],
-															 int targetLinkIdx, const PoseIkTarget& target,
-															 std::vector<double>& qInOut, const DlsPoseIkOptions& opt = {});
+															   int targetLinkIdx, const PoseIkTarget& target,
+															   std::vector<double>& qInOut,
+															   const DlsPoseIkOptions& opt = {});
 
 } // namespace kinematic_core
 

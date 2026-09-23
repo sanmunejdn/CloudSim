@@ -1,4 +1,4 @@
-#ifndef WIDGET_JOBSYSTEM_H
+﻿#ifndef WIDGET_JOBSYSTEM_H
 #define WIDGET_JOBSYSTEM_H
 
 /// @file JobSystem.h
@@ -28,10 +28,7 @@ public:
 	JobCancelToken() = default;
 	explicit JobCancelToken(std::shared_ptr<const std::atomic<bool>> flag) : m_flag(std::move(flag)) {}
 
-	bool canceled() const
-	{
-		return m_flag && m_flag->load(std::memory_order_acquire);
-	}
+	bool canceled() const { return m_flag && m_flag->load(std::memory_order_acquire); }
 
 private:
 	std::shared_ptr<const std::atomic<bool>> m_flag;
@@ -54,7 +51,7 @@ public:
 					std::function<void(bool threw, const QString& throwMessage)> onFinished);
 
 	quint64 enqueueCancellable(const QString& title, JobCancellableWork work,
-							  std::function<void(bool threw, const QString& throwMessage)> onFinished);
+							   std::function<void(bool threw, const QString& throwMessage)> onFinished);
 
 	/// 协作取消；已跑完返回 false
 	bool cancel(quint64 jobId);

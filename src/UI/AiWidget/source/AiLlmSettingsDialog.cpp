@@ -118,7 +118,8 @@ void AiLlmSettingsDialog::applyLanguage()
 	if (m_hintLabel)
 		m_hintLabel->setText(
 			zh ? QStringLiteral("默认本地 Ollama + 规则。关闭「启用规则」可单独验证模型输出；云端 API 可选。")
-			   : QStringLiteral("Default: local Ollama + rules. Turn off rules to test model output; remote API optional."));
+			   : QStringLiteral(
+					 "Default: local Ollama + rules. Turn off rules to test model output; remote API optional."));
 	if (m_buttons)
 	{
 		if (QPushButton* ok = m_buttons->button(QDialogButtonBox::Ok))

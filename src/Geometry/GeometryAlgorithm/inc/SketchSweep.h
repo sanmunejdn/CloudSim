@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_SKETCHSWEEP_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHSWEEP_H
 #define GEOMETRYALGORITHM_SKETCHSWEEP_H
 
 /// @file SketchSweep.h
@@ -70,4 +70,4 @@ GEOMETRY_ALGORITHM_API bool sketchSweepSegmentsToHandle(const std::vector<float>
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHSWEEP_H

@@ -1,7 +1,6 @@
-/// @file SketchGeom.h
+﻿/// @file SketchGeom.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 草图平面 UV 几何（对齐 OneCAD 语义，无 OCC 依赖）
-
 #ifndef GEOMETRICMODELINGPLUGIN_SKETCHGEOM_H
 #define GEOMETRICMODELINGPLUGIN_SKETCHGEOM_H
 
@@ -279,12 +278,12 @@ bool sketchCircumcenter(const SkVec2& a, const SkVec2& b, const SkVec2& c, SkVec
 /// 过点 Catmull-Rom 均匀采样（端点重复）
 void sketchSampleCatmullRom(const std::vector<SkVec2>& through, std::vector<SkVec2>& out, int segsPerSpan = 12);
 
-void sketchSampleEllipse(const SkVec2& center, double majorR, double minorR, double angleRad,
-						 std::vector<SkVec2>& out, int segs = 48);
+void sketchSampleEllipse(const SkVec2& center, double majorR, double minorR, double angleRad, std::vector<SkVec2>& out,
+						 int segs = 48);
 
 bool offsetClosedUv(const std::vector<SkVec2>& poly, double dist, std::vector<SkVec2>& out, std::string* err = nullptr);
 
 /// 闭合折线是否自交（端点共享不算）
 bool closedPolylineSelfIntersectsUv(const std::vector<SkVec2>& poly, double eps = 1e-9);
 
-#endif
+#endif // GEOMETRICMODELINGPLUGIN_SKETCHGEOM_H

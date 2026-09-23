@@ -15,4 +15,4 @@ Or place `hsl.auth` next to the exe (do not commit).
 
 Newline-delimited JSON on TCP. Commands: `ping`, `connect`, `disconnect`, `get_state`, `get_feedback`.
 
-See `CloudSim/docs/机器人通讯/DESIGN_机器人通讯.md`.
+See `CloudSim/src/Plugins/RobotCommSDK/DEVELOPER_GUIDE.md`（历史 DESIGN 已进仓库外 zip）。

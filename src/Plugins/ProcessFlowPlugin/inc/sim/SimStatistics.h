@@ -1,5 +1,5 @@
-#ifndef PROCESSFLOWPLUGIN_SIM_SIMSTATISTICS_H
-#define PROCESSFLOWPLUGIN_SIM_SIMSTATISTICS_H
+﻿#ifndef PROCESSFLOWPLUGIN_SIMSTATISTICS_H
+#define PROCESSFLOWPLUGIN_SIMSTATISTICS_H
 
 /// @file SimStatistics.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -61,4 +61,4 @@ struct SimStatistics
 	QString toCsv() const;
 };
 
-#endif
+#endif // PROCESSFLOWPLUGIN_SIMSTATISTICS_H

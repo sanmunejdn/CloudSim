@@ -3,8 +3,9 @@
 
 #include "pch.h"
 
-#include "BackendTypeIdentity.h"
 #include "FrameBackendData.h"
+
+#include "BackendTypeIdentity.h"
 #include "RunLogger.h"
 
 FrameBackendData::FrameBackendData()
@@ -37,9 +38,7 @@ std::size_t FrameBackendData::geometryElementCount() const
 	return 1U;
 }
 
-void FrameBackendData::clearGeometry()
-{
-}
+void FrameBackendData::clearGeometry() {}
 
 void FrameBackendData::setAxisLengthMm(const float mm)
 {

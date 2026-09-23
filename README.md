@@ -4,7 +4,7 @@
 
 | 桌面端 | 网页端 |
 |:------:|:------:|
-| ![桌面端界面](docs/图片/desktop-ui.png) | ![网页端界面](docs/图片/web-ui.png) |
+| ![桌面端界面](docs/features/图片/desktop-ui.png) | ![网页端界面](docs/features/图片/web-ui.png) |
 
 ## 快速入口
 
@@ -13,16 +13,16 @@
 | 桌面解决方案 | [`CloudSim.sln`](CloudSim.sln) → `CloudSim.exe` |
 | 网页解决方案 | [`CloudSimWeb.sln`](CloudSimWeb.sln) → `CloudSimWeb.exe` |
 | 双端安装包 | [`../Setup/packaging`](../Setup/packaging)（`-Product Desktop\|Web`；Web 须 Vite `bin\x64\web\assets\`） |
-| 文档索引 | [`docs/README.md`](docs/README.md)（含**按模式 / 按插件**导航） |
-| 主程序 / 几何建模 / 工艺流程 / 工程图 | [`docs/主程序/`](docs/主程序/)、[`几何建模/`](docs/几何建模/)、[`工艺流程/`](docs/工艺流程/)、[`工程图/`](docs/工程图/) |
-| 插件类型索引 | [`docs/插件/`](docs/插件/)、[`src/Plugins/README.md`](src/Plugins/README.md) |
+| 开发文档入口 | [`docs/README.md`](docs/README.md) |
+| 功能专题 / 模式 | [`docs/features/`](docs/features/README.md)（主程序 / 几何建模 / 工艺流程 / 工程图） |
+| 插件类型索引 | [`docs/features/插件/`](docs/features/插件/)、[`src/Plugins/README.md`](src/Plugins/README.md) |
 | `src/` 文档总览 | [`src/README.md`](src/README.md) |
 | 许可说明 | [`LICENSE`](LICENSE)（自研代码仅供研究学习；商用请联系 921857463@qq.com） |
 | 目录布局 | [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md) |
 | 模块开发指南 | [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md) |
 | 源码约定 | [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md) |
 | 世界坐标契约 | [`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md) |
-| 网页 API（归档） | [`docs/_archive/网页端/API_网页端.md`](docs/_archive/网页端/API_网页端.md) |
+| 网页 API 契约 | [`docs/features/网页端/全量对等/API_CONTRACT.md`](docs/features/网页端/全量对等/API_CONTRACT.md) |
 
 构建产物：Debug → 仓库根 `bin\x64d\`，Release → `bin\x64\`（见 `Directory.Build.props`）。网页静态资源在同目录 `web\`。
 
@@ -37,11 +37,11 @@
 | 默认访问 | 桌面窗口 | `http://127.0.0.1:8787`（可用 `--port=` 改端口） |
 | TCP 拖动示教 | 末端局部轴；目标姿态用四元数真值，避免欧拉往返 | 同源：`TransformControls` 固定 `local`；`/api/robot/tcp-ik` 追赶只截断平移；落点优先罗盘矩阵 |
 | 几何建模 | 插件 Ribbon + PlaneGCS 草图 + 特征树；Host ABI 写 `ParametricBrepModel` | 同一 Body/rebuild；`HeadlessGeomodelBridge` + `/api/geomodeling/*`；工作区保留 3D |
-| 架构图 | [`docs/架构/desktop.html`](docs/架构/desktop.html) | [`docs/架构/web.html`](docs/架构/web.html) |
+| 架构图 | [`docs/features/架构/desktop.html`](docs/features/架构/desktop.html) | [`docs/features/架构/web.html`](docs/features/架构/web.html) |
 
 两套 sln **互不引入**对方的 UI/Web 工程；桌面用 `CloudSimHost`，网页用 `CloudSimHostHeadless`；共享 `CloudSimCore` / `Data` / 机器人与几何等后端 DLL。
 
-Host 共享源同步：[`docs/桌面网页Host同步/README.md`](docs/桌面网页Host同步/README.md)（`python scripts/check_host_headless_sources.py`）。
+Host 共享源同步：[`docs/features/网页端/Host同步/README.md`](docs/features/网页端/Host同步/README.md)（`python scripts/check_host_headless_sources.py`）。
 
 ## 几何建模：桌面逻辑 → 网页
 
@@ -70,7 +70,7 @@ Host 共享源同步：[`docs/桌面网页Host同步/README.md`](docs/桌面网�
 | 特征树 | `GET /api/geomodeling/summary` | Body + features[] |
 | Python 控制台 / `feature.compose` AI | 桌面 / 侧车 | 网页 AI 域仍是 scene/robot/process |
 
-契约与算子清单：[docs/网页端全量对等/API_CONTRACT.md](docs/网页端全量对等/API_CONTRACT.md)；桌面功能表：[docs/几何建模/FEATURES.md](docs/几何建模/FEATURES.md)。
+契约与算子清单：[docs/features/网页端/全量对等/API_CONTRACT.md](docs/features/网页端/全量对等/API_CONTRACT.md)；桌面功能表：[docs/features/几何建模/FEATURES.md](docs/features/几何建模/FEATURES.md)。
 
 ## 网页版源码
 
@@ -100,7 +100,7 @@ npm run build:release  # → bin/x64/web（含 assets/）
 ```text
 CloudSim/
 ├── CloudSim.sln / CloudSimWeb.sln
-├── docs/                 # 常读文档；历史专题见 docs/_archive/
+├── docs/                 # 布局 / 约定 / 空间契约 / 模块表
 ├── web/                  # 网页前端
 ├── scripts/              # clang-format / 编码 / vcxproj.filters
 └── src/
@@ -115,6 +115,8 @@ CloudSim/
     ├── Plugins/          # 几何建模、工艺、PLC、AI 等
     └── Infra/            # RunLogger 等
 ```
+
+功能专题在 [`docs/features/`](docs/features/README.md)。
 
 ## 维护命令
 

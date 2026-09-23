@@ -1,4 +1,4 @@
-/// @file ProcessFlowPaletteWidget.cpp
+﻿/// @file ProcessFlowPaletteWidget.cpp
 /// @brief 左侧节点库；拖出 MIME / 双击添加
 
 #include "ProcessFlowPaletteWidget.h"
@@ -87,8 +87,7 @@ protected:
 		o.insert(QStringLiteral("subtitle"), item->data(Qt::UserRole + 2).toString());
 		o.insert(QStringLiteral("color"), item->data(Qt::UserRole + 3).toString());
 		auto* mime = new QMimeData;
-		mime->setData(QString::fromLatin1(processFlowNodeMimeType()),
-					  QJsonDocument(o).toJson(QJsonDocument::Compact));
+		mime->setData(QString::fromLatin1(processFlowNodeMimeType()), QJsonDocument(o).toJson(QJsonDocument::Compact));
 		auto* drag = new QDrag(this);
 		drag->setMimeData(mime);
 		drag->exec(Qt::CopyAction);

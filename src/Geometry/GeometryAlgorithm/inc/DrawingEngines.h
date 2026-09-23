@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_DRAWINGENGINES_H
+﻿#ifndef GEOMETRYALGORITHM_DRAWINGENGINES_H
 #define GEOMETRYALGORITHM_DRAWINGENGINES_H
 
 /// @file DrawingEngines.h
@@ -10,17 +10,16 @@
 #include "DrawingGeometry.h"
 #include "Types.h"
 
-#include <TopoDS_Shape.hxx>
-#include <gp_Ax2.hxx>
-
 #include <string>
 #include <vector>
+
+#include <TopoDS_Shape.hxx>
+#include <gp_Ax2.hxx>
 
 namespace geoalgo
 {
 namespace drawing_engines
 {
-
 /// HLRBRep_Algo 精确投影 → 分边类图元
 GEOMETRY_ALGORITHM_API bool extractExactHlrEntities(const TopoDS_Shape& shape, const gp_Ax2& viewAx, int nbIso,
 													const TessellateParams& params, std::vector<DrawingEntity>& out,

@@ -1,3 +1,6 @@
+﻿/// @file GeometricJacobian.cpp
+/// @brief URDF 等 RestThenMotion 链：轴与枢轴在 parent*Rest（或 MotionThenRest 时 parent*Motion）坐标系，而非 parent link 原点
+
 #include "GeometricJacobian.h"
 
 #include "JointMotionEval.h"
@@ -115,8 +118,7 @@ bool jointAffectsTarget(const KinematicGraph& graph, int jointIdx, int targetLin
 }
 
 bool fillPositionJacobianFromLinkWorld(const KinematicGraph& graph, const double* q, const std::size_t qCount,
-									   const int targetLinkIdx,
-									   const std::vector<std::array<double, 16>>& linkWorld,
+									   const int targetLinkIdx, const std::vector<std::array<double, 16>>& linkWorld,
 									   std::vector<double>& J_3xn, const JacobianOptions& opt)
 {
 	if (targetLinkIdx < 0 || targetLinkIdx >= static_cast<int>(graph.links.size()) ||
@@ -175,8 +177,7 @@ bool fillPositionJacobianFromLinkWorld(const KinematicGraph& graph, const double
 }
 
 bool fillOrientationRowsFromLinkWorld(const KinematicGraph& graph, const double* q, const std::size_t qCount,
-									  const int targetLinkIdx,
-									  const std::vector<std::array<double, 16>>& linkWorld,
+									  const int targetLinkIdx, const std::vector<std::array<double, 16>>& linkWorld,
 									  std::vector<double>& J_6xn, const JacobianOptions& opt)
 {
 	const int n = graph.dofCount();
@@ -225,16 +226,14 @@ bool fillOrientationRowsFromLinkWorld(const KinematicGraph& graph, const double*
 } // namespace
 
 bool computePositionJacobianFromLinkWorld(const KinematicGraph& graph, const double* q, const std::size_t qCount,
-										  const int targetLinkIdx,
-										  const std::vector<std::array<double, 16>>& linkWorld,
+										  const int targetLinkIdx, const std::vector<std::array<double, 16>>& linkWorld,
 										  std::vector<double>& J_3xn, const JacobianOptions& opt)
 {
 	return fillPositionJacobianFromLinkWorld(graph, q, qCount, targetLinkIdx, linkWorld, J_3xn, opt);
 }
 
 bool computePoseJacobianFromLinkWorld(const KinematicGraph& graph, const double* q, const std::size_t qCount,
-									  const int targetLinkIdx,
-									  const std::vector<std::array<double, 16>>& linkWorld,
+									  const int targetLinkIdx, const std::vector<std::array<double, 16>>& linkWorld,
 									  std::vector<double>& J_6xn, const JacobianOptions& opt)
 {
 	if (!fillPositionJacobianFromLinkWorld(graph, q, qCount, targetLinkIdx, linkWorld, J_6xn, opt))

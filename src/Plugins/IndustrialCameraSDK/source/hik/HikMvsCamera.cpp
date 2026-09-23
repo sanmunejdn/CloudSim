@@ -1,4 +1,4 @@
-/// @file HikMvsCamera.cpp
+﻿/// @file HikMvsCamera.cpp
 /// @brief 海康 MVS：定义 CLOUDSIM_HAS_HIK_MVS 且安装头库后启用真机路径
 
 #include "HikMvsCamera.h"
@@ -9,7 +9,6 @@
 
 namespace industrial_camera
 {
-
 bool HikMvsCamera::sdkAvailable()
 {
 #if defined(CLOUDSIM_HAS_HIK_MVS)
@@ -87,7 +86,8 @@ bool HikMvsCamera::connect(const CameraConnectParams& params)
 			serial = reinterpret_cast<char*>(di->SpecialInfo.stGigEInfo.chSerialNumber);
 			unsigned u = di->SpecialInfo.stGigEInfo.nCurrentIp;
 			char buf[32];
-			std::snprintf(buf, sizeof(buf), "%u.%u.%u.%u", (u >> 24) & 0xff, (u >> 16) & 0xff, (u >> 8) & 0xff, u & 0xff);
+			std::snprintf(buf, sizeof(buf), "%u.%u.%u.%u", (u >> 24) & 0xff, (u >> 16) & 0xff, (u >> 8) & 0xff,
+						  u & 0xff);
 			ip = buf;
 		}
 		else

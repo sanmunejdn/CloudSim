@@ -11,7 +11,6 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSet>
-
 #include <atomic>
 
 namespace cloudsim::host

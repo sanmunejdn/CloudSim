@@ -1,11 +1,10 @@
-/// @file PluginPropertyBindingRegistry.cpp
+﻿/// @file PluginPropertyBindingRegistry.cpp
 /// @brief 插件 Binding 运行时表
 
 #include "PluginPropertyBindingRegistry.h"
 
-#include "BackendExternalPropertySchemaRegistry.h"
-
 #include "../../Data/PropertyCore/inc/PropertyTypes.h"
+#include "BackendExternalPropertySchemaRegistry.h"
 
 #include <mutex>
 #include <unordered_map>

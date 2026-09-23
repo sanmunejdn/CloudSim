@@ -1,4 +1,4 @@
-#ifndef RUNLOGGER_RUN_LOGGER_GLOBAL_H
+﻿#ifndef RUNLOGGER_RUN_LOGGER_GLOBAL_H
 #define RUNLOGGER_RUN_LOGGER_GLOBAL_H
 
 /// @file run_logger_global.h

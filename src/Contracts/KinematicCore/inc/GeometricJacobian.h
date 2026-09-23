@@ -1,8 +1,12 @@
-#ifndef KINEMATICCORE_GEOMETRICJACOBIAN_H
+﻿#ifndef KINEMATICCORE_GEOMETRICJACOBIAN_H
 #define KINEMATICCORE_GEOMETRICJACOBIAN_H
 
-#include "KinematicGraph.h"
+/// @file GeometricJacobian.h
+/// @brief 位置雅可比 3×n（行主序 J[r*n+c]）
+
 #include "kinematic_core_global.h"
+
+#include "KinematicGraph.h"
 
 #include <array>
 #include <vector>

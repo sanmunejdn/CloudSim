@@ -1,4 +1,4 @@
-#ifndef WIDGET_WIDGETOSGVIEWHOST_H
+﻿#ifndef WIDGET_WIDGETOSGVIEWHOST_H
 #define WIDGET_WIDGETOSGVIEWHOST_H
 
 /// @file WidgetOsgViewHost.h
@@ -67,9 +67,9 @@ public:
 	void clearWaypointIndexLabels() override;
 	void setInstructionWaypointPickMode(bool enabled) override;
 	bool instructionWaypointPickMode() const override;
-	void setInstructionWaypointPickCallbacks(
-		std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
-		std::function<void()> onCanceled) override;
+	void
+	setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
+										std::function<void()> onCanceled) override;
 
 	bool isTcpDragTeachActive() const override;
 	void endTcpDragTeach() override;

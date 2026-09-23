@@ -1,4 +1,4 @@
-/// @file PlanResultCache.cpp
+﻿/// @file PlanResultCache.cpp
 /// @brief 规划结果与可行轴缓存
 
 #include "PlanResultCache.h"
@@ -76,7 +76,7 @@ void PlanResultCache::store(const QString& instructionId, const QString& fingerp
 }
 
 const PlanResultCache::FeasibleAxisEntry* PlanResultCache::fetchFeasibleAxis(const QString& instructionId,
-																			const QString& fingerprint) const
+																			 const QString& fingerprint) const
 {
 	const auto it = m_feasibleAxis.find(makeKey(instructionId, fingerprint));
 	return (it != m_feasibleAxis.end()) ? &(*it) : nullptr;

@@ -1452,9 +1452,9 @@ size_t MapStitchRowToFaceRow(size_t stitchRow, size_t stitchRowCount, size_t fac
 	{
 		return 0;
 	}
-	const size_t srcR = static_cast<size_t>(std::lround(static_cast<double>(stitchRow) *
-														static_cast<double>(faceRowCount - 1) /
-														static_cast<double>(stitchRowCount - 1)));
+	const size_t srcR =
+		static_cast<size_t>(std::lround(static_cast<double>(stitchRow) * static_cast<double>(faceRowCount - 1) /
+										static_cast<double>(stitchRowCount - 1)));
 	return std::min(srcR, faceRowCount - 1);
 }
 

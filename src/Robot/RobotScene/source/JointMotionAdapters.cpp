@@ -1,3 +1,6 @@
+﻿/// @file JointMotionAdapters.cpp
+/// @brief JointMotionAdapters 实现
+
 #include "JointMotionAdapters.h"
 
 namespace JointMotionAdapters

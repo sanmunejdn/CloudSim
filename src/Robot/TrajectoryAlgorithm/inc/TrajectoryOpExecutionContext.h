@@ -1,4 +1,4 @@
-#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPEXECUTIONCONTEXT_H
+﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPEXECUTIONCONTEXT_H
 #define TRAJECTORYALGORITHM_TRAJECTORYOPEXECUTIONCONTEXT_H
 
 /// @file TrajectoryOpExecutionContext.h
@@ -7,16 +7,16 @@
 
 #include "trajectory_algorithm_global.h"
 
-#include "INonRigidTrajectoryWarp.h"
 #include "IExternalAxisSearchService.h"
+#include "INonRigidTrajectoryWarp.h"
 #include "ITrajectoryReachabilityProbe.h"
 #include "TrajectoryPipelineTypes.h"
-
-#include <RigidTransform.h>
 
 #include <cstddef>
 #include <string>
 #include <vector>
+
+#include <RigidTransform.h>
 
 namespace RobotInstruction
 {

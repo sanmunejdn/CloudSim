@@ -11,7 +11,6 @@
 #include <QEvent>
 #include <QMouseEvent>
 
-
 namespace
 {
 IViewportPickEngine* meshPickEngineOf(OsgWidget* owner)

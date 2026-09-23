@@ -1,13 +1,13 @@
-#ifndef WIDGET_MAINWINDOW_H
+﻿#ifndef WIDGET_MAINWINDOW_H
 #define WIDGET_MAINWINDOW_H
 
 /// @file MainWindow.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 协调入口
 
-#include "ApplicationSettings.h"
 #include "widget_global.h"
 
+#include "ApplicationSettings.h"
 #include "BackendFollowSolve.h"
 #include "BackendUnitsTreeBinder.h"
 #include "CoreTypes.h"
@@ -124,11 +124,10 @@ public:
 	void clearAiFeatureCandidatePreviewForAi() override;
 	bool commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJsonUtf8, QString* outSummary,
 										 QString* outError) override;
-	int proposeAndConfirmTrajectoryPlanForAi(const std::string& planInUtf8, std::string* planOutUtf8,
-											 QString* outError, bool showRetry = true) override;
+	int proposeAndConfirmTrajectoryPlanForAi(const std::string& planInUtf8, std::string* planOutUtf8, QString* outError,
+											 bool showRetry = true) override;
 	bool loadBoundTrajectoryPlanForAi(std::string* planOutUtf8, QString* outError) override;
-	bool reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QString* outSummary,
-									 QString* outError) override;
+	bool reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QString* outSummary, QString* outError) override;
 	bool useChinese() const override;
 	QMenuBar* menuBar() override;
 	QStatusBar* statusBar() override;

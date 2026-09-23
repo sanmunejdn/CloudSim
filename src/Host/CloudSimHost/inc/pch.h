@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_PCH_H
+﻿#ifndef CLOUDSIMHOST_PCH_H
 #define CLOUDSIMHOST_PCH_H
 
 /// @file pch.h

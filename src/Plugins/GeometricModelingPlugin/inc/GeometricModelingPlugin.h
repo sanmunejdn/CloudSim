@@ -1,13 +1,13 @@
-#ifndef GEOMETRICMODELINGPLUGIN_GEOMETRICMODELINGPLUGIN_H
+﻿#ifndef GEOMETRICMODELINGPLUGIN_GEOMETRICMODELINGPLUGIN_H
 #define GEOMETRICMODELINGPLUGIN_GEOMETRICMODELINGPLUGIN_H
 
 /// @file GeometricModelingPlugin.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 
-#include "ICloudSimPlugin.h"
-#include "PluginGeometryTypes.h"
 #include "FeatureDocument.h"
 #include "GeometricModelingPage.h"
+#include "ICloudSimPlugin.h"
+#include "PluginGeometryTypes.h"
 #include "SketchEditSession.h"
 #include "SketchTools.h"
 
@@ -274,4 +274,4 @@ private:
 	std::vector<float> m_loftProfileB;
 };
 
-#endif
+#endif // GEOMETRICMODELINGPLUGIN_GEOMETRICMODELINGPLUGIN_H

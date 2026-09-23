@@ -1,5 +1,10 @@
-#ifndef CLOUDSIMHOST_IROBOTINSTRUCTIONPROPERTYDELEGATE_SHIM_H
-#define CLOUDSIMHOST_IROBOTINSTRUCTIONPROPERTYDELEGATE_SHIM_H
+﻿#ifndef CLOUDSIMHOST_IROBOTINSTRUCTIONPROPERTYDELEGATE_H
+#define CLOUDSIMHOST_IROBOTINSTRUCTIONPROPERTYDELEGATE_H
+
+/// @file IRobotInstructionPropertyDelegate.h
+/// @brief IRobotInstructionPropertyDelegate 接口
+
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 #include "robot/IRobotInstructionPropertyDelegate.h"
-#endif
+
+#endif // CLOUDSIMHOST_IROBOTINSTRUCTIONPROPERTYDELEGATE_H

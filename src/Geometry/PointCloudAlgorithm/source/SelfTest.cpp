@@ -3,6 +3,7 @@
 
 #include "SelfTest.h"
 
+#include "AdaptiveRemesh.h"
 #include "Crop.h"
 #include "Downsample.h"
 #include "Measure.h"
@@ -15,9 +16,8 @@
 #include "RegistrationGlobalPcl.h"
 #include "RegistrationNonRigid.h"
 #include "RegistrationRigid.h"
-#include "RegistrationSpare.h"
 #include "RegistrationSdf.h"
-#include "AdaptiveRemesh.h"
+#include "RegistrationSpare.h"
 #include "Transform.h"
 
 #include <cmath>
@@ -95,8 +95,8 @@ std::vector<float> makeWavyPlateSoup(const int n, const double spacing)
 			const double z10 = height(i + 1, j);
 			const double z01 = height(i, j + 1);
 			const double z11 = height(i + 1, j + 1);
-			auto pushTri = [&](double ax, double ay, double az, double bx, double by, double bz, double cx, double cy,
-							   double cz)
+			auto pushTri =
+				[&](double ax, double ay, double az, double bx, double by, double bz, double cx, double cy, double cz)
 			{
 				soup.push_back(static_cast<float>(ax));
 				soup.push_back(static_cast<float>(ay));
@@ -491,8 +491,7 @@ bool runSelfTest(std::vector<std::string>& failures)
 		}
 		std::vector<float> adapted;
 		std::string adaptErr;
-		expectTrue(failures, "adaptiveRemesh.residual.ok",
-				   adaptiveIsotropicRemesh(flat, adapted, adapt, &adaptErr));
+		expectTrue(failures, "adaptiveRemesh.residual.ok", adaptiveIsotropicRemesh(flat, adapted, adapt, &adaptErr));
 		const double highResMean = meanEdgeLengthInXRange(adapted, 0.0, 8.0);
 		const double lowResMean = meanEdgeLengthInXRange(adapted, 12.0, 20.0);
 		expectTrue(failures, "adaptiveRemesh.residual.highMean", highResMean > 0.0);

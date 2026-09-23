@@ -468,4 +468,3 @@ bool extractStoreZipArchive(const QString& zipFilePath, const QString& destDir, 
 }
 
 } // namespace cloudsim::web
-

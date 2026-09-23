@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_SKETCHCURVEWIRE_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHCURVEWIRE_H
 #define GEOMETRYALGORITHM_SKETCHCURVEWIRE_H
 
 /// @file SketchCurveWire.h
@@ -33,4 +33,4 @@ struct SketchCurveSegment
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHCURVEWIRE_H

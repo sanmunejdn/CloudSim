@@ -1,38 +1,36 @@
-/// @file CustomDeviceHostOps.cpp
+﻿/// @file CustomDeviceHostOps.cpp
 /// @brief Web/Headless 自定义设备操作
 
 #include "CustomDeviceHostOps.h"
 
 #include "BackendFileImport.h"
 #include "BackendSceneDocumentFacade.h"
-#include "CustomDeviceRobotMountComponent.h"
-#include "CustomDeviceRobotMountOps.h"
 #include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "CustomDeviceAssemblyCommit.h"
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceKinematics.h"
 #include "CustomDevicePoseMotionHost.h"
+#include "CustomDeviceRobotMountComponent.h"
+#include "CustomDeviceRobotMountOps.h"
 #include "DocumentHost.h"
 #include "FollowAttachmentComponent.h"
 #include "HeadlessRobotContext.h"
-#include "RobotSceneKinematics.h"
-#include "visual/VisualAspect.h"
 #include "IDataService.h"
 #include "IoSignalNetwork.h"
 #include "NamedSignalTable.h"
+#include "RobotSceneKinematics.h"
+#include "visual/VisualAspect.h"
 
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QUuid>
-
-#include <json.hpp>
-
 #include <queue>
 #include <unordered_set>
 
 #include <BackendDataManager.h>
+#include <json.hpp>
 
 namespace cloudsim::host
 {
@@ -101,7 +99,7 @@ QVector<double> qvectorFromJson(const QJsonArray& a)
 
 /// 挂载前 FK，与桌面 mountDeviceToRobot 预同步一致
 bool applyRobotFkBeforeDeviceMount(DocumentHost& host, const QString& robotSceneBackendId,
-									const QVector<double>* jointAnglesOverride, QVector<double>& outLocalJointAngles)
+								   const QVector<double>* jointAnglesOverride, QVector<double>& outLocalJointAngles)
 {
 	HeadlessRobotContext* hrc = host.headlessRobotContext();
 	if (!hrc)
@@ -374,9 +372,8 @@ QJsonObject customDeviceDetailJson(DocumentHost& host, const QString& deviceId)
 	nlohmann::json jointsJ = nlohmann::json::array();
 	writeCustomDeviceJointsToJson(device->joints(), jointsJ);
 
-	auto toQ = [](const nlohmann::json& j) {
-		return QJsonDocument::fromJson(QByteArray::fromStdString(j.dump())).array();
-	};
+	auto toQ = [](const nlohmann::json& j)
+	{ return QJsonDocument::fromJson(QByteArray::fromStdString(j.dump())).array(); };
 
 	QJsonObject root;
 	root.insert(QStringLiteral("ok"), true);
@@ -472,8 +469,9 @@ bool applyCustomDeviceQ(DocumentHost& host, const QString& deviceId, const QJson
 			*err = QStringLiteral("device not found");
 		return false;
 	}
-	std::vector<double> q = body.contains(QStringLiteral("q")) ? doublesFromJson(body.value(QStringLiteral("q")).toArray())
-															   : device->qValues();
+	std::vector<double> q = body.contains(QStringLiteral("q"))
+								? doublesFromJson(body.value(QStringLiteral("q")).toArray())
+								: device->qValues();
 	device->setQValues(q);
 	IRobotBackendPoseSink* sink = poseSinkOf(host);
 	if (!CustomDeviceKinematics::applyQ(*device, &host.backend(), sink, &q))
@@ -603,8 +601,8 @@ bool ensureCustomDevice(DocumentHost& host, const QJsonObject& body, QString* er
 	}
 	device = std::make_shared<CustomDeviceBackendData>();
 	deviceId = deviceId.isEmpty()
-				  ? QStringLiteral("CustomDevice_%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces))
-				  : deviceId;
+				   ? QStringLiteral("CustomDevice_%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces))
+				   : deviceId;
 	device->setId(deviceId.toStdString());
 	device->setName(body.value(QStringLiteral("name")).toString(QStringLiteral("CustomDevice")).toStdString());
 	QString regErr;
@@ -676,7 +674,8 @@ bool commitCustomDeviceAssembly(DocumentHost& host, const QJsonObject& body, QSt
 	std::vector<CustomDeviceLink> links;
 	std::vector<CustomDeviceJoint> joints;
 	{
-		const QByteArray raw = QJsonDocument(body.value(QStringLiteral("links")).toArray()).toJson(QJsonDocument::Compact);
+		const QByteArray raw =
+			QJsonDocument(body.value(QStringLiteral("links")).toArray()).toJson(QJsonDocument::Compact);
 		nlohmann::json j = nlohmann::json::parse(raw.constData(), nullptr, false);
 		if (j.is_discarded() || !readCustomDeviceLinksFromJson(j, links))
 		{
@@ -851,9 +850,9 @@ bool mountCustomDeviceToRobotFlange(DocumentHost& host, const QString& deviceId,
 		}
 	}
 
-	const bool mounted = mountCustomDeviceToFlange(*device, host, robotSceneBackendId, flangeLinkName, flangeBackendId,
-												   mountFrameBackendId, toolMat, jointAnglesForMount,
-												   mountTcpWorldForAlign, err);
+	const bool mounted =
+		mountCustomDeviceToFlange(*device, host, robotSceneBackendId, flangeLinkName, flangeBackendId,
+								  mountFrameBackendId, toolMat, jointAnglesForMount, mountTcpWorldForAlign, err);
 	if (mounted)
 	{
 		notifyRobotSceneAfterDeviceMountChange(host);

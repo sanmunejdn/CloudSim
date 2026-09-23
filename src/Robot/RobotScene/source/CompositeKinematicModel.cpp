@@ -1,3 +1,6 @@
+﻿/// @file CompositeKinematicModel.cpp
+/// @brief CompositeKinematicModel 实现
+
 #include "CompositeKinematicModel.h"
 
 #include "ExternalAxisKinematicModel.h"

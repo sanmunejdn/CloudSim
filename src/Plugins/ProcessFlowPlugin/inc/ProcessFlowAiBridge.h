@@ -1,4 +1,4 @@
-#ifndef PROCESSFLOWPLUGIN_PROCESSFLOWAIBRIDGE_H
+﻿#ifndef PROCESSFLOWPLUGIN_PROCESSFLOWAIBRIDGE_H
 #define PROCESSFLOWPLUGIN_PROCESSFLOWAIBRIDGE_H
 
 /// @file ProcessFlowAiBridge.h
@@ -25,4 +25,4 @@ private:
 	ProcessFlowPlugin* m_plugin = nullptr;
 };
 
-#endif
+#endif // PROCESSFLOWPLUGIN_PROCESSFLOWAIBRIDGE_H

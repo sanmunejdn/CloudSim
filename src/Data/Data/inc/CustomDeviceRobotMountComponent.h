@@ -1,4 +1,4 @@
-#ifndef DATA_CUSTOMDEVICEROBOTMOUNTCOMPONENT_H
+﻿#ifndef DATA_CUSTOMDEVICEROBOTMOUNTCOMPONENT_H
 #define DATA_CUSTOMDEVICEROBOTMOUNTCOMPONENT_H
 
 /// @file CustomDeviceRobotMountComponent.h
@@ -69,7 +69,7 @@ public:
 
 	/// T_mount_in_device = inv(T_device_w) * T_mount_frame_w
 	static bool computeFrameInDeviceFromWorldPoses(const BackendMat4& deviceWorld, const BackendMat4& frameWorld,
-												 BackendMat4& outFrameInDevice);
+												   BackendMat4& outFrameInDevice);
 
 	/// W_device = T_tcp_w * inv(T_mount_in_device)，其中 T_tcp_w = T_flange_w * T_tool
 	static bool computeEffectiveDeviceWorldForFrameTcpAlign(const BackendMat4& flangeWorld,

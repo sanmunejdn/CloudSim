@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_SKETCHSHELL_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHSHELL_H
 #define GEOMETRYALGORITHM_SKETCHSHELL_H
 
 /// @file SketchShell.h
@@ -6,6 +6,7 @@
 /// @brief 选面开壳（OCC MakeThickSolid）
 
 #include "geometry_algorithm_global.h"
+
 #include "ShapeHandle.h"
 
 #include <string>
@@ -19,4 +20,4 @@ GEOMETRY_ALGORITHM_API bool shellFacesToHandle(const ShapeHandle& base, const st
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHSHELL_H

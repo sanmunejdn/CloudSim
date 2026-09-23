@@ -1,4 +1,4 @@
-#ifndef ROBOTURDF_ROBOT_URDF_GLOBAL_H
+﻿#ifndef ROBOTURDF_ROBOT_URDF_GLOBAL_H
 #define ROBOTURDF_ROBOT_URDF_GLOBAL_H
 
 /// @file robot_urdf_global.h

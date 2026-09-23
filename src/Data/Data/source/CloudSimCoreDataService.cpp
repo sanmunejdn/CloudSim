@@ -1,22 +1,19 @@
-/// @file CloudSimCoreDataService.cpp
+﻿/// @file CloudSimCoreDataService.cpp
 /// @brief Data 层 IDataService 实现：BackendDataManager 直驱；视觉/Follow 求解等 Host 能力降级
-
-#include "BackendManagerDataService.h"
 
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
+#include "BackendManagerDataService.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
 #include "FollowAttachmentComponent.h"
+#include "IDataService.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "RunLogger.h"
 
-#include "IDataService.h"
-
 #include <QFileInfo>
 #include <QJsonDocument>
-
 #include <mutex>
 #include <unordered_set>
 
@@ -82,10 +79,7 @@ core::BackendObjectDto makeObjectSnapshot(const BackendDataManager& mgr, const B
 class BackendManagerDataService final : public core::IDataService
 {
 public:
-	bool isValid(const ObjectId& id) const override
-	{
-		return !id.isEmpty() && mgr().contains(id.toStdString());
-	}
+	bool isValid(const ObjectId& id) const override { return !id.isEmpty() && mgr().contains(id.toStdString()); }
 
 	void clear() override { mgr().clear(); }
 
@@ -534,14 +528,16 @@ public:
 	void markFollowDirtyFromMove(const ObjectId& seedId) override
 	{
 		(void)seedId;
-		warnOnce("markFollowDirtyFromMove",
-				 "[DataService] Data 层无 Follow 求解器/视觉同步，markFollowDirtyFromMove 空转；请经 Host 适配器调用。");
+		warnOnce(
+			"markFollowDirtyFromMove",
+			"[DataService] Data 层无 Follow 求解器/视觉同步，markFollowDirtyFromMove 空转；请经 Host 适配器调用。");
 	}
 
 	void requestFollowSolveForced() override
 	{
-		warnOnce("requestFollowSolveForced",
-				 "[DataService] Data 层无 Follow 求解器/视觉同步，requestFollowSolveForced 空转；请经 Host 适配器调用。");
+		warnOnce(
+			"requestFollowSolveForced",
+			"[DataService] Data 层无 Follow 求解器/视觉同步，requestFollowSolveForced 空转；请经 Host 适配器调用。");
 	}
 
 	bool runFollowSolveAndSync(const core::FollowSolveContextDto& ctx, QString* outError = nullptr) override

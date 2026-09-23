@@ -1,4 +1,4 @@
-#ifndef WIDGET_SELECTIONOPERATION_H
+﻿#ifndef WIDGET_SELECTIONOPERATION_H
 #define WIDGET_SELECTIONOPERATION_H
 
 /// @file SelectionOperation.h

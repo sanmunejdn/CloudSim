@@ -1,4 +1,4 @@
-/// @file UserTemplateLibrary.cpp
+﻿/// @file UserTemplateLibrary.cpp
 /// @brief 用户命名模板库实现
 
 #include "UserTemplateLibrary.h"
@@ -160,8 +160,8 @@ QVector<UserTemplateEntry> UserTemplateLibrary::list(UserTemplateKind kind)
 	return out;
 }
 
-bool UserTemplateLibrary::save(UserTemplateKind kind, const QString& name, const nlohmann::json& payload, QString* outId,
-							   QString* outError)
+bool UserTemplateLibrary::save(UserTemplateKind kind, const QString& name, const nlohmann::json& payload,
+							   QString* outId, QString* outError)
 {
 	const QString trimmed = name.trimmed();
 	if (trimmed.isEmpty())
@@ -241,9 +241,8 @@ bool UserTemplateLibrary::save(UserTemplateKind kind, const QString& name, const
 	}
 	if (!found)
 	{
-		index["entries"].push_back(nlohmann::json::object({{"id", id.toStdString()},
-														   {"name", trimmed.toStdString()},
-														   {"updatedAt", now.toStdString()}}));
+		index["entries"].push_back(nlohmann::json::object(
+			{{"id", id.toStdString()}, {"name", trimmed.toStdString()}, {"updatedAt", now.toStdString()}}));
 	}
 	if (!saveIndex(kind, index, outError))
 	{
@@ -368,8 +367,9 @@ bool UserTemplateLibrary::importFile(UserTemplateKind kind, const QString& fileP
 			}
 			return false;
 		}
-		payload = nlohmann::json::object({{"strategyId", file["strategyId"]},
-										  {"params", file.contains("params") ? file["params"] : nlohmann::json::object()}});
+		payload =
+			nlohmann::json::object({{"strategyId", file["strategyId"]},
+									{"params", file.contains("params") ? file["params"] : nlohmann::json::object()}});
 	}
 	return save(kind, name, payload, outId, outError);
 }

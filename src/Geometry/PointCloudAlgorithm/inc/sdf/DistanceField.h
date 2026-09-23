@@ -1,5 +1,5 @@
-#ifndef POINTCLOUDALGORITHM_SDF_DISTANCEFIELD_H
-#define POINTCLOUDALGORITHM_SDF_DISTANCEFIELD_H
+﻿#ifndef POINTCLOUDALGORITHM_DISTANCEFIELD_H
+#define POINTCLOUDALGORITHM_DISTANCEFIELD_H
 
 /// @file DistanceField.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -8,16 +8,16 @@
 #include "KdTreePointSet.h"
 #include "RegistrationSdf.h"
 
-#include <Eigen/Core>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <Eigen/Core>
 
 namespace pclalgo
 {
 namespace sdf
 {
-
 struct FieldSample
 {
 	Eigen::Vector3d closest;   ///< Π(x)
@@ -63,4 +63,4 @@ private:
 } // namespace sdf
 } // namespace pclalgo
 
-#endif // POINTCLOUDALGORITHM_SDF_DISTANCEFIELD_H
+#endif // POINTCLOUDALGORITHM_DISTANCEFIELD_H

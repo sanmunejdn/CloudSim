@@ -1,4 +1,4 @@
-#ifndef ROBOTPATHPLANNING_ROBOTPATHPLANNING_H
+﻿#ifndef ROBOTPATHPLANNING_ROBOTPATHPLANNING_H
 #define ROBOTPATHPLANNING_ROBOTPATHPLANNING_H
 
 /// @file RobotPathPlanning.h
@@ -10,17 +10,15 @@
 #include "BackendFollowMath.h"
 #include "CollisionWorld.h"
 
-#include <QString>
 #include <QHash>
-
-#include <osg/Matrixd>
-
+#include <QString>
 #include <string>
 #include <vector>
 
+#include <osg/Matrixd>
+
 namespace robot_path
 {
-
 struct ROBOT_PATH_PLANNING_API TcpPose
 {
 	double transMm[3]{0.0, 0.0, 0.0};

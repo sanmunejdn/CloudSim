@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_HANDEYETYPES_H
+﻿#ifndef INDUSTRIALCAMERASDK_HANDEYETYPES_H
 #define INDUSTRIALCAMERASDK_HANDEYETYPES_H
 
 /// @file HandEyeTypes.h
@@ -12,7 +12,6 @@
 
 namespace industrial_camera
 {
-
 enum class HandEyeMountMode
 {
 	EyeInHand = 0,
@@ -71,11 +70,10 @@ struct HandEyeResult
 
 INDUSTRIAL_CAMERA_SDK_EXPORT const char* handEyeMethodName(HandEyeMethod m);
 INDUSTRIAL_CAMERA_SDK_EXPORT HandEyeResult solveHandEyeEnsemble(const std::vector<HandEyeSample>& samples,
-															   const HandEyeSolveParams& params);
+																const HandEyeSolveParams& params);
 
 /// 将额外候选（如 MechOfficial）按同一残差规则并入结果并可能刷新最优
-INDUSTRIAL_CAMERA_SDK_EXPORT void mergeHandEyeCandidate(HandEyeResult& inout,
-														const HandEyeMethodScore& candidate,
+INDUSTRIAL_CAMERA_SDK_EXPORT void mergeHandEyeCandidate(HandEyeResult& inout, const HandEyeMethodScore& candidate,
 														const std::vector<HandEyeSample>& samples,
 														const HandEyeSolveParams& params);
 

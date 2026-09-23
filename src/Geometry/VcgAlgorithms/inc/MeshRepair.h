@@ -1,4 +1,4 @@
-#ifndef VCGALGORITHMS_MESHREPAIR_H
+﻿#ifndef VCGALGORITHMS_MESHREPAIR_H
 #define VCGALGORITHMS_MESHREPAIR_H
 
 /// @file MeshRepair.h
@@ -18,7 +18,7 @@ struct VCg_ALGORITHMS_API RepairParams
 	bool removeDuplicate = true;
 	bool removeDuplicateFaces = true;
 	bool removeNonManifold = true;
-	bool fillHoles = false;		 ///< 填孔默认关（避免误封开口）
+	bool fillHoles = false;	   ///< 填孔默认关（避免误封开口）
 	int holeMaxEdgeCount = 30; ///< 可填孔的最大边界边数
 };
 

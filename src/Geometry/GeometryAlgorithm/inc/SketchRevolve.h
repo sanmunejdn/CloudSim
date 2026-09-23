@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_SKETCHREVOLVE_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHREVOLVE_H
 #define GEOMETRYALGORITHM_SKETCHREVOLVE_H
 
 /// @file SketchRevolve.h
@@ -6,6 +6,7 @@
 /// @brief 闭合轮廓绕轴旋转凸台/切除
 
 #include "geometry_algorithm_global.h"
+
 #include "ShapeHandle.h"
 
 #include <string>
@@ -35,4 +36,4 @@ GEOMETRY_ALGORITHM_API bool sketchRevolvePolylineToHandle(const std::vector<floa
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHREVOLVE_H

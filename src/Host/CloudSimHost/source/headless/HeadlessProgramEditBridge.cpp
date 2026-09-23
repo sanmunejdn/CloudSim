@@ -1,4 +1,4 @@
-/// @file HeadlessProgramEditBridge.cpp
+﻿/// @file HeadlessProgramEditBridge.cpp
 /// @brief Web 程序编辑：undo/redo/切换/分组/程序 CRUD
 
 #include "headless/HeadlessProgramEditBridge.h"
@@ -101,8 +101,7 @@ QJsonObject HeadlessProgramEditBridge::switchProgram(const QJsonObject& body)
 	if (!activateSceneFromBody(store, body, &actErr))
 		return fail(actErr);
 
-	const RobotInstruction::RobotProgram* prog =
-		store.activeCatalog().findProgram(programId.toStdString());
+	const RobotInstruction::RobotProgram* prog = store.activeCatalog().findProgram(programId.toStdString());
 	if (!prog)
 		return fail(QStringLiteral("Program not found."));
 
@@ -151,8 +150,7 @@ QJsonObject HeadlessProgramEditBridge::groupCrud(const QJsonObject& body)
 	{
 		const QString name = body.value(QStringLiteral("name")).toString(QStringLiteral("Group"));
 		const auto members = readIdArray(body.value(QStringLiteral("memberInstructionIds")).toArray());
-		auto cmd = std::make_shared<RobotInstruction::CreateInstructionGroupCommand>(prog, name.toStdString(),
-																					 members);
+		auto cmd = std::make_shared<RobotInstruction::CreateInstructionGroupCommand>(prog, name.toStdString(), members);
 		if (!m_editStack.execute(cmd, doc, &err))
 			return fail(QString::fromStdString(err));
 		doc.renumberAndNotify();
@@ -175,8 +173,8 @@ QJsonObject HeadlessProgramEditBridge::groupCrud(const QJsonObject& body)
 		const QString newName = body.value(QStringLiteral("name")).toString();
 		if (groupId.isEmpty() || newName.isEmpty())
 			return fail(QStringLiteral("groupId and name required."));
-		auto cmd = std::make_shared<RobotInstruction::RenameInstructionGroupCommand>(
-			prog, groupId.toStdString(), newName.toStdString());
+		auto cmd = std::make_shared<RobotInstruction::RenameInstructionGroupCommand>(prog, groupId.toStdString(),
+																					 newName.toStdString());
 		if (!m_editStack.execute(cmd, doc, &err))
 			return fail(QString::fromStdString(err));
 		doc.renumberAndNotify();
@@ -209,8 +207,7 @@ QJsonObject HeadlessProgramEditBridge::programCrud(const QJsonObject& body)
 			return fail(QString::fromStdString(err));
 		catalog.setActiveProgramId(newId);
 		m_editStack.clear();
-		return QJsonObject{{QStringLiteral("ok"), true},
-						   {QStringLiteral("programId"), QString::fromStdString(newId)}};
+		return QJsonObject{{QStringLiteral("ok"), true}, {QStringLiteral("programId"), QString::fromStdString(newId)}};
 	}
 	if (action == QStringLiteral("rename"))
 	{

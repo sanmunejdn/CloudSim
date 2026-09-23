@@ -1,4 +1,4 @@
-/// @file TrajectoryPlanConfirmDialog.cpp
+﻿/// @file TrajectoryPlanConfirmDialog.cpp
 /// @brief AI 轨迹离散确认对话框：策略/参数/算子同屏编辑
 
 #include "TrajectoryPlanConfirmDialog.h"
@@ -7,12 +7,8 @@
 #include "TrajectoryOpParamPanel.h"
 #include "TrajectoryPipelineListWidget.h"
 
-#include <GeometryRef.h>
-#include <ITrajectoryOp.h>
-#include <RecipeBlueprint.h>
-#include <TrajectoryOpBridge.h>
-
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
@@ -20,7 +16,10 @@
 #include <QSplitter>
 #include <QVBoxLayout>
 
-#include <QCoreApplication>
+#include <GeometryRef.h>
+#include <ITrajectoryOp.h>
+#include <RecipeBlueprint.h>
+#include <TrajectoryOpBridge.h>
 
 namespace
 {
@@ -126,11 +125,13 @@ TrajectoryPlanConfirmDialog::TrajectoryPlanConfirmDialog(QWidget* parent) : QDia
 	btnRow->addWidget(okBtn);
 	root->addLayout(btnRow);
 
-	m_pipeline->setDefaultOpFactory([](const RobotInstruction::TrajectoryOpKind kind) {
-		RobotInstruction::OpScope scope{};
-		scope.kind = RobotInstruction::OpScope::Kind::EntireProgram;
-		return RobotInstruction::trajectoryOpDefaultUnified(kind, scope);
-	});
+	m_pipeline->setDefaultOpFactory(
+		[](const RobotInstruction::TrajectoryOpKind kind)
+		{
+			RobotInstruction::OpScope scope{};
+			scope.kind = RobotInstruction::OpScope::Kind::EntireProgram;
+			return RobotInstruction::trajectoryOpDefaultUnified(kind, scope);
+		});
 
 	connect(m_featureList, &QListWidget::currentRowChanged, this, &TrajectoryPlanConfirmDialog::onFeatureRowChanged);
 	connect(m_strategyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,

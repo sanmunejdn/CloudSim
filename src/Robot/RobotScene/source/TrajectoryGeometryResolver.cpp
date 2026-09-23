@@ -6,9 +6,9 @@
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "PointCloudBackendOps.h"
+#include "RawTrajectory.h"
 #include "RobotSceneGeometryProjection.h"
 #include "RobotSceneNonRigidTrajectoryWarp.h"
-#include "RawTrajectory.h"
 #include "RunLogger.h"
 #include "ShapeQuery.h"
 #include "TrajectoryProjection.h"
@@ -45,9 +45,8 @@ engine::RigidTransform rigidFromModelToWorld16(const double modelToWorldColMajor
 
 void transformPointModelToWorld(const double modelToWorldColMajor16[16], const double modelMm[3], double worldMm[3])
 {
-	const Eigen::Vector3d out =
-		rigidFromModelToWorld16(modelToWorldColMajor16).isometry() *
-		Eigen::Vector3d(modelMm[0], modelMm[1], modelMm[2]);
+	const Eigen::Vector3d out = rigidFromModelToWorld16(modelToWorldColMajor16).isometry() *
+								Eigen::Vector3d(modelMm[0], modelMm[1], modelMm[2]);
 	worldMm[0] = out.x();
 	worldMm[1] = out.y();
 	worldMm[2] = out.z();
@@ -55,9 +54,8 @@ void transformPointModelToWorld(const double modelToWorldColMajor16[16], const d
 
 void transformDirModelToWorld(const double modelToWorldColMajor16[16], const double modelDir[3], double worldDir[3])
 {
-	const Eigen::Vector3d out =
-		rigidFromModelToWorld16(modelToWorldColMajor16).isometry().linear() *
-		Eigen::Vector3d(modelDir[0], modelDir[1], modelDir[2]);
+	const Eigen::Vector3d out = rigidFromModelToWorld16(modelToWorldColMajor16).isometry().linear() *
+								Eigen::Vector3d(modelDir[0], modelDir[1], modelDir[2]);
 	const double len = out.norm();
 	if (len > 1e-9)
 	{
@@ -75,9 +73,8 @@ void transformDirModelToWorld(const double modelToWorldColMajor16[16], const dou
 
 void transformPointWorldToModel(const double modelToWorldColMajor16[16], const double worldMm[3], double modelMm[3])
 {
-	const Eigen::Vector3d out =
-		rigidFromModelToWorld16(modelToWorldColMajor16).inverse().isometry() *
-		Eigen::Vector3d(worldMm[0], worldMm[1], worldMm[2]);
+	const Eigen::Vector3d out = rigidFromModelToWorld16(modelToWorldColMajor16).inverse().isometry() *
+								Eigen::Vector3d(worldMm[0], worldMm[1], worldMm[2]);
 	modelMm[0] = out.x();
 	modelMm[1] = out.y();
 	modelMm[2] = out.z();
@@ -85,9 +82,8 @@ void transformPointWorldToModel(const double modelToWorldColMajor16[16], const d
 
 void transformDirWorldToModel(const double modelToWorldColMajor16[16], const double worldDir[3], double modelDir[3])
 {
-	const Eigen::Vector3d out =
-		rigidFromModelToWorld16(modelToWorldColMajor16).inverse().isometry().linear() *
-		Eigen::Vector3d(worldDir[0], worldDir[1], worldDir[2]);
+	const Eigen::Vector3d out = rigidFromModelToWorld16(modelToWorldColMajor16).inverse().isometry().linear() *
+								Eigen::Vector3d(worldDir[0], worldDir[1], worldDir[2]);
 	const double len = out.norm();
 	if (len > 1e-9)
 	{
@@ -709,8 +705,8 @@ bool expressGeometryInSourceModelFrame(const TrajectoryGeometrySnapshot& srcSnap
 	}
 	outTgtInSrc = tgtSnap;
 	outTgtInSrc.hasModelToWorld = false;
-	const auto xformModelToSrcModel = [&](const float mx, const float my, const float mz, float& ox, float& oy,
-										  float& oz)
+	const auto xformModelToSrcModel =
+		[&](const float mx, const float my, const float mz, float& ox, float& oy, float& oz)
 	{
 		const double model[3] = {static_cast<double>(mx), static_cast<double>(my), static_cast<double>(mz)};
 		double world[3]{};
@@ -767,8 +763,8 @@ bool expressGeometryInSourceModelFrame(const TrajectoryGeometrySnapshot& srcSnap
 bool stampEqual(const GeomWorldStamp& a, const GeomWorldStamp& b)
 {
 	return a.floatCount == b.floatCount && a.first[0] == b.first[0] && a.first[1] == b.first[1] &&
-		   a.first[2] == b.first[2] && a.last[0] == b.last[0] && a.last[1] == b.last[1] &&
-		   a.last[2] == b.last[2] && a.sum == b.sum;
+		   a.first[2] == b.first[2] && a.last[0] == b.last[0] && a.last[1] == b.last[1] && a.last[2] == b.last[2] &&
+		   a.sum == b.sum;
 }
 
 bool cacheKeyEqual(const NonRigidSpareCacheKey& a, const NonRigidSpareCacheKey& b)
@@ -821,8 +817,9 @@ NonRigidRegistrationParams withEffectiveSpareParams(const TrajectoryGeometrySnap
 
 bool runSpareRegistration(const TrajectoryGeometrySnapshot& srcSnap, const TrajectoryGeometrySnapshot& tgtSnap,
 						  const NonRigidRegistrationParams& params, std::vector<float>& deformedMeshSoupOut,
-						  std::vector<float>& deformedPointCloudOut, point_cloud_backend_ops::PointCloudSpareResult& spareOut,
-						  bool& fromCacheOut, std::string* errMsg)
+						  std::vector<float>& deformedPointCloudOut,
+						  point_cloud_backend_ops::PointCloudSpareResult& spareOut, bool& fromCacheOut,
+						  std::string* errMsg)
 {
 	fromCacheOut = false;
 	spareOut = point_cloud_backend_ops::PointCloudSpareResult{};
@@ -1042,7 +1039,6 @@ void applyPointCloudBinding(UnifiedTrajectoryPoint& point, const PointCloudBindi
 	point.poseMm.z = deformedXyz[base + 2U];
 }
 
-
 bool xyzCentroid3(const std::vector<float>& xyz, double out[3])
 {
 	out[0] = out[1] = out[2] = 0.0;
@@ -1259,10 +1255,10 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 	// 绑定在「工件模型系」对源 ModelMm；SPARE 在源模型系；写回 Tw×变形模型（与入管/显示同一世界挂点）
 	const bool sourceIsMesh = srcSnap.kind == TrajectoryGeometryKind::TriangleMesh;
 	const std::vector<float>& srcModelSoup =
-		sourceIsMesh ? (!srcSnap.triangleSoupModelMm.empty() ? srcSnap.triangleSoupModelMm : srcSnap.triangleSoupWorldMm)
-					 : (!srcSnap.positionsModelMm.empty() ? srcSnap.positionsModelMm : srcSnap.positionsWorldMm);
-	const std::vector<float>& srcWorldSoup =
-		sourceIsMesh ? srcSnap.triangleSoupWorldMm : srcSnap.positionsWorldMm;
+		sourceIsMesh
+			? (!srcSnap.triangleSoupModelMm.empty() ? srcSnap.triangleSoupModelMm : srcSnap.triangleSoupWorldMm)
+			: (!srcSnap.positionsModelMm.empty() ? srcSnap.positionsModelMm : srcSnap.positionsWorldMm);
+	const std::vector<float>& srcWorldSoup = sourceIsMesh ? srcSnap.triangleSoupWorldMm : srcSnap.positionsWorldMm;
 	if (srcModelSoup.empty() && srcWorldSoup.empty())
 	{
 		if (errMsg)
@@ -1302,7 +1298,7 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 			}
 			UnifiedTrajectoryPoint& p = trajForBind.points[idxPoint];
 			const double worldP[3] = {static_cast<double>(p.poseMm.x), static_cast<double>(p.poseMm.y),
-									 static_cast<double>(p.poseMm.z)};
+									  static_cast<double>(p.poseMm.z)};
 			double modelP[3]{};
 			transformPointWorldToModel(wpSnap.modelToWorldColMajor16, worldP, modelP);
 			p.poseMm.x = static_cast<float>(modelP[0]);
@@ -1334,8 +1330,8 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		double srcC[3]{};
 		double tgtC[3]{};
 		const std::vector<float>& tgtWorldSoup = tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh
-													? tgtSnap.triangleSoupWorldMm
-													: tgtSnap.positionsWorldMm;
+													 ? tgtSnap.triangleSoupWorldMm
+													 : tgtSnap.positionsWorldMm;
 		(void)trajCentroid3(traj, indices, trajC);
 		(void)xyzCentroid3(srcWorldSoup, srcC);
 		(void)xyzCentroid3(tgtWorldSoup, tgtC);
@@ -1346,12 +1342,12 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		{
 			os << " 轨迹工件=" << trajWp;
 		}
-		os << " 绑定模式=" << (bindInWorkpieceModel ? "工件模型系→源Model" : "世界系→源World")
-		   << " 轨迹质心W=(" << trajC[0] << "," << trajC[1] << "," << trajC[2] << ")"
+		os << " 绑定模式=" << (bindInWorkpieceModel ? "工件模型系→源Model" : "世界系→源World") << " 轨迹质心W=("
+		   << trajC[0] << "," << trajC[1] << "," << trajC[2] << ")"
 		   << " 源世界质心=(" << srcC[0] << "," << srcC[1] << "," << srcC[2] << ")"
 		   << " 目标世界质心=(" << tgtC[0] << "," << tgtC[1] << "," << tgtC[2] << ")"
-		   << " 绑定成功=" << bind.bindOk << "/" << (bind.bindOk + bind.bindFail)
-		   << " meanDist=" << bind.bindDistMeanMm << " mm";
+		   << " 绑定成功=" << bind.bindOk << "/" << (bind.bindOk + bind.bindFail) << " meanDist=" << bind.bindDistMeanMm
+		   << " mm";
 		RunLogger::info(os.str());
 	}
 	if (bind.bindOk == 0)
@@ -1465,8 +1461,8 @@ bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegist
 		(void)trajCentroid3(traj, indices, outC);
 		std::ostringstream os;
 		os << "[非刚性配准] 绑定成功=" << bind.bindOk << " 失败=" << bind.bindFail
-		   << " 模式=" << (bindInWorkpieceModel ? "工件模型系" : "世界系")
-		   << " 距离min/mean/max=" << bind.bindDistMinMm << "/" << bind.bindDistMeanMm << "/" << bind.bindDistMaxMm
+		   << " 模式=" << (bindInWorkpieceModel ? "工件模型系" : "世界系") << " 距离min/mean/max=" << bind.bindDistMinMm
+		   << "/" << bind.bindDistMeanMm << "/" << bind.bindDistMaxMm
 		   << " mm 算法=" << (params.solver == NonRigidRegistrationSolver::Sdf ? "SDF" : "SPARE")
 		   << " 均值误差=" << spareResult.meanErrorMm << " mm 变形节点=" << spareResult.deformationNodeCount
 		   << (spareFromCache ? " (缓存)" : "") << " 写回后轨迹质心W=(" << outC[0] << "," << outC[1] << "," << outC[2]

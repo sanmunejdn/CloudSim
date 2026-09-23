@@ -1,5 +1,5 @@
-#ifndef PROCESSFLOWPLUGIN_SIM_ISTATIONEXECUTOR_H
-#define PROCESSFLOWPLUGIN_SIM_ISTATIONEXECUTOR_H
+﻿#ifndef PROCESSFLOWPLUGIN_ISTATIONEXECUTOR_H
+#define PROCESSFLOWPLUGIN_ISTATIONEXECUTOR_H
 
 /// @file IStationExecutor.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -26,8 +26,7 @@ class IStationExecutor
 {
 public:
 	virtual ~IStationExecutor() = default;
-	virtual double beginProcess(int nodeId, int entityId, double cycleTimeSec,
-								const StationBinding& binding) = 0;
+	virtual double beginProcess(int nodeId, int entityId, double cycleTimeSec, const StationBinding& binding) = 0;
 };
 
 class NullStationExecutor final : public IStationExecutor
@@ -61,4 +60,4 @@ private:
 	QVector<StationPreviewEvent> m_events;
 };
 
-#endif
+#endif // PROCESSFLOWPLUGIN_ISTATIONEXECUTOR_H

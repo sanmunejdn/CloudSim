@@ -1,16 +1,12 @@
-/// @file CloudSimGeomPython.cpp
-
-#include <Windows.h>
+﻿/// @file CloudSimGeomPython.cpp
 
 #include <filesystem>
 #include <stdexcept>
 #include <string>
 
-// 先于任何 Qt 头，避免 slots 宏打坏 Python object.h
-#include <pybind11/embed.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <Windows.h>
 
+// 先于任何 Qt 头，避免 slots 宏打坏 Python object.h
 #include "CloudSimGeomPython.h"
 #include "IAiAssistantHost.h"
 #include "IPluginDocument.h"
@@ -29,6 +25,10 @@
 #include <QPushButton>
 #include <QString>
 #include <QVBoxLayout>
+
+#include <pybind11/embed.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 namespace fs = std::filesystem;
 namespace py = pybind11;

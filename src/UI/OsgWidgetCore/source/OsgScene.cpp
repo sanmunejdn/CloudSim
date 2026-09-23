@@ -443,13 +443,13 @@ void OsgScene::initScene()
 	m_meshPinnedFaceColors->push_back(osg::Vec4(0.15f, 0.92f, 0.38f, 0.55f));
 	m_meshPinnedFaceGeom->setColorArray(m_meshPinnedFaceColors.get(), osg::Array::BIND_OVERALL);
 	m_meshPinnedFaceGeom->getOrCreateStateSet()->setMode(GL_LIGHTING,
-														osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+														 osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	m_meshPinnedFaceGeom->getOrCreateStateSet()->setMode(GL_CULL_FACE,
-														osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+														 osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	m_meshPinnedFaceGeom->getOrCreateStateSet()->setMode(GL_DEPTH_TEST,
-														osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+														 osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	m_meshPinnedFaceGeom->getOrCreateStateSet()->setMode(GL_BLEND,
-														osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+														 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	m_meshPinnedFaceGeom->getOrCreateStateSet()->setAttributeAndModes(
 		new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
 	m_meshPinnedFaceGeom->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);

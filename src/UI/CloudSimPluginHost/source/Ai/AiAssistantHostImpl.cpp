@@ -20,10 +20,10 @@
 #include "CloudSimAiVersion.h"
 #include "PluginHostContext.h"
 
-#include <json.hpp>
-
 #include <algorithm>
 #include <optional>
+
+#include <json.hpp>
 
 namespace
 {
@@ -640,11 +640,12 @@ void AiAssistantHostImpl::runAgentTurnAsync(const AiInferenceRequest& request, c
 				onEvent(ev);
 			return;
 		}
-		m_pluginHost->invokeOnUiThread([onEvent, ev]()
-									   {
-										   if (onEvent)
-											   onEvent(ev);
-									   });
+		m_pluginHost->invokeOnUiThread(
+			[onEvent, ev]()
+			{
+				if (onEvent)
+					onEvent(ev);
+			});
 	};
 	m_agentRuntime->runTurnAsync(request, config, uiProgress, uiEvent);
 }
@@ -689,11 +690,12 @@ void AiAssistantHostImpl::beginDomainConfirmAsync(const AiDomainConfirmRequest& 
 				onEvent(ev);
 			return;
 		}
-		m_pluginHost->invokeOnUiThread([onEvent, ev]()
-									   {
-										   if (onEvent)
-											   onEvent(ev);
-									   });
+		m_pluginHost->invokeOnUiThread(
+			[onEvent, ev]()
+			{
+				if (onEvent)
+					onEvent(ev);
+			});
 	};
 	m_agentRuntime->beginDomainConfirm(request, uiEvent);
 }

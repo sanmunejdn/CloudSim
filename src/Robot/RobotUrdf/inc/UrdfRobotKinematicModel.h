@@ -1,5 +1,8 @@
-#ifndef ROBOTURDF_URDFROBOTKINEMATICMODEL_H
+﻿#ifndef ROBOTURDF_URDFROBOTKINEMATICMODEL_H
 #define ROBOTURDF_URDFROBOTKINEMATICMODEL_H
+
+/// @file UrdfRobotKinematicModel.h
+/// @brief UrdfRobotKinematicModel 接口
 
 #include "robot_urdf_global.h"
 

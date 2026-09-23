@@ -302,20 +302,20 @@ bool discretizeShapeToSoupPerFace(const ShapeHandle& shape, const TessellatePara
 								  std::string* errMsg)
 {
 #ifdef CLOUDSIM_USE_CSGK
-	if(ShapeHandleAccess::isCsgkBackend(shape))
+	if (ShapeHandleAccess::isCsgkBackend(shape))
 	{
 		// CSGK 后端降级：faceSoups 返回空、triangleFaceIndex 全 0，CSGK shape 的面级拾取/高亮
 		// 与 sliceBrepImportArtifactsForShape（要求 faceSoups.size()==面数）静默不可用
-		if(!discretizeCsgkShapeToSoup(shape, params, outSoup, errMsg))
+		if (!discretizeCsgkShapeToSoup(shape, params, outSoup, errMsg))
 			return false;
 		outTriangleFaceIndex.assign(outSoup.size() / 9U, 0);
-		if(outFaceSoups)
+		if (outFaceSoups)
 			outFaceSoups->clear();
 		return true;
 	}
 #endif
 	TopoDS_Shape native;
-	if(!ShapeHandleAccess::nativeShape(shape, &native))
+	if (!ShapeHandleAccess::nativeShape(shape, &native))
 	{
 		detail::setErr(errMsg, "null shape");
 		return false;

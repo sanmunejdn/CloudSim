@@ -1,14 +1,14 @@
-#ifndef DATA_PARAMETRICBREPFEATURE_H
+﻿#ifndef DATA_PARAMETRICBREPFEATURE_H
 #define DATA_PARAMETRICBREPFEATURE_H
 
 /// @file ParametricBrepFeature.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 参数化 Body 特征链 DTO（与插件 GeomodelingFeature 语义对齐，不依赖 Qt）
 
+#include "data_global.h"
+
 #include <string>
 #include <vector>
-
-#include "data_global.h"
 
 #include <json.hpp>
 
@@ -153,7 +153,8 @@ inline const char* parametricFeatureKindToString(ParametricFeatureKind k)
 }
 
 /// 未知枚举串解析结果：调用方必须显式处理失败，禁止静默回退默认值
-template <typename T> struct ParametricEnumParse
+template <typename T>
+struct ParametricEnumParse
 {
 	T value{};
 	bool ok = false;
@@ -186,4 +187,4 @@ inline const char* parametricExtrudeEndToString(ParametricExtrudeEnd e)
 nlohmann::json parametricFeatureToJson(const ParametricFeature& f);
 bool parametricFeatureFromJson(const nlohmann::json& o, ParametricFeature& out);
 
-#endif
+#endif // DATA_PARAMETRICBREPFEATURE_H

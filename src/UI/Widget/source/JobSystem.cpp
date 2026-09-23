@@ -181,17 +181,16 @@ quint64 JobSystem::enqueueCancellable(const QString& title, JobCancellableWork w
 	}
 	JobCancelToken token(flag);
 	const QPointer<JobSystem> self(this);
-	auto* runnable = new JobRunnable(
-		id, m_progress, std::move(work), std::move(token), std::move(onFinished),
-		[self](quint64 doneId)
-		{
-			if (!self)
-			{
-				return;
-			}
-			QMutexLocker lock(&self->m_cancelMutex);
-			self->m_cancelFlags.remove(doneId);
-		});
+	auto* runnable = new JobRunnable(id, m_progress, std::move(work), std::move(token), std::move(onFinished),
+									 [self](quint64 doneId)
+									 {
+										 if (!self)
+										 {
+											 return;
+										 }
+										 QMutexLocker lock(&self->m_cancelMutex);
+										 self->m_cancelFlags.remove(doneId);
+									 });
 	m_pool->start(runnable);
 	return id;
 }

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIPROCESSFLOWRULES_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIPROCESSFLOWRULES_H
 #define CLOUDSIMPLUGINHOST_AIPROCESSFLOWRULES_H
 
 /// @file AiProcessFlowRules.h
@@ -14,4 +14,4 @@ namespace AiProcessFlowRules
 AiAgentPlan tryBuildPlan(const QString& userText);
 } // namespace AiProcessFlowRules
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIPROCESSFLOWRULES_H

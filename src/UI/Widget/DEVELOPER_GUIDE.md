@@ -1,6 +1,6 @@
 ﻿# Widget 模块开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 > **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；Widget 侧属性编辑经 `doc->data().applyPropertyChange`，由 Host `BackendVisualSync` 同步 OSG。
 
@@ -323,7 +323,7 @@ descriptor / 编辑器类型按选中对象 **className**（后端 Binding schem
 
 **多文档 Tab**：开工程优先新 Tab（空白未命名可复用）；同路径切已有 Tab。切 Tab 时 stash/restore 该文档的 `ioSignalNetworkCache`。关 Tab 调 `removeDocument`。
 
-过程稿（已归档）：[`docs/_archive/后端对象显示树/`](../../../docs/_archive/后端对象显示树/)。可见性真源：[`docs/_archive/backend_visibility/`](../../../docs/_archive/backend_visibility/)。
+过程稿（已归档）：`docs/ARCHIVE_ZIP_LOCATION.txt`。可见性真源：`docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ### 5.4 后端树批量刷新抑制
 
@@ -371,7 +371,7 @@ onOpenProjectFile()
 
 **URDF 空壳根**：`RobotURDF_*` 无三角面；加载须走空壳注册（见 Host §4.2c / §4.4.4），否则树顶只剩 `base_link`。
 
-**显示/隐藏**：树勾选 → `setBackendVisible` / Data 真源 + OSG NodeMask。详见 [`_archive/backend_visibility`](../../../docs/_archive/backend_visibility/)。
+**显示/隐藏**：树勾选 → `setBackendVisible` / Data 真源 + OSG NodeMask。详见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 ---
 
 ## 7. 插件集成
@@ -526,7 +526,7 @@ w.showMaximized();
 
 | 文档 | 内容 |
 |------|------|
-| [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) | 全局架构与依赖图 |
+| [全库文档入口](../../README.md) · [产品索引](../README.md) | 全局架构与依赖图 |
 | [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) | 文档宿主、Core 适配器、组合根 |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | 契约接口与 DTO |
 | [`RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) | 仿真 UI、轨迹编辑 |
@@ -581,4 +581,4 @@ w.showMaximized();
 
 ## ViewportInteraction（2026-08）
 
-拾取交互经 `ViewportInteractionController`：`IViewportPickEngine` 唯一 `queryPick`；`IPointerTool` / `IOverlayOp` 分手势与罗盘；`IHitResolvePolicy` 归并；`IInteractionSession` 业务消费。旧 `set*PickMode` 为门面。详见 `docs/_archive/视口拾取重构/`。
+拾取交互经 `ViewportInteractionController`：`IViewportPickEngine` 唯一 `queryPick`；`IPointerTool` / `IOverlayOp` 分手势与罗盘；`IHitResolvePolicy` 归并；`IInteractionSession` 业务消费。旧 `set*PickMode` 为门面。详见 `docs/ARCHIVE_ZIP_LOCATION.txt`。

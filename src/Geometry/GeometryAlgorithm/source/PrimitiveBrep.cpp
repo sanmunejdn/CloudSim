@@ -1,16 +1,17 @@
-/// @file PrimitiveBrep.cpp
+﻿/// @file PrimitiveBrep.cpp
 /// @brief OCCT 基本体造型（与三角 soup 同为原点居中）
 
 #include "PrimitiveBrep.h"
 
 #include "detail/OccIncludes.h"
 
+#include <algorithm>
+
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <gp_Ax2.hxx>
-#include <algorithm>
 
 namespace geoalgo
 {

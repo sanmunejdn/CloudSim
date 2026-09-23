@@ -4,9 +4,9 @@
 
 #include "BackendTypeIdentity.h"
 #include "ShapeQuery.h"
+#include "SketchCurveWire.h"
 #include "SketchDraft.h"
 #include "SketchExtrude.h"
-#include "SketchCurveWire.h"
 #include "SketchFillet.h"
 #include "SketchLoft.h"
 #include "SketchPattern.h"
@@ -102,7 +102,7 @@ std::string ParametricBrepBackendData::addPocket(const std::string& sketchId, do
 }
 
 std::string ParametricBrepBackendData::addSweep(const std::string& profileSketchId, const std::string& pathSketchId,
-											   bool cut)
+												bool cut)
 {
 	ParametricFeature f;
 	f.id = nextId(cut ? "SweepCut" : "Sweep");
@@ -384,7 +384,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			}
 			geoalgo::SketchSweepParams sp;
 			sp.mode = (feat.kind == ParametricFeatureKind::SweepCut) ? geoalgo::SketchSweepMode::Cut
-																	: geoalgo::SketchSweepMode::Boss;
+																	 : geoalgo::SketchSweepMode::Boss;
 			sp.twistDeg = feat.twistDeg;
 			{
 				const auto& src = !feat.profileSegments.empty()
@@ -416,9 +416,9 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 				for (const auto& ps : feat.pathSegments)
 				{
 					geoalgo::SketchSweepPathSegment g;
-					g.kind = (ps.kind == 1)	 ? geoalgo::SketchSweepPathSegKind::Arc
+					g.kind = (ps.kind == 1)	  ? geoalgo::SketchSweepPathSegKind::Arc
 							 : (ps.kind == 2) ? geoalgo::SketchSweepPathSegKind::SplineThrough
-											 : geoalgo::SketchSweepPathSegKind::Line;
+											  : geoalgo::SketchSweepPathSegKind::Line;
 					g.ax = ps.ax;
 					g.ay = ps.ay;
 					g.az = ps.az;
@@ -470,8 +470,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 		else if (feat.kind == ParametricFeatureKind::Revolve || feat.kind == ParametricFeatureKind::RevolveCut)
 		{
 			const ParametricFeature* sk = findSketchFor(feat);
-			std::vector<float> profile =
-				(sk && sk->profileXyzMm.size() >= 12) ? sk->profileXyzMm : feat.profileXyzMm;
+			std::vector<float> profile = (sk && sk->profileXyzMm.size() >= 12) ? sk->profileXyzMm : feat.profileXyzMm;
 			if (profile.size() < 12)
 			{
 				if (errMsg)
@@ -486,7 +485,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			}
 			geoalgo::SketchRevolveParams rp;
 			rp.mode = (feat.kind == ParametricFeatureKind::RevolveCut) ? geoalgo::SketchRevolveMode::Cut
-																	  : geoalgo::SketchRevolveMode::Boss;
+																	   : geoalgo::SketchRevolveMode::Boss;
 			rp.angleDeg = feat.revolveAngleDeg;
 			rp.axisOx = feat.axisOx;
 			rp.axisOy = feat.axisOy;
@@ -529,8 +528,9 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 				if (!geoalgo::featureContributionSeed(itAfter->second, tipBefore, seed, &err) || seed.isNull())
 				{
 					if (errMsg)
-						*errMsg = err.empty() ? ("LinearPattern contribution seed failed: " + feat.patternSourceFeatureId)
-											  : err;
+						*errMsg = err.empty()
+									  ? ("LinearPattern contribution seed failed: " + feat.patternSourceFeatureId)
+									  : err;
 					return false;
 				}
 				fuseOnto = &tipCopy;
@@ -624,10 +624,8 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 		{
 			const ParametricFeature* skA = findSketchFor(feat);
 			const ParametricFeature* skB = findFeature(feat.loftSketchRefId);
-			std::vector<float> a =
-				(skA && skA->profileXyzMm.size() >= 12) ? skA->profileXyzMm : feat.profileXyzMm;
-			std::vector<float> b =
-				(skB && skB->profileXyzMm.size() >= 12) ? skB->profileXyzMm : feat.pathXyzMm;
+			std::vector<float> a = (skA && skA->profileXyzMm.size() >= 12) ? skA->profileXyzMm : feat.profileXyzMm;
+			std::vector<float> b = (skB && skB->profileXyzMm.size() >= 12) ? skB->profileXyzMm : feat.pathXyzMm;
 			if (a.size() < 12 || b.size() < 12)
 			{
 				if (errMsg)
@@ -642,7 +640,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			}
 			geoalgo::SketchLoftParams lp;
 			lp.mode = (feat.kind == ParametricFeatureKind::LoftCut) ? geoalgo::SketchLoftMode::Cut
-																   : geoalgo::SketchLoftMode::Boss;
+																	: geoalgo::SketchLoftMode::Boss;
 			if (!geoalgo::sketchLoftPolylinesToHandle(a, b, lp, basePtr, next, &err) || next.isNull())
 			{
 				if (errMsg)
@@ -658,8 +656,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 					*errMsg = "Shell requires existing solid tip";
 				return false;
 			}
-			if (!geoalgo::shellFacesToHandle(tip, feat.faceIndices, feat.shellThicknessMm, next, &err) ||
-				next.isNull())
+			if (!geoalgo::shellFacesToHandle(tip, feat.faceIndices, feat.shellThicknessMm, next, &err) || next.isNull())
 			{
 				if (errMsg)
 					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
@@ -676,8 +673,8 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			}
 			const ParametricSketchPlane& np = feat.mirrorPlane;
 			if (!geoalgo::draftFacesToHandle(tip, feat.faceIndices, feat.draftAngleDeg, np.normalX, np.normalY,
-											 np.normalZ, np.originX, np.originY, np.originZ, next, &err)
-				|| next.isNull())
+											 np.normalZ, np.originX, np.originY, np.originZ, next, &err) ||
+				next.isNull())
 			{
 				if (errMsg)
 					*errMsg = err.empty() ? ("rebuild failed at " + feat.id) : err;
@@ -695,7 +692,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			}
 			geoalgo::SketchExtrudeParams ep;
 			ep.mode = (feat.kind == ParametricFeatureKind::Pocket) ? geoalgo::SketchExtrudeMode::Pocket
-																  : geoalgo::SketchExtrudeMode::Pad;
+																   : geoalgo::SketchExtrudeMode::Pad;
 			ep.lengthMm = feat.lengthMm;
 			ep.length2Mm = feat.length2Mm;
 			ep.startOffsetMm = feat.startOffsetMm;
@@ -709,8 +706,7 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 			ep.normalY = sk->plane.normalY;
 			ep.normalZ = sk->plane.normalZ;
 			// 孔岛：优先草图，其次特征自身缓存
-			ep.holePolylinesXyzMm =
-				!sk->profileHolesXyzMm.empty() ? sk->profileHolesXyzMm : feat.profileHolesXyzMm;
+			ep.holePolylinesXyzMm = !sk->profileHolesXyzMm.empty() ? sk->profileHolesXyzMm : feat.profileHolesXyzMm;
 			{
 				const auto& src = !feat.profileSegments.empty() ? feat.profileSegments : sk->profileSegments;
 				ep.profileSegments.clear();
@@ -732,8 +728,8 @@ bool ParametricBrepBackendData::rebuild(std::string* errMsg)
 				}
 			}
 
-			if (feat.endCondition == ParametricExtrudeEnd::UpToFace
-				|| feat.endCondition == ParametricExtrudeEnd::OffsetFromFace)
+			if (feat.endCondition == ParametricExtrudeEnd::UpToFace ||
+				feat.endCondition == ParametricExtrudeEnd::OffsetFromFace)
 			{
 				bool resolved = false;
 				const bool selfRef = feat.upToFaceBackendId.empty() || feat.upToFaceBackendId == id();

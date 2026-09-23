@@ -1,12 +1,12 @@
-#ifndef WIDGET_MAINWINDOWROBOTHOST_H
+﻿#ifndef WIDGET_MAINWINDOWROBOTHOST_H
 #define WIDGET_MAINWINDOWROBOTHOST_H
 
 /// @file MainWindowRobotHost.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief MainWindow 的 IRobotMainWindowHost + 指令属性 IRobotService 委托实现
 
-#include "../RobotWidget/inc/IRobotMainWindowHost.h"
 #include "../RobotWidget/inc/ICustomDeviceAssemblyHost.h"
+#include "../RobotWidget/inc/IRobotMainWindowHost.h"
 #include "IRobotInstructionPropertyDelegate.h"
 
 #include <functional>
@@ -95,8 +95,7 @@ public:
 
 	// ICustomDeviceAssemblyHost
 	bool registerCustomDevice(const std::shared_ptr<CustomDeviceBackendData>& device, QString* outError) override;
-	bool attachChildToCustomDevice(const std::string& deviceId, const std::string& childId,
-								   QString* outError) override;
+	bool attachChildToCustomDevice(const std::string& deviceId, const std::string& childId, QString* outError) override;
 	QStringList importModelsForAssembly(QWidget* parent, const QStringList& paths, QStringList* outErrors) override;
 	void beginPickSolidInView(std::function<void(const QString& partId)> onPartPicked) override;
 	void endPickSolidInView() override;

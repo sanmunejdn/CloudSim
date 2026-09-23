@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_ROBOTEXTERNALAXES_H
+﻿#ifndef ROBOTSCENE_ROBOTEXTERNALAXES_H
 #define ROBOTSCENE_ROBOTEXTERNALAXES_H
 
 /// @file RobotExternalAxes.h
@@ -77,7 +77,7 @@ ROBOT_SCENE_API std::vector<const RobotExternalAxisConfig*>
 enabledExternalAxesForAttachment(const RobotExternalAxisConfigSet& set, RobotExternalAttachment attachment);
 ROBOT_SCENE_API std::vector<int> enabledExternalAxisIndices(const RobotExternalAxisConfigSet& set);
 ROBOT_SCENE_API std::vector<int> enabledExternalAxisIndicesForAttachment(const RobotExternalAxisConfigSet& set,
-																		   RobotExternalAttachment attachment);
+																		 RobotExternalAttachment attachment);
 
 /// 首个启用 Workpiece 的 boundBackendId；无则空
 ROBOT_SCENE_API std::string primaryWorkpieceBackendId(const RobotExternalAxisConfigSet& set);
@@ -105,7 +105,8 @@ ROBOT_SCENE_API void mat4MulColumnMajor16(const double a[16], const double b[16]
 
 /// Workpiece 未绑 backend 时返回 false
 ROBOT_SCENE_API bool validateExternalAxisConfig(const RobotExternalAxisConfig& cfg, std::string* errMsg = nullptr);
-ROBOT_SCENE_API bool validateExternalAxisConfigSet(const RobotExternalAxisConfigSet& set, std::string* errMsg = nullptr);
+ROBOT_SCENE_API bool validateExternalAxisConfigSet(const RobotExternalAxisConfigSet& set,
+												   std::string* errMsg = nullptr);
 
 ROBOT_SCENE_API void normalizeExternalAxisConfig(RobotExternalAxisConfig& cfg);
 ROBOT_SCENE_API RobotExternalAxisConfig makeDefaultLinearRailConfig();

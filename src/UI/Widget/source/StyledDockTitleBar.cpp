@@ -1,4 +1,4 @@
-/// @file StyledDockTitleBar.cpp
+﻿/// @file StyledDockTitleBar.cpp
 /// @brief Dock 标题栏绘制与按钮交互
 
 #include "StyledDockTitleBar.h"
@@ -57,37 +57,36 @@ StyledDockTitleBar::StyledDockTitleBar(QDockWidget* dock) : QWidget(dock), m_doc
 	row->addWidget(m_floatBtn, 0, Qt::AlignVCenter);
 	row->addWidget(m_closeBtn, 0, Qt::AlignVCenter);
 
-	setStyleSheet(QStringLiteral(
-		"QWidget#StyledDockTitleBar {"
-		"  background-color: #F3F5F8;"
-		"  border-bottom: 1px solid #D5DCE3;"
-		"}"
-		"QLabel#StyledDockTitleLabel {"
-		"  color: #1A2332;"
-		"  font-size: 13px;"
-		"  font-weight: 700;"
-		"}"
-		"QToolButton#DockTitleFloatBtn, QToolButton#DockTitleCloseBtn {"
-		"  background-color: transparent;"
-		"  border: 1px solid transparent;"
-		"  border-radius: 6px;"
-		"  padding: 2px;"
-		"  margin: 0px;"
-		"}"
-		"QToolButton#DockTitleFloatBtn:hover {"
-		"  background-color: #E5EBF1;"
-		"  border-color: #C9D3DD;"
-		"}"
-		"QToolButton#DockTitleFloatBtn:pressed {"
-		"  background-color: #D8E0E8;"
-		"}"
-		"QToolButton#DockTitleCloseBtn:hover {"
-		"  background-color: #FDE8E8;"
-		"  border-color: #F0B4B4;"
-		"}"
-		"QToolButton#DockTitleCloseBtn:pressed {"
-		"  background-color: #F8D0D0;"
-		"}"));
+	setStyleSheet(QStringLiteral("QWidget#StyledDockTitleBar {"
+								 "  background-color: #F3F5F8;"
+								 "  border-bottom: 1px solid #D5DCE3;"
+								 "}"
+								 "QLabel#StyledDockTitleLabel {"
+								 "  color: #1A2332;"
+								 "  font-size: 13px;"
+								 "  font-weight: 700;"
+								 "}"
+								 "QToolButton#DockTitleFloatBtn, QToolButton#DockTitleCloseBtn {"
+								 "  background-color: transparent;"
+								 "  border: 1px solid transparent;"
+								 "  border-radius: 6px;"
+								 "  padding: 2px;"
+								 "  margin: 0px;"
+								 "}"
+								 "QToolButton#DockTitleFloatBtn:hover {"
+								 "  background-color: #E5EBF1;"
+								 "  border-color: #C9D3DD;"
+								 "}"
+								 "QToolButton#DockTitleFloatBtn:pressed {"
+								 "  background-color: #D8E0E8;"
+								 "}"
+								 "QToolButton#DockTitleCloseBtn:hover {"
+								 "  background-color: #FDE8E8;"
+								 "  border-color: #F0B4B4;"
+								 "}"
+								 "QToolButton#DockTitleCloseBtn:pressed {"
+								 "  background-color: #F8D0D0;"
+								 "}"));
 
 	connect(m_floatBtn, &QToolButton::clicked, this, &StyledDockTitleBar::toggleFloating);
 	connect(m_closeBtn, &QToolButton::clicked, this, &StyledDockTitleBar::requestClose);

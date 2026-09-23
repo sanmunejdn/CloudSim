@@ -1,4 +1,4 @@
-/// @file UrdfNumericalIkLegacy.cpp
+﻿/// @file UrdfNumericalIkLegacy.cpp
 /// @brief legacy BFS 雅可比 DLS，仅 SelfTest / 对照
 
 #include "UrdfNumericalIkLegacy.h"
@@ -8,9 +8,9 @@
 #include "UrdfRobotLoader.h"
 
 #include <QVector>
-
 #include <algorithm>
 #include <cmath>
+
 #include <osg/Quat>
 
 namespace UrdfRobotLoader
@@ -171,9 +171,8 @@ std::vector<double> solveArmPoseViaUrdfJacobianLegacy(const QString& urdfPath, c
 
 		double pos[3] = {0.0, 0.0, 0.0};
 		double quatXyzw[4] = {0.0, 0.0, 0.0, 1.0};
-		if (!computeLinkPoseAndGeometricJacobian(urdfPath, qRad, ikLink, pos,
-												 useOrientation ? quatXyzw : nullptr, ws.J, useOrientation,
-												 orientationWeight, nullptr, &ws) ||
+		if (!computeLinkPoseAndGeometricJacobian(urdfPath, qRad, ikLink, pos, useOrientation ? quatXyzw : nullptr, ws.J,
+												 useOrientation, orientationWeight, nullptr, &ws) ||
 			static_cast<int>(ws.J.size()) < taskDim * n)
 		{
 			if (failReason)

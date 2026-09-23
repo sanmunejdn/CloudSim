@@ -1,4 +1,4 @@
-/// @file DrawingGeometry.cpp
+﻿/// @file DrawingGeometry.cpp
 /// @brief 图元 → 折线（优先已离散点，避免错误解析重采样）
 
 #include "DrawingGeometry.h"
@@ -12,7 +12,6 @@ namespace geoalgo
 {
 namespace
 {
-
 /// 仅整圆按圆心+半径去重；弧段不可并键，否则同圆多弧只剩一段 → 缺线
 void dedupeEntitiesInPlace(std::vector<DrawingEntity>& ents)
 {

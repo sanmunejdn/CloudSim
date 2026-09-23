@@ -1,4 +1,4 @@
-/// @file BackendVisualSyncEngine.cpp
+﻿/// @file BackendVisualSyncEngine.cpp
 /// @brief worldMatrix → OSG 单轨 flush 调度
 
 #include "visual/BackendVisualSyncEngine.h"
@@ -82,8 +82,8 @@ void BackendVisualSyncEngine::setPendingFollowSolveAfterBatch(const bool pending
 	m_pendingFollowSolveAfterBatch = pending;
 }
 
-std::vector<std::string> BackendVisualSyncEngine::resolveTransformFlushOrder(
-	const std::vector<std::string>& hintOrder) const
+std::vector<std::string>
+BackendVisualSyncEngine::resolveTransformFlushOrder(const std::vector<std::string>& hintOrder) const
 {
 	if (!hintOrder.empty())
 	{

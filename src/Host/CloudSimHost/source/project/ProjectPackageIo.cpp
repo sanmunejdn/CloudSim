@@ -29,7 +29,6 @@
 #include <fstream>
 
 #include <json.hpp>
-
 #include <osg/Vec3f>
 
 namespace cloudsim::host

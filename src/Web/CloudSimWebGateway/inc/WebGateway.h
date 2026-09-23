@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMWEBGATEWAY_WEBGATEWAY_H
+﻿#ifndef CLOUDSIMWEBGATEWAY_WEBGATEWAY_H
 #define CLOUDSIMWEBGATEWAY_WEBGATEWAY_H
 
 /// @file WebGateway.h
@@ -29,7 +29,7 @@ namespace cloudsim::host
 {
 class DocumentHost;
 class HeadlessPointCloudBridge;
-}
+} // namespace cloudsim::host
 
 namespace cloudsim::web
 {
@@ -45,8 +45,7 @@ class CLOUDSIM_WEB_GATEWAY_API WebGateway : public QObject
 {
 	Q_OBJECT
 public:
-	explicit WebGateway(cloudsim::core::ICloudSimContext& context, WebGatewayConfig config,
-						QObject* parent = nullptr);
+	explicit WebGateway(cloudsim::core::ICloudSimContext& context, WebGatewayConfig config, QObject* parent = nullptr);
 	~WebGateway() override;
 
 	bool start(QString* outError = nullptr);
@@ -144,9 +143,9 @@ private:
 										  QString* err);
 	bool pointCloudChunkSoupOnGuiThread(const QString& id, int lod, int index, std::size_t maxPoints,
 										std::vector<float>& out, QJsonObject* meta, QString* err);
-	QByteArray pointCloudPostJsonOnGuiThread(const QByteArray& body,
-											 QJsonObject (cloudsim::host::HeadlessPointCloudBridge::*method)(
-												 const QJsonObject&));
+	QByteArray
+	pointCloudPostJsonOnGuiThread(const QByteArray& body,
+								  QJsonObject (cloudsim::host::HeadlessPointCloudBridge::*method)(const QJsonObject&));
 	void registerPointCloudRoutes(cloudsim::host::DocumentHost* host);
 	void registerParityRoutes(cloudsim::host::DocumentHost* host);
 	httplib::Server& httpServer();
@@ -189,8 +188,8 @@ private:
 									   QString* outId);
 	bool customDeviceAttachOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
 									   QString* err);
-	bool customDeviceExportUrdfOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
-										   QString* err, QString* outDir);
+	bool customDeviceExportUrdfOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id,
+										   const QByteArray& body, QString* err, QString* outDir);
 	QByteArray robotsForMountJsonOnGuiThread(cloudsim::host::DocumentHost* host);
 	bool customDeviceMountOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
 									  QString* err);

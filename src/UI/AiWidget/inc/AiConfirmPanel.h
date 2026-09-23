@@ -1,4 +1,4 @@
-#ifndef AIWIDGET_AICONFIRMPANEL_H
+﻿#ifndef AIWIDGET_AICONFIRMPANEL_H
 #define AIWIDGET_AICONFIRMPANEL_H
 
 /// @file AiConfirmPanel.h
@@ -66,4 +66,4 @@ private:
 	QVector<FieldBind> m_fields;
 };
 
-#endif
+#endif // AIWIDGET_AICONFIRMPANEL_H

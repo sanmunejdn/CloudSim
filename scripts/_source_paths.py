@@ -11,6 +11,7 @@ SOURCE_SUFFIXES = {".h", ".hpp", ".hh", ".hxx", ".cpp", ".cxx", ".cc", ".c"}
 
 EXCLUDE_DIR_PARTS = {
     "thirdparty",
+    "third_party",
     "vcglib",
     "bin",
     ".vs",

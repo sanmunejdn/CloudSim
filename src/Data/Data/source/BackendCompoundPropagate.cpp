@@ -1,4 +1,4 @@
-/// @file BackendCompoundPropagate.cpp
+﻿/// @file BackendCompoundPropagate.cpp
 /// @brief 同部件 compound 刚体 Δ
 
 #include "BackendCompoundPropagate.h"

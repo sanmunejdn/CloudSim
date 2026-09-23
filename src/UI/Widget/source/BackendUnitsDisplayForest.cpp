@@ -1,12 +1,12 @@
-/// @file BackendUnitsDisplayForest.cpp
+﻿/// @file BackendUnitsDisplayForest.cpp
 /// @brief Units 显示森林实现
 
 #include "BackendUnitsDisplayForest.h"
 
-BackendUnitsDisplayDocument BackendUnitsDisplayForest::buildDocument(
-	const QString& documentId, const QString& title, bool isActive,
-	const QVector<cloudsim::core::BackendObjectDto>& snapshots,
-	const QVector<cloudsim::core::AnnotationSnapshotDto>& annotations)
+BackendUnitsDisplayDocument
+BackendUnitsDisplayForest::buildDocument(const QString& documentId, const QString& title, bool isActive,
+										 const QVector<cloudsim::core::BackendObjectDto>& snapshots,
+										 const QVector<cloudsim::core::AnnotationSnapshotDto>& annotations)
 {
 	BackendUnitsDisplayDocument doc;
 	doc.documentId = documentId;

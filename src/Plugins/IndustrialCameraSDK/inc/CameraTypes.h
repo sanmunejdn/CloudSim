@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_CAMERATYPES_H
+﻿#ifndef INDUSTRIALCAMERASDK_CAMERATYPES_H
 #define INDUSTRIALCAMERASDK_CAMERATYPES_H
 
 /// @file CameraTypes.h
@@ -14,7 +14,6 @@
 
 namespace industrial_camera
 {
-
 enum class CameraBrand
 {
 	Unknown = 0,
@@ -121,7 +120,8 @@ INDUSTRIAL_CAMERA_SDK_EXPORT const char* brandToString(CameraBrand b);
 INDUSTRIAL_CAMERA_SDK_EXPORT CameraBrand brandFromString(const std::string& s);
 INDUSTRIAL_CAMERA_SDK_EXPORT Mat4 pose6dToMat4(const Pose6d& p);
 INDUSTRIAL_CAMERA_SDK_EXPORT Pose6d mat4ToPose6d(const Mat4& m);
-INDUSTRIAL_CAMERA_SDK_EXPORT bool writePlyAscii(const std::string& pathUtf8, const CameraFrame3D& frame, std::string* err);
+INDUSTRIAL_CAMERA_SDK_EXPORT bool writePlyAscii(const std::string& pathUtf8, const CameraFrame3D& frame,
+												std::string* err);
 
 } // namespace industrial_camera
 

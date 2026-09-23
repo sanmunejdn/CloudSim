@@ -1,4 +1,4 @@
-/// @file RobotCommSdkExports.cpp
+﻿/// @file RobotCommSdkExports.cpp
 /// @brief RobotCommSDK 工厂导出
 
 #include "IRobotMotionClient.h"

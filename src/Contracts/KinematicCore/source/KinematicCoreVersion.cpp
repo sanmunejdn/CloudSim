@@ -1,3 +1,6 @@
+﻿/// @file KinematicCoreVersion.cpp
+/// @brief KinematicCoreVersion 实现
+
 #include "KinematicCoreVersion.h"
 
 unsigned int kinematicCoreApiVersion()

@@ -11,7 +11,6 @@
 #include "DocumentHostEvents.h"
 #include "DocumentPage.h"
 #include "IDataService.h"
-#include "io/CustomDeviceHostOps.h"
 #include "MainWindow.h"
 #include "MainWindow_p.h"
 #include "RobotInstructionPropertySchema.h"
@@ -19,6 +18,7 @@
 #include "RunInfoPage.h"
 #include "RunLogger.h"
 #include "WidgetRenderAccess.h"
+#include "io/CustomDeviceHostOps.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
 
@@ -1193,9 +1193,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
 	{
 		return QMainWindow::eventFilter(watched, event);
 	}
-	const bool watchRelevant = watched == propTree || watched == m_propertyBrowser ||
-							   (qobject_cast<QWidget*>(watched) != nullptr &&
-								propTree->isAncestorOf(qobject_cast<QWidget*>(watched)));
+	const bool watchRelevant =
+		watched == propTree || watched == m_propertyBrowser ||
+		(qobject_cast<QWidget*>(watched) != nullptr && propTree->isAncestorOf(qobject_cast<QWidget*>(watched)));
 	if (!watchRelevant)
 	{
 		return QMainWindow::eventFilter(watched, event);
@@ -1303,11 +1303,9 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 	QColor objectColor;
 	const bool hasObjectColor = colorFromPropertyRows(rows, &objectColor);
 	const auto backendObj = docPage->findObject(backendId.toStdString());
-	panelBackendClassNameSlot() =
-		backendObj ? QString::fromStdString(backendObj->className()) : QString();
-	const bool hasFixedRgbAxes =
-		backendObj && (backend_type::isCoordinateFrameClassName(backendObj->className()) ||
-					   backend_type::isCustomDeviceClassName(backendObj->className()));
+	panelBackendClassNameSlot() = backendObj ? QString::fromStdString(backendObj->className()) : QString();
+	const bool hasFixedRgbAxes = backendObj && (backend_type::isCoordinateFrameClassName(backendObj->className()) ||
+												backend_type::isCustomDeviceClassName(backendObj->className()));
 	for (const cloudsim::core::PropertyRowDto& r : rows)
 	{
 		QString key = r.key;

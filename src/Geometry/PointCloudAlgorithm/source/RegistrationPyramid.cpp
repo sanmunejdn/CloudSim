@@ -1,12 +1,10 @@
-/// @file RegistrationPyramid.cpp
+﻿/// @file RegistrationPyramid.cpp
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 
 #include "RegistrationPyramid.h"
 
 #include "AdaptiveRemesh.h"
 #include "KdTreePointSet.h"
-
-#include <MeshRemesh.h>
 
 #include <algorithm>
 #include <cmath>
@@ -17,11 +15,12 @@
 #include <utility>
 #include <vector>
 
+#include <MeshRemesh.h>
+
 namespace pclalgo
 {
 namespace
 {
-
 constexpr double kVertexWeldEpsMm = 1e-4;
 constexpr int kDefaultLayers = 3;
 constexpr int kCoarseMaxOuter = 15;
@@ -29,7 +28,7 @@ constexpr std::size_t kCoarseAlignSample = 2000U;
 
 struct WeldedSoup
 {
-	std::vector<float> xyz;				 ///< 3*V
+	std::vector<float> xyz;				   ///< 3*V
 	std::vector<std::size_t> cornerToVert; ///< 每角点 → 顶点
 };
 
@@ -171,9 +170,8 @@ bool prolongateDisplacement(const std::vector<float>& coarseRestSoup, const std:
 		if (kUse <= 1)
 		{
 			double distSq = 0.0;
-			const std::size_t nn =
-				tree.findNearest(fineRest.xyz[b], fineRest.xyz[b + 1U], fineRest.xyz[b + 2U],
-								 std::numeric_limits<double>::max(), distSq);
+			const std::size_t nn = tree.findNearest(fineRest.xyz[b], fineRest.xyz[b + 1U], fineRest.xyz[b + 2U],
+													std::numeric_limits<double>::max(), distSq);
 			if (nn == static_cast<std::size_t>(-1))
 			{
 				continue;
@@ -187,8 +185,8 @@ bool prolongateDisplacement(const std::vector<float>& coarseRestSoup, const std:
 
 		std::vector<std::size_t> nnIdx;
 		std::vector<double> nnDistSq;
-		tree.findKNearest(fineRest.xyz[b], fineRest.xyz[b + 1U], fineRest.xyz[b + 2U],
-						  static_cast<unsigned int>(kUse), nnIdx, nnDistSq);
+		tree.findKNearest(fineRest.xyz[b], fineRest.xyz[b + 1U], fineRest.xyz[b + 2U], static_cast<unsigned int>(kUse),
+						  nnIdx, nnDistSq);
 		if (nnIdx.empty() || nnIdx.size() != nnDistSq.size())
 		{
 			continue;
@@ -379,10 +377,9 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 	}
 
 	std::ostringstream dbg;
-	dbg << "[Pyramid] h=" << baseH << " mm layers=" << layers << " solver="
-		<< (params.solver == PyramidSolver::Spare ? "SPARE" : "SDF")
-		<< " mode=prolongate adaptiveLast=" << (params.useAdaptiveDensityOnLastLayer ? "1" : "0")
-		<< " residualLast="
+	dbg << "[Pyramid] h=" << baseH << " mm layers=" << layers
+		<< " solver=" << (params.solver == PyramidSolver::Spare ? "SPARE" : "SDF")
+		<< " mode=prolongate adaptiveLast=" << (params.useAdaptiveDensityOnLastLayer ? "1" : "0") << " residualLast="
 		<< (params.useAdaptiveDensityOnLastLayer && params.useResidualDrivenSizingOnLastLayer ? "1" : "0") << "\n";
 
 	std::vector<float> prevRest;
@@ -398,8 +395,7 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 		const double edge = layerEdgeLengthMm(baseH, scale, layers, level);
 		const bool lastLayer = (level + 1 == layers);
 		const bool useAdaptive = lastLayer && params.useAdaptiveDensityOnLastLayer;
-		const bool useResidual =
-			useAdaptive && params.useResidualDrivenSizingOnLastLayer && !residualSampleXyz.empty();
+		const bool useResidual = useAdaptive && params.useResidualDrivenSizingOnLastLayer && !residualSampleXyz.empty();
 		dbg << "[Pyramid] L" << level << " edge=" << edge << " mm"
 			<< (useAdaptive ? (useResidual ? " (adaptive+residual)" : " (adaptive)") : "") << "\n";
 
@@ -485,9 +481,8 @@ bool pyramidRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, con
 			dbg << "[Pyramid] L" << level << " prolongate ok knn=" << knn << "\n";
 		}
 
-		const int layerOuter =
-			lastLayer ? std::max(params.sdf.maxOuterIters, params.spare.maxOuterIters)
-					  : (level == 0 ? kCoarseMaxOuter : kCoarseMaxOuter + 5);
+		const int layerOuter = lastLayer ? std::max(params.sdf.maxOuterIters, params.spare.maxOuterIters)
+										 : (level == 0 ? kCoarseMaxOuter : kCoarseMaxOuter + 5);
 
 		std::vector<float> srcDef;
 		if (params.solver == PyramidSolver::Spare)

@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_ROBOT_SCENE_GLOBAL_H
+﻿#ifndef ROBOTSCENE_ROBOT_SCENE_GLOBAL_H
 #define ROBOTSCENE_ROBOT_SCENE_GLOBAL_H
 
 /// @file robot_scene_global.h

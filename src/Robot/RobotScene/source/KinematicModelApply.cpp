@@ -1,15 +1,17 @@
+﻿/// @file KinematicModelApply.cpp
+/// @brief KinematicModelApply 实现
+
 #include "KinematicModelApply.h"
 
+#include "BackendDataManager.h"
 #include "CompositeKinematicModel.h"
 #include "CustomDeviceKinematicModel.h"
 #include "CustomDeviceKinematics.h"
+#include "IRobotBackendPoseSink.h"
+#include "IRobotSimulationDocument.h"
 #include "KinematicModelRegistry.h"
 #include "UrdfRobotKinematicModel.h"
 #include "UrdfRobotKinematicModelSink.h"
-
-#include "BackendDataManager.h"
-#include "IRobotBackendPoseSink.h"
-#include "IRobotSimulationDocument.h"
 
 namespace KinematicModelApply
 {

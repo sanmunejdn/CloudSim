@@ -1,4 +1,4 @@
-/// @file GeometryFileImporterRegistry.cpp
+﻿/// @file GeometryFileImporterRegistry.cpp
 /// @brief 几何文件导入器后缀注册表
 
 #include "GeometryFileImporterRegistry.h"

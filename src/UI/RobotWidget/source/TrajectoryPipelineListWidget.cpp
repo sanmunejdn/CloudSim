@@ -182,7 +182,8 @@ void TrajectoryPipelineListWidget::dropEvent(QDropEvent* event)
 	const QByteArray raw = event->mimeData()->data(kMimeType);
 	const int opCount = static_cast<int>(m_ops.size());
 
-	auto dropInsertRow = [this, opCount](QDropEvent* ev) -> int {
+	auto dropInsertRow = [this, opCount](QDropEvent* ev) -> int
+	{
 		int insertRow = opCount;
 		if (QListWidgetItem* target = itemAt(ev->pos()))
 		{

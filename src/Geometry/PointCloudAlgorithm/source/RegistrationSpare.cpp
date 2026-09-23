@@ -151,7 +151,8 @@ bool applyPreAlign(std::vector<float>& sourceXyz, std::vector<float>& sourceNorm
 				   const std::vector<float>& targetXyz, const std::vector<float>& targetNormals,
 				   const SpareRegisterParams& params, std::string* errMsg, std::string* preAlignNote)
 {
-	auto setNote = [&](const std::string& note) {
+	auto setNote = [&](const std::string& note)
+	{
 		if (preAlignNote)
 		{
 			*preAlignNote = note;

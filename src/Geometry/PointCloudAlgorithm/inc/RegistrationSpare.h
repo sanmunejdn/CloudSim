@@ -1,4 +1,4 @@
-#ifndef POINTCLOUDALGORITHM_REGISTRATIONSPARE_H
+﻿#ifndef POINTCLOUDALGORITHM_REGISTRATIONSPARE_H
 #define POINTCLOUDALGORITHM_REGISTRATIONSPARE_H
 
 /// @file RegistrationSpare.h
@@ -16,18 +16,18 @@ namespace pclalgo
 /// SPARE 求解参数（研究用途；详见 docs/spare_nonrigid_registration.md）
 struct SpareRegisterParams
 {
-	double sampleRadiusRatio = 0.0;		 ///< 变形节点采样半径（平均边长倍数）；0=自动(3)
-	double wSmo = 0.01;					 ///< 平滑项权重
-	double wRot = 1e-4;					 ///< 旋转正则
-	double wArapCoarse = 500.0;			 ///< 粗阶段 ARAP 权重
-	double wArapFine = 200.0;			 ///< 细阶段 ARAP 权重
+	double sampleRadiusRatio = 0.0; ///< 变形节点采样半径（平均边长倍数）；0=自动(3)
+	double wSmo = 0.01;				///< 平滑项权重
+	double wRot = 1e-4;				///< 旋转正则
+	double wArapCoarse = 500.0;		///< 粗阶段 ARAP 权重
+	double wArapFine = 200.0;		///< 细阶段 ARAP 权重
 	bool useSymmetricPointToPlane = true;
 	bool useCoarseReg = true;
 	bool useFineReg = true;
 	bool normalizeScale = true;
-	bool rigidPreAlign = false;			 ///< 前先点-面 ICP
+	bool rigidPreAlign = false; ///< 前先点-面 ICP
 	bool coarseGlobalAlign = false;
-	double voxelPrefilterMm = 0.0;		 ///< 体素预滤波 mm；≤0 跳过
+	double voxelPrefilterMm = 0.0; ///< 体素预滤波 mm；≤0 跳过
 	int maxOuterIters = 30;
 	double stopCoarse = 1e-3;
 	double stopFine = 1e-4;

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMAISDK_AIAGENTTYPES_H
+﻿#ifndef CLOUDSIMAISDK_AIAGENTTYPES_H
 #define CLOUDSIMAISDK_AIAGENTTYPES_H
 
 /// @file AiAgentTypes.h
@@ -92,4 +92,4 @@ struct AiAgentPlan
 
 using AiAgentEventFn = std::function<void(const AiAgentEvent&)>;
 
-#endif
+#endif // CLOUDSIMAISDK_AIAGENTTYPES_H

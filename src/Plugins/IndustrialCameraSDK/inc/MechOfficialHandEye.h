@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_MECHOFFICIALHANDEYE_H
+﻿#ifndef INDUSTRIALCAMERASDK_MECHOFFICIALHANDEYE_H
 #define INDUSTRIALCAMERASDK_MECHOFFICIALHANDEYE_H
 
 /// @file MechOfficialHandEye.h
@@ -13,7 +13,6 @@
 
 namespace industrial_camera
 {
-
 class INDUSTRIAL_CAMERA_SDK_EXPORT MechOfficialHandEyeSession
 {
 public:

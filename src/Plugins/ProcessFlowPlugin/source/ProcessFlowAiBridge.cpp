@@ -1,4 +1,4 @@
-/// @file ProcessFlowAiBridge.cpp
+﻿/// @file ProcessFlowAiBridge.cpp
 /// @brief 工艺流程 AI 桥接实现
 
 #include "ProcessFlowAiBridge.h"
@@ -20,7 +20,6 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QPointF>
-
 #include <memory>
 
 ProcessFlowAiBridge::ProcessFlowAiBridge(ProcessFlowPlugin* plugin) : m_plugin(plugin) {}

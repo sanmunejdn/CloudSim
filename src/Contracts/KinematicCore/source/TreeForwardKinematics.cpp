@@ -1,3 +1,6 @@
+﻿/// @file TreeForwardKinematics.cpp
+/// @brief TreeForwardKinematics 实现
+
 #include "TreeForwardKinematics.h"
 
 #include "JointMotionEval.h"

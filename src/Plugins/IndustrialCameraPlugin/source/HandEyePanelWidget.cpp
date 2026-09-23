@@ -1,4 +1,4 @@
-/// @file HandEyePanelWidget.cpp
+﻿/// @file HandEyePanelWidget.cpp
 /// @brief 手眼标定向导：配置→采集→多算法结果
 
 #include "HandEyePanelWidget.h"
@@ -36,8 +36,8 @@ using industrial_camera::CameraIntrinsics;
 using industrial_camera::HandEyeMountMode;
 using industrial_camera::HandEyeSample;
 using industrial_camera::HandEyeSolveParams;
-using industrial_camera::Pose6d;
 using industrial_camera::mat4ToPose6d;
+using industrial_camera::Pose6d;
 using industrial_camera::pose6dToMat4;
 
 namespace
@@ -53,9 +53,7 @@ QDoubleSpinBox* makeSpin(QWidget* p, double minV, double maxV, double step = 1.0
 } // namespace
 
 HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent)
-	, host_(host)
-	, cameraPanel_(cameraPanel)
+	: QWidget(parent), host_(host), cameraPanel_(cameraPanel)
 {
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(12, 12, 12, 12);
@@ -179,7 +177,8 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 		lay->addLayout(btnRow);
 
 		sampleTable_ = new QTableWidget(0, 3, pageCollect_);
-		sampleTable_->setHorizontalHeaderLabels({QStringLiteral("#"), QStringLiteral("Robot"), QStringLiteral("Board")});
+		sampleTable_->setHorizontalHeaderLabels(
+			{QStringLiteral("#"), QStringLiteral("Robot"), QStringLiteral("Board")});
 		sampleTable_->horizontalHeader()->setStretchLastSection(true);
 		lay->addWidget(sampleTable_);
 
@@ -206,9 +205,9 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 	{
 		auto* lay = new QVBoxLayout(pageResult_);
 		scoreTable_ = new QTableWidget(0, 5, pageResult_);
-		scoreTable_->setHorizontalHeaderLabels(
-			{QStringLiteral("Method"), QStringLiteral("rot"), QStringLiteral("trans(mm)"), QStringLiteral("score"),
-			 QStringLiteral("ok")});
+		scoreTable_->setHorizontalHeaderLabels({QStringLiteral("Method"), QStringLiteral("rot"),
+												QStringLiteral("trans(mm)"), QStringLiteral("score"),
+												QStringLiteral("ok")});
 		scoreTable_->horizontalHeader()->setStretchLastSection(true);
 		lay->addWidget(scoreTable_);
 		pathLabel_ = new QLabel(pageResult_);
@@ -354,9 +353,9 @@ void HandEyePanelWidget::onNextConfig()
 	}
 
 	// 梅卡真机时并行开官方会话，失败不阻塞 OpenCV/手填路径
-	if (cameraPanel_ && cameraPanel_->camera()
-		&& cameraPanel_->camera()->brand() == industrial_camera::CameraBrand::MechMind
-		&& industrial_camera::mechEyeSdkAvailable())
+	if (cameraPanel_ && cameraPanel_->camera() &&
+		cameraPanel_->camera()->brand() == industrial_camera::CameraBrand::MechMind &&
+		industrial_camera::mechEyeSdkAvailable())
 	{
 		mechSession_ = std::make_unique<industrial_camera::MechOfficialHandEyeSession>();
 		std::string err;
@@ -407,16 +406,14 @@ void HandEyePanelWidget::appendSampleRow(const Pose6d& robot, const Pose6d& boar
 	const int row = sampleTable_->rowCount();
 	sampleTable_->insertRow(row);
 	sampleTable_->setItem(row, 0, new QTableWidgetItem(QString::number(row + 1)));
-	sampleTable_->setItem(row, 1,
-						  new QTableWidgetItem(QStringLiteral("%1,%2,%3")
-												   .arg(robot.x, 0, 'f', 1)
-												   .arg(robot.y, 0, 'f', 1)
-												   .arg(robot.z, 0, 'f', 1)));
-	sampleTable_->setItem(row, 2,
-						  new QTableWidgetItem(QStringLiteral("%1,%2,%3")
-												   .arg(board.x, 0, 'f', 1)
-												   .arg(board.y, 0, 'f', 1)
-												   .arg(board.z, 0, 'f', 1)));
+	sampleTable_->setItem(
+		row, 1,
+		new QTableWidgetItem(
+			QStringLiteral("%1,%2,%3").arg(robot.x, 0, 'f', 1).arg(robot.y, 0, 'f', 1).arg(robot.z, 0, 'f', 1)));
+	sampleTable_->setItem(
+		row, 2,
+		new QTableWidgetItem(
+			QStringLiteral("%1,%2,%3").arg(board.x, 0, 'f', 1).arg(board.y, 0, 'f', 1).arg(board.z, 0, 'f', 1)));
 }
 
 void HandEyePanelWidget::onAddSample()
@@ -540,7 +537,8 @@ void HandEyePanelWidget::onFillDemo()
 	xPose.ryDeg = -3;
 	xPose.rzDeg = 12;
 	const auto X = pose6dToMat4(xPose);
-	auto matMul = [](const industrial_camera::Mat4& a, const industrial_camera::Mat4& b) {
+	auto matMul = [](const industrial_camera::Mat4& a, const industrial_camera::Mat4& b)
+	{
 		industrial_camera::Mat4 c{};
 		for (int ccol = 0; ccol < 4; ++ccol)
 			for (int row = 0; row < 4; ++row)
@@ -552,7 +550,8 @@ void HandEyePanelWidget::onFillDemo()
 			}
 		return c;
 	};
-	auto matInv = [](const industrial_camera::Mat4& m) {
+	auto matInv = [](const industrial_camera::Mat4& m)
+	{
 		// 刚体逆
 		industrial_camera::Mat4 inv{};
 		inv[0] = m[0];

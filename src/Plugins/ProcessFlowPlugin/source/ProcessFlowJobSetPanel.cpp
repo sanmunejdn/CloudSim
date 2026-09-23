@@ -1,4 +1,4 @@
-/// @file ProcessFlowJobSetPanel.cpp
+﻿/// @file ProcessFlowJobSetPanel.cpp
 /// @brief JobSet 编辑面板
 
 #include "ProcessFlowJobSetPanel.h"
@@ -8,8 +8,8 @@
 #include "sim/SimModelBuilder.h"
 #include "sim/SimRunConfig.h"
 
-#include <QHeaderView>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QJsonArray>
 #include <QLabel>
 #include <QLineEdit>
@@ -101,7 +101,8 @@ void ProcessFlowJobSetPanel::loadFromJson(const QJsonObject& jobSet)
 	const QJsonArray tpls = m_jobSet.value(QStringLiteral("templates")).toArray();
 	for (int i = 0; i < tpls.size(); ++i)
 	{
-		const QString name = tpls[i].toObject().value(QStringLiteral("name")).toString(QStringLiteral("job%1").arg(i + 1));
+		const QString name =
+			tpls[i].toObject().value(QStringLiteral("name")).toString(QStringLiteral("job%1").arg(i + 1));
 		m_templates->addItem(name);
 	}
 	m_block = false;
@@ -141,7 +142,8 @@ void ProcessFlowJobSetPanel::rebuildOpTable()
 	{
 		const QJsonObject o = ops[r].toObject();
 		m_ops->setItem(r, 0, new QTableWidgetItem(QString::number(o.value(QStringLiteral("machineNodeId")).toInt())));
-		m_ops->setItem(r, 1, new QTableWidgetItem(QString::number(o.value(QStringLiteral("processTimeSec")).toDouble())));
+		m_ops->setItem(r, 1,
+					   new QTableWidgetItem(QString::number(o.value(QStringLiteral("processTimeSec")).toDouble())));
 		m_ops->setItem(r, 2, new QTableWidgetItem(QString::number(o.value(QStringLiteral("setupTimeSec")).toDouble())));
 		m_ops->setItem(r, 3, new QTableWidgetItem(QString::number(o.value(QStringLiteral("priority")).toDouble())));
 	}
@@ -155,7 +157,8 @@ void ProcessFlowJobSetPanel::syncCurrentTemplateFromTable()
 	if (row < 0 || row >= tpls.size())
 		return;
 	QJsonObject tpl = tpls[row].toObject();
-	tpl.insert(QStringLiteral("name"), m_nameEdit->text().trimmed().isEmpty() ? QStringLiteral("job") : m_nameEdit->text());
+	tpl.insert(QStringLiteral("name"),
+			   m_nameEdit->text().trimmed().isEmpty() ? QStringLiteral("job") : m_nameEdit->text());
 	QJsonArray ops;
 	for (int r = 0; r < m_ops->rowCount(); ++r)
 	{

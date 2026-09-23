@@ -1,4 +1,4 @@
-/// @file RobotSceneKinematics.cpp
+﻿/// @file RobotSceneKinematics.cpp
 /// @brief ROBOT_KINEMATICS_DEBUG：0 关，1 紧凑，2/full 全矩阵
 
 #include "RobotSceneKinematics.h"
@@ -433,14 +433,14 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 									"BackendDataManager and OSG.");
 					return false;
 				}
-			const RobotPerLinkKinematicsSlice plSlice = robotPerLinkSliceFromDto(plDto);
-			if (!applyJointAnglesViaLinkBackends(doc, osg, *mgr, jointSlice, plSlice))
-			{
-				return false;
-			}
-			doc->noteRobotJointAnglesAppliedForInstance(i, jointSlice);
-			applied = true;
-			continue;
+				const RobotPerLinkKinematicsSlice plSlice = robotPerLinkSliceFromDto(plDto);
+				if (!applyJointAnglesViaLinkBackends(doc, osg, *mgr, jointSlice, plSlice))
+				{
+					return false;
+				}
+				doc->noteRobotJointAnglesAppliedForInstance(i, jointSlice);
+				applied = true;
+				continue;
 			}
 
 			if (!osg)
@@ -461,12 +461,12 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 			{
 				localByKey.insert(prefix + it.key(), coreMat4FromOsgMatrix(it.value()));
 			}
-		if (!localByKey.isEmpty())
-		{
-			doc->applyRobotJointLocalMatrices(localByKey);
-			doc->noteRobotJointAnglesAppliedForInstance(i, jointSlice);
-			applied = true;
-		}
+			if (!localByKey.isEmpty())
+			{
+				doc->applyRobotJointLocalMatrices(localByKey);
+				doc->noteRobotJointAnglesAppliedForInstance(i, jointSlice);
+				applied = true;
+			}
 		}
 		if (applied)
 		{

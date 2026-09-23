@@ -1,12 +1,11 @@
-/// @file RobotSimulationController_robotComm.cpp
+﻿/// @file RobotSimulationController_robotComm.cpp
 /// @brief 真实机器人通讯：Bridge 连接与场景镜像
-
-#include "RobotSimulationController.h"
 
 #include "IRobotDocumentHost.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotMotionClient.h"
 #include "RobotCommPageWidget.h"
+#include "RobotSimulationController.h"
 #include "RobotSimulationDockWidget.h"
 #include "SimulationCommandWidget.h"
 
@@ -65,13 +64,12 @@ void RobotSimulationController::onRobotCommConnectRequested()
 	ep.timeoutMs = 3000;
 
 	if (m_host)
-		m_host->appendRunInfo(QStringLiteral("[RobotComm] Connecting bridge %1:%2 ...")
-								  .arg(page->bridgeHost())
-								  .arg(page->bridgePort()));
+		m_host->appendRunInfo(
+			QStringLiteral("[RobotComm] Connecting bridge %1:%2 ...").arg(page->bridgeHost()).arg(page->bridgePort()));
 	if (!m_robotCommClient->connectBridge(ep))
 	{
-		const QString msg = QStringLiteral("Bridge failed: %1")
-								.arg(QString::fromStdString(m_robotCommClient->lastError()));
+		const QString msg =
+			QStringLiteral("Bridge failed: %1").arg(QString::fromStdString(m_robotCommClient->lastError()));
 		page->setStatusText(msg);
 		if (m_host)
 			m_host->appendRunWarning(QStringLiteral("[RobotComm] %1").arg(msg));
@@ -91,8 +89,8 @@ void RobotSimulationController::onRobotCommConnectRequested()
 			QStringLiteral("[RobotComm] Connecting robot %1 %2 ...").arg(page->brand(), page->robotHost()));
 	if (!m_robotCommClient->connectRobot(cfg))
 	{
-		const QString msg = QStringLiteral("Robot failed: %1")
-								.arg(QString::fromStdString(m_robotCommClient->lastError()));
+		const QString msg =
+			QStringLiteral("Robot failed: %1").arg(QString::fromStdString(m_robotCommClient->lastError()));
 		page->setStatusText(msg);
 		if (m_host)
 			m_host->appendRunWarning(QStringLiteral("[RobotComm] %1").arg(msg));
@@ -157,8 +155,8 @@ void RobotSimulationController::onRobotCommPollTick()
 	{
 		if (page)
 		{
-			page->setStatusText(QStringLiteral("Feedback: %1")
-									.arg(QString::fromStdString(m_robotCommClient->lastError())));
+			page->setStatusText(
+				QStringLiteral("Feedback: %1").arg(QString::fromStdString(m_robotCommClient->lastError())));
 		}
 		return;
 	}

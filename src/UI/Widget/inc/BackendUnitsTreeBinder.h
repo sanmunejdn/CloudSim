@@ -1,4 +1,4 @@
-#ifndef WIDGET_BACKENDUNITSTREEBINDER_H
+﻿#ifndef WIDGET_BACKENDUNITSTREEBINDER_H
 #define WIDGET_BACKENDUNITSTREEBINDER_H
 
 /// @file BackendUnitsTreeBinder.h
@@ -61,8 +61,7 @@ private:
 	void applyActiveStyle(QStandardItem* docRoot, bool isActive) const;
 	void forgetDocumentIndexes(const QString& documentId);
 	void expandItem(QStandardItem* item) const;
-	static QStandardItem* makeLabeledItem(const QString& text, int itemType, const QString& documentId,
-										  bool checkable);
+	static QStandardItem* makeLabeledItem(const QString& text, int itemType, const QString& documentId, bool checkable);
 
 	QTreeView* m_tree = nullptr;
 	QStandardItemModel* m_model = nullptr;

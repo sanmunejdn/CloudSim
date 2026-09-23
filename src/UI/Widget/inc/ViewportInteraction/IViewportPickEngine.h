@@ -7,9 +7,10 @@
 
 #include "../../../OsgWidgetCore/inc/PickTypes.h"
 
-#include <osg/Vec3f>
 #include <string>
 #include <vector>
+
+#include <osg/Vec3f>
 
 class IViewportPickEngine
 {

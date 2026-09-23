@@ -1,19 +1,11 @@
-/// @file OsgWidget.cpp
+﻿/// @file OsgWidget.cpp
 /// @brief OSG 视口与场景加载
 
 #include "OsgWidget.h"
-#include "ViewportInteraction/OsgWidgetPickEngine.h"
-#include "ViewportInteraction/ViewportInteractionController.h"
-#include "ViewportInteraction/Tools/SelectionOperationToolAdapter.h"
-#include "ViewportInteraction/Overlays/SelectionOperationOverlayAdapter.h"
-#include "ViewportInteraction/Policies/PassthroughHitPolicy.h"
-#include "ViewportInteraction/Policies/GizmoAxisHitPolicy.h"
-
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
-#include "RunLogger.h"
 #include "BackendPoseOsg.h"
 #include "BackendVisualMath.h"
 #include "BackendVisualRegistry.h"
@@ -37,6 +29,13 @@
 #include "PolylinePickOperation.h"
 #include "QWidgetViewer.h"
 #include "RobotTcpDragTeachOperation.h"
+#include "RunLogger.h"
+#include "ViewportInteraction/OsgWidgetPickEngine.h"
+#include "ViewportInteraction/Overlays/SelectionOperationOverlayAdapter.h"
+#include "ViewportInteraction/Policies/GizmoAxisHitPolicy.h"
+#include "ViewportInteraction/Policies/PassthroughHitPolicy.h"
+#include "ViewportInteraction/Tools/SelectionOperationToolAdapter.h"
+#include "ViewportInteraction/ViewportInteractionController.h"
 
 #include <QBuffer>
 #include <QFile>
@@ -394,8 +393,7 @@ void appendWorldPoseMarker(osg::Vec3Array& pointVerts, osg::Vec4Array& pointColo
 						   osg::Vec4Array& lineColors, const osg::Vec3f& positionMm, const osg::Vec3f& eulerDeg,
 						   bool reachable, float axisLengthMm, bool showX, bool showY, bool showZ)
 {
-	const osg::Vec4 originColor =
-		reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	const osg::Vec4 originColor = reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
 	pointVerts.push_back(osg::Vec3(positionMm.x(), positionMm.y(), positionMm.z()));
 	pointColors.push_back(originColor);
 
@@ -602,8 +600,8 @@ bool resolveParentWorldForBackendTransform(OsgWidget& self, const std::string& b
 			logicalParentId = parents.front();
 		}
 	}
-	const bool underLogicalParent = !logicalParentId.empty() &&
-									self.backendOuterPatIsUnderOuterPatInSceneGraph(backendId, logicalParentId);
+	const bool underLogicalParent =
+		!logicalParentId.empty() && self.backendOuterPatIsUnderOuterPatInSceneGraph(backendId, logicalParentId);
 	if (underLogicalParent)
 	{
 		if (const auto parentObj = mgr.getData(logicalParentId))
@@ -1182,9 +1180,9 @@ void OsgWidget::setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay
 	}
 
 	osg::Matrixd m;
-	m.makeRotate(OsgScene::eulerDegToQuat(
-		osg::Vec3f(static_cast<float>(cursor.eulerDeg.x), static_cast<float>(cursor.eulerDeg.y),
-				   static_cast<float>(cursor.eulerDeg.z))));
+	m.makeRotate(OsgScene::eulerDegToQuat(osg::Vec3f(static_cast<float>(cursor.eulerDeg.x),
+													 static_cast<float>(cursor.eulerDeg.y),
+													 static_cast<float>(cursor.eulerDeg.z))));
 	m.setTrans(cursor.positionMm.x, cursor.positionMm.y, cursor.positionMm.z);
 	m_playbackCursorMt->setMatrix(m);
 	m_playbackCursorMt->setNodeMask(OsgScene::kMaskPickOverlay);
@@ -1199,7 +1197,6 @@ void OsgWidget::clearPlaybackCursorOverlay()
 	}
 	requestRedraw();
 }
-
 
 void OsgWidget::setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels)
 {
@@ -1271,8 +1268,7 @@ void OsgWidget::clearWaypointIndexLabels()
 }
 
 void OsgWidget::setInstructionWaypointPickCallbacks(
-	std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
-	std::function<void()> onCanceled)
+	std::function<void(const std::string& instructionId, bool isArcVia)> onPicked, std::function<void()> onCanceled)
 {
 	m_instructionWaypointPicked = std::move(onPicked);
 	m_instructionWaypointPickCanceled = std::move(onCanceled);
@@ -1322,7 +1318,7 @@ void OsgWidget::setInstructionWaypointPickMode(bool enabled)
 }
 
 bool OsgWidget::tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string& outInstructionId,
-											  cloudsim::core::Vec3* outPositionMm, bool* outIsArcVia) const
+											 cloudsim::core::Vec3* outPositionMm, bool* outIsArcVia) const
 {
 	if (!m_viewer.valid() || !m_viewer->getCamera() || m_instructionWaypointPickTargets.empty())
 	{
@@ -1348,8 +1344,7 @@ bool OsgWidget::tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string
 		{
 			continue;
 		}
-		const osg::Vec3d clip =
-			osg::Vec3d(target.positionMm.x, target.positionMm.y, target.positionMm.z) * mvp;
+		const osg::Vec3d clip = osg::Vec3d(target.positionMm.x, target.positionMm.y, target.positionMm.z) * mvp;
 		if (clip.z() < -1.0 || clip.z() > 1.0)
 		{
 			continue;
@@ -1364,8 +1359,7 @@ bool OsgWidget::tryPickInstructionWaypointAt(int mouseX, int mouseY, std::string
 			continue;
 		}
 		constexpr double kDepthTie = 1e-4;
-		if (!found || clip.z() + kDepthTie < bestDepth ||
-			(std::abs(clip.z() - bestDepth) <= kDepthTie && d2 < bestD2))
+		if (!found || clip.z() + kDepthTie < bestDepth || (std::abs(clip.z() - bestDepth) <= kDepthTie && d2 < bestD2))
 		{
 			found = true;
 			bestD2 = d2;
@@ -1830,10 +1824,9 @@ void OsgWidget::applyViewportWireframeToBackendBranch(osg::Node* outerBranch)
 		return;
 	}
 	osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
-	pm->setMode(osg::PolygonMode::FRONT_AND_BACK,
-				m_wireframeMode ? osg::PolygonMode::LINE : osg::PolygonMode::FILL);
-	outerBranch->getOrCreateStateSet()->setAttributeAndModes(
-		pm, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	pm->setMode(osg::PolygonMode::FRONT_AND_BACK, m_wireframeMode ? osg::PolygonMode::LINE : osg::PolygonMode::FILL);
+	outerBranch->getOrCreateStateSet()->setAttributeAndModes(pm,
+															 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 }
 
 void OsgWidget::applyViewportWireframeToAllBackends()
@@ -2046,8 +2039,7 @@ void OsgWidget::setSketchLineOverlay(const std::vector<RobotOsgUi::RawTrajectory
 	std::size_t segIdx = 0;
 	if (segmentEndExclusive.empty())
 	{
-		const osg::Vec4 c =
-			segmentColors.empty() ? osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f) : segmentColors.front();
+		const osg::Vec4 c = segmentColors.empty() ? osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f) : segmentColors.front();
 		const float w = segmentWidthsPx.empty() ? 2.5f : segmentWidthsPx.front();
 		addStrip(0U, points.size(), c, w);
 	}
@@ -2058,9 +2050,8 @@ void OsgWidget::setSketchLineOverlay(const std::vector<RobotOsgUi::RawTrajectory
 		{
 			if (end > segStart && end <= points.size())
 			{
-				const osg::Vec4 c = (segIdx < segmentColors.size())
-										? segmentColors[segIdx]
-										: osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f);
+				const osg::Vec4 c =
+					(segIdx < segmentColors.size()) ? segmentColors[segIdx] : osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f);
 				const float w = (segIdx < segmentWidthsPx.size()) ? segmentWidthsPx[segIdx] : 2.5f;
 				addStrip(segStart, end, c, w);
 				segStart = end;
@@ -2222,7 +2213,7 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 	{
 		OsgWidgetTransformHierarchyController::placeBackendOuterInScene(*this, id, inserted.first->second.get());
 		OsgWidgetTransformHierarchyController::reattachChildBackendRoots(inserted.first->second.get(),
-																		preservedChildren);
+																		 preservedChildren);
 		bindBackendVisualRoot(id, inserted.first->second.get(), built.brepArtifacts);
 	}
 	m_backendModelCenters[id] = center;
@@ -2312,7 +2303,7 @@ bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString*
 	{
 		OsgWidgetTransformHierarchyController::placeBackendOuterInScene(*this, id, inserted.first->second.get());
 		OsgWidgetTransformHierarchyController::reattachChildBackendRoots(inserted.first->second.get(),
-																		preservedChildren);
+																		 preservedChildren);
 		bindBackendVisualRoot(id, inserted.first->second.get(), built.brepArtifacts);
 	}
 	m_backendModelCenters[id] = center;
@@ -3480,8 +3471,7 @@ void OsgWidget::beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float 
 		edgeGeode->addDrawable(m_originPlaneEdgeGeoms[i].get());
 		osg::StateSet* edgeSs = edgeGeode->getOrCreateStateSet();
 		applyOriginPlaneState(edgeSs, false);
-		edgeSs->setAttributeAndModes(new osg::LineWidth(2.0f),
-									 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		edgeSs->setAttributeAndModes(new osg::LineWidth(2.0f), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
 		m_originPlanePickGroup->addChild(fillGeode.get());
 		m_originPlanePickGroup->addChild(edgeGeode.get());
@@ -3639,13 +3629,11 @@ void OsgWidget::ensureOriginReferenceGroup()
 		ptGeom->setColorArray(ptColors.get(), osg::Array::BIND_OVERALL);
 		ptGeom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, 1));
 		osg::StateSet* ptSs = ptGeom->getOrCreateStateSet();
-		ptSs->setAttributeAndModes(new osg::Point(6.f),
-								   osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ptSs->setAttributeAndModes(new osg::Point(6.f), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 		axisGeode->addDrawable(ptGeom.get());
 		osg::StateSet* ss = axisGeode->getOrCreateStateSet();
 		applyOriginPlaneState(ss, false);
-		ss->setAttributeAndModes(new osg::LineWidth(2.5f),
-								 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ss->setAttributeAndModes(new osg::LineWidth(2.5f), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 		m_originRefPointGroup->addChild(axisGeode.get());
 	}
 	m_originRefGroup->addChild(m_originRefPointGroup.get());
@@ -3684,8 +3672,7 @@ void OsgWidget::ensureOriginReferenceGroup()
 		edgeGeode->addDrawable(edgeGeom.get());
 		osg::StateSet* edgeSs = edgeGeode->getOrCreateStateSet();
 		applyOriginPlaneState(edgeSs, false);
-		edgeSs->setAttributeAndModes(new osg::LineWidth(1.8f),
-									 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		edgeSs->setAttributeAndModes(new osg::LineWidth(1.8f), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
 		m_originRefPlaneGroups[i]->addChild(fillGeode.get());
 		m_originRefPlaneGroups[i]->addChild(edgeGeode.get());
@@ -4104,8 +4091,7 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 			{
 				std::string instructionId;
 				bool isArcVia = false;
-				if (tryPickInstructionWaypointAt(mouseEvent->x(), mouseEvent->y(), instructionId, nullptr,
-												 &isArcVia))
+				if (tryPickInstructionWaypointAt(mouseEvent->x(), mouseEvent->y(), instructionId, nullptr, &isArcVia))
 				{
 					emit instructionWaypointPicked(QString::fromStdString(instructionId), isArcVia);
 					if (m_instructionWaypointPicked)
@@ -4240,11 +4226,10 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 	return QWidget::eventFilter(watched, event);
 }
 
-
 void OsgWidget::setupInteractionController()
 {
-	m_interactionController = std::make_unique<ViewportInteractionController>(
-		std::make_unique<OsgWidgetPickEngine>(*this));
+	m_interactionController =
+		std::make_unique<ViewportInteractionController>(std::make_unique<OsgWidgetPickEngine>(*this));
 	m_interactionController->addOverlay(
 		std::make_unique<SelectionOperationOverlayAdapter>("tcpDragTeach", m_tcpDragTeachOperation.get()));
 	m_interactionController->addOverlay(

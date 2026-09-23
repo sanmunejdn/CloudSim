@@ -469,4 +469,3 @@ void OsgScene::orientViewToPlane(const osg::Vec3d& focusMm, const osg::Vec3d& no
 	updateCompassScale();
 	requestRedraw();
 }
-

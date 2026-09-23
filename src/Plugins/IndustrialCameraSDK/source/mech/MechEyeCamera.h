@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_MECHEYECAMERA_H
+﻿#ifndef INDUSTRIALCAMERASDK_MECHEYECAMERA_H
 #define INDUSTRIALCAMERASDK_MECHEYECAMERA_H
 
 /// @file MechEyeCamera.h
@@ -8,7 +8,6 @@
 
 namespace industrial_camera
 {
-
 class MechEyeCamera final : public ICamera
 {
 public:

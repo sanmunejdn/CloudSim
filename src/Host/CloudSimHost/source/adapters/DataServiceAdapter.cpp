@@ -1,4 +1,4 @@
-/// @file DataServiceAdapter.cpp
+﻿/// @file DataServiceAdapter.cpp
 /// @brief Backend 数据到 IDataService
 
 #include "adapters/DataServiceAdapter.h"
@@ -16,14 +16,15 @@
 #include "DocumentHostAccess.h"
 #include "DocumentImportFacade.h"
 #include "FollowAttachmentComponent.h"
-#include "io/CustomDeviceHostOps.h"
-#include "io/CustomDeviceRobotMountOps.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
+#include "io/CustomDeviceHostOps.h"
+#include "io/CustomDeviceRobotMountOps.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
+
 #include <QLatin1String>
 
 namespace cloudsim::host

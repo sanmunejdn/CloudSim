@@ -1,9 +1,12 @@
-#ifndef ROBOTSCENE_CUSTOMDEVICEKINEMATICMODEL_H
+﻿#ifndef ROBOTSCENE_CUSTOMDEVICEKINEMATICMODEL_H
 #define ROBOTSCENE_CUSTOMDEVICEKINEMATICMODEL_H
 
-#include "CustomDeviceBackendData.h"
+/// @file CustomDeviceKinematicModel.h
+/// @brief CustomDeviceKinematicModel 接口
+
 #include "robot_scene_global.h"
 
+#include "CustomDeviceBackendData.h"
 #include "IKinematicModel.h"
 #include "KinematicGraph.h"
 
@@ -40,8 +43,8 @@ private:
 
 ROBOT_SCENE_API std::shared_ptr<Model> create(CustomDeviceBackendData& device);
 ROBOT_SCENE_API bool forwardLinkWorldById(const CustomDeviceBackendData& device, BackendDataManager* mgr,
-											const std::vector<double>& q,
-											std::unordered_map<std::string, std::array<double, 16>>& worldByLink);
+										  const std::vector<double>& q,
+										  std::unordered_map<std::string, std::array<double, 16>>& worldByLink);
 
 } // namespace CustomDeviceKinematicModel
 

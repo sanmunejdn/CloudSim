@@ -15,10 +15,10 @@
 #include "BackendGeometryMetrics.h"
 #include "BackendIdUserData.h"
 #include "BackendPoseOsg.h"
+#include "BackendTypeIds.h"
 #include "BackendVisualMath.h"
 #include "PointCloudBackendData.h"
 #include "PointCloudBackendVisual.h"
-#include "BackendTypeIds.h"
 
 #include <osg/Geode>
 #include <osg/Geometry>

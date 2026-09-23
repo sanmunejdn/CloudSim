@@ -1,4 +1,4 @@
-#ifndef GEOMETRICMODELINGPLUGIN_SCRIPTMODELIO_H
+﻿#ifndef GEOMETRICMODELINGPLUGIN_SCRIPTMODELIO_H
 #define GEOMETRICMODELINGPLUGIN_SCRIPTMODELIO_H
 
 /// @file ScriptModelIo.h
@@ -25,4 +25,4 @@ struct ScriptModelParseResult
 
 ScriptModelParseResult parseScriptModelJson(const QByteArray& utf8);
 
-#endif
+#endif // GEOMETRICMODELINGPLUGIN_SCRIPTMODELIO_H

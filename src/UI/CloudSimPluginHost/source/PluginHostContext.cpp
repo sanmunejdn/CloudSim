@@ -7,13 +7,13 @@
 #include "Ai/AiTrajectoryFeatureCatalog.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendFileImport.h"
 #include "BackendFollowMath.h"
 #include "BackendPrimitiveGeometry.h"
 #include "BackendRegistry.h"
 #include "BackendSceneDocumentFacade.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
-#include "BackendFileImport.h"
 #include "CloudSimPluginVersion.h"
 #include "CoreTypes.h"
 #include "DocumentHost.h"
@@ -25,22 +25,20 @@
 #include "IRenderView.h"
 #include "MeshBackendData.h"
 #include "MeshBoolean.h"
-#include "PrimitiveBrep.h"
 #include "PluginDelegatedBackend.h"
-#include "PluginPropertyBindingRegistry.h"
-#include "PluginPropertyBindingSelfTest.h"
-#include "RunLogger.h"
 #include "PluginDocumentAdapter.h"
 #include "PluginGeometryHostImpl.h"
 #include "PluginLabelingHostImpl.h"
 #include "PluginPointCloudHostImpl.h"
+#include "PluginPropertyBindingRegistry.h"
+#include "PluginPropertyBindingSelfTest.h"
+#include "PrimitiveBrep.h"
 #include "RunLogger.h"
 
 #include <QAction>
 #include <QCoreApplication>
 #include <QDockWidget>
 #include <QFileInfo>
-#include <QLatin1String>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
@@ -50,6 +48,8 @@
 #include <QTabWidget>
 #include <QThread>
 #include <QUuid>
+
+#include <QLatin1String>
 
 namespace
 {
@@ -299,8 +299,9 @@ void PluginHostContext::enqueueJob(const QString& title, std::function<void(cons
 	m_mainWindowHost->enqueueBackgroundJob(title, std::move(work), std::move(onFinished));
 }
 
-quint64 PluginHostContext::enqueueCancellableJob(const QString& title, PluginCancellableJobWorkFn work,
-												 std::function<void(bool threw, const QString& throwMessage)> onFinished)
+quint64
+PluginHostContext::enqueueCancellableJob(const QString& title, PluginCancellableJobWorkFn work,
+										 std::function<void(bool threw, const QString& throwMessage)> onFinished)
 {
 	if (!m_mainWindowHost)
 	{
@@ -578,9 +579,10 @@ bool PluginHostContext::createPrimitiveMesh(const PluginPrimitiveMeshParams& par
 
 	const QString displayName = options.displayName.isEmpty() ? QStringLiteral("PluginPrimitive") : options.displayName;
 	// 每实例唯一路径，避免轨迹页按 sourcePath 去重吞掉多个 AI 基本体
-	const QString sourcePath = options.sourcePath.isEmpty()
-								   ? QStringLiteral("ai://primitive/%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces))
-								   : options.sourcePath;
+	const QString sourcePath =
+		options.sourcePath.isEmpty()
+			? QStringLiteral("ai://primitive/%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces))
+			: options.sourcePath;
 
 	auto brep = std::make_shared<BrepBackendData>();
 	brep->setName(displayName.toStdString());
@@ -599,8 +601,9 @@ bool PluginHostContext::createPrimitiveMesh(const PluginPrimitiveMeshParams& par
 	brep->setRotation(rot);
 
 	QString regErr;
-	if (!cloudsim::host::registerAdoptedBrepAndLoadScene(*doc, brep, sourcePath, QLatin1String(backend_type::kCatalogBrepModel), QString(),
-														options.resetViewToHome, &regErr))
+	if (!cloudsim::host::registerAdoptedBrepAndLoadScene(*doc, brep, sourcePath,
+														 QLatin1String(backend_type::kCatalogBrepModel), QString(),
+														 options.resetViewToHome, &regErr))
 	{
 		if (outError)
 			*outError = regErr.isEmpty() ? QStringLiteral("Failed to register B-rep in backend.") : regErr;
@@ -1053,7 +1056,7 @@ void PluginHostContext::ensureBuiltinMainWorkspaceMode()
 }
 
 void PluginHostContext::registerWorkspaceMode(const QString& modeId, const QString& titleZh, const QString& titleEn,
-											 std::function<void()> enterFn)
+											  std::function<void()> enterFn)
 {
 	ensureBuiltinMainWorkspaceMode();
 	if (modeId.isEmpty())
@@ -1075,8 +1078,8 @@ void PluginHostContext::registerWorkspaceMode(const QString& modeId, const QStri
 	}
 
 	// 固定顺序：主 → 几何 → 工艺 → 工程图 → 其它
-	const QStringList preferred = {QStringLiteral("com.cloudsim.geomodeling"), QStringLiteral("com.cloudsim.processflow"),
-								   QStringLiteral("com.cloudsim.drawing")};
+	const QStringList preferred = {QStringLiteral("com.cloudsim.geomodeling"),
+								   QStringLiteral("com.cloudsim.processflow"), QStringLiteral("com.cloudsim.drawing")};
 	WorkspaceModeRegistration entry;
 	entry.modeId = modeId;
 	entry.titleZh = titleZh;
@@ -1153,7 +1156,8 @@ void PluginHostContext::onProjectAboutToSave(std::function<void(const QString& d
 	}
 }
 
-void PluginHostContext::onProjectLoaded(std::function<void(const QString& documentId, const QJsonObject& root)> callback)
+void PluginHostContext::onProjectLoaded(
+	std::function<void(const QString& documentId, const QJsonObject& root)> callback)
 {
 	if (callback)
 	{

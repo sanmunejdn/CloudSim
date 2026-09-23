@@ -1,8 +1,12 @@
-#ifndef KINEMATICCORE_KINEMATICJOINT_H
+﻿#ifndef KINEMATICCORE_KINEMATICJOINT_H
 #define KINEMATICCORE_KINEMATICJOINT_H
 
-#include "JointMotion1D.h"
+/// @file KinematicJoint.h
+/// @brief KinematicJoint 接口
+
 #include "kinematic_core_global.h"
+
+#include "JointMotion1D.h"
 
 namespace kinematic_core
 {

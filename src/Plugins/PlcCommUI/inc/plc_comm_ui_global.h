@@ -1,4 +1,4 @@
-#ifndef PLCCOMMUI_PLC_COMM_UI_GLOBAL_H
+﻿#ifndef PLCCOMMUI_PLC_COMM_UI_GLOBAL_H
 #define PLCCOMMUI_PLC_COMM_UI_GLOBAL_H
 
 /// @file plc_comm_ui_global.h

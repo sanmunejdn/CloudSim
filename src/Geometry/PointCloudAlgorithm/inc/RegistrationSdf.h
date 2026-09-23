@@ -1,4 +1,4 @@
-#ifndef POINTCLOUDALGORITHM_REGISTRATIONSDF_H
+﻿#ifndef POINTCLOUDALGORITHM_REGISTRATIONSDF_H
 #define POINTCLOUDALGORITHM_REGISTRATIONSDF_H
 
 /// @file RegistrationSdf.h
@@ -13,7 +13,6 @@
 
 namespace pclalgo
 {
-
 enum class SdfFieldMode : int
 {
 	DdfVector = 0,

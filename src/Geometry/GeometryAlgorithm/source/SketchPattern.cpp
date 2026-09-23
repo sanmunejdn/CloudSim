@@ -1,20 +1,20 @@
-/// @file SketchPattern.cpp
+﻿/// @file SketchPattern.cpp
 
 #include "SketchPattern.h"
 
 #include "BrepBoolean.h"
 #include "detail/OccIncludes.h"
 
+#include <functional>
+
 #include <BRepBuilderAPI_Transform.hxx>
+#include <TopoDS_Shape.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
-#include <TopoDS_Shape.hxx>
-
-#include <functional>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -125,7 +125,8 @@ bool linearPatternBodyToHandle(const ShapeHandle& seed, const SketchLinearPatter
 		result = base;
 	}
 
-	auto makeTrsf = [&](int i) {
+	auto makeTrsf = [&](int i)
+	{
 		gp_Trsf tr;
 		tr.SetTranslation(step * static_cast<double>(i));
 		return tr;
@@ -177,7 +178,8 @@ bool circularPatternBodyToHandle(const ShapeHandle& seed, const SketchCircularPa
 		result = base;
 	}
 
-	auto makeTrsf = [&](int i) {
+	auto makeTrsf = [&](int i)
+	{
 		gp_Trsf tr;
 		tr.SetRotation(axis, stepRad * static_cast<double>(i));
 		return tr;

@@ -1,35 +1,30 @@
-/// @file PlanToTcpPose.cpp
+﻿/// @file PlanToTcpPose.cpp
 /// @brief planToTcpPose 入口：IK 目标 + 关节空间规划 + 双输出
 
-#include "RobotPathPlanning.h"
-
+#include "Adapters.h"
 #include "CollisionValidity.h"
 #include "JointSpaceDijkstraPlanner.h"
 #include "JointSpaceRrtPlanner.h"
 #include "OmplJointSpacePlanner.h"
 #include "PathPostProcess.h"
+#include "RobotPathPlanning.h"
 #include "TaskSpaceRrtPlanner.h"
-
 #include "ToolKinematics.h"
-#include "Adapters.h"
 #include "UrdfIkSolverOptions.h"
 #include "UrdfNumericalIk.h"
 #include "UrdfRobotLoader.h"
 
-#include <cmath>
-
-#include <algorithm>
-#include <string>
-
 #include <QHash>
 #include <QString>
 #include <QVector>
+#include <algorithm>
+#include <cmath>
+#include <string>
 
 namespace robot_path
 {
 namespace
 {
-
 engine::RigidTransform rigidFromTcpPose(const TcpPose& p)
 {
 	Eigen::Quaterniond q(p.quatXyzw[3], p.quatXyzw[0], p.quatXyzw[1], p.quatXyzw[2]);
@@ -61,8 +56,8 @@ bool solveGoalJoints(const PlanRequest& req, std::vector<double>& goalQ, std::st
 
 	UrdfRobotLoader::UrdfIkSolverOptions opts{};
 	std::string ikFail;
-	goalQ = UrdfRobotLoader::solveArmPoseDampedLeastSquares(req.urdfPath, req.flangeLinkName, target,
-															req.startJointRad, opts, &ikFail);
+	goalQ = UrdfRobotLoader::solveArmPoseDampedLeastSquares(req.urdfPath, req.flangeLinkName, target, req.startJointRad,
+															opts, &ikFail);
 	if (goalQ.empty())
 	{
 		errMsg = ikFail.empty() ? "IK failed for goal pose" : ikFail;
@@ -239,7 +234,8 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 		}
 	}
 
-	auto densifyCollisionOk = [&](std::string& densifyErr) -> bool {
+	auto densifyCollisionOk = [&](std::string& densifyErr) -> bool
+	{
 		const double stepRad = std::max(1e-6, armReq.options.longestValidSegmentRad);
 		detail::densifyJointPath(out, stepRad);
 		if (!armReq.options.checkCollision)
@@ -256,9 +252,8 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 				densifyErr = "path state in collision after densify (i=" + std::to_string(i) + ")";
 				return false;
 			}
-			if (i + 1 < out.jointTrajectoryRad.size()
-				&& !detail::isSegmentValid(armReq, lim, out.jointTrajectoryRad[i], out.jointTrajectoryRad[i + 1],
-										   stepRad))
+			if (i + 1 < out.jointTrajectoryRad.size() &&
+				!detail::isSegmentValid(armReq, lim, out.jointTrajectoryRad[i], out.jointTrajectoryRad[i + 1], stepRad))
 			{
 				densifyErr = "path segment in collision after densify (i=" + std::to_string(i) + ")";
 				return false;
@@ -267,7 +262,8 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 		return true;
 	};
 
-	auto snapGoalAndDensify = [&](std::string& err) -> bool {
+	auto snapGoalAndDensify = [&](std::string& err) -> bool
+	{
 		if (!out.jointTrajectoryRad.empty())
 		{
 			auto& back = out.jointTrajectoryRad.back();
@@ -310,8 +306,10 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 		return true;
 	};
 
-	auto tryOmplOrRrt = [&](std::string& lastErr) -> bool {
-		auto tryOne = [&](const char* plannerId, const double minTimeSec, const bool useOmpl) -> bool {
+	auto tryOmplOrRrt = [&](std::string& lastErr) -> bool
+	{
+		auto tryOne = [&](const char* plannerId, const double minTimeSec, const bool useOmpl) -> bool
+		{
 			PlanRequest tryReq = armReq;
 			tryReq.options.plannerId = plannerId;
 			tryReq.options.planningTimeSec = std::max(minTimeSec, armReq.options.planningTimeSec);
@@ -368,7 +366,8 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 				lastErr = "OMPL not available; using built-in RRTConnect for " + requested;
 			}
 #endif
-			const bool useOmpl = [&] {
+			const bool useOmpl = [&]
+			{
 #if defined(CLOUDSIM_HAS_OMPL)
 				return plannerRequiresOmpl(selected) || selected == "RRTConnect";
 #else
@@ -401,7 +400,8 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 		return false;
 	};
 
-	auto finalizePath = [&]() -> bool {
+	auto finalizePath = [&]() -> bool
+	{
 		detail::fillTcpPosesFromJoints(armReq, out);
 		if (out.tcpPoses.size() != out.jointTrajectoryRad.size())
 		{
@@ -425,7 +425,8 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 		return true;
 	};
 
-	auto tryTaskSpaceRrt = [&]() -> bool {
+	auto tryTaskSpaceRrt = [&]() -> bool
+	{
 		if (!detail::planTaskSpaceRrt(armReq, lim, goalQ, out))
 			return false;
 		std::string densifyErr;
@@ -437,10 +438,9 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 			bool coarseOk = true;
 			for (std::size_t i = 0; i + 1 < out.jointTrajectoryRad.size(); ++i)
 			{
-				if (!detail::isStateValid(armReq, lim, out.jointTrajectoryRad[i])
-					|| !detail::isSegmentValid(armReq, lim, out.jointTrajectoryRad[i],
-											   out.jointTrajectoryRad[i + 1],
-											   armReq.options.longestValidSegmentRad))
+				if (!detail::isStateValid(armReq, lim, out.jointTrajectoryRad[i]) ||
+					!detail::isSegmentValid(armReq, lim, out.jointTrajectoryRad[i], out.jointTrajectoryRad[i + 1],
+											armReq.options.longestValidSegmentRad))
 				{
 					coarseOk = false;
 					break;
@@ -473,8 +473,8 @@ bool planToTcpPose(const PlanRequest& req, PathResult& out)
 
 	bool usedDirect = false;
 	// 无障碍/直达可行时：关节直线最短且可复现
-	if (armReq.options.allowDirectJointLerp
-		&& detail::isSegmentValid(armReq, lim, armReq.startJointRad, goalQ, armReq.options.longestValidSegmentRad))
+	if (armReq.options.allowDirectJointLerp &&
+		detail::isSegmentValid(armReq, lim, armReq.startJointRad, goalQ, armReq.options.longestValidSegmentRad))
 	{
 		out.jointTrajectoryRad = {armReq.startJointRad, goalQ};
 		out.plannerName = "Direct";

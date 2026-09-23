@@ -1,20 +1,20 @@
-/// @file MainWindowRobotHost.cpp
+﻿/// @file MainWindowRobotHost.cpp
 /// @brief 机器人文档宿主适配
 
 #include "MainWindowRobotHost.h"
 
-#include "../RobotWidget/inc/RobotSimulationController.h"
-#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
-#include "BackendFileImport.h"
+#include "../RobotWidget/inc/RobotSimulationController.h"
+#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "BackendDataManager.h"
+#include "BackendFileImport.h"
+#include "BackendFollowMath.h"
 #include "BackendSceneDocumentFacade.h"
 #include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "CustomDeviceBackendData.h"
 #include "CustomDeviceRobotMountComponent.h"
-#include "BackendFollowMath.h"
 #include "DocumentImportFacade.h"
 #include "DocumentPage.h"
 #include "FrameBackendData.h"
@@ -23,35 +23,33 @@
 #include "IRenderView.h"
 #include "IRobotService.h"
 #include "JobSystem.h"
+#include "KinematicModelIk.h"
+#include "KinematicModelRegistry.h"
 #include "MainWindow.h"
 #include "MainWindowImportCaptureRenderController.h"
 #include "MainWindowSelectionService.h"
 #include "OsgWidget.h"
 #include "PickTypes.h"
+#include "RobotCoordinateFrames.h"
+#include "RobotExternalAxes.h"
 #include "RobotInstructionPropertyDto.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPlanInstruction.h"
-#include "RobotCoordinateFrames.h"
-#include "RobotExternalAxes.h"
 #include "RobotSimulationMath.h"
-#include "KinematicModelIk.h"
-#include "KinematicModelRegistry.h"
 #include "RobotTeachIk.h"
-
-#include <queue>
-#include <unordered_set>
 #include "RunInfoPage.h"
-#include "io/CustomDeviceRobotMountOps.h"
-#include "io/CustomDeviceHostOps.h"
-
-#include <cmath>
-#include <limits>
 #include "UrdfRobotLoader.h"
 #include "WidgetOsgViewHost.h"
 #include "WidgetSceneSignalWiring.h"
+#include "io/CustomDeviceHostOps.h"
+#include "io/CustomDeviceRobotMountOps.h"
 
-#include <memory>
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <memory>
+#include <queue>
+#include <unordered_set>
 
 #include <Adapters.h>
 
@@ -94,9 +92,9 @@ QString resolveMountFlangeLinkName(DocumentPage* page, const int instIdx, const 
 }
 
 bool computeMountTcpWorld(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, const int instIdx,
-						  const QString& flangeBackendId, const QString& flangeLinkHint,
-						  const QVector<double>& jointQ, const RobotCoordinate::RobotCoordinateFrameSet& frames,
-						  BackendMat4& outTcpWorld, QString* outResolvedLink = nullptr)
+						  const QString& flangeBackendId, const QString& flangeLinkHint, const QVector<double>& jointQ,
+						  const RobotCoordinate::RobotCoordinateFrameSet& frames, BackendMat4& outTcpWorld,
+						  QString* outResolvedLink = nullptr)
 {
 	if (!doc || instIdx < 0 || jointQ.isEmpty())
 	{
@@ -130,8 +128,7 @@ bool computeMountTcpWorld(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, const
 	osg::Matrixd robotBaseWorld;
 	robotBaseWorld.makeIdentity();
 	(void)RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, robotBaseWorld);
-	const osg::Matrixd tcpRenderWorld =
-		RobotMatrixOsg::matrixFromBackendColMajor(tcpInBase) * robotBaseWorld;
+	const osg::Matrixd tcpRenderWorld = RobotMatrixOsg::matrixFromBackendColMajor(tcpInBase) * robotBaseWorld;
 	outTcpWorld = RobotMatrixOsg::backendColMajorFromMatrix(tcpRenderWorld);
 	return true;
 }
@@ -153,8 +150,7 @@ public:
 	DocumentPage* page() const { return m_page; }
 
 	QString documentId() const override { return m_page ? m_page->documentId() : QString(); }
-	bool robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId,
-										   QVector<double>& outLocal) const override
+	bool robotLocalJointAnglesForSceneRoot(const QString& sceneRootBackendId, QVector<double>& outLocal) const override
 	{
 		return m_page && m_page->robotLocalJointAnglesForSceneRoot(sceneRootBackendId, outLocal);
 	}
@@ -274,16 +270,12 @@ public:
 		return m_page->robotExternalAxesForInstance(instanceIndex);
 	}
 	RobotCollision::Settings& robotCollisionSettings() override { return m_page->robotCollisionSettings(); }
-	const RobotCollision::Settings& robotCollisionSettings() const override
-	{
-		return m_page->robotCollisionSettings();
-	}
+	const RobotCollision::Settings& robotCollisionSettings() const override { return m_page->robotCollisionSettings(); }
 	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const override
 	{
 		return m_page->robotActiveUserFrameForInstance(instanceIndex);
 	}
-	void setRobotBasePlacementWorldForInstance(int instanceIndex,
-											   const cloudsim::core::Mat4& placementWorld) override
+	void setRobotBasePlacementWorldForInstance(int instanceIndex, const cloudsim::core::Mat4& placementWorld) override
 	{
 		m_page->setRobotBasePlacementWorldForInstance(instanceIndex, placementWorld);
 	}
@@ -569,7 +561,8 @@ public:
 			ctx.registryKey = KinematicModelRegistry::keyRobotInstance(sceneRootId.toStdString());
 		}
 
-		auto solveIk = [](const RobotTeachIk::TeachIkContext& c) -> RobotTeachIk::TeachIkResult {
+		auto solveIk = [](const RobotTeachIk::TeachIkContext& c) -> RobotTeachIk::TeachIkResult
+		{
 			if (!c.registryKey.empty())
 			{
 				return KinematicModelIk::solveTeachPose(c.registryKey, c);
@@ -577,7 +570,8 @@ public:
 			return RobotTeachIk::solveTeachIk(c);
 		};
 		auto solveIkDrag = [](const RobotTeachIk::TeachIkContext& c, const double hint,
-							  const bool hasHint) -> RobotTeachIk::TeachIkResult {
+							  const bool hasHint) -> RobotTeachIk::TeachIkResult
+		{
 			if (!c.registryKey.empty())
 			{
 				RobotTeachIk::TeachIkContext cc = c;
@@ -586,8 +580,7 @@ public:
 			return RobotTeachIk::solveTeachIkCoordinatedDrag(c, hint, hasHint);
 		};
 
-		const RobotExternal::RobotExternalAxisConfigSet& extSet =
-			m_page->robotExternalAxesForInstance(instanceIndex);
+		const RobotExternal::RobotExternalAxisConfigSet& extSet = m_page->robotExternalAxesForInstance(instanceIndex);
 		const std::vector<double> qDoc = m_page->robotExternalAxisQ(instanceIndex);
 		const int configCount = static_cast<int>(extSet.axes.size());
 		ctx.externalAxisConfigCount = configCount;
@@ -604,7 +597,8 @@ public:
 		}
 
 		auto buildDof = [&](RobotExternal::RobotExternalAttachment att,
-							const std::vector<double>& qe) -> RobotTeachIk::TeachIkExternalAxisDof {
+							const std::vector<double>& qe) -> RobotTeachIk::TeachIkExternalAxisDof
+		{
 			RobotTeachIk::TeachIkExternalAxisDof dof;
 			dof.optimizeExternal = true;
 			dof.adaptiveExternalDamping = true;
@@ -632,8 +626,9 @@ public:
 			return dof;
 		};
 
-		auto appendSparseSamples = [](const RobotTeachIk::TeachIkExternalAxisDof& dof,
-									  std::vector<std::vector<double>>& samples) {
+		auto appendSparseSamples =
+			[](const RobotTeachIk::TeachIkExternalAxisDof& dof, std::vector<std::vector<double>>& samples)
+		{
 			const int dofN = static_cast<int>(dof.axes.size());
 			if (dofN <= 0)
 			{
@@ -688,8 +683,7 @@ public:
 					const auto& ax = dof.axes[static_cast<size_t>(i)];
 					const int gn = gridN[static_cast<size_t>(i)];
 					const double t =
-						gn <= 1 ? 0.0
-								: static_cast<double>(idx[static_cast<size_t>(i)]) / static_cast<double>(gn - 1);
+						gn <= 1 ? 0.0 : static_cast<double>(idx[static_cast<size_t>(i)]) / static_cast<double>(gn - 1);
 					sample[static_cast<size_t>(i)] = ax.lower + t * (ax.upper - ax.lower);
 				}
 				samples.push_back(std::move(sample));
@@ -711,7 +705,8 @@ public:
 			}
 		};
 
-		auto rigidFromCol16 = [](const double m[16]) -> engine::RigidTransform {
+		auto rigidFromCol16 = [](const double m[16]) -> engine::RigidTransform
+		{
 			BackendMat4 bm{};
 			for (int i = 0; i < 16; ++i)
 			{
@@ -720,7 +715,8 @@ public:
 			return RobotCoordinate::rigidTransformFromBackendMat4(bm);
 		};
 
-		auto costOf = [&](const RobotTeachIk::TeachIkResult& r, const std::vector<double>& qeTry) {
+		auto costOf = [&](const RobotTeachIk::TeachIkResult& r, const std::vector<double>& qeTry)
+		{
 			double c = r.residualTcpMm;
 			const size_t nArm = std::min(r.jointRad.size(), ctx.seedJointRad.size());
 			for (size_t i = 0; i < nArm; ++i)
@@ -734,8 +730,9 @@ public:
 			return c;
 		};
 
-		auto fillResult = [&](const RobotTeachIk::TeachIkResult& ik, const RobotTeachIk::TeachIkExternalAxisDof& baseDof,
-							  const std::vector<double>& qeBest) {
+		auto fillResult = [&](const RobotTeachIk::TeachIkResult& ik,
+							  const RobotTeachIk::TeachIkExternalAxisDof& baseDof, const std::vector<double>& qeBest)
+		{
 			result.ok = true;
 			result.jointRad.reserve(static_cast<int>(ik.jointRad.size()));
 			for (double v : ik.jointRad)
@@ -789,7 +786,8 @@ public:
 			}
 		};
 
-		RobotTeachIk::TeachIkExternalAxisDof baseDof = buildDof(RobotExternal::RobotExternalAttachment::RobotBase, qeFull);
+		RobotTeachIk::TeachIkExternalAxisDof baseDof =
+			buildDof(RobotExternal::RobotExternalAttachment::RobotBase, qeFull);
 		const bool useWorkpieceRep = RobotExternal::hasEnabledWorkpieceExternalAxes(extSet);
 		RobotTeachIk::TeachIkResult bestIk;
 		bestIk.ok = false;
@@ -832,9 +830,8 @@ public:
 			const cloudsim::core::Mat4 offset = m_page->workpieceWorkingFrameOffset(instanceIndex, boundQ);
 
 			double tp0WorkCur[16];
-			if (!boundId.empty() &&
-				RobotExternal::composeWorkpieceWorkingFrameInRobotP0(p0.data(), w0.data(), extSet, boundId, qeFull,
-																	 offset.data(), tp0WorkCur))
+			if (!boundId.empty() && RobotExternal::composeWorkpieceWorkingFrameInRobotP0(
+										p0.data(), w0.data(), extSet, boundId, qeFull, offset.data(), tp0WorkCur))
 			{
 				const engine::RigidTransform T_p0_work_cur = rigidFromCol16(tp0WorkCur);
 				const engine::RigidTransform T_work = T_p0_work_cur.inverse().composeColumn(ctx.T_base_target);
@@ -861,13 +858,13 @@ public:
 					}
 					double tp0Work[16];
 					if (!RobotExternal::composeWorkpieceWorkingFrameInRobotP0(p0.data(), w0.data(), extSet, boundId,
-																			 qeTry, offset.data(), tp0Work))
+																			  qeTry, offset.data(), tp0Work))
 					{
 						continue;
 					}
 					ctx.T_base_target = rigidFromCol16(tp0Work).composeColumn(T_work);
-					RobotTeachIk::TeachIkExternalAxisDof tryBase = buildDof(
-						RobotExternal::RobotExternalAttachment::RobotBase, qeTry);
+					RobotTeachIk::TeachIkExternalAxisDof tryBase =
+						buildDof(RobotExternal::RobotExternalAttachment::RobotBase, qeTry);
 					RobotTeachIk::TeachIkResult ik;
 					if (tryBase.active())
 					{
@@ -902,8 +899,7 @@ public:
 
 		if (!bestIk.ok)
 		{
-			ctx.T_base_target =
-				engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+			ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
 			if (baseDof.active())
 			{
 				ctx.externalAxes = baseDof;
@@ -921,8 +917,7 @@ public:
 
 		if (!bestIk.ok || bestIk.residualTcpMm > 5.0)
 		{
-			ctx.T_base_target =
-				engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+			ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
 			ctx.useOrientation = false;
 			ctx.maxIkIterations = 80;
 			ctx.options.maxIterations = 80;
@@ -948,8 +943,8 @@ public:
 
 		if (!bestIk.ok)
 		{
-			result.error = bestIk.error.empty() ? QStringLiteral("IK solve failed")
-												: QString::fromStdString(bestIk.error);
+			result.error =
+				bestIk.error.empty() ? QStringLiteral("IK solve failed") : QString::fromStdString(bestIk.error);
 			return result;
 		}
 		fillResult(bestIk, bestBaseDof, bestQe);
@@ -1521,7 +1516,8 @@ QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const 
 		return roots;
 	}
 
-	auto isMeshQualityExt = [](const QString& extLower) {
+	auto isMeshQualityExt = [](const QString& extLower)
+	{
 		return extLower == QLatin1String("obj") || extLower == QLatin1String("stl") ||
 			   extLower == QLatin1String("ply") || extLower == QLatin1String("off");
 	};
@@ -1570,8 +1566,8 @@ QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const 
 	for (const QString& path : paths)
 	{
 		QString importErr;
-		const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
-			*host, path, cloudsim::host::ImportFileKind::Mesh, opt, &importErr);
+		const cloudsim::host::ImportFileResult imported =
+			cloudsim::host::importFileIntoDocument(*host, path, cloudsim::host::ImportFileKind::Mesh, opt, &importErr);
 		if (!imported.ok || imported.rootBackendId.isEmpty())
 		{
 			if (outErrors)
@@ -1688,8 +1684,7 @@ QVector<CustomDeviceMountRobotCandidate> MainWindowRobotHost::listMountRobotCand
 		c.flangeLinkName = QString::fromStdString(frames.flangeLinkName);
 		if (!c.flangeLinkName.isEmpty())
 		{
-			c.flangeBackendId =
-				RobotSimulationMath::linkMeshBackendIdForInstance(doc, i, frames.flangeLinkName);
+			c.flangeBackendId = RobotSimulationMath::linkMeshBackendIdForInstance(doc, i, frames.flangeLinkName);
 		}
 		if (c.flangeBackendId.isEmpty())
 		{
@@ -1738,7 +1733,8 @@ QVector<CustomDeviceMountFrameCandidate> MainWindowRobotHost::listMountFrameCand
 			}
 		}
 	}
-	auto appendFrame = [&](const std::shared_ptr<BackendDataBase>& obj) {
+	auto appendFrame = [&](const std::shared_ptr<BackendDataBase>& obj)
+	{
 		if (!obj || obj->className() != backend_type::kClassFrame)
 		{
 			return;
@@ -1784,7 +1780,8 @@ bool MainWindowRobotHost::mountDeviceToRobot(const QString& deviceBackendId, con
 		}
 		return false;
 	}
-	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
+	const auto device =
+		std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
 	if (!device)
 	{
 		if (outError)
@@ -1838,7 +1835,7 @@ bool MainWindowRobotHost::mountDeviceToRobot(const QString& deviceBackendId, con
 					page->robotCoordinateFramesForInstance(instIdx);
 				QString resolvedFlange;
 				const bool tcpOk = computeMountTcpWorld(document(), osgView(), instIdx, flangeBackendId, flangeLinkName,
-													  localJointAngles, frames, mountTcpWorld, &resolvedFlange);
+														localJointAngles, frames, mountTcpWorld, &resolvedFlange);
 				if (tcpOk)
 				{
 					mountTcpWorldForAlign = &mountTcpWorld;
@@ -1847,10 +1844,9 @@ bool MainWindowRobotHost::mountDeviceToRobot(const QString& deviceBackendId, con
 		}
 	}
 
-	const bool mounted = cloudsim::host::mountCustomDeviceToFlange(*device, *host, robotSceneBackendId, flangeLinkName,
-																   flangeBackendId, mountFrameBackendId,
-																   BackendMat4::identity(), jointAnglesForMount,
-																   mountTcpWorldForAlign, outError);
+	const bool mounted = cloudsim::host::mountCustomDeviceToFlange(
+		*device, *host, robotSceneBackendId, flangeLinkName, flangeBackendId, mountFrameBackendId,
+		BackendMat4::identity(), jointAnglesForMount, mountTcpWorldForAlign, outError);
 	if (mounted)
 	{
 		// pre-mount 已 FK；再 applyJointAnglesRad 会内嵌 notify 并用陈旧 OSG 覆盖刚挂好的设备
@@ -1882,7 +1878,8 @@ bool MainWindowRobotHost::unmountDeviceFromRobot(const QString& deviceBackendId,
 		}
 		return false;
 	}
-	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
+	const auto device =
+		std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
 	if (!device)
 	{
 		if (outError)
@@ -1901,7 +1898,8 @@ bool MainWindowRobotHost::isDeviceMountedToRobot(const QString& deviceBackendId)
 	{
 		return false;
 	}
-	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
+	const auto device =
+		std::dynamic_pointer_cast<CustomDeviceBackendData>(host->findObject(deviceBackendId.toStdString()));
 	if (!device)
 	{
 		return false;

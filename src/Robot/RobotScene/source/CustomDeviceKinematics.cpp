@@ -1,17 +1,16 @@
-/// @file CustomDeviceKinematics.cpp
+﻿/// @file CustomDeviceKinematics.cpp
 /// @brief CustomDeviceKinematics 实现（扁平轴 + Link/Joint 树）
 
 #include "CustomDeviceKinematics.h"
 
-#include "CustomDeviceKinematicModel.h"
-#include "CustomDeviceMat4Layout.h"
-#include "CustomDeviceAssemblyCommit.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "BackendSpatial.h"
-#include "IRobotBackendPoseSink.h"
-
 #include "CoreTypes.h"
+#include "CustomDeviceAssemblyCommit.h"
+#include "CustomDeviceKinematicModel.h"
+#include "CustomDeviceMat4Layout.h"
+#include "IRobotBackendPoseSink.h"
 
 #include <algorithm>
 #include <array>
@@ -151,8 +150,8 @@ bool bakeMotionCenterFrameToOriginMm(CustomDeviceAxisConfig& motion, const doubl
 	return true;
 }
 
-bool bakeJointMotionOriginFromParentGeometry(CustomDeviceAxisConfig& motion,
-											 const std::string& parentGeometryBackendId, BackendDataManager* mgr)
+bool bakeJointMotionOriginFromParentGeometry(CustomDeviceAxisConfig& motion, const std::string& parentGeometryBackendId,
+											 BackendDataManager* mgr)
 {
 	if (parentGeometryBackendId.empty() || !mgr)
 	{
@@ -282,7 +281,8 @@ void rebakeRotateJointOriginsFromFrames(CustomDeviceBackendData& device, Backend
 		const bool baked = bakeMotionCenterFrameToOriginMm(J.motion, parentIt->second.data(), mgr);
 		if (baked)
 		{
-			const double delta = std::abs(J.motion.originMm[0] - beforeO[0]) + std::abs(J.motion.originMm[1] - beforeO[1]) +
+			const double delta = std::abs(J.motion.originMm[0] - beforeO[0]) +
+								 std::abs(J.motion.originMm[1] - beforeO[1]) +
 								 std::abs(J.motion.originMm[2] - beforeO[2]);
 			if (delta > 1e-4)
 			{
@@ -331,8 +331,7 @@ void syncMotionCenterFramesFromOrigins(CustomDeviceBackendData& device, BackendD
 			continue;
 		}
 		const auto frame = mgr->getData(frameId);
-		if (!frame || !frame->hasPoseProperty() ||
-			!backend_type::isCoordinateFrameClassName(frame->className()))
+		if (!frame || !frame->hasPoseProperty() || !backend_type::isCoordinateFrameClassName(frame->className()))
 		{
 			continue;
 		}
@@ -360,8 +359,9 @@ RobotExternal::RobotExternalAxisConfig toExternalAxisConfig(const CustomDeviceAx
 	out.enabled = in.enabled;
 	out.displayName = in.displayName;
 	out.jointName = in.jointName;
-	out.motionType = in.motionType == CustomDeviceMotionType::Rotate ? RobotExternal::RobotExternalMotionType::Rotate
-																	 : RobotExternal::RobotExternalMotionType::Translate;
+	out.motionType = in.motionType == CustomDeviceMotionType::Rotate
+						 ? RobotExternal::RobotExternalMotionType::Rotate
+						 : RobotExternal::RobotExternalMotionType::Translate;
 	out.kind = out.motionType == RobotExternal::RobotExternalMotionType::Rotate
 				   ? RobotExternal::RobotExternalAxisKind::Turntable
 				   : RobotExternal::RobotExternalAxisKind::LinearRail;
@@ -440,8 +440,8 @@ bool worldPointToDeviceLocalMm(const BackendMat4& w0, const double worldX, const
 	return true;
 }
 
-bool worldDirectionToDeviceLocal(const BackendMat4& w0, const double worldDx, const double worldDy, const double worldDz,
-								 double outLocal[3])
+bool worldDirectionToDeviceLocal(const BackendMat4& w0, const double worldDx, const double worldDy,
+								 const double worldDz, double outLocal[3])
 {
 	if (!outLocal)
 	{

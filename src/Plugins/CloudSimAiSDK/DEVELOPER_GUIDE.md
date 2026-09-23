@@ -1,6 +1,6 @@
 ﻿# CloudSimAiSDK 开发指南
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 ## 1. 定位
 
@@ -182,7 +182,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 
 流程：用户句 → **Plan（可选）** → rules 或 tool_calls → Dock 确认（标题可含「计划 i/n」）→ Dispatch → 观测；失败可 `replan_on_failure` 一次。  
 `ai_config.agent`：`max_steps` / `auto_execute_low_risk` / `enable_trace` / `enable_plan` / `plan_max_steps` / `replan_on_failure`。  
-`scene.ops` 验收口语：删除选中/全部；沿轴移动；绕轴旋转；**「先沿 X 移动 10mm 再沿 Y 移动 5mm」**（同 api 两步）。详见 [`docs/ai_agent_runtime/`](../../../docs/_archive/ai_agent_runtime/)。
+`scene.ops` 验收口语：删除选中/全部；沿轴移动；绕轴旋转；**「先沿 X 移动 10mm 再沿 Y 移动 5mm」**（同 api 两步）。详见 `docs/ARCHIVE_ZIP_LOCATION.txt`。
 
 ### Agent 缺参对话框（遗留兜底）
 
@@ -234,7 +234,7 @@ Agent 主路径参数由 Dock 面板收集，**不再**依赖整窗模态。
 6. 面板确认 → `commitAiTrajectoryFeatures` → `discretizeFeature` + 默认工艺 pipeline 写入 `TrajectoryEditSession`。
 7. catalog 为空或 LLM 未收到 catalog 时，Coordinator **一次** rules 自动重试。
 
-**详细架构、状态机、源文件索引：** [`docs/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md)
+**详细架构、状态机、源文件索引：** `docs/ARCHIVE_ZIP_LOCATION.txt`
 
 **trajectory.feature 契约示例：**
 
@@ -285,6 +285,6 @@ LLM grounding：`catalogSliceUtf8` 中 `displayIndex` / `candidateId` / `summary
 |------|------|
 | [`tools/ai-training/CONFIGURATION.md`](../../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 全字段 |
 | [`tools/ai-training/README.md`](../../../tools/ai-training/README.md) | 训练、LLaMA-Factory、Ollama 导出 |
-| [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §6.1.1 | 产品级流程说明 |
-| [`docs/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md) | AI 轨迹特征端到端、状态机、验收 |
+| [全库文档入口](../../README.md) · [产品索引](../README.md) §6.1.1 | 产品级流程说明 |
+| `docs/ARCHIVE_ZIP_LOCATION.txt` | AI 轨迹特征端到端、状态机、验收 |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 宿主 API 与插件 |

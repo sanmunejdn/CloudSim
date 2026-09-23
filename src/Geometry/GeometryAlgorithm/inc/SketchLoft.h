@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_SKETCHLOFT_H
+﻿#ifndef GEOMETRYALGORITHM_SKETCHLOFT_H
 #define GEOMETRYALGORITHM_SKETCHLOFT_H
 
 /// @file SketchLoft.h
@@ -6,6 +6,7 @@
 /// @brief 两截面放样凸台/切除（OCC ThruSections）
 
 #include "geometry_algorithm_global.h"
+
 #include "ShapeHandle.h"
 
 #include <string>
@@ -32,4 +33,4 @@ GEOMETRY_ALGORITHM_API bool sketchLoftPolylinesToHandle(const std::vector<float>
 
 } // namespace geoalgo
 
-#endif
+#endif // GEOMETRYALGORITHM_SKETCHLOFT_H

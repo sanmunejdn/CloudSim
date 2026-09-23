@@ -1,15 +1,15 @@
-/// @file RealRobotPoseSource.cpp
+﻿/// @file RealRobotPoseSource.cpp
 /// @brief TCP 读一行 JSON 末端位姿：{"x","y","z","rx","ry","rz"} mm/deg
 
 #include "IRobotPoseSource.h"
 
 #define WIN32_LEAN_AND_MEAN
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-
 #include <cstdio>
 #include <cstring>
 #include <string>
+
+#include <WS2tcpip.h>
+#include <WinSock2.h>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -17,10 +17,10 @@ namespace industrial_camera
 {
 namespace
 {
-
 bool parsePoseJson(const std::string& line, Pose6d& out)
 {
-	auto findNum = [&](const char* key, double& v) -> bool {
+	auto findNum = [&](const char* key, double& v) -> bool
+	{
 		const std::string k = std::string("\"") + key + "\"";
 		const auto pos = line.find(k);
 		if (pos == std::string::npos)
@@ -31,15 +31,14 @@ bool parsePoseJson(const std::string& line, Pose6d& out)
 		v = std::atof(line.c_str() + colon + 1);
 		return true;
 	};
-	return findNum("x", out.x) && findNum("y", out.y) && findNum("z", out.z) && findNum("rx", out.rxDeg)
-		   && findNum("ry", out.ryDeg) && findNum("rz", out.rzDeg);
+	return findNum("x", out.x) && findNum("y", out.y) && findNum("z", out.z) && findNum("rx", out.rxDeg) &&
+		   findNum("ry", out.ryDeg) && findNum("rz", out.rzDeg);
 }
 
 class RealRobotPoseSource final : public IRobotPoseSource
 {
 public:
-	explicit RealRobotPoseSource(RealRobotPoseConfig cfg)
-		: cfg_(std::move(cfg))
+	explicit RealRobotPoseSource(RealRobotPoseConfig cfg) : cfg_(std::move(cfg))
 	{
 		WSADATA wsa{};
 		WSAStartup(MAKEWORD(2, 2), &wsa);

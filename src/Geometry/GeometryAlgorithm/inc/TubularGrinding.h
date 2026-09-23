@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_TUBULARGRINDING_H
+﻿#ifndef GEOMETRYALGORITHM_TUBULARGRINDING_H
 #define GEOMETRYALGORITHM_TUBULARGRINDING_H
 
 /// @file TubularGrinding.h
@@ -79,10 +79,10 @@ struct TubularGrindingParams
 	int minSectionPoints = 4;
 
 	TubularGrindingTemplateKind templateKind = TubularGrindingTemplateKind::Auto;
-	int helicalCoils = 8;              ///< 螺旋模板圈数
-	int circumferentialRings = 30;     ///< 环形模板截面数
-	int axialMeridians = 24;           ///< 轴向平行模板经线数
-	int zigzagPasses = 40;             ///< 锯齿模板 pass 数
+	int helicalCoils = 8;		   ///< 螺旋模板圈数
+	int circumferentialRings = 30; ///< 环形模板截面数
+	int axialMeridians = 24;	   ///< 轴向平行模板经线数
+	int zigzagPasses = 40;		   ///< 锯齿模板 pass 数
 
 	double projectionMaxDistMm = 10.0; ///< 模板点沿 ±法向投影最大搜索半径（mm）
 
@@ -113,24 +113,24 @@ struct TubularGrindingParams
 
 	TubularGrindingCenterlineMethod centerlineMethod = TubularGrindingCenterlineMethod::Laplacian;
 
-	double otSampleRate = 0.10;        ///< OTLC 体素降采样比例；越小 sample 越少
-	double otCostBeta = 3.0;           ///< OT 代价距离指数
-	int otcPreSteps = 3;               ///< OTLC 预处理 OT+合并轮次
-	int otcOuterLoops = 3;             ///< 每轮外循环内 OT 次数
-	int otLcOuterMaxIters = 40;        ///< OTLC 外循环上限
-	int pointCloudKnnK = 30;           ///< 点云 KNN 邻域大小
+	double otSampleRate = 0.10; ///< OTLC 体素降采样比例；越小 sample 越少
+	double otCostBeta = 3.0;	///< OT 代价距离指数
+	int otcPreSteps = 3;		///< OTLC 预处理 OT+合并轮次
+	int otcOuterLoops = 3;		///< 每轮外循环内 OT 次数
+	int otLcOuterMaxIters = 40; ///< OTLC 外循环上限
+	int pointCloudKnnK = 30;	///< 点云 KNN 邻域大小
 
 	/// 根点合并下限（0 = 自动：max(40, sampleCount×0.15)）
 	int minRootsBySamples = 0;
 
 	// FPFH 区域划分
-	double fpfhFeatureVoxelMm = 0.0;           ///< FPFH 特征体素（mm）；0=自动
-	int fpfhMaxSamplePoints = 0;               ///< 特征计算采样上限；0=不限
-	unsigned int fpfhNeighbors = 20U;          ///< FPFH 邻域点数
+	double fpfhFeatureVoxelMm = 0.0;  ///< FPFH 特征体素（mm）；0=自动
+	int fpfhMaxSamplePoints = 0;	  ///< 特征计算采样上限；0=不限
+	unsigned int fpfhNeighbors = 20U; ///< FPFH 邻域点数
 	unsigned int fpfhSaliencyNeighbors = 10U;
-	int fpfhKeypointCount = 0;                 ///< 关键点数；0=自动
+	int fpfhKeypointCount = 0; ///< 关键点数；0=自动
 	double fpfhKeypointMinSeparationMm = 0.0;
-	double fpfhRegionGrowDist = 0.0;           ///< 区域生长距离（mm）；0=自动
+	double fpfhRegionGrowDist = 0.0; ///< 区域生长距离（mm）；0=自动
 	double fpfhRegionGrowNormalAngleDeg = 45.0;
 	int fpfhMinRegionFaces = 10;
 };

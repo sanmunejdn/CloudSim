@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_IROBOTPOSESOURCE_H
+﻿#ifndef INDUSTRIALCAMERASDK_IROBOTPOSESOURCE_H
 #define INDUSTRIALCAMERASDK_IROBOTPOSESOURCE_H
 
 /// @file IRobotPoseSource.h
@@ -12,7 +12,6 @@
 
 namespace industrial_camera
 {
-
 class INDUSTRIAL_CAMERA_SDK_EXPORT IRobotPoseSource
 {
 public:
@@ -31,7 +30,8 @@ struct RealRobotPoseConfig
 	int timeoutMs = 2000;
 };
 
-INDUSTRIAL_CAMERA_SDK_EXPORT std::unique_ptr<IRobotPoseSource> createRealRobotPoseSource(const RealRobotPoseConfig& cfg);
+INDUSTRIAL_CAMERA_SDK_EXPORT std::unique_ptr<IRobotPoseSource>
+createRealRobotPoseSource(const RealRobotPoseConfig& cfg);
 
 } // namespace industrial_camera
 

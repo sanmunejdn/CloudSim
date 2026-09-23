@@ -160,8 +160,7 @@ bool reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj, const 
 	return ctx.reachabilityProbe->probe(traj, {}, useOrientation, residualTolMm, errMsg);
 }
 
-void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj,
-							   const TrajectoryOpExecutionContext& ctx)
+void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx)
 {
 	bool anyEnabled = false;
 	for (const ExternalAxisSearchConfigDto& c : ctx.externalAxisConfigs)

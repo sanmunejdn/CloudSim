@@ -1,4 +1,4 @@
-#ifndef PLCCOMMSDK_PLC_COMM_SDK_GLOBAL_H
+﻿#ifndef PLCCOMMSDK_PLC_COMM_SDK_GLOBAL_H
 #define PLCCOMMSDK_PLC_COMM_SDK_GLOBAL_H
 
 /// @file plc_comm_sdk_global.h

@@ -10,8 +10,6 @@
 
 #include <string>
 
-#include "SelectionOperation.h"
-
 class SelectionOperationOverlayAdapter final : public IOverlayOp
 {
 public:

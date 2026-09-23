@@ -1,4 +1,4 @@
-#ifndef ROBOTWIDGET_USERTEMPLATELIBRARY_H
+﻿#ifndef ROBOTWIDGET_USERTEMPLATELIBRARY_H
 #define ROBOTWIDGET_USERTEMPLATELIBRARY_H
 
 /// @file UserTemplateLibrary.h
@@ -9,6 +9,7 @@
 
 #include <QString>
 #include <QVector>
+
 #include <json.hpp>
 
 enum class UserTemplateKind
@@ -30,8 +31,8 @@ class ROBOTWIDGET_EXPORT UserTemplateLibrary
 public:
 	static QString templatesRoot(UserTemplateKind kind);
 	static QVector<UserTemplateEntry> list(UserTemplateKind kind);
-	static bool save(UserTemplateKind kind, const QString& name, const nlohmann::json& payload, QString* outId = nullptr,
-					 QString* outError = nullptr);
+	static bool save(UserTemplateKind kind, const QString& name, const nlohmann::json& payload,
+					 QString* outId = nullptr, QString* outError = nullptr);
 	static bool load(UserTemplateKind kind, const QString& id, nlohmann::json* outPayload, QString* outName = nullptr,
 					 QString* outError = nullptr);
 	static bool remove(UserTemplateKind kind, const QString& id, QString* outError = nullptr);

@@ -1,4 +1,4 @@
-/// @file AiArgsSchema.cpp
+﻿/// @file AiArgsSchema.cpp
 /// @brief args_schema 与 OpenAI parameters 单源转换
 
 #include "Ai/AiArgsSchema.h"

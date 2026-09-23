@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_IROBOTIOSINK_H
+﻿#ifndef ROBOTSCENE_IROBOTIOSINK_H
 #define ROBOTSCENE_IROBOTIOSINK_H
 
 /// @file IRobotIoSink.h
@@ -44,4 +44,3 @@ public:
 };
 
 #endif // ROBOTSCENE_IROBOTIOSINK_H
-

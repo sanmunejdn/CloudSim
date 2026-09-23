@@ -1,4 +1,4 @@
-#ifndef DATA_BACKENDPROPERTYROW_H
+﻿#ifndef DATA_BACKENDPROPERTYROW_H
 #define DATA_BACKENDPROPERTYROW_H
 
 /// @file BackendPropertyRow.h

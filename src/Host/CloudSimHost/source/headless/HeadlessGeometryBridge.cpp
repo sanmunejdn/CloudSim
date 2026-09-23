@@ -1,4 +1,4 @@
-/// @file HeadlessGeometryBridge.cpp
+﻿/// @file HeadlessGeometryBridge.cpp
 
 #include "headless/HeadlessGeometryBridge.h"
 
@@ -84,8 +84,7 @@ PluginMeshDiscretizeParams meshParamsFromJson(const QJsonObject& body)
 	if (body.contains(QStringLiteral("targetTriangleCount")))
 	{
 		p.densityControl = PluginMeshDensityControl::TargetTriangleCount;
-		p.targetTriangleCount =
-			static_cast<std::size_t>(body.value(QStringLiteral("targetTriangleCount")).toInt(5000));
+		p.targetTriangleCount = static_cast<std::size_t>(body.value(QStringLiteral("targetTriangleCount")).toInt(5000));
 	}
 	return p;
 }

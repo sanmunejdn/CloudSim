@@ -1,4 +1,4 @@
-#ifndef AIWIDGET_AIWIDGET_GLOBAL_H
+﻿#ifndef AIWIDGET_AIWIDGET_GLOBAL_H
 #define AIWIDGET_AIWIDGET_GLOBAL_H
 
 /// @file aiwidget_global.h

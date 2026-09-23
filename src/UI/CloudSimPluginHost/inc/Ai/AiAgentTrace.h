@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIAGENTTRACE_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIAGENTTRACE_H
 #define CLOUDSIMPLUGINHOST_AIAGENTTRACE_H
 
 /// @file AiAgentTrace.h
@@ -16,4 +16,4 @@ void append(const QString& applicationDirPath, const QString& state, const QStri
 			const QByteArray& detailUtf8);
 } // namespace AiAgentTrace
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIAGENTTRACE_H

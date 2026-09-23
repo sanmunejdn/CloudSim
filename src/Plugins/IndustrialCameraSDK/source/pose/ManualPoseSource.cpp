@@ -1,4 +1,4 @@
-/// @file ManualPoseSource.cpp
+﻿/// @file ManualPoseSource.cpp
 /// @brief 手动末端位姿
 
 #include "IRobotPoseSource.h"
@@ -7,14 +7,10 @@ namespace industrial_camera
 {
 namespace
 {
-
 class ManualPoseSource final : public IRobotPoseSource
 {
 public:
-	explicit ManualPoseSource(const Pose6d& p)
-		: pose_(p)
-	{
-	}
+	explicit ManualPoseSource(const Pose6d& p) : pose_(p) {}
 
 	bool getCurrentPose(Pose6d& out) override
 	{

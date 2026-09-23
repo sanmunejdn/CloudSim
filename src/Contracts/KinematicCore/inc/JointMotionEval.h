@@ -1,11 +1,12 @@
-#ifndef KINEMATICCORE_JOINTMOTIONEVAL_H
+﻿#ifndef KINEMATICCORE_JOINTMOTIONEVAL_H
 #define KINEMATICCORE_JOINTMOTIONEVAL_H
 
 /// @file JointMotionEval.h
 /// @brief 1-DOF 运动副 q → 4×4 增量变换
 
-#include "JointMotion1D.h"
 #include "kinematic_core_global.h"
+
+#include "JointMotion1D.h"
 
 namespace kinematic_core
 {

@@ -1,8 +1,8 @@
-/// @file SketchEditSession.cpp
+﻿/// @file SketchEditSession.cpp
 
 #include "SketchEditSession.h"
-#include "GeomodelingI18n.h"
 
+#include "GeomodelingI18n.h"
 #include "IPluginDocument.h"
 #include "IPluginGeometryHost.h"
 #include "SketchConstraintSolver.h"
@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
-
 
 void SketchEditSession::setUseChinese(bool useChinese)
 {
@@ -137,7 +136,8 @@ QString SketchEditSession::statusText() const
 	default:
 		break;
 	}
-	QString s = tr(QStringLiteral("Tool %1 | Snap %2 | %3"), QStringLiteral("工具 %1 | 捕捉 %2 | %3")).arg(tool, snap, dofStatusText());
+	QString s = tr(QStringLiteral("Tool %1 | Snap %2 | %3"), QStringLiteral("工具 %1 | 捕捉 %2 | %3"))
+					.arg(tool, snap, dofStatusText());
 	if (sketchToolIsPickSession(m_toolKind) && !m_dimHint.isEmpty())
 		s += QStringLiteral(" | %1").arg(m_dimHint);
 	return s;
@@ -179,8 +179,8 @@ bool SketchEditSession::beginWithDocument(IPluginGeometryHost* geo, IPluginDocum
 		(void)m_doc.fromJsonUtf8(sketchJson);
 	setTool(SketchToolKind::Line);
 	QString beginErr;
-	if (!geo->beginSketchInput(doc, plane, [this](const PluginSketchInputEvent& ev) { return handleInput(ev); },
-							   &beginErr))
+	if (!geo->beginSketchInput(
+			doc, plane, [this](const PluginSketchInputEvent& ev) { return handleInput(ev); }, &beginErr))
 	{
 		if (err)
 			*err = beginErr;
@@ -530,10 +530,12 @@ void SketchEditSession::setTool(SketchToolKind kind)
 			m_dimHint = tr(QStringLiteral("Click two lines for parallel"), QStringLiteral("依次点选两直线施加平行"));
 			break;
 		case SketchToolKind::GeomPerpendicular:
-			m_dimHint = tr(QStringLiteral("Click two lines for perpendicular"), QStringLiteral("依次点选两直线施加垂直"));
+			m_dimHint =
+				tr(QStringLiteral("Click two lines for perpendicular"), QStringLiteral("依次点选两直线施加垂直"));
 			break;
 		case SketchToolKind::GeomEqualLength:
-			m_dimHint = tr(QStringLiteral("Click two lines for equal length"), QStringLiteral("依次点选两直线施加等长"));
+			m_dimHint =
+				tr(QStringLiteral("Click two lines for equal length"), QStringLiteral("依次点选两直线施加等长"));
 			break;
 		case SketchToolKind::GeomFix:
 			m_dimHint = tr(QStringLiteral("Click a point to fix"), QStringLiteral("点选点固定位置"));
@@ -546,11 +548,13 @@ void SketchEditSession::setTool(SketchToolKind kind)
 			m_dimHint = tr(QStringLiteral("Click a segment to trim"), QStringLiteral("点选要裁掉的线段段"));
 			break;
 		case SketchToolKind::Mirror:
-			m_dimHint = tr(QStringLiteral("Pick mirror axis, then entities, confirm in panel"), QStringLiteral("先点选镜像轴，再选图元，侧栏确认"));
+			m_dimHint = tr(QStringLiteral("Pick mirror axis, then entities, confirm in panel"),
+						   QStringLiteral("先点选镜像轴，再选图元，侧栏确认"));
 			m_mirrorPickAxis = true;
 			break;
 		case SketchToolKind::Delete:
-			m_dimHint = tr(QStringLiteral("Click entity to delete, or press Delete"), QStringLiteral("点选图元删除，或按 Delete"));
+			m_dimHint = tr(QStringLiteral("Click entity to delete, or press Delete"),
+						   QStringLiteral("点选图元删除，或按 Delete"));
 			break;
 		default:
 			break;
@@ -617,8 +621,8 @@ bool SketchEditSession::promptAndAddConstraint(SkConstraintKind kind, int a, int
 {
 	bool ok = false;
 	const QString title = m_doc.constraintLabel(SkConstraint{kind, a, b, defaultValue});
-	const double v = QInputDialog::getDouble(nullptr, QStringLiteral("尺寸约束"), title, defaultValue, 0.001, 1e9, 3,
-											 &ok);
+	const double v =
+		QInputDialog::getDouble(nullptr, QStringLiteral("尺寸约束"), title, defaultValue, 0.001, 1e9, 3, &ok);
 	if (!ok)
 	{
 		if (err)
@@ -862,7 +866,8 @@ void SketchEditSession::updatePickHover(const SkVec2& uv)
 		const int pid = m_doc.hitTestPoint(uv, tol);
 		m_dimHoverId = lid >= 0 ? lid : pid;
 		if (m_dimPickA >= 0)
-			m_dimHint = pid >= 0 ? QStringLiteral("命中点（第 2/2）") : QStringLiteral("已选第一点，请再选一点（或点直线）");
+			m_dimHint =
+				pid >= 0 ? QStringLiteral("命中点（第 2/2）") : QStringLiteral("已选第一点，请再选一点（或点直线）");
 		else if (lid >= 0)
 			m_dimHint = QStringLiteral("命中直线（单击）");
 		else if (pid >= 0)
@@ -876,7 +881,8 @@ void SketchEditSession::updatePickHover(const SkVec2& uv)
 	case SketchToolKind::GeomEqualLength:
 		m_dimHoverId = m_doc.hitTestLine(uv, tol);
 		if (m_dimPickA >= 0)
-			m_dimHint = m_dimHoverId >= 0 ? QStringLiteral("命中直线（第 2/2）") : QStringLiteral("已选第一条，请再选一条");
+			m_dimHint =
+				m_dimHoverId >= 0 ? QStringLiteral("命中直线（第 2/2）") : QStringLiteral("已选第一条，请再选一条");
 		else
 			m_dimHint = m_dimHoverId >= 0 ? QStringLiteral("命中直线（单击）") : QStringLiteral("点选直线…");
 		break;
@@ -885,7 +891,8 @@ void SketchEditSession::updatePickHover(const SkVec2& uv)
 	case SketchToolKind::GeomFixOrigin:
 		m_dimHoverId = m_doc.hitTestPoint(uv, tol);
 		if (m_toolKind == SketchToolKind::GeomCoincident && m_dimPickA >= 0)
-			m_dimHint = m_dimHoverId >= 0 ? QStringLiteral("命中点（第 2/2）") : QStringLiteral("已选第一点，请再选一点");
+			m_dimHint =
+				m_dimHoverId >= 0 ? QStringLiteral("命中点（第 2/2）") : QStringLiteral("已选第一点，请再选一点");
 		else
 			m_dimHint = m_dimHoverId >= 0 ? QStringLiteral("命中点（单击）") : QStringLiteral("点选点…");
 		break;
@@ -898,8 +905,8 @@ void SketchEditSession::updatePickHover(const SkVec2& uv)
 		else
 		{
 			m_dimHoverId = hitAnyCurve(uv);
-			m_dimHint = QStringLiteral("已选 %1 个图元；点选继续，侧栏确认")
-							.arg(static_cast<int>(m_mirrorTargets.size()));
+			m_dimHint =
+				QStringLiteral("已选 %1 个图元；点选继续，侧栏确认").arg(static_cast<int>(m_mirrorTargets.size()));
 		}
 		break;
 	default:
@@ -962,8 +969,8 @@ bool SketchEditSession::tryPickSessionAt(const SkVec2& uv, bool rightButton, QSt
 		if (lid >= 0)
 		{
 			m_dimPickA = -1;
-			const auto kind =
-				m_toolKind == SketchToolKind::GeomHorizontal ? SkConstraintKind::Horizontal : SkConstraintKind::Vertical;
+			const auto kind = m_toolKind == SketchToolKind::GeomHorizontal ? SkConstraintKind::Horizontal
+																		   : SkConstraintKind::Vertical;
 			if (!addGeomConstraintNoPrompt(kind, lid, -1, err))
 				return false;
 			if (err)
@@ -1708,9 +1715,9 @@ bool SketchEditSession::solveNow(std::string* err)
 		if (idx < 0 || idx >= static_cast<int>(m_doc.constraints().size()))
 			continue;
 		const auto kind = m_doc.constraints()[static_cast<std::size_t>(idx)].kind;
-		if (kind == SkConstraintKind::Distance || kind == SkConstraintKind::Radius ||
-			kind == SkConstraintKind::Angle || kind == SkConstraintKind::ArcRadius ||
-			kind == SkConstraintKind::MajorRadius || kind == SkConstraintKind::MinorRadius)
+		if (kind == SkConstraintKind::Distance || kind == SkConstraintKind::Radius || kind == SkConstraintKind::Angle ||
+			kind == SkConstraintKind::ArcRadius || kind == SkConstraintKind::MajorRadius ||
+			kind == SkConstraintKind::MinorRadius)
 			continue;
 		markConstraintEntities(t, false);
 	}
@@ -1823,7 +1830,8 @@ bool SketchEditSession::readNamedParams(int entityId, std::vector<std::pair<QStr
 
 bool SketchEditSession::applyNamedParam(int entityId, const QString& key, double value, QString* err)
 {
-	auto upsertRadiusLike = [&](SkConstraintKind kind, int id, double v) {
+	auto upsertRadiusLike = [&](SkConstraintKind kind, int id, double v)
+	{
 		for (auto& c : m_doc.constraintsMut())
 		{
 			if (c.kind == kind && c.a == id)

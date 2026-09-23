@@ -1,33 +1,32 @@
-/// @file WebGatewayApi.cpp
+﻿/// @file WebGatewayApi.cpp
 /// @brief WebGateway P1–P5 请求处理（主线程契约调用）
-
-#include "WebGateway.h"
 
 #include "BackendFileImport.h"
 #include "BackendTypeIds.h"
 #include "CloudSimHost.h"
-#include "io/CustomDeviceHostOps.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
 #include "FrameBackendData.h"
 #include "HeadlessRobotContext.h"
 #include "IDataService.h"
 #include "IDocumentScope.h"
-#include "io/IoSignalNetwork.h"
 #include "IRobotService.h"
+#include "NamedSignalTable.h"
 #include "ProjectPackageIo.h"
 #include "RobotCoordinateFrameOps.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotInstructionModel.h"
+#include "RobotPlanInstruction.h"
 #include "RobotProgramCatalog.h"
 #include "RobotProgramStore.h"
 #include "StoreZipExtract.h"
+#include "WebGateway.h"
 #include "WebGatewaySidecars.h"
 #include "headless/HeadlessDrawingBridge.h"
 #include "headless/HeadlessLabelingBridge.h"
 #include "headless/HeadlessProcessFlowBridge.h"
-#include "NamedSignalTable.h"
-#include "RobotPlanInstruction.h"
+#include "io/CustomDeviceHostOps.h"
+#include "io/IoSignalNetwork.h"
 
 #include <QDir>
 #include <QFile>
@@ -38,10 +37,10 @@
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QVariant>
-
-#include <json.hpp>
 #include <memory>
 #include <vector>
+
+#include <json.hpp>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -249,8 +248,7 @@ bool WebGateway::saveProjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 		restoreLock();
 		return false;
 	}
-	const QString jsonPath =
-		packageMode ? QDir(workRoot).filePath(QStringLiteral("project.json")) : savePath;
+	const QString jsonPath = packageMode ? QDir(workRoot).filePath(QStringLiteral("project.json")) : savePath;
 
 	auto built = cloudsim::host::buildProjectSaveRoot(*host, QStringLiteral("zh"), workRoot);
 	if (!built.abortMessage.isEmpty())
@@ -312,9 +310,10 @@ QByteArray WebGateway::objectDetailJsonOnGuiThread(const QString& id)
 	o.insert(QStringLiteral("hasGeometry"), snap.hasGeometry);
 	o.insert(QStringLiteral("geometryKind"), static_cast<int>(snap.geometryKind));
 	const auto pose = data.worldPoseMm(id);
-	o.insert(QStringLiteral("pose"),
-			 QJsonObject{{QStringLiteral("positionMm"), QJsonArray{pose.positionMm.x, pose.positionMm.y, pose.positionMm.z}},
-						 {QStringLiteral("eulerDeg"), QJsonArray{pose.eulerDeg.x, pose.eulerDeg.y, pose.eulerDeg.z}}});
+	o.insert(
+		QStringLiteral("pose"),
+		QJsonObject{{QStringLiteral("positionMm"), QJsonArray{pose.positionMm.x, pose.positionMm.y, pose.positionMm.z}},
+					{QStringLiteral("eulerDeg"), QJsonArray{pose.eulerDeg.x, pose.eulerDeg.y, pose.eulerDeg.z}}});
 	QJsonArray rows;
 	for (const auto& r : data.propertyRows(id))
 	{
@@ -367,9 +366,8 @@ bool WebGateway::patchObjectOnGuiThread(cloudsim::host::DocumentHost* host, cons
 	}
 	if (o.contains(QStringLiteral("propertyKey")) || o.contains(QStringLiteral("key")))
 	{
-		QString propKey = o.contains(QStringLiteral("propertyKey"))
-							  ? o.value(QStringLiteral("propertyKey")).toString()
-							  : o.value(QStringLiteral("key")).toString();
+		QString propKey = o.contains(QStringLiteral("propertyKey")) ? o.value(QStringLiteral("propertyKey")).toString()
+																	: o.value(QStringLiteral("key")).toString();
 		const QString propVal = o.contains(QStringLiteral("propertyValue"))
 									? o.value(QStringLiteral("propertyValue")).toVariant().toString()
 									: o.value(QStringLiteral("value")).toVariant().toString();
@@ -413,7 +411,8 @@ bool WebGateway::importObjectOnGuiThread(cloudsim::host::DocumentHost* host, con
 		return false;
 	if (outId)
 		*outId = imported.rootBackendId;
-	pushEvent(QStringLiteral("{\"type\":\"BackendObjectRegistered\",\"backendId\":\"%1\"}").arg(imported.rootBackendId));
+	pushEvent(
+		QStringLiteral("{\"type\":\"BackendObjectRegistered\",\"backendId\":\"%1\"}").arg(imported.rootBackendId));
 	return true;
 }
 
@@ -695,11 +694,9 @@ QByteArray WebGateway::robotResolveJsonOnGuiThread(const QString& backendId)
 namespace
 {
 /// tcp-ik / tcp-pose 共用：示教落盘字段（FK 实际到达）
-void appendTcpPoseCaptureTeachFields(QJsonObject& out,
-									 const cloudsim::host::HeadlessRobotContext::TcpPoseCapture& pose)
+void appendTcpPoseCaptureTeachFields(QJsonObject& out, const cloudsim::host::HeadlessRobotContext::TcpPoseCapture& pose)
 {
-	out.insert(QStringLiteral("positionMm"),
-			   QJsonArray{pose.positionMm[0], pose.positionMm[1], pose.positionMm[2]});
+	out.insert(QStringLiteral("positionMm"), QJsonArray{pose.positionMm[0], pose.positionMm[1], pose.positionMm[2]});
 	out.insert(QStringLiteral("eulerDeg"), QJsonArray{pose.eulerDeg[0], pose.eulerDeg[1], pose.eulerDeg[2]});
 	if (!pose.jointRadCsv.isEmpty())
 		out.insert(QStringLiteral("jointRadCsv"), pose.jointRadCsv);
@@ -865,7 +862,8 @@ bool WebGateway::registerUrdfOnGuiThread(const QByteArray& body, QString* err, Q
 			*err = reg.error.isEmpty() ? QStringLiteral("URDF import failed.") : reg.error;
 		return false;
 	}
-	pushEvent(QStringLiteral("{\"type\":\"BackendObjectRegistered\",\"backendId\":\"%1\"}").arg(reg.sceneRootBackendId));
+	pushEvent(
+		QStringLiteral("{\"type\":\"BackendObjectRegistered\",\"backendId\":\"%1\"}").arg(reg.sceneRootBackendId));
 	return true;
 }
 
@@ -932,7 +930,8 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 				ctx.urdfPath = hrc->robotUrdfAbsolutePathForInstance(instIdx);
 			if (ctx.tcpLinkName.isEmpty())
 			{
-				const QString flange = QString::fromStdString(hrc->robotCoordinateFramesForInstance(instIdx).flangeLinkName);
+				const QString flange =
+					QString::fromStdString(hrc->robotCoordinateFramesForInstance(instIdx).flangeLinkName);
 				if (!flange.isEmpty())
 					ctx.tcpLinkName = flange;
 			}
@@ -983,12 +982,10 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		if (csvIt == ext.end() || csvIt->second.empty())
 		{
 			if (err)
-				*err = QStringLiteral(
-					"seed instruction has no planned joints yet; plan the referenced waypoint first");
+				*err = QStringLiteral("seed instruction has no planned joints yet; plan the referenced waypoint first");
 			return false;
 		}
-		const QStringList parts =
-			QString::fromStdString(csvIt->second).split(QLatin1Char(','), Qt::SkipEmptyParts);
+		const QStringList parts = QString::fromStdString(csvIt->second).split(QLatin1Char(','), Qt::SkipEmptyParts);
 		ctx.seedJointRad.clear();
 		ctx.seedJointRad.reserve(parts.size());
 		for (const QString& p : parts)
@@ -996,8 +993,7 @@ bool WebGateway::planInstructionOnGuiThread(const QByteArray& body, QString* err
 		if (ctx.seedJointRad.isEmpty())
 		{
 			if (err)
-				*err = QStringLiteral(
-					"seed instruction has no planned joints yet; plan the referenced waypoint first");
+				*err = QStringLiteral("seed instruction has no planned joints yet; plan the referenced waypoint first");
 			return false;
 		}
 	}
@@ -1359,8 +1355,9 @@ bool WebGateway::captureRobotToolFrameOnGuiThread(const QByteArray& body, QStrin
 	cloudsim::host::HeadlessRobotContext::TcpPoseCapture pose;
 	if (!hrc->captureTcpPose(rootId, pose, err))
 		return false;
-	const BackendMat4 T_base_tcp = RobotCoordinate::tcpInBaseFromPose(
-		pose.positionMm[0], pose.positionMm[1], pose.positionMm[2], pose.eulerDeg[0], pose.eulerDeg[1], pose.eulerDeg[2]);
+	const BackendMat4 T_base_tcp =
+		RobotCoordinate::tcpInBaseFromPose(pose.positionMm[0], pose.positionMm[1], pose.positionMm[2], pose.eulerDeg[0],
+										   pose.eulerDeg[1], pose.eulerDeg[2]);
 	RobotCoordinate::RobotCoordinateFrameSet& frames = hrc->robotCoordinateFramesForInstance(idx);
 	const RobotCoordinate::RobotCoordinateFrameSet oldFrames = frames;
 	QString flangeLink = pose.flangeLinkName;
@@ -1503,8 +1500,7 @@ QByteArray WebGateway::instructionPropertiesJsonOnGuiThread(const QString& instr
 	return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }
 
-bool WebGateway::patchInstructionPropertyOnGuiThread(const QString& instructionId, const QByteArray& body,
-													 QString* err)
+bool WebGateway::patchInstructionPropertyOnGuiThread(const QString& instructionId, const QByteArray& body, QString* err)
 {
 	if (!m_document || instructionId.isEmpty())
 	{
@@ -1587,8 +1583,8 @@ QByteArray WebGateway::modesCatalogJson() const
 							 {QStringLiteral("title"), QStringLiteral("工程图")}});
 	modes.append(QJsonObject{{QStringLiteral("id"), QStringLiteral("labeling")},
 							 {QStringLiteral("title"), QStringLiteral("标注")}});
-	return QJsonDocument(QJsonObject{{QStringLiteral("modes"), modes},
-									 {QStringLiteral("active"), g_sidecars.workspaceMode}})
+	return QJsonDocument(
+			   QJsonObject{{QStringLiteral("modes"), modes}, {QStringLiteral("active"), g_sidecars.workspaceMode}})
 		.toJson(QJsonDocument::Compact);
 }
 
@@ -1675,11 +1671,10 @@ bool WebGateway::ioSignalRuntimePatchOnGuiThread(cloudsim::host::DocumentHost* h
 	QString ownerId = o.value(QStringLiteral("ownerId")).toString();
 	if (ownerId.isEmpty())
 		ownerId = host->ioSignalNetwork().primaryRobotOwnerId();
-	if (!host->ioSignalNetwork().setRuntime(ownerId, o.value(QStringLiteral("kind")).toString(),
-											o.value(QStringLiteral("port")).toInt(),
-											o.value(QStringLiteral("value")).toString().trimmed(),
-											o.contains(QStringLiteral("forced")), o.value(QStringLiteral("forced")).toBool(),
-											err))
+	if (!host->ioSignalNetwork().setRuntime(
+			ownerId, o.value(QStringLiteral("kind")).toString(), o.value(QStringLiteral("port")).toInt(),
+			o.value(QStringLiteral("value")).toString().trimmed(), o.contains(QStringLiteral("forced")),
+			o.value(QStringLiteral("forced")).toBool(), err))
 		return false;
 	pushEvent(QStringLiteral("{\"type\":\"IoSignalsChanged\",\"ownerId\":\"%1\"}").arg(ownerId));
 	pushEvent(QStringLiteral("{\"type\":\"IoNetworkChanged\"}"));
@@ -1841,8 +1836,8 @@ QByteArray WebGateway::customDeviceDetailJsonOnGuiThread(cloudsim::host::Documen
 	return QJsonDocument(cloudsim::host::customDeviceDetailJson(*host, id)).toJson(QJsonDocument::Compact);
 }
 
-bool WebGateway::customDevicePutOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id, const QByteArray& body,
-											QString* err)
+bool WebGateway::customDevicePutOnGuiThread(cloudsim::host::DocumentHost* host, const QString& id,
+											const QByteArray& body, QString* err)
 {
 	if (!host)
 	{
@@ -1937,7 +1932,8 @@ bool WebGateway::customDeviceAttachOnGuiThread(cloudsim::host::DocumentHost* hos
 		return false;
 	}
 	const QJsonObject o = QJsonDocument::fromJson(body).object();
-	const bool ok = cloudsim::host::attachCustomDeviceChildren(*host, id, o.value(QStringLiteral("childIds")).toArray(), err);
+	const bool ok =
+		cloudsim::host::attachCustomDeviceChildren(*host, id, o.value(QStringLiteral("childIds")).toArray(), err);
 	if (ok)
 		pushEvent(QStringLiteral("{\"type\":\"SceneChanged\"}"));
 	return ok;

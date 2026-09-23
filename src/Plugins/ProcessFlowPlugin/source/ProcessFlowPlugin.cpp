@@ -1,4 +1,4 @@
-/// @file ProcessFlowPlugin.cpp
+﻿/// @file ProcessFlowPlugin.cpp
 /// @brief 工艺流程仿真插件实现
 
 #include "ProcessFlowPlugin.h"
@@ -23,11 +23,12 @@
 #include <QFileDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QLatin1String>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPointF>
 #include <QTextStream>
+
+#include <QLatin1String>
 
 ProcessFlowPlugin::~ProcessFlowPlugin() = default;
 
@@ -275,8 +276,8 @@ void ProcessFlowPlugin::exportSimCsv()
 	{
 		return;
 	}
-	const QString path = QFileDialog::getSaveFileName(nullptr, QStringLiteral("Export CSV"), QString(),
-													  QStringLiteral("CSV (*.csv)"));
+	const QString path =
+		QFileDialog::getSaveFileName(nullptr, QStringLiteral("Export CSV"), QString(), QStringLiteral("CSV (*.csv)"));
 	if (path.isEmpty())
 	{
 		return;
@@ -422,8 +423,9 @@ void ProcessFlowPlugin::exitProcessFlow()
 	{
 		const QMessageBox::StandardButton btn = QMessageBox::question(
 			nullptr, m_host->useChinese() ? QStringLiteral("未保存的工艺流程") : QStringLiteral("Unsaved process flow"),
-			m_host->useChinese() ? QStringLiteral("流程图已修改。退出前请先保存工程，或选择放弃修改。\n是否仍要退出？")
-								 : QStringLiteral("Flow graph changed. Exit anyway (save project first to keep changes)?"),
+			m_host->useChinese()
+				? QStringLiteral("流程图已修改。退出前请先保存工程，或选择放弃修改。\n是否仍要退出？")
+				: QStringLiteral("Flow graph changed. Exit anyway (save project first to keep changes)?"),
 			QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
 		if (btn != QMessageBox::Yes)
 			return;
@@ -536,7 +538,7 @@ void ProcessFlowPlugin::bindCanvasSelection(ProcessFlowPageWidget* page)
 }
 
 void ProcessFlowPlugin::addNodeToActiveCanvas(const QString& kind, const QString& title, const QString& subtitle,
-											 const QColor& color)
+											  const QColor& color)
 {
 	if (!m_inProcessFlow)
 	{

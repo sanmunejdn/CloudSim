@@ -6,13 +6,13 @@
 #include "CsgkBackend.h"
 #include "detail/OccIncludes.h"
 
-#include <BRepBuilderAPI_Transform.hxx>
-#include <BRepTools.hxx>
-#include <gp_Trsf.hxx>
-
 #include <filesystem>
 #include <fstream>
 #include <string>
+
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRepTools.hxx>
+#include <gp_Trsf.hxx>
 
 namespace geoalgo
 {
@@ -170,7 +170,7 @@ bool readBrepFile(const std::string& pathLocal, ShapeHandle& outShape, std::stri
 {
 	outShape = ShapeHandle{};
 #ifdef CLOUDSIM_USE_CSGK
-	if(pathLocal.size() >= 5 && pathLocal.compare(pathLocal.size() - 5, 5, ".csgb") == 0)
+	if (pathLocal.size() >= 5 && pathLocal.compare(pathLocal.size() - 5, 5, ".csgb") == 0)
 		return readCsgkNativeFile(pathLocal, outShape, errMsg);
 #endif
 	std::ifstream in;

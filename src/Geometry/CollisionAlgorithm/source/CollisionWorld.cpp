@@ -1,4 +1,4 @@
-/// @file CollisionWorld.cpp
+﻿/// @file CollisionWorld.cpp
 /// @brief 内置网格碰撞：宽相 AABB（含安全余量）+ 三角-三角窄相
 
 #include "CollisionWorld.h"
@@ -84,8 +84,7 @@ struct Aabb
 	{
 		if (!valid || !o.valid)
 			return false;
-		return mn.x <= o.mx.x && mx.x >= o.mn.x && mn.y <= o.mx.y && mx.y >= o.mn.y && mn.z <= o.mx.z &&
-			   mx.z >= o.mn.z;
+		return mn.x <= o.mx.x && mx.x >= o.mn.x && mn.y <= o.mx.y && mx.y >= o.mn.y && mn.z <= o.mx.z && mx.z >= o.mn.z;
 	}
 };
 
@@ -137,7 +136,8 @@ bool triTriIntersect(const Vec3& V0, const Vec3& V1, const Vec3& V2, const Vec3&
 	if (adz > (maxc == 0 ? adx : ady))
 		maxc = 2;
 
-	auto proj = [maxc](const Vec3& p) {
+	auto proj = [maxc](const Vec3& p)
+	{
 		if (maxc == 0)
 			return p.x;
 		if (maxc == 1)
@@ -152,7 +152,8 @@ bool triTriIntersect(const Vec3& V0, const Vec3& V1, const Vec3& V2, const Vec3&
 	const double pu1 = proj(U1);
 	const double pu2 = proj(U2);
 
-	auto interval = [](double a, double b, double c, double da, double db, double dc, double& lo, double& hi) {
+	auto interval = [](double a, double b, double c, double da, double db, double dc, double& lo, double& hi)
+	{
 		lo = 1e300;
 		hi = -1e300;
 		if (da * db < 0.0)
@@ -329,7 +330,8 @@ CollisionQueryResult CollisionWorld::checkAll(const int maxContacts) const
 	for (const auto& kv : m_impl->bodies)
 		list.push_back(&kv.second);
 
-	auto fillDiag = [](ContactHit& c, const Body& A, const Body& B) {
+	auto fillDiag = [](ContactHit& c, const Body& A, const Body& B)
+	{
 		c.aOriginMm[0] = A.world[12];
 		c.aOriginMm[1] = A.world[13];
 		c.aOriginMm[2] = A.world[14];
@@ -346,16 +348,17 @@ CollisionQueryResult CollisionWorld::checkAll(const int maxContacts) const
 		c.bPoseSource = B.poseSource.empty() ? "?" : B.poseSource;
 	};
 
-	auto formatSummary = [](const ContactHit& c, const bool more) {
+	auto formatSummary = [](const ContactHit& c, const bool more)
+	{
 		std::ostringstream oss;
 		oss << "collision: " << c.a.backendId << " vs " << c.b.backendId;
 		if (more)
 			oss << " (+more)";
 		oss << " | A.t=(" << c.aOriginMm[0] << "," << c.aOriginMm[1] << "," << c.aOriginMm[2] << ") aabbC=("
-			<< c.aAabbCenterMm[0] << "," << c.aAabbCenterMm[1] << "," << c.aAabbCenterMm[2] << ") pose="
-			<< c.aPoseSource << " | B.t=(" << c.bOriginMm[0] << "," << c.bOriginMm[1] << "," << c.bOriginMm[2]
-			<< ") aabbC=(" << c.bAabbCenterMm[0] << "," << c.bAabbCenterMm[1] << "," << c.bAabbCenterMm[2]
-			<< ") pose=" << c.bPoseSource;
+			<< c.aAabbCenterMm[0] << "," << c.aAabbCenterMm[1] << "," << c.aAabbCenterMm[2]
+			<< ") pose=" << c.aPoseSource << " | B.t=(" << c.bOriginMm[0] << "," << c.bOriginMm[1] << ","
+			<< c.bOriginMm[2] << ") aabbC=(" << c.bAabbCenterMm[0] << "," << c.bAabbCenterMm[1] << ","
+			<< c.bAabbCenterMm[2] << ") pose=" << c.bPoseSource;
 		return oss.str();
 	};
 

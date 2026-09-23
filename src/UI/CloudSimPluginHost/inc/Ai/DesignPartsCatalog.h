@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_DESIGNPARTSCATALOG_H
+﻿#ifndef CLOUDSIMPLUGINHOST_DESIGNPARTSCATALOG_H
 #define CLOUDSIMPLUGINHOST_DESIGNPARTSCATALOG_H
 
 /// @file DesignPartsCatalog.h
@@ -9,7 +9,6 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
-
 #include <optional>
 
 struct DesignPartSpec
@@ -64,4 +63,4 @@ private:
 	QString m_root;
 };
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_DESIGNPARTSCATALOG_H

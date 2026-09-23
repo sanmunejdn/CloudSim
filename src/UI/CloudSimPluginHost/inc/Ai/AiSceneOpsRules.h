@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AISCENEOPSRULES_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AISCENEOPSRULES_H
 #define CLOUDSIMPLUGINHOST_AISCENEOPSRULES_H
 
 /// @file AiSceneOpsRules.h
@@ -16,4 +16,4 @@ namespace AiSceneOpsRules
 AiAgentPlan tryBuildPlan(const QString& userText, const QByteArray& sceneSnapshotUtf8);
 } // namespace AiSceneOpsRules
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AISCENEOPSRULES_H

@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMHOST_HEADLESSINSTRUCTIONPROPERTYDELEGATE_H
+﻿#ifndef CLOUDSIMHOST_HEADLESSINSTRUCTIONPROPERTYDELEGATE_H
 #define CLOUDSIMHOST_HEADLESSINSTRUCTIONPROPERTYDELEGATE_H
 
 /// @file HeadlessInstructionPropertyDelegate.h
@@ -21,8 +21,8 @@ public:
 	QVector<core::PropertyRowDto> instructionPropertyRows(const QString& instructionId) override;
 	bool applyInstructionPropertyChange(const QString& instructionId, const QString& key, const QString& value,
 										QString* outError = nullptr) override;
-	core::FeasibleMotionAxisOptionsDto queryFeasibleMotionAxisOptions(const QString& instructionId,
-																	  QVector<double>* outSeedJointRad = nullptr) override;
+	core::FeasibleMotionAxisOptionsDto
+	queryFeasibleMotionAxisOptions(const QString& instructionId, QVector<double>* outSeedJointRad = nullptr) override;
 	core::FeasibleMotionAxisOptionsDto cachedFeasibleMotionAxisOptions() override;
 
 private:

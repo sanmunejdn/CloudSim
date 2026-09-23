@@ -1,4 +1,4 @@
-#ifndef ENGINEERINGDRAWINGPLUGIN_DRAWINGEXPORT_H
+﻿#ifndef ENGINEERINGDRAWINGPLUGIN_DRAWINGEXPORT_H
 #define ENGINEERINGDRAWINGPLUGIN_DRAWINGEXPORT_H
 
 /// @file DrawingExport.h
@@ -16,10 +16,9 @@ namespace drawing_export
 {
 bool writeSvg(const QString& path, const QVector<DrawingSheetCanvasWidget::DrawingView>& views,
 			  const QVector<DrawingSheetCanvasWidget::SheetDimension>& dims,
-			  const QVector<DrawingSheetCanvasWidget::SheetNote>& notes,
-			  const QVector<SheetSketchPolyline>& sketch, const DrawingSheetCanvasWidget::SheetPaper& paper,
-			  DrawingProjectionMethod projection, const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers,
-			  const QHash<int, QString>& sketchLayers);
+			  const QVector<DrawingSheetCanvasWidget::SheetNote>& notes, const QVector<SheetSketchPolyline>& sketch,
+			  const DrawingSheetCanvasWidget::SheetPaper& paper, DrawingProjectionMethod projection,
+			  const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers, const QHash<int, QString>& sketchLayers);
 struct DxfSketchCircle
 {
 	QPointF center;
@@ -38,15 +37,13 @@ struct DxfSketchArc
 
 bool writeDxf(const QString& path, const QVector<DrawingSheetCanvasWidget::DrawingView>& views,
 			  const QVector<DrawingSheetCanvasWidget::SheetDimension>& dims,
-			  const QVector<DrawingSheetCanvasWidget::SheetNote>& notes,
-			  const QVector<SheetSketchPolyline>& sketch, const DrawingSheetCanvasWidget::SheetPaper& paper,
-			  DrawingProjectionMethod projection, const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers,
-			  const QHash<int, QString>& sketchLayers,
+			  const QVector<DrawingSheetCanvasWidget::SheetNote>& notes, const QVector<SheetSketchPolyline>& sketch,
+			  const DrawingSheetCanvasWidget::SheetPaper& paper, DrawingProjectionMethod projection,
+			  const QVector<DrawingSheetCanvasWidget::SheetLayer>& layers, const QHash<int, QString>& sketchLayers,
 			  const QVector<DrawingSheetCanvasWidget::SheetHatch>& hatches = {},
 			  const QVector<DrawingSheetCanvasWidget::SheetBlockDef>& blockDefs = {},
 			  const QVector<DrawingSheetCanvasWidget::SheetBlockRef>& blockRefs = {},
-			  const QVector<DxfSketchCircle>& sketchCircles = {},
-			  const QVector<DxfSketchArc>& sketchArcs = {});
+			  const QVector<DxfSketchCircle>& sketchCircles = {}, const QVector<DxfSketchArc>& sketchArcs = {});
 } // namespace drawing_export
 
-#endif
+#endif // ENGINEERINGDRAWINGPLUGIN_DRAWINGEXPORT_H

@@ -1,4 +1,4 @@
-/// @file SketchFillet.cpp
+﻿/// @file SketchFillet.cpp
 
 #include "SketchFillet.h"
 

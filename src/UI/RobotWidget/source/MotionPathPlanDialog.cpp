@@ -1,4 +1,4 @@
-/// @file MotionPathPlanDialog.cpp
+﻿/// @file MotionPathPlanDialog.cpp
 /// @brief 起终点路点下拉 + 规划/插入
 
 #include "MotionPathPlanDialog.h"
@@ -8,8 +8,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
-#include <QVariant>
 #include <QVBoxLayout>
+#include <QVariant>
 
 MotionPathPlanDialog::MotionPathPlanDialog(QWidget* parent) : QDialog(parent)
 {
@@ -81,7 +81,8 @@ void MotionPathPlanDialog::setWaypoints(const QVector<MotionPathWaypointItem>& i
 
 void MotionPathPlanDialog::selectWaypointIds(const QString& startId, const QString& endId)
 {
-	auto selectId = [](QComboBox* box, const QString& id) {
+	auto selectId = [](QComboBox* box, const QString& id)
+	{
 		if (id.isEmpty() || !box)
 			return;
 		const int idx = box->findData(id);

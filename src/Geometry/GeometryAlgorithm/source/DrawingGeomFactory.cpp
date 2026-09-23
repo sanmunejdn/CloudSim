@@ -1,9 +1,10 @@
-/// @file DrawingGeomFactory.cpp
+﻿/// @file DrawingGeomFactory.cpp
 /// @brief TopoDS_Edge → DrawingEntity；HLR 边几何以离散为准
 
+#include "Discretize.h"
 #include "DrawingGeometry.h"
 
-#include "Discretize.h"
+#include <cmath>
 
 #include <BRepAdaptor_Curve.hxx>
 #include <GeomAbs_CurveType.hxx>
@@ -12,13 +13,10 @@
 #include <gp_Elips.hxx>
 #include <gp_Pnt.hxx>
 
-#include <cmath>
-
 namespace geoalgo
 {
 namespace
 {
-
 void fillPolylineXyFromPoly(const Polyline3d& poly, DrawingEntity& out)
 {
 	out.polylineXy.clear();
@@ -42,8 +40,8 @@ bool discretizeToEntity(const TopoDS_Edge& edge, const TessellateParams& params,
 
 } // namespace
 
-bool drawingEntityFromEdge(const TopoDS_Edge& edge, DrawingEdgeClass cls, bool hidden,
-						   const TessellateParams& params, DrawingEntity& out)
+bool drawingEntityFromEdge(const TopoDS_Edge& edge, DrawingEdgeClass cls, bool hidden, const TessellateParams& params,
+						   DrawingEntity& out)
 {
 	out = DrawingEntity{};
 	out.edgeClass = cls;

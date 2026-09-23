@@ -1,5 +1,5 @@
-/// @file PclCloudConvert.cpp
-/// @brief xyz/法线 �?PCL PointNormal
+﻿/// @file PclCloudConvert.cpp
+/// @brief xyz/法线转 PCL PointNormal
 
 #include "pcl/PclCloudConvert.h"
 

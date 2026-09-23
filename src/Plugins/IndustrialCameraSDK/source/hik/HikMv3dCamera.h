@@ -1,4 +1,4 @@
-#ifndef INDUSTRIALCAMERASDK_HIKMV3DCAMERA_H
+﻿#ifndef INDUSTRIALCAMERASDK_HIKMV3DCAMERA_H
 #define INDUSTRIALCAMERASDK_HIKMV3DCAMERA_H
 
 /// @file HikMv3dCamera.h
@@ -8,7 +8,6 @@
 
 namespace industrial_camera
 {
-
 class HikMv3dCamera final : public ICamera
 {
 public:

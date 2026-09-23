@@ -1,4 +1,4 @@
-#ifndef GEOMETRYALGORITHM_ASSEMBLYMATE_H
+﻿#ifndef GEOMETRYALGORITHM_ASSEMBLYMATE_H
 #define GEOMETRYALGORITHM_ASSEMBLYMATE_H
 
 /// @file AssemblyMate.h
@@ -29,8 +29,8 @@ enum class FaceMateSurfaceKind
 struct FaceMateGeom
 {
 	FaceMateSurfaceKind kind = FaceMateSurfaceKind::Other;
-	Point3d originMm;   ///< 平面上一点 / 轴点 / 球心
-	Point3d axisUnit;   ///< 平面外向法向或回转轴
+	Point3d originMm; ///< 平面上一点 / 轴点 / 球心
+	Point3d axisUnit; ///< 平面外向法向或回转轴
 	double radiusMm = 0.0;
 	double radius2Mm = 0.0; ///< 圆锥半角(rad) 或圆环小半径
 	Point3d pickHintMm;
@@ -68,8 +68,8 @@ GEOMETRY_ALGORITHM_API bool queryFaceMateGeom(const ShapeHandle& shape, int face
 
 /// 两面已在同一坐标系；增量作用于动件点 x' = delta * x
 GEOMETRY_ALGORITHM_API bool computeAssemblyMateDelta(const FaceMateGeom& grounded, const FaceMateGeom& moving,
-													 const AssemblyMateParams& params, Eigen::Isometry3d& outMovingDelta,
-													 std::string* errMsg = nullptr);
+													 const AssemblyMateParams& params,
+													 Eigen::Isometry3d& outMovingDelta, std::string* errMsg = nullptr);
 
 } // namespace geoalgo
 

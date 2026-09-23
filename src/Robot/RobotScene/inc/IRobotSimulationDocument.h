@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
+﻿#ifndef ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
 #define ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
 
 /// @file IRobotSimulationDocument.h
@@ -8,14 +8,12 @@
 #include "robot_scene_global.h"
 
 #include "CoreTypes.h"
-
 #include "RobotExternalAxes.h"
 
 #include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVector>
-
 #include <vector>
 
 class BackendDataManager;

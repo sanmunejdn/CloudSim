@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIARGSSCHEMA_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIARGSSCHEMA_H
 #define CLOUDSIMPLUGINHOST_AIARGSSCHEMA_H
 
 /// @file AiArgsSchema.h
@@ -26,4 +26,4 @@ QByteArray buildOpenAiToolsFromCatalog(const QByteArray& catalogJsonUtf8, const 
 bool missingRequiredArgs(const nlohmann::json& argsSchema, const nlohmann::json& args, QString* outError);
 } // namespace AiArgsSchema
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIARGSSCHEMA_H

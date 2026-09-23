@@ -1,12 +1,12 @@
-/// @file AiAgentRuntime.cpp
+﻿/// @file AiAgentRuntime.cpp
 /// @brief 状态机驱动的 Agent 循环
 
 #include "Ai/AiAgentRuntime.h"
 
+#include "Ai/AiActionPlanExecutor.h"
 #include "Ai/AiAgentMemory.h"
 #include "Ai/AiAgentPlanBuilder.h"
 #include "Ai/AiAgentTrace.h"
-#include "Ai/AiActionPlanExecutor.h"
 #include "Ai/AiArgsSchema.h"
 #include "Ai/AiAssistantHostImpl.h"
 #include "Ai/AiCatalogKeywordMatcher.h"
@@ -172,10 +172,9 @@ void AiAgentRuntime::beginDomainConfirm(const AiDomainConfirmRequest& request, c
 	m_pending->secondaryLabel = request.secondaryLabel;
 	m_pending->schemaJson = QByteArrayLiteral("[]");
 	// TrajectoryCommit：把特征计划放进 proposedArgs，供 Coordinator 弹离散对话框
-	m_pending->proposedArgs =
-		request.kind == AiAgentConfirmKind::TrajectoryCommit && !request.payloadUtf8.isEmpty()
-			? request.payloadUtf8
-			: QByteArrayLiteral("{}");
+	m_pending->proposedArgs = request.kind == AiAgentConfirmKind::TrajectoryCommit && !request.payloadUtf8.isEmpty()
+								  ? request.payloadUtf8
+								  : QByteArrayLiteral("{}");
 	m_pending->stepIndex = 0;
 	if (request.kind == AiAgentConfirmKind::RecognizeCreate)
 		m_pending->toolId = QStringLiteral("geometry.recognize.create");
@@ -219,9 +218,10 @@ void AiAgentRuntime::schedulePropose(bool afterToolObservation)
 						if (!m_doneTools.isEmpty())
 							finishOk(via.isEmpty() ? QStringLiteral("已完成 %1 步。").arg(m_doneTools.size()) : via);
 						else
-							finishOk(via.isEmpty() ? QStringLiteral(
-														 "未能识别可执行命令。可尝试按钮名，如「体素下采样」「点云匹配」。")
-												   : via);
+							finishOk(
+								via.isEmpty()
+									? QStringLiteral("未能识别可执行命令。可尝试按钮名，如「体素下采样」「点云匹配」。")
+									: via);
 						return;
 					}
 					emitPlanSummaryIfNeeded();
@@ -237,11 +237,10 @@ void AiAgentRuntime::schedulePropose(bool afterToolObservation)
 					m_pending->title = titleForApi(api);
 					if (m_plan && m_plan->steps.size() > 1)
 					{
-						m_pending->title =
-							QStringLiteral("计划 %1/%2 · %3")
-								.arg(m_planIndex + 1)
-								.arg(m_plan->steps.size())
-								.arg(m_pending->title);
+						m_pending->title = QStringLiteral("计划 %1/%2 · %3")
+											   .arg(m_planIndex + 1)
+											   .arg(m_plan->steps.size())
+											   .arg(m_pending->title);
 					}
 					if (api.contains("args_schema"))
 						m_pending->schemaJson = QByteArray::fromStdString(api["args_schema"].dump());
@@ -616,8 +615,8 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 		QString summary;
 		QString err;
 		result.handled = true;
-		result.ok = m_assistant && m_assistant->executeDomainOutput(AiDomainIds::geometryRecognize(), domainPayload,
-																   &summary, &err);
+		result.ok = m_assistant &&
+					m_assistant->executeDomainOutput(AiDomainIds::geometryRecognize(), domainPayload, &summary, &err);
 		result.summary = summary;
 		result.error = err;
 	}
@@ -627,9 +626,8 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 		QString err;
 		result.handled = true;
 		// 对话框 Accept 后传入 merged 计划；无则回退 beginDomainConfirm 时的 payload
-		const QByteArray commitPayload = argsJson.trimmed().isEmpty() || argsJson == QByteArrayLiteral("{}")
-											 ? domainPayload
-											 : argsJson;
+		const QByteArray commitPayload =
+			argsJson.trimmed().isEmpty() || argsJson == QByteArrayLiteral("{}") ? domainPayload : argsJson;
 		result.ok = m_host->commitAiTrajectoryFeatures(commitPayload, &summary, &err);
 		result.summary = summary;
 		result.error = err;
@@ -717,10 +715,9 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 	m_snapshot = AiSceneSnapshotBuilder::buildJson(*m_host);
 	if (result.newBackendIds.isEmpty())
 		result.newBackendIds = newBackendIdsAfter(snapBefore, m_snapshot);
-	const QString observation =
-		kind == AiAgentConfirmKind::CatalogTool
-			? formatObservation(toolId, argsJson, result)
-			: (result.summary.isEmpty() ? QStringLiteral("已确认执行") : result.summary);
+	const QString observation = kind == AiAgentConfirmKind::CatalogTool
+									? formatObservation(toolId, argsJson, result)
+									: (result.summary.isEmpty() ? QStringLiteral("已确认执行") : result.summary);
 	AiAgentMemory::appendSessionStep(toolId, true, observation);
 	m_doneTools.append(toolId);
 	if (m_plan.has_value())
@@ -752,8 +749,7 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 
 	// 单次 LLM tool_calls 成功后不要因 m_usedLlm 再提案：模型常会再调一次 create，
 	// 失败后重规划又会再建实体（「生成长方体」→ 两个长方体）。
-	const bool more =
-		m_step < m_maxSteps && (hasPlanRemaining() || hasRemainingKeywordMatch() || userWantsMultiStep());
+	const bool more = m_step < m_maxSteps && (hasPlanRemaining() || hasRemainingKeywordMatch() || userWantsMultiStep());
 	if (!more)
 	{
 		finishOk(QString(), toolId, kind);
@@ -836,9 +832,8 @@ bool AiAgentRuntime::proposeNextTool(QString* toolId, QByteArray* argsJson, QStr
 	{
 		if (via)
 		{
-			*via = QStringLiteral(
-				"未匹配到可靠的按钮关键词，未自动调用工具。\n"
-				"请改用 Dock 按钮原文（如「体素下采样」「点云匹配」），或先选择领域后再描述。");
+			*via = QStringLiteral("未匹配到可靠的按钮关键词，未自动调用工具。\n"
+								  "请改用 Dock 按钮原文（如「体素下采样」「点云匹配」），或先选择领域后再描述。");
 		}
 		return false;
 	}

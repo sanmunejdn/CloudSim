@@ -1,4 +1,4 @@
-/// @file AiProcessFlowRules.cpp
+﻿/// @file AiProcessFlowRules.cpp
 /// @brief 常见产线口语映射为 apply + run 两步
 
 #include "Ai/AiProcessFlowRules.h"
@@ -150,7 +150,8 @@ nlohmann::json buildLinearLine(int stationCount, double cycleSec, double bufferC
 		x += 200;
 	}
 	const int endId = id++;
-	nodes.push_back(makeNode(endId, QStringLiteral("结束"), QStringLiteral("流程出口"), "#546E7A", x, 120, nodeProps("end")));
+	nodes.push_back(
+		makeNode(endId, QStringLiteral("结束"), QStringLiteral("流程出口"), "#546E7A", x, 120, nodeProps("end")));
 	edges.push_back({{"from", prev}, {"to", endId}, {"label", ""}});
 
 	return {{"version", 1}, {"nodes", nodes}, {"edges", edges}, {"jobSet", nlohmann::json::object()}};
@@ -173,9 +174,7 @@ AiAgentPlan tryBuildPlan(const QString& userText)
 		const int nodeId = setCycle.captured(1).toInt();
 		const double cycle = setCycle.captured(2).toDouble();
 		nlohmann::json ops = nlohmann::json::array();
-		ops.push_back({{"op", "setNodeProp"},
-					   {"nodeId", nodeId},
-					   {"props", {{"cycleTimeSec", cycle}}}});
+		ops.push_back({{"op", "setNodeProp"}, {"nodeId", nodeId}, {"props", {{"cycleTimeSec", cycle}}}});
 		plan.steps.append(makeStep(QStringLiteral("patchProcessFlowGraph"), {{"ops_json", ops.dump()}},
 								   QStringLiteral("增量改节拍")));
 		if (t.contains(QStringLiteral("仿真")) || t.contains(QStringLiteral("运行")))
@@ -193,9 +192,7 @@ AiAgentPlan tryBuildPlan(const QString& userText)
 	{
 		const double cap = setBuf.captured(1).toDouble();
 		nlohmann::json ops = nlohmann::json::array();
-		ops.push_back({{"op", "setNodeProp"},
-					   {"nodeId", 2},
-					   {"props", {{"capacityQty", cap}, {"kind", "buffer"}}}});
+		ops.push_back({{"op", "setNodeProp"}, {"nodeId", 2}, {"props", {{"capacityQty", cap}, {"kind", "buffer"}}}});
 		plan.steps.append(makeStep(QStringLiteral("patchProcessFlowGraph"), {{"ops_json", ops.dump()}},
 								   QStringLiteral("增量改缓冲")));
 		plan.summary = QStringLiteral("改缓冲容量=%1").arg(cap);
@@ -233,7 +230,8 @@ AiAgentPlan tryBuildPlan(const QString& userText)
 		t.contains(QStringLiteral("FIFO")) || t.contains(QStringLiteral("SPT")))
 	{
 		nlohmann::json runArgs = {{"horizonSec", detectHorizon(t)}, {"policy", detectPolicy(t).toStdString()}};
-		plan.steps.append(makeStep(QStringLiteral("runProcessFlowSimulation"), runArgs, QStringLiteral("运行 DES 仿真")));
+		plan.steps.append(
+			makeStep(QStringLiteral("runProcessFlowSimulation"), runArgs, QStringLiteral("运行 DES 仿真")));
 	}
 
 	plan.summary = QStringLiteral("生成%1工位产线并仿真").arg(stations);

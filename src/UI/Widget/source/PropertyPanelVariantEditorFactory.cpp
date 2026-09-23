@@ -1,4 +1,4 @@
-/// @file PropertyPanelVariantEditorFactory.cpp
+﻿/// @file PropertyPanelVariantEditorFactory.cpp
 /// @brief 属性面板字符串编辑器工厂
 
 #include "PropertyPanelVariantEditorFactory.h"
@@ -7,8 +7,7 @@
 
 #include <QLineEdit>
 
-PropertyPanelVariantEditorFactory::PropertyPanelVariantEditorFactory(MainWindow* mainWindow)
-	: m_mainWindow(mainWindow)
+PropertyPanelVariantEditorFactory::PropertyPanelVariantEditorFactory(MainWindow* mainWindow) : m_mainWindow(mainWindow)
 {
 }
 

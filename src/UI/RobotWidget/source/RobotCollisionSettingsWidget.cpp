@@ -1,4 +1,4 @@
-/// @file RobotCollisionSettingsWidget.cpp
+﻿/// @file RobotCollisionSettingsWidget.cpp
 /// @brief 碰撞黑白名单 + 页内起终点路径规划
 
 #include "RobotCollisionSettingsWidget.h"
@@ -19,8 +19,8 @@
 #include <QPushButton>
 #include <QSet>
 #include <QTableWidget>
-#include <QVariant>
 #include <QVBoxLayout>
+#include <QVariant>
 
 namespace
 {
@@ -194,7 +194,8 @@ RobotCollisionSettingsWidget::RobotCollisionSettingsWidget(QWidget* parent) : QW
 	connect(m_addBlackBtn, &QPushButton::clicked, this, &RobotCollisionSettingsWidget::onAddToBlack);
 	connect(m_removeWhiteBtn, &QPushButton::clicked, this, &RobotCollisionSettingsWidget::onRemoveFromWhite);
 	connect(m_removeBlackBtn, &QPushButton::clicked, this, &RobotCollisionSettingsWidget::onRemoveFromBlack);
-	connect(m_refreshObjectsBtn, &QPushButton::clicked, this, &RobotCollisionSettingsWidget::refreshSceneObjectsRequested);
+	connect(m_refreshObjectsBtn, &QPushButton::clicked, this,
+			&RobotCollisionSettingsWidget::refreshSceneObjectsRequested);
 
 	if (!collision::CollisionWorld::hasCoalBackend())
 	{
@@ -386,7 +387,8 @@ void RobotCollisionSettingsWidget::setMotionWaypoints(const QVector<MotionPathWa
 
 void RobotCollisionSettingsWidget::selectMotionWaypointIds(const QString& startId, const QString& endId)
 {
-	auto selectId = [](QComboBox* box, const QString& id) {
+	auto selectId = [](QComboBox* box, const QString& id)
+	{
 		if (!box || id.isEmpty())
 			return;
 		const int idx = box->findData(id);
@@ -413,7 +415,8 @@ void RobotCollisionSettingsWidget::setCollisionSceneObjects(const QVector<Collis
 	QSet<QString> valid;
 	for (const CollisionSceneObjectItem& it : m_allObjects)
 		valid.insert(it.backendId);
-	auto filterList = [&](QStringList& ids) {
+	auto filterList = [&](QStringList& ids)
+	{
 		QStringList kept;
 		for (const QString& id : ids)
 		{
@@ -531,12 +534,16 @@ void RobotCollisionSettingsWidget::retranslateUi()
 	if (m_listHintLabel)
 	{
 		m_listHintLabel->setText(
-			m_chinese ? QStringLiteral("白/黑名单：同名单对象互不检测；仅对另一名单对象做碰撞检测。未入名单对象不参与名单规则（仍受默认 ACM 约束）。")
-					  : QStringLiteral("White/Black lists: no checks within a list; only cross-list pairs are checked. "
-									   "Unlisted bodies keep default ACM excludes only."));
+			m_chinese
+				? QStringLiteral(
+					  "白/黑名单：同名单对象互不检测；仅对另一名单对象做碰撞检测。未入名单对象不参与名单规则（仍受默认 "
+					  "ACM 约束）。")
+				: QStringLiteral("White/Black lists: no checks within a list; only cross-list pairs are checked. "
+								 "Unlisted bodies keep default ACM excludes only."));
 	}
 	if (m_poolLabel)
-		m_poolLabel->setText(m_chinese ? QStringLiteral("场景 Mesh/Brep（未分配）") : QStringLiteral("Scene Mesh/Brep (unassigned)"));
+		m_poolLabel->setText(m_chinese ? QStringLiteral("场景 Mesh/Brep（未分配）")
+									   : QStringLiteral("Scene Mesh/Brep (unassigned)"));
 	if (m_whiteLabel)
 		m_whiteLabel->setText(m_chinese ? QStringLiteral("白名单") : QStringLiteral("White list"));
 	if (m_blackLabel)

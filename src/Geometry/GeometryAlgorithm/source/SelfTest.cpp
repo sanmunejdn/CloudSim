@@ -1,11 +1,9 @@
-/// @file SelfTest.cpp
+﻿/// @file SelfTest.cpp
 /// @brief SelfTest 实现
 
 #include "SelfTest.h"
 
 #include "AssemblyMate.h"
-#include "SketchExtrude.h"
-
 #include "BrepBoolean.h"
 #include "BrepImportArtifacts.h"
 #include "Discretize.h"
@@ -21,6 +19,7 @@
 #include "ShapeHandle.h"
 #include "ShapeIo.h"
 #include "ShapeQuery.h"
+#include "SketchExtrude.h"
 #include "TemplateBrepRegistration.h"
 #include "TemplateBrepUpdate.h"
 #include "TubularGrinding.h"
@@ -35,12 +34,12 @@
 #include <limits>
 #include <sstream>
 
+#include <BRepGProp.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
-#include <TopoDS_Compound.hxx>
-#include <BRepGProp.hxx>
-#include <GProp_GProps.hxx>
 #include <Eigen/Geometry>
+#include <GProp_GProps.hxx>
+#include <TopoDS_Compound.hxx>
 
 namespace geoalgo
 {

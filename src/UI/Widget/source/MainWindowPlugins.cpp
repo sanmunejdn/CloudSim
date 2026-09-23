@@ -1,8 +1,8 @@
 ﻿/// @file MainWindowPlugins.cpp
 /// @brief 插件扫描加载
 
-#include "MainWindow.h"
 #include "ApplicationSettings.h"
+#include "MainWindow.h"
 #include "PluginHostContext.h"
 #include "PluginManager.h"
 
@@ -90,8 +90,7 @@ void MainWindow::applySidePanelTabToggleVisibility(QWidget* widget, const bool v
 	}
 
 	// 交替侧栏已剥离工作区/插件页签；再 addTab 会与 detach 打架
-	if (m_processFlowSideUiActive &&
-		static_cast<const void*>(widget) != static_cast<const void*>(m_aiAssistantPage))
+	if (m_processFlowSideUiActive && static_cast<const void*>(widget) != static_cast<const void*>(m_aiAssistantPage))
 	{
 		return;
 	}
@@ -241,20 +240,25 @@ void MainWindow::restoreUiPreferencesAfterPlugins()
 {
 	m_restoringUiPreferences = true;
 	// 先恢复侧栏可见性，再进工作区模式（模式会 detach 页签；若先模式后 layout 会把页签加回并崩）
-	QTimer::singleShot(0, this, [this]() {
-		applySavedViewLayout();
-		if (!m_uiPreferences.workspaceModeId.isEmpty() && m_pluginManager && m_pluginManager->hostContext())
-		{
-			m_pluginManager->hostContext()->enterWorkspaceMode(m_uiPreferences.workspaceModeId);
-		}
-		QTimer::singleShot(100, this, [this]() {
-			if (!m_processFlowSideUiActive)
-			{
-				applySavedViewLayout();
-			}
-			m_restoringUiPreferences = false;
-		});
-	});
+	QTimer::singleShot(0, this,
+					   [this]()
+					   {
+						   applySavedViewLayout();
+						   if (!m_uiPreferences.workspaceModeId.isEmpty() && m_pluginManager &&
+							   m_pluginManager->hostContext())
+						   {
+							   m_pluginManager->hostContext()->enterWorkspaceMode(m_uiPreferences.workspaceModeId);
+						   }
+						   QTimer::singleShot(100, this,
+											  [this]()
+											  {
+												  if (!m_processFlowSideUiActive)
+												  {
+													  applySavedViewLayout();
+												  }
+												  m_restoringUiPreferences = false;
+											  });
+					   });
 }
 
 void MainWindow::removePluginSidePanelTab(QWidget* widget)

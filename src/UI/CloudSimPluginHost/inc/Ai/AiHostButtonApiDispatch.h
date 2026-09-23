@@ -1,4 +1,4 @@
-#ifndef CLOUDSIMPLUGINHOST_AIHOSTBUTTONAPIDISPATCH_H
+﻿#ifndef CLOUDSIMPLUGINHOST_AIHOSTBUTTONAPIDISPATCH_H
 #define CLOUDSIMPLUGINHOST_AIHOSTBUTTONAPIDISPATCH_H
 
 /// @file AiHostButtonApiDispatch.h
@@ -24,4 +24,4 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 				bool allowModalDialogs = true, QString* outSummary = nullptr);
 } // namespace AiHostButtonApiDispatch
 
-#endif
+#endif // CLOUDSIMPLUGINHOST_AIHOSTBUTTONAPIDISPATCH_H

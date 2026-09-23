@@ -211,8 +211,8 @@ QStringList MainWindowInstructionPropertyUiHost::namedIoSignalNames(const QStrin
 		}
 	}
 	RobotIo::SignalKind kind = RobotIo::SignalKind::DI;
-	const bool filter = !kindFilter.isEmpty() &&
-						RobotIo::NamedSignalTable::kindFromString(kindFilter.toStdString(), kind);
+	const bool filter =
+		!kindFilter.isEmpty() && RobotIo::NamedSignalTable::kindFromString(kindFilter.toStdString(), kind);
 	if (filter)
 	{
 		return m_mw.m_robotSimulation->ioSignalNamesForOwner(ownerId, kind);
@@ -253,8 +253,7 @@ int MainWindowInstructionPropertyUiHost::resolveNamedIoSignalPort(const QString&
 QStringList MainWindowInstructionPropertyUiHost::customDeviceBackendIds() const
 {
 	QStringList out;
-	IRobotDocumentHost* doc =
-		m_mw.m_robotHost ? m_mw.m_robotHost->document() : nullptr;
+	IRobotDocumentHost* doc = m_mw.m_robotHost ? m_mw.m_robotHost->document() : nullptr;
 	if (!doc)
 	{
 		return out;

@@ -1,4 +1,4 @@
-#ifndef WIDGET_MAINWINDOW_P_H
+﻿#ifndef WIDGET_MAINWINDOW_P_H
 #define WIDGET_MAINWINDOW_P_H
 
 /// @file MainWindow_p.h

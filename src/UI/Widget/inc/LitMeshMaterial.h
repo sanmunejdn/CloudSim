@@ -1,4 +1,4 @@
-#ifndef WIDGET_LITMESHMATERIAL_H
+﻿#ifndef WIDGET_LITMESHMATERIAL_H
 #define WIDGET_LITMESHMATERIAL_H
 
 /// @file LitMeshMaterial.h

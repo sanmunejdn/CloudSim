@@ -1,4 +1,4 @@
-/// @file ScriptModelIo.cpp
+﻿/// @file ScriptModelIo.cpp
 
 #include "ScriptModelIo.h"
 

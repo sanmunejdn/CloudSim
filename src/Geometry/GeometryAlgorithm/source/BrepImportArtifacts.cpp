@@ -1,4 +1,4 @@
-/// @file BrepImportArtifacts.cpp
+﻿/// @file BrepImportArtifacts.cpp
 /// @brief BrepImportArtifacts 实现
 
 #include "BrepImportArtifacts.h"

@@ -1,13 +1,11 @@
-/// @file HeadlessRobotContext.cpp
+﻿/// @file HeadlessRobotContext.cpp
 /// @brief Web Headless 机器人导入/FK 上下文（无 OSG）
 
 #include "HeadlessRobotContext.h"
-#include "visual/KinematicsBatchScope.h"
 
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "DocumentHost.h"
-#include "io/CustomDeviceRobotMountOps.h"
 #include "IDataService.h"
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
@@ -17,27 +15,27 @@
 #include "RobotTeachIk.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
+#include "io/CustomDeviceRobotMountOps.h"
 #include "robot/RobotPlanInstruction.h"
-
-#include <Adapters.h>
-#include <RigidTransform.h>
+#include "visual/KinematicsBatchScope.h"
 
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-
 #include <algorithm>
 #include <cmath>
+
+#include <Adapters.h>
+#include <RigidTransform.h>
 #include <osg/Matrixd>
 
 namespace cloudsim::host
 {
 BackendDataPoseSink::BackendDataPoseSink(BackendDataManager& backend) : m_backend(backend) {}
 
-bool BackendDataPoseSink::getBackendRootWorldMatrix(const std::string& backendId,
-													cloudsim::core::Mat4& outWorld) const
+bool BackendDataPoseSink::getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const
 {
 	const auto mesh = std::dynamic_pointer_cast<MeshBackendData>(m_backend.getData(backendId));
 	if (!mesh)
@@ -236,7 +234,8 @@ bool HeadlessRobotContext::setExternalAxesJson(const QString& sceneRootBackendId
 	}
 	// 兼容 PUT `{axes:[]}` / 完整 `{axes:[]}` 配置集 / 嵌套 externalAxes
 	QJsonObject configObj = axesOrConfigSet;
-	if (configObj.contains(QStringLiteral("externalAxes")) && configObj.value(QStringLiteral("externalAxes")).isObject())
+	if (configObj.contains(QStringLiteral("externalAxes")) &&
+		configObj.value(QStringLiteral("externalAxes")).isObject())
 		configObj = configObj.value(QStringLiteral("externalAxes")).toObject();
 	if (!configObj.contains(QStringLiteral("axes")) && axesOrConfigSet.contains(QStringLiteral("axes")))
 		configObj = QJsonObject{{QStringLiteral("axes"), axesOrConfigSet.value(QStringLiteral("axes"))}};
@@ -342,7 +341,7 @@ QString HeadlessRobotContext::robotGizmoAnchorBackendId(const QString& backendId
 	const auto pickPreferredName = [&](const QStringList& names) -> QString
 	{
 		static const QString kPreferred[] = {QStringLiteral("base_link"), QStringLiteral("base"),
-											QStringLiteral("root")};
+											 QStringLiteral("root")};
 		for (const QString& want : kPreferred)
 		{
 			for (const QString& name : names)
@@ -669,12 +668,14 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 	}
 	// 对齐桌面 OsgWidget::tcpTeachSetTargetFromToolWorld：勿用 OSG 行链 *inv(P)
 	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(P);
-	auto tcpInBaseFromScene = [&](const osg::Matrixd& tcpScene) -> engine::RigidTransform {
+	auto tcpInBaseFromScene = [&](const osg::Matrixd& tcpScene) -> engine::RigidTransform
+	{
 		const engine::RigidTransform toolW = engine::rigidTransformFromOsg(tcpScene);
 		return baseW.inverse().composeColumn(toolW);
 	};
 
-	auto solveIkAtSceneTrans = [&](const osg::Vec3d& t, QVector<double>* outQ, QString* solveErr) -> bool {
+	auto solveIkAtSceneTrans = [&](const osg::Vec3d& t, QVector<double>* outQ, QString* solveErr) -> bool
+	{
 		osg::Matrixd tcpScene = tcpSceneDesired;
 		tcpScene.setTrans(t);
 		RobotTeachIk::TeachIkContext ctx;
@@ -928,8 +929,11 @@ bool HeadlessRobotContext::captureTcpPose(const QString& sceneRootBackendId, Tcp
 	{
 		const Eigen::Quaterniond q = T.rotation().normalized();
 		const Eigen::Vector3d tMm = T.translationMm();
-		out.targetTransformQuatCsv =
-			QStringLiteral("%1,%2,%3,%4").arg(q.x(), 0, 'g', 17).arg(q.y(), 0, 'g', 17).arg(q.z(), 0, 'g', 17).arg(q.w(), 0, 'g', 17);
+		out.targetTransformQuatCsv = QStringLiteral("%1,%2,%3,%4")
+										 .arg(q.x(), 0, 'g', 17)
+										 .arg(q.y(), 0, 'g', 17)
+										 .arg(q.z(), 0, 'g', 17)
+										 .arg(q.w(), 0, 'g', 17);
 		out.targetTransformTransMmCsv =
 			QStringLiteral("%1,%2,%3").arg(tMm.x(), 0, 'g', 17).arg(tMm.y(), 0, 'g', 17).arg(tMm.z(), 0, 'g', 17);
 	}
@@ -1293,11 +1297,10 @@ bool HeadlessRobotContext::robotPerLinkKinematicsForInstance(int instanceIndex,
 	out.linkNameToBackendId = ri.linkNameToBackendId;
 	out.fkMeshWorldT0 = ri.fkMeshWorldT0;
 	out.outerWorldAtBindByBackendId = ri.outerWorldAtBindByBackendId;
-	RobotExternal::composeBasePlacementWithExternalAxis(ri.basePlacementWorld.data(), ri.externalAxes,
-														ri.externalAxisQ.empty()
-															? std::vector<double>{ri.externalAxisQMm}
-															: ri.externalAxisQ,
-														out.robotBasePlacementWorld.data());
+	RobotExternal::composeBasePlacementWithExternalAxis(
+		ri.basePlacementWorld.data(), ri.externalAxes,
+		ri.externalAxisQ.empty() ? std::vector<double>{ri.externalAxisQMm} : ri.externalAxisQ,
+		out.robotBasePlacementWorld.data());
 	out.meshVerticesInLinkFrame = ri.meshVerticesInLinkFrame;
 	return true;
 }
@@ -1348,7 +1351,8 @@ void HeadlessRobotContext::notifyRobotKinematicsAppliedToScene()
 	cloudsim::host::refreshCustomDevicesFollowingKinematicsTargets(m_host);
 }
 
-void HeadlessRobotContext::noteRobotJointAnglesAppliedForInstance(int instanceIndex, const QVector<double>& localJointRad)
+void HeadlessRobotContext::noteRobotJointAnglesAppliedForInstance(int instanceIndex,
+																  const QVector<double>& localJointRad)
 {
 	if (instanceIndex < 0 || instanceIndex >= m_robots.size())
 	{

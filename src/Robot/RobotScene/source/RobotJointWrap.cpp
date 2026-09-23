@@ -1,4 +1,4 @@
-/// @file RobotJointWrap.cpp
+﻿/// @file RobotJointWrap.cpp
 /// @brief 回转关节折圈
 
 #include "RobotJointWrap.h"
@@ -9,8 +9,7 @@
 
 namespace
 {
-void shiftJointTrajectoryByTargetDelta(std::vector<std::vector<double>>& traj,
-									   const std::vector<double>& targetsBefore,
+void shiftJointTrajectoryByTargetDelta(std::vector<std::vector<double>>& traj, const std::vector<double>& targetsBefore,
 									   const std::vector<double>& targetsAfter)
 {
 	if (traj.empty() || targetsBefore.size() != targetsAfter.size() || targetsAfter.empty())
@@ -45,8 +44,8 @@ void shiftJointTrajectoryByTargetDelta(std::vector<std::vector<double>>& traj,
 	}
 }
 
-bool jointTrajectoryTailMatchesTargets(const std::vector<std::vector<double>>& traj,
-									   const std::vector<double>& targets, const double eps = 1e-6)
+bool jointTrajectoryTailMatchesTargets(const std::vector<std::vector<double>>& traj, const std::vector<double>& targets,
+									   const double eps = 1e-6)
 {
 	if (traj.empty() || traj.back().size() != targets.size())
 	{

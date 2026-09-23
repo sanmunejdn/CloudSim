@@ -1,4 +1,4 @@
-#ifndef DATA_DATA_GLOBAL_H
+﻿#ifndef DATA_DATA_GLOBAL_H
 #define DATA_DATA_GLOBAL_H
 
 /// @file data_global.h

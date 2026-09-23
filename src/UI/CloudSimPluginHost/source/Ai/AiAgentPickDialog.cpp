@@ -1,4 +1,4 @@
-/// @file AiAgentPickDialog.cpp
+﻿/// @file AiAgentPickDialog.cpp
 /// @brief AI Agent 缺参时的选择对话框
 
 #include "Ai/AiAgentPickDialog.h"
@@ -12,8 +12,9 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QLabel>
-#include <QLatin1String>
 #include <QVBoxLayout>
+
+#include <QLatin1String>
 
 namespace AiAgentPickDialog
 {

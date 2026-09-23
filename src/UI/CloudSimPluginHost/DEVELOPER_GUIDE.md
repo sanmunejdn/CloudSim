@@ -1,6 +1,6 @@
 ﻿# CloudSimPluginHost 开发文档
 
-> **文档导航**：[全库入口](../../../../docs/README.md) · [全量目录](../../../../docs/全量目录.md) · [开发手册](../../../../docs/开发手册/01-总览.md) · [产品索引](../../../docs/README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
+> **文档导航**：[全库入口](../../README.md) · [全量目录](../../README.md) · [开发手册](../../开发手册/01-总览.md) · [产品索引](../README.md) · [模块总表](../../../docs/MODULE_DEVELOPER_GUIDES.md)
 
 ## 1. 模块定位
 
@@ -129,7 +129,7 @@ Debug 下 `PluginHostContext` 构造会 once 跑 `runPluginPropertyBindingSelfTe
 
 ### 3.7 模板 B-rep 更新（点云 → CAD 面拟合）
 
-**专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md)
+**专题文档**：`docs/ARCHIVE_ZIP_LOCATION.txt`
 
 | API | 说明 |
 |-----|------|
@@ -252,8 +252,8 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 | [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) | `DocumentImportFacade`、`DocumentHost::sceneFacade()`、`osgWidgetFrom` |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService`、`EventHub` |
 | [`Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) | `MainWindow` 实现 `IPluginMainWindowHost`、JobSystem |
-| [全库文档入口](../../../../docs/README.md) · [产品索引](../../../docs/README.md) §10 | 插件运行时与目录约定 |
-| [`docs/template_brep_pointcloud_update.md`](../../../docs/_archive/template_brep_pointcloud_update.md) | 模板 B-rep + 点云配准与面更新 |
+| [全库文档入口](../../README.md) · [产品索引](../README.md) §10 | 插件运行时与目录约定 |
+| `docs/ARCHIVE_ZIP_LOCATION.txt` | 模板 B-rep + 点云配准与面更新 |
 | [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI 助手、`ai_config`、训练索引 |
 | [`tools/ai-training/CONFIGURATION.md`](../../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 字段 |
 | [`tools/ai-training/README.md`](../../../tools/ai-training/README.md) | 离线训练与 Ollama 部署 |
@@ -274,7 +274,7 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 
 ### `TrajectoryFeatureDomainHandler`（`trajectory.feature`）
 
-**完整流程、会话状态、3D 叠加与验收清单见 [`docs/trajectory_feature_ai.md`](../../../docs/_archive/trajectory_feature_ai.md)。**
+**完整流程、会话状态、3D 叠加与验收清单见 `docs/ARCHIVE_ZIP_LOCATION.txt`。**
 
 | 项 | 说明 |
 |----|------|

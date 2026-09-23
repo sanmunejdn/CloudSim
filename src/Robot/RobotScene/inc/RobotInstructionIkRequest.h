@@ -1,4 +1,4 @@
-#ifndef ROBOTSCENE_ROBOTINSTRUCTIONIKREQUEST_H
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONIKREQUEST_H
 #define ROBOTSCENE_ROBOTINSTRUCTIONIKREQUEST_H
 
 /// @file RobotInstructionIkRequest.h
@@ -7,10 +7,10 @@
 
 #include "robot_scene_global.h"
 
-#include <RigidTransform.h>
-
 #include <string>
 #include <vector>
+
+#include <RigidTransform.h>
 
 namespace RobotInstruction
 {
