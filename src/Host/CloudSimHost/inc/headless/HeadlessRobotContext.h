@@ -162,6 +162,9 @@ public:
 
 	bool robotLocalJointAnglesForInstance(int instanceIndex, QVector<double>& outLocal) const override;
 
+	void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad,
+									 QVector<double>& upperRad) const override;
+
 private:
 	struct HierarchicalRobotInstance
 	{

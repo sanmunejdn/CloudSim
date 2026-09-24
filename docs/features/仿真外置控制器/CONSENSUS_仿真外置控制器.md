@@ -86,7 +86,9 @@
   "protocolVer": 1,
   "simDtMs": 16,
   "jointCount": 6,
-  "jointNames": ["joint_1", "joint_2"]
+  "jointNames": ["joint_1", "joint_2"],
+  "jointLowerRad": [-3.14, -3.14],
+  "jointUpperRad": [3.14, 3.14]
 }
 ```
 
@@ -95,6 +97,8 @@
 | simDtMs | int | 仿真/tick 基准 ms |
 | jointCount | int | 活动关节数 |
 | jointNames | string[] | 可空名用 j0…；长度=jointCount |
+| jointLowerRad | number[] | 关节下限 rad；长度=jointCount（P4；缺文档时 Host ±π） |
+| jointUpperRad | number[] | 关节上限 rad；长度=jointCount |
 
 #### STEP_REPLY
 
@@ -103,7 +107,8 @@
   "type": "STEP_REPLY",
   "protocolVer": 1,
   "simTimeMs": 160,
-  "actualJointRad": [0.0, 0.1]
+  "actualJointRad": [0.0, 0.1],
+  "sensors": { "jointPosition": [0.0, 0.1] }
 }
 ```
 
@@ -111,6 +116,7 @@
 |------|------|------|
 | simTimeMs | int | Host 侧累计仿真时间 |
 | actualJointRad | number[] | 应用后实际角（通常等于目标） |
+| sensors | object | P4：`jointPosition` 与 actual 同源；后续传感只加键 |
 
 #### QUIT
 
@@ -133,7 +139,7 @@
 }
 ```
 
-### 4.3 错误码（冻结）
+### 4.3 错误码（冻结 + P4 增量）
 
 | code | 含义 |
 |------|------|
@@ -142,6 +148,20 @@
 | BAD_JOINT_COUNT | 数组长度与 jointCount 不符 |
 | NOT_READY | ExternalController 未开或无机器人 |
 | INTERNAL | Host 内部错误 |
+| OUT_OF_LIMITS | targetJointRad 越关节限幅（P4） |
+| BAD_DT | dtMs 非 simDtMs 正整数倍（P4） |
+| IK_FAILED | STEP_POSE 无解（P5） |
+| BAD_FRAME | STEP_POSE frame 不支持（P5） |
+
+## 4.4 protocolVer=2 附录（P5）
+
+- HELLO 可带 `protocolVer: 2`；ACK 回 `supportsStepPose: true`
+- `STEP_POSE` 见 [P5_STEP_POSE.md](P5_STEP_POSE.md)
+- v1 仅关节 `STEP` 仍合法
+
+## 4.5 多会话附录（P6）
+
+端口 `19620 + robotInstanceIndex`；HELLO 下标须与端口绑定实例一致。
 
 ## 5. 模块落点
 

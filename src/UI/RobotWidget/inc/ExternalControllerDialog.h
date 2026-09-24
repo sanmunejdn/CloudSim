@@ -8,13 +8,38 @@
 #include "robotwidget_global.h"
 
 #include <QDialog>
+#include <QPlainTextEdit>
 #include <QProcess>
 
 class QCheckBox;
 class QComboBox;
 class QLabel;
-class QPlainTextEdit;
 class QPushButton;
+class QResizeEvent;
+class QPaintEvent;
+class QWidget;
+
+/// 源码区：左侧行号栏（不改文本内容，避免污染运行脚本）
+class ROBOTWIDGET_EXPORT ControllerSourceEdit : public QPlainTextEdit
+{
+	Q_OBJECT
+
+public:
+	explicit ControllerSourceEdit(QWidget* parent = nullptr);
+
+	int lineNumberAreaWidth() const;
+	void lineNumberAreaPaintEvent(QPaintEvent* event);
+
+protected:
+	void resizeEvent(QResizeEvent* event) override;
+
+private slots:
+	void updateLineNumberAreaWidth(int newBlockCount);
+	void updateLineNumberArea(const QRect& rect, int dy);
+
+private:
+	QWidget* m_lineNumberArea = nullptr;
+};
 
 class ROBOTWIDGET_EXPORT ExternalControllerDialog : public QDialog
 {
@@ -28,6 +53,8 @@ public:
 	void setListening(bool listening);
 	void setClientConnected(bool connected);
 	bool isListeningChecked() const;
+	/// 文档内机器人实例标签；Run 时注入 CLOUDSIM_ROBOT_INDEX / 端口
+	void setRobotInstanceOptions(const QStringList& labels, int selectIndex = 0);
 
 signals:
 	void listenToggled(bool enabled);
@@ -41,6 +68,7 @@ private slots:
 	void onStopClicked();
 	void onOpenControllersClicked();
 	void onProcessFinished(int exitCode, QProcess::ExitStatus status);
+	void onProcessReadyRead();
 
 private:
 	enum class Lang
@@ -53,6 +81,9 @@ private:
 	void refreshSourceView();
 	void updateStatusLabel();
 	void updateRunStopEnabled();
+	void applyControllerEnvironment();
+	void appendProcessLog(const QString& text);
+	int selectedRobotInstanceIndex() const;
 	QString controllerPythonDir() const;
 	QString controllersRootDir() const;
 	QString pythonScriptPath(const QString& fileName) const;
@@ -66,10 +97,12 @@ private:
 
 	QComboBox* m_langCombo = nullptr;
 	QComboBox* m_scriptCombo = nullptr;
+	QComboBox* m_robotInstanceCombo = nullptr;
 	QLabel* m_portLabel = nullptr;
 	QCheckBox* m_listenCheck = nullptr;
 	QLabel* m_statusLabel = nullptr;
-	QPlainTextEdit* m_sourceEdit = nullptr;
+	ControllerSourceEdit* m_sourceEdit = nullptr;
+	QPlainTextEdit* m_logEdit = nullptr;
 	QPushButton* m_reloadBtn = nullptr;
 	QPushButton* m_runBtn = nullptr;
 	QPushButton* m_stopBtn = nullptr;

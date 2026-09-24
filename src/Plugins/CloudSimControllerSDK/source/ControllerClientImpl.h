@@ -20,6 +20,8 @@ public:
 	bool isConnected() const override;
 
 	bool hello(int robotInstanceIndex, ControllerHelloAck& outAck) override;
+	bool stepPose(int dtMs, const double tcpMm[3], const double eulerDeg[3], const std::string& frame,
+				  ControllerStepReply& outReply) override;
 	bool step(int dtMs, const std::vector<double>& targetJointRad, ControllerStepReply& outReply) override;
 	bool goodbye() override;
 
@@ -36,6 +38,7 @@ private:
 	std::string m_lastError;
 	int m_timeoutMs = 5000;
 	int m_jointCount = 0;
+	int m_protocolVer = CLOUDSIM_CONTROLLER_PROTOCOL_VER;
 };
 
 #endif // CLOUDSIMCONTROLLERSDK_CONTROLLERCLIENTIMPL_H

@@ -55,7 +55,7 @@ private:
 
 	DocumentHost& m_host;
 	RobotProgramExecutor m_executor;
-	std::unique_ptr<ControllerManager> m_controllerManager;
+	std::vector<std::unique_ptr<ControllerManager>> m_controllerManagers;
 	QVector<double> m_externalAggJoints;
 	bool m_externalActive = false;
 	QTimer m_timer;

@@ -249,14 +249,26 @@ QJsonObject HeadlessRobotPlaybackBridge::start(const QJsonObject& body)
 
 void HeadlessRobotPlaybackBridge::onTimerTick()
 {
-	if (m_externalActive && m_controllerManager)
+	if (m_externalActive && !m_controllerManagers.empty())
 	{
 		HeadlessRobotContext* hrc = m_host.headlessRobotContext();
 		if (!hrc)
 			return;
-		m_controllerManager->setDocument(hrc);
-		m_controllerManager->pollIncoming();
-		if (m_controllerManager->tickApply(hrc->urdfImportScenePoseSink(), m_externalAggJoints))
+		bool anyApplied = false;
+		qint64 lastSim = 0;
+		for (auto& mgr : m_controllerManagers)
+		{
+			if (!mgr || !mgr->isEnabled())
+				continue;
+			mgr->setDocument(hrc);
+			mgr->pollIncoming();
+			if (mgr->tickApply(hrc->urdfImportScenePoseSink(), m_externalAggJoints))
+			{
+				anyApplied = true;
+				lastSim = mgr->simTimeMs();
+			}
+		}
+		if (anyApplied)
 		{
 			m_host.flushVisualSync();
 			QMetaObject::invokeMethod(&m_host, "visualSceneDirty", Qt::QueuedConnection);
@@ -265,7 +277,7 @@ void HeadlessRobotPlaybackBridge::onTimerTick()
 				QJsonObject ev;
 				ev.insert(QStringLiteral("type"), QStringLiteral("ExternalControllerFrame"));
 				ev.insert(QStringLiteral("jointAnglesRad"), jointsToJson(m_externalAggJoints));
-				ev.insert(QStringLiteral("simTimeMs"), static_cast<int>(m_controllerManager->simTimeMs()));
+				ev.insert(QStringLiteral("simTimeMs"), static_cast<int>(lastSim));
 				m_pushEvent(ev);
 			}
 		}
@@ -409,36 +421,63 @@ QJsonObject HeadlessRobotPlaybackBridge::startExternalController(const QJsonObje
 	if (!hrc)
 		return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("No robot context.")}};
 
-	const int instIdx = body.value(QStringLiteral("robotInstanceIndex")).toInt(0);
-	if (!m_controllerManager)
-		m_controllerManager = std::make_unique<ControllerManager>(this);
-	m_controllerManager->setDocument(hrc);
-	m_controllerManager->context().setRobotInstanceIndex(instIdx);
-	m_controllerManager->setEnabled(true);
-	const int port = body.value(QStringLiteral("port")).toInt(19620);
-	if (!m_controllerManager->startListening(static_cast<quint16>(port)))
+	(void)stopExternalController();
+
+	const int nInst = qMax(1, hrc->robotKinematicInstanceCount());
+	const bool allInstances = body.value(QStringLiteral("allInstances")).toBool(true);
+	QVector<int> indices;
+	if (allInstances && !body.contains(QStringLiteral("robotInstanceIndex")))
 	{
-		m_controllerManager->setEnabled(false);
-		return {{QStringLiteral("ok"), false},
-				{QStringLiteral("error"), m_controllerManager->lastError()}};
+		for (int i = 0; i < nInst; ++i)
+			indices.append(i);
 	}
-	m_controllerManager->resetSimTime();
+	else
+	{
+		indices.append(body.value(QStringLiteral("robotInstanceIndex")).toInt(0));
+	}
+
+	QJsonArray ports;
+	for (int instIdx : indices)
+	{
+		if (instIdx < 0 || instIdx >= nInst)
+			continue;
+		auto mgr = std::make_unique<ControllerManager>(this);
+		mgr->setDocument(hrc);
+		mgr->setBoundRobotInstanceIndex(instIdx);
+		mgr->setEnabled(true);
+		const quint16 port = static_cast<quint16>(ControllerManager::kBasePort + instIdx);
+		if (!mgr->startListening(port))
+		{
+			const QString err = mgr->lastError();
+			(void)stopExternalController();
+			return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), err}};
+		}
+		mgr->resetSimTime();
+		ports.append(static_cast<int>(port));
+		m_controllerManagers.push_back(std::move(mgr));
+	}
+	if (m_controllerManagers.empty())
+		return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("No instances to listen.")}};
+
 	m_externalAggJoints.clear();
 	m_externalActive = true;
 	m_timer.start();
 	return {{QStringLiteral("ok"), true},
-			{QStringLiteral("port"), port},
+			{QStringLiteral("ports"), ports},
 			{QStringLiteral("host"), QStringLiteral("127.0.0.1")}};
 }
 
 QJsonObject HeadlessRobotPlaybackBridge::stopExternalController()
 {
 	m_externalActive = false;
-	if (m_controllerManager)
+	for (auto& m : m_controllerManagers)
 	{
-		m_controllerManager->setEnabled(false);
-		m_controllerManager->stopListening();
+		if (!m)
+			continue;
+		m->setEnabled(false);
+		m->stopListening();
 	}
+	m_controllerManagers.clear();
 	if (!m_executor.isRunning())
 		m_timer.stop();
 	return {{QStringLiteral("ok"), true}};
@@ -450,8 +489,16 @@ QJsonObject HeadlessRobotPlaybackBridge::statusJson() const
 	o.insert(QStringLiteral("ok"), true);
 	o.insert(QStringLiteral("running"), m_executor.isRunning());
 	o.insert(QStringLiteral("externalController"), m_externalActive);
-	o.insert(QStringLiteral("externalListening"),
-			 m_controllerManager && m_controllerManager->isListening());
+	bool anyListen = false;
+	for (const auto& m : m_controllerManagers)
+	{
+		if (m && m->isListening())
+		{
+			anyListen = true;
+			break;
+		}
+	}
+	o.insert(QStringLiteral("externalListening"), anyListen);
 	o.insert(QStringLiteral("sceneRootBackendId"), m_sceneRootId);
 	o.insert(QStringLiteral("jointAnglesRad"), jointsToJson(m_executor.jointAnglesRad()));
 	o.insert(QStringLiteral("seedPolicy"), m_seedPolicy == SeedPolicy::FromCurrentPose

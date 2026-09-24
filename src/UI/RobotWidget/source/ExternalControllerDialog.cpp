@@ -14,9 +14,15 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPlainTextEdit>
+#include <QProcessEnvironment>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QSignalBlocker>
+#include <QSplitter>
+#include <QTextBlock>
+#include <QTextCursor>
 #include <QTextStream>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -24,12 +30,95 @@
 namespace
 {
 const int kDefaultPort = 19620;
+const int kMaxLogBlocks = 2000;
+
+class ControllerSourceLineNumberArea : public QWidget
+{
+public:
+	explicit ControllerSourceLineNumberArea(ControllerSourceEdit* editor) : QWidget(editor), m_editor(editor) {}
+
+	QSize sizeHint() const override { return QSize(m_editor->lineNumberAreaWidth(), 0); }
+
+protected:
+	void paintEvent(QPaintEvent* event) override { m_editor->lineNumberAreaPaintEvent(event); }
+
+private:
+	ControllerSourceEdit* m_editor = nullptr;
+};
+} // namespace
+
+ControllerSourceEdit::ControllerSourceEdit(QWidget* parent) : QPlainTextEdit(parent)
+{
+	m_lineNumberArea = new ControllerSourceLineNumberArea(this);
+	connect(this, &QPlainTextEdit::blockCountChanged, this, &ControllerSourceEdit::updateLineNumberAreaWidth);
+	connect(this, &QPlainTextEdit::updateRequest, this, &ControllerSourceEdit::updateLineNumberArea);
+	updateLineNumberAreaWidth(0);
+}
+
+int ControllerSourceEdit::lineNumberAreaWidth() const
+{
+	int digits = 1;
+	int max = qMax(1, blockCount());
+	while (max >= 10)
+	{
+		max /= 10;
+		++digits;
+	}
+	return 8 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
+}
+
+void ControllerSourceEdit::updateLineNumberAreaWidth(int)
+{
+	setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
+}
+
+void ControllerSourceEdit::updateLineNumberArea(const QRect& rect, int dy)
+{
+	if (dy)
+		m_lineNumberArea->scroll(0, dy);
+	else
+		m_lineNumberArea->update(0, rect.y(), m_lineNumberArea->width(), rect.height());
+
+	if (rect.contains(viewport()->rect()))
+		updateLineNumberAreaWidth(0);
+}
+
+void ControllerSourceEdit::resizeEvent(QResizeEvent* event)
+{
+	QPlainTextEdit::resizeEvent(event);
+	const QRect cr = contentsRect();
+	m_lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+}
+
+void ControllerSourceEdit::lineNumberAreaPaintEvent(QPaintEvent* event)
+{
+	QPainter painter(m_lineNumberArea);
+	painter.fillRect(event->rect(), QColor(240, 240, 240));
+
+	QTextBlock block = firstVisibleBlock();
+	int blockNumber = block.blockNumber();
+	int top = qRound(blockBoundingGeometry(block).translated(contentOffset()).top());
+	int bottom = top + qRound(blockBoundingRect(block).height());
+
+	while (block.isValid() && top <= event->rect().bottom())
+	{
+		if (block.isVisible() && bottom >= event->rect().top())
+		{
+			painter.setPen(QColor(120, 120, 120));
+			painter.drawText(0, top, m_lineNumberArea->width() - 4, fontMetrics().height(), Qt::AlignRight,
+							 QString::number(blockNumber + 1));
+		}
+		block = block.next();
+		top = bottom;
+		bottom = top + qRound(blockBoundingRect(block).height());
+		++blockNumber;
+	}
 }
 
 ExternalControllerDialog::ExternalControllerDialog(QWidget* parent) : QDialog(parent)
 {
 	setModal(false);
-	resize(720, 560);
+	resize(720, 640);
 
 	auto* root = new QVBoxLayout(this);
 
@@ -40,11 +129,16 @@ ExternalControllerDialog::ExternalControllerDialog(QWidget* parent) : QDialog(pa
 	m_scriptCombo = new QComboBox(this);
 	m_scriptCombo->addItem(QStringLiteral("example_sine_joints.py"),
 						   QStringLiteral("example_sine_joints.py"));
+	m_scriptCombo->addItem(QStringLiteral("example_step_pose.py"),
+						   QStringLiteral("example_step_pose.py"));
 	m_scriptCombo->addItem(QStringLiteral("cloudsim_controller.py"),
 						   QStringLiteral("cloudsim_controller.py"));
+	m_robotInstanceCombo = new QComboBox(this);
+	m_robotInstanceCombo->addItem(QStringLiteral("Robot 0"), 0);
 	m_portLabel = new QLabel(this);
 	top->addWidget(m_langCombo);
 	top->addWidget(m_scriptCombo, 1);
+	top->addWidget(m_robotInstanceCombo);
 	top->addWidget(m_portLabel);
 	root->addLayout(top);
 
@@ -55,12 +149,19 @@ ExternalControllerDialog::ExternalControllerDialog(QWidget* parent) : QDialog(pa
 	listenRow->addWidget(m_statusLabel, 1);
 	root->addLayout(listenRow);
 
-	m_sourceEdit = new QPlainTextEdit(this);
+	auto* splitter = new QSplitter(Qt::Vertical, this);
+	m_sourceEdit = new ControllerSourceEdit(splitter);
+	m_logEdit = new QPlainTextEdit(splitter);
+	m_logEdit->setReadOnly(true);
+	m_logEdit->setMaximumBlockCount(kMaxLogBlocks);
 	QFont mono = m_sourceEdit->font();
 	mono.setFamily(QStringLiteral("Consolas"));
 	mono.setStyleHint(QFont::Monospace);
 	m_sourceEdit->setFont(mono);
-	root->addWidget(m_sourceEdit, 1);
+	m_logEdit->setFont(mono);
+	splitter->setStretchFactor(0, 3);
+	splitter->setStretchFactor(1, 2);
+	root->addWidget(splitter, 1);
 
 	auto* btnRow = new QHBoxLayout;
 	m_reloadBtn = new QPushButton(this);
@@ -77,6 +178,7 @@ ExternalControllerDialog::ExternalControllerDialog(QWidget* parent) : QDialog(pa
 	root->addLayout(btnRow);
 
 	m_process = new QProcess(this);
+	m_process->setProcessChannelMode(QProcess::MergedChannels);
 	connect(m_langCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&ExternalControllerDialog::onLanguageChanged);
 	connect(m_scriptCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
@@ -90,6 +192,7 @@ ExternalControllerDialog::ExternalControllerDialog(QWidget* parent) : QDialog(pa
 	connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::close);
 	connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
 			&ExternalControllerDialog::onProcessFinished);
+	connect(m_process, &QProcess::readyRead, this, &ExternalControllerDialog::onProcessReadyRead);
 
 	retranslate();
 	refreshSourceView();
@@ -148,6 +251,8 @@ void ExternalControllerDialog::retranslate()
 	m_openControllersBtn->setText(m_useChinese ? QStringLiteral("打开控制器目录")
 											   : QStringLiteral("Open controllers/"));
 	m_closeBtn->setText(m_useChinese ? QStringLiteral("关闭") : QStringLiteral("Close"));
+	m_logEdit->setPlaceholderText(m_useChinese ? QStringLiteral("控制器 stdout/stderr…")
+											   : QStringLiteral("Controller stdout/stderr…"));
 	m_scriptCombo->setEnabled(currentLang() == Lang::Python);
 }
 
@@ -177,6 +282,53 @@ void ExternalControllerDialog::updateRunStopEnabled()
 	m_stopBtn->setEnabled(running);
 	m_langCombo->setEnabled(!running);
 	m_scriptCombo->setEnabled(!running && currentLang() == Lang::Python);
+}
+
+void ExternalControllerDialog::setRobotInstanceOptions(const QStringList& labels, int selectIndex)
+{
+	if (!m_robotInstanceCombo)
+		return;
+	m_robotInstanceCombo->clear();
+	if (labels.isEmpty())
+	{
+		m_robotInstanceCombo->addItem(QStringLiteral("Robot 0"), 0);
+	}
+	else
+	{
+		for (int i = 0; i < labels.size(); ++i)
+			m_robotInstanceCombo->addItem(labels[i], i);
+	}
+	const int idx = (selectIndex >= 0 && selectIndex < m_robotInstanceCombo->count()) ? selectIndex : 0;
+	m_robotInstanceCombo->setCurrentIndex(idx);
+}
+
+int ExternalControllerDialog::selectedRobotInstanceIndex() const
+{
+	if (!m_robotInstanceCombo)
+		return 0;
+	return m_robotInstanceCombo->currentData().toInt();
+}
+
+void ExternalControllerDialog::applyControllerEnvironment()
+{
+	const int idx = selectedRobotInstanceIndex();
+	const int port = kDefaultPort + idx;
+	QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+	env.insert(QStringLiteral("CLOUDSIM_HOST"),
+			   QStringLiteral("127.0.0.1:%1").arg(port));
+	env.insert(QStringLiteral("CLOUDSIM_ROBOT_INDEX"), QString::number(idx));
+	env.insert(QStringLiteral("CLOUDSIM_BIN_DIR"), QCoreApplication::applicationDirPath());
+	env.insert(QStringLiteral("PYTHONUNBUFFERED"), QStringLiteral("1"));
+	m_process->setProcessEnvironment(env);
+}
+
+void ExternalControllerDialog::appendProcessLog(const QString& text)
+{
+	if (text.isEmpty() || !m_logEdit)
+		return;
+	m_logEdit->moveCursor(QTextCursor::End);
+	m_logEdit->insertPlainText(text);
+	m_logEdit->moveCursor(QTextCursor::End);
 }
 
 QString ExternalControllerDialog::controllerPythonDir() const
@@ -231,7 +383,7 @@ QString ExternalControllerDialog::loadPythonSource(const QString& fileName) cons
 QString ExternalControllerDialog::embeddedCppSample() const
 {
 	return QStringLiteral(
-		R"cpp(// CloudSimControllerSDK 最小示例（MVP：请自行编译为 exe 后运行）
+		R"cpp(// CloudSimControllerSample：读 CLOUDSIM_HOST / CLOUDSIM_ROBOT_INDEX
 #include "IControllerClient.h"
 #include <cmath>
 #include <thread>
@@ -240,7 +392,7 @@ QString ExternalControllerDialog::embeddedCppSample() const
 int main()
 {
 	auto client = createControllerClient();
-	ControllerEndpoint ep;
+	ControllerEndpoint ep; // Sample 内从环境变量解析
 	ep.host = "127.0.0.1";
 	ep.port = 19620;
 	if (!client->connectHost(ep))
@@ -323,6 +475,11 @@ void ExternalControllerDialog::onRunClicked()
 		return;
 	}
 
+	if (m_process->state() != QProcess::NotRunning)
+		m_process->kill();
+	m_logEdit->clear();
+	applyControllerEnvironment();
+
 	if (currentLang() == Lang::Cpp)
 	{
 		const QString exe =
@@ -336,8 +493,6 @@ void ExternalControllerDialog::onRunClicked()
 					: QStringLiteral("Missing %1\nBuild CloudSimControllerSample first.").arg(exe));
 			return;
 		}
-		if (m_process->state() != QProcess::NotRunning)
-			m_process->kill();
 		m_process->setWorkingDirectory(QCoreApplication::applicationDirPath());
 		m_process->setProgram(exe);
 		m_process->setArguments({});
@@ -348,6 +503,8 @@ void ExternalControllerDialog::onRunClicked()
 			updateRunStopEnabled();
 			return;
 		}
+		appendProcessLog(m_useChinese ? QStringLiteral("[Host] 已启动 C++ 样例\n")
+									  : QStringLiteral("[Host] C++ sample started\n"));
 		updateStatusLabel();
 		updateRunStopEnabled();
 		return;
@@ -378,9 +535,6 @@ void ExternalControllerDialog::onRunClicked()
 		ts << m_sourceEdit->toPlainText();
 	}
 
-	if (m_process->state() != QProcess::NotRunning)
-		m_process->kill();
-
 	m_process->setWorkingDirectory(dir);
 	m_process->setProgram(QStringLiteral("python"));
 	m_process->setArguments({runFile});
@@ -400,6 +554,8 @@ void ExternalControllerDialog::onRunClicked()
 			return;
 		}
 	}
+	appendProcessLog(m_useChinese ? QStringLiteral("[Host] 已启动 Python 控制器\n")
+								  : QStringLiteral("[Host] Python controller started\n"));
 	updateStatusLabel();
 	updateRunStopEnabled();
 }
@@ -422,8 +578,15 @@ void ExternalControllerDialog::onStopClicked()
 	updateRunStopEnabled();
 }
 
-void ExternalControllerDialog::onProcessFinished(int, QProcess::ExitStatus)
+void ExternalControllerDialog::onProcessFinished(int exitCode, QProcess::ExitStatus)
 {
+	appendProcessLog(m_useChinese ? QStringLiteral("\n[Host] 进程退出 code=%1\n").arg(exitCode)
+								  : QStringLiteral("\n[Host] process exited code=%1\n").arg(exitCode));
 	updateStatusLabel();
 	updateRunStopEnabled();
+}
+
+void ExternalControllerDialog::onProcessReadyRead()
+{
+	appendProcessLog(QString::fromLocal8Bit(m_process->readAll()));
 }

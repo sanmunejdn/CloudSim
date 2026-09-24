@@ -6,29 +6,61 @@
 #include <cmath>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
 #include <thread>
 #include <vector>
+
+namespace
+{
+ControllerEndpoint endpointFromEnv()
+{
+	ControllerEndpoint ep;
+	const char* raw = std::getenv("CLOUDSIM_HOST");
+	if (!raw || !*raw)
+		return ep;
+	const char* colon = std::strrchr(raw, ':');
+	if (!colon || colon == raw)
+	{
+		ep.host = raw;
+		return ep;
+	}
+	ep.host.assign(raw, colon);
+	ep.port = static_cast<uint16_t>(std::atoi(colon + 1));
+	if (ep.port == 0)
+		ep.port = CLOUDSIM_CONTROLLER_DEFAULT_PORT;
+	return ep;
+}
+
+int robotIndexFromEnv()
+{
+	const char* raw = std::getenv("CLOUDSIM_ROBOT_INDEX");
+	if (!raw || !*raw)
+		return 0;
+	return std::atoi(raw);
+}
+} // namespace
 
 int main()
 {
 	auto client = createControllerClient();
-	ControllerEndpoint ep;
-	ep.host = "127.0.0.1";
-	ep.port = 19620;
+	const ControllerEndpoint ep = endpointFromEnv();
 	if (!client->connectHost(ep))
 	{
 		std::fprintf(stderr, "connect failed: %s\n", client->lastError().c_str());
 		return 1;
 	}
 	ControllerHelloAck ack;
-	if (!client->hello(0, ack))
+	if (!client->hello(robotIndexFromEnv(), ack))
 	{
 		std::fprintf(stderr, "hello failed: %s\n", client->lastError().c_str());
 		return 2;
 	}
 	const int n = ack.jointCount;
 	const int dt = ack.simDtMs > 0 ? ack.simDtMs : 16;
-	std::fprintf(stdout, "jointCount=%d simDtMs=%d\n", n, dt);
+	std::fprintf(stdout, "jointCount=%d simDtMs=%d lower=%zu upper=%zu\n", n, dt, ack.jointLowerRad.size(),
+				 ack.jointUpperRad.size());
 	for (int k = 0; k < 2000; ++k)
 	{
 		std::vector<double> q(static_cast<size_t>(n), 0.0);
@@ -41,7 +73,12 @@ int main()
 			break;
 		}
 		if (k % 50 == 0)
-			std::fprintf(stdout, "simTimeMs=%d\n", reply.simTimeMs);
+		{
+			const auto& jp =
+				reply.sensorJointPosition.empty() ? reply.actualJointRad : reply.sensorJointPosition;
+			std::fprintf(stdout, "simTimeMs=%d sensors.jointPosition[0]=%.3f\n", reply.simTimeMs,
+						 jp.empty() ? 0.0 : jp.front());
+		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(dt));
 	}
 	client->goodbye();

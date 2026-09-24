@@ -88,7 +88,8 @@ public:
 	QString robotFrameWorldReferenceBackendId(int instanceIndex) const;
 	QString robotDisplayLabelForInstance(int instanceIndex) const;
 	QStringList robotRevoluteJointNamesForInstance(int instanceIndex) const;
-	void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad, QVector<double>& upperRad) const;
+	void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad,
+									 QVector<double>& upperRad) const override;
 	int robotJointOffsetInAggregatedVector(int instanceIndex) const;
 
 	QString robotUrdfAbsolutePathForInstance(int instanceIndex) const override;

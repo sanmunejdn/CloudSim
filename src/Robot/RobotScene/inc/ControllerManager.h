@@ -50,6 +50,14 @@ public:
 
 	QString lastError() const { return m_lastError; }
 
+	static constexpr int kSimDtMs = 16;
+	static constexpr quint16 kBasePort = 19620;
+
+	/// 绑定本端口对应的机器人实例；HELLO 下标必须一致（P6）
+	void setBoundRobotInstanceIndex(int instanceIndex);
+	int boundRobotInstanceIndex() const { return m_boundRobotInstanceIndex; }
+	quint16 listenPort() const { return m_listenPort; }
+
 private:
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;
@@ -61,10 +69,15 @@ private:
 	int m_pendingDtMs = 16;
 	qint64 m_simTimeMs = 0;
 	QString m_lastError;
+	int m_boundRobotInstanceIndex = 0;
+	quint16 m_listenPort = kBasePort;
+	int m_sessionProtocolVer = 1;
 
 	bool sendJsonLine(const std::string& line);
 	void handleLine(const std::string& line);
 	void closeClient();
+	bool trySolveStepPose(const std::vector<double>& tcpMm, const std::vector<double>& eulerDeg,
+						  QVector<double>& outJointRad, QString& errOut);
 };
 
 #endif // ROBOTSCENE_CONTROLLERMANAGER_H

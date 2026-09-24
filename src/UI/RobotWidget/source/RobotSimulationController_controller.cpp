@@ -1,8 +1,9 @@
 /// @file RobotSimulationController_controller.cpp
-/// @brief ExternalController 模式：ControllerManager listen + tick
+/// @brief ExternalController 模式：按实例多端口 listen + tick
 
 #include "RobotSimulationController.h"
 
+#include "ControllerManager.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotDocumentHost.h"
 #include "IRobotMainWindowHost.h"
@@ -13,11 +14,21 @@
 
 #include <QTimer>
 
+namespace
+{
+bool anyExternalEnabled(const std::vector<std::unique_ptr<ControllerManager>>& mgrs)
+{
+	for (const auto& m : mgrs)
+	{
+		if (m && m->isEnabled())
+			return true;
+	}
+	return false;
+}
+} // namespace
+
 void RobotSimulationController::onExternalControllerToggled(bool enabled)
 {
-	if (!m_controllerManager)
-		m_controllerManager = std::make_unique<ControllerManager>(this);
-
 	if (!m_externalControllerTimer)
 	{
 		m_externalControllerTimer = new QTimer(this);
@@ -27,43 +38,67 @@ void RobotSimulationController::onExternalControllerToggled(bool enabled)
 	}
 
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
-	m_controllerManager->setDocument(doc);
 
 	if (enabled)
 	{
-		// 与指令回放互斥
 		if (m_programExecutor.isRunning())
 			stopRobotSimulation(false);
 
-		const int instIdx =
-			(m_host && m_host->simulationCommandPage() &&
-			 m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0)
-				? m_host->simulationCommandPage()->currentRobotInstanceIndex()
-				: 0;
-		m_controllerManager->context().setRobotInstanceIndex(instIdx);
-		m_controllerManager->setEnabled(true);
-		if (!m_controllerManager->startListening(19620))
+		for (auto& m : m_controllerManagers)
 		{
-			if (m_host)
+			if (m)
 			{
-				m_host->appendRunWarning(
-					m_host->i18n(QStringLiteral("External controller listen failed: %1")
-									 .arg(m_controllerManager->lastError()),
-								 QStringLiteral("外置控制器监听失败：%1")
-									 .arg(m_controllerManager->lastError())));
+				m->setEnabled(false);
+				m->stopListening();
 			}
-			m_controllerManager->setEnabled(false);
-			if (m_host && m_host->simulationCommandPage())
-				m_host->simulationCommandPage()->setExternalControllerChecked(false);
-			return;
 		}
-		m_controllerManager->resetSimTime();
+		m_controllerManagers.clear();
+
+		const int nInst = doc ? qMax(1, doc->robotKinematicInstanceCount()) : 1;
+		QStringList ports;
+		for (int i = 0; i < nInst; ++i)
+		{
+			auto mgr = std::make_unique<ControllerManager>(this);
+			mgr->setDocument(doc);
+			mgr->setBoundRobotInstanceIndex(i);
+			mgr->setEnabled(true);
+			const quint16 port = static_cast<quint16>(ControllerManager::kBasePort + i);
+			if (!mgr->startListening(port))
+			{
+				const QString err = mgr->lastError();
+				mgr->setEnabled(false);
+				for (auto& m : m_controllerManagers)
+				{
+					if (m)
+					{
+						m->setEnabled(false);
+						m->stopListening();
+					}
+				}
+				m_controllerManagers.clear();
+				if (m_host)
+				{
+					m_host->appendRunWarning(
+						m_host->i18n(QStringLiteral("External controller listen failed: %1").arg(err),
+									 QStringLiteral("外置控制器监听失败：%1").arg(err)));
+				}
+				if (m_host && m_host->simulationCommandPage())
+					m_host->simulationCommandPage()->setExternalControllerChecked(false);
+				return;
+			}
+			mgr->resetSimTime();
+			ports << QString::number(port);
+			m_controllerManagers.push_back(std::move(mgr));
+		}
+
 		m_externalControllerTimer->start();
 		if (m_host)
 		{
-			m_host->appendRunInfo(
-				m_host->i18n(QStringLiteral("External controller listening on 127.0.0.1:19620"),
-							 QStringLiteral("外置控制器已监听 127.0.0.1:19620")));
+			m_host->appendRunInfo(m_host->i18n(
+				QStringLiteral("External controller listening 127.0.0.1:[%1] (19620+instance)")
+					.arg(ports.join(QLatin1Char(','))),
+				QStringLiteral("外置控制器已监听 127.0.0.1:[%1]（端口=19620+实例）")
+					.arg(ports.join(QLatin1Char(',')))));
 		}
 		if (m_host && m_host->simulationCommandPage())
 			m_host->simulationCommandPage()->setExternalControllerChecked(true);
@@ -72,8 +107,14 @@ void RobotSimulationController::onExternalControllerToggled(bool enabled)
 	{
 		if (m_externalControllerTimer)
 			m_externalControllerTimer->stop();
-		m_controllerManager->setEnabled(false);
-		m_controllerManager->stopListening();
+		for (auto& m : m_controllerManagers)
+		{
+			if (!m)
+				continue;
+			m->setEnabled(false);
+			m->stopListening();
+		}
+		m_controllerManagers.clear();
 		if (m_host && m_host->simulationCommandPage())
 		{
 			m_host->simulationCommandPage()->setExternalControllerChecked(false);
@@ -84,39 +125,51 @@ void RobotSimulationController::onExternalControllerToggled(bool enabled)
 
 void RobotSimulationController::onExternalControllerTick()
 {
-	if (!m_controllerManager || !m_controllerManager->isEnabled())
+	if (!anyExternalEnabled(m_controllerManagers))
 		return;
 
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
 	IRobotBackendPoseSink* poseSink = doc ? doc->poseSink() : nullptr;
-	m_controllerManager->setDocument(doc);
 
-	m_controllerManager->pollIncoming();
-	if (m_host && m_host->simulationCommandPage())
-		m_host->simulationCommandPage()->setExternalControllerClientConnected(
-			m_controllerManager->hasClient());
-
-	if (m_controllerManager->tickApply(poseSink, m_aggregatedJointAnglesRad))
+	bool anyClient = false;
+	bool anyApplied = false;
+	for (auto& mgr : m_controllerManagers)
 	{
-		// 轴控页不订阅场景 FK，需把聚合关节写回滑条（Silent 避免再触发 setJoint→FK）
-		const int instIdx =
-			(m_host && m_host->simulationCommandPage() &&
-			 m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0)
-				? m_host->simulationCommandPage()->currentRobotInstanceIndex()
-				: m_controllerManager->context().robotInstanceIndex();
-		if (doc && m_host && m_host->robotAxisControlPage() && instIdx >= 0)
+		if (!mgr || !mgr->isEnabled())
+			continue;
+		mgr->setDocument(doc);
+		mgr->pollIncoming();
+		anyClient = anyClient || mgr->hasClient();
+		if (mgr->tickApply(poseSink, m_aggregatedJointAnglesRad))
 		{
-			const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
-			const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
-			if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj &&
-				m_host->robotAxisControlPage()->jointCount() == nj)
+			anyApplied = true;
+			const int instIdx = mgr->boundRobotInstanceIndex();
+			if (doc && m_host && m_host->robotAxisControlPage() && instIdx >= 0)
 			{
-				m_host->robotAxisControlPage()->setJointAnglesRadSilent(
-					m_aggregatedJointAnglesRad.mid(jointOffset, nj));
+				const int uiInst =
+					(m_host->simulationCommandPage() &&
+					 m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0)
+						? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+						: instIdx;
+				if (uiInst == instIdx)
+				{
+					const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+					const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+					if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj &&
+						m_host->robotAxisControlPage()->jointCount() == nj)
+					{
+						m_host->robotAxisControlPage()->setJointAnglesRadSilent(
+							m_aggregatedJointAnglesRad.mid(jointOffset, nj));
+					}
+				}
 			}
 		}
-		if (osg)
-			osg->requestRedraw();
 	}
+
+	if (m_host && m_host->simulationCommandPage())
+		m_host->simulationCommandPage()->setExternalControllerClientConnected(anyClient);
+
+	if (anyApplied && osg)
+		osg->requestRedraw();
 }

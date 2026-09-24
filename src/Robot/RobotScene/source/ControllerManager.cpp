@@ -3,6 +3,10 @@
 
 #include "ControllerManager.h"
 
+#include "RobotTeachIk.h"
+#include "UrdfRobotLoader.h"
+
+#include <RigidTransform.h>
 #include <json.hpp>
 
 #include <QDebug>
@@ -32,6 +36,17 @@ bool ensureWsa()
 		return false;
 	g_wsaStarted = true;
 	return true;
+}
+
+QString resolveIkLinkName(const QString& urdfPath)
+{
+	QString preferred;
+	if (UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, preferred, nullptr) && !preferred.isEmpty())
+		return preferred;
+	QStringList childLinks;
+	if (UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr) && !childLinks.isEmpty())
+		return childLinks.back();
+	return QString();
 }
 } // namespace
 
@@ -68,6 +83,12 @@ void ControllerManager::setEnabled(bool on)
 	m_enabled = on;
 	if (!on)
 		notifySimulationStopped(QStringLiteral("external_controller_disabled"));
+}
+
+void ControllerManager::setBoundRobotInstanceIndex(int instanceIndex)
+{
+	m_boundRobotInstanceIndex = instanceIndex;
+	m_context.setRobotInstanceIndex(instanceIndex);
 }
 
 bool ControllerManager::startListening(quint16 port)
@@ -112,6 +133,7 @@ bool ControllerManager::startListening(quint16 port)
 
 	m_impl->listenSock = ls;
 	m_listening = true;
+	m_listenPort = port;
 	m_lastError.clear();
 	return true;
 }
@@ -172,10 +194,67 @@ void ControllerManager::notifySimulationStopped(const QString& reason)
 		return;
 	json j;
 	j["type"] = "QUIT";
-	j["protocolVer"] = 1;
+	j["protocolVer"] = m_sessionProtocolVer >= 2 ? 2 : 1;
 	j["reason"] = reason.toStdString();
 	sendJsonLine(j.dump());
 	closeClient();
+}
+
+bool ControllerManager::trySolveStepPose(const std::vector<double>& tcpMm, const std::vector<double>& eulerDeg,
+										 QVector<double>& outJointRad, QString& errOut)
+{
+	outJointRad.clear();
+	if (!m_doc || tcpMm.size() != 3 || eulerDeg.size() != 3)
+	{
+		errOut = QStringLiteral("bad pose arrays");
+		return false;
+	}
+	const int idx = m_context.robotInstanceIndex();
+	const QString urdf = m_doc->robotUrdfAbsolutePathForInstance(idx);
+	if (urdf.isEmpty())
+	{
+		errOut = QStringLiteral("no urdf");
+		return false;
+	}
+	const QString ikLink = resolveIkLinkName(urdf);
+	if (ikLink.isEmpty())
+	{
+		errOut = QStringLiteral("no ik link");
+		return false;
+	}
+
+	QVector<double> seed = m_context.sensorSnapshot();
+	if (seed.size() != m_context.jointCount())
+	{
+		if (!m_doc->robotLocalJointAnglesForInstance(idx, seed) || seed.size() != m_context.jointCount())
+		{
+			seed = QVector<double>(m_context.jointCount(), 0.0);
+		}
+	}
+
+	RobotTeachIk::TeachIkContext ctx;
+	ctx.urdfPath = urdf;
+	ctx.ikLinkName = ikLink;
+	ctx.useOrientation = true;
+	ctx.T_flange_tool = BackendMat4::identity();
+	ctx.maxIkIterations = 80;
+	ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(
+		tcpMm[0], tcpMm[1], tcpMm[2], eulerDeg[0], eulerDeg[1], eulerDeg[2]);
+	ctx.seedJointRad.clear();
+	ctx.seedJointRad.reserve(static_cast<size_t>(seed.size()));
+	for (double v : seed)
+		ctx.seedJointRad.push_back(v);
+
+	const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
+	if (!ik.ok || static_cast<int>(ik.jointRad.size()) != m_context.jointCount())
+	{
+		errOut = ik.error.empty() ? QStringLiteral("IK failed") : QString::fromStdString(ik.error);
+		return false;
+	}
+	outJointRad.reserve(static_cast<int>(ik.jointRad.size()));
+	for (double v : ik.jointRad)
+		outJointRad.append(v);
+	return true;
 }
 
 void ControllerManager::handleLine(const std::string& line)
@@ -189,7 +268,7 @@ void ControllerManager::handleLine(const std::string& line)
 	{
 		json err;
 		err["type"] = "ERROR";
-		err["protocolVer"] = 1;
+		err["protocolVer"] = m_sessionProtocolVer;
 		err["code"] = "INTERNAL";
 		err["message"] = "invalid json";
 		sendJsonLine(err.dump());
@@ -198,13 +277,13 @@ void ControllerManager::handleLine(const std::string& line)
 
 	const int ver = j.value("protocolVer", 0);
 	const std::string type = j.value("type", "");
-	if (ver != 1 && type != "GOODBYE")
+	if (type != "GOODBYE" && ver != 1 && ver != 2)
 	{
 		json err;
 		err["type"] = "ERROR";
 		err["protocolVer"] = 1;
 		err["code"] = "PROTOCOL_MISMATCH";
-		err["message"] = "protocolVer must be 1";
+		err["message"] = "protocolVer must be 1 or 2";
 		sendJsonLine(err.dump());
 		return;
 	}
@@ -219,22 +298,35 @@ void ControllerManager::handleLine(const std::string& line)
 	{
 		json err;
 		err["type"] = "ERROR";
-		err["protocolVer"] = 1;
+		err["protocolVer"] = ver == 2 ? 2 : 1;
 		err["code"] = "NOT_READY";
 		err["message"] = "ExternalController disabled";
 		sendJsonLine(err.dump());
 		return;
 	}
 
+	const int replyVer = (ver == 2) ? 2 : 1;
+
 	if (type == "HELLO")
 	{
 		const int idx = j.value("robotInstanceIndex", 0);
+		if (idx != m_boundRobotInstanceIndex)
+		{
+			json err;
+			err["type"] = "ERROR";
+			err["protocolVer"] = replyVer;
+			err["code"] = "BAD_ROBOT_INDEX";
+			err["message"] = "robotInstanceIndex does not match this listen port";
+			sendJsonLine(err.dump());
+			return;
+		}
 		m_context.setRobotInstanceIndex(idx);
+		m_sessionProtocolVer = replyVer;
 		if (!m_doc || !m_context.sampleJointMetaFromDocument(m_doc))
 		{
 			json err;
 			err["type"] = "ERROR";
-			err["protocolVer"] = 1;
+			err["protocolVer"] = replyVer;
 			err["code"] = "BAD_ROBOT_INDEX";
 			err["message"] = "no robot joints";
 			sendJsonLine(err.dump());
@@ -242,13 +334,23 @@ void ControllerManager::handleLine(const std::string& line)
 		}
 		json ack;
 		ack["type"] = "HELLO_ACK";
-		ack["protocolVer"] = 1;
-		ack["simDtMs"] = 16;
+		ack["protocolVer"] = replyVer;
+		ack["simDtMs"] = kSimDtMs;
 		ack["jointCount"] = m_context.jointCount();
 		json names = json::array();
 		for (const QString& n : m_context.jointNames())
 			names.push_back(n.toStdString());
 		ack["jointNames"] = names;
+		json lower = json::array();
+		json upper = json::array();
+		for (double v : m_context.jointLowerRad())
+			lower.push_back(v);
+		for (double v : m_context.jointUpperRad())
+			upper.push_back(v);
+		ack["jointLowerRad"] = lower;
+		ack["jointUpperRad"] = upper;
+		if (replyVer >= 2)
+			ack["supportsStepPose"] = true;
 		m_simTimeMs = 0;
 		{
 			QVector<double> actual;
@@ -262,11 +364,16 @@ void ControllerManager::handleLine(const std::string& line)
 
 	if (type == "STEP")
 	{
-		const int dtMs = j.value("dtMs", 16);
-		if (dtMs > 0 && (dtMs % 16) != 0)
+		const int dtMs = j.value("dtMs", kSimDtMs);
+		if (dtMs <= 0 || (dtMs % kSimDtMs) != 0)
 		{
-			qWarning("ControllerManager: STEP.dtMs=%d is not a multiple of simDtMs=16; applying frame anyway",
-					 dtMs);
+			json err;
+			err["type"] = "ERROR";
+			err["protocolVer"] = replyVer;
+			err["code"] = "BAD_DT";
+			err["message"] = "dtMs must be a positive multiple of simDtMs";
+			sendJsonLine(err.dump());
+			return;
 		}
 		std::vector<double> targets;
 		if (j.contains("targetJointRad") && j["targetJointRad"].is_array())
@@ -278,36 +385,136 @@ void ControllerManager::handleLine(const std::string& line)
 		{
 			json err;
 			err["type"] = "ERROR";
-			err["protocolVer"] = 1;
+			err["protocolVer"] = replyVer;
 			err["code"] = "BAD_JOINT_COUNT";
 			err["message"] = "targetJointRad length mismatch";
 			sendJsonLine(err.dump());
 			return;
+		}
+		const QVector<double> lo = m_context.jointLowerRad();
+		const QVector<double> hi = m_context.jointUpperRad();
+		if (lo.size() == m_context.jointCount() && hi.size() == m_context.jointCount())
+		{
+			for (int i = 0; i < static_cast<int>(targets.size()); ++i)
+			{
+				if (targets[static_cast<size_t>(i)] < lo[i] || targets[static_cast<size_t>(i)] > hi[i])
+				{
+					json err;
+					err["type"] = "ERROR";
+					err["protocolVer"] = replyVer;
+					err["code"] = "OUT_OF_LIMITS";
+					err["message"] = "targetJointRad out of joint limits";
+					sendJsonLine(err.dump());
+					return;
+				}
+			}
 		}
 		QVector<double> q;
 		q.reserve(static_cast<int>(targets.size()));
 		for (double v : targets)
 			q.append(v);
 		m_context.setPendingTargets(q);
-		m_pendingDtMs = dtMs > 0 ? dtMs : 16;
+		m_pendingDtMs = dtMs;
 		m_stepAwaitingReply = true;
 		return;
 	}
 
 	if (type == "STEP_POSE")
 	{
-		json err;
-		err["type"] = "ERROR";
-		err["protocolVer"] = 1;
-		err["code"] = "NOT_READY";
-		err["message"] = "STEP_POSE reserved for protocolVer=2 (see docs/features/仿真外置控制器/P3_立项说明.md)";
-		sendJsonLine(err.dump());
+		if (ver != 2)
+		{
+			json err;
+			err["type"] = "ERROR";
+			err["protocolVer"] = replyVer;
+			err["code"] = "PROTOCOL_MISMATCH";
+			err["message"] = "STEP_POSE requires protocolVer=2";
+			sendJsonLine(err.dump());
+			return;
+		}
+		const int dtMs = j.value("dtMs", kSimDtMs);
+		if (dtMs <= 0 || (dtMs % kSimDtMs) != 0)
+		{
+			json err;
+			err["type"] = "ERROR";
+			err["protocolVer"] = 2;
+			err["code"] = "BAD_DT";
+			err["message"] = "dtMs must be a positive multiple of simDtMs";
+			sendJsonLine(err.dump());
+			return;
+		}
+		const std::string frame = j.value("frame", "robot_base");
+		if (frame != "robot_base")
+		{
+			json err;
+			err["type"] = "ERROR";
+			err["protocolVer"] = 2;
+			err["code"] = "BAD_FRAME";
+			err["message"] = "only frame=robot_base is supported";
+			sendJsonLine(err.dump());
+			return;
+		}
+		std::vector<double> tcpMm;
+		std::vector<double> eulerDeg;
+		if (j.contains("targetTcpMm") && j["targetTcpMm"].is_array())
+		{
+			for (const auto& v : j["targetTcpMm"])
+				tcpMm.push_back(v.get<double>());
+		}
+		if (j.contains("targetEulerDeg") && j["targetEulerDeg"].is_array())
+		{
+			for (const auto& v : j["targetEulerDeg"])
+				eulerDeg.push_back(v.get<double>());
+		}
+		if (tcpMm.size() != 3 || eulerDeg.size() != 3)
+		{
+			json err;
+			err["type"] = "ERROR";
+			err["protocolVer"] = 2;
+			err["code"] = "INTERNAL";
+			err["message"] = "targetTcpMm/targetEulerDeg must be length 3";
+			sendJsonLine(err.dump());
+			return;
+		}
+
+		QVector<double> q;
+		QString ikErr;
+		if (!trySolveStepPose(tcpMm, eulerDeg, q, ikErr))
+		{
+			json err;
+			err["type"] = "ERROR";
+			err["protocolVer"] = 2;
+			err["code"] = "IK_FAILED";
+			err["message"] = ikErr.toStdString();
+			sendJsonLine(err.dump());
+			return;
+		}
+		const QVector<double> lo = m_context.jointLowerRad();
+		const QVector<double> hi = m_context.jointUpperRad();
+		if (lo.size() == q.size() && hi.size() == q.size())
+		{
+			for (int i = 0; i < q.size(); ++i)
+			{
+				if (q[i] < lo[i] || q[i] > hi[i])
+				{
+					json err;
+					err["type"] = "ERROR";
+					err["protocolVer"] = 2;
+					err["code"] = "OUT_OF_LIMITS";
+					err["message"] = "IK solution out of joint limits";
+					sendJsonLine(err.dump());
+					return;
+				}
+			}
+		}
+		m_context.setPendingTargets(q);
+		m_pendingDtMs = dtMs;
+		m_stepAwaitingReply = true;
 		return;
 	}
 
 	json err;
 	err["type"] = "ERROR";
-	err["protocolVer"] = 1;
+	err["protocolVer"] = replyVer;
 	err["code"] = "INTERNAL";
 	err["message"] = "unknown type";
 	sendJsonLine(err.dump());
@@ -383,7 +590,7 @@ bool ControllerManager::tickApply(IRobotBackendPoseSink* osg, QVector<double>& a
 	{
 		json err;
 		err["type"] = "ERROR";
-		err["protocolVer"] = 1;
+		err["protocolVer"] = m_sessionProtocolVer;
 		err["code"] = "INTERNAL";
 		err["message"] = "applyPending failed";
 		sendJsonLine(err.dump());
@@ -395,12 +602,15 @@ bool ControllerManager::tickApply(IRobotBackendPoseSink* osg, QVector<double>& a
 	const QVector<double> snap = m_context.sensorSnapshot();
 	json reply;
 	reply["type"] = "STEP_REPLY";
-	reply["protocolVer"] = 1;
+	reply["protocolVer"] = m_sessionProtocolVer;
 	reply["simTimeMs"] = static_cast<int>(m_simTimeMs);
 	json arr = json::array();
 	for (double v : snap)
 		arr.push_back(v);
 	reply["actualJointRad"] = arr;
+	json sensors;
+	sensors["jointPosition"] = arr;
+	reply["sensors"] = sensors;
 	sendJsonLine(reply.dump());
 	m_stepAwaitingReply = false;
 	return true;

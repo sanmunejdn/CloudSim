@@ -299,7 +299,7 @@ private:
 	QTimer* m_robotCommPollTimer = nullptr;
 	bool m_robotCommMirror = false;
 
-	std::unique_ptr<ControllerManager> m_controllerManager;
+	std::vector<std::unique_ptr<ControllerManager>> m_controllerManagers;
 	QTimer* m_externalControllerTimer = nullptr;
 
 	RobotInstruction::Controller m_instructionController;

@@ -281,19 +281,24 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	rowRun->addWidget(m_stopBtn);
 	rowRun->addWidget(m_playbackRateLabel);
 	rowRun->addWidget(m_playbackRateCombo);
-	m_externalControllerCheck = new QCheckBox(QStringLiteral("External Controller"), this);
-	m_externalControllerCheck->setToolTip(
-		QStringLiteral("Listen 127.0.0.1:19620 for external STEP (mutex with program Run)"));
-	rowRun->addWidget(m_externalControllerCheck);
-	m_externalControllerSettingsBtn = new QPushButton(QStringLiteral("Settings..."), this);
-	configureCompactButton(m_externalControllerSettingsBtn);
-	applyBtnRole(m_externalControllerSettingsBtn, "secondary");
-	rowRun->addWidget(m_externalControllerSettingsBtn);
 	rowRun->addWidget(m_ikSeedLabel);
 	rowRun->addWidget(m_ikSeedCombo);
 	rowRun->addStretch(1);
 	rowRun->addWidget(m_exportBtn);
 	root->addLayout(rowRun);
+
+	auto* rowExternal = new QHBoxLayout;
+	rowExternal->setSpacing(4);
+	m_externalControllerCheck = new QCheckBox(QStringLiteral("External Controller"), this);
+	m_externalControllerCheck->setToolTip(
+		QStringLiteral("Listen 127.0.0.1:19620 for external STEP (mutex with program Run)"));
+	rowExternal->addWidget(m_externalControllerCheck);
+	m_externalControllerSettingsBtn = new QPushButton(QStringLiteral("Settings..."), this);
+	configureCompactButton(m_externalControllerSettingsBtn);
+	applyBtnRole(m_externalControllerSettingsBtn, "secondary");
+	rowExternal->addWidget(m_externalControllerSettingsBtn);
+	rowExternal->addStretch(1);
+	root->addLayout(rowExternal);
 	root->addWidget(makeHLine(this));
 
 	m_robotLabel = new QLabel(QStringLiteral("机器人"), this);
@@ -1630,6 +1635,14 @@ void SimulationCommandWidget::openExternalControllerSettings()
 		connect(m_externalControllerDialog, &ExternalControllerDialog::listenToggled, this,
 				&SimulationCommandWidget::onExternalControllerDialogListenToggled);
 	}
+	QStringList labels;
+	if (m_robotCombo)
+	{
+		for (int i = 0; i < m_robotCombo->count(); ++i)
+			labels << m_robotCombo->itemText(i);
+	}
+	const int sel = m_robotCombo ? qMax(0, m_robotCombo->currentIndex()) : 0;
+	m_externalControllerDialog->setRobotInstanceOptions(labels, sel);
 	m_externalControllerDialog->setListening(isExternalControllerChecked());
 	m_externalControllerDialog->show();
 	m_externalControllerDialog->raise();

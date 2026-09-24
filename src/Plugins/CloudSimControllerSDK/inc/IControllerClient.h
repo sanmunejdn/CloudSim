@@ -23,6 +23,9 @@ public:
 	virtual bool isConnected() const = 0;
 
 	virtual bool hello(int robotInstanceIndex, ControllerHelloAck& outAck) = 0;
+	/// protocolVer=2 笛卡尔步进（Host IK）
+	virtual bool stepPose(int dtMs, const double tcpMm[3], const double eulerDeg[3], const std::string& frame,
+						  ControllerStepReply& outReply) = 0;
 	virtual bool step(int dtMs, const std::vector<double>& targetJointRad, ControllerStepReply& outReply) = 0;
 	virtual bool goodbye() = 0;
 

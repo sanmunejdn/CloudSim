@@ -28,6 +28,9 @@ public:
 	QStringList jointNames() const;
 	int jointCount() const;
 
+	QVector<double> jointLowerRad() const;
+	QVector<double> jointUpperRad() const;
+
 	/// 写入本帧待应用目标（覆盖未应用的旧目标）
 	void setPendingTargets(const QVector<double>& targetJointRad);
 	bool hasPendingTargets() const;
@@ -37,7 +40,7 @@ public:
 	void setSensorSnapshot(const QVector<double>& actualJointRad);
 	QVector<double> sensorSnapshot() const;
 
-	/// 采样文档侧关节名；失败返回 false
+	/// 采样文档侧关节名与限幅；失败返回 false
 	bool sampleJointMetaFromDocument(IRobotSimulationDocument* doc);
 
 	/// 应用 pending → FK；成功后写入 snapshot 并清空 pending
@@ -48,6 +51,8 @@ private:
 	mutable QMutex m_mutex;
 	int m_robotInstanceIndex = 0;
 	QStringList m_jointNames;
+	QVector<double> m_jointLower;
+	QVector<double> m_jointUpper;
 	QVector<double> m_pendingTargets;
 	bool m_hasPending = false;
 	QVector<double> m_sensorSnapshot;

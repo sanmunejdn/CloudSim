@@ -5,11 +5,16 @@
 
 #include "RobotSceneKinematics.h"
 
+#include <QtMath>
+#include <QDebug>
+
 void ControlContext::reset()
 {
 	QMutexLocker lock(&m_mutex);
 	m_robotInstanceIndex = 0;
 	m_jointNames.clear();
+	m_jointLower.clear();
+	m_jointUpper.clear();
 	m_pendingTargets.clear();
 	m_hasPending = false;
 	m_sensorSnapshot.clear();
@@ -43,6 +48,18 @@ int ControlContext::jointCount() const
 {
 	QMutexLocker lock(&m_mutex);
 	return m_jointNames.size();
+}
+
+QVector<double> ControlContext::jointLowerRad() const
+{
+	QMutexLocker lock(&m_mutex);
+	return m_jointLower;
+}
+
+QVector<double> ControlContext::jointUpperRad() const
+{
+	QMutexLocker lock(&m_mutex);
+	return m_jointUpper;
 }
 
 void ControlContext::setPendingTargets(const QVector<double>& targetJointRad)
@@ -111,8 +128,21 @@ bool ControlContext::sampleJointMetaFromDocument(IRobotSimulationDocument* doc)
 			names.append(QStringLiteral("j%1").arg(i));
 	}
 
+	QVector<double> lower;
+	QVector<double> upper;
+	doc->robotJointLimitsForInstance(idx, lower, upper);
+	if (lower.size() != n || upper.size() != n)
+	{
+		// 文档无限幅时用 ±π 兜底，避免 HELLO_ACK 缺字段
+		qWarning("ControlContext: joint limits missing for instance %d, using ±pi", idx);
+		lower = QVector<double>(n, -M_PI);
+		upper = QVector<double>(n, M_PI);
+	}
+
 	QMutexLocker lock(&m_mutex);
 	m_jointNames = names;
+	m_jointLower = lower;
+	m_jointUpper = upper;
 	if (m_sensorSnapshot.size() != n)
 		m_sensorSnapshot = QVector<double>(n, 0.0);
 	return true;

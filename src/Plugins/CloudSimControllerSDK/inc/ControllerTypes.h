@@ -20,15 +20,21 @@ struct CLOUDSIM_CONTROLLER_SDK_EXPORT ControllerEndpoint
 
 struct CLOUDSIM_CONTROLLER_SDK_EXPORT ControllerHelloAck
 {
+	int protocolVer = 1;
 	int simDtMs = 16;
 	int jointCount = 0;
 	std::vector<std::string> jointNames;
+	std::vector<double> jointLowerRad;
+	std::vector<double> jointUpperRad;
+	bool supportsStepPose = false;
 };
 
 struct CLOUDSIM_CONTROLLER_SDK_EXPORT ControllerStepReply
 {
 	int simTimeMs = 0;
 	std::vector<double> actualJointRad;
+	/// 与 actualJointRad 同源；后续 Distance/IMU 往此扩展
+	std::vector<double> sensorJointPosition;
 	bool quit = false;
 	std::string quitReason;
 };

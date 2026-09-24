@@ -11,8 +11,11 @@ Webots 风格：独立控制器进程经 localhost TCP（**19620**）驱动仿�
 | [DESIGN_仿真外置控制器.md](DESIGN_仿真外置控制器.md) | 架构、STEP 数据流、模块落点、异常策略 |
 | [TASK_仿真外置控制器.md](TASK_仿真外置控制器.md) | 原子任务 G0 / P1 A–D / P2 E–G |
 | [ACCEPTANCE_仿真外置控制器.md](ACCEPTANCE_仿真外置控制器.md) | 验收清单、手工步骤、已知限制 |
-| [P0_语义附录.md](P0_语义附录.md) | 无 STEP / 断连 / actualJointRad / dtMs |
-| [P3_立项说明.md](P3_立项说明.md) | 笛卡尔 IK / 多会话 / ROS 草案 |
+| [P0_语义附录.md](P0_语义附录.md) | 无 STEP / 断连 / actualJointRad / dtMs / 限幅 |
+| [P3_立项说明.md](P3_立项说明.md) | STEP_POSE 草案（已由 P5 落地） |
+| [P4_设备语义增量.md](P4_设备语义增量.md) | 限幅、sensors、环境变量、BAD_DT |
+| [P5_STEP_POSE.md](P5_STEP_POSE.md) | 笛卡尔 STEP_POSE + Host IK |
+| [P6_多会话.md](P6_多会话.md) | 多实例端口 19620+i |
 
 ## 快速要点
 

@@ -39,6 +39,14 @@ public:
 	{
 		return instanceIndex == 0 ? robotRevoluteJointNames().size() : 0;
 	}
+	/// 本实例 revolute 关节上下限（rad）；长度须与 jointCount 一致，未知则清空
+	virtual void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad,
+											 QVector<double>& upperRad) const
+	{
+		(void)instanceIndex;
+		lowerRad.clear();
+		upperRad.clear();
+	}
 	/// FK 关节键前缀，如 "RobotScene_x_1::"
 	virtual QString robotJointKeyPrefixForInstance(int instanceIndex) const
 	{

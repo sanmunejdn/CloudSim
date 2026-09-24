@@ -874,10 +874,12 @@ RobotSimulationController::~RobotSimulationController()
 	{
 		m_externalControllerTimer->stop();
 	}
-	if (m_controllerManager)
+	for (auto& m : m_controllerManagers)
 	{
-		m_controllerManager->stopListening();
+		if (m)
+			m->stopListening();
 	}
+	m_controllerManagers.clear();
 	if (m_robotCommPollTimer)
 	{
 		m_robotCommPollTimer->stop();
@@ -7248,7 +7250,16 @@ void RobotSimulationController::refreshInstructionPoseAxes(const bool computeRea
 
 void RobotSimulationController::onSimulationStartTriggered()
 {
-	if (m_controllerManager && m_controllerManager->isEnabled())
+	bool externalOn = false;
+	for (const auto& m : m_controllerManagers)
+	{
+		if (m && m->isEnabled())
+		{
+			externalOn = true;
+			break;
+		}
+	}
+	if (externalOn)
 	{
 		if (m_host && m_host->runInfoPage())
 		{

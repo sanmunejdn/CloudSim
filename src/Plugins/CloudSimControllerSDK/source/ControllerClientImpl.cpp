@@ -113,6 +113,7 @@ void ControllerClientImpl::disconnectHost()
 	}
 	m_connected = false;
 	m_jointCount = 0;
+	m_protocolVer = CLOUDSIM_CONTROLLER_PROTOCOL_VER;
 }
 
 bool ControllerClientImpl::sendLine(const std::string& jsonLine, std::string& responseLine)
@@ -165,7 +166,7 @@ bool ControllerClientImpl::hello(int robotInstanceIndex, ControllerHelloAck& out
 	std::lock_guard<std::mutex> lock(m_mutex);
 	json req;
 	req["type"] = "HELLO";
-	req["protocolVer"] = CLOUDSIM_CONTROLLER_PROTOCOL_VER;
+	req["protocolVer"] = CLOUDSIM_CONTROLLER_PROTOCOL_VER_MAX;
 	req["robotInstanceIndex"] = robotInstanceIndex;
 
 	std::string resp;
@@ -194,21 +195,37 @@ bool ControllerClientImpl::hello(int robotInstanceIndex, ControllerHelloAck& out
 		setError("unexpected type: " + type);
 		return false;
 	}
-	if (j.value("protocolVer", 0) != CLOUDSIM_CONTROLLER_PROTOCOL_VER)
+	const int ackVer = j.value("protocolVer", 0);
+	if (ackVer != 1 && ackVer != 2)
 	{
 		setError("PROTOCOL_MISMATCH");
 		return false;
 	}
 
+	outAck.protocolVer = ackVer;
 	outAck.simDtMs = j.value("simDtMs", 16);
 	outAck.jointCount = j.value("jointCount", 0);
+	outAck.supportsStepPose = j.value("supportsStepPose", false);
 	outAck.jointNames.clear();
 	if (j.contains("jointNames") && j["jointNames"].is_array())
 	{
 		for (const auto& n : j["jointNames"])
 			outAck.jointNames.push_back(n.get<std::string>());
 	}
+	outAck.jointLowerRad.clear();
+	outAck.jointUpperRad.clear();
+	if (j.contains("jointLowerRad") && j["jointLowerRad"].is_array())
+	{
+		for (const auto& v : j["jointLowerRad"])
+			outAck.jointLowerRad.push_back(v.get<double>());
+	}
+	if (j.contains("jointUpperRad") && j["jointUpperRad"].is_array())
+	{
+		for (const auto& v : j["jointUpperRad"])
+			outAck.jointUpperRad.push_back(v.get<double>());
+	}
 	m_jointCount = outAck.jointCount;
+	m_protocolVer = ackVer;
 	m_lastError.clear();
 	return outAck.jointCount > 0;
 }
@@ -224,7 +241,7 @@ bool ControllerClientImpl::step(int dtMs, const std::vector<double>& targetJoint
 
 	json req;
 	req["type"] = "STEP";
-	req["protocolVer"] = CLOUDSIM_CONTROLLER_PROTOCOL_VER;
+	req["protocolVer"] = m_protocolVer >= 2 ? m_protocolVer : CLOUDSIM_CONTROLLER_PROTOCOL_VER;
 	req["dtMs"] = dtMs;
 	req["targetJointRad"] = targetJointRad;
 
@@ -270,6 +287,97 @@ bool ControllerClientImpl::step(int dtMs, const std::vector<double>& targetJoint
 		for (const auto& v : j["actualJointRad"])
 			outReply.actualJointRad.push_back(v.get<double>());
 	}
+	outReply.sensorJointPosition.clear();
+	if (j.contains("sensors") && j["sensors"].is_object() && j["sensors"].contains("jointPosition") &&
+		j["sensors"]["jointPosition"].is_array())
+	{
+		for (const auto& v : j["sensors"]["jointPosition"])
+			outReply.sensorJointPosition.push_back(v.get<double>());
+	}
+	else
+	{
+		outReply.sensorJointPosition = outReply.actualJointRad;
+	}
+	m_lastError.clear();
+	return true;
+}
+
+bool ControllerClientImpl::stepPose(int dtMs, const double tcpMm[3], const double eulerDeg[3],
+									const std::string& frame, ControllerStepReply& outReply)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	if (m_protocolVer < 2)
+	{
+		setError("STEP_POSE requires HELLO protocolVer=2");
+		return false;
+	}
+	if (!tcpMm || !eulerDeg)
+	{
+		setError("null pose");
+		return false;
+	}
+
+	json req;
+	req["type"] = "STEP_POSE";
+	req["protocolVer"] = 2;
+	req["dtMs"] = dtMs;
+	req["targetTcpMm"] = {tcpMm[0], tcpMm[1], tcpMm[2]};
+	req["targetEulerDeg"] = {eulerDeg[0], eulerDeg[1], eulerDeg[2]};
+	req["frame"] = frame.empty() ? "robot_base" : frame;
+
+	std::string resp;
+	if (!sendLine(req.dump(), resp))
+		return false;
+
+	json j;
+	try
+	{
+		j = json::parse(resp);
+	}
+	catch (...)
+	{
+		setError("STEP_REPLY parse failed");
+		return false;
+	}
+
+	const std::string type = j.value("type", "");
+	outReply = ControllerStepReply{};
+	if (type == "QUIT")
+	{
+		outReply.quit = true;
+		outReply.quitReason = j.value("reason", "");
+		m_lastError.clear();
+		return true;
+	}
+	if (type == "ERROR")
+	{
+		setError(j.value("message", j.value("code", "ERROR")));
+		return false;
+	}
+	if (type != "STEP_REPLY")
+	{
+		setError("unexpected type: " + type);
+		return false;
+	}
+
+	outReply.simTimeMs = j.value("simTimeMs", 0);
+	outReply.actualJointRad.clear();
+	if (j.contains("actualJointRad") && j["actualJointRad"].is_array())
+	{
+		for (const auto& v : j["actualJointRad"])
+			outReply.actualJointRad.push_back(v.get<double>());
+	}
+	outReply.sensorJointPosition.clear();
+	if (j.contains("sensors") && j["sensors"].is_object() && j["sensors"].contains("jointPosition") &&
+		j["sensors"]["jointPosition"].is_array())
+	{
+		for (const auto& v : j["sensors"]["jointPosition"])
+			outReply.sensorJointPosition.push_back(v.get<double>());
+	}
+	else
+	{
+		outReply.sensorJointPosition = outReply.actualJointRad;
+	}
 	m_lastError.clear();
 	return true;
 }
@@ -281,7 +389,7 @@ bool ControllerClientImpl::goodbye()
 		return true;
 	json req;
 	req["type"] = "GOODBYE";
-	req["protocolVer"] = CLOUDSIM_CONTROLLER_PROTOCOL_VER;
+	req["protocolVer"] = m_protocolVer >= 1 ? m_protocolVer : CLOUDSIM_CONTROLLER_PROTOCOL_VER;
 	std::string resp;
 	(void)sendLine(req.dump(), resp);
 	disconnectHost();
