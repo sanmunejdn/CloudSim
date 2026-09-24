@@ -86,6 +86,12 @@
     <ClInclude Include="inc\CompositeKinematicModel.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ControlContext.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ControllerManager.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\CustomDeviceAssemblyCommit.h">
       <Filter>inc\Other</Filter>
     </ClInclude>
@@ -294,6 +300,12 @@
     </ClCompile>
     <ClCompile Include="source\CompositeKinematicModel.cpp">
       <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ControlContext.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ControllerManager.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\CustomDeviceAssemblyCommit.cpp">
       <Filter>src\Other</Filter>

@@ -67,7 +67,10 @@ def process(path: Path) -> str | None:
 
     g = find_outer_guard(text)
     if g:
-        if_start, define_end, endif_start, endif_end, _old = g
+        if_start, define_end, endif_start, endif_end, old_macro = g
+        # 薄转发头与真实头同 stem 时必须用 _SHIM_H，否则会跳过真实声明
+        if old_macro.endswith("_SHIM_H"):
+            macro = old_macro
         body = text[define_end:endif_start]
         # Keep any content before the outer ifndef (should be rare)
         prefix = text[:if_start].rstrip() + "\n" if text[:if_start].strip() else ""

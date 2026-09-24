@@ -616,6 +616,23 @@ Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`../../../docs/�
 
 ---
 
+## 15a. 外置控制器（`ControlContext` / `ControllerManager`）
+
+Webots 风格：用户进程经 TCP `127.0.0.1:19620` 发 `STEP`，Host tick 写关节。协议以 [`docs/features/仿真外置控制器/CONSENSUS_仿真外置控制器.md`](../../../docs/features/仿真外置控制器/CONSENSUS_仿真外置控制器.md) 为准。
+
+| 类型 | 职责 |
+|------|------|
+| `ControlContext` | `pendingTargets` / `sensorSnapshot`；`applyPendingToScene` → FK PoseSink |
+| `ControllerManager` | Winsock listen、JSON 行协议、`pollIncoming` + `tickApply` |
+
+- **无 Q_OBJECT / 无 Qt Widgets**；与 `RobotProgramExecutor` 互斥由 UI/Headless 调用方保证。
+- **勿与 RobotComm（19610）混用端口或帧类型**；真机通讯见 RobotCommSDK。
+- 客户端：`CloudSimControllerSDK` / `resource/Python/ControllerPython`。
+
+验收与手工步骤：[`ACCEPTANCE_仿真外置控制器.md`](../../../docs/features/仿真外置控制器/ACCEPTANCE_仿真外置控制器.md)。
+
+---
+
 ## 16. 相关文档
 
 - 轨迹框架：[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)

@@ -1,0 +1,23 @@
+#ifndef CLOUDSIMCONTROLLERSDK_CLOUDSIM_CONTROLLER_SDK_GLOBAL_H
+#define CLOUDSIMCONTROLLERSDK_CLOUDSIM_CONTROLLER_SDK_GLOBAL_H
+
+/// @file cloudsim_controller_sdk_global.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
+/// @brief CloudSimControllerSDK 导出宏
+
+#if defined(CLOUDSIM_CONTROLLER_SDK_STATIC) || defined(BUILD_STATIC)
+#define CLOUDSIM_CONTROLLER_SDK_EXPORT
+#elif defined(_WIN32) || defined(_WIN64)
+#if defined(CLOUDSIM_CONTROLLER_SDK_LIB)
+#define CLOUDSIM_CONTROLLER_SDK_EXPORT __declspec(dllexport)
+#else
+#define CLOUDSIM_CONTROLLER_SDK_EXPORT __declspec(dllimport)
+#endif
+#else
+#define CLOUDSIM_CONTROLLER_SDK_EXPORT
+#endif
+
+#define CLOUDSIM_CONTROLLER_PROTOCOL_VER 1
+#define CLOUDSIM_CONTROLLER_DEFAULT_PORT 19620
+
+#endif // CLOUDSIMCONTROLLERSDK_CLOUDSIM_CONTROLLER_SDK_GLOBAL_H

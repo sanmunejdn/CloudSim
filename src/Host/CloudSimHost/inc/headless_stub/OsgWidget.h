@@ -1,9 +1,9 @@
-﻿#ifndef CLOUDSIMHOST_OSGWIDGET_H
-#define CLOUDSIMHOST_OSGWIDGET_H
+﻿#ifndef WIDGET_OSGWIDGET_H
+#define WIDGET_OSGWIDGET_H
 
 /// @file OsgWidget.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief Headless 桩：满足 Host/PluginHost 编译，运行期无 OSG 视口
+/// @brief Headless 桩：与桌面 OsgWidget 同头卫，避免双定义；满足 Host/PluginHost 编译
 
 #include "cloudsim_host_global.h"
 
@@ -418,4 +418,4 @@ signals:
 	void labelingPickCanceled();
 };
 
-#endif // CLOUDSIMHOST_OSGWIDGET_H
+#endif // WIDGET_OSGWIDGET_H

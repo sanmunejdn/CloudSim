@@ -160,6 +160,8 @@ public:
 	void notifyRobotKinematicsAppliedToScene() override;
 	void noteRobotJointAnglesAppliedForInstance(int instanceIndex, const QVector<double>& localJointRad) override;
 
+	bool robotLocalJointAnglesForInstance(int instanceIndex, QVector<double>& outLocal) const override;
+
 private:
 	struct HierarchicalRobotInstance
 	{

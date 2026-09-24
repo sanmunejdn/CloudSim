@@ -100,6 +100,7 @@
     <QtMoc Include="inc\RobotSimulationDockWidget.h" />
     <QtMoc Include="inc\DevicePageWidget.h" />
     <QtMoc Include="inc\SimulationCommandWidget.h" />
+    <QtMoc Include="inc\ExternalControllerDialog.h" />
     <QtMoc Include="inc\RobotFrameSettingsWidget.h" />
     <QtMoc Include="inc\RobotExternalAxisSettingsWidget.h" />
     <QtMoc Include="inc\CustomDeviceAssemblyCanvasWidget.h" />
@@ -144,6 +145,7 @@
     <ClCompile Include="source\BrandProgramExportDialog.cpp" />
     <ClCompile Include="source\PythonScriptCaller.cpp" />
     <ClCompile Include="source\SimulationCommandWidget.cpp" />
+    <ClCompile Include="source\ExternalControllerDialog.cpp" />
     <ClCompile Include="source\RobotFrameSettingsWidget.cpp" />
     <ClCompile Include="source\RobotExternalAxisSettingsWidget.cpp" />
     <ClCompile Include="source\CustomDeviceAssemblyCanvasWidget.cpp" />
@@ -182,6 +184,7 @@
     <ClCompile Include="source\RobotCommPageWidget.cpp" />
     <ClCompile Include="source\RobotSimulationController.cpp" />
     <ClCompile Include="source\RobotSimulationController_robotComm.cpp" />
+    <ClCompile Include="source\RobotSimulationController_controller.cpp" />
     <ClCompile Include="source\CustomDeviceSimService.cpp" />
     <ClCompile Include="source\DockNavigationService.cpp" />
     <ClCompile Include="source\AxisControlTargetService.cpp" />
@@ -252,6 +255,7 @@
   </ItemGroup>
   <PropertyGroup>
     <_BrandExportPySrc>$(ProjectDir)resource\Python\ExportPython</_BrandExportPySrc>
+    <_ControllerPySrc>$(ProjectDir)..\..\..\resource\Python\ControllerPython</_ControllerPySrc>
   </PropertyGroup>
   <Target Name="CopyBrandExportPython" AfterTargets="Build">
     <ItemGroup>
@@ -260,6 +264,20 @@
     <MakeDir Directories="$(OutDir)resource\Python\ExportPython" />
     <Copy SourceFiles="@(_BrandExportPyFiles)" DestinationFolder="$(OutDir)resource\Python\ExportPython" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(CloudSimRepoRoot)bin\SDK\python311\python311.dll;$(CloudSimRepoRoot)bin\SDK\python311\python3.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="Exists('$(CloudSimRepoRoot)bin\SDK\python311\python311.dll')" />
+  </Target>
+  <Target Name="CopyControllerPython" AfterTargets="Build">
+    <ItemGroup>
+      <_ControllerPyFiles Include="$(_ControllerPySrc)\*" />
+    </ItemGroup>
+    <MakeDir Directories="$(OutDir)resource\Python\ControllerPython" />
+    <Copy SourceFiles="@(_ControllerPyFiles)" DestinationFolder="$(OutDir)resource\Python\ControllerPython" SkipUnchangedFiles="true" Condition="Exists('$(_ControllerPySrc)')" />
+  </Target>
+  <Target Name="CopyControllersDir" AfterTargets="Build">
+    <ItemGroup>
+      <_ControllerEntryFiles Include="$(ProjectDir)..\..\..\resource\controllers\**\*" />
+    </ItemGroup>
+    <MakeDir Directories="$(OutDir)resource\controllers" />
+    <Copy SourceFiles="@(_ControllerEntryFiles)" DestinationFiles="@(_ControllerEntryFiles->'$(OutDir)resource\controllers\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'@(_ControllerEntryFiles)' != ''" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />

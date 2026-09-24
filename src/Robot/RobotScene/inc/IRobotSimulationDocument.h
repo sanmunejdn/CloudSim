@@ -139,6 +139,14 @@ public:
 		(void)instanceIndex;
 		(void)localJointRad;
 	}
+
+	/// 读本实例已回写的局部关节角（外置控制器 STEP_REPLY 真源）
+	virtual bool robotLocalJointAnglesForInstance(int instanceIndex, QVector<double>& outLocal) const
+	{
+		(void)instanceIndex;
+		(void)outLocal;
+		return false;
+	}
 };
 
 #endif // ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H

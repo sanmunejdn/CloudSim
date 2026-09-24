@@ -8,11 +8,14 @@
 
 #include "RobotProgramExecutor.h"
 
+#include "ControllerManager.h"
+
 #include <QJsonObject>
 #include <QObject>
 #include <QTimer>
 #include <QVector>
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace cloudsim::host
@@ -33,6 +36,9 @@ public:
 	QJsonObject stop();
 	QJsonObject statusJson() const;
 
+	QJsonObject startExternalController(const QJsonObject& body);
+	QJsonObject stopExternalController();
+
 private:
 	enum class SeedPolicy
 	{
@@ -49,6 +55,9 @@ private:
 
 	DocumentHost& m_host;
 	RobotProgramExecutor m_executor;
+	std::unique_ptr<ControllerManager> m_controllerManager;
+	QVector<double> m_externalAggJoints;
+	bool m_externalActive = false;
 	QTimer m_timer;
 	QString m_sceneRootId;
 	int m_instanceIndex = -1;

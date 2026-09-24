@@ -24,6 +24,10 @@ class QPushButton;
 
 class QLabel;
 
+class QCheckBox;
+
+class ExternalControllerDialog;
+
 class RobotProgramStore;
 
 class InstructionProgramTreeWidget;
@@ -131,12 +135,23 @@ signals:
 
 	void playbackRateChanged(double rate);
 
+	/// ExternalController：localhost TCP 外置控制器（与指令回放互斥）
+	void externalControllerToggled(bool enabled);
+
 	/// 0=FromInstruction（链式），1=FromCurrentPose
 	void ikSeedPolicyChanged(int policy);
 
 	void tcpDragTeachModeChanged(bool enabled);
 
 	void instructionWaypointPickModeChanged(bool enabled);
+
+public:
+	/// 与设置对话框双向同步 Host 监听勾选（失败回滚时用）
+	void setExternalControllerChecked(bool checked);
+
+	void setExternalControllerClientConnected(bool connected);
+
+	bool isExternalControllerChecked() const;
 
 private:
 	void rebuildCommandListWidget();
@@ -184,6 +199,10 @@ private:
 	void updateWaypointPickUi(bool enabled);
 
 	void refreshEditModeHint();
+
+	void openExternalControllerSettings();
+
+	void onExternalControllerDialogListenToggled(bool enabled);
 
 	QPushButton* createTypeButton(RobotInstruction::Type type);
 
@@ -233,6 +252,12 @@ private:
 	QLabel* m_playbackRateLabel = nullptr;
 
 	QComboBox* m_playbackRateCombo = nullptr;
+
+	QCheckBox* m_externalControllerCheck = nullptr;
+
+	QPushButton* m_externalControllerSettingsBtn = nullptr;
+
+	ExternalControllerDialog* m_externalControllerDialog = nullptr;
 
 	QLabel* m_ikSeedLabel = nullptr;
 

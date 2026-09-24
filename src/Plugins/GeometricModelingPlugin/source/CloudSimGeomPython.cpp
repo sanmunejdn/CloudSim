@@ -6,7 +6,11 @@
 
 #include <Windows.h>
 
-// 先于任何 Qt 头，避免 slots 宏打坏 Python object.h
+// Qt 的 slots/signals 宏会把 Python object.h 里的成员名 slots 展开成语法错误
+#include <pybind11/embed.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
 #include "CloudSimGeomPython.h"
 #include "IAiAssistantHost.h"
 #include "IPluginDocument.h"
@@ -25,10 +29,6 @@
 #include <QPushButton>
 #include <QString>
 #include <QVBoxLayout>
-
-#include <pybind11/embed.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 
 namespace fs = std::filesystem;
 namespace py = pybind11;

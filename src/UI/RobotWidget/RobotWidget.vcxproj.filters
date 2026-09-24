@@ -187,6 +187,9 @@
     <ClCompile Include="source\DockNavigationService.cpp">
       <Filter>src\Simulation</Filter>
     </ClCompile>
+    <ClCompile Include="source\ExternalControllerDialog.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\FeatureDiscretizerParamPanel.cpp">
       <Filter>src\FeatureTrajectory</Filter>
     </ClCompile>
@@ -260,6 +263,9 @@
       <Filter>src\RobotSettings</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotSimulationController.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotSimulationController_controller.cpp">
       <Filter>src\Simulation</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotSimulationController_robotComm.cpp">
@@ -347,6 +353,9 @@
     </QtMoc>
     <QtMoc Include="inc\DockNavigationService.h">
       <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ExternalControllerDialog.h">
+      <Filter>inc\Other</Filter>
     </QtMoc>
     <QtMoc Include="inc\FeatureDiscretizerParamPanel.h">
       <Filter>inc\FeatureTrajectory</Filter>

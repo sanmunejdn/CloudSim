@@ -870,6 +870,14 @@ RobotSimulationController::RobotSimulationController(QObject* parent)
 
 RobotSimulationController::~RobotSimulationController()
 {
+	if (m_externalControllerTimer)
+	{
+		m_externalControllerTimer->stop();
+	}
+	if (m_controllerManager)
+	{
+		m_controllerManager->stopListening();
+	}
 	if (m_robotCommPollTimer)
 	{
 		m_robotCommPollTimer->stop();
@@ -1099,6 +1107,8 @@ void RobotSimulationController::wireSimulationSignals()
 		connect(cmd, &SimulationCommandWidget::playbackRateChanged, this,
 				[this](const double rate) { m_programExecutor.setPlaybackRate(rate); });
 		m_programExecutor.setPlaybackRate(cmd->playbackRate());
+		connect(cmd, &SimulationCommandWidget::externalControllerToggled, this,
+				&RobotSimulationController::onExternalControllerToggled);
 		connect(cmd, &SimulationCommandWidget::ikSeedPolicyChanged, this,
 				[this](const int policy)
 				{
@@ -7238,6 +7248,16 @@ void RobotSimulationController::refreshInstructionPoseAxes(const bool computeRea
 
 void RobotSimulationController::onSimulationStartTriggered()
 {
+	if (m_controllerManager && m_controllerManager->isEnabled())
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Disable External Controller before running the program."),
+							 QStringLiteral("请先关闭「外置控制器」再运行程序。")));
+		}
+		return;
+	}
 	if (m_programExecutor.isRunning())
 	{
 		return;

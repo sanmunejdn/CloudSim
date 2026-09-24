@@ -10,6 +10,7 @@
 #include "RobotPlanInstruction.h"
 #include "RobotProgramStore.h"
 #include "UrdfRobotLoader.h"
+#include "ControllerManager.h"
 #include "io/IoSignalNetwork.h"
 
 #include <QJsonArray>
@@ -133,6 +134,11 @@ bool HeadlessRobotPlaybackBridge::buildPlanResults(
 
 QJsonObject HeadlessRobotPlaybackBridge::start(const QJsonObject& body)
 {
+	// 与外置控制器互斥；勿在 start 里静默 stopExternal
+	if (m_externalActive)
+		return {{QStringLiteral("ok"), false},
+				{QStringLiteral("error"), QStringLiteral("Stop external controller first.")}};
+
 	stop();
 	HeadlessRobotContext* hrc = m_host.headlessRobotContext();
 	if (!hrc)
@@ -243,6 +249,29 @@ QJsonObject HeadlessRobotPlaybackBridge::start(const QJsonObject& body)
 
 void HeadlessRobotPlaybackBridge::onTimerTick()
 {
+	if (m_externalActive && m_controllerManager)
+	{
+		HeadlessRobotContext* hrc = m_host.headlessRobotContext();
+		if (!hrc)
+			return;
+		m_controllerManager->setDocument(hrc);
+		m_controllerManager->pollIncoming();
+		if (m_controllerManager->tickApply(hrc->urdfImportScenePoseSink(), m_externalAggJoints))
+		{
+			m_host.flushVisualSync();
+			QMetaObject::invokeMethod(&m_host, "visualSceneDirty", Qt::QueuedConnection);
+			if (m_pushEvent)
+			{
+				QJsonObject ev;
+				ev.insert(QStringLiteral("type"), QStringLiteral("ExternalControllerFrame"));
+				ev.insert(QStringLiteral("jointAnglesRad"), jointsToJson(m_externalAggJoints));
+				ev.insert(QStringLiteral("simTimeMs"), static_cast<int>(m_controllerManager->simTimeMs()));
+				m_pushEvent(ev);
+			}
+		}
+		return;
+	}
+
 	const QJsonObject frame = tickOnce();
 	if (m_pushEvent)
 	{
@@ -365,7 +394,54 @@ QJsonObject HeadlessRobotPlaybackBridge::stop()
 	m_motions.clear();
 	m_rollingSeedQ.clear();
 	m_seedPolicy = SeedPolicy::FromInstruction;
+	if (m_externalActive)
+		(void)stopExternalController();
 	return {{QStringLiteral("ok"), true}, {QStringLiteral("status"), QStringLiteral("stopped")}};
+}
+
+QJsonObject HeadlessRobotPlaybackBridge::startExternalController(const QJsonObject& body)
+{
+	if (m_executor.isRunning())
+		return {{QStringLiteral("ok"), false},
+				{QStringLiteral("error"), QStringLiteral("Stop program playback first.")}};
+
+	HeadlessRobotContext* hrc = m_host.headlessRobotContext();
+	if (!hrc)
+		return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), QStringLiteral("No robot context.")}};
+
+	const int instIdx = body.value(QStringLiteral("robotInstanceIndex")).toInt(0);
+	if (!m_controllerManager)
+		m_controllerManager = std::make_unique<ControllerManager>(this);
+	m_controllerManager->setDocument(hrc);
+	m_controllerManager->context().setRobotInstanceIndex(instIdx);
+	m_controllerManager->setEnabled(true);
+	const int port = body.value(QStringLiteral("port")).toInt(19620);
+	if (!m_controllerManager->startListening(static_cast<quint16>(port)))
+	{
+		m_controllerManager->setEnabled(false);
+		return {{QStringLiteral("ok"), false},
+				{QStringLiteral("error"), m_controllerManager->lastError()}};
+	}
+	m_controllerManager->resetSimTime();
+	m_externalAggJoints.clear();
+	m_externalActive = true;
+	m_timer.start();
+	return {{QStringLiteral("ok"), true},
+			{QStringLiteral("port"), port},
+			{QStringLiteral("host"), QStringLiteral("127.0.0.1")}};
+}
+
+QJsonObject HeadlessRobotPlaybackBridge::stopExternalController()
+{
+	m_externalActive = false;
+	if (m_controllerManager)
+	{
+		m_controllerManager->setEnabled(false);
+		m_controllerManager->stopListening();
+	}
+	if (!m_executor.isRunning())
+		m_timer.stop();
+	return {{QStringLiteral("ok"), true}};
 }
 
 QJsonObject HeadlessRobotPlaybackBridge::statusJson() const
@@ -373,6 +449,9 @@ QJsonObject HeadlessRobotPlaybackBridge::statusJson() const
 	QJsonObject o;
 	o.insert(QStringLiteral("ok"), true);
 	o.insert(QStringLiteral("running"), m_executor.isRunning());
+	o.insert(QStringLiteral("externalController"), m_externalActive);
+	o.insert(QStringLiteral("externalListening"),
+			 m_controllerManager && m_controllerManager->isListening());
 	o.insert(QStringLiteral("sceneRootBackendId"), m_sceneRootId);
 	o.insert(QStringLiteral("jointAnglesRad"), jointsToJson(m_executor.jointAnglesRad()));
 	o.insert(QStringLiteral("seedPolicy"), m_seedPolicy == SeedPolicy::FromCurrentPose

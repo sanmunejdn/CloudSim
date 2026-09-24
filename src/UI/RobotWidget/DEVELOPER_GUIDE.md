@@ -26,6 +26,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | **IO 网络 / 连接站** | 桌面：`IoSignalNetworkService`；属性 Dock：`设备` / `信号`；「信号」页按钮打开连接站；Tab stash `ioSignalNetworkCache`。网页/Headless：Host `IoSignalNetwork`（同侧车 JSON）+ Gateway `/api/io/network*`，见 [网页端专题](../../features/网页端/README.md)。过程稿见 `docs/ARCHIVE_ZIP_LOCATION.txt` |
 | **碰撞与关节路径规划** | Dock「碰撞与规划」：`RobotCollisionSettingsWidget`（启用/安全余量、未分配池、白/黑名单、**规划算法/时限**、起终点路点下拉、规划/清除/确认插入）；算法见 `RobotPathPlanning`、原理说明见 [`docs/机器人路径规划/PLANNERS_规划算法原理.md`](../../../docs/机器人路径规划/PLANNERS_规划算法原理.md)；场景同步 `BackendCollisionSync` |
 | Orchestration | `RobotSimulationController`（门面；含 `IoSignalNetworkService` 等小服务） |
+| **外置控制器** | 指令页勾选 + **设置…** → `ExternalControllerDialog`（语言/源码/运行 Python）；listen `19620`；见 [`docs/features/仿真外置控制器/`](../../../docs/features/仿真外置控制器/) |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
 | FK / matrix helpers | `RobotSimulationMath` |

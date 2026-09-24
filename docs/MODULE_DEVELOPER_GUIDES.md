@@ -48,6 +48,7 @@
 | **RunLogger** | 文件/控制台/UI 日志；x64 动态 DLL | [RunLogger/DEVELOPER_GUIDE.md](../src/Infra/RunLogger/DEVELOPER_GUIDE.md) |
 | **CloudSimPluginSDK** | 动态插件 ABI、宿主上下文、几何/点云 API；**1.54.0+** Path B `propertyBindings` | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)、[指令与插件属性Binding](features/Binding/) |
 | **CloudSimMeshTrajectorySDK** | Mesh 轨迹会话、区域选择、`generateRawPath`；由 RobotWidget 直连 | [CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md) |
+| **CloudSimControllerSDK** | 仿真外置控制器 TCP 客户端（`127.0.0.1:19620`）；与 RobotComm `19610` 分离 | [CloudSimControllerSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimControllerSDK/DEVELOPER_GUIDE.md)、[仿真外置控制器](features/仿真外置控制器/) |
 | **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、`PluginHostContext`、Binding 注册表；**编入 `CloudSimHost.dll`**；UI 经 `IPluginMainWindowHost` | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)、[文档索引](README.md) |
 | **插件开发示例** | 参见 CloudSimPluginSDK 开发指南中的插件模块示例工程 | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
 | **CloudSimAiSDK** | AI 插件 ABI、分域专模、`ai_config` 与训练文档入口 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)、[配置](../tools/ai-training/CONFIGURATION.md)、[训练](../tools/ai-training/README.md) |

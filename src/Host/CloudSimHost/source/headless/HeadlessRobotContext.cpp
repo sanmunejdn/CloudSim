@@ -1364,6 +1364,14 @@ void HeadlessRobotContext::noteRobotJointAnglesAppliedForInstance(int instanceIn
 	m_host.noteRobotLocalJointAnglesForSceneRoot(sceneRoot, localJointRad);
 }
 
+bool HeadlessRobotContext::robotLocalJointAnglesForInstance(int instanceIndex, QVector<double>& outLocal) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_robots.size())
+		return false;
+	outLocal = m_robots[instanceIndex].lastLocalJointAnglesRad;
+	return !outLocal.isEmpty();
+}
+
 void HeadlessRobotContext::rebuildAggregates()
 {
 	m_robotRevoluteJointNames.clear();

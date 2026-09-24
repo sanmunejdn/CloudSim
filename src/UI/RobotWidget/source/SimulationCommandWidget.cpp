@@ -3,6 +3,7 @@
 
 #include "SimulationCommandWidget.h"
 
+#include "ExternalControllerDialog.h"
 #include "InstructionProgramTreeWidget.h"
 #include "ProgramEditCommand.h"
 #include "ProgramEditService.h"
@@ -12,6 +13,7 @@
 #include "UiIconDecorators.h"
 
 #include <QComboBox>
+#include <QCheckBox>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -279,6 +281,14 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	rowRun->addWidget(m_stopBtn);
 	rowRun->addWidget(m_playbackRateLabel);
 	rowRun->addWidget(m_playbackRateCombo);
+	m_externalControllerCheck = new QCheckBox(QStringLiteral("External Controller"), this);
+	m_externalControllerCheck->setToolTip(
+		QStringLiteral("Listen 127.0.0.1:19620 for external STEP (mutex with program Run)"));
+	rowRun->addWidget(m_externalControllerCheck);
+	m_externalControllerSettingsBtn = new QPushButton(QStringLiteral("Settings..."), this);
+	configureCompactButton(m_externalControllerSettingsBtn);
+	applyBtnRole(m_externalControllerSettingsBtn, "secondary");
+	rowRun->addWidget(m_externalControllerSettingsBtn);
 	rowRun->addWidget(m_ikSeedLabel);
 	rowRun->addWidget(m_ikSeedCombo);
 	rowRun->addStretch(1);
@@ -464,6 +474,20 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
 	connect(m_playbackRateCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			[this](int) { emit playbackRateChanged(playbackRate()); });
+	if (m_externalControllerCheck)
+	{
+		connect(m_externalControllerCheck, &QCheckBox::toggled, this,
+				&SimulationCommandWidget::externalControllerToggled);
+		connect(m_externalControllerCheck, &QCheckBox::toggled, this, [this](bool on) {
+			if (m_externalControllerDialog)
+				m_externalControllerDialog->setListening(on);
+		});
+	}
+	if (m_externalControllerSettingsBtn)
+	{
+		connect(m_externalControllerSettingsBtn, &QPushButton::clicked, this,
+				&SimulationCommandWidget::openExternalControllerSettings);
+	}
 	connect(m_ikSeedCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			[this](int) { emit ikSeedPolicyChanged(m_ikSeedCombo->currentData().toInt()); });
 
@@ -713,6 +737,24 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 		m_playbackRateCombo->setToolTip(chinese ? QStringLiteral("播放倍率（不改变规划时长）")
 												: QStringLiteral("Playback rate (does not change planned duration)"));
 	}
+	if (m_externalControllerCheck)
+	{
+		m_externalControllerCheck->setText(chinese ? QStringLiteral("外置控制器")
+												   : QStringLiteral("External Controller"));
+		m_externalControllerCheck->setToolTip(
+			chinese ? QStringLiteral("监听 127.0.0.1:19620，接收 STEP（与程序运行互斥）")
+					: QStringLiteral("Listen 127.0.0.1:19620 for external STEP (mutex with program Run)"));
+	}
+	if (m_externalControllerSettingsBtn)
+	{
+		m_externalControllerSettingsBtn->setText(chinese ? QStringLiteral("设置…")
+														 : QStringLiteral("Settings..."));
+		m_externalControllerSettingsBtn->setToolTip(
+			chinese ? QStringLiteral("选择语言、查看源码并运行外置控制器")
+					: QStringLiteral("Language, source preview, and run external controller"));
+	}
+	if (m_externalControllerDialog)
+		m_externalControllerDialog->setUseChinese(chinese);
 	if (m_ikSeedLabel)
 	{
 		m_ikSeedLabel->setText(chinese ? QStringLiteral("IK种子") : QStringLiteral("IK Seed"));
@@ -1577,4 +1619,51 @@ double SimulationCommandWidget::instructionDurationSec(const RobotInstruction::B
 		return ins.durationSec();
 	}
 	return parseDurationSecFromExtension(ins, 0.0);
+}
+
+void SimulationCommandWidget::openExternalControllerSettings()
+{
+	if (!m_externalControllerDialog)
+	{
+		m_externalControllerDialog = new ExternalControllerDialog(this);
+		m_externalControllerDialog->setUseChinese(m_useChinese);
+		connect(m_externalControllerDialog, &ExternalControllerDialog::listenToggled, this,
+				&SimulationCommandWidget::onExternalControllerDialogListenToggled);
+	}
+	m_externalControllerDialog->setListening(isExternalControllerChecked());
+	m_externalControllerDialog->show();
+	m_externalControllerDialog->raise();
+	m_externalControllerDialog->activateWindow();
+}
+
+void SimulationCommandWidget::onExternalControllerDialogListenToggled(bool enabled)
+{
+	if (m_externalControllerCheck)
+	{
+		const QSignalBlocker b(m_externalControllerCheck);
+		m_externalControllerCheck->setChecked(enabled);
+	}
+	emit externalControllerToggled(enabled);
+}
+
+void SimulationCommandWidget::setExternalControllerChecked(bool checked)
+{
+	if (m_externalControllerCheck)
+	{
+		const QSignalBlocker b(m_externalControllerCheck);
+		m_externalControllerCheck->setChecked(checked);
+	}
+	if (m_externalControllerDialog)
+		m_externalControllerDialog->setListening(checked);
+}
+
+void SimulationCommandWidget::setExternalControllerClientConnected(bool connected)
+{
+	if (m_externalControllerDialog)
+		m_externalControllerDialog->setClientConnected(connected);
+}
+
+bool SimulationCommandWidget::isExternalControllerChecked() const
+{
+	return m_externalControllerCheck && m_externalControllerCheck->isChecked();
 }

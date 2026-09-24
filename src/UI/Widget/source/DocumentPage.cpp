@@ -1206,6 +1206,14 @@ void DocumentPage::noteRobotJointAnglesAppliedForInstance(int instanceIndex, con
 	noteRobotLocalJointAnglesForSceneRoot(sceneRoot, localJointRad);
 }
 
+bool DocumentPage::robotLocalJointAnglesForInstance(int instanceIndex, QVector<double>& outLocal) const
+{
+	const QString sceneRoot = robotSceneBackendIdForInstance(instanceIndex);
+	if (sceneRoot.isEmpty())
+		return false;
+	return robotLocalJointAnglesForSceneRoot(sceneRoot, outLocal);
+}
+
 void DocumentPage::notifyRobotKinematicsAppliedToScene()
 {
 	if (suppressRobotFollowDirtyNotify())

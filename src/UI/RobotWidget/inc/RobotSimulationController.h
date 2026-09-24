@@ -18,6 +18,8 @@
 #include "RobotInstructionIkRequest.h"
 #include "RobotProgramExecutor.h"
 
+#include "ControllerManager.h"
+
 #include <QElapsedTimer>
 #include <QHash>
 #include <QJsonObject>
@@ -180,6 +182,9 @@ public slots:
 	void onRobotCommPollIntervalChanged(int ms);
 	void onRobotCommPollTick();
 
+	void onExternalControllerToggled(bool enabled);
+	void onExternalControllerTick();
+
 	/// @param applyLastPoseToScene 为 false 时只停播放器（切页后 current 已是新文档，禁止把旧角 FK 过去）
 	void stopRobotSimulation(bool applyLastPoseToScene = true);
 	QVector<double> aggregatedJointAnglesRad() const { return m_aggregatedJointAnglesRad; }
@@ -293,6 +298,9 @@ private:
 	std::unique_ptr<IRobotMotionClient> m_robotCommClient;
 	QTimer* m_robotCommPollTimer = nullptr;
 	bool m_robotCommMirror = false;
+
+	std::unique_ptr<ControllerManager> m_controllerManager;
+	QTimer* m_externalControllerTimer = nullptr;
 
 	RobotInstruction::Controller m_instructionController;
 	std::unique_ptr<collision::CollisionWorld> m_collisionWorld;

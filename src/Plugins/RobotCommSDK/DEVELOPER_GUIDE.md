@@ -11,3 +11,13 @@ C++ 客户端 DLL：经 localhost TCP JSON 连接 `RobotCommBridge`，拉取真�
 | 依赖 | Winsock2、nlohmann/json（`bin/SDK/JSON`） |
 
 对外接口：`IRobotMotionClient` / `createRobotMotionClient()`。
+
+## 与仿真外置控制器的边界
+
+| | RobotCommSDK | CloudSimControllerSDK |
+|--|--------------|------------------------|
+| 默认端口 | `19610` | `19620` |
+| 对端 | `RobotCommBridge`（真机/桥） | Host `ControllerManager`（仿真） |
+| 语义 | 拉真实关节/位姿 | 推仿真 `targetJointRad`（STEP） |
+
+二者协议字段与端口均独立；**禁止**在同一连接上混用帧类型。专题：[`docs/features/仿真外置控制器/`](../../../docs/features/仿真外置控制器/)。

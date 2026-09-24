@@ -337,6 +337,11 @@ public:
 	{
 		m_page->noteRobotJointAnglesAppliedForInstance(instanceIndex, localJointRad);
 	}
+
+	bool robotLocalJointAnglesForInstance(int instanceIndex, QVector<double>& outLocal) const override
+	{
+		return m_page && m_page->robotLocalJointAnglesForInstance(instanceIndex, outLocal);
+	}
 	void requestFollowSolveForced() override { m_page->requestFollowSolveForced(); }
 	void setSuppressRobotFollowDirtyNotify(const bool suppress) override
 	{

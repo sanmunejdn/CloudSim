@@ -95,6 +95,48 @@ void WebGateway::registerParityRoutes(cloudsim::host::DocumentHost* host)
 						  writeJson(res, out);
 					  });
 
+	httpServer().Post("/api/robot/external-controller/start",
+					  [this](const httplib::Request& req, httplib::Response& res)
+					  {
+						  QJsonObject out;
+						  QMetaObject::invokeMethod(
+							  this,
+							  [this, body = QByteArray::fromStdString(req.body), &out]()
+							  {
+								  auto* h = docHost(m_document.get());
+								  if (!h || !h->headlessRobotPlaybackBridge())
+								  {
+									  out = QJsonObject{{QStringLiteral("ok"), false},
+													  {QStringLiteral("error"), QStringLiteral("No playback bridge.")}};
+									  return;
+								  }
+								  out = h->headlessRobotPlaybackBridge()->startExternalController(
+									  QJsonDocument::fromJson(body).object());
+							  },
+							  Qt::BlockingQueuedConnection);
+						  writeJson(res, out);
+					  });
+
+	httpServer().Post("/api/robot/external-controller/stop",
+					  [this](const httplib::Request&, httplib::Response& res)
+					  {
+						  QJsonObject out;
+						  QMetaObject::invokeMethod(
+							  this,
+							  [this, &out]()
+							  {
+								  auto* h = docHost(m_document.get());
+								  if (!h || !h->headlessRobotPlaybackBridge())
+								  {
+									  out = QJsonObject{{QStringLiteral("ok"), false}};
+									  return;
+								  }
+								  out = h->headlessRobotPlaybackBridge()->stopExternalController();
+							  },
+							  Qt::BlockingQueuedConnection);
+						  writeJson(res, out);
+					  });
+
 	httpServer().Get("/api/robot/playback/status",
 					 [this](const httplib::Request&, httplib::Response& res)
 					 {
