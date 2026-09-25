@@ -175,6 +175,7 @@ struct PluginPointCloudSpareParams
 	bool coarseGlobalAlign = false;
 	double voxelPrefilterMm = 0.0;
 	int maxOuterIters = 30;
+	std::size_t alignSampleCount = 3000U;
 	bool applyDeformationToSource = true;
 	bool createNewObject = false;
 	PluginMeshCreateOptions newObjectOptions{};
@@ -211,6 +212,7 @@ struct PluginPointCloudSdfParams
 	bool rigidPreAlign = true;
 	double voxelPrefilterMm = 0.0;
 	int maxOuterIters = 30;
+	std::size_t alignSampleCount = 3000U;
 	bool applyDeformationToSource = true;
 	bool createNewObject = false;
 	PluginMeshCreateOptions newObjectOptions{};
@@ -221,13 +223,25 @@ struct PluginPointCloudPyramidParams
 	std::string targetBackendIdUtf8;
 	double baseEdgeLengthMm = 0.0; ///< h；0=源中位边长
 	bool rigidPreAlign = true;
-	bool useFineRegOnLastLayer = false;
+	bool useFineRegOnLastLayer = true;
 	bool useAdaptiveDensityOnLastLayer = false;
 	bool useResidualDrivenSizingOnLastLayer = true;
 	double adaptiveApproxTolMm = 0.0;
 	double adaptiveEdgeMinRatio = 0.25;
 	double adaptiveEdgeMaxRatio = 2.0;
 	int solver = 0; ///< 0=SDF 1=SPARE
+	/// 层求解器旋钮（与单次 SPARE/SDF 侧栏同一组；Host 写入对应 sdf/spare）
+	double sampleRadiusRatio = 0.0;
+	double wSmo = 1.0;
+	double wArapCoarse = 500.0;
+	double wArapFine = 200.0;
+	int maxOuterIters = 30;
+	std::size_t alignSampleCount = 3000U;
+	int fieldMode = 1;
+	double fieldVoxelMm = 0.0;
+	int fineDataTerm = 0;
+	double voxelPrefilterMm = 0.0;
+	bool coarseGlobalAlign = false;
 	bool applyDeformationToSource = true;
 	bool createNewObject = false;
 	PluginMeshCreateOptions newObjectOptions{};

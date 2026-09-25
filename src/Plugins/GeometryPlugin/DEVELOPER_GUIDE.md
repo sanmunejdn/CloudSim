@@ -34,10 +34,22 @@
 
 **刻意不做**：偏粗 OCC 基网格、`isotropicRemeshProgressive`、remesh 失败再最长边细分兜底。
 
+## 后端离散与世界位姿
+
+`discretizeBackendToMesh` 必须用选中对象的**当前**位姿，不得只读 STEP 出生坐标：
+
+| 源类型 | 取数 | 结果 mesh |
+|--------|------|-----------|
+| `BrepModel` / 参数体 | `BrepBackendData::worldShape()`（已乘 `worldMatrix`） | soup 世界系，`worldMatrix=I` |
+| 仅 STEP 路径的 Model | `discretizeStepToMesh` 后再 `transformTriangleSoupToWorld` | 同上 |
+
+文件模式 `discretizeStepToMesh` 仍只读磁盘 STEP，不涉及 backend 变换。
+
 ## 验收清单
 
 1. Geometry 页面可切换 `STEP 文件` 与 `内部后端对象` 两种输入源
 2. 选择后端对象后执行离散，成功生成新 mesh backend 并在树中选中
+2a. 导入对象经 Gizmo/属性移动后再离散：结果 mesh 与当前显示位置一致（非出生坐标）
 2b. 密度模式可切换并传到 Host；边长模式状态栏显示 `avgEdge`
 3. 线面求交支持：
    - 直接输入 edge/face 索引

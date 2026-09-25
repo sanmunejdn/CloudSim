@@ -36,6 +36,13 @@ GEOMETRY_SERVICES_EXPORT bool discretizeStepToMesh(
 
 	std::string* errMsg = nullptr);
 
+/// 内存 ShapeHandle 离散（含目标边长 remesh）；与 STEP 文件路径入口共用 remesh 策略
+GEOMETRY_SERVICES_EXPORT bool discretizeShapeHandleToMesh(const geoalgo::ShapeHandle& shape,
+														  const geoalgo::MeshDiscretizeParams& params,
+														  std::vector<float>& soup,
+														  geoalgo::MeshDiscretizeReport& report,
+														  std::string* errMsg = nullptr);
+
 GEOMETRY_SERVICES_EXPORT bool discretizeStepFaceToMesh(
 
 	const std::string& stepPathUtf8,

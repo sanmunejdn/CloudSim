@@ -1,11 +1,14 @@
 ﻿/// @file IndustrialCameraPlugin.cpp
-/// @brief 注册工业相机侧栏（内嵌相机/手眼 Tab）
+/// @brief 注册工业相机侧栏（内嵌相机/手眼/视觉抓取 Tab）
 
 #include "IndustrialCameraPlugin.h"
 
 #include "CameraResourceStore.h"
 #include "IPluginHostContext.h"
 #include "IndustrialCameraDockWidget.h"
+#include "VisionGraspPanelWidget.h"
+
+#include <QJsonObject>
 
 QString IndustrialCameraPlugin::pluginId() const
 {
@@ -37,6 +40,26 @@ bool IndustrialCameraPlugin::initialize(IPluginHostContext* host)
 	}
 
 	host->onLanguageChanged([this](const bool) { applyLanguage(); });
+	host->onProjectAboutToSave(
+		[this](const QString&, QJsonObject& root)
+		{
+			auto* dock = qobject_cast<IndustrialCameraDockWidget*>(panel_);
+			if (!dock || !dock->visionGraspPanel())
+				return;
+			QJsonObject vg;
+			dock->visionGraspPanel()->saveOffsetsToJson(vg);
+			root.insert(QStringLiteral("industrialCameraVisionGrasp"), vg);
+		});
+	host->onProjectLoaded(
+		[this](const QString&, const QJsonObject& root)
+		{
+			auto* dock = qobject_cast<IndustrialCameraDockWidget*>(panel_);
+			if (!dock || !dock->visionGraspPanel())
+				return;
+			const QJsonObject vg = root.value(QStringLiteral("industrialCameraVisionGrasp")).toObject();
+			if (!vg.isEmpty())
+				dock->visionGraspPanel()->loadOffsetsFromJson(vg);
+		});
 	host->logInfo(zh ? QStringLiteral("工业相机插件已加载。") : QStringLiteral("Industrial camera plugin loaded."));
 	return true;
 }

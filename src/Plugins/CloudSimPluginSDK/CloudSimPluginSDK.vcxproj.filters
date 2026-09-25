@@ -47,6 +47,9 @@
     <ClInclude Include="inc\IPluginPointCloudHost.h">
       <Filter>inc\Interfaces</Filter>
     </ClInclude>
+    <ClInclude Include="inc\IPluginRobotHost.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
     <ClInclude Include="inc\IPluginSceneBridge.h">
       <Filter>inc\Interfaces</Filter>
     </ClInclude>
@@ -66,6 +69,9 @@
       <Filter>inc\Types</Filter>
     </ClInclude>
     <ClInclude Include="inc\PluginPrimitiveTypes.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginRobotTypes.h">
       <Filter>inc\Types</Filter>
     </ClInclude>
   </ItemGroup>

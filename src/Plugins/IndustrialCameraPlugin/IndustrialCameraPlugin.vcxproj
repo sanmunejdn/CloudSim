@@ -93,6 +93,7 @@ if not exist "$(CloudSimBinDir)resource\industrial_camera\README.md" copy /Y "$(
     <QtMoc Include="inc\IndustrialCameraDockWidget.h" />
     <QtMoc Include="inc\CameraPanelWidget.h" />
     <QtMoc Include="inc\HandEyePanelWidget.h" />
+    <QtMoc Include="inc\VisionGraspPanelWidget.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\CameraResourceStore.h" />
@@ -102,6 +103,7 @@ if not exist "$(CloudSimBinDir)resource\industrial_camera\README.md" copy /Y "$(
     <ClCompile Include="source\IndustrialCameraDockWidget.cpp" />
     <ClCompile Include="source\CameraPanelWidget.cpp" />
     <ClCompile Include="source\HandEyePanelWidget.cpp" />
+    <ClCompile Include="source\VisionGraspPanelWidget.cpp" />
     <ClCompile Include="source\CameraResourceStore.cpp" />
   </ItemGroup>
   <ItemGroup>

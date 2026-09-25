@@ -8,7 +8,7 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00013600` = 1.54.0；含 `PluginPropertyBindingEntry` / Path B Binding 注册）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00013700` = 1.55.0；含 `IPluginRobotHost` / 视觉抓取轨迹规划桥接）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
 - `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；**1.12.0+** `reconstructSurfaceFromMesh`（网格 → 新 `BrepModel`，源网格保留）；**1.13.0+** `beginMeshSurfaceReconstructSession` / `runMeshSurfaceReconstructStage` / `clearMeshSurfaceReconstructSession`（曲面重构分阶段调试，`PluginMeshSurfaceReconstructStage`）；**1.15.0+** `beginTubularGrindingSession` / `runTubularGrindingStage` / `clearTubularGrindingSession`（管状铸件特征构建 Phase 1–4，`PluginTubularGrindingStage`）；新 API 均追加在 vtable 末尾；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
@@ -111,6 +111,12 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `nonRigidRegisterSpare` | **1.16.0+** SPARE 非刚性配准；源/目标可为点云或网格（`PluginPointCloudSpareParams`） |
 | `nonRigidRegisterSdf` | **1.17.0+** SDF/DDF 混合非刚性配准（`PluginPointCloudSdfParams`） |
 | `nonRigidRegisterPyramid` | **1.53.0+** 几何多分辨率金字塔（`PluginPointCloudPyramidParams`；网格↔网格） |
+
+## 机器人运动宿主（1.55.0+）
+
+头文件：[`PluginRobotTypes.h`](inc/PluginRobotTypes.h)、[`IPluginRobotHost.h`](inc/IPluginRobotHost.h)。
+
+经 `IPluginHostContext::robotHost()` 获取（vtable 末尾追加）。用于读当前 TCP、选中物体基座位姿，以及多 TCP 路点 `planAndConfirmTcpWaypoints`（内部复用碰撞页 `planToTcpPose`）。插件禁止直链 `RobotScene` / `RobotPathPlanning`。
 
 **ABI 注意**：`IPluginPointCloudHost` 新增虚函数**只能追加在接口末尾**。在中间插入会导致插件与宿主 vtable 错位（例如 `queryMeshInfo` 误调到 `simplifyMesh` 并崩溃）。升级 SPARE / SDF 接口后须**同时**重编 `CloudSimHost.dll` 与 `PointCloudPlugin.dll`。
 

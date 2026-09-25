@@ -128,6 +128,11 @@ public:
 											 bool showRetry = true) override;
 	bool loadBoundTrajectoryPlanForAi(std::string* planOutUtf8, QString* outError) override;
 	bool reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QString* outSummary, QString* outError) override;
+	bool getActiveRobotTcpPoseForPlugin(double& xMm, double& yMm, double& zMm, double& rxDeg, double& ryDeg,
+										double& rzDeg, QString* outError) override;
+	bool getSelectedBackendPoseInRobotBaseForPlugin(double& xMm, double& yMm, double& zMm, double& rxDeg, double& ryDeg,
+													double& rzDeg, QString* outError) override;
+	bool planAndConfirmTcpWaypointsForPlugin(const QVector<QVector<double>>& goals6, QString* outError) override;
 	bool useChinese() const override;
 	QMenuBar* menuBar() override;
 	QStatusBar* statusBar() override;

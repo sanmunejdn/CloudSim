@@ -116,6 +116,7 @@
     <ClInclude Include="inc\DocumentPointCloudOps.h" />
     <ClInclude Include="inc\PluginGeometryHostImpl.h" />
     <ClInclude Include="inc\PluginPointCloudHostImpl.h" />
+    <ClInclude Include="inc\PluginRobotHostImpl.h" />
     <ClInclude Include="inc\plugin_host_global.h" />
     <ClInclude Include="inc\PluginDelegatedBackend.h" />
     <ClInclude Include="inc\PluginPropertyBindingRegistry.h" />
@@ -170,6 +171,7 @@
     <ClCompile Include="source\PluginHostContext.cpp" />
     <ClCompile Include="source\PluginGeometryHostImpl.cpp" />
     <ClCompile Include="source\PluginPointCloudHostImpl.cpp" />
+    <ClCompile Include="source\PluginRobotHostImpl.cpp" />
     <ClCompile Include="source\PluginSceneBridgeAdapter.cpp" />
   </ItemGroup>
   <ItemGroup>

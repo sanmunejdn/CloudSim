@@ -14,6 +14,9 @@
     <Filter Include="inc\UI">
       <UniqueIdentifier>{735C9683-896E-46FB-BB22-8EDD9395F0BD}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\VisionGrasp">
+      <UniqueIdentifier>{A3C1E8F2-4B7D-4E91-9C2A-6F5D8B1E0A47}</UniqueIdentifier>
+    </Filter>
     <Filter Include="resource">
       <UniqueIdentifier>{161A99FE-177C-439D-94F6-0CF3D55460C1}</UniqueIdentifier>
     </Filter>
@@ -32,6 +35,9 @@
     </Filter>
     <Filter Include="src\UI">
       <UniqueIdentifier>{DB906DA3-C8F1-41D3-B06D-369E463023C3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\VisionGrasp">
+      <UniqueIdentifier>{C8E4F1A9-2D6B-4A03-8F7E-1B9C5D0A3E62}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -55,6 +61,9 @@
     <ClCompile Include="source\IndustrialCameraPlugin.cpp">
       <Filter>src\Plugin</Filter>
     </ClCompile>
+    <ClCompile Include="source\VisionGraspPanelWidget.cpp">
+      <Filter>src\VisionGrasp</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="inc\CameraPanelWidget.h">
@@ -68,6 +77,9 @@
     </QtMoc>
     <QtMoc Include="inc\IndustrialCameraPlugin.h">
       <Filter>inc\Plugin</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\VisionGraspPanelWidget.h">
+      <Filter>inc\VisionGrasp</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

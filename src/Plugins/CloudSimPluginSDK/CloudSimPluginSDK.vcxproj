@@ -78,8 +78,10 @@
     <ClInclude Include="inc\PluginLabelingTypes.h" />
     <ClInclude Include="inc\IProcessFlowAiBridge.h" />
     <ClInclude Include="inc\IPluginPointCloudHost.h" />
+    <ClInclude Include="inc\IPluginRobotHost.h" />
     <ClInclude Include="inc\PluginGeometryTypes.h" />
     <ClInclude Include="inc\PluginPointCloudTypes.h" />
+    <ClInclude Include="inc\PluginRobotTypes.h" />
     <ClInclude Include="inc\cloudsim_plugin_sdk_global.h" />
     <ClInclude Include="inc\CloudSimPluginVersion.h" />
     <ClInclude Include="inc\ICloudSimPlugin.h" />

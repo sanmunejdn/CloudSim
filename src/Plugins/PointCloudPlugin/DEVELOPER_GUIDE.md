@@ -86,7 +86,8 @@
 | 基准边长 h (mm) | 0=源中位边长；L0=4h，其后对变形结果加密到 2h/h |
 | 层求解器 | SDF（默认）或 SPARE |
 | 刚性预对齐（仅粗层） | 仅 L0 交给求解器 ICP |
-| 末层开启细阶段 | 默认关（大网格更稳） |
+| 末层开启细阶段 | 默认开；10 万面级建议直接用单次 SPARE/SDF |
+| 层求解器参数 | 选 SDF/SPARE 后复用对应「高级」区（采样半径、外迭代、对齐采样、平滑、ARAP） |
 | 输出为新对象 | 默认开；拓扑为 **细层 remesh**，非原始源 |
 | 执行 | `nonRigidRegisterPyramid(doc, sourceBackendId, PluginPointCloudPyramidParams, onFinished)` |
 

@@ -114,6 +114,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginRobotHostImpl.h" />
     <ClInclude Include="inc\GeometryImportUiFilters.h" />
     <ClInclude Include="inc\cloudsim_host_global.h" />
     <ClInclude Include="inc\CloudSimHost.h" />
@@ -214,6 +215,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginRobotHostImpl.cpp" />
     <ClCompile Include="source\DocumentHost.cpp" />
     <ClCompile Include="source\headless\HeadlessRobotContext.cpp" />
     <ClCompile Include="source\import\ApplyGeometryImportParse.cpp" />

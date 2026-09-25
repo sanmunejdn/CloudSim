@@ -172,6 +172,11 @@ public slots:
 	void onMotionPathPreviewClearRequested();
 	void onMotionPathConfirmTrajectoryRequested();
 	void runMotionPathPlanFromWaypoints(const QString& startId, const QString& endId);
+	/// 多 TCP 目标按段规划（碰撞页参数），预览确认后写入活动程序
+	bool planAndConfirmTcpWaypoints(const QVector<RobotInstruction::Vec3>& posesMm,
+									const QVector<RobotInstruction::Vec3>& eulersDeg, QString* err);
+	bool tryCaptureSelectedBackendPoseInRobotBase(RobotInstruction::Vec3& outPoseMm,
+												  RobotInstruction::Vec3& outEulerDeg, QString* errMsg) const;
 	QVector<MotionPathWaypointItem> collectMotionPathWaypoints() const;
 	void refreshCollisionPageMotionWaypoints();
 	void refreshCollisionPageSceneObjects();

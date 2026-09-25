@@ -631,6 +631,7 @@ void HandEyePanelWidget::onSolve()
 {
 	HandEyeSolveParams params;
 	params.mode = eyeInHand_->isChecked() ? HandEyeMountMode::EyeInHand : HandEyeMountMode::EyeToHand;
+	lastMountMode_ = params.mode;
 	lastResult_ = industrial_camera::solveHandEyeEnsemble(samples_, params);
 
 	if (mechSession_ && mechSession_->sampleCount() >= 3)

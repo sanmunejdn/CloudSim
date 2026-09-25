@@ -30,6 +30,7 @@
 #include "PluginGeometryHostImpl.h"
 #include "PluginLabelingHostImpl.h"
 #include "PluginPointCloudHostImpl.h"
+#include "PluginRobotHostImpl.h"
 #include "PluginPropertyBindingRegistry.h"
 #include "PluginPropertyBindingSelfTest.h"
 #include "PrimitiveBrep.h"
@@ -137,6 +138,7 @@ MeshBooleanOp toMeshBooleanOp(PluginMeshBooleanOp op)
 PluginHostContext::PluginHostContext(IPluginMainWindowHost* mainWindowHost, QObject* parent)
 	: QObject(parent), m_mainWindowHost(mainWindowHost),
 	  m_pointCloudHost(std::make_unique<PluginPointCloudHostImpl>(this)),
+	  m_robotHost(std::make_unique<PluginRobotHostImpl>(this)),
 	  m_geometryHost(std::make_unique<PluginGeometryHostImpl>(this)),
 	  m_labelingHost(std::make_unique<PluginLabelingHostImpl>(this)),
 	  m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
@@ -906,6 +908,16 @@ IPluginPointCloudHost* PluginHostContext::pointCloudHost()
 const IPluginPointCloudHost* PluginHostContext::pointCloudHost() const
 {
 	return m_pointCloudHost.get();
+}
+
+IPluginRobotHost* PluginHostContext::robotHost()
+{
+	return m_robotHost.get();
+}
+
+const IPluginRobotHost* PluginHostContext::robotHost() const
+{
+	return m_robotHost.get();
 }
 
 IPluginGeometryHost* PluginHostContext::geometryHost()

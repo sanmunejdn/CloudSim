@@ -7,6 +7,7 @@
 
 #include <QDockWidget>
 #include <QString>
+#include <QVector>
 #include <functional>
 #include <string>
 
@@ -93,6 +94,14 @@ public:
 	virtual bool loadBoundTrajectoryPlanForAi(std::string* planOutUtf8, QString* outError) = 0;
 	virtual bool reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QString* outSummary,
 											 QString* outError) = 0;
+
+	/// 1.55.0+：插件机器人宿主桥接（mm + deg）
+	virtual bool getActiveRobotTcpPoseForPlugin(double& xMm, double& yMm, double& zMm, double& rxDeg, double& ryDeg,
+												double& rzDeg, QString* outError) = 0;
+	virtual bool getSelectedBackendPoseInRobotBaseForPlugin(double& xMm, double& yMm, double& zMm, double& rxDeg,
+															double& ryDeg, double& rzDeg, QString* outError) = 0;
+	/// goals6：每项 6 个数 x,y,z,rx,ry,rz
+	virtual bool planAndConfirmTcpWaypointsForPlugin(const QVector<QVector<double>>& goals6, QString* outError) = 0;
 
 	using PluginJobCanceledFn = std::function<bool()>;
 	virtual quint64 enqueueCancellableBackgroundJob(

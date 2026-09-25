@@ -302,6 +302,8 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 | `showAiFeatureCandidatePreview` | → `FeatureTrajectoryPageWidget::buildAndShowCandidatePreview`（overlay 坐标经 `feature_pick_transform` + `IRobotOsgViewHost` pick alias / skip-rebase） |
 | `commitAiTrajectoryFeatures` | → `commitFeaturePlanFromAi`（离散 + `pipeline[]` 或 recipe 回退） |
 | `proposeAndConfirmTrajectoryPlan` | enrich + `TrajectoryPlanConfirmDialog` |
+| `getActiveRobotTcpPoseForPlugin` / `getSelectedBackendPoseInRobotBaseForPlugin` / `planAndConfirmTcpWaypointsForPlugin` | **1.55.0+** 视觉抓取桥接 → `RobotSimulationController` |
+
 | `loadBoundTrajectoryPlanForAi` / `reviseAiTrajectoryPlan` | 已作用再编辑 |
 
 ---

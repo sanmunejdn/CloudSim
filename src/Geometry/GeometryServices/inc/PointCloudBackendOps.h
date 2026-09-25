@@ -89,6 +89,7 @@ struct PointCloudSpareParams
 	bool coarseGlobalAlign = false;
 	double voxelPrefilterMm = 0.0;
 	int maxOuterIters = 30;
+	std::size_t alignSampleCount = 3000U;
 };
 
 GEOMETRY_SERVICES_EXPORT bool downsamplePointCloudVoxel(PointCloudBackendData& data, double voxelSizeMm,
@@ -196,6 +197,7 @@ struct PointCloudSdfParams
 	bool rigidPreAlign = true;
 	double voxelPrefilterMm = 0.0;
 	int maxOuterIters = 30;
+	std::size_t alignSampleCount = 3000U;
 };
 
 GEOMETRY_SERVICES_EXPORT bool nonRigidRegisterPointCloudsSdf(PointCloudBackendData& sourceInOut,
@@ -230,7 +232,7 @@ struct PointCloudPyramidParams
 	int layers = 3;
 	double layerScale = 2.0;
 	bool rigidPreAlign = true;
-	bool useFineRegOnLastLayer = false;
+	bool useFineRegOnLastLayer = true;
 	bool useAdaptiveDensityOnLastLayer = false;
 	bool useResidualDrivenSizingOnLastLayer = true;
 	double adaptiveApproxTolMm = 0.0;

@@ -278,6 +278,9 @@
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPointCloudHostImpl.h">
       <Filter>External\UI\CloudSimPluginHost\inc</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginRobotHostImpl.h">
+      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPropertyBindingRegistry.h">
       <Filter>External\UI\CloudSimPluginHost\inc</Filter>
     </ClInclude>
@@ -566,6 +569,9 @@
       <Filter>External\UI\CloudSimPluginHost\source</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPointCloudHostImpl.cpp">
+      <Filter>External\UI\CloudSimPluginHost\source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginRobotHostImpl.cpp">
       <Filter>External\UI\CloudSimPluginHost\source</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPropertyBindingRegistry.cpp">

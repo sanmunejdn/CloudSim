@@ -26,6 +26,7 @@ class IPluginDocument;
 class IPluginGeometryHost;
 class IPluginLabelingHost;
 class IPluginPointCloudHost;
+class IPluginRobotHost;
 class IProcessFlowAiBridge;
 class QDockWidget;
 class QMenu;
@@ -246,6 +247,10 @@ public:
 
 	/// 1.52.0+：文档 Tab 关闭（deleteLater 前）；默认 destroyOnClose
 	virtual void onDocumentClosed(std::function<void(const QString& documentId)> callback) = 0;
+
+	/// 1.55.0+：机器人运动宿主（轨迹规划/读 TCP）；vtable 仅末尾追加
+	virtual IPluginRobotHost* robotHost() = 0;
+	virtual const IPluginRobotHost* robotHost() const = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

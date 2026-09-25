@@ -150,6 +150,7 @@
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\DocumentPointCloudOps.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginGeometryHostImpl.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPointCloudHostImpl.h" />
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginRobotHostImpl.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginDelegatedBackend.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPropertyBindingRegistry.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPropertyBindingSelfTest.h" />
@@ -252,6 +253,7 @@
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\DocumentPointCloudOps.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginGeometryHostImpl.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPointCloudHostImpl.cpp" />
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginRobotHostImpl.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginLabelingHostImpl.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginDelegatedBackend.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPropertyBindingRegistry.cpp" />

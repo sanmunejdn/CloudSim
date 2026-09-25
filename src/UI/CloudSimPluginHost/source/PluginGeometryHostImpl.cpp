@@ -6,6 +6,8 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
+#include "BackendFollowMath.h"
+#include "BackendSpatial.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "DocumentGeometryOps.h"
@@ -162,6 +164,48 @@ QString stepPathForBackend(cloudsim::host::DocumentHost* page, const std::string
 		return QString();
 	}
 	return page->backendSourcePath().value(QString::fromStdString(backendIdUtf8));
+}
+
+/// 按 backendId 或 STEP 路径解析可计算工件；同路径优先 BrepModel
+std::shared_ptr<BackendDataBase> resolveComputableBackend(cloudsim::host::DocumentHost* page,
+														  const std::string& stepPathOrBackendId)
+{
+	if (!page || stepPathOrBackendId.empty())
+	{
+		return nullptr;
+	}
+
+	if (auto byId = page->findObject(stepPathOrBackendId))
+	{
+		if (isTopLevelWorkpieceBackend(page->backend(), byId->id()))
+		{
+			return byId;
+		}
+	}
+
+	const QString wantPath = QString::fromStdString(stepPathOrBackendId);
+	std::shared_ptr<BackendDataBase> best;
+	bool bestIsBrep = false;
+	BackendDataManager& mgr = page->backend();
+	for (const std::shared_ptr<BackendDataBase>& data : page->listObjects())
+	{
+		if (!data || !isTopLevelWorkpieceBackend(mgr, data->id()))
+		{
+			continue;
+		}
+		const QString stepPath = stepPathForBackend(page, data->id());
+		if (stepPath.isEmpty() || stepPath.compare(wantPath, Qt::CaseInsensitive) != 0)
+		{
+			continue;
+		}
+		const bool isBrep = isBrepWorkpieceClassName(data->className());
+		if (!best || (!bestIsBrep && isBrep))
+		{
+			best = data;
+			bestIsBrep = isBrep;
+		}
+	}
+	return best;
 }
 
 bool worldPointToStepModelMm(OsgWidget* osg, const std::string& backendIdUtf8, const osg::Vec3f& worldMm,
@@ -359,7 +403,69 @@ void PluginGeometryHostImpl::discretizeBackendToMesh(IPluginDocument* doc, const
 													 const PluginMeshCreateOptions& options,
 													 PluginGeometryFinishedFn onFinished)
 {
-	discretizeStepToMesh(doc, stepPathUtf8, params, options, std::move(onFinished));
+	if (!onFinished)
+	{
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!page)
+	{
+		onFinished(false, QStringLiteral("No active document"), {});
+		return;
+	}
+
+	const geoalgo::MeshDiscretizeParams geoParams = document_geometry_ops::toGeoMeshParams(params);
+	const std::shared_ptr<BackendDataBase> source = resolveComputableBackend(page, stepPathUtf8);
+
+	// 主线程先取世界系 shape / worldMatrix，后台作业只消费快照
+	geoalgo::ShapeHandle worldShape;
+	BackendMat4 bakeWorld = BackendMat4::identity();
+	bool useWorldShape = false;
+	bool bakeSoupFromMatrix = false;
+	std::string stepPath = stepPathUtf8;
+
+	if (auto brep = std::dynamic_pointer_cast<BrepBackendData>(source))
+	{
+		if (brep->hasGeometry())
+		{
+			worldShape = brep->worldShape();
+			useWorldShape = !worldShape.isNull();
+		}
+	}
+	if (!useWorldShape && source)
+	{
+		bakeWorld = source->worldMatrix();
+		bakeSoupFromMatrix = !backend_mat4_nearly_equal(bakeWorld, BackendMat4::identity(), 1e-9);
+		const QString mapped = stepPathForBackend(page, source->id());
+		if (!mapped.isEmpty())
+		{
+			stepPath = mapped.toStdString();
+		}
+	}
+
+	runMeshJob(
+		m_host, doc, QStringLiteral("Backend discretize"),
+		[useWorldShape, worldShape, bakeSoupFromMatrix, bakeWorld, stepPath,
+		 geoParams](MeshWorkResult& out)
+		{
+			if (useWorldShape)
+			{
+				// worldShape 已含用户移动；结果 soup 落在世界系，新建 mesh 保持 I
+				return geometry_backend_ops::discretizeShapeHandleToMesh(worldShape, geoParams, out.soup, out.report,
+																		 &out.error);
+			}
+			if (!geometry_backend_ops::discretizeStepToMesh(stepPath, geoParams, out.soup, out.report, &out.error))
+			{
+				return false;
+			}
+			if (bakeSoupFromMatrix)
+			{
+				transformTriangleSoupToWorld(out.soup, bakeWorld);
+				geometry_backend_ops::fillMeshReport(out.soup, out.report);
+			}
+			return true;
+		},
+		options, std::move(onFinished));
 }
 
 void PluginGeometryHostImpl::discretizeBackendFaceToMesh(IPluginDocument* doc, const PluginGeometryStepRef& faceRef,

@@ -148,6 +148,12 @@ private:
 	QCheckBox* m_spareRigidPreAlignCheck = nullptr;
 	QCheckBox* m_spareCoarseGlobalAlignCheck = nullptr;
 	QCheckBox* m_spareCreateNewCheck = nullptr;
+	QCheckBox* m_spareFineRegCheck = nullptr;
+	QSpinBox* m_spareOuterItersSpin = nullptr;
+	QSpinBox* m_spareAlignSampleSpin = nullptr;
+	QDoubleSpinBox* m_spareWSmoSpin = nullptr;
+	QDoubleSpinBox* m_spareWArapCoarseSpin = nullptr;
+	QDoubleSpinBox* m_spareWArapFineSpin = nullptr;
 	QWidget* m_spareOptionsWidget = nullptr;
 	QWidget* m_sdfOptionsWidget = nullptr;
 	QComboBox* m_sdfFieldModeCombo = nullptr;
@@ -155,6 +161,13 @@ private:
 	QComboBox* m_sdfFineTermCombo = nullptr;
 	QCheckBox* m_sdfRigidPreAlignCheck = nullptr;
 	QCheckBox* m_sdfCreateNewCheck = nullptr;
+	QDoubleSpinBox* m_sdfSampleRadiusSpin = nullptr;
+	QCheckBox* m_sdfFineRegCheck = nullptr;
+	QSpinBox* m_sdfOuterItersSpin = nullptr;
+	QSpinBox* m_sdfAlignSampleSpin = nullptr;
+	QDoubleSpinBox* m_sdfWSmoSpin = nullptr;
+	QDoubleSpinBox* m_sdfWArapCoarseSpin = nullptr;
+	QDoubleSpinBox* m_sdfWArapFineSpin = nullptr;
 	QWidget* m_pyramidOptionsWidget = nullptr;
 	QDoubleSpinBox* m_pyramidEdgeSpin = nullptr;
 	QComboBox* m_pyramidSolverCombo = nullptr;

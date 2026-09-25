@@ -3117,6 +3117,399 @@ void RobotSimulationController::onMotionPathConfirmTrajectoryRequested()
 	}
 }
 
+bool RobotSimulationController::tryCaptureSelectedBackendPoseInRobotBase(RobotInstruction::Vec3& outPoseMm,
+																		 RobotInstruction::Vec3& outEulerDeg,
+																		 QString* errMsg) const
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!doc || !m_host)
+	{
+		if (errMsg)
+			*errMsg = QStringLiteral("文档未就绪");
+		return false;
+	}
+	const QString bid = m_host->selectedBackendId();
+	if (bid.isEmpty())
+	{
+		if (errMsg)
+			*errMsg = QStringLiteral("未选中场景对象");
+		return false;
+	}
+	const int instIdx =
+		m_host->simulationCommandPage() && m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
+			? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+			: 0;
+	osg::Matrixd robotBaseWorld;
+	robotBaseWorld.makeIdentity();
+	if (!RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, robotBaseWorld))
+	{
+		if (errMsg)
+			*errMsg = QStringLiteral("无法求机器人基座位姿");
+		return false;
+	}
+	osg::Matrixd objWorld;
+	objWorld.makeIdentity();
+	if (osg)
+	{
+		cloudsim::core::Mat4 packed{};
+		if (osg->getBackendRootWorldMatrix(bid.toStdString(), packed))
+			objWorld = RobotSimulationMath::osgMatrixFromCoreMat4(packed);
+		else
+		{
+			auto be = doc->backend().getData(bid.toStdString());
+			if (!be)
+			{
+				if (errMsg)
+					*errMsg = QStringLiteral("选中对象不存在");
+				return false;
+			}
+			objWorld = RobotMatrixOsg::matrixFromBackendColMajor(be->worldMatrix());
+		}
+	}
+	else
+	{
+		auto be = doc->backend().getData(bid.toStdString());
+		if (!be)
+		{
+			if (errMsg)
+				*errMsg = QStringLiteral("选中对象不存在");
+			return false;
+		}
+		objWorld = RobotMatrixOsg::matrixFromBackendColMajor(be->worldMatrix());
+	}
+	const osg::Matrixd T_base_obj = osg::Matrixd::inverse(robotBaseWorld) * objWorld;
+	const osg::Vec3d t = T_base_obj.getTrans();
+	outPoseMm.x = t.x();
+	outPoseMm.y = t.y();
+	outPoseMm.z = t.z();
+	const osg::Vec3f eu = OsgScene::quatToEulerDeg(T_base_obj.getRotate());
+	outEulerDeg.x = eu.x();
+	outEulerDeg.y = eu.y();
+	outEulerDeg.z = eu.z();
+	return true;
+}
+
+bool RobotSimulationController::planAndConfirmTcpWaypoints(const QVector<RobotInstruction::Vec3>& posesMm,
+														   const QVector<RobotInstruction::Vec3>& eulersDeg,
+														   QString* err)
+{
+	auto fail = [&](const QString& msg) -> bool
+	{
+		if (err)
+			*err = msg;
+		if (m_host && m_host->runInfoPage())
+			m_host->appendRunWarning(msg);
+		if (RobotCollisionSettingsWidget* col = m_simulationDock ? m_simulationDock->collisionPage() : nullptr)
+		{
+			col->setPlanStatusText(msg);
+			col->setConfirmEnabled(false);
+		}
+		return false;
+	};
+
+	if (m_programExecutor.isRunning())
+		return fail(QStringLiteral("程序运行中，无法规划"));
+	if (posesMm.isEmpty() || posesMm.size() != eulersDeg.size())
+		return fail(QStringLiteral("目标位姿列表无效"));
+
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!doc || !osg || !m_host->simulationCommandPage() || !m_host->robotAxisControlPage())
+		return fail(QStringLiteral("机器人仿真上下文未就绪"));
+
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	if (instIdx < 0)
+		return fail(QStringLiteral("未选择机器人实例"));
+
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	const QString robotBackendId = m_host->simulationCommandPage()->currentRobotBackendId();
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (nj <= 0 || urdfPath.isEmpty())
+		return fail(QStringLiteral("机器人运动学不可用"));
+
+	QVector<double> startQ = localJointAnglesForInstance(instIdx);
+	if (startQ.size() != nj)
+		return fail(QStringLiteral("当前关节维数不匹配"));
+
+	RobotCoordinate::RobotCoordinateFrameSet frames = doc->robotCoordinateFramesForInstance(instIdx);
+	const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames);
+	QString flangeLink =
+		activeTool ? QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *activeTool)) : QString();
+	if (flangeLink.isEmpty())
+	{
+		flangeLink = RobotSimulationMath::defaultTcpLinkNameForUrdf(urdfPath,
+																	m_host->simulationCommandPage()->selectedTcpLink());
+	}
+	BackendMat4 T_tool = BackendMat4::identity();
+	if (activeTool)
+		T_tool = RobotCoordinate::frameToMat4(activeTool->T_flange_tool);
+
+	cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
+	if (!doc->robotPerLinkKinematicsForInstance(instIdx, pl))
+		return fail(QStringLiteral("per-link 运动学不可用"));
+
+	QHash<QString, collision::CollisionBodyId> linkBodies;
+	for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+	{
+		collision::CollisionBodyId id;
+		id.kind = "robotLink";
+		id.backendId = it.value().toStdString();
+		id.linkName = it.key().toStdString();
+		linkBodies.insert(it.key(), id);
+	}
+
+	if (!m_collisionWorld)
+		m_collisionWorld = std::make_unique<collision::CollisionWorld>();
+	RobotCollision::Settings col = doc->robotCollisionSettings();
+	if (m_simulationDock && m_simulationDock->collisionPage())
+	{
+		col = m_simulationDock->collisionPage()->settings();
+		doc->robotCollisionSettings() = col;
+	}
+
+	auto computeTWorldUrdfBase = [&](const QVector<double>& qAt) -> BackendMat4
+	{
+		BackendMat4 T_world_urdfBase = BackendMat4::identity();
+		const QString refBid = doc->robotFrameWorldReferenceBackendId(instIdx);
+		QString refLink;
+		for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+		{
+			if (it.value() == refBid)
+			{
+				refLink = it.key();
+				break;
+			}
+		}
+		if (refLink.isEmpty())
+			return T_world_urdfBase;
+		QHash<QString, osg::Matrixd> meshFk;
+		QString fkErr;
+		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, qAt, meshFk, &fkErr, pl.meshVerticesInLinkFrame))
+			return T_world_urdfBase;
+		const auto fkIt = meshFk.constFind(refLink);
+		auto be = doc->backend().getData(refBid.toStdString());
+		if (fkIt == meshFk.constEnd() || !be)
+			return T_world_urdfBase;
+		const engine::RigidTransform T_be = engine::rigidTransformFromColMajor(
+			[&]
+			{
+				engine::ColMajorMat4 cm{};
+				BackendMat4 W = be->worldMatrix();
+				cloudsim::core::Mat4 osgPacked{};
+				if (osg && osg->getBackendRootWorldMatrix(refBid.toStdString(), osgPacked))
+				{
+					W = RobotMatrixOsg::backendColMajorFromMatrix(
+						RobotSimulationMath::osgMatrixFromCoreMat4(osgPacked));
+				}
+				for (int i = 0; i < 16; ++i)
+					cm[static_cast<size_t>(i)] = W.v[i];
+				return cm;
+			}());
+		const engine::RigidTransform T_fk = engine::rigidTransformFromOsg(*fkIt);
+		const engine::RigidTransform T_wb = T_be.composeScene(T_fk.inverse());
+		const engine::ColMajorMat4 cm = engine::colMajorFromRigidTransform(T_wb);
+		for (int i = 0; i < 16; ++i)
+			T_world_urdfBase.v[i] = cm[static_cast<size_t>(i)];
+		return T_world_urdfBase;
+	};
+
+	RobotInstruction::RawTrajectory combined;
+	QString lastPlannerName;
+	double totalLen = 0.0;
+	QVector<double> segStartQ = startQ;
+
+	for (int gi = 0; gi < posesMm.size(); ++gi)
+	{
+		robot_path::TcpPose goal{};
+		goal.transMm[0] = posesMm[gi].x;
+		goal.transMm[1] = posesMm[gi].y;
+		goal.transMm[2] = posesMm[gi].z;
+		{
+			const osg::Quat q = engine::eulerDegToQuat(eulersDeg[gi].x, eulersDeg[gi].y, eulersDeg[gi].z);
+			goal.quatXyzw[0] = q.x();
+			goal.quatXyzw[1] = q.y();
+			goal.quatXyzw[2] = q.z();
+			goal.quatXyzw[3] = q.w();
+		}
+
+		if (col.enabled)
+		{
+			BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, doc->backend(), col, osg);
+			QVector<double> agg;
+			(void)doc->applyJointAnglesRad(instIdx, segStartQ, agg);
+			BackendCollisionSync::updatePoses(*m_collisionWorld, doc, doc->backend(), osg);
+		}
+
+		robot_path::PlanRequest req;
+		req.urdfPath = urdfPath;
+		req.flangeLinkName = flangeLink;
+		req.startJointRad.assign(segStartQ.begin(), segStartQ.end());
+		req.goalToolInBase = goal;
+		req.T_flange_tool = T_tool;
+		req.T_world_urdfBase = computeTWorldUrdfBase(segStartQ);
+		{
+			auto backendFromOsgPacked = [](const cloudsim::core::Mat4& packed)
+			{ return RobotMatrixOsg::backendColMajorFromMatrix(RobotSimulationMath::osgMatrixFromCoreMat4(packed)); };
+			req.robotBasePlacementWorld = RobotSimulationMath::osgMatrixFromCoreMat4(pl.robotBasePlacementWorld);
+			for (auto it = pl.fkMeshWorldT0.constBegin(); it != pl.fkMeshWorldT0.constEnd(); ++it)
+				req.fkMeshWorldT0.insert(it.key(), RobotSimulationMath::osgMatrixFromCoreMat4(it.value()));
+			for (auto it = pl.outerWorldAtBindByBackendId.constBegin();
+				 it != pl.outerWorldAtBindByBackendId.constEnd(); ++it)
+				req.outerWorldAtBindByBackendId.insert(it.key(),
+													   RobotSimulationMath::osgMatrixFromCoreMat4(it.value()));
+			for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+			{
+				if (!osg)
+					continue;
+				cloudsim::core::Mat4 wCm{};
+				if (osg->getBackendRootWorldMatrix(it.value().toStdString(), wCm))
+					req.linkWorldAtStart.insert(it.key(), backendFromOsgPacked(wCm));
+			}
+		}
+		req.world = col.enabled ? m_collisionWorld.get() : nullptr;
+		req.linkBodies = linkBodies;
+		req.meshVerticesInLinkFrame = pl.meshVerticesInLinkFrame;
+		req.options.securityMarginMm = col.securityMarginMm;
+		req.options.checkCollision = col.enabled;
+		req.options.planningSpace = col.planningSpace.empty() ? "Auto" : col.planningSpace;
+		req.options.plannerId = col.plannerId.empty() ? "Auto" : col.plannerId;
+		req.options.planningTimeSec = col.planningTimeSec;
+		if (col.enabled && m_collisionWorld &&
+			m_collisionWorld->bodyCount() > static_cast<std::size_t>(linkBodies.size()))
+		{
+			req.options.allowDirectJointLerp = false;
+		}
+
+		robot_path::PathResult plan;
+		if (!robot_path::planToTcpPose(req, plan) || !plan.ok)
+		{
+			return fail(QStringLiteral("第 %1 段规划失败：%2")
+							.arg(gi + 1)
+							.arg(QString::fromStdString(plan.errMsg.empty() ? "motion planning failed" : plan.errMsg)));
+		}
+
+		if (col.enabled && m_collisionWorld)
+		{
+			std::string osgColErr;
+			auto sceneCheck = [&](const bool restoreOnHit)
+			{
+				return BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(), instIdx,
+																	 segStartQ, plan.jointTrajectoryRad, col,
+																	 &osgColErr, osg, true, restoreOnHit);
+			};
+			bool accepted = sceneCheck(false);
+			if (!accepted && plan.plannerName == "Direct")
+			{
+				QVector<double> aggRestore;
+				(void)doc->applyJointAnglesRad(instIdx, segStartQ, aggRestore);
+				req.options.allowDirectJointLerp = false;
+				robot_path::PathResult retry{};
+				if (robot_path::planToTcpPose(req, retry) && retry.ok)
+				{
+					plan = std::move(retry);
+					osgColErr.clear();
+					accepted = sceneCheck(false);
+				}
+			}
+			if (!accepted)
+			{
+				return fail(QStringLiteral("第 %1 段路径中段碰撞：%2")
+								.arg(gi + 1)
+								.arg(QString::fromStdString(osgColErr)));
+			}
+		}
+
+		const std::size_t nPose = plan.tcpPoses.size();
+		const std::size_t nJoint = plan.jointTrajectoryRad.size();
+		const std::size_t beginIdx = (gi > 0 && nPose > 0) ? 1u : 0u;
+		for (std::size_t i = beginIdx; i < nPose; ++i)
+		{
+			const robot_path::TcpPose& tp = plan.tcpPoses[i];
+			RobotInstruction::TrajectoryPoint pt;
+			pt.poseMm.x = tp.transMm[0];
+			pt.poseMm.y = tp.transMm[1];
+			pt.poseMm.z = tp.transMm[2];
+			pt.quatXyzw[0] = tp.quatXyzw[0];
+			pt.quatXyzw[1] = tp.quatXyzw[1];
+			pt.quatXyzw[2] = tp.quatXyzw[2];
+			pt.quatXyzw[3] = tp.quatXyzw[3];
+			pt.hasQuat = true;
+			const osg::Quat q(tp.quatXyzw[3], tp.quatXyzw[0], tp.quatXyzw[1], tp.quatXyzw[2]);
+			double ex = 0.0;
+			double ey = 0.0;
+			double ez = 0.0;
+			engine::quatToEulerDeg(q, ex, ey, ez);
+			pt.eulerDeg.x = ex;
+			pt.eulerDeg.y = ey;
+			pt.eulerDeg.z = ez;
+			pt.reachable = true;
+			pt.speedMmPerSec = 200.0;
+			if (i < nJoint)
+				pt.jointRad = plan.jointTrajectoryRad[i];
+			combined.points.push_back(std::move(pt));
+		}
+
+		if (!plan.jointTrajectoryRad.empty())
+		{
+			const auto& last = plan.jointTrajectoryRad.back();
+			segStartQ = QVector<double>(last.begin(), last.end());
+		}
+		lastPlannerName = QString::fromStdString(plan.plannerName);
+		totalLen += plan.pathLengthTcpMm;
+	}
+
+	if (combined.points.empty())
+		return fail(QStringLiteral("规划结果为空"));
+
+	{
+		QVector<double> aggRestore;
+		(void)doc->applyJointAnglesRad(instIdx, startQ, aggRestore);
+	}
+
+	std::string previewErr;
+	RobotOsgUi::RawTrajectoryPreviewOptions previewOpts;
+	feature_pick_transform::applyWorldRawTrajectoryPreviewToOsg(osg, combined, previewOpts, &previewErr);
+	m_lastMotionPathRaw = combined;
+	m_lastMotionPathRawValid = true;
+	m_motionPathPreviewActive = true;
+	m_motionPathStartInstructionId.clear();
+	m_motionPathEndInstructionId.clear();
+	setRawTrajectoryPreviewActive(true);
+
+	const QString okMsg = QStringLiteral("抓取路径 OK：末段 %1，共 %2 点，TCP 长 %3 mm")
+							  .arg(lastPlannerName)
+							  .arg(static_cast<int>(combined.points.size()))
+							  .arg(totalLen, 0, 'f', 1);
+	if (m_host->runInfoPage())
+		m_host->appendRunInfo(okMsg);
+	if (m_simulationDock)
+	{
+		if (RobotCollisionSettingsWidget* col = m_simulationDock->collisionPage())
+		{
+			col->setPlanStatusText(okMsg);
+			col->setConfirmEnabled(true);
+		}
+	}
+
+	const QString ask = m_host->useChinese() ? QStringLiteral("规划成功，是否将轨迹写入活动程序？")
+											: QStringLiteral("Plan OK. Insert trajectory into the active program?");
+	const auto btn = QMessageBox::question(nullptr, m_host->useChinese() ? QStringLiteral("确认插入")
+																		 : QStringLiteral("Confirm insert"),
+										   ask, QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+	if (btn != QMessageBox::Yes)
+	{
+		if (err)
+			*err = m_host->useChinese() ? QStringLiteral("已取消写入（预览保留，可在碰撞页确认）")
+										: QStringLiteral("Insert canceled (preview kept)");
+		return false;
+	}
+
+	onMotionPathConfirmTrajectoryRequested();
+	// 确认成功会清空 raw；失败则仍保留预览
+	return !m_lastMotionPathRawValid;
+}
+
 void RobotSimulationController::onRobotCoordinateFramesChanged()
 {
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;

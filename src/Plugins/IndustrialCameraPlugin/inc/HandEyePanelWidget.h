@@ -32,6 +32,11 @@ public:
 	void setUseChinese(bool zh);
 	void applyLanguage();
 
+	/// 最近一次手眼结果（抓取 Tab 只读）
+	const industrial_camera::HandEyeResult& lastCalibrationResult() const { return lastResult_; }
+	/// 最近一次求解所用安装方式（Eye-in-hand 链要用）
+	industrial_camera::HandEyeMountMode lastMountMode() const { return lastMountMode_; }
+
 private slots:
 	void onNextConfig();
 	void onBackCollect();
@@ -65,6 +70,7 @@ private:
 	CameraPanelWidget* cameraPanel_ = nullptr;
 	std::vector<industrial_camera::HandEyeSample> samples_;
 	industrial_camera::HandEyeResult lastResult_;
+	industrial_camera::HandEyeMountMode lastMountMode_ = industrial_camera::HandEyeMountMode::EyeToHand;
 	QString lastCalibDir_;
 	std::unique_ptr<industrial_camera::IRobotPoseSource> poseSrc_;
 	std::unique_ptr<industrial_camera::MechOfficialHandEyeSession> mechSession_;

@@ -128,6 +128,94 @@ bool MainWindow::reviseAiTrajectoryPlanForAi(const std::string& planJsonUtf8, QS
 	return m_robotSimulation->reviseAiTrajectoryPlan(QByteArray::fromStdString(planJsonUtf8), outSummary, outError);
 }
 
+bool MainWindow::getActiveRobotTcpPoseForPlugin(double& xMm, double& yMm, double& zMm, double& rxDeg, double& ryDeg,
+												double& rzDeg, QString* outError)
+{
+	if (!m_robotSimulation)
+	{
+		if (outError)
+			*outError = QStringLiteral("机器人仿真未就绪");
+		return false;
+	}
+	RobotInstruction::Vec3 pose{};
+	RobotInstruction::Vec3 euler{};
+	QString err;
+	if (!m_robotSimulation->tryCaptureCurrentRobotTcpPose(pose, euler, nullptr, nullptr, nullptr, &err))
+	{
+		if (outError)
+			*outError = err;
+		return false;
+	}
+	xMm = pose.x;
+	yMm = pose.y;
+	zMm = pose.z;
+	rxDeg = euler.x;
+	ryDeg = euler.y;
+	rzDeg = euler.z;
+	return true;
+}
+
+bool MainWindow::getSelectedBackendPoseInRobotBaseForPlugin(double& xMm, double& yMm, double& zMm, double& rxDeg,
+															double& ryDeg, double& rzDeg, QString* outError)
+{
+	if (!m_robotSimulation)
+	{
+		if (outError)
+			*outError = QStringLiteral("机器人仿真未就绪");
+		return false;
+	}
+	RobotInstruction::Vec3 pose{};
+	RobotInstruction::Vec3 euler{};
+	QString err;
+	if (!m_robotSimulation->tryCaptureSelectedBackendPoseInRobotBase(pose, euler, &err))
+	{
+		if (outError)
+			*outError = err;
+		return false;
+	}
+	xMm = pose.x;
+	yMm = pose.y;
+	zMm = pose.z;
+	rxDeg = euler.x;
+	ryDeg = euler.y;
+	rzDeg = euler.z;
+	return true;
+}
+
+bool MainWindow::planAndConfirmTcpWaypointsForPlugin(const QVector<QVector<double>>& goals6, QString* outError)
+{
+	if (!m_robotSimulation)
+	{
+		if (outError)
+			*outError = QStringLiteral("机器人仿真未就绪");
+		return false;
+	}
+	QVector<RobotInstruction::Vec3> poses;
+	QVector<RobotInstruction::Vec3> eulers;
+	poses.reserve(goals6.size());
+	eulers.reserve(goals6.size());
+	for (const QVector<double>& g : goals6)
+	{
+		if (g.size() < 6)
+		{
+			if (outError)
+				*outError = QStringLiteral("目标位姿须为 6 元组");
+			return false;
+		}
+		RobotInstruction::Vec3 p{};
+		p.x = g[0];
+		p.y = g[1];
+		p.z = g[2];
+		RobotInstruction::Vec3 e{};
+		e.x = g[3];
+		e.y = g[4];
+		e.z = g[5];
+		poses.push_back(p);
+		eulers.push_back(e);
+	}
+	return m_robotSimulation->planAndConfirmTcpWaypoints(poses, eulers, outError);
+}
+
 void MainWindow::refreshSimulationJointListFromCurrentDoc()
 {
 	if (m_robotSimulation)

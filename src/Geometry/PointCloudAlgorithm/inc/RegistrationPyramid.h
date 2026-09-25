@@ -28,7 +28,7 @@ struct PyramidRegisterParams
 	int layers = 3;				   ///< 固定 3：L0=4h / L1=2h / L2=h
 	double layerScale = 2.0;
 	bool rigidPreAlign = true; ///< 仅最粗层交给求解器做 ICP
-	bool useFineRegOnLastLayer = false;
+	bool useFineRegOnLastLayer = true;
 	/// 仅末层：曲率自适应边长；默认关以保持与现网一致
 	bool useAdaptiveDensityOnLastLayer = false;
 	/// 末层自适应开启且存在前层时：用前层点面残差收紧边长；仅作用于源

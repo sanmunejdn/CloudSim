@@ -3158,16 +3158,9 @@ double effectiveFaceBandMmForAssignment(const double userFaceBandMm, const geoal
 	return bandMm;
 }
 
-} // namespace
-
-bool discretizeStepToMesh(const std::string& stepPathUtf8, const geoalgo::MeshDiscretizeParams& params,
-						  std::vector<float>& soup, geoalgo::MeshDiscretizeReport& report, std::string* errMsg)
+bool remeshSoupIfTargetEdgeLength(const geoalgo::MeshDiscretizeParams& params, std::vector<float>& soup,
+								  geoalgo::MeshDiscretizeReport& report, std::string* errMsg)
 {
-	if (!geoalgo::tessellateStepFileToMesh(stepPathUtf8, params, soup, report, errMsg))
-	{
-		return false;
-	}
-
 	if (params.densityControl != geoalgo::MeshDensityControl::TargetEdgeLength || !(params.targetEdgeLengthMm > 0.0))
 	{
 		return true;
@@ -3204,12 +3197,36 @@ bool discretizeStepToMesh(const std::string& stepPathUtf8, const geoalgo::MeshDi
 	geoalgo::fillMeshReport(soup, report);
 	return !soup.empty();
 #else
+	(void)soup;
+	(void)report;
 	if (errMsg)
 	{
 		*errMsg = "target edge length remesh requires Win64 VcgAlgorithms";
 	}
 	return false;
 #endif
+}
+
+} // namespace
+
+bool discretizeStepToMesh(const std::string& stepPathUtf8, const geoalgo::MeshDiscretizeParams& params,
+						  std::vector<float>& soup, geoalgo::MeshDiscretizeReport& report, std::string* errMsg)
+{
+	if (!geoalgo::tessellateStepFileToMesh(stepPathUtf8, params, soup, report, errMsg))
+	{
+		return false;
+	}
+	return remeshSoupIfTargetEdgeLength(params, soup, report, errMsg);
+}
+
+bool discretizeShapeHandleToMesh(const geoalgo::ShapeHandle& shape, const geoalgo::MeshDiscretizeParams& params,
+								 std::vector<float>& soup, geoalgo::MeshDiscretizeReport& report, std::string* errMsg)
+{
+	if (!geoalgo::discretizeShapeHandleToMesh(shape, params, soup, report, errMsg))
+	{
+		return false;
+	}
+	return remeshSoupIfTargetEdgeLength(params, soup, report, errMsg);
 }
 
 bool discretizeStepFaceToMesh(const std::string& stepPathUtf8, int faceIndex,

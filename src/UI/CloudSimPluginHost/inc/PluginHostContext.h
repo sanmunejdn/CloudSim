@@ -17,6 +17,7 @@ class AiAssistantHostImpl;
 class PluginGeometryHostImpl;
 class PluginLabelingHostImpl;
 class PluginPointCloudHostImpl;
+class PluginRobotHostImpl;
 class BackendDataBase;
 class DocumentPage;
 class IPluginMainWindowHost;
@@ -85,6 +86,9 @@ public:
 
 	IPluginPointCloudHost* pointCloudHost() override;
 	const IPluginPointCloudHost* pointCloudHost() const override;
+
+	IPluginRobotHost* robotHost() override;
+	const IPluginRobotHost* robotHost() const override;
 
 	IPluginGeometryHost* geometryHost() override;
 	const IPluginGeometryHost* geometryHost() const override;
@@ -205,6 +209,7 @@ private:
 
 	IPluginMainWindowHost* m_mainWindowHost = nullptr;
 	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;
+	std::unique_ptr<PluginRobotHostImpl> m_robotHost;
 	std::unique_ptr<PluginGeometryHostImpl> m_geometryHost;
 	std::unique_ptr<PluginLabelingHostImpl> m_labelingHost;
 	std::unique_ptr<AiAssistantHostImpl> m_aiHost;

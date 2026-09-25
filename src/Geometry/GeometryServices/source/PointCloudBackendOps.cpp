@@ -418,6 +418,7 @@ pclalgo::SpareRegisterParams toSpareRegisterParams(const PointCloudSpareParams& 
 	out.coarseGlobalAlign = params.coarseGlobalAlign;
 	out.voxelPrefilterMm = params.voxelPrefilterMm;
 	out.maxOuterIters = params.maxOuterIters;
+	out.alignSampleCount = params.alignSampleCount;
 	return out;
 }
 
@@ -527,6 +528,7 @@ pclalgo::SdfRegisterParams toSdfRegisterParams(const PointCloudSdfParams& params
 	out.rigidPreAlign = params.rigidPreAlign;
 	out.voxelPrefilterMm = params.voxelPrefilterMm;
 	out.maxOuterIters = params.maxOuterIters;
+	out.alignSampleCount = params.alignSampleCount;
 	return out;
 }
 

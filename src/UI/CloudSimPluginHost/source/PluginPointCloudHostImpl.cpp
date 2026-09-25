@@ -678,6 +678,7 @@ point_cloud_backend_ops::PointCloudSpareParams buildSpareParams(const PluginPoin
 	out.coarseGlobalAlign = params.coarseGlobalAlign;
 	out.voxelPrefilterMm = params.voxelPrefilterMm;
 	out.maxOuterIters = params.maxOuterIters;
+	out.alignSampleCount = params.alignSampleCount;
 	return out;
 }
 
@@ -979,6 +980,7 @@ point_cloud_backend_ops::PointCloudSdfParams buildSdfParams(const PluginPointClo
 	out.rigidPreAlign = params.rigidPreAlign;
 	out.voxelPrefilterMm = params.voxelPrefilterMm;
 	out.maxOuterIters = params.maxOuterIters;
+	out.alignSampleCount = params.alignSampleCount;
 	return out;
 }
 } // namespace
@@ -1354,6 +1356,23 @@ void PluginPointCloudHostImpl::nonRigidRegisterPyramid(IPluginDocument* doc, con
 	coreParams.solver = params.solver;
 	coreParams.sdf.rigidPreAlign = params.rigidPreAlign;
 	coreParams.spare.rigidPreAlign = params.rigidPreAlign;
+	coreParams.sdf.sampleRadiusRatio = params.sampleRadiusRatio;
+	coreParams.spare.sampleRadiusRatio = params.sampleRadiusRatio;
+	coreParams.sdf.wSmo = params.wSmo;
+	coreParams.spare.wSmo = params.wSmo;
+	coreParams.sdf.wArapCoarse = params.wArapCoarse;
+	coreParams.spare.wArapCoarse = params.wArapCoarse;
+	coreParams.sdf.wArapFine = params.wArapFine;
+	coreParams.spare.wArapFine = params.wArapFine;
+	coreParams.sdf.maxOuterIters = params.maxOuterIters;
+	coreParams.spare.maxOuterIters = params.maxOuterIters;
+	coreParams.sdf.alignSampleCount = params.alignSampleCount;
+	coreParams.spare.alignSampleCount = params.alignSampleCount;
+	coreParams.sdf.fieldMode = params.fieldMode;
+	coreParams.sdf.fieldVoxelMm = params.fieldVoxelMm;
+	coreParams.sdf.fineDataTerm = params.fineDataTerm;
+	coreParams.spare.voxelPrefilterMm = params.voxelPrefilterMm;
+	coreParams.spare.coarseGlobalAlign = params.coarseGlobalAlign;
 
 	m_host->enqueueJob(
 		QStringLiteral("Geometric pyramid non-rigid registration"),

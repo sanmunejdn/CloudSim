@@ -267,6 +267,47 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	spareOptLayout->addWidget(m_spareRigidPreAlignCheck);
 	spareOptLayout->addWidget(m_spareCoarseGlobalAlignCheck);
 	spareOptLayout->addWidget(m_spareCreateNewCheck);
+	auto* spareAdv = new QGroupBox(QStringLiteral("Advanced"), m_spareOptionsWidget);
+	spareAdv->setObjectName(QStringLiteral("spareAdvancedGroup"));
+	auto* spareAdvLay = new QVBoxLayout(spareAdv);
+	m_spareFineRegCheck = new QCheckBox(spareAdv);
+	m_spareFineRegCheck->setChecked(true);
+	spareAdvLay->addWidget(m_spareFineRegCheck);
+	auto addSpareSpinRow = [&](const char* name, QDoubleSpinBox*& spin, double minV, double maxV, double val, int decimals) {
+		auto* row = new QHBoxLayout;
+		auto* lab = new QLabel(spareAdv);
+		lab->setObjectName(QString::fromLatin1(name));
+		spin = new QDoubleSpinBox(spareAdv);
+		spin->setRange(minV, maxV);
+		spin->setDecimals(decimals);
+		spin->setValue(val);
+		row->addWidget(lab);
+		row->addWidget(spin, 1);
+		spareAdvLay->addLayout(row);
+	};
+	auto* spareOuterRow = new QHBoxLayout;
+	auto* spareOuterLab = new QLabel(spareAdv);
+	spareOuterLab->setObjectName(QStringLiteral("spareOuterItersLabel"));
+	m_spareOuterItersSpin = new QSpinBox(spareAdv);
+	m_spareOuterItersSpin->setRange(1, 200);
+	m_spareOuterItersSpin->setValue(30);
+	spareOuterRow->addWidget(spareOuterLab);
+	spareOuterRow->addWidget(m_spareOuterItersSpin, 1);
+	spareAdvLay->addLayout(spareOuterRow);
+	auto* spareAlignRow = new QHBoxLayout;
+	auto* spareAlignLab = new QLabel(spareAdv);
+	spareAlignLab->setObjectName(QStringLiteral("spareAlignSampleLabel"));
+	m_spareAlignSampleSpin = new QSpinBox(spareAdv);
+	m_spareAlignSampleSpin->setRange(100, 50000);
+	m_spareAlignSampleSpin->setSingleStep(500);
+	m_spareAlignSampleSpin->setValue(3000);
+	spareAlignRow->addWidget(spareAlignLab);
+	spareAlignRow->addWidget(m_spareAlignSampleSpin, 1);
+	spareAdvLay->addLayout(spareAlignRow);
+	addSpareSpinRow("spareWSmoLabel", m_spareWSmoSpin, 0.0, 100.0, 0.01, 4);
+	addSpareSpinRow("spareWArapCoarseLabel", m_spareWArapCoarseSpin, 0.0, 10000.0, 500.0, 1);
+	addSpareSpinRow("spareWArapFineLabel", m_spareWArapFineSpin, 0.0, 10000.0, 200.0, 1);
+	spareOptLayout->addWidget(spareAdv);
 	icpLayout->addWidget(m_spareOptionsWidget);
 
 	m_sdfOptionsWidget = new QWidget(m_icpGroup);
@@ -307,6 +348,58 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_sdfCreateNewCheck = new QCheckBox(m_sdfOptionsWidget);
 	sdfOptLayout->addWidget(m_sdfRigidPreAlignCheck);
 	sdfOptLayout->addWidget(m_sdfCreateNewCheck);
+	auto* sdfAdv = new QGroupBox(QStringLiteral("Advanced"), m_sdfOptionsWidget);
+	sdfAdv->setObjectName(QStringLiteral("sdfAdvancedGroup"));
+	auto* sdfAdvLay = new QVBoxLayout(sdfAdv);
+	auto* sdfSampleRow = new QHBoxLayout;
+	auto* sdfSampleLab = new QLabel(sdfAdv);
+	sdfSampleLab->setObjectName(QStringLiteral("sdfSampleRadiusLabel"));
+	m_sdfSampleRadiusSpin = new QDoubleSpinBox(sdfAdv);
+	m_sdfSampleRadiusSpin->setRange(0.0, 20.0);
+	m_sdfSampleRadiusSpin->setDecimals(2);
+	m_sdfSampleRadiusSpin->setSingleStep(0.5);
+	m_sdfSampleRadiusSpin->setValue(0.0);
+	sdfSampleRow->addWidget(sdfSampleLab);
+	sdfSampleRow->addWidget(m_sdfSampleRadiusSpin, 1);
+	sdfAdvLay->addLayout(sdfSampleRow);
+	m_sdfFineRegCheck = new QCheckBox(sdfAdv);
+	m_sdfFineRegCheck->setChecked(true);
+	sdfAdvLay->addWidget(m_sdfFineRegCheck);
+	auto* sdfOuterRow = new QHBoxLayout;
+	auto* sdfOuterLab = new QLabel(sdfAdv);
+	sdfOuterLab->setObjectName(QStringLiteral("sdfOuterItersLabel"));
+	m_sdfOuterItersSpin = new QSpinBox(sdfAdv);
+	m_sdfOuterItersSpin->setRange(1, 200);
+	m_sdfOuterItersSpin->setValue(30);
+	sdfOuterRow->addWidget(sdfOuterLab);
+	sdfOuterRow->addWidget(m_sdfOuterItersSpin, 1);
+	sdfAdvLay->addLayout(sdfOuterRow);
+	auto* sdfAlignRow = new QHBoxLayout;
+	auto* sdfAlignLab = new QLabel(sdfAdv);
+	sdfAlignLab->setObjectName(QStringLiteral("sdfAlignSampleLabel"));
+	m_sdfAlignSampleSpin = new QSpinBox(sdfAdv);
+	m_sdfAlignSampleSpin->setRange(100, 50000);
+	m_sdfAlignSampleSpin->setSingleStep(500);
+	m_sdfAlignSampleSpin->setValue(3000);
+	sdfAlignRow->addWidget(sdfAlignLab);
+	sdfAlignRow->addWidget(m_sdfAlignSampleSpin, 1);
+	sdfAdvLay->addLayout(sdfAlignRow);
+	auto addSdfSpinRow = [&](const char* name, QDoubleSpinBox*& spin, double minV, double maxV, double val, int decimals) {
+		auto* row = new QHBoxLayout;
+		auto* lab = new QLabel(sdfAdv);
+		lab->setObjectName(QString::fromLatin1(name));
+		spin = new QDoubleSpinBox(sdfAdv);
+		spin->setRange(minV, maxV);
+		spin->setDecimals(decimals);
+		spin->setValue(val);
+		row->addWidget(lab);
+		row->addWidget(spin, 1);
+		sdfAdvLay->addLayout(row);
+	};
+	addSdfSpinRow("sdfWSmoLabel", m_sdfWSmoSpin, 0.0, 100.0, 1.0, 3);
+	addSdfSpinRow("sdfWArapCoarseLabel", m_sdfWArapCoarseSpin, 0.0, 10000.0, 500.0, 1);
+	addSdfSpinRow("sdfWArapFineLabel", m_sdfWArapFineSpin, 0.0, 10000.0, 200.0, 1);
+	sdfOptLayout->addWidget(sdfAdv);
 	icpLayout->addWidget(m_sdfOptionsWidget);
 
 	m_pyramidOptionsWidget = new QWidget(m_icpGroup);
@@ -334,6 +427,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_pyramidRigidPreAlignCheck = new QCheckBox(m_pyramidOptionsWidget);
 	m_pyramidRigidPreAlignCheck->setChecked(true);
 	m_pyramidFineLastCheck = new QCheckBox(m_pyramidOptionsWidget);
+	m_pyramidFineLastCheck->setChecked(true);
 	m_pyramidAdaptiveLastCheck = new QCheckBox(m_pyramidOptionsWidget);
 	m_pyramidAdaptiveLastCheck->setChecked(false);
 	m_pyramidCreateNewCheck = new QCheckBox(m_pyramidOptionsWidget);
@@ -1050,6 +1144,11 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 		connect(m_regMethodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 				&PointCloudDockWidget::onRegistrationMethodChanged);
 	}
+	if (m_pyramidSolverCombo)
+	{
+		connect(m_pyramidSolverCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&PointCloudDockWidget::onRegistrationMethodChanged);
+	}
 	connect(m_poissonBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onReconstructPoissonAutoClicked);
 	connect(m_scaleBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onReconstructScaleSpaceClicked);
 	connect(m_exportMeshBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onExportMeshClicked);
@@ -1453,6 +1552,14 @@ void PointCloudDockWidget::applyLanguage()
 	{
 		m_spareCreateNewCheck->setText(i18n(QStringLiteral("Create new object"), QStringLiteral("输出为新对象")));
 	}
+	if (m_spareFineRegCheck)
+	{
+		m_spareFineRegCheck->setText(i18n(QStringLiteral("Fine stage"), QStringLiteral("细阶段")));
+	}
+	if (QGroupBox* g = m_spareOptionsWidget ? m_spareOptionsWidget->findChild<QGroupBox*>(QStringLiteral("spareAdvancedGroup")) : nullptr)
+	{
+		g->setTitle(i18n(QStringLiteral("Advanced"), QStringLiteral("高级")));
+	}
 	if (QWidget* spareRoot = m_spareOptionsWidget)
 	{
 		if (QLabel* spareVoxelLabel = spareRoot->findChild<QLabel*>(QStringLiteral("spareVoxelLabel")))
@@ -1464,6 +1571,26 @@ void PointCloudDockWidget::applyLanguage()
 			spareSampleLabel->setText(
 				i18n(QStringLiteral("Sample radius (×edge, 0=auto):"), QStringLiteral("采样半径(×边长, 0=自动):")));
 		}
+		if (QLabel* lab = spareRoot->findChild<QLabel*>(QStringLiteral("spareOuterItersLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Outer iters:"), QStringLiteral("外迭代:")));
+		}
+		if (QLabel* lab = spareRoot->findChild<QLabel*>(QStringLiteral("spareAlignSampleLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Align samples:"), QStringLiteral("对齐采样:")));
+		}
+		if (QLabel* lab = spareRoot->findChild<QLabel*>(QStringLiteral("spareWSmoLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Smooth w:"), QStringLiteral("平滑权重:")));
+		}
+		if (QLabel* lab = spareRoot->findChild<QLabel*>(QStringLiteral("spareWArapCoarseLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("ARAP coarse:"), QStringLiteral("ARAP 粗:")));
+		}
+		if (QLabel* lab = spareRoot->findChild<QLabel*>(QStringLiteral("spareWArapFineLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("ARAP fine:"), QStringLiteral("ARAP 细:")));
+		}
 	}
 	if (m_sdfRigidPreAlignCheck)
 	{
@@ -1473,6 +1600,14 @@ void PointCloudDockWidget::applyLanguage()
 	if (m_sdfCreateNewCheck)
 	{
 		m_sdfCreateNewCheck->setText(i18n(QStringLiteral("Create new object"), QStringLiteral("输出为新对象")));
+	}
+	if (m_sdfFineRegCheck)
+	{
+		m_sdfFineRegCheck->setText(i18n(QStringLiteral("Fine stage"), QStringLiteral("细阶段")));
+	}
+	if (QGroupBox* g = m_sdfOptionsWidget ? m_sdfOptionsWidget->findChild<QGroupBox*>(QStringLiteral("sdfAdvancedGroup")) : nullptr)
+	{
+		g->setTitle(i18n(QStringLiteral("Advanced"), QStringLiteral("高级")));
 	}
 	if (QWidget* sdfRoot = m_sdfOptionsWidget)
 	{
@@ -1487,6 +1622,30 @@ void PointCloudDockWidget::applyLanguage()
 		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfFineLabel")))
 		{
 			lab->setText(i18n(QStringLiteral("Fine data term:"), QStringLiteral("细阶段数据项:")));
+		}
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfSampleRadiusLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Sample radius (×edge, 0=auto):"), QStringLiteral("采样半径(×边长, 0=自动):")));
+		}
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfOuterItersLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Outer iters:"), QStringLiteral("外迭代:")));
+		}
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfAlignSampleLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Align samples:"), QStringLiteral("对齐采样:")));
+		}
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfWSmoLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Smooth w:"), QStringLiteral("平滑权重:")));
+		}
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfWArapCoarseLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("ARAP coarse:"), QStringLiteral("ARAP 粗:")));
+		}
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfWArapFineLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("ARAP fine:"), QStringLiteral("ARAP 细:")));
 		}
 	}
 	if (m_sdfFieldModeCombo && m_sdfFieldModeCombo->count() >= 2)
@@ -1519,7 +1678,7 @@ void PointCloudDockWidget::applyLanguage()
 	if (m_pyramidFineLastCheck)
 	{
 		m_pyramidFineLastCheck->setText(
-			i18n(QStringLiteral("Fine stage on last layer"), QStringLiteral("末层开启细阶段")));
+			i18n(QStringLiteral("Fine stage on last layer"), QStringLiteral("末层开启细阶段（小网格请改用单次）")));
 	}
 	if (m_pyramidAdaptiveLastCheck)
 	{
@@ -2266,6 +2425,9 @@ void PointCloudDockWidget::updateRegistrationUi()
 	const bool spare = method == QStringLiteral("spare");
 	const bool sdf = method == QStringLiteral("sdf");
 	const bool pyramid = method == QStringLiteral("pyramid");
+	const int pyrSolver = m_pyramidSolverCombo ? m_pyramidSolverCombo->currentData().toInt() : 0;
+	const bool showSpare = spare || (pyramid && pyrSolver == 1);
+	const bool showSdf = sdf || (pyramid && pyrSolver == 0);
 	const bool nonRigid = spare || sdf || pyramid;
 	if (m_spareSourceLabel)
 	{
@@ -2293,11 +2455,27 @@ void PointCloudDockWidget::updateRegistrationUi()
 	}
 	if (m_spareOptionsWidget)
 	{
-		m_spareOptionsWidget->setVisible(spare);
+		m_spareOptionsWidget->setVisible(showSpare);
+	}
+	if (m_spareRigidPreAlignCheck)
+	{
+		m_spareRigidPreAlignCheck->setVisible(!pyramid);
+	}
+	if (m_spareCreateNewCheck)
+	{
+		m_spareCreateNewCheck->setVisible(!pyramid);
 	}
 	if (m_sdfOptionsWidget)
 	{
-		m_sdfOptionsWidget->setVisible(sdf);
+		m_sdfOptionsWidget->setVisible(showSdf);
+	}
+	if (m_sdfRigidPreAlignCheck)
+	{
+		m_sdfRigidPreAlignCheck->setVisible(!pyramid);
+	}
+	if (m_sdfCreateNewCheck)
+	{
+		m_sdfCreateNewCheck->setVisible(!pyramid);
 	}
 	if (m_pyramidOptionsWidget)
 	{
@@ -2453,6 +2631,12 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 	params.sampleRadiusRatio = m_spareSampleRadiusSpin ? m_spareSampleRadiusSpin->value() : 0.0;
 	params.rigidPreAlign = m_spareRigidPreAlignCheck && m_spareRigidPreAlignCheck->isChecked();
 	params.coarseGlobalAlign = m_spareCoarseGlobalAlignCheck && m_spareCoarseGlobalAlignCheck->isChecked();
+	params.useFineReg = !m_spareFineRegCheck || m_spareFineRegCheck->isChecked();
+	params.maxOuterIters = m_spareOuterItersSpin ? m_spareOuterItersSpin->value() : 30;
+	params.alignSampleCount = static_cast<std::size_t>(m_spareAlignSampleSpin ? m_spareAlignSampleSpin->value() : 3000);
+	params.wSmo = m_spareWSmoSpin ? m_spareWSmoSpin->value() : 0.01;
+	params.wArapCoarse = m_spareWArapCoarseSpin ? m_spareWArapCoarseSpin->value() : 500.0;
+	params.wArapFine = m_spareWArapFineSpin ? m_spareWArapFineSpin->value() : 200.0;
 	params.createNewObject = m_spareCreateNewCheck && m_spareCreateNewCheck->isChecked();
 	params.applyDeformationToSource = !params.createNewObject;
 	pch->nonRigidRegisterSpare(
@@ -2512,6 +2696,13 @@ void PointCloudDockWidget::onSdfRegisterClicked()
 	params.fieldMode = m_sdfFieldModeCombo ? m_sdfFieldModeCombo->currentData().toInt() : 1;
 	params.fieldVoxelMm = m_sdfFieldVoxelSpin ? m_sdfFieldVoxelSpin->value() : 0.0;
 	params.fineDataTerm = m_sdfFineTermCombo ? m_sdfFineTermCombo->currentData().toInt() : 0;
+	params.sampleRadiusRatio = m_sdfSampleRadiusSpin ? m_sdfSampleRadiusSpin->value() : 0.0;
+	params.useFineReg = !m_sdfFineRegCheck || m_sdfFineRegCheck->isChecked();
+	params.maxOuterIters = m_sdfOuterItersSpin ? m_sdfOuterItersSpin->value() : 30;
+	params.alignSampleCount = static_cast<std::size_t>(m_sdfAlignSampleSpin ? m_sdfAlignSampleSpin->value() : 3000);
+	params.wSmo = m_sdfWSmoSpin ? m_sdfWSmoSpin->value() : 1.0;
+	params.wArapCoarse = m_sdfWArapCoarseSpin ? m_sdfWArapCoarseSpin->value() : 500.0;
+	params.wArapFine = m_sdfWArapFineSpin ? m_sdfWArapFineSpin->value() : 200.0;
 	params.rigidPreAlign = m_sdfRigidPreAlignCheck && m_sdfRigidPreAlignCheck->isChecked();
 	params.createNewObject = m_sdfCreateNewCheck && m_sdfCreateNewCheck->isChecked();
 	params.applyDeformationToSource = !params.createNewObject;
@@ -2588,6 +2779,30 @@ void PointCloudDockWidget::onPyramidRegisterClicked()
 	params.rigidPreAlign = m_pyramidRigidPreAlignCheck && m_pyramidRigidPreAlignCheck->isChecked();
 	params.useFineRegOnLastLayer = m_pyramidFineLastCheck && m_pyramidFineLastCheck->isChecked();
 	params.useAdaptiveDensityOnLastLayer = m_pyramidAdaptiveLastCheck && m_pyramidAdaptiveLastCheck->isChecked();
+	if (params.solver == 1)
+	{
+		params.sampleRadiusRatio = m_spareSampleRadiusSpin ? m_spareSampleRadiusSpin->value() : 0.0;
+		params.wSmo = m_spareWSmoSpin ? m_spareWSmoSpin->value() : 0.01;
+		params.wArapCoarse = m_spareWArapCoarseSpin ? m_spareWArapCoarseSpin->value() : 500.0;
+		params.wArapFine = m_spareWArapFineSpin ? m_spareWArapFineSpin->value() : 200.0;
+		params.maxOuterIters = m_spareOuterItersSpin ? m_spareOuterItersSpin->value() : 30;
+		params.alignSampleCount =
+			static_cast<std::size_t>(m_spareAlignSampleSpin ? m_spareAlignSampleSpin->value() : 3000);
+		params.voxelPrefilterMm = m_spareVoxelSpin ? m_spareVoxelSpin->value() : 0.0;
+		params.coarseGlobalAlign = m_spareCoarseGlobalAlignCheck && m_spareCoarseGlobalAlignCheck->isChecked();
+	}
+	else
+	{
+		params.sampleRadiusRatio = m_sdfSampleRadiusSpin ? m_sdfSampleRadiusSpin->value() : 0.0;
+		params.wSmo = m_sdfWSmoSpin ? m_sdfWSmoSpin->value() : 1.0;
+		params.wArapCoarse = m_sdfWArapCoarseSpin ? m_sdfWArapCoarseSpin->value() : 500.0;
+		params.wArapFine = m_sdfWArapFineSpin ? m_sdfWArapFineSpin->value() : 200.0;
+		params.maxOuterIters = m_sdfOuterItersSpin ? m_sdfOuterItersSpin->value() : 30;
+		params.alignSampleCount = static_cast<std::size_t>(m_sdfAlignSampleSpin ? m_sdfAlignSampleSpin->value() : 3000);
+		params.fieldMode = m_sdfFieldModeCombo ? m_sdfFieldModeCombo->currentData().toInt() : 1;
+		params.fieldVoxelMm = m_sdfFieldVoxelSpin ? m_sdfFieldVoxelSpin->value() : 0.0;
+		params.fineDataTerm = m_sdfFineTermCombo ? m_sdfFineTermCombo->currentData().toInt() : 0;
+	}
 	params.createNewObject = m_pyramidCreateNewCheck && m_pyramidCreateNewCheck->isChecked();
 	params.applyDeformationToSource = !params.createNewObject;
 	pch->nonRigidRegisterPyramid(doc, sourceId, params,
