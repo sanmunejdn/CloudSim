@@ -2,6 +2,7 @@
 /// @brief 从 argv 设 ROBOT_KINEMATICS_DEBUG（Windows GUI 无预置 env）
 
 #include "CloudSimBootstrap.h"
+#include "CrashDump.h"
 #include "ICloudSimContext.h"
 #include "MainWindow.h"
 
@@ -83,6 +84,7 @@ static void applyRobotKinematicsDebugFromArgv(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+	cloudsim::crashdump::install();
 	applyRobotKinematicsDebugFromArgv(argc, argv);
 	// 默认开 per-link FK/OSG 矩阵 dump；ROBOT_KINEMATICS_DEBUG=0 关
 	if (qgetenv("ROBOT_KINEMATICS_DEBUG").isEmpty())

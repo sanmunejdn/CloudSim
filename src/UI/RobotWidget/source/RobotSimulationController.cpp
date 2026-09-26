@@ -63,6 +63,7 @@
 #include "TrajectoryEditSession.h"
 #include "TrajectoryGenerationPageWidget.h"
 #include "UrdfRobotLoader.h"
+#include "IkAcceptanceGates.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -104,12 +105,6 @@ using namespace RobotSimulation;
 
 namespace
 {
-constexpr double kTaughtReuseResidualMm = 1.0;
-/// 示教/缓存复用姿态门限（过严会导致「预览到、Run 不到」）
-constexpr double kMaxTaughtOrientReuseDeg = 15.0;
-/// 新鲜 IK 仅拦近翻转；联立求解按位置选优，5° 会误杀可用解
-constexpr double kMaxFreshIkOrientDeg = 45.0;
-constexpr double kFreshIkPositionRejectMm = 3.0;
 /// 随机兜底候选的连续性硬门：与链式种子的未折圈逐关节最大偏差（执行器真实行程，±2π 必淘汰）
 /// 只约束随机兜底；确定性种子 / 示教 CSV 不受此限
 constexpr double kFallbackConsistencyRad = 2.6;
@@ -117,23 +112,14 @@ constexpr double kFallbackConsistencyRad = 2.6;
 constexpr double kFallbackNearEnoughRad = 0.35;
 constexpr double kPi = 3.14159265358979323846;
 
-bool isTaughtOrCacheReuseAcceptable(const double residualMm, const double orientDeg)
+bool isTaughtOrCacheReuseAcceptable(const double residualMm, const double orientDeg, const bool allowApproxOrient)
 {
-	return residualMm >= 0.0 && residualMm <= kTaughtReuseResidualMm && orientDeg >= 0.0 &&
-		   orientDeg <= kMaxTaughtOrientReuseDeg;
+	return UrdfRobotLoader::IkAcceptanceGates::isTaughtReuseAcceptable(residualMm, orientDeg, allowApproxOrient);
 }
 
-bool isFreshIkSolutionAcceptable(const double residualMm, const double orientDeg)
+bool isFreshIkSolutionAcceptable(const double residualMm, const double orientDeg, const bool allowApproxOrient)
 {
-	if (residualMm < 0.0 || residualMm > kFreshIkPositionRejectMm)
-	{
-		return false;
-	}
-	if (orientDeg < 0.0)
-	{
-		return true;
-	}
-	return orientDeg <= kMaxFreshIkOrientDeg;
+	return UrdfRobotLoader::IkAcceptanceGates::isFreshAcceptable(residualMm, orientDeg, allowApproxOrient);
 }
 
 /// 确定性种子全败时的随机重启兜底：固定 RNG 序列保证可复现；同步/Worker 两条规划路径共用。
@@ -1117,6 +1103,12 @@ void RobotSimulationController::wireSimulationSignals()
 					m_ikSeedPolicy = (policy == 1) ? RobotInstruction::IkSeedPolicy::FromCurrentPose
 												   : RobotInstruction::IkSeedPolicy::FromInstruction;
 					m_ikSeedInstructionId.clear();
+					m_planResultCache.invalidateAll();
+				});
+		connect(cmd, &SimulationCommandWidget::allowApproximateOrientationChanged, this,
+				[this](const bool enabled)
+				{
+					m_allowApproximateOrientation = enabled;
 					m_planResultCache.invalidateAll();
 				});
 	}
@@ -5238,7 +5230,8 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	}
 
 	const auto ikResult = doc->solveTcpDragTeachIk(instIdx, ikPx, ikPy, ikPz, ikEx, ikEy, ikEz, seedQ,
-												   m_tcpDragTeachFlangeLink, qeSeed, hasQeSeed);
+												   m_tcpDragTeachFlangeLink, qeSeed, hasQeSeed,
+												   m_allowApproximateOrientation);
 	if (!ikResult.ok)
 	{
 		if (m_host && m_host->runInfoPage())
@@ -6458,7 +6451,8 @@ RobotSimulationController::feasibleMotionAxisConfigurationOptionsForInstruction(
 		RobotInstructionPlanning::backupInstructionPose(*instruction);
 	RobotInstructionPlanning::prepareMotionInstructionForPlanning(*instruction, rollingQ, doc, m_host->osgView(),
 																  instIdx, urdfPath, defaultTcpLinkName.toStdString(),
-																  &doc->robotCoordinateFramesForInstance(instIdx));
+																  &doc->robotCoordinateFramesForInstance(instIdx),
+																  m_allowApproximateOrientation);
 	out = m_instructionController.queryFeasibleMotionAxisConfigurationOptions(*instruction);
 	RobotInstructionPlanning::restoreInstructionPose(*instruction, targetBackup);
 
@@ -8278,7 +8272,8 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 			if (isTaughtOrCacheReuseAcceptable(
 					targetResidualMmForInstruction(urdfPath, cachedQ, frames, defaultTcpLinkName, instruction),
 					targetOrientationResidualDegForInstruction(urdfPath, cachedQ, frames, defaultTcpLinkName,
-															   instruction)))
+															   instruction),
+					m_allowApproximateOrientation))
 			{
 				RobotInstruction::PlanResult plan = *cached;
 				std::vector<double> refQ(chainSeedQ.begin(), chainSeedQ.end());
@@ -8501,7 +8496,8 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 			RobotInstruction::PlanResult anchored{};
 			std::string anchorErr;
 			RobotInstructionPlanning::prepareMotionInstructionForPlanning(
-				instruction, chainSeedQ, doc, osg, instanceIndex, urdfPath, defaultTcpLinkName.toStdString(), &frames);
+				instruction, chainSeedQ, doc, osg, instanceIndex, urdfPath, defaultTcpLinkName.toStdString(), &frames,
+				m_allowApproximateOrientation);
 			instruction.eraseExtensionProperty("context.playbackPlanLite");
 			bool anchorOk = planMotionOnHost(instruction, chainSeedQ, instanceIndex, urdfPath, defaultTcpLinkName,
 											 sceneRootBackendId, anchored, &anchorErr, /*skipValidate=*/false,
@@ -8529,7 +8525,8 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 				anchorOk = isFreshIkSolutionAcceptable(
 					targetResidualMmForInstruction(urdfPath, anchoredQ, frames, defaultTcpLinkName, instruction),
 					targetOrientationResidualDegForInstruction(urdfPath, anchoredQ, frames, defaultTcpLinkName,
-															   instruction));
+															   instruction),
+					m_allowApproximateOrientation);
 				if (anchorOk)
 				{
 					resultQ = anchoredQ;
@@ -8739,7 +8736,8 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 				break;
 			}
 			RobotInstructionPlanning::prepareMotionInstructionForPlanning(
-				instruction, trySeed, doc, osg, instanceIndex, urdfPath, defaultTcpLinkName.toStdString(), &frames);
+				instruction, trySeed, doc, osg, instanceIndex, urdfPath, defaultTcpLinkName.toStdString(), &frames,
+				m_allowApproximateOrientation);
 			if (useLite)
 			{
 				instruction.setExtensionProperty("context.playbackPlanLite", "1");
@@ -8779,13 +8777,16 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 				targetResidualMmForInstruction(urdfPath, resultQ, frames, defaultTcpLinkName, instruction);
 			const double orientDeg =
 				targetOrientationResidualDegForInstruction(urdfPath, resultQ, frames, defaultTcpLinkName, instruction);
-			if (!isFreshIkSolutionAcceptable(residualMm, orientDeg))
+			if (!isFreshIkSolutionAcceptable(residualMm, orientDeg, m_allowApproximateOrientation))
 			{
+				using Gates = UrdfRobotLoader::IkAcceptanceGates;
+				const double posGate = Gates::acceptPosMm(m_allowApproximateOrientation);
+				const double oriGate = Gates::acceptOrientDeg(m_allowApproximateOrientation);
 				char gateBuf[192];
 				std::snprintf(gateBuf, sizeof(gateBuf),
 							  "%s residual exceeds gate (pos=%.2fmm gate=%.1fmm, orient=%.2fdeg gate=%.1fdeg)",
-							  (residualMm < 0.0 || residualMm > kFreshIkPositionRejectMm) ? "position" : "orientation",
-							  residualMm, kFreshIkPositionRejectMm, orientDeg, kMaxFreshIkOrientDeg);
+							  (residualMm < 0.0 || residualMm > posGate) ? "position" : "orientation", residualMm,
+							  posGate, orientDeg, oriGate);
 				lastErr = gateBuf;
 				continue;
 			}
@@ -8937,6 +8938,7 @@ struct PlanJobPayload
 	RobotInstruction::Controller::WorkpieceIkFrameContext workpieceIkFrame{};
 	RobotCoordinate::RobotCoordinateFrameSet frames;
 	bool hasFrames = false;
+	bool allowApproximateOrientation = false;
 };
 
 void attachWorkpieceIkFrameToPayload(PlanJobPayload& payload, IRobotDocumentHost* doc, const int instIdx)
@@ -8983,6 +8985,11 @@ PlanJobPayload makePlanJobPayload(const RobotInstruction::Base& ins, const QVect
 	}
 	payload.extensions = ins.extensionProperties();
 	payload.seedJointRad = seedJointRad;
+	{
+		const auto itApprox = payload.extensions.find("context.allowApproximateOrientation");
+		if (itApprox != payload.extensions.end() && (itApprox->second == "1" || itApprox->second == "true"))
+			payload.allowApproximateOrientation = true;
+	}
 	payload.urdfPath = urdfPath;
 	payload.tcpLinkName = tcpLinkName;
 	payload.dhRows = dhRows;
@@ -9069,7 +9076,8 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 								 const QString& urdfPath, const QString& tcpLinkName,
 								 const RobotCoordinate::RobotCoordinateFrameSet* frames, QVector<double>& outJointQ,
 								 RobotInstruction::PlanResult* outPlan,
-								 const RobotExternal::RobotExternalAxisConfigSet* externalAxesForPlan = nullptr)
+								 const RobotExternal::RobotExternalAxisConfigSet* externalAxesForPlan = nullptr,
+								 const bool allowApproximateOrientation = false)
 {
 	const int nj = chainSeedQ.size() > 0 ? chainSeedQ.size() : programStartQ.size();
 	if (nj <= 0)
@@ -9131,7 +9139,8 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 				break;
 			}
 			RobotInstructionPlanning::prepareMotionInstructionForPlanning(ins, trySeed, nullptr, nullptr, 0, urdfPath,
-																		  tcpLinkName.toStdString(), frames);
+																		  tcpLinkName.toStdString(), frames,
+																		  allowApproximateOrientation);
 			if (useLite)
 			{
 				ins.setExtensionProperty("context.playbackPlanLite", "1");
@@ -9159,7 +9168,7 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 				const double residualMm = targetResidualMmForInstruction(urdfPath, resultQ, *frames, tcpLinkName, ins);
 				const double orientDeg =
 					targetOrientationResidualDegForInstruction(urdfPath, resultQ, *frames, tcpLinkName, ins);
-				if (!isFreshIkSolutionAcceptable(residualMm, orientDeg))
+				if (!isFreshIkSolutionAcceptable(residualMm, orientDeg, allowApproximateOrientation))
 				{
 					continue;
 				}
@@ -9240,7 +9249,8 @@ RobotInstruction::PlanResult planLookaheadMotion(const PlanJobPayload& payload)
 		!payload.programStartQ.isEmpty() ? payload.programStartQ : payload.seedJointRad;
 	const RobotCoordinate::RobotCoordinateFrameSet* framesPtr = payload.hasFrames ? &payload.frames : nullptr;
 	if (!planMotionLikePreviewWorker(*ins, workerCtrl, payload.seedJointRad, programStart, payload.urdfPath,
-									 payload.tcpLinkName, framesPtr, outQ, &plan, &payload.externalAxes))
+									 payload.tcpLinkName, framesPtr, outQ, &plan, &payload.externalAxes,
+									 payload.allowApproximateOrientation))
 	{
 		plan = {};
 		return plan;
@@ -9284,7 +9294,8 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions runFeasibleAxisProbeJob
 	const RobotInstructionPlanning::MotionPoseBackup backup = RobotInstructionPlanning::backupInstructionPose(*ins);
 	RobotInstructionPlanning::prepareMotionInstructionForPlanning(
 		*ins, payload.plan.seedJointRad, nullptr, nullptr, 0, payload.plan.urdfPath,
-		payload.plan.tcpLinkName.toStdString(), &payload.coordinateFrames);
+		payload.plan.tcpLinkName.toStdString(), &payload.coordinateFrames,
+		payload.plan.allowApproximateOrientation);
 	out = workerCtrl.queryFeasibleMotionAxisConfigurationOptions(*ins);
 	RobotInstructionPlanning::restoreInstructionPose(*ins, backup);
 	return out;
@@ -9374,6 +9385,7 @@ void RobotSimulationController::scheduleDeferredFeasibleAxisProbe(
 	FeasibleAxisJobPayload payload;
 	const RobotExternal::RobotExternalAxisConfigSet& extAxes = doc->robotExternalAxesForInstance(instIdx);
 	payload.plan = makePlanJobPayload(*instruction, rollingQ, urdfPath, defaultTcpLinkName, dhRows, &extAxes);
+	payload.plan.allowApproximateOrientation = m_allowApproximateOrientation;
 	attachWorkpieceIkFrameToPayload(payload.plan, doc, instIdx);
 	payload.coordinateFrames = doc->robotCoordinateFramesForInstance(instIdx);
 
@@ -9469,7 +9481,8 @@ ReachabilityJobOutput runReachabilityJob(const ReachabilityJobInput& input)
 		QVector<double> resultQ;
 		const bool ok =
 			planMotionLikePreviewWorker(*ins, workerCtrl, rollingQ, input.programStartQ, step.planPayload.urdfPath,
-										step.planPayload.tcpLinkName, &input.frames, resultQ, nullptr);
+										step.planPayload.tcpLinkName, &input.frames, resultQ, nullptr, nullptr,
+									step.planPayload.allowApproximateOrientation);
 		out.reachability.insert(step.instructionId, ok);
 		if (ok && resultQ.size() == nj)
 		{
@@ -9879,7 +9892,7 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex, 
 				targetResidualMmForInstruction(urdfPath, cachedQ, framesForRun, defaultTcpLinkName, *ins);
 			const double orientDeg =
 				targetOrientationResidualDegForInstruction(urdfPath, cachedQ, framesForRun, defaultTcpLinkName, *ins);
-			if (isTaughtOrCacheReuseAcceptable(residualMm, orientDeg))
+			if (isTaughtOrCacheReuseAcceptable(residualMm, orientDeg, m_allowApproximateOrientation))
 			{
 				RobotInstruction::PlanResult plan = *cached;
 				// R1：参照滚动链种子；归一失败则丢弃缓存重规划。示教 CSV 路径刻意不归一

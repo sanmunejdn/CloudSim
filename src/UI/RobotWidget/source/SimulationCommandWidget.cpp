@@ -265,6 +265,10 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	m_ikSeedCombo->addItem(QStringLiteral("Current"), 1);
 	m_ikSeedCombo->setCurrentIndex(0);
 	m_ikSeedCombo->setToolTip(QStringLiteral("IK seed: previous waypoint chain / current joint pose"));
+	m_allowApproxOrientCheck = new QCheckBox(QStringLiteral("Approx orient"), this);
+	m_allowApproxOrientCheck->setChecked(false);
+	m_allowApproxOrientCheck->setToolTip(
+		QStringLiteral("Allow SoftAccepted IK (wider orientation tolerance). Off = hard convergence only."));
 	configureCompactButton(m_runBtn);
 	configureCompactButton(m_stopBtn);
 	configureCompactButton(m_exportBtn);
@@ -283,6 +287,7 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	rowRun->addWidget(m_playbackRateCombo);
 	rowRun->addWidget(m_ikSeedLabel);
 	rowRun->addWidget(m_ikSeedCombo);
+	rowRun->addWidget(m_allowApproxOrientCheck);
 	rowRun->addStretch(1);
 	rowRun->addWidget(m_exportBtn);
 	root->addLayout(rowRun);
@@ -495,6 +500,8 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	}
 	connect(m_ikSeedCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			[this](int) { emit ikSeedPolicyChanged(m_ikSeedCombo->currentData().toInt()); });
+	connect(m_allowApproxOrientCheck, &QCheckBox::toggled, this,
+			&SimulationCommandWidget::allowApproximateOrientationChanged);
 
 	UiIconDecorators::apply(m_tcpDragTeachBtn, UiIconId::TcpDragTeach);
 	UiIconDecorators::apply(m_waypointPickBtn, UiIconId::PickFace);
@@ -770,6 +777,13 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 		m_ikSeedCombo->setItemText(1, chinese ? QStringLiteral("当前") : QStringLiteral("Current"));
 		m_ikSeedCombo->setToolTip(chinese ? QStringLiteral("IK 种子：上一路点链式 / 轴控当前关节")
 										  : QStringLiteral("IK seed: previous waypoint chain / current joint pose"));
+	}
+	if (m_allowApproxOrientCheck)
+	{
+		m_allowApproxOrientCheck->setText(chinese ? QStringLiteral("允许近似姿态") : QStringLiteral("Approx orient"));
+		m_allowApproxOrientCheck->setToolTip(
+			chinese ? QStringLiteral("勾选后允许 SoftAccepted（放宽姿态容差）；默认仅硬收敛")
+					: QStringLiteral("Allow SoftAccepted IK (wider orientation tolerance). Off = hard only."));
 	}
 	if (m_exportBtn)
 	{

@@ -141,6 +141,9 @@ signals:
 	/// 0=FromInstruction（链式），1=FromCurrentPose
 	void ikSeedPolicyChanged(int policy);
 
+	/// 会话级：允许 SoftAccepted 姿态
+	void allowApproximateOrientationChanged(bool enabled);
+
 	void tcpDragTeachModeChanged(bool enabled);
 
 	void instructionWaypointPickModeChanged(bool enabled);
@@ -262,6 +265,8 @@ private:
 	QLabel* m_ikSeedLabel = nullptr;
 
 	QComboBox* m_ikSeedCombo = nullptr;
+
+	QCheckBox* m_allowApproxOrientCheck = nullptr;
 
 	QPushButton* m_exportBtn = nullptr;
 

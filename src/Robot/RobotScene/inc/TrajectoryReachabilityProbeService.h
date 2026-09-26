@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <vector>
 
+#include <BackendDataBase.h>
 #include <ITrajectoryReachabilityProbe.h>
 
 namespace RobotInstruction
@@ -31,7 +32,9 @@ public:
 	TrajectoryReachabilityProbeService() = default;
 	~TrajectoryReachabilityProbeService() override = default;
 
-	void setRobotContext(const QString& urdfPath, const QString& ikLinkName, const std::vector<double>& seedJointRad);
+	void setRobotContext(const QString& urdfPath, const QString& ikLinkName, const std::vector<double>& seedJointRad,
+						 const BackendMat4& T_flange_tool = BackendMat4::identity(), bool useOrientation = true,
+						 bool allowApproximateOrientation = false);
 
 	bool probe(RobotInstruction::UnifiedTrajectory& traj, const std::vector<std::size_t>& indices, bool useOrientation,
 			   double residualTolMm, std::string* errMsg) const override;
@@ -40,6 +43,9 @@ private:
 	QString m_urdfPath;
 	QString m_ikLinkName;
 	std::vector<double> m_seedJointRad;
+	BackendMat4 m_T_flange_tool = BackendMat4::identity();
+	bool m_useOrientation = true;
+	bool m_allowApproximateOrientation = false;
 };
 
 } // namespace RobotInstruction

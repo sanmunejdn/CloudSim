@@ -6,6 +6,8 @@
 #include "RobotTeachIk.h"
 #include "UnifiedTrajectory.h"
 
+#include <IkAcceptanceGates.h>
+
 namespace RobotInstruction
 {
 namespace
@@ -24,11 +26,16 @@ void resetTrajectoryReachabilityLastStats()
 }
 
 void TrajectoryReachabilityProbeService::setRobotContext(const QString& urdfPath, const QString& ikLinkName,
-														 const std::vector<double>& seedJointRad)
+														 const std::vector<double>& seedJointRad,
+														 const BackendMat4& T_flange_tool, const bool useOrientation,
+														 const bool allowApproximateOrientation)
 {
 	m_urdfPath = urdfPath;
 	m_ikLinkName = ikLinkName;
 	m_seedJointRad = seedJointRad;
+	m_T_flange_tool = T_flange_tool;
+	m_useOrientation = useOrientation;
+	m_allowApproximateOrientation = allowApproximateOrientation;
 }
 
 bool TrajectoryReachabilityProbeService::probe(UnifiedTrajectory& traj, const std::vector<std::size_t>& indices,
@@ -55,7 +62,11 @@ bool TrajectoryReachabilityProbeService::probe(UnifiedTrajectory& traj, const st
 		}
 	}
 
-	const double tol = residualTolMm > 0.0 ? residualTolMm : 5.0;
+	using Gates = UrdfRobotLoader::IkAcceptanceGates;
+	const double defaultTol = Gates::acceptPosMm(m_allowApproximateOrientation);
+	const double tol = residualTolMm > 0.0 ? residualTolMm : defaultTol;
+	const double oriGate = Gates::acceptOrientDeg(m_allowApproximateOrientation);
+	const bool oriWanted = useOrientation && m_useOrientation;
 	std::vector<double> seed = m_seedJointRad;
 	std::size_t probed = 0;
 	std::size_t unreachable = 0;
@@ -71,13 +82,16 @@ bool TrajectoryReachabilityProbeService::probe(UnifiedTrajectory& traj, const st
 		ctx.urdfPath = m_urdfPath;
 		ctx.ikLinkName = m_ikLinkName;
 		ctx.seedJointRad = seed;
-		ctx.useOrientation = useOrientation;
+		ctx.useOrientation = oriWanted;
+		ctx.T_flange_tool = m_T_flange_tool;
+		ctx.options.allowApproximateOrientation = m_allowApproximateOrientation;
 		ctx.maxIkIterations = 80;
 		ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(
 			tp.poseMm.x, tp.poseMm.y, tp.poseMm.z, tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z);
 
 		const RobotTeachIk::TeachIkResult r = RobotTeachIk::solveTeachIk(ctx);
-		tp.reachable = r.ok && r.residualTcpMm < tol;
+		const bool orientOk = !oriWanted || r.residualOrientDeg < 0.0 || r.residualOrientDeg <= oriGate;
+		tp.reachable = r.ok && r.residualTcpMm >= 0.0 && r.residualTcpMm < tol && orientOk;
 		++probed;
 		if (!tp.reachable)
 		{

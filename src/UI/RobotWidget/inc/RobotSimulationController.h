@@ -245,6 +245,9 @@ public slots:
 	bool loadBoundTrajectoryPlanForAi(QByteArray& planOut, QString* err);
 	bool reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* summary, QString* err);
 
+	void setAllowApproximateOrientation(bool enabled) { m_allowApproximateOrientation = enabled; }
+	bool allowApproximateOrientation() const { return m_allowApproximateOrientation; }
+
 private:
 	void applyProgramStartPoseAfterProjectLoadImpl();
 	void finishProgramStartPoseAfterProjectLoad(int instIdx, QVector<double> startJointQ);
@@ -376,6 +379,7 @@ private:
 	PlanResultCache m_planResultCache;
 	RobotInstruction::IkSeedPolicy m_ikSeedPolicy = RobotInstruction::IkSeedPolicy::FromInstruction;
 	std::string m_ikSeedInstructionId;
+	bool m_allowApproximateOrientation = false;
 	QHash<QString, bool> m_motionReachabilityCache;
 	quint64 m_reachabilityJobToken = 0;
 	int m_reachabilityPendingJobs = 0;

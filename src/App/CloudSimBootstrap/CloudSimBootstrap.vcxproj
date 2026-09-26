@@ -75,6 +75,7 @@
   <ItemGroup>
     <ClInclude Include="inc\cloudsim_bootstrap_global.h" />
     <ClInclude Include="inc\CloudSimBootstrap.h" />
+    <ClInclude Include="inc\CrashDump.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\CloudSimApplicationContext.cpp" />

@@ -38,6 +38,12 @@
 |------|------|
 | [网页端](网页端/README.md) | API 契约、交互、Host↔Headless 同步 |
 
+## 质量 / 自动化
+
+| 专题 | 说明 |
+|------|------|
+| [自动化测试](自动化测试/README.md) | SelfTestRunner / API pytest / soak / CI / 修复闭环 |
+
 ## 领域资产
 
 | 专题 | 说明 |

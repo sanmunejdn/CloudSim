@@ -522,7 +522,8 @@ public:
 	TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, double pxMm, double pyMm, double pzMm, double exDeg,
 										double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
 										const QString& ikLinkName, const std::vector<double>& externalAxisQSeed = {},
-										bool hasExternalAxisQSeed = false) override
+										bool hasExternalAxisQSeed = false,
+										bool allowApproximateOrientation = false) override
 	{
 		TcpDragIkResult result;
 		if (!m_page)
@@ -560,6 +561,8 @@ public:
 		ctx.options.maxJointStepRad = 0.22;
 		ctx.options.positionToleranceMm = 1.0;
 		ctx.options.orientationToleranceRad = 0.35 * 3.14159265358979323846 / 180.0;
+		// Soft 开关由仿真控制器会话态传入，DocumentHost 不持有 MainWindow
+		ctx.options.allowApproximateOrientation = allowApproximateOrientation;
 		const QString sceneRootId = m_page->robotSceneBackendIdForInstance(instanceIndex);
 		if (!sceneRootId.isEmpty())
 		{
@@ -918,32 +921,6 @@ public:
 			}
 			bestQe = qeFull;
 			bestBaseDof = baseDof;
-		}
-
-		if (!bestIk.ok || bestIk.residualTcpMm > 5.0)
-		{
-			ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
-			ctx.useOrientation = false;
-			ctx.maxIkIterations = 80;
-			ctx.options.maxIterations = 80;
-			RobotTeachIk::TeachIkResult posOnly{};
-			if (baseDof.active())
-			{
-				ctx.externalAxes = baseDof;
-				const double hint = baseDof.qExternal.empty() ? 0.0 : baseDof.qExternal.front();
-				posOnly = solveIkDrag(ctx, hint, hasExternalAxisQSeed);
-			}
-			else
-			{
-				ctx.externalAxes = {};
-				posOnly = solveIk(ctx);
-			}
-			if (posOnly.ok && (!bestIk.ok || posOnly.residualTcpMm < bestIk.residualTcpMm))
-			{
-				bestIk = posOnly;
-				bestQe = qeFull;
-				bestBaseDof = baseDof;
-			}
 		}
 
 		if (!bestIk.ok)

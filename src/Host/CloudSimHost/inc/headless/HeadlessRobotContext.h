@@ -110,7 +110,8 @@ public:
 	bool applyIkFromFlangeThreeJsMatrix(const QString& flangeBackendId, const QVector<double>& threeJsColMajor16,
 										QVector<double>* outJointAnglesRad = nullptr, QString* outError = nullptr,
 										bool* outIncomplete = nullptr, bool translateOnly = false,
-										TcpPoseCapture* outReachedTeachTarget = nullptr);
+										TcpPoseCapture* outReachedTeachTarget = nullptr,
+										bool allowApproximateOrientation = false);
 
 	/// 当前关节下基座系 TCP（工具原点）示教位姿
 	bool captureTcpPose(const QString& sceneRootBackendId, TcpPoseCapture& out, QString* outError = nullptr) const;

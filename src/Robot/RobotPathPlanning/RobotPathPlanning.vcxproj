@@ -165,6 +165,7 @@
   <ItemGroup>
     <ClInclude Include="inc\robot_path_planning_global.h" />
     <ClInclude Include="inc\RobotPathPlanning.h" />
+    <ClInclude Include="inc\SelfTest.h" />
     <ClInclude Include="inc\CollisionValidity.h" />
     <ClInclude Include="inc\JointSpaceDijkstraPlanner.h" />
     <ClInclude Include="inc\JointSpaceRrtPlanner.h" />

@@ -493,7 +493,8 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 														  const QVector<double>& threeJsColMajor16,
 														  QVector<double>* outJointAnglesRad, QString* outError,
 														  bool* outIncomplete, const bool translateOnly,
-														  TcpPoseCapture* outReachedTeachTarget)
+														  TcpPoseCapture* outReachedTeachTarget,
+														  const bool allowApproximateOrientation)
 {
 	if (outIncomplete)
 	{
@@ -682,6 +683,25 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 		ctx.urdfPath = ri.urdfAbsolutePath;
 		ctx.ikLinkName = flangeLinkForIk;
 		ctx.T_base_target = tcpInBaseFromScene(tcpScene);
+		// 期望目标写入诊断（失败时 Web 可区分错系 vs 不可达）
+		if (outReachedTeachTarget)
+		{
+			double tx = 0.0;
+			double ty = 0.0;
+			double tz = 0.0;
+			ctx.T_base_target.translationMm(tx, ty, tz);
+			outReachedTeachTarget->targetTransformTransMmCsv =
+				QStringLiteral("%1,%2,%3").arg(tx, 0, 'g', 12).arg(ty, 0, 'g', 12).arg(tz, 0, 'g', 12);
+			const Eigen::Quaterniond q = ctx.T_base_target.rotation().normalized();
+			outReachedTeachTarget->targetTransformQuatCsv = QStringLiteral("%1,%2,%3,%4")
+															   .arg(q.x(), 0, 'g', 12)
+															   .arg(q.y(), 0, 'g', 12)
+															   .arg(q.z(), 0, 'g', 12)
+															   .arg(q.w(), 0, 'g', 12);
+			outReachedTeachTarget->positionMm[0] = tx;
+			outReachedTeachTarget->positionMm[1] = ty;
+			outReachedTeachTarget->positionMm[2] = tz;
+		}
 		ctx.seedJointRad.clear();
 		ctx.seedJointRad.reserve(static_cast<size_t>(seedQ.size()));
 		for (double v : seedQ)
@@ -691,6 +711,7 @@ bool HeadlessRobotContext::applyIkFromFlangeThreeJsMatrix(const QString& flangeB
 		ctx.useOrientation = true;
 		ctx.T_flange_tool = toolMat;
 		ctx.maxIkIterations = translateOnly ? 40 : 22;
+		ctx.options.allowApproximateOrientation = allowApproximateOrientation;
 		const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
 		if (!ik.ok || ik.jointRad.empty())
 		{

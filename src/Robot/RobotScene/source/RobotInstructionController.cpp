@@ -14,8 +14,10 @@
 #include "RuckigPtpTrajectory.h"
 #include "RunLogger.h"
 #include "UrdfIkSolverOptions.h"
+#include "IkAcceptanceGates.h"
 #include "UrdfNumericalIk.h"
 #include "UrdfRobotLoader.h"
+#include "IkSeedExpand.h"
 
 #include <QHash>
 #include <QString>
@@ -1094,11 +1096,7 @@ std::vector<std::vector<double>> buildIkSeedVariants(const std::vector<double>& 
 													 const std::vector<std::string>& jointNames,
 													 const RobotInstruction::MotionAxisConfiguration* axisCfg)
 {
-	std::vector<std::vector<double>> seeds;
-	if (qSeed.empty())
-	{
-		return seeds;
-	}
+	std::vector<std::vector<double>> seeds = UrdfRobotLoader::expandPoseIkSeeds(qSeed);
 	auto pushUnique = [&](std::vector<double> q)
 	{
 		for (const auto& existing : seeds)
@@ -1110,43 +1108,9 @@ std::vector<std::vector<double>> buildIkSeedVariants(const std::vector<double>& 
 		}
 		seeds.push_back(std::move(q));
 	};
-	pushUnique(qSeed);
 	const int elbowIdx = jointIndexByNameHint(jointNames, "elbow", 2);
 	const int wristIdx = jointIndexByNameHint(jointNames, "wrist", 4);
 	const int j1Idx = jointIndexByNameHint(jointNames, nullptr, 0);
-	if (elbowIdx >= 0)
-	{
-		std::vector<double> qElbow = qSeed;
-		qElbow[static_cast<size_t>(elbowIdx)] = -qElbow[static_cast<size_t>(elbowIdx)];
-		pushUnique(std::move(qElbow));
-	}
-	if (wristIdx >= 0)
-	{
-		std::vector<double> qWrist = qSeed;
-		qWrist[static_cast<size_t>(wristIdx)] += 3.14159265358979323846;
-		pushUnique(std::move(qWrist));
-		if (elbowIdx >= 0)
-		{
-			std::vector<double> qBoth = qSeed;
-			qBoth[static_cast<size_t>(elbowIdx)] = -qBoth[static_cast<size_t>(elbowIdx)];
-			qBoth[static_cast<size_t>(wristIdx)] += 3.14159265358979323846;
-			pushUnique(std::move(qBoth));
-		}
-	}
-	// 末轴（J6）多解：路径点姿态主要由腕部扭转决定，仅翻 elbow/wrist 不够
-	const int tailIdx = static_cast<int>(qSeed.size()) - 1;
-	if (tailIdx >= 0)
-	{
-		const double qTail0 = qSeed[static_cast<size_t>(tailIdx)];
-		const double kPi = 3.14159265358979323846;
-		const double kTailOffsets[] = {0.25 * kPi, -0.25 * kPi, 0.5 * kPi, -0.5 * kPi, kPi, -kPi};
-		for (const double off : kTailOffsets)
-		{
-			std::vector<double> qTail = qSeed;
-			qTail[static_cast<size_t>(tailIdx)] = qTail0 + off;
-			pushUnique(std::move(qTail));
-		}
-	}
 	if (axisCfg && RobotInstruction::motionAxisConfigurationRequiresConstraint(*axisCfg))
 	{
 		RobotInstruction::JointConfigurationClass want{};
@@ -1506,11 +1470,22 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		ctx.T_flange_tool = T_flange_tool;
 		ctx.externalAxisConfigCount = configCount;
 		ctx.externalAxis.enabled = false;
+		// 指令 pose 已是基座系工具原点（P0）；此处勿再按用户系解释
+		{
+			const auto& extOpt = cmd.extensionProperties();
+			const auto itApprox = extOpt.find("context.allowApproximateOrientation");
+			if (itApprox != extOpt.end() && (itApprox->second == "1" || itApprox->second == "true"))
+			{
+				ctx.options.allowApproximateOrientation = true;
+			}
+		}
 
 		double bestRes = std::numeric_limits<double>::infinity();
 		std::vector<double> bestQ;
 		std::vector<double> bestQsFull = qeSeedFull;
 		bool bestOk = false;
+		std::string lastTeachError;
+		double lastTeachResMm = std::numeric_limits<double>::infinity();
 
 		auto considerDof = [&](RobotTeachIk::TeachIkExternalAxisDof tryDof, const bool optimize, const int maxIters,
 							   const std::vector<double>& qeTryFull)
@@ -1523,6 +1498,14 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 			const RobotTeachIk::TeachIkResult r = RobotTeachIk::solveTeachIk(ctx);
 			if (!r.ok)
 			{
+				if (!r.error.empty())
+				{
+					lastTeachError = r.error;
+				}
+				if (r.residualTcpMm > 0.0 && r.residualTcpMm < lastTeachResMm)
+				{
+					lastTeachResMm = r.residualTcpMm;
+				}
 				return;
 			}
 			if (r.residualTcpMm < bestRes)
@@ -1687,12 +1670,26 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 
 		if (bestOk && !bestQ.empty())
 		{
+			// TeachIk 已按 IkAcceptanceGates 收紧 ok；此处不再重测残差
 			noteLastIkExternalAxis(bestQsFull);
 			return bestQ;
 		}
 		if (failReason)
 		{
-			*failReason = "外轴联立未找到可行解（请检查行程/方向）";
+			if (!lastTeachError.empty())
+			{
+				*failReason = lastTeachError;
+			}
+			else if (lastTeachResMm < std::numeric_limits<double>::infinity())
+			{
+				std::ostringstream os;
+				os << "外轴联立未找到可行解（最佳位置残差" << lastTeachResMm << "mm）";
+				*failReason = os.str();
+			}
+			else
+			{
+				*failReason = "外轴联立未找到可行解（请检查行程/方向）";
+			}
 		}
 		return {};
 	}
@@ -1712,8 +1709,17 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	UrdfRobotLoader::UrdfIkSolverOptions opt{};
 	opt.maxIterations = 120;
 	opt.maxPosThenOriAttempts = 18;
-	constexpr double kAcceptPosMm = 3.0;
-	constexpr double kAcceptRotDeg = 5.0;
+	{
+		const auto& extOpt = cmd.extensionProperties();
+		const auto itApprox = extOpt.find("context.allowApproximateOrientation");
+		if (itApprox != extOpt.end() && (itApprox->second == "1" || itApprox->second == "true"))
+		{
+			opt.allowApproximateOrientation = true;
+		}
+	}
+	using Gates = UrdfRobotLoader::IkAcceptanceGates;
+	const double kAcceptPosMm = Gates::acceptPosMm(opt.allowApproximateOrientation);
+	const double kAcceptRotDeg = Gates::acceptOrientDeg(opt.allowApproximateOrientation);
 	const std::vector<std::string> jointNames = revoluteJointNamesFromInstructionContext(cmd);
 	RobotInstruction::MotionAxisConfiguration axisCfg{};
 	if (cmd.hasMotionAxisConfigurationProperty())
@@ -1733,8 +1739,9 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	struct AcceptCand
 	{
 		std::vector<double> q;
-		double cost = 0.0;
+		double wrapDist = 0.0;
 		double wristJump = 0.0;
+		double cost = 0.0;
 	};
 	std::vector<AcceptCand> acceptCands;
 	std::vector<double> bestQ;
@@ -1745,9 +1752,10 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	for (const std::vector<double>& seed : seeds)
 	{
 		std::string seedFail;
-		std::vector<double> qTry =
-			UrdfRobotLoader::solveArmPoseDampedLeastSquares(urdfPath, ikLink, poseTarget, seed, opt, &seedFail);
-		if (qTry.empty())
+		UrdfRobotLoader::IkConvergenceStatus ikStatus = UrdfRobotLoader::IkConvergenceStatus::Failed;
+		std::vector<double> qTry = UrdfRobotLoader::solveArmPoseDampedLeastSquares(
+			urdfPath, ikLink, poseTarget, seed, opt, &seedFail, &ikStatus);
+		if (qTry.empty() || ikStatus == UrdfRobotLoader::IkConvergenceStatus::Failed)
 		{
 			if (!seedFail.empty())
 			{
@@ -1775,16 +1783,25 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 			AcceptCand ac;
 			ac.q = std::move(qTry);
 			ac.cost = cost;
+			ac.wrapDist = UrdfRobotLoader::wrappedJointDistance(ac.q, qRef);
 			ac.wristJump = RobotInstruction::wristConfigurationJumpRad(ac.q, qRef, jointNames);
 			acceptCands.push_back(std::move(ac));
 		}
 	}
 	if (!acceptCands.empty())
 	{
-		// 有过门解时优先腕连续支，避免多种子先撞上翻腕
 		const AcceptCand* best = &acceptCands.front();
 		for (const AcceptCand& c : acceptCands)
 		{
+			if (c.wrapDist < best->wrapDist - 1e-9)
+			{
+				best = &c;
+				continue;
+			}
+			if (c.wrapDist > best->wrapDist + 1e-9)
+			{
+				continue;
+			}
 			const bool cCont = c.wristJump <= RobotInstruction::kWristContinuityGateRad;
 			const bool bCont = best->wristJump <= RobotInstruction::kWristContinuityGateRad;
 			if (cCont != bCont)
@@ -1798,10 +1815,6 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 			if (c.wristJump < best->wristJump - 1e-9)
 			{
 				best = &c;
-				continue;
-			}
-			if (c.wristJump > best->wristJump + 1e-9)
-			{
 				continue;
 			}
 			if (c.cost < best->cost - 1e-9)
@@ -1898,8 +1911,8 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 			matching.push_back(std::move(c));
 		}
 	}
-	const std::vector<Candidate>& pool = cfg.isFullyAuto() ? converged : matching;
-	if (pool.empty())
+	const std::vector<Candidate>& poolBase = cfg.isFullyAuto() ? converged : matching;
+	if (poolBase.empty())
 	{
 		if (failReason)
 		{
@@ -1917,6 +1930,28 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 			}
 		}
 		return {};
+	}
+	// 显式轴约束：腕连续门硬失败，禁止静默吃翻腕解
+	std::vector<Candidate> continuousOnly;
+	const std::vector<Candidate>* pool = &poolBase;
+	if (!cfg.isFullyAuto())
+	{
+		for (const Candidate& c : poolBase)
+		{
+			if (c.wristJump <= RobotInstruction::kWristContinuityGateRad)
+			{
+				continuousOnly.push_back(c);
+			}
+		}
+		if (continuousOnly.empty())
+		{
+			if (failReason)
+			{
+				*failReason = "轴配置解腕部跳变过大（相对种子超过连续性门限）";
+			}
+			return {};
+		}
+		pool = &continuousOnly;
 	}
 	const auto isCandidateBetter = [](const Candidate& c, const Candidate& best)
 	{
@@ -1956,8 +1991,8 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 		}
 		return c.q.size() < best.q.size();
 	};
-	const Candidate* best = &pool.front();
-	for (const Candidate& c : pool)
+	const Candidate* best = &pool->front();
+	for (const Candidate& c : *pool)
 	{
 		if (isCandidateBetter(c, *best))
 		{
@@ -2095,6 +2130,14 @@ public:
 		}
 		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty() &&
 								   RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
+		if (constrainAxis && !preferUrdfIk)
+		{
+			if (errMsg)
+			{
+				*errMsg = "轴配置IK需要URDF/TCP上下文";
+			}
+			return false;
+		}
 		if (preferUrdfIk)
 		{
 			// 仅显式轴约束走 axis_cfg；AUTO 用普通 URDF IK（expandSeedVariants）
@@ -2115,8 +2158,9 @@ public:
 				}
 			}
 		}
-		if (targetQ.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty() &&
-			!coupledExternalIkRequired())
+		// 有 URDF/TCP 时禁止 DH/legacy 冒充位姿解；仅无 URDF 且无姿态时允许 DH 位置回退
+		if (targetQ.empty() && !preferUrdfIk && m_dhRows && !m_dhRows->empty() && !constrainAxis &&
+			!cmd.hasEulerProperty() && !coupledExternalIkRequired())
 		{
 			targetQ = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 			if (!targetQ.empty())
@@ -2132,7 +2176,8 @@ public:
 				solvePath = "urdf_late";
 			}
 		}
-		if (targetQ.empty() && !constrainAxis && !cmd.hasEulerProperty() && !coupledExternalIkRequired())
+		if (targetQ.empty() && !preferUrdfIk && !constrainAxis && !cmd.hasEulerProperty() &&
+			!coupledExternalIkRequired())
 		{
 			targetQ = solveTargetByLegacyJointDelta(cmd);
 			if (!targetQ.empty())
@@ -2179,6 +2224,10 @@ public:
 		out.ok = true;
 		out.plannerName = "PtpPlanner";
 		out.summary = "PTP solved with joint target output.";
+		if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
+		{
+			out.summary += " [ikPath=" + solvePath + "]";
+		}
 		out.durationSec = durationSec;
 		out.jointTargetsRad = targetQ;
 		out.jointTrajectoryRad = {targetQ};
@@ -2193,6 +2242,10 @@ public:
 				out.durationSec = std::max(0.05, ruckigDur);
 				out.jointTrajectoryRad = std::move(ruckigTraj);
 				out.summary = "PTP solved with Ruckig joint trajectory.";
+				if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
+				{
+					out.summary += " [ikPath=" + solvePath + "]";
+				}
 			}
 		}
 		applyLastIkExternalAxisToPlan(out);
@@ -2261,6 +2314,7 @@ public:
 
 		std::vector<double> qTarget;
 		std::string ikFailReason;
+		std::string solvePath = "none";
 		const bool preferUrdfIk = hasTcpLinkContext(cmd);
 		RobotInstruction::MotionAxisConfiguration axisCfg;
 		if (cmd.hasMotionAxisConfigurationProperty())
@@ -2269,41 +2323,58 @@ public:
 		}
 		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty() &&
 								   RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
+		if (constrainAxis && !preferUrdfIk)
+		{
+			if (errMsg)
+			{
+				*errMsg = "轴配置IK需要URDF/TCP上下文";
+			}
+			return false;
+		}
 		if (preferUrdfIk)
 		{
-			if (cmd.hasMotionAxisConfigurationProperty())
+			if (constrainAxis)
 			{
 				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
-				// 轴约束未生效时再走无约束数值 IK
-				if (qTarget.empty() && !constrainAxis)
+				if (!qTarget.empty())
 				{
-					qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+					solvePath = "urdf_axis_cfg";
 				}
 			}
 			else
 			{
 				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+				if (!qTarget.empty())
+				{
+					solvePath = "urdf";
+				}
 			}
 		}
-		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty() &&
-			!coupledExternalIkRequired())
+		if (qTarget.empty() && !preferUrdfIk && m_dhRows && !m_dhRows->empty() && !constrainAxis &&
+			!cmd.hasEulerProperty() && !coupledExternalIkRequired())
 		{
 			qTarget = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
+			if (!qTarget.empty())
+			{
+				solvePath = "dh";
+			}
 		}
-		if (qTarget.empty() && !preferUrdfIk)
+		if (qTarget.empty() && !preferUrdfIk && !constrainAxis)
 		{
-			if (cmd.hasMotionAxisConfigurationProperty())
+			qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			if (!qTarget.empty())
 			{
-				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
-			}
-			else if (!constrainAxis)
-			{
-				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+				solvePath = "urdf_late";
 			}
 		}
-		if (qTarget.empty() && !constrainAxis && !cmd.hasEulerProperty() && !coupledExternalIkRequired())
+		if (qTarget.empty() && !preferUrdfIk && !constrainAxis && !cmd.hasEulerProperty() &&
+			!coupledExternalIkRequired())
 		{
 			qTarget = solveTargetByLegacyJointDelta(cmd);
+			if (!qTarget.empty())
+			{
+				solvePath = "legacy";
+			}
 		}
 		if (qTarget.empty() || qTarget.size() != q0.size())
 		{
@@ -2403,8 +2474,7 @@ public:
 			std::vector<double> seedQ = q0;
 			bool sampleOk = true;
 			std::string sampleFail;
-			// 相邻路点未折圈行程门：奇异附近一次数值跳动不得在回放里插完 180°
-			constexpr double kMaxAdjacentJointJumpRad = 2.6;
+			const std::vector<std::string> sampleJointNames = revoluteJointNamesFromInstructionContext(cmd);
 			for (int i = 1; i <= samples; ++i)
 			{
 				const double u = static_cast<double>(i) / static_cast<double>(samples);
@@ -2419,19 +2489,36 @@ public:
 				std::vector<double> qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &sampleFail, false);
 				if (qSample.empty() || qSample.size() != q0.size())
 				{
+					sampleFail = sampleFail.empty()
+									 ? ("LINE 路径中间点 IK 失败（样点 " + std::to_string(i) + ")")
+									 : (sampleFail + " (样点 " + std::to_string(i) + ")");
 					sampleOk = false;
 					break;
 				}
-				double maxJump = 0.0;
-				for (size_t j = 0; j < qSample.size(); ++j)
+				double wristJump =
+					RobotInstruction::wristConfigurationJumpRad(qSample, seedQ, sampleJointNames);
+				if (wristJump > RobotInstruction::kWristContinuityGateRad)
 				{
-					maxJump = std::max(maxJump, std::abs(qSample[j] - seedQ[j]));
-				}
-				if (maxJump > kMaxAdjacentJointJumpRad)
-				{
-					sampleFail = "LINE cartesian sample joint jump exceeds continuity gate";
-					sampleOk = false;
-					break;
+					std::string retryFail;
+					qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &retryFail, true);
+					if (qSample.empty() || qSample.size() != q0.size())
+					{
+						sampleFail = "LINE 路径中间点腕连续失败（样点 " + std::to_string(i) + "）";
+						if (!retryFail.empty())
+						{
+							sampleFail += ": " + retryFail;
+						}
+						sampleOk = false;
+						break;
+					}
+					wristJump = RobotInstruction::wristConfigurationJumpRad(qSample, seedQ, sampleJointNames);
+					if (wristJump > RobotInstruction::kWristContinuityGateRad)
+					{
+						sampleFail = "LINE 路径中间点腕连续失败（样点 " + std::to_string(i) +
+									 "，wristJump=" + std::to_string(wristJump) + "rad）";
+						sampleOk = false;
+						break;
+					}
 				}
 				seedQ = qSample;
 				out.jointTrajectoryRad.push_back(std::move(qSample));
@@ -2499,6 +2586,10 @@ public:
 		out.plannerName = "LinePlanner";
 		out.summary = usedCartesianSamples ? "LINE cartesian samples with IK."
 										   : "LINE joint-space trajectory (no URDF cartesian path).";
+		if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
+		{
+			out.summary += " [ikPath=" + solvePath + "]";
+		}
 		out.durationSec = durationSec;
 		out.jointTargetsRad = qTarget;
 		applyLastIkExternalAxisToPlan(out);
@@ -2567,6 +2658,7 @@ public:
 
 		std::vector<double> qTarget;
 		std::string ikFailReason;
+		std::string solvePath = "none";
 		const bool preferUrdfIk = hasTcpLinkContext(cmd);
 		RobotInstruction::MotionAxisConfiguration axisCfg;
 		if (cmd.hasMotionAxisConfigurationProperty())
@@ -2575,41 +2667,58 @@ public:
 		}
 		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty() &&
 								   RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
+		if (constrainAxis && !preferUrdfIk)
+		{
+			if (errMsg)
+			{
+				*errMsg = "轴配置IK需要URDF/TCP上下文";
+			}
+			return false;
+		}
 		if (preferUrdfIk)
 		{
-			if (cmd.hasMotionAxisConfigurationProperty())
+			if (constrainAxis)
 			{
 				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
-				// 轴约束未生效时再走无约束数值 IK
-				if (qTarget.empty() && !constrainAxis)
+				if (!qTarget.empty())
 				{
-					qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+					solvePath = "urdf_axis_cfg";
 				}
 			}
 			else
 			{
 				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+				if (!qTarget.empty())
+				{
+					solvePath = "urdf";
+				}
 			}
 		}
-		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty() &&
-			!coupledExternalIkRequired())
+		if (qTarget.empty() && !preferUrdfIk && m_dhRows && !m_dhRows->empty() && !constrainAxis &&
+			!cmd.hasEulerProperty() && !coupledExternalIkRequired())
 		{
 			qTarget = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
+			if (!qTarget.empty())
+			{
+				solvePath = "dh";
+			}
 		}
-		if (qTarget.empty() && !preferUrdfIk)
+		if (qTarget.empty() && !preferUrdfIk && !constrainAxis)
 		{
-			if (cmd.hasMotionAxisConfigurationProperty())
+			qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			if (!qTarget.empty())
 			{
-				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
-			}
-			else if (!constrainAxis)
-			{
-				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+				solvePath = "urdf_late";
 			}
 		}
-		if (qTarget.empty() && !constrainAxis && !cmd.hasEulerProperty() && !coupledExternalIkRequired())
+		if (qTarget.empty() && !preferUrdfIk && !constrainAxis && !cmd.hasEulerProperty() &&
+			!coupledExternalIkRequired())
 		{
 			qTarget = solveTargetByLegacyJointDelta(cmd);
+			if (!qTarget.empty())
+			{
+				solvePath = "legacy";
+			}
 		}
 		if (qTarget.empty() || qTarget.size() != q0.size())
 		{
@@ -2722,7 +2831,7 @@ public:
 			std::string sampleFail;
 			const Eigen::Quaterniond qStart = T_start.rotation().normalized();
 			const Eigen::Quaterniond qEnd = T_end.rotation().normalized();
-			constexpr double kMaxAdjacentJointJumpRad = 2.6;
+			const std::vector<std::string> sampleJointNames = revoluteJointNamesFromInstructionContext(cmd);
 			for (int i = 0; i < samples; ++i)
 			{
 				const double u = sampleU[static_cast<size_t>(i)];
@@ -2739,19 +2848,36 @@ public:
 				std::vector<double> qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &sampleFail, false);
 				if (qSample.empty() || qSample.size() != q0.size())
 				{
+					sampleFail = sampleFail.empty()
+									 ? ("ARC 路径中间点 IK 失败（样点 " + std::to_string(i) + ")")
+									 : (sampleFail + " (样点 " + std::to_string(i) + ")");
 					sampleOk = false;
 					break;
 				}
-				double maxJump = 0.0;
-				for (size_t j = 0; j < qSample.size(); ++j)
+				double wristJump =
+					RobotInstruction::wristConfigurationJumpRad(qSample, seedQ, sampleJointNames);
+				if (wristJump > RobotInstruction::kWristContinuityGateRad)
 				{
-					maxJump = std::max(maxJump, std::abs(qSample[j] - seedQ[j]));
-				}
-				if (maxJump > kMaxAdjacentJointJumpRad)
-				{
-					sampleFail = "ARC cartesian sample joint jump exceeds continuity gate";
-					sampleOk = false;
-					break;
+					std::string retryFail;
+					qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &retryFail, true);
+					if (qSample.empty() || qSample.size() != q0.size())
+					{
+						sampleFail = "ARC 路径中间点腕连续失败（样点 " + std::to_string(i) + "）";
+						if (!retryFail.empty())
+						{
+							sampleFail += ": " + retryFail;
+						}
+						sampleOk = false;
+						break;
+					}
+					wristJump = RobotInstruction::wristConfigurationJumpRad(qSample, seedQ, sampleJointNames);
+					if (wristJump > RobotInstruction::kWristContinuityGateRad)
+					{
+						sampleFail = "ARC 路径中间点腕连续失败（样点 " + std::to_string(i) +
+									 "，wristJump=" + std::to_string(wristJump) + "rad）";
+						sampleOk = false;
+						break;
+					}
 				}
 				seedQ = qSample;
 				out.jointTrajectoryRad.push_back(std::move(qSample));
@@ -2788,6 +2914,10 @@ public:
 		out.ok = true;
 		out.plannerName = "ArcPlanner";
 		out.summary = "ARC cartesian samples with IK.";
+		if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
+		{
+			out.summary += " [ikPath=" + solvePath + "]";
+		}
 		out.durationSec = durationSec;
 		out.jointTargetsRad = qTarget;
 		applyLastIkExternalAxisToPlan(out);

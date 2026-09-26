@@ -84,14 +84,26 @@ struct ROBOT_SCENE_API TeachIkContext
 
 struct ROBOT_SCENE_API TeachIkResult
 {
+	enum class FailClass
+	{
+		None = 0,
+		NotConverged,
+		Singular,
+		Limit,
+		Unreachable,
+		Timeout,
+	};
+
 	bool ok = false;
 	std::vector<double> jointRad;
-	double residualTcpMm = 0.0;
+	double residualTcpMm = -1.0;
+	double residualOrientDeg = -1.0;
 	/// 首轴（兼容）：优先首个 RobotBase/启用槽
 	double externalAxisQ = 0.0;
 	/// 优先 config 下标对齐（externalAxisConfigCount>0）；否则与启用列表同长
 	std::vector<double> externalAxisQs;
 	std::string error;
+	FailClass failClass = FailClass::None;
 };
 
 /// 示教 IK：T_base_target 与 T_flange_tool → 法兰目标 → URDF 数值 IK

@@ -11,9 +11,11 @@
 #include <QVector>
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 #include <utility>
 
 #include <Adapters.h>
+#include <IkAcceptanceGates.h>
 #include <KinematicCoreUrdfIk.h>
 #include <ToolKinematics.h>
 #include <UrdfIkSolverOptions.h>
@@ -661,9 +663,13 @@ void appendGridSamples(const RobotTeachIk::TeachIkExternalAxisDof& seedDof,
 	}
 }
 
-double residualToolOriginMm(const RobotTeachIk::TeachIkContext& ctx, const std::vector<double>& q,
-							const RobotTeachIk::TeachIkExternalAxisDof& dof)
+double residualToolOrigin(const RobotTeachIk::TeachIkContext& ctx, const std::vector<double>& q,
+						  const RobotTeachIk::TeachIkExternalAxisDof& dof, double* outOrientDeg)
 {
+	if (outOrientDeg)
+	{
+		*outOrientDeg = -1.0;
+	}
 	IkLinkTarget linkTarget{};
 	if (!ikLinkTargetFromTeachContext(ctx, linkTarget))
 	{
@@ -685,9 +691,9 @@ double residualToolOriginMm(const RobotTeachIk::TeachIkContext& ctx, const std::
 		toolOriginPos[0] = t.pos[0];
 		toolOriginPos[1] = t.pos[1];
 		toolOriginPos[2] = t.pos[2];
+		toolQuat = t.quat;
 	}
 
-	const engine::RigidTransform T_flange_tool = RobotCoordinate::rigidTransformFromBackendMat4(ctx.T_flange_tool);
 	QVector<double> qQt;
 	qQt.reserve(static_cast<int>(q.size()));
 	for (double v : q)
@@ -707,7 +713,51 @@ double residualToolOriginMm(const RobotTeachIk::TeachIkContext& ctx, const std::
 	const double dx = fkPos[0] - toolOriginPos[0];
 	const double dy = fkPos[1] - toolOriginPos[1];
 	const double dz = fkPos[2] - toolOriginPos[2];
+	if (outOrientDeg && ctx.useOrientation && linkTarget.hasOrientation)
+	{
+		const engine::RigidTransform fkRt = RobotCoordinate::rigidTransformFromFrame(fkTcpFrame);
+		const Eigen::Quaterniond targetQ(toolQuat.w(), toolQuat.x(), toolQuat.y(), toolQuat.z());
+		const engine::RigidTransform targetRt = engine::RigidTransform::fromTranslationQuat(
+			Eigen::Vector3d(toolOriginPos[0], toolOriginPos[1], toolOriginPos[2]), targetQ.normalized());
+		*outOrientDeg = fkRt.rotationErrorDeg(targetRt);
+	}
 	return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+void applyResidualGate(RobotTeachIk::TeachIkResult& out, const RobotTeachIk::TeachIkContext& ctx)
+{
+	using Gates = UrdfRobotLoader::IkAcceptanceGates;
+	const bool allowApprox = ctx.options.allowApproximateOrientation;
+	const double posGate = Gates::acceptPosMm(allowApprox);
+	const double oriGate = Gates::acceptOrientDeg(allowApprox);
+	const bool orientOk = !ctx.useOrientation || out.residualOrientDeg < 0.0 || out.residualOrientDeg <= oriGate;
+	const bool posOk = out.residualTcpMm >= 0.0 && out.residualTcpMm <= posGate && out.residualTcpMm < 1e29;
+	if (posOk && orientOk && !out.jointRad.empty())
+	{
+		out.ok = true;
+		out.failClass = RobotTeachIk::TeachIkResult::FailClass::None;
+		out.error.clear();
+		return;
+	}
+	out.ok = false;
+	out.failClass = RobotTeachIk::TeachIkResult::FailClass::Unreachable;
+	std::ostringstream os;
+	os << "残差超门限(pos=" << out.residualTcpMm << "mm gate=" << posGate << "mm";
+	if (ctx.useOrientation && out.residualOrientDeg >= 0.0)
+	{
+		os << ", orient=" << out.residualOrientDeg << "deg gate=" << oriGate << "deg";
+	}
+	os << ")";
+	out.error = os.str();
+}
+
+void fillResidualsAndGate(RobotTeachIk::TeachIkResult& out, const RobotTeachIk::TeachIkContext& ctx,
+						  const RobotTeachIk::TeachIkExternalAxisDof& dof)
+{
+	double orientDeg = -1.0;
+	out.residualTcpMm = residualToolOrigin(ctx, out.jointRad, dof, &orientDeg);
+	out.residualOrientDeg = orientDeg;
+	applyResidualGate(out, ctx);
 }
 
 RobotTeachIk::TeachIkResult solveFixedExternalThenArm(const RobotTeachIk::TeachIkContext& ctx,
@@ -728,13 +778,13 @@ RobotTeachIk::TeachIkResult solveFixedExternalThenArm(const RobotTeachIk::TeachI
 	if (q.empty())
 	{
 		out.error = failReason && !failReason->empty() ? *failReason : std::string("IK未收敛/超迭代");
+		out.failClass = RobotTeachIk::TeachIkResult::FailClass::NotConverged;
 		fillResultExternalQs(out, dof, ctx.externalAxisConfigCount);
 		return out;
 	}
-	out.residualTcpMm = residualToolOriginMm(ctx, q, dof);
 	out.jointRad = std::move(q);
 	fillResultExternalQs(out, dof, ctx.externalAxisConfigCount);
-	out.ok = true;
+	fillResidualsAndGate(out, ctx, dof);
 	return out;
 }
 } // namespace
@@ -784,7 +834,8 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 	TeachIkResult out;
 	if (ctx.urdfPath.isEmpty() || ctx.ikLinkName.isEmpty() || ctx.seedJointRad.empty())
 	{
-		out.error = "无DH上下文";
+		out.error = "URDF 加载失败或链路不存在";
+		out.failClass = TeachIkResult::FailClass::Unreachable;
 		return out;
 	}
 
@@ -796,6 +847,7 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 		if (!ikLinkTargetFromTeachContext(ctx, linkTarget))
 		{
 			out.error = "无效目标位姿";
+			out.failClass = TeachIkResult::FailClass::Unreachable;
 			return out;
 		}
 		std::string failReason;
@@ -804,11 +856,11 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 		if (q.empty())
 		{
 			out.error = failReason.empty() ? std::string("IK未收敛/超迭代") : failReason;
+			out.failClass = TeachIkResult::FailClass::NotConverged;
 			return out;
 		}
-		out.residualTcpMm = residualToolOriginMm(ctx, q, dof);
 		out.jointRad = std::move(q);
-		out.ok = true;
+		fillResidualsAndGate(out, ctx, dof);
 		return out;
 	}
 
@@ -823,6 +875,7 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 		if (!ikLinkTargetFromTeachContext(ctx, linkTargetWorld))
 		{
 			out.error = "无效目标位姿";
+			out.failClass = TeachIkResult::FailClass::Unreachable;
 			return out;
 		}
 		std::vector<double> q = solveUrdfNumericalIkCoupledExternalMulti(
@@ -830,13 +883,13 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 		if (q.empty())
 		{
 			out.error = failReason.empty() ? std::string("IK未收敛/超迭代") : failReason;
+			out.failClass = TeachIkResult::FailClass::NotConverged;
 			fillResultExternalQs(out, dof, ctx.externalAxisConfigCount);
 			return out;
 		}
-		out.residualTcpMm = residualToolOriginMm(ctx, q, dof);
 		out.jointRad = std::move(q);
 		fillResultExternalQs(out, dof, ctx.externalAxisConfigCount);
-		out.ok = true;
+		fillResidualsAndGate(out, ctx, dof);
 		return out;
 	}
 
@@ -885,6 +938,7 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 	if (!best.ok)
 	{
 		out.error = failReason.empty() ? std::string("外轴网格未找到可行解") : failReason;
+		out.failClass = TeachIkResult::FailClass::Unreachable;
 		fillResultExternalQs(out, dof, ctx.externalAxisConfigCount);
 		return out;
 	}
@@ -906,9 +960,8 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 			if (!q.empty())
 			{
 				best.jointRad = std::move(q);
-				best.residualTcpMm = residualToolOriginMm(ctx, best.jointRad, refineDof);
 				fillResultExternalQs(best, refineDof, ctx.externalAxisConfigCount);
-				best.ok = true;
+				fillResidualsAndGate(best, ctx, refineDof);
 			}
 		}
 	}

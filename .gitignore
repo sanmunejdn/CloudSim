@@ -317,6 +317,8 @@ __pycache__/
 *.pyc
 .venv/
 **/.venv/
+.pytest_cache/
+**/.pytest_cache/
 tools/pointnet-training/output/
 tools/pointnet-training/**/*.pth
 tools/pointnet-training/**/*.onnx

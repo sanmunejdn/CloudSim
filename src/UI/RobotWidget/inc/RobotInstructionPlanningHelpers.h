@@ -65,7 +65,8 @@ ROBOTWIDGET_EXPORT void
 prepareMotionInstructionForPlanning(RobotInstruction::Base& ins, const QVector<double>& rollingQ,
 									IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
 									const QString& urdfPath, const std::string& defaultTcpLinkName,
-									const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames);
+									const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames,
+									bool allowApproximateOrientation = false);
 
 } // namespace RobotInstructionPlanning
 

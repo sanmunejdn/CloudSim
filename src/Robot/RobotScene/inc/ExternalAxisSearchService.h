@@ -10,6 +10,7 @@
 #include <QString>
 #include <vector>
 
+#include <BackendDataBase.h>
 #include <IExternalAxisSearchService.h>
 
 namespace RobotInstruction
@@ -20,7 +21,10 @@ public:
 	ExternalAxisSearchService() = default;
 	~ExternalAxisSearchService() override = default;
 
-	void setRobotContext(const QString& urdfPath, const QString& ikLinkName, const std::vector<double>& seedJointRad);
+	/// T_flange_tool / useOrientation / Soft 与指令示教 IK 对齐
+	void setRobotContext(const QString& urdfPath, const QString& ikLinkName, const std::vector<double>& seedJointRad,
+						 const BackendMat4& T_flange_tool = BackendMat4::identity(), bool useOrientation = true,
+						 bool allowApproximateOrientation = false);
 
 	bool search(RobotInstruction::UnifiedTrajectory& traj,
 				const std::vector<trajectory_algo::ExternalAxisSearchConfigDto>& configs, bool allowCoupledRefine,
@@ -30,6 +34,9 @@ private:
 	QString m_urdfPath;
 	QString m_ikLinkName;
 	std::vector<double> m_seedJointRad;
+	BackendMat4 m_T_flange_tool = BackendMat4::identity();
+	bool m_useOrientation = true;
+	bool m_allowApproximateOrientation = false;
 };
 
 } // namespace RobotInstruction

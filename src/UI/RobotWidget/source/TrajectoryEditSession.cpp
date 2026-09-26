@@ -16,6 +16,7 @@
 #include "RobotExternalAxes.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
+#include "RobotCoordinateFrames.h"
 #include "RobotSimulationController.h"
 #include "RobotSimulationMath.h"
 #include "RunLogger.h"
@@ -460,7 +461,16 @@ void TrajectoryEditSession::injectExternalAxisSearchOnEngine() const
 		const int idx = offset + j;
 		seed.push_back((idx >= 0 && idx < agg.size()) ? agg[idx] : 0.0);
 	}
-	m_externalAxisSearchService.setRobotContext(urdfPath, tcp, seed);
+	BackendMat4 toolMat = BackendMat4::identity();
+	{
+		const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+		if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+		{
+			toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
+		}
+	}
+	m_externalAxisSearchService.setRobotContext(urdfPath, tcp, seed, toolMat, true,
+												m_simController->allowApproximateOrientation());
 	m_pipelineEngine.setExternalAxisSearchService(&m_externalAxisSearchService);
 }
 
@@ -507,7 +517,16 @@ void TrajectoryEditSession::injectReachabilityProbeOnEngine() const
 		const int idx = offset + j;
 		seed.push_back((idx >= 0 && idx < agg.size()) ? agg[idx] : 0.0);
 	}
-	m_reachabilityProbeService.setRobotContext(urdfPath, tcp, seed);
+	BackendMat4 toolMat = BackendMat4::identity();
+	{
+		const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+		if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+		{
+			toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
+		}
+	}
+	m_reachabilityProbeService.setRobotContext(urdfPath, tcp, seed, toolMat, true,
+											   m_simController->allowApproximateOrientation());
 	m_pipelineEngine.setReachabilityProbe(&m_reachabilityProbeService);
 }
 

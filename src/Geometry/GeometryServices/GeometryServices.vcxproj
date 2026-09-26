@@ -101,6 +101,7 @@
     <ClInclude Include="inc\GeometryBackendOps.h" />
     <ClInclude Include="inc\GeometryRef.h" />
     <ClInclude Include="inc\MeshBoolean.h" />
+    <ClInclude Include="inc\SelfTest.h" />
     <ClInclude Include="inc\pch.h" />
     <ClInclude Include="inc\PointCloudBackendOps.h" />
   </ItemGroup>
@@ -112,6 +113,7 @@
     <ClCompile Include="source\GeometryBackendOps.cpp" />
     <ClCompile Include="source\MeshBoolean.cpp" />
     <ClCompile Include="source\PointCloudBackendOps.cpp" />
+    <ClCompile Include="source\SelfTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GeometryEngine\GeometryEngine.vcxproj">

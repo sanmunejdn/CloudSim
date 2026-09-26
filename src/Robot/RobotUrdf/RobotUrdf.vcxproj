@@ -183,11 +183,15 @@
     <ClInclude Include="inc\CustomDeviceUrdfExporter.h" />
     <ClInclude Include="inc\UrdfKinematicsWorkspace.h" />
     <ClInclude Include="inc\UrdfIkSolverOptions.h" />
+    <ClInclude Include="inc\IkAcceptanceGates.h" />
     <ClInclude Include="inc\UrdfNumericalIk.h" />
     <ClInclude Include="inc\UrdfGraphBuilder.h" />
     <ClInclude Include="inc\KinematicCoreUrdfIk.h" />
     <ClInclude Include="inc\UrdfRobotKinematicModel.h" />
     <ClInclude Include="inc\UrdfNumericalIkLegacy.h" />
+    <ClInclude Include="inc\IPoseIkSolver.h" />
+    <ClInclude Include="inc\IkSeedExpand.h" />
+    <ClInclude Include="inc\SphericalWristAnalyticalIk.h" />
     <ClInclude Include="inc\SelfTest.h" />
   </ItemGroup>
   <ItemGroup>
@@ -199,6 +203,8 @@
     <ClCompile Include="source\KinematicCoreUrdfIk.cpp" />
     <ClCompile Include="source\UrdfRobotKinematicModel.cpp" />
     <ClCompile Include="source\UrdfNumericalIkLegacy.cpp" />
+    <ClCompile Include="source\IkSeedExpand.cpp" />
+    <ClCompile Include="source\SphericalWristAnalyticalIk.cpp" />
     <ClCompile Include="source\SelfTest.cpp" />
   </ItemGroup>
   <ItemGroup>

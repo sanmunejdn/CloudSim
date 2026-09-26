@@ -2,6 +2,7 @@
 /// @brief CloudSimWeb 独立进程入口（与桌面 CloudSim.exe 互不影响）
 
 #include "CloudSimBootstrap.h"
+#include "CrashDump.h"
 #include "ICloudSimContext.h"
 #include "WebGateway.h"
 
@@ -61,6 +62,7 @@ static int parsePort(int argc, char* argv[], int fallback)
 
 int main(int argc, char* argv[])
 {
+	cloudsim::crashdump::install();
 	QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 	QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 	QApplication a(argc, argv);
@@ -88,6 +90,13 @@ int main(int argc, char* argv[])
 	}
 	fprintf(stdout, "CloudSimWeb listening on http://127.0.0.1:%d (role=web)\n", gateway.port());
 	fflush(stdout);
+
+	// 仅验证 dump：CLOUDSIM_WEB_CRASH_ON_START=1
+	if (qgetenv("CLOUDSIM_WEB_CRASH_ON_START") == QByteArray("1"))
+	{
+		volatile int* p = nullptr;
+		*p = 1;
+	}
 
 	const int ret = a.exec();
 	gateway.stop();

@@ -88,6 +88,20 @@ void normalizeQuatSafe(osg::Quat& q)
 	q.set(q.x() * invN, q.y() * invN, q.z() * invN, q.w() * invN);
 }
 
+constexpr double kDefaultSoftRotRad = 2.0 * 3.14159265358979323846 / 180.0;
+constexpr double kSoftPosAcceptMm = 1.0;
+
+double softRotTolRad(const UrdfIkSolverOptions& options)
+{
+	return options.softOrientationToleranceRad > 0.0 ? options.softOrientationToleranceRad : kDefaultSoftRotRad;
+}
+
+/// Soft 仅作中间态或勾选后对外成功
+bool softPoseAcceptable(const UrdfIkSolverOptions& options, const double posErr, const double rotErr)
+{
+	return options.allowApproximateOrientation && posErr <= kSoftPosAcceptMm && rotErr <= softRotTolRad(options);
+}
+
 bool quatErrorAxisAngle(const osg::Quat& from, const osg::Quat& to, double outErrRad[3])
 {
 	osg::Quat qFrom = from;
@@ -274,7 +288,6 @@ std::vector<double> runWristOnlyOrientationRefine(const QString& urdfPath, const
 	const double orientationWeight = options.orientationWeight > 0.0 ? options.orientationWeight : 300.0;
 	const double stepCap = options.maxJointStepRad > 0.0 ? options.maxJointStepRad : 0.25;
 	constexpr double kMaxPosDriftMm = 3.0;
-	constexpr double kSoftRotAcceptRad = 2.0 * 3.14159265358979323846 / 180.0;
 
 	osg::Quat targetQuat;
 	targetQuat.set(target.quatXyzw[0], target.quatXyzw[1], target.quatXyzw[2], target.quatXyzw[3]);
@@ -356,10 +369,6 @@ std::vector<double> runWristOnlyOrientationRefine(const QString& urdfPath, const
 			bestRotErr = rotErr;
 			bestQ = q;
 		}
-		if (rotErr <= kSoftRotAcceptRad && posErr <= kMaxPosDriftMm)
-		{
-			return q;
-		}
 
 		std::vector<double> JJt(9, 0.0);
 		std::vector<double> e3(3, 0.0);
@@ -404,13 +413,15 @@ std::vector<double> runWristOnlyOrientationRefine(const QString& urdfPath, const
 		clampQToGraphLimits(graph, q);
 	}
 
-	if (bestRotErr <= kSoftRotAcceptRad)
 	{
 		double posErr = 0.0;
 		double rotErr = 0.0;
 		if (fkErrors(bestQ, posErr, rotErr) && posErr <= kMaxPosDriftMm)
 		{
-			return bestQ;
+			if (rotErr <= rotTol || softPoseAcceptable(options, posErr, rotErr))
+			{
+				return bestQ;
+			}
 		}
 	}
 	return {};
@@ -420,8 +431,12 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 								   const kinematic_core::KinematicGraph& graph, const int linkIdx,
 								   const UrdfPoseIkTarget& target, std::vector<double> q,
 								   const UrdfIkSolverOptions& options, std::string* failReason,
-								   const bool allowPosThenOriRefine = true)
+								   IkConvergenceStatus* status, const bool allowPosThenOriRefine = true)
 {
+	if (status)
+	{
+		*status = IkConvergenceStatus::Failed;
+	}
 	const int n = static_cast<int>(q.size());
 	const bool useOrientation = target.hasOrientation;
 	const int taskDim = useOrientation ? 6 : 3;
@@ -432,6 +447,7 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 		options.orientationToleranceRad > 0.0 ? options.orientationToleranceRad : 0.1 * 3.14159265358979323846 / 180.0;
 	const double orientationWeight = useOrientation ? options.orientationWeight : 1.0;
 	const double stepCap = options.maxJointStepRad > 0.0 ? options.maxJointStepRad : 0.25;
+	const double softRot = softRotTolRad(options);
 
 	QVector<double> qRad;
 	qRad.reserve(n);
@@ -454,9 +470,31 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 	double bestPosErr = 1e30;
 	double bestRotErr = 1e30;
 	double bestCost = 1e30;
-	// 循环内硬收敛仍用 options；软接受仅用于近收敛（禁止宽姿态兜底，否则与指令姿态脱节）
-	constexpr double kSoftPosAcceptMm = 1.0;
-	constexpr double kSoftRotAcceptRad = 2.0 * 3.14159265358979323846 / 180.0;
+
+	auto markHard = [&](std::vector<double> result) -> std::vector<double>
+	{
+		if (status)
+		{
+			*status = IkConvergenceStatus::HardConverged;
+		}
+		if (failReason)
+		{
+			failReason->clear();
+		}
+		return result;
+	};
+	auto markSoft = [&](std::vector<double> result) -> std::vector<double>
+	{
+		if (status)
+		{
+			*status = IkConvergenceStatus::SoftAccepted;
+		}
+		if (failReason)
+		{
+			failReason->clear();
+		}
+		return result;
+	};
 
 	for (int iter = 0; iter < iterLimit; ++iter)
 	{
@@ -505,7 +543,7 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 		}
 		if (posErr <= posTol && (!useOrientation || rotErr <= rotTol))
 		{
-			return q;
+			return markHard(q);
 		}
 
 		std::vector<double> JJt(static_cast<size_t>(taskDim * taskDim), 0.0);
@@ -555,7 +593,7 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 	{
 		if (bestPosErr <= posTol * 12.0)
 		{
-			return bestQ;
+			return markHard(bestQ);
 		}
 		if (failReason)
 		{
@@ -564,19 +602,23 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 		return {};
 	}
 
-	// 姿态已较好：软接受，避免 0.1° 硬阈把可用解打成失败
-	if (bestPosErr <= kSoftPosAcceptMm && bestRotErr <= kSoftRotAcceptRad)
+	// Soft 仅当勾选近似姿态
+	if (softPoseAcceptable(options, bestPosErr, bestRotErr))
+	{
+		return markSoft(bestQ);
+	}
+	if (bestPosErr <= kSoftPosAcceptMm && bestRotErr <= softRot && !options.allowApproximateOrientation)
 	{
 		if (failReason)
 		{
-			failReason->clear();
+			*failReason = "姿态软残差被拒绝(未允许近似姿态)";
 		}
-		return bestQ;
+		// 仍尝试 pos-then-ori 精修到硬容差
 	}
 
 	if (!allowPosThenOriRefine)
 	{
-		if (failReason)
+		if (failReason && failReason->empty())
 		{
 			*failReason = "KinematicCore DLS did not converge";
 		}
@@ -606,25 +648,25 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 	std::vector<double> qPos = runArmOnlyPositionRefine(urdfPath, ikLink, graph, linkIdx, posOnly, bestQ, posOpt);
 	if (qPos.empty())
 	{
-		qPos = runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, posOnly, bestQ, posOpt, failReason, false);
+		qPos = runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, posOnly, bestQ, posOpt, failReason, nullptr, false);
 	}
 	if (qPos.empty())
 	{
 		return {};
 	}
 	{
-		QVector<double> qRad;
-		qRad.reserve(n);
+		QVector<double> qRadCheck;
+		qRadCheck.reserve(n);
 		for (double v : qPos)
 		{
-			qRad.push_back(v);
+			qRadCheck.push_back(v);
 		}
 		double pos[3] = {0.0, 0.0, 0.0};
 		osg::Quat curQuat;
 		osg::Quat targetQuatCheck;
 		targetQuatCheck.set(target.quatXyzw[0], target.quatXyzw[1], target.quatXyzw[2], target.quatXyzw[3]);
 		normalizeQuatSafe(targetQuatCheck);
-		if (linkPoseFromGraph(graph, linkIdx, qRad, pos, &curQuat))
+		if (linkPoseFromGraph(graph, linkIdx, qRadCheck, pos, &curQuat))
 		{
 			const double dx = target.posMm[0] - pos[0];
 			const double dy = target.posMm[1] - pos[1];
@@ -633,19 +675,20 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 			double eRot[3] = {0.0, 0.0, 0.0};
 			quatErrorAxisAngle(curQuat, targetQuatCheck, eRot);
 			const double rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
-			if (posErr <= kSoftPosAcceptMm && rotErr <= kSoftRotAcceptRad)
+			if (posErr <= posTol && rotErr <= rotTol)
 			{
-				if (failReason)
-				{
-					failReason->clear();
-				}
-				return qPos;
+				return markHard(qPos);
+			}
+			if (softPoseAcceptable(options, posErr, rotErr))
+			{
+				return markSoft(qPos);
 			}
 		}
 	}
 	UrdfIkSolverOptions oriOpt = options;
 	oriOpt.maxIterations = std::max(iterLimit, 64);
-	oriOpt.orientationToleranceRad = std::max(oriOpt.orientationToleranceRad, kSoftRotAcceptRad);
+	// 精修内部可用 soft 作步进目标；最终仍按硬/勾选 soft 出门
+	oriOpt.orientationToleranceRad = std::max(oriOpt.orientationToleranceRad, softRot);
 	oriOpt.positionToleranceMm = std::max(oriOpt.positionToleranceMm, 0.5);
 	// 降权避免大姿态误差时旋转项淹没位置项导致发散
 	if (oriOpt.orientationWeight > 50.0)
@@ -683,18 +726,48 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 			++refineAttempts;
 			std::vector<double> qOri =
 				runWristOnlyOrientationRefine(urdfPath, ikLink, graph, linkIdx, target, qSeed, oriOpt);
+			IkConvergenceStatus nestedStatus = IkConvergenceStatus::Failed;
 			if (qOri.empty())
 			{
 				qOri = runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, target, std::move(qSeed), oriOpt, &refineFail,
-									  false);
+									  &nestedStatus, false);
 			}
 			if (!qOri.empty())
 			{
-				if (failReason)
+				QVector<double> qCheck;
+				qCheck.reserve(n);
+				for (double v : qOri)
 				{
-					failReason->clear();
+					qCheck.push_back(v);
 				}
-				return qOri;
+				double pos[3] = {};
+				osg::Quat curQuat;
+				if (linkPoseFromGraph(graph, linkIdx, qCheck, pos, &curQuat))
+				{
+					const double dx = target.posMm[0] - pos[0];
+					const double dy = target.posMm[1] - pos[1];
+					const double dz = target.posMm[2] - pos[2];
+					const double posErr = std::sqrt(dx * dx + dy * dy + dz * dz);
+					double eRot[3] = {};
+					quatErrorAxisAngle(curQuat, targetQuat, eRot);
+					const double rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
+					if (posErr <= posTol && rotErr <= rotTol)
+					{
+						return markHard(qOri);
+					}
+					if (softPoseAcceptable(options, posErr, rotErr))
+					{
+						return markSoft(qOri);
+					}
+				}
+				else if (nestedStatus == IkConvergenceStatus::HardConverged)
+				{
+					return markHard(qOri);
+				}
+				else if (nestedStatus == IkConvergenceStatus::SoftAccepted && options.allowApproximateOrientation)
+				{
+					return markSoft(qOri);
+				}
 			}
 		}
 		if (refineAttempts >= maxRefineAttempts)
@@ -762,8 +835,13 @@ bool computeLinkPoseAndJacobianViaCore(const QString& urdfPath, const QVector<do
 
 std::vector<double> solveArmPoseViaKinematicCore(const QString& urdfPath, const QString& ikLink,
 												 const UrdfPoseIkTarget& target, std::vector<double> q,
-												 const UrdfIkSolverOptions& options, std::string* failReason)
+												 const UrdfIkSolverOptions& options, std::string* failReason,
+												 IkConvergenceStatus* status)
 {
+	if (status)
+	{
+		*status = IkConvergenceStatus::Failed;
+	}
 	kinematic_core::KinematicGraph graph;
 	if (!buildUrdfKinematicGraph(urdfPath, graph, nullptr))
 	{
@@ -783,7 +861,7 @@ std::vector<double> solveArmPoseViaKinematicCore(const QString& urdfPath, const 
 		return {};
 	}
 	clampQToGraphLimits(graph, q);
-	return runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, target, std::move(q), options, failReason);
+	return runUrdfDlsLoop(urdfPath, ikLink, graph, linkIdx, target, std::move(q), options, failReason, status);
 }
 
 } // namespace UrdfRobotLoader

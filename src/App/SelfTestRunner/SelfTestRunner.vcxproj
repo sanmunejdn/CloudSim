@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{E5F6A7B8-C9D0-4123-EF01-234567890DEF}</ProjectGuid>
+    <RootNamespace>SelfTestRunner</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)SelfTestRunner\</IntDir>
+    <TargetName>SelfTestRunner</TargetName>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)SelfTestRunner\</IntDir>
+    <TargetName>SelfTestRunner</TargetName>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <!-- PointCloudAlgorithm 为静态库，经 GeometryServices.dll 转发，避免 SelfTestRunner 直接链 PCL -->
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
+      <PreprocessorDefinitions>_CONSOLE;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../../Geometry/GeometryServices/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/VcgAlgorithms/inc;../../Robot/RobotPathPlanning/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64\3rdparty-vc14-64\tbb-2021.13.0-x64\lib;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2\auxiliary\gmp\lib;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0\lib64-msvc-14.2;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>RobotUrdf.lib;GeometryEngine.lib;GeometryAlgorithm.lib;VcgAlgorithms.lib;RobotPathPlanning.lib;GeometryServices.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../../Geometry/GeometryServices/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/VcgAlgorithms/inc;../../Robot/RobotPathPlanning/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64\3rdparty-vc14-64\tbb-2021.13.0-x64\lib;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2\auxiliary\gmp\lib;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0\lib64-msvc-14.2;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>RobotUrdf.lib;GeometryEngine.lib;GeometryAlgorithm.lib;VcgAlgorithms.lib;RobotPathPlanning.lib;GeometryServices.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Robot\RobotUrdf\RobotUrdf.vcxproj">
+      <Project>{7A3E9B2C-4D1F-4E8A-B5C6-1D2E3F4A5B6C}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryEngine\GeometryEngine.vcxproj">
+      <Project>{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryAlgorithm\GeometryAlgorithm.vcxproj">
+      <Project>{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\VcgAlgorithms\VcgAlgorithms.vcxproj">
+      <Project>{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Robot\RobotPathPlanning\RobotPathPlanning.vcxproj">
+      <Project>{F1E2D3C4-B5A6-9780-1234-567890ABCDEF}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryServices\GeometryServices.vcxproj">
+      <Project>{B2C3D4E5-F6A7-4890-BCDE-F123456789AB}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

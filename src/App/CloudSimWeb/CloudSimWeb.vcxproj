@@ -72,7 +72,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(CloudSimBinDir)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHostHeadless.lib;CloudSimCore.lib;Data.lib;RobotScene.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHostHeadless.lib;CloudSimCore.lib;Data.lib;RobotScene.lib;ws2_32.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>call "$(ProjectDir)..\..\..\web\cloudsim-web-ui\scripts\postbuild-web.cmd" "$(CloudSimBinDir)web" debug</Command>
@@ -89,7 +89,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(CloudSimBinDir)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHostHeadless.lib;CloudSimCore.lib;Data.lib;RobotScene.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimWebGateway.lib;CloudSimHostHeadless.lib;CloudSimCore.lib;Data.lib;RobotScene.lib;ws2_32.lib;dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>call "$(ProjectDir)..\..\..\web\cloudsim-web-ui\scripts\postbuild-web.cmd" "$(CloudSimBinDir)web" release</Command>

@@ -266,6 +266,13 @@ M_link = M0 · inv(T0) · Tq · P
 
 遗留名 `T_base_tcp` / `tcpInBaseFromPose` 与 `T_base_target` 同义；新代码用 `targetInBaseFromPose`。
 
+**契约（中风险对齐）**：
+
+- 指令落盘的 `pose`/`euler` / `context.targetTransform*` **恒为机器人基座（P0）下工具原点**，不是用户系、不是世界系。
+- `motion.target.frame = user` 仅影响属性面板**显示**；写入必须经 `tcpInBaseFromUserTcp` 再存基座。
+- IK / TeachIk / ExternalAxisSearch 入参均为 `T_base_target`；联立前可 unbake 外轴，但不得再把 User 系当基座。
+- Web `tcp-ik`：请求体为场景世界矩阵；Host 内转为 `T_base_target`；失败 JSON 可带 `diagBaseTarget*` 区分错系与不可达。
+
 ### 坐标变换前置（单一 IK，不按工具分叉）
 
 1. 读指令 → `T_base_target`

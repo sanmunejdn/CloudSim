@@ -24,7 +24,8 @@ ROBOT_SCENE_API void syncToolContextFromFrames(Base& ins, const RobotCoordinate:
 /// 规划准备：先 sync 工具上下文，再写种子 / urdf / tcp / flange。禁止用 rollingQ 的 FK 覆盖指令位姿
 ROBOT_SCENE_API void prepareInstructionIkContext(Base& ins, const std::vector<double>& rollingQ,
 												 const std::string& urdfPath, const std::string& defaultTcpLinkName,
-												 const RobotCoordinate::RobotCoordinateFrameSet* frames);
+												 const RobotCoordinate::RobotCoordinateFrameSet* frames,
+												 bool allowApproximateOrientation = false);
 
 } // namespace RobotInstruction
 

@@ -791,13 +791,26 @@ bool WebGateway::tcpIkRobotOnGuiThread(const QByteArray& body, QString* err, QJs
 	for (int i = 0; i < 16; ++i)
 		m16.append(wmArr.at(i).toDouble());
 	const bool translateOnly = o.value(QStringLiteral("translateOnly")).toBool(false);
+	const bool allowApproximateOrientation = o.value(QStringLiteral("allowApproximateOrientation")).toBool(false);
 	QVector<double> joints;
 	QString ikErr;
 	bool incomplete = false;
 	cloudsim::host::HeadlessRobotContext::TcpPoseCapture teachTarget;
 	if (!host->headlessRobotContext()->applyIkFromFlangeThreeJsMatrix(flangeId, m16, &joints, &ikErr, &incomplete,
-																	  translateOnly, &teachTarget))
+																	  translateOnly, &teachTarget,
+																	  allowApproximateOrientation))
 	{
+		if (out)
+		{
+			// 失败仍回传期望 T_base_target，便于区分错坐标系 vs 不可达
+			if (!teachTarget.targetTransformTransMmCsv.isEmpty())
+				(*out)[QStringLiteral("diagBaseTargetTransMmCsv")] = teachTarget.targetTransformTransMmCsv;
+			if (!teachTarget.targetTransformQuatCsv.isEmpty())
+				(*out)[QStringLiteral("diagBaseTargetQuatCsv")] = teachTarget.targetTransformQuatCsv;
+			if (teachTarget.positionMm[0] != 0.0 || teachTarget.positionMm[1] != 0.0 || teachTarget.positionMm[2] != 0.0)
+				(*out)[QStringLiteral("diagBaseTargetPosMm")] =
+					QJsonArray{teachTarget.positionMm[0], teachTarget.positionMm[1], teachTarget.positionMm[2]};
+		}
 		if (err)
 			*err = ikErr.isEmpty() ? QStringLiteral("tcp IK failed") : ikErr;
 		return false;

@@ -130,7 +130,8 @@ public:
 												double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
 												const QString& ikLinkName,
 												const std::vector<double>& externalAxisQSeed = {},
-												bool hasExternalAxisQSeed = false) = 0;
+												bool hasExternalAxisQSeed = false,
+												bool allowApproximateOrientation = false) = 0;
 
 	/// 导出程序规划结果（不含 UI 文件对话框）
 	struct ExportPlanResult

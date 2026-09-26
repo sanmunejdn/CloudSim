@@ -38,8 +38,10 @@
 | `computeMeshWorldMatrices(urdf, angles, out, err, meshVerticesAlreadyInLinkFrame)` | 各 link **网格**世界矩阵；末参 `true` 时 visual 为单位（顶点已在连杆系） |
 | `computeLinkPoseAndGeometricJacobian(...)` | 一次 FK + 几何雅可比（legacy BFS；SelfTest 对照） |
 | `computeLinkPoseAndJacobianViaCore(...)` | Core 图雅可比 + `computeLinkWorldMatrices` 位姿（与显示 FK 同源） |
-| `solveArmPoseDampedLeastSquares` | 主路径：`KinematicCoreUrdfIk::runUrdfDlsLoop`（FK/雅可比/限位一致） |
-| `solveArmPoseViaKinematicCore` | 同上，供 `UrdfNumericalIk` 转发 |
+| `solveArmPoseDampedLeastSquares` | 主路径：球形腕解析（若适用）→ `KinematicCoreUrdfIk::runUrdfDlsLoop`；`allowApproximateOrientation` 控制 SoftAccepted |
+| `solveArmPoseViaKinematicCore` | DLS 实现；供解析回退与 SelfTest |
+| `IPoseIkSolver` / `SphericalWristAnalyticalIk` | 可插拔位姿 IK；Pinocchio 仅预留插槽、本波不链 SDK |
+| `expandPoseIkSeeds` / `selectNearestWrappedSolution` | 多种子扩展与最短折圈选解 |
 | `solveArmPoseViaUrdfJacobianLegacy` | **仅 SelfTest**；legacy BFS 雅可比 DLS |
 | `buildUrdfKinematicGraph` | URDF → `kinematic_core::KinematicGraph`（`JointMotion1D.hasLimit`） |
 | `runSelfTest` | FK / 有限差分 J / DLS 闭环；可选 IRB 1100 FK golden |

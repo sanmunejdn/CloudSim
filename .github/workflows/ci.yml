@@ -1,0 +1,61 @@
+name: CloudSim Checks
+
+# 仓库根 = CloudSim/（含 CloudSim.sln）
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+    inputs:
+      soak_rounds:
+        description: 'Nightly/manual soak rounds'
+        default: '200'
+
+jobs:
+  gate:
+    if: github.event_name != 'schedule'
+    runs-on: [self-hosted, Windows, cloudsim]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run checks
+        run: .\scripts\run_checks.ps1
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checks-${{ github.run_id }}
+          path: artifacts/checks/
+          if-no-files-found: ignore
+
+  soak-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, Windows, cloudsim]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build web + runner (Debug)
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msb = & $vswhere -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          & $msb src\App\SelfTestRunner\SelfTestRunner.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $msb src\App\CloudSimWeb\CloudSimWeb.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Soak
+        run: |
+          $rounds = '${{ github.event.inputs.soak_rounds }}'
+          if (-not $rounds) { $rounds = '200' }
+          .\scripts\run_soak.ps1 -Configuration Debug -Rounds ([int]$rounds)
+      - name: Upload soak
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-${{ github.run_id }}
+          path: artifacts/soak/
+          if-no-files-found: ignore

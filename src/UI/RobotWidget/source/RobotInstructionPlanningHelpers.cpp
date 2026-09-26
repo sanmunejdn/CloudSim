@@ -150,14 +150,15 @@ bool shouldUseTaughtJointCsv(const RobotInstruction::Base& ins,
 void prepareMotionInstructionForPlanning(RobotInstruction::Base& ins, const QVector<double>& rollingQ,
 										 IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
 										 const QString& urdfPath, const std::string& defaultTcpLinkName,
-										 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
+										 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames,
+										 const bool allowApproximateOrientation)
 {
 	(void)doc;
 	(void)osg;
 	(void)instIdx;
 	std::vector<double> seed(rollingQ.begin(), rollingQ.end());
 	RobotInstruction::prepareInstructionIkContext(ins, seed, urdfPath.toStdString(), defaultTcpLinkName,
-												  coordinateFrames);
+												  coordinateFrames, allowApproximateOrientation);
 }
 
 } // namespace RobotInstructionPlanning

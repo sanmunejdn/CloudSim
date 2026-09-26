@@ -41,6 +41,9 @@
     <ClInclude Include="inc\PointCloudBackendOps.h">
       <Filter>inc\Core</Filter>
     </ClInclude>
+    <ClInclude Include="inc\SelfTest.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\GeometryBackendOps.cpp">
@@ -53,6 +56,9 @@
       <Filter>src\Global</Filter>
     </ClCompile>
     <ClCompile Include="source\PointCloudBackendOps.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelfTest.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
   </ItemGroup>

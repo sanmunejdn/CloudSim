@@ -6,18 +6,26 @@
 #include "RobotTeachIk.h"
 #include "UnifiedTrajectory.h"
 
+#include <IkAcceptanceGates.h>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <sstream>
 
 namespace RobotInstruction
 {
 void ExternalAxisSearchService::setRobotContext(const QString& urdfPath, const QString& ikLinkName,
-												const std::vector<double>& seedJointRad)
+												const std::vector<double>& seedJointRad,
+												const BackendMat4& T_flange_tool, const bool useOrientation,
+												const bool allowApproximateOrientation)
 {
 	m_urdfPath = urdfPath;
 	m_ikLinkName = ikLinkName;
 	m_seedJointRad = seedJointRad;
+	m_T_flange_tool = T_flange_tool;
+	m_useOrientation = useOrientation;
+	m_allowApproximateOrientation = allowApproximateOrientation;
 }
 
 bool ExternalAxisSearchService::search(UnifiedTrajectory& traj,
@@ -79,14 +87,18 @@ bool ExternalAxisSearchService::search(UnifiedTrajectory& traj,
 		}
 	};
 
+	int pointIndex = 0;
 	for (UnifiedTrajectoryPoint& tp : traj.points)
 	{
 		RobotTeachIk::TeachIkContext ctx;
 		ctx.urdfPath = m_urdfPath;
 		ctx.ikLinkName = m_ikLinkName;
 		ctx.seedJointRad = seed;
-		ctx.useOrientation = false;
+		ctx.useOrientation = m_useOrientation;
+		ctx.T_flange_tool = m_T_flange_tool;
+		ctx.options.allowApproximateOrientation = m_allowApproximateOrientation;
 		ctx.maxIkIterations = 80;
+		// poseMm/eulerDeg 约定为基座系工具原点（与指令 T_base_target 同源）
 		ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(
 			tp.poseMm.x, tp.poseMm.y, tp.poseMm.z, tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z);
 		ctx.externalAxisConfigCount = static_cast<int>(enabled.size());
@@ -108,21 +120,48 @@ bool ExternalAxisSearchService::search(UnifiedTrajectory& traj,
 			}
 		}
 
-		tp.reachable = r.ok && r.residualTcpMm < 5.0;
-		if (r.ok)
+		// TeachIk.ok 已含残差门；再对齐指令默认 Soft 位置门作双保险
+		using Gates = UrdfRobotLoader::IkAcceptanceGates;
+		const double posGate = Gates::acceptPosMm(m_allowApproximateOrientation);
+		const double oriGate = Gates::acceptOrientDeg(m_allowApproximateOrientation);
+		const bool orientOk =
+			!m_useOrientation || r.residualOrientDeg < 0.0 || r.residualOrientDeg <= oriGate;
+		tp.reachable = r.ok && r.residualTcpMm >= 0.0 && r.residualTcpMm <= posGate && orientOk;
+		if (!tp.reachable)
 		{
-			for (size_t i = 0; i < snaps.size(); ++i)
+			if (errMsg)
 			{
-				if (i < r.externalAxisQs.size())
+				std::ostringstream os;
+				os << "external axis search: point " << pointIndex << " unreachable";
+				if (!r.error.empty())
 				{
-					snaps[i].positionMmOrRad = r.externalAxisQs[i];
+					os << " (" << r.error << ")";
 				}
+				else if (r.ok)
+				{
+					os << " (residual=" << r.residualTcpMm << "mm";
+					if (r.residualOrientDeg >= 0.0)
+					{
+						os << ", orient=" << r.residualOrientDeg << "deg";
+					}
+					os << ")";
+				}
+				*errMsg = os.str();
 			}
-			if (!r.jointRad.empty())
+			return false;
+		}
+		for (size_t i = 0; i < snaps.size(); ++i)
+		{
+			if (i < r.externalAxisQs.size())
 			{
-				seed = r.jointRad;
+				snaps[i].positionMmOrRad = r.externalAxisQs[i];
 			}
 		}
+		if (!r.jointRad.empty())
+		{
+			seed = r.jointRad;
+		}
+		++pointIndex;
 	}
 
 	for (const ExternalAxisSnapshot& s : snaps)
