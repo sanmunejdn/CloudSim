@@ -6,14 +6,14 @@
 /// @brief Host 取 OsgWidget（直接读成员，避免构造期经 render() 递归）
 
 #include "DocumentHost.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 
 namespace cloudsim::host
 {
-/// Host 取 OsgWidget（直接读成员，避免构造期经 render() 递归）
-inline OsgWidget* osgWidgetFrom(DocumentHost& host)
+/// 共享源取视口窄接口（不依赖真/桩 OsgWidget.h）
+inline IOsgWidgetView* osgWidgetFrom(DocumentHost& host)
 {
-	return host.osgWidget();
+	return host.osgView();
 }
 
 /// Host 内部取 backend 管理器的唯一收口：仅用于把管理器传给引擎/库函数；

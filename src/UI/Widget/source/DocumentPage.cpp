@@ -828,9 +828,9 @@ void DocumentPage::clearRobotSimulationContext()
 
 void DocumentPage::clearContentForProjectOpen()
 {
-	if (OsgWidget* ow = osgWidget())
+	if (IOsgWidgetView* view = osgView())
 	{
-		ow->clearImportedContent();
+		view->clearImportedContent();
 	}
 	data().clear();
 	clearRobotSimulationContext();

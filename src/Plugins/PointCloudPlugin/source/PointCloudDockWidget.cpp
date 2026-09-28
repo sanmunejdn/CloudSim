@@ -5,9 +5,12 @@
 
 #include "BackendTypeIds.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
+#include "IPluginProjectContext.h"
 #include "PluginGeometryTypes.h"
 #include "PluginPointCloudTypes.h"
 
@@ -1771,7 +1774,7 @@ void PointCloudDockWidget::refreshDocumentLabel()
 	{
 		return;
 	}
-	if (const IPluginDocument* doc = m_host->activeDocument())
+	if (const IPluginDocument* doc = m_host->documentContext()->activeDocument())
 	{
 		m_docLabel->setText(i18n(QStringLiteral("Active document: %1"), QStringLiteral("活动文档: %1"))
 								.arg(QString::fromStdString(doc->documentLabel())));
@@ -1825,7 +1828,7 @@ void PointCloudDockWidget::refreshPointCloudList()
 	}
 	if (m_templateBrepCombo)
 	{
-		if (IPluginGeometryHost* geoHost = m_host ? m_host->geometryHost() : nullptr)
+		if (IPluginGeometryHost* geoHost = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 		{
 			std::vector<PluginGeometryBackendEntry> backends;
 			if (geoHost->listComputableBackends(doc, backends, nullptr))
@@ -1890,7 +1893,7 @@ void PointCloudDockWidget::refreshSelectionInfo()
 
 IPluginDocument* PointCloudDockWidget::activeDoc() const
 {
-	return m_host ? m_host->activeDocument() : nullptr;
+	return (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
 }
 
 IPluginPointCloudHost* PointCloudDockWidget::pointCloudHost() const
@@ -2176,7 +2179,7 @@ void PointCloudDockWidget::onImportClicked()
 		return;
 	}
 	std::string err;
-	const std::string id = m_host->importFileIntoActiveDocument(path.toUtf8().constData(), true, &err);
+	const std::string id = m_host->projectContext()->importFileIntoActiveDocument(path.toUtf8().constData(), true, &err);
 	if (id.empty())
 	{
 		m_host->logError(QString::fromStdString(err));
@@ -2993,7 +2996,7 @@ void PointCloudDockWidget::addSelectedFaceIndex(const int faceIndex)
 
 void PointCloudDockWidget::onPickTemplateFaceClicked()
 {
-	if (!m_host || !m_host->geometryHost())
+	if (!m_host || !m_host->geometryContext()->geometryHost())
 	{
 		return;
 	}
@@ -3017,7 +3020,7 @@ void PointCloudDockWidget::onPickTemplateFaceClicked()
 		m_statusLabel->setText(
 			i18n(QStringLiteral("Pick a face in 3D view..."), QStringLiteral("请在 3D 视图点选面…")));
 	}
-	m_host->geometryHost()->pickStepElementFromViewport(
+	m_host->geometryContext()->geometryHost()->pickStepElementFromViewport(
 		doc, req,
 		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
 		{

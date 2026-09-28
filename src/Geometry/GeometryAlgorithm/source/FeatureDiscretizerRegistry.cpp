@@ -6,10 +6,24 @@
 #include <algorithm>
 #include <mutex>
 
+namespace
+{
+geoalgo::FeatureDiscretizerRegistry* g_processFeatureDiscretizerRegistry = nullptr;
+} // namespace
+
 namespace geoalgo
 {
+void FeatureDiscretizerRegistry::setProcessInstance(FeatureDiscretizerRegistry* registry)
+{
+	g_processFeatureDiscretizerRegistry = registry;
+}
+
 FeatureDiscretizerRegistry& FeatureDiscretizerRegistry::instance()
 {
+	if (g_processFeatureDiscretizerRegistry != nullptr)
+	{
+		return *g_processFeatureDiscretizerRegistry;
+	}
 	// 静态兜底：本 DLL 无法反向访问宿主 ServiceRegistry
 	static FeatureDiscretizerRegistry registry;
 	return registry;

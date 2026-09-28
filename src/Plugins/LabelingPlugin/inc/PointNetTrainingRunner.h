@@ -3,33 +3,17 @@
 
 /// @file PointNetTrainingRunner.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief PointNetTrainingRunner 接口
+/// @brief PointNet 训练进程封装
+
+#include "PluginLabelingTypes.h"
 
 #include <QObject>
 #include <QProcess>
 #include <QString>
 #include <QTimer>
 
-struct TrainingEpochMetrics
-{
-	int epoch = 0;
-	int totalEpochs = 0;
-	double trainLoss = 0.0;
-	double trainAcc = 0.0;
-	double valLoss = 0.0;
-	double valAcc = 0.0;
-	double lr = 0.0;
-	double elapsedS = 0.0;
-	bool isBest = false;
-};
-
-struct TrainingJobResult
-{
-	QString status;
-	double bestValAcc = 0.0;
-	QString bestCheckpoint;
-	QString device;
-};
+using TrainingEpochMetrics = PluginTrainingEpochMetrics;
+using TrainingJobResult = PluginTrainingJobResult;
 
 class PointNetTrainingRunner : public QObject
 {

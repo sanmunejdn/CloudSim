@@ -28,7 +28,8 @@
 #include "MainWindow.h"
 #include "MainWindowImportCaptureRenderController.h"
 #include "MainWindowSelectionService.h"
-#include "OsgWidget.h"
+#include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "IRobotBackendPoseSink.h"
 #include "PickTypes.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotExternalAxes.h"
@@ -1013,7 +1014,7 @@ IRobotOsgViewHost* MainWindowRobotHost::osgView()
 		m_osgHostPage = nullptr;
 		return nullptr;
 	}
-	if (!page->osgWidget())
+	if (!page->osgView())
 	{
 		return nullptr;
 	}
@@ -1029,16 +1030,13 @@ void MainWindowRobotHost::endMeshSectionPlaneEditDirect()
 {
 	auto tryEndOnPage = [](DocumentPage* page) -> bool
 	{
-		if (!page)
+		if (!page || !page->osgView())
 		{
 			return false;
 		}
-		if (OsgWidget* w = page->osgWidget())
-		{
-			w->endMeshSectionPlaneEdit();
-			return true;
-		}
-		return false;
+		WidgetOsgViewHost viewHost(page);
+		viewHost.endMeshSectionPlaneEdit();
+		return true;
 	};
 	if (tryEndOnPage(m_osgHostPage))
 	{
@@ -1051,16 +1049,13 @@ void MainWindowRobotHost::hideMeshSectionPlaneDirect()
 {
 	auto tryHideOnPage = [](DocumentPage* page) -> bool
 	{
-		if (!page)
+		if (!page || !page->osgView())
 		{
 			return false;
 		}
-		if (OsgWidget* w = page->osgWidget())
-		{
-			w->hideMeshSectionPlane();
-			return true;
-		}
-		return false;
+		WidgetOsgViewHost viewHost(page);
+		viewHost.hideMeshSectionPlane();
+		return true;
 	};
 	if (tryHideOnPage(m_osgHostPage))
 	{
@@ -1573,8 +1568,7 @@ void MainWindowRobotHost::beginPickSolidInView(std::function<void(const QString&
 {
 	m_solidPickCallback = std::move(onPartPicked);
 	clearBackendObjectSelection(true);
-	DocumentPage* page = m_mw ? m_mw->currentPage() : nullptr;
-	OsgWidget* osg = page ? page->osgWidget() : nullptr;
+	IRobotOsgViewHost* osg = osgView();
 	if (!osg)
 	{
 		return;
@@ -1589,9 +1583,7 @@ void MainWindowRobotHost::beginPickSolidInView(std::function<void(const QString&
 void MainWindowRobotHost::endPickSolidInView()
 {
 	m_solidPickCallback = {};
-	DocumentPage* page = m_mw ? m_mw->currentPage() : nullptr;
-	OsgWidget* osg = page ? page->osgWidget() : nullptr;
-	if (osg)
+	if (IRobotOsgViewHost* osg = osgView())
 	{
 		osg->setMeshFacePickMode(false);
 	}

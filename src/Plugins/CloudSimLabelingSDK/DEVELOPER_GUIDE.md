@@ -4,19 +4,19 @@
 
 ## 定位
 
-`CloudSimLabelingSDK.dll` 提供**无 Qt 依赖**的分割标注会话逻辑：标签缓冲、Undo/Redo、PLY+NPY 导出。视口交互经 `IPluginLabelingHost`（CloudSimPluginSDK v1.16.0+）由宿主实现。
+`CloudSimLabelingSDK.dll` 是**宿主内部**标注会话引擎（`LabelingSession`），由 `PluginLabelingHostImpl` 消费。插件面 ABI 在 CloudSimPluginSDK（`IPluginLabelingHost` / `PluginLabelingTypes`）；训练 UI POD 亦在 PluginSDK。
 
 ## 消费者
 
-- `LabelingPlugin.dll`（侧栏标注 + 训练 UI）
-- 未来其他插件/工具
+- `CloudSimHost`（`PluginLabelingHostImpl`）
+- **不是** LabelingPlugin 的链接依赖（插件已去 vestigial 链接）
 
 ## 头文件
 
 | 头文件 | 说明 |
 |--------|------|
 | `LabelingSession.h` | 点云/网格标注会话 |
-| `LabelingTypes.h` | 训练任务 POD（供 UI 解析） |
+| `LabelingTypes.h` | 会话侧 POD（训练 POD 见 PluginSDK） |
 | `labeling_sdk_global.h` | 导出宏 |
 
 ## 导出格式

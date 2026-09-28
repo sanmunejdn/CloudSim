@@ -8,11 +8,38 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00013700` = 1.55.0；含 `IPluginRobotHost` / 视觉抓取轨迹规划桥接）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00013800` = 1.56.0；含 7 个窄上下文查询 + `IPluginRobotHost`）
+- IID：`CloudSimPlugin_iid` = `com.cloudsim.ICloudSimPlugin/1.0.0x00013800`（写在 `ICloudSimPlugin.h`，**bump 后须 Rebuild 全部插件**，增量编译不会重跑 moc）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
-- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；**1.12.0+** `reconstructSurfaceFromMesh`（网格 → 新 `BrepModel`，源网格保留）；**1.13.0+** `beginMeshSurfaceReconstructSession` / `runMeshSurfaceReconstructStage` / `clearMeshSurfaceReconstructSession`（曲面重构分阶段调试，`PluginMeshSurfaceReconstructStage`）；**1.15.0+** `beginTubularGrindingSession` / `runTubularGrindingStage` / `clearTubularGrindingSession`（管状铸件特征构建 Phase 1–4，`PluginTubularGrindingStage`）；新 API 均追加在 vtable 末尾；升级宿主后须**重编译全部插件 DLL**
+- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；**1.12.0+** `reconstructSurfaceFromMesh`（网格 → 新 `BrepModel`，源网格保留）；**1.13.0+** `beginMeshSurfaceReconstructSession` / `runMeshSurfaceReconstructStage` / `clearMeshSurfaceReconstructSession`（曲面重构分阶段调试，`PluginMeshSurfaceReconstructStage`）；**1.15.0+** `beginTubularGrindingSession` / `runTubularGrindingStage` / `clearTubularGrindingSession`（管状铸件特征构建 Phase 1–4，`PluginTubularGrindingStage`）；**1.56.0+** `documentContext` / `uiContext` / `geometryContext` / `aiContext` / `robotContext` / `jobContext` / `projectContext`（vtable 末尾追加）；新 API 均追加在 vtable 末尾；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
+
+## 窄接口优先（1.56.0+）
+
+新插件代码按域取窄上下文，勿再往聚合接口堆调用：
+
+```cpp
+if (host->hostVersion() < 0x00013800) { /* 旧宿主无窄接口槽 */ return; }
+IPluginDocument* doc = host->documentContext()->activeDocument();
+```
+
+- HelloAiPlugin / GeometryPlugin：示范；其余插件（PlcComm/PointNet/Labeling/…）亦应按域取窄上下文
+- 评审约定：新代码禁止新增聚合接口直挂（`activeDocument()`/`geometryHost()`/`registerSidePanelTab` 等）；无窄类型的 `labelingHost()`/`pointCloudHost()` 暂允聚合
+
+| 规则 | 说明 |
+|------|------|
+| 新代码只用窄接口 | `documentContext()` / `uiContext()` / `geometryContext()` / `aiContext()` / `robotContext()` / `jobContext()` / `projectContext()` |
+| 旧直挂函数冻结 | `activeDocument()` 等仍保留兼容；**永不删除**（除非主版本升级）；新能力只加到对应窄接口末尾 |
+| 版本防御 | 调用窄查询前先比 `hostVersion()`；不足时勿调用（vtable 越界） |
+| ABI 红线 | 聚合与窄接口虚函数均只许**末尾追加**；禁止中间插入或同槽改签名 |
+
+### ABI bump checklist
+
+1. 同步改 `CLOUDSIM_PLUGIN_SDK_VERSION` / `_STR`（`cloudsim_plugin_sdk_global.h`）与 `CloudSimPlugin_iid` 字面量（`ICloudSimPlugin.h`，moc 只吃字面量）
+2. 若动 Ai 域：同步 `CLOUDSIM_AI_SDK_VERSION` / `_STR` 与 `CloudSimAiPlugin_iid`
+3. **Rebuild**（或清 `bin/*/middle/*/qt/moc` 后编）全部相关插件；增量编常不重跑 moc
+4. 跑 `python scripts/check_plugin_iid_alignment.py`（已串入 `make-source-check.ps1`）
 
 ## 工具链约束
 

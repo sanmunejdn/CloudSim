@@ -52,37 +52,6 @@ struct LabelingDatasetExportResult
 	std::string datasetJsonlPath;
 };
 
-struct TrainingJobConfig
-{
-	std::string datasetRootUtf8;
-	std::string outputDirUtf8;
-	int numClasses = 4;
-	int numPoints = 2048;
-	int epochs = 100;
-	int batchSize = 16;
-	double learningRate = 0.001;
-};
-
-struct TrainingEpochMetrics
-{
-	int epoch = 0;
-	int totalEpochs = 0;
-	double trainLoss = 0.0;
-	double trainAcc = 0.0;
-	double valLoss = 0.0;
-	double valAcc = 0.0;
-	double lr = 0.0;
-	double elapsedS = 0.0;
-	bool best = false;
-};
-
-struct TrainingJobResult
-{
-	bool ok = false;
-	std::string statusUtf8;
-	double bestValAcc = 0.0;
-	std::string bestCheckpointUtf8;
-	std::string deviceUtf8;
-};
+// 训练 POD 真源在 PluginSDK PluginLabelingTypes.h（插件 UI）；本 SDK 仅为宿主 LabelingSession
 
 #endif // CLOUDSIMLABELINGSDK_LABELINGTYPES_H

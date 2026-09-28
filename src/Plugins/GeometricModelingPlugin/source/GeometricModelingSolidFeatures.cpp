@@ -6,6 +6,8 @@
 #include "GeometricModelingPage.h"
 #include "GeometricModelingPlugin.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
 #include "SketchGeom.h"
@@ -160,8 +162,8 @@ PluginSketchPlane GeometricModelingPlugin::originMirrorPlane(int planeIndex) con
 
 void GeometricModelingPlugin::clearSolidFeaturePreviewUi()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (geo && doc)
 		geo->clearSketchExtrudePreview(doc);
 	m_solidPreviewActive = false;
@@ -213,8 +215,8 @@ void GeometricModelingPlugin::beginFilletPanel()
 
 void GeometricModelingPlugin::onPickFilletEdge()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::Fillet)
 		return;
@@ -242,8 +244,8 @@ void GeometricModelingPlugin::onPickFilletEdge()
 void GeometricModelingPlugin::refreshFilletPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive || m_pickedEdgeIndices.empty())
 		return;
 
@@ -261,8 +263,8 @@ void GeometricModelingPlugin::refreshFilletPreview()
 void GeometricModelingPlugin::onConfirmFillet()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || m_pickedEdgeIndices.empty())
 	{
 		hostLogWarn(i18n(QStringLiteral("Select at least one edge."),
@@ -298,7 +300,7 @@ void GeometricModelingPlugin::onConfirmFillet()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -344,8 +346,8 @@ void GeometricModelingPlugin::beginChamferPanel()
 
 void GeometricModelingPlugin::onPickChamferEdge()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::Chamfer)
 		return;
@@ -373,8 +375,8 @@ void GeometricModelingPlugin::onPickChamferEdge()
 void GeometricModelingPlugin::refreshChamferPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive || m_pickedEdgeIndices.empty())
 		return;
 
@@ -392,8 +394,8 @@ void GeometricModelingPlugin::refreshChamferPreview()
 void GeometricModelingPlugin::onConfirmChamfer()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || m_pickedEdgeIndices.empty())
 	{
 		hostLogWarn(i18n(QStringLiteral("Select at least one edge."),
@@ -427,7 +429,7 @@ void GeometricModelingPlugin::onConfirmChamfer()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -504,8 +506,8 @@ void GeometricModelingPlugin::fillRevolveAxisParams(GeometricModelingPage* page,
 
 void GeometricModelingPlugin::onPickRevolveAxis()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::Revolve)
 		return;
@@ -552,8 +554,8 @@ void GeometricModelingPlugin::onPickRevolveAxis()
 void GeometricModelingPlugin::refreshRevolvePreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive)
 		return;
 
@@ -592,8 +594,8 @@ void GeometricModelingPlugin::refreshRevolvePreview()
 void GeometricModelingPlugin::onConfirmRevolve()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || m_revolveProfile.size() < 12)
 		return;
 
@@ -635,7 +637,7 @@ void GeometricModelingPlugin::onConfirmRevolve()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -676,8 +678,8 @@ void GeometricModelingPlugin::beginPatternPanel()
 void GeometricModelingPlugin::refreshPatternPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive)
 		return;
 
@@ -698,8 +700,8 @@ void GeometricModelingPlugin::refreshPatternPreview()
 void GeometricModelingPlugin::onConfirmPattern()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo)
 		return;
 
@@ -732,7 +734,7 @@ void GeometricModelingPlugin::onConfirmPattern()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -782,8 +784,8 @@ void GeometricModelingPlugin::beginCircularPatternPanel()
 
 void GeometricModelingPlugin::onPickCircularPatternAxis()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::CircularPattern)
 		return;
@@ -823,8 +825,8 @@ void GeometricModelingPlugin::onPickCircularPatternAxis()
 void GeometricModelingPlugin::refreshCircularPatternPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive)
 		return;
 
@@ -850,8 +852,8 @@ void GeometricModelingPlugin::refreshCircularPatternPreview()
 void GeometricModelingPlugin::onConfirmCircularPattern()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo)
 		return;
 
@@ -888,7 +890,7 @@ void GeometricModelingPlugin::onConfirmCircularPattern()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -930,8 +932,8 @@ void GeometricModelingPlugin::beginMirror3dPanel()
 void GeometricModelingPlugin::refreshMirror3dPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive)
 		return;
 
@@ -949,8 +951,8 @@ void GeometricModelingPlugin::refreshMirror3dPreview()
 void GeometricModelingPlugin::onConfirmMirror3d()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo)
 		return;
 
@@ -980,7 +982,7 @@ void GeometricModelingPlugin::onConfirmMirror3d()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -1023,8 +1025,8 @@ void GeometricModelingPlugin::beginLoftPanel(bool cut)
 void GeometricModelingPlugin::refreshLoftPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive)
 		return;
 
@@ -1073,8 +1075,8 @@ void GeometricModelingPlugin::refreshLoftPreview()
 void GeometricModelingPlugin::onConfirmLoft()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || m_loftProfileA.size() < 12 || m_loftProfileB.size() < 12)
 		return;
 
@@ -1120,7 +1122,7 @@ void GeometricModelingPlugin::onConfirmLoft()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -1163,8 +1165,8 @@ void GeometricModelingPlugin::beginShellPanel()
 
 void GeometricModelingPlugin::onPickShellFace()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::Shell)
 		return;
@@ -1192,8 +1194,8 @@ void GeometricModelingPlugin::onPickShellFace()
 void GeometricModelingPlugin::refreshShellPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive || m_pickedFaceIndices.empty())
 		return;
 
@@ -1211,8 +1213,8 @@ void GeometricModelingPlugin::refreshShellPreview()
 void GeometricModelingPlugin::onConfirmShell()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || m_pickedFaceIndices.empty())
 	{
 		hostLogWarn(i18n(QStringLiteral("Select at least one face."),
@@ -1246,7 +1248,7 @@ void GeometricModelingPlugin::onConfirmShell()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -1331,8 +1333,8 @@ void GeometricModelingPlugin::beginDraftPanel()
 
 void GeometricModelingPlugin::onPickDraftFace()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::Draft)
 		return;
@@ -1360,8 +1362,8 @@ void GeometricModelingPlugin::onPickDraftFace()
 void GeometricModelingPlugin::refreshDraftPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_solidPreviewActive || m_pickedFaceIndices.empty())
 		return;
 
@@ -1388,8 +1390,8 @@ void GeometricModelingPlugin::refreshDraftPreview()
 
 void GeometricModelingPlugin::onPickDraftNeutral()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_solidPreviewActive || m_solidPanel != SideToolPanel::Draft)
 		return;
@@ -1425,8 +1427,8 @@ void GeometricModelingPlugin::onPickDraftNeutral()
 void GeometricModelingPlugin::onConfirmDraft()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || m_pickedFaceIndices.empty())
 	{
 		hostLogWarn(i18n(QStringLiteral("Select at least one face."),
@@ -1470,7 +1472,7 @@ void GeometricModelingPlugin::onConfirmDraft()
 			syncFeaturesFromBody(page);
 			QByteArray afterHist;
 			QString qe;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qe);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -1514,8 +1516,8 @@ void GeometricModelingPlugin::onProjectEdges()
 						 QStringLiteral("\u8bf7\u5148\u8fdb\u5165\u8349\u56fe\u7f16\u8f91\u3002")));
 		return;
 	}
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo)
 		return;
 
@@ -1580,8 +1582,8 @@ void GeometricModelingPlugin::onConvertEntities()
 						 QStringLiteral("\u8bf7\u5148\u8fdb\u5165\u8349\u56fe\u7f16\u8f91\u3002")));
 		return;
 	}
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo)
 		return;
 

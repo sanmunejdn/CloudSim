@@ -8,7 +8,7 @@
 #include "BackendVisualRegistry.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "visual/BackendVisualEnsure.h"
 #include "RunLogger.h"
 
@@ -118,7 +118,7 @@ BackendVisualSyncEngine::resolveTransformFlushOrder(const std::vector<std::strin
 
 bool BackendVisualSyncEngine::flushTransformForId(const std::string& backendId)
 {
-	OsgWidget* osg = osgWidgetFrom(m_host);
+	IOsgWidgetView* osg = osgWidgetFrom(m_host);
 	if (!osg)
 	{
 		return false;
@@ -145,7 +145,7 @@ bool BackendVisualSyncEngine::flushAppearanceForId(const std::string& backendId)
 	{
 		return true;
 	}
-	OsgWidget* osg = osgWidgetFrom(m_host);
+	IOsgWidgetView* osg = osgWidgetFrom(m_host);
 	if (!osg)
 	{
 		return false;
@@ -157,7 +157,7 @@ bool BackendVisualSyncEngine::flushAppearanceForId(const std::string& backendId)
 
 bool BackendVisualSyncEngine::flushVisibilityForId(const std::string& backendId)
 {
-	OsgWidget* osg = osgWidgetFrom(m_host);
+	IOsgWidgetView* osg = osgWidgetFrom(m_host);
 	const auto obj = m_host.findObject(backendId);
 	if (!osg || !obj)
 	{
@@ -200,7 +200,7 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 	if (backend_type::isCoordinateFrameClassName(obj->className()) ||
 		backend_type::isCustomDeviceClassName(obj->className()))
 	{
-		OsgWidget* osg = osgWidgetFrom(m_host);
+		IOsgWidgetView* osg = osgWidgetFrom(m_host);
 		if (!osg)
 		{
 			return false;
@@ -214,7 +214,7 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 		return true;
 	}
 	// 增量路径：visual 支持原地更新且分支已挂载时只换几何数组，避免整枝重建
-	if (OsgWidget* osg = osgWidgetFrom(m_host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(m_host))
 	{
 		std::unique_ptr<IBackendVisual> visual = BackendVisualRegistry::createForClassName(obj->className());
 		osg::Node* branchRoot = osg->backendObjectRootNode(backendId);
@@ -259,7 +259,7 @@ bool BackendVisualSyncEngine::flushTransform(const std::vector<std::string>& ord
 			m_dirty.erase(it);
 		}
 	}
-	if (OsgWidget* osg = osgWidgetFrom(m_host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(m_host))
 	{
 		osg->requestRedraw();
 	}

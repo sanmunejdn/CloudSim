@@ -27,6 +27,8 @@ namespace RobotInstruction
 {
 /// 轨迹算法统一入口：实现驻留 RobotScene，UI 经此访问避免重复链接 TrajectoryAlgorithm
 ROBOT_SCENE_API trajectory_algo::TrajectoryOpRegistry& trajectoryOpRegistry();
+/// 组合根注册 TrajectoryOpRegistry 后调用，使桥接与 ServiceRegistry 同一实例
+ROBOT_SCENE_API void setTrajectoryOpRegistry(trajectory_algo::TrajectoryOpRegistry* registry);
 ROBOT_SCENE_API void ensureTrajectoryOpBuiltinsRegistered();
 ROBOT_SCENE_API bool ensureTrajectoryOpConfigsLoaded(const std::string& resourceBaseDir, std::string* errMsg = nullptr);
 ROBOT_SCENE_API TrajectoryOpDescriptor trajectoryOpDefaultUnified(TrajectoryOpKind kind, const OpScope& scope);

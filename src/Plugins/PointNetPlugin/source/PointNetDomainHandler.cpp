@@ -5,6 +5,7 @@
 
 #include "BackendTypeIds.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
 #include "PointNetInference.h"
 
@@ -22,7 +23,8 @@ namespace
 bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& backendId, std::vector<float>& outPoints,
 								  int& outCount)
 {
-	IPluginDocument* doc = host->activeDocument();
+	IPluginDocumentContext* docCtx = host->documentContext();
+	IPluginDocument* doc = docCtx ? docCtx->activeDocument() : nullptr;
 	if (!doc)
 		return false;
 
@@ -199,7 +201,8 @@ bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginH
 	std::string backendId = readBackendId(j);
 	if (backendId.empty())
 	{
-		IPluginDocument* doc = host ? host->activeDocument() : nullptr;
+		IPluginDocumentContext* docCtx = host ? host->documentContext() : nullptr;
+		IPluginDocument* doc = docCtx ? docCtx->activeDocument() : nullptr;
 		if (!doc)
 		{
 			if (err)
@@ -316,7 +319,8 @@ bool PointNetSegmentDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHo
 	std::string backendId = readBackendId(j);
 	if (backendId.empty())
 	{
-		IPluginDocument* doc = host ? host->activeDocument() : nullptr;
+		IPluginDocumentContext* docCtx = host ? host->documentContext() : nullptr;
+		IPluginDocument* doc = docCtx ? docCtx->activeDocument() : nullptr;
 		if (!doc)
 		{
 			if (err)

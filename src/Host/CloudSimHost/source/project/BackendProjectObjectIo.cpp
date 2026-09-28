@@ -7,8 +7,8 @@
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
 #include "BackendFollowSolve.h"
-#include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
+#include "HostBackendRegistries.h"
 #include "BackendTypeIdentity.h"
 #include "BrepBackendData.h"
 #include "CustomDeviceBackendData.h"
@@ -19,7 +19,7 @@
 #include "FrameBackendData.h"
 #include "IDataService.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "ParametricBrepBackendData.h"
 #include "PointCloudBackendData.h"
 #include "RobotProjectKinematicsRestore.h"
@@ -184,7 +184,7 @@ bool decodeBackendObjectFromProjectJson(const QJsonObject& objectJson, std::shar
 		}
 		return false;
 	}
-	auto obj = BackendRegistry::instance().create(className.toStdString());
+	auto obj = cloudsim::host::backendRegistry().create(className.toStdString());
 	if (!obj)
 	{
 		if (outError)
@@ -360,7 +360,7 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 							std::to_string(pc->geometryElementCount()) + ". PLY sidecar may be missing or renamed.");
 		}
 	}
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
 		// Web/Headless：无 OSG 时仍注册 Data，浏览器经 /api/mesh 取 triangleSoup
@@ -496,7 +496,7 @@ void applyProjectEdgesToBackend(DocumentHost& host, const QVector<ProjectHierarc
 void syncOsgBackendParentsFromBackend(DocumentHost& host)
 {
 	// 工程 edges 只写 Data 时，须把 OSG 场景父链与 topo 对齐
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
 		return;
@@ -531,7 +531,7 @@ void rebuildBackendParentIdMirror(DocumentHost& host)
 	}
 }
 
-void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, OsgWidget* osgWidget, const QJsonObject& obj)
+void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, IOsgWidgetView* osgWidget, const QJsonObject& obj)
 {
 	const QJsonObject pose = obj.value(QStringLiteral("pose")).toObject();
 	const QJsonObject rot = obj.value(QStringLiteral("rotation")).toObject();
@@ -564,7 +564,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 	// 每次加载新工程时清空 stepSidecar 缓存，避免跨工程污染
 	g_stepSidecarCache.clear();
 
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	for (const QJsonValue& v : objects)
 	{
 		if (!v.isObject())

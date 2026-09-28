@@ -5,6 +5,7 @@
 
 #include "BackendTypeIds.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
 
@@ -332,7 +333,7 @@ QString TubularGrindingDockWidget::i18n(const QString& en, const QString& zh) co
 
 IPluginDocument* TubularGrindingDockWidget::activeDoc() const
 {
-	return m_host ? m_host->activeDocument() : nullptr;
+	return (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
 }
 
 IPluginPointCloudHost* TubularGrindingDockWidget::pointCloudHost() const

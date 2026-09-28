@@ -3,10 +3,9 @@
 
 /// @file GeometryFileImporterRegistry.h
 /// @brief 几何文件导入器后缀注册表
+/// @note 不 include IGeometryFileImporter.h：避免 Bootstrap 等轻量编译单元被 Data 头拖死
 
 #include "cloudsim_host_global.h"
-
-#include "IGeometryFileImporter.h"
 
 #include <memory>
 #include <string>
@@ -15,6 +14,8 @@
 
 namespace cloudsim::host
 {
+class IGeometryFileImporter;
+
 class CLOUDSIM_HOST_EXPORT GeometryFileImporterRegistry
 {
 public:
@@ -40,6 +41,9 @@ private:
 };
 
 CLOUDSIM_HOST_EXPORT void registerBuiltinGeometryImporters(GeometryFileImporterRegistry& registry);
+
+/// Host 内取导入注册表：优先 ServiceRegistry
+CLOUDSIM_HOST_EXPORT GeometryFileImporterRegistry& geometryFileImporterRegistry();
 
 } // namespace cloudsim::host
 

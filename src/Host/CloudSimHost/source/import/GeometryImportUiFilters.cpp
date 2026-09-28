@@ -20,7 +20,7 @@ bool isOsgCaptureExt(const std::string& ext)
 
 QStringList modelGlobPatterns(bool includeOsgCapture)
 {
-	std::vector<std::string> exts = GeometryFileImporterRegistry::instance().allExtensions();
+	std::vector<std::string> exts = geometryFileImporterRegistry().allExtensions();
 	std::sort(exts.begin(), exts.end());
 	QStringList patterns;
 	patterns.reserve(static_cast<int>(exts.size()));

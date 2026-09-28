@@ -14,6 +14,8 @@
 #include "CloudSimGeomPython.h"
 #include "IAiAssistantHost.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
 #include "PluginGeometryTypes.h"
@@ -63,12 +65,12 @@ fs::path resolvePythonHome()
 
 IPluginDocument* activeDoc()
 {
-	return g_host ? g_host->activeDocument() : nullptr;
+	return (g_host && g_host->documentContext()) ? g_host->documentContext()->activeDocument() : nullptr;
 }
 
 IPluginGeometryHost* geoHost()
 {
-	return g_host ? g_host->geometryHost() : nullptr;
+	return (g_host && g_host->geometryContext()) ? g_host->geometryContext()->geometryHost() : nullptr;
 }
 
 IAiAssistantHost* aiHost()

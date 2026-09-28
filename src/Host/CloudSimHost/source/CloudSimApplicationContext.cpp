@@ -8,6 +8,14 @@
 #include "IDocumentScope.h"
 #include "IRenderView.h"
 #include "NullCoreServices.h"
+#include "BackendComponentCodecBuiltins.h"
+#include "BackendComponentCodecRegistry.h"
+#include "BackendRegistry.h"
+#include "BackendRegistryBuiltins.h"
+#include "FeatureDiscretizerBridge.h"
+#include "FeatureDiscretizerRegistry.h"
+#include "TrajectoryOpBridge.h"
+#include "TrajectoryOpRegistry.h"
 #include "import/GeometryFileImporterRegistry.h"
 
 #include <QWidget>
@@ -22,7 +30,31 @@ public:
 	ApplicationContextImpl(std::unique_ptr<IRenderViewFactory> renderFactory, bool headlessDocuments)
 		: m_renderFactory(std::move(renderFactory)), m_headlessDocuments(headlessDocuments)
 	{
-		// 宿主内 Registry 迁入 ServiceRegistry，instance() 经此返回同一实例
+		registerHostRegistries();
+	}
+
+	void registerHostRegistries()
+	{
+		auto backendReg = std::make_shared<BackendRegistry>();
+		BackendRegistry::setProcessInstance(backendReg.get());
+		m_services.registerService(backendReg);
+
+		auto codecReg = std::make_shared<BackendComponentCodecRegistry>();
+		BackendComponentCodecRegistry::setProcessInstance(codecReg.get());
+		m_services.registerService(codecReg);
+		ensureBackendBuiltinsRegistered();
+		initBackendComponentCodecs();
+
+		auto trajectoryReg = std::make_shared<trajectory_algo::TrajectoryOpRegistry>();
+		RobotInstruction::setTrajectoryOpRegistry(trajectoryReg.get());
+		m_services.registerService(trajectoryReg);
+		trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
+
+		auto featureReg = std::make_shared<geoalgo::FeatureDiscretizerRegistry>();
+		geoalgo::setFeatureDiscretizerRegistry(featureReg.get());
+		m_services.registerService(featureReg);
+		geoalgo::ensureFeatureDiscretizersRegistered();
+
 		m_services.registerService(std::make_shared<cloudsim::host::GeometryFileImporterRegistry>());
 	}
 

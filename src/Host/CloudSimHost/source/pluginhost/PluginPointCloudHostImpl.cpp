@@ -15,7 +15,7 @@
 #include "IDataService.h"
 #include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "PluginDocumentAdapter.h"
 #include "PluginHostContext.h"
 #include "PointCloudBackendData.h"
@@ -892,7 +892,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 				else if (params.applyDeformationToSource)
 				{
 					sourceMesh->setTriangleSoup(std::move(soup));
-					if (OsgWidget* osg = widgetOsgFromPage(page))
+					if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 					{
 						QString geomErr;
 						(void)osg->loadMeshFromBackendData(*sourceMesh, &geomErr, false, true, true);
@@ -1238,7 +1238,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const s
 				else if (params.applyDeformationToSource)
 				{
 					sourceMesh->setTriangleSoup(std::move(soup));
-					if (OsgWidget* osg = widgetOsgFromPage(page))
+					if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 					{
 						QString geomErr;
 						(void)osg->loadMeshFromBackendData(*sourceMesh, &geomErr, false, true, true);
@@ -1444,7 +1444,7 @@ void PluginPointCloudHostImpl::nonRigidRegisterPyramid(IPluginDocument* doc, con
 			else if (params.applyDeformationToSource)
 			{
 				sourceMesh->setTriangleSoup(std::move(soup));
-				if (OsgWidget* osg = widgetOsgFromPage(page))
+				if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 				{
 					QString geomErr;
 					(void)osg->loadMeshFromBackendData(*sourceMesh, &geomErr, false, true, true);
@@ -2198,7 +2198,7 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 						   updateResult);
 				return;
 			}
-			if (OsgWidget* osg = widgetOsgFromPage(page))
+			if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 			{
 				osg->setBackendObjectVisible(templateBrep->id(), true);
 				osg->setBackendObjectVisible(result->brep->id(), true);
@@ -2207,14 +2207,14 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 			if (const auto scan = scanSource.pointCloud)
 			{
 				document_point_cloud_ops::commitPointCloudVisual(page, *scan);
-				if (OsgWidget* osg = widgetOsgFromPage(page))
+				if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 				{
 					osg->setBackendObjectVisible(scan->id(), true);
 				}
 			}
 			else if (const auto mesh = scanSource.mesh)
 			{
-				if (OsgWidget* osg = widgetOsgFromPage(page))
+				if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 				{
 					osg->setBackendObjectVisible(mesh->id(), true);
 				}
@@ -3273,7 +3273,7 @@ bool registerReconstructedBrepFromShape(PluginHostContext* host, cloudsim::host:
 		return false;
 	}
 
-	if (OsgWidget* osg = widgetOsgFromPage(page))
+	if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 	{
 		osg->setBackendObjectVisible(sourceMesh->id(), true);
 		osg->focusCameraOnBackend(brep->id());
@@ -3330,7 +3330,7 @@ bool registerFitPreviewBrepFromShape(
 		return false;
 	}
 
-	if (OsgWidget* osg = widgetOsgFromPage(page))
+	if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 	{
 		osg->setBackendObjectVisible(sourceMesh->id(), true);
 		osg->focusCameraOnBackend(brep->id());
@@ -3496,7 +3496,7 @@ void runMeshToBrepJob(PluginHostContext* host, IPluginDocument* doc, const std::
 				return;
 			}
 
-			if (OsgWidget* osg = widgetOsgFromPage(page))
+			if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 			{
 				osg->setBackendObjectVisible(mesh->id(), true);
 				osg->focusCameraOnBackend(result->brep->id());
@@ -3669,7 +3669,7 @@ void runMeshAnalyzeJob(PluginHostContext* host, IPluginDocument* doc, const std:
 			const PluginMeshDefectReport report = toPluginDefectReport(
 				result->faceIndices, result->scores, result->kinds, result->totalFaces, result->defectFaceCount,
 				result->defectAreaRatio, result->needleCount, result->protrusionCount, result->boundarySpikeCount);
-			if (OsgWidget* osg = widgetOsgFromPage(page))
+			if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 			{
 				const std::vector<osg::Vec3f> verts = defectFacesToWorldVerts(*mesh, result->faceIndices);
 				if (!verts.empty())
@@ -4665,7 +4665,7 @@ void PluginPointCloudHostImpl::analyzeMeshDefects(IPluginDocument* doc, const st
 void PluginPointCloudHostImpl::clearMeshDefectHighlight(IPluginDocument* doc)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	if (OsgWidget* osg = widgetOsgFromPage(page))
+	if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 	{
 		osg->hideMeshElementHighlight();
 	}
@@ -4684,7 +4684,7 @@ void PluginPointCloudHostImpl::pickPolylineFromViewport(IPluginDocument* doc,
 		onFinished(false, QStringLiteral("No active document"), {});
 		return;
 	}
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (!osg)
 	{
 		onFinished(false, QStringLiteral("3D viewport unavailable"), {});
@@ -4717,25 +4717,25 @@ void PluginPointCloudHostImpl::pickPolylineFromViewport(IPluginDocument* doc,
 
 	osg->setPolylinePickMode(true);
 
-	state->connCommitted =
-		QObject::connect(osg, &OsgWidget::polylinePickCommitted, m_host,
-						 [=](const QVector<float>& polylineScreenXy, const QVector<double>& mvpMatrix,
-							 const int viewportWidth, const int viewportHeight)
-						 {
-							 PluginPointCloudPolylinePickResult result;
-							 result.polylineScreenXy.assign(polylineScreenXy.begin(), polylineScreenXy.end());
-							 const int n = std::min(16, mvpMatrix.size());
-							 for (int i = 0; i < n; ++i)
-							 {
-								 result.mvpMatrix[i] = mvpMatrix[i];
-							 }
-							 result.viewportWidth = viewportWidth;
-							 result.viewportHeight = viewportHeight;
-							 complete(true, QString(), result);
-						 });
+	state->connCommitted = osg->observePolylinePickCommitted(
+		m_host,
+		[=](const QVector<float>& polylineScreenXy, const QVector<double>& mvpMatrix, const int viewportWidth,
+			const int viewportHeight)
+		{
+			PluginPointCloudPolylinePickResult result;
+			result.polylineScreenXy.assign(polylineScreenXy.begin(), polylineScreenXy.end());
+			const int n = std::min(16, mvpMatrix.size());
+			for (int i = 0; i < n; ++i)
+			{
+				result.mvpMatrix[i] = mvpMatrix[i];
+			}
+			result.viewportWidth = viewportWidth;
+			result.viewportHeight = viewportHeight;
+			complete(true, QString(), result);
+		});
 
-	state->connCanceled = QObject::connect(osg, &OsgWidget::polylinePickCanceled, m_host,
-										   [=]() { complete(false, QStringLiteral("Polyline pick canceled"), {}); });
+	state->connCanceled = osg->observePolylinePickCanceled(
+		m_host, [=]() { complete(false, QStringLiteral("Polyline pick canceled"), {}); });
 }
 
 void PluginPointCloudHostImpl::cropPointCloudByPolyline(IPluginDocument* doc, const std::string& backendIdUtf8,
@@ -4763,7 +4763,7 @@ void PluginPointCloudHostImpl::cropPointCloudByPolyline(IPluginDocument* doc, co
 	}
 	PluginPointCloudCropPolylineParams jobParams = params;
 	bool haveModelToWorld = false;
-	if (OsgWidget* osg = widgetOsgFromPage(page))
+	if (IOsgWidgetView* osg = widgetOsgFromPage(page))
 	{
 		haveModelToWorld = osg->tryGetBackendPointLocalToWorldMatrix(backendIdUtf8, jobParams.modelToWorld);
 	}

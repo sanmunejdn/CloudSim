@@ -90,6 +90,13 @@
     <ClInclude Include="inc\IPluginSceneBridge.h" />
     <ClInclude Include="inc\PluginBackendMeta.h" />
     <ClInclude Include="inc\PluginPrimitiveTypes.h" />
+    <ClInclude Include="inc\IPluginDocumentContext.h" />
+    <ClInclude Include="inc\IPluginUiContext.h" />
+    <ClInclude Include="inc\IPluginGeometryContext.h" />
+    <ClInclude Include="inc\IPluginAiContext.h" />
+    <ClInclude Include="inc\IPluginRobotContext.h" />
+    <ClInclude Include="inc\IPluginJobContext.h" />
+    <ClInclude Include="inc\IPluginProjectContext.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\CloudSimPluginVersion.cpp" />

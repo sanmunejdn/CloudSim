@@ -8,8 +8,8 @@
 #include "BackendFileImport.h"
 #include "BackendFollowSolve.h"
 #include "BackendProjectObjectIo.h"
-#include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
+#include "HostBackendRegistries.h"
 #include "BackendTypeIds.h"
 #include "BackendVisualSync.h"
 #include "DocumentHost.h"
@@ -17,7 +17,7 @@
 #include "DocumentImportFacade.h"
 #include "FollowAttachmentComponent.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "PointCloudBackendData.h"
 #include "io/CustomDeviceHostOps.h"
 #include "io/CustomDeviceRobotMountOps.h"
@@ -44,7 +44,7 @@ void DataServiceAdapter::clear()
 core::ObjectId DataServiceAdapter::registerObject(const core::RegisterObjectDto& meta, QString* outError)
 {
 	ensureBackendBuiltinsRegistered();
-	auto obj = BackendRegistry::instance().create(meta.className.toStdString());
+	auto obj = cloudsim::host::backendRegistry().create(meta.className.toStdString());
 	if (!obj)
 	{
 		if (outError)

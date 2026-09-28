@@ -13,7 +13,7 @@
 #include <string>
 #include <unordered_set>
 
-class OsgWidget;
+class IOsgWidgetView;
 
 namespace cloudsim::host
 {
@@ -27,7 +27,7 @@ struct FollowSolveContext
 };
 
 /// Follow 求解；随后对变更 follower 做 compound（挂载设备除外），再解依赖 compound target 的 Follow
-CLOUDSIM_HOST_EXPORT void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg,
+CLOUDSIM_HOST_EXPORT void runBackendFollowSolveAndSync(DocumentHost& page, IOsgWidgetView* osg,
 													   const FollowSolveContext* ctx = nullptr,
 													   const std::string* manualPoseAuthorityBackendId = nullptr);
 

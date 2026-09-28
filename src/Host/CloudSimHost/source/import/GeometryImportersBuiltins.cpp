@@ -4,6 +4,7 @@
 #include "BackendImporters.h"
 #include "BrepBackendData.h"
 #include "GeometryFileImporterRegistry.h"
+#include "IGeometryFileImporter.h"
 #include "MeshBackendData.h"
 
 #include <filesystem>

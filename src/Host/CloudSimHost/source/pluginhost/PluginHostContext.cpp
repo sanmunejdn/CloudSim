@@ -11,6 +11,7 @@
 #include "BackendFollowMath.h"
 #include "BackendPrimitiveGeometry.h"
 #include "BackendRegistry.h"
+#include "HostBackendRegistries.h"
 #include "BackendSceneDocumentFacade.h"
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
@@ -142,7 +143,9 @@ PluginHostContext::PluginHostContext(IPluginMainWindowHost* mainWindowHost, QObj
 	  m_robotHost(std::make_unique<PluginRobotHostImpl>(this)),
 	  m_geometryHost(std::make_unique<PluginGeometryHostImpl>(this)),
 	  m_labelingHost(std::make_unique<PluginLabelingHostImpl>(this)),
-	  m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
+	  m_aiHost(std::make_unique<AiAssistantHostImpl>(this)),
+	  m_documentContextImpl(*this), m_uiContextImpl(*this), m_geometryContextImpl(*this), m_aiContextImpl(*this),
+	  m_robotContextImpl(*this), m_jobContextImpl(*this), m_projectContextImpl(*this)
 {
 	ensureBuiltinMainWorkspaceMode();
 #ifndef NDEBUG
@@ -921,6 +924,41 @@ const IPluginRobotHost* PluginHostContext::robotHost() const
 	return m_robotHost.get();
 }
 
+IPluginDocumentContext* PluginHostContext::documentContext()
+{
+	return &m_documentContextImpl;
+}
+
+IPluginUiContext* PluginHostContext::uiContext()
+{
+	return &m_uiContextImpl;
+}
+
+IPluginGeometryContext* PluginHostContext::geometryContext()
+{
+	return &m_geometryContextImpl;
+}
+
+IPluginAiContext* PluginHostContext::aiContext()
+{
+	return &m_aiContextImpl;
+}
+
+IPluginRobotContext* PluginHostContext::robotContext()
+{
+	return &m_robotContextImpl;
+}
+
+IPluginJobContext* PluginHostContext::jobContext()
+{
+	return &m_jobContextImpl;
+}
+
+IPluginProjectContext* PluginHostContext::projectContext()
+{
+	return &m_projectContextImpl;
+}
+
 IPluginGeometryHost* PluginHostContext::geometryHost()
 {
 	return m_geometryHost.get();
@@ -1491,6 +1529,6 @@ bool PluginHostContext::registerBackendType(const PluginBackendMeta& meta, QStri
 		return std::make_shared<PluginDelegatedBackend>(delegate, opts);
 	};
 
-	BackendRegistry::instance().registerType(reg);
+	cloudsim::host::backendRegistry().registerType(reg);
 	return true;
 }

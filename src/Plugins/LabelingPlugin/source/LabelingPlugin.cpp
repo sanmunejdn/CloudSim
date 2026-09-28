@@ -5,8 +5,10 @@
 
 #include "CloudSimPluginVersion.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
 #include "IPluginLabelingHost.h"
+#include "IPluginUiContext.h"
 #include "LabelingAnnotWidget.h"
 #include "LabelingTrainWidget.h"
 
@@ -30,19 +32,27 @@ bool LabelingPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	if (host->hostVersion() < 0x00011000U)
+	if (host->hostVersion() < 0x00013800U)
 	{
-		host->logError(host->useChinese() ? QStringLiteral("分割标注插件需要宿主 1.16.0+")
-										  : QStringLiteral("LabelingPlugin requires host 1.16.0+"));
+		host->logError(host->useChinese() ? QStringLiteral("分割标注插件需要宿主 1.56.0+")
+										  : QStringLiteral("LabelingPlugin requires host 1.56.0+"));
 		return false;
 	}
+	IPluginUiContext* uiCtx = host->uiContext();
+	IPluginDocumentContext* docCtx = host->documentContext();
+	if (!uiCtx || !docCtx)
+	{
+		host->logError(QStringLiteral("LabelingPlugin: narrow context unavailable"));
+		return false;
+	}
+	// labelingHost 暂无独立窄上下文，仍走聚合
 	if (!host->labelingHost())
 	{
 		host->logError(host->useChinese() ? QStringLiteral("标注宿主 API 不可用")
 										  : QStringLiteral("Labeling host API unavailable"));
 		return false;
 	}
-	if (!host->sidePanelTabParent())
+	if (!uiCtx->sidePanelTabParent())
 	{
 		return false;
 	}
@@ -55,7 +65,7 @@ bool LabelingPlugin::initialize(IPluginHostContext* host)
 	m_tabWidget->addTab(m_trainWidget, host->useChinese() ? QStringLiteral("模型训练") : QStringLiteral("Training"));
 
 	const char* panelTitle = host->useChinese() ? "分割标注" : "Labeling";
-	if (host->registerSidePanelTab(panelTitle, m_tabWidget) < 0)
+	if (uiCtx->registerSidePanelTab(panelTitle, m_tabWidget) < 0)
 	{
 		return false;
 	}
@@ -63,7 +73,7 @@ bool LabelingPlugin::initialize(IPluginHostContext* host)
 	QObject::connect(m_annotWidget, &LabelingAnnotWidget::datasetExported, m_trainWidget,
 					 &LabelingTrainWidget::setDatasetRoot);
 
-	host->onActiveDocumentChanged(
+	docCtx->onActiveDocumentChanged(
 		[this](IPluginDocument*)
 		{
 			if (m_annotWidget)
@@ -85,7 +95,10 @@ void LabelingPlugin::shutdown()
 {
 	if (m_host && m_tabWidget)
 	{
-		m_host->unregisterSidePanelTab(m_tabWidget);
+		if (IPluginUiContext* uiCtx = m_host->uiContext())
+		{
+			uiCtx->unregisterSidePanelTab(m_tabWidget);
+		}
 	}
 	m_annotWidget = nullptr;
 	m_trainWidget = nullptr;
@@ -102,27 +115,32 @@ void LabelingPlugin::registerMenus()
 	{
 		return;
 	}
-	m_labelingMenu = m_host->registerMenuPath({QStringLiteral("Tools"), QStringLiteral("Labeling")});
+	IPluginUiContext* uiCtx = m_host->uiContext();
+	if (!uiCtx)
+	{
+		return;
+	}
+	m_labelingMenu = uiCtx->registerMenuPath({QStringLiteral("Tools"), QStringLiteral("Labeling")});
 	if (!m_labelingMenu)
 	{
 		return;
 	}
-	m_openAnnotAction = m_host->registerAction(m_labelingMenu, QStringLiteral("Open Annotation Tab"),
-											   [this]()
-											   {
-												   if (m_tabWidget)
-												   {
-													   m_tabWidget->setCurrentIndex(0);
-												   }
-											   });
-	m_openTrainAction = m_host->registerAction(m_labelingMenu, QStringLiteral("Open Training Tab"),
-											   [this]()
-											   {
-												   if (m_tabWidget)
-												   {
-													   m_tabWidget->setCurrentIndex(1);
-												   }
-											   });
+	m_openAnnotAction = uiCtx->registerAction(m_labelingMenu, QStringLiteral("Open Annotation Tab"),
+											  [this]()
+											  {
+												  if (m_tabWidget)
+												  {
+													  m_tabWidget->setCurrentIndex(0);
+												  }
+											  });
+	m_openTrainAction = uiCtx->registerAction(m_labelingMenu, QStringLiteral("Open Training Tab"),
+											  [this]()
+											  {
+												  if (m_tabWidget)
+												  {
+													  m_tabWidget->setCurrentIndex(1);
+												  }
+											  });
 }
 
 void LabelingPlugin::applyLanguage()
@@ -134,7 +152,10 @@ void LabelingPlugin::applyLanguage()
 	const bool zh = m_host->useChinese();
 	m_tabWidget->setTabText(0, zh ? QStringLiteral("分割标注") : QStringLiteral("Annotation"));
 	m_tabWidget->setTabText(1, zh ? QStringLiteral("模型训练") : QStringLiteral("Training"));
-	m_host->setSidePanelTabTitle(m_tabWidget, zh ? "分割标注" : "Labeling");
+	if (IPluginUiContext* uiCtx = m_host->uiContext())
+	{
+		uiCtx->setSidePanelTabTitle(m_tabWidget, zh ? "分割标注" : "Labeling");
+	}
 	if (m_annotWidget)
 	{
 		m_annotWidget->applyLanguage();

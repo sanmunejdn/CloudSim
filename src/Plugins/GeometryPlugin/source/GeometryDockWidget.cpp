@@ -4,6 +4,8 @@
 #include "GeometryDockWidget.h"
 
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
 
@@ -25,7 +27,17 @@ enum class SourceMode
 	File = 0,
 	Backend = 1
 };
+
+IPluginGeometryHost* geomHostOf(IPluginHostContext* host)
+{
+	return host && host->geometryContext() ? host->geometryContext()->geometryHost() : nullptr;
 }
+
+IPluginDocument* activeDocOf(IPluginHostContext* host)
+{
+	return host && host->documentContext() ? host->documentContext()->activeDocument() : nullptr;
+}
+} // namespace
 
 GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent)
 	: QWidget(parent), m_host(host), m_useChinese(host ? host->useChinese() : true)
@@ -187,7 +199,7 @@ void GeometryDockWidget::wireSignals()
 
 bool GeometryDockWidget::ensureGeometryHostReady()
 {
-	if (m_host && m_host->geometryHost())
+	if (m_host && geomHostOf(m_host))
 	{
 		return true;
 	}
@@ -299,7 +311,7 @@ void GeometryDockWidget::refreshComputableBackends()
 	}
 	std::vector<PluginGeometryBackendEntry> entries;
 	QString err;
-	const bool ok = m_host->geometryHost()->listComputableBackends(m_host->activeDocument(), entries, &err);
+	const bool ok = m_host->geometryContext()->geometryHost()->listComputableBackends(m_host->documentContext()->activeDocument(), entries, &err);
 	if (!ok)
 	{
 		setStatus(err.isEmpty()
@@ -336,8 +348,8 @@ void GeometryDockWidget::pickEdgeForEdgeFace()
 	req.backendIdUtf8 = activeBackendId();
 	req.stepPathUtf8 = activeStepPath().toStdString();
 	setStatus(m_useChinese ? QStringLiteral("请在 3D 视图点选边…") : QStringLiteral("Pick an edge in 3D view..."));
-	m_host->geometryHost()->pickStepElementFromViewport(
-		m_host->activeDocument(), req,
+	m_host->geometryContext()->geometryHost()->pickStepElementFromViewport(
+		m_host->documentContext()->activeDocument(), req,
 		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
 		{
 			if (!ok)
@@ -369,8 +381,8 @@ void GeometryDockWidget::pickFaceForEdgeFace()
 	req.backendIdUtf8 = activeBackendId();
 	req.stepPathUtf8 = activeStepPath().toStdString();
 	setStatus(m_useChinese ? QStringLiteral("请在 3D 视图点选面…") : QStringLiteral("Pick a face in 3D view..."));
-	m_host->geometryHost()->pickStepElementFromViewport(
-		m_host->activeDocument(), req,
+	m_host->geometryContext()->geometryHost()->pickStepElementFromViewport(
+		m_host->documentContext()->activeDocument(), req,
 		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
 		{
 			if (!ok)
@@ -402,8 +414,8 @@ void GeometryDockWidget::pickFaceAForFaceFace()
 	req.backendIdUtf8 = activeBackendId();
 	req.stepPathUtf8 = activeStepPath().toStdString();
 	setStatus(m_useChinese ? QStringLiteral("请点选第一个面…") : QStringLiteral("Pick first face..."));
-	m_host->geometryHost()->pickStepElementFromViewport(
-		m_host->activeDocument(), req,
+	m_host->geometryContext()->geometryHost()->pickStepElementFromViewport(
+		m_host->documentContext()->activeDocument(), req,
 		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
 		{
 			if (!ok)
@@ -435,8 +447,8 @@ void GeometryDockWidget::pickFaceBForFaceFace()
 	req.backendIdUtf8 = activeBackendId();
 	req.stepPathUtf8 = activeStepPath().toStdString();
 	setStatus(m_useChinese ? QStringLiteral("请点选第二个面…") : QStringLiteral("Pick second face..."));
-	m_host->geometryHost()->pickStepElementFromViewport(
-		m_host->activeDocument(), req,
+	m_host->geometryContext()->geometryHost()->pickStepElementFromViewport(
+		m_host->documentContext()->activeDocument(), req,
 		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
 		{
 			if (!ok)
@@ -486,7 +498,7 @@ void GeometryDockWidget::refreshDocumentLabel()
 	{
 		return;
 	}
-	IPluginDocument* doc = m_host->activeDocument();
+	IPluginDocument* doc = activeDocOf(m_host);
 	m_docLabel->setText(doc ? QString::fromStdString(doc->documentLabel())
 							: (m_useChinese ? QStringLiteral("无活动文档") : QStringLiteral("No active document")));
 	refreshComputableBackends();
@@ -524,8 +536,8 @@ void GeometryDockWidget::discretizeStep()
 	const std::string backendId = activeBackendId();
 	if (hasBackendSource() && !backendId.empty())
 	{
-		m_host->geometryHost()->discretizeBackendToMesh(
-			m_host->activeDocument(), path.toStdString(), params, options,
+		m_host->geometryContext()->geometryHost()->discretizeBackendToMesh(
+			m_host->documentContext()->activeDocument(), path.toStdString(), params, options,
 			[this](const bool ok, const QString& err, const PluginGeometryJobResult& result)
 			{
 				if (!ok)
@@ -541,8 +553,8 @@ void GeometryDockWidget::discretizeStep()
 		return;
 	}
 
-	m_host->geometryHost()->discretizeStepToMesh(
-		m_host->activeDocument(), path.toStdString(), params, options,
+	m_host->geometryContext()->geometryHost()->discretizeStepToMesh(
+		m_host->documentContext()->activeDocument(), path.toStdString(), params, options,
 		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result)
 		{
 			if (!ok)
@@ -577,8 +589,8 @@ void GeometryDockWidget::intersectEdgeFace()
 	faceRef.faceIndex = m_faceSpin->value();
 	PluginGeometryIntersectionParams params;
 	setStatus(m_useChinese ? QStringLiteral("线面求交中…") : QStringLiteral("Edge-face intersecting..."));
-	m_host->geometryHost()->intersectEdgeFace(
-		m_host->activeDocument(), edgeRef, faceRef, params,
+	m_host->geometryContext()->geometryHost()->intersectEdgeFace(
+		m_host->documentContext()->activeDocument(), edgeRef, faceRef, params,
 		[this, path](const bool ok, const QString& err, const PluginGeometryJobResult& result)
 		{
 			if (!ok)
@@ -615,8 +627,8 @@ void GeometryDockWidget::intersectFaceFace()
 	f2.faceIndex = m_faceBSpin->value();
 	PluginGeometryIntersectionParams params;
 	setStatus(m_useChinese ? QStringLiteral("面面求交中…") : QStringLiteral("Face-face intersecting..."));
-	m_host->geometryHost()->intersectFaces(
-		m_host->activeDocument(), f1, f2, params,
+	m_host->geometryContext()->geometryHost()->intersectFaces(
+		m_host->documentContext()->activeDocument(), f1, f2, params,
 		[this, path](const bool ok, const QString& err, const PluginGeometryJobResult& result)
 		{
 			if (!ok)
@@ -648,8 +660,8 @@ void GeometryDockWidget::createTubeFromLastIntersection()
 	params.mode = PluginMeshDiscretizeMode::WireTubeMesh;
 	const PluginMeshCreateOptions options = buildMeshCreateOptions(QStringLiteral("IntersectionTubeMesh"));
 	setStatus(m_useChinese ? QStringLiteral("生成管状网格中…") : QStringLiteral("Creating tube mesh..."));
-	m_host->geometryHost()->discretizeWireToTubeMesh(
-		m_host->activeDocument(), m_lastIntersectionPolylines.front(), params, options,
+	m_host->geometryContext()->geometryHost()->discretizeWireToTubeMesh(
+		m_host->documentContext()->activeDocument(), m_lastIntersectionPolylines.front(), params, options,
 		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result)
 		{
 			if (!ok)
@@ -678,8 +690,8 @@ void GeometryDockWidget::createRibbonFromLastIntersection()
 	params.mode = PluginMeshDiscretizeMode::WireRibbonMesh;
 	const PluginMeshCreateOptions options = buildMeshCreateOptions(QStringLiteral("IntersectionRibbonMesh"));
 	setStatus(m_useChinese ? QStringLiteral("生成带状网格中…") : QStringLiteral("Creating ribbon mesh..."));
-	m_host->geometryHost()->discretizeWireToRibbonMesh(
-		m_host->activeDocument(), m_lastIntersectionPolylines.front(), params, options,
+	m_host->geometryContext()->geometryHost()->discretizeWireToRibbonMesh(
+		m_host->documentContext()->activeDocument(), m_lastIntersectionPolylines.front(), params, options,
 		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result)
 		{
 			if (!ok)

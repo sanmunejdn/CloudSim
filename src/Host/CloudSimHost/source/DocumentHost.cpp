@@ -1,8 +1,9 @@
 ﻿/// @file DocumentHost.cpp
-/// @brief 文档宿主与场景桥接
+/// @brief �ĵ������볡���Ž�
 
 #include "DocumentHost.h"
 
+#include "IOsgWidgetView.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
@@ -22,8 +23,6 @@
 #include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
 #include "NullCoreServices.h"
-#include "OsgWidget.h"
-#include "OsgWidgetSceneBridge.h"
 #include "PointCloudBackendData.h"
 #include "RobotProgramStore.h"
 #include "adapters/DataServiceAdapter.h"
@@ -39,9 +38,7 @@
 #include "headless/HeadlessRobotPlaybackBridge.h"
 #include "io/CustomDeviceHostOps.h"
 #include "io/IoSignalNetwork.h"
-#ifndef CLOUDSIM_HOST_HEADLESS_ONLY
-#include "adapters/OsgRenderViewAdapter.h"
-#endif
+#include "HostOsgFlavorHooks.h"
 #include "adapters/RobotServiceAdapter.h"
 #include "visual/BackendVisualSyncEngine.h"
 
@@ -55,7 +52,7 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 {
 }
 
-// enableOsgView：桌面必开；Web Headless 关，避免隐藏窗仍拉起 OSG/OpenGL
+// enableOsgView������ؿ���Web Headless �أ��������ش������� OSG/OpenGL
 DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId,
 						   bool enableOsgView)
 	: QWidget(parent), m_documentId(documentId), m_events(events)
@@ -69,32 +66,31 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 	m_robotProgramStore = std::make_unique<RobotProgramStore>();
 	m_hierarchyModel = std::make_unique<BackendHierarchyModel>(*m_backend);
 
-#if !defined(CLOUDSIM_HOST_HEADLESS_ONLY)
-	if (enableOsgView)
+	if (enableOsgView && hostOsgFlavorEnabled())
 	{
-		// OSG 直挂 layout：勿用 QStackedWidget 包 OpenGL，Windows 上会拖视图卡顿
-		m_osgWidget = new OsgWidget(this);
-		m_osgWidget->setPoseSyncBackendManager(m_backend.get());
-		m_osgWidget->setVisualSyncMarkDirty(
+		FlavorOsgViewportMount mounted = mountFlavorOsgViewport(
+			*this, *m_centralLayout, *m_backend,
 			[this](const std::string& id, const std::uint32_t aspects)
 			{ m_visualSyncEngine.markDirty(id, static_cast<VisualAspect>(aspects), VisualChangeReason::FkWrite); });
-		m_sceneBridge.setOsgWidget(m_osgWidget);
-		m_centralLayout->addWidget(m_osgWidget);
-		m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget, *this);
+		m_osgWidget = mounted.osgWidget;
+		m_osgView = mounted.osgView;
+		m_osgPane = mounted.osgPane;
+		m_renderView = std::move(mounted.renderView);
 	}
 	else
-#endif
 	{
 		m_osgWidget = nullptr;
+		m_osgView = nullptr;
+		m_osgPane = nullptr;
 		m_sceneBridge.setOsgWidget(nullptr);
-		// 真 Null：不入 layout，避免与 NullRenderView 内部 unique_ptr 双重托管
+		// �� Null������ layout�������� NullRenderView �ڲ� unique_ptr ˫���й�
 		m_renderView = cloudsim::core::makeNullRenderViewFactory()->createView(this);
 		if (auto* nullW = m_renderView->widget())
 		{
 			nullW->setAttribute(Qt::WA_DontShowOnScreen, true);
 			nullW->hide();
 		}
-		// Web：无 DocumentPage，在此挂 FK/URDF 与轨迹会话
+		// Web���� DocumentPage���ڴ˹� FK/URDF ��켣�Ự
 		m_headlessRobotContext = std::make_unique<HeadlessRobotContext>(*this);
 		m_robotUrdfImportContext = m_headlessRobotContext.get();
 		m_headlessTrajectorySession = std::make_unique<HeadlessTrajectorySession>(*this);
@@ -120,7 +116,7 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 							 processCustomDevicePoseRisingEdges(*this, *m_ioSignalNetwork, ownerId);
 							 return;
 						 }
-						 // 机器人 DO 变更时再扫设备，与 propagate 发出的设备事件互补
+						 // ������ DO ���ʱ��ɨ�豸���� propagate �������豸�¼�����
 						 for (const QString& id : m_ioSignalNetwork->ownerIds())
 						 {
 							 if (m_ioSignalNetwork->ownerKind(id) == IoSignalOwnerKind::Device)
@@ -177,9 +173,9 @@ void DocumentHost::showCentralScene3D()
 		}
 		m_centralAlternate->hide();
 	}
-	if (m_osgWidget)
+	if (m_osgPane)
 	{
-		m_osgWidget->show();
+		m_osgPane->show();
 	}
 }
 
@@ -189,10 +185,10 @@ void DocumentHost::showCentralAlternate()
 	{
 		return;
 	}
-	// 已 embed 到建模页时勿 hide OSG（OSG 是 alternate 子树）
-	if (m_osgWidget && !m_osgEmbedded)
+	// �� embed ����ģҳʱ�� hide OSG��OSG �� alternate ������
+	if (m_osgPane && !m_osgEmbedded)
 	{
-		m_osgWidget->hide();
+		m_osgPane->hide();
 	}
 	if (m_centralLayout->indexOf(m_centralAlternate) < 0)
 	{
@@ -204,7 +200,7 @@ void DocumentHost::showCentralAlternate()
 bool DocumentHost::isShowingCentralAlternate() const
 {
 	return m_centralAlternate && m_centralAlternate->isVisible() &&
-		   (m_osgEmbedded || !m_osgWidget || m_osgWidget->isHidden());
+		   (m_osgEmbedded || !m_osgPane || m_osgPane->isHidden());
 }
 
 QWidget* DocumentHost::centralAlternateWidget() const
@@ -214,7 +210,7 @@ QWidget* DocumentHost::centralAlternateWidget() const
 
 bool DocumentHost::embedRenderWidget(QWidget* slot, QString* outError)
 {
-	if (!m_osgWidget || !slot)
+	if (!m_osgPane || !slot)
 	{
 		if (outError)
 			*outError = QStringLiteral("Missing OsgWidget or slot.");
@@ -222,7 +218,7 @@ bool DocumentHost::embedRenderWidget(QWidget* slot, QString* outError)
 	}
 	if (m_osgEmbedded && m_osgEmbedSlot == slot)
 	{
-		m_osgWidget->show();
+		m_osgPane->show();
 		return true;
 	}
 	if (m_osgEmbedded)
@@ -231,7 +227,7 @@ bool DocumentHost::embedRenderWidget(QWidget* slot, QString* outError)
 	}
 	if (m_centralLayout)
 	{
-		m_centralLayout->removeWidget(m_osgWidget);
+		m_centralLayout->removeWidget(m_osgPane);
 	}
 	QVBoxLayout* layout = qobject_cast<QVBoxLayout*>(slot->layout());
 	if (!layout)
@@ -240,9 +236,9 @@ bool DocumentHost::embedRenderWidget(QWidget* slot, QString* outError)
 		layout->setContentsMargins(0, 0, 0, 0);
 		layout->setSpacing(0);
 	}
-	m_osgWidget->setParent(slot);
-	layout->addWidget(m_osgWidget);
-	m_osgWidget->show();
+	m_osgPane->setParent(slot);
+	layout->addWidget(m_osgPane);
+	m_osgPane->show();
 	m_osgEmbedSlot = slot;
 	m_osgEmbedded = true;
 	return true;
@@ -250,22 +246,23 @@ bool DocumentHost::embedRenderWidget(QWidget* slot, QString* outError)
 
 void DocumentHost::restoreRenderWidget()
 {
-	if (!m_osgEmbedded || !m_osgWidget)
+	if (!m_osgEmbedded || !m_osgPane)
 	{
 		m_osgEmbedded = false;
 		m_osgEmbedSlot = nullptr;
 		return;
 	}
-	if (QLayout* lay = m_osgWidget->parentWidget() ? m_osgWidget->parentWidget()->layout() : nullptr)
+	QWidget* osgPane = m_osgPane;
+	if (QLayout* lay = osgPane->parentWidget() ? osgPane->parentWidget()->layout() : nullptr)
 	{
-		lay->removeWidget(m_osgWidget);
+		lay->removeWidget(osgPane);
 	}
-	m_osgWidget->setParent(this);
+	osgPane->setParent(this);
 	if (m_centralLayout)
 	{
-		m_centralLayout->addWidget(m_osgWidget);
+		m_centralLayout->addWidget(osgPane);
 	}
-	m_osgWidget->show();
+	osgPane->show();
 	m_osgEmbedded = false;
 	m_osgEmbedSlot = nullptr;
 }
@@ -576,40 +573,42 @@ OsgWidgetSceneBridge& DocumentHost::sceneBridge()
 
 BackendSceneDocumentFacade DocumentHost::sceneFacade()
 {
-	return BackendSceneDocumentFacade(data(), backend(), sceneBridge(), followReverseIndex(), m_osgWidget);
+	return BackendSceneDocumentFacade(data(), backend(), sceneBridge(), followReverseIndex(), osgView());
 }
 
 bool DocumentHost::loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage,
 												const bool resetViewToHome, const bool showWireOutline,
 												const bool useSceneLighting)
 {
-	if (!m_osgWidget)
+	IOsgWidgetView* osg = osgView();
+	if (!osg)
 	{
 		return false;
 	}
-	return m_osgWidget->loadMeshFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
+	return osg->loadMeshFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 
 bool DocumentHost::loadUrdfLinkMeshIntoScene(const MeshBackendData& data, QString* errorMessage)
 {
-	if (!m_osgWidget)
+	IOsgWidgetView* osg = osgView();
+	if (!osg)
 	{
 		return true;
 	}
-	return m_osgWidget->loadMeshFromBackendData(data, errorMessage, true, true, true);
+	return osg->loadMeshFromBackendData(data, errorMessage, true, true, true);
 }
 
 void DocumentHost::clearStagingGeometry()
 {
-	if (m_osgWidget)
+	if (IOsgWidgetView* osg = osgView())
 	{
-		m_osgWidget->clearStagingGeometry();
+		osg->clearStagingGeometry();
 	}
 }
 
 void DocumentHost::syncSceneBackendParent(const std::string& childBackendId, const std::string& parentBackendId)
 {
-	if (m_osgWidget)
+	if (m_osgPane)
 	{
 		m_sceneBridge.setBackendParent(childBackendId, parentBackendId);
 	}
@@ -650,13 +649,13 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 		m_projectSidecar.parentId().remove(id);
 		m_projectSidecar.sourcePath().remove(id);
 		m_projectSidecar.sourceType().remove(id);
-		if (m_osgWidget)
+		if (IOsgWidgetView* osg = osgView())
 		{
-			m_osgWidget->removeBackendObjectVisual(id.toStdString());
+			osg->removeBackendObjectVisual(id.toStdString());
 		}
 		publishBackendObjectRemoved(*this, id);
 	}
-	// 与桌面 clearRobotSimulationIfContains 对齐：删子树后卸掉幽灵机器人实例
+	// ������ clearRobotSimulationIfContains ���룺ɾ������ж�����������ʵ��
 	if (m_headlessRobotContext)
 	{
 		for (const QString& id : ids)
@@ -664,7 +663,7 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 			m_headlessRobotContext->clearRobotSimulationIfContains(id);
 		}
 	}
-	m_followReverseIndex.invalidate(); // 子树删除后 follower 拓扑可能断裂
+	m_followReverseIndex.invalidate(); // ����ɾ���� follower ���˿��ܶ���
 	return ids;
 }
 
@@ -690,7 +689,7 @@ void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& s
 		return;
 	}
 	BackendDataManager& mgr = backend();
-	// P3-2: 传递闭包改用 followReverseIndex（O(1) 查询），替代每次全量扫描建 targetToFollowers
+	// P3-2: ���ݱհ����� followReverseIndex��O(1) ��ѯ�������ÿ��ȫ��ɨ�轨 targetToFollowers
 	std::vector<std::string> stack;
 	stack.push_back(seed);
 	std::unordered_set<std::string> visited;
@@ -703,12 +702,12 @@ void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& s
 			continue;
 		}
 		m_followState.dirtyBackendIds().insert(u);
-		// 直接 follower（O(1) 索引查询）
+		// ֱ�� follower��O(1) ������ѯ��
 		for (const std::string& f : followReverseIndex().followersOf(data(), u))
 		{
 			stack.push_back(f);
 		}
-		// 层级子节点
+		// �㼶�ӽڵ�
 		for (const std::string& c : mgr.childrenOf(u))
 		{
 			stack.push_back(c);
@@ -749,7 +748,7 @@ bool DocumentHost::isKinematicsOwnedBackend(const std::string& backendId) const
 	{
 		return true;
 	}
-	// 自定义设备 Link 几何由 applyQ FK 写位姿，与 URDF 连杆同规则
+	// �Զ����豸 Link ������ applyQ FK дλ�ˣ��� URDF ����ͬ����
 	return src.compare(QStringLiteral("CustomDeviceLink"), Qt::CaseInsensitive) == 0;
 }
 
@@ -846,7 +845,7 @@ void DocumentHost::ensureSelectionVisualForBackend(const std::string& backendId,
 	{
 		return;
 	}
-	// 经 facade 建分支；勿再调 ensureVisual，否则无分支时互相递归
+	// �� facade ����֧�����ٵ� ensureVisual�������޷�֧ʱ����ݹ�
 	sceneFacade().ensureSelectionVisualForBackend(*obj, urdfLinkMesh);
 }
 
@@ -899,7 +898,7 @@ std::unique_ptr<core::IDocumentScope> createDocumentHost(QWidget* parent, core::
 
 std::unique_ptr<core::IDocumentScope> createHeadlessDocumentHost(core::EventHub& events, const QString& documentId)
 {
-	// 第三参 false：真 Null 渲染，不构造 OsgWidget（桌面 createDocumentHost 仍走 OSG）
+	// ������ false���� Null ��Ⱦ�������� OsgWidget������ createDocumentHost ���� OSG��
 	auto host = std::make_unique<DocumentHost>(nullptr, events, documentId, false);
 	host->setAttribute(Qt::WA_DontShowOnScreen, true);
 	host->hide();
@@ -909,11 +908,7 @@ std::unique_ptr<core::IDocumentScope> createHeadlessDocumentHost(core::EventHub&
 
 std::unique_ptr<core::IRenderViewFactory> createHostRenderViewFactory()
 {
-#if defined(CLOUDSIM_HOST_HEADLESS_ONLY)
-	return core::makeNullRenderViewFactory();
-#else
-	return std::make_unique<HostRenderViewFactory>();
-#endif
+	return createFlavorRenderViewFactory();
 }
 
 DocumentHost* documentHostFromScope(core::IDocumentScope* scope)

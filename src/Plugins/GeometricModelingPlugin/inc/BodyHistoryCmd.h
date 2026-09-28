@@ -7,6 +7,7 @@
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 #include "CommandStack.h"
 #include "IPluginDocument.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
 #include "PluginGeometryTypes.h"
@@ -42,7 +43,8 @@ private:
 	{
 		if (!m_host || !m_doc || m_bodyId.isEmpty())
 			return false;
-		IPluginGeometryHost* geo = m_host->geometryHost();
+		IPluginGeometryHost* geo =
+			(m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 		if (!geo)
 			return false;
 		bool ok = false;

@@ -11,6 +11,11 @@
 
 namespace RobotInstruction
 {
+void setTrajectoryOpRegistry(trajectory_algo::TrajectoryOpRegistry* registry)
+{
+	trajectory_algo::TrajectoryOpRegistry::setProcessInstance(registry);
+}
+
 trajectory_algo::TrajectoryOpRegistry& trajectoryOpRegistry()
 {
 	return trajectory_algo::TrajectoryOpRegistry::instance();

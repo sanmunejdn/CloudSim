@@ -4,8 +4,11 @@
 #include "GeometryPlugin.h"
 
 #include "GeometryDockWidget.h"
+#include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
+#include "IPluginUiContext.h"
 
 QString GeometryPlugin::pluginId() const
 {
@@ -23,28 +26,36 @@ bool GeometryPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	if (host->hostVersion() < 0x00010700)
+	if (host->hostVersion() < 0x00013800)
 	{
-		host->logError(QStringLiteral("GeometryPlugin requires host 1.7.0+"));
+		host->logError(QStringLiteral("GeometryPlugin requires host 1.56.0+ (narrow contexts)"));
 		return false;
 	}
-	if (!host->geometryHost())
+	IPluginGeometryContext* geomCtx = host->geometryContext();
+	IPluginDocumentContext* docCtx = host->documentContext();
+	IPluginUiContext* uiCtx = host->uiContext();
+	if (!geomCtx || !docCtx || !uiCtx)
+	{
+		host->logError(QStringLiteral("GeometryPlugin: narrow context unavailable"));
+		return false;
+	}
+	if (!geomCtx->geometryHost())
 	{
 		host->logError(QStringLiteral("Geometry host API unavailable"));
 		return false;
 	}
 	m_host = host;
-	if (!host->sidePanelTabParent())
+	if (!uiCtx->sidePanelTabParent())
 	{
 		return false;
 	}
 	m_dockWidget = new GeometryDockWidget(host, nullptr);
 	const char* tabTitle = host->useChinese() ? "几何" : "Geometry";
-	if (host->registerSidePanelTab(tabTitle, m_dockWidget) < 0)
+	if (uiCtx->registerSidePanelTab(tabTitle, m_dockWidget) < 0)
 	{
 		return false;
 	}
-	host->onActiveDocumentChanged(
+	docCtx->onActiveDocumentChanged(
 		[this](IPluginDocument*)
 		{
 			if (m_dockWidget)
@@ -63,7 +74,10 @@ void GeometryPlugin::shutdown()
 {
 	if (m_host && m_dockWidget)
 	{
-		m_host->unregisterSidePanelTab(m_dockWidget);
+		if (IPluginUiContext* uiCtx = m_host->uiContext())
+		{
+			uiCtx->unregisterSidePanelTab(m_dockWidget);
+		}
 	}
 	m_dockWidget = nullptr;
 	m_host = nullptr;
@@ -77,5 +91,8 @@ void GeometryPlugin::applyLanguage()
 		return;
 	}
 	m_dockWidget->applyLanguage();
-	m_host->setSidePanelTabTitle(m_dockWidget, m_host->useChinese() ? "几何" : "Geometry");
+	if (IPluginUiContext* uiCtx = m_host->uiContext())
+	{
+		uiCtx->setSidePanelTabTitle(m_dockWidget, m_host->useChinese() ? "几何" : "Geometry");
+	}
 }

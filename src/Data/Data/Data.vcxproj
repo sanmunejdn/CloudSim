@@ -215,6 +215,8 @@
     <ClCompile Include="source\FollowAttachmentComponent.cpp" />
     <ClCompile Include="source\CustomDeviceRobotMountComponent.cpp" />
     <ClCompile Include="source\BackendDataBase.cpp" />
+    <ClCompile Include="source\BackendRegistry.cpp" />
+    <ClCompile Include="source\BackendComponentCodecRegistry.cpp" />
     <ClCompile Include="source\BackendPropertyVisualAspect.cpp" />
     <ClCompile Include="source\BackendPropertyBindings.cpp" />
     <ClCompile Include="source\BackendExternalPropertySchemaRegistry.cpp" />

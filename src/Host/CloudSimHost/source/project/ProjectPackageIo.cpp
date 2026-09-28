@@ -13,7 +13,7 @@
 #include "DocumentHostAccess.h"
 #include "IRobotService.h"
 #include "IRobotUrdfImportContext.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "PointCloudBackendData.h"
 #include "RobotCollisionSettings.h"
 #include "RobotProjectKinematicsRestore.h"
@@ -33,8 +33,6 @@
 
 namespace cloudsim::host
 {
-using ::OsgWidget;
-
 namespace
 {
 bool isReloadablePointCloudSourcePath(const QString& path)
@@ -47,7 +45,7 @@ bool isReloadablePointCloudSourcePath(const QString& path)
 }
 
 bool ensurePointCloudGeometryForSave(DocumentHost& host, PointCloudBackendData& pc, const std::string& backendId,
-									 OsgWidget* osg, QStringList& warnings)
+									 IOsgWidgetView* osg, QStringList& warnings)
 {
 	if (!pc.pointPositionsXyz().empty())
 	{
@@ -128,7 +126,7 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 	QJsonArray objects;
 	const auto dataList = host.listObjects();
 
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	for (const auto& data : dataList)
 	{
 		if (!data)
@@ -262,7 +260,7 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 
 void applyProjectViewportFromJson(DocumentHost& host, const QJsonObject& root)
 {
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
 		return;
@@ -286,7 +284,7 @@ void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject&
 	host.requestFollowSolveForced(); // 工程打开首帧须全图求解
 	runBackendFollowSolveAndSync(host, osgWidgetFrom(host), solveCtx);
 	// 打开工程后自适应视口（与工具栏「聚焦」同一接口）
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		osg->focusCameraOnAllVisibleBackends();
 	}

@@ -9,7 +9,7 @@
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "visual/VisualAspect.h"
 
 namespace cloudsim::host
@@ -17,8 +17,6 @@ namespace cloudsim::host
 namespace
 {
 using ::BackendDataBase;
-using ::OsgWidget;
-
 VisualAspect aspectsFromSchemaBits(const std::uint32_t bits)
 {
 	return static_cast<VisualAspect>(bits);
@@ -47,7 +45,7 @@ bool propertyKeyCommitsPose(const QString& key)
 
 void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& data, const bool applyColor)
 {
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
 		return;

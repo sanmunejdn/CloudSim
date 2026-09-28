@@ -11,8 +11,13 @@
 #include "GeomodelingI18n.h"
 #include "IAiAssistantHost.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
+#include "IPluginAiContext.h"
+#include "IPluginProjectContext.h"
+#include "IPluginUiContext.h"
 #include "ScriptModelIo.h"
 #include "SketchConstraintSolver.h"
 #include "SketchGeom.h"
@@ -84,9 +89,24 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 {
 	if (!host)
 		return false;
-	if (host->hostVersion() < 0x00013200U)
+	if (host->hostVersion() < 0x00013800U)
 	{
-		host->logError(QStringLiteral("GeometricModelingPlugin requires host 1.50.0+"));
+		host->logError(QStringLiteral("GeometricModelingPlugin requires host 1.56.0+ (narrow contexts)"));
+		return false;
+	}
+	IPluginUiContext* uiCtx = host->uiContext();
+	IPluginDocumentContext* docCtx = host->documentContext();
+	IPluginProjectContext* projCtx = host->projectContext();
+	IPluginGeometryContext* geomCtx = host->geometryContext();
+	IPluginAiContext* aiCtx = host->aiContext();
+	if (!uiCtx || !docCtx || !projCtx || !geomCtx || !aiCtx)
+	{
+		host->logError(QStringLiteral("GeometricModelingPlugin: narrow context unavailable"));
+		return false;
+	}
+	if (!geomCtx->geometryHost())
+	{
+		host->logError(QStringLiteral("Geometry host API unavailable"));
 		return false;
 	}
 	m_host = host;
@@ -98,22 +118,23 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 	else
 		hostLogInfo(QStringLiteral("PlaneGCS equilateral self-test OK."));
 
-	host->onActiveDocumentChanged(
+	docCtx->onActiveDocumentChanged(
 		[this](IPluginDocument*)
 		{
 			if (!m_inMode || !m_host)
 				return;
-			if (m_host->currentWorkspaceMode() != pluginId())
+			IPluginUiContext* ui = m_host->uiContext();
+			if (!ui || ui->currentWorkspaceMode() != pluginId())
 			{
 				softExitMode();
 				return;
 			}
 			if (GeometricModelingPage* page = ensurePageForActiveDocument())
 			{
-				m_host->restoreActiveRenderWidget();
-				m_host->setCentralAlternateWidget(nullptr);
-				m_host->showCentralScene3D();
-				m_host->enterAlternateSideUi(page->featureTreePanel(), nullptr);
+				ui->restoreActiveRenderWidget();
+				ui->setCentralAlternateWidget(nullptr);
+				ui->showCentralScene3D();
+				ui->enterAlternateSideUi(page->featureTreePanel(), nullptr);
 				applyOriginReferenceVisibility(page);
 				if (m_sketch.active())
 					page->showLegendOverlay();
@@ -121,16 +142,16 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 					page->hideLegendOverlay();
 			}
 		});
-	host->onWorkspaceModeClaimed(
+	uiCtx->onWorkspaceModeClaimed(
 		[this](const QString& modeId)
 		{
 			if (modeId == pluginId())
 				return;
 			softExitMode();
 		});
-	host->onProjectAboutToSave([this](const QString& id, QJsonObject& root) { onProjectAboutToSave(id, root); });
-	host->onProjectLoaded([this](const QString& id, const QJsonObject& root) { onProjectLoaded(id, root); });
-	host->onDocumentClosed(
+	projCtx->onProjectAboutToSave([this](const QString& id, QJsonObject& root) { onProjectAboutToSave(id, root); });
+	projCtx->onProjectLoaded([this](const QString& id, const QJsonObject& root) { onProjectLoaded(id, root); });
+	docCtx->onDocumentClosed(
 		[this](const QString& documentId)
 		{
 			GeometricModelingPage* page = m_pages.take(documentId);
@@ -140,7 +161,7 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 				softExitMode();
 			page->deleteLater();
 		});
-	host->onParametricBodyHistoryChanged(
+	aiCtx->onParametricBodyHistoryChanged(
 		[this](const QString& documentId, const QString& backendId)
 		{
 			GeometricModelingPage* page = m_pages.value(documentId, nullptr);
@@ -152,8 +173,8 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 			syncFeaturesFromBody(page);
 		});
 	host->onLanguageChanged([this](bool) { applyLanguage(); });
-	host->registerWorkspaceMode(pluginId(), QStringLiteral("\u51e0\u4f55\u5efa\u6a21"), QStringLiteral("Modeling"),
-								[this]() { enterGeometricModeling(); });
+	uiCtx->registerWorkspaceMode(pluginId(), QStringLiteral("\u51e0\u4f55\u5efa\u6a21"), QStringLiteral("Modeling"),
+								 [this]() { enterGeometricModeling(); });
 	applyLanguage();
 	hostLogInfo(i18n(QStringLiteral("Geometric Modeling plugin loaded."),
 					 QStringLiteral("\u51e0\u4f55\u5efa\u6a21\u63d2\u4ef6\u5df2\u52a0\u8f7d\u3002")));
@@ -168,9 +189,9 @@ void GeometricModelingPlugin::shutdown()
 	softExitMode();
 	if (m_host)
 	{
-		if (m_host->currentWorkspaceMode() == pluginId())
-			m_host->claimWorkspaceMode(QString());
-		m_host->setModeToolBar(nullptr);
+		if (m_host->uiContext()->currentWorkspaceMode() == pluginId())
+			m_host->uiContext()->claimWorkspaceMode(QString());
+		m_host->uiContext()->setModeToolBar(nullptr);
 	}
 	m_inMode = false;
 	m_ribbon = nullptr;
@@ -295,7 +316,7 @@ void GeometricModelingPlugin::ensureRibbon()
 
 void GeometricModelingPlugin::enterGeometricModeling()
 {
-	if (!m_host || !m_host->activeDocument())
+	if (!m_host || !m_host->documentContext()->activeDocument())
 	{
 		QMessageBox::warning(nullptr, i18n(QStringLiteral("Notice"), QStringLiteral("\u63d0\u793a")),
 							 i18n(QStringLiteral("Please open a document first."),
@@ -306,12 +327,12 @@ void GeometricModelingPlugin::enterGeometricModeling()
 	if (!page)
 		return;
 	ensureRibbon();
-	m_host->claimWorkspaceMode(pluginId());
-	m_host->setModeToolBar(m_ribbon);
-	m_host->restoreActiveRenderWidget();
-	m_host->setCentralAlternateWidget(nullptr);
-	m_host->showCentralScene3D();
-	m_host->enterAlternateSideUi(page->featureTreePanel(), nullptr);
+	m_host->uiContext()->claimWorkspaceMode(pluginId());
+	m_host->uiContext()->setModeToolBar(m_ribbon);
+	m_host->uiContext()->restoreActiveRenderWidget();
+	m_host->uiContext()->setCentralAlternateWidget(nullptr);
+	m_host->uiContext()->showCentralScene3D();
+	m_host->uiContext()->enterAlternateSideUi(page->featureTreePanel(), nullptr);
 	m_inMode = true;
 	if (!page->activeBodyId().isEmpty())
 		syncFeaturesFromBody(page);
@@ -333,10 +354,10 @@ void GeometricModelingPlugin::softExitMode()
 	clearSweepPreviewUi();
 	clearSolidFeaturePreviewUi();
 	clearOriginReferenceVisibility();
-	if (m_host && m_host->geometryHost() && m_host->activeDocument())
+	if (m_host && m_host->geometryContext()->geometryHost() && m_host->documentContext()->activeDocument())
 	{
-		m_host->geometryHost()->cancelOriginSketchPlanePick(m_host->activeDocument());
-		m_host->geometryHost()->clearSketchOverlay(m_host->activeDocument());
+		m_host->geometryContext()->geometryHost()->cancelOriginSketchPlanePick(m_host->documentContext()->activeDocument());
+		m_host->geometryContext()->geometryHost()->clearSketchOverlay(m_host->documentContext()->activeDocument());
 	}
 	m_sketch.end();
 	m_inMode = false;
@@ -344,10 +365,10 @@ void GeometricModelingPlugin::softExitMode()
 		page->hideLegendOverlay();
 	if (!m_host)
 		return;
-	m_host->setModeToolBar(nullptr);
-	m_host->restoreActiveRenderWidget();
-	m_host->setCentralAlternateWidget(nullptr);
-	m_host->exitAlternateSideUi();
+	m_host->uiContext()->setModeToolBar(nullptr);
+	m_host->uiContext()->restoreActiveRenderWidget();
+	m_host->uiContext()->setCentralAlternateWidget(nullptr);
+	m_host->uiContext()->exitAlternateSideUi();
 }
 
 void GeometricModelingPlugin::exitGeometricModeling()
@@ -358,23 +379,23 @@ void GeometricModelingPlugin::exitGeometricModeling()
 	clearSweepPreviewUi();
 	clearSolidFeaturePreviewUi();
 	clearOriginReferenceVisibility();
-	if (m_host->geometryHost() && m_host->activeDocument())
+	if (m_host->geometryContext()->geometryHost() && m_host->documentContext()->activeDocument())
 	{
-		m_host->geometryHost()->cancelOriginSketchPlanePick(m_host->activeDocument());
-		m_host->geometryHost()->clearSketchOverlay(m_host->activeDocument());
+		m_host->geometryContext()->geometryHost()->cancelOriginSketchPlanePick(m_host->documentContext()->activeDocument());
+		m_host->geometryContext()->geometryHost()->clearSketchOverlay(m_host->documentContext()->activeDocument());
 	}
 	m_sketch.end();
 	m_inMode = false;
 	for (GeometricModelingPage* page : m_pages)
 		page->hideLegendOverlay();
-	m_host->returnToMainWorkspace();
+	m_host->uiContext()->returnToMainWorkspace();
 	hostLogInfo(i18n(QStringLiteral("Exited Geometric Modeling."),
 					 QStringLiteral("\u5df2\u9000\u51fa\u51e0\u4f55\u5efa\u6a21\u3002")));
 }
 
 GeometricModelingPage* GeometricModelingPlugin::ensurePageForActiveDocument()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
 	if (!doc)
 		return nullptr;
 	const QString id = QString::fromStdString(doc->documentId());
@@ -492,8 +513,8 @@ GeometricModelingPage* GeometricModelingPlugin::ensurePageForActiveDocument()
 
 void GeometricModelingPlugin::syncFeaturesFromBody(GeometricModelingPage* page)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page || page->activeBodyId().isEmpty())
 		return;
 	QByteArray hist;
@@ -521,8 +542,8 @@ void GeometricModelingPlugin::syncFeaturesFromBody(GeometricModelingPage* page)
 
 void GeometricModelingPlugin::refreshBodyList(GeometricModelingPage* page)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page)
 		return;
 	std::vector<std::string> ids;
@@ -542,8 +563,8 @@ void GeometricModelingPlugin::refreshBodyList(GeometricModelingPage* page)
 
 bool GeometricModelingPlugin::pushFeatureHistory(GeometricModelingPage* page, const QByteArray& beforeHist)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page || page->activeBodyId().isEmpty())
 		return false;
 	const QByteArray afterHist = page->features().toParametricHistoryJson();
@@ -667,8 +688,8 @@ void GeometricModelingPlugin::appendVisibleSketchOverlays(GeometricModelingPage*
 
 void GeometricModelingPlugin::refreshVisibleSketchOverlays(GeometricModelingPage* page)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page)
 		return;
 	// 草图编辑中：只刷当前 background provider 叠加
@@ -689,8 +710,8 @@ void GeometricModelingPlugin::refreshVisibleSketchOverlays(GeometricModelingPage
 void GeometricModelingPlugin::onToggleSketchVisibility(const QString& featureId)
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || featureId.isEmpty())
 		return;
 	GeomodelingFeature* f = page->features().find(featureId);
@@ -715,8 +736,8 @@ void GeometricModelingPlugin::onToggleSketchVisibility(const QString& featureId)
 
 void GeometricModelingPlugin::applyOriginReferenceVisibility(GeometricModelingPage* page)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page || !m_inMode)
 		return;
 	PluginOriginReferenceVisibility vis;
@@ -729,8 +750,8 @@ void GeometricModelingPlugin::applyOriginReferenceVisibility(GeometricModelingPa
 
 void GeometricModelingPlugin::clearOriginReferenceVisibility()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo)
 		return;
 	PluginOriginReferenceVisibility vis;
@@ -758,8 +779,8 @@ void GeometricModelingPlugin::updateDofUi(GeometricModelingPage* page)
 
 void GeometricModelingPlugin::onNewSketch()
 {
-	IPluginDocument* doc = m_host->activeDocument();
-	IPluginGeometryHost* geo = m_host->geometryHost();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
+	IPluginGeometryHost* geo = m_host->geometryContext()->geometryHost();
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page)
 		return;
@@ -880,8 +901,8 @@ bool isUserDatumKind(GeomodelingFeatureKind k)
 void GeometricModelingPlugin::onDatumPlane()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo)
 		return;
 
@@ -1211,8 +1232,8 @@ void GeometricModelingPlugin::beginSketchOnPlane(GeometricModelingPage* page, IP
 bool GeometricModelingPlugin::resolveDatumSourcePlane(GeometricModelingPage* page, const GeomodelingFeature& datum,
 													  PluginSketchPlane& out, QString* err)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo)
 	{
 		if (err)
@@ -1325,8 +1346,8 @@ void GeometricModelingPlugin::reevaluateDatumPlanes(GeometricModelingPage* page)
 
 void GeometricModelingPlugin::onOriginPlaneSketchRequested(int planeIndex)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page)
 		return;
@@ -1364,8 +1385,8 @@ void GeometricModelingPlugin::onFixPointToOriginRequested()
 void GeometricModelingPlugin::onEndSketch()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	if (m_host && m_host->geometryHost() && m_host->activeDocument())
-		m_host->geometryHost()->cancelOriginSketchPlanePick(m_host->activeDocument());
+	if (m_host && m_host->geometryContext()->geometryHost() && m_host->documentContext()->activeDocument())
+		m_host->geometryContext()->geometryHost()->cancelOriginSketchPlanePick(m_host->documentContext()->activeDocument());
 	persistActiveSketchDocument(page);
 	m_sketch.end();
 	if (page)
@@ -1610,8 +1631,8 @@ void GeometricModelingPlugin::onSweepCut()
 
 void GeometricModelingPlugin::clearExtrudePreviewUi()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (geo && doc)
 		geo->clearSketchExtrudePreview(doc);
 	m_previewActive = false;
@@ -1633,8 +1654,8 @@ void GeometricModelingPlugin::clearExtrudePreviewUi()
 
 void GeometricModelingPlugin::clearSweepPreviewUi()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (geo && doc)
 		geo->clearSketchExtrudePreview(doc);
 	m_sweepPreviewActive = false;
@@ -1865,8 +1886,8 @@ void GeometricModelingPlugin::beginSweepPanel(bool cut)
 void GeometricModelingPlugin::refreshSweepPreview()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || !m_sweepPreviewActive)
 		return;
 
@@ -2035,8 +2056,8 @@ void GeometricModelingPlugin::onPickSweepPath()
 void GeometricModelingPlugin::commitSweep()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page || !m_sweepPreviewActive)
 		return;
 
@@ -2110,7 +2131,7 @@ void GeometricModelingPlugin::commitSweep()
 
 			QByteArray afterHist;
 			QString qerr;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qerr);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -2126,8 +2147,8 @@ void GeometricModelingPlugin::commitSweep()
 void GeometricModelingPlugin::commitEditSweep()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page || !m_sweepPreviewActive)
 		return;
 
@@ -2311,8 +2332,8 @@ void GeometricModelingPlugin::beginExtrudePreviewFromProfile(
 
 void GeometricModelingPlugin::beginExtrudePreview(bool pocket)
 {
-	IPluginDocument* doc = m_host->activeDocument();
-	IPluginGeometryHost* geo = m_host->geometryHost();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
+	IPluginGeometryHost* geo = m_host->geometryContext()->geometryHost();
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page)
 		return;
@@ -2363,8 +2384,8 @@ void GeometricModelingPlugin::refreshExtrudePreview()
 {
 	if (!m_previewActive)
 		return;
-	IPluginDocument* doc = m_host->activeDocument();
-	IPluginGeometryHost* geo = m_host->geometryHost();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
+	IPluginGeometryHost* geo = m_host->geometryContext()->geometryHost();
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || m_previewProfile.size() < 12)
 		return;
@@ -2404,8 +2425,8 @@ void GeometricModelingPlugin::onNamedParamEdited(const QString& key, double valu
 void GeometricModelingPlugin::onFeatureParamApply(const QString& featureId, const QString& key, double value)
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || featureId.isEmpty())
 		return;
 	GeomodelingFeature* f = page->features().find(featureId);
@@ -2496,8 +2517,8 @@ void GeometricModelingPlugin::onCancelExtrude()
 void GeometricModelingPlugin::commitEditExtrude()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page || !m_previewActive)
 		return;
 
@@ -2543,8 +2564,8 @@ void GeometricModelingPlugin::commitEditExtrude()
 
 void GeometricModelingPlugin::commitExtrude()
 {
-	IPluginDocument* doc = m_host->activeDocument();
-	IPluginGeometryHost* geo = m_host->geometryHost();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
+	IPluginGeometryHost* geo = m_host->geometryContext()->geometryHost();
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_previewActive || m_previewProfile.size() < 12)
 		return;
@@ -2595,7 +2616,7 @@ void GeometricModelingPlugin::commitExtrude()
 
 			QByteArray afterHist;
 			QString qerr;
-			if (IPluginGeometryHost* g = m_host ? m_host->geometryHost() : nullptr)
+			if (IPluginGeometryHost* g = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr)
 				(void)g->queryParametricBodyHistoryJson(doc, page->activeBodyId().toStdString(), afterHist, &qerr);
 			const QByteArray beforeSnap =
 				beforeHist.isEmpty() ? QByteArrayLiteral("{\"features\":[],\"seq\":1}") : beforeHist;
@@ -2616,8 +2637,8 @@ void GeometricModelingPlugin::onRebuild()
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!page)
 		return;
-	IPluginDocument* doc = m_host->activeDocument();
-	IPluginGeometryHost* geo = m_host->geometryHost();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
+	IPluginGeometryHost* geo = m_host->geometryContext()->geometryHost();
 	if (!doc || !geo || page->activeBodyId().isEmpty())
 	{
 		hostLogInfo(QStringLiteral("\u65e0 Parametric Body \u53ef\u91cd\u5efa"));
@@ -2728,8 +2749,8 @@ void GeometricModelingPlugin::createBodyThenApplyHistory(GeometricModelingPage* 
 void GeometricModelingPlugin::onExportHistory()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || page->activeBodyId().isEmpty())
 	{
 		hostLogWarn(i18n(QStringLiteral("No active Parametric Body."),
@@ -2762,8 +2783,8 @@ void GeometricModelingPlugin::onExportHistory()
 void GeometricModelingPlugin::onImportHistoryReplace()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || page->activeBodyId().isEmpty())
 	{
 		hostLogWarn(i18n(
@@ -2800,8 +2821,8 @@ void GeometricModelingPlugin::onImportHistoryReplace()
 void GeometricModelingPlugin::onImportHistoryNew()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo)
 		return;
 	const QString path = QFileDialog::getOpenFileName(
@@ -2829,7 +2850,7 @@ void GeometricModelingPlugin::onImportHistoryNew()
 
 void GeometricModelingPlugin::onRunComposeFile()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
 	IAiAssistantHost* ai = m_host ? m_host->aiAssistantHost() : nullptr;
 	if (!doc || !ai)
 	{
@@ -2882,8 +2903,8 @@ void GeometricModelingPlugin::onPythonConsole()
 
 void GeometricModelingPlugin::pushBodyHistoryAfterRollback(GeometricModelingPage* page, const QByteArray& beforeHist)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo || !page || page->activeBodyId().isEmpty())
 		return;
 	const QByteArray afterHist = page->features().toParametricHistoryJson();
@@ -2909,8 +2930,8 @@ void GeometricModelingPlugin::pushBodyHistoryAfterRollback(GeometricModelingPage
 void GeometricModelingPlugin::onFeatureDelete(const QString& featureId)
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || page->activeBodyId().isEmpty() || featureId.isEmpty())
 		return;
 	if (featureId.startsWith(QStringLiteral("__origin")))
@@ -2960,8 +2981,8 @@ void GeometricModelingPlugin::onFeatureDelete(const QString& featureId)
 void GeometricModelingPlugin::onFeatureRollback(const QString& featureId)
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || page->activeBodyId().isEmpty() || featureId.isEmpty())
 		return;
 	if (featureId.startsWith(QStringLiteral("__origin")))
@@ -2987,8 +3008,8 @@ void GeometricModelingPlugin::onFeatureRollback(const QString& featureId)
 void GeometricModelingPlugin::onExitRollback()
 {
 	GeometricModelingPage* page = ensurePageForActiveDocument();
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!page || !doc || !geo || page->activeBodyId().isEmpty())
 		return;
 	if (page->features().rollbackAfterFeatureId().isEmpty())
@@ -3065,8 +3086,8 @@ void GeometricModelingPlugin::onEditFeature(const QString& featureId)
 
 void GeometricModelingPlugin::onEditSketch(const QString& sketchId)
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page)
 		return;
@@ -3275,8 +3296,8 @@ void GeometricModelingPlugin::rebuildDownstreamAfterSketch(GeometricModelingPage
 	if (!hasDownstream)
 		return;
 
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	if (!doc || !geo)
 		return;
 
@@ -3295,8 +3316,8 @@ void GeometricModelingPlugin::rebuildDownstreamAfterSketch(GeometricModelingPage
 
 void GeometricModelingPlugin::onPickUpToFace()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page)
 		return;
@@ -3328,8 +3349,8 @@ void GeometricModelingPlugin::onPickUpToFace()
 
 void GeometricModelingPlugin::onPickUpToVertex()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page)
 		return;
@@ -3363,8 +3384,8 @@ void GeometricModelingPlugin::onPickUpToVertex()
 
 void GeometricModelingPlugin::onPickSweepEdgePath()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page || !m_sweepPreviewActive)
 		return;
@@ -3438,8 +3459,8 @@ void GeometricModelingPlugin::onActiveBodyChanged(const QString& bodyId)
 
 void GeometricModelingPlugin::onViewportEditPick()
 {
-	IPluginDocument* doc = m_host ? m_host->activeDocument() : nullptr;
-	IPluginGeometryHost* geo = m_host ? m_host->geometryHost() : nullptr;
+	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
+	IPluginGeometryHost* geo = (m_host && m_host->geometryContext()) ? m_host->geometryContext()->geometryHost() : nullptr;
 	GeometricModelingPage* page = ensurePageForActiveDocument();
 	if (!doc || !geo || !page)
 		return;

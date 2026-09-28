@@ -9,7 +9,7 @@
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "FollowAttachmentComponent.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 
 namespace cloudsim::host
 {
@@ -19,7 +19,7 @@ void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId,
 	{
 		return;
 	}
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	const std::shared_ptr<BackendDataBase> child = host.findObject(childId);
 	if (!child || !child->hasPoseProperty())
 	{

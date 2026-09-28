@@ -19,7 +19,7 @@
 #include "GeometryBackendOps.h"
 #include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "PointCloudBackendData.h"
 #include "RunLogger.h"
 #include "TemplateBrepUpdate.h"
@@ -188,7 +188,7 @@ void commitPointCloudVisual(cloudsim::host::DocumentHost* page, const PointCloud
 	{
 		return;
 	}
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (osg && !data.pointPositionsXyz().empty())
 	{
 		QString geomErr;
@@ -339,7 +339,7 @@ std::string nativePathFromUtf8Path(const std::string& pathUtf8)
 	return std::string(enc.constData(), static_cast<std::size_t>(enc.size()));
 }
 
-std::string templateTransformBackendId(OsgWidget* osg, const std::string& templateBackendIdUtf8)
+std::string templateTransformBackendId(IOsgWidgetView* osg, const std::string& templateBackendIdUtf8)
 {
 	if (!osg || templateBackendIdUtf8.empty())
 	{
@@ -348,7 +348,7 @@ std::string templateTransformBackendId(OsgWidget* osg, const std::string& templa
 	return osg->resolvePickScopeBackendId(templateBackendIdUtf8);
 }
 
-std::string scanTransformBackendId(OsgWidget* osg, const std::string& scanBackendIdUtf8)
+std::string scanTransformBackendId(IOsgWidgetView* osg, const std::string& scanBackendIdUtf8)
 {
 	if (!osg || scanBackendIdUtf8.empty())
 	{
@@ -357,7 +357,7 @@ std::string scanTransformBackendId(OsgWidget* osg, const std::string& scanBacken
 	return osg->resolvePickScopeBackendId(scanBackendIdUtf8);
 }
 
-bool backendStoredPointToWorldMm(OsgWidget* osg, const std::string& backendIdUtf8, const double x, const double y,
+bool backendStoredPointToWorldMm(IOsgWidgetView* osg, const std::string& backendIdUtf8, const double x, const double y,
 								 const double z, osg::Vec3d& outWorld)
 {
 	const std::string xformId = scanTransformBackendId(osg, backendIdUtf8);
@@ -371,7 +371,7 @@ bool backendStoredPointToWorldMm(OsgWidget* osg, const std::string& backendIdUtf
 	return true;
 }
 
-bool worldPointToTemplateModelMm(OsgWidget* osg, const std::string& templateBackendIdUtf8, const osg::Vec3d& worldMm,
+bool worldPointToTemplateModelMm(IOsgWidgetView* osg, const std::string& templateBackendIdUtf8, const osg::Vec3d& worldMm,
 								 double& outX, double& outY, double& outZ)
 {
 	const std::string xformId = templateTransformBackendId(osg, templateBackendIdUtf8);
@@ -392,7 +392,7 @@ bool worldPointToTemplateModelMm(OsgWidget* osg, const std::string& templateBack
 	return true;
 }
 
-bool templateModelPointToWorldMm(OsgWidget* osg, const std::string& templateBackendIdUtf8, const double modelX,
+bool templateModelPointToWorldMm(IOsgWidgetView* osg, const std::string& templateBackendIdUtf8, const double modelX,
 								 const double modelY, const double modelZ, osg::Vec3d& outWorld)
 {
 	const std::string xformId = templateTransformBackendId(osg, templateBackendIdUtf8);
@@ -453,7 +453,7 @@ bool isometryFromThreeCalibrationPoints(const std::function<bool(double, double,
 	return true;
 }
 
-bool worldPointToScanStoredMm(OsgWidget* osg, const std::string& scanBackendIdUtf8, const osg::Vec3d& worldMm,
+bool worldPointToScanStoredMm(IOsgWidgetView* osg, const std::string& scanBackendIdUtf8, const osg::Vec3d& worldMm,
 							  double& outX, double& outY, double& outZ)
 {
 	const std::string xformId = scanTransformBackendId(osg, scanBackendIdUtf8);
@@ -579,7 +579,7 @@ bool queryTemplateModelToWorldIsometry(cloudsim::host::DocumentHost* page, const
 									   Eigen::Isometry3d& outModelToWorld, std::string* outError)
 {
 	outModelToWorld = Eigen::Isometry3d::Identity();
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (!osg)
 	{
 		if (outError)
@@ -606,7 +606,7 @@ bool queryScanStoredToWorldIsometry(cloudsim::host::DocumentHost* page, const st
 									Eigen::Isometry3d& outStoredToWorld, std::string* outError)
 {
 	outStoredToWorld = Eigen::Isometry3d::Identity();
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (!osg)
 	{
 		if (outError)
@@ -620,7 +620,7 @@ bool queryScanStoredToWorldIsometry(cloudsim::host::DocumentHost* page, const st
 	return isometryFromThreeCalibrationPoints(storedToWorld, 0.0, 0.0, 0.0, outStoredToWorld, outError);
 }
 
-bool writeBackendPoseFromWorldMatrix(OsgWidget* osg, const std::string& visualId, BrepBackendData& brep,
+bool writeBackendPoseFromWorldMatrix(IOsgWidgetView* osg, const std::string& visualId, BrepBackendData& brep,
 									 const osg::Matrixd& worldMat)
 {
 	(void)osg;
@@ -662,7 +662,7 @@ bool inheritBrepVisualPoseFromSourceMesh(cloudsim::host::DocumentHost* page, con
 		}
 		return false;
 	}
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (!osg)
 	{
 		if (outError)
@@ -697,7 +697,7 @@ bool alignFaceUpdatedBrepWithTemplateVisual(cloudsim::host::DocumentHost* page,
 		}
 		return false;
 	}
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (!osg)
 	{
 		if (outError)
@@ -743,7 +743,7 @@ bool applyTemplateRegistrationToVisual(cloudsim::host::DocumentHost* page, const
 		return false;
 	}
 
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (!osg)
 	{
 		if (outError)
@@ -822,7 +822,7 @@ bool restoreTemplateShapeFromStep(cloudsim::host::DocumentHost* page, const std:
 		}
 		return false;
 	}
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (!osg)
 	{
 		if (outError)

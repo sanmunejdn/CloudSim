@@ -4,6 +4,7 @@
 #include "PlcCommPlugin.h"
 
 #include "IPluginHostContext.h"
+#include "IPluginUiContext.h"
 #include "PlcCommWidget.h"
 
 QString PlcCommPlugin::pluginId() const
@@ -18,7 +19,17 @@ QString PlcCommPlugin::displayName() const
 
 bool PlcCommPlugin::initialize(IPluginHostContext* host)
 {
-	if (!host || !host->sidePanelTabParent())
+	if (!host)
+	{
+		return false;
+	}
+	if (host->hostVersion() < 0x00013800)
+	{
+		host->logError(QStringLiteral("PlcCommPlugin requires host 1.56.0+ (narrow contexts)"));
+		return false;
+	}
+	IPluginUiContext* uiCtx = host->uiContext();
+	if (!uiCtx || !uiCtx->sidePanelTabParent())
 	{
 		return false;
 	}
@@ -36,7 +47,7 @@ bool PlcCommPlugin::initialize(IPluginHostContext* host)
 	plcPanel->applyLanguage();
 
 	const char* tabTitle = host->useChinese() ? "PLC 通讯" : "PLC";
-	if (host->registerSidePanelTab(tabTitle, panel_) < 0)
+	if (uiCtx->registerSidePanelTab(tabTitle, panel_) < 0)
 	{
 		panel_ = nullptr;
 		return false;
@@ -53,7 +64,10 @@ void PlcCommPlugin::shutdown()
 {
 	if (host_ && panel_)
 	{
-		host_->unregisterSidePanelTab(panel_);
+		if (IPluginUiContext* uiCtx = host_->uiContext())
+		{
+			uiCtx->unregisterSidePanelTab(panel_);
+		}
 	}
 	panel_ = nullptr;
 	host_ = nullptr;
@@ -71,5 +85,8 @@ void PlcCommPlugin::applyLanguage()
 		plcPanel->setUseChinese(zh);
 		plcPanel->applyLanguage();
 	}
-	host_->setSidePanelTabTitle(panel_, zh ? "PLC 通讯" : "PLC");
+	if (IPluginUiContext* uiCtx = host_->uiContext())
+	{
+		uiCtx->setSidePanelTabTitle(panel_, zh ? "PLC 通讯" : "PLC");
+	}
 }

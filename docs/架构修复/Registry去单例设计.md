@@ -42,8 +42,17 @@
 
 未加属性，只用注释标记。理由：调用点本轮不迁移，加属性会在 6+ 工程产生 30+ 处 C4996 警告噪音，淹没编译验证；待调用点迁移启动时再补 `[[deprecated]]`。
 
-## 5. 后续迁移路线（未做）
+## 5. Window 8（调用点 / 组合根注入，部分落地）
 
-1. 调用点逐个改为 `ctx->services().getService<T>()`（按模块分批，每批可独立编译验证）。
+| 项 | 状态 |
+|----|------|
+| R1 `BackendRegistry` / `BackendComponentCodecRegistry` 进 `ServiceRegistry` + `setProcessInstance` | 已落地；Host 经 `backendRegistry()` 访问 |
+| R2 `makeBackendManagerDataService(BackendDataManager*)` 可选注入 | 已落地；`DocumentHost` 仍用 `DataServiceAdapter`，导出 API 默认 `instance()` |
+| R3 `TrajectoryOpRegistry` / `FeatureDiscretizerRegistry` 组合根注册 + Bridge `set*Registry` | 已落地 |
+| R5 `BackendVisualRegistry` | 仍保留静态工厂表，待 BackendVisual 重构一并排期 |
+
+## 6. 后续迁移路线（未做）
+
+1. Data / TrajectoryAlgorithm / GeometryAlgorithm 内剩余 `::instance()` 调用点改为注入或经 Bridge（按模块分批）。
 2. 迁移完成后：删除各 `instance()` 兜底，或补 `[[deprecated]]` 过渡一个版本再删。
 3. `BackendVisualRegistry` 如需收编：先把匿名命名空间工厂表改为成员，静态方法转发到 `instance()`——需一次性改写全部调用点，建议与 BackendVisual 层重构合并排期。

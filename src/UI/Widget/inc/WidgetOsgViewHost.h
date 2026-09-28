@@ -87,6 +87,7 @@ public:
 	bool meshLinePickMode() const override;
 	bool meshFacePickMode() const override;
 	void setMeshPickScopeBackendId(const std::string& backendId) override;
+	void syncSelectionForBackendId(const std::string& backendId) override;
 
 	void setMeshTrianglePickTool(MeshTrianglePickTool tool, float brushRadiusPx = 12.f) override;
 	void cancelMeshTrianglePick() override;

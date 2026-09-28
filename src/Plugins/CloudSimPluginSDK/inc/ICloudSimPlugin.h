@@ -28,9 +28,9 @@ public:
 	virtual void shutdown() = 0;
 };
 
-/// 插件 ABI 版本编码进 IID：宿主与插件编译自同一 SDK 头即自动一致；
-/// 旧插件 IID 无版本后缀，qobject_cast 直接失败，宿主经 metaData 读取 IID 给出告警
-#define CloudSimPlugin_iid "com.cloudsim.ICloudSimPlugin/1.0." CLOUDSIM_PLUGIN_SDK_VERSION_STR
+/// 插件 ABI 版本编码进 IID（须为单一字符串字面量，moc 才能嵌入 metaData）。
+/// bump CLOUDSIM_PLUGIN_SDK_VERSION 时同步改此串，并 Rebuild 全部插件（moc 不跟踪 global.h）。
+#define CloudSimPlugin_iid "com.cloudsim.ICloudSimPlugin/1.0.0x00013800"
 Q_DECLARE_INTERFACE(ICloudSimPlugin, CloudSimPlugin_iid)
 
 #endif // CLOUDSIMPLUGINSDK_ICLOUDSIMPLUGIN_H

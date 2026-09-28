@@ -3,10 +3,24 @@
 
 #include "TrajectoryOpRegistry.h"
 
+namespace
+{
+trajectory_algo::TrajectoryOpRegistry* g_processTrajectoryOpRegistry = nullptr;
+} // namespace
+
 namespace trajectory_algo
 {
+void TrajectoryOpRegistry::setProcessInstance(TrajectoryOpRegistry* registry)
+{
+	g_processTrajectoryOpRegistry = registry;
+}
+
 TrajectoryOpRegistry& TrajectoryOpRegistry::instance()
 {
+	if (g_processTrajectoryOpRegistry != nullptr)
+	{
+		return *g_processTrajectoryOpRegistry;
+	}
 	// 静态兜底：本 DLL 无法反向访问宿主 ServiceRegistry
 	static TrajectoryOpRegistry registry;
 	return registry;

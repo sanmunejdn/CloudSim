@@ -6,11 +6,12 @@
 |----|------|
 | 解决方案 | `CloudSim.sln` |
 | 产物 | `bin/*/plugins/com.cloudsim.labeling/` |
-| 职责 | 侧栏标注 UI；数据约定在 CloudSimLabelingSDK |
+| 职责 | 侧栏标注 UI；训练 POD 单源在 PluginSDK |
 
 ## 2. 边界
 
-- SDK：[CloudSimLabelingSDK](../CloudSimLabelingSDK/DEVELOPER_GUIDE.md)
+- 类型：`PluginLabelingTypes.h`（`PluginTrainingEpochMetrics` / `PluginTrainingJobResult`）
+- `LabelingSession`：宿主内部引擎（物理仍在 LabelingSDK，插件勿直链）
 - 训练工具：`CloudSim/tools/pointnet-training/`
 - 插件索引：[docs/features/插件](../../features/插件/)
 

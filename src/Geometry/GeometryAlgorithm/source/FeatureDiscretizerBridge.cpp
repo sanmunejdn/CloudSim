@@ -10,6 +10,11 @@
 
 namespace geoalgo
 {
+void setFeatureDiscretizerRegistry(FeatureDiscretizerRegistry* registry)
+{
+	FeatureDiscretizerRegistry::setProcessInstance(registry);
+}
+
 FeatureDiscretizerRegistry& featureDiscretizerRegistry()
 {
 	return FeatureDiscretizerRegistry::instance();

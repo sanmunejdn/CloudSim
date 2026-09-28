@@ -1,5 +1,6 @@
 ﻿/// @file WidgetSceneSignalWiring.cpp
 /// @brief OsgWidget 信号接线
+// TODO(Window7): 视口场景 Qt 信号仍直连 OsgWidget；后续可抽 IViewportSceneSignals 或经 IRobotOsgViewHost 暴露装配高亮等窄回调
 
 #include "WidgetSceneSignalWiring.h"
 

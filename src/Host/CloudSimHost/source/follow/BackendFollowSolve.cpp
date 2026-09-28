@@ -19,7 +19,7 @@
 #include "HeadlessRobotContext.h"
 #include "IRenderView.h"
 #include "IRobotBackendPoseSink.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "OsgWidgetSceneBridge.h"
 #include "PropertyBag.h"
 #include "io/CustomDeviceRobotMountOps.h"
@@ -349,7 +349,7 @@ std::unordered_set<std::string> propagateCompoundAfterRootWorldChange(DocumentHo
 	return touched;
 }
 
-void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const FollowSolveContext* ctx,
+void runBackendFollowSolveAndSync(DocumentHost& page, IOsgWidgetView* osg, const FollowSolveContext* ctx,
 								  const std::string* manualPoseAuthorityBackendId)
 {
 	if (ctx && ctx->skipAll && ctx->skipAll())

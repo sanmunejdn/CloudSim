@@ -21,7 +21,7 @@
 
 class BackendDataBase;
 class PointCloudBackendData;
-class OsgWidget;
+class IOsgWidgetView;
 
 namespace cloudsim::host
 {
@@ -70,7 +70,7 @@ CLOUDSIM_HOST_EXPORT void syncOsgBackendParentsFromBackend(DocumentHost& host);
 CLOUDSIM_HOST_EXPORT void rebuildBackendParentIdMirror(DocumentHost& host);
 
 /// 点云 pose 回写
-CLOUDSIM_HOST_EXPORT void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, OsgWidget* osgWidget,
+CLOUDSIM_HOST_EXPORT void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, IOsgWidgetView* osgWidget,
 															 const QJsonObject& objectJson);
 
 struct ProjectObjectLoadOptions

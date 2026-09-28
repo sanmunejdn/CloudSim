@@ -11,6 +11,7 @@
 #include "PickTypes.h"
 #include "RobotOsgUiTypes.h"
 #include "GraphicsWindowQt1.h"
+#include "IOsgWidgetView.h"
 #include "IRobotBackendPoseSink.h"
 
 #include <QElapsedTimer>
@@ -87,7 +88,7 @@ struct MeshCapturedPart;
 ///
 /// Viewer/相机、后端导入显示、拾取标注；对象变换与 TCP 示教罗盘（后者挂场景 overlay，
 /// 位姿经 syncTcpTeachWorldPatFromMount 与 mount PAT 对齐）
-class OSG_WIDGET_API OsgWidget : public QWidget, public IRobotBackendPoseSink, public OsgScene
+class OSG_WIDGET_API OsgWidget : public QWidget, public IRobotBackendPoseSink, public OsgScene, public IOsgWidgetView
 {
 	Q_OBJECT
 public:
@@ -109,53 +110,42 @@ public:
 	using AnnotationEntry = OsgScene::AnnotationEntry;
 
 public:
-	struct AnnotationSnapshot
-	{
-		QString id;
-		QString displayText;
-		QString backendId; /// 空表示旧版/未知
-		/// 旧工程：保存时对象 gizmo 局部偏移
-		osg::Vec3f localCentered;
-		/// 世界锚点；切换后端对象后位置不变
-		osg::Vec3f worldAnchor{};
-		bool hasWorldAnchor = false;
-		bool visible = true;
-	};
+	using AnnotationSnapshot = IOsgWidgetView::AnnotationSnapshot;
 
 public:
 	explicit OsgWidget(QWidget* parent = nullptr);
 	~OsgWidget() override;
-	bool importModelFile(const QString& filePath, QString* errorMessage = nullptr);
-	bool importPointCloudFile(const QString& filePath, QString* errorMessage = nullptr);
-	bool captureImportedPointCloudBackend(PointCloudBackendData& out, QString* errorMessage = nullptr);
+	bool importModelFile(const QString& filePath, QString* errorMessage = nullptr) override;
+	bool importPointCloudFile(const QString& filePath, QString* errorMessage = nullptr) override;
+	bool captureImportedPointCloudBackend(PointCloudBackendData& out, QString* errorMessage = nullptr) override;
 	bool capturePointCloudBackendFromScene(const std::string& backendId, PointCloudBackendData& out,
-										   QString* errorMessage = nullptr);
-	bool captureImportedMeshBackend(MeshBackendData& out, QString* errorMessage = nullptr);
-	bool captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage = nullptr);
+										   QString* errorMessage = nullptr) override;
+	bool captureImportedMeshBackend(MeshBackendData& out, QString* errorMessage = nullptr) override;
+	bool captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage = nullptr) override;
 	bool captureViewportPng(QByteArray& outPng, QString* errorMessage = nullptr, int maxWidth = 768,
 							int maxHeight = 768);
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
-									   bool resetViewToHome = true);
+									   bool resetViewToHome = true) override;
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr,
 								 bool resetViewToHome = true, bool showWireOutline = true,
-								 bool useSceneLighting = true);
+								 bool useSceneLighting = true) override;
 	bool loadBackendFromBackendData(const BackendDataBase& data, QString* errorMessage = nullptr,
 									bool resetViewToHome = true, bool showWireOutline = true,
-									bool useSceneLighting = true);
+									bool useSceneLighting = true) override;
 	/// 受光网格后端（如 URDF 连杆）；改色时保留光照材质
 	bool isBackendMeshLit(const std::string& backendId) const;
-	void clearImportedContent();
+	void clearImportedContent() override;
 	/// 仅清导入预览，保留已注册后端可视
-	void clearStagingGeometry();
+	void clearStagingGeometry() override;
 	/// 半透明三角网预览（xyz 交错，9 floats/三角）
-	void setStagingMeshPreview(const std::vector<float>& xyzTriangles, const osg::Vec4& rgba);
+	void setStagingMeshPreview(const std::vector<float>& xyzTriangles, const osg::Vec4& rgba) override;
 	/// 草图折线 overlay：关深度测试，避免贴面被遮挡；rgba 按段着色
 	void setSketchLineOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
 							  const std::vector<std::size_t>& segmentEndExclusive,
 							  const std::vector<osg::Vec4>& segmentColors,
-							  const std::vector<float>& segmentWidthsPx = {});
-	void clearSketchLineOverlay();
-	void setSelectionActive(bool active);
+							  const std::vector<float>& segmentWidthsPx = {}) override;
+	void clearSketchLineOverlay() override;
+	void setSelectionActive(bool active) override;
 	void setObjectSelectionMode(bool enabled);
 	bool objectSelectionMode() const;
 	/// 物体变换罗盘：物体系沿当前罗盘轴（与模型姿态一致）；世界系沿世界 X/Y/Z。
@@ -164,55 +154,48 @@ public:
 	TransformGizmoFrame transformGizmoFrame() const { return m_transformGizmoFrame; }
 	void setPointPickMode(bool enabled);
 	bool pointPickMode() const;
-	void setPolylinePickMode(bool enabled);
+	void setPolylinePickMode(bool enabled) override;
 	bool polylinePickMode() const;
 	void updatePolylinePickOverlay(const std::vector<QPoint>& vertices, const QPoint* cursorPos);
 	void commitPolylinePick(const std::vector<QPoint>& vertices);
 	void clearPolylinePickOverlay();
-	void setMeshLinePickMode(bool enabled);
+	void setMeshLinePickMode(bool enabled) override;
 	bool meshLinePickMode() const;
-	void setMeshFacePickMode(bool enabled);
+	void setMeshFacePickMode(bool enabled) override;
 	bool meshFacePickMode() const;
 
 	/// 屏幕点 → 世界射线与平面求交（逻辑像素，与拾取一致）
 	bool intersectScreenWithPlaneMm(int screenX, int screenY, const osg::Vec3d& planeOrigin,
 									const osg::Vec3d& planeNormal, osg::Vec3d& outHitWorldMm,
-									QString* outError = nullptr) const;
+									QString* outError = nullptr) const override;
 
 	/// 草图编辑：消费视口鼠标/键，抑制轨道（handler 返回 true 表示已处理）
 	using SketchPlaneInputHandler = std::function<bool(QObject* watched, QEvent* event)>;
-	void setSketchPlaneInputHandler(SketchPlaneInputHandler handler);
-	void clearSketchPlaneInputHandler();
+	void setSketchPlaneInputHandler(SketchPlaneInputHandler handler) override;
+	void clearSketchPlaneInputHandler() override;
 
 	/// 新建草图：显示 XY/XZ/YZ 半透明基准面，点击回调 index（0/1/2）；取消 ok=false
 	/// index>=100 表示 setSketchSupportExtraPlanes 中的用户面（100+i）
 	using OriginPlanePickedFn = std::function<void(bool ok, int planeIndex)>;
-	void beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float halfSizeMm = 60.f);
-	void cancelOriginPlaneSelection();
+	void beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float halfSizeMm = 60.f) override;
+	void cancelOriginPlaneSelection() override;
 	bool isOriginPlaneSelectionActive() const { return m_originPlanePickActive; }
 
-	struct SketchSupportExtraPlane
-	{
-		osg::Vec3d origin{0, 0, 0};
-		osg::Vec3d axisX{1, 0, 0};
-		osg::Vec3d axisY{0, 1, 0};
-		osg::Vec3d normal{0, 0, 1};
-		float halfMm = 40.f;
-	};
-	void setSketchSupportExtraPlanes(std::vector<SketchSupportExtraPlane> planes);
-	void clearSketchSupportExtraPlanes();
+	using SketchSupportExtraPlane = IOsgWidgetView::SketchSupportExtraPlane;
+	void setSketchSupportExtraPlanes(std::vector<SketchSupportExtraPlane> planes) override;
+	void clearSketchSupportExtraPlanes() override;
 	/// 命中用户候选面；outDist2 为到相机距离平方
 	int hitTestSupportExtra(int screenX, int screenY, double* outDist2 = nullptr) const;
 	/// 基面/用户面与模型面更近者胜；胜出基面 0..2，用户面 100+i，否则 -1 交给网格
-	int resolveSketchSupportOriginIndex(int screenX, int screenY) const;
-	QPoint lastMousePos() const { return m_lastMousePos; }
+	int resolveSketchSupportOriginIndex(int screenX, int screenY) const override;
+	QPoint lastMousePos() const override { return m_lastMousePos; }
 
 	/// 持久显示世界原点三轴 + 三基准面（拾取会话期间自动隐藏，结束后按标志恢复）
 	void setOriginReferenceVisibility(bool originPoint, bool planeXY, bool planeXZ, bool planeYZ,
-									  float halfSizeMm = 60.f);
+									  float halfSizeMm = 60.f) override;
 
-	void setLabelingClickPickMode(bool enabled, bool meshFace);
-	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx);
+	void setLabelingClickPickMode(bool enabled, bool meshFace) override;
+	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx) override;
 	PickResult queryPick(const PickQuery& query);
 	ViewportInteractionController* interactionController() { return m_interactionController.get(); }
 	IViewportPickEngine* pickEngine();
@@ -221,40 +204,40 @@ public:
 	bool hasInteractionSession() const;
 	void setupInteractionController();
 	osg::Vec3f selectedPosition() const;
-	void setSelectedPosition(const osg::Vec3f& position);
+	void setSelectedPosition(const osg::Vec3f& position) override;
 	osg::Vec3f selectedRotationEulerDeg() const;
-	void setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg);
-	void setSelectedColor(float r, float g, float b, float a = 1.0f);
+	void setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg) override;
+	void setSelectedColor(float r, float g, float b, float a = 1.0f) override;
 	/// 按 backendId 刷新场景颜色，不发 selectedObjectColorChanged
-	void applyColorToBackendObject(const std::string& backendId, const osg::Vec4& color);
+	void applyColorToBackendObject(const std::string& backendId, const osg::Vec4& color) override;
 	QString pointCloudPluginReport() const;
 	/// 按后端树行显隐 OSG 分支
-	void setBackendObjectVisible(const std::string& backendId, bool visible);
+	void setBackendObjectVisible(const std::string& backendId, bool visible) override;
 	/// 同步逻辑父子链（顶层标注跟踪等）
-	void setBackendParent(const std::string& backendId, const std::string& parentBackendId);
-	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId);
-	void removeBackendObjectVisual(const std::string& backendId);
+	void setBackendParent(const std::string& backendId, const std::string& parentBackendId) override;
+	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId) override;
+	void removeBackendObjectVisual(const std::string& backendId) override;
 	/// 后端几何已在场景中（非导入预览）
-	bool hasBackendObjectBranch(const std::string& backendId) const;
+	bool hasBackendObjectBranch(const std::string& backendId) const override;
 	/// 增量几何更新用：已挂载后端的 outer 根节点，未挂载返回 nullptr
-	osg::Node* backendObjectRootNode(const std::string& backendId) const
+	osg::Node* backendObjectRootNode(const std::string& backendId) const override
 	{
 		const auto it = m_backendObjectRoots.find(backendId);
 		return (it != m_backendObjectRoots.end() && it->second.valid()) ? it->second.get() : nullptr;
 	}
 	/// 不重载几何同步 gizmo/拾取缓存，保留标注
-	void syncSelectionFromBackend(const PointCloudBackendData& data);
-	void syncSelectionFromBackend(const MeshBackendData& data);
+	void syncSelectionFromBackend(const PointCloudBackendData& data) override;
+	void syncSelectionFromBackend(const MeshBackendData& data) override;
 	/// 无自有几何的后端行也可选中（如装配父节点）
-	void syncSelectionForBackendId(const std::string& backendId);
+	void syncSelectionForBackendId(const std::string& backendId) override;
 	/// 逻辑节点映射到已挂载 OSG 分支（装配子件共用父级 visual）
 	void setPickVisualAlias(const std::string& logicalBackendId, const std::string& visualBackendId);
 	bool backendSkipsInnerModelCenterRebase(const std::string& backendId) const;
 	bool setAnnotationVisible(const QString& annotationId, bool visible);
 	bool removeAnnotation(const QString& annotationId);
 	void clearAllAnnotations();
-	QList<AnnotationSnapshot> annotationSnapshots() const;
-	void restoreAnnotations(const QList<AnnotationSnapshot>& snapshots);
+	QList<AnnotationSnapshot> annotationSnapshots() const override;
+	void restoreAnnotations(const QList<AnnotationSnapshot>& snapshots) override;
 	/// 随 Qt 深/浅主题设置 OSG 背景色
 	void setViewerBackgroundForDarkUi(bool dark);
 	/// GL 视口控件，供浮动工具栏等 overlay 挂载
@@ -271,11 +254,11 @@ public:
 										   const osg::Quat& deltaRotation);
 	osg::Vec3f averageBackendRootPositionWorld(const std::vector<std::string>& backendIds) const;
 	/// \a backendId 外层 PAT 世界矩阵（含父链）；OSG 形态供 OsgWidget 内部使用
-	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const;
+	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const override;
 	/// 设外层 PAT 世界矩阵为 \a worldMat（含父链）
-	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat);
+	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) override;
 	/// 单轨：Data worldMatrix → OSG outer local（逻辑父 world 优先读 Data）
-	bool applyWorldMatrixToOsg(const std::string& backendId, BackendDataManager& mgr);
+	bool applyWorldMatrixToOsg(const std::string& backendId, BackendDataManager& mgr) override;
 	bool syncTransformFromBackendData(const BackendDataBase& data, BackendDataManager& mgr);
 	void setPoseSyncBackendManager(BackendDataManager* mgr);
 	using VisualSyncMarkDirtyFn = std::function<void(const std::string&, std::uint32_t)>;
@@ -323,7 +306,7 @@ public:
 										std::function<void()> onCanceled);
 
 	/// TCP 末端拖动示教：场景 overlay 罗盘，拖动发位姿信号（不写指令）
-	bool isTcpDragTeachActive() const { return m_tcpTeachActive; }
+	bool isTcpDragTeachActive() const override { return m_tcpTeachActive; }
 	bool isTcpDragGizmoDragging() const { return m_tcpTeachDragging || m_tcpTeachRotating; }
 	/// 进入 TCP 示教
 	/// @param mountBackendId TCP 挂载后端 PAT id
@@ -369,23 +352,82 @@ public:
 	/// 写活动外层 PAT；per-link 机器人走 FK 钩子而非逻辑父子传播
 	void syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging);
 	/// 对象 gizmo 拖拽中，跳过对该选中跟随者的位姿覆写
-	bool isTransformGizmoDragging() const;
+	bool isTransformGizmoDragging() const override;
 	/// 按缓存质心将 \a data 位姿写到外层 PAT
-	bool syncOuterPatFromBackend(const BackendDataBase& data);
+	bool syncOuterPatFromBackend(const BackendDataBase& data) override;
 	/// 非拖拽时将 ObjectGizmoFrame 同步到活动后端根
 	void syncActiveBackendRootFromSelectedTransform();
 	/// OSG 位姿写回后端（跟随求解前）
 	bool writeActiveBackendPoseFromOsg(BackendDataBase& data);
 	/// 轨道相机中心跟随此后端世界原点（空则关闭）
-	void setCameraFollowBackendId(std::string backendId);
+	void setCameraFollowBackendId(std::string backendId) override;
 	void clearCameraFollowBackendId();
-	const std::string& cameraFollowBackendId() const { return m_cameraFollowBackendId; }
+	std::string cameraFollowBackendId() const override { return m_cameraFollowBackendId; }
+
+	void showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld) override
+	{
+		OsgScene::showMeshFaceHighlight(vertsWorld);
+	}
+	void hideMeshElementHighlight() override { OsgScene::hideMeshElementHighlight(); }
+
+	using OsgScene::showMeshFittedSurfacePreview;
+
+	std::string activeBackendId() const override { return OsgScene::activeBackendId(); }
+	void requestRedraw() const override { OsgScene::requestRedraw(); }
+	void focusCameraOnBackend(const std::string& backendId) override { OsgScene::focusCameraOnBackend(backendId); }
+	void focusCameraOnAllVisibleBackends() override { OsgScene::focusCameraOnAllVisibleBackends(); }
+	void orientViewToPlane(const osg::Vec3d& focusMm, const osg::Vec3d& normal, const osg::Vec3d& upHint) override
+	{
+		OsgScene::orientViewToPlane(focusMm, normal, upHint);
+	}
+	void setCameraViewDirection(const osg::Vec3d& eyeDirectionFromCenter, const osg::Vec3d& upHint) override
+	{
+		OsgScene::setCameraViewDirection(eyeDirectionFromCenter, upHint);
+	}
+	std::string resolvePickScopeBackendId(const std::string& backendId) const override
+	{
+		return OsgScene::resolvePickScopeBackendId(backendId);
+	}
+	bool tryGetBackendPointLocalToWorldMatrix(const std::string& backendId, double outColMajor16[16]) const override
+	{
+		return OsgScene::tryGetBackendPointLocalToWorldMatrix(backendId, outColMajor16);
+	}
+	IRobotBackendPoseSink* asPoseSink() override { return this; }
+
+	QMetaObject::Connection observeMeshPickCommitted(QObject* ctx,
+													 std::function<void(PickResult, int)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::meshPickCommitted, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observePolylinePickCommitted(
+		QObject* ctx, std::function<void(QVector<float>, QVector<double>, int, int)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::polylinePickCommitted, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observePolylinePickCanceled(QObject* ctx, std::function<void()> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::polylinePickCanceled, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeLabelingClickCommitted(QObject* ctx,
+														  std::function<void(PickResult)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::labelingClickCommitted, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeLabelingBrushStroke(QObject* ctx,
+													   std::function<void(QVector<int>)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::labelingBrushStroke, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeLabelingBrushFinished(QObject* ctx, std::function<void()> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::labelingBrushFinished, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeLabelingPickCanceled(QObject* ctx, std::function<void()> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::labelingPickCanceled, ctx, std::move(handler));
+	}
 
 	using OsgScene::clearMeshFittedSurfacePreview;
-	using OsgScene::hideMeshElementHighlight;
-	using OsgScene::showMeshEdgeHighlight;
-	using OsgScene::showMeshFaceHighlight;
-	using OsgScene::showMeshFittedSurfacePreview;
 
 	/// TCP 示教罗盘（RobotTcpDragTeachOperation 友元，同 OsgScene 对象 gizmo）
 	void updateTcpTeachCompassHighlight(DragAxis axis, bool highlightRing = false);

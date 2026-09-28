@@ -22,7 +22,10 @@ public:
 	// 公开构造供 ServiceRegistry 持有；全局唯一性不再由类强制
 	FeatureDiscretizerRegistry() = default;
 
-	// 兼容期入口：新代码改用 ICloudSimContext::services()，调用点迁移后移除
+	/// 宿主注册 ServiceRegistry 时写入，使本 DLL instance() 与宿主同一对象
+	static void setProcessInstance(FeatureDiscretizerRegistry* registry);
+
+	// 兼容期入口：优先 setProcessInstance，否则静态兜底
 	static FeatureDiscretizerRegistry& instance();
 
 	void registerDiscretizer(std::unique_ptr<IFeatureDiscretizer> discretizer);

@@ -21,7 +21,7 @@
 #include "IPerLinkRobotStateAccessor.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotUrdfImportContext.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotSceneKinematics.h"
@@ -462,7 +462,7 @@ bool resolveMountFrameParentWorld(DocumentHost& host, BackendDataManager& mgr, C
 
 bool tryOsgBackendWorld(DocumentHost& host, const std::string& backendId, BackendMat4& outWorld)
 {
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
 		return false;
@@ -484,7 +484,7 @@ bool tryOsgBackendWorld(DocumentHost& host, const std::string& backendId, Backen
 
 void rebakeMountFrameFollowLocalFromScene(DocumentHost& host, const std::string& mountFrameId)
 {
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
 		return;

@@ -33,7 +33,7 @@ OsgRenderViewAdapter::OsgRenderViewAdapter(OsgWidget& widget) : m_widget(widget)
 
 OsgRenderViewAdapter::OsgRenderViewAdapter(OsgWidget& widget, DocumentHost& host) : m_widget(widget), m_host(&host) {}
 
-OsgRenderViewAdapter::OsgRenderViewAdapter(DocumentHost& host) : OsgRenderViewAdapter(*osgWidgetFrom(host), host) {}
+OsgRenderViewAdapter::OsgRenderViewAdapter(DocumentHost& host) : OsgRenderViewAdapter(*host.osgWidget(), host) {}
 
 QWidget* OsgRenderViewAdapter::widget()
 {

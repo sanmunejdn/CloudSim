@@ -29,6 +29,8 @@ GEOMETRY_ALGORITHM_API bool ensureFeatureDiscretizerConfigsLoaded(const std::str
 																  std::string* errMsg = nullptr);
 
 GEOMETRY_ALGORITHM_API FeatureDiscretizerRegistry& featureDiscretizerRegistry();
+/// 组合根注册 FeatureDiscretizerRegistry 后调用，使桥接与 ServiceRegistry 同一实例
+GEOMETRY_ALGORITHM_API void setFeatureDiscretizerRegistry(FeatureDiscretizerRegistry* registry);
 GEOMETRY_ALGORITHM_API FeatureDiscretizerConfigRegistry& featureDiscretizerConfigRegistry();
 
 GEOMETRY_ALGORITHM_API const IFeatureDiscretizer* featureDiscretizerGet(const std::string& strategyId);

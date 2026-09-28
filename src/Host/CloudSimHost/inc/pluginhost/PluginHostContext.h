@@ -7,6 +7,8 @@
 
 #include "IPluginHostContext.h"
 
+#include "PluginContextImpls.h"
+
 #include <QHash>
 #include <QObject>
 #include <functional>
@@ -89,6 +91,14 @@ public:
 
 	IPluginRobotHost* robotHost() override;
 	const IPluginRobotHost* robotHost() const override;
+
+	IPluginDocumentContext* documentContext() override;
+	IPluginUiContext* uiContext() override;
+	IPluginGeometryContext* geometryContext() override;
+	IPluginAiContext* aiContext() override;
+	IPluginRobotContext* robotContext() override;
+	IPluginJobContext* jobContext() override;
+	IPluginProjectContext* projectContext() override;
 
 	IPluginGeometryHost* geometryHost() override;
 	const IPluginGeometryHost* geometryHost() const override;
@@ -227,6 +237,15 @@ private:
 	std::vector<WorkspaceModeRegistration> m_workspaceModes;
 	QString m_registeringPluginId;
 	QHash<QString, int> m_pluginSidePanelTabSerial;
+
+	/// 窄接口领域对象：仅转发回本宿主，随宿主同生命周期
+	PluginDocumentContextImpl m_documentContextImpl;
+	PluginUiContextImpl m_uiContextImpl;
+	PluginGeometryContextImpl m_geometryContextImpl;
+	PluginAiContextImpl m_aiContextImpl;
+	PluginRobotContextImpl m_robotContextImpl;
+	PluginJobContextImpl m_jobContextImpl;
+	PluginProjectContextImpl m_projectContextImpl;
 };
 
 #endif // CLOUDSIMHOST_PLUGINHOSTCONTEXT_H

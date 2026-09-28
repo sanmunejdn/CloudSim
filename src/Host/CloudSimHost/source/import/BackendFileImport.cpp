@@ -15,7 +15,7 @@
 #include "DocumentHostEvents.h"
 #include "FrameBackendData.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "PlyIo.h"
 #include "PointCloudBackendData.h"
 
@@ -65,7 +65,7 @@ bool applyPersistedIdIfRequested(DocumentHost& host, const std::shared_ptr<Point
 core::ObjectId importPointCloudLasLazFile(DocumentHost& host, const QString& filePath,
 										  const core::ImportOptionsDto& options, QString* outError)
 {
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
 		if (outError)
@@ -184,7 +184,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 			return {};
 		}
 		host.backendParentId()[id] = options.parentId;
-		if (OsgWidget* osg = osgWidgetFrom(host))
+		if (IOsgWidgetView* osg = osgWidgetFrom(host))
 		{
 			osg->setBackendParent(mesh->id(), options.parentId.toStdString());
 		}
@@ -194,7 +194,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 		host.backendParentId()[id] = QString();
 	}
 
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
 		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, options.resetViewToHome))
@@ -317,7 +317,7 @@ bool registerAdoptedBackendObject(DocumentHost& host, const std::shared_ptr<Back
 			return false;
 		}
 		host.backendParentId()[id] = parentId;
-		if (OsgWidget* osg = osgWidgetFrom(host))
+		if (IOsgWidgetView* osg = osgWidgetFrom(host))
 		{
 			if (linkOsgSceneParent)
 			{
@@ -354,7 +354,7 @@ bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<M
 	{
 		return false;
 	}
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
 		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, resetViewToHome, true, true) && outError)
@@ -389,7 +389,7 @@ bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<B
 	{
 		return true;
 	}
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
 		if (!osg->loadBackendFromBackendData(*brep, &sceneErr, resetViewToHome, false, true) && outError)
@@ -419,7 +419,7 @@ bool registerAdoptedFrameAndLoadScene(DocumentHost& host, const std::shared_ptr<
 	{
 		return false;
 	}
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
 		if (!osg->loadBackendFromBackendData(*frame, &sceneErr, resetViewToHome, false, false) && outError)
@@ -450,7 +450,7 @@ bool registerAdoptedCustomDeviceAndLoadScene(DocumentHost& host, const std::shar
 	{
 		return false;
 	}
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
 		if (!osg->loadBackendFromBackendData(*device, &sceneErr, resetViewToHome, false, false) && outError)
@@ -498,7 +498,7 @@ bool attachBackendChildToParent(DocumentHost& host, const std::string& parentId,
 		return false;
 	}
 	host.backendParentId()[QString::fromStdString(childId)] = QString::fromStdString(parentId);
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (osg)
 	{
 		osg->setBackendParent(childId, parentId);
@@ -543,7 +543,7 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 	if (haveSavedWorld && child)
 	{
 		child->setWorldMatrix(savedWorld);
-		OsgWidget* osg = osgWidgetFrom(host);
+		IOsgWidgetView* osg = osgWidgetFrom(host);
 		if (osg)
 		{
 			osg::Matrixd om;
@@ -576,7 +576,7 @@ bool registerAdoptedPointCloudAndLoadScene(DocumentHost& host, const std::shared
 	{
 		return false;
 	}
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
 		if (!osg->loadPointCloudFromBackendData(*pointCloud, &sceneErr, resetViewToHome) && outError)
@@ -623,7 +623,7 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 	// Data 不支持原地改 id，须摘链再注册并同步 OSG/旁路表
 	publishBackendObjectRemoved(host, fromId);
 	host.backendUnregisterData(fromId.toStdString());
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		osg->removeBackendObjectVisual(fromId.toStdString());
 	}
@@ -640,7 +640,7 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 			}
 			return {};
 		}
-		if (OsgWidget* osg = osgWidgetFrom(host))
+		if (IOsgWidgetView* osg = osgWidgetFrom(host))
 		{
 			QString sceneErr;
 			if (const auto mesh = std::dynamic_pointer_cast<MeshBackendData>(obj))
@@ -662,7 +662,7 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 	for (const std::string& parentId : parents)
 	{
 		(void)host.backendAttachChild(parentId, obj->id());
-		if (OsgWidget* osg = osgWidgetFrom(host))
+		if (IOsgWidgetView* osg = osgWidgetFrom(host))
 		{
 			osg->setBackendParent(obj->id(), parentId);
 		}
@@ -682,7 +682,7 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 	{
 		host.backendParentId()[toId] = parentMirror;
 	}
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
 		if (const auto mesh = std::dynamic_pointer_cast<MeshBackendData>(obj))

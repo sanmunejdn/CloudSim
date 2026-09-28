@@ -10,6 +10,7 @@
 #include "../../OsgWidgetCore/inc/PickTypes.h"
 #include "../../OsgWidgetCore/inc/RobotOsgUiTypes.h"
 #include "CoreTypes.h"
+#include "IOsgWidgetView.h"
 #include "IRobotBackendPoseSink.h"
 
 #include <QEvent>
@@ -40,31 +41,27 @@ struct MeshCapturedPart;
 Q_DECLARE_METATYPE(PickResult)
 
 /// Web Headless：不继承 OsgScene，方法均为空操作
-class CLOUDSIM_HOST_EXPORT OsgWidget : public QWidget, public IRobotBackendPoseSink
+class CLOUDSIM_HOST_EXPORT OsgWidget : public QWidget, public IRobotBackendPoseSink, public IOsgWidgetView
 {
 	Q_OBJECT
 public:
-	struct AnnotationSnapshot
-	{
-		QString id;
-		QString displayText;
-		QString backendId;
-		osg::Vec3f localCentered;
-		osg::Vec3f worldAnchor{};
-		bool hasWorldAnchor = false;
-		bool visible = true;
-	};
+	using AnnotationSnapshot = IOsgWidgetView::AnnotationSnapshot;
 
 	explicit OsgWidget(QWidget* parent = nullptr) : QWidget(parent) {}
 
-	QList<AnnotationSnapshot> annotationSnapshots() const { return {}; }
-	void restoreAnnotations(const QList<AnnotationSnapshot>& snapshots) { (void)snapshots; }
-	void setCameraFollowBackendId(std::string backendId) { (void)backendId; }
-	std::string cameraFollowBackendId() const { return {}; }
+	/// 与桌面同签名，供共享 DocumentHost 编译期通过（Headless 运行时不建 OSG）
+	void setPoseSyncBackendManager(BackendDataManager* mgr) { (void)mgr; }
+	using VisualSyncMarkDirtyFn = std::function<void(const std::string&, std::uint32_t)>;
+	void setVisualSyncMarkDirty(VisualSyncMarkDirtyFn fn) { (void)fn; }
 
-	void setSelectedPosition(const osg::Vec3f& position) { (void)position; }
-	void setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg) { (void)eulerDeg; }
-	void setSelectedColor(float r, float g, float b, float a = 1.0f)
+	QList<AnnotationSnapshot> annotationSnapshots() const override { return {}; }
+	void restoreAnnotations(const QList<AnnotationSnapshot>& snapshots) override { (void)snapshots; }
+	void setCameraFollowBackendId(std::string backendId) override { (void)backendId; }
+	std::string cameraFollowBackendId() const override { return {}; }
+
+	void setSelectedPosition(const osg::Vec3f& position) override { (void)position; }
+	void setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg) override { (void)eulerDeg; }
+	void setSelectedColor(float r, float g, float b, float a = 1.0f) override
 	{
 		(void)r;
 		(void)g;
@@ -72,39 +69,39 @@ public:
 		(void)a;
 	}
 
-	bool importModelFile(const QString& filePath, QString* errorMessage = nullptr)
+	bool importModelFile(const QString& filePath, QString* errorMessage = nullptr) override
 	{
 		(void)filePath;
 		(void)errorMessage;
 		return false;
 	}
-	bool importPointCloudFile(const QString& filePath, QString* errorMessage = nullptr)
+	bool importPointCloudFile(const QString& filePath, QString* errorMessage = nullptr) override
 	{
 		(void)filePath;
 		(void)errorMessage;
 		return false;
 	}
-	bool captureImportedPointCloudBackend(PointCloudBackendData& out, QString* errorMessage = nullptr)
+	bool captureImportedPointCloudBackend(PointCloudBackendData& out, QString* errorMessage = nullptr) override
 	{
 		(void)out;
 		(void)errorMessage;
 		return false;
 	}
 	bool capturePointCloudBackendFromScene(const std::string& backendId, PointCloudBackendData& out,
-										   QString* errorMessage = nullptr)
+										   QString* errorMessage = nullptr) override
 	{
 		(void)backendId;
 		(void)out;
 		(void)errorMessage;
 		return false;
 	}
-	bool captureImportedMeshBackend(MeshBackendData& out, QString* errorMessage = nullptr)
+	bool captureImportedMeshBackend(MeshBackendData& out, QString* errorMessage = nullptr) override
 	{
 		(void)out;
 		(void)errorMessage;
 		return false;
 	}
-	bool captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage = nullptr)
+	bool captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage = nullptr) override
 	{
 		(void)outParts;
 		(void)errorMessage;
@@ -112,7 +109,7 @@ public:
 	}
 
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
-									   bool resetViewToHome = true)
+									   bool resetViewToHome = true) override
 	{
 		(void)data;
 		(void)errorMessage;
@@ -120,7 +117,7 @@ public:
 		return false;
 	}
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr,
-								 bool resetViewToHome = true, bool showWireOutline = true, bool useSceneLighting = true)
+								 bool resetViewToHome = true, bool showWireOutline = true, bool useSceneLighting = true) override
 	{
 		(void)data;
 		(void)errorMessage;
@@ -131,7 +128,7 @@ public:
 	}
 	bool loadBackendFromBackendData(const BackendDataBase& data, QString* errorMessage = nullptr,
 									bool resetViewToHome = true, bool showWireOutline = true,
-									bool useSceneLighting = true)
+									bool useSceneLighting = true) override
 	{
 		(void)data;
 		(void)errorMessage;
@@ -141,24 +138,24 @@ public:
 		return false;
 	}
 
-	void clearStagingGeometry() {}
-	void setStagingMeshPreview(const std::vector<float>& xyzTriangles, const osg::Vec4& rgba)
+	void clearStagingGeometry()  override{}
+	void setStagingMeshPreview(const std::vector<float>& xyzTriangles, const osg::Vec4& rgba) override
 	{
 		(void)xyzTriangles;
 		(void)rgba;
 	}
 
-	void setSelectionActive(bool active) { (void)active; }
-	void setPolylinePickMode(bool enabled) { (void)enabled; }
+	void setSelectionActive(bool active)  override{ (void)active; }
+	void setPolylinePickMode(bool enabled)  override{ (void)enabled; }
 	bool polylinePickMode() const { return false; }
-	void setMeshLinePickMode(bool enabled) { (void)enabled; }
-	void setMeshFacePickMode(bool enabled) { (void)enabled; }
-	void setLabelingClickPickMode(bool enabled, bool meshFace)
+	void setMeshLinePickMode(bool enabled)  override{ (void)enabled; }
+	void setMeshFacePickMode(bool enabled)  override{ (void)enabled; }
+	void setLabelingClickPickMode(bool enabled, bool meshFace) override
 	{
 		(void)enabled;
 		(void)meshFace;
 	}
-	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx)
+	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx) override
 	{
 		(void)enabled;
 		(void)meshFace;
@@ -166,50 +163,43 @@ public:
 	}
 
 	using OriginPlanePickedFn = std::function<void(bool ok, int planeIndex)>;
-	void beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float halfSizeMm = 60.f)
+	void beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float halfSizeMm = 60.f) override
 	{
 		(void)onFinished;
 		(void)halfSizeMm;
 	}
-	void cancelOriginPlaneSelection() {}
+	void cancelOriginPlaneSelection()  override{}
 
-	struct SketchSupportExtraPlane
-	{
-		osg::Vec3d origin{0, 0, 0};
-		osg::Vec3d axisX{1, 0, 0};
-		osg::Vec3d axisY{0, 1, 0};
-		osg::Vec3d normal{0, 0, 1};
-		float halfMm = 40.f;
-	};
-	void setSketchSupportExtraPlanes(std::vector<SketchSupportExtraPlane> planes) { (void)planes; }
-	void clearSketchSupportExtraPlanes() {}
-	int resolveSketchSupportOriginIndex(int screenX, int screenY) const
+	using SketchSupportExtraPlane = IOsgWidgetView::SketchSupportExtraPlane;
+	void setSketchSupportExtraPlanes(std::vector<SketchSupportExtraPlane> planes) override { (void)planes; }
+	void clearSketchSupportExtraPlanes()  override{}
+	int resolveSketchSupportOriginIndex(int screenX, int screenY) const override
 	{
 		(void)screenX;
 		(void)screenY;
 		return -1;
 	}
-	QPoint lastMousePos() const { return {}; }
+	QPoint lastMousePos() const  override{ return {}; }
 
 	using SketchPlaneInputHandler = std::function<bool(QObject* watched, QEvent* event)>;
-	void setSketchPlaneInputHandler(SketchPlaneInputHandler handler) { (void)handler; }
-	void clearSketchPlaneInputHandler() {}
+	void setSketchPlaneInputHandler(SketchPlaneInputHandler handler)  override{ (void)handler; }
+	void clearSketchPlaneInputHandler()  override{}
 
 	void setSketchLineOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
 							  const std::vector<std::size_t>& segmentEndExclusive,
 							  const std::vector<osg::Vec4>& segmentColors,
-							  const std::vector<float>& segmentWidthsPx = {})
+							  const std::vector<float>& segmentWidthsPx = {}) override
 	{
 		(void)points;
 		(void)segmentEndExclusive;
 		(void)segmentColors;
 		(void)segmentWidthsPx;
 	}
-	void clearSketchLineOverlay() {}
+	void clearSketchLineOverlay()  override{}
 
 	bool intersectScreenWithPlaneMm(int screenX, int screenY, const osg::Vec3d& planeOrigin,
 									const osg::Vec3d& planeNormal, osg::Vec3d& outHitWorldMm,
-									QString* outError = nullptr) const
+									QString* outError = nullptr) const override
 	{
 		(void)screenX;
 		(void)screenY;
@@ -221,7 +211,7 @@ public:
 	}
 
 	void setOriginReferenceVisibility(bool originPoint, bool planeXY, bool planeXZ, bool planeYZ,
-									  float halfSizeMm = 60.f)
+									  float halfSizeMm = 60.f) override
 	{
 		(void)originPoint;
 		(void)planeXY;
@@ -230,62 +220,62 @@ public:
 		(void)halfSizeMm;
 	}
 
-	void applyColorToBackendObject(const std::string& backendId, const osg::Vec4& color)
+	void applyColorToBackendObject(const std::string& backendId, const osg::Vec4& color) override
 	{
 		(void)backendId;
 		(void)color;
 	}
-	void setBackendObjectVisible(const std::string& backendId, bool visible)
+	void setBackendObjectVisible(const std::string& backendId, bool visible) override
 	{
 		(void)backendId;
 		(void)visible;
 	}
-	void setBackendParent(const std::string& backendId, const std::string& parentBackendId)
+	void setBackendParent(const std::string& backendId, const std::string& parentBackendId) override
 	{
 		(void)backendId;
 		(void)parentBackendId;
 	}
-	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId)
+	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId) override
 	{
 		(void)backendId;
 		(void)parentBackendId;
 	}
-	void removeBackendObjectVisual(const std::string& backendId) { (void)backendId; }
-	bool hasBackendObjectBranch(const std::string& backendId) const
+	void removeBackendObjectVisual(const std::string& backendId)  override{ (void)backendId; }
+	bool hasBackendObjectBranch(const std::string& backendId) const override
 	{
 		(void)backendId;
 		return false;
 	}
-	osg::Node* backendObjectRootNode(const std::string& backendId) const
+	osg::Node* backendObjectRootNode(const std::string& backendId) const override
 	{
 		(void)backendId;
 		return nullptr;
 	}
 
-	void syncSelectionFromBackend(const PointCloudBackendData& data) { (void)data; }
-	void syncSelectionFromBackend(const MeshBackendData& data) { (void)data; }
-	void syncSelectionForBackendId(const std::string& backendId) { (void)backendId; }
+	void syncSelectionFromBackend(const PointCloudBackendData& data)  override{ (void)data; }
+	void syncSelectionFromBackend(const MeshBackendData& data)  override{ (void)data; }
+	void syncSelectionForBackendId(const std::string& backendId)  override{ (void)backendId; }
 	void setPickVisualAlias(const std::string& logicalBackendId, const std::string& visualBackendId)
 	{
 		(void)logicalBackendId;
 		(void)visualBackendId;
 	}
-	bool syncOuterPatFromBackend(const BackendDataBase& data)
+	bool syncOuterPatFromBackend(const BackendDataBase& data) override
 	{
 		(void)data;
 		return false;
 	}
 
-	void requestRedraw() const {}
-	void focusCameraOnBackend(const std::string& backendId) { (void)backendId; }
-	void focusCameraOnAllVisibleBackends() {}
-	void orientViewToPlane(const osg::Vec3d& focusMm, const osg::Vec3d& normal, const osg::Vec3d& upHint)
+	void requestRedraw() const  override{}
+	void focusCameraOnBackend(const std::string& backendId)  override{ (void)backendId; }
+	void focusCameraOnAllVisibleBackends()  override{}
+	void orientViewToPlane(const osg::Vec3d& focusMm, const osg::Vec3d& normal, const osg::Vec3d& upHint) override
 	{
 		(void)focusMm;
 		(void)normal;
 		(void)upHint;
 	}
-	void setCameraViewDirection(const osg::Vec3d& eyeDirectionFromCenter, const osg::Vec3d& upHint)
+	void setCameraViewDirection(const osg::Vec3d& eyeDirectionFromCenter, const osg::Vec3d& upHint) override
 	{
 		(void)eyeDirectionFromCenter;
 		(void)upHint;
@@ -297,19 +287,19 @@ public:
 		return false;
 	}
 
-	void showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld) { (void)vertsWorld; }
+	void showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld)  override{ (void)vertsWorld; }
 	void showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld, const osg::Vec3f& cWorld)
 	{
 		(void)aWorld;
 		(void)bWorld;
 		(void)cWorld;
 	}
-	void hideMeshElementHighlight() {}
-	void showPinnedMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld) { (void)vertsWorld; }
-	void hidePinnedMeshFaceHighlight() {}
-	void setCrossObjectMeshPick(bool) {}
-	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld) { (void)triangleVertsWorld; }
-	void clearMeshFittedSurfacePreview() {}
+	void hideMeshElementHighlight()  override{}
+	void showPinnedMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld){ (void)vertsWorld; }
+	void hidePinnedMeshFaceHighlight(){}
+	void setCrossObjectMeshPick(bool){}
+	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld){ (void)triangleVertsWorld; }
+	void clearMeshFittedSurfacePreview(){}
 
 	void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
 								 const RobotOsgUi::RawTrajectoryPreviewOptions& options = {})
@@ -323,14 +313,14 @@ public:
 		(void)showY;
 		(void)showZ;
 	}
-	void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay) { (void)overlay; }
-	void clearReachableWorkspaceOverlay() {}
-	void setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor) { (void)cursor; }
-	void clearPlaybackCursorOverlay() {}
-	void setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels) { (void)labels; }
-	void clearWaypointIndexLabels() {}
-	void setInstructionWaypointPickMode(bool enabled) { (void)enabled; }
-	bool instructionWaypointPickMode() const { return false; }
+	void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay){ (void)overlay; }
+	void clearReachableWorkspaceOverlay(){}
+	void setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor){ (void)cursor; }
+	void clearPlaybackCursorOverlay(){}
+	void setWaypointIndexLabels(const std::vector<RobotOsgUi::WaypointIndexLabel>& labels){ (void)labels; }
+	void clearWaypointIndexLabels(){}
+	void setInstructionWaypointPickMode(bool enabled){ (void)enabled; }
+	bool instructionWaypointPickMode() const{ return false; }
 	void
 	setInstructionWaypointPickCallbacks(std::function<void(const std::string& instructionId, bool isArcVia)> onPicked,
 										std::function<void()> onCanceled)
@@ -360,29 +350,29 @@ public:
 		(void)originModelMm;
 		(void)normalModel;
 	}
-	void endMeshSectionPlaneEdit() {}
-	void hideMeshSectionPlane() {}
-	void setMeshSectionPlanePreviewVisible(bool visible) { (void)visible; }
+	void endMeshSectionPlaneEdit(){}
+	void hideMeshSectionPlane(){}
+	void setMeshSectionPlanePreviewVisible(bool visible){ (void)visible; }
 
-	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const
+	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const override
 	{
 		(void)backendId;
 		(void)outWorld;
 		return false;
 	}
-	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat)
+	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) override
 	{
 		(void)backendId;
 		(void)worldMat;
 	}
-	bool getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const override
+	bool getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const
 	{
 		(void)backendId;
 		(void)outWorld;
 		return false;
 	}
 	void setBackendRootWorldMatrixFromWorld(const std::string& backendId,
-											const cloudsim::core::Mat4& worldColumnMajor) override
+											const cloudsim::core::Mat4& worldColumnMajor)
 	{
 		(void)backendId;
 		(void)worldColumnMajor;
@@ -396,22 +386,72 @@ public:
 		(void)outCz;
 		return false;
 	}
-	bool tryGetBackendPointLocalToWorldMatrix(const std::string& backendId, double outColMajor16[16]) const
+	bool tryGetBackendPointLocalToWorldMatrix(const std::string& backendId, double outColMajor16[16]) const override
 	{
 		(void)backendId;
 		(void)outColMajor16;
 		return false;
 	}
-	std::string resolvePickScopeBackendId(const std::string& backendId) const { return backendId; }
-	bool isTransformGizmoDragging() const { return false; }
-	bool isTcpDragTeachActive() const { return false; }
-	std::string activeBackendId() const { return {}; }
-	bool applyWorldMatrixToOsg(const std::string& backendId, BackendDataManager& mgr)
+	std::string resolvePickScopeBackendId(const std::string& backendId) const  override{ return backendId; }
+	bool isTransformGizmoDragging() const  override{ return false; }
+	bool isTcpDragTeachActive() const  override{ return false; }
+	std::string activeBackendId() const  override{ return {}; }
+	bool applyWorldMatrixToOsg(const std::string& backendId, BackendDataManager& mgr) override
 	{
 		(void)backendId;
 		(void)mgr;
 		return false;
 	}
+	IRobotBackendPoseSink* asPoseSink() override { return this; }
+
+	QMetaObject::Connection observeMeshPickCommitted(QObject* ctx,
+													 std::function<void(PickResult, int)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observePolylinePickCommitted(
+		QObject* ctx, std::function<void(QVector<float>, QVector<double>, int, int)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observePolylinePickCanceled(QObject* ctx, std::function<void()> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeLabelingClickCommitted(QObject* ctx,
+														  std::function<void(PickResult)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeLabelingBrushStroke(QObject* ctx,
+													   std::function<void(QVector<int>)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeLabelingBrushFinished(QObject* ctx, std::function<void()> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeLabelingPickCanceled(QObject* ctx, std::function<void()> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+
+	void clearImportedContent() override {}
 
 signals:
 	void polylinePickCommitted(QVector<float> polylineScreenXy, QVector<double> mvpMatrix, int viewportWidth,

@@ -11,8 +11,12 @@
 #include "DrawingSheetCanvasWidget.h"
 #include "DrawingSidePanel.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
+#include "IPluginProjectContext.h"
+#include "IPluginUiContext.h"
 #include "PluginGeometryTypes.h"
 
 #include <QAction>
@@ -65,9 +69,23 @@ bool EngineeringDrawingPlugin::initialize(IPluginHostContext* host)
 {
 	if (!host)
 		return false;
-	if (host->hostVersion() < 0x00012A00U)
+	if (host->hostVersion() < 0x00013800U)
 	{
-		host->logError(QStringLiteral("EngineeringDrawingPlugin requires host 1.42.0+"));
+		host->logError(QStringLiteral("EngineeringDrawingPlugin requires host 1.56.0+ (narrow contexts)"));
+		return false;
+	}
+	IPluginUiContext* uiCtx = host->uiContext();
+	IPluginDocumentContext* docCtx = host->documentContext();
+	IPluginProjectContext* projCtx = host->projectContext();
+	IPluginGeometryContext* geomCtx = host->geometryContext();
+	if (!uiCtx || !docCtx || !projCtx || !geomCtx)
+	{
+		host->logError(QStringLiteral("EngineeringDrawingPlugin: narrow context unavailable"));
+		return false;
+	}
+	if (!geomCtx->geometryHost())
+	{
+		host->logError(QStringLiteral("Geometry host API unavailable"));
 		return false;
 	}
 	m_host = host;
@@ -95,27 +113,28 @@ bool EngineeringDrawingPlugin::initialize(IPluginHostContext* host)
 						 page->canvas()->addCatalogViewAt(kind, pos);
 					 });
 
-	host->onActiveDocumentChanged(
+	docCtx->onActiveDocumentChanged(
 		[this](IPluginDocument*)
 		{
 			if (!m_inDrawing || !m_host)
 				return;
-			if (m_host->currentWorkspaceMode() != pluginId())
+			IPluginUiContext* ui = m_host->uiContext();
+			if (!ui || ui->currentWorkspaceMode() != pluginId())
 			{
 				softExitDrawing();
 				return;
 			}
 			if (DrawingPageWidget* page = ensurePageForActiveDocument())
 			{
-				m_host->setCentralAlternateWidget(page);
-				m_host->showCentralAlternate();
+				ui->setCentralAlternateWidget(page);
+				ui->showCentralAlternate();
 				bindPage(page);
 				if (m_ribbon && page->canvas())
 					m_ribbon->syncFromCanvas(page->canvas());
 				refreshBackendList();
 			}
 		});
-	host->onWorkspaceModeClaimed(
+	uiCtx->onWorkspaceModeClaimed(
 		[this](const QString& modeId)
 		{
 			if (modeId == pluginId())
@@ -123,11 +142,11 @@ bool EngineeringDrawingPlugin::initialize(IPluginHostContext* host)
 			softExitDrawing();
 		});
 	host->onLanguageChanged([this](bool) { applyLanguage(); });
-	host->onProjectAboutToSave([this](const QString& documentId, QJsonObject& root)
-							   { onProjectAboutToSave(documentId, root); });
-	host->onProjectLoaded([this](const QString& documentId, const QJsonObject& root)
-						  { onProjectLoaded(documentId, root); });
-	host->onDocumentClosed(
+	projCtx->onProjectAboutToSave([this](const QString& documentId, QJsonObject& root)
+								  { onProjectAboutToSave(documentId, root); });
+	projCtx->onProjectLoaded([this](const QString& documentId, const QJsonObject& root)
+							 { onProjectLoaded(documentId, root); });
+	docCtx->onDocumentClosed(
 		[this](const QString& documentId)
 		{
 			auto it = m_pagesByDocId.find(documentId);
@@ -135,14 +154,15 @@ bool EngineeringDrawingPlugin::initialize(IPluginHostContext* host)
 				return;
 			DrawingPageWidget* page = it.value().data();
 			m_pagesByDocId.erase(it);
-			if (m_inDrawing && page && m_host && m_host->isShowingCentralAlternate())
+			if (m_inDrawing && page && m_host && m_host->uiContext()
+				&& m_host->uiContext()->isShowingCentralAlternate())
 				softExitDrawing();
 			if (page)
 				page->deleteLater();
 		});
 
-	host->registerWorkspaceMode(pluginId(), QStringLiteral("工程图"), QStringLiteral("Drawing"),
-								[this]() { enterDrawing(); });
+	uiCtx->registerWorkspaceMode(pluginId(), QStringLiteral("工程图"), QStringLiteral("Drawing"),
+								 [this]() { enterDrawing(); });
 	applyLanguage();
 	host->logInfo(host->useChinese() ? QStringLiteral("工程图插件已加载。")
 									 : QStringLiteral("Engineering Drawing plugin initialized."));
@@ -154,10 +174,10 @@ void EngineeringDrawingPlugin::shutdown()
 	softExitDrawing();
 	if (m_host)
 	{
-		if (m_host->currentWorkspaceMode() == pluginId())
-			m_host->claimWorkspaceMode(QString());
-		m_host->setModeToolBar(nullptr);
-		m_host->setCentralAlternateWidget(nullptr);
+		if (m_host->uiContext()->currentWorkspaceMode() == pluginId())
+			m_host->uiContext()->claimWorkspaceMode(QString());
+		m_host->uiContext()->setModeToolBar(nullptr);
+		m_host->uiContext()->setCentralAlternateWidget(nullptr);
 	}
 	m_pagesByDocId.clear();
 	delete m_ribbon;
@@ -186,7 +206,10 @@ void EngineeringDrawingPlugin::applyLanguage()
 	if (m_ribbon)
 		m_ribbon->applyLanguage(zh);
 	if (m_inDrawing && m_host && m_side)
-		m_host->enterAlternateSideUi(m_side, m_info);
+	{
+		if (IPluginUiContext* ui = m_host->uiContext())
+			ui->enterAlternateSideUi(m_side, m_info);
+	}
 	for (auto it = m_pagesByDocId.begin(); it != m_pagesByDocId.end(); ++it)
 	{
 		if (it.value())
@@ -470,7 +493,7 @@ void EngineeringDrawingPlugin::enterDrawing()
 {
 	if (!m_host)
 		return;
-	if (!m_host->activeDocument())
+	if (!m_host->documentContext()->activeDocument())
 	{
 		m_host->logWarn(m_host->useChinese() ? QStringLiteral("请先打开文档。")
 											 : QStringLiteral("Open a document first."));
@@ -480,12 +503,12 @@ void EngineeringDrawingPlugin::enterDrawing()
 	if (!page)
 		return;
 	ensureRibbon();
-	m_host->claimWorkspaceMode(pluginId());
-	m_host->setModeToolBar(m_ribbon);
-	m_host->setCentralAlternateWidget(page);
+	m_host->uiContext()->claimWorkspaceMode(pluginId());
+	m_host->uiContext()->setModeToolBar(m_ribbon);
+	m_host->uiContext()->setCentralAlternateWidget(page);
 	// 右侧只保留宿主 AI 助手，不挂图纸说明面板
-	m_host->enterAlternateSideUi(m_side, m_info);
-	m_host->showCentralAlternate();
+	m_host->uiContext()->enterAlternateSideUi(m_side, m_info);
+	m_host->uiContext()->showCentralAlternate();
 	bindPage(page);
 	if (m_ribbon && page->canvas())
 	{
@@ -501,7 +524,7 @@ void EngineeringDrawingPlugin::exitDrawing()
 	if (!m_host)
 		return;
 	m_inDrawing = false;
-	m_host->returnToMainWorkspace();
+	m_host->uiContext()->returnToMainWorkspace();
 }
 
 void EngineeringDrawingPlugin::softExitDrawing()
@@ -512,9 +535,9 @@ void EngineeringDrawingPlugin::softExitDrawing()
 	m_inDrawing = false;
 	if (!m_host)
 		return;
-	m_host->setModeToolBar(nullptr);
-	m_host->setCentralAlternateWidget(nullptr);
-	m_host->exitAlternateSideUi();
+	m_host->uiContext()->setModeToolBar(nullptr);
+	m_host->uiContext()->setCentralAlternateWidget(nullptr);
+	m_host->uiContext()->exitAlternateSideUi();
 }
 
 DrawingPageWidget* EngineeringDrawingPlugin::ensurePageForDocument(const QString& documentId)
@@ -533,9 +556,9 @@ DrawingPageWidget* EngineeringDrawingPlugin::ensurePageForDocument(const QString
 
 DrawingPageWidget* EngineeringDrawingPlugin::ensurePageForActiveDocument()
 {
-	if (!m_host || !m_host->activeDocument())
+	if (!m_host || !m_host->documentContext()->activeDocument())
 		return nullptr;
-	return ensurePageForDocument(QString::fromStdString(m_host->activeDocument()->documentId()));
+	return ensurePageForDocument(QString::fromStdString(m_host->documentContext()->activeDocument()->documentId()));
 }
 
 void EngineeringDrawingPlugin::bindPage(DrawingPageWidget* page)
@@ -552,8 +575,8 @@ void EngineeringDrawingPlugin::refreshBackendList()
 {
 	if (!m_host || !m_side)
 		return;
-	IPluginGeometryHost* geo = m_host->geometryHost();
-	IPluginDocument* doc = m_host->activeDocument();
+	IPluginGeometryHost* geo = m_host->geometryContext()->geometryHost();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
 	QStringList names;
 	QStringList ids;
 	if (geo && doc)
@@ -672,8 +695,8 @@ void EngineeringDrawingPlugin::refreshViewPreviews(const QString& backendId)
 {
 	if (!m_host || backendId.isEmpty())
 		return;
-	IPluginGeometryHost* geo = m_host->geometryHost();
-	IPluginDocument* doc = m_host->activeDocument();
+	IPluginGeometryHost* geo = m_host->geometryContext()->geometryHost();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
 	DrawingPageWidget* page = ensurePageForActiveDocument();
 	if (!geo || !doc || !page)
 		return;
@@ -702,8 +725,8 @@ void EngineeringDrawingPlugin::generateViews()
 {
 	if (!m_host)
 		return;
-	IPluginGeometryHost* geo = m_host->geometryHost();
-	IPluginDocument* doc = m_host->activeDocument();
+	IPluginGeometryHost* geo = m_host->geometryContext()->geometryHost();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
 	DrawingPageWidget* page = ensurePageForActiveDocument();
 	if (!geo || !doc || !page || !page->canvas() || !m_ribbon)
 	{
@@ -781,7 +804,7 @@ void EngineeringDrawingPlugin::onProjectLoaded(const QString& documentId, const 
 	if (!page || !page->canvas())
 		return;
 	page->canvas()->fromJson(drawing);
-	if (m_inDrawing && m_ribbon && page->canvas() && m_host && m_host->activeDocument() &&
-		QString::fromStdString(m_host->activeDocument()->documentId()) == documentId)
+	if (m_inDrawing && m_ribbon && page->canvas() && m_host && m_host->documentContext()->activeDocument() &&
+		QString::fromStdString(m_host->documentContext()->activeDocument()->documentId()) == documentId)
 		m_ribbon->syncFromCanvas(page->canvas());
 }

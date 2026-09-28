@@ -13,7 +13,7 @@
 #include "HierarchyMeshImport.h"
 #include "IGeometryFileImporter.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "PointCloudBackendData.h"
 
 #include <QFile>
@@ -81,7 +81,7 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 	result.skipFollowOnImport = hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
 								result.hierarchyDetail.registeredPartCount > 1;
 
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (osg)
 	{
 		if (result.hierarchyDetail.importParent)
@@ -364,7 +364,7 @@ bool ModelBackgroundLoadState::executeLoad(
 		}
 	};
 
-	const IGeometryFileImporter* importer = GeometryFileImporterRegistry::instance().find(ext.toStdString());
+	const IGeometryFileImporter* importer = geometryFileImporterRegistry().find(ext.toStdString());
 	if (!importer)
 	{
 		m_impl->kind = ModelLoadKind::UseSyncExtended;
@@ -463,7 +463,7 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(DocumentHost& host
 	result.skipFollowOnImport = hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
 								result.hierarchyDetail.registeredPartCount > 1;
 
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (osg)
 	{
 		if (result.hierarchyDetail.importParent)

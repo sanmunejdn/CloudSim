@@ -203,6 +203,9 @@
     <ClInclude Include="inc\io\CustomDeviceRobotMountOps.h">
       <Filter>inc\io</Filter>
     </ClInclude>
+    <ClInclude Include="inc\IOsgWidgetView.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\IRobotUrdfImportContext.h">
       <Filter>inc\import</Filter>
     </ClInclude>
@@ -318,6 +321,9 @@
       <Filter>inc\pluginhost</Filter>
     </ClInclude>
     <ClInclude Include="inc\pluginhost\IPluginMainWindowHost.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginContextImpls.h">
       <Filter>inc\pluginhost</Filter>
     </ClInclude>
     <ClInclude Include="inc\pluginhost\PluginDelegatedBackend.h">
@@ -608,6 +614,9 @@
       <Filter>src\pluginhost</Filter>
     </ClCompile>
     <ClCompile Include="source\pluginhost\DocumentPointCloudOps.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginContextImpls.cpp">
       <Filter>src\pluginhost</Filter>
     </ClCompile>
     <ClCompile Include="source\pluginhost\PluginDelegatedBackend.cpp">

@@ -81,7 +81,10 @@ class BackendManagerDataService final : public core::IDataService
 {
 public:
 	// 服务构造即注册组件编解码，save/load/propertyRows 不再承担惰性注册
-	BackendManagerDataService() { initBackendComponentCodecs(); }
+	explicit BackendManagerDataService(BackendDataManager* managerOverride) : m_managerOverride(managerOverride)
+	{
+		initBackendComponentCodecs();
+	}
 
 	bool isValid(const ObjectId& id) const override { return !id.isEmpty() && mgr().contains(id.toStdString()); }
 
@@ -589,12 +592,22 @@ public:
 	}
 
 private:
-	static BackendDataManager& mgr() { return BackendDataManager::instance(); }
+	BackendDataManager& mgr() const
+	{
+		if (m_managerOverride != nullptr)
+		{
+			return *m_managerOverride;
+		}
+		// 无 Host 注入时沿用进程级静态 manager（Headless/导出 API 路径）
+		return BackendDataManager::instance();
+	}
+
+	BackendDataManager* m_managerOverride = nullptr;
 };
 
 } // namespace
 
-std::unique_ptr<core::IDataService> makeBackendManagerDataService()
+std::unique_ptr<core::IDataService> makeBackendManagerDataService(BackendDataManager* managerOverride)
 {
-	return std::make_unique<BackendManagerDataService>();
+	return std::make_unique<BackendManagerDataService>(managerOverride);
 }

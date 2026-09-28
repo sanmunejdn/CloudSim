@@ -7,6 +7,7 @@
 
 #include "cloudsim_plugin_sdk_global.h"
 
+#include "IPluginJobContext.h"
 #include "PluginBackendMeta.h"
 #include "PluginPrimitiveTypes.h"
 
@@ -22,31 +23,21 @@
 class QAction;
 class ICloudSimPlugin;
 class IAiAssistantHost;
+class IPluginAiContext;
 class IPluginDocument;
+class IPluginDocumentContext;
+class IPluginGeometryContext;
 class IPluginGeometryHost;
+class IPluginJobContext;
 class IPluginLabelingHost;
 class IPluginPointCloudHost;
+class IPluginProjectContext;
+class IPluginRobotContext;
 class IPluginRobotHost;
+class IPluginUiContext;
 class IProcessFlowAiBridge;
 class QDockWidget;
 class QMenu;
-
-using PluginJobProgressFn = std::function<void(double fraction, const QString& message)>;
-
-/// 协作取消；长循环须查 canceled()，不会强杀线程
-class PluginJobCancelToken
-{
-public:
-	PluginJobCancelToken() = default;
-	explicit PluginJobCancelToken(std::function<bool()> check) : m_check(std::move(check)) {}
-
-	bool canceled() const { return m_check && m_check(); }
-
-private:
-	std::function<bool()> m_check;
-};
-
-using PluginCancellableJobWorkFn = std::function<void(const PluginJobProgressFn&, const PluginJobCancelToken&)>;
 
 class IPluginHostContext
 {
@@ -251,6 +242,15 @@ public:
 	/// 1.55.0+：机器人运动宿主（轨迹规划/读 TCP）；vtable 仅末尾追加
 	virtual IPluginRobotHost* robotHost() = 0;
 	virtual const IPluginRobotHost* robotHost() const = 0;
+
+	/// 1.56.0+：窄接口查询；宿主版本不足时可为 null
+	virtual IPluginDocumentContext* documentContext() = 0;
+	virtual IPluginUiContext* uiContext() = 0;
+	virtual IPluginGeometryContext* geometryContext() = 0;
+	virtual IPluginAiContext* aiContext() = 0;
+	virtual IPluginRobotContext* robotContext() = 0;
+	virtual IPluginJobContext* jobContext() = 0;
+	virtual IPluginProjectContext* projectContext() = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

@@ -544,6 +544,14 @@ void WidgetOsgViewHost::setMeshPickScopeBackendId(const std::string& backendId)
 	}
 }
 
+void WidgetOsgViewHost::syncSelectionForBackendId(const std::string& backendId)
+{
+	if (cloudsim::core::IRenderView* rv = renderView())
+	{
+		rv->syncSelectionForBackend(QString::fromStdString(backendId));
+	}
+}
+
 void WidgetOsgViewHost::setMeshTrianglePickTool(const MeshTrianglePickTool tool, const float brushRadiusPx)
 {
 	m_meshTrianglePickTool = tool;

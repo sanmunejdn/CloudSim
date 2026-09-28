@@ -21,7 +21,7 @@ class BackendDataManager;
 class BackendFollowReverseIndex;
 class IBackendSceneBridge;
 class IRobotBackendPoseSink;
-class OsgWidget;
+class IOsgWidgetView;
 
 /// 后端 id 与场景/数据管理器轻量句柄
 class OSG_WIDGET_API BackendSceneEntity
@@ -65,7 +65,7 @@ class OSG_WIDGET_API BackendSceneDocumentFacade
 public:
 	BackendSceneDocumentFacade() = default;
 	BackendSceneDocumentFacade(cloudsim::core::IDataService& data, BackendDataManager& mgr, IBackendSceneBridge& bridge,
-							   BackendFollowReverseIndex& followIndex, OsgWidget* osgWidget);
+							   BackendFollowReverseIndex& followIndex, IOsgWidgetView* osgWidget);
 
 	BackendSceneEntity entity(const std::string& backendId) const;
 
@@ -85,6 +85,7 @@ private:
 	IBackendSceneBridge* m_bridge = nullptr;
 	BackendFollowReverseIndex* m_followIndex = nullptr;
 	IRobotBackendPoseSink* m_poseSink = nullptr;
+	IOsgWidgetView* m_osgView = nullptr;
 };
 
 #endif // CLOUDSIMHOST_BACKENDSCENEDOCUMENTFACADE_H

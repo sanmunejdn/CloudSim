@@ -4,8 +4,11 @@
 #include "PointCloudPlugin.h"
 
 #include "CloudSimPluginVersion.h"
+#include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
+#include "IPluginProjectContext.h"
+#include "IPluginUiContext.h"
 #include "PointCloudDockWidget.h"
 #include "TubularGrindingDockWidget.h"
 
@@ -27,9 +30,16 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	if (host->hostVersion() < 0x00010200)
+	if (host->hostVersion() < 0x00013800U)
 	{
-		host->logError(QStringLiteral("PointCloudPlugin requires host 1.2.0+"));
+		host->logError(QStringLiteral("PointCloudPlugin requires host 1.56.0+ (narrow contexts)"));
+		return false;
+	}
+	IPluginUiContext* uiCtx = host->uiContext();
+	IPluginDocumentContext* docCtx = host->documentContext();
+	if (!uiCtx || !docCtx)
+	{
+		host->logError(QStringLiteral("PointCloudPlugin: narrow context unavailable"));
 		return false;
 	}
 	if (!host->pointCloudHost())
@@ -39,13 +49,13 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 	}
 	m_host = host;
 
-	if (!host->sidePanelTabParent())
+	if (!uiCtx->sidePanelTabParent())
 	{
 		return false;
 	}
 	m_dockWidget = new PointCloudDockWidget(host, nullptr);
 	const char* tabTitle = host->useChinese() ? "点云" : "Point Cloud";
-	if (host->registerSidePanelTab(tabTitle, m_dockWidget) < 0)
+	if (uiCtx->registerSidePanelTab(tabTitle, m_dockWidget) < 0)
 	{
 		return false;
 	}
@@ -54,7 +64,7 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 	const char* featureTabTitle = host->useChinese() ? "特征构建" : "Feature Build";
 	if (host->hostVersion() >= 0x00010F00U)
 	{
-		if (host->registerSidePanelTab(featureTabTitle, m_featureBuildWidget) < 0)
+		if (uiCtx->registerSidePanelTab(featureTabTitle, m_featureBuildWidget) < 0)
 		{
 			host->logWarn(host->useChinese() ? QStringLiteral("特征构建侧栏注册失败，点云主功能仍可用。")
 											 : QStringLiteral("Feature Build tab failed; Point Cloud tab remains."));
@@ -63,7 +73,7 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 		}
 	}
 
-	host->onActiveDocumentChanged(
+	docCtx->onActiveDocumentChanged(
 		[this](IPluginDocument*)
 		{
 			if (m_dockWidget)
@@ -98,11 +108,17 @@ void PointCloudPlugin::shutdown()
 {
 	if (m_host && m_dockWidget)
 	{
-		m_host->unregisterSidePanelTab(m_dockWidget);
+		if (IPluginUiContext* uiCtx = m_host->uiContext())
+		{
+			uiCtx->unregisterSidePanelTab(m_dockWidget);
+		}
 	}
 	if (m_host && m_featureBuildWidget)
 	{
-		m_host->unregisterSidePanelTab(m_featureBuildWidget);
+		if (IPluginUiContext* uiCtx = m_host->uiContext())
+		{
+			uiCtx->unregisterSidePanelTab(m_featureBuildWidget);
+		}
 	}
 	m_dockWidget = nullptr;
 	m_featureBuildWidget = nullptr;
@@ -123,35 +139,40 @@ void PointCloudPlugin::registerMenus()
 	{
 		return;
 	}
-	m_pointCloudMenu = m_host->registerMenuPath({QStringLiteral("Tools"), QStringLiteral("Point Cloud")});
+	IPluginUiContext* uiCtx = m_host->uiContext();
+	if (!uiCtx)
+	{
+		return;
+	}
+	m_pointCloudMenu = uiCtx->registerMenuPath({QStringLiteral("Tools"), QStringLiteral("Point Cloud")});
 	if (!m_pointCloudMenu)
 	{
 		return;
 	}
-	m_importAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Import Point Cloud..."),
-											[this]() { importPointCloud(); });
-	m_downsampleAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Downsample Voxel"),
-												[this]() { downsampleVoxelOnSelection(); });
-	m_reconstructAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Reconstruct Poisson Auto"),
-												 [this]() { reconstructPoissonOnSelection(); });
-	m_exportMeshAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Export Mesh PLY..."),
-												[this]() { exportMeshOnSelection(); });
-	m_refreshAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Refresh List"),
-											 [this]()
-											 {
-												 if (m_dockWidget)
-												 {
-													 m_dockWidget->refreshPointCloudList();
-												 }
-											 });
-	m_simplifyAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Simplify Mesh"),
-											  [this]() { simplifyMeshOnSelection(); });
+	m_importAction = uiCtx->registerAction(m_pointCloudMenu, QStringLiteral("Import Point Cloud..."),
+										   [this]() { importPointCloud(); });
+	m_downsampleAction = uiCtx->registerAction(m_pointCloudMenu, QStringLiteral("Downsample Voxel"),
+											   [this]() { downsampleVoxelOnSelection(); });
+	m_reconstructAction = uiCtx->registerAction(m_pointCloudMenu, QStringLiteral("Reconstruct Poisson Auto"),
+												[this]() { reconstructPoissonOnSelection(); });
+	m_exportMeshAction = uiCtx->registerAction(m_pointCloudMenu, QStringLiteral("Export Mesh PLY..."),
+											   [this]() { exportMeshOnSelection(); });
+	m_refreshAction = uiCtx->registerAction(m_pointCloudMenu, QStringLiteral("Refresh List"),
+											[this]()
+											{
+												if (m_dockWidget)
+												{
+													m_dockWidget->refreshPointCloudList();
+												}
+											});
+	m_simplifyAction = uiCtx->registerAction(m_pointCloudMenu, QStringLiteral("Simplify Mesh"),
+											 [this]() { simplifyMeshOnSelection(); });
 	m_smoothAction =
-		m_host->registerAction(m_pointCloudMenu, QStringLiteral("Smooth Mesh"), [this]() { smoothMeshOnSelection(); });
+		uiCtx->registerAction(m_pointCloudMenu, QStringLiteral("Smooth Mesh"), [this]() { smoothMeshOnSelection(); });
 	if (m_host->hostVersion() >= 0x00010C00U)
 	{
-		m_surfaceReconstructAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Surface Reconstruct"),
-															[this]() { surfaceReconstructOnSelection(); });
+		m_surfaceReconstructAction = uiCtx->registerAction(m_pointCloudMenu, QStringLiteral("Surface Reconstruct"),
+														   [this]() { surfaceReconstructOnSelection(); });
 	}
 }
 
@@ -168,7 +189,10 @@ void PointCloudPlugin::applyLanguage()
 	}
 	if (m_dockWidget)
 	{
-		m_host->setSidePanelTabTitle(m_dockWidget, zh ? "点云" : "Point Cloud");
+		if (IPluginUiContext* uiCtx = m_host->uiContext())
+		{
+			uiCtx->setSidePanelTabTitle(m_dockWidget, zh ? "点云" : "Point Cloud");
+		}
 	}
 	if (m_pointCloudMenu)
 	{

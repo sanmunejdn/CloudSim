@@ -11,7 +11,7 @@
 #include "IDataService.h"
 #include "IRobotBackendPoseSink.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "PointCloudBackendData.h"
 
 BackendSceneEntity::BackendSceneEntity(std::string backendId, IBackendSceneBridge* bridge, BackendDataManager* mgr,
@@ -132,9 +132,9 @@ std::vector<std::string> BackendSceneEntity::followerBackendIds() const
 
 BackendSceneDocumentFacade::BackendSceneDocumentFacade(cloudsim::core::IDataService& data, BackendDataManager& mgr,
 													   IBackendSceneBridge& bridge,
-													   BackendFollowReverseIndex& followIndex, OsgWidget* osgWidget)
-	: m_data(&data), m_mgr(&mgr), m_bridge(&bridge), m_followIndex(&followIndex),
-	  m_poseSink(static_cast<IRobotBackendPoseSink*>(osgWidget))
+													   BackendFollowReverseIndex& followIndex, IOsgWidgetView* osgWidget)
+	: m_data(&data), m_mgr(&mgr), m_bridge(&bridge), m_followIndex(&followIndex), m_osgView(osgWidget),
+	  m_poseSink(osgWidget ? osgWidget->asPoseSink() : nullptr)
 {
 }
 
@@ -173,7 +173,7 @@ IRobotBackendPoseSink* BackendSceneDocumentFacade::poseSink() const
 
 void BackendSceneDocumentFacade::ensureSelectionVisualForBackend(const BackendDataBase& data, const bool urdfLinkMesh)
 {
-	OsgWidget* osg = static_cast<OsgWidget*>(m_poseSink);
+	IOsgWidgetView* osg = m_osgView;
 	if (!osg)
 	{
 		return;

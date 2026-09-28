@@ -1,51 +1,20 @@
 ﻿/// @file HostRenderViewFactory.cpp
-/// @brief HostRenderView 工厂
+/// @brief HostRenderView 工厂（经 flavor hooks，无 HEADLESS 宏）
 
 #include "HostRenderViewFactory.h"
 
-#include "NullCoreServices.h"
-
-#ifndef CLOUDSIM_HOST_HEADLESS_ONLY
-
-#include "OsgWidget.h"
-#include "adapters/OsgRenderViewAdapter.h"
-
-#include <QVBoxLayout>
+#include "HostOsgFlavorHooks.h"
 
 namespace cloudsim::host
 {
 std::unique_ptr<core::IRenderView> wrapOsgWidgetAsRenderView(OsgWidget& widget)
 {
-	return std::make_unique<OsgRenderViewAdapter>(widget);
+	return wrapFlavorOsgWidget(widget);
 }
 
 std::unique_ptr<core::IRenderView> HostRenderViewFactory::createView(QWidget* parent)
 {
-	auto* container = new QWidget(parent);
-	auto* layout = new QVBoxLayout(container);
-	layout->setContentsMargins(0, 0, 0, 0);
-	auto* osg = new OsgWidget(container);
-	layout->addWidget(osg);
-	return std::make_unique<OsgRenderViewAdapter>(*osg);
+	return createFlavorRenderView(parent);
 }
 
 } // namespace cloudsim::host
-
-#else
-
-namespace cloudsim::host
-{
-std::unique_ptr<core::IRenderView> wrapOsgWidgetAsRenderView(OsgWidget& widget)
-{
-	(void)widget;
-	return core::makeNullRenderViewFactory()->createView(nullptr);
-}
-
-std::unique_ptr<core::IRenderView> HostRenderViewFactory::createView(QWidget* parent)
-{
-	return core::makeNullRenderViewFactory()->createView(parent);
-}
-
-} // namespace cloudsim::host
-
-#endif

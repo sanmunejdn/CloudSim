@@ -5,7 +5,11 @@
 
 #include "BackendTypeIds.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
+#include "IPluginJobContext.h"
+#include "IPluginProjectContext.h"
+#include "IPluginUiContext.h"
 #include "IProcessFlowAiBridge.h"
 #include "ProcessFlowAiBridge.h"
 #include "ProcessFlowCanvasWidget.h"
@@ -48,9 +52,17 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	if (host->hostVersion() < 0x00012400U)
+	if (host->hostVersion() < 0x00013800U)
 	{
-		host->logError(QStringLiteral("ProcessFlowPlugin requires host 1.20.0+"));
+		host->logError(QStringLiteral("ProcessFlowPlugin requires host 1.56.0+ (narrow contexts)"));
+		return false;
+	}
+	IPluginUiContext* uiCtx = host->uiContext();
+	IPluginDocumentContext* docCtx = host->documentContext();
+	IPluginProjectContext* projCtx = host->projectContext();
+	if (!uiCtx || !docCtx || !projCtx)
+	{
+		host->logError(QStringLiteral("ProcessFlowPlugin: narrow context unavailable"));
 		return false;
 	}
 	m_host = host;
@@ -77,26 +89,27 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 	m_aiBridge = std::make_unique<ProcessFlowAiBridge>(this);
 	host->setProcessFlowAiBridge(m_aiBridge.get());
 
-	host->onActiveDocumentChanged(
+	docCtx->onActiveDocumentChanged(
 		[this](IPluginDocument*)
 		{
 			if (!m_inProcessFlow || !m_host)
 			{
 				return;
 			}
-			if (m_host->currentWorkspaceMode() != pluginId())
+			IPluginUiContext* ui = m_host->uiContext();
+			if (!ui || ui->currentWorkspaceMode() != pluginId())
 			{
 				softExitProcessFlow();
 				return;
 			}
 			if (ProcessFlowPageWidget* page = ensurePageForActiveDocument())
 			{
-				m_host->setCentralAlternateWidget(page);
-				m_host->showCentralAlternate();
+				ui->setCentralAlternateWidget(page);
+				ui->showCentralAlternate();
 				bindCanvasSelection(page);
 			}
 		});
-	host->onWorkspaceModeClaimed(
+	uiCtx->onWorkspaceModeClaimed(
 		[this](const QString& modeId)
 		{
 			if (modeId == pluginId())
@@ -106,11 +119,11 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 			softExitProcessFlow();
 		});
 	host->onLanguageChanged([this](bool) { applyLanguage(); });
-	host->onProjectAboutToSave([this](const QString& documentId, QJsonObject& root)
-							   { onProjectAboutToSave(documentId, root); });
-	host->onProjectLoaded([this](const QString& documentId, const QJsonObject& root)
-						  { onProjectLoaded(documentId, root); });
-	host->onDocumentClosed(
+	projCtx->onProjectAboutToSave([this](const QString& documentId, QJsonObject& root)
+								  { onProjectAboutToSave(documentId, root); });
+	projCtx->onProjectLoaded([this](const QString& documentId, const QJsonObject& root)
+							 { onProjectLoaded(documentId, root); });
+	docCtx->onDocumentClosed(
 		[this](const QString& documentId)
 		{
 			auto it = m_pagesByDocId.find(documentId);
@@ -120,7 +133,8 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 			}
 			ProcessFlowPageWidget* page = it.value().data();
 			m_pagesByDocId.erase(it);
-			if (m_inProcessFlow && page && m_host && m_host->isShowingCentralAlternate())
+			if (m_inProcessFlow && page && m_host && m_host->uiContext()
+				&& m_host->uiContext()->isShowingCentralAlternate())
 			{
 				softExitProcessFlow();
 			}
@@ -130,8 +144,8 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 			}
 		});
 
-	host->registerWorkspaceMode(pluginId(), QStringLiteral("工艺流程"), QStringLiteral("Process Flow"),
-								[this]() { enterProcessFlow(); });
+	uiCtx->registerWorkspaceMode(pluginId(), QStringLiteral("工艺流程"), QStringLiteral("Process Flow"),
+								 [this]() { enterProcessFlow(); });
 	applyLanguage();
 	host->logInfo(host->useChinese() ? QStringLiteral("工艺流程插件已加载。")
 									 : QStringLiteral("Process Flow plugin initialized."));
@@ -219,7 +233,7 @@ void ProcessFlowPlugin::bindSimUi()
 					if (page && page->canvas())
 						page->canvas()->setJobSetJson(js->toJson());
 					if (m_host)
-						m_host->markActiveDocumentModified();
+						m_host->documentContext()->markActiveDocumentModified();
 					m_flowDirty = true;
 				});
 	}
@@ -306,9 +320,9 @@ void ProcessFlowPlugin::shutdown()
 	}
 	// 关窗路径禁止走 exitProcessFlow（会弹框 + returnToMainWorkspace 广播）
 	softExitProcessFlow();
-	if (m_host && m_host->currentWorkspaceMode() == pluginId())
+	if (m_host && m_host->uiContext()->currentWorkspaceMode() == pluginId())
 	{
-		m_host->claimWorkspaceMode(QString());
+		m_host->uiContext()->claimWorkspaceMode(QString());
 	}
 	m_pagesByDocId.clear();
 	if (m_palette)
@@ -364,7 +378,7 @@ void ProcessFlowPlugin::enterProcessFlow()
 	{
 		return;
 	}
-	if (!m_host->activeDocument())
+	if (!m_host->documentContext()->activeDocument())
 	{
 		m_host->logWarn(m_host->useChinese() ? QStringLiteral("无活动文档，无法进入工艺流程。")
 											 : QStringLiteral("No active document."));
@@ -375,11 +389,11 @@ void ProcessFlowPlugin::enterProcessFlow()
 	{
 		return;
 	}
-	m_host->claimWorkspaceMode(pluginId());
-	m_host->setModeToolBar(nullptr);
-	m_host->setCentralAlternateWidget(page);
-	m_host->enterAlternateSideUi(m_palette, m_simSide);
-	m_host->showCentralAlternate();
+	m_host->uiContext()->claimWorkspaceMode(pluginId());
+	m_host->uiContext()->setModeToolBar(nullptr);
+	m_host->uiContext()->setCentralAlternateWidget(page);
+	m_host->uiContext()->enterAlternateSideUi(m_palette, m_simSide);
+	m_host->uiContext()->showCentralAlternate();
 	bindCanvasSelection(page);
 	if (m_simSide && m_simSide->jobSetPanel())
 	{
@@ -408,9 +422,9 @@ void ProcessFlowPlugin::softExitProcessFlow()
 	{
 		return;
 	}
-	m_host->setModeToolBar(nullptr);
-	m_host->setCentralAlternateWidget(nullptr);
-	m_host->exitAlternateSideUi();
+	m_host->uiContext()->setModeToolBar(nullptr);
+	m_host->uiContext()->setCentralAlternateWidget(nullptr);
+	m_host->uiContext()->exitAlternateSideUi();
 }
 
 void ProcessFlowPlugin::exitProcessFlow()
@@ -419,7 +433,7 @@ void ProcessFlowPlugin::exitProcessFlow()
 	{
 		return;
 	}
-	if (m_flowDirty || m_host->isActiveDocumentModified())
+	if (m_flowDirty || m_host->documentContext()->isActiveDocumentModified())
 	{
 		const QMessageBox::StandardButton btn = QMessageBox::question(
 			nullptr, m_host->useChinese() ? QStringLiteral("未保存的工艺流程") : QStringLiteral("Unsaved process flow"),
@@ -436,7 +450,7 @@ void ProcessFlowPlugin::exitProcessFlow()
 	}
 	m_inProcessFlow = false;
 	m_flowDirty = false;
-	m_host->returnToMainWorkspace();
+	m_host->uiContext()->returnToMainWorkspace();
 	if (m_palette && m_palette->propertyPanel())
 	{
 		m_palette->propertyPanel()->clearSelection();
@@ -465,7 +479,7 @@ ProcessFlowPageWidget* ProcessFlowPlugin::ensurePageForDocument(const QString& d
 					{
 						m_flowDirty = true;
 						if (m_host)
-							m_host->markActiveDocumentModified();
+							m_host->documentContext()->markActiveDocumentModified();
 						if (!m_sim)
 						{
 							return;
@@ -491,7 +505,7 @@ ProcessFlowPageWidget* ProcessFlowPlugin::ensurePageForActiveDocument()
 	{
 		return nullptr;
 	}
-	IPluginDocument* doc = m_host->activeDocument();
+	IPluginDocument* doc = m_host->documentContext()->activeDocument();
 	if (!doc)
 	{
 		return nullptr;
@@ -599,7 +613,7 @@ bool ProcessFlowPlugin::ensureProcessFlowForAi(QString* outError)
 			*outError = QStringLiteral("宿主不可用。");
 		return false;
 	}
-	if (!m_host->activeDocument())
+	if (!m_host->documentContext()->activeDocument())
 	{
 		if (outError)
 			*outError = QStringLiteral("无活动文档，无法进入工艺流程。");
@@ -618,9 +632,9 @@ bool ProcessFlowPlugin::ensureProcessFlowForAi(QString* outError)
 
 ProcessFlowCanvasWidget* ProcessFlowPlugin::activeCanvasForAi() const
 {
-	if (!m_host || !m_host->activeDocument())
+	if (!m_host || !m_host->documentContext()->activeDocument())
 		return nullptr;
-	const QString docId = QString::fromStdString(m_host->activeDocument()->documentId());
+	const QString docId = QString::fromStdString(m_host->documentContext()->activeDocument()->documentId());
 	const auto it = m_pagesByDocId.constFind(docId);
 	if (it == m_pagesByDocId.cend() || !it.value())
 		return nullptr;

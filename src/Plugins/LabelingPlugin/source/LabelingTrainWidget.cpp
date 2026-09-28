@@ -329,7 +329,7 @@ void LabelingTrainWidget::onExportOnnxClicked()
 {
 	syncRunnerConfig();
 	const TrainingJobResult result = m_runner->lastResult();
-	QString checkpoint = result.bestCheckpoint;
+	QString checkpoint = QString::fromStdString(result.bestCheckpointUtf8);
 	if (checkpoint.isEmpty())
 	{
 		checkpoint =
@@ -408,7 +408,9 @@ void LabelingTrainWidget::onMetricsReceived(const TrainingEpochMetrics& metrics)
 void LabelingTrainWidget::refreshBestResultCard()
 {
 	const TrainingJobResult result = m_runner->lastResult();
-	if (result.bestCheckpoint.isEmpty() && result.bestValAcc <= 0.0)
+	const QString checkpoint = QString::fromStdString(result.bestCheckpointUtf8);
+	const QString device = QString::fromStdString(result.deviceUtf8);
+	if (checkpoint.isEmpty() && result.bestValAcc <= 0.0)
 	{
 		m_bestResultLabel->setText(i18n(QStringLiteral("Best result: —"), QStringLiteral("最佳结果：—")));
 		return;
@@ -416,8 +418,8 @@ void LabelingTrainWidget::refreshBestResultCard()
 	m_bestResultLabel->setText(i18n(QStringLiteral("Best val acc: %1 | Checkpoint: %2 | Device: %3"),
 									QStringLiteral("最佳验证精度: %1 | 权重: %2 | 设备: %3"))
 								   .arg(result.bestValAcc, 0, 'f', 4)
-								   .arg(result.bestCheckpoint.isEmpty() ? QStringLiteral("—") : result.bestCheckpoint)
-								   .arg(result.device.isEmpty() ? QStringLiteral("—") : result.device));
+								   .arg(checkpoint.isEmpty() ? QStringLiteral("—") : checkpoint)
+								   .arg(device.isEmpty() ? QStringLiteral("—") : device));
 }
 
 void LabelingTrainWidget::onRunnerFinished(bool success, const QString& message)

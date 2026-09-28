@@ -87,6 +87,8 @@ public:
 	virtual bool meshLinePickMode() const = 0;
 	virtual bool meshFacePickMode() const = 0;
 	virtual void setMeshPickScopeBackendId(const std::string& backendId) = 0;
+	/// 无自有几何的后端行也可选中（与 IOsgWidgetView::syncSelectionForBackendId 一致）
+	virtual void syncSelectionForBackendId(const std::string& backendId) = 0;
 
 	/// mesh 轨迹/区域三角面拾取（委托 OsgWidget 标注拾取模式）
 	virtual void setMeshTrianglePickTool(MeshTrianglePickTool tool, float brushRadiusPx = 12.f) = 0;

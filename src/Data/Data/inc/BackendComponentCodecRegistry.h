@@ -6,6 +6,7 @@
 /// @brief 组件 JSON 编解码注册（工程保存/加载）
 
 #include "BackendComponent.h"
+#include "data_global.h"
 
 #include <functional>
 #include <memory>
@@ -28,7 +29,7 @@ inline void defaultWarn(const std::string&) {}
 #endif
 
 /// 组件 JSON 编解码注册（工程保存/加载）
-class BackendComponentCodecRegistry
+class DATA_EXPORT BackendComponentCodecRegistry
 {
 public:
 	// 公开构造供 ServiceRegistry 持有；全局唯一性不再由类强制
@@ -40,11 +41,21 @@ public:
 	using ComponentFactory = std::function<BackendComponentPtr()>;
 	using LegacyReader = std::function<BackendComponentPtr(const nlohmann::json&)>;
 
-	// 兼容期入口：Data.dll 无法反向访问宿主上下文，新代码改用 ICloudSimContext::services()，调用点迁移后移除
+	/// 宿主注册 ServiceRegistry 时写入，使 Data 层 instance() 与宿主同一对象
+	static void setProcessInstance(BackendComponentCodecRegistry* registry)
+	{
+		processInstanceSlot() = registry;
+	}
+
+	// 兼容期入口：优先 setProcessInstance，否则静态兜底（Data.dll 无法访问宿主上下文）
 	static BackendComponentCodecRegistry& instance()
 	{
-		static BackendComponentCodecRegistry registry;
-		return registry;
+		if (BackendComponentCodecRegistry* overrideInstance = processInstanceSlot())
+		{
+			return *overrideInstance;
+		}
+		static BackendComponentCodecRegistry fallback;
+		return fallback;
 	}
 
 	void registerCodec(const std::string& type, Writer writer, Reader reader)
@@ -302,6 +313,9 @@ public:
 	}
 
 private:
+	/// 定义在 .cpp，保证跨 DLL 同一 override 槽
+	static BackendComponentCodecRegistry*& processInstanceSlot();
+
 	struct LegacyEntry
 	{
 		std::string componentType;

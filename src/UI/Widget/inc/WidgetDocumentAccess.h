@@ -3,20 +3,19 @@
 
 /// @file WidgetDocumentAccess.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief Widget/Host 经 IRenderView::widget() 取得 OsgWidget
+/// @brief Widget/Host 经 DocumentHost::osgView() 取得视口窄接口
 
 #include "DocumentHost.h"
-#include "IRenderView.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 
-/// Widget/Host 经 IRenderView::widget() 取得 OsgWidget
-inline OsgWidget* widgetOsgFromPage(cloudsim::host::DocumentHost* page)
+/// 插件等存量路径：与 Host 内 osgWidgetFrom 等价
+inline IOsgWidgetView* widgetOsgFromPage(cloudsim::host::DocumentHost* page)
 {
 	if (!page)
 	{
 		return nullptr;
 	}
-	return qobject_cast<OsgWidget*>(page->render().widget());
+	return page->osgView();
 }
 
 #endif // WIDGET_WIDGETDOCUMENTACCESS_H

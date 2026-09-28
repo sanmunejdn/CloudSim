@@ -76,6 +76,28 @@ struct PluginLabelingDatasetExportResult
 	std::string datasetJsonlPath;
 };
 
+/// 训练 UI POD（插件面唯一真源；JSON 字段 best → isBest）
+struct PluginTrainingEpochMetrics
+{
+	int epoch = 0;
+	int totalEpochs = 0;
+	double trainLoss = 0.0;
+	double trainAcc = 0.0;
+	double valLoss = 0.0;
+	double valAcc = 0.0;
+	double lr = 0.0;
+	double elapsedS = 0.0;
+	bool isBest = false;
+};
+
+struct PluginTrainingJobResult
+{
+	std::string statusUtf8;
+	double bestValAcc = 0.0;
+	std::string bestCheckpointUtf8;
+	std::string deviceUtf8;
+};
+
 using PluginLabelingSessionId = std::uint64_t;
 constexpr PluginLabelingSessionId kInvalidLabelingSessionId = 0U;
 

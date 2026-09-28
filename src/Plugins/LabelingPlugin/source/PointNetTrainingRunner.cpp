@@ -621,16 +621,18 @@ void PointNetTrainingRunner::onProcessFinished(int exitCode, QProcess::ExitStatu
 		if (f.open(QIODevice::ReadOnly))
 		{
 			const QJsonObject obj = QJsonDocument::fromJson(f.readAll()).object();
-			m_lastResult.status = obj.value(QStringLiteral("status")).toString();
+			m_lastResult.statusUtf8 = obj.value(QStringLiteral("status")).toString().toStdString();
 			m_lastResult.bestValAcc = obj.value(QStringLiteral("best_val_acc")).toDouble();
-			m_lastResult.bestCheckpoint = obj.value(QStringLiteral("best_checkpoint")).toString();
-			m_lastResult.device = obj.value(QStringLiteral("device")).toString();
+			m_lastResult.bestCheckpointUtf8 =
+				obj.value(QStringLiteral("best_checkpoint")).toString().toStdString();
+			m_lastResult.deviceUtf8 = obj.value(QStringLiteral("device")).toString().toStdString();
 		}
 	}
 	else
 	{
-		m_lastResult.status = exitCode == 0 ? QStringLiteral("completed") : QStringLiteral("failed");
-		m_lastResult.bestCheckpoint = absoluteTrainingPath(m_outputDir + QStringLiteral("/best.pth"));
+		m_lastResult.statusUtf8 = exitCode == 0 ? "completed" : "failed";
+		m_lastResult.bestCheckpointUtf8 =
+			absoluteTrainingPath(m_outputDir + QStringLiteral("/best.pth")).toStdString();
 	}
 
 	const bool ok = status == QProcess::NormalExit && exitCode == 0;

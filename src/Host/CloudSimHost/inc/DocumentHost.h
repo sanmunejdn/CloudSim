@@ -32,6 +32,7 @@ class EventHub;
 }
 
 class OsgWidget;
+class IOsgWidgetView;
 class QVBoxLayout;
 class BackendDataManager;
 class IBackendDataQuery;
@@ -86,6 +87,9 @@ public:
 	/// 文档内 OsgWidget（构造期可用，勿经 render().widget()）
 	OsgWidget* osgWidget() { return m_osgWidget; }
 	const OsgWidget* osgWidget() const { return m_osgWidget; }
+	/// 窄接口视图（不依赖 OsgWidget 完整类型，供 HostCore 共享编译）
+	IOsgWidgetView* osgView() { return m_osgView; }
+	const IOsgWidgetView* osgView() const { return m_osgView; }
 
 	/// 中央 alternate（流程画布等）；不销毁 OsgWidget
 	void setCentralAlternateWidget(QWidget* widget);
@@ -244,6 +248,8 @@ private:
 	OsgWidgetSceneBridge m_sceneBridge;
 	QVBoxLayout* m_centralLayout = nullptr;
 	OsgWidget* m_osgWidget = nullptr;
+	IOsgWidgetView* m_osgView = nullptr;
+	QWidget* m_osgPane = nullptr;
 	QWidget* m_centralAlternate = nullptr;
 	bool m_osgEmbedded = false;
 	QWidget* m_osgEmbedSlot = nullptr;

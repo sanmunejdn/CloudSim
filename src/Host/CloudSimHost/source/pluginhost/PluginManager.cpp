@@ -234,9 +234,16 @@ bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manif
 	{
 		RunLogger::warn("Plugin AI capability skipped (AiSDK version): " + id.toStdString());
 	}
-	else if (IAiAssistantHost* aiHost = m_hostContext->aiAssistantHost())
+	else if (wantsAi)
 	{
-		if (auto* aiPlugin = qobject_cast<ICloudSimAiPlugin*>(pluginObject))
+		// Ai 接口 IID 带版本；cast 失败即 AiSDK ABI 不匹配（与核心插件 metaData IID 检查对称）
+		auto* aiPlugin = qobject_cast<ICloudSimAiPlugin*>(pluginObject);
+		if (!aiPlugin)
+		{
+			RunLogger::warn("Plugin AI ABI mismatch: " + id.toStdString()
+				+ " expected=" + CloudSimAiPlugin_iid);
+		}
+		else if (IAiAssistantHost* aiHost = m_hostContext->aiAssistantHost())
 		{
 			if (!aiPlugin->initializeAi(m_hostContext.get(), aiHost))
 			{

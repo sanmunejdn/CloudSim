@@ -72,8 +72,9 @@
       <PreprocessorDefinitions>CLOUDSIM_HOST_LIB;CLOUDSIM_OSG_IN_HOST;WIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </QtMoc>
     <Link>
-      <AdditionalDependencies>CloudSimCore.lib;CloudSimPluginSDK.lib;CloudSimAiSDK.lib;CloudSimLabelingSDK.lib;winhttp.lib;OsgWidgetCore.lib;BackendVisual.lib;Data.lib;RunLogger.lib;GeometryEngine.lib;GeometryAlgorithm.lib;GeometryServices.lib;RobotScene.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimHostCore.lib;CloudSimCore.lib;CloudSimPluginSDK.lib;CloudSimAiSDK.lib;CloudSimLabelingSDK.lib;winhttp.lib;OsgWidgetCore.lib;BackendVisual.lib;Data.lib;RunLogger.lib;GeometryEngine.lib;GeometryAlgorithm.lib;GeometryServices.lib;RobotScene.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/WHOLEARCHIVE:CloudSimHostCore.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -90,8 +91,9 @@
       <PreprocessorDefinitions>CLOUDSIM_HOST_LIB;CLOUDSIM_OSG_IN_HOST;WIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </QtMoc>
     <Link>
-      <AdditionalDependencies>CloudSimCore.lib;CloudSimPluginSDK.lib;CloudSimAiSDK.lib;CloudSimLabelingSDK.lib;winhttp.lib;OsgWidgetCore.lib;BackendVisual.lib;Data.lib;RunLogger.lib;GeometryEngine.lib;GeometryAlgorithm.lib;GeometryServices.lib;RobotScene.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimHostCore.lib;CloudSimCore.lib;CloudSimPluginSDK.lib;CloudSimAiSDK.lib;CloudSimLabelingSDK.lib;winhttp.lib;OsgWidgetCore.lib;BackendVisual.lib;Data.lib;RunLogger.lib;GeometryEngine.lib;GeometryAlgorithm.lib;GeometryServices.lib;RobotScene.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>/WHOLEARCHIVE:CloudSimHostCore.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -103,6 +105,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="source\adapters\OsgRenderViewAdapter.cpp" />
+    <ClCompile Include="source\HostOsgFlavorHooks_Desktop.cpp" />
 
     <ClCompile Include="source\pluginhost\PluginPropertyBindingSelfTest.cpp" />
     <ClCompile Include="source\osg\GraphicsWindowQt1.cpp" />
@@ -127,22 +130,18 @@
     <ClCompile Include="source\osg\LabelingPickOperation.cpp" />
     <ClCompile Include="source\osg\PolylinePickOperation.cpp" />
     <ClCompile Include="source\osg\MeshEdgeFacePickOperation.cpp" />
-    <ClCompile Include="source\osg\ViewportGestureRecognizer.cpp" />
     <ClCompile Include="source\osg\QWidgetViewer.cpp" />
     <QtMoc Include="inc\osg\OsgWidget.h">
       <Defines>CLOUDSIM_HOST_LIB;%(Defines)</Defines>
     </QtMoc>
-    <QtMoc Include="inc\DocumentHost.h" />
-    <QtMoc Include="inc\headless\HeadlessRobotPlaybackBridge.h" />
-    <QtMoc Include="inc\io\IoSignalNetwork.h" />
-    <QtMoc Include="inc\io\CustomDevicePoseMotionHost.h" />
-    <QtMoc Include="inc\pluginhost\PluginHostContext.h" />
-    <QtMoc Include="inc\pluginhost\PluginManager.h" />
     <QtMoc Include="inc\osg\QWidgetViewer.h">
       <Defines>CLOUDSIM_HOST_LIB;%(Defines)</Defines>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="CloudSimHostCore.vcxproj">
+      <Project>{b3c4d5e6-f7a8-9012-3456-789abcdef012}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
       <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
     </ProjectReference>
@@ -186,7 +185,6 @@
       <Project>{a1b2c3d4-e5f6-4789-abcd-ef0123456789}</Project>
     </ProjectReference>
   </ItemGroup>
-  <Import Project="CloudSimHostShared.items.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />
 </Project>

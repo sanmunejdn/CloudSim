@@ -17,7 +17,7 @@
 #include "GeometryRef.h"
 #include "HlrProject.h"
 #include "MeshDiscretize.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "ParametricBrepBackendData.h"
 #include "PickTypes.h"
 #include "PluginDocumentAdapter.h"
@@ -208,7 +208,7 @@ std::shared_ptr<BackendDataBase> resolveComputableBackend(cloudsim::host::Docume
 	return best;
 }
 
-bool worldPointToStepModelMm(OsgWidget* osg, const std::string& backendIdUtf8, const osg::Vec3f& worldMm,
+bool worldPointToStepModelMm(IOsgWidgetView* osg, const std::string& backendIdUtf8, const osg::Vec3f& worldMm,
 							 geoalgo::Point3d& outModel, std::string* errMsg = nullptr)
 {
 	if (!osg)
@@ -817,7 +817,7 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 		onFinished(false, QStringLiteral("No active document"), {});
 		return;
 	}
-	OsgWidget* osg = widgetOsgFromPage(page);
+	IOsgWidgetView* osg = widgetOsgFromPage(page);
 	if (!osg)
 	{
 		onFinished(false, QStringLiteral("3D viewport unavailable"), {});
@@ -856,8 +856,8 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 		onFinished(ok, err, ref);
 	};
 
-	state->conn = QObject::connect(
-		osg, &OsgWidget::meshPickCommitted, m_host,
+	state->conn = osg->observeMeshPickCommitted(
+		m_host,
 		[=](PickResult pick, int pickKindInt)
 		{
 			const PickKind kind = static_cast<PickKind>(pickKindInt);
@@ -1049,7 +1049,7 @@ ParametricSketchPlane toParametricPlane(const PluginSketchPlane& plane)
 
 bool refreshParametricBodyScene(cloudsim::host::DocumentHost* page, ParametricBrepBackendData& body, QString* outError)
 {
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return true;
 	// 仅剩草图时 tip 为空：卸掉场景节点，否则删除特征后旧网格残留
@@ -1069,7 +1069,7 @@ bool refreshParametricBodyScene(cloudsim::host::DocumentHost* page, ParametricBr
 	return true;
 }
 
-bool previewShapeStaging(OsgWidget* osg, const geoalgo::ShapeHandle& shape, const osg::Vec4& rgba, QString* errOut)
+bool previewShapeStaging(IOsgWidgetView* osg, const geoalgo::ShapeHandle& shape, const osg::Vec4& rgba, QString* errOut)
 {
 	std::string err;
 	geoalgo::MeshDiscretizeParams meshParams;
@@ -1150,7 +1150,7 @@ bool clearStagingAndWarn(PluginHostContext* host, IPluginDocument* doc, const QS
 						 QString* errOut)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (osg)
 		osg->clearStagingGeometry();
 	if (errOut)
@@ -1274,7 +1274,7 @@ void PluginGeometryHostImpl::setSketchOverlay(IPluginDocument* doc,
 											  const std::vector<PluginSketchOverlaySegment>& segments)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return;
 	std::vector<RobotOsgUi::RawTrajectoryOverlayVertex> pts;
@@ -1301,7 +1301,7 @@ void PluginGeometryHostImpl::setSketchOverlay(IPluginDocument* doc,
 void PluginGeometryHostImpl::clearSketchOverlay(IPluginDocument* doc)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (osg)
 		osg->clearSketchLineOverlay();
 }
@@ -1311,7 +1311,7 @@ bool PluginGeometryHostImpl::mapScreenToSketchPlane(IPluginDocument* doc, int sc
 													QString* outError)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 	{
 		if (outError)
@@ -1342,7 +1342,7 @@ bool PluginGeometryHostImpl::beginSketchInput(IPluginDocument* doc, const Plugin
 {
 	endSketchInput(doc);
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg || !onInput)
 	{
 		if (outError)
@@ -1419,7 +1419,7 @@ void PluginGeometryHostImpl::endSketchInput(IPluginDocument* doc)
 	{
 		// 兜底：清掉任意活动视口 handler
 	}
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (osg)
 		osg->clearSketchPlaneInputHandler();
 	m_sketchInputDoc = nullptr;
@@ -1484,7 +1484,7 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 	endSketchInput(doc);
 	clearSketchSupportPlanePick();
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 	{
 		onFinished(false, QStringLiteral("3D viewport unavailable"), PluginOriginPlaneKind::XY, {}, QString());
@@ -1493,11 +1493,11 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 
 	const auto extrasPtr = std::make_shared<std::vector<PluginSupportPlaneCandidate>>(extras);
 	{
-		std::vector<OsgWidget::SketchSupportExtraPlane> osgExtras;
+		std::vector<IOsgWidgetView::SketchSupportExtraPlane> osgExtras;
 		osgExtras.reserve(extrasPtr->size());
 		for (const PluginSupportPlaneCandidate& c : *extrasPtr)
 		{
-			OsgWidget::SketchSupportExtraPlane e;
+			IOsgWidgetView::SketchSupportExtraPlane e;
 			e.origin = osg::Vec3d(c.plane.origin.x, c.plane.origin.y, c.plane.origin.z);
 			e.axisX = osg::Vec3d(c.plane.axisX.x, c.plane.axisX.y, c.plane.axisX.z);
 			e.axisY = osg::Vec3d(c.plane.axisY.x, c.plane.axisY.y, c.plane.axisY.z);
@@ -1558,8 +1558,8 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 	osg->setSelectionActive(true);
 	osg->setMeshLinePickMode(false);
 	osg->setMeshFacePickMode(true);
-	m_supportPlaneFaceConn = QObject::connect(
-		osg, &OsgWidget::meshPickCommitted, m_host,
+	m_supportPlaneFaceConn = osg->observeMeshPickCommitted(
+		m_host,
 		[sessionDone, this, osg, page, doc, onFinished, extrasPtr](PickResult pick, int pickKindInt)
 		{
 			if (*sessionDone || !pick.hit)
@@ -1678,7 +1678,7 @@ void PluginGeometryHostImpl::cancelOriginSketchPlanePick(IPluginDocument* doc)
 		*m_supportPlanePickDone = true;
 	clearSketchSupportPlanePick();
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (osg)
 	{
 		osg->setMeshLinePickMode(false);
@@ -1692,7 +1692,7 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 												  const PluginSketchExtrudeParams& params)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg || closedPolylineXyzMm.size() < 12)
 	{
 		if (osg)
@@ -1785,7 +1785,7 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 void PluginGeometryHostImpl::clearSketchExtrudePreview(IPluginDocument* doc)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (osg)
 		osg->clearStagingGeometry();
 }
@@ -2065,7 +2065,7 @@ bool PluginGeometryHostImpl::previewSketchSweep(IPluginDocument* doc, const std:
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 		if (osg)
 			osg->clearStagingGeometry();
 		if (errOut)
@@ -2076,7 +2076,7 @@ bool PluginGeometryHostImpl::previewSketchSweep(IPluginDocument* doc, const std:
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return fail(QStringLiteral("No viewport"));
 	if (profilePolylineXyzMm.size() < 12)
@@ -2290,7 +2290,7 @@ bool PluginGeometryHostImpl::previewFilletEdges(IPluginDocument* doc, const Plug
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 		if (osg)
 			osg->clearStagingGeometry();
 		if (errOut)
@@ -2301,7 +2301,7 @@ bool PluginGeometryHostImpl::previewFilletEdges(IPluginDocument* doc, const Plug
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return fail(QStringLiteral("No viewport"));
 	if (params.edgeIndices.empty())
@@ -2393,7 +2393,7 @@ bool PluginGeometryHostImpl::previewChamferEdges(IPluginDocument* doc, const Plu
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 		if (osg)
 			osg->clearStagingGeometry();
 		if (errOut)
@@ -2404,7 +2404,7 @@ bool PluginGeometryHostImpl::previewChamferEdges(IPluginDocument* doc, const Plu
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return fail(QStringLiteral("No viewport"));
 	if (params.edgeIndices.empty())
@@ -2496,7 +2496,7 @@ bool PluginGeometryHostImpl::previewSketchRevolve(IPluginDocument* doc, const st
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 		if (osg)
 			osg->clearStagingGeometry();
 		if (errOut)
@@ -2507,7 +2507,7 @@ bool PluginGeometryHostImpl::previewSketchRevolve(IPluginDocument* doc, const st
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return fail(QStringLiteral("No viewport"));
 	if (profilePolylineXyzMm.size() < 12)
@@ -2624,7 +2624,7 @@ bool PluginGeometryHostImpl::previewLinearPattern(IPluginDocument* doc, const Pl
 												  QString* errOut)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"), QStringLiteral("No viewport"),
 								   errOut);
@@ -2702,7 +2702,7 @@ bool PluginGeometryHostImpl::previewCircularPattern(IPluginDocument* doc,
 													const PluginSketchCircularPatternParams& params, QString* errOut)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"),
 								   QStringLiteral("No viewport"), errOut);
@@ -2787,7 +2787,7 @@ bool PluginGeometryHostImpl::previewMirror3d(IPluginDocument* doc, const PluginS
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 		if (osg)
 			osg->clearStagingGeometry();
 		if (errOut)
@@ -2798,7 +2798,7 @@ bool PluginGeometryHostImpl::previewMirror3d(IPluginDocument* doc, const PluginS
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return fail(QStringLiteral("No viewport"));
 
@@ -2862,7 +2862,7 @@ bool PluginGeometryHostImpl::previewSketchLoft(IPluginDocument* doc, const std::
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 		if (osg)
 			osg->clearStagingGeometry();
 		if (errOut)
@@ -2873,7 +2873,7 @@ bool PluginGeometryHostImpl::previewSketchLoft(IPluginDocument* doc, const std::
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return fail(QStringLiteral("No viewport"));
 	if (profilePolylineAXyzMm.size() < 12 || profilePolylineBXyzMm.size() < 12)
@@ -3000,7 +3000,7 @@ bool PluginGeometryHostImpl::previewShellFaces(IPluginDocument* doc, const Plugi
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 		if (osg)
 			osg->clearStagingGeometry();
 		if (errOut)
@@ -3011,7 +3011,7 @@ bool PluginGeometryHostImpl::previewShellFaces(IPluginDocument* doc, const Plugi
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return fail(QStringLiteral("No viewport"));
 	if (params.faceIndices.empty())
@@ -3073,7 +3073,7 @@ bool PluginGeometryHostImpl::previewDraftFaces(IPluginDocument* doc, const Plugi
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 		if (osg)
 			osg->clearStagingGeometry();
 		if (errOut)
@@ -3084,7 +3084,7 @@ bool PluginGeometryHostImpl::previewDraftFaces(IPluginDocument* doc, const Plugi
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return fail(QStringLiteral("No viewport"));
 	if (params.faceIndices.empty())
@@ -3423,7 +3423,7 @@ void PluginGeometryHostImpl::setOriginReferenceVisibility(IPluginDocument* doc,
 														  const PluginOriginReferenceVisibility& visibility)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	OsgWidget* osg = page ? widgetOsgFromPage(page) : nullptr;
+	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
 	if (!osg)
 		return;
 	osg->setOriginReferenceVisibility(visibility.originPoint, visibility.planeXY, visibility.planeXZ,

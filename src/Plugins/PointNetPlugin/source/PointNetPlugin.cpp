@@ -4,6 +4,8 @@
 #include "PointNetPlugin.h"
 
 #include "IAiAssistantHost.h"
+#include "IPluginAiContext.h"
+#include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
 #include "PointNetDomainHandler.h"
 #include "PointNetInference.h"
@@ -33,6 +35,14 @@ QString PointNetPlugin::displayName() const
 
 bool PointNetPlugin::initialize(IPluginHostContext* host)
 {
+	if (!host || host->hostVersion() < 0x00013800)
+	{
+		return false;
+	}
+	if (!host->documentContext() || !host->aiContext())
+	{
+		return false;
+	}
 	m_host = host;
 	return true;
 }
@@ -50,8 +60,13 @@ QString PointNetPlugin::aiPluginId() const
 
 bool PointNetPlugin::initializeAi(IPluginHostContext* host, IAiAssistantHost* aiHost)
 {
+	if (!host || host->hostVersion() < 0x00013800 || !host->aiContext() || !host->documentContext())
+	{
+		return false;
+	}
 	m_host = host;
 	m_aiHost = aiHost;
+	(void)host->aiContext()->aiAssistantHost();
 
 	QString configErr;
 	if (!loadConfig(&configErr))

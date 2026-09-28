@@ -9,7 +9,7 @@
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "OsgWidgetCaptureController.h"
 
 #include <QFileInfo>
@@ -84,7 +84,7 @@ bool applyOsgCapture(DocumentHost& host, const QString& sourceFilePath, const QS
 					 const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError)
 {
 	const QFileInfo fileInfo(sourceFilePath);
-	OsgWidget* osg = osgWidgetFrom(host);
+	IOsgWidgetView* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
 		if (outError)

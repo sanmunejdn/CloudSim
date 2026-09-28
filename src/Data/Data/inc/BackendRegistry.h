@@ -6,6 +6,7 @@
 /// @brief 后端类型元数据：工厂、显示名、属性编辑器
 
 #include "BackendDataBase.h"
+#include "data_global.h"
 
 #include <functional>
 #include <memory>
@@ -28,16 +29,29 @@ struct BackendMeta
 
 /// className → 创建与属性面板工厂
 
-class BackendRegistry
+class DATA_EXPORT BackendRegistry
 
 {
 public:
-	static BackendRegistry& instance()
+	// 公开构造供 ServiceRegistry 持有；全局唯一性由组合根 + setProcessInstance 保证
+	BackendRegistry() = default;
 
+	/// 宿主注册 ServiceRegistry 时写入，使 Data 层 instance() 与宿主同一对象
+	static void setProcessInstance(BackendRegistry* registry)
 	{
-		static BackendRegistry registry;
+		processInstanceSlot() = registry;
+	}
 
-		return registry;
+	// 兼容期入口：优先 setProcessInstance，否则静态兜底
+	static BackendRegistry& instance()
+	{
+		if (BackendRegistry* overrideInstance = processInstanceSlot())
+		{
+			return *overrideInstance;
+		}
+		// 静态兜底：Data.dll 无法反向访问宿主 ServiceRegistry
+		static BackendRegistry fallback;
+		return fallback;
 	}
 
 	void registerType(const BackendMeta& meta)
@@ -105,7 +119,8 @@ public:
 	}
 
 private:
-	BackendRegistry() = default;
+	/// 定义在 .cpp，保证跨 DLL 同一 override 槽
+	static BackendRegistry*& processInstanceSlot();
 
 	mutable std::mutex m_mutex;
 

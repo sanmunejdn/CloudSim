@@ -36,10 +36,11 @@
 
 两个 stub/真头文件**故意共用同一头卫** `CLOUDSIMHOST_OSGWIDGET_H`（stub 注释：「与桌面 OsgWidget 同头卫，避免双定义」），靠 include 顺序二选一。
 
-直接踩分歧的共享源：
+直接踩分歧的共享源（历史清单；宏分支已迁出）：
 
-- `#ifdef CLOUDSIM_HOST_HEADLESS_ONLY`：`DocumentHost.cpp`（3 处）、`HostRenderViewFactory.cpp`（1 处）
-- `#include "OsgWidget.h"` 的**共享源 20 个**：`DocumentHost.cpp`、`HostRenderViewFactory.cpp`、`adapters/{DataServiceAdapter,RobotServiceAdapter}.cpp`、`follow/{BackendFollowSolve,BackendHierarchyFollow,BackendVisualSync}.cpp`、`import/{ApplyGeometryImportParse,BackendFileImport,DocumentImportFacade,HierarchyMeshImport}.cpp`、`io/CustomDeviceRobotMountOps.cpp`、`pluginhost/{DocumentPointCloudOps,PluginGeometryHostImpl,PluginLabelingHostImpl,PluginPointCloudHostImpl}.cpp`、`project/{AnnotationProjectIo,BackendProjectObjectIo,ProjectPackageIo}.cpp`、`visual/BackendVisualSyncEngine.cpp`、`osg/BackendSceneDocumentFacade.cpp`
+- ~~`#ifdef CLOUDSIM_HOST_HEADLESS_ONLY`：`DocumentHost.cpp` / `HostRenderViewFactory.cpp`~~ → 已改为 `HostOsgFlavorHooks_{Desktop,Headless}.cpp` 运行时/工厂注入（共享源无 flavor 宏）
+- `#include "OsgWidget.h"` 的**共享源**仍依赖 include 顺序二选一；其中 `PluginGeometry/PointCloud/LabelingHostImpl` 因 Qt 信号需具体类型，**标为桌面专有例外**，不强迫全部进 `IOsgWidgetView`
+- `IOsgWidgetView`：**冻结**「共享源新增能力只许接口末尾追加」；本阶段不拆分子接口、不建 `CloudSimHostCore`
 
 ## 2. 为什么"直接抽静态库"不可行
 
@@ -62,21 +63,21 @@
 ### 4.1 前置重构（按序，每步独立可编译验证）
 
 1. **OsgWidget 依赖接口化**：共享源不直接 `#include "OsgWidget.h"`，改为依赖窄接口（如 `inc/IOsgWidgetView.h`，只含共享源实际用到的方法子集）。桌面由真 `OsgWidget` 实现，Headless 由 stub 实现，经构造注入。涉及 §1.3 列出的 20 个共享源——这是方案 B 工作量的主体。
-2. **消除共享源宏分支**：`DocumentHost.cpp` / `HostRenderViewFactory.cpp` 的 `#ifdef CLOUDSIM_HOST_HEADLESS_ONLY` 改为运行时注入。`createHostRenderViewFactory()` 已是该模式（桌面返回 `HostRenderViewFactory`，Headless 返回 `makeNullRenderViewFactory()`），把 flavor 选择收敛到各 DLL 自己的入口文件。
-3. **导出宏加静态分支**：`cloudsim_host_global.h` 增加 `CLOUDSIM_HOST_STATIC` → `CLOUDSIM_HOST_EXPORT` 为空；静态库编译时定义之，两个 DLL 编译时仍定义 `CLOUDSIM_HOST_LIB` 并重新导出需对外的符号。
+2. **消除共享源宏分支**：**已完成**（`HostOsgFlavorHooks` + `DocumentHost`/`HostRenderViewFactory` 注入）。vcxproj 仍可保留 `CLOUDSIM_HOST_HEADLESS_ONLY` 供 moc/历史路径，但共享 `.cpp` 不得再依赖该宏。
+3. **导出宏**：`cloudsim_host_global.h` 保留 `CLOUDSIM_HOST_STATIC`（纯静态消费方为空导出）与 `CLOUDSIM_HOST_LIB`（dllexport）。**落地取舍**：`CloudSimHostCore` 以 `CLOUDSIM_HOST_LIB` 编译，使对象文件带 dllexport；两 DLL 以 `/WHOLEARCHIVE:CloudSimHostCore.lib` 链入并再导出给 Widget/插件。若改用 `CLOUDSIM_HOST_STATIC` 则 Core 符号无导出属性，非 WHOLEARCHIVE 路径下易出现 Widget LNK2019。
 
 ### 4.2 CloudSimHostCore.vcxproj 结构
 
 ```text
 src/Host/CloudSimHostCore/CloudSimHostCore.vcxproj
 ├─ ConfigurationType: StaticLibrary
-├─ PreprocessorDefinitions: CLOUDSIM_HOST_STATIC;WIDGET_LIB;AIBACKEND_LIB;...（无 flavor 宏）
+├─ PreprocessorDefinitions: CLOUDSIM_HOST_LIB;WIDGET_LIB;AIBACKEND_LIB;...（无 flavor 宏；见 §4.1-3）
 ├─ 不使用 PCH（或独立 PCH；两个 DLL 的 pch 保持不变）
 ├─ ClCompile: 现 CloudSimHostShared.items.props 的 98 项（前置重构完成后）
 └─ ClInclude: 现 95 项
 ```
 
-两个 DLL 工程：`AdditionalDependencies` 增加 `CloudSimHostCore.lib`，删除 items.props Import；`check_host_headless_sources.py` 改为校验「CloudSimHostCore 清单 == items.props 迁移后的全集」且「两 DLL 不再直列共享源」。
+两个 DLL 工程：`AdditionalDependencies` 增加 `CloudSimHostCore.lib`，`Link/AdditionalOptions` 增加 `/WHOLEARCHIVE:CloudSimHostCore.lib`；删除 items.props Import；`check_host_headless_sources.py` 校验 Core 清单与两 DLL 风味源对齐。
 
 ### 4.3 迁移步骤
 
@@ -90,12 +91,14 @@ src/Host/CloudSimHostCore/CloudSimHostCore.vcxproj
 | 风险 | 缓解 |
 |------|------|
 | OsgWidget 接口化改动面大（20 文件），引入行为回归 | 窄接口只暴露现用方法；逐文件迁移，每文件编译验证；不动 `OsgWidget.cpp` 本体 |
-| 静态库符号可见性变化导致插件 LNK2019 | 前置步骤 3 先加 `CLOUDSIM_HOST_STATIC` 分支并核对 `CloudSimHost.dll` 导出表（dumpbin 对比迁移前后） |
+| 静态库符号可见性变化导致插件/Widget LNK2019 | Core 用 `CLOUDSIM_HOST_LIB` + DLL `/WHOLEARCHIVE`；核对 `CloudSimHost.dll` 导出表 |
 | 宏改运行时注入后 flavor 行为漂移 | 桌面/网页两侧冒烟用例先行；`createHostRenderViewFactory` 模式已验证可行 |
 | moc 分歧（两工程 QtMoc Defines 不同） | moc 产物留在各 DLL 工程，不进静态库 |
 
 ## 6. 结论
 
-- 本轮（工作流 D）**只交付本设计文档**，不建工程、不动源文件。
-- 短期执行方案 A：收编 `ViewportGestureRecognizer.cpp` 等直列反例 + check 脚本加规则，可随下次 Host 改动顺带完成。
-- 方案 B 以前置重构 §4.1-1（OsgWidget 接口化）为瓶颈，建议单独立项排期。
+- §4.1-2 共享源 flavor 宏分支：已落地（`HostOsgFlavorHooks`）。
+- §4.1-1 OsgWidget 接口化：共享 `.cpp` 已脱离 `OsgWidget.h`（`IOsgWidgetView` + observe*）；Plugin*HostImpl 拾取经窄观察 API。
+- §4.1-3 / §4.2：已抽出 `CloudSimHostCore.lib`（`CloudSimHostCore.vcxproj`）；两 DLL 以 `CLOUDSIM_HOST_LIB` + `/WHOLEARCHIVE` 再导出；Host/Headless/Widget Debug|x64 与 Release|x64 已通过。
+- `BackendVisualRegistry` 实例化与 UI `WidgetSceneSignalWiring` 全量去 `OsgWidget` 信号仍可后续迭代。
+- 短期方案 A 检查脚本仍守护 Core / 两 DLL 风味源对齐。

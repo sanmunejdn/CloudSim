@@ -5,6 +5,7 @@
 
 #include "CloudSimBootstrap.h"
 #include "ICloudSimContext.h"
+#include "IGeometryFileImporter.h"
 
 #include <cctype>
 #include <memory>
@@ -33,6 +34,11 @@ struct GeometryFileImporterRegistry::Impl
 };
 
 GeometryFileImporterRegistry& GeometryFileImporterRegistry::instance()
+{
+	return geometryFileImporterRegistry();
+}
+
+GeometryFileImporterRegistry& geometryFileImporterRegistry()
 {
 	// 上下文已注册则走 ServiceRegistry；未就绪回退静态实例（兼容期）
 	if (cloudsim::core::ICloudSimContext* ctx = cloudsimApplicationContext())

@@ -4,6 +4,7 @@
 #include "ProcessFlowSimController.h"
 
 #include "IPluginHostContext.h"
+#include "IPluginJobContext.h"
 #include "ProcessFlowCanvasWidget.h"
 #include "sim/DesEngine.h"
 #include "sim/DispatchPolicies.h"
@@ -94,7 +95,7 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 	const QStringList pols = policies;
 	const bool keepTraces = compareMode && cfg.includeCompareTraces;
 
-	m_host->enqueueJob(
+	m_host->jobContext()->enqueueJob(
 		QStringLiteral("ProcessFlow DES"),
 		[plant, jobSet, interarrival, cfg, cancel, pols, compareMode, keepTraces, resultHolder, compareHolder,
 		 compareStatsHolder, errorHolder](const PluginJobProgressFn& progress)

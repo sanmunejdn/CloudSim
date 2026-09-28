@@ -3,15 +3,13 @@
 
 #include "AnnotationProjectIo.h"
 
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 
 #include <osg/Vec3f>
 
 namespace cloudsim::host
 {
-using ::OsgWidget;
-
-QJsonArray buildAnnotationsJsonFromOsg(OsgWidget& osgWidget, QJsonObject& inOutRootExtras)
+QJsonArray buildAnnotationsJsonFromOsg(IOsgWidgetView& osgWidget, QJsonObject& inOutRootExtras)
 {
 	QJsonArray annArray;
 	const auto snapshots = osgWidget.annotationSnapshots();
@@ -45,9 +43,9 @@ QJsonArray buildAnnotationsJsonFromOsg(OsgWidget& osgWidget, QJsonObject& inOutR
 	return annArray;
 }
 
-void applyAnnotationsFromProjectJson(OsgWidget& osgWidget, const QJsonObject& root)
+void applyAnnotationsFromProjectJson(IOsgWidgetView& osgWidget, const QJsonObject& root)
 {
-	QList<OsgWidget::AnnotationSnapshot> snapshots;
+	QList<IOsgWidgetView::AnnotationSnapshot> snapshots;
 	const QJsonArray annArray = root.value(QStringLiteral("annotations")).toArray();
 	for (const QJsonValue& v : annArray)
 	{
@@ -56,7 +54,7 @@ void applyAnnotationsFromProjectJson(OsgWidget& osgWidget, const QJsonObject& ro
 			continue;
 		}
 		const QJsonObject a = v.toObject();
-		OsgWidget::AnnotationSnapshot s;
+		IOsgWidgetView::AnnotationSnapshot s;
 		s.id = a.value(QStringLiteral("id")).toString();
 		s.displayText = a.value(QStringLiteral("displayText")).toString();
 		s.backendId = a.value(QStringLiteral("backendId")).toString();

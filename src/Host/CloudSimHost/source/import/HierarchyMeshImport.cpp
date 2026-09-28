@@ -14,7 +14,7 @@
 #include "GeometryFileImporterRegistry.h"
 #include "IGeometryFileImporter.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
+#include "IOsgWidgetView.h"
 #include "Types.h"
 
 #include <QByteArray>
@@ -344,13 +344,13 @@ bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const
 
 	osg::Matrixd world;
 	bool haveWorld = false;
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		haveWorld = osg->getBackendRootWorldMatrix(brepId, world);
 	}
 	const BackendMat4 parentWorld = brep->worldMatrix();
 	brep->setShape(remaining);
-	if (OsgWidget* osg = osgWidgetFrom(host))
+	if (IOsgWidgetView* osg = osgWidgetFrom(host))
 	{
 		QString visErr;
 		if (!osg->loadBackendFromBackendData(*brep, &visErr, false, false, true))
@@ -383,7 +383,7 @@ bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const
 	}
 	if (haveWorld)
 	{
-		if (OsgWidget* osg = osgWidgetFrom(host))
+		if (IOsgWidgetView* osg = osgWidgetFrom(host))
 		{
 			osg->setBackendRootWorldMatrixFromWorld(partBrep->id(), world);
 		}
@@ -425,7 +425,7 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 	const QByteArray nativeEnc = QFile::encodeName(filePath);
 	const std::string nativePath(nativeEnc.constData(), static_cast<std::size_t>(nativeEnc.size()));
 
-	GeometryFileImporterRegistry& registry = GeometryFileImporterRegistry::instance();
+	GeometryFileImporterRegistry& registry = geometryFileImporterRegistry();
 	const IGeometryFileImporter* importer = registry.find(ext.toStdString());
 	if (!importer)
 	{

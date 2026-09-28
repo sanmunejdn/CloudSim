@@ -120,7 +120,7 @@
 
       <LanguageStandard>stdcpp17</LanguageStandard>
 
-      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../../Contracts/CloudSimCore/inc;../CloudSimLabelingSDK/inc;../CloudSimAiSDK/inc;../PointNetPlugin/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\onnxruntime/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../../Contracts/CloudSimCore/inc;../CloudSimAiSDK/inc;../PointNetPlugin/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\onnxruntime/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
 
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
 
@@ -128,7 +128,7 @@
 
     <Link>
 
-      <AdditionalDependencies>CloudSimPluginSDK.lib;CloudSimLabelingSDK.lib;CloudSimAiSDK.lib;onnxruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimPluginSDK.lib;CloudSimAiSDK.lib;onnxruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
 
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\onnxruntime/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
 
@@ -148,7 +148,7 @@
 
       <LanguageStandard>stdcpp17</LanguageStandard>
 
-      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../../Contracts/CloudSimCore/inc;../CloudSimLabelingSDK/inc;../CloudSimAiSDK/inc;../PointNetPlugin/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\onnxruntime/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../../Contracts/CloudSimCore/inc;../CloudSimAiSDK/inc;../PointNetPlugin/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\onnxruntime/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
 
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
 
@@ -156,7 +156,7 @@
 
     <Link>
 
-      <AdditionalDependencies>CloudSimPluginSDK.lib;CloudSimLabelingSDK.lib;CloudSimAiSDK.lib;onnxruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimPluginSDK.lib;CloudSimAiSDK.lib;onnxruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
 
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\onnxruntime/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
 
@@ -221,12 +221,6 @@
     <ProjectReference Include="..\CloudSimPluginSDK\CloudSimPluginSDK.vcxproj">
 
       <Project>{c3d4e5f6-a7b8-9012-cdef-123456789abc}</Project>
-
-    </ProjectReference>
-
-    <ProjectReference Include="..\CloudSimLabelingSDK\CloudSimLabelingSDK.vcxproj">
-
-      <Project>{a1b2c3d4-e5f6-7890-abcd-123456789def}</Project>
 
     </ProjectReference>
 

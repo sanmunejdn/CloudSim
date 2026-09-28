@@ -5,6 +5,7 @@
 
 #include "BackendTypeIds.h"
 #include "IPluginDocument.h"
+#include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
 #include "IPluginLabelingHost.h"
 #include "PointNetInference.h"
@@ -578,7 +579,8 @@ void LabelingAnnotWidget::refreshBackendList()
 	}
 	QSignalBlocker blocker(m_backendCombo);
 	m_backendCombo->clear();
-	IPluginDocument* doc = m_host->activeDocument();
+	IPluginDocumentContext* docCtx = m_host->documentContext();
+	IPluginDocument* doc = docCtx ? docCtx->activeDocument() : nullptr;
 	if (!doc)
 	{
 		clearSession();
@@ -656,7 +658,8 @@ bool LabelingAnnotWidget::ensureSession(QString* err)
 		}
 		return false;
 	}
-	IPluginDocument* doc = m_host->activeDocument();
+	IPluginDocumentContext* docCtx = m_host->documentContext();
+	IPluginDocument* doc = docCtx ? docCtx->activeDocument() : nullptr;
 	if (!doc || m_backendId.empty())
 	{
 		if (err)
@@ -961,7 +964,8 @@ bool LabelingAnnotWidget::extractBackendPoints(const std::string& backendId, std
 	{
 		return false;
 	}
-	IPluginDocument* doc = m_host->activeDocument();
+	IPluginDocumentContext* docCtx = m_host->documentContext();
+	IPluginDocument* doc = docCtx ? docCtx->activeDocument() : nullptr;
 	if (!doc)
 	{
 		return false;
