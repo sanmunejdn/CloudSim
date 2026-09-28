@@ -13,5 +13,6 @@
 | 07 | [URDF 与机器人](07-URDF与机器人.md) | URDF 加载、FK、显示异常 |
 | 08 | [网页端](08-网页端.md) | CloudSimWeb / Gateway / 前端 |
 | 09 | [打包·SDK·日志](09-打包SDK与日志.md) | 安装包、RunLogger |
+| 10 | [Bug 管理](10-Bug管理.md) | **开发新功能 / 修 bug 前（强制）** |
 
 **冲突优先级**：源码与 `DEVELOPER_GUIDE` → 本手册与 `docs/features` → 其它。

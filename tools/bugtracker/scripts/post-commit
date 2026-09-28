@@ -1,0 +1,5 @@
+#!/bin/sh
+# BugTracker post-commit hook 模板。
+# 由 install_hook.ps1 安装并替换其中的路径与 token；也可手工复制到 <repo>/.git/hooks/post-commit
+python "$(dirname "$0")/scan_commits.py" --api "http://127.0.0.1:8500" --token "__BT_TOKEN__" &
+exit 0

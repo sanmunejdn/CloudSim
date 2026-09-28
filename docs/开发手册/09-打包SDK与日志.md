@@ -45,4 +45,4 @@ cd Setup/packaging
 
 ---
 
-← [08 网页端](08-网页端.md) · [手册目录](README.md)
+← [08 网页端](08-网页端.md) · [10 Bug 管理 →](10-Bug管理.md)
