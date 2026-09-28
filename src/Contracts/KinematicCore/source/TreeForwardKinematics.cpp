@@ -1,4 +1,4 @@
-﻿/// @file TreeForwardKinematics.cpp
+/// @file TreeForwardKinematics.cpp
 /// @brief TreeForwardKinematics 实现
 
 #include "TreeForwardKinematics.h"
@@ -73,6 +73,11 @@ bool forwardKinematicsTree(const KinematicGraph& graph, const double baseWorld[1
 			if (j.qIndex >= 0 && static_cast<std::size_t>(j.qIndex) < qCount)
 			{
 				qj = q[static_cast<size_t>(j.qIndex)];
+			}
+			else if (j.mimicSourceQIndex >= 0 && static_cast<std::size_t>(j.mimicSourceQIndex) < qCount)
+			{
+				// URDF mimic：被动副随驱动关节，不占独立 q 槽
+				qj = j.mimicMultiplier * q[static_cast<size_t>(j.mimicSourceQIndex)] + j.mimicOffset;
 			}
 			double motion[16];
 			evaluateJointMotion1D(j.motion, qj, motion);

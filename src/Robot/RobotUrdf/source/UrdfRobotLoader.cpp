@@ -1,4 +1,4 @@
-﻿/// @file UrdfRobotLoader.cpp
+/// @file UrdfRobotLoader.cpp
 /// @brief 零位姿（q=0）下的 parent_T_child，仅由该关节的 URDF 决定，不依赖 jointAnglesRad 下标顺序
 
 // UrdfRobotLoader：URDF 解析、FK、层级 OSG 场景；多机键前缀由上层加 backendId::
@@ -446,6 +446,11 @@ struct UrdfJoint
 	bool hasLimit = false;
 	double limitLower = 0.0;
 	double limitUpper = 0.0;
+	// <mimic joint multiplier offset/>：被动从动，不计入独立 DOF / 示教滑条
+	bool hasMimic = false;
+	QString mimicJoint;
+	double mimicMultiplier = 1.0;
+	double mimicOffset = 0.0;
 };
 
 // 读取单个 <visual> 内的 <origin xyz rpy> 与 <geometry><mesh filename="..."/>
@@ -538,6 +543,26 @@ void readJointBlock(QXmlStreamReader& xml, UrdfJoint& j)
 			j.limitLower = lo.toDouble(&okLo);
 			j.limitUpper = hi.toDouble(&okHi);
 			j.hasLimit = okLo && okHi;
+			xml.skipCurrentElement();
+		}
+		else if (xml.name() == QLatin1String("mimic"))
+		{
+			j.hasMimic = true;
+			j.mimicJoint = normalizedUrdfName(xml.attributes().value(QStringLiteral("joint")).toString());
+			const QString mul = xml.attributes().value(QStringLiteral("multiplier")).toString();
+			const QString off = xml.attributes().value(QStringLiteral("offset")).toString();
+			bool okMul = false;
+			bool okOff = false;
+			const double m = mul.toDouble(&okMul);
+			const double o = off.toDouble(&okOff);
+			if (okMul)
+			{
+				j.mimicMultiplier = m;
+			}
+			if (okOff)
+			{
+				j.mimicOffset = o;
+			}
 			xml.skipCurrentElement();
 		}
 		else
@@ -708,8 +733,9 @@ static Mat4 jointPrismaticTranslationOnly(const UrdfJoint& j, double qMm)
 
 // 正运动学用：子连杆相对父连杆的变换，即 parent_T_child = <joint><origin> * 绕 axis 的 q 角旋转（若为转动关节）
 // \<joint\>\<origin\> xyz 按 REP-103 为米：乘 kUrdfOriginXyzMetersToInternalMm 得到内部 mm，与 visual、网格一致。axis 与 rpy 不缩放。
-// jointAnglesRad 与 qIndex 须与树遍历顺序一致（见 computeMeshWorldMatricesFromModel / loadMeshHierarchyParts）。
-Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAnglesRad, int& qIndex)
+// jointAnglesRad 仅含主动关节，顺序与 loadRevoluteJointMeta 一致；mimic 关节由驱动关节角推算，不消耗 qIndex。
+Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAnglesRad, int& qIndex,
+							  QHash<QString, double>& resolvedQByName)
 {
 	const Mat4 T_origin = matFromXyzRpy(j.x * kUrdfOriginXyzMetersToInternalMm, j.y * kUrdfOriginXyzMetersToInternalMm,
 										j.z * kUrdfOriginXyzMetersToInternalMm, j.roll, j.pitch, j.yaw);
@@ -717,22 +743,46 @@ Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAn
 	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
 	{
 		double q = 0.0;
-		if (qIndex < jointAnglesRad.size())
+		if (j.hasMimic)
 		{
-			q = jointAnglesRad[qIndex];
+			const double src = resolvedQByName.value(j.mimicJoint, 0.0);
+			q = j.mimicMultiplier * src + j.mimicOffset;
 		}
-		++qIndex;
+		else
+		{
+			if (qIndex < jointAnglesRad.size())
+			{
+				q = jointAnglesRad[qIndex];
+			}
+			++qIndex;
+		}
+		if (!j.name.isEmpty())
+		{
+			resolvedQByName.insert(j.name, q);
+		}
 		return matMul(T_origin, jointRevoluteRotationOnly(j, q));
 	}
 	if (jt == QLatin1String("prismatic"))
 	{
 		double q = 0.0;
-		if (qIndex < jointAnglesRad.size())
+		if (j.hasMimic)
 		{
-			// URDF prismatic 单位为米，内部 mm
-			q = jointAnglesRad[qIndex] * kUrdfOriginXyzMetersToInternalMm;
+			const double src = resolvedQByName.value(j.mimicJoint, 0.0);
+			q = (j.mimicMultiplier * src + j.mimicOffset) * kUrdfOriginXyzMetersToInternalMm;
 		}
-		++qIndex;
+		else
+		{
+			if (qIndex < jointAnglesRad.size())
+			{
+				// URDF prismatic 单位为米，内部 mm
+				q = jointAnglesRad[qIndex] * kUrdfOriginXyzMetersToInternalMm;
+			}
+			++qIndex;
+		}
+		if (!j.name.isEmpty())
+		{
+			resolvedQByName.insert(j.name, q);
+		}
 		return matMul(T_origin, jointPrismaticTranslationOnly(j, q));
 	}
 	// 只有转动/移动关节才递增 qIndex
@@ -1085,6 +1135,7 @@ void computeMeshWorldMatricesFromModel(const UrdfFkModelData& model, const QVect
 	start.worldFromLink = matIdentity();
 	q.push(start);
 	int qIndex = 0;
+	QHash<QString, double> resolvedQByName;
 	while (!q.empty())
 	{
 		const QueueItem cur = q.front();
@@ -1112,7 +1163,7 @@ void computeMeshWorldMatricesFromModel(const UrdfFkModelData& model, const QVect
 			{
 				continue;
 			}
-			const Mat4 jointFromChild = jointChildTransformForFk(j, angles, qIndex);
+			const Mat4 jointFromChild = jointChildTransformForFk(j, angles, qIndex, resolvedQByName);
 			QueueItem nxt{};
 			nxt.link = j.child;
 			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
@@ -1161,6 +1212,10 @@ static void fillJointMotionFromUrdf(const UrdfJoint& j, kinematic_core::Kinemati
 	{
 		kj.motion.motionType = kinematic_core::JointMotionType::Revolute;
 		kj.qIndex = qIndex;
+		if (qIndex < 0)
+		{
+			kj.motion.enabled = false; // mimic / 非独立 DOF
+		}
 		return;
 	}
 	if (jt == QLatin1String("prismatic"))
@@ -1168,6 +1223,10 @@ static void fillJointMotionFromUrdf(const UrdfJoint& j, kinematic_core::Kinemati
 		kj.motion.motionType = kinematic_core::JointMotionType::Translate;
 		kj.motion.qScale = kUrdfOriginXyzMetersToInternalMm;
 		kj.qIndex = qIndex;
+		if (qIndex < 0)
+		{
+			kj.motion.enabled = false;
+		}
 		return;
 	}
 	kj.qIndex = -1;
@@ -1195,6 +1254,8 @@ static bool buildKinematicGraphFromModel(const UrdfFkModelData& model, kinematic
 	q.push(model.rootLink);
 	std::unordered_set<QString> visited;
 	visited.insert(model.rootLink);
+	// 关节名 → graph.joints 下标，供 mimic 解析驱动轴 qIndex
+	std::unordered_map<QString, int> jointNameToGraphIdx;
 	while (!q.empty())
 	{
 		const QString curLink = q.front();
@@ -1218,14 +1279,45 @@ static bool buildKinematicGraphFromModel(const UrdfFkModelData& model, kinematic
 				continue;
 			}
 			const QString jt = j.type.toLower();
-			const bool hasDof = jt == QLatin1String("revolute") || jt == QLatin1String("continuous") ||
-								jt == QLatin1String("prismatic");
+			// mimic 关节随驱动关节运动，不占用独立 q 槽
+			const bool hasDof = !j.hasMimic && (jt == QLatin1String("revolute") || jt == QLatin1String("continuous") ||
+												jt == QLatin1String("prismatic"));
 			fillJointMotionFromUrdf(j, kj, hasDof ? qIndex++ : -1);
+			if (j.hasMimic)
+			{
+				kj.mimicMultiplier = j.mimicMultiplier;
+				kj.mimicOffset = j.mimicOffset;
+				// mimicSourceQIndex 在整图建完后二次回填
+			}
+			const int graphIdx = static_cast<int>(graph.joints.size());
+			if (!j.name.isEmpty())
+			{
+				jointNameToGraphIdx[j.name] = graphIdx;
+			}
 			graph.joints.push_back(kj);
 			if (visited.insert(j.child).second)
 			{
 				q.push(j.child);
 			}
+		}
+	}
+	// 回填 mimic 驱动轴：按名找到源关节的 qIndex（源关节必须是主动 DOF）
+	for (const auto& kv : model.jointsByParent)
+	{
+		for (const UrdfJoint& j : kv.second)
+		{
+			if (!j.hasMimic || j.name.isEmpty())
+			{
+				continue;
+			}
+			const auto selfIt = jointNameToGraphIdx.find(j.name);
+			const auto srcIt = jointNameToGraphIdx.find(j.mimicJoint);
+			if (selfIt == jointNameToGraphIdx.end() || srcIt == jointNameToGraphIdx.end())
+			{
+				continue;
+			}
+			const int srcQ = graph.joints[static_cast<size_t>(srcIt->second)].qIndex;
+			graph.joints[static_cast<size_t>(selfIt->second)].mimicSourceQIndex = srcQ;
 		}
 	}
 	std::string err;
@@ -1244,6 +1336,7 @@ static void computeLinkWorldLegacyBfsFromModel(const UrdfFkModelData& model, con
 	std::queue<QueueItem> q;
 	q.push({model.rootLink, matIdentity()});
 	int qIndex = 0;
+	QHash<QString, double> resolvedQByName;
 	while (!q.empty())
 	{
 		const QueueItem cur = q.front();
@@ -1260,7 +1353,7 @@ static void computeLinkWorldLegacyBfsFromModel(const UrdfFkModelData& model, con
 			{
 				continue;
 			}
-			const Mat4 jointFromChild = jointChildTransformForFk(j, jointAnglesRad, qIndex);
+			const Mat4 jointFromChild = jointChildTransformForFk(j, jointAnglesRad, qIndex, resolvedQByName);
 			QueueItem nxt{};
 			nxt.link = j.child;
 			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
@@ -1411,7 +1504,7 @@ bool UrdfRobotLoader::loadRevoluteJointMeta(const QString& urdfFilePath, QString
 			}
 
 			const QString jt = j.type.toLower();
-			if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
+			if ((jt == QLatin1String("revolute") || jt == QLatin1String("continuous")) && !j.hasMimic)
 			{
 				appendRevoluteJointMetaForJoint(j, jt, outJointNames, outLowerRad, outUpperRad);
 			}
@@ -1460,7 +1553,7 @@ bool UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(const QString& urdfFile
 				continue;
 			}
 			const QString jt = j.type.toLower();
-			if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
+			if ((jt == QLatin1String("revolute") || jt == QLatin1String("continuous")) && !j.hasMimic)
 			{
 				outChildLinkNames.append(j.child);
 			}
@@ -1923,6 +2016,7 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 	bool foundLink = false;
 	Mat4 targetWorldUrdf = matIdentity();
 	size_t qi = 0;
+	QHash<QString, double> resolvedQByName;
 	while (qi < queue.size())
 	{
 		const QueueItem cur = queue[qi++];
@@ -1945,7 +2039,8 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 			const QString jt = j.type.toLower();
 			const bool isRev = jt == QLatin1String("revolute") || jt == QLatin1String("continuous");
 			const bool isPri = jt == QLatin1String("prismatic");
-			if (isRev || isPri)
+			// 雅可比只对主动关节列；mimic 由驱动关节带动
+			if ((isRev || isPri) && !j.hasMimic)
 			{
 				const Mat4 T_origin = jointOriginFixedTransform(j);
 				const Mat4 worldJointUrdf = matMul(cur.worldFromLink, T_origin);
@@ -1970,7 +2065,7 @@ bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFil
 				}
 				ws.jacCols.push_back(col);
 			}
-			const Mat4 jointFromChild = jointChildTransformForFk(j, jointAnglesRad, qIndex);
+			const Mat4 jointFromChild = jointChildTransformForFk(j, jointAnglesRad, qIndex, resolvedQByName);
 			const auto cit = model->linkNameToIndex.find(j.child);
 			if (cit == model->linkNameToIndex.end())
 			{
@@ -2159,6 +2254,7 @@ bool UrdfRobotLoader::computeJointTransformMatrices(const QString& urdfFilePath,
 	q.push(start);
 
 	int qIndex = 0;
+	QHash<QString, double> resolvedQByName;
 
 	while (!q.empty())
 	{
@@ -2181,20 +2277,31 @@ bool UrdfRobotLoader::computeJointTransformMatrices(const QString& urdfFilePath,
 			Mat4 parent_T_child;
 			if (jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"))
 			{
-				double q = 0.0;
-				if (qIndex < jointAnglesRad.size())
+				double qVal = 0.0;
+				if (j.hasMimic)
 				{
-					q = jointAnglesRad[qIndex];
+					qVal = j.mimicMultiplier * resolvedQByName.value(j.mimicJoint, 0.0) + j.mimicOffset;
 				}
-				++qIndex;
-				const Mat4 Rq = jointRevoluteRotationOnly(j, q);
+				else
+				{
+					if (qIndex < jointAnglesRad.size())
+					{
+						qVal = jointAnglesRad[qIndex];
+					}
+					++qIndex;
+				}
+				if (!j.name.isEmpty())
+				{
+					resolvedQByName.insert(j.name, qVal);
+				}
+				const Mat4 Rq = jointRevoluteRotationOnly(j, qVal);
 				outJointMatrices[j.name] = mat4ToOsg(Rq);
 				const Mat4 T_origin = jointOriginFixedTransform(j);
 				parent_T_child = matMul(T_origin, Rq);
 			}
 			else
 			{
-				parent_T_child = jointChildTransformForFk(j, jointAnglesRad, qIndex);
+				parent_T_child = jointChildTransformForFk(j, jointAnglesRad, qIndex, resolvedQByName);
 				outJointMatrices[j.name] = mat4ToOsg(parent_T_child);
 			}
 
@@ -3062,21 +3169,30 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(const QString& urdfFile
 			// 与 URDF parent_T_child = T_origin * R(q) 一致；动态更新只写 R(q) 到 URDF 关节名 MatrixTransform（与 computeJointTransformMatrices 一致）
 			if (isRevolute)
 			{
-				const int jointVisIndex = revoluteJointAxisVisualIndex + 1;
-				const QString axisLabel = QStringLiteral("第%1个关节的旋转轴").arg(jointVisIndex);
-				++revoluteJointAxisVisualIndex;
+				// 示教轴序号只计主动关节；mimic 平衡缸等仍建节点但不占「第 N 轴」
+				const int jointVisIndex = j.hasMimic ? -1 : (revoluteJointAxisVisualIndex + 1);
+				if (!j.hasMimic)
+				{
+					++revoluteJointAxisVisualIndex;
+				}
+				const QString axisLabel = j.hasMimic
+											  ? (j.name.isEmpty() ? QStringLiteral("mimic") : j.name)
+											  : QStringLiteral("第%1个关节的旋转轴").arg(jointVisIndex);
 
 				const Mat4 T_origin = T_origin_anchor;
 
 				osg::ref_ptr<osg::MatrixTransform> jointOriginMt = new osg::MatrixTransform;
-				jointOriginMt->setName(QStringLiteral("Joint%1").arg(jointVisIndex).toStdString());
+				jointOriginMt->setName(j.hasMimic ? (j.name.isEmpty() ? std::string("JointMimic") : j.name.toStdString())
+												  : QStringLiteral("Joint%1").arg(jointVisIndex).toStdString());
 				jointOriginMt->setMatrix(mat4ToOsg(T_origin));
 
 				osg::ref_ptr<osg::Group> axisShell;
 				if (kUrdfShowRevoluteJointDebugVisuals)
 				{
 					axisShell = new osg::Group;
-					axisShell->setName(QStringLiteral("Axis_Visual_%1").arg(jointVisIndex).toStdString());
+					axisShell->setName(j.hasMimic
+										   ? (j.name + QStringLiteral("_Axis")).toStdString()
+										   : QStringLiteral("Axis_Visual_%1").arg(jointVisIndex).toStdString());
 					axisShell->addChild(createJointRotationAxisLineGeode(
 											kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
 											(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)

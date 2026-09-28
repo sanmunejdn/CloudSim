@@ -1,4 +1,4 @@
-﻿/// @file GeometricJacobian.cpp
+/// @file GeometricJacobian.cpp
 /// @brief URDF 等 RestThenMotion 链：轴与枢轴在 parent*Rest（或 MotionThenRest 时 parent*Motion）坐标系，而非 parent link 原点
 
 #include "GeometricJacobian.h"
@@ -72,6 +72,10 @@ void jointAxisOriginInWorld(const KinematicJoint& j, const double parentW[16], c
 		if (j.qIndex >= 0 && static_cast<std::size_t>(j.qIndex) < qCount)
 		{
 			qj = q[static_cast<std::size_t>(j.qIndex)];
+		}
+		else if (j.mimicSourceQIndex >= 0 && static_cast<std::size_t>(j.mimicSourceQIndex) < qCount)
+		{
+			qj = j.mimicMultiplier * q[static_cast<std::size_t>(j.mimicSourceQIndex)] + j.mimicOffset;
 		}
 		double motion[16];
 		evaluateJointMotion1D(j.motion, qj, motion);

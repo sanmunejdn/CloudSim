@@ -1,4 +1,4 @@
-﻿#ifndef KINEMATICCORE_KINEMATICJOINT_H
+#ifndef KINEMATICCORE_KINEMATICJOINT_H
 #define KINEMATICCORE_KINEMATICJOINT_H
 
 /// @file KinematicJoint.h
@@ -23,6 +23,10 @@ struct KINEMATIC_CORE_API KinematicJoint
 	JointMotion1D motion;
 	double parentToChildRest[16]{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 	int qIndex = -1;
+	/// URDF <mimic>：q = multiplier * q[source] + offset；sourceQIndex<0 表示无 mimic
+	int mimicSourceQIndex = -1;
+	double mimicMultiplier = 1.0;
+	double mimicOffset = 0.0;
 	JointTransformOrder transformOrder = JointTransformOrder::MotionThenRest;
 };
 
