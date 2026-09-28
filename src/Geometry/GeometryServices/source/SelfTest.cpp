@@ -1,4 +1,4 @@
-/// @file SelfTest.cpp
+﻿/// @file SelfTest.cpp
 /// @brief 转发 PointCloudAlgorithm 自检（供 SelfTestRunner 经 DLL 调用）
 
 #include "pch.h"

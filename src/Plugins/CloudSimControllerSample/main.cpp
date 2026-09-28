@@ -1,4 +1,4 @@
-/// @file main.cpp
+﻿/// @file main.cpp
 /// @brief CloudSim 外置控制器 C++ 样例：正弦关节 STEP
 
 #include "IControllerClient.h"

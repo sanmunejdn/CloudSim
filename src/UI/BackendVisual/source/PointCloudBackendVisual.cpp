@@ -22,6 +22,7 @@
 
 #include <osg/Geode>
 #include <osg/Geometry>
+#include <osg/Group>
 #include <osg/MatrixTransform>
 #include <osg/Matrixd>
 #include <osg/Point>
@@ -34,7 +35,8 @@
 
 namespace
 {
-osg::ref_ptr<osg::Geode> buildGeodeImpl(const PointCloudBackendData& data, std::string* errorMessage)
+/// 顶点/颜色/图元重建，整建与增量共用，避免两条路径视觉分叉
+bool fillPointCloudGeometry(const PointCloudBackendData& data, osg::Geometry& geometry, std::string* errorMessage)
 {
 	const std::vector<float>& xyz = data.pointPositionsXyz();
 	if (xyz.size() < 3U || (xyz.size() % 3U) != 0U)
@@ -43,7 +45,7 @@ osg::ref_ptr<osg::Geode> buildGeodeImpl(const PointCloudBackendData& data, std::
 		{
 			*errorMessage = "Invalid point buffer in backend data.";
 		}
-		return nullptr;
+		return false;
 	}
 	osg::ref_ptr<osg::Vec3Array> points = new osg::Vec3Array;
 	points->reserve(xyz.size() / 3U);
@@ -51,9 +53,10 @@ osg::ref_ptr<osg::Geode> buildGeodeImpl(const PointCloudBackendData& data, std::
 	{
 		points->push_back(osg::Vec3(xyz[i], xyz[i + 1], xyz[i + 2]));
 	}
-	osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
-	geometry->setVertexArray(points.get());
-	geometry->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, static_cast<GLsizei>(points->size())));
+	geometry.setVertexArray(points.get());
+	osg::Geometry::PrimitiveSetList psets;
+	psets.push_back(new osg::DrawArrays(GL_POINTS, 0, static_cast<GLsizei>(points->size())));
+	geometry.setPrimitiveSetList(psets);
 	const std::vector<float>& rgba = data.pointVertexRgba();
 	if (data.hasPerVertexColors() && rgba.size() == xyz.size() / 3U * 4U)
 	{
@@ -63,14 +66,53 @@ osg::ref_ptr<osg::Geode> buildGeodeImpl(const PointCloudBackendData& data, std::
 		{
 			colors->push_back(osg::Vec4(rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]));
 		}
-		geometry->setColorArray(colors.get(), osg::Array::BIND_PER_VERTEX);
+		geometry.setColorArray(colors.get(), osg::Array::BIND_PER_VERTEX);
 	}
 	else
 	{
 		const BackendColor c = data.color();
 		osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
 		colors->push_back(osg::Vec4(c.r, c.g, c.b, c.a));
-		geometry->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+		geometry.setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	}
+	geometry.dirtyBound();
+	geometry.dirtyDisplayList();
+	return true;
+}
+
+osg::Geode* findFirstGeode(osg::Node* node)
+{
+	if (!node)
+	{
+		return nullptr;
+	}
+	if (osg::Geode* geode = node->asGeode())
+	{
+		return geode;
+	}
+	osg::Group* grp = node->asGroup();
+	if (!grp)
+	{
+		return nullptr;
+	}
+	for (unsigned int i = 0; i < grp->getNumChildren(); ++i)
+	{
+		if (osg::Geode* geode = findFirstGeode(grp->getChild(i)))
+		{
+			return geode;
+		}
+	}
+	return nullptr;
+}
+
+osg::ref_ptr<osg::Geode> buildGeodeImpl(const PointCloudBackendData& data, std::string* errorMessage)
+{
+	osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
+	// 增量更新会原地换数组，声明 DYNAMIC 避免与绘制线程竞争
+	geometry->setDataVariance(osg::Object::DYNAMIC);
+	if (!fillPointCloudGeometry(data, *geometry, errorMessage))
+	{
+		return nullptr;
 	}
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode->addDrawable(geometry.get());
@@ -137,4 +179,31 @@ void PointCloudBackendVisual::computeModelCenterAndDiagonal(const BackendDataBas
 	}
 	outCenter = backend_geometry_metrics::pointCloudCenterFromXyz(pc->pointPositionsXyz());
 	outDiagonal = backend_geometry_metrics::pointCloudDiagonalFromXyz(pc->pointPositionsXyz());
+}
+
+bool PointCloudBackendVisual::updateGeometry(osg::Node* innerRoot, const BackendDataBase& data,
+											 std::string* errorMessage)
+{
+	const auto* pc = dynamic_cast<const PointCloudBackendData*>(&data);
+	if (!pc)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = "Backend type mismatch (expected PointCloudBackendData).";
+		}
+		return false;
+	}
+	osg::Geode* geode = findFirstGeode(innerRoot);
+	osg::Geometry* geometry = (geode && geode->getNumDrawables() > 0)
+								  ? dynamic_cast<osg::Geometry*>(geode->getDrawable(0))
+								  : nullptr;
+	if (!geometry)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = "Point cloud geometry not found in existing branch.";
+		}
+		return false;
+	}
+	return fillPointCloudGeometry(*pc, *geometry, errorMessage);
 }

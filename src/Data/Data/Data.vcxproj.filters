@@ -140,6 +140,12 @@
     <ClInclude Include="inc\geometry_base64.h">
       <Filter>inc\GeometryBackends</Filter>
     </ClInclude>
+    <ClInclude Include="inc\GeometryMutator.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IBackendDataQuery.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\MeshBackendData.h">
       <Filter>inc\GeometryBackends</Filter>
     </ClInclude>

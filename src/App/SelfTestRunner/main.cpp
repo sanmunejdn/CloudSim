@@ -1,4 +1,4 @@
-/// @file main.cpp
+﻿/// @file main.cpp
 /// @brief 聚合各算法 DLL runSelfTest；退出码 = 失败模块数
 /// @note 启动前须 PATH 含 Qt/OSG（见 scripts/run_selftest.ps1）；GeometryAlgorithm 全量自检可能数分钟
 

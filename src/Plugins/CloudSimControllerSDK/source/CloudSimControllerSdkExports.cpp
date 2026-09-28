@@ -1,4 +1,4 @@
-/// @file CloudSimControllerSdkExports.cpp
+﻿/// @file CloudSimControllerSdkExports.cpp
 /// @brief CloudSimControllerSDK 工厂导出
 
 #include "IControllerClient.h"

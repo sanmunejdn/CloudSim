@@ -157,7 +157,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Contracts/KinematicCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../BackendVisual/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/GeometryServices/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Host/CloudSimHost/inc;../../Host/CloudSimHost/inc/osg;../../Host/CloudSimHost/inc/pluginhost;../../Contracts/CloudSimCore/inc;../../Contracts/KinematicCore/inc;../../Plugins/CloudSimPluginSDK/inc;../../Host/CloudSimHost/inc/pluginhost;../BackendVisual/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/GeometryServices/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -180,7 +180,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Contracts/KinematicCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../BackendVisual/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/GeometryServices/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Host/CloudSimHost/inc;../../Host/CloudSimHost/inc/osg;../../Host/CloudSimHost/inc/pluginhost;../../Contracts/CloudSimCore/inc;../../Contracts/KinematicCore/inc;../../Plugins/CloudSimPluginSDK/inc;../../Host/CloudSimHost/inc/pluginhost;../BackendVisual/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/GeometryServices/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -212,30 +212,13 @@
     <ClInclude Include="inc\JobSystem.h" />
     <ClInclude Include="inc\MainWindowObjectRepository.h" />
     <ClInclude Include="inc\MainWindowSelectionService.h" />
-    <ClInclude Include="inc\BackendFollowReverseIndex.h" />
-    <ClInclude Include="inc\BackendSceneDocumentFacade.h" />
     <ClInclude Include="inc\IBackendSceneBridge.h" />
     <ClInclude Include="inc\MainWindowInstructionPropertyUiHost.h" />
     <ClInclude Include="inc\WidgetOsgViewHost.h" />
     <ClInclude Include="inc\MainWindowSelectionState.h" />
-    <ClInclude Include="inc\OsgWidgetSceneBridge.h" />
     <QtMoc Include="inc\RunInfoPage.h" />
     <QtMoc Include="inc\HelpBrowserDialog.h" />
     <ClInclude Include="inc\SelectionOperation.h" />
-    <ClInclude Include="inc\ViewportInteraction\ViewportHit.h" />
-    <ClInclude Include="inc\ViewportInteraction\IViewportPickEngine.h" />
-    <ClInclude Include="inc\ViewportInteraction\OsgWidgetPickEngine.h" />
-    <ClInclude Include="inc\ViewportInteraction\IPointerTool.h" />
-    <ClInclude Include="inc\ViewportInteraction\IOverlayOp.h" />
-    <ClInclude Include="inc\ViewportInteraction\IHitResolvePolicy.h" />
-    <ClInclude Include="inc\ViewportInteraction\IInteractionSession.h" />
-    <ClInclude Include="inc\ViewportInteraction\ViewportInteractionController.h" />
-    <ClInclude Include="inc\ViewportInteraction\MeshPickSession.h" />
-    <ClInclude Include="inc\ViewportInteraction\Policies\PassthroughHitPolicy.h" />
-    <ClInclude Include="inc\ViewportInteraction\Policies\GizmoAxisHitPolicy.h" />
-    <ClInclude Include="inc\ViewportInteraction\Policies\RobotObjectSelectPolicy.h" />
-    <ClInclude Include="inc\ViewportInteraction\Tools\SelectionOperationToolAdapter.h" />
-    <ClInclude Include="inc\ViewportInteraction\Overlays\SelectionOperationOverlayAdapter.h" />
     <ClInclude Include="inc\widget_global.h" />
     <ClInclude Include="inc\ProjectPackageZip.h" />
     <QtMoc Include="inc\ViewportToolBar.h" />
@@ -246,8 +229,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="source\ViewportInteraction\OsgWidgetPickEngine.cpp" />
-    <ClCompile Include="source\ViewportInteraction\ViewportInteractionController.cpp" />
     <ClCompile Include="source\ApplicationSettings.cpp" />
     <ClCompile Include="source\ApplicationStyle.cpp" />
     <ClCompile Include="source\DocumentPage.cpp" />

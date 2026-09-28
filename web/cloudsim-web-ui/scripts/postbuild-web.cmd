@@ -1,8 +1,13 @@
 @echo off
 REM CloudSimWeb PostBuild: Vite output under bin\x64d\web or bin\x64\web
 REM CLOUDSIM_WEB_SKIP_BUILD=1 skips Vite
-REM CLOUDSIM_WEB_FALLBACK=1 uses _archive\public-fallback
+REM CLOUDSIM_WEB_FALLBACK is forbidden: build fails if defined
 setlocal EnableExtensions EnableDelayedExpansion
+REM 构建期禁用 web fallback：定义 CLOUDSIM_WEB_FALLBACK 直接失败
+if defined CLOUDSIM_WEB_FALLBACK (
+  echo [cloudsim-web] ERROR: CLOUDSIM_WEB_FALLBACK is defined; web fallback is forbidden during build
+  exit /b 1
+)
 set "UI_ROOT=%~dp0.."
 set "OUT_WEB=%~1"
 set "BUILD_MODE=%~2"
@@ -48,7 +53,7 @@ if errorlevel 1 (
     set "NPM=npm.cmd"
   ) else (
     echo [cloudsim-web] npm not found. Install Node 18+ or place portable node in web\cloudsim-web-ui\.tools\node
-    echo [cloudsim-web] or set CLOUDSIM_WEB_FALLBACK=1 / CLOUDSIM_WEB_SKIP_BUILD=1
+    echo [cloudsim-web] or set CLOUDSIM_WEB_SKIP_BUILD=1
     exit /b 1
   )
 )

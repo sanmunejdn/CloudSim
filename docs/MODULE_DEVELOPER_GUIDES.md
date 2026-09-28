@@ -9,19 +9,6 @@
 
 全工程空间语义以 **[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md) v2** 为权威说明。凡涉及导入、显示、FK、配准、拾取、面重构、TCP 示教，**须先对照该文档**，再改代码。
 
-| 要点 | 约定 |
-|------|------|
-| **权威存储** | `BackendMat4 worldMatrix`（16 元列主序）；JSON v2 仅持久化 `worldMatrix` |
-| **几何** | `geometry` 为对象**出生时**坐标；用户移动只改 `worldMatrix`，不改顶点 |
-| **变换** | `p_world = p_geometry × worldMatrix`（OSG 行向量；经 `Adapters` 与 BackendMat4 等价） |
-| **属性面板** | `pose` / `rotation` 为 **worldMatrix 分解视图**，非独立存储 |
-| **显示** | outer = `osgMatrixFromBackendWorldMatrix`；inner PAT 恒 `(0,0,0)` |
-| **权威 API** | `BackendDataBase::worldMatrix()` / `setWorldMatrix()`；`BackendSpatial::transformPointToWorld` |
-| **Gizmo** | World/Local 仅交互方式不同；分解为内禀 ZYX |
-| **URDF per-link** | 连杆 `geometry` 为 link 文件系；FK 每帧刷新 `worldMatrix`；禁止双重 visual 烘焙 |
-| **工具 TCP** | 无 URDF 时：右乘 FK + `toolTcpInBaseFromFk`；有坐标系时：右法兰 + `T_flange_tool` |
-| **已废弃** | 独立 `pose`/`rotation` JSON 字段、`T(pose)×R` 手写拼装、轴心补偿写进 `pose`、`skipInnerModelCenterRebase` 等旧路径 |
-
 **强耦合模块**：[`Data`](../src/Data/Data/DEVELOPER_GUIDE.md)、[`BackendVisual`](../src/UI/BackendVisual/DEVELOPER_GUIDE.md)、[`OsgWidgetCore`](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md)、[`CloudSimHost`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md)、[`RobotUrdf`](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md)、[`RobotScene`](../src/Robot/RobotScene/DEVELOPER_GUIDE.md)、[`RobotWidget`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)
 
 | 子工程 | 职责摘要 | 开发文档 |

@@ -60,7 +60,7 @@
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>CLOUDSIM_BOOTSTRAP_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Host/CloudSimHost/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Host/CloudSimHost/inc;../../Host/CloudSimHost/inc/osg;../../Host/CloudSimHost/inc/pluginhost;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -68,7 +68,7 @@
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>CLOUDSIM_BOOTSTRAP_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Host/CloudSimHost/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Host/CloudSimHost/inc;../../Host/CloudSimHost/inc/osg;../../Host/CloudSimHost/inc/pluginhost;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>

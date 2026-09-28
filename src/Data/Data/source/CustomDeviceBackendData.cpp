@@ -5,6 +5,7 @@
 
 #include "BackendTypeIdentity.h"
 #include "CustomDeviceRobotMountComponent.h"
+#include "GeometryMutator.h"
 #include "RunLogger.h"
 
 #include <algorithm>
@@ -691,12 +692,13 @@ void CustomDeviceKinematicState::syncAxesFromJoints(const std::vector<CustomDevi
 
 void CustomDeviceBackendData::setAxisLengthMm(const float mm)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	if (mm > 0.0f)
 	{
 		m_axisLengthMm = mm;
-		bumpGeometryRevision();
 		return;
 	}
+	guard.dismiss();
 	RunLogger::warn("[CustomDeviceBackendData] setAxisLengthMm: ignore non-positive value.");
 }
 

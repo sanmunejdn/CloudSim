@@ -16,6 +16,13 @@ inline OsgWidget* osgWidgetFrom(DocumentHost& host)
 	return host.osgWidget();
 }
 
+/// Host 内部取 backend 管理器的唯一收口：仅用于把管理器传给引擎/库函数；
+/// 对象级操作优先用 DocumentHost 窄接口（findObject/backendContains 等），勿在 UI 层扩散
+inline BackendDataManager& backendManagerOf(DocumentHost& host)
+{
+	return host.backend();
+}
+
 } // namespace cloudsim::host
 
 #endif // CLOUDSIMHOST_DOCUMENTHOSTACCESS_H

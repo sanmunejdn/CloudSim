@@ -1,4 +1,4 @@
-/// @file GeometricJacobian.cpp
+﻿/// @file GeometricJacobian.cpp
 /// @brief URDF 等 RestThenMotion 链：轴与枢轴在 parent*Rest（或 MotionThenRest 时 parent*Motion）坐标系，而非 parent link 原点
 
 #include "GeometricJacobian.h"

@@ -1,4 +1,4 @@
-/// @file ControllerClientImpl.cpp
+﻿/// @file ControllerClientImpl.cpp
 /// @brief localhost TCP JSON 客户端（CONSENSUS protocolVer=1）
 
 #include "ControllerClientImpl.h"

@@ -21,6 +21,7 @@ class MeshBackendData;
 class PointCloudBackendData;
 
 /// 按 BackendDataBase::className 注册 IBackendVisual 工厂
+/// @note 全静态接口是有意的全局状态：工厂表跨插件经静态方法注册，迁入 ServiceRegistry 需改写全部调用点，详见 docs/架构修复/Registry去单例设计.md
 class BACKENDVISUAL_EXPORT BackendVisualRegistry
 {
 public:

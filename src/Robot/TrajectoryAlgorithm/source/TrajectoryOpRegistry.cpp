@@ -7,6 +7,7 @@ namespace trajectory_algo
 {
 TrajectoryOpRegistry& TrajectoryOpRegistry::instance()
 {
+	// 静态兜底：本 DLL 无法反向访问宿主 ServiceRegistry
 	static TrajectoryOpRegistry registry;
 	return registry;
 }

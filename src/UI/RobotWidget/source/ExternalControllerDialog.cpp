@@ -1,4 +1,4 @@
-/// @file ExternalControllerDialog.cpp
+﻿/// @file ExternalControllerDialog.cpp
 /// @brief 外置控制器设置对话框：选语言、看源码、启监听、跑 Python
 
 #include "ExternalControllerDialog.h"

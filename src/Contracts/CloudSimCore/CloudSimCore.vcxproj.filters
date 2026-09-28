@@ -14,6 +14,9 @@
     <Filter Include="inc\Interfaces">
       <UniqueIdentifier>{E7D19E80-C126-4866-87D9-3481977F6746}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{8EB81625-2644-4B88-B1CF-7A017DD0FB07}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\Types">
       <UniqueIdentifier>{175A34DD-83E2-4D2C-9FEC-83B723641A4C}</UniqueIdentifier>
     </Filter>
@@ -70,6 +73,9 @@
     </ClInclude>
     <ClInclude Include="inc\NullCoreServices.h">
       <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ServiceRegistry.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

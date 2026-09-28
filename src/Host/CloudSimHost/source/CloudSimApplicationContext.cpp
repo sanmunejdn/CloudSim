@@ -8,6 +8,7 @@
 #include "IDocumentScope.h"
 #include "IRenderView.h"
 #include "NullCoreServices.h"
+#include "import/GeometryFileImporterRegistry.h"
 
 #include <QWidget>
 #include <memory>
@@ -21,10 +22,14 @@ public:
 	ApplicationContextImpl(std::unique_ptr<IRenderViewFactory> renderFactory, bool headlessDocuments)
 		: m_renderFactory(std::move(renderFactory)), m_headlessDocuments(headlessDocuments)
 	{
+		// 宿主内 Registry 迁入 ServiceRegistry，instance() 经此返回同一实例
+		m_services.registerService(std::make_shared<cloudsim::host::GeometryFileImporterRegistry>());
 	}
 
 	EventHub& events() override { return m_events; }
 	IRenderViewFactory& renderFactory() override { return *m_renderFactory; }
+	ServiceRegistry& services() override { return m_services; }
+	const ServiceRegistry& services() const override { return m_services; }
 
 	std::unique_ptr<IDocumentScope> createDocumentScope(QWidget* parent, const QString& documentId) override
 	{
@@ -40,6 +45,7 @@ public:
 
 private:
 	EventHub m_events;
+	ServiceRegistry m_services;
 	std::unique_ptr<IRenderViewFactory> m_renderFactory;
 	IDocumentScope* m_activeScope = nullptr;
 	bool m_headlessDocuments = false;

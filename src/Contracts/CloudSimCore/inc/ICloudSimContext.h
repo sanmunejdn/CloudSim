@@ -6,6 +6,7 @@
 /// @brief 应用组合根
 
 #include "cloudsim_core_global.h"
+#include "ServiceRegistry.h"
 
 #include <memory>
 
@@ -25,6 +26,10 @@ public:
 
 	virtual EventHub& events() = 0;
 	virtual IRenderViewFactory& renderFactory() = 0;
+
+	// 服务注册表：替代各 Registry 全局单例的持有点
+	virtual ServiceRegistry& services() = 0;
+	virtual const ServiceRegistry& services() const = 0;
 
 	virtual std::unique_ptr<IDocumentScope> createDocumentScope(QWidget* parent, const QString& documentId) = 0;
 

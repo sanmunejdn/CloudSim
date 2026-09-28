@@ -7,7 +7,6 @@
 #include "../RobotWidget/inc/InstructionPropertyPanel.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
-#include "BackendDataManager.h"
 #include "BackendTypeIds.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
@@ -258,12 +257,9 @@ QStringList MainWindowInstructionPropertyUiHost::customDeviceBackendIds() const
 	{
 		return out;
 	}
-	for (const auto& data : doc->backend().findByClass(backend_type::kClassCustomDevice))
+	for (const auto& id : doc->documentData().findByClassName(QLatin1String(backend_type::kClassCustomDevice)))
 	{
-		if (data)
-		{
-			out << QString::fromStdString(data->id());
-		}
+		out << id;
 	}
 	return out;
 }

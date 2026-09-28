@@ -2502,7 +2502,6 @@ QVector<CollisionSceneObjectItem> RobotSimulationController::collectCollisionSce
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	if (!doc)
 		return out;
-	BackendDataManager& backend = doc->backend();
 	std::unordered_set<std::string> robotIds;
 	for (int ri = 0; ri < doc->robotKinematicInstanceCount(); ++ri)
 	{
@@ -2520,7 +2519,7 @@ QVector<CollisionSceneObjectItem> RobotSimulationController::collectCollisionSce
 			out.push_back(item);
 		}
 	}
-	for (const auto& data : backend.listData())
+	for (const auto& data : doc->listObjects())
 	{
 		if (!data || !data->hasGeometry())
 			continue;
@@ -2741,10 +2740,10 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 	}
 	if (col.enabled)
 	{
-		BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, doc->backend(), col, osg);
+		BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, col, osg);
 		QVector<double> agg;
 		(void)doc->applyJointAnglesRad(instIdx, startQ, agg);
-		BackendCollisionSync::updatePoses(*m_collisionWorld, doc, doc->backend(), osg);
+		BackendCollisionSync::updatePoses(*m_collisionWorld, doc, osg);
 	}
 
 	BackendMat4 T_world_urdfBase = BackendMat4::identity();
@@ -2766,7 +2765,7 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 			if (UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, startQ, meshFk, &fkErr, pl.meshVerticesInLinkFrame))
 			{
 				const auto fkIt = meshFk.constFind(refLink);
-				auto be = doc->backend().getData(refBid.toStdString());
+				auto be = doc->findObject(refBid.toStdString());
 				if (fkIt != meshFk.constEnd() && be)
 				{
 					const engine::RigidTransform T_be = engine::rigidTransformFromColMajor(
@@ -2856,7 +2855,7 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 		std::string osgColErr;
 		auto sceneCheck = [&](const bool restoreOnHit)
 		{
-			return BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(), instIdx,
+			return BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, instIdx,
 																 startQ, plan.jointTrajectoryRad, col, &osgColErr, osg,
 																 /*rebuildWorldFirst=*/true, restoreOnHit);
 		};
@@ -3149,7 +3148,7 @@ bool RobotSimulationController::tryCaptureSelectedBackendPoseInRobotBase(RobotIn
 			objWorld = RobotSimulationMath::osgMatrixFromCoreMat4(packed);
 		else
 		{
-			auto be = doc->backend().getData(bid.toStdString());
+			auto be = doc->findObject(bid.toStdString());
 			if (!be)
 			{
 				if (errMsg)
@@ -3161,7 +3160,7 @@ bool RobotSimulationController::tryCaptureSelectedBackendPoseInRobotBase(RobotIn
 	}
 	else
 	{
-		auto be = doc->backend().getData(bid.toStdString());
+		auto be = doc->findObject(bid.toStdString());
 		if (!be)
 		{
 			if (errMsg)
@@ -3280,7 +3279,7 @@ bool RobotSimulationController::planAndConfirmTcpWaypoints(const QVector<RobotIn
 		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, qAt, meshFk, &fkErr, pl.meshVerticesInLinkFrame))
 			return T_world_urdfBase;
 		const auto fkIt = meshFk.constFind(refLink);
-		auto be = doc->backend().getData(refBid.toStdString());
+		auto be = doc->findObject(refBid.toStdString());
 		if (fkIt == meshFk.constEnd() || !be)
 			return T_world_urdfBase;
 		const engine::RigidTransform T_be = engine::rigidTransformFromColMajor(
@@ -3327,10 +3326,10 @@ bool RobotSimulationController::planAndConfirmTcpWaypoints(const QVector<RobotIn
 
 		if (col.enabled)
 		{
-			BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, doc->backend(), col, osg);
+			BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, col, osg);
 			QVector<double> agg;
 			(void)doc->applyJointAnglesRad(instIdx, segStartQ, agg);
-			BackendCollisionSync::updatePoses(*m_collisionWorld, doc, doc->backend(), osg);
+			BackendCollisionSync::updatePoses(*m_collisionWorld, doc, osg);
 		}
 
 		robot_path::PlanRequest req;
@@ -3386,7 +3385,7 @@ bool RobotSimulationController::planAndConfirmTcpWaypoints(const QVector<RobotIn
 			std::string osgColErr;
 			auto sceneCheck = [&](const bool restoreOnHit)
 			{
-				return BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(), instIdx,
+				return BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, instIdx,
 																	 segStartQ, plan.jointTrajectoryRad, col,
 																	 &osgColErr, osg, true, restoreOnHit);
 			};
@@ -8212,7 +8211,7 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 		{
 			std::string colErr;
 			const QVector<double> seedBefore = seedJointRad;
-			if (!BackendCollisionSync::validateJointTrajectory(*self->m_collisionWorld, doc, doc->backend(),
+			if (!BackendCollisionSync::validateJointTrajectory(*self->m_collisionWorld, doc,
 															   instanceIndex, seedBefore, plan.jointTrajectoryRad, col,
 															   &colErr, m_host->osgView()))
 			{
@@ -8293,7 +8292,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 							seg.push_back(plan.jointTargetsRad);
 						}
 						std::string colErr;
-						if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(),
+						if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc,
 																		   instanceIndex, chainSeedQ, seg, colGate,
 																		   &colErr, m_host->osgView(),
 																		   /*rebuildWorldFirst=*/false))
@@ -8442,7 +8441,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 	const RobotCollision::Settings& colSettings = doc->robotCollisionSettings();
 	if (colSettings.enabled && m_collisionWorld && m_host && !m_programExecutor.isRunning())
 	{
-		BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, doc->backend(), colSettings, m_host->osgView());
+		BackendCollisionSync::rebuildWorld(*m_collisionWorld, doc, colSettings, m_host->osgView());
 		collisionWorldReady = true;
 	}
 
@@ -8555,7 +8554,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 				}
 				std::string colErr;
 				if (!BackendCollisionSync::validateJointTrajectory(
-						*m_collisionWorld, doc, doc->backend(), instanceIndex, chainSeedQ, seg, colGate, &colErr,
+						*m_collisionWorld, doc, instanceIndex, chainSeedQ, seg, colGate, &colErr,
 						m_host->osgView(), /*rebuildWorldFirst=*/!collisionWorldReady))
 				{
 					// Direct/指令轨迹穿模：有场景障碍时改走关节空间 OMPL（与碰撞页同源）
@@ -8569,7 +8568,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 						// 与碰撞页一致：先落到起点再采 OSG 绑定位姿，否则 nearStart 检碰因缺 linkWorldAtStart 直接失败
 						QVector<double> aggOmpl;
 						(void)doc->applyJointAnglesRad(instanceIndex, chainSeedQ, aggOmpl);
-						BackendCollisionSync::updatePoses(*m_collisionWorld, doc, doc->backend(), m_host->osgView());
+						BackendCollisionSync::updatePoses(*m_collisionWorld, doc, m_host->osgView());
 
 						robot_path::PlanRequest req;
 						req.urdfPath = urdfPath;
@@ -8630,7 +8629,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 																			  pl.meshVerticesInLinkFrame))
 								{
 									const auto fkIt = meshFk.constFind(refLink);
-									auto be = doc->backend().getData(refBid.toStdString());
+									auto be = doc->findObject(refBid.toStdString());
 									if (fkIt != meshFk.constEnd() && be)
 									{
 										const engine::RigidTransform T_be = engine::rigidTransformFromColMajor(
@@ -8673,7 +8672,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 						{
 							std::string omplColErr;
 							if (BackendCollisionSync::validateJointTrajectory(
-									*m_collisionWorld, doc, doc->backend(), instanceIndex, chainSeedQ,
+									*m_collisionWorld, doc, instanceIndex, chainSeedQ,
 									ompl.jointTrajectoryRad, colGate, &omplColErr, m_host->osgView(),
 									/*rebuildWorldFirst=*/false))
 							{
@@ -9916,7 +9915,7 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex, 
 						}
 						std::string colErr;
 						if (!BackendCollisionSync::validateJointTrajectory(
-								*m_collisionWorld, doc, doc->backend(), instIdx, rollingQ, seg, colGate, &colErr,
+								*m_collisionWorld, doc, instIdx, rollingQ, seg, colGate, &colErr,
 								m_host->osgView(), /*rebuildWorldFirst=*/false))
 						{
 							cacheOk = false;

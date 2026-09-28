@@ -178,7 +178,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	centerSplitter->setSizes({900, 100});
 	centralLayout->addWidget(centerSplitter, 1);
 
-	m_appEvents.subscribe<cloudsim::core::BackendObjectRegisteredEvent>(
+	m_subBackendRegistered = m_appEvents.subscribe<cloudsim::core::BackendObjectRegisteredEvent>(
 		[this](const cloudsim::core::BackendObjectRegisteredEvent& ev)
 		{
 			if (m_backendTreeEventRefreshSuppress > 0)
@@ -192,7 +192,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			markUnitsDocumentDirty(ev.documentId);
 			rebuildUnitsDocument(ev.documentId);
 		});
-	m_appEvents.subscribe<cloudsim::core::BackendObjectRemovedEvent>(
+	m_subBackendRemoved = m_appEvents.subscribe<cloudsim::core::BackendObjectRemovedEvent>(
 		[this](const cloudsim::core::BackendObjectRemovedEvent& ev)
 		{
 			if (m_backendTreeEventRefreshSuppress > 0)
@@ -206,7 +206,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			markUnitsDocumentDirty(ev.documentId);
 			rebuildUnitsDocument(ev.documentId);
 		});
-	m_appEvents.subscribe<cloudsim::core::SelectionChangedEvent>(
+	m_subSelectionChanged = m_appEvents.subscribe<cloudsim::core::SelectionChangedEvent>(
 		[this](const cloudsim::core::SelectionChangedEvent& ev)
 		{
 			DocumentPage* page = currentPage();
@@ -229,7 +229,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			}
 			updatePropertyPanel(ev.primaryId);
 		});
-	m_appEvents.subscribe<cloudsim::core::PoseCommittedEvent>(
+	m_subPoseCommitted = m_appEvents.subscribe<cloudsim::core::PoseCommittedEvent>(
 		[this](const cloudsim::core::PoseCommittedEvent& ev)
 		{
 			DocumentPage* page = currentPage();

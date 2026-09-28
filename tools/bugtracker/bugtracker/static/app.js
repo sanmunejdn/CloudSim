@@ -822,10 +822,14 @@ async function renderSettings() {
       <button id="btn-add-label">添加</button></div></div>
   <div class="card"><h3>数据备份 / 迁移</h3>
     <div class="row">
+      <button id="btn-backup">创建备份</button>
       <button class="secondary" id="btn-export-json">导出全量 JSON</button>
       <input type="file" id="import-json-file" accept=".json">
       <button class="secondary" id="btn-import-json">导入 JSON（清空重建）</button>
     </div>
+    <p class="hint" style="margin-top:8px;color:var(--text-dim);font-size:12px">
+      「创建备份」在线一致拷贝主库 + 附件到 data/backups/&lt;时间戳&gt;/（WAL 安全）。
+    </p>
     <div class="row mt">
       <select id="csv-project">${projectOptions()}</select>
       <input type="file" id="import-csv-file" accept=".csv">
@@ -860,6 +864,10 @@ async function renderSettings() {
         await api.del("/api/labels/" + a.dataset.delLabel);
         await preload(); await renderSettings();
       });
+    });
+    $("#btn-backup").onclick = () => guard(async () => {
+      const r = await api.post("/api/backup", {});
+      toast("备份完成：" + r.path);
     });
     $("#btn-export-json").onclick = () => guard(async () => {
       const data = await api.get("/api/export/json");

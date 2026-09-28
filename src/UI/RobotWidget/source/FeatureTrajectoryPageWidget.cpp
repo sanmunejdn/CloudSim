@@ -82,9 +82,9 @@ void applyBtnRole(QPushButton* btn, const char* role)
 	}
 }
 
-bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string& backendId)
+bool isTopLevelWorkpieceBackend(const IRobotDocumentHost* doc, const std::string& backendId)
 {
-	return mgr.parentsOf(backendId).empty();
+	return doc->documentData().parentsOf(QString::fromStdString(backendId)).isEmpty();
 }
 
 bool isStepSourcePath(const QString& stepPath)
@@ -1826,7 +1826,6 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		updatePickUiState();
 		return;
 	}
-	BackendDataManager& mgr = doc->backend();
 	const auto all = doc->listObjects();
 	QVector<WorkpieceComboCandidate> candidates;
 	candidates.reserve(static_cast<int>(all.size()));
@@ -1836,7 +1835,7 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		{
 			continue;
 		}
-		if (!isTopLevelWorkpieceBackend(mgr, data->id()))
+		if (!isTopLevelWorkpieceBackend(doc, data->id()))
 		{
 			continue;
 		}

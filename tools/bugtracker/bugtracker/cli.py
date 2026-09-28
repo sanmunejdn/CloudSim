@@ -100,24 +100,25 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _bootstrap()
-    try:
+
+    def work():
         with db.session() as sess:
             actor = agent_ops.agent_user(sess, db.settings.agent_username)
 
             if args.cmd == "list":
-                result = agent_ops.list_bugs(
+                return agent_ops.list_bugs(
                     sess, actor, status=args.status, severity=args.severity,
                     priority=args.priority, project_key=args.project_key,
                     module=args.module, assignee=args.assignee,
                     reporter=args.reporter, keyword=args.keyword,
                     page=args.page, size=args.size)
-            elif args.cmd == "show":
-                result = agent_ops.get_bug(sess, actor, args.id)
-            elif args.cmd == "search":
-                result = agent_ops.search(sess, actor, args.keyword,
-                                          size=args.size)
-            elif args.cmd == "create":
-                result = agent_ops.create_bug(
+            if args.cmd == "show":
+                return agent_ops.get_bug(sess, actor, args.id)
+            if args.cmd == "search":
+                return agent_ops.search(sess, actor, args.keyword,
+                                        size=args.size)
+            if args.cmd == "create":
+                return agent_ops.create_bug(
                     sess, actor, title=args.title,
                     project_key=args.project_key, severity=args.severity,
                     priority=args.priority, description=args.description,
@@ -125,35 +126,37 @@ def main(argv: list[str] | None = None) -> int:
                     actual=args.actual, environment=args.environment,
                     version_found=args.version_found, module=args.module,
                     assignee=args.assignee)
-            elif args.cmd == "status":
-                result = agent_ops.update_status(
+            if args.cmd == "status":
+                return agent_ops.update_status(
                     sess, actor, args.id, args.to,
                     resolution=args.resolution, comment=args.comment)
-            elif args.cmd == "update":
-                result = agent_ops.update_bug(
+            if args.cmd == "update":
+                return agent_ops.update_bug(
                     sess, actor, args.id, title=args.title,
                     severity=args.severity, priority=args.priority,
                     environment=args.environment, description=args.description,
                     assignee=None if args.assignee is None else
                     ("" if args.assignee == "none" else args.assignee),
                     module=args.module, version_fixed=args.version_fixed)
-            elif args.cmd == "comment":
-                result = agent_ops.add_comment(sess, actor, args.id, args.body)
-            elif args.cmd == "stats":
-                result = agent_ops.stats_overview(sess, actor)
-            elif args.cmd == "projects":
-                result = agent_ops.list_projects(sess, actor)
-            elif args.cmd == "modules":
-                result = agent_ops.list_modules(sess, actor,
-                                                project_key=args.project_key)
-            elif args.cmd == "export":
+            if args.cmd == "comment":
+                return agent_ops.add_comment(sess, actor, args.id, args.body)
+            if args.cmd == "stats":
+                return agent_ops.stats_overview(sess, actor)
+            if args.cmd == "projects":
+                return agent_ops.list_projects(sess, actor)
+            if args.cmd == "modules":
+                return agent_ops.list_modules(sess, actor,
+                                              project_key=args.project_key)
+            if args.cmd == "export":
                 from .services.export import export_json
                 payload = export_json(sess)
                 with open(args.output, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=1)
-                result = {"ok": True, "output": args.output}
-            else:  # pragma: no cover - argparse 已保证
-                raise AssertionError(args.cmd)
+                return {"ok": True, "output": args.output}
+            raise AssertionError(args.cmd)  # pragma: no cover
+
+    try:
+        result = db.run_with_retry(work)
         _emit(result, args.pretty)
         return 0
     except HTTPException as exc:

@@ -19,6 +19,10 @@ namespace trajectory_algo
 class TRAJECTORY_ALGORITHM_API TrajectoryOpRegistry
 {
 public:
+	// 公开构造供 ServiceRegistry 持有；全局唯一性不再由类强制
+	TrajectoryOpRegistry() = default;
+
+	// 兼容期入口：新代码改用 ICloudSimContext::services()，调用点迁移后移除
 	static TrajectoryOpRegistry& instance();
 
 	void registerOp(std::unique_ptr<ITrajectoryOp> op);
@@ -35,7 +39,6 @@ public:
 	~TrajectoryOpRegistry() = default;
 
 private:
-	TrajectoryOpRegistry() = default;
 	std::vector<std::unique_ptr<ITrajectoryOp>> m_ops;
 	std::unordered_map<RobotInstruction::TrajectoryOpKind, std::string> m_kindToToken;
 	std::unordered_map<std::string, RobotInstruction::TrajectoryOpKind> m_tokenToKind;

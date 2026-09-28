@@ -30,6 +30,7 @@ def normalize_text(raw: bytes) -> bytes:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--check", action="store_true", help="只检查不修改，有差异返回 1")
     args = ap.parse_args()
 
     changed = 0
@@ -41,10 +42,10 @@ def main() -> int:
         changed += 1
         rel = path
         print(f"{'DRY ' if args.dry_run else ''}BOM+CRLF: {rel}")
-        if not args.dry_run:
+        if not args.dry_run and not args.check:
             path.write_bytes(out)
     print(f"Done. changed={changed}")
-    return 0
+    return 1 if args.check and changed > 0 else 0
 
 
 if __name__ == "__main__":

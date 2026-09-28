@@ -47,12 +47,17 @@
 
 | 项 | 说明 |
 |---|---|
-| 附件存储 | 本地 `data/attachments/`，无对象存储；备份时随 `data/` 一起拷贝即可 |
-| 并发 | SQLite WAL 支撑小团队（≤20 人）无压力；更大规模需换 PostgreSQL（改 `BT_DATABASE_URL` 即可，ORM 已兼容） |
+| 附件存储 | 本地 `data/attachments/`，无对象存储；用设置页「创建备份」或 `POST /api/backup`（勿在服务运行时直接拷贝 `.db`，WAL 可能撕裂） |
+| 并发 | 已设 `busy_timeout=5s` + MCP/CLI 写重试；小团队（≤20 人）无压力；更大规模需换 PostgreSQL |
 | 认证 | 会话 Cookie，无 OAuth/LDAP；如需对接域账号需二次开发 |
+| Schema 迁移 | 轻量 `PRAGMA user_version`（见 `bugtracker/migrations.py`）；改表时 bump 版本并补迁移函数 |
 
-## 4. 建议的后续增强（未纳入本期范围）
+## 4. 建议的后续增强（未纳入阶段一）
 
+- 登录限流 / 账号锁定
+- Web ↔ MCP 双路径契约测试
+- git hook 失败补偿队列
+- HTTPS / 收敛监听地址
 - 看板自定义图表配置
 - bug 订阅的邮件摘要（日报/周报）
 - 与 CloudSim 插件崩溃上报自动对接（当前需手动或走 CI 脚本）

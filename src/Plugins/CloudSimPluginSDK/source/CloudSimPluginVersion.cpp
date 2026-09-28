@@ -9,3 +9,8 @@ unsigned int cloudsimPluginHostVersion()
 {
 	return CLOUDSIM_PLUGIN_HOST_VERSION;
 }
+
+unsigned int cloudsimPluginSdkVersion()
+{
+	return CLOUDSIM_PLUGIN_SDK_VERSION;
+}

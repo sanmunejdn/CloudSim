@@ -19,6 +19,7 @@ DEFAULT_CLANG_FORMAT = Path(
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--clang-format", type=Path, default=DEFAULT_CLANG_FORMAT)
+    ap.add_argument("--check", action="store_true", help="只检查不修改，有差异返回 1")
     args = ap.parse_args()
 
     cf = args.clang_format
@@ -27,6 +28,21 @@ def main() -> int:
         return 1
 
     files = [str(p) for p in iter_sources()]
+    if args.check:
+        print(f"Checking {len(files)} files with {cf}...")
+        batch = 40
+        failures = 0
+        for i in range(0, len(files), batch):
+            chunk = files[i : i + batch]
+            cmd = [str(cf), "--dry-run", "-style=file"] + chunk
+            r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
+            if r.returncode != 0:
+                failures += 1
+                err = (r.stderr or r.stdout or "").strip()
+                print(f"batch {i} rc={r.returncode}: {err[:200]}")
+        print(f"Done. batch_failures={failures}")
+        return 0 if failures == 0 else 1
+
     print(f"Formatting {len(files)} files with {cf}...")
     batch = 40
     failures = 0

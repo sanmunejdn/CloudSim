@@ -36,8 +36,16 @@ cd CloudSim/tools/bugtracker
 
 - 首启控制台打印 `admin` 随机初始密码（仅一次），登录后强制改密。
   也可在 `.env` 预设 `BT_ADMIN_PASSWORD`。
-- 数据落在 `data/`（`bugtracker.db` + `attachments/`），**已 gitignore**；
-  备份直接复制该目录，或用设置页的「导出全量 JSON」。
+- 数据落在 `data/`（`bugtracker.db` + `attachments/`），**已 gitignore**。
+
+### 备份与日志
+
+| 项 | 说明 |
+|----|------|
+| 在线备份 | 设置页「创建备份」或 `POST /api/backup`（admin）：sqlite3 backup API 一致拷贝主库 + 附件到 `data/backups/<时间戳>/`（WAL 安全，勿在服务运行时直接拷贝 `.db`） |
+| JSON 导出 | 设置页「导出全量 JSON」——不含附件本体，适合迁移/审计 |
+| 应用日志 | `data/server.log`：5MB × 3 代自动轮转 |
+| 进程 stdout/err | `data/server.out.log` / `server.err.log`：启动前若 >10MB 保留一代 `.1.log` |
 
 ## 角色权限
 

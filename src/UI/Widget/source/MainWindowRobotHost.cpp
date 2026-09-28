@@ -1697,7 +1697,7 @@ QVector<CustomDeviceMountFrameCandidate> MainWindowRobotHost::listMountFrameCand
 	}
 	const std::string deviceId = deviceBackendId.toStdString();
 	std::unordered_set<std::string> subtreeIds;
-	if (!deviceId.empty() && host->backend().contains(deviceId))
+	if (!deviceId.empty() && host->backendContains(deviceId))
 	{
 		std::queue<std::string> queue;
 		queue.push(deviceId);
@@ -1706,7 +1706,7 @@ QVector<CustomDeviceMountFrameCandidate> MainWindowRobotHost::listMountFrameCand
 		{
 			const std::string cur = queue.front();
 			queue.pop();
-			for (const std::string& child : host->backend().childrenOf(cur))
+			for (const std::string& child : host->backendChildrenOf(cur))
 			{
 				if (subtreeIds.insert(child).second)
 				{

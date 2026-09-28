@@ -6,10 +6,11 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..db import get_db
+from ..db import db, get_db
 from ..models import Bug, Label, Project, User
 from ..schemas import LabelIn, LabelOut
 from ..security import current_user, require
+from ..services import backup as backup_svc
 from ..services import export as export_svc
 from ..services.bug_ops import build_query
 
@@ -100,3 +101,9 @@ async def import_csv(file: UploadFile, project_id: int,
     text = raw.decode("utf-8-sig", errors="replace")
     count = export_svc.import_bugs_csv(sess, text, project_id, admin.id)
     return {"ok": True, "imported": count}
+
+
+@router.post("/backup")
+def create_backup(admin: User = Depends(require("admin"))):
+    """在线一致备份主库 + 附件到 data/backups/<时间戳>/。"""
+    return backup_svc.create_backup(db.settings)

@@ -1,5 +1,5 @@
-#ifndef CLOUDSIM_CRASH_DUMP_H
-#define CLOUDSIM_CRASH_DUMP_H
+﻿#ifndef CLOUDSIMBOOTSTRAP_CRASHDUMP_H
+#define CLOUDSIMBOOTSTRAP_CRASHDUMP_H
 
 /// @file CrashDump.h
 /// @brief 未处理异常写 MiniDump 到 {exe}/crash/
@@ -80,4 +80,4 @@ inline void install() {}
 
 #endif
 
-#endif // CLOUDSIM_CRASH_DUMP_H
+#endif // CLOUDSIMBOOTSTRAP_CRASHDUMP_H

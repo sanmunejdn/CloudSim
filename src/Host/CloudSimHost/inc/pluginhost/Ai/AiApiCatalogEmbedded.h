@@ -1,0 +1,12 @@
+﻿#ifndef CLOUDSIMHOST_AIAPICATALOGEMBEDDED_H
+#define CLOUDSIMHOST_AIAPICATALOGEMBEDDED_H
+
+/// @file AiApiCatalogEmbedded.h
+/// @brief AiApiCatalogEmbedded 接口
+
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
+#include <QByteArray>
+
+QByteArray aiEmbeddedApiCatalogJson();
+
+#endif // CLOUDSIMHOST_AIAPICATALOGEMBEDDED_H

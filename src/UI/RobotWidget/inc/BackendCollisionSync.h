@@ -16,7 +16,6 @@
 #include <string>
 #include <vector>
 
-class BackendDataManager;
 class IRobotDocumentHost;
 class IRobotOsgViewHost;
 
@@ -25,18 +24,18 @@ namespace BackendCollisionSync
 /// 用当前文档几何重建 world（清空后写入）
 /// osg 非空时优先用 OSG 组合世界矩阵（Gizmo/父子挂载后与画面一致；backend.worldMatrix 可能仍是导入初值）
 ROBOTWIDGET_EXPORT void rebuildWorld(collision::CollisionWorld& world, IRobotDocumentHost* doc,
-									 BackendDataManager& backend, const RobotCollision::Settings& settings,
+									 const RobotCollision::Settings& settings,
 									 IRobotOsgViewHost* osg = nullptr);
 
 /// 仅刷新已有 body 的世界位姿（FK/Gizmo 后）
 ROBOTWIDGET_EXPORT void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc,
-									BackendDataManager& backend, IRobotOsgViewHost* osg = nullptr);
+									IRobotOsgViewHost* osg = nullptr);
 
 /// 对关节轨迹抽样碰撞；命中写 failSummary，返回 false
 /// rebuildWorldFirst=false 时复用调用方已 rebuild 的 world（同一次规划多次终接受）
 /// restorePoseOnHit=false：命中停在碰撞姿态（默认；避免回滚到起点造成「画面有缝、日志报碰」）
 ROBOTWIDGET_EXPORT bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHost* doc,
-												BackendDataManager& backend, int instanceIndex,
+												int instanceIndex,
 												const QVector<double>& seedJointsBefore,
 												const std::vector<std::vector<double>>& jointTrajectoryRad,
 												const RobotCollision::Settings& settings, std::string* failSummary,

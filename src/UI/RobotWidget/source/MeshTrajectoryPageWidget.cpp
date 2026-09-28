@@ -27,7 +27,6 @@
 #include <QVBoxLayout>
 #include <memory>
 
-#include <BackendDataManager.h>
 #include <MeshBackendData.h>
 #include <MeshSurfaceReconstruction.h>
 #include <MeshTrajectory.h>
@@ -35,9 +34,9 @@
 
 namespace
 {
-bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string& backendId)
+bool isTopLevelWorkpieceBackend(const IRobotDocumentHost* doc, const std::string& backendId)
 {
-	return mgr.parentsOf(backendId).empty();
+	return doc->documentData().parentsOf(QString::fromStdString(backendId)).isEmpty();
 }
 
 } // namespace
@@ -379,14 +378,13 @@ void MeshTrajectoryPageWidget::refreshBackendCombo()
 	{
 		return;
 	}
-	BackendDataManager& mgr = m_host->document()->backend();
 	for (const auto& data : m_host->document()->listObjects())
 	{
 		if (!data || data->className() != std::string("Model"))
 		{
 			continue;
 		}
-		if (!isTopLevelWorkpieceBackend(mgr, data->id()))
+		if (!isTopLevelWorkpieceBackend(m_host->document(), data->id()))
 		{
 			continue;
 		}

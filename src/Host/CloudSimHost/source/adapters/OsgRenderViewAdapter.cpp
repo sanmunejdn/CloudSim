@@ -310,7 +310,7 @@ bool OsgRenderViewAdapter::commitGizmoPoseToBackend(const core::ObjectId& id)
 	{
 		return false;
 	}
-	const auto obj = m_host->backend().getData(id.toStdString());
+	const auto obj = m_host->findObject(id.toStdString());
 	if (!obj)
 	{
 		return false;

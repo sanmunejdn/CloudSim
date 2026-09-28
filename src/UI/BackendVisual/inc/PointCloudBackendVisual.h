@@ -25,6 +25,8 @@ public:
 						  std::string* errorMessage) override;
 	void computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
 									   float& outDiagonal) const override;
+	bool canUpdateGeometryInPlace() const override { return true; }
+	bool updateGeometry(osg::Node* innerRoot, const BackendDataBase& data, std::string* errorMessage) override;
 };
 
 #endif // BACKENDVISUAL_POINTCLOUDBACKENDVISUAL_H

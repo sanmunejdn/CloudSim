@@ -6,11 +6,11 @@
 
 #include "GeometryBackendOps.h"
 
-#include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "BackendSpatial.h"
 #include "BrepBackendData.h"
 #include "GeometryRef.h"
+#include "IBackendDataQuery.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 
@@ -3324,7 +3324,7 @@ bool resolveGeometryRef(const GeometryRef& ref, geoalgo::WorkpieceRef& out, std:
 	return true;
 }
 
-WorkpieceShapeSource resolveWorkpieceShape(const std::string& backendIdUtf8, BackendDataManager& mgr,
+WorkpieceShapeSource resolveWorkpieceShape(const std::string& backendIdUtf8, const IBackendDataQuery& mgr,
 										   const std::string& stepPathUtf8Optional, geoalgo::ShapeHandle& outShape,
 										   geoalgo::WorkpieceRef& outRef, std::string* errMsg)
 {

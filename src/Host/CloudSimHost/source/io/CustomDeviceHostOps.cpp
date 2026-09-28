@@ -14,6 +14,7 @@
 #include "CustomDeviceRobotMountComponent.h"
 #include "CustomDeviceRobotMountOps.h"
 #include "DocumentHost.h"
+#include "DocumentHostAccess.h"
 #include "FollowAttachmentComponent.h"
 #include "HeadlessRobotContext.h"
 #include "IDataService.h"
@@ -159,7 +160,7 @@ void registerCustomDeviceLinkGeometryOwnership(DocumentHost& host, const CustomD
 void stripCustomDeviceLinkHierarchyFollow(DocumentHost& host, const CustomDeviceBackendData& device)
 {
 	bool changed = false;
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	for (const CustomDeviceLink& L : device.links())
 	{
 		if (L.geometryBackendId.empty())
@@ -226,9 +227,9 @@ void finalizeCustomDeviceLinkJointGraph(DocumentHost& host, const std::string& d
 		return;
 	}
 	ensureCustomDeviceLinkKinematicsOwnership(host, deviceBackendId);
-	CustomDeviceAssemblyCommit::refreshLinkRestPosesFromGeometry(*device, host.backend());
-	CustomDeviceKinematics::rebakeRotateJointOriginsFromFrames(*device, &host.backend());
-	(void)CustomDeviceKinematics::applyQ(*device, &host.backend(), poseSinkOf(host), nullptr);
+	CustomDeviceAssemblyCommit::refreshLinkRestPosesFromGeometry(*device, backendManagerOf(host));
+	CustomDeviceKinematics::rebakeRotateJointOriginsFromFrames(*device, &backendManagerOf(host));
+	(void)CustomDeviceKinematics::applyQ(*device, &backendManagerOf(host), poseSinkOf(host), nullptr);
 	flushCustomDeviceLinkGeometryVisual(host, deviceBackendId);
 	flushCustomDeviceMotionCenterFrameVisual(host, deviceBackendId);
 }
@@ -244,7 +245,7 @@ void flushCustomDeviceLinkGeometryVisual(DocumentHost& host, const std::string& 
 	{
 		return;
 	}
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	std::vector<std::string> linkGeomIds;
 	linkGeomIds.reserve(device->links().size());
 	for (const CustomDeviceLink& L : device->links())
@@ -294,7 +295,7 @@ void flushCustomDeviceMotionCenterFrameVisual(DocumentHost& host, const std::str
 	{
 		return;
 	}
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	std::unordered_set<std::string> synced;
 	for (const CustomDeviceJoint& J : device->joints())
 	{
@@ -328,7 +329,7 @@ void syncCustomDeviceKinematicsAfterRootPoseChange(DocumentHost& host, const std
 	{
 		return;
 	}
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	(void)CustomDeviceKinematics::applyQ(*device, &mgr, poseSinkOf(host), nullptr);
 	(void)host.syncOuterPatFromBackendId(deviceBackendId);
 	flushCustomDeviceLinkGeometryVisual(host, deviceBackendId);
@@ -474,7 +475,7 @@ bool applyCustomDeviceQ(DocumentHost& host, const QString& deviceId, const QJson
 								: device->qValues();
 	device->setQValues(q);
 	IRobotBackendPoseSink* sink = poseSinkOf(host);
-	if (!CustomDeviceKinematics::applyQ(*device, &host.backend(), sink, &q))
+	if (!CustomDeviceKinematics::applyQ(*device, &backendManagerOf(host), sink, &q))
 	{
 		if (err)
 			*err = QStringLiteral("applyQ failed");
@@ -736,7 +737,7 @@ bool commitCustomDeviceAssembly(DocumentHost& host, const QJsonObject& body, QSt
 	}
 
 	IRobotBackendPoseSink* sink = poseSinkOf(host);
-	if (!CustomDeviceAssemblyCommit::commitGraph(*device, links, joints, host.backend(), sink))
+	if (!CustomDeviceAssemblyCommit::commitGraph(*device, links, joints, backendManagerOf(host), sink))
 	{
 		if (err)
 			*err = QStringLiteral("commitGraph failed");

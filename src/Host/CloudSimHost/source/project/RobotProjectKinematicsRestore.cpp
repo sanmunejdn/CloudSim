@@ -7,6 +7,7 @@
 #include "BackendProjectObjectIo.h"
 #include "CoreTypes.h"
 #include "DocumentHost.h"
+#include "DocumentHostAccess.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
@@ -202,7 +203,7 @@ void reapplyAllRobotHierarchyFromProjectJson(DocumentHost& host, const QJsonObje
 		{
 			return;
 		}
-		reapplyUrdfRobotHierarchyEdges(host.backend(), urdf, sceneRoot, linkMap);
+		reapplyUrdfRobotHierarchyEdges(backendManagerOf(host), urdf, sceneRoot, linkMap);
 	};
 	for (const QJsonValue& rv : projectRoot.value(QStringLiteral("robotKinematicsInstances")).toArray())
 	{

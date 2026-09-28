@@ -187,8 +187,10 @@
     <ClInclude Include="inc\BackendManagerDataService.h" />
     <ClInclude Include="inc\BackendHierarchyChange.h" />
     <ClInclude Include="inc\BackendHierarchyModel.h" />
+    <ClInclude Include="inc\IBackendDataQuery.h" />
     <ClInclude Include="inc\data_global.h" />
     <ClInclude Include="inc\geometry_base64.h" />
+    <ClInclude Include="inc\GeometryMutator.h" />
     <ClInclude Include="inc\BackendPrimitiveGeometry.h" />
     <ClInclude Include="inc\BackendTypeIdentity.h" />
     <ClInclude Include="inc\BrepBackendData.h" />

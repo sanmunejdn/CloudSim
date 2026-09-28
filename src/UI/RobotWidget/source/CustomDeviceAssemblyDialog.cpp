@@ -33,6 +33,15 @@
 #include <cmath>
 #include <unordered_set>
 
+namespace
+{
+/// 设备运动学/组装库须传 BackendDataManager；本文件唯一 backend() 取用处
+BackendDataManager& documentBackendOf(IRobotDocumentHost* doc)
+{
+	return doc->backend();
+}
+} // namespace
+
 CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost* host,
 													   const QString& existingDeviceBackendId, QWidget* parent)
 	: QDialog(parent), m_host(host), m_editMode(!existingDeviceBackendId.trimmed().isEmpty())
@@ -440,12 +449,12 @@ void CustomDeviceAssemblyDialog::pushJointProps()
 					if (m_device && m_device->usesLinkJointGraph())
 					{
 						(void)CustomDeviceKinematics::bakeJointMotionOriginFromParentLink(
-							*m_device, m, J.parentLinkId, &m_host->document()->backend());
+							*m_device, m, J.parentLinkId, &documentBackendOf(m_host->document()));
 					}
 					else
 					{
 						(void)CustomDeviceKinematics::bakeJointMotionOriginFromParentGeometry(
-							m, L.geometryBackendId, &m_host->document()->backend());
+							m, L.geometryBackendId, &documentBackendOf(m_host->document()));
 					}
 					break;
 				}
@@ -596,7 +605,7 @@ bool CustomDeviceAssemblyDialog::attachChildId(const QString& childId, QString* 
 			(void)m_canvas->setLinkRestInDeviceW0(linkId, rest);
 		}
 	}
-	(void)CustomDeviceKinematics::applyQ(*m_device, &m_host->document()->backend(), m_host->document()->poseSink());
+	(void)CustomDeviceKinematics::applyQ(*m_device, &documentBackendOf(m_host->document()), m_host->document()->poseSink());
 	m_host->markFollowAttachmentDirty(QString::fromStdString(m_device->id()));
 	m_host->runFollowSolveAndSync();
 	m_host->refreshBackendTree();
@@ -867,7 +876,7 @@ void CustomDeviceAssemblyDialog::onApplyAccepted()
 
 	std::vector<CustomDeviceLink> linkStd(links.begin(), links.end());
 	std::vector<CustomDeviceJoint> jointStd(joints.begin(), joints.end());
-	if (!CustomDeviceAssemblyCommit::commitGraph(*m_device, linkStd, jointStd, m_host->document()->backend(),
+	if (!CustomDeviceAssemblyCommit::commitGraph(*m_device, linkStd, jointStd, documentBackendOf(m_host->document()),
 												 m_host->document()->poseSink()))
 	{
 		QMessageBox::warning(this, i18n(QStringLiteral("Custom Device"), QStringLiteral("自定义设备")),

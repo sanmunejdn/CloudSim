@@ -11,6 +11,7 @@
 #include "FrameBackendData.h"
 #include "GeometryRef.h"
 #include "HeadlessRobotContext.h"
+#include "IBackendDataQuery.h"
 #include "ITrajectoryOp.h"
 #include "MeshTrajectory.h"
 #include "MeshTrajectoryIngress.h"
@@ -267,6 +268,7 @@ bool HeadlessTrajectorySession::createPathPlan(const QString& sceneBackendId, QS
 	prog->steps.push_back(pp);
 	m_boundPathPlanId = pp->id();
 	m_raw.reset();
+	m_faceHighlightSoup.clear();
 	m_ops.clear();
 	m_featureEditActive = false;
 	m_emitDisabledAfterApply = false;
@@ -294,6 +296,8 @@ bool HeadlessTrajectorySession::bindPathPlan(const QString& pathPlanId, QString*
 		m_raw = std::move(raw);
 	else
 		m_raw.reset();
+	// 换绑即作废旧高亮 soup，避免跨 PathPlan 串味
+	m_faceHighlightSoup.clear();
 	m_featureEditActive = false;
 	return true;
 }
@@ -372,10 +376,11 @@ QJsonArray HeadlessTrajectorySession::listPathPlansJson(const QString& sceneBack
 bool HeadlessTrajectorySession::worldFromModelPoint(const std::string& backendId, double mx, double my, double mz,
 													double& wx, double& wy, double& wz) const
 {
-	const auto data = m_host.backend().getData(backendId);
+	const auto data = m_host.dataQuery().getData(backendId);
 	if (!data)
 		return false;
 	// BackendMat4 与 OSG 同序（平移在 3/7/11），须走 Adapters，禁止当 Eigen 列向量读 v[12..]
+	// transformPointToWorld 属 Data 层库函数，要 BackendDataManager* 具体类型，保留 backend()
 	const BackendVec3 w = transformPointToWorld(*data, BackendVec3{mx, my, mz}, &m_host.backend());
 	wx = w.x;
 	wy = w.y;
@@ -386,9 +391,10 @@ bool HeadlessTrajectorySession::worldFromModelPoint(const std::string& backendId
 bool HeadlessTrajectorySession::modelFromWorldPoint(const std::string& backendId, double wx, double wy, double wz,
 													double& mx, double& my, double& mz) const
 {
-	const auto data = m_host.backend().getData(backendId);
+	const auto data = m_host.dataQuery().getData(backendId);
 	if (!data)
 		return false;
+	// transformPointToStored 属 Data 层库函数，要 BackendDataManager* 具体类型，保留 backend()
 	const BackendVec3 m = transformPointToStored(*data, BackendVec3{wx, wy, wz}, &m_host.backend());
 	mx = m.x;
 	my = m.y;
@@ -399,7 +405,7 @@ bool HeadlessTrajectorySession::modelFromWorldPoint(const std::string& backendId
 bool HeadlessTrajectorySession::modelFromWorldDir(const std::string& backendId, double wx, double wy, double wz,
 												  double& mx, double& my, double& mz) const
 {
-	const auto data = m_host.backend().getData(backendId);
+	const auto data = m_host.dataQuery().getData(backendId);
 	if (!data)
 		return false;
 	const Eigen::Vector3d out =
@@ -423,7 +429,7 @@ bool HeadlessTrajectorySession::transformRawToWorld(const RobotInstruction::RawT
 		// 已是世界或无工件：原样
 		return true;
 	}
-	const auto data = m_host.backend().getData(backendId);
+	const auto data = m_host.dataQuery().getData(backendId);
 	if (!data)
 	{
 		if (err)
@@ -520,7 +526,7 @@ bool HeadlessTrajectorySession::pickShapeRay(const QByteArray& body, bool requir
 	geoalgo::ShapeHandle shape;
 	geoalgo::WorkpieceRef wpRef;
 	std::string geoErr;
-	if (geometry_backend_ops::resolveWorkpieceShape(workpiece.toStdString(), m_host.backend(), {}, shape, wpRef,
+	if (geometry_backend_ops::resolveWorkpieceShape(workpiece.toStdString(), m_host.dataQuery(), {}, shape, wpRef,
 													&geoErr) == geometry_backend_ops::WorkpieceShapeSource::Unavailable)
 	{
 		if (err)
@@ -746,7 +752,7 @@ bool HeadlessTrajectorySession::featureCatalogJson(const QString& workpieceBacke
 	geoalgo::ShapeHandle shape;
 	geoalgo::WorkpieceRef wpRef;
 	std::string geoErr;
-	if (geometry_backend_ops::resolveWorkpieceShape(workpieceBackendId.toStdString(), m_host.backend(), {}, shape,
+	if (geometry_backend_ops::resolveWorkpieceShape(workpieceBackendId.toStdString(), m_host.dataQuery(), {}, shape,
 													wpRef,
 													&geoErr) == geometry_backend_ops::WorkpieceShapeSource::Unavailable)
 	{
@@ -934,7 +940,7 @@ bool HeadlessTrajectorySession::setFeaturesAndDiscretize(const QByteArray& featu
 	geoalgo::WorkpieceRef wpRef;
 	std::string geoErr;
 	const std::string wpId = doc.workpiece.backendIdUtf8;
-	if (geometry_backend_ops::resolveWorkpieceShape(wpId, m_host.backend(), doc.workpiece.stepPathUtf8, shape, wpRef,
+	if (geometry_backend_ops::resolveWorkpieceShape(wpId, m_host.dataQuery(), doc.workpiece.stepPathUtf8, shape, wpRef,
 													&geoErr) == geometry_backend_ops::WorkpieceShapeSource::Unavailable)
 	{
 		if (err)
@@ -976,7 +982,7 @@ bool HeadlessTrajectorySession::discretizeMeshSpec(const QByteArray& meshSpecJso
 		return false;
 	}
 	const std::string meshId = spec.workpiece.backendIdUtf8;
-	const auto meshData = std::dynamic_pointer_cast<MeshBackendData>(m_host.backend().getData(meshId));
+	const auto meshData = std::dynamic_pointer_cast<MeshBackendData>(m_host.dataQuery().getData(meshId));
 	if (!meshData || meshData->triangleSoup().empty())
 	{
 		if (err)
@@ -1075,11 +1081,12 @@ void HeadlessTrajectorySession::injectWorkpieceReferenceOnEngine()
 		eng.setWorkpieceReferenceInBase(&ref);
 	}
 
-	BackendDataManager* mgr = &m_host.backend();
+	// Frame 解析仅只读查询，走 dataQuery 窄接口
+	const IBackendDataQuery* query = &m_host.dataQuery();
 	eng.setExternalTcpFrameResolver(
-		[mgr](const std::string& backendId, engine::RigidTransform& out, std::string* errMsg) -> bool
+		[query](const std::string& backendId, engine::RigidTransform& out, std::string* errMsg) -> bool
 		{
-			const std::shared_ptr<BackendDataBase> data = mgr->getData(backendId);
+			const std::shared_ptr<BackendDataBase> data = query->getData(backendId);
 			if (!data || !std::dynamic_pointer_cast<FrameBackendData>(data))
 			{
 				if (errMsg)

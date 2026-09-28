@@ -489,7 +489,7 @@ void rebakeMountFrameFollowLocalFromScene(DocumentHost& host, const std::string&
 	{
 		return;
 	}
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	const auto frame = mgr.getData(mountFrameId);
 	if (!frame || !frame->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
 	{
@@ -632,7 +632,7 @@ bool resolveMountFrameWorldByAncestorChain(DocumentHost& host, BackendDataManage
 
 void syncCustomDeviceSubtreePosesFromOsg(DocumentHost& host, const std::string& deviceRootId)
 {
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	IRobotBackendPoseSink* sink = poseSinkOf(host);
 	std::queue<std::string> queue;
 	queue.push(deviceRootId);
@@ -803,7 +803,7 @@ void clearConflictingFollowOnMountFrame(DocumentHost& host, BackendDataManager& 
 
 void stripHierarchyFollowOnMountFrame(DocumentHost& host, const std::string& frameBackendId)
 {
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	const auto frame = mgr.getData(frameBackendId);
 	if (!frame || !frame->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
 	{
@@ -1005,7 +1005,7 @@ bool resolveTcpWorldForMount(DocumentHost& host, const QString& robotSceneBacken
 		outTcpWorld = fkTcpWorld;
 		return true;
 	}
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	BackendMat4 flangeWorld{};
 	if (resolveBackendWorldMatrix(host, mgr, flangeBackendId.toStdString(), flangeWorld))
 	{
@@ -1056,7 +1056,7 @@ bool rebakeDeviceRootFollowKeepingDeviceWorld(CustomDeviceBackendData& device, D
 	{
 		return false;
 	}
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	BackendMat4 deviceW{};
 	if (!resolveBackendWorldMatrix(host, mgr, device.id(), deviceW))
 	{
@@ -1086,7 +1086,7 @@ QString resolveMountFrameBackendId(DocumentHost& host, const CustomDeviceBackend
 	{
 		return explicitId;
 	}
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	const std::string deviceId = device.id();
 	std::vector<std::string> subtreeFrames;
 	{
@@ -1179,7 +1179,7 @@ bool mountCustomDeviceToFlange(CustomDeviceBackendData& device, DocumentHost& ho
 		return false;
 	}
 
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	if (!validateMountFrameOnRootOrFixedLink(device, mgr, mountFrameBackendId.toStdString(), err))
 	{
 		return false;
@@ -1332,7 +1332,7 @@ bool unmountCustomDeviceFromRobot(CustomDeviceBackendData& device, DocumentHost&
 
 void refreshCustomDevicesFollowingKinematicsTargets(DocumentHost& host)
 {
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	for (const auto& obj : host.listObjects())
 	{
 		if (!obj || obj->className() != backend_type::kClassCustomDevice)
@@ -1375,7 +1375,7 @@ bool rebakeMountedDeviceFromInstallFramePose(DocumentHost& host, const std::stri
 	{
 		return false;
 	}
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	for (const auto& obj : host.listObjects())
 	{
 		if (!obj || obj->className() != backend_type::kClassCustomDevice)

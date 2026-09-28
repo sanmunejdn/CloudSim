@@ -31,12 +31,16 @@ inline void defaultWarn(const std::string&) {}
 class BackendComponentCodecRegistry
 {
 public:
+	// 公开构造供 ServiceRegistry 持有；全局唯一性不再由类强制
+	BackendComponentCodecRegistry() = default;
+
 	using Writer = std::function<bool(const BackendComponentPtr&, nlohmann::json&)>;
 	using Reader = std::function<BackendComponentPtr(const nlohmann::json&)>;
 	using WarningHook = std::function<void(const std::string&)>;
 	using ComponentFactory = std::function<BackendComponentPtr()>;
 	using LegacyReader = std::function<BackendComponentPtr(const nlohmann::json&)>;
 
+	// 兼容期入口：Data.dll 无法反向访问宿主上下文，新代码改用 ICloudSimContext::services()，调用点迁移后移除
 	static BackendComponentCodecRegistry& instance()
 	{
 		static BackendComponentCodecRegistry registry;

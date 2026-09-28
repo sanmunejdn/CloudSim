@@ -154,7 +154,7 @@
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../App/CloudSimBootstrap/inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../UI/CloudSimPluginHost/inc;../../Plugins/CloudSimPluginSDK/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;../../UI/RobotWidget/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../Data/Data/inc;$(CloudSimRepoRoot)bin\SDK\eigen;../../Geometry/GeometryEngine/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../App/CloudSimBootstrap/inc;../../Host/CloudSimHost/inc;../../Host/CloudSimHost/inc/osg;../../Host/CloudSimHost/inc/pluginhost;../../Contracts/CloudSimCore/inc;../../Host/CloudSimHost/inc/pluginhost;../../Plugins/CloudSimPluginSDK/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;../../UI/RobotWidget/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../Data/Data/inc;$(CloudSimRepoRoot)bin\SDK\eigen;../../Geometry/GeometryEngine/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -177,7 +177,7 @@
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../App/CloudSimBootstrap/inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../UI/CloudSimPluginHost/inc;../../Plugins/CloudSimPluginSDK/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;../../UI/RobotWidget/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../Data/Data/inc;../../Geometry/GeometryEngine/inc;$(CloudSimRepoRoot)bin\SDK\eigen;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../App/CloudSimBootstrap/inc;../../Host/CloudSimHost/inc;../../Host/CloudSimHost/inc/osg;../../Host/CloudSimHost/inc/pluginhost;../../Contracts/CloudSimCore/inc;../../Host/CloudSimHost/inc/pluginhost;../../Plugins/CloudSimPluginSDK/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;../../UI/RobotWidget/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../Data/Data/inc;../../Geometry/GeometryEngine/inc;$(CloudSimRepoRoot)bin\SDK\eigen;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>

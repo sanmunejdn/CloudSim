@@ -45,6 +45,8 @@ osg::ref_ptr<osg::Geode> createRgbAxisGeode(const float axisLengthMm)
 	colors->push_back(osg::Vec4(0.4f, 0.6f, 1.0f, 1.0f));
 
 	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	// 轴长随后端属性刷新，声明 DYNAMIC 避免与绘制线程竞争
+	geom->setDataVariance(osg::Object::DYNAMIC);
 	geom->setVertexArray(verts.get());
 	geom->setColorArray(colors.get(), osg::Array::BIND_PER_PRIMITIVE_SET);
 	geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINES, 0, 2));

@@ -91,6 +91,8 @@ osg::ref_ptr<osg::Geode> buildOverlayLineGeode(const std::vector<float>& lineSeg
 		lineVerts->push_back(osg::Vec3(lineSegments[i], lineSegments[i + 1U], lineSegments[i + 2U]));
 	}
 	osg::ref_ptr<osg::Geometry> geometryWire = new osg::Geometry;
+	// 增量更新会原地换数组，声明 DYNAMIC 避免与绘制线程竞争
+	geometryWire->setDataVariance(osg::Object::DYNAMIC);
 	geometryWire->setVertexArray(lineVerts.get());
 	geometryWire->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, static_cast<GLsizei>(lineVerts->size())));
 	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
@@ -109,6 +111,105 @@ osg::ref_ptr<osg::Geode> buildOverlayLineGeode(const std::vector<float>& lineSeg
 	return geodeWire;
 }
 
+/// 填充面片几何数组重建（顶点/法线/颜色/图元），整建与增量共用，避免两条路径视觉分叉
+void applySoupToFillGeometry(const MeshBackendData& data, osg::Geometry& geometry, const bool useSceneLighting)
+{
+	const std::vector<float>& soup = data.triangleSoup();
+	osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
+	va->reserve(soup.size() / 3U);
+	for (std::size_t i = 0; i + 2 < soup.size(); i += 3)
+	{
+		va->push_back(osg::Vec3(soup[i], soup[i + 1], soup[i + 2]));
+	}
+	geometry.setVertexArray(va.get());
+	osg::Geometry::PrimitiveSetList psets;
+	psets.push_back(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(va->size())));
+	geometry.setPrimitiveSetList(psets);
+	if (useSceneLighting)
+	{
+		osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
+		na->reserve(va->size());
+		const std::vector<float>& fileNormals = data.triangleVertexNormals();
+		if (data.hasTriangleVertexNormals())
+		{
+			for (std::size_t i = 0; i + 2 < fileNormals.size(); i += 3)
+			{
+				na->push_back(osg::Vec3(fileNormals[i], fileNormals[i + 1], fileNormals[i + 2]));
+			}
+		}
+		else
+		{
+			for (std::size_t i = 0; i + 2 < va->size(); i += 3)
+			{
+				const osg::Vec3& p0 = (*va)[i];
+				const osg::Vec3& p1 = (*va)[i + 1];
+				const osg::Vec3& p2 = (*va)[i + 2];
+				osg::Vec3 e1 = p1 - p0;
+				osg::Vec3 e2 = p2 - p0;
+				osg::Vec3 n = e1 ^ e2;
+				const float len2 = n.length2();
+				if (len2 > 1e-20f)
+				{
+					n.normalize();
+				}
+				else
+				{
+					n.set(0.0f, 0.0f, 1.0f);
+				}
+				const osg::Vec3f nf(static_cast<float>(n.x()), static_cast<float>(n.y()),
+									static_cast<float>(n.z()));
+				na->push_back(nf);
+				na->push_back(nf);
+				na->push_back(nf);
+			}
+		}
+		geometry.setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
+	}
+	const BackendColor c = data.color();
+	const osg::Vec4 fillColor(c.r, c.g, c.b, c.a);
+	if (data.hasTriangleVertexColors())
+	{
+		osg::ref_ptr<osg::Vec4Array> vertexColors = new osg::Vec4Array;
+		vertexColors->reserve(va->size());
+		const std::vector<float>& rgb = data.triangleVertexColors();
+		for (std::size_t i = 0; i + 2 < rgb.size(); i += 3U)
+		{
+			vertexColors->push_back(osg::Vec4(rgb[i], rgb[i + 1U], rgb[i + 2U], 1.0f));
+		}
+		geometry.setColorArray(vertexColors.get(), osg::Array::BIND_PER_VERTEX);
+	}
+	else
+	{
+		osg::ref_ptr<osg::Vec4Array> mc = new osg::Vec4Array;
+		mc->push_back(fillColor);
+		geometry.setColorArray(mc.get(), osg::Array::BIND_OVERALL);
+	}
+	geometry.dirtyBound();
+	geometry.dirtyDisplayList();
+}
+
+void collectGeodes(osg::Node* node, std::vector<osg::Geode*>& out)
+{
+	if (!node)
+	{
+		return;
+	}
+	if (osg::Geode* geode = node->asGeode())
+	{
+		out.push_back(geode);
+		return;
+	}
+	osg::Group* grp = node->asGroup();
+	if (!grp)
+	{
+		return;
+	}
+	for (unsigned int i = 0; i < grp->getNumChildren(); ++i)
+	{
+		collectGeodes(grp->getChild(i), out);
+	}
+}
+
 osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, const MeshVisualOptions& opt,
 												 std::string* errorMessage)
 {
@@ -124,75 +225,13 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 	osg::ref_ptr<osg::Group> grp = new osg::Group;
 	if (hasSoup)
 	{
-		osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
-		va->reserve(soup.size() / 3U);
-		for (std::size_t i = 0; i + 2 < soup.size(); i += 3)
-		{
-			va->push_back(osg::Vec3(soup[i], soup[i + 1], soup[i + 2]));
-		}
 		osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
-		geometry->setVertexArray(va.get());
-		geometry->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(va->size())));
-		if (opt.useSceneLighting)
-		{
-			osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
-			na->reserve(va->size());
-			const std::vector<float>& fileNormals = data.triangleVertexNormals();
-			if (data.hasTriangleVertexNormals())
-			{
-				for (std::size_t i = 0; i + 2 < fileNormals.size(); i += 3)
-				{
-					na->push_back(osg::Vec3(fileNormals[i], fileNormals[i + 1], fileNormals[i + 2]));
-				}
-			}
-			else
-			{
-				for (std::size_t i = 0; i + 2 < va->size(); i += 3)
-				{
-					const osg::Vec3& p0 = (*va)[i];
-					const osg::Vec3& p1 = (*va)[i + 1];
-					const osg::Vec3& p2 = (*va)[i + 2];
-					osg::Vec3 e1 = p1 - p0;
-					osg::Vec3 e2 = p2 - p0;
-					osg::Vec3 n = e1 ^ e2;
-					const float len2 = n.length2();
-					if (len2 > 1e-20f)
-					{
-						n.normalize();
-					}
-					else
-					{
-						n.set(0.0f, 0.0f, 1.0f);
-					}
-					const osg::Vec3f nf(static_cast<float>(n.x()), static_cast<float>(n.y()),
-										static_cast<float>(n.z()));
-					na->push_back(nf);
-					na->push_back(nf);
-					na->push_back(nf);
-				}
-			}
-			geometry->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
-		}
+		// 增量更新会原地换数组，声明 DYNAMIC 避免与绘制线程竞争
+		geometry->setDataVariance(osg::Object::DYNAMIC);
+		applySoupToFillGeometry(data, *geometry, opt.useSceneLighting);
 		const BackendColor c = data.color();
 		const osg::Vec4 fillColor(c.r, c.g, c.b, c.a);
 		const bool useVertexColors = data.hasTriangleVertexColors();
-		if (useVertexColors)
-		{
-			osg::ref_ptr<osg::Vec4Array> vertexColors = new osg::Vec4Array;
-			vertexColors->reserve(va->size());
-			const std::vector<float>& rgb = data.triangleVertexColors();
-			for (std::size_t i = 0; i + 2 < rgb.size(); i += 3U)
-			{
-				vertexColors->push_back(osg::Vec4(rgb[i], rgb[i + 1U], rgb[i + 2U], 1.0f));
-			}
-			geometry->setColorArray(vertexColors.get(), osg::Array::BIND_PER_VERTEX);
-		}
-		else
-		{
-			osg::ref_ptr<osg::Vec4Array> mc = new osg::Vec4Array;
-			mc->push_back(fillColor);
-			geometry->setColorArray(mc.get(), osg::Array::BIND_OVERALL);
-		}
 		osg::ref_ptr<osg::Geode> geodeFill = new osg::Geode;
 		geodeFill->addDrawable(geometry.get());
 		osg::StateSet* ssFill = geodeFill->getOrCreateStateSet();
@@ -228,6 +267,8 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 			}
 			if (geometryWire.valid())
 			{
+				// 增量更新会整体替换 wire drawable，同样声明 DYNAMIC
+				geometryWire->setDataVariance(osg::Object::DYNAMIC);
 				osg::ref_ptr<osg::Geode> geodeWire = new osg::Geode;
 				geodeWire->setName("meshWireOverlay");
 				geodeWire->addDrawable(geometryWire.get());
@@ -321,4 +362,148 @@ void MeshBackendVisual::computeModelCenterAndDiagonal(const BackendDataBase& dat
 	}
 	outCenter = backend_geometry_metrics::meshCenterFromSoup(mesh->triangleSoup());
 	outDiagonal = backend_geometry_metrics::meshDiagonalFromSoup(mesh->triangleSoup());
+}
+
+bool MeshBackendVisual::updateGeometry(osg::Node* innerRoot, const BackendDataBase& data, std::string* errorMessage)
+{
+	const auto* mesh = dynamic_cast<const MeshBackendData*>(&data);
+	if (!mesh)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = "Backend type mismatch (expected MeshBackendData).";
+		}
+		return false;
+	}
+	if (!innerRoot)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = "Null branch root.";
+		}
+		return false;
+	}
+	// 按 geode 名区分线框/overlay，无名的首个 geode 即填充面片
+	std::vector<osg::Geode*> geodes;
+	collectGeodes(innerRoot, geodes);
+	osg::Geode* fillGeode = nullptr;
+	osg::Geode* wireGeode = nullptr;
+	osg::Geode* overlayGeode = nullptr;
+	for (osg::Geode* geode : geodes)
+	{
+		const std::string& name = geode->getName();
+		if (name == "meshWireOverlay")
+		{
+			if (!wireGeode)
+			{
+				wireGeode = geode;
+			}
+		}
+		else if (name == "meshOverlayLines")
+		{
+			if (!overlayGeode)
+			{
+				overlayGeode = geode;
+			}
+		}
+		else if (!fillGeode)
+		{
+			fillGeode = geode;
+		}
+	}
+
+	const std::vector<float>& soup = mesh->triangleSoup();
+	const bool hasSoup = soup.size() >= 9U && (soup.size() % 9U) == 0U;
+	if (hasSoup)
+	{
+		osg::Geometry* fillGeom = (fillGeode && fillGeode->getNumDrawables() > 0)
+									  ? dynamic_cast<osg::Geometry*>(fillGeode->getDrawable(0))
+									  : nullptr;
+		if (!fillGeom)
+		{
+			// 原为 EmptyMeshShell 等无填充结构，增量无法补齐，回退全量
+			if (errorMessage)
+			{
+				*errorMessage = "Mesh fill geometry not found in existing branch.";
+			}
+			return false;
+		}
+		// 建枝时仅 useSceneLighting 才挂法线数组，据此判定是否重建法线与特征线框
+		const bool lit = fillGeom->getNormalArray() != nullptr;
+		applySoupToFillGeometry(*mesh, *fillGeom, lit);
+		if (wireGeode)
+		{
+			const BackendColor c = mesh->color();
+			const osg::Vec4 fillColor(c.r, c.g, c.b, c.a);
+			osg::ref_ptr<osg::Geometry> newWire;
+			if (lit)
+			{
+				newWire = buildMeshFeatureEdgeGeometry(soup, fillColor, 28.0f);
+				if (!newWire.valid())
+				{
+					newWire = buildMeshOutlineWireGeometry(soup, fillColor);
+				}
+			}
+			else
+			{
+				newWire = buildMeshOutlineWireGeometry(soup, fillColor);
+			}
+			if (newWire.valid())
+			{
+				newWire->setDataVariance(osg::Object::DYNAMIC);
+				wireGeode->setDrawable(0, newWire.get());
+			}
+			else
+			{
+				wireGeode->removeDrawables(0, wireGeode->getNumDrawables());
+			}
+		}
+	}
+	else if (fillGeode)
+	{
+		// 数据侧三角网已清空但分支仍带填充几何，增量无法表达，回退全量
+		if (errorMessage)
+		{
+			*errorMessage = "Mesh soup cleared; branch rebuild required.";
+		}
+		return false;
+	}
+
+	if (mesh->hasOverlayLineSegments())
+	{
+		osg::Geometry* overlayGeom = (overlayGeode && overlayGeode->getNumDrawables() > 0)
+										 ? dynamic_cast<osg::Geometry*>(overlayGeode->getDrawable(0))
+										 : nullptr;
+		if (!overlayGeom)
+		{
+			// 新增 overlay 线段但分支无对应 geode，须全量补齐结构
+			if (errorMessage)
+			{
+				*errorMessage = "Mesh overlay line geode not found in existing branch.";
+			}
+			return false;
+		}
+		const std::vector<float>& segs = mesh->overlayLineSegments();
+		osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+		lineVerts->reserve(segs.size() / 3U);
+		for (std::size_t i = 0; i + 2 < segs.size(); i += 3U)
+		{
+			lineVerts->push_back(osg::Vec3(segs[i], segs[i + 1U], segs[i + 2U]));
+		}
+		overlayGeom->setVertexArray(lineVerts.get());
+		osg::Geometry::PrimitiveSetList psets;
+		psets.push_back(new osg::DrawArrays(GL_LINES, 0, static_cast<GLsizei>(lineVerts->size())));
+		overlayGeom->setPrimitiveSetList(psets);
+		const BackendColor c = mesh->color();
+		osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+		colors->push_back(osg::Vec4(c.r, c.g, c.b, c.a));
+		overlayGeom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+		overlayGeom->dirtyBound();
+		overlayGeom->dirtyDisplayList();
+	}
+	else if (overlayGeode)
+	{
+		overlayGeode->removeDrawables(0, overlayGeode->getNumDrawables());
+	}
+	return true;
 }

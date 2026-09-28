@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -22,7 +23,10 @@ def _setup_logging(settings: Settings) -> None:
         return
     root.setLevel(logging.INFO)
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
-    file_handler = logging.FileHandler(settings.log_file, encoding="utf-8")
+    # 无限增长会占满磁盘；5MB × 3 代足够排查
+    file_handler = RotatingFileHandler(
+        settings.log_file, maxBytes=5 * 1024 * 1024, backupCount=3,
+        encoding="utf-8")
     file_handler.setFormatter(formatter)
     root.addHandler(file_handler)
     root.addHandler(logging.StreamHandler())

@@ -4,12 +4,13 @@
 #include "visual/BackendVisualSyncEngine.h"
 
 #include "BackendDataBase.h"
-#include "BackendDataManager.h"
 #include "BackendTypeIds.h"
+#include "BackendVisualRegistry.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "OsgWidget.h"
 #include "visual/BackendVisualEnsure.h"
+#include "RunLogger.h"
 
 #include <algorithm>
 
@@ -90,8 +91,7 @@ BackendVisualSyncEngine::resolveTransformFlushOrder(const std::vector<std::strin
 		return hintOrder;
 	}
 	std::vector<std::string> ordered;
-	BackendDataManager& mgr = m_host.backend();
-	const std::vector<std::string> topo = mgr.topoOrder();
+	const std::vector<std::string> topo = m_host.backendTopoOrder();
 	ordered.reserve(m_dirty.size());
 	for (const std::string& id : topo)
 	{
@@ -129,12 +129,12 @@ bool BackendVisualSyncEngine::flushTransformForId(const std::string& backendId)
 		osg->requestRedraw();
 		return true;
 	}
-	return osg->applyWorldMatrixToOsg(backendId, m_host.backend());
+	return osg->applyWorldMatrixToOsg(backendId, backendManagerOf(m_host));
 }
 
 bool BackendVisualSyncEngine::flushAppearanceForId(const std::string& backendId)
 {
-	const auto obj = m_host.backend().getData(backendId);
+	const auto obj = m_host.findObject(backendId);
 	if (!obj)
 	{
 		return false;
@@ -158,7 +158,7 @@ bool BackendVisualSyncEngine::flushAppearanceForId(const std::string& backendId)
 bool BackendVisualSyncEngine::flushVisibilityForId(const std::string& backendId)
 {
 	OsgWidget* osg = osgWidgetFrom(m_host);
-	const auto obj = m_host.backend().getData(backendId);
+	const auto obj = m_host.findObject(backendId);
 	if (!osg || !obj)
 	{
 		return false;
@@ -169,12 +169,28 @@ bool BackendVisualSyncEngine::flushVisibilityForId(const std::string& backendId)
 
 bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 {
-	const auto obj = m_host.backend().getData(backendId);
+	const auto obj = m_host.findObject(backendId);
 	if (!obj)
 	{
 		return false;
 	}
 	const std::uint64_t rev = obj->geometryRevision();
+	const std::size_t elemCount = obj->geometryElementCount();
+#ifndef NDEBUG
+	{
+		const auto countIt = m_lastGeometryElementCount.find(backendId);
+		const auto revItDbg = m_lastSyncedGeometryRevision.find(backendId);
+		if (countIt != m_lastGeometryElementCount.end() && countIt->second != elemCount && revItDbg != m_lastSyncedGeometryRevision.end() &&
+			revItDbg->second == rev)
+		{
+			RunLogger::warn("[BackendVisualSync] geometryElementCount changed but geometryRevision unchanged for " +
+							backendId);
+		}
+		m_lastGeometryElementCount[backendId] = elemCount;
+	}
+#else
+	(void)elemCount;
+#endif
 	const auto revIt = m_lastSyncedGeometryRevision.find(backendId);
 	if (revIt != m_lastSyncedGeometryRevision.end() && revIt->second == rev)
 	{
@@ -193,9 +209,26 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 		{
 			return false;
 		}
-		(void)osg->applyWorldMatrixToOsg(backendId, m_host.backend());
+		(void)osg->applyWorldMatrixToOsg(backendId, backendManagerOf(m_host));
 		m_lastSyncedGeometryRevision[backendId] = rev;
 		return true;
+	}
+	// 增量路径：visual 支持原地更新且分支已挂载时只换几何数组，避免整枝重建
+	if (OsgWidget* osg = osgWidgetFrom(m_host))
+	{
+		std::unique_ptr<IBackendVisual> visual = BackendVisualRegistry::createForClassName(obj->className());
+		osg::Node* branchRoot = osg->backendObjectRootNode(backendId);
+		if (visual && visual->canUpdateGeometryInPlace() && branchRoot)
+		{
+			std::string err;
+			if (visual->updateGeometry(branchRoot, *obj, &err))
+			{
+				m_lastSyncedGeometryRevision[backendId] = rev;
+				return true;
+			}
+			RunLogger::warn("[BackendVisualSync] in-place geometry update failed, fallback to full rebuild: " +
+							backendId + " " + err);
+		}
 	}
 	EnsureVisualOptions opts;
 	const EnsureVisualResult res = ensureVisual(m_host, backendId, EnsureVisualPolicy::FullRebuild, opts);

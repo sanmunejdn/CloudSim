@@ -14,6 +14,7 @@
 #include "CustomDeviceKinematics.h"
 #include "CustomDeviceRobotMountComponent.h"
 #include "DocumentHost.h"
+#include "DocumentHostAccess.h"
 #include "FollowAttachmentComponent.h"
 #include "HeadlessRobotContext.h"
 #include "IRenderView.h"
@@ -327,7 +328,7 @@ void markVisualForFollowers(DocumentHost& page, BackendDataManager& mgr, const s
 std::unordered_set<std::string> propagateCompoundAfterRootWorldChange(DocumentHost& host, const std::string& rootId,
 																	  const BackendMat4& wOld, const BackendMat4& wNew)
 {
-	BackendDataManager& mgr = host.backend();
+	BackendDataManager& mgr = backendManagerOf(host);
 	const auto root = mgr.getData(rootId);
 	if (!root || rootId.empty())
 	{
@@ -359,7 +360,7 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget* osg, const Foll
 	page.stripKinematicsOwnedFollowAttachments();
 	page.stripHierarchyDrivenFollowAttachments();
 
-	BackendDataManager& mgr = page.backend();
+	BackendDataManager& mgr = backendManagerOf(page);
 	resolveFollowTargetsFromNames(mgr);
 	bool forced = page.takeFollowSolveForced();
 	auto& dirty = page.followDirtyBackendIds();
@@ -502,7 +503,7 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 							   const QString& valueText)
 {
 	const std::string id = backendId.toStdString();
-	const auto data = host.backend().getData(id);
+	const auto data = host.findObject(id);
 	if (!data)
 	{
 		return;
@@ -524,7 +525,7 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid,
 																		   BackendMat4& out) -> bool
 	{
-		const auto obj = host.backend().getData(bid);
+		const auto obj = host.findObject(bid);
 		if (!obj || !obj->hasPoseProperty())
 		{
 			return false;
@@ -536,7 +537,7 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 		(propertyKey == QStringLiteral("follow.enabled") &&
 		 (valueText == QStringLiteral("1") || valueText.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0)))
 	{
-		(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *data, nullptr);
+		(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(backendManagerOf(host), worldQuery, *data, nullptr);
 	}
 	host.markFollowAttachmentDirtyFromBackendMove(id);
 	host.invalidateFollowReverseIndex();
@@ -548,7 +549,7 @@ void bakeFollowLocalAfterManualPoseEdit(DocumentHost& host, const std::string& b
 	{
 		return;
 	}
-	const auto data = host.backend().getData(backendId);
+	const auto data = host.findObject(backendId);
 	if (!data)
 	{
 		return;
@@ -562,7 +563,7 @@ void bakeFollowLocalAfterManualPoseEdit(DocumentHost& host, const std::string& b
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid,
 																		   BackendMat4& out) -> bool
 	{
-		const auto obj = host.backend().getData(bid);
+		const auto obj = host.findObject(bid);
 		if (!obj || !obj->hasPoseProperty())
 		{
 			return false;
@@ -570,7 +571,7 @@ void bakeFollowLocalAfterManualPoseEdit(DocumentHost& host, const std::string& b
 		out = obj->worldMatrix();
 		return true;
 	};
-	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *data, nullptr);
+	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(backendManagerOf(host), worldQuery, *data, nullptr);
 }
 
 } // namespace cloudsim::host

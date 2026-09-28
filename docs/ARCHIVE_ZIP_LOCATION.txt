@@ -1,2 +1,4 @@
-归档备份 zip（仓库外，已删除源目录）：
+归档备份 zip（仓库外）：
 D:\Project\VSprogram\CGAL5.5.2-docs-archive-20260923-162408.zip
+
+状态：zip 已删除，内容已并入 docs/ 目录。本文件仅作历史记录，不再维护。

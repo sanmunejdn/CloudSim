@@ -445,6 +445,11 @@ const BackendDataManager& DocumentHost::backend() const
 	return *m_backend;
 }
 
+const IBackendDataQuery& DocumentHost::dataQuery() const
+{
+	return *m_backend;
+}
+
 std::shared_ptr<BackendDataBase> DocumentHost::findObject(const std::string& id) const
 {
 	if (id.empty() || !m_backend)
@@ -461,6 +466,67 @@ std::vector<std::shared_ptr<BackendDataBase>> DocumentHost::listObjects() const
 		return {};
 	}
 	return m_backend->listData();
+}
+
+bool DocumentHost::backendContains(const std::string& id) const
+{
+	return m_backend && m_backend->contains(id);
+}
+
+bool DocumentHost::backendRegisterData(const std::shared_ptr<BackendDataBase>& obj)
+{
+	return m_backend && m_backend->registerData(obj);
+}
+
+bool DocumentHost::backendUnregisterData(const std::string& id)
+{
+	return m_backend && m_backend->unregisterData(id);
+}
+
+bool DocumentHost::backendAttachChild(const std::string& parentId, const std::string& childId)
+{
+	return m_backend && m_backend->attachChild(parentId, childId);
+}
+
+bool DocumentHost::backendSetParent(const std::string& childId, const std::string& parentId)
+{
+	return m_backend && m_backend->setParent(childId, parentId);
+}
+
+std::vector<std::string> DocumentHost::backendParentsOf(const std::string& id) const
+{
+	if (!m_backend)
+	{
+		return {};
+	}
+	return m_backend->parentsOf(id);
+}
+
+std::vector<std::string> DocumentHost::backendChildrenOf(const std::string& id) const
+{
+	if (!m_backend)
+	{
+		return {};
+	}
+	return m_backend->childrenOf(id);
+}
+
+std::vector<std::string> DocumentHost::backendTopoOrder() const
+{
+	if (!m_backend)
+	{
+		return {};
+	}
+	return m_backend->topoOrder();
+}
+
+std::vector<std::pair<std::string, std::string>> DocumentHost::backendListEdges() const
+{
+	if (!m_backend)
+	{
+		return {};
+	}
+	return m_backend->listEdges();
 }
 
 RobotProgramStore& DocumentHost::robotProgramStore()

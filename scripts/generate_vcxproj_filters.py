@@ -716,8 +716,17 @@ def resolve_filter(project: str, include: str, item_type: str) -> str:
 	return f"{kind}\\{bucket}"
 
 
-def collect_project_items(vcxproj: Path) -> list[tuple[str, str]]:
-	tree = ET.parse(vcxproj)
+def _collect_items_from_xml(path: Path, seen_imports: set[Path] | None = None) -> list[tuple[str, str]]:
+	"""解析 vcxproj/props；递归展开同目录相对 Import 的 ItemGroup。"""
+	if seen_imports is None:
+		seen_imports = set()
+	path = path.resolve()
+	if path in seen_imports:
+		return []
+	seen_imports.add(path)
+	if not path.exists():
+		return []
+	tree = ET.parse(path)
 	root = tree.getroot()
 	out: list[tuple[str, str]] = []
 	for tag in ITEM_TAGS:
@@ -730,7 +739,21 @@ def collect_project_items(vcxproj: Path) -> list[tuple[str, str]]:
 			if tag == "CustomBuild" and not re.search(r"\.(h|hpp|cpp|cxx|c|ui|qrc|ts|rc|qml)$", inc, re.I):
 				continue
 			out.append((tag, inc))
+	# 展开相对路径 Import（支持 CloudSimHostShared.items.props）
+	for imp in root.findall(f".//{NS}Import"):
+		proj = imp.get("Project") or ""
+		if not proj or "$(" in proj:
+			continue
+		if not re.search(r"\.(props|items\.props)$", proj, re.I):
+			continue
+		child = (path.parent / proj).resolve()
+		out.extend(_collect_items_from_xml(child, seen_imports))
 	return out
+
+
+def collect_project_items(vcxproj: Path) -> list[tuple[str, str]]:
+	return _collect_items_from_xml(vcxproj)
+
 
 
 def parse_existing_filters(filters_path: Path) -> tuple[dict[str, str], dict[str, str]]:

@@ -3,10 +3,12 @@
 
 #include "BackendDataManager.h"
 
+#include "BackendComponentCodecBuiltins.h"
 #include "BackendRegistryBuiltins.h"
 #include "RunLogger.h"
 
 #include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <mutex>
 #include <queue>
@@ -30,6 +32,26 @@ std::vector<std::string> sortedKeys(const std::unordered_set<std::string>& ids)
 
 } // namespace
 
+BackendDataManager::BackendDataManager() : m_ownerThreadId(std::this_thread::get_id())
+{
+	// DocumentHost 每文档自持 manager（非单例），组件编解码须随 manager 构造即就绪；
+	// Host 侧存在不经 IDataService 直调 saveToJson/loadFromJson 的路径
+	initBackendComponentCodecs();
+}
+
+void BackendDataManager::assertOwnerThread(const char* api) const
+{
+#ifndef NDEBUG
+	if (std::this_thread::get_id() != m_ownerThreadId)
+	{
+		RunLogger::warn(std::string("[BackendDataManager] cross-thread write at ") + (api ? api : "?"));
+		assert(std::this_thread::get_id() == m_ownerThreadId && "BackendDataManager write must stay on owner thread");
+	}
+#else
+	(void)api;
+#endif
+}
+
 BackendDataManager& BackendDataManager::instance()
 {
 	ensureBackendBuiltinsRegistered();
@@ -39,6 +61,7 @@ BackendDataManager& BackendDataManager::instance()
 
 bool BackendDataManager::registerData(const std::shared_ptr<BackendDataBase>& data)
 {
+	assertOwnerThread("registerData");
 	if (!data || data->id().empty())
 	{
 		return false;
@@ -66,6 +89,7 @@ bool BackendDataManager::registerData(const std::shared_ptr<BackendDataBase>& da
 
 bool BackendDataManager::unregisterData(const std::string& id)
 {
+	assertOwnerThread("unregisterData");
 	if (id.empty())
 	{
 		return false;
@@ -258,6 +282,7 @@ BackendDataManager::findByComponent(const std::string& componentType) const
 
 bool BackendDataManager::attachChild(const std::string& parentId, const std::string& childId)
 {
+	assertOwnerThread("attachChild");
 	if (parentId.empty() || childId.empty() || parentId == childId)
 	{
 		return false;
@@ -313,6 +338,7 @@ bool BackendDataManager::attachChild(const std::string& parentId, const std::str
 
 bool BackendDataManager::setParent(const std::string& childId, const std::string& parentId)
 {
+	assertOwnerThread("setParent");
 	if (childId.empty())
 	{
 		return false;
@@ -954,6 +980,7 @@ BackendBaselineMetrics BackendDataManager::collectBaselineMetrics(const std::str
 
 void BackendDataManager::clear()
 {
+	assertOwnerThread("clear");
 	std::vector<BackendHierarchyChangeEvent> pendingEvents;
 	std::vector<std::pair<void*, BackendHierarchyObserver>> observerSnapshot;
 	{

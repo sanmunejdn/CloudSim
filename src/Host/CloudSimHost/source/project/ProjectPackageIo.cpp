@@ -126,7 +126,7 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 	out.root.insert(QStringLiteral("language"), languageCode);
 
 	QJsonArray objects;
-	const auto dataList = host.backend().listData();
+	const auto dataList = host.listObjects();
 
 	OsgWidget* osg = osgWidgetFrom(host);
 	for (const auto& data : dataList)
@@ -139,7 +139,7 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 		const QString idQs = QString::fromStdString(id);
 		const QString srcPath = host.backendSourcePath().count(idQs) ? host.backendSourcePath()[idQs] : QString();
 		const QString sourceType = host.backendSourceType().count(idQs) ? host.backendSourceType()[idQs] : QString();
-		const std::vector<std::string> parentIds = host.backend().parentsOf(id);
+		const std::vector<std::string> parentIds = host.backendParentsOf(id);
 
 		if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
 		{
@@ -240,7 +240,7 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 	out.root.insert(QStringLiteral("objects"), objects);
 
 	QJsonArray edgeArray;
-	for (const auto& edge : host.backend().listEdges())
+	for (const auto& edge : host.backendListEdges())
 	{
 		QJsonObject edgeObj;
 		edgeObj.insert(QStringLiteral("parentId"), QString::fromStdString(edge.first));

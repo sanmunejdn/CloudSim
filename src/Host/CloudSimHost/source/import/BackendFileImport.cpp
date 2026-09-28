@@ -50,7 +50,7 @@ bool applyPersistedIdIfRequested(DocumentHost& host, const std::shared_ptr<Point
 	{
 		return pointCloud != nullptr;
 	}
-	if (host.backend().contains(options.persistedId.toStdString()))
+	if (host.backendContains(options.persistedId.toStdString()))
 	{
 		if (outError)
 		{
@@ -159,7 +159,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 		return {};
 	}
 
-	if (!host.backend().registerData(mesh))
+	if (!host.backendRegisterData(mesh))
 	{
 		if (outError)
 		{
@@ -174,9 +174,9 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 		options.catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogModel) : options.catalogTypeName;
 	if (!options.parentId.isEmpty())
 	{
-		if (!host.backend().attachChild(options.parentId.toStdString(), mesh->id()))
+		if (!host.backendAttachChild(options.parentId.toStdString(), mesh->id()))
 		{
-			host.backend().unregisterData(mesh->id());
+			host.backendUnregisterData(mesh->id());
 			if (outError)
 			{
 				*outError = QStringLiteral("attachChild failed");
@@ -199,7 +199,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 		QString sceneErr;
 		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, options.resetViewToHome))
 		{
-			host.backend().unregisterData(mesh->id());
+			host.backendUnregisterData(mesh->id());
 			host.backendSourcePath().remove(id);
 			host.backendSourceType().remove(id);
 			host.backendParentId().remove(id);
@@ -284,16 +284,16 @@ bool registerAdoptedBackendObject(DocumentHost& host, const std::shared_ptr<Back
 		return false;
 	}
 	// 工程重载后计数器会重置，ctor 生成的 backend_data_N 可能撞号
-	if (object->id().empty() || host.backend().contains(object->id()))
+	if (object->id().empty() || host.backendContains(object->id()))
 	{
 		std::string uniqueId;
 		do
 		{
 			uniqueId = BackendDataBase::generateId();
-		} while (host.backend().contains(uniqueId));
+		} while (host.backendContains(uniqueId));
 		object->setId(uniqueId);
 	}
-	if (!host.backend().registerData(object))
+	if (!host.backendRegisterData(object))
 	{
 		if (outError)
 		{
@@ -307,9 +307,9 @@ bool registerAdoptedBackendObject(DocumentHost& host, const std::shared_ptr<Back
 		catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogModel) : catalogTypeName;
 	if (!parentId.isEmpty())
 	{
-		if (!host.backend().attachChild(parentId.toStdString(), object->id()))
+		if (!host.backendAttachChild(parentId.toStdString(), object->id()))
 		{
-			host.backend().unregisterData(object->id());
+			host.backendUnregisterData(object->id());
 			if (outError)
 			{
 				*outError = QStringLiteral("attachChild failed");
@@ -481,7 +481,7 @@ bool attachBackendChildToParent(DocumentHost& host, const std::string& parentId,
 		}
 		return false;
 	}
-	if (!host.backend().contains(parentId) || !host.backend().contains(childId))
+	if (!host.backendContains(parentId) || !host.backendContains(childId))
 	{
 		if (outError)
 		{
@@ -489,7 +489,7 @@ bool attachBackendChildToParent(DocumentHost& host, const std::string& parentId,
 		}
 		return false;
 	}
-	if (!host.backend().setParent(childId, parentId))
+	if (!host.backendSetParent(childId, parentId))
 	{
 		if (outError)
 		{
@@ -518,7 +518,7 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 		}
 		return false;
 	}
-	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.backend().getData(deviceId));
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceId));
 	if (!device)
 	{
 		if (outError)
@@ -527,7 +527,7 @@ bool attachBackendChildToCustomDevice(DocumentHost& host, const std::string& dev
 		}
 		return false;
 	}
-	const auto child = host.backend().getData(childId);
+	const auto child = host.findObject(childId);
 	BackendMat4 savedWorld = BackendMat4::identity();
 	bool haveSavedWorld = false;
 	if (child && child->hasPoseProperty())
@@ -598,7 +598,7 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 	{
 		return fromId;
 	}
-	if (host.backend().contains(toId.toStdString()))
+	if (host.backendContains(toId.toStdString()))
 	{
 		if (outError)
 		{
@@ -606,7 +606,7 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 		}
 		return fromId;
 	}
-	std::shared_ptr<BackendDataBase> obj = host.backend().getData(fromId.toStdString());
+	std::shared_ptr<BackendDataBase> obj = host.findObject(fromId.toStdString());
 	if (!obj)
 	{
 		if (outError)
@@ -615,24 +615,24 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 		}
 		return fromId;
 	}
-	const std::vector<std::string> parents = host.backend().parentsOf(fromId.toStdString());
+	const std::vector<std::string> parents = host.backendParentsOf(fromId.toStdString());
 	const QString catalogType = host.backendSourceType().value(fromId);
 	const QString sourcePath = host.backendSourcePath().value(fromId);
 	const QString parentMirror = host.backendParentId().value(fromId);
 
 	// Data 不支持原地改 id，须摘链再注册并同步 OSG/旁路表
 	publishBackendObjectRemoved(host, fromId);
-	host.backend().unregisterData(fromId.toStdString());
+	host.backendUnregisterData(fromId.toStdString());
 	if (OsgWidget* osg = osgWidgetFrom(host))
 	{
 		osg->removeBackendObjectVisual(fromId.toStdString());
 	}
 
 	obj->setId(toId.toStdString());
-	if (!host.backend().registerData(obj))
+	if (!host.backendRegisterData(obj))
 	{
 		obj->setId(fromId.toStdString());
-		if (!host.backend().registerData(obj))
+		if (!host.backendRegisterData(obj))
 		{
 			if (outError)
 			{
@@ -661,7 +661,7 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 	}
 	for (const std::string& parentId : parents)
 	{
-		(void)host.backend().attachChild(parentId, obj->id());
+		(void)host.backendAttachChild(parentId, obj->id());
 		if (OsgWidget* osg = osgWidgetFrom(host))
 		{
 			osg->setBackendParent(obj->id(), parentId);
@@ -701,7 +701,7 @@ QString rekeyBackendObject(DocumentHost& host, const QString& fromId, const QStr
 bool exportCustomDeviceUrdfPackage(DocumentHost& host, const std::string& deviceId, const QString& packageParentDir,
 								   QString* outUrdfPath, QString* outPackageRoot, QString* outError)
 {
-	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.backend().getData(deviceId));
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(host.findObject(deviceId));
 	if (!device)
 	{
 		if (outError)
@@ -718,7 +718,7 @@ bool exportCustomDeviceUrdfPackage(DocumentHost& host, const std::string& device
 		opt.sourcePathByBackendId.insert(it.key(), it.value());
 	}
 
-	const CustomDeviceUrdfExportResult exported = ::exportCustomDeviceUrdfPackage(*device, host.backend(), opt);
+	const CustomDeviceUrdfExportResult exported = ::exportCustomDeviceUrdfPackage(*device, backendManagerOf(host), opt);
 	if (!exported.ok)
 	{
 		if (outError)

@@ -5,10 +5,15 @@
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 注册 Follow 等内置组件编解码
 
+#include "data_global.h"
+
 #include "BackendComponentCodecRegistry.h"
 #include "CustomDeviceRobotMountComponent.h"
 #include "FollowAttachmentComponent.h"
 #include "RunLogger.h"
+
+/// 启动期显式注册入口：替代散落在 save/load 内的惰性注册，便于宿主在 DLL 初始化时一次性就绪
+DATA_EXPORT void initBackendComponentCodecs();
 
 /// 注册 Follow 等内置组件编解码
 inline void ensureBackendComponentCodecBuiltinsRegistered()

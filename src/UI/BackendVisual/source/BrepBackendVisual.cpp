@@ -168,6 +168,8 @@ osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(const std::vector<std::vector<fl
 	}
 
 	osg::ref_ptr<osg::Geometry> geometryWire = new osg::Geometry;
+	// 几何随后端数据刷新，声明 DYNAMIC 避免与绘制线程竞争
+	geometryWire->setDataVariance(osg::Object::DYNAMIC);
 	geometryWire->setUseDisplayList(false);
 	geometryWire->setUseVertexBufferObjects(true);
 	geometryWire->setVertexArray(verts.get());
@@ -287,6 +289,8 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
 	osg::ref_ptr<osg::Vec3Array> normals = opt.useSceneLighting ? new osg::Vec3Array : nullptr;
 	osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
+	// 几何随后端数据刷新，声明 DYNAMIC 避免与绘制线程竞争
+	geometry->setDataVariance(osg::Object::DYNAMIC);
 	geometry->setUseDisplayList(false);
 	geometry->setUseVertexBufferObjects(true);
 	const std::vector<float>* preNormals =

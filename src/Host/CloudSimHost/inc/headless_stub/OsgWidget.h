@@ -1,5 +1,5 @@
-﻿#ifndef WIDGET_OSGWIDGET_H
-#define WIDGET_OSGWIDGET_H
+﻿#ifndef CLOUDSIMHOST_OSGWIDGET_H
+#define CLOUDSIMHOST_OSGWIDGET_H
 
 /// @file OsgWidget.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -25,6 +25,7 @@
 #include <vector>
 
 #include <osg/Matrixd>
+#include <osg/Node>
 #include <osg/Vec3d>
 #include <osg/Vec3f>
 #include <osg/Vec4>
@@ -255,6 +256,11 @@ public:
 		(void)backendId;
 		return false;
 	}
+	osg::Node* backendObjectRootNode(const std::string& backendId) const
+	{
+		(void)backendId;
+		return nullptr;
+	}
 
 	void syncSelectionFromBackend(const PointCloudBackendData& data) { (void)data; }
 	void syncSelectionFromBackend(const MeshBackendData& data) { (void)data; }
@@ -418,4 +424,4 @@ signals:
 	void labelingPickCanceled();
 };
 
-#endif // WIDGET_OSGWIDGET_H
+#endif // CLOUDSIMHOST_OSGWIDGET_H

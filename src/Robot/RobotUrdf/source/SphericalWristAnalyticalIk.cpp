@@ -1,4 +1,4 @@
-/// @file SphericalWristAnalyticalIk.cpp
+﻿/// @file SphericalWristAnalyticalIk.cpp
 /// @brief 球形腕 6R：腕心交汇检测 + 臂位置数值 + 腕 ZYZ 解析多解
 
 #include "SphericalWristAnalyticalIk.h"

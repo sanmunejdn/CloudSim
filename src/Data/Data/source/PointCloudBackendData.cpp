@@ -6,6 +6,7 @@
 #include "BackendImporters.h"
 #include "BackendSpatial.h"
 #include "BackendTypeIdentity.h"
+#include "GeometryMutator.h"
 #include "PlyIo.h"
 #include "RunLogger.h"
 #include "geometry_base64.h"
@@ -65,12 +66,12 @@ std::size_t PointCloudBackendData::geometryElementCount() const
 
 void PointCloudBackendData::clearGeometry()
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	m_pointCount = 0U;
 	m_bounds = BackendBoundingBox{};
 	m_xyz.clear();
 	m_rgbaVertex.clear();
 	m_normals.clear();
-	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::setColor(const BackendColor& color)
@@ -85,15 +86,15 @@ BackendColor PointCloudBackendData::color() const
 
 void PointCloudBackendData::setPointCount(std::size_t count)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	m_pointCount = count;
-	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::setBounds(const BackendBoundingBox& bounds)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	m_bounds = bounds;
 	// B4: 独立调用时 Host 包围盒缓存需失效；当前无独立调用方，属潜在陷阱
-	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<float> rgbaPerVertex)
@@ -104,9 +105,11 @@ void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<
 void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<float> rgbaPerVertex,
 											std::vector<float> normalsNxNyNz)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	if (xyz.size() % 3U != 0U)
 	{
 		RunLogger::warn("[PointCloudBackendData] setPointBuffers: bad xyz size, keep existing geometry.");
+		guard.dismiss();
 		return;
 	}
 	const std::size_t n = xyz.size() / 3U;
@@ -125,21 +128,19 @@ void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<
 	m_normals = std::move(normalsNxNyNz);
 	m_pointCount = m_xyz.empty() ? 0U : n;
 	recomputeBoundsFromPoints();
-	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::setPointNormals(std::vector<float> normalsNxNyNz)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	const std::size_t n = m_xyz.size() / 3U;
 	if (n == 0U || normalsNxNyNz.size() != n * 3U)
 	{
 		RunLogger::warn("[PointCloudBackendData] setPointNormals: size mismatch, clear normals.");
 		m_normals.clear();
-		bumpGeometryRevision();
 		return;
 	}
 	m_normals = std::move(normalsNxNyNz);
-	bumpGeometryRevision();
 }
 
 void PointCloudBackendData::recomputeBoundsFromPoints()

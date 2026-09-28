@@ -1,0 +1,38 @@
+﻿#ifndef CLOUDSIMHOST_POINTPICKOPERATION_H
+#define CLOUDSIMHOST_POINTPICKOPERATION_H
+
+/// @file PointPickOperation.h
+/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
+/// @brief 点云点选模式：悬停预览、点击拾取最近点并生成标注，左键拖动仍交给相机漫游。
+
+#include "PickTypes.h"
+#include "SelectionOperation.h"
+#include "ViewportGestureRecognizer.h"
+
+#include <QElapsedTimer>
+#include <QPoint>
+
+/// 点云点选模式：悬停预览、点击拾取最近点并生成标注，左键拖动仍交给相机漫游。
+class PointPickOperation : public SelectionOperation
+{
+public:
+	explicit PointPickOperation(OsgWidget* owner);
+
+private:
+	ViewportGestureRecognizer m_gesture;
+	QElapsedTimer m_clickHoldTimer;
+	PickPreviewState m_preview;
+	QPoint m_lastHoverPickPos{-1000, -1000};
+	bool m_lastFeedbackHit = false;
+	double m_lastFeedbackDistPx = -1.0;
+
+protected:
+	bool canHandle(QObject* watched, QEvent* event) const override;
+	bool onMouseMove(QMouseEvent* e) override;
+	bool onMouseButtonPress(QMouseEvent* e) override;
+	bool onMouseButtonRelease(QMouseEvent* e) override;
+	bool onMouseDoubleClick(QMouseEvent* e) override;
+	bool onWheel(QWheelEvent* e) override;
+};
+
+#endif // CLOUDSIMHOST_POINTPICKOPERATION_H

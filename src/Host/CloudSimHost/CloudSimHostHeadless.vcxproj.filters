@@ -1,72 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
-    <Filter Include="External">
-      <UniqueIdentifier>{8D7D88BD-5093-47FD-9E3A-236B679E850E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI">
-      <UniqueIdentifier>{591E5940-755D-4849-AF65-261D07E070F8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost">
-      <UniqueIdentifier>{C65D9AF9-2AE1-4B8C-BC26-E9687EC0D8B9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\inc">
-      <UniqueIdentifier>{B5A193D2-D262-4E56-8AAE-04143B00FC0B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\inc\Ai">
-      <UniqueIdentifier>{8E5FE50C-728B-42A1-A4AD-19540EF3429C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Agent">
-      <UniqueIdentifier>{1220E02F-A60E-40EB-B476-C36BBBFFBADC}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Catalog">
-      <UniqueIdentifier>{5B6F68D8-62DC-443C-BAD1-ADBBE217194E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Core">
-      <UniqueIdentifier>{267FFBE3-AEE8-41D4-8750-ED94A7562308}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Domains">
-      <UniqueIdentifier>{0E848A5E-A91F-4414-A159-45F8D23CBB53}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Llm">
-      <UniqueIdentifier>{68B4A4DA-DBF8-4F73-8C01-ABE4BF61A729}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\inc\Ai\Rules">
-      <UniqueIdentifier>{3C079631-3237-40F5-B772-9544E16BC46F}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source">
-      <UniqueIdentifier>{7FCCCA43-84D7-465E-B5AD-01E087530282}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source\Ai">
-      <UniqueIdentifier>{CF31B243-CC8B-474E-8483-450DD0DE6754}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source\Ai\Agent">
-      <UniqueIdentifier>{D63EB31D-3111-4C83-85E6-1B198691467C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source\Ai\Catalog">
-      <UniqueIdentifier>{6847008D-9A6E-410B-9397-A15868FFAB96}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source\Ai\Core">
-      <UniqueIdentifier>{67D681C1-C4C1-4C2F-9EE8-BE4ECAA5DCF2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source\Ai\Domains">
-      <UniqueIdentifier>{26FAEB8D-9733-4CE5-A1A5-F04128C6890B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source\Ai\Llm">
-      <UniqueIdentifier>{F92B6451-9961-45DD-9E36-AA28380E3A09}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\CloudSimPluginHost\source\Ai\Rules">
-      <UniqueIdentifier>{EC02DA33-6C91-494F-B455-7C00EAFC0DE9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget">
-      <UniqueIdentifier>{4A52DABD-7CD2-4A16-8A32-EED43CC1EF7C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget\source">
-      <UniqueIdentifier>{0E435CAA-5200-4BF1-A072-D836EE6B865E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\UI\Widget\source\SceneFacade">
-      <UniqueIdentifier>{E5813436-D9A9-4174-BDBA-45FD7764B80A}</UniqueIdentifier>
-    </Filter>
     <Filter Include="inc">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
@@ -101,6 +35,9 @@
     <Filter Include="inc\io">
       <UniqueIdentifier>{A21ECA5A-DDC0-4724-A02E-99447111B96A}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\pluginhost">
+      <UniqueIdentifier>{71C7A7CC-C478-4BAA-9519-43631EFDF594}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\project">
       <UniqueIdentifier>{31D03C75-F7AE-4411-83FD-F4811F05EFF9}</UniqueIdentifier>
     </Filter>
@@ -116,6 +53,9 @@
     </Filter>
     <Filter Include="src\Global">
       <UniqueIdentifier>{C6B49D86-5403-4050-98C8-136E708E6B7E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{A423608C-4B5D-43F9-88C8-1636CB345C39}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Visual">
       <UniqueIdentifier>{E93AF5D4-C073-44E3-9946-96A4EF56712F}</UniqueIdentifier>
@@ -135,6 +75,12 @@
     <Filter Include="src\io">
       <UniqueIdentifier>{F4596DC2-FD8E-4AAD-8847-29324F867C62}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\osg">
+      <UniqueIdentifier>{FADC01F7-1A87-4394-A1F9-E8A65C4EFA45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pluginhost">
+      <UniqueIdentifier>{A628C64D-FA2F-48BF-9719-8B0D3AE5424C}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\project">
       <UniqueIdentifier>{D8D26B6A-1D01-4718-8EFB-C10F6B42222F}</UniqueIdentifier>
     </Filter>
@@ -143,141 +89,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiActionPlanExecutor.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiAgentMemory.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiAgentPickDialog.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiAgentPlanBuilder.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiAgentRuntime.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiAgentTrace.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiApiCatalogEmbedded.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Catalog</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiArgsSchema.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiAssistantHostImpl.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiCatalogKeywordMatcher.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Catalog</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiCommandSchema.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiConfigLoader.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiDomainRegistryImpl.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiDomainRouter.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiFeatureComposeSteps.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Rules</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiHostButtonApiDispatch.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiHttpsPost.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiIntentClassifier.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiIntentParser.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiLlmClient.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiLlmConfig.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiMeshDefaults.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Rules</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiProcessFlowRules.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Rules</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiProgressSink.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Llm</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiSceneOpsRules.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Rules</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiSceneSnapshotBuilder.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Rules</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiTrajectoryFeatureCatalog.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Catalog</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\CatalogActionPlanDomainHandler.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Agent</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\DesignPartsCatalog.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Catalog</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\DesignPartsDomainHandler.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\FeatureComposeDomainHandler.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\GeometryRecognizeDomainHandler.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\MeshComposeDomainHandler.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\MeshCreateDomainHandler.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\TrajectoryFeatureDomainHandler.h">
-      <Filter>External\UI\CloudSimPluginHost\inc\Ai\Domains</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\DocumentGeometryOps.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\DocumentPointCloudOps.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\IPluginMainWindowHost.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginDelegatedBackend.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginDocumentAdapter.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginGeometryHostImpl.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPointCloudHostImpl.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginPropertyBindingRegistry.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginRobotHostImpl.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\PluginSceneBridgeAdapter.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </ClInclude>
     <ClInclude Include="inc\adapters\DataServiceAdapter.h">
       <Filter>inc\adapters</Filter>
     </ClInclude>
@@ -395,6 +206,141 @@
     <ClInclude Include="inc\IRobotUrdfImportContext.h">
       <Filter>inc\import</Filter>
     </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiActionPlanExecutor.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentMemory.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentPickDialog.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentPlanBuilder.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentRuntime.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentTrace.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiApiCatalogEmbedded.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiArgsSchema.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAssistantHostImpl.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiCatalogKeywordMatcher.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiCommandSchema.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiConfigLoader.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiDomainRegistryImpl.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiDomainRouter.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiFeatureComposeSteps.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiHostButtonApiDispatch.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiHttpsPost.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiIntentClassifier.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiIntentParser.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiLlmClient.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiLlmConfig.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiMeshDefaults.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiProcessFlowRules.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiProgressSink.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiSceneOpsRules.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiSceneSnapshotBuilder.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiTrajectoryFeatureCatalog.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\CatalogActionPlanDomainHandler.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\DesignPartsCatalog.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\DesignPartsDomainHandler.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\FeatureComposeDomainHandler.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\GeometryRecognizeDomainHandler.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\MeshComposeDomainHandler.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\MeshCreateDomainHandler.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\TrajectoryFeatureDomainHandler.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\DocumentGeometryOps.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\DocumentPointCloudOps.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\IPluginMainWindowHost.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginDelegatedBackend.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginDocumentAdapter.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginGeometryHostImpl.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginPointCloudHostImpl.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginPropertyBindingRegistry.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginRobotHostImpl.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginSceneBridgeAdapter.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ProjectPackageIo.h">
       <Filter>inc\project</Filter>
     </ClInclude>
@@ -430,153 +376,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiActionPlanExecutor.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiAgentMemory.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiAgentPickDialog.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiAgentPlanBuilder.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiAgentRuntime.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiAgentTrace.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiApiCatalogEmbedded.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Catalog</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiArgsSchema.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Llm</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiAssistantHostImpl.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiCatalogKeywordMatcher.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Catalog</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiCommandSchema.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Llm</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiConfigLoader.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Llm</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiDomainRegistryImpl.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiDomainRouter.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiFeatureComposeSteps.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Rules</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiHostButtonApiDispatch.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiHttpsPost.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Llm</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiIntentClassifier.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Llm</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiIntentParser.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Llm</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiLlmClient.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Llm</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiLlmConfig.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Llm</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiMeshDefaults.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Rules</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiProcessFlowRules.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Rules</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiSceneOpsRules.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Rules</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiSceneSnapshotBuilder.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Rules</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiTrajectoryFeatureCatalog.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Catalog</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\CatalogActionPlanDomainHandler.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Agent</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\DesignPartsCatalog.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Catalog</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\DesignPartsDomainHandler.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\FeatureComposeDomainHandler.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\GeometryRecognizeDomainHandler.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\MeshComposeDomainHandler.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\MeshCreateDomainHandler.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\TrajectoryFeatureDomainHandler.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source\Ai\Domains</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\DocumentGeometryOps.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\DocumentPointCloudOps.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginDelegatedBackend.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginDocumentAdapter.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginGeometryHostImpl.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginHostContext.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginLabelingHostImpl.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginManager.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPointCloudHostImpl.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginPropertyBindingRegistry.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginRobotHostImpl.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\PluginSceneBridgeAdapter.cpp">
-      <Filter>External\UI\CloudSimPluginHost\source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\BackendFollowReverseIndex.cpp">
-      <Filter>External\UI\Widget\source\SceneFacade</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\BackendSceneDocumentFacade.cpp">
-      <Filter>External\UI\Widget\source\SceneFacade</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\ViewportGestureRecognizer.cpp">
-      <Filter>External\UI\Widget\source\SceneFacade</Filter>
-    </ClCompile>
     <ClCompile Include="source\adapters\DataServiceAdapter.cpp">
       <Filter>src\adapters</Filter>
     </ClCompile>
@@ -691,8 +490,155 @@
     <ClCompile Include="source\io\IoSignalNetwork.cpp">
       <Filter>src\io</Filter>
     </ClCompile>
+    <ClCompile Include="source\osg\BackendFollowReverseIndex.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\BackendSceneDocumentFacade.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\ViewportGestureRecognizer.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
     <ClCompile Include="source\pch.cpp">
       <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiActionPlanExecutor.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentMemory.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentPickDialog.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentPlanBuilder.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentRuntime.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentTrace.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiApiCatalogEmbedded.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiArgsSchema.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAssistantHostImpl.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiCatalogKeywordMatcher.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiCommandSchema.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiConfigLoader.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiDomainRegistryImpl.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiDomainRouter.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiFeatureComposeSteps.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiHostButtonApiDispatch.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiHttpsPost.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiIntentClassifier.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiIntentParser.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiLlmClient.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiLlmConfig.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiMeshDefaults.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiProcessFlowRules.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiSceneOpsRules.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiSceneSnapshotBuilder.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiTrajectoryFeatureCatalog.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\CatalogActionPlanDomainHandler.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\DesignPartsCatalog.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\DesignPartsDomainHandler.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\FeatureComposeDomainHandler.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\GeometryRecognizeDomainHandler.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\MeshComposeDomainHandler.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\MeshCreateDomainHandler.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\TrajectoryFeatureDomainHandler.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\DocumentGeometryOps.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\DocumentPointCloudOps.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginDelegatedBackend.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginDocumentAdapter.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginGeometryHostImpl.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginHostContext.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginLabelingHostImpl.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginManager.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginPointCloudHostImpl.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginPropertyBindingRegistry.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginRobotHostImpl.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginSceneBridgeAdapter.cpp">
+      <Filter>src\pluginhost</Filter>
     </ClCompile>
     <ClCompile Include="source\project\AnnotationProjectIo.cpp">
       <Filter>src\project</Filter>
@@ -735,12 +681,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="..\..\UI\CloudSimPluginHost\inc\PluginHostContext.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </QtMoc>
-    <QtMoc Include="..\..\UI\CloudSimPluginHost\inc\PluginManager.h">
-      <Filter>External\UI\CloudSimPluginHost\inc</Filter>
-    </QtMoc>
     <QtMoc Include="inc\DocumentHost.h">
       <Filter>inc\DocumentHost</Filter>
     </QtMoc>
@@ -755,6 +695,12 @@
     </QtMoc>
     <QtMoc Include="inc\io\IoSignalNetwork.h">
       <Filter>inc\io</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\pluginhost\PluginHostContext.h">
+      <Filter>inc\pluginhost</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\pluginhost\PluginManager.h">
+      <Filter>inc\pluginhost</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

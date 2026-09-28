@@ -12,6 +12,7 @@
 #include "BackendUnitsTreeBinder.h"
 #include "CoreTypes.h"
 #include "DocumentHost.h"
+#include "EventHub.h"
 #include "IPluginMainWindowHost.h"
 #include "MainWindowInstructionPropertyUiHost.h"
 #include "MainWindowSelectionState.h"
@@ -70,11 +71,6 @@ class MainWindowObjectRepository;
 class AiAssistantDockWidget;
 class AiAssistantCoordinator;
 class PluginManager;
-
-namespace cloudsim::core
-{
-class EventHub;
-}
 
 namespace RobotInstruction
 {
@@ -378,6 +374,11 @@ protected:
 	void closeEvent(QCloseEvent* event) override;
 
 	cloudsim::core::EventHub& m_appEvents;
+	/// RAII 订阅句柄：MainWindow 析构时自动退订，防止事件回调悬挂
+	cloudsim::core::EventHub::Subscription m_subBackendRegistered;
+	cloudsim::core::EventHub::Subscription m_subBackendRemoved;
+	cloudsim::core::EventHub::Subscription m_subSelectionChanged;
+	cloudsim::core::EventHub::Subscription m_subPoseCommitted;
 	int m_backendTreeEventRefreshSuppress = 0;
 	/// >0 时忽略 Units 树 itemChanged/selection 写回（结构 sync 防误隐藏）
 	int m_unitsTreeStructureMute = 0;

@@ -15,7 +15,7 @@ EnsureVisualResult ensureVisual(DocumentHost& host, const std::string& backendId
 								const EnsureVisualOptions& opts)
 {
 	EnsureVisualResult result;
-	const auto obj = host.backend().getData(backendId);
+	const auto obj = host.findObject(backendId);
 	if (!obj)
 	{
 		result.error = QStringLiteral("backend not found");

@@ -23,6 +23,7 @@
 #include <memory>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace cloudsim::core
@@ -33,6 +34,7 @@ class EventHub;
 class OsgWidget;
 class QVBoxLayout;
 class BackendDataManager;
+class IBackendDataQuery;
 class BackendHierarchyModel;
 class BackendDataBase;
 class MeshBackendData;
@@ -100,10 +102,22 @@ public:
 	/// 存量 backend 入口（新代码优先 `data()` / `findObject`；勿在 UI 层继续扩散 BackendDataManager 头）
 	BackendDataManager& backend();
 	const BackendDataManager& backend() const;
+	/// 只读查询窄接口：Headless/库函数入口，避免向调用方暴露 BackendDataManager 具体类型
+	const IBackendDataQuery& dataQuery() const;
 	/// 按 id 取对象（替代 UI 直调 backend().getData）
 	std::shared_ptr<BackendDataBase> findObject(const std::string& id) const;
 	/// 枚举全部对象（替代 UI 直调 backend().listData）
 	std::vector<std::shared_ptr<BackendDataBase>> listObjects() const;
+	/// 登记/层级窄接口（替代直调 backend().contains/registerData 等，收窄穿透面）
+	bool backendContains(const std::string& id) const;
+	bool backendRegisterData(const std::shared_ptr<BackendDataBase>& obj);
+	bool backendUnregisterData(const std::string& id);
+	bool backendAttachChild(const std::string& parentId, const std::string& childId);
+	bool backendSetParent(const std::string& childId, const std::string& parentId);
+	std::vector<std::string> backendParentsOf(const std::string& id) const;
+	std::vector<std::string> backendChildrenOf(const std::string& id) const;
+	std::vector<std::string> backendTopoOrder() const;
+	std::vector<std::pair<std::string, std::string>> backendListEdges() const;
 	RobotProgramStore& robotProgramStore();
 	RobotCollision::Settings& robotCollisionSettings() { return m_robotCollisionSettings; }
 	const RobotCollision::Settings& robotCollisionSettings() const { return m_robotCollisionSettings; }

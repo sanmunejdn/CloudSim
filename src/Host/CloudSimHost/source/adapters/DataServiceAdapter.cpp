@@ -31,23 +31,14 @@ namespace cloudsim::host
 {
 DataServiceAdapter::DataServiceAdapter(DocumentHost& host) : m_host(host) {}
 
-namespace
-{
-BackendDataManager& backendOf(DocumentHost& host)
-{
-	return host.backend();
-}
-
-} // namespace
-
 bool DataServiceAdapter::isValid(const core::ObjectId& id) const
 {
-	return !id.isEmpty() && backendOf(m_host).contains(id.toStdString());
+	return !id.isEmpty() && backendManagerOf(m_host).contains(id.toStdString());
 }
 
 void DataServiceAdapter::clear()
 {
-	backendOf(m_host).clear();
+	backendManagerOf(m_host).clear();
 }
 
 core::ObjectId DataServiceAdapter::registerObject(const core::RegisterObjectDto& meta, QString* outError)
@@ -61,7 +52,7 @@ core::ObjectId DataServiceAdapter::registerObject(const core::RegisterObjectDto&
 		return {};
 	}
 	obj->setName(meta.name.toStdString());
-	if (!backendOf(m_host).registerData(obj))
+	if (!backendManagerOf(m_host).registerData(obj))
 	{
 		if (outError)
 			*outError = QStringLiteral("registerData failed");
@@ -85,7 +76,7 @@ bool DataServiceAdapter::unregisterSubtree(const core::ObjectId& id, QString* ou
 
 core::ObjectId DataServiceAdapter::findByName(const QString& name) const
 {
-	const auto list = backendOf(m_host).findByName(name.toStdString());
+	const auto list = backendManagerOf(m_host).findByName(name.toStdString());
 	if (list.empty())
 		return {};
 	return QString::fromStdString(list.front()->id());
@@ -93,20 +84,20 @@ core::ObjectId DataServiceAdapter::findByName(const QString& name) const
 
 QString DataServiceAdapter::className(const core::ObjectId& id) const
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	return obj ? QString::fromStdString(obj->className()) : QString();
 }
 
 QString DataServiceAdapter::displayName(const core::ObjectId& id) const
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	return obj ? QString::fromStdString(obj->name()) : QString();
 }
 
 QVector<core::ObjectId> DataServiceAdapter::listChildren(const core::ObjectId& parentId) const
 {
 	QVector<core::ObjectId> out;
-	for (const std::string& c : backendOf(m_host).childrenOf(parentId.toStdString()))
+	for (const std::string& c : backendManagerOf(m_host).childrenOf(parentId.toStdString()))
 		out.append(QString::fromStdString(c));
 	return out;
 }
@@ -119,10 +110,10 @@ bool DataServiceAdapter::attachChild(const core::ObjectId& parentId, const core:
 QVector<core::PropertyRowDto> DataServiceAdapter::propertyRows(const core::ObjectId& id) const
 {
 	QVector<core::PropertyRowDto> rows;
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 		return rows;
-	const nlohmann::json j = obj->snapshotPropertyRows(&backendOf(m_host));
+	const nlohmann::json j = obj->snapshotPropertyRows(&backendManagerOf(m_host));
 	if (!j.is_array())
 		return rows;
 	for (const auto& row : j)
@@ -140,7 +131,7 @@ QVector<core::PropertyRowDto> DataServiceAdapter::propertyRows(const core::Objec
 bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QString& key, const QString& value,
 											 QString* outError)
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		if (outError)
@@ -151,7 +142,7 @@ bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QSt
 	const bool poseLikeKey = key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation."));
 	const BackendMat4 worldBefore = obj->worldMatrix();
 	std::string err;
-	if (!obj->applyPropertyChange(key.toStdString(), value.toStdString(), &err, &backendOf(m_host)))
+	if (!obj->applyPropertyChange(key.toStdString(), value.toStdString(), &err, &backendManagerOf(m_host)))
 	{
 		if (outError)
 			*outError = QString::fromStdString(err);
@@ -194,7 +185,7 @@ bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QSt
 
 bool DataServiceAdapter::applyWorldPoseMm(const core::ObjectId& id, const core::PoseDto& pose, QString* outError)
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		if (outError)
@@ -239,7 +230,7 @@ bool DataServiceAdapter::applyWorldPoseMm(const core::ObjectId& id, const core::
 
 bool DataServiceAdapter::applyColor(const core::ObjectId& id, const core::ColorDto& color, QString* outError)
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		if (outError)
@@ -260,14 +251,14 @@ bool DataServiceAdapter::applyColor(const core::ObjectId& id, const core::ColorD
 
 bool DataServiceAdapter::isVisible(const core::ObjectId& id) const
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	// P3-1: 与 Data 层 BackendManagerDataService 对齐，非法 id 返回 false
 	return obj ? obj->isVisible() : false;
 }
 
 bool DataServiceAdapter::setVisible(const core::ObjectId& id, bool visible, QString* outError)
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		if (outError)
@@ -285,7 +276,7 @@ bool DataServiceAdapter::setVisible(const core::ObjectId& id, bool visible, QStr
 core::PoseDto DataServiceAdapter::worldPoseMm(const core::ObjectId& id) const
 {
 	core::PoseDto dto;
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		return dto;
@@ -304,7 +295,7 @@ core::PoseDto DataServiceAdapter::worldPoseMm(const core::ObjectId& id) const
 core::BBoxDto DataServiceAdapter::boundingBox(const core::ObjectId& id) const
 {
 	core::BBoxDto box;
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 		return box;
 	const BackendBoundingBox bb = obj->geometryBounds();
@@ -329,7 +320,7 @@ bool DataServiceAdapter::hasVisualBranch(const core::ObjectId& id) const
 
 QJsonObject DataServiceAdapter::saveObjectToJson(const core::ObjectId& id) const
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 		return {};
 	const nlohmann::json j = obj->saveToJson();
@@ -370,7 +361,7 @@ core::ObjectId DataServiceAdapter::importFromFile(const QString& path, const cor
 QVector<core::ObjectId> DataServiceAdapter::topoOrder() const
 {
 	QVector<core::ObjectId> out;
-	for (const std::string& id : backendOf(m_host).topoOrder())
+	for (const std::string& id : backendManagerOf(m_host).topoOrder())
 		out.append(QString::fromStdString(id));
 	return out;
 }
@@ -378,7 +369,7 @@ QVector<core::ObjectId> DataServiceAdapter::topoOrder() const
 QVector<core::ObjectId> DataServiceAdapter::listAll() const
 {
 	QVector<core::ObjectId> out;
-	for (const auto& obj : backendOf(m_host).listData())
+	for (const auto& obj : backendManagerOf(m_host).listData())
 		out.append(QString::fromStdString(obj->id()));
 	return out;
 }
@@ -386,7 +377,7 @@ QVector<core::ObjectId> DataServiceAdapter::listAll() const
 QVector<core::ObjectId> DataServiceAdapter::parentsOf(const core::ObjectId& id) const
 {
 	QVector<core::ObjectId> out;
-	for (const std::string& pid : backendOf(m_host).parentsOf(id.toStdString()))
+	for (const std::string& pid : backendManagerOf(m_host).parentsOf(id.toStdString()))
 		out.append(QString::fromStdString(pid));
 	return out;
 }
@@ -449,18 +440,18 @@ core::GeometryKind geometryKindOf(const BackendDataBase& obj)
 
 core::BackendObjectDto DataServiceAdapter::objectSnapshot(const core::ObjectId& id) const
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		return {};
 	}
-	return makeObjectSnapshot(backendOf(m_host), *obj);
+	return makeObjectSnapshot(backendManagerOf(m_host), *obj);
 }
 
 QVector<core::BackendObjectDto> DataServiceAdapter::listObjectSnapshots() const
 {
 	QVector<core::BackendObjectDto> out;
-	const BackendDataManager& mgr = backendOf(m_host);
+	const BackendDataManager& mgr = backendManagerOf(m_host);
 	for (const auto& obj : mgr.listData())
 	{
 		if (obj)
@@ -473,7 +464,7 @@ QVector<core::BackendObjectDto> DataServiceAdapter::listObjectSnapshots() const
 
 core::GeometryKind DataServiceAdapter::geometryKind(const core::ObjectId& id) const
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		return core::GeometryKind::None;
@@ -483,7 +474,7 @@ core::GeometryKind DataServiceAdapter::geometryKind(const core::ObjectId& id) co
 
 bool DataServiceAdapter::hasComponent(const core::ObjectId& id, const QString& componentType) const
 {
-	const auto obj = backendOf(m_host).getData(id.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		return false;
@@ -532,7 +523,7 @@ bool DataServiceAdapter::runFollowSolveAndSync(const core::FollowSolveContextDto
 
 core::ObjectId DataServiceAdapter::followTargetId(const core::ObjectId& followerId) const
 {
-	const auto obj = backendOf(m_host).getData(followerId.toStdString());
+	const auto obj = backendManagerOf(m_host).getData(followerId.toStdString());
 	if (!obj)
 	{
 		return {};
@@ -558,7 +549,7 @@ QVector<core::ObjectId> DataServiceAdapter::findByClassName(const QString& class
 	{
 		return out;
 	}
-	for (const auto& obj : backendOf(m_host).findByClass(className.toStdString()))
+	for (const auto& obj : backendManagerOf(m_host).findByClass(className.toStdString()))
 	{
 		if (obj)
 		{

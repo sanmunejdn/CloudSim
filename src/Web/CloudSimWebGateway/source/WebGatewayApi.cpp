@@ -5,6 +5,7 @@
 #include "BackendTypeIds.h"
 #include "CloudSimHost.h"
 #include "DocumentHost.h"
+#include "DocumentHostAccess.h"
 #include "DocumentImportFacade.h"
 #include "FrameBackendData.h"
 #include "HeadlessRobotContext.h"
@@ -1469,7 +1470,7 @@ QByteArray WebGateway::robotFrameOverlaysJsonOnGuiThread(const QString& sceneRoo
 	const QString rootId = resolveSceneRootId(hrc, sceneRootBackendId);
 	cloudsim::host::FrameOverlaySnapshot snap;
 	QString err;
-	if (!cloudsim::host::buildFrameOverlaySnapshot(*hrc, host->backend(), rootId, snap, &err))
+	if (!cloudsim::host::buildFrameOverlaySnapshot(*hrc, cloudsim::host::backendManagerOf(*host), rootId, snap, &err))
 	{
 		root.insert(QStringLiteral("error"), err.isEmpty() ? QStringLiteral("overlay failed") : err);
 		return QJsonDocument(root).toJson(QJsonDocument::Compact);

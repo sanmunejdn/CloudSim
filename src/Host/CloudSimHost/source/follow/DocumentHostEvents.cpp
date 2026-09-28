@@ -96,7 +96,7 @@ void publishPoseCommittedFromBackend(DocumentHost& host, const BackendDataBase& 
 
 void publishPoseCommittedFromBackendId(DocumentHost& host, const QString& objectId)
 {
-	const auto obj = host.backend().getData(objectId.toStdString());
+	const auto obj = host.findObject(objectId.toStdString());
 	if (!obj)
 	{
 		return;

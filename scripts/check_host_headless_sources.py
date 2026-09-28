@@ -97,11 +97,28 @@ def is_headless_only(path: str) -> bool:
 
 
 def collect_items(vcxproj: Path) -> dict[str, set[str]]:
-	text = vcxproj.read_text(encoding="utf-8")
+	"""含相对 Import 的 .props / .items.props 中的 ItemGroup。"""
 	out: dict[str, set[str]] = {"ClCompile": set(), "ClInclude": set()}
-	for m in ITEM_RE.finditer(text):
-		tag, inc = m.group(1), norm(m.group(2))
-		out[tag].add(inc)
+	seen: set[Path] = set()
+
+	def walk(path: Path) -> None:
+		path = path.resolve()
+		if path in seen or not path.exists():
+			return
+		seen.add(path)
+		text = path.read_text(encoding="utf-8")
+		for m in ITEM_RE.finditer(text):
+			tag, inc = m.group(1), norm(m.group(2))
+			out[tag].add(inc)
+		for m in re.finditer(r'<Import\s+Project="([^"]+)"', text, re.I):
+			proj = m.group(1)
+			if "$(" in proj:
+				continue
+			if not re.search(r"\.(props|items\.props)$", proj, re.I):
+				continue
+			walk(path.parent / proj)
+
+	walk(vcxproj)
 	return out
 
 

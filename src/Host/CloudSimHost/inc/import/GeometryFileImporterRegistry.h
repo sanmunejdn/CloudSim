@@ -18,6 +18,11 @@ namespace cloudsim::host
 class CLOUDSIM_HOST_EXPORT GeometryFileImporterRegistry
 {
 public:
+	// 公开构造/析构供 ServiceRegistry 持有；全局唯一性不再由类强制
+	GeometryFileImporterRegistry() = default;
+	~GeometryFileImporterRegistry();
+
+	// 兼容期入口：优先 ServiceRegistry，上下文未就绪回退静态实例
 	static GeometryFileImporterRegistry& instance();
 
 	GeometryFileImporterRegistry(const GeometryFileImporterRegistry&) = delete;
@@ -30,9 +35,6 @@ public:
 	void ensureBuiltinsRegistered();
 
 private:
-	GeometryFileImporterRegistry() = default;
-	~GeometryFileImporterRegistry();
-
 	struct Impl;
 	Impl* m_impl = nullptr;
 };

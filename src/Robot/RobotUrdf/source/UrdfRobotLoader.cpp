@@ -1,4 +1,4 @@
-/// @file UrdfRobotLoader.cpp
+﻿/// @file UrdfRobotLoader.cpp
 /// @brief 零位姿（q=0）下的 parent_T_child，仅由该关节的 URDF 决定，不依赖 jointAnglesRad 下标顺序
 
 // UrdfRobotLoader：URDF 解析、FK、层级 OSG 场景；多机键前缀由上层加 backendId::
@@ -29,6 +29,7 @@
 #include <cmath>
 #include <memory>
 #include <queue>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -45,7 +46,6 @@
 #include <osg/Math>
 #include <osg/MatrixTransform>
 #include <osg/Matrixd>
-#include <osg/NodeVisitor>
 #include <osg/PolygonOffset>
 #include <osg/Shape>
 #include <osg/ShapeDrawable>
@@ -53,9 +53,7 @@
 #include <osg/Vec3>
 #include <osg/Vec4>
 #include <osg/ref_ptr>
-#include <osgDB/ReadFile>
 #include <osgText/Text>
-#include <osgUtil/SmoothingVisitor>
 
 namespace
 {
@@ -99,19 +97,12 @@ constexpr double kUrdfOriginXyzMetersToInternalMm = 1000.0;
 // 网格顶点文件单位 → 内部毫米：STL 多为毫米时用 1.0；若网格文件已是米则用 1000.0（不读 URDF mesh scale 属性）
 constexpr double kMeshFileVertexUnitsToInternalMm = 1;
 
-// OSG SmoothingVisitor 会对已三角化的 STL/STEP 导出网格合并顶点并重算法线，工业网格上易出现「斑马纹 / 条纹状」错误着色。
-// 插件读入的网格通常已带法线；需要更圆滑外观时可改为 true
-constexpr bool kUrdfMeshUseSmoothingVisitor = false;
-
 // 为 true 时 urdfDebugLogRevoluteJointSubtree 打印各关节子树包围球（默认关）
 constexpr bool kUrdfDebugJointSubtreeDiagnostics = false;
 
 // 为 true 时在转动关节处绘制旋转轴线（黄线）与关节原点标记（红球）；默认关，与层级运动学无关
 constexpr bool kUrdfShowRevoluteJointDebugVisuals = false;
 
-// 为 true 时使用 MeshBackendData 后端对象加载连杆几何（推荐，更快且支持属性编辑）
-// 为 false 时回退到旧的 osgDB::readNodeFile 直接读取
-constexpr bool kUseMeshBackendForLinks = true;
 // 关节结构节点（JointOrigin/JointRotation/LinkShell）在非零 origin + 动态旋转时，
 // 个别 OSG 版本会出现父包围球低估，导致整段子树被误剔除。关闭结构层裁剪可避免“子连杆消失”
 // 几何节点仍保留裁剪，开销主要是层级遍历，不会禁用整机裁剪
@@ -357,15 +348,6 @@ static void applyUrdfVisualMaterialToBackend(MeshBackendData& backend, const Urd
 	color.b = vis.matB;
 	color.a = vis.matA;
 	backend.setColor(color);
-}
-
-static osg::Vec4 urdfVisualMaterialOsgColor(const UrdfLinkVisual& vis)
-{
-	if (vis.hasMaterialColor)
-	{
-		return osg::Vec4(vis.matR, vis.matG, vis.matB, vis.matA);
-	}
-	return osg::Vec4(0.65f, 0.82f, 0.95f, 1.0f);
 }
 
 // 读取 \<material\>：内联 \<color rgba\>，或仅 name 引用顶层材质
@@ -2325,109 +2307,6 @@ bool UrdfRobotLoader::computeJointTransformMatrices(const QString& urdfFilePath,
 
 /// 辅助：将 URDF Mat4 内部格式转为 osg::Matrixd (已在匿名命名空间有 mat4ToOsg，这里复用)
 
-// OSG 读入的 STL/OBJ 常无法线且默认不参与光照，与 BackendVisual 中 lit mesh 对齐：材质 + LIGHT0。
-// Geode 与独立 Geometry（如部分 DAE 直接挂 Group）共用同一 StateSet 设置。
-static void applyLitPlasticToStateSet(osg::StateSet* ss, const osg::Vec4& baseColor)
-{
-	if (!ss)
-	{
-		return;
-	}
-	osg::ref_ptr<osg::Material> mat = new osg::Material;
-	const float amb = 0.22f;
-	mat->setAmbient(osg::Material::FRONT_AND_BACK,
-					osg::Vec4(baseColor.r() * amb, baseColor.g() * amb, baseColor.b() * amb, baseColor.a()));
-	mat->setDiffuse(osg::Material::FRONT_AND_BACK, baseColor);
-	mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0.62f, 0.62f, 0.58f, 1.0f));
-	mat->setShininess(osg::Material::FRONT_AND_BACK, 64.0f);
-	const float em = 0.014f;
-	mat->setEmission(osg::Material::FRONT_AND_BACK,
-					 osg::Vec4(baseColor.r() * em, baseColor.g() * em, baseColor.b() * em, baseColor.a()));
-
-	ss->setAttributeAndModes(mat.get(), osg::StateAttribute::ON);
-	//ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	ss->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-	ss->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-	ss->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
-}
-
-class UrdfMeshLightingVisitor : public osg::NodeVisitor
-{
-public:
-	explicit UrdfMeshLightingVisitor(const osg::Vec4& defaultBaseColor)
-		: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), m_defaultBaseColor(defaultBaseColor)
-	{
-	}
-
-	void apply(osg::Geometry& geometry) override
-	{
-		osg::Array* va = geometry.getVertexArray();
-		if (va && va->getNumElements() >= 3U)
-		{
-			osg::Vec4 baseColor = m_defaultBaseColor;
-			osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geometry.getColorArray());
-			if (ca && !ca->empty() && osg::getBinding(ca) == osg::Array::BIND_OVERALL)
-			{
-				baseColor = ca->front();
-			}
-			applyLitPlasticToStateSet(geometry.getOrCreateStateSet(), baseColor);
-		}
-		traverse(geometry);
-	}
-
-private:
-	osg::Vec4 m_defaultBaseColor;
-
-	// 仅向下遍历到 Drawable；实际材质在 apply(Geometry) 中设置，避免与 Geode 上整包材质重复叠加
-	void apply(osg::Geode& geode) override { traverse(geode); }
-};
-
-static void finalizeUrdfImportedMeshRendering(osg::Node* root, const osg::Vec4& baseColor)
-{
-	if (!root)
-	{
-		return;
-	}
-	if (kUrdfMeshUseSmoothingVisitor)
-	{
-		osgUtil::SmoothingVisitor smoother;
-		smoother.setCreaseAngle(osg::DegreesToRadians(60.0));
-		root->accept(smoother);
-	}
-	UrdfMeshLightingVisitor lighter(baseColor);
-	root->accept(lighter);
-}
-
-/// 辅助：加载 Mesh 文件为 OSG 节点
-static osg::ref_ptr<osg::Node> loadMeshNode(const QString& filePath, QString* errorMessage)
-{
-	const QByteArray nativeEnc = QFile::encodeName(filePath);
-	const std::string nativePath(nativeEnc.constData(), static_cast<std::size_t>(nativeEnc.size()));
-	osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(nativePath);
-	if (!node)
-	{
-		if (errorMessage)
-		{
-			*errorMessage = QStringLiteral("OSG failed to load mesh: %1").arg(filePath);
-		}
-		return nullptr;
-	}
-	return node;
-}
-
-/// mesh 文件系 -> 连杆系（内部 mm）：\<visual\>\<origin\>（米→mm）× 顶点尺度（与 FK / computeMeshWorldMatrices 一致；不读 URDF mesh scale）
-static osg::ref_ptr<osg::MatrixTransform> createLinkVisualFromMesh(const QString& linkName, const UrdfLinkVisual& vis,
-																   osg::ref_ptr<osg::Node> meshNode)
-{
-	finalizeUrdfImportedMeshRendering(meshNode.get(), urdfVisualMaterialOsgColor(vis));
-	const Mat4 meshToLink = meshFileToLinkFrameFromVisual(vis);
-	osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
-	mt->setName(linkName.toStdString() + "_Geometry");
-	mt->setMatrix(mat4ToOsg(meshToLink));
-	mt->addChild(meshNode.get());
-	return mt;
-}
-
 // 连杆容器 Group；保持裁剪开，关裁剪曾致包围球膨胀+ zFar 裁黑屏
 static osg::ref_ptr<osg::Group> createContainerLayer(const QString& linkName)
 {
@@ -3012,36 +2891,12 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(const QString& urdfFile
 		// 【第二阶段】创建视觉容器层 (Container)
 		osg::ref_ptr<osg::Group> container = createContainerLayer(linkName);
 
-		// 几何层：根据开关选择后端加载或OSG直接加载
-		osg::ref_ptr<osg::Node> geometryNode;
-		if (kUseMeshBackendForLinks)
-		{
-			// 【优化方案】使用 MeshBackendData 后端对象加载
-			// 优势：更快加载、支持属性编辑、可序列化
-			QString backendErr;
-			geometryNode = createLinkVisualFromBackend(linkName, vis, packageRoot, urdfDir, &backendErr);
-			if (!geometryNode)
-			{
-				RunLogger::warn(
-					qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend loading failed for link='%1' error='%2'")
-									  .arg(linkName, backendErr)));
-				// 可选：回退到OSG直接读取
-				RunLogger::info(qstrToUtf8Std(
-					QStringLiteral("[UrdfRobotLoader] Falling back to OSG loading for link='%1'").arg(linkName)));
-			}
-		}
-
+		// 几何层：MeshBackend 为唯一加载路径；失败即整链加载失败，errorMessage 由被调方填充
+		osg::ref_ptr<osg::Node> geometryNode =
+			createLinkVisualFromBackend(linkName, vis, packageRoot, urdfDir, errorMessage);
 		if (!geometryNode)
 		{
-			// 【旧方案】OSG 直接读取（回退方案）
-			osg::ref_ptr<osg::Node> meshNode = loadMeshNode(absMesh, errorMessage);
-			if (!meshNode)
-			{
-				return nullptr; // errorMessage 已由 loadMeshNode 填充
-			}
-			// 几何层：仅 visual origin + 法线/光照
-			osg::ref_ptr<osg::MatrixTransform> geometryXf = createLinkVisualFromMesh(linkName, vis, meshNode);
-			geometryNode = geometryXf;
+			return nullptr;
 		}
 
 		container->addChild(geometryNode.get());

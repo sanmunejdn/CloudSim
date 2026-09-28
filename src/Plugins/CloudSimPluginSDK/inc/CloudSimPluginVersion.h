@@ -9,4 +9,7 @@
 
 PLUGIN_SDK_EXPORT unsigned int cloudsimPluginHostVersion();
 
+/// 插件编译期 SDK ABI 版本（编译进插件 DLL 的常量，供宿主握手）
+PLUGIN_SDK_EXPORT unsigned int cloudsimPluginSdkVersion();
+
 #endif // CLOUDSIMPLUGINSDK_CLOUDSIMPLUGINVERSION_H

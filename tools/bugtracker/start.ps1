@@ -24,6 +24,13 @@ New-Item -ItemType Directory -Force -Path $BtDataDir | Out-Null
 $outLog = Join-Path $BtDataDir "server.out.log"
 $errLog = Join-Path $BtDataDir "server.err.log"
 
+# Start-Process 重定向的 out/err 无内置轮转；超过 10MB 保留一代
+foreach ($log in @($outLog, $errLog)) {
+    if ((Test-Path $log) -and ((Get-Item $log).Length -gt 10MB)) {
+        Move-Item $log ($log -replace '\.log$', '.1.log') -Force
+    }
+}
+
 # 隐藏窗口 = 独立新控制台，不附着 Cursor 伪终端，父进程退出后存活
 $proc = Start-Process -FilePath $BtPython -ArgumentList "-m", "bugtracker" `
     -WorkingDirectory $BtRoot -WindowStyle Hidden -PassThru `

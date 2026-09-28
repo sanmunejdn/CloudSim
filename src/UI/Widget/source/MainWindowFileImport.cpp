@@ -2,7 +2,6 @@
 /// @brief 模型与点云导入
 
 #include "BackendDataBase.h"
-#include "BackendDataManager.h"
 #include "BackendFileImport.h"
 #include "BackendTypeIds.h"
 #include "CustomDeviceAssemblyDialog.h"
@@ -242,7 +241,7 @@ void MainWindow::onCreateCoordinateFrame()
 	if (m_selectionState.hasBackendSelection())
 	{
 		const QString sel = m_selectionState.selectedBackendId();
-		if (host->backend().contains(sel.toStdString()))
+		if (host->backendContains(sel.toStdString()))
 		{
 			parentId = sel;
 		}
@@ -284,7 +283,7 @@ void MainWindow::onEditCustomDevice()
 
 	QStringList labels;
 	QStringList ids;
-	for (const auto& data : host->backend().listData())
+	for (const auto& data : host->listObjects())
 	{
 		if (!data || !backend_type::isCustomDeviceClassName(data->className()))
 		{
@@ -340,7 +339,7 @@ bool MainWindow::exportCustomDeviceUrdfInteractive(const QString& deviceBackendI
 	{
 		QStringList labels;
 		QStringList ids;
-		for (const auto& data : host->backend().listData())
+		for (const auto& data : host->listObjects())
 		{
 			if (!data || !backend_type::isCustomDeviceClassName(data->className()))
 			{

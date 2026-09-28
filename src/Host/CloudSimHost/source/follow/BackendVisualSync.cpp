@@ -74,7 +74,7 @@ void syncVisualAfterPropertyChangeById(DocumentHost& host, const QString& object
 	{
 		return;
 	}
-	const auto obj = host.backend().getData(objectId.toStdString());
+	const auto obj = host.findObject(objectId.toStdString());
 	if (!obj)
 	{
 		return;

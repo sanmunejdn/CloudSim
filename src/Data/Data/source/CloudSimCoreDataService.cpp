@@ -1,6 +1,7 @@
 ﻿/// @file CloudSimCoreDataService.cpp
 /// @brief Data 层 IDataService 实现：BackendDataManager 直驱；视觉/Follow 求解等 Host 能力降级
 
+#include "BackendComponentCodecBuiltins.h"
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "BackendManagerDataService.h"
@@ -79,6 +80,9 @@ core::BackendObjectDto makeObjectSnapshot(const BackendDataManager& mgr, const B
 class BackendManagerDataService final : public core::IDataService
 {
 public:
+	// 服务构造即注册组件编解码，save/load/propertyRows 不再承担惰性注册
+	BackendManagerDataService() { initBackendComponentCodecs(); }
+
 	bool isValid(const ObjectId& id) const override { return !id.isEmpty() && mgr().contains(id.toStdString()); }
 
 	void clear() override { mgr().clear(); }

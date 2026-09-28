@@ -10,10 +10,12 @@
 #include "BackendDataBase.h"
 #include "BackendFollowMath.h"
 #include "BackendHierarchyChange.h"
+#include "IBackendDataQuery.h"
 
 #include <memory>
 #include <shared_mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -43,20 +45,23 @@ struct BackendBaselineMetrics
 };
 
 /// 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好
-class DATA_EXPORT BackendDataManager
+class DATA_EXPORT BackendDataManager : public IBackendDataQuery
 {
 public:
-	BackendDataManager() = default;
+	BackendDataManager();
 	static BackendDataManager& instance();
+
+	/// 写路径应在构造时线程（通常 UI）；Debug 下跨线程写触发 assert
+	void assertOwnerThread(const char* api) const;
 
 	bool registerData(const std::shared_ptr<BackendDataBase>& data);
 	/// 按 id 移除注册对象（引用归零可销毁）
 	bool unregisterData(const std::string& id);
 	bool contains(const std::string& id) const;
-	std::shared_ptr<BackendDataBase> getData(const std::string& id) const;
+	std::shared_ptr<BackendDataBase> getData(const std::string& id) const override;
 	std::vector<std::shared_ptr<BackendDataBase>> listData() const;
 	std::vector<std::shared_ptr<BackendDataBase>> findByName(const std::string& name) const;
-	std::vector<std::shared_ptr<BackendDataBase>> findByClass(const std::string& className) const;
+	std::vector<std::shared_ptr<BackendDataBase>> findByClass(const std::string& className) const override;
 	std::vector<std::shared_ptr<BackendDataBase>> findByComponent(const std::string& componentType) const;
 
 	bool attachChild(const std::string& parentId, const std::string& childId);
@@ -91,6 +96,7 @@ private:
 										const std::vector<BackendHierarchyChangeEvent>& events);
 
 	mutable std::shared_mutex m_mutex;
+	std::thread::id m_ownerThreadId{};
 	std::unordered_map<std::string, std::shared_ptr<BackendDataBase>> m_records;
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_childrenByParent;
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_parentsByChild;

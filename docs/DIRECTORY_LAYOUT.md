@@ -23,15 +23,15 @@ CloudSim/
     ├── Contracts/
     │   └── CloudSimCore/          # 前后端契约 DLL
     ├── Host/
-    │   └── CloudSimHost/          # 文档宿主、OsgWidget 编译、组合根
+    │   └── CloudSimHost/          # 文档宿主；inc|source/osg + pluginhost；Shared.items.props
     ├── UI/
-    │   ├── Widget/
+    │   ├── Widget/                # MainWindow 等（OsgWidget 已迁入 Host）
     │   ├── OsgWidgetCore/
     │   ├── BackendVisual/
     │   ├── RobotWidget/
     │   ├── AiWidget/
     │   ├── CloudSimUiAssets/      # UI 静态资源库
-    │   └── CloudSimPluginHost/    # 独立工程参考；产品路径编入 Host
+    │   └── CloudSimPluginHost/    # 仅 README 跳转；源码在 Host/pluginhost
     ├── Robot/
     │   ├── RobotScene/
     │   ├── TrajectoryAlgorithm/
@@ -126,8 +126,8 @@ CloudSim/
 
 `PointCloudAlgorithm`、`TrajectoryAlgorithm(+Builtins)`、`CloudSimUiAssets` 等为**静态库**，不单独作为运行时 DLL 分发。调试工作目录应设为 `bin/x64(d)/`。
 
-## CloudSimPluginHost 说明
+## CloudSimPluginHost / OsgWidget 说明
 
-- **sln 工程**：`src/UI/CloudSimPluginHost/`（可选单独编译参考）
-- **产品路径**：源码由 **`CloudSimHost.vcxproj` 编入 `CloudSimHost.dll`**（勿再编入 Widget）；详见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)、[`CloudSimHost/DEVELOPER_GUIDE.md`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md)
-- **OsgWidget 真源**：`src/UI/Widget/source/OsgWidget*`（由 Host 编译）；禁止在 `Host/inc|source/osg` 维护平行副本
+- **物理真源**：`src/Host/CloudSimHost/inc|source/pluginhost/`、`inc|source/osg/`（共享项见 `CloudSimHostShared.items.props`）
+- **旧路径**：`src/UI/CloudSimPluginHost/` 仅保留 [README](../src/UI/CloudSimPluginHost/README.md) 跳转；指南见 [`DEVELOPER_GUIDE_PluginHost.md`](../src/Host/CloudSimHost/DEVELOPER_GUIDE_PluginHost.md)
+- **禁止**再在 `src/UI/Widget` 维护 OsgWidget 平行副本

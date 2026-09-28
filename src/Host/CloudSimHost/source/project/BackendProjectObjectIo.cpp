@@ -76,7 +76,7 @@ QMap<QString, std::shared_ptr<BrepBackendData>> g_stepSidecarCache;
 // 不再静默让求解器跳过
 void collectDanglingBackendRefs(DocumentHost& host, QStringList* outWarnings)
 {
-	const auto all = host.backend().listData();
+	const auto all = host.listObjects();
 	for (const auto& d : all)
 	{
 		if (!d)
@@ -85,7 +85,7 @@ void collectDanglingBackendRefs(DocumentHost& host, QStringList* outWarnings)
 		}
 		auto checkRef = [&](const std::string& refId, const char* fieldDesc)
 		{
-			if (!refId.empty() && !host.backend().contains(refId))
+			if (!refId.empty() && !host.backendContains(refId))
 			{
 				appendProjectLoadWarning(
 					outWarnings,
@@ -477,7 +477,7 @@ void applyProjectEdgesToBackend(DocumentHost& host, const QVector<ProjectHierarc
 	{
 		const std::string parentId = edge.parentId.toStdString();
 		const std::string childId = edge.childId.toStdString();
-		if (!host.backend().contains(parentId) || !host.backend().contains(childId))
+		if (!host.backendContains(parentId) || !host.backendContains(childId))
 		{
 			if (outWarnings)
 			{
@@ -485,7 +485,7 @@ void applyProjectEdgesToBackend(DocumentHost& host, const QVector<ProjectHierarc
 			}
 			continue;
 		}
-		if (!host.backend().attachChild(parentId, childId) && outWarnings)
+		if (!host.backendAttachChild(parentId, childId) && outWarnings)
 		{
 			outWarnings->append(
 				QStringLiteral("Skip invalid edge (cycle or duplicate): %1 -> %2").arg(edge.parentId, edge.childId));
@@ -502,14 +502,14 @@ void syncOsgBackendParentsFromBackend(DocumentHost& host)
 		return;
 	}
 	// 父先于子，避免一轮 sync 里子节点因父尚未入库而挂不上
-	for (const std::string& id : host.backend().topoOrder())
+	for (const std::string& id : host.backendTopoOrder())
 	{
-		const auto data = host.backend().getData(id);
+		const auto data = host.findObject(id);
 		if (!data)
 		{
 			continue;
 		}
-		const std::vector<std::string> parents = host.backend().parentsOf(id);
+		const std::vector<std::string> parents = host.backendParentsOf(id);
 		const std::string parent = parents.empty() ? std::string() : parents.front();
 		osg->setBackendParent(id, parent);
 	}
@@ -519,14 +519,14 @@ void rebuildBackendParentIdMirror(DocumentHost& host)
 {
 	QMap<QString, QString>& parentMap = host.backendParentId();
 	parentMap.clear();
-	for (const auto& data : host.backend().listData())
+	for (const auto& data : host.listObjects())
 	{
 		if (!data)
 		{
 			continue;
 		}
 		const QString id = QString::fromStdString(data->id());
-		const std::vector<std::string> parents = host.backend().parentsOf(data->id());
+		const std::vector<std::string> parents = host.backendParentsOf(data->id());
 		parentMap[id] = parents.empty() ? QString() : QString::fromStdString(parents.front());
 	}
 }
@@ -637,7 +637,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 				if (!parentId.isEmpty() && callbacks.legacyParentFollow)
 				{
 					if (const std::shared_ptr<BackendDataBase> registered =
-							host.backend().getData(persistedId.toStdString()))
+							host.findObject(persistedId.toStdString()))
 					{
 						callbacks.legacyParentFollow(registered->id(), parentId.toStdString());
 					}
@@ -684,7 +684,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 				if (!parentId.isEmpty() && callbacks.legacyParentFollow)
 				{
 					if (const std::shared_ptr<BackendDataBase> registered =
-							host.backend().getData(persistedId.toStdString()))
+							host.findObject(persistedId.toStdString()))
 					{
 						callbacks.legacyParentFollow(registered->id(), parentId.toStdString());
 					}
@@ -731,7 +731,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		if (!importedId.isEmpty())
 		{
 			// 文件导入只恢复几何；visible/pose 等从工程 JSON 写回
-			if (const auto data = host.backend().getData(importedId.toStdString()))
+			if (const auto data = host.findObject(importedId.toStdString()))
 			{
 				const bool visible = obj.value(QStringLiteral("visible")).toBool(true);
 				data->setVisible(visible);
@@ -741,7 +741,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 				}
 			}
 			if (auto pc =
-					std::dynamic_pointer_cast<PointCloudBackendData>(host.backend().getData(importedId.toStdString())))
+					std::dynamic_pointer_cast<PointCloudBackendData>(host.findObject(importedId.toStdString())))
 			{
 				applyPointCloudPoseFromProjectJson(*pc, osg, obj);
 			}
@@ -764,7 +764,7 @@ bool exportBackendTriangleSoupMm(DocumentHost& host, const QString& backendId, s
 								 QString* outError)
 {
 	outSoup.clear();
-	const auto data = host.backend().getData(backendId.toStdString());
+	const auto data = host.findObject(backendId.toStdString());
 	if (!data)
 	{
 		if (outError)

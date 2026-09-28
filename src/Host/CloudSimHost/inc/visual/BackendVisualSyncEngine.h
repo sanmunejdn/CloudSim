@@ -51,6 +51,8 @@ private:
 	DocumentHost& m_host;
 	std::unordered_map<std::string, VisualAspect> m_dirty;
 	std::unordered_map<std::string, std::uint64_t> m_lastSyncedGeometryRevision;
+	/// Debug：检测几何元素数变了但 revision 未 bump
+	std::unordered_map<std::string, std::size_t> m_lastGeometryElementCount;
 	std::unordered_set<std::string> m_batchTransformIds;
 	int m_kinematicsBatchDepth = 0;
 	bool m_deferFollowSolveUntilBatchEnd = false;

@@ -19,6 +19,10 @@ namespace geoalgo
 class GEOMETRY_ALGORITHM_API FeatureDiscretizerRegistry
 {
 public:
+	// 公开构造供 ServiceRegistry 持有；全局唯一性不再由类强制
+	FeatureDiscretizerRegistry() = default;
+
+	// 兼容期入口：新代码改用 ICloudSimContext::services()，调用点迁移后移除
 	static FeatureDiscretizerRegistry& instance();
 
 	void registerDiscretizer(std::unique_ptr<IFeatureDiscretizer> discretizer);
@@ -32,7 +36,6 @@ public:
 	~FeatureDiscretizerRegistry() = default;
 
 private:
-	FeatureDiscretizerRegistry() = default;
 	// get 返回的裸指针在锁释放后仍有效：条目只增不删，unique_ptr 搬移不影响所指点对象
 	mutable std::shared_mutex m_mutex;
 	std::vector<std::unique_ptr<IFeatureDiscretizer>> m_discretizers;

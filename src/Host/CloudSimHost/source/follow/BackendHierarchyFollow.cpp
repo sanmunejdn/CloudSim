@@ -20,7 +20,7 @@ void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId,
 		return;
 	}
 	OsgWidget* osg = osgWidgetFrom(host);
-	const std::shared_ptr<BackendDataBase> child = host.backend().getData(childId);
+	const std::shared_ptr<BackendDataBase> child = host.findObject(childId);
 	if (!child || !child->hasPoseProperty())
 	{
 		return;
@@ -49,7 +49,7 @@ void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId,
 		host.invalidateFollowReverseIndex();
 		return;
 	}
-	if (!host.backend().contains(parentId))
+	if (!host.backendContains(parentId))
 	{
 		return;
 	}
@@ -93,7 +93,7 @@ void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId,
 		return true;
 	};
 	// 绑定瞬间用当前世界位姿反算 local，再交给 Follow 求解
-	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *child, nullptr);
+	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(backendManagerOf(host), worldQuery, *child, nullptr);
 	host.markFollowAttachmentDirtyFromBackendMove(childId);
 	host.invalidateFollowReverseIndex();
 }

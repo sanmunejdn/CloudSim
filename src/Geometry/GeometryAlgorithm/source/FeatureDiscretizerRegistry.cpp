@@ -10,6 +10,7 @@ namespace geoalgo
 {
 FeatureDiscretizerRegistry& FeatureDiscretizerRegistry::instance()
 {
+	// 静态兜底：本 DLL 无法反向访问宿主 ServiceRegistry
 	static FeatureDiscretizerRegistry registry;
 	return registry;
 }

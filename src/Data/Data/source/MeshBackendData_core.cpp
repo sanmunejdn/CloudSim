@@ -4,6 +4,7 @@
 #include "pch.h"
 
 #include "BackendTypeIdentity.h"
+#include "GeometryMutator.h"
 #include "MeshBackendData.h"
 #include "RunLogger.h"
 #include "geometry_base64.h"
@@ -45,12 +46,12 @@ std::size_t MeshBackendData::geometryElementCount() const
 
 void MeshBackendData::clearGeometry()
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	m_triangleSoup.clear();
 	m_triangleNormals.clear();
 	m_triangleVertexColors.clear();
 	m_overlayLineSegments.clear();
 	m_bounds = BackendBoundingBox{};
-	bumpGeometryRevision();
 }
 
 void MeshBackendData::setColor(const BackendColor& color)
@@ -76,64 +77,69 @@ void MeshBackendData::setTriangleSoup(std::vector<float> xyzPerTriangleVertex)
 void MeshBackendData::setTriangleSoupWithNormals(std::vector<float> xyzPerTriangleVertex,
 												 std::vector<float> normalPerTriangleVertex)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	if (xyzPerTriangleVertex.size() % 9U != 0U)
 	{
 		RunLogger::warn("[MeshBackendData] setTriangleSoupWithNormals: bad soup size, keep existing geometry.");
+		guard.dismiss();
 		return;
 	}
 	if (!normalPerTriangleVertex.empty() && normalPerTriangleVertex.size() != xyzPerTriangleVertex.size())
 	{
 		RunLogger::warn("[MeshBackendData] setTriangleSoupWithNormals: normals size mismatch, keep existing geometry.");
+		guard.dismiss();
 		return;
 	}
 	m_triangleSoup = std::move(xyzPerTriangleVertex);
 	m_triangleNormals = std::move(normalPerTriangleVertex);
 	m_triangleVertexColors.clear();
 	recomputeBounds();
-	bumpGeometryRevision();
 }
 
 void MeshBackendData::setTriangleSoupWithVertexColors(std::vector<float> xyzPerTriangleVertex,
 													  std::vector<float> rgbPerTriangleVertex)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	if (xyzPerTriangleVertex.size() % 9U != 0U)
 	{
 		RunLogger::warn("[MeshBackendData] setTriangleSoupWithVertexColors: bad soup size, keep existing geometry.");
+		guard.dismiss();
 		return;
 	}
 	if (rgbPerTriangleVertex.size() != xyzPerTriangleVertex.size())
 	{
 		RunLogger::warn(
 			"[MeshBackendData] setTriangleSoupWithVertexColors: color size mismatch, keep existing geometry.");
+		guard.dismiss();
 		return;
 	}
 	m_triangleSoup = std::move(xyzPerTriangleVertex);
 	m_triangleVertexColors = std::move(rgbPerTriangleVertex);
 	m_triangleNormals.clear();
 	recomputeBounds();
-	bumpGeometryRevision();
 }
 
 void MeshBackendData::setOverlayLineSegments(std::vector<float> xyzLinePairs)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	if (xyzLinePairs.size() % 6U != 0U)
 	{
 		// B3: 与同文件其他 setter 对齐，非法尺寸告警
 		RunLogger::warn("[MeshBackendData] setOverlayLineSegments: size not multiple of 6, cleared.");
 		m_overlayLineSegments.clear();
 		recomputeBounds();
-		bumpGeometryRevision();
 		return;
 	}
 	m_overlayLineSegments = std::move(xyzLinePairs);
 	recomputeBounds();
-	bumpGeometryRevision();
 }
 
 void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[16])
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	if (m_triangleSoup.size() < 3U || (m_triangleSoup.size() % 3U) != 0U)
 	{
+		guard.dismiss();
 		return;
 	}
 	for (std::size_t i = 0; i + 2 < m_triangleSoup.size(); i += 3U)
@@ -164,7 +170,6 @@ void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[
 		}
 	}
 	recomputeBounds();
-	bumpGeometryRevision();
 }
 
 void MeshBackendData::recomputeBounds()
@@ -288,6 +293,9 @@ bool MeshBackendData::loadDerivedJson(const nlohmann::json& in, std::string* err
 		return false;
 	}
 
+	// 下方可选通道直写成员变量、绕过 setter，由守卫在函数出口统一 bump
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
+
 	auto tryLoadOptionalChannel =
 		[&](const char* key, std::vector<float>& dest, const char* label, const bool requireMatchSoupSize)
 	{
@@ -325,6 +333,5 @@ bool MeshBackendData::loadDerivedJson(const nlohmann::json& in, std::string* err
 	tryLoadOptionalChannel("overlayLinesBase64", m_overlayLineSegments, "overlayLinesBase64", false);
 
 	recomputeBounds();
-	bumpGeometryRevision();
 	return true;
 }

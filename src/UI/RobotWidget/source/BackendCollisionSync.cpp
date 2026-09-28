@@ -3,7 +3,6 @@
 
 #include "BackendCollisionSync.h"
 
-#include "BackendDataManager.h"
 #include "BrepBackendData.h"
 #include "CoreTypes.h"
 #include "IRobotDocumentHost.h"
@@ -183,7 +182,7 @@ void applyWhiteBlackListFilter(collision::CollisionWorld& world, const RobotColl
 
 } // namespace
 
-void rebuildWorld(collision::CollisionWorld& world, IRobotDocumentHost* doc, BackendDataManager& backend,
+void rebuildWorld(collision::CollisionWorld& world, IRobotDocumentHost* doc,
 				  const RobotCollision::Settings& settings, IRobotOsgViewHost* osg)
 {
 	world.clear();
@@ -201,7 +200,7 @@ void rebuildWorld(collision::CollisionWorld& world, IRobotDocumentHost* doc, Bac
 		for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
 		{
 			robotBackendIds.insert(it.value().toStdString());
-			auto data = backend.getData(it.value().toStdString());
+			auto data = doc->findObject(it.value().toStdString());
 			upsertFromBackend(world, makeLinkBody(it.value(), it.key()), data, osg, &bodies);
 		}
 
@@ -250,7 +249,7 @@ void rebuildWorld(collision::CollisionWorld& world, IRobotDocumentHost* doc, Bac
 		}
 	}
 
-	const auto all = backend.listData();
+	const auto all = doc->listObjects();
 	for (const auto& data : all)
 	{
 		if (!data || !data->hasGeometry())
@@ -266,7 +265,7 @@ void rebuildWorld(collision::CollisionWorld& world, IRobotDocumentHost* doc, Bac
 	applyWhiteBlackListFilter(world, settings, bodies);
 }
 
-void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc, BackendDataManager& backend,
+void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc,
 				 IRobotOsgViewHost* osg)
 {
 	if (!doc)
@@ -280,14 +279,14 @@ void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc, Back
 			continue;
 		for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
 		{
-			auto data = backend.getData(it.value().toStdString());
+			auto data = doc->findObject(it.value().toStdString());
 			if (!data)
 				continue;
 			world.setWorldPose(makeLinkBody(it.value(), it.key()), collisionMat4FromBackend(data->worldMatrix()),
 							   "backend");
 		}
 	}
-	const auto all = backend.listData();
+	const auto all = doc->listObjects();
 	std::unordered_set<std::string> robotIds;
 	for (int ri = 0; ri < doc->robotKinematicInstanceCount(); ++ri)
 	{
@@ -311,7 +310,7 @@ void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc, Back
 	}
 }
 
-bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHost* doc, BackendDataManager& backend,
+bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHost* doc,
 							 const int instanceIndex, const QVector<double>& seedJointsBefore,
 							 const std::vector<std::vector<double>>& jointTrajectoryRad,
 							 const RobotCollision::Settings& settings, std::string* failSummary, IRobotOsgViewHost* osg,
@@ -322,7 +321,7 @@ bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHos
 
 	if (rebuildWorldFirst)
 	{
-		rebuildWorld(world, doc, backend, settings, osg);
+		rebuildWorld(world, doc, settings, osg);
 	}
 	if (world.bodyCount() < 2)
 		return true;
@@ -399,7 +398,7 @@ bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHos
 			qv.push_back(v);
 		if (!doc->applyJointAnglesRad(instanceIndex, qv, agg))
 			continue;
-		updatePoses(world, doc, backend, osg);
+		updatePoses(world, doc, osg);
 		const collision::CollisionQueryResult hit = world.checkAll(4);
 		if (hit.inCollision)
 		{

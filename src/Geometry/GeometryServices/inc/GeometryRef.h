@@ -14,7 +14,7 @@
 #include <ShapeHandle.h>
 #include <json.hpp>
 
-class BackendDataManager;
+class IBackendDataQuery;
 
 namespace geometry_backend_ops
 {
@@ -35,8 +35,9 @@ enum class WorkpieceShapeSource
 GEOMETRY_SERVICES_EXPORT bool resolveGeometryRef(const GeometryRef& ref, geoalgo::WorkpieceRef& out,
 												 std::string* errMsg = nullptr);
 
+/// mgr 收窄为只读查询接口：Headless 侧无需暴露 BackendDataManager 具体类型
 GEOMETRY_SERVICES_EXPORT WorkpieceShapeSource resolveWorkpieceShape(
-	const std::string& backendIdUtf8, BackendDataManager& mgr, const std::string& stepPathUtf8Optional,
+	const std::string& backendIdUtf8, const IBackendDataQuery& mgr, const std::string& stepPathUtf8Optional,
 	geoalgo::ShapeHandle& outShape, geoalgo::WorkpieceRef& outRef, std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT bool discretizeFeatureList(const geoalgo::FeatureListDocument& doc, geoalgo::RawPath& out,

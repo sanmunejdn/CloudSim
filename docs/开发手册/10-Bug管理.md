@@ -20,6 +20,7 @@ powershell -ExecutionPolicy Bypass -File "<仓库根>\CloudSim\tools\bugtracker\
 | 前台调试 | `run.ps1`（日志直出控制台，Ctrl+C 停止） |
 | 状态判断 | `data\server.pid` 存在 + 浏览器能登录 = 运行中 |
 | 数据位置 | `tools/bugtracker/data/`（SQLite + 附件，已 gitignore） |
+| 在线备份 | 设置页「创建备份」或 `POST /api/backup`（admin）→ `data/backups/<时间戳>/` |
 
 ## 角色与状态机
 

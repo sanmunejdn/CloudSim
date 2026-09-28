@@ -1,0 +1,15 @@
+{
+  "total": 20,
+  "by_file": {
+    "src/Host/CloudSimHost/inc/DocumentHostAccess.h": 1,
+    "src/Host/CloudSimHost/source/headless/HeadlessTrajectorySession.cpp": 11,
+    "src/Host/CloudSimHost/source/robot/PerLinkKinematicsHostImpl.cpp": 1,
+    "src/UI/RobotWidget/source/CustomDeviceAssemblyDialog.cpp": 1,
+    "src/UI/RobotWidget/source/DevicePoseMotionPlayer.cpp": 1,
+    "src/UI/RobotWidget/source/FeatureTrajectoryPageWidget.cpp": 1,
+    "src/UI/RobotWidget/source/RobotSimulationController.cpp": 2,
+    "src/UI/RobotWidget/source/TrajectoryEditSession.cpp": 1,
+    "src/UI/Widget/source/MainWindowRobotHost.cpp": 1
+  },
+  "forbidden_widget_bdm_includes": []
+}

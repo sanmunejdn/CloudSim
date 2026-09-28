@@ -9,6 +9,7 @@
 #include "BrepBackendData.h"
 #include "BrepImportArtifacts.h"
 #include "DocumentHost.h"
+#include "DocumentHostAccess.h"
 #include "DocumentPointCloudOps.h"
 #include "MeshBackendData.h"
 #include "PluginPointCloudTypes.h"
@@ -240,7 +241,7 @@ QString makeUniqueBrepName(DocumentHost& host, const QString& base)
 	int suffix = 2;
 	for (;;)
 	{
-		if (host.backend().findByName(candidate.toStdString()).empty())
+		if (backendManagerOf(host).findByName(candidate.toStdString()).empty())
 			return candidate;
 		candidate = base + QStringLiteral("_%1").arg(suffix++);
 	}

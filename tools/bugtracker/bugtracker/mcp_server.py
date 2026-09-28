@@ -25,11 +25,15 @@ def _bootstrap() -> None:
 def _call(fn, **kwargs) -> str:
     """统一会话管理与错误格式：业务错误以 {"error": ...} 返回，便于 Agent 理解。"""
     _bootstrap()
-    try:
+
+    def work():
         with db.session() as sess:
             actor = agent_ops.agent_user(sess, db.settings.agent_username)
-            result = fn(sess, actor, **kwargs)
-            return json.dumps(result, ensure_ascii=False, default=str)
+            return fn(sess, actor, **kwargs)
+
+    try:
+        result = db.run_with_retry(work)
+        return json.dumps(result, ensure_ascii=False, default=str)
     except HTTPException as exc:
         return json.dumps({"error": exc.detail,
                            "status_code": exc.status_code},

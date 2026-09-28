@@ -1,4 +1,4 @@
-/// @file VisionGraspPanelWidget.cpp
+﻿/// @file VisionGraspPanelWidget.cpp
 /// @brief 视觉抓取面板：位姿合成后经 IPluginRobotHost 规划确认
 
 #include "VisionGraspPanelWidget.h"

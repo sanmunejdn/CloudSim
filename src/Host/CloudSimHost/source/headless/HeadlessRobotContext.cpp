@@ -6,6 +6,7 @@
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "DocumentHost.h"
+#include "DocumentHostAccess.h"
 #include "IDataService.h"
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
@@ -60,7 +61,7 @@ void BackendDataPoseSink::setBackendRootWorldMatrixFromWorld(const std::string& 
 }
 
 HeadlessRobotContext::HeadlessRobotContext(DocumentHost& host)
-	: m_host(host), m_poseSink(std::make_unique<BackendDataPoseSink>(host.backend()))
+	: m_host(host), m_poseSink(std::make_unique<BackendDataPoseSink>(backendManagerOf(host)))
 {
 }
 
@@ -1073,7 +1074,7 @@ bool HeadlessRobotContext::applyFkFromGizmoAnchorWorld(const QString& anchorBack
 	placement = RobotSceneKinematics::osgMatrixFromCoreMat4(pEff);
 	slice.robotBasePlacementWorld = placement;
 
-	if (!RobotSceneKinematics::applyPerLinkRobotBasePlacement(sink, m_host.backend(), slice, q, placement))
+	if (!RobotSceneKinematics::applyPerLinkRobotBasePlacement(sink, backendManagerOf(m_host), slice, q, placement))
 	{
 		if (outError)
 		{
@@ -1088,7 +1089,7 @@ bool HeadlessRobotContext::applyFkFromGizmoAnchorWorld(const QString& anchorBack
 
 BackendDataManager& HeadlessRobotContext::urdfImportBackend()
 {
-	return m_host.backend();
+	return backendManagerOf(m_host);
 }
 
 IRobotSimulationDocument* HeadlessRobotContext::urdfImportRobotSimulationDocument()
@@ -1343,7 +1344,7 @@ bool HeadlessRobotContext::robotUrdfMeshVerticesInLinkFrame() const
 
 BackendDataManager* HeadlessRobotContext::robotBackendManagerForKinematics()
 {
-	return &m_host.backend();
+	return &backendManagerOf(m_host);
 }
 
 void HeadlessRobotContext::notifyRobotKinematicsAppliedToScene()

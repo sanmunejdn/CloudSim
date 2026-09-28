@@ -6,6 +6,7 @@
 #include "FrameBackendData.h"
 
 #include "BackendTypeIdentity.h"
+#include "GeometryMutator.h"
 #include "RunLogger.h"
 
 FrameBackendData::FrameBackendData()
@@ -42,12 +43,13 @@ void FrameBackendData::clearGeometry() {}
 
 void FrameBackendData::setAxisLengthMm(const float mm)
 {
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
 	if (mm > 0.0f)
 	{
 		m_axisLengthMm = mm;
-		bumpGeometryRevision();
 		return;
 	}
+	guard.dismiss();
 	RunLogger::warn("[FrameBackendData] setAxisLengthMm: ignore non-positive value.");
 }
 

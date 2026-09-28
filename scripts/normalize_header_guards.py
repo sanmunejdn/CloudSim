@@ -98,6 +98,7 @@ def process(path: Path) -> str | None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--check", action="store_true", help="只检查不修改，有差异返回 1")
     args = ap.parse_args()
 
     changed = 0
@@ -111,10 +112,10 @@ def main() -> int:
         from _source_paths import ROOT
 
         print(f"{'DRY ' if args.dry_run else ''}GUARD {guard_macro(path)}: {path.relative_to(ROOT)}")
-        if not args.dry_run:
+        if not args.dry_run and not args.check:
             write_text(path, new)
     print(f"Done. changed={changed}")
-    return 0
+    return 1 if args.check and changed > 0 else 0
 
 
 if __name__ == "__main__":

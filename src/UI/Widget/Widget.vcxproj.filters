@@ -134,9 +134,6 @@
     <ClInclude Include="inc\ObjectTransformOperation.h">
       <Filter>inc\PickOperations</Filter>
     </ClInclude>
-    <ClInclude Include="inc\OsgWidgetSceneBridge.h">
-      <Filter>inc\OsgWidget</Filter>
-    </ClInclude>
     <ClInclude Include="inc\ProjectPackageZip.h">
       <Filter>inc\Infrastructure</Filter>
     </ClInclude>
@@ -165,9 +162,6 @@
       <Filter>inc\ViewportInteraction</Filter>
     </ClInclude>
     <ClInclude Include="inc\ViewportInteraction\MeshPickSession.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\OsgWidgetPickEngine.h">
       <Filter>inc\ViewportInteraction</Filter>
     </ClInclude>
     <ClInclude Include="inc\ViewportInteraction\Overlays\SelectionOperationOverlayAdapter.h">
@@ -312,9 +306,6 @@
     </ClCompile>
     <ClCompile Include="source\StyledDockTitleBar.cpp">
       <Filter>src\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ViewportInteraction\OsgWidgetPickEngine.cpp">
-      <Filter>src\ViewportInteraction</Filter>
     </ClCompile>
     <ClCompile Include="source\ViewportInteraction\ViewportInteractionController.cpp">
       <Filter>src\ViewportInteraction</Filter>

@@ -20,6 +20,9 @@
 
 namespace
 {
+/// 当前读取器版本：v1=pose/rotation 旧格式，v2=worldMatrix；保存时写入 minReaderVersion 供旧读取器拒绝
+constexpr int kCurrentReaderVersion = 2;
+
 std::atomic<unsigned long long> g_backendDataIdCounter{1ULL};
 
 std::string trimUtf8Whitespace(const std::string& s)
@@ -246,9 +249,13 @@ void BackendDataBase::setVisible(bool visible)
 	bumpPoseRevision();
 }
 
-nlohmann::json BackendDataBase::saveToJson() const
+void initBackendComponentCodecs()
 {
 	ensureBackendComponentCodecBuiltinsRegistered();
+}
+
+nlohmann::json BackendDataBase::saveToJson() const
+{
 	nlohmann::json out = nlohmann::json::object();
 	out["id"] = m_id;
 	out["name"] = m_name;
@@ -284,17 +291,37 @@ nlohmann::json BackendDataBase::saveToJson() const
 	out["worldMatrix"] = wmArr;
 
 	saveDerivedJson(out);
+	// 放最后，避免派生类 saveDerivedJson 覆写版本协商字段
+	out["minReaderVersion"] = kCurrentReaderVersion;
 	return out;
 }
 
 bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg)
 {
-	ensureBackendComponentCodecBuiltinsRegistered();
 	if (!in.is_object())
 	{
 		if (errMsg)
 		{
 			*errMsg = "Backend json must be object.";
+		}
+		return false;
+	}
+
+	// 版本协商放最前：高于当前读取器版本的文件拒绝加载，避免静默丢字段
+	int minReaderVersion = 1;
+	if (in.contains("minReaderVersion") && in["minReaderVersion"].is_number_integer())
+	{
+		minReaderVersion = in["minReaderVersion"].get<int>();
+	}
+	if (minReaderVersion > kCurrentReaderVersion)
+	{
+		RunLogger::warn("[BackendDataBase] loadFromJson refused: file requires reader version " +
+						std::to_string(minReaderVersion) + ", current is " + std::to_string(kCurrentReaderVersion) +
+						"（文件由更新版本创建）.");
+		if (errMsg)
+		{
+			*errMsg = "File was created by a newer version (minReaderVersion=" + std::to_string(minReaderVersion) +
+					  ").";
 		}
 		return false;
 	}
@@ -384,11 +411,36 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 		}
 		setWorldMatrix(world);
 	}
+	else if (hasPoseProperty() && (in.contains("pose") || in.contains("rotation")))
+	{
+		// v1：独立 pose/rotation → 按旧语义合成 worldMatrix，另存自动写 v2
+		BackendVec3 poseV{};
+		BackendVec3 rotV{};
+		if (in.contains("pose") && !jsonToVec3(in["pose"], poseV))
+		{
+			if (errMsg)
+			{
+				*errMsg = "legacy pose field invalid.";
+			}
+			return false;
+		}
+		if (in.contains("rotation") && !jsonToVec3(in["rotation"], rotV))
+		{
+			if (errMsg)
+			{
+				*errMsg = "legacy rotation field invalid.";
+			}
+			return false;
+		}
+		const BackendMat4 world = backend_world_mat_from_pose(poseV, rotV);
+		setWorldMatrix(world);
+		RunLogger::warn(std::string("Migrated v1 pose/rotation → worldMatrix for object ") + id());
+	}
 	else if (hasPoseProperty())
 	{
 		if (errMsg)
 		{
-			*errMsg = "Backend json v2 requires worldMatrix for transformable objects. Re-import scene.";
+			*errMsg = "Backend json requires worldMatrix (or legacy pose/rotation) for transformable objects.";
 		}
 		return false;
 	}
@@ -665,7 +717,6 @@ const std::vector<BackendPropertyBinding>& BackendDataBase::extraPropertyBinding
 
 nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* mgr) const
 {
-	ensureBackendComponentCodecBuiltinsRegistered();
 	nlohmann::json rows = nlohmann::json::array();
 	backend_property_json::appendRow(rows, "core.id", "ID", false, m_id);
 	backend_property_json::appendRow(rows, "core.name", "Name", true, m_name);

@@ -404,6 +404,11 @@ void WebGateway::stop()
 	}
 	m_impl->running = false;
 	m_impl->svr.stop();
+	{
+		// 停服清空 SSE 队列，避免下次 start 后旧事件毒害新连接
+		QMutexLocker lock(&m_impl->eventMutex);
+		m_impl->eventQueue.clear();
+	}
 	m_impl->eventCv.wakeAll();
 	if (m_impl->serverThread.joinable())
 	{

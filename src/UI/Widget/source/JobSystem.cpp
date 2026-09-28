@@ -4,6 +4,7 @@
 #include "JobSystem.h"
 
 #include "ProgressManager.h"
+#include "RunLogger.h"
 
 #include <QPointer>
 #include <QThread>
@@ -12,6 +13,7 @@
 
 namespace
 {
+// 关窗只等有限时间；超时后线程池弃池，作业回调须用 QPointer，勿假设 UI 仍存活
 constexpr int kShutdownWaitMs = 1500;
 
 class JobRunnable : public QRunnable
@@ -79,7 +81,21 @@ public:
 			{
 				if (onFinished)
 				{
-					onFinished(threw, throwMsg);
+					// 回调异常不应阻断 reportJobFinished，否则进度管理状态会漏收尾
+					try
+					{
+						onFinished(threw, throwMsg);
+					}
+					catch (const std::exception& e)
+					{
+						RunLogger::error("JobSystem onFinished threw, jobId=" + QString::number(id).toStdString() +
+										 " — " + e.what());
+					}
+					catch (...)
+					{
+						RunLogger::error("JobSystem onFinished threw unknown exception, jobId=" +
+										 QString::number(id).toStdString());
+					}
 				}
 				if (pm)
 				{
