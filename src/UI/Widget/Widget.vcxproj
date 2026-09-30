@@ -222,6 +222,8 @@
     <ClInclude Include="inc\ProjectPackageZip.h" />
     <QtMoc Include="inc\ViewportToolBar.h" />
     <QtMoc Include="inc\AssemblyMatePanel.h" />
+    <QtMoc Include="inc\SceneHierarchyCanvasWidget.h" />
+    <ClInclude Include="inc\OsgSceneNodeI18n.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\pch.cpp">
@@ -256,6 +258,8 @@
     <ClCompile Include="source\MainWindowInstructionPropertyUiHost.cpp" />
     <ClCompile Include="source\ViewportToolBar.cpp" />
     <ClCompile Include="source\AssemblyMatePanel.cpp" />
+    <ClCompile Include="source\SceneHierarchyCanvasWidget.cpp" />
+    <ClCompile Include="source\OsgSceneNodeI18n.cpp" />
     <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp" />
     <ClCompile Include="source\JobSystem.cpp" />
     <ClCompile Include="source\JobSystemLifecycleSelfTest.cpp" />

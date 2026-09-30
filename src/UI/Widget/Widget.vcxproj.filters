@@ -41,6 +41,9 @@
     <Filter Include="inc\OsgWidget">
       <UniqueIdentifier>{FF5AF394-210A-466B-97BB-22FE4D1DEBF9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{2A42200D-856D-4ED3-B9F3-E6FA5800ED63}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\PickOperations">
       <UniqueIdentifier>{F2FFDF8D-FC8C-4CF0-A7A1-30A636AE3C96}</UniqueIdentifier>
     </Filter>
@@ -62,6 +65,9 @@
     </Filter>
     <Filter Include="src\OsgWidget">
       <UniqueIdentifier>{30F01420-7810-4FDC-8C16-285464F41703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{28C7629B-757D-4DC9-8719-A16DB899D635}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -112,6 +118,9 @@
     </ClInclude>
     <ClInclude Include="inc\ObjectTransformOperation.h">
       <Filter>inc\PickOperations</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgSceneNodeI18n.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\ProjectPackageZip.h">
       <Filter>inc\Infrastructure</Filter>
@@ -178,6 +187,9 @@
     <ClCompile Include="source\JobSystem.cpp">
       <Filter>src\Infrastructure</Filter>
     </ClCompile>
+    <ClCompile Include="source\JobSystemLifecycleSelfTest.cpp">
+      <Filter>src\Infrastructure</Filter>
+    </ClCompile>
     <ClCompile Include="source\MainWindow.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
@@ -226,6 +238,9 @@
     <ClCompile Include="source\MainWindowUiSetup.cpp">
       <Filter>src\MainWindow</Filter>
     </ClCompile>
+    <ClCompile Include="source\OsgSceneNodeI18n.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\pch.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
@@ -240,6 +255,9 @@
     </ClCompile>
     <ClCompile Include="source\RunInfoPage.cpp">
       <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SceneHierarchyCanvasWidget.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\StyledDockTitleBar.cpp">
       <Filter>src\MainWindow</Filter>
@@ -272,6 +290,9 @@
     </QtMoc>
     <QtMoc Include="inc\RunInfoPage.h">
       <Filter>inc\MainWindow</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\SceneHierarchyCanvasWidget.h">
+      <Filter>inc\Other</Filter>
     </QtMoc>
     <QtMoc Include="inc\StyledDockTitleBar.h">
       <Filter>inc\MainWindow</Filter>

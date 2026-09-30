@@ -48,6 +48,7 @@
 #include "RobotTeachIk.h"
 #include "RunInfoPage.h"
 #include "RunLogger.h"
+#include "SceneHierarchyCanvasWidget.h"
 #include "StyledDockTitleBar.h"
 #include "WidgetRenderAccess.h"
 #include "io/CustomDeviceRobotMountOps.h"
@@ -418,9 +419,7 @@ void MainWindow::applyLanguage()
 	}
 	if (m_osgSceneTree)
 	{
-		m_osgSceneTree->setHeaderLabels(QStringList()
-										<< i18n(QStringLiteral("Node"), QStringLiteral("节点"))
-										<< i18n(QStringLiteral("Local transform"), QStringLiteral("本地变换矩阵")));
+		m_osgSceneTree->setUseChinese(m_useChinese);
 	}
 	if (m_unitsTreeBinder)
 	{

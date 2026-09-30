@@ -28,6 +28,7 @@
 #include "PropertyPanelVariantEditorFactory.h"
 #include "RunInfoPage.h"
 #include "RunLogger.h"
+#include "SceneHierarchyCanvasWidget.h"
 #include "UiIconDecorators.h"
 #include "WidgetRenderAccess.h"
 #include "qteditorfactory.h"
@@ -567,18 +568,16 @@ void MainWindow::setupDockWidgets()
 					}
 				});
 	}
-	m_osgSceneTree = new QTreeWidget();
-	m_osgSceneTree->setColumnCount(2);
-	m_osgSceneTree->setHeaderHidden(false);
-	m_osgSceneTree->header()->setStretchLastSection(true);
-	// 列宽适应240px右侧面板
-	m_osgSceneTree->setColumnWidth(0, 130);
-	m_osgSceneTree->setUniformRowHeights(true);
-	m_osgSceneTree->setWordWrap(true);
-	m_osgSceneTree->setAnimated(true);
-	m_osgSceneTree->setIndentation(14);
-	m_osgSceneTree->setHeaderLabels(QStringList() << QStringLiteral("Node") << QStringLiteral("Local transform"));
+	m_osgSceneTree = new SceneHierarchyCanvasWidget();
 	m_unitDockTabs->addTab(m_osgSceneTree, QStringLiteral("Scene"));
+	connect(m_osgSceneTree, &SceneHierarchyCanvasWidget::backendNodeActivated, this,
+			[this](const QString& backendId)
+			{
+				if (!backendId.isEmpty())
+				{
+					MainWindowSelectionService::selectBackendById(*this, backendId, true);
+				}
+			});
 	connect(m_unitDockTabs, &QTabWidget::currentChanged, this,
 			[this](int)
 			{

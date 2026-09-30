@@ -57,12 +57,24 @@ public:
 	/// 逻辑父链（不改 OSG）
 	virtual void setBackendLogicalParent(const ObjectId& childId, const ObjectId& parentId) = 0;
 
-	// 场景树快照（用于调试树视图）
+	// 场景树快照（调试画布 / 双击详情）
 	struct SceneNodeInfo
 	{
-		QString className;
-		QString name;
-		QString localMatrixSummary;
+		QString className;			  // OSG className
+		QString name;				  // OSG getName
+		QString displayName;		  // UI 标题：后端名优先，否则 OSG 名
+		QString backendId;			  // BackendIdUserData，无则空
+		QString backendClassName;	  // Data DTO className
+		QString localMatrixSummary;	  // 本地 4×4 或 —
+		QString worldMatrixSummary;	  // 累积世界 4×4
+		QString boundSummary;		  // center/radius
+		QString renderSummary;		  // lighting / polygon / mask 等
+		bool hasBackend = false;
+		bool visible = true;
+		unsigned nodeMask = 0xffffffffu;
+		int childCount = 0;
+		int drawableCount = 0;
+		int triangleCount = 0;
 		std::vector<SceneNodeInfo> children;
 	};
 	virtual SceneNodeInfo sceneGraphSnapshot(int maxDepth = 8) const = 0;

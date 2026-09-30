@@ -319,7 +319,10 @@ descriptor / 编辑器类型按选中对象 **className**（后端 Binding schem
 | Annotations | 挂在对应文档根下的「注释」分组 |
 | 绑定器 | `BackendUnitsTreeBinder`：`syncDocument` / `showOnlyDocument` / `patchObjectVisible` / 注解增删 |
 | 森林 | `BackendUnitsDisplayForest::buildDocument` 由 `listObjectSnapshots()` 投影 |
-| 与 OSG 调试树 | Units = 多文档投影；「场景层级」= 仅活动文档 OSG 快照 |
+| 与 OSG 调试树 | Units = 多文档投影；「场景层级」= 仅活动文档 OSG 快照，由 `SceneHierarchyCanvasWidget` 以组装画布同款块+父子连线只读展示（非双列表格） |
+| 场景节点命名 | 快照读 `BackendIdUserData` → Data `objectSnapshot.name` 为 `displayName`；UI 经 `OsgSceneNodeI18n` 中文映射；块副标题优先后端 `className` |
+| 双击属性 | 画布双击弹出只读详情（本地/世界矩阵、包围球、渲染摘要、三角面约计）；有 `backendId` 时 `backendNodeActivated` → `selectBackendById` |
+| 展开折叠 | 有子节点时块右侧 ▸/▾；**默认折叠**；折叠时副标题显示 `+N` 子数；刷新快照后展开态重置 |
 
 **多文档 Tab**：开工程优先新 Tab（空白未命名可复用）；同路径切已有 Tab。切 Tab 时 stash/restore 该文档的 `ioSignalNetworkCache`。关 Tab 调 `removeDocument`。
 

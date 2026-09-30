@@ -8,6 +8,7 @@
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
 #include "BackendFollowSolve.h"
+#include "BackendIdUserData.h"
 #include "BackendTypeIds.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
@@ -18,14 +19,23 @@
 
 #include <Adapters.h>
 #include <RigidTransform.h>
+#include <QHash>
 #include <osg/AutoTransform>
+#include <osg/BlendFunc>
 #include <osg/Camera>
+#include <osg/Drawable>
+#include <osg/GL>
 #include <osg/Geode>
+#include <osg/Geometry>
 #include <osg/Group>
 #include <osg/MatrixTransform>
 #include <osg/Matrixd>
 #include <osg/Node>
+#include <osg/PolygonMode>
 #include <osg/PositionAttitudeTransform>
+#include <osg/StateAttribute>
+#include <osg/StateSet>
+#include <osg/Texture>
 
 namespace cloudsim::host
 {
@@ -201,6 +211,32 @@ QString formatMatrix(const osg::Matrixd& m)
 	return s;
 }
 
+bool localTransformMatrix(const osg::Node* node, osg::Matrixd& outLocal)
+{
+	if (!node)
+	{
+		return false;
+	}
+	if (const auto* mt = dynamic_cast<const osg::MatrixTransform*>(node))
+	{
+		outLocal = mt->getMatrix();
+		return true;
+	}
+	if (const auto* pat = dynamic_cast<const osg::PositionAttitudeTransform*>(node))
+	{
+		outLocal = osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude()) *
+				   osg::Matrixd::scale(pat->getScale());
+		return true;
+	}
+	if (const auto* at = dynamic_cast<const osg::AutoTransform*>(node))
+	{
+		outLocal = osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation()) *
+				   osg::Matrixd::scale(at->getScale());
+		return true;
+	}
+	return false;
+}
+
 QString localMatrixSummary(const osg::Node* node)
 {
 	if (!node)
@@ -213,24 +249,108 @@ QString localMatrixSummary(const osg::Node* node)
 			.arg(formatMatrix(cam->getViewMatrix()))
 			.arg(formatMatrix(cam->getProjectionMatrix()));
 	}
-	if (const auto* mt = dynamic_cast<const osg::MatrixTransform*>(node))
+	osg::Matrixd local;
+	if (localTransformMatrix(node, local))
 	{
-		return formatMatrix(mt->getMatrix());
-	}
-	if (const auto* pat = dynamic_cast<const osg::PositionAttitudeTransform*>(node))
-	{
-		return formatMatrix(osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude()) *
-							osg::Matrixd::scale(pat->getScale()));
-	}
-	if (const auto* at = dynamic_cast<const osg::AutoTransform*>(node))
-	{
-		return formatMatrix(osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation()) *
-							osg::Matrixd::scale(at->getScale()));
+		return formatMatrix(local);
 	}
 	return QStringLiteral("—");
 }
 
-void buildSnapshotRecursive(core::IRenderView::SceneNodeInfo& info, const osg::Node* node, int depthLeft)
+void countGeometryStats(const osg::Node* node, int& outDrawables, int& outTriangles)
+{
+	outDrawables = 0;
+	outTriangles = 0;
+	const auto* geode = node ? node->asGeode() : nullptr;
+	if (!geode)
+	{
+		return;
+	}
+	outDrawables = static_cast<int>(geode->getNumDrawables());
+	for (unsigned i = 0; i < geode->getNumDrawables(); ++i)
+	{
+		const osg::Drawable* d = geode->getDrawable(i);
+		const auto* geom = d ? d->asGeometry() : nullptr;
+		if (!geom)
+		{
+			continue;
+		}
+		const osg::Geometry::PrimitiveSetList& sets = geom->getPrimitiveSetList();
+		for (const auto& ps : sets)
+		{
+			if (!ps)
+			{
+				continue;
+			}
+			const GLenum mode = ps->getMode();
+			const unsigned n = ps->getNumIndices();
+			if (mode == GL_TRIANGLES)
+			{
+				outTriangles += static_cast<int>(n / 3);
+			}
+			else if (mode == GL_TRIANGLE_STRIP || mode == GL_TRIANGLE_FAN)
+			{
+				if (n >= 3)
+				{
+					outTriangles += static_cast<int>(n - 2);
+				}
+			}
+		}
+	}
+}
+
+QString buildRenderSummary(const osg::Node* node)
+{
+	if (!node)
+	{
+		return QString();
+	}
+	QStringList parts;
+	parts << QStringLiteral("NodeMask=0x%1").arg(node->getNodeMask(), 0, 16);
+	const osg::StateSet* ss = node->getStateSet();
+	if (ss)
+	{
+		const osg::StateAttribute::GLModeValue lighting = ss->getMode(GL_LIGHTING);
+		if (lighting & osg::StateAttribute::ON)
+		{
+			parts << QStringLiteral("Lighting=ON");
+		}
+		else if (lighting & osg::StateAttribute::OFF)
+		{
+			parts << QStringLiteral("Lighting=OFF");
+		}
+		if (const auto* pm = dynamic_cast<const osg::PolygonMode*>(ss->getAttribute(osg::StateAttribute::POLYGONMODE)))
+		{
+			const osg::PolygonMode::Mode front = pm->getMode(osg::PolygonMode::FRONT);
+			parts << QStringLiteral("PolygonMode=%1")
+						 .arg(front == osg::PolygonMode::LINE
+								  ? QStringLiteral("LINE")
+								  : (front == osg::PolygonMode::POINT ? QStringLiteral("POINT")
+																	  : QStringLiteral("FILL")));
+		}
+		if (ss->getAttribute(osg::StateAttribute::BLENDFUNC) || (ss->getMode(GL_BLEND) & osg::StateAttribute::ON))
+		{
+			parts << QStringLiteral("Blend=ON");
+		}
+		int texCount = 0;
+		for (unsigned u = 0; u < 8; ++u)
+		{
+			if (ss->getTextureAttribute(u, osg::StateAttribute::TEXTURE))
+			{
+				++texCount;
+			}
+		}
+		if (texCount > 0)
+		{
+			parts << QStringLiteral("Textures=%1").arg(texCount);
+		}
+	}
+	return parts.join(QStringLiteral("; "));
+}
+
+void buildSnapshotRecursive(core::IRenderView::SceneNodeInfo& info, const osg::Node* node, int depthLeft,
+							const osg::Matrixd& parentWorld,
+							const QHash<QString, core::BackendObjectDto>& backendById)
 {
 	if (!node || depthLeft <= 0)
 	{
@@ -238,13 +358,61 @@ void buildSnapshotRecursive(core::IRenderView::SceneNodeInfo& info, const osg::N
 	}
 	info.className = QString::fromLatin1(node->className());
 	info.name = QString::fromStdString(node->getName());
+	info.nodeMask = node->getNodeMask();
+	info.visible = (info.nodeMask & 0x1u) != 0;
 	info.localMatrixSummary = localMatrixSummary(node);
+	info.renderSummary = buildRenderSummary(node);
+
+	osg::Matrixd local = osg::Matrixd::identity();
+	const bool hasLocalXform = localTransformMatrix(node, local);
+	// OSG：子世界 = 父世界 × 本地
+	const osg::Matrixd world = hasLocalXform ? (parentWorld * local) : parentWorld;
+	info.worldMatrixSummary = formatMatrix(world);
+
+	const osg::BoundingSphere bs = node->getBound();
+	if (bs.valid())
+	{
+		info.boundSummary = QStringLiteral("c=(%1,%2,%3) r=%4")
+								.arg(bs.center().x(), 0, 'g', 6)
+								.arg(bs.center().y(), 0, 'g', 6)
+								.arg(bs.center().z(), 0, 'g', 6)
+								.arg(bs.radius(), 0, 'g', 6);
+	}
+
+	countGeometryStats(node, info.drawableCount, info.triangleCount);
+
+	if (const auto* meta = dynamic_cast<const BackendIdUserData*>(node->getUserData()))
+	{
+		info.backendId = QString::fromStdString(meta->backendId());
+		info.hasBackend = !info.backendId.isEmpty();
+		const auto it = backendById.constFind(info.backendId);
+		if (it != backendById.constEnd())
+		{
+			info.backendClassName = it->className;
+			info.visible = it->visible;
+			if (!it->name.isEmpty())
+			{
+				info.displayName = it->name;
+			}
+		}
+	}
+
+	if (info.displayName.isEmpty())
+	{
+		info.displayName = info.name;
+	}
+	if (info.displayName.isEmpty())
+	{
+		info.displayName = info.hasBackend ? info.backendId : info.className;
+	}
+
 	if (const auto* g = node->asGroup())
 	{
+		info.childCount = static_cast<int>(g->getNumChildren());
 		for (unsigned i = 0; i < g->getNumChildren(); ++i)
 		{
 			core::IRenderView::SceneNodeInfo child;
-			buildSnapshotRecursive(child, g->getChild(i), depthLeft - 1);
+			buildSnapshotRecursive(child, g->getChild(i), depthLeft - 1, world, backendById);
 			info.children.push_back(std::move(child));
 		}
 	}
@@ -256,7 +424,17 @@ core::IRenderView::SceneNodeInfo OsgRenderViewAdapter::sceneGraphSnapshot(int ma
 {
 	SceneNodeInfo root;
 	const osg::Node* sceneRoot = m_widget.sceneGraphRoot();
-	buildSnapshotRecursive(root, sceneRoot, maxDepth);
+	QHash<QString, core::BackendObjectDto> backendById;
+	if (m_host)
+	{
+		const QVector<core::BackendObjectDto> snaps = m_host->data().listObjectSnapshots();
+		backendById.reserve(snaps.size());
+		for (const core::BackendObjectDto& dto : snaps)
+		{
+			backendById.insert(dto.id, dto);
+		}
+	}
+	buildSnapshotRecursive(root, sceneRoot, maxDepth, osg::Matrixd::identity(), backendById);
 	return root;
 }
 

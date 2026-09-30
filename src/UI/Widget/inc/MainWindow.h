@@ -47,6 +47,7 @@ class QTabWidget;
 class QTreeView;
 class QTreeWidget;
 class QTreeWidgetItem;
+class SceneHierarchyCanvasWidget;
 class QtProperty;
 class QtTreePropertyBrowser;
 class QtVariantEditorFactory;
@@ -387,7 +388,7 @@ protected:
 	QTabWidget* m_documentTabs = nullptr;
 	QToolBar* m_modeToolBar = nullptr;
 	QTreeView* m_backendTree = nullptr;
-	QTreeWidget* m_osgSceneTree = nullptr;
+	SceneHierarchyCanvasWidget* m_osgSceneTree = nullptr;
 	std::unique_ptr<BackendUnitsTreeBinder> m_unitsTreeBinder;
 	QtTreePropertyBrowser* m_propertyBrowser = nullptr;
 	QtVariantPropertyManager* m_variantManager = nullptr;
