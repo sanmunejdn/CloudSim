@@ -13,7 +13,8 @@
 #include "IRobotBackendPoseSink.h"
 #include "MeshBackendData.h"
 #include "OsgScene.h"
-#include "OsgWidget.h"
+#include "IViewportSceneOps.h"
+#include "IViewportToolbar.h"
 #include "RobotExternalAxes.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPerLinkKinematicsSliceOsg.h"
@@ -78,13 +79,20 @@ DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& eve
 	setPerLinkRobotStateAccessor(this);
 
 	// 视口浮动按钮（无容器 QWidget，避免 Windows 透明层黑块）
-	if (OsgWidget* ow = osgWidget())
+	if (IViewportToolbar* tb = toolbar())
 	{
-		QWidget* host = ow->viewportWidget() ? ow->viewportWidget() : static_cast<QWidget*>(ow);
-		auto* toolbar = new ViewportToolBar(host);
-		connect(toolbar, &ViewportToolBar::focusRequested, ow, &OsgWidget::onViewportFocusRequested);
-		connect(toolbar, &ViewportToolBar::wireframeToggled, ow, &OsgWidget::setWireframeMode);
-		connect(toolbar, &ViewportToolBar::screenshotRequested, ow, &OsgWidget::onViewportScreenshotRequested);
+		QWidget* host = tb->viewportOverlayHostWidget();
+		if (!host)
+		{
+			host = render().widget();
+		}
+		auto* chrome = new ViewportToolBar(host);
+		connect(chrome, &ViewportToolBar::focusRequested, this,
+				[tb]() { tb->onViewportFocusRequested(); });
+		connect(chrome, &ViewportToolBar::wireframeToggled, this,
+				[tb](const bool enabled) { tb->setWireframeMode(enabled); });
+		connect(chrome, &ViewportToolBar::screenshotRequested, this,
+				[tb]() { tb->onViewportScreenshotRequested(); });
 	}
 }
 
@@ -828,9 +836,9 @@ void DocumentPage::clearRobotSimulationContext()
 
 void DocumentPage::clearContentForProjectOpen()
 {
-	if (IOsgWidgetView* view = osgView())
+	if (IViewportSceneOps* ops = sceneOps())
 	{
-		view->clearImportedContent();
+		ops->clearImportedContent();
 	}
 	data().clear();
 	clearRobotSimulationContext();

@@ -194,6 +194,17 @@ bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manif
 		return false;
 	}
 
+	const unsigned int pluginSdkAbi = plugin->sdkAbiVersion();
+	const unsigned int hostSdkAbi = cloudsimPluginSdkVersion();
+	if (pluginSdkAbi != hostSdkAbi)
+	{
+		RunLogger::warn("Plugin SDK ABI mismatch: " + id.toStdString()
+			+ " sdkAbiVersion=0x" + QString::number(pluginSdkAbi, 16).toStdString()
+			+ " expected=0x" + QString::number(hostSdkAbi, 16).toStdString());
+		loader->unload();
+		return false;
+	}
+
 	if (plugin->pluginId() != id)
 	{
 		RunLogger::warn("Plugin id mismatch (manifest vs pluginId): " + id.toStdString());

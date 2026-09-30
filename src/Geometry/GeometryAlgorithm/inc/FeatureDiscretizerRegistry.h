@@ -9,6 +9,7 @@
 
 #include "IFeatureDiscretizer.h"
 
+#include <functional>
 #include <memory>
 #include <shared_mutex>
 #include <string>
@@ -25,7 +26,7 @@ public:
 	/// 宿主注册 ServiceRegistry 时写入，使本 DLL instance() 与宿主同一对象
 	static void setProcessInstance(FeatureDiscretizerRegistry* registry);
 
-	// 兼容期入口：优先 setProcessInstance，否则静态兜底
+	/// 业务路径须先 setProcessInstance（组合根）
 	static FeatureDiscretizerRegistry& instance();
 
 	void registerDiscretizer(std::unique_ptr<IFeatureDiscretizer> discretizer);
@@ -46,12 +47,18 @@ private:
 
 GEOMETRY_ALGORITHM_API void ensureFeatureDiscretizersRegistered();
 
-#define REGISTER_FEATURE_DISCRETIZER(DiscretizerType)                                                             \
-	static const bool DiscretizerType##_registered = []()                                                         \
-	{                                                                                                             \
-		geoalgo::FeatureDiscretizerRegistry::instance().registerDiscretizer(std::make_unique<DiscretizerType>()); \
-		return true;                                                                                              \
+#define REGISTER_FEATURE_DISCRETIZER(DiscretizerType)                                                                 \
+	static const bool DiscretizerType##_registered = []()                                                             \
+	{                                                                                                                 \
+		geoalgo::deferFeatureDiscretizerRegistration([]() { return std::make_unique<DiscretizerType>(); });             \
+		return true;                                                                                                    \
 	}()
+
+/// 静态注册宏用：进程槽就绪前只入队，由 setProcessInstance / ensure 刷入
+GEOMETRY_ALGORITHM_API void deferFeatureDiscretizerRegistration(
+	std::function<std::unique_ptr<IFeatureDiscretizer>()> factory);
+
+GEOMETRY_ALGORITHM_API void flushDeferredFeatureDiscretizerRegistrations();
 
 } // namespace geoalgo
 

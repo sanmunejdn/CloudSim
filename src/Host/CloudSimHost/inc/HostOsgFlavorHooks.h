@@ -6,6 +6,7 @@
 /// @brief 桌面/Headless 各自实现，消除共享源 CLOUDSIM_HOST_HEADLESS_ONLY
 
 #include "IRenderView.h"
+#include "cloudsim_viewport_global.h"
 
 #include <cstdint>
 #include <functional>
@@ -14,6 +15,7 @@
 
 class BackendDataManager;
 class IOsgWidgetView;
+class IViewportSceneSignals;
 class OsgWidget;
 class QVBoxLayout;
 class QWidget;
@@ -28,19 +30,27 @@ struct FlavorOsgViewportMount
 {
 	OsgWidget* osgWidget = nullptr;
 	IOsgWidgetView* osgView = nullptr;
+	IViewportSceneSignals* viewportSceneSignals = nullptr;
 	QWidget* osgPane = nullptr;
 	std::unique_ptr<core::IRenderView> renderView;
 };
 
+// 桌面实现在 Viewport.dll；Headless 同 DLL 本地定义（声明不加 dllimport）
+#if defined(CLOUDSIM_HOST_HEADLESS_ONLY)
+#define HOST_OSG_FLAVOR_API
+#else
+#define HOST_OSG_FLAVOR_API CLOUDSIM_VIEWPORT_EXPORT
+#endif
+
 /// 桌面 true；Headless false（由各 DLL 提供定义）
-bool hostOsgFlavorEnabled();
+HOST_OSG_FLAVOR_API bool hostOsgFlavorEnabled();
 
-std::unique_ptr<core::IRenderView> createFlavorRenderView(QWidget* parent);
-std::unique_ptr<core::IRenderViewFactory> createFlavorRenderViewFactory();
-std::unique_ptr<core::IRenderView> wrapFlavorOsgWidget(OsgWidget& widget);
-std::unique_ptr<core::IRenderView> wrapFlavorOsgWidget(OsgWidget& widget, DocumentHost& host);
+HOST_OSG_FLAVOR_API std::unique_ptr<core::IRenderView> createFlavorRenderView(QWidget* parent);
+HOST_OSG_FLAVOR_API std::unique_ptr<core::IRenderViewFactory> createFlavorRenderViewFactory();
+HOST_OSG_FLAVOR_API std::unique_ptr<core::IRenderView> wrapFlavorOsgWidget(OsgWidget& widget);
+HOST_OSG_FLAVOR_API std::unique_ptr<core::IRenderView> wrapFlavorOsgWidget(OsgWidget& widget, DocumentHost& host);
 
-FlavorOsgViewportMount mountFlavorOsgViewport(DocumentHost& host, QVBoxLayout& centralLayout,
+HOST_OSG_FLAVOR_API FlavorOsgViewportMount mountFlavorOsgViewport(DocumentHost& host, QVBoxLayout& centralLayout,
 											  BackendDataManager& backend, FlavorVisualSyncMarkDirtyFn markDirty);
 
 } // namespace cloudsim::host

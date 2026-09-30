@@ -13,7 +13,7 @@
 #include "HierarchyMeshImport.h"
 #include "IGeometryFileImporter.h"
 #include "MeshBackendData.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "PointCloudBackendData.h"
 
 #include <QFile>
@@ -81,7 +81,7 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 	result.skipFollowOnImport = hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
 								result.hierarchyDetail.registeredPartCount > 1;
 
-	IOsgWidgetView* osg = osgWidgetFrom(host);
+	IViewportSceneOps* osg = host.sceneOps();
 	if (osg)
 	{
 		if (result.hierarchyDetail.importParent)
@@ -463,7 +463,7 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(DocumentHost& host
 	result.skipFollowOnImport = hasImportParent || result.hierarchyDetail.lastRegisteredBrep != nullptr ||
 								result.hierarchyDetail.registeredPartCount > 1;
 
-	IOsgWidgetView* osg = osgWidgetFrom(host);
+	IViewportSceneOps* osg = host.sceneOps();
 	if (osg)
 	{
 		if (result.hierarchyDetail.importParent)

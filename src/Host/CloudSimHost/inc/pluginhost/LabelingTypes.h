@@ -1,11 +1,9 @@
-﻿#ifndef CLOUDSIMLABELINGSDK_LABELINGTYPES_H
-#define CLOUDSIMLABELINGSDK_LABELINGTYPES_H
+﻿#ifndef CLOUDSIMHOST_LABELINGTYPES_H
+#define CLOUDSIMHOST_LABELINGTYPES_H
 
 /// @file LabelingTypes.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief LabelingTypes 接口
-
-#include "labeling_sdk_global.h"
+/// @brief 宿主内部标注会话 POD（插件面见 PluginSDK PluginLabelingTypes.h）
 
 #include <cstddef>
 #include <map>
@@ -52,6 +50,4 @@ struct LabelingDatasetExportResult
 	std::string datasetJsonlPath;
 };
 
-// 训练 POD 真源在 PluginSDK PluginLabelingTypes.h（插件 UI）；本 SDK 仅为宿主 LabelingSession
-
-#endif // CLOUDSIMLABELINGSDK_LABELINGTYPES_H
+#endif // CLOUDSIMHOST_LABELINGTYPES_H

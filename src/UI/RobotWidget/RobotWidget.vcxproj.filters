@@ -83,6 +83,18 @@
     <ClInclude Include="inc\IRobotMainWindowHost.h">
       <Filter>inc\Interfaces</Filter>
     </ClInclude>
+    <ClInclude Include="inc\IRobotOsgOverlay.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotOsgPick.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotOsgSceneOps.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotOsgTeach.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
     <ClInclude Include="inc\IRobotOsgViewHost.h">
       <Filter>inc\Interfaces</Filter>
     </ClInclude>

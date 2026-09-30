@@ -26,11 +26,14 @@ public:
 
 	/// 退出前 UI 线程回调；运行时不会卸载插件
 	virtual void shutdown() = 0;
+
+	/// vtable 末尾：插件编译期 SDK ABI，宿主与 cloudsimPluginSdkVersion() 握手
+	virtual unsigned int sdkAbiVersion() const { return CLOUDSIM_PLUGIN_SDK_VERSION; }
 };
 
 /// 插件 ABI 版本编码进 IID（须为单一字符串字面量，moc 才能嵌入 metaData）。
 /// bump CLOUDSIM_PLUGIN_SDK_VERSION 时同步改此串，并 Rebuild 全部插件（moc 不跟踪 global.h）。
-#define CloudSimPlugin_iid "com.cloudsim.ICloudSimPlugin/1.0.0x00013800"
+#define CloudSimPlugin_iid "com.cloudsim.ICloudSimPlugin/1.0.0x00013A00"
 Q_DECLARE_INTERFACE(ICloudSimPlugin, CloudSimPlugin_iid)
 
 #endif // CLOUDSIMPLUGINSDK_ICLOUDSIMPLUGIN_H

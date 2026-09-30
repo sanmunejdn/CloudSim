@@ -9,6 +9,7 @@
 #include "FaceSectionDiscretizer.h"
 #include "FeatureDiscretizerBridge.h"
 #include "FeatureDiscretizerConfigImpl.h"
+#include "FeatureDiscretizerConfigRegistry.h"
 #include "FeatureDiscretizerRegistry.h"
 #include "SyntheticPolylineDiscretizer.h"
 
@@ -21,9 +22,8 @@ namespace
 // 与 Data 层 BackendRegistryBuiltins 同一纪律：懒初始化用 call_once，不用裸 bool 检查-置位
 std::once_flag g_builtinsOnce;
 
-void registerDiscretizerConfigs()
+void registerDiscretizerConfigs(FeatureDiscretizerConfigRegistry& registry)
 {
-	FeatureDiscretizerConfigRegistry& registry = FeatureDiscretizerConfigRegistry::instance();
 	registry.registerConfig(makeFeatureDiscretizerConfig("EdgeChain", "discretizers/EdgeChain.json"));
 	registry.registerConfig(makeFeatureDiscretizerConfig("FaceBoundary", "discretizers/FaceBoundary.json"));
 	registry.registerConfig(makeFeatureDiscretizerConfig("FaceSection", "discretizers/FaceSection.json"));
@@ -52,7 +52,8 @@ void ensureFeatureDiscretizersRegistered()
 				   []()
 				   {
 					   touchStaticDiscretizerRegistrations();
-					   registerDiscretizerConfigs();
+					   flushDeferredFeatureDiscretizerRegistrations();
+					   registerDiscretizerConfigs(FeatureDiscretizerConfigRegistry::instance());
 				   });
 }
 

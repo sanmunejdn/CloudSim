@@ -7,6 +7,7 @@
 #include <QtCore/qglobal.h>
 
 #include "cloudsim_host_global.h"
+#include "cloudsim_viewport_global.h"
 
 #if defined(_WIN64) || defined(_WIN32)
 #pragma execution_character_set("utf-8")
@@ -23,7 +24,14 @@
 #define WIDGET_EXPORT
 #endif
 
+// 桌面 OsgWidget 等在 Viewport.dll；Headless 桩仍走 HOST_EXPORT
+#ifndef OSG_WIDGET_API
+#if defined(CLOUDSIM_HOST_HEADLESS_ONLY)
 #define OSG_WIDGET_API CLOUDSIM_HOST_EXPORT
+#else
+#define OSG_WIDGET_API CLOUDSIM_VIEWPORT_EXPORT
+#endif
+#endif
 
 #define HPL_TRY \
 	try         \

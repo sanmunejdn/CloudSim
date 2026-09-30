@@ -8,6 +8,7 @@
 #include "IPluginHostContext.h"
 
 #include "PluginContextImpls.h"
+#include "cloudsim_host_global.h"
 
 #include <QHash>
 #include <QObject>
@@ -27,7 +28,8 @@ class PluginDocumentAdapter;
 class PluginSceneBridgeAdapter;
 
 /// IPluginHostContext 宿主实现（仅 Widget，不导出插件）
-class PluginHostContext : public QObject, public IPluginHostContext
+/// 域方法保留在本类供 ContextImpls/Host 内部调用，不再挂聚合虚表
+class CLOUDSIM_HOST_EXPORT PluginHostContext : public QObject, public IPluginHostContext
 {
 	Q_OBJECT
 
@@ -45,52 +47,8 @@ public:
 	void logWarn(const QString& message) const override;
 	void logError(const QString& message) const override;
 
-	int documentCount() const override;
-	IPluginDocument* activeDocument() override;
-	const IPluginDocument* activeDocument() const override;
-	IPluginDocument* documentAt(int index) override;
-	const IPluginDocument* documentAt(int index) const override;
-
-	void onActiveDocumentChanged(std::function<void(IPluginDocument*)> callback) override;
-	void invokeOnUiThread(std::function<void()> fn) override;
-
-	void enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
-					std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
-	quint64 enqueueCancellableJob(const QString& title, PluginCancellableJobWorkFn work,
-								  std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
-	bool cancelJob(quint64 jobId) override;
-	IPluginDocument* documentById(const QString& documentId) override;
-	const IPluginDocument* documentById(const QString& documentId) const override;
-	void onDocumentClosed(std::function<void(const QString& documentId)> callback) override;
-	void invokeDocumentClosed(const QString& documentId);
-
-	QDockWidget* registerDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) override;
-	QWidget* sidePanelTabParent() const override;
-	int registerSidePanelTab(const char* titleUtf8, QWidget* widget) override;
-	void unregisterSidePanelTab(QWidget* widget) override;
-	QMenu* registerMenuPath(const QStringList& path) override;
-	QAction* registerAction(QMenu* menu, const QString& text, std::function<void()> handler) override;
-
-	bool createPrimitiveMesh(const PluginPrimitiveMeshParams& params, const PluginPrimitiveMeshQuality& quality,
-							 const PluginMeshCreateOptions& options, QString* outError,
-							 QString* outBackendId = nullptr) override;
-
-	bool booleanMesh(PluginMeshBooleanOp op, const std::string& targetBackendId, const std::string& toolBackendId,
-					 const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
-					 QString* outError) override;
-
-	bool registerBackendType(const PluginBackendMeta& meta, QString* outError) override;
-	bool registerTriangleMesh(const std::vector<float>& triangleSoup, const PluginMeshCreateOptions& options,
-							  QString* outError) override;
-
-	std::string importFileIntoActiveDocument(const std::string& pathUtf8, bool isPointCloud,
-											 std::string* outError) override;
-
-	IPluginPointCloudHost* pointCloudHost() override;
-	const IPluginPointCloudHost* pointCloudHost() const override;
-
-	IPluginRobotHost* robotHost() override;
-	const IPluginRobotHost* robotHost() const override;
+	bool useChinese() const override;
+	void onLanguageChanged(std::function<void(bool useChinese)> callback) override;
 
 	IPluginDocumentContext* documentContext() override;
 	IPluginUiContext* uiContext() override;
@@ -100,20 +58,65 @@ public:
 	IPluginJobContext* jobContext() override;
 	IPluginProjectContext* projectContext() override;
 
-	IPluginGeometryHost* geometryHost() override;
-	const IPluginGeometryHost* geometryHost() const override;
+	// --- 以下为宿主内部/窄 ContextImpl 转发目标，非 IPluginHostContext 虚表 ---
 
-	bool useChinese() const override;
-	void onLanguageChanged(std::function<void(bool useChinese)> callback) override;
-	void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8) override;
+	int documentCount() const;
+	IPluginDocument* activeDocument();
+	const IPluginDocument* activeDocument() const;
+	IPluginDocument* documentAt(int index);
+	const IPluginDocument* documentAt(int index) const;
+
+	void onActiveDocumentChanged(std::function<void(IPluginDocument*)> callback);
+	void invokeOnUiThread(std::function<void()> fn);
+
+	void enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
+					std::function<void(bool threw, const QString& throwMessage)> onFinished);
+	quint64 enqueueCancellableJob(const QString& title, PluginCancellableJobWorkFn work,
+								  std::function<void(bool threw, const QString& throwMessage)> onFinished);
+	bool cancelJob(quint64 jobId);
+	IPluginDocument* documentById(const QString& documentId);
+	const IPluginDocument* documentById(const QString& documentId) const;
+	void onDocumentClosed(std::function<void(const QString& documentId)> callback);
+	void invokeDocumentClosed(const QString& documentId);
+
+	QDockWidget* registerDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area);
+	QWidget* sidePanelTabParent() const;
+	int registerSidePanelTab(const char* titleUtf8, QWidget* widget);
+	void unregisterSidePanelTab(QWidget* widget);
+	QMenu* registerMenuPath(const QStringList& path);
+	QAction* registerAction(QMenu* menu, const QString& text, std::function<void()> handler);
+
+	bool createPrimitiveMesh(const PluginPrimitiveMeshParams& params, const PluginPrimitiveMeshQuality& quality,
+							 const PluginMeshCreateOptions& options, QString* outError,
+							 QString* outBackendId = nullptr);
+
+	bool booleanMesh(PluginMeshBooleanOp op, const std::string& targetBackendId, const std::string& toolBackendId,
+					 const PluginBooleanMeshOptions& options, std::string* outResultBackendId, QString* outError);
+
+	bool registerBackendType(const PluginBackendMeta& meta, QString* outError);
+	bool registerTriangleMesh(const std::vector<float>& triangleSoup, const PluginMeshCreateOptions& options,
+							  QString* outError);
+
+	std::string importFileIntoActiveDocument(const std::string& pathUtf8, bool isPointCloud, std::string* outError);
+
+	IPluginPointCloudHost* pointCloudHost();
+	const IPluginPointCloudHost* pointCloudHost() const;
+
+	IPluginRobotHost* robotHost();
+	const IPluginRobotHost* robotHost() const;
+
+	IPluginGeometryHost* geometryHost();
+	const IPluginGeometryHost* geometryHost() const;
+
+	void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8);
 
 	bool buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& params, const PluginPrimitiveMeshQuality& quality,
 								const PluginMeshCreateOptions& placement, std::vector<float>& outWorldSoup,
-								QString* outError) override;
+								QString* outError);
 
 	bool booleanMeshSoups(PluginMeshBooleanOp op, const std::vector<float>& targetWorldSoup,
 						  const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
-						  std::string* outResultBackendId, QString* outError) override;
+						  std::string* outResultBackendId, QString* outError);
 
 	bool booleanPrimitiveMeshes(PluginMeshBooleanOp op, const PluginPrimitiveMeshParams& targetParams,
 								const PluginPrimitiveMeshQuality& targetQuality,
@@ -121,68 +124,67 @@ public:
 								const PluginPrimitiveMeshParams& toolParams,
 								const PluginPrimitiveMeshQuality& toolQuality,
 								const PluginMeshCreateOptions& toolPlacement, const PluginBooleanMeshOptions& options,
-								std::string* outResultBackendId, QString* outError) override;
+								std::string* outResultBackendId, QString* outError);
 
-	IAiAssistantHost* aiAssistantHost() override;
-	const IAiAssistantHost* aiAssistantHost() const override;
+	IAiAssistantHost* aiAssistantHost();
+	const IAiAssistantHost* aiAssistantHost() const;
 
-	bool captureActiveViewportPng(QByteArray& outPng, QString* outError = nullptr) override;
+	bool captureActiveViewportPng(QByteArray& outPng, QString* outError = nullptr);
 
-	bool resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath, QString* outError = nullptr) override;
+	bool resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath, QString* outError = nullptr);
 	bool buildTrajectoryFeatureCatalogSlice(const QString& backendId, const QString& stepPathUtf8,
 											const QString& userText, QByteArray& outFullCatalogUtf8,
-											QByteArray& outSliceUtf8, QString* outError = nullptr) override;
-	bool showAiFeatureCandidatePreview(const QByteArray& previewJsonUtf8, QString* outError = nullptr) override;
-	void clearAiFeatureCandidatePreview() override;
+											QByteArray& outSliceUtf8, QString* outError = nullptr);
+	bool showAiFeatureCandidatePreview(const QByteArray& previewJsonUtf8, QString* outError = nullptr);
+	void clearAiFeatureCandidatePreview();
 	bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
-									QString* outError = nullptr) override;
+									QString* outError = nullptr);
 	int proposeAndConfirmTrajectoryPlan(const QByteArray& planInUtf8, QByteArray& planOutUtf8,
-										QString* outError = nullptr, bool showRetry = true) override;
-	bool loadBoundTrajectoryPlanForAi(QByteArray& planOutUtf8, QString* outError = nullptr) override;
-	bool reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* outSummary,
-								QString* outError = nullptr) override;
+										QString* outError = nullptr, bool showRetry = true);
+	bool loadBoundTrajectoryPlanForAi(QByteArray& planOutUtf8, QString* outError = nullptr);
+	bool reviseAiTrajectoryPlan(const QByteArray& planJsonUtf8, QString* outSummary, QString* outError = nullptr);
 
-	IPluginLabelingHost* labelingHost() override;
-	const IPluginLabelingHost* labelingHost() const override;
+	IPluginLabelingHost* labelingHost();
+	const IPluginLabelingHost* labelingHost() const;
 
-	void setCentralAlternateWidget(QWidget* widget) override;
-	void showCentralScene3D() override;
-	void showCentralAlternate() override;
-	bool isShowingCentralAlternate() const override;
-	void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
-	void exitProcessFlowSideUi() override;
-	void enterAlternateSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
-	void exitAlternateSideUi() override;
+	void setCentralAlternateWidget(QWidget* widget);
+	void showCentralScene3D();
+	void showCentralAlternate();
+	bool isShowingCentralAlternate() const;
+	void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel);
+	void exitProcessFlowSideUi();
+	void enterAlternateSideUi(QWidget* leftPanel, QWidget* rightPanel);
+	void exitAlternateSideUi();
 
-	void onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback) override;
-	void onProjectLoaded(std::function<void(const QString& documentId, const QJsonObject& root)> callback) override;
+	void onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback);
+	void onProjectLoaded(std::function<void(const QString& documentId, const QJsonObject& root)> callback);
 	void invokeProjectAboutToSave(const QString& documentId, QJsonObject& root);
 	void invokeProjectLoaded(const QString& documentId, const QJsonObject& root);
 
 	void onParametricBodyHistoryChanged(
-		std::function<void(const QString& documentId, const QString& backendId)> callback) override;
+		std::function<void(const QString& documentId, const QString& backendId)> callback);
 	void invokeParametricBodyHistoryChanged(const QString& documentId, const QString& backendId);
 
-	void setProcessFlowAiBridge(IProcessFlowAiBridge* bridge) override;
-	IProcessFlowAiBridge* processFlowAiBridge() override;
-	const IProcessFlowAiBridge* processFlowAiBridge() const override;
+	void setProcessFlowAiBridge(IProcessFlowAiBridge* bridge);
+	IProcessFlowAiBridge* processFlowAiBridge();
+	const IProcessFlowAiBridge* processFlowAiBridge() const;
 
-	bool embedActiveRenderWidget(QWidget* slot, QString* outError = nullptr) override;
-	void restoreActiveRenderWidget() override;
-	void setModeToolBar(QWidget* toolBar) override;
+	bool embedActiveRenderWidget(QWidget* slot, QString* outError = nullptr);
+	void restoreActiveRenderWidget();
+	void setModeToolBar(QWidget* toolBar);
 
-	void claimWorkspaceMode(const QString& modeId) override;
-	void onWorkspaceModeClaimed(std::function<void(const QString& modeId)> callback) override;
-	QString currentWorkspaceMode() const override;
+	void claimWorkspaceMode(const QString& modeId);
+	void onWorkspaceModeClaimed(std::function<void(const QString& modeId)> callback);
+	QString currentWorkspaceMode() const;
 
 	void registerWorkspaceMode(const QString& modeId, const QString& titleZh, const QString& titleEn,
-							   std::function<void()> enterFn) override;
-	void returnToMainWorkspace() override;
-	void enterWorkspaceMode(const QString& modeId) override;
+							   std::function<void()> enterFn);
+	void returnToMainWorkspace();
+	void enterWorkspaceMode(const QString& modeId);
 
-	void markActiveDocumentModified() override;
-	void clearActiveDocumentModified() override;
-	bool isActiveDocumentModified() const override;
+	void markActiveDocumentModified();
+	void clearActiveDocumentModified();
+	bool isActiveDocumentModified() const;
 
 	struct WorkspaceModeRegistration
 	{

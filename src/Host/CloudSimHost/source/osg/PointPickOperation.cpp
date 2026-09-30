@@ -4,7 +4,6 @@
 #include "PointPickOperation.h"
 
 #include "OsgScene.h"
-#include "OsgWidget.h"
 #include "PickTypes.h"
 #include "ViewportInteraction/IViewportPickEngine.h"
 
@@ -13,12 +12,13 @@
 #include <QPoint>
 #include <cmath>
 
-PointPickOperation::PointPickOperation(OsgWidget* owner) : SelectionOperation(owner) {}
+PointPickOperation::PointPickOperation(IViewportInteractionHost* host) : SelectionOperation(host) {}
 
 bool PointPickOperation::canHandle(QObject* watched, QEvent* event) const
 {
 	(void)event;
-	return m_owner && watched == m_owner->m_glWidget && m_owner->m_pointPickMode;
+	const IViewportInteractionHost* h = host();
+	return h && watched == h->viewportGlWidget() && h->pointPickMode();
 }
 
 bool PointPickOperation::onMouseButtonPress(QMouseEvent* mouseEvent)
@@ -48,31 +48,35 @@ bool PointPickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 		return false;
 	}
 
+	IViewportInteractionHost* h = host();
+	if (!h)
+	{
+		return swallowRelease;
+	}
+
 	PickQuery query;
 	query.screenX = mouseEvent->pos().x();
 	query.screenY = mouseEvent->pos().y();
 	query.kind = PickKind::PointCloud;
 	query.hitRadiusPx = OsgScene::kPointPickHitRadiusPx;
-	const PickResult pick =
-		((m_owner->pickEngine() != nullptr) ? m_owner->pickEngine()->queryPick(query) : m_owner->queryPick(query));
+	const PickResult pick = (h->pickEngine() != nullptr) ? h->pickEngine()->queryPick(query) : h->queryPick(query);
 
 	if (pick.hit)
 	{
-		m_owner->updatePointPickMarker(pick.worldPoint, true);
+		h->updatePointPickMarker(pick.worldPoint, true);
 	}
 	else
 	{
-		m_owner->clearPointPickMarker();
+		h->clearPointPickMarker();
 	}
-	emit m_owner->pointPickFeedback(QStringLiteral("%1 | nearest: %2 px")
-										.arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
-										.arg(pick.hit || pick.screenDistancePx > 0.0
-												 ? QString::number(pick.screenDistancePx, 'f', 1)
-												 : QStringLiteral("N/A")));
+	h->emitPointPickFeedback(QStringLiteral("%1 | nearest: %2 px")
+							 .arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
+							 .arg(pick.hit || pick.screenDistancePx > 0.0 ? QString::number(pick.screenDistancePx, 'f', 1)
+																			: QStringLiteral("N/A")));
 	if (pick.hit)
 	{
-		m_owner->addPointAnnotation(pick.worldPoint);
-		m_owner->requestRedraw();
+		h->addPointAnnotation(pick.worldPoint);
+		h->requestRedraw();
 	}
 	m_gesture.restartClickHold(m_clickHoldTimer);
 	return swallowRelease;
@@ -99,7 +103,13 @@ bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	{
 		return false;
 	}
-	if (ViewportGestureRecognizer::shouldThrottleHover(m_owner->m_feedbackTimer))
+	IViewportInteractionHost* h = host();
+	if (!h)
+	{
+		return false;
+	}
+	ViewportInteractionPointerState pointer = h->interactionPointerState();
+	if (ViewportGestureRecognizer::shouldThrottleHover(pointer.feedbackTimer))
 	{
 		return true;
 	}
@@ -119,8 +129,7 @@ bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	query.kind = PickKind::PointCloud;
 	query.hitRadiusPx = OsgScene::kPointPickHitRadiusPx;
 	query.hoverPick = true;
-	const PickResult pick =
-		((m_owner->pickEngine() != nullptr) ? m_owner->pickEngine()->queryPick(query) : m_owner->queryPick(query));
+	const PickResult pick = (h->pickEngine() != nullptr) ? h->pickEngine()->queryPick(query) : h->queryPick(query);
 
 	const bool hadPreview = m_preview.valid && m_preview.result.hit &&
 							m_preview.result.screenDistancePx <= OsgScene::kPointPickPreviewRadiusPx;
@@ -133,7 +142,7 @@ bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 		m_preview.result = pick;
 		if (!samePoint)
 		{
-			m_owner->updatePointPickMarker(pick.worldPoint, true);
+			h->updatePointPickMarker(pick.worldPoint, true);
 			needsRedraw = true;
 		}
 	}
@@ -142,7 +151,7 @@ bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 		if (hadPreview || m_preview.valid)
 		{
 			m_preview.valid = false;
-			m_owner->clearPointPickMarker();
+			h->clearPointPickMarker();
 			needsRedraw = true;
 		}
 	}
@@ -153,17 +162,16 @@ bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	{
 		m_lastFeedbackHit = pick.hit;
 		m_lastFeedbackDistPx = pick.screenDistancePx;
-		emit m_owner->pointPickFeedback(QStringLiteral("%1 | nearest: %2 px | points: %3")
-											.arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
-											.arg(pick.screenDistancePx > 0.0
-													 ? QString::number(pick.screenDistancePx, 'f', 1)
-													 : QStringLiteral("N/A"))
-											.arg(m_owner->m_pickablePointsLocal.size()));
+		h->emitPointPickFeedback(QStringLiteral("%1 | nearest: %2 px | points: %3")
+								 .arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
+								 .arg(pick.screenDistancePx > 0.0 ? QString::number(pick.screenDistancePx, 'f', 1)
+																  : QStringLiteral("N/A"))
+								 .arg(h->pickablePointCount()));
 	}
-	m_owner->m_feedbackTimer.restart();
+	pointer.feedbackTimer.restart();
 	if (needsRedraw)
 	{
-		m_owner->requestRedraw();
+		h->requestRedraw();
 	}
 	return true;
 }

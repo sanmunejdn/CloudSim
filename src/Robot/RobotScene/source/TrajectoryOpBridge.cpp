@@ -9,10 +9,13 @@
 #include "TrajectoryOpParamsParse.h"
 #include "TrajectoryOpRegistry.h"
 
+#include <cassert>
+
 namespace RobotInstruction
 {
 void setTrajectoryOpRegistry(trajectory_algo::TrajectoryOpRegistry* registry)
 {
+	assert(registry != nullptr);
 	trajectory_algo::TrajectoryOpRegistry::setProcessInstance(registry);
 }
 

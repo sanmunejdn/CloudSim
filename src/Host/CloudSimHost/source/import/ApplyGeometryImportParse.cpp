@@ -7,10 +7,9 @@
 #include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
-#include "DocumentHostAccess.h"
 #include "MeshBackendData.h"
-#include "IOsgWidgetView.h"
-#include "OsgWidgetCaptureController.h"
+#include "MeshCapturedPart.h"
+#include "IViewportSceneOps.h"
 
 #include <QFileInfo>
 #include <QHash>
@@ -84,7 +83,7 @@ bool applyOsgCapture(DocumentHost& host, const QString& sourceFilePath, const QS
 					 const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError)
 {
 	const QFileInfo fileInfo(sourceFilePath);
-	IOsgWidgetView* osg = osgWidgetFrom(host);
+	IViewportSceneOps* osg = host.sceneOps();
 	if (!osg)
 	{
 		if (outError)

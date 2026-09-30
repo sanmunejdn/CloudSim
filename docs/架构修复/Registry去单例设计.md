@@ -51,8 +51,10 @@
 | R3 `TrajectoryOpRegistry` / `FeatureDiscretizerRegistry` 组合根注册 + Bridge `set*Registry` | 已落地 |
 | R5 `BackendVisualRegistry` | 仍保留静态工厂表，待 BackendVisual 重构一并排期 |
 
-## 6. 后续迁移路线（未做）
+## 6. 后续迁移路线
 
-1. Data / TrajectoryAlgorithm / GeometryAlgorithm 内剩余 `::instance()` 调用点改为注入或经 Bridge（按模块分批）。
-2. 迁移完成后：删除各 `instance()` 兜底，或补 `[[deprecated]]` 过渡一个版本再删。
-3. `BackendVisualRegistry` 如需收编：先把匿名命名空间工厂表改为成员，静态方法转发到 `instance()`——需一次性改写全部调用点，建议与 BackendVisual 层重构合并排期。
+**清债关门（#8 / D2+D6）已完成主干：**
+
+1. Importer / Backend / Codec / TrajectoryOp / FeatureDiscretizer：业务路径零静默兜底；未注入 `assert`。
+2. `BackendVisualRegistry`：实例 + `setProcessInstance`，组合根注入；静态 API 转发。
+3. **仍另轨**：`BackendDataManager::instance`；`TrajectoryOpConfigRegistry` / `FeatureDiscretizerConfigRegistry` 配置侧单例。

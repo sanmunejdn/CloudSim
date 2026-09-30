@@ -8,6 +8,8 @@
 #include "FeaturePickTransform.h"
 #include "FrameBackendData.h"
 #include "IRobotMainWindowHost.h"
+#include "IRobotOsgOverlay.h"
+#include "IRobotOsgSceneOps.h"
 #include "IRobotOsgViewHost.h"
 #include "InstructionProgramDocument.h"
 #include "ProgramEditCommand.h"
@@ -340,7 +342,7 @@ void TrajectoryEditSession::ensureGeometryResolverBound() const
 		trajectory_geometry_host::clearTrajectoryGeometryResolverBinding();
 		return;
 	}
-	trajectory_geometry_host::bindTrajectoryGeometryResolver(host->document(), host->osgView());
+	trajectory_geometry_host::bindTrajectoryGeometryResolver(host->document(), host->osgScene());
 }
 
 void TrajectoryEditSession::injectWorkpieceReferenceOnEngine() const
@@ -787,9 +789,9 @@ void TrajectoryEditSession::refreshPreviewVisuals()
 	}
 	if (IRobotMainWindowHost* host = m_simController->host())
 	{
-		if (IRobotOsgViewHost* osg = host->osgView())
+		if (IRobotOsgSceneOps* scene = host->osgScene())
 		{
-			osg->requestRedraw();
+			scene->requestRedraw();
 		}
 	}
 }
@@ -817,10 +819,10 @@ bool TrajectoryEditSession::previewPipeline(const std::vector<RobotInstruction::
 		m_simController->setRawTrajectoryPreviewActive(false);
 		if (IRobotMainWindowHost* host = m_simController->host())
 		{
-			if (IRobotOsgViewHost* osg = host->osgView())
+			if (IRobotOsgOverlay* overlay = host->osgOverlay())
 			{
-				osg->clearRawTrajectoryOverlay();
-				osg->clearRawTrajectoryOverlayFrames();
+				overlay->clearRawTrajectoryOverlay();
+				overlay->clearRawTrajectoryOverlayFrames();
 			}
 		}
 	}
@@ -1057,11 +1059,14 @@ void TrajectoryEditSession::clearOverlayPreview()
 		m_simController->setRawTrajectoryPreviewActive(false);
 		if (IRobotMainWindowHost* host = m_simController->host())
 		{
-			if (IRobotOsgViewHost* osg = host->osgView())
+			if (IRobotOsgOverlay* overlay = host->osgOverlay())
 			{
-				osg->clearRawTrajectoryOverlay();
-				osg->clearRawTrajectoryOverlayFrames();
-				osg->requestRedraw();
+				overlay->clearRawTrajectoryOverlay();
+				overlay->clearRawTrajectoryOverlayFrames();
+				if (IRobotOsgSceneOps* scene = host->osgScene())
+				{
+					scene->requestRedraw();
+				}
 			}
 		}
 	}

@@ -4,6 +4,7 @@
 #include "AiAssistantCoordinator.h"
 #include "AiAssistantDockWidget.h"
 #include "IAiAssistantHost.h"
+#include "IPluginAiContext.h"
 #include "IPluginHostContext.h"
 #include "MainWindow.h"
 #include "PluginHostContext.h"
@@ -40,7 +41,8 @@ void MainWindow::refreshAiAssistantHost()
 	if (m_pluginManager && m_pluginManager->hostContext())
 	{
 		pluginHost = m_pluginManager->hostContext();
-		aiHost = pluginHost->aiAssistantHost();
+		if (IPluginAiContext* aiCtx = pluginHost->aiContext())
+			aiHost = aiCtx->aiAssistantHost();
 	}
 
 	if (m_aiCoordinator)

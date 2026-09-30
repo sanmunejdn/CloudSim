@@ -108,7 +108,7 @@ flowchart TB
 | 职责边界 | 聚合 `BackendDataManager`、`OsgWidget`、三个 Core 适配器，向上提供统一文档能力 |
 | 生命周期 | 构造时注入 `EventHub` 与 `documentId`；析构时统一释放文档级资源 |
 | 对外契约 | `data()` / `robot()` / `render()` 返回稳定 Core 接口，供 UI 层长期调用 |
-| 兼容接口 | `backend()` 存量直达；`osgWidget()` 供 Host 内部与 `DocumentHostAccess.h::osgWidgetFrom`；Widget 侧优先 `render()` / `sceneFacade()`（插件存量 `widgetOsgFromPage`） |
+| 兼容接口 | `backend()` 存量直达；对外视口用 `osgView()` / `DocumentHostAccess.h::osgWidgetFrom`（→ `osgView()`）；`osgWidget()` 仅 Host 内私有（`OsgRenderViewAdapter` friend）；Widget 侧优先 `render()` / `sceneFacade()`（插件存量 `widgetOsgFromPage`） |
 | 场景门面 | `sceneFacade()` 返回 `BackendSceneDocumentFacade`（插件 `PluginSceneBridgeAdapter` 亦经此访问） |
 | 事件协作 | 与 `MainWindow` 帧回调配合，处理跟随脏集、场景刷新与选择同步 |
 
@@ -117,7 +117,9 @@ flowchart TB
 | API | 说明 |
 |-----|------|
 | `data()` / `robot()` / `render()` / `events()` | Core 主入口；分别落到三适配器与 EventHub |
-| `osgWidget()` | 文档内 `OsgWidget*`；**须在 `m_osgWidget` 构造之后**再建 `OsgRenderViewAdapter` |
+| `osgView()` | 文档内 `IOsgWidgetView*`（对外主入口；构造期可用） |
+| `sceneOps()` / `pickObserve()` / `toolbar()` / `overlay()` | 视口分面（`IOsgWidgetView` 多继承聚合） |
+| `configResourceBaseDir()` | 轨迹/离散化 Config JSON 资源根（每文档） |
 | `findObject` / `listObjects` | 按 id / 全量枚举 Backend 对象（替代 UI 直调 `backend().getData/listData`） |
 | `sceneFacade()` | 场景实体、选择视觉、`ensureSelectionVisualForBackend` |
 | `sceneBridge()` / `followReverseIndex()` | 场景桥接与跟随反向索引 |
@@ -211,7 +213,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 关键转换 | `core::Mat4`（列主序 `16 x double`）与 `osg::Matrixd` 双向转换 |
 | 事件接入 | 拾取回调通过 `setPickHandler` 注入，外层可转发到 `EventHub` |
 | Widget 取用 | `currentPage()->render()`；`IRobotOsgViewHost` 经 `WidgetOsgViewHost` 委托 `IRenderView` |
-| Host 内部取用 | `DocumentHostAccess.h::osgWidgetFrom(host)` → `host.osgWidget()` |
+| Host 内部取用 | `DocumentHostAccess.h::osgWidgetFrom(host)` → `host.osgView()` |
 | 设计约束 | 不在 Adapter 内引入业务判断，业务决策放 `DocumentPage` 或上层服务 |
 
 ---
@@ -406,7 +408,7 @@ Open Model / Registry `StepGeometryImporter`：`BrepBackendData::loadStepHierarc
 
 | 头文件 | 函数 | 调用方 |
 |--------|------|--------|
-| `DocumentHostAccess.h` | `osgWidgetFrom(DocumentHost&)` → `host.osgWidget()`（Host 模块内；构造期勿经 `render().widget()`） |
+| `DocumentHostAccess.h` | `osgWidgetFrom(DocumentHost&)` → `host.osgView()`（Host 模块内；构造期勿经 `render().widget()`） |
 | `WidgetDocumentAccess.h`（Widget） | `widgetOsgFromPage(DocumentPage*)` | 插件等存量；`DocumentPage`/`MainWindow` 主路径已改契约 |
 | `IRobotUrdfImportContext` | `urdfImportLoadLinkMeshIntoScene` 等 | `UrdfRobotImport`（**无** `OsgWidget*`）；`DocumentHost` 实现边界 |
 
@@ -674,7 +676,8 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 | API | 说明 |
 |-----|------|
-| `osgWidget()` | 内部 OSG 壳（构造期可用） |
+| `osgView()` | 窄接口视口（对外） |
+| `osgWidget()` | 私有具体壳（仅 `OsgRenderViewAdapter` friend；构造期可用） |
 | `setCentralAlternateWidget` / `showCentralScene3D` / `showCentralAlternate` / `isShowingCentralAlternate` / `centralAlternateWidget` | 中央 3D ↔ alternate |
 | `embedRenderWidget` / `restoreRenderWidget` / `isRenderWidgetEmbedded` | 把视口 reparent 到外部槽 |
 
@@ -871,7 +874,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 |------|------|
 | `PluginManager` | `loadAllFromPluginsDirectory` / `shutdownAll` / 工程保存/加载钩子 |
 | `PluginHostContext` | 实现 `IPluginHostContext`（插件只链 PluginSDK） |
-| `pointCloudHost` / `geometryHost` / `labelingHost` | Domain Host Impl |
+| `pointCloudHost` / `geometryHost` / `labelingHost` | Domain Host Impl；标注逻辑引擎 `LabelingSession`（`inc/pluginhost/`，编进 HostCore） |
 | `AiAssistantHostImpl` / `AiHostButtonApiDispatch` / `AiAgentRuntime` + Domain Handlers | AI 管线；含 `DesignPartsCatalog` / `DesignPartsDomainHandler` |
 | OsgWidget 壳 + Controllers | 契约出口仍为 `IRenderView` |
 

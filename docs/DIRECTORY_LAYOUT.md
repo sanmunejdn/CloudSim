@@ -52,7 +52,6 @@ CloudSim/
     ├── Plugins/
     │   ├── CloudSimPluginSDK/
     │   ├── CloudSimAiSDK/
-    │   ├── CloudSimLabelingSDK/
     │   ├── CloudSimMeshTrajectorySDK/
     │   ├── PointCloudPlugin/
     │   ├── GeometryPlugin/

@@ -4,6 +4,7 @@
 #include "ProcessFlowPlugin.h"
 
 #include "BackendTypeIds.h"
+#include "IPluginAiContext.h"
 #include "IPluginDocument.h"
 #include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
@@ -87,7 +88,8 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 	bindSimUi();
 
 	m_aiBridge = std::make_unique<ProcessFlowAiBridge>(this);
-	host->setProcessFlowAiBridge(m_aiBridge.get());
+	if (IPluginAiContext* aiCtx = host->aiContext())
+		aiCtx->setProcessFlowAiBridge(m_aiBridge.get());
 
 	docCtx->onActiveDocumentChanged(
 		[this](IPluginDocument*)
@@ -311,7 +313,8 @@ void ProcessFlowPlugin::shutdown()
 {
 	if (m_host)
 	{
-		m_host->setProcessFlowAiBridge(nullptr);
+		if (IPluginAiContext* aiCtx = m_host->aiContext())
+			aiCtx->setProcessFlowAiBridge(nullptr);
 	}
 	m_aiBridge.reset();
 	if (m_sim)

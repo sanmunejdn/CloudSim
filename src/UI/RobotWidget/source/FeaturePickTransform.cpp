@@ -15,7 +15,7 @@ namespace feature_pick_transform
 {
 namespace
 {
-std::string transformBackendId(IRobotOsgViewHost* osg, const std::string& backendId)
+std::string transformBackendId(IRobotOsgSceneOps* osg, const std::string& backendId)
 {
 	if (!osg)
 	{
@@ -67,7 +67,7 @@ std::vector<std::size_t> collectPreviewAxisPointIndices(const std::size_t pointC
 }
 
 bool appendPreviewFramesForIndices(const std::vector<std::size_t>& indices,
-								   const std::vector<RobotInstruction::TrajectoryPoint>& points, IRobotOsgViewHost* osg,
+								   const std::vector<RobotInstruction::TrajectoryPoint>& points, IRobotOsgSceneOps* osg,
 								   const std::string& backendId,
 								   std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& outFrames, std::string* errMsg)
 {
@@ -114,7 +114,7 @@ void appendPreviewFramesForIndicesWorld(const std::vector<std::size_t>& indices,
 
 } // namespace
 
-bool worldPointToStepModelMm(IRobotOsgViewHost* osg, const std::string& backendId, const osg::Vec3f& worldMm,
+bool worldPointToStepModelMm(IRobotOsgSceneOps* osg, const std::string& backendId, const osg::Vec3f& worldMm,
 							 geoalgo::Point3d& outModel, std::string* errMsg)
 {
 	if (!osg)
@@ -153,7 +153,7 @@ bool worldPointToStepModelMm(IRobotOsgViewHost* osg, const std::string& backendI
 	return true;
 }
 
-bool stepModelPointToWorldMm(IRobotOsgViewHost* osg, const std::string& backendId, const geoalgo::Point3d& modelMm,
+bool stepModelPointToWorldMm(IRobotOsgSceneOps* osg, const std::string& backendId, const geoalgo::Point3d& modelMm,
 							 osg::Vec3f& outWorld, std::string* errMsg)
 {
 	if (!osg)
@@ -180,7 +180,7 @@ bool stepModelPointToWorldMm(IRobotOsgViewHost* osg, const std::string& backendI
 	return true;
 }
 
-bool transformTrajectoryPointToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+bool transformTrajectoryPointToWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 									 const RobotInstruction::TrajectoryPoint& filePoint,
 									 RobotInstruction::TrajectoryPoint& outWorld, std::string* errMsg)
 {
@@ -212,7 +212,7 @@ bool transformTrajectoryPointToWorld(IRobotOsgViewHost* osg, const std::string& 
 	return true;
 }
 
-bool transformRawTrajectoryToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+bool transformRawTrajectoryToWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 								   const RobotInstruction::RawTrajectory& fileTraj,
 								   RobotInstruction::RawTrajectory& outWorld, std::string* errMsg)
 {
@@ -231,7 +231,7 @@ bool transformRawTrajectoryToWorld(IRobotOsgViewHost* osg, const std::string& ba
 	return true;
 }
 
-bool transformTrajectoryPointToFile(IRobotOsgViewHost* osg, const std::string& backendId,
+bool transformTrajectoryPointToFile(IRobotOsgSceneOps* osg, const std::string& backendId,
 									const RobotInstruction::TrajectoryPoint& worldPoint,
 									RobotInstruction::TrajectoryPoint& outFile, std::string* errMsg)
 {
@@ -273,7 +273,7 @@ bool transformTrajectoryPointToFile(IRobotOsgViewHost* osg, const std::string& b
 	return true;
 }
 
-bool transformRawTrajectoryWorldToFile(IRobotOsgViewHost* osg, const std::string& backendId,
+bool transformRawTrajectoryWorldToFile(IRobotOsgSceneOps* osg, const std::string& backendId,
 									   const RobotInstruction::RawTrajectory& worldTraj,
 									   RobotInstruction::RawTrajectory& outFile, std::string* errMsg)
 {
@@ -292,7 +292,7 @@ bool transformRawTrajectoryWorldToFile(IRobotOsgViewHost* osg, const std::string
 	return true;
 }
 
-bool buildRawTrajectoryOverlayWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+bool buildRawTrajectoryOverlayWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 									const RobotInstruction::RawTrajectory& fileTraj,
 									std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& outOverlay,
 									std::string* errMsg)
@@ -302,7 +302,7 @@ bool buildRawTrajectoryOverlayWorld(IRobotOsgViewHost* osg, const std::string& b
 	return appendRawTrajectoryOverlayWorld(osg, backendId, fileTraj, outOverlay, emptySegments, errMsg);
 }
 
-bool appendRawTrajectoryOverlayWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+bool appendRawTrajectoryOverlayWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 									 const RobotInstruction::RawTrajectory& fileTraj,
 									 std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& inOutOverlay,
 									 std::vector<std::size_t>& inOutSegmentEndExclusive, std::string* errMsg)
@@ -338,7 +338,7 @@ bool appendRawTrajectoryOverlayWorld(IRobotOsgViewHost* osg, const std::string& 
 	return true;
 }
 
-bool buildRawTrajectoryPreviewWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+bool buildRawTrajectoryPreviewWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 									const RobotInstruction::RawTrajectory& fileTraj,
 									const RobotOsgUi::RawTrajectoryPreviewOptions& options,
 									std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& outOverlay,

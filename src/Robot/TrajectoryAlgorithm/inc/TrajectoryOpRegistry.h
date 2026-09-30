@@ -9,6 +9,7 @@
 
 #include "ITrajectoryOp.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -25,7 +26,7 @@ public:
 	/// 宿主注册 ServiceRegistry 时写入，使本 DLL instance() 与宿主同一对象
 	static void setProcessInstance(TrajectoryOpRegistry* registry);
 
-	// 兼容期入口：优先 setProcessInstance，否则静态兜底
+	/// 业务路径须先 setProcessInstance（组合根）
 	static TrajectoryOpRegistry& instance();
 
 	void registerOp(std::unique_ptr<ITrajectoryOp> op);
@@ -49,12 +50,16 @@ private:
 
 TRAJECTORY_ALGORITHM_API void ensureTrajectoryOpBuiltinsRegistered();
 
-#define REGISTER_TRAJECTORY_OP(OpType)                                                            \
-	static const bool OpType##_registered = []()                                                  \
-	{                                                                                             \
-		trajectory_algo::TrajectoryOpRegistry::instance().registerOp(std::make_unique<OpType>()); \
-		return true;                                                                              \
+#define REGISTER_TRAJECTORY_OP(OpType)                                                                                \
+	static const bool OpType##_registered = []()                                                                      \
+	{                                                                                                                 \
+		trajectory_algo::deferTrajectoryOpRegistration([]() { return std::make_unique<OpType>(); });                  \
+		return true;                                                                                                    \
 	}()
+
+/// 静态注册宏用：进程槽就绪前只入队，由 setProcessInstance / ensure 刷入
+TRAJECTORY_ALGORITHM_API void deferTrajectoryOpRegistration(
+	std::function<std::unique_ptr<ITrajectoryOp>()> factory);
 
 } // namespace trajectory_algo
 

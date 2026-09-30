@@ -11,7 +11,7 @@
 class MeshSectionPlaneEditOperation : public SelectionOperation
 {
 public:
-	explicit MeshSectionPlaneEditOperation(class OsgWidget* owner);
+	explicit MeshSectionPlaneEditOperation(IViewportInteractionHost* host);
 
 	bool handleEvent(QObject* watched, QEvent* event) override;
 

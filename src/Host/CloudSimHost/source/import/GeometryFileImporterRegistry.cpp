@@ -7,6 +7,7 @@
 #include "ICloudSimContext.h"
 #include "IGeometryFileImporter.h"
 
+#include <cassert>
 #include <cctype>
 #include <memory>
 #include <unordered_map>
@@ -40,17 +41,11 @@ GeometryFileImporterRegistry& GeometryFileImporterRegistry::instance()
 
 GeometryFileImporterRegistry& geometryFileImporterRegistry()
 {
-	// 上下文已注册则走 ServiceRegistry；未就绪回退静态实例（兼容期）
-	if (cloudsim::core::ICloudSimContext* ctx = cloudsimApplicationContext())
-	{
-		if (std::shared_ptr<GeometryFileImporterRegistry> svc =
-				ctx->services().getService<GeometryFileImporterRegistry>())
-		{
-			return *svc;
-		}
-	}
-	static GeometryFileImporterRegistry fallback;
-	return fallback;
+	cloudsim::core::ICloudSimContext* ctx = cloudsimApplicationContext();
+	assert(ctx != nullptr);
+	std::shared_ptr<GeometryFileImporterRegistry> svc = ctx->services().getService<GeometryFileImporterRegistry>();
+	assert(svc != nullptr);
+	return *svc;
 }
 
 GeometryFileImporterRegistry::~GeometryFileImporterRegistry()

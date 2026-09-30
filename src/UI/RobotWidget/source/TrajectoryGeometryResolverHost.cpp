@@ -7,7 +7,7 @@
 #include "BrepBackendData.h"
 #include "FeaturePickTransform.h"
 #include "IRobotDocumentHost.h"
-#include "IRobotOsgViewHost.h"
+#include "IRobotOsgSceneOps.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "RobotSimulationMath.h"
@@ -40,7 +40,7 @@ void adjustColMajorTranslationForModelCenter(double m[16], const double cx, cons
 	m[14] -= rz;
 }
 
-bool bakeModelPointToWorld(IRobotOsgViewHost* osg, const std::string& backendId, const float modelX, const float modelY,
+bool bakeModelPointToWorld(IRobotOsgSceneOps* osg, const std::string& backendId, const float modelX, const float modelY,
 						   const float modelZ, float& outWorldX, float& outWorldY, float& outWorldZ,
 						   std::string* errMsg)
 {
@@ -56,7 +56,7 @@ bool bakeModelPointToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
 	return true;
 }
 
-bool fillModelToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+bool fillModelToWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 					  RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	const std::string xformId = osg->resolvePickScopeBackendId(backendId);
@@ -74,7 +74,7 @@ bool fillModelToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
 	return true;
 }
 
-bool resolvePointCloudSnapshot(IRobotOsgViewHost* osg, const PointCloudBackendData& data, const std::string& backendId,
+bool resolvePointCloudSnapshot(IRobotOsgSceneOps* osg, const PointCloudBackendData& data, const std::string& backendId,
 							   RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	const std::vector<float>& xyz = data.pointPositionsXyz();
@@ -110,7 +110,7 @@ bool resolvePointCloudSnapshot(IRobotOsgViewHost* osg, const PointCloudBackendDa
 	return true;
 }
 
-bool resolveMeshSnapshot(IRobotOsgViewHost* osg, const MeshBackendData& data, const std::string& backendId,
+bool resolveMeshSnapshot(IRobotOsgSceneOps* osg, const MeshBackendData& data, const std::string& backendId,
 						 RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	const std::vector<float>& soup = data.triangleSoup();
@@ -146,7 +146,7 @@ bool resolveMeshSnapshot(IRobotOsgViewHost* osg, const MeshBackendData& data, co
 	return true;
 }
 
-bool resolveBrepSnapshot(IRobotOsgViewHost* osg, const BrepBackendData& data, const std::string& backendId,
+bool resolveBrepSnapshot(IRobotOsgSceneOps* osg, const BrepBackendData& data, const std::string& backendId,
 						 RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	if (data.shapeRef().isNull())
@@ -164,7 +164,7 @@ bool resolveBrepSnapshot(IRobotOsgViewHost* osg, const BrepBackendData& data, co
 
 } // namespace
 
-void bindTrajectoryGeometryResolver(IRobotDocumentHost* document, IRobotOsgViewHost* osg)
+void bindTrajectoryGeometryResolver(IRobotDocumentHost* document, IRobotOsgSceneOps* osg)
 {
 	if (!document || !osg)
 	{

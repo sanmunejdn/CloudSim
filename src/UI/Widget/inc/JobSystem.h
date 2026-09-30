@@ -15,6 +15,8 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <string>
+#include <vector>
 
 class ProgressManager;
 
@@ -68,5 +70,8 @@ private:
 	mutable QMutex m_cancelMutex;
 	QHash<quint64, std::shared_ptr<std::atomic<bool>>> m_cancelFlags;
 };
+
+/// JobSystem 关窗契约：慢任务 + shutdown 限时返回 + 之后拒收（无 MainWindow）
+WIDGET_EXPORT bool runJobSystemLifecycleSelfTest(std::vector<std::string>* failures = nullptr);
 
 #endif // WIDGET_JOBSYSTEM_H

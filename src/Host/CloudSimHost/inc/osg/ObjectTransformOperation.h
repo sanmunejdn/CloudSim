@@ -11,7 +11,7 @@
 class ObjectTransformOperation : public SelectionOperation
 {
 public:
-	explicit ObjectTransformOperation(OsgWidget* owner);
+	explicit ObjectTransformOperation(IViewportInteractionHost* host);
 	bool handleEvent(QObject* watched, QEvent* event) override;
 
 private:

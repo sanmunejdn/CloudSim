@@ -46,6 +46,18 @@ if (-not (Test-Path $exe)) {
 Push-Location $bin
 try {
     & $exe "--preset=$Preset"
+    $selfExit = $LASTEXITCODE
+    if ($selfExit -ne 0) {
+        exit $selfExit
+    }
+
+    $jobExe = Join-Path $bin 'JobSystemSelfTest.exe'
+    if (-not (Test-Path $jobExe)) {
+        Write-Error "missing $jobExe"
+        exit 1
+    }
+    Write-Host "JobSystemSelfTest ..."
+    & $jobExe
     exit $LASTEXITCODE
 }
 finally {

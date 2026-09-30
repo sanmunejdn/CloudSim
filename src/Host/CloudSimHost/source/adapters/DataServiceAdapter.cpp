@@ -17,7 +17,7 @@
 #include "DocumentImportFacade.h"
 #include "FollowAttachmentComponent.h"
 #include "MeshBackendData.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "PointCloudBackendData.h"
 #include "io/CustomDeviceHostOps.h"
 #include "io/CustomDeviceRobotMountOps.h"
@@ -311,11 +311,12 @@ core::BBoxDto DataServiceAdapter::boundingBox(const core::ObjectId& id) const
 
 bool DataServiceAdapter::hasVisualBranch(const core::ObjectId& id) const
 {
-	if (id.isEmpty() || !osgWidgetFrom(m_host))
+	IViewportSceneOps* ops = m_host.sceneOps();
+	if (id.isEmpty() || !ops)
 	{
 		return false;
 	}
-	return osgWidgetFrom(m_host)->hasBackendObjectBranch(id.toStdString());
+	return ops->hasBackendObjectBranch(id.toStdString());
 }
 
 QJsonObject DataServiceAdapter::saveObjectToJson(const core::ObjectId& id) const
@@ -517,7 +518,7 @@ bool DataServiceAdapter::runFollowSolveAndSync(const core::FollowSolveContextDto
 	};
 	const std::string manualStd = ctx.manualPoseAuthorityBackendId.toStdString();
 	const std::string* manualPtr = ctx.manualPoseAuthorityBackendId.isEmpty() ? nullptr : &manualStd;
-	runBackendFollowSolveAndSync(m_host, osgWidgetFrom(m_host), &hostCtx, manualPtr);
+	runBackendFollowSolveAndSync(m_host, m_host.sceneOps(), &hostCtx, manualPtr);
 	return true;
 }
 

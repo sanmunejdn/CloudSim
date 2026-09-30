@@ -2,7 +2,7 @@
 /// @brief 仿真数学导出（文档宿主侧）
 
 #include "IRobotDocumentHost.h"
-#include "IRobotOsgViewHost.h"
+#include "IRobotOsgSceneOps.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotSimulationMath.h"
@@ -42,7 +42,7 @@ cloudsim::core::Mat4 coreMat4FromOsgMatrix(const osg::Matrixd& m)
 	return out;
 }
 
-bool getBackendRootWorldMatrixOsg(IRobotOsgViewHost* view, const std::string& backendId, osg::Matrixd& outWorld)
+bool getBackendRootWorldMatrixOsg(IRobotOsgSceneOps* view, const std::string& backendId, osg::Matrixd& outWorld)
 {
 	if (!view)
 	{
@@ -218,7 +218,7 @@ QString urdfRootLinkBackendIdForInstance(IRobotDocumentHost* doc, int instIdx, c
 	return fallbackBackendId;
 }
 
-bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
+bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgSceneOps* osg, int instIdx,
 									 osg::Matrixd& outWorld, const QVector<double>* jointAnglesRad)
 {
 	(void)jointAnglesRad;
@@ -328,7 +328,7 @@ osg::Matrixd linkFrameLocalOnMeshBackend(const QString& urdfPath, const QString&
 	return linkFrameLocal * osg::Matrixd::inverse(meshToLink);
 }
 
-bool captureTcpFromSceneFlangeBackend(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
+bool captureTcpFromSceneFlangeBackend(IRobotDocumentHost* doc, IRobotOsgSceneOps* osg, int instIdx,
 									  const RobotCoordinate::RobotCoordinateFrameSet& frames,
 									  const QString& fallbackFlangeLink, const osg::Matrixd& robotBaseWorld,
 									  osg::Matrixd& outTcpLocal, osg::Matrixd& outTcpRenderWorld,

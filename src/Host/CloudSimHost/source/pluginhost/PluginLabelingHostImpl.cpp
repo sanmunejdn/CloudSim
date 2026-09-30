@@ -6,14 +6,14 @@
 #include "DocumentHost.h"
 #include "DocumentPointCloudOps.h"
 #include "IPluginPointCloudHost.h"
-#include "LabelingSession.h"
+#include "pluginhost/LabelingSession.h"
 #include "MeshBackendData.h"
-#include "IOsgWidgetView.h"
+#include "IViewportPickObserve.h"
+#include "IViewportSceneOps.h"
 #include "PluginDocumentAdapter.h"
 #include "PluginHostContext.h"
 #include "PointCloudBackendData.h"
 #include "PointCloudBackendOps.h"
-#include "WidgetDocumentAccess.h"
 
 #include <QMetaObject>
 #include <QObject>
@@ -145,10 +145,9 @@ PluginLabelingSessionId PluginLabelingHostImpl::beginLabelingSession(IPluginDocu
 	entry.id = id;
 	m_sessions[id] = std::move(entry);
 
-	IOsgWidgetView* osg = widgetOsgFromPage(page);
-	if (osg)
+	if (IViewportSceneOps* ops = page ? page->sceneOps() : nullptr)
 	{
-		osg->syncSelectionForBackendId(backendIdUtf8);
+		ops->syncSelectionForBackendId(backendIdUtf8);
 	}
 
 	QString syncErr;
@@ -315,11 +314,10 @@ bool PluginLabelingHostImpl::refreshBackendColors(SessionEntry& entry, QString* 
 	std::vector<float> rgb;
 	entry.session->buildMeshVertexRgb(rgb);
 	mesh->setTriangleSoupWithVertexColors(mesh->triangleSoup(), rgb);
-	IOsgWidgetView* osg = widgetOsgFromPage(page);
-	if (osg)
+	if (IViewportSceneOps* ops = page ? page->sceneOps() : nullptr)
 	{
 		QString err;
-		(void)osg->loadMeshFromBackendData(*mesh, &err, false, true, true);
+		(void)ops->loadMeshFromBackendData(*mesh, &err, false, true, true);
 	}
 	return true;
 }
@@ -398,7 +396,7 @@ void PluginLabelingHostImpl::clearActivePickState(const bool notify)
 	{
 		return;
 	}
-	IOsgWidgetView* widget = m_pickState->viewportWidget;
+	IViewportPickObserve* widget = m_pickState->viewportWidget;
 	if (widget)
 	{
 		widget->setLabelingClickPickMode(false, m_pickState->meshFace);
@@ -445,7 +443,7 @@ void PluginLabelingHostImpl::pickPointsOnce(const PluginLabelingSessionId sessio
 		return;
 	}
 	cloudsim::host::DocumentHost* page = pageFromDoc(entry->doc);
-	IOsgWidgetView* osg = widgetOsgFromPage(page);
+	IViewportPickObserve* osg = page ? page->pickObserve() : nullptr;
 	if (!osg || !m_host)
 	{
 		onFinished(false, QStringLiteral("Viewport unavailable"), {});
@@ -490,7 +488,7 @@ void PluginLabelingHostImpl::brushStroke(const PluginLabelingSessionId sessionId
 		return;
 	}
 	cloudsim::host::DocumentHost* page = pageFromDoc(entry->doc);
-	IOsgWidgetView* osg = widgetOsgFromPage(page);
+	IViewportPickObserve* osg = page ? page->pickObserve() : nullptr;
 	if (!osg || !m_host)
 	{
 		onFinished(false, QStringLiteral("Viewport unavailable"), {});
@@ -578,9 +576,9 @@ void PluginLabelingHostImpl::pickPolylineRegion(const PluginLabelingSessionId se
 				std::vector<std::size_t> kept;
 				double modelToWorld[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
 										   0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
-				if (IOsgWidgetView* osg = widgetOsgFromPage(page))
+				if (IViewportSceneOps* ops = page ? page->sceneOps() : nullptr)
 				{
-					(void)osg->tryGetBackendPointLocalToWorldMatrix(entry->backendId, modelToWorld);
+					(void)ops->tryGetBackendPointLocalToWorldMatrix(entry->backendId, modelToWorld);
 				}
 				std::string cropErr;
 				(void)point_cloud_backend_ops::collectPointCloudIndicesByPolyline2D(
@@ -599,9 +597,9 @@ void PluginLabelingHostImpl::pickPolylineRegion(const PluginLabelingSessionId se
 				std::vector<int> kept;
 				double modelToWorld[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
 										   0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
-				if (IOsgWidgetView* osg = widgetOsgFromPage(page))
+				if (IViewportSceneOps* ops = page ? page->sceneOps() : nullptr)
 				{
-					(void)osg->tryGetBackendPointLocalToWorldMatrix(entry->backendId, modelToWorld);
+					(void)ops->tryGetBackendPointLocalToWorldMatrix(entry->backendId, modelToWorld);
 				}
 				std::string cropErr;
 				(void)point_cloud_backend_ops::collectMeshTriangleIndicesByPolyline2D(
@@ -627,7 +625,7 @@ void PluginLabelingHostImpl::pickMeshFaceOnce(const PluginLabelingSessionId sess
 		return;
 	}
 	cloudsim::host::DocumentHost* page = pageFromDoc(entry->doc);
-	IOsgWidgetView* osg = widgetOsgFromPage(page);
+	IViewportPickObserve* osg = page ? page->pickObserve() : nullptr;
 	if (!osg || !m_host)
 	{
 		onFinished(false, QStringLiteral("Viewport unavailable"), {});
@@ -673,7 +671,7 @@ void PluginLabelingHostImpl::brushMeshFaces(const PluginLabelingSessionId sessio
 		return;
 	}
 	cloudsim::host::DocumentHost* page = pageFromDoc(entry->doc);
-	IOsgWidgetView* osg = widgetOsgFromPage(page);
+	IViewportPickObserve* osg = page ? page->pickObserve() : nullptr;
 	if (!osg || !m_host)
 	{
 		onFinished(false, QStringLiteral("Viewport unavailable"), {});

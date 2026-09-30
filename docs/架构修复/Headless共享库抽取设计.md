@@ -99,6 +99,38 @@ src/Host/CloudSimHostCore/CloudSimHostCore.vcxproj
 
 - §4.1-2 共享源 flavor 宏分支：已落地（`HostOsgFlavorHooks`）。
 - §4.1-1 OsgWidget 接口化：共享 `.cpp` 已脱离 `OsgWidget.h`（`IOsgWidgetView` + observe*）；Plugin*HostImpl 拾取经窄观察 API。
-- §4.1-3 / §4.2：已抽出 `CloudSimHostCore.lib`（`CloudSimHostCore.vcxproj`）；两 DLL 以 `CLOUDSIM_HOST_LIB` + `/WHOLEARCHIVE` 再导出；Host/Headless/Widget Debug|x64 与 Release|x64 已通过。
+- §4.1-3 / §4.2：已抽出 `CloudSimHostCore.lib`（`CloudSimHostCore.vcxproj`）；共享 `ClCompile`/`ClInclude` 清单内联于 Core 工程，**`CloudSimHostShared.items.props` 已删除**；两 DLL 以 **`CLOUDSIM_HOST_LIB` + `/WHOLEARCHIVE:CloudSimHostCore.lib`** 再导出（该组合为稳定契约）；Host/Headless/Widget Debug|x64 与 Release|x64 已通过。
 - `BackendVisualRegistry` 实例化与 UI `WidgetSceneSignalWiring` 全量去 `OsgWidget` 信号仍可后续迭代。
-- 短期方案 A 检查脚本仍守护 Core / 两 DLL 风味源对齐。
+- `check_host_headless_sources.py` 以 **CloudSimHostCore.vcxproj 直列项** 为共享真源，守护两 DLL 风味源对齐且禁止 DLL 直列 Core 共享源。
+
+## 7. 终态补充（A+B+C 已落地）
+
+桌面 OSG 视口已抽出 **`CloudSimHostDesktopViewport.dll`**（平行于 Host/Headless，**禁止** `/WHOLEARCHIVE`）：
+
+| 模块 | 链接 |
+|------|------|
+| CloudSimHost.dll | Core `/WHOLEARCHIVE` + Viewport.lib |
+| CloudSimHostHeadless.dll | Core `/WHOLEARCHIVE`（不链 Viewport） |
+| Widget.dll | Host.lib + Viewport.lib |
+
+详见 [`DESIGN_终态A+B+C.md`](DESIGN_终态A+B+C.md)。
+
+## 8. 导出面护栏（链接硬化）
+
+`/WHOLEARCHIVE:CloudSimHostCore.lib` 仍是 **纳入机制**（保证 Core 带 `dllexport` 的对象进入 Host/Headless DLL）。表面控制另由脚本承担：
+
+- [`scripts/check_host_export_surface.py`](../../scripts/check_host_export_surface.py)：对 `bin\x64d|x64\CloudSimHost.dll` 与 Headless 跑 `dumpbin /EXPORTS`，校验 Widget/Bootstrap 必需名片段（`DocumentHost`、`PluginManager`、`PluginHostContext`、`createDocumentHost` / `createHeadlessDocumentHost`、桌面侧 `sceneOps`/`pickObserve`）；缺失非零退出；导出数超软阈值仅 WARN。
+- 挂入 [`make-source-check.ps1`](../../scripts/make-source-check.ps1) 的 `host-export-surface` 步骤。
+
+本波不删 WHOLEARCHIVE、不改 `.def`、不 mass `/EXPORT`。
+
+## 9. 主程序关闭视角：WHOLEARCHIVE 终态保留
+
+桌面主程序架构收口后：
+
+- **`/WHOLEARCHIVE:CloudSimHostCore.lib` 为稳定契约**（Host/Headless 再导出 Core），不是临时权宜。
+- 表面控制继续由 `check_host_export_surface.py` 承担；消灭 WA / 改写 `.def` / mass `/EXPORT` **不在主程序关闭范围**。
+- DesktopViewport **禁止** WHOLEARCHIVE（既有三方源校验）。
+
+详见 [`DESIGN_主程序架构全量.md`](DESIGN_主程序架构全量.md)。
+

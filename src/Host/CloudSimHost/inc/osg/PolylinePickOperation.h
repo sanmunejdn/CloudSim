@@ -10,13 +10,11 @@
 #include <QPoint>
 #include <vector>
 
-class OsgWidget;
-
 /// 多边形线框拾取：左键加点，右键/双击闭合，Esc 取消
 class PolylinePickOperation : public SelectionOperation
 {
 public:
-	explicit PolylinePickOperation(OsgWidget* owner);
+	explicit PolylinePickOperation(IViewportInteractionHost* host);
 
 private:
 	std::vector<QPoint> m_vertices;

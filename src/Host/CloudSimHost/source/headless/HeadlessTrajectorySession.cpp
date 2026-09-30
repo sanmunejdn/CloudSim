@@ -703,7 +703,7 @@ bool HeadlessTrajectorySession::pickShapeRay(const QByteArray& body, bool requir
 
 bool HeadlessTrajectorySession::opSchemaJson(const QString& kind, int opIndex, QJsonObject* out, QString* err)
 {
-	RobotInstruction::ensureTrajectoryOpConfigsLoaded(QCoreApplication::applicationDirPath().toStdString());
+	RobotInstruction::ensureTrajectoryOpConfigsLoaded(m_host.configResourceBaseDir().toStdString());
 	RobotInstruction::TrajectoryOpKind opKind{};
 	if (!RobotInstruction::trajectoryOpKindFromString(kind.toStdString(), opKind))
 	{
@@ -837,17 +837,17 @@ QJsonObject featureFieldToJson(const geoalgo::FeatureDiscretizerParamField& f)
 	return o;
 }
 
-void ensureFeatureDiscretizerRuntime()
+void ensureFeatureDiscretizerRuntime(DocumentHost& host)
 {
 	geometry_backend_ops::ensureFeatureDiscretizersRegistered();
-	(void)geometry_backend_ops::ensureFeatureDiscretizerConfigsLoaded(
-		QCoreApplication::applicationDirPath().toStdString(), nullptr);
+	(void)geometry_backend_ops::ensureFeatureDiscretizerConfigsLoaded(host.configResourceBaseDir().toStdString(),
+																	 nullptr);
 }
 } // namespace
 
 bool HeadlessTrajectorySession::featureSchemaJson(const QString& strategyId, QJsonObject* out, QString* err)
 {
-	ensureFeatureDiscretizerRuntime();
+	ensureFeatureDiscretizerRuntime(m_host);
 	if (!out)
 		return true;
 
@@ -1297,7 +1297,7 @@ bool HeadlessTrajectorySession::emitRawProgram(QString* err)
 bool HeadlessTrajectorySession::opPaletteJson(QJsonObject* out, QString* err)
 {
 	RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
-	RobotInstruction::ensureTrajectoryOpConfigsLoaded(QCoreApplication::applicationDirPath().toStdString());
+	RobotInstruction::ensureTrajectoryOpConfigsLoaded(m_host.configResourceBaseDir().toStdString());
 	QJsonArray arr;
 	for (const RobotInstruction::TrajectoryOpKind kind : RobotInstruction::trajectoryOpPaletteKinds())
 	{

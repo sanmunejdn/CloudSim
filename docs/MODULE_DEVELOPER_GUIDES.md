@@ -34,7 +34,7 @@
 | **TrajectoryAlgorithmBuiltins** | 18 种原子块实现、`UnifiedTrajectoryPathMath`、注册注入 | [TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md) |
 | **RunLogger** | 文件/控制台/UI 日志；x64 动态 DLL | [RunLogger/DEVELOPER_GUIDE.md](../src/Infra/RunLogger/DEVELOPER_GUIDE.md) |
 | **CloudSimPluginSDK** | 动态插件 ABI、宿主上下文、几何/点云 API；**1.54.0+** Path B `propertyBindings` | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)、[指令与插件属性Binding](features/Binding/) |
-| **CloudSimMeshTrajectorySDK** | Mesh 轨迹会话、区域选择、`generateRawPath`；由 RobotWidget 直连 | [CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md) |
+| **CloudSimMeshTrajectorySDK** | Mesh 轨迹会话、区域选择、`generateRawPath`；**UI 内部**（RobotWidget），非插件 ABI | [CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md) |
 | **CloudSimControllerSDK** | 仿真外置控制器 TCP 客户端（`127.0.0.1:19620`）；与 RobotComm `19610` 分离 | [CloudSimControllerSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimControllerSDK/DEVELOPER_GUIDE.md)、[仿真外置控制器](features/仿真外置控制器/) |
 | **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、`PluginHostContext`、Binding 注册表；**编入 `CloudSimHost.dll`**；UI 经 `IPluginMainWindowHost` | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)、[文档索引](README.md) |
 | **插件开发示例** | 参见 CloudSimPluginSDK 开发指南中的插件模块示例工程 | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
@@ -43,7 +43,7 @@
 | **PointCloudAlgorithm** | 点云算法静态库（链入 Data；可选 PCL 见 `bin/SDK/pcl`） | [PointCloudAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/PointCloudAlgorithm/DEVELOPER_GUIDE.md) |
 | **VcgAlgorithms** | vcglib 网格后处理 DLL | [VcgAlgorithms/DEVELOPER_GUIDE.md](../src/Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md) |
 | **CloudSimUiAssets** | UI 静态资源库 | 见工程与 DIRECTORY_LAYOUT |
-| **CloudSimLabelingSDK** / **LabelingPlugin** | 标注 ABI 与插件 | [CloudSimLabelingSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimLabelingSDK/DEVELOPER_GUIDE.md) |
+| **LabelingPlugin** | 标注侧栏；会话引擎为 HostCore `LabelingSession`（**CloudSimLabelingSDK 已移除**） | [LabelingPlugin/README.md](../src/Plugins/LabelingPlugin/README.md)、[DEVELOPER_GUIDE](../src/Plugins/LabelingPlugin/DEVELOPER_GUIDE.md) |
 | **PlcCommSDK** / **PlcCommUI** / **PlcCommPlugin** | PLC 通讯 SDK、UI、侧栏插件 | [PlcCommSDK](../src/Plugins/PlcCommSDK/DEVELOPER_GUIDE.md)、[PlcCommUI](../src/Plugins/PlcCommUI/DEVELOPER_GUIDE.md)、[PlcCommPlugin](../src/Plugins/PlcCommPlugin/DEVELOPER_GUIDE.md) |
 | **IndustrialCameraSDK** / **IndustrialCameraPlugin** | 工业相机 SDK + 单侧栏（相机/手眼 Tab）；二期梅卡/OpenCV | [IndustrialCameraSDK](../src/Plugins/IndustrialCameraSDK/DEVELOPER_GUIDE.md)、[IndustrialCameraPlugin](../src/Plugins/IndustrialCameraPlugin/DEVELOPER_GUIDE.md) |
 | **PointNetPlugin** | PointNet++ 分类插件 | [PointNetPlugin/DEVELOPER_GUIDE.md](../src/Plugins/PointNetPlugin/DEVELOPER_GUIDE.md) |

@@ -9,7 +9,7 @@
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "FollowAttachmentComponent.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 
 namespace cloudsim::host
 {
@@ -19,7 +19,7 @@ void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId,
 	{
 		return;
 	}
-	IOsgWidgetView* osg = osgWidgetFrom(host);
+	IViewportSceneOps* ops = host.sceneOps();
 	const std::shared_ptr<BackendDataBase> child = host.findObject(childId);
 	if (!child || !child->hasPoseProperty())
 	{
@@ -71,15 +71,15 @@ void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId,
 	follow->setHierarchyDriven(true);
 	follow->setEnabled(true);
 	follow->setTargetBackendId(parentId);
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid,
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [ops](const std::string& bid,
 																		 BackendMat4& out) -> bool
 	{
-		if (!osg)
+		if (!ops)
 		{
 			return false;
 		}
 		osg::Matrixd om;
-		if (!osg->getBackendRootWorldMatrix(bid, om))
+		if (!ops->getBackendRootWorldMatrix(bid, om))
 		{
 			return false;
 		}

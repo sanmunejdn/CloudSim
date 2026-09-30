@@ -20,12 +20,12 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Utility</ConfigurationType>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Utility</ConfigurationType>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -76,15 +76,6 @@
     <ClInclude Include="inc\cloudsim_bootstrap_global.h" />
     <ClInclude Include="inc\CloudSimBootstrap.h" />
     <ClInclude Include="inc\CrashDump.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\CloudSimApplicationContext.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <!-- 仅依赖 Core：桌面链 CloudSimHost、Web 链 CloudSimHostHeadless，勿在此绑死某一 Host -->
-    <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
-      <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />

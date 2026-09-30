@@ -18,6 +18,7 @@
 #include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
+#include "IPluginAiContext.h"
 #include "PluginGeometryTypes.h"
 #include "ScriptModelIo.h"
 
@@ -75,7 +76,7 @@ IPluginGeometryHost* geoHost()
 
 IAiAssistantHost* aiHost()
 {
-	return g_host ? g_host->aiAssistantHost() : nullptr;
+	return (g_host && g_host->aiContext()) ? g_host->aiContext()->aiAssistantHost() : nullptr;
 }
 
 std::string firstBodyId(std::string* outError)

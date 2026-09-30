@@ -1,19 +1,34 @@
 ﻿/// @file TrajectoryOpConfigRegistry.cpp
 /// @brief TrajectoryOpConfig 注册表
 
-// TrajectoryOpConfigRegistry 实现
 #include "TrajectoryOpConfigRegistry.h"
 
 #include "ITrajectoryOp.h"
 #include "TrajectoryOpRegistry.h"
 #include "TrajectoryParamJsonIo.h"
 
+#include <cassert>
+
+namespace
+{
+trajectory_algo::TrajectoryOpConfigRegistry* g_processTrajectoryOpConfigRegistry = nullptr;
+
+// 多文档并发时隔离加载态，避免共享成员被串改
+thread_local std::string activeResourceBaseDir;
+}
+
 namespace trajectory_algo
 {
+void TrajectoryOpConfigRegistry::setProcessInstance(TrajectoryOpConfigRegistry* registry)
+{
+	assert(registry != nullptr);
+	g_processTrajectoryOpConfigRegistry = registry;
+}
+
 TrajectoryOpConfigRegistry& TrajectoryOpConfigRegistry::instance()
 {
-	static TrajectoryOpConfigRegistry registry;
-	return registry;
+	assert(g_processTrajectoryOpConfigRegistry != nullptr);
+	return *g_processTrajectoryOpConfigRegistry;
 }
 
 void TrajectoryOpConfigRegistry::registerOpConfig(std::unique_ptr<IOpParamConfig> config)
@@ -30,10 +45,14 @@ bool TrajectoryOpConfigRegistry::ensureLoaded(const std::string& resourceBaseDir
 	(void)errMsg;
 	if (!resourceBaseDir.empty())
 	{
-		m_resourceBaseDir = resourceBaseDir;
+		activeResourceBaseDir = resourceBaseDir;
 	}
-	m_loaded = true;
 	return true;
+}
+
+const std::string& TrajectoryOpConfigRegistry::resourceBaseDir() const
+{
+	return activeResourceBaseDir;
 }
 
 const IOpParamConfig* TrajectoryOpConfigRegistry::configFor(const RobotInstruction::TrajectoryOpKind kind) const
@@ -51,7 +70,7 @@ const IOpParamConfig* TrajectoryOpConfigRegistry::configFor(const RobotInstructi
 std::vector<TrajectoryOpParamField>
 TrajectoryOpConfigRegistry::paramFieldsForOp(const RobotInstruction::TrajectoryOpKind kind) const
 {
-	std::vector<TrajectoryOpParamField> fields = loadCommonScopeFieldsFromJson(m_resourceBaseDir);
+	std::vector<TrajectoryOpParamField> fields = loadCommonScopeFieldsFromJson(resourceBaseDir());
 	const IOpParamConfig* config = configFor(kind);
 	if (config)
 	{

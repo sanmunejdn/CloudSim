@@ -8,7 +8,7 @@
 #include "BackendVisualRegistry.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "visual/BackendVisualEnsure.h"
 #include "RunLogger.h"
 
@@ -118,7 +118,7 @@ BackendVisualSyncEngine::resolveTransformFlushOrder(const std::vector<std::strin
 
 bool BackendVisualSyncEngine::flushTransformForId(const std::string& backendId)
 {
-	IOsgWidgetView* osg = osgWidgetFrom(m_host);
+	IViewportSceneOps* osg = m_host.sceneOps();
 	if (!osg)
 	{
 		return false;
@@ -145,7 +145,7 @@ bool BackendVisualSyncEngine::flushAppearanceForId(const std::string& backendId)
 	{
 		return true;
 	}
-	IOsgWidgetView* osg = osgWidgetFrom(m_host);
+	IViewportSceneOps* osg = m_host.sceneOps();
 	if (!osg)
 	{
 		return false;
@@ -157,7 +157,7 @@ bool BackendVisualSyncEngine::flushAppearanceForId(const std::string& backendId)
 
 bool BackendVisualSyncEngine::flushVisibilityForId(const std::string& backendId)
 {
-	IOsgWidgetView* osg = osgWidgetFrom(m_host);
+	IViewportSceneOps* osg = m_host.sceneOps();
 	const auto obj = m_host.findObject(backendId);
 	if (!osg || !obj)
 	{
@@ -200,7 +200,7 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 	if (backend_type::isCoordinateFrameClassName(obj->className()) ||
 		backend_type::isCustomDeviceClassName(obj->className()))
 	{
-		IOsgWidgetView* osg = osgWidgetFrom(m_host);
+		IViewportSceneOps* osg = m_host.sceneOps();
 		if (!osg)
 		{
 			return false;
@@ -214,7 +214,7 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 		return true;
 	}
 	// 增量路径：visual 支持原地更新且分支已挂载时只换几何数组，避免整枝重建
-	if (IOsgWidgetView* osg = osgWidgetFrom(m_host))
+	if (IViewportSceneOps* osg = m_host.sceneOps())
 	{
 		std::unique_ptr<IBackendVisual> visual = BackendVisualRegistry::createForClassName(obj->className());
 		osg::Node* branchRoot = osg->backendObjectRootNode(backendId);
@@ -259,7 +259,7 @@ bool BackendVisualSyncEngine::flushTransform(const std::vector<std::string>& ord
 			m_dirty.erase(it);
 		}
 	}
-	if (IOsgWidgetView* osg = osgWidgetFrom(m_host))
+	if (IViewportSceneOps* osg = m_host.sceneOps())
 	{
 		osg->requestRedraw();
 	}

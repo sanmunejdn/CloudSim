@@ -15,7 +15,7 @@
 
 class PluginHostContext;
 class LabelingSession;
-class IOsgWidgetView;
+class IViewportPickObserve;
 
 class PluginLabelingHostImpl : public IPluginLabelingHost
 {
@@ -70,7 +70,7 @@ public:
 private:
 	struct ActivePickState
 	{
-		IOsgWidgetView* viewportWidget = nullptr;
+		IViewportPickObserve* viewportWidget = nullptr;
 		bool meshFace = false;
 		float brushRadius = 16.f;
 		PluginLabelingSessionId sessionId = 0U;

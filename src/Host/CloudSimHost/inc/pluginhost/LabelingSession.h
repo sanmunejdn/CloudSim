@@ -1,12 +1,11 @@
-﻿#ifndef CLOUDSIMLABELINGSDK_LABELINGSESSION_H
-#define CLOUDSIMLABELINGSDK_LABELINGSESSION_H
+﻿#ifndef CLOUDSIMHOST_LABELINGSESSION_H
+#define CLOUDSIMHOST_LABELINGSESSION_H
 
 /// @file LabelingSession.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief 纯逻辑标注会话（无 Qt/OSG）
+/// @brief 纯逻辑标注会话（无 Qt/OSG），编进 CloudSimHostCore
 
-#include "labeling_sdk_global.h"
-
+#include "cloudsim_host_global.h"
 #include "LabelingTypes.h"
 
 #include <cstddef>
@@ -14,7 +13,7 @@
 #include <vector>
 
 /// 纯逻辑标注会话（无 Qt/OSG）
-class LABELING_SDK_EXPORT LabelingSession
+class CLOUDSIM_HOST_EXPORT LabelingSession
 {
 public:
 	LabelingSession() = default;
@@ -76,4 +75,4 @@ private:
 	std::vector<LabelingUndoPatch> m_redoStack;
 };
 
-#endif // CLOUDSIMLABELINGSDK_LABELINGSESSION_H
+#endif // CLOUDSIMHOST_LABELINGSESSION_H

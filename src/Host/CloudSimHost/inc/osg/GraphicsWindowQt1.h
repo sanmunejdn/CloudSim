@@ -20,7 +20,7 @@
 #include <osgViewer/Viewer>
 
 /// OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QOpenGLWidget 同步尺寸与事件
-class WIDGET_EXPORT GraphicsWindowQt1 : public osgViewer::GraphicsWindow
+class OSG_WIDGET_API GraphicsWindowQt1 : public osgViewer::GraphicsWindow
 {
 public:
 	GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidget* parent = NULL, Qt::WindowFlags f = 0);

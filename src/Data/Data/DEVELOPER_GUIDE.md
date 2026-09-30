@@ -570,7 +570,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 | 方法 | 说明 |
 |------|------|
-| `instance()` | 单例（每文档可独立实例，由 `DocumentPage` 持有） |
+| `instance()` | 已废弃（abort）；Host 用 `DocumentHost::backend()` |
 | `registerData` / `unregisterData` | 注册/移除（写锁） |
 | `getData` / `contains` / `listData` | 查询（读锁） |
 | `findByName` / `findByClass` / `findByComponent` | 条件查找 |
@@ -633,7 +633,7 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 
 **JSON 加载防火墙**：`loadObjectFromJson` / `decodeComponent` / `loadLegacyComponentsFromJson` 均包 `catch (const nlohmann::json::exception&)`，类型错配（如 className 是数字、visible 是字符串）转 outError/warn，不再跨 DLL 抛异常。
 
-**单例绑定（架构拍板）**：本实现硬绑定 `BackendDataManager::instance()` 全局单例，**不支持 per-document 多实例**；多文档/多图场景需 Host 层自行维护多份 manager 并各自包适配器，Data 层不出该能力。
+**Manager 绑定**：嵌入 `cloudsimCreateDataService` 路径由 `BackendManagerDataService` **自持**一份 `BackendDataManager`；Host 交互路径用每文档 `DocumentHost::backend()`（经 `makeBackendManagerDataService(&host.backend())` 注入）。`BackendDataManager::instance()` 已废弃（调用即 abort）。
 
 ---
 

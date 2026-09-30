@@ -11,7 +11,7 @@
 ## 2. 边界
 
 - 类型：`PluginLabelingTypes.h`（`PluginTrainingEpochMetrics` / `PluginTrainingJobResult`）
-- `LabelingSession`：宿主内部引擎（物理仍在 LabelingSDK，插件勿直链）
+- `LabelingSession`：HostCore 内部引擎（`inc/pluginhost/LabelingSession.h`）；**CloudSimLabelingSDK 已移除**，插件勿直链会话实现
 - 训练工具：`CloudSim/tools/pointnet-training/`
 - 插件索引：[docs/features/插件](../../features/插件/)
 

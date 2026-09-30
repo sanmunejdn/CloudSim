@@ -346,9 +346,6 @@ def functional_bucket(project: str, stem: str) -> str:
 		"CloudSimUiAssets": [
 			(["AppIcon*", "UiIcon*", "UiIcons*"], "Icons"),
 		],
-		"CloudSimLabelingSDK": [
-			(["*"], "Interfaces"),
-		],
 		"CloudSimMeshTrajectorySDK": [
 			(["*"], "Interfaces"),
 		],

@@ -3,27 +3,50 @@
 
 #include "TrajectoryOpRegistry.h"
 
+#include <cassert>
+#include <functional>
+#include <mutex>
+#include <vector>
+
 namespace
 {
 trajectory_algo::TrajectoryOpRegistry* g_processTrajectoryOpRegistry = nullptr;
+std::mutex g_deferredTrajectoryOpMutex;
+std::vector<std::function<std::unique_ptr<trajectory_algo::ITrajectoryOp>()>> g_deferredTrajectoryOps;
+
+void flushDeferredTrajectoryOps(trajectory_algo::TrajectoryOpRegistry& registry)
+{
+	std::vector<std::function<std::unique_ptr<trajectory_algo::ITrajectoryOp>()>> pending;
+	{
+		std::lock_guard<std::mutex> lock(g_deferredTrajectoryOpMutex);
+		pending.swap(g_deferredTrajectoryOps);
+	}
+	for (const auto& factory : pending)
+	{
+		registry.registerOp(factory());
+	}
+}
 } // namespace
 
 namespace trajectory_algo
 {
+void deferTrajectoryOpRegistration(std::function<std::unique_ptr<ITrajectoryOp>()> factory)
+{
+	std::lock_guard<std::mutex> lock(g_deferredTrajectoryOpMutex);
+	g_deferredTrajectoryOps.push_back(std::move(factory));
+}
+
 void TrajectoryOpRegistry::setProcessInstance(TrajectoryOpRegistry* registry)
 {
+	assert(registry != nullptr);
 	g_processTrajectoryOpRegistry = registry;
+	flushDeferredTrajectoryOps(*registry);
 }
 
 TrajectoryOpRegistry& TrajectoryOpRegistry::instance()
 {
-	if (g_processTrajectoryOpRegistry != nullptr)
-	{
-		return *g_processTrajectoryOpRegistry;
-	}
-	// 静态兜底：本 DLL 无法反向访问宿主 ServiceRegistry
-	static TrajectoryOpRegistry registry;
-	return registry;
+	assert(g_processTrajectoryOpRegistry != nullptr);
+	return *g_processTrajectoryOpRegistry;
 }
 
 void TrajectoryOpRegistry::registerOp(std::unique_ptr<ITrajectoryOp> op)

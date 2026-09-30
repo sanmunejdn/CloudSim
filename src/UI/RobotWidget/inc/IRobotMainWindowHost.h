@@ -36,6 +36,10 @@ class QtProperty;
 class QtTreePropertyBrowser;
 class QtVariantPropertyManager;
 class BackendDataBase;
+class IRobotOsgSceneOps;
+class IRobotOsgPick;
+class IRobotOsgOverlay;
+class IRobotOsgTeach;
 
 /// 机器人编排所需主窗口服务（Widget 实现）
 class ROBOTWIDGET_EXPORT IRobotMainWindowHost : public IRobotPropertyPanelHost
@@ -46,6 +50,10 @@ public:
 	virtual IRobotDocumentHost* document() = 0;
 	virtual const IRobotDocumentHost* document() const = 0;
 	virtual IRobotOsgViewHost* osgView() = 0;
+	virtual IRobotOsgSceneOps* osgScene() = 0;
+	virtual IRobotOsgPick* osgPick() = 0;
+	virtual IRobotOsgOverlay* osgOverlay() = 0;
+	virtual IRobotOsgTeach* osgTeach() = 0;
 
 	virtual bool useChinese() const = 0;
 	virtual QString i18n(const QString& en, const QString& zh) const = 0;

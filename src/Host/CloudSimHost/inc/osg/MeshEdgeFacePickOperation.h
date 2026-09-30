@@ -7,6 +7,7 @@
 
 #include "PickTypes.h"
 #include "SelectionOperation.h"
+
 #include "ViewportGestureRecognizer.h"
 
 #include <QElapsedTimer>
@@ -15,7 +16,7 @@
 class MeshEdgeFacePickOperation final : public SelectionOperation
 {
 public:
-	explicit MeshEdgeFacePickOperation(OsgWidget* owner);
+	explicit MeshEdgeFacePickOperation(IViewportInteractionHost* host);
 
 private:
 	ViewportGestureRecognizer m_gesture;
@@ -23,7 +24,7 @@ private:
 	PickPreviewState m_preview;
 
 	void applyPickResult(const PickResult& pick);
-	void emitMeshFeedback(bool click, const PickResult& pick) const;
+	void emitMeshFeedback(bool click, const PickResult& pick);
 	PickQuery makePickQuery(const QPoint& pos) const;
 
 protected:

@@ -12,6 +12,7 @@
 #include "CoreTypes.h"
 #include "IOsgWidgetView.h"
 #include "IRobotBackendPoseSink.h"
+#include "IViewportSceneSignals.h"
 
 #include <QEvent>
 #include <QList>
@@ -41,7 +42,10 @@ struct MeshCapturedPart;
 Q_DECLARE_METATYPE(PickResult)
 
 /// Web Headless：不继承 OsgScene，方法均为空操作
-class CLOUDSIM_HOST_EXPORT OsgWidget : public QWidget, public IRobotBackendPoseSink, public IOsgWidgetView
+class CLOUDSIM_HOST_EXPORT OsgWidget : public QWidget,
+									  public IRobotBackendPoseSink,
+									  public IOsgWidgetView,
+									  public IViewportSceneSignals
 {
 	Q_OBJECT
 public:
@@ -452,6 +456,126 @@ public:
 	}
 
 	void clearImportedContent() override {}
+
+	QWidget* viewportOverlayHostWidget() const override { return const_cast<OsgWidget*>(this); }
+	void onViewportFocusRequested() override {}
+	void setWireframeMode(bool enabled) override { (void)enabled; }
+	void onViewportScreenshotRequested() override {}
+
+	bool dispatchMeshPickCommitToInteractionSession(const PickResult& pick, int pickKindInt) override
+	{
+		(void)pick;
+		(void)pickKindInt;
+		return false;
+	}
+
+	QMetaObject::Connection observeSelectedObjectPoseChanged(QObject* ctx,
+															 std::function<void(float, float, float)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeSelectedObjectRotationChanged(
+		QObject* ctx, std::function<void(float, float, float)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeSelectedObjectColorChanged(
+		QObject* ctx, std::function<void(float, float, float, float)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeTransformGizmoCommitted(QObject* ctx, std::function<void()> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeTcpDragTeachPoseChanged(
+		QObject* ctx, std::function<void(double, double, double, double, double, double)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeTcpDragTeachEnded(QObject* ctx, std::function<void()> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeActiveAxisChanged(QObject* ctx,
+													 std::function<void(const QString&)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeSelectionCanceledByEsc(QObject* ctx, std::function<void()> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeAnnotationCreated(QObject* ctx,
+													 std::function<void(const QString&, const QString&)> handler)
+		override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeAnnotationRemoved(QObject* ctx, std::function<void(const QString&)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeAnnotationVisibilityChanged(
+		QObject* ctx, std::function<void(const QString&, bool)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observePointPickFeedback(QObject* ctx, std::function<void(const QString&)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeMeshPickFeedback(QObject* ctx, std::function<void(const QString&)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeBackendObjectPicked(QObject* ctx,
+														 std::function<void(const QString&)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeInstructionWaypointPicked(QObject* ctx,
+															   std::function<void(const QString&, bool)> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
+	QMetaObject::Connection observeInstructionWaypointPickCanceled(QObject* ctx,
+																   std::function<void()> handler) override
+	{
+		(void)ctx;
+		(void)handler;
+		return {};
+	}
 
 signals:
 	void polylinePickCommitted(QVector<float> polylineScreenXy, QVector<double> mvpMatrix, int viewportWidth,

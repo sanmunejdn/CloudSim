@@ -5,7 +5,7 @@
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
 /// @brief 后端 id 与场景/数据管理器轻量句柄
 
-#include "widget_global.h"
+#include "cloudsim_host_global.h"
 
 #include <array>
 #include <string>
@@ -21,10 +21,10 @@ class BackendDataManager;
 class BackendFollowReverseIndex;
 class IBackendSceneBridge;
 class IRobotBackendPoseSink;
-class IOsgWidgetView;
+class IViewportSceneOps;
 
 /// 后端 id 与场景/数据管理器轻量句柄
-class OSG_WIDGET_API BackendSceneEntity
+class CLOUDSIM_HOST_EXPORT BackendSceneEntity
 {
 public:
 	BackendSceneEntity() = default;
@@ -60,12 +60,12 @@ private:
 };
 
 /// 单文档门面：数据契约 + 场景桥 + 跟随反向索引
-class OSG_WIDGET_API BackendSceneDocumentFacade
+class CLOUDSIM_HOST_EXPORT BackendSceneDocumentFacade
 {
 public:
 	BackendSceneDocumentFacade() = default;
 	BackendSceneDocumentFacade(cloudsim::core::IDataService& data, BackendDataManager& mgr, IBackendSceneBridge& bridge,
-							   BackendFollowReverseIndex& followIndex, IOsgWidgetView* osgWidget);
+							   BackendFollowReverseIndex& followIndex, IViewportSceneOps* sceneOps);
 
 	BackendSceneEntity entity(const std::string& backendId) const;
 
@@ -85,7 +85,7 @@ private:
 	IBackendSceneBridge* m_bridge = nullptr;
 	BackendFollowReverseIndex* m_followIndex = nullptr;
 	IRobotBackendPoseSink* m_poseSink = nullptr;
-	IOsgWidgetView* m_osgView = nullptr;
+	IViewportSceneOps* m_sceneOps = nullptr;
 };
 
 #endif // CLOUDSIMHOST_BACKENDSCENEDOCUMENTFACADE_H

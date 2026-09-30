@@ -6,7 +6,7 @@
 #include "BrepBackendData.h"
 #include "CoreTypes.h"
 #include "IRobotDocumentHost.h"
-#include "IRobotOsgViewHost.h"
+#include "IRobotOsgSceneOps.h"
 #include "MeshBackendData.h"
 #include "MeshDiscretize.h"
 #include "UrdfRobotLoader.h"
@@ -66,7 +66,7 @@ struct ResolvedBodyWorld
 	const char* poseSource = "backend";
 };
 
-ResolvedBodyWorld resolveBodyWorld(IRobotOsgViewHost* osg, const std::shared_ptr<BackendDataBase>& data)
+ResolvedBodyWorld resolveBodyWorld(IRobotOsgSceneOps* osg, const std::shared_ptr<BackendDataBase>& data)
 {
 	ResolvedBodyWorld out;
 	if (osg && data)
@@ -119,7 +119,7 @@ bool discretizeBrepSoup(const BrepBackendData& brep, std::vector<float>& soup)
 }
 
 void upsertFromBackend(collision::CollisionWorld& world, const collision::CollisionBodyId& id,
-					   const std::shared_ptr<BackendDataBase>& data, IRobotOsgViewHost* osg,
+					   const std::shared_ptr<BackendDataBase>& data, IRobotOsgSceneOps* osg,
 					   std::vector<collision::CollisionBodyId>* outBodies)
 {
 	if (!data || !data->hasGeometry())
@@ -183,7 +183,7 @@ void applyWhiteBlackListFilter(collision::CollisionWorld& world, const RobotColl
 } // namespace
 
 void rebuildWorld(collision::CollisionWorld& world, IRobotDocumentHost* doc,
-				  const RobotCollision::Settings& settings, IRobotOsgViewHost* osg)
+				  const RobotCollision::Settings& settings, IRobotOsgSceneOps* osg)
 {
 	world.clear();
 	world.setSecurityMarginMm(settings.securityMarginMm);
@@ -266,7 +266,7 @@ void rebuildWorld(collision::CollisionWorld& world, IRobotDocumentHost* doc,
 }
 
 void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc,
-				 IRobotOsgViewHost* osg)
+				 IRobotOsgSceneOps* osg)
 {
 	if (!doc)
 		return;
@@ -313,7 +313,7 @@ void updatePoses(collision::CollisionWorld& world, IRobotDocumentHost* doc,
 bool validateJointTrajectory(collision::CollisionWorld& world, IRobotDocumentHost* doc,
 							 const int instanceIndex, const QVector<double>& seedJointsBefore,
 							 const std::vector<std::vector<double>>& jointTrajectoryRad,
-							 const RobotCollision::Settings& settings, std::string* failSummary, IRobotOsgViewHost* osg,
+							 const RobotCollision::Settings& settings, std::string* failSummary, IRobotOsgSceneOps* osg,
 							 const bool rebuildWorldFirst, const bool restorePoseOnHit)
 {
 	if (!settings.enabled || !doc)

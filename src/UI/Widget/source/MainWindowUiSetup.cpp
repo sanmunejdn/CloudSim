@@ -2,7 +2,7 @@
 /// @brief 内容区已有 QTabWidget 时隐藏 Dock 自带标题栏，避免与页签重复。
 
 #include "../RobotWidget/inc/DeviceCommandPageWidget.h"
-#include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "../RobotWidget/inc/IRobotOsgSceneOps.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "AiAssistantCoordinator.h"
@@ -382,9 +382,9 @@ void MainWindow::setupMenuBar()
 				{
 					return;
 				}
-				if (IRobotOsgViewHost* view = activeOsgViewHost())
+				if (IRobotOsgSceneOps* scene = activeOsgViewHost())
 				{
-					view->setTransformGizmoFrame(1);
+					scene->setTransformGizmoFrame(1);
 				}
 			});
 	connect(m_gizmoWorldFrameAction, &QAction::triggered, this,
@@ -394,9 +394,9 @@ void MainWindow::setupMenuBar()
 				{
 					return;
 				}
-				if (IRobotOsgViewHost* view = activeOsgViewHost())
+				if (IRobotOsgSceneOps* scene = activeOsgViewHost())
 				{
-					view->setTransformGizmoFrame(0);
+					scene->setTransformGizmoFrame(0);
 				}
 			});
 	m_insertMenu = menuBar()->addMenu(QStringLiteral("Insert"));

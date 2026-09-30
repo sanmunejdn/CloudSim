@@ -51,9 +51,8 @@ namespace
 {
 bool g_builtinsRegistered = false;
 
-void registerOpConfigs()
+void registerOpConfigs(TrajectoryOpConfigRegistry& registry)
 {
-	auto& registry = TrajectoryOpConfigRegistry::instance();
 	registry.registerOpConfig(makeTranslateOpConfig());
 	registry.registerOpConfig(makeRotateOpConfig());
 	registry.registerOpConfig(makeMirrorOpConfig());
@@ -107,8 +106,9 @@ void ensureTrajectoryOpBuiltinsRegistered()
 	{
 		return;
 	}
-	registerTrajectoryOpBuiltins(TrajectoryOpRegistry::instance());
-	registerOpConfigs();
+	TrajectoryOpRegistry& registry = TrajectoryOpRegistry::instance();
+	registerTrajectoryOpBuiltins(registry);
+	registerOpConfigs(TrajectoryOpConfigRegistry::instance());
 	g_builtinsRegistered = true;
 }
 

@@ -1898,7 +1898,7 @@ IPluginDocument* PointCloudDockWidget::activeDoc() const
 
 IPluginPointCloudHost* PointCloudDockWidget::pointCloudHost() const
 {
-	return m_host ? m_host->pointCloudHost() : nullptr;
+	return (m_host && m_host->geometryContext()) ? m_host->geometryContext()->pointCloudHost() : nullptr;
 }
 
 std::string PointCloudDockWidget::selectedBackendId() const

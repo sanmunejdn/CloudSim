@@ -24,8 +24,10 @@
 #endif
 
 #if defined(CLOUDSIM_OSG_IN_HOST)
-#include "../../Host/CloudSimHost/inc/cloudsim_host_global.h"
-#define OSG_WIDGET_API CLOUDSIM_HOST_EXPORT
+#include "../../Host/CloudSimHost/inc/cloudsim_viewport_global.h"
+#ifndef OSG_WIDGET_API
+#define OSG_WIDGET_API CLOUDSIM_VIEWPORT_EXPORT
+#endif
 #else
 #define OSG_WIDGET_API WIDGET_EXPORT
 #endif

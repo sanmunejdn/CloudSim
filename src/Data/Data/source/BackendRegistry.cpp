@@ -3,8 +3,17 @@
 
 #include "BackendRegistry.h"
 
+#include <cassert>
+
 BackendRegistry*& BackendRegistry::processInstanceSlot()
 {
 	static BackendRegistry* slot = nullptr;
 	return slot;
+}
+
+BackendRegistry& BackendRegistry::instance()
+{
+	BackendRegistry* slot = processInstanceSlot();
+	assert(slot != nullptr);
+	return *slot;
 }

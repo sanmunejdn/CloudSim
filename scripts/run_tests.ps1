@@ -40,18 +40,25 @@ function Get-BinDir([string]$cfg) {
 function Ensure-Binaries([string]$cfg) {
     $bin = Get-BinDir $cfg
     $runner = Join-Path $bin 'SelfTestRunner.exe'
+    $jobSelf = Join-Path $bin 'JobSystemSelfTest.exe'
     $web = Join-Path $bin 'CloudSimWeb.exe'
-    $needBuild = $FullBuild -or (-not (Test-Path $runner)) -or (-not (Test-Path $web))
+    $needBuild = $FullBuild -or (-not (Test-Path $runner)) -or (-not (Test-Path $jobSelf)) -or (-not (Test-Path $web))
     if (-not $needBuild) {
         Write-Host ("  binaries OK: {0}" -f $bin)
         return
     }
-    Write-Host ("  build SelfTestRunner + CloudSimWeb ({0}) ..." -f $cfg) -ForegroundColor Yellow
+    Write-Host ("  build SelfTestRunner + JobSystemSelfTest + CloudSimWeb ({0}) ..." -f $cfg) -ForegroundColor Yellow
     $msb = Find-MsBuild
     & $msb (Join-Path $CloudSimRoot 'src\App\SelfTestRunner\SelfTestRunner.vcxproj') `
         /p:Configuration=$cfg /p:Platform=x64 /m
     if ($LASTEXITCODE -ne 0) {
         Write-Host ("SelfTestRunner build FAILED ({0})" -f $cfg) -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+    & $msb (Join-Path $CloudSimRoot 'src\App\JobSystemSelfTest\JobSystemSelfTest.vcxproj') `
+        /p:Configuration=$cfg /p:Platform=x64 /m
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ("JobSystemSelfTest build FAILED ({0})" -f $cfg) -ForegroundColor Red
         exit $LASTEXITCODE
     }
     & $msb (Join-Path $CloudSimRoot 'src\App\CloudSimWeb\CloudSimWeb.vcxproj') `
@@ -78,7 +85,7 @@ function Invoke-ConfigTests([string]$cfg) {
     }
 
     Write-Host ''
-    Write-Host ("  API pytest ({0}) ..." -f $cfg) -ForegroundColor Yellow
+    Write-Host ("  API pytest ({0}) [含 LIFECYCLE_CONTRACT] ..." -f $cfg) -ForegroundColor Yellow
     & (Join-Path $CloudSimRoot 'scripts\run_api_tests.ps1') -Configuration $cfg
     if ($LASTEXITCODE -ne 0) {
         Write-Host ("API tests FAILED ({0}) exit={1}" -f $cfg, $LASTEXITCODE) -ForegroundColor Red

@@ -3,7 +3,8 @@
 
 #include "MeshSectionPlaneEditOperation.h"
 
-#include "OsgWidget.h"
+#include "OsgScene.h"
+#include "ViewportInteraction/IViewportInteractionHost.h"
 
 #include <QEvent>
 #include <QMouseEvent>
@@ -17,15 +18,15 @@ namespace
 constexpr double kTranslateGain = 1.08;
 constexpr double kRotateGain = 1.18;
 
-int dragAxisToIndex(const OsgWidget::DragAxis axis)
+int dragAxisToIndex(OsgScene::DragAxis axis)
 {
 	switch (axis)
 	{
-	case OsgWidget::DragAxis::X:
+	case OsgScene::DragAxis::X:
 		return 0;
-	case OsgWidget::DragAxis::Y:
+	case OsgScene::DragAxis::Y:
 		return 1;
-	case OsgWidget::DragAxis::Z:
+	case OsgScene::DragAxis::Z:
 		return 2;
 	default:
 		return 2;
@@ -51,129 +52,133 @@ bool rayPlaneIntersect(const osg::Vec3d& rayOrigin, const osg::Vec3d& rayDirUnit
 
 } // namespace
 
-MeshSectionPlaneEditOperation::MeshSectionPlaneEditOperation(OsgWidget* owner) : SelectionOperation(owner) {}
+MeshSectionPlaneEditOperation::MeshSectionPlaneEditOperation(IViewportInteractionHost* host) : SelectionOperation(host)
+{
+}
 
 bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 {
-	if (!m_owner || watched != m_owner->m_glWidget || !m_owner->isMeshSectionPlaneEditActive())
+	IViewportInteractionHost* h = host();
+	if (!h || watched != h->viewportGlWidget() || !h->meshSectionPlaneEditActive())
 	{
 		return false;
 	}
+
+	ViewportMeshSectionPlaneDragState section = h->meshSectionPlaneDragState();
+	ViewportInteractionPointerState pointer = h->interactionPointerState();
 
 	if (event->type() == QEvent::MouseButtonPress)
 	{
 		auto* mouseEvent = static_cast<QMouseEvent*>(event);
 		if (mouseEvent->button() == Qt::LeftButton)
 		{
-			const int picked = m_owner->pickMeshSectionPlaneAxisAtScreenPos(mouseEvent->pos(), false);
-			m_owner->m_sectionPlaneDragAxis = static_cast<OsgWidget::DragAxis>(picked);
-			if (m_owner->m_sectionPlaneDragAxis != OsgWidget::DragAxis::None)
+			const int picked = h->pickMeshSectionPlaneAxisAtScreenPos(mouseEvent->pos(), false);
+			section.dragAxis = static_cast<OsgScene::DragAxis>(picked);
+			if (section.dragAxis != OsgScene::DragAxis::None)
 			{
-				m_owner->m_sectionPlaneDragging = true;
-				m_owner->m_sectionPlaneRotating = false;
-				m_owner->m_lastMousePos = mouseEvent->pos();
-				(void)m_owner->beginMeshSectionPlaneScreenDrag();
-				m_owner->updateMeshSectionPlaneCompassHighlight(m_owner->m_sectionPlaneDragAxis, false);
-				m_owner->requestRedraw();
+				section.dragging = true;
+				section.rotating = false;
+				pointer.lastMousePos = mouseEvent->pos();
+				(void)h->beginMeshSectionPlaneScreenDrag();
+				h->updateMeshSectionPlaneCompassHighlight(section.dragAxis, false);
+				h->requestRedraw();
 				return true;
 			}
 			osg::Vec3d hitWorld;
-			if (m_owner->pickMeshSectionPlaneDragPoint(mouseEvent->pos(), hitWorld))
+			if (h->pickMeshSectionPlaneDragPoint(mouseEvent->pos(), hitWorld))
 			{
-				m_owner->m_sectionPlanePlaneDragging = true;
-				m_owner->m_sectionPlaneDragLastHitWorld = hitWorld;
-				m_owner->m_lastMousePos = mouseEvent->pos();
-				m_owner->requestRedraw();
+				section.planeDragging = true;
+				section.dragLastHitWorld = hitWorld;
+				pointer.lastMousePos = mouseEvent->pos();
+				h->requestRedraw();
 				return true;
 			}
 		}
 		if (mouseEvent->button() == Qt::RightButton)
 		{
 			bool hoverRing = false;
-			int picked = m_owner->pickMeshSectionPlaneAxisAtScreenPos(mouseEvent->pos(), true, &hoverRing);
-			if (picked == OsgWidget::kGizmoAxisNone)
+			int picked = h->pickMeshSectionPlaneAxisAtScreenPos(mouseEvent->pos(), true, &hoverRing);
+			if (picked == OsgScene::kGizmoAxisNone)
 			{
-				picked = static_cast<int>(m_owner->m_sectionPlaneHoverAxis);
+				picked = static_cast<int>(section.hoverAxis);
 			}
-			if (picked == OsgWidget::kGizmoAxisNone)
+			if (picked == OsgScene::kGizmoAxisNone)
 			{
-				picked = OsgWidget::kGizmoAxisX;
+				picked = OsgScene::kGizmoAxisX;
 			}
-			m_owner->m_sectionPlaneDragAxis = static_cast<OsgWidget::DragAxis>(picked);
-			m_owner->m_sectionPlaneRotating = true;
-			m_owner->m_sectionPlaneDragging = false;
-			m_owner->m_sectionPlanePlaneDragging = false;
-			m_owner->m_lastMousePos = mouseEvent->pos();
+			section.dragAxis = static_cast<OsgScene::DragAxis>(picked);
+			section.rotating = true;
+			section.dragging = false;
+			section.planeDragging = false;
+			pointer.lastMousePos = mouseEvent->pos();
 			osg::Vec3d pivot;
-			m_owner->computeMeshSectionPlanePivotWorld(pivot);
-			m_owner->m_sectionPlaneRotatePivotWorld = pivot;
+			h->computeMeshSectionPlanePivotWorld(pivot);
+			section.rotatePivotWorld = pivot;
 			osg::Vec3d eye;
 			osg::Vec3d dir;
-			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(mouseEvent->pos().x()),
-													 static_cast<double>(mouseEvent->pos().y()), eye, dir))
+			if (h->computeCameraScreenRayWorld(static_cast<double>(mouseEvent->pos().x()),
+											   static_cast<double>(mouseEvent->pos().y()), eye, dir))
 			{
 				osg::Vec3d axisW;
-				(void)m_owner->meshSectionPlaneCompassUnitAxisWorld(m_owner->m_sectionPlaneDragAxis, axisW);
+				(void)h->meshSectionPlaneCompassUnitAxisWorld(section.dragAxis, axisW);
 				osg::Vec3d hit;
 				if (rayPlaneIntersect(eye, dir, pivot, axisW, hit))
 				{
-					m_owner->m_sectionPlaneDragLastHitWorld = hit;
+					section.dragLastHitWorld = hit;
 				}
 				else
 				{
-					m_owner->m_sectionPlaneDragLastHitWorld = pivot;
+					section.dragLastHitWorld = pivot;
 				}
 			}
-			m_owner->updateMeshSectionPlaneCompassHighlight(m_owner->m_sectionPlaneDragAxis, true);
-			m_owner->requestRedraw();
+			h->updateMeshSectionPlaneCompassHighlight(section.dragAxis, true);
+			h->requestRedraw();
 			return true;
 		}
 		return false;
 	}
 
-	if (event->type() == QEvent::MouseMove &&
-		(m_owner->m_sectionPlaneDragging || m_owner->m_sectionPlaneRotating || m_owner->m_sectionPlanePlaneDragging))
+	if (event->type() == QEvent::MouseMove && (section.dragging || section.rotating || section.planeDragging))
 	{
 		auto* mouseEvent = static_cast<QMouseEvent*>(event);
 		const QPoint pos = mouseEvent->pos();
-		if (m_owner->m_sectionPlanePlaneDragging)
+		if (section.planeDragging)
 		{
 			osg::Vec3d hitWorld;
-			if (m_owner->pickMeshSectionPlaneDragPoint(pos, hitWorld))
+			if (h->pickMeshSectionPlaneDragPoint(pos, hitWorld))
 			{
-				m_owner->applyMeshSectionPlaneTranslationWorld(hitWorld, m_owner->m_sectionPlaneDragLastHitWorld);
-				m_owner->m_sectionPlaneDragLastHitWorld = hitWorld;
-				m_owner->notifyMeshSectionPlaneChanged();
+				h->applyMeshSectionPlaneTranslationWorld(hitWorld, section.dragLastHitWorld);
+				section.dragLastHitWorld = hitWorld;
+				h->notifyMeshSectionPlaneChanged();
 			}
 		}
-		else if (m_owner->m_sectionPlaneDragging)
+		else if (section.dragging)
 		{
-			double dsWorld = m_owner->meshSectionPlaneScreenDragDsMm(pos, m_owner->m_lastMousePos);
+			double dsWorld = h->meshSectionPlaneScreenDragDsMm(pos, pointer.lastMousePos);
 			dsWorld *= kTranslateGain;
-			const double cap = std::max(2.0, static_cast<double>(m_owner->m_sectionPlaneModelDiagonal) * 0.04);
+			const double cap = std::max(2.0, static_cast<double>(section.modelDiagonal) * 0.04);
 			dsWorld = std::max(-cap, std::min(cap, dsWorld));
-			m_owner->m_lastMousePos = pos;
+			pointer.lastMousePos = pos;
 			if (std::abs(dsWorld) > 1e-10)
 			{
-				m_owner->applyMeshSectionPlaneTranslationAxis(0, dsWorld);
-				m_owner->notifyMeshSectionPlaneChanged();
+				h->applyMeshSectionPlaneTranslationAxis(0, dsWorld);
+				h->notifyMeshSectionPlaneChanged();
 			}
 		}
-		else if (m_owner->m_sectionPlaneRotating)
+		else if (section.rotating)
 		{
-			const osg::Vec3d pivot = m_owner->m_sectionPlaneRotatePivotWorld;
+			const osg::Vec3d pivot = section.rotatePivotWorld;
 			osg::Vec3d axisW;
-			(void)m_owner->meshSectionPlaneCompassUnitAxisWorld(m_owner->m_sectionPlaneDragAxis, axisW);
+			(void)h->meshSectionPlaneCompassUnitAxisWorld(section.dragAxis, axisW);
 			osg::Vec3d eye;
 			osg::Vec3d dir;
 			double deltaRad = 0.0;
-			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(pos.x()), static_cast<double>(pos.y()), eye,
-													 dir))
+			if (h->computeCameraScreenRayWorld(static_cast<double>(pos.x()), static_cast<double>(pos.y()), eye, dir))
 			{
 				osg::Vec3d qHit;
 				if (rayPlaneIntersect(eye, dir, pivot, axisW, qHit))
 				{
-					osg::Vec3d v0 = m_owner->m_sectionPlaneDragLastHitWorld - pivot;
+					osg::Vec3d v0 = section.dragLastHitWorld - pivot;
 					osg::Vec3d v1 = qHit - pivot;
 					const double along0 = v0 * axisW;
 					const double along1 = v1 * axisW;
@@ -190,23 +195,22 @@ bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 						const double cosTh = v0 * v1;
 						deltaRad = std::atan2(sinTh, cosTh) * kRotateGain;
 					}
-					m_owner->m_sectionPlaneDragLastHitWorld = qHit;
+					section.dragLastHitWorld = qHit;
 				}
 			}
-			m_owner->m_lastMousePos = pos;
+			pointer.lastMousePos = pos;
 			if (std::abs(deltaRad) > 1e-8)
 			{
-				const int ax = dragAxisToIndex(m_owner->m_sectionPlaneDragAxis);
-				m_owner->applyMeshSectionPlaneRotationAxis(ax, deltaRad);
-				m_owner->notifyMeshSectionPlaneChanged();
+				const int ax = dragAxisToIndex(section.dragAxis);
+				h->applyMeshSectionPlaneRotationAxis(ax, deltaRad);
+				h->notifyMeshSectionPlaneChanged();
 			}
 		}
-		m_owner->requestRedraw();
+		h->requestRedraw();
 		return true;
 	}
 
-	if (event->type() == QEvent::MouseMove && !m_owner->m_sectionPlaneDragging && !m_owner->m_sectionPlaneRotating &&
-		!m_owner->m_sectionPlanePlaneDragging)
+	if (event->type() == QEvent::MouseMove && !section.dragging && !section.rotating && !section.planeDragging)
 	{
 		auto* mouseEvent = static_cast<QMouseEvent*>(event);
 		if (mouseEvent->buttons().testFlag(Qt::LeftButton) || mouseEvent->buttons().testFlag(Qt::MiddleButton) ||
@@ -215,41 +219,40 @@ bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 			return false;
 		}
 		bool hoverRing = false;
-		const int picked = m_owner->pickMeshSectionPlaneAxisAtScreenPos(mouseEvent->pos(), true, &hoverRing);
-		if (picked == OsgWidget::kGizmoAxisNone)
+		const int picked = h->pickMeshSectionPlaneAxisAtScreenPos(mouseEvent->pos(), true, &hoverRing);
+		if (picked == OsgScene::kGizmoAxisNone)
 		{
 			bool ring2 = false;
-			const int picked2 = m_owner->pickMeshSectionPlaneAxisAtScreenPos(mouseEvent->pos(), false, &ring2);
-			m_owner->m_sectionPlaneHoverAxis = static_cast<OsgWidget::DragAxis>(picked2);
+			const int picked2 = h->pickMeshSectionPlaneAxisAtScreenPos(mouseEvent->pos(), false, &ring2);
+			section.hoverAxis = static_cast<OsgScene::DragAxis>(picked2);
 			hoverRing = false;
 		}
 		else
 		{
-			m_owner->m_sectionPlaneHoverAxis = static_cast<OsgWidget::DragAxis>(picked);
+			section.hoverAxis = static_cast<OsgScene::DragAxis>(picked);
 		}
-		m_owner->updateMeshSectionPlaneCompassHighlight(m_owner->m_sectionPlaneHoverAxis, hoverRing);
+		h->updateMeshSectionPlaneCompassHighlight(section.hoverAxis, hoverRing);
 		m_lastEmittedHoverAxis = picked;
 		m_lastEmittedHoverRing = hoverRing;
-		m_owner->requestRedraw();
+		h->requestRedraw();
 		return true;
 	}
 
 	if (event->type() == QEvent::MouseButtonRelease)
 	{
 		auto* mouseEvent = static_cast<QMouseEvent*>(event);
-		const bool hadDrag =
-			m_owner->m_sectionPlaneDragging || m_owner->m_sectionPlaneRotating || m_owner->m_sectionPlanePlaneDragging;
+		const bool hadDrag = section.dragging || section.rotating || section.planeDragging;
 		if (mouseEvent->button() == Qt::LeftButton || mouseEvent->button() == Qt::RightButton)
 		{
-			m_owner->m_sectionPlaneDragging = false;
-			m_owner->m_sectionPlaneRotating = false;
-			m_owner->m_sectionPlanePlaneDragging = false;
-			m_owner->m_sectionPlaneDragAxis = OsgWidget::DragAxis::None;
-			m_owner->updateMeshSectionPlaneCompassHighlight(OsgWidget::DragAxis::None);
+			section.dragging = false;
+			section.rotating = false;
+			section.planeDragging = false;
+			section.dragAxis = OsgScene::DragAxis::None;
+			h->updateMeshSectionPlaneCompassHighlight(OsgScene::DragAxis::None);
 			m_lastEmittedHoverAxis = -1;
 			m_lastEmittedHoverRing = false;
 		}
-		m_owner->requestRedraw();
+		h->requestRedraw();
 		return hadDrag;
 	}
 

@@ -18,6 +18,7 @@
 #include <vector>
 
 class IPluginGeometryHost;
+class IPluginPointCloudHost;
 
 /// 几何上下文：图元/soup 建模、布尔、几何算法宿主、视口截图
 class IPluginGeometryContext
@@ -69,6 +70,10 @@ public:
 
 	/// 活动文档 3D 视口 PNG 截图（供 geometry.recognize 等多模态域）
 	virtual bool captureActiveViewportPng(QByteArray& outPng, QString* outError = nullptr) = 0;
+
+	/// 点云算法宿主；宿主版本不足时可为 null
+	virtual IPluginPointCloudHost* pointCloudHost() = 0;
+	virtual const IPluginPointCloudHost* pointCloudHost() const = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYCONTEXT_H

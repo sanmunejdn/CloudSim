@@ -67,6 +67,16 @@ bool PluginDocumentContextImpl::isActiveDocumentModified() const
 	return std::as_const(m_host).isActiveDocumentModified();
 }
 
+IPluginLabelingHost* PluginDocumentContextImpl::labelingHost()
+{
+	return m_host.labelingHost();
+}
+
+const IPluginLabelingHost* PluginDocumentContextImpl::labelingHost() const
+{
+	return std::as_const(m_host).labelingHost();
+}
+
 QDockWidget* PluginUiContextImpl::registerDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area)
 {
 	return m_host.registerDockWidget(title, widget, area);
@@ -247,6 +257,16 @@ const IPluginGeometryHost* PluginGeometryContextImpl::geometryHost() const
 bool PluginGeometryContextImpl::captureActiveViewportPng(QByteArray& outPng, QString* outError)
 {
 	return m_host.captureActiveViewportPng(outPng, outError);
+}
+
+IPluginPointCloudHost* PluginGeometryContextImpl::pointCloudHost()
+{
+	return m_host.pointCloudHost();
+}
+
+const IPluginPointCloudHost* PluginGeometryContextImpl::pointCloudHost() const
+{
+	return std::as_const(m_host).pointCloudHost();
 }
 
 IAiAssistantHost* PluginAiContextImpl::aiAssistantHost()

@@ -16,9 +16,9 @@
 #endif
 
 /// AiSDK ABI 版本（高 16 主、低 16 次）；与核心 PluginSDK 同步演进，降低版本矩阵
-#define CLOUDSIM_AI_SDK_VERSION 0x00013800
+#define CLOUDSIM_AI_SDK_VERSION 0x00013A00
 
 /// 字符串形式，须与 CloudSimAiPlugin_iid 字面量后缀一致
-#define CLOUDSIM_AI_SDK_VERSION_STR "0x00013800"
+#define CLOUDSIM_AI_SDK_VERSION_STR "0x00013A00"
 
 #endif // CLOUDSIMAISDK_CLOUDSIM_AI_SDK_GLOBAL_H

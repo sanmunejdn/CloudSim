@@ -5,6 +5,7 @@
 
 #include "CloudSimPluginVersion.h"
 #include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
 #include "IPluginProjectContext.h"
@@ -42,7 +43,7 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 		host->logError(QStringLiteral("PointCloudPlugin: narrow context unavailable"));
 		return false;
 	}
-	if (!host->pointCloudHost())
+	if (!host->geometryContext() || !host->geometryContext()->pointCloudHost())
 	{
 		host->logError(QStringLiteral("Point cloud host API unavailable"));
 		return false;

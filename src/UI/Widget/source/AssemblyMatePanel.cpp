@@ -8,7 +8,7 @@
 #include "DocumentPage.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
-#include "OsgWidget.h"
+#include "IRobotOsgViewHost.h"
 #include "PickTypes.h"
 
 #include <QAbstractButton>
@@ -24,7 +24,7 @@
 namespace
 {
 const char* kKindEn[] = {"Coincident", "Parallel", "Perpendicular", "Tangent",
-						 "Concentric", "Lock",	   "Distance",		"Angle"};
+						 "Concentric", "Lock",     "Distance",      "Angle"};
 const char* kKindZh[] = {"重合", "平行", "垂直", "相切", "同轴心", "锁定", "距离", "角度"};
 
 geoalgo::AssemblyMateKind kindFromId(const int id)
@@ -223,30 +223,25 @@ void AssemblyMatePanel::beginSession()
 	setStatus(QString(), false);
 }
 
-void AssemblyMatePanel::endSession()
-{
-	restoreMovingIfPreviewed();
-	stopFacePick();
-	if (m_mw)
-	{
-		if (DocumentPage* page = m_mw->currentPage())
-		{
-			if (OsgWidget* osg = page->osgWidget())
-			{
-				osg->hidePinnedMeshFaceHighlight();
-				osg->hideMeshElementHighlight();
-				osg->setCrossObjectMeshPick(false);
-				osg->setMeshFacePickMode(false);
-			}
-		}
-	}
-}
-
 void AssemblyMatePanel::interruptPicking()
 {
 	restoreMovingIfPreviewed();
 	stopFacePick();
 }
+
+void AssemblyMatePanel::endSession()
+{
+	restoreMovingIfPreviewed();
+	stopFacePick();
+	if (IRobotOsgViewHost* osg = m_mw->activeOsgViewHost())
+		{
+				osg->hidePinnedMeshFaceHighlight();
+				osg->clearMeshTriangleHighlight();
+				osg->setCrossObjectMeshPick(false);
+				osg->setMeshFacePickMode(false);
+		}
+}
+
 
 void AssemblyMatePanel::resetForNextMate()
 {
@@ -258,16 +253,10 @@ void AssemblyMatePanel::resetForNextMate()
 	m_previewed = false;
 	m_okBtn->setEnabled(false);
 	applyLanguage();
-	if (m_mw)
+	if (IRobotOsgViewHost* osg = m_mw->activeOsgViewHost())
 	{
-		if (DocumentPage* page = m_mw->currentPage())
-		{
-			if (OsgWidget* osg = page->osgWidget())
-			{
-				osg->hidePinnedMeshFaceHighlight();
-				osg->hideMeshElementHighlight();
-			}
-		}
+		osg->hidePinnedMeshFaceHighlight();
+		osg->clearMeshTriangleHighlight();
 	}
 	startFacePick(0);
 	if (m_mw)
@@ -316,8 +305,7 @@ void AssemblyMatePanel::startFacePick(const int slot)
 	{
 		return;
 	}
-	DocumentPage* page = m_mw->currentPage();
-	OsgWidget* osg = page ? page->osgWidget() : nullptr;
+	IRobotOsgViewHost* osg = m_mw->activeOsgViewHost();
 	if (!osg || !m_mw->m_robotHost)
 	{
 		setStatus(m_mw->i18n(QStringLiteral("No 3D view"), QStringLiteral("没有三维视图")), true);
@@ -330,8 +318,8 @@ void AssemblyMatePanel::startFacePick(const int slot)
 	osg->setMeshFacePickMode(true);
 	osg->syncSelectionForBackendId(std::string());
 	osg->setSelectionActive(false);
-	m_mw->m_robotHost->setMeshPickCommittedHandler([this](const PickResult& pick, const PickKind kind)
-												   { onPickCommitted(pick, kind); });
+	m_mw->m_robotHost->setMeshPickCommittedHandler(
+		[this](const PickResult& pick, const PickKind kind) { onPickCommitted(pick, kind); });
 	setStatus(m_mw->i18n(QStringLiteral("Pick a B-rep face in the view"), QStringLiteral("在视口点选 B-rep 面")),
 			  false);
 }
@@ -343,17 +331,11 @@ void AssemblyMatePanel::stopFacePick()
 	{
 		m_mw->m_robotHost->clearMeshPickCommittedHandler();
 	}
-	if (m_mw)
-	{
-		if (DocumentPage* page = m_mw->currentPage())
+	if (IRobotOsgViewHost* osg = m_mw->activeOsgViewHost())
 		{
-			if (OsgWidget* osg = page->osgWidget())
-			{
 				osg->setCrossObjectMeshPick(false);
 				osg->setMeshFacePickMode(false);
-			}
 		}
-	}
 }
 
 void AssemblyMatePanel::onPickCommitted(const PickResult& pick, const PickKind kind)
@@ -380,7 +362,6 @@ void AssemblyMatePanel::onPickCommitted(const PickResult& pick, const PickKind k
 		setStatus(err, true);
 		return;
 	}
-
 	const auto nameOf = [host](const std::string& id) -> QString
 	{
 		const auto obj = host->findObject(id);
@@ -398,12 +379,9 @@ void AssemblyMatePanel::onPickCommitted(const PickResult& pick, const PickKind k
 		m_face1 = resolved;
 		m_face1Verts = pick.meshFaceVertsWorld;
 		m_face1Label->setText(nameOf(m_face1.backendId));
-		if (DocumentPage* page = m_mw->currentPage())
+		if (IRobotOsgViewHost* osg = m_mw->activeOsgViewHost())
 		{
-			if (OsgWidget* osg = page->osgWidget())
-			{
-				osg->showPinnedMeshFaceHighlight(m_face1Verts);
-			}
+			osg->showPinnedMeshFaceHighlight(m_face1Verts);
 		}
 	}
 	else

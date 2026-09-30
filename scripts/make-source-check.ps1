@@ -11,8 +11,10 @@ function Run-Step([string]$Name, [scriptblock]$Block) {
 }
 
 Run-Step "host-headless" { python scripts/check_host_headless_sources.py }
+Run-Step "host-export-surface" { python scripts/check_host_export_surface.py }
 Run-Step "backend-callsites" { python scripts/check_backend_callsites.py }
 Run-Step "plugin-iid" { python scripts/check_plugin_iid_alignment.py }
+Run-Step "web-fallback-freshness" { python scripts/check_web_fallback_freshness.py }
 Run-Step "filters-host" { python scripts/generate_vcxproj_filters.py --sync --project CloudSimHost }
 Run-Step "clang-format" { python scripts/run_clang_format.py --check }
 Run-Step "encoding" { python scripts/normalize_source_encoding.py --check }

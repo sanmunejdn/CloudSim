@@ -1,0 +1,721 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{761A1E9E-85F5-4754-8B03-43AB90BA5A06}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{DF3D04F5-B858-4BA5-A290-35C33431A6D5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\adapters">
+      <UniqueIdentifier>{202730AB-7FBA-4030-A156-8CC42667EF36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\headless">
+      <UniqueIdentifier>{EFE30153-8A65-420B-BA85-95571D5D44B6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\import">
+      <UniqueIdentifier>{57CEAB4F-F1AE-4F68-B92C-F1B83EBF1E9C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\io">
+      <UniqueIdentifier>{06E7C0F7-584B-48EF-B041-7C541542939E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\pluginhost">
+      <UniqueIdentifier>{4591D0D1-CDA6-4BAE-9778-46FCC6467DC7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\visual">
+      <UniqueIdentifier>{BFA32379-DD9E-4D42-9779-706410A31ACD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{DB825E60-6158-45D4-91F2-DC0C8DAA4F52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Global">
+      <UniqueIdentifier>{0FF9C662-1D5D-44A3-9D43-E2B25BAF07C1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\adapters">
+      <UniqueIdentifier>{CFD9FD4C-156F-4F96-A5DF-04DF4812E2B8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\follow">
+      <UniqueIdentifier>{0629C910-640F-4814-8CDD-5B1F76E130B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\headless">
+      <UniqueIdentifier>{B36BB6EB-A98C-4912-B1AA-C51372657275}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\import">
+      <UniqueIdentifier>{8F1282BD-50FC-467E-A9D0-1F1B6CDE3E77}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\io">
+      <UniqueIdentifier>{A7035350-95E4-41EC-BBF9-F8A23CA2ED17}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\osg">
+      <UniqueIdentifier>{A6D005B2-ACED-461C-9BC2-649BAFB58116}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pluginhost">
+      <UniqueIdentifier>{D273C4DE-006B-406D-9534-AA0B37D6DA8B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\project">
+      <UniqueIdentifier>{9C7E3CED-96C8-4412-91BA-A731571660C7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\robot">
+      <UniqueIdentifier>{4C026635-EC38-4EFB-9228-17C4F87942D9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\visual">
+      <UniqueIdentifier>{8A209F54-65D3-4E1B-A45F-49945A8301A8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\adapters\DataServiceAdapter.h">
+      <Filter>inc\adapters</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\adapters\OsgRenderViewAdapter.h">
+      <Filter>inc\adapters</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\adapters\RobotServiceAdapter.h">
+      <Filter>inc\adapters</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AnnotationProjectIo.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AssemblyMateApply.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFileImport.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFollowSolve.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendHierarchyFollow.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendProjectObjectIo.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualSync.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\cloudsim_host_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimHost.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DocumentFollowState.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DocumentHostEvents.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DocumentImportFacade.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DocumentProjectSidecar.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometryImportUiFilters.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessAiBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessDrawingBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessGeometryBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessGeomodelBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessLabelingBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessProcessFlowBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessProgramEditBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessRobotCollisionBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\headless\HeadlessRobotExportBridge.h">
+      <Filter>inc\headless</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HeadlessInstructionPropertyDelegate.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HeadlessPointCloudBridge.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HeadlessRobotContext.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HeadlessTrajectorySession.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HierarchyMeshImport.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HostOsgFlavorHooks.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HostRenderViewFactory.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\ApplyGeometryImportParse.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\GeometryFileImporterRegistry.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\GeometryImportUiFilters.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\import\IGeometryFileImporter.h">
+      <Filter>inc\import</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\io\CustomDeviceHostOps.h">
+      <Filter>inc\io</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\io\CustomDeviceRobotMountOps.h">
+      <Filter>inc\io</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IOsgWidgetView.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotUrdfImportContext.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IViewportOverlay.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IViewportPickObserve.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IViewportSceneOps.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IViewportSceneSignals.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IViewportToolbar.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshCapturedPart.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiActionPlanExecutor.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentMemory.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentPickDialog.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentPlanBuilder.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentRuntime.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAgentTrace.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiApiCatalogEmbedded.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiArgsSchema.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiAssistantHostImpl.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiCatalogKeywordMatcher.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiCommandSchema.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiConfigLoader.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiDomainRegistryImpl.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiDomainRouter.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiFeatureComposeSteps.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiHostButtonApiDispatch.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiHttpsPost.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiIntentClassifier.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiIntentParser.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiLlmClient.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiLlmConfig.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiMeshDefaults.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiProcessFlowRules.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiProgressSink.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiSceneOpsRules.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiSceneSnapshotBuilder.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\AiTrajectoryFeatureCatalog.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\CatalogActionPlanDomainHandler.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\DesignPartsCatalog.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\DesignPartsDomainHandler.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\FeatureComposeDomainHandler.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\GeometryRecognizeDomainHandler.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\MeshComposeDomainHandler.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\MeshCreateDomainHandler.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\Ai\TrajectoryFeatureDomainHandler.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\DocumentGeometryOps.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\DocumentPointCloudOps.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\IPluginMainWindowHost.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\LabelingSession.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\LabelingTypes.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginContextImpls.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginDelegatedBackend.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginDocumentAdapter.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginGeometryHostImpl.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginPointCloudHostImpl.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginPropertyBindingRegistry.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginRobotHostImpl.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginSceneBridgeAdapter.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ProjectPackageIo.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotCoordinateFrameOps.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotPlanInstruction.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProgramJsonIo.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProjectKinematicsRestore.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UrdfRobotImport.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\BackendVisualEnsure.h">
+      <Filter>inc\visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\BackendVisualSyncEngine.h">
+      <Filter>inc\visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\KinematicsBatchScope.h">
+      <Filter>inc\visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\visual\VisualAspect.h">
+      <Filter>inc\visual</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\widget_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\adapters\DataServiceAdapter.cpp">
+      <Filter>src\adapters</Filter>
+    </ClCompile>
+    <ClCompile Include="source\adapters\RobotServiceAdapter.cpp">
+      <Filter>src\adapters</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CloudSimApplicationContext.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CloudSimHostExport.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DocumentHost.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\follow\BackendFollowSolve.cpp">
+      <Filter>src\follow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\follow\BackendHierarchyFollow.cpp">
+      <Filter>src\follow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\follow\BackendVisualSync.cpp">
+      <Filter>src\follow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\follow\DocumentHostEvents.cpp">
+      <Filter>src\follow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\follow\SelectionVisualService.cpp">
+      <Filter>src\follow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessAiBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessDrawingBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessGeometryBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessGeomodelBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessInstructionPropertyDelegate.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessLabelingBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessPointCloudBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessProcessFlowBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessProgramEditBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessRobotCollisionBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessRobotContext.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessRobotExportBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessRobotPlaybackBridge.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\headless\HeadlessTrajectorySession.cpp">
+      <Filter>src\headless</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HostBackendRegistries.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HostRenderViewFactory.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\ApplyGeometryImportParse.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\AssemblyMateApply.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\BackendFileImport.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\DocumentImportFacade.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\GeometryFileImporterRegistry.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\GeometryImportersBuiltins.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\GeometryImportUiFilters.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\import\HierarchyMeshImport.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\CustomDeviceHostOps.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\CustomDevicePoseMotionHost.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\CustomDeviceRobotMountOps.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\io\IoSignalNetwork.cpp">
+      <Filter>src\io</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\BackendFollowReverseIndex.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\BackendSceneDocumentFacade.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiActionPlanExecutor.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentMemory.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentPickDialog.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentPlanBuilder.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentRuntime.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAgentTrace.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiApiCatalogEmbedded.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiArgsSchema.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiAssistantHostImpl.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiCatalogKeywordMatcher.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiCommandSchema.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiConfigLoader.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiDomainRegistryImpl.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiDomainRouter.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiFeatureComposeSteps.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiHostButtonApiDispatch.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiHttpsPost.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiIntentClassifier.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiIntentParser.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiLlmClient.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiLlmConfig.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiMeshDefaults.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiProcessFlowRules.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiSceneOpsRules.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiSceneSnapshotBuilder.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\AiTrajectoryFeatureCatalog.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\CatalogActionPlanDomainHandler.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\DesignPartsCatalog.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\DesignPartsDomainHandler.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\FeatureComposeDomainHandler.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\GeometryRecognizeDomainHandler.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\MeshComposeDomainHandler.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\MeshCreateDomainHandler.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\Ai\TrajectoryFeatureDomainHandler.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\DocumentGeometryOps.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\DocumentPointCloudOps.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\LabelingSession.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginContextImpls.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginDelegatedBackend.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginDocumentAdapter.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginGeometryHostImpl.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginHostContext.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginLabelingHostImpl.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginManager.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginPointCloudHostImpl.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginPropertyBindingRegistry.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginRobotHostImpl.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginSceneBridgeAdapter.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\project\AnnotationProjectIo.cpp">
+      <Filter>src\project</Filter>
+    </ClCompile>
+    <ClCompile Include="source\project\BackendProjectObjectIo.cpp">
+      <Filter>src\project</Filter>
+    </ClCompile>
+    <ClCompile Include="source\project\ProjectPackageIo.cpp">
+      <Filter>src\project</Filter>
+    </ClCompile>
+    <ClCompile Include="source\project\RobotProjectKinematicsRestore.cpp">
+      <Filter>src\project</Filter>
+    </ClCompile>
+    <ClCompile Include="source\robot\PerLinkKinematicsHostImpl.cpp">
+      <Filter>src\robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\robot\RobotCoordinateFrameOps.cpp">
+      <Filter>src\robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\robot\RobotInstructionPropertyDto.cpp">
+      <Filter>src\robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\robot\RobotPlanInstruction.cpp">
+      <Filter>src\robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\robot\RobotProgramJsonIo.cpp">
+      <Filter>src\robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\robot\UrdfRobotImport.cpp">
+      <Filter>src\robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\visual\BackendVisualEnsure.cpp">
+      <Filter>src\visual</Filter>
+    </ClCompile>
+    <ClCompile Include="source\visual\BackendVisualSyncEngine.cpp">
+      <Filter>src\visual</Filter>
+    </ClCompile>
+    <ClCompile Include="source\visual\KinematicsBatchScope.cpp">
+      <Filter>src\visual</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\DocumentHost.h">
+      <Filter>inc\Core</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\headless\HeadlessRobotPlaybackBridge.h">
+      <Filter>inc\headless</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\io\CustomDevicePoseMotionHost.h">
+      <Filter>inc\io</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\io\IoSignalNetwork.h">
+      <Filter>inc\io</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\pluginhost\PluginHostContext.h">
+      <Filter>inc\pluginhost</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\pluginhost\PluginManager.h">
+      <Filter>inc\pluginhost</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

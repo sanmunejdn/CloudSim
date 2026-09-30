@@ -6,6 +6,7 @@
 #include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 #include "IPluginDocumentContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
 
@@ -338,7 +339,7 @@ IPluginDocument* TubularGrindingDockWidget::activeDoc() const
 
 IPluginPointCloudHost* TubularGrindingDockWidget::pointCloudHost() const
 {
-	return m_host ? m_host->pointCloudHost() : nullptr;
+	return (m_host && m_host->geometryContext()) ? m_host->geometryContext()->pointCloudHost() : nullptr;
 }
 
 std::string TubularGrindingDockWidget::selectedMeshBackendId() const

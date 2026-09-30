@@ -163,7 +163,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CloudSimBinDir)CloudSimUiAssets.lib;$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;$(CloudSimBinDir)Data.lib;$(CloudSimBinDir)GeometryServices.lib;$(CloudSimBinDir)GeometryEngine.lib;$(CloudSimBinDir)OsgWidgetCore.lib;$(CloudSimBinDir)RunLogger.lib;$(CloudSimBinDir)RobotWidget.lib;$(CloudSimBinDir)AiWidget.lib;$(CloudSimBinDir)RobotScene.lib;$(CloudSimBinDir)RobotUrdf.lib;$(CloudSimBinDir)RobotKinematics.lib;osg.lib;osgDB.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(CloudSimBinDir)CloudSimUiAssets.lib;$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;$(CloudSimBinDir)CloudSimHostDesktopViewport.lib;$(CloudSimBinDir)Data.lib;$(CloudSimBinDir)GeometryServices.lib;$(CloudSimBinDir)GeometryEngine.lib;$(CloudSimBinDir)OsgWidgetCore.lib;$(CloudSimBinDir)RunLogger.lib;$(CloudSimBinDir)RobotWidget.lib;$(CloudSimBinDir)AiWidget.lib;$(CloudSimBinDir)RobotScene.lib;$(CloudSimBinDir)RobotUrdf.lib;$(CloudSimBinDir)RobotKinematics.lib;osg.lib;osgDB.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -188,7 +188,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CloudSimBinDir)CloudSimUiAssets.lib;$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;$(CloudSimBinDir)Data.lib;$(CloudSimBinDir)GeometryServices.lib;$(CloudSimBinDir)GeometryEngine.lib;$(CloudSimBinDir)OsgWidgetCore.lib;$(CloudSimBinDir)RunLogger.lib;$(CloudSimBinDir)RobotWidget.lib;$(CloudSimBinDir)AiWidget.lib;$(CloudSimBinDir)RobotScene.lib;$(CloudSimBinDir)RobotUrdf.lib;$(CloudSimBinDir)RobotKinematics.lib;osg.lib;osgDB.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(CloudSimBinDir)CloudSimUiAssets.lib;$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;$(CloudSimBinDir)CloudSimHostDesktopViewport.lib;$(CloudSimBinDir)Data.lib;$(CloudSimBinDir)GeometryServices.lib;$(CloudSimBinDir)GeometryEngine.lib;$(CloudSimBinDir)OsgWidgetCore.lib;$(CloudSimBinDir)RunLogger.lib;$(CloudSimBinDir)RobotWidget.lib;$(CloudSimBinDir)AiWidget.lib;$(CloudSimBinDir)RobotScene.lib;$(CloudSimBinDir)RobotUrdf.lib;$(CloudSimBinDir)RobotKinematics.lib;osg.lib;osgDB.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -218,7 +218,6 @@
     <ClInclude Include="inc\MainWindowSelectionState.h" />
     <QtMoc Include="inc\RunInfoPage.h" />
     <QtMoc Include="inc\HelpBrowserDialog.h" />
-    <ClInclude Include="inc\SelectionOperation.h" />
     <ClInclude Include="inc\widget_global.h" />
     <ClInclude Include="inc\ProjectPackageZip.h" />
     <QtMoc Include="inc\ViewportToolBar.h" />
@@ -259,6 +258,7 @@
     <ClCompile Include="source\AssemblyMatePanel.cpp" />
     <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp" />
     <ClCompile Include="source\JobSystem.cpp" />
+    <ClCompile Include="source\JobSystemLifecycleSelfTest.cpp" />
     <ClCompile Include="source\ProgressManager.cpp" />
     <ClCompile Include="source\RunInfoPage.cpp" />
     <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
@@ -280,6 +280,9 @@
     <ProjectReference Include="..\..\Host\CloudSimHost\CloudSimHost.vcxproj">
       <Project>{c1d2e3f4-a5b6-7890-cdef-1234567890ab}</Project>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Host\CloudSimHost\CloudSimHostDesktopViewport.vcxproj">
+      <Project>{d4e5f6a7-b8c9-0123-def0-4567890abcde}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
       <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>

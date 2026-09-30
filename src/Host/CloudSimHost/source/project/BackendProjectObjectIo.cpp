@@ -19,7 +19,7 @@
 #include "FrameBackendData.h"
 #include "IDataService.h"
 #include "MeshBackendData.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "ParametricBrepBackendData.h"
 #include "PointCloudBackendData.h"
 #include "RobotProjectKinematicsRestore.h"
@@ -360,7 +360,7 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 							std::to_string(pc->geometryElementCount()) + ". PLY sidecar may be missing or renamed.");
 		}
 	}
-	IOsgWidgetView* osg = osgWidgetFrom(host);
+	IViewportSceneOps* osg = host.sceneOps();
 	if (!osg)
 	{
 		// Web/Headless：无 OSG 时仍注册 Data，浏览器经 /api/mesh 取 triangleSoup
@@ -496,7 +496,7 @@ void applyProjectEdgesToBackend(DocumentHost& host, const QVector<ProjectHierarc
 void syncOsgBackendParentsFromBackend(DocumentHost& host)
 {
 	// 工程 edges 只写 Data 时，须把 OSG 场景父链与 topo 对齐
-	IOsgWidgetView* osg = osgWidgetFrom(host);
+	IViewportSceneOps* osg = host.sceneOps();
 	if (!osg)
 	{
 		return;
@@ -531,7 +531,7 @@ void rebuildBackendParentIdMirror(DocumentHost& host)
 	}
 }
 
-void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, IOsgWidgetView* osgWidget, const QJsonObject& obj)
+void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, IViewportSceneOps* sceneOps, const QJsonObject& obj)
 {
 	const QJsonObject pose = obj.value(QStringLiteral("pose")).toObject();
 	const QJsonObject rot = obj.value(QStringLiteral("rotation")).toObject();
@@ -547,15 +547,15 @@ void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, IOsgWidgetVie
 	pc.setPose(p);
 	pc.setRotation(r);
 	pc.setColor(c);
-	if (!osgWidget)
+	if (!sceneOps)
 	{
 		return;
 	}
-	osgWidget->setSelectedPosition(
+	sceneOps->setSelectedPosition(
 		osg::Vec3f(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z)));
-	osgWidget->setSelectedRotationEulerDeg(
+	sceneOps->setSelectedRotationEulerDeg(
 		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
-	osgWidget->setSelectedColor(c.r, c.g, c.b, c.a);
+	sceneOps->setSelectedColor(c.r, c.g, c.b, c.a);
 }
 
 void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, const ProjectObjectLoadOptions& options,
@@ -564,7 +564,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 	// 每次加载新工程时清空 stepSidecar 缓存，避免跨工程污染
 	g_stepSidecarCache.clear();
 
-	IOsgWidgetView* osg = osgWidgetFrom(host);
+	IViewportSceneOps* osg = host.sceneOps();
 	for (const QJsonValue& v : objects)
 	{
 		if (!v.isObject())
@@ -810,7 +810,7 @@ void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, const QVector<Pr
 	host.stripKinematicsOwnedFollowAttachments();
 	host.stripHierarchyDrivenFollowAttachments();
 	// edges 只表示 Data 父子；跨部件 Follow 靠对象上显式组件
-	runBackendFollowSolveAndSync(host, osgWidgetFrom(host), solveCtx);
+	runBackendFollowSolveAndSync(host, host.sceneOps(), solveCtx);
 }
 
 } // namespace cloudsim::host

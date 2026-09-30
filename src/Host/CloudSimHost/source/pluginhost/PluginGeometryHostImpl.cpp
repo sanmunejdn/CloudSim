@@ -17,7 +17,9 @@
 #include "GeometryRef.h"
 #include "HlrProject.h"
 #include "MeshDiscretize.h"
-#include "IOsgWidgetView.h"
+#include "IViewportOverlay.h"
+#include "IViewportPickObserve.h"
+#include "IViewportSceneOps.h"
 #include "ParametricBrepBackendData.h"
 #include "PickTypes.h"
 #include "PluginDocumentAdapter.h"
@@ -34,8 +36,6 @@
 #include "SketchRevolve.h"
 #include "SketchShell.h"
 #include "SketchSweep.h"
-#include "WidgetDocumentAccess.h"
-
 #include <QByteArray>
 #include <QEvent>
 #include <QHash>
@@ -208,19 +208,19 @@ std::shared_ptr<BackendDataBase> resolveComputableBackend(cloudsim::host::Docume
 	return best;
 }
 
-bool worldPointToStepModelMm(IOsgWidgetView* osg, const std::string& backendIdUtf8, const osg::Vec3f& worldMm,
+bool worldPointToStepModelMm(IViewportSceneOps* ops, const std::string& backendIdUtf8, const osg::Vec3f& worldMm,
 							 geoalgo::Point3d& outModel, std::string* errMsg = nullptr)
 {
-	if (!osg)
+	if (!ops)
 	{
 		if (errMsg)
 		{
-			*errMsg = "no osg host";
+			*errMsg = "no viewport scene ops";
 		}
 		return false;
 	}
 	osg::Matrixd worldMat;
-	if (!osg->getBackendRootWorldMatrix(backendIdUtf8, worldMat))
+	if (!ops->getBackendRootWorldMatrix(backendIdUtf8, worldMat))
 	{
 		if (errMsg)
 		{
@@ -243,7 +243,7 @@ bool worldPointToStepModelMm(IOsgWidgetView* osg, const std::string& backendIdUt
 	double cx = 0.0;
 	double cy = 0.0;
 	double cz = 0.0;
-	(void)osg->tryGetBackendModelCenterMm(backendIdUtf8, cx, cy, cz);
+	(void)ops->tryGetBackendModelCenterMm(backendIdUtf8, cx, cy, cz);
 	outModel.x = pOuter.x() + cx;
 	outModel.y = pOuter.y() + cy;
 	outModel.z = pOuter.z() + cz;
@@ -817,8 +817,9 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 		onFinished(false, QStringLiteral("No active document"), {});
 		return;
 	}
-	IOsgWidgetView* osg = widgetOsgFromPage(page);
-	if (!osg)
+	IViewportPickObserve* pick = page->pickObserve();
+	IViewportSceneOps* ops = page->sceneOps();
+	if (!pick || !ops)
 	{
 		onFinished(false, QStringLiteral("3D viewport unavailable"), {});
 		return;
@@ -826,13 +827,13 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 
 	const bool pickFace = request.kind == PluginGeometryElementKind::Face;
 	const bool pickVertex = request.kind == PluginGeometryElementKind::Vertex;
-	osg->setSelectionActive(true);
+	pick->setSelectionActive(true);
 	if (!request.backendIdUtf8.empty())
 	{
-		osg->syncSelectionForBackendId(request.backendIdUtf8);
+		ops->syncSelectionForBackendId(request.backendIdUtf8);
 	}
-	osg->setMeshLinePickMode(!pickFace);
-	osg->setMeshFacePickMode(pickFace);
+	pick->setMeshLinePickMode(!pickFace);
+	pick->setMeshFacePickMode(pickFace);
 
 	struct PickState
 	{
@@ -840,7 +841,7 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 		QMetaObject::Connection conn;
 	};
 	const auto state = std::make_shared<PickState>();
-	const auto complete = [state, osg, onFinished](bool ok, const QString& err, const PluginGeometryStepRef& ref)
+	const auto complete = [state, pick, onFinished](bool ok, const QString& err, const PluginGeometryStepRef& ref)
 	{
 		if (state->done)
 		{
@@ -848,15 +849,15 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 		}
 		state->done = true;
 		QObject::disconnect(state->conn);
-		if (osg)
+		if (pick)
 		{
-			osg->setMeshLinePickMode(false);
-			osg->setMeshFacePickMode(false);
+			pick->setMeshLinePickMode(false);
+			pick->setMeshFacePickMode(false);
 		}
 		onFinished(ok, err, ref);
 	};
 
-	state->conn = osg->observeMeshPickCommitted(
+	state->conn = pick->observeMeshPickCommitted(
 		m_host,
 		[=](PickResult pick, int pickKindInt)
 		{
@@ -913,7 +914,7 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 			geoalgo::Point3d modelA{};
 			geoalgo::Point3d modelB{};
 			std::string err;
-			if (!worldPointToStepModelMm(osg, backendId, pick.worldPoint, modelA, &err))
+			if (!worldPointToStepModelMm(ops, backendId, pick.worldPoint, modelA, &err))
 			{
 				complete(false, QString::fromStdString(err), {});
 				return;
@@ -924,8 +925,8 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 			}
 			else
 			{
-				if (!worldPointToStepModelMm(osg, backendId, pick.meshEdgeA, modelA, &err) ||
-					!worldPointToStepModelMm(osg, backendId, pick.meshEdgeB, modelB, &err))
+				if (!worldPointToStepModelMm(ops, backendId, pick.meshEdgeA, modelA, &err) ||
+					!worldPointToStepModelMm(ops, backendId, pick.meshEdgeB, modelB, &err))
 				{
 					complete(false, QString::fromStdString(err), {});
 					return;
@@ -1049,18 +1050,18 @@ ParametricSketchPlane toParametricPlane(const PluginSketchPlane& plane)
 
 bool refreshParametricBodyScene(cloudsim::host::DocumentHost* page, ParametricBrepBackendData& body, QString* outError)
 {
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return true;
 	// 仅剩草图时 tip 为空：卸掉场景节点，否则删除特征后旧网格残留
 	if (!body.hasGeometry() || body.worldShape().isNull())
 	{
-		osg->removeBackendObjectVisual(body.id());
-		osg->requestRedraw();
+		ops->removeBackendObjectVisual(body.id());
+		ops->requestRedraw();
 		return true;
 	}
 	QString sceneErr;
-	if (!osg->loadBackendFromBackendData(body, &sceneErr, false, false, true))
+	if (!ops->loadBackendFromBackendData(body, &sceneErr, false, false, true))
 	{
 		if (outError)
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG refresh failed") : sceneErr;
@@ -1069,8 +1070,14 @@ bool refreshParametricBodyScene(cloudsim::host::DocumentHost* page, ParametricBr
 	return true;
 }
 
-bool previewShapeStaging(IOsgWidgetView* osg, const geoalgo::ShapeHandle& shape, const osg::Vec4& rgba, QString* errOut)
+bool previewShapeStaging(IViewportSceneOps* ops, const geoalgo::ShapeHandle& shape, const osg::Vec4& rgba, QString* errOut)
 {
+	if (!ops)
+	{
+		if (errOut)
+			*errOut = QStringLiteral("No viewport");
+		return false;
+	}
 	std::string err;
 	geoalgo::MeshDiscretizeParams meshParams;
 	meshParams.quality = geoalgo::MeshQualityPreset::Medium;
@@ -1082,7 +1089,7 @@ bool previewShapeStaging(IOsgWidgetView* osg, const geoalgo::ShapeHandle& shape,
 			*errOut = QString::fromStdString(err.empty() ? "mesh discretize failed" : err);
 		return false;
 	}
-	osg->setStagingMeshPreview(soup, rgba);
+	ops->setStagingMeshPreview(soup, rgba);
 	return true;
 }
 
@@ -1150,9 +1157,9 @@ bool clearStagingAndWarn(PluginHostContext* host, IPluginDocument* doc, const QS
 						 QString* errOut)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (osg)
-		osg->clearStagingGeometry();
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (ops)
+		ops->clearStagingGeometry();
 	if (errOut)
 		*errOut = msg;
 	if (host && !msg.isEmpty())
@@ -1274,8 +1281,8 @@ void PluginGeometryHostImpl::setSketchOverlay(IPluginDocument* doc,
 											  const std::vector<PluginSketchOverlaySegment>& segments)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportOverlay* overlay = page ? page->overlay() : nullptr;
+	if (!overlay)
 		return;
 	std::vector<RobotOsgUi::RawTrajectoryOverlayVertex> pts;
 	std::vector<std::size_t> ends;
@@ -1295,15 +1302,15 @@ void PluginGeometryHostImpl::setSketchOverlay(IPluginDocument* doc,
 		colors.emplace_back(seg.rgba[0], seg.rgba[1], seg.rgba[2], seg.rgba[3]);
 		widths.push_back(seg.lineWidthPx > 0.1f ? seg.lineWidthPx : (seg.construction ? 2.0f : 2.8f));
 	}
-	osg->setSketchLineOverlay(pts, ends, colors, widths);
+	overlay->setSketchLineOverlay(pts, ends, colors, widths);
 }
 
 void PluginGeometryHostImpl::clearSketchOverlay(IPluginDocument* doc)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (osg)
-		osg->clearSketchLineOverlay();
+	IViewportOverlay* overlay = page ? page->overlay() : nullptr;
+	if (overlay)
+		overlay->clearSketchLineOverlay();
 }
 
 bool PluginGeometryHostImpl::mapScreenToSketchPlane(IPluginDocument* doc, int screenX, int screenY,
@@ -1311,8 +1318,8 @@ bool PluginGeometryHostImpl::mapScreenToSketchPlane(IPluginDocument* doc, int sc
 													QString* outError)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportPickObserve* pickObserve = page ? page->pickObserve() : nullptr;
+	if (!pickObserve)
 	{
 		if (outError)
 			*outError = QStringLiteral("3D viewport unavailable");
@@ -1326,7 +1333,7 @@ bool PluginGeometryHostImpl::mapScreenToSketchPlane(IPluginDocument* doc, int sc
 	}
 	osg::Vec3d hit;
 	QString err;
-	if (!osg->intersectScreenWithPlaneMm(screenX, screenY, osg::Vec3d(plane.origin.x, plane.origin.y, plane.origin.z),
+	if (!pickObserve->intersectScreenWithPlaneMm(screenX, screenY, osg::Vec3d(plane.origin.x, plane.origin.y, plane.origin.z),
 										 osg::Vec3d(plane.normal.x, plane.normal.y, plane.normal.z), hit, &err))
 	{
 		if (outError)
@@ -1342,8 +1349,9 @@ bool PluginGeometryHostImpl::beginSketchInput(IPluginDocument* doc, const Plugin
 {
 	endSketchInput(doc);
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg || !onInput)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	IViewportOverlay* overlay = page ? page->overlay() : nullptr;
+	if (!ops || !overlay || !onInput)
 	{
 		if (outError)
 			*outError = QStringLiteral("Sketch input unavailable");
@@ -1358,10 +1366,10 @@ bool PluginGeometryHostImpl::beginSketchInput(IPluginDocument* doc, const Plugin
 	m_sketchInputDoc = doc;
 	m_sketchInputPlane = plane;
 	// 进入草图编辑：注视平面原点并正视（法向朝相机，axisY 为上）
-	osg->orientViewToPlane(osg::Vec3d(plane.origin.x, plane.origin.y, plane.origin.z),
+	ops->orientViewToPlane(osg::Vec3d(plane.origin.x, plane.origin.y, plane.origin.z),
 						   osg::Vec3d(plane.normal.x, plane.normal.y, plane.normal.z),
 						   osg::Vec3d(plane.axisY.x, plane.axisY.y, plane.axisY.z));
-	osg->setSketchPlaneInputHandler(
+	overlay->setSketchPlaneInputHandler(
 		[this, onInput](QObject*, QEvent* event) -> bool
 		{
 			PluginSketchInputEvent ev;
@@ -1415,13 +1423,9 @@ void PluginGeometryHostImpl::endSketchInput(IPluginDocument* doc)
 {
 	(void)doc;
 	cloudsim::host::DocumentHost* page = m_sketchInputDoc ? pageFromDoc(m_sketchInputDoc) : pageFromDoc(doc);
-	if (!page && m_host)
-	{
-		// 兜底：清掉任意活动视口 handler
-	}
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (osg)
-		osg->clearSketchPlaneInputHandler();
+	IViewportOverlay* overlay = page ? page->overlay() : nullptr;
+	if (overlay)
+		overlay->clearSketchPlaneInputHandler();
 	m_sketchInputDoc = nullptr;
 	m_sketchInputPlane = {};
 }
@@ -1484,8 +1488,10 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 	endSketchInput(doc);
 	clearSketchSupportPlanePick();
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportPickObserve* pick = page ? page->pickObserve() : nullptr;
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	IViewportOverlay* overlay = page ? page->overlay() : nullptr;
+	if (!pick || !ops || !overlay)
 	{
 		onFinished(false, QStringLiteral("3D viewport unavailable"), PluginOriginPlaneKind::XY, {}, QString());
 		return;
@@ -1493,25 +1499,25 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 
 	const auto extrasPtr = std::make_shared<std::vector<PluginSupportPlaneCandidate>>(extras);
 	{
-		std::vector<IOsgWidgetView::SketchSupportExtraPlane> osgExtras;
-		osgExtras.reserve(extrasPtr->size());
+		std::vector<IViewportOverlay::SketchSupportExtraPlane> extraPlanes;
+		extraPlanes.reserve(extrasPtr->size());
 		for (const PluginSupportPlaneCandidate& c : *extrasPtr)
 		{
-			IOsgWidgetView::SketchSupportExtraPlane e;
+			IViewportOverlay::SketchSupportExtraPlane e;
 			e.origin = osg::Vec3d(c.plane.origin.x, c.plane.origin.y, c.plane.origin.z);
 			e.axisX = osg::Vec3d(c.plane.axisX.x, c.plane.axisX.y, c.plane.axisX.z);
 			e.axisY = osg::Vec3d(c.plane.axisY.x, c.plane.axisY.y, c.plane.axisY.z);
 			e.normal = osg::Vec3d(c.plane.normal.x, c.plane.normal.y, c.plane.normal.z);
 			e.halfMm = c.halfExtentMm > 1.f ? c.halfExtentMm : 40.f;
-			osgExtras.push_back(e);
+			extraPlanes.push_back(e);
 		}
-		osg->setSketchSupportExtraPlanes(std::move(osgExtras));
+		overlay->setSketchSupportExtraPlanes(std::move(extraPlanes));
 	}
 
 	const auto sessionDone = std::make_shared<bool>(false);
 	m_supportPlanePickDone = sessionDone;
 
-	const auto finishPlane = [sessionDone, this, osg, onFinished, extrasPtr](bool ok, int planeIndex)
+	const auto finishPlane = [sessionDone, this, pick, overlay, onFinished, extrasPtr](bool ok, int planeIndex)
 	{
 		if (*sessionDone)
 			return;
@@ -1521,12 +1527,13 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 			QObject::disconnect(m_supportPlaneFaceConn);
 			m_supportPlaneFaceConn = {};
 		}
-		if (osg)
+		if (pick)
 		{
-			osg->setMeshLinePickMode(false);
-			osg->setMeshFacePickMode(false);
-			osg->clearSketchSupportExtraPlanes();
+			pick->setMeshLinePickMode(false);
+			pick->setMeshFacePickMode(false);
 		}
+		if (overlay)
+			overlay->clearSketchSupportExtraPlanes();
 		m_supportPlanePickDone.reset();
 		if (!ok || planeIndex < 0)
 		{
@@ -1555,20 +1562,20 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 				   QStringLiteral("origin:%1").arg(planeIndex));
 	};
 
-	osg->setSelectionActive(true);
-	osg->setMeshLinePickMode(false);
-	osg->setMeshFacePickMode(true);
-	m_supportPlaneFaceConn = osg->observeMeshPickCommitted(
+	pick->setSelectionActive(true);
+	pick->setMeshLinePickMode(false);
+	pick->setMeshFacePickMode(true);
+	m_supportPlaneFaceConn = pick->observeMeshPickCommitted(
 		m_host,
-		[sessionDone, this, osg, page, doc, onFinished, extrasPtr](PickResult pick, int pickKindInt)
+		[sessionDone, this, pick, ops, overlay, page, doc, onFinished, extrasPtr](PickResult pickResult, int pickKindInt)
 		{
-			if (*sessionDone || !pick.hit)
+			if (*sessionDone || !pickResult.hit)
 				return;
 			if (static_cast<PickKind>(pickKindInt) != PickKind::MeshFace)
 				return;
 
-			const QPoint mp = osg->lastMousePos();
-			const int resolved = osg->resolveSketchSupportOriginIndex(mp.x(), mp.y());
+			const QPoint mp = overlay->lastMousePos();
+			const int resolved = overlay->resolveSketchSupportOriginIndex(mp.x(), mp.y());
 			if (resolved >= 100)
 			{
 				const int extraIdx = resolved - 100;
@@ -1581,17 +1588,17 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 					m_supportPlaneFaceConn = {};
 				}
 				m_supportPlanePickDone.reset();
-				osg->setMeshLinePickMode(false);
-				osg->setMeshFacePickMode(false);
-				osg->cancelOriginPlaneSelection();
+				pick->setMeshLinePickMode(false);
+				pick->setMeshFacePickMode(false);
+				overlay->cancelOriginPlaneSelection();
 				const PluginSupportPlaneCandidate& c = (*extrasPtr)[static_cast<std::size_t>(extraIdx)];
-				osg->setCameraViewDirection(osg::Vec3d(c.plane.normal.x, c.plane.normal.y, c.plane.normal.z),
+				ops->setCameraViewDirection(osg::Vec3d(c.plane.normal.x, c.plane.normal.y, c.plane.normal.z),
 											osg::Vec3d(c.plane.axisY.x, c.plane.axisY.y, c.plane.axisY.z));
 				onFinished(true, QString(), PluginOriginPlaneKind::XY, c.plane, QString::fromStdString(c.tagUtf8));
 				return;
 			}
 
-			const std::string backendId = pick.backendId;
+			const std::string backendId = pickResult.backendId;
 			if (backendId.empty())
 				return;
 
@@ -1600,15 +1607,15 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 			outRef.backendIdUtf8 = backendId;
 			outRef.stepPathUtf8 = stepPath.toStdString();
 
-			if (pick.brepNativePick && pick.brepFaceIndex >= 0)
+			if (pickResult.brepNativePick && pickResult.brepFaceIndex >= 0)
 			{
-				outRef.faceIndex = pick.brepFaceIndex;
+				outRef.faceIndex = pickResult.brepFaceIndex;
 			}
 			else
 			{
 				geoalgo::Point3d modelA{};
 				std::string err;
-				if (!worldPointToStepModelMm(osg, backendId, pick.worldPoint, modelA, &err))
+				if (!worldPointToStepModelMm(ops, backendId, pickResult.worldPoint, modelA, &err))
 					return;
 				const bool stepFile = isStepPath(stepPath);
 				if (!stepFile)
@@ -1630,7 +1637,7 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 					geometry_backend_ops::WorkpieceShapeSource::Unavailable)
 					return;
 				geoalgo::FeatureEntry entry;
-				const int knownFaceIndex = pick.brepNativePick ? pick.brepFaceIndex : -1;
+				const int knownFaceIndex = pickResult.brepNativePick ? pickResult.brepFaceIndex : -1;
 				if (!geometry_backend_ops::buildFeatureEntryFromModelPick(wp, shape, "FaceBoundary", true, modelA,
 																		  modelA, entry, &err, knownFaceIndex, -1))
 					return;
@@ -1655,12 +1662,12 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 				m_supportPlaneFaceConn = {};
 			}
 			m_supportPlanePickDone.reset();
-			if (osg)
+			if (pick && overlay && ops)
 			{
-				osg->setMeshLinePickMode(false);
-				osg->setMeshFacePickMode(false);
-				osg->cancelOriginPlaneSelection();
-				osg->setCameraViewDirection(osg::Vec3d(plane.normal.x, plane.normal.y, plane.normal.z),
+				pick->setMeshLinePickMode(false);
+				pick->setMeshFacePickMode(false);
+				overlay->cancelOriginPlaneSelection();
+				ops->setCameraViewDirection(osg::Vec3d(plane.normal.x, plane.normal.y, plane.normal.z),
 											osg::Vec3d(plane.axisY.x, plane.axisY.y, plane.axisY.z));
 			}
 			// tag 编码面源，供等距基准面写关联
@@ -1669,7 +1676,7 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 			onFinished(true, QString(), PluginOriginPlaneKind::XY, plane, faceTag);
 		});
 
-	osg->beginOriginPlaneSelection(finishPlane);
+	overlay->beginOriginPlaneSelection(finishPlane);
 }
 
 void PluginGeometryHostImpl::cancelOriginSketchPlanePick(IPluginDocument* doc)
@@ -1678,13 +1685,15 @@ void PluginGeometryHostImpl::cancelOriginSketchPlanePick(IPluginDocument* doc)
 		*m_supportPlanePickDone = true;
 	clearSketchSupportPlanePick();
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (osg)
+	IViewportPickObserve* pick = page ? page->pickObserve() : nullptr;
+	IViewportOverlay* overlay = page ? page->overlay() : nullptr;
+	if (pick)
 	{
-		osg->setMeshLinePickMode(false);
-		osg->setMeshFacePickMode(false);
-		osg->cancelOriginPlaneSelection();
+		pick->setMeshLinePickMode(false);
+		pick->setMeshFacePickMode(false);
 	}
+	if (overlay)
+		overlay->cancelOriginPlaneSelection();
 }
 
 void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const std::vector<float>& closedPolylineXyzMm,
@@ -1692,11 +1701,11 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 												  const PluginSketchExtrudeParams& params)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg || closedPolylineXyzMm.size() < 12)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops || closedPolylineXyzMm.size() < 12)
 	{
-		if (osg)
-			osg->clearStagingGeometry();
+		if (ops)
+			ops->clearStagingGeometry();
 		return;
 	}
 
@@ -1763,7 +1772,7 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 	std::string err;
 	if (!geoalgo::sketchExtrudePolylineToHandle(closedPolylineXyzMm, ep, basePtr, result, &err) || result.isNull())
 	{
-		osg->clearStagingGeometry();
+		ops->clearStagingGeometry();
 		return;
 	}
 
@@ -1773,21 +1782,21 @@ void PluginGeometryHostImpl::previewSketchExtrude(IPluginDocument* doc, const st
 	geoalgo::MeshDiscretizeReport report;
 	if (!geoalgo::discretizeShapeHandleToMesh(result, meshParams, soup, report, &err) || soup.size() < 9)
 	{
-		osg->clearStagingGeometry();
+		ops->clearStagingGeometry();
 		return;
 	}
 
 	const osg::Vec4 rgba = (params.mode == PluginSketchExtrudeMode::Pocket) ? osg::Vec4(0.95f, 0.45f, 0.25f, 0.35f)
 																			: osg::Vec4(0.20f, 0.75f, 0.85f, 0.35f);
-	osg->setStagingMeshPreview(soup, rgba);
+	ops->setStagingMeshPreview(soup, rgba);
 }
 
 void PluginGeometryHostImpl::clearSketchExtrudePreview(IPluginDocument* doc)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (osg)
-		osg->clearStagingGeometry();
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (ops)
+		ops->clearStagingGeometry();
 }
 
 void PluginGeometryHostImpl::extrudeSketchProfileToBrep(IPluginDocument* doc,
@@ -2065,9 +2074,9 @@ bool PluginGeometryHostImpl::previewSketchSweep(IPluginDocument* doc, const std:
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
+		IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+		if (ops)
+			ops->clearStagingGeometry();
 		if (errOut)
 			*errOut = msg;
 		if (m_host && !msg.isEmpty())
@@ -2076,8 +2085,8 @@ bool PluginGeometryHostImpl::previewSketchSweep(IPluginDocument* doc, const std:
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return fail(QStringLiteral("No viewport"));
 	if (profilePolylineXyzMm.size() < 12)
 		return fail(QStringLiteral("Sweep profile too short"));
@@ -2148,7 +2157,7 @@ bool PluginGeometryHostImpl::previewSketchSweep(IPluginDocument* doc, const std:
 
 	const osg::Vec4 rgba = (params.mode == PluginSketchSweepMode::Cut) ? osg::Vec4(0.95f, 0.45f, 0.25f, 0.35f)
 																	   : osg::Vec4(0.35f, 0.65f, 0.95f, 0.35f);
-	osg->setStagingMeshPreview(soup, rgba);
+	ops->setStagingMeshPreview(soup, rgba);
 	return true;
 }
 
@@ -2290,9 +2299,9 @@ bool PluginGeometryHostImpl::previewFilletEdges(IPluginDocument* doc, const Plug
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
+		IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+		if (ops)
+			ops->clearStagingGeometry();
 		if (errOut)
 			*errOut = msg;
 		if (m_host && !msg.isEmpty())
@@ -2301,8 +2310,8 @@ bool PluginGeometryHostImpl::previewFilletEdges(IPluginDocument* doc, const Plug
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return fail(QStringLiteral("No viewport"));
 	if (params.edgeIndices.empty())
 		return fail(QStringLiteral("No edges selected"));
@@ -2319,7 +2328,7 @@ bool PluginGeometryHostImpl::previewFilletEdges(IPluginDocument* doc, const Plug
 		return fail(QString::fromStdString(err.empty() ? "Fillet failed" : err));
 
 	const osg::Vec4 rgba(0.45f, 0.85f, 0.55f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut) ? true
+	return previewShapeStaging(ops, result, rgba, errOut) ? true
 														  : fail(errOut ? *errOut : QStringLiteral("preview failed"));
 }
 
@@ -2393,9 +2402,9 @@ bool PluginGeometryHostImpl::previewChamferEdges(IPluginDocument* doc, const Plu
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
+		IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+		if (ops)
+			ops->clearStagingGeometry();
 		if (errOut)
 			*errOut = msg;
 		if (m_host && !msg.isEmpty())
@@ -2404,8 +2413,8 @@ bool PluginGeometryHostImpl::previewChamferEdges(IPluginDocument* doc, const Plu
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return fail(QStringLiteral("No viewport"));
 	if (params.edgeIndices.empty())
 		return fail(QStringLiteral("No edges selected"));
@@ -2422,7 +2431,7 @@ bool PluginGeometryHostImpl::previewChamferEdges(IPluginDocument* doc, const Plu
 		return fail(QString::fromStdString(err.empty() ? "Chamfer failed" : err));
 
 	const osg::Vec4 rgba(0.85f, 0.75f, 0.35f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut) ? true
+	return previewShapeStaging(ops, result, rgba, errOut) ? true
 														  : fail(errOut ? *errOut : QStringLiteral("preview failed"));
 }
 
@@ -2496,9 +2505,9 @@ bool PluginGeometryHostImpl::previewSketchRevolve(IPluginDocument* doc, const st
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
+		IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+		if (ops)
+			ops->clearStagingGeometry();
 		if (errOut)
 			*errOut = msg;
 		if (m_host && !msg.isEmpty())
@@ -2507,8 +2516,8 @@ bool PluginGeometryHostImpl::previewSketchRevolve(IPluginDocument* doc, const st
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return fail(QStringLiteral("No viewport"));
 	if (profilePolylineXyzMm.size() < 12)
 		return fail(QStringLiteral("Revolve profile too short"));
@@ -2545,7 +2554,7 @@ bool PluginGeometryHostImpl::previewSketchRevolve(IPluginDocument* doc, const st
 		return fail(QString::fromStdString(err.empty() ? "Revolve failed" : err));
 
 	const osg::Vec4 rgba = cut ? osg::Vec4(0.95f, 0.45f, 0.25f, 0.35f) : osg::Vec4(0.35f, 0.65f, 0.95f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut) ? true
+	return previewShapeStaging(ops, result, rgba, errOut) ? true
 														  : fail(errOut ? *errOut : QStringLiteral("preview failed"));
 }
 
@@ -2624,8 +2633,8 @@ bool PluginGeometryHostImpl::previewLinearPattern(IPluginDocument* doc, const Pl
 												  QString* errOut)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"), QStringLiteral("No viewport"),
 								   errOut);
 	if (params.count < 2)
@@ -2657,7 +2666,7 @@ bool PluginGeometryHostImpl::previewLinearPattern(IPluginDocument* doc, const Pl
 								   QString::fromStdString(err.empty() ? "LinearPattern failed" : err), errOut);
 
 	const osg::Vec4 rgba(0.55f, 0.55f, 0.95f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut)
+	return previewShapeStaging(ops, result, rgba, errOut)
 			   ? true
 			   : clearStagingAndWarn(m_host, doc, QStringLiteral("LinearPattern preview"),
 									 errOut ? *errOut : QStringLiteral("preview failed"), errOut);
@@ -2702,8 +2711,8 @@ bool PluginGeometryHostImpl::previewCircularPattern(IPluginDocument* doc,
 													const PluginSketchCircularPatternParams& params, QString* errOut)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"),
 								   QStringLiteral("No viewport"), errOut);
 	if (params.count < 2)
@@ -2739,7 +2748,7 @@ bool PluginGeometryHostImpl::previewCircularPattern(IPluginDocument* doc,
 								   QString::fromStdString(err.empty() ? "CircularPattern failed" : err), errOut);
 
 	const osg::Vec4 rgba(0.55f, 0.75f, 0.95f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut)
+	return previewShapeStaging(ops, result, rgba, errOut)
 			   ? true
 			   : clearStagingAndWarn(m_host, doc, QStringLiteral("CircularPattern preview"),
 									 errOut ? *errOut : QStringLiteral("preview failed"), errOut);
@@ -2787,9 +2796,9 @@ bool PluginGeometryHostImpl::previewMirror3d(IPluginDocument* doc, const PluginS
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
+		IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+		if (ops)
+			ops->clearStagingGeometry();
 		if (errOut)
 			*errOut = msg;
 		if (m_host && !msg.isEmpty())
@@ -2798,8 +2807,8 @@ bool PluginGeometryHostImpl::previewMirror3d(IPluginDocument* doc, const PluginS
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return fail(QStringLiteral("No viewport"));
 
 	QString bodyErr;
@@ -2822,7 +2831,7 @@ bool PluginGeometryHostImpl::previewMirror3d(IPluginDocument* doc, const PluginS
 		return fail(QString::fromStdString(err.empty() ? "Mirror3D failed" : err));
 
 	const osg::Vec4 rgba(0.75f, 0.45f, 0.95f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut) ? true
+	return previewShapeStaging(ops, result, rgba, errOut) ? true
 														  : fail(errOut ? *errOut : QStringLiteral("preview failed"));
 }
 
@@ -2862,9 +2871,9 @@ bool PluginGeometryHostImpl::previewSketchLoft(IPluginDocument* doc, const std::
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
+		IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+		if (ops)
+			ops->clearStagingGeometry();
 		if (errOut)
 			*errOut = msg;
 		if (m_host && !msg.isEmpty())
@@ -2873,8 +2882,8 @@ bool PluginGeometryHostImpl::previewSketchLoft(IPluginDocument* doc, const std::
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return fail(QStringLiteral("No viewport"));
 	if (profilePolylineAXyzMm.size() < 12 || profilePolylineBXyzMm.size() < 12)
 		return fail(QStringLiteral("Loft profiles too short"));
@@ -2906,7 +2915,7 @@ bool PluginGeometryHostImpl::previewSketchLoft(IPluginDocument* doc, const std::
 		return fail(QString::fromStdString(err.empty() ? "Loft failed" : err));
 
 	const osg::Vec4 rgba = cut ? osg::Vec4(0.95f, 0.45f, 0.25f, 0.35f) : osg::Vec4(0.35f, 0.65f, 0.95f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut) ? true
+	return previewShapeStaging(ops, result, rgba, errOut) ? true
 														  : fail(errOut ? *errOut : QStringLiteral("preview failed"));
 }
 
@@ -3000,9 +3009,9 @@ bool PluginGeometryHostImpl::previewShellFaces(IPluginDocument* doc, const Plugi
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
+		IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+		if (ops)
+			ops->clearStagingGeometry();
 		if (errOut)
 			*errOut = msg;
 		if (m_host && !msg.isEmpty())
@@ -3011,8 +3020,8 @@ bool PluginGeometryHostImpl::previewShellFaces(IPluginDocument* doc, const Plugi
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return fail(QStringLiteral("No viewport"));
 	if (params.faceIndices.empty())
 		return fail(QStringLiteral("No faces selected"));
@@ -3029,7 +3038,7 @@ bool PluginGeometryHostImpl::previewShellFaces(IPluginDocument* doc, const Plugi
 		return fail(QString::fromStdString(err.empty() ? "Shell failed" : err));
 
 	const osg::Vec4 rgba(0.95f, 0.55f, 0.35f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut) ? true
+	return previewShapeStaging(ops, result, rgba, errOut) ? true
 														  : fail(errOut ? *errOut : QStringLiteral("preview failed"));
 }
 
@@ -3073,9 +3082,9 @@ bool PluginGeometryHostImpl::previewDraftFaces(IPluginDocument* doc, const Plugi
 	auto fail = [&](const QString& msg) -> bool
 	{
 		cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-		IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-		if (osg)
-			osg->clearStagingGeometry();
+		IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+		if (ops)
+			ops->clearStagingGeometry();
 		if (errOut)
 			*errOut = msg;
 		if (m_host && !msg.isEmpty())
@@ -3084,8 +3093,8 @@ bool PluginGeometryHostImpl::previewDraftFaces(IPluginDocument* doc, const Plugi
 	};
 
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportSceneOps* ops = page ? page->sceneOps() : nullptr;
+	if (!ops)
 		return fail(QStringLiteral("No viewport"));
 	if (params.faceIndices.empty())
 		return fail(QStringLiteral("No faces selected"));
@@ -3112,7 +3121,7 @@ bool PluginGeometryHostImpl::previewDraftFaces(IPluginDocument* doc, const Plugi
 		return fail(QString::fromStdString(err.empty() ? "Draft failed" : err));
 
 	const osg::Vec4 rgba(0.55f, 0.75f, 0.95f, 0.35f);
-	return previewShapeStaging(osg, result, rgba, errOut) ? true
+	return previewShapeStaging(ops, result, rgba, errOut) ? true
 														  : fail(errOut ? *errOut : QStringLiteral("preview failed"));
 }
 
@@ -3423,9 +3432,9 @@ void PluginGeometryHostImpl::setOriginReferenceVisibility(IPluginDocument* doc,
 														  const PluginOriginReferenceVisibility& visibility)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
-	IOsgWidgetView* osg = page ? widgetOsgFromPage(page) : nullptr;
-	if (!osg)
+	IViewportOverlay* overlay = page ? page->overlay() : nullptr;
+	if (!overlay)
 		return;
-	osg->setOriginReferenceVisibility(visibility.originPoint, visibility.planeXY, visibility.planeXZ,
+	overlay->setOriginReferenceVisibility(visibility.originPoint, visibility.planeXY, visibility.planeXZ,
 									  visibility.planeYZ);
 }

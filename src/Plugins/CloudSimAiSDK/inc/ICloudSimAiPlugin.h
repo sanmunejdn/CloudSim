@@ -29,7 +29,7 @@ public:
 };
 
 /// 版本进 IID（单一字面量供 moc）；bump 时与 CLOUDSIM_AI_SDK_VERSION_STR 同步并 Rebuild AI 插件
-#define CloudSimAiPlugin_iid "com.cloudsim.ICloudSimAiPlugin/1.0.0x00013800"
+#define CloudSimAiPlugin_iid "com.cloudsim.ICloudSimAiPlugin/1.0.0x00013A00"
 Q_DECLARE_INTERFACE(ICloudSimAiPlugin, CloudSimAiPlugin_iid)
 
 #endif // CLOUDSIMAISDK_ICLOUDSIMAIPLUGIN_H

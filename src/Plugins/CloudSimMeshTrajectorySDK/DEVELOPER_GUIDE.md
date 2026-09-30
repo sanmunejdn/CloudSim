@@ -4,6 +4,8 @@
 
 ## 定位
 
+**UI 内部库**（`RobotWidget` / `MeshTrajectoryPageWidget`），不属于插件 ABI；插件需 mesh 轨迹能力时走 `IPluginHostContext` 域 host 接口，禁止直链本 DLL。
+
 `CloudSimMeshTrajectorySDK.dll` 提供 **无 Qt 依赖** 的 mesh 轨迹会话：三角 soup 快照、区域选择缓冲、参数 POD、调用 `geoalgo::generateMeshTrajectory`。
 
 视口交互、实时预览与 PathPlan 挂接由宿主 `RobotWidget`（`MeshTrajectoryPageWidget`）经 `IRobotOsgViewHost` / `IRobotMainWindowHost` 完成。

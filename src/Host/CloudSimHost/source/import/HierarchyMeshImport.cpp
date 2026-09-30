@@ -14,7 +14,7 @@
 #include "GeometryFileImporterRegistry.h"
 #include "IGeometryFileImporter.h"
 #include "MeshBackendData.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "Types.h"
 
 #include <QByteArray>
@@ -344,13 +344,13 @@ bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const
 
 	osg::Matrixd world;
 	bool haveWorld = false;
-	if (IOsgWidgetView* osg = osgWidgetFrom(host))
+	if (IViewportSceneOps* osg = host.sceneOps())
 	{
 		haveWorld = osg->getBackendRootWorldMatrix(brepId, world);
 	}
 	const BackendMat4 parentWorld = brep->worldMatrix();
 	brep->setShape(remaining);
-	if (IOsgWidgetView* osg = osgWidgetFrom(host))
+	if (IViewportSceneOps* osg = host.sceneOps())
 	{
 		QString visErr;
 		if (!osg->loadBackendFromBackendData(*brep, &visErr, false, false, true))
@@ -383,7 +383,7 @@ bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const
 	}
 	if (haveWorld)
 	{
-		if (IOsgWidgetView* osg = osgWidgetFrom(host))
+		if (IViewportSceneOps* osg = host.sceneOps())
 		{
 			osg->setBackendRootWorldMatrixFromWorld(partBrep->id(), world);
 		}

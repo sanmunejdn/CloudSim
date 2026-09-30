@@ -1,5 +1,5 @@
-﻿#ifndef WIDGET_SELECTIONOPERATION_H
-#define WIDGET_SELECTIONOPERATION_H
+﻿#ifndef CLOUDSIMHOST_SELECTIONOPERATION_H
+#define CLOUDSIMHOST_SELECTIONOPERATION_H
 
 /// @file SelectionOperation.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
@@ -9,20 +9,18 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
+#include "ViewportInteraction/IViewportInteractionHost.h"
+
 class QObject;
-class OsgWidget;
 
 /// 选择交互基类：在 OsgWidget 的 eventFilter 中统一接收 Qt 事件，
 /// 内部分发到 onMouseMove / onMouseButtonPress 等虚函数，子类只实现具体模式逻辑。
 class SelectionOperation
 {
 public:
-	explicit SelectionOperation(OsgWidget* owner) : m_owner(owner) {}
+	explicit SelectionOperation(IViewportInteractionHost* host) : m_host(host) {}
 	virtual ~SelectionOperation() = default;
 
-	// 统一事件分发：
-	// - 子类只实现下方 hook
-	// - 接口稳定，OsgWidget 统一调用
 	virtual bool handleEvent(QObject* watched, QEvent* event)
 	{
 		if (!event)
@@ -52,8 +50,6 @@ public:
 	}
 
 protected:
-	// 当前是否消费该事件
-	// 取决于模式标志与事件目标控件
 	virtual bool canHandle(QObject* watched, QEvent* event) const
 	{
 		(void)watched;
@@ -61,7 +57,6 @@ protected:
 		return false;
 	}
 
-	// Hook 默认空实现（不消费）
 	virtual bool onMouseMove(QMouseEvent* e)
 	{
 		(void)e;
@@ -88,7 +83,9 @@ protected:
 		return false;
 	}
 
-	OsgWidget* m_owner = nullptr;
+	IViewportInteractionHost* host() const { return m_host; }
+
+	IViewportInteractionHost* m_host = nullptr;
 };
 
-#endif // WIDGET_SELECTIONOPERATION_H
+#endif // CLOUDSIMHOST_SELECTIONOPERATION_H

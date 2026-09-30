@@ -47,16 +47,8 @@ public:
 		processInstanceSlot() = registry;
 	}
 
-	// 兼容期入口：优先 setProcessInstance，否则静态兜底（Data.dll 无法访问宿主上下文）
-	static BackendComponentCodecRegistry& instance()
-	{
-		if (BackendComponentCodecRegistry* overrideInstance = processInstanceSlot())
-		{
-			return *overrideInstance;
-		}
-		static BackendComponentCodecRegistry fallback;
-		return fallback;
-	}
+	/// 业务路径须先 setProcessInstance（组合根）
+	static BackendComponentCodecRegistry& instance();
 
 	void registerCodec(const std::string& type, Writer writer, Reader reader)
 	{

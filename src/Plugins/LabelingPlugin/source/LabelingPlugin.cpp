@@ -45,8 +45,7 @@ bool LabelingPlugin::initialize(IPluginHostContext* host)
 		host->logError(QStringLiteral("LabelingPlugin: narrow context unavailable"));
 		return false;
 	}
-	// labelingHost 暂无独立窄上下文，仍走聚合
-	if (!host->labelingHost())
+	if (!docCtx->labelingHost())
 	{
 		host->logError(host->useChinese() ? QStringLiteral("标注宿主 API 不可用")
 										  : QStringLiteral("Labeling host API unavailable"));

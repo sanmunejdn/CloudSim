@@ -4,7 +4,7 @@
 #include "MeshTriangleSelectionUtil.h"
 
 #include "IRobotDocumentHost.h"
-#include "IRobotOsgViewHost.h"
+#include "IRobotOsgSceneOps.h"
 #include "RobotSimulationMath.h"
 
 #include <QVector>
@@ -17,7 +17,7 @@
 
 namespace mesh_triangle_selection
 {
-bool collectTrianglesByPolyline(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, const std::string& backendIdUtf8,
+bool collectTrianglesByPolyline(IRobotDocumentHost* doc, IRobotOsgSceneOps* osg, const std::string& backendIdUtf8,
 								const QVector<float>& polylineScreenXy, const QVector<double>& mvpMatrix,
 								const int viewportWidth, const int viewportHeight, std::vector<int>& outTriangleIndices,
 								std::string* errMsg)
@@ -77,7 +77,7 @@ bool collectTrianglesByPolyline(IRobotDocumentHost* doc, IRobotOsgViewHost* osg,
 		*mesh, poly, mvp, modelToWorld, viewportWidth, viewportHeight, true, outTriangleIndices, errMsg);
 }
 
-void selectedTrianglesToWorldVerts(const MeshBackendData& mesh, IRobotOsgViewHost* osg,
+void selectedTrianglesToWorldVerts(const MeshBackendData& mesh, IRobotOsgSceneOps* osg,
 								   const std::string& backendIdUtf8, const std::vector<int>& triangleIndices,
 								   std::vector<cloudsim::core::Vec3>& outVertsWorld)
 {
@@ -115,7 +115,7 @@ void selectedTrianglesToWorldVerts(const MeshBackendData& mesh, IRobotOsgViewHos
 	}
 }
 
-void triangleSoupModelToWorldVerts(IRobotOsgViewHost* osg, const std::string& backendIdUtf8,
+void triangleSoupModelToWorldVerts(IRobotOsgSceneOps* osg, const std::string& backendIdUtf8,
 								   const std::vector<float>& triangleSoupModel,
 								   std::vector<cloudsim::core::Vec3>& outVertsWorld)
 {

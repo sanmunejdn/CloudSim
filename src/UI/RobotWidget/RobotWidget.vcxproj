@@ -93,6 +93,10 @@
     <ClInclude Include="inc\RobotProjectIoAdapter.h" />
     <ClInclude Include="inc\RobotUrdfImportCoordinator.h" />
     <ClInclude Include="inc\IRobotOsgViewHost.h" />
+    <ClInclude Include="inc\IRobotOsgSceneOps.h" />
+    <ClInclude Include="inc\IRobotOsgPick.h" />
+    <ClInclude Include="inc\IRobotOsgOverlay.h" />
+    <ClInclude Include="inc\IRobotOsgTeach.h" />
     <ClInclude Include="inc\MeshTriangleSelectionUtil.h" />
     <ClInclude Include="inc\TrajectoryGeometryResolverHost.h" />
     <ClInclude Include="inc\RobotSimulationMath.h" />

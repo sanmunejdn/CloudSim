@@ -55,6 +55,7 @@ FlavorOsgViewportMount mountFlavorOsgViewport(DocumentHost& host, QVBoxLayout& c
 	centralLayout.addWidget(osg);
 	out.osgWidget = osg;
 	out.osgView = osg;
+	out.viewportSceneSignals = osg;
 	out.osgPane = osg;
 	out.renderView = wrapFlavorOsgWidget(*osg, host);
 	return out;

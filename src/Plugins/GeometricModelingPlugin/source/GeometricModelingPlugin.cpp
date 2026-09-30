@@ -2851,7 +2851,7 @@ void GeometricModelingPlugin::onImportHistoryNew()
 void GeometricModelingPlugin::onRunComposeFile()
 {
 	IPluginDocument* doc = (m_host && m_host->documentContext()) ? m_host->documentContext()->activeDocument() : nullptr;
-	IAiAssistantHost* ai = m_host ? m_host->aiAssistantHost() : nullptr;
+	IAiAssistantHost* ai = (m_host && m_host->aiContext()) ? m_host->aiContext()->aiAssistantHost() : nullptr;
 	if (!doc || !ai)
 	{
 		hostLogWarn(

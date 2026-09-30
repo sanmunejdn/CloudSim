@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{D4E5F6A7-B8C9-0123-DEF0-4567890ABCDE}</ProjectGuid>
+    <RootNamespace>CloudSimHostDesktopViewport</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <Keyword>QtVS_v304</Keyword>
+    <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\..\..\UI\Widget\QtMsBuild</QtMsBuild>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(QtMsBuild)\qt_defaults.props" Condition="Exists('$(QtMsBuild)\qt_defaults.props')" />
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <QtModules>core;network;opengl;gui;widgets</QtModules>
+    <QtInstall>5.14.2_msvc2017_64</QtInstall>
+    <QtBuildConfig>release</QtBuildConfig>
+  </PropertyGroup>
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <QtModules>core;network;opengl;gui;widgets</QtModules>
+    <QtInstall>5.14.2_msvc2017_64</QtInstall>
+  </PropertyGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" />
+    <Import Project="$(QtMsBuild)\Qt.props" Condition="Exists('$(QtMsBuild)\Qt.props')" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" />
+    <Import Project="$(QtMsBuild)\Qt.props" Condition="Exists('$(QtMsBuild)\Qt.props')" />
+  </ImportGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)CloudSimHostDesktopViewport\</IntDir>
+    <TargetName>CloudSimHostDesktopViewport</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)CloudSimHostDesktopViewport\</IntDir>
+    <TargetName>CloudSimHostDesktopViewport</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
+      <PreprocessorDefinitions>CLOUDSIM_VIEWPORT_LIB;CLOUDSIM_HOST_STATIC;CLOUDSIM_OSG_IN_HOST;WIDGET_LIB;AIBACKEND_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>inc;inc\import;inc\project;inc\robot;inc\headless;inc\follow;inc\adapters;inc\io;../../App/CloudSimBootstrap/inc;inc/osg;inc/pluginhost;inc/pluginhost/Ai;../../UI/Widget/inc;../../Contracts/CloudSimCore/inc;../../Contracts/KinematicCore/inc;../../UI/OsgWidgetCore/inc;../../UI/BackendVisual/inc;../../UI/RobotWidget/inc;../../Plugins/CloudSimPluginSDK/inc;../../Plugins/CloudSimAiSDK/inc;../../Plugins/ProcessFlowPlugin/inc;../../Data/Data/inc;../../Data/PropertyCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotKinematics/inc;../../Robot/TrajectoryAlgorithm/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/GeometryServices/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <QtMoc>
+      <PreprocessorDefinitions>CLOUDSIM_VIEWPORT_LIB;CLOUDSIM_OSG_IN_HOST;WIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </QtMoc>
+    <Link>
+      <AdditionalDependencies>CloudSimHostCore.lib;CloudSimCore.lib;CloudSimPluginSDK.lib;CloudSimAiSDK.lib;winhttp.lib;OsgWidgetCore.lib;BackendVisual.lib;Data.lib;RunLogger.lib;GeometryEngine.lib;GeometryAlgorithm.lib;GeometryServices.lib;RobotScene.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>CLOUDSIM_VIEWPORT_LIB;CLOUDSIM_HOST_STATIC;CLOUDSIM_OSG_IN_HOST;WIDGET_LIB;AIBACKEND_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>inc;inc\import;inc\project;inc\robot;inc\headless;inc\follow;inc\adapters;inc\io;../../App/CloudSimBootstrap/inc;inc/osg;inc/pluginhost;inc/pluginhost/Ai;../../UI/Widget/inc;../../Contracts/CloudSimCore/inc;../../Contracts/KinematicCore/inc;../../UI/OsgWidgetCore/inc;../../UI/BackendVisual/inc;../../UI/RobotWidget/inc;../../Plugins/CloudSimPluginSDK/inc;../../Plugins/CloudSimAiSDK/inc;../../Plugins/ProcessFlowPlugin/inc;../../Data/Data/inc;../../Data/PropertyCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotKinematics/inc;../../Robot/TrajectoryAlgorithm/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Geometry/GeometryServices/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <QtMoc>
+      <PreprocessorDefinitions>CLOUDSIM_VIEWPORT_LIB;CLOUDSIM_OSG_IN_HOST;WIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </QtMoc>
+    <Link>
+      <AdditionalDependencies>CloudSimHostCore.lib;CloudSimCore.lib;CloudSimPluginSDK.lib;CloudSimAiSDK.lib;winhttp.lib;OsgWidgetCore.lib;BackendVisual.lib;Data.lib;RunLogger.lib;GeometryEngine.lib;GeometryAlgorithm.lib;GeometryServices.lib;RobotScene.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\cloudsim_viewport_global.h" />
+    <ClInclude Include="inc\pluginhost\PluginPropertyBindingSelfTest.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="source\adapters\OsgRenderViewAdapter.cpp" />
+    <ClCompile Include="source\HostOsgFlavorHooks_Desktop.cpp" />
+    <ClCompile Include="source\pluginhost\PluginPropertyBindingSelfTest.cpp" />
+    <ClCompile Include="source\osg\GraphicsWindowQt1.cpp" />
+    <ClCompile Include="source\osg\ObjectTransformOperation.cpp" />
+    <ClCompile Include="source\osg\RobotTcpDragTeachOperation.cpp" />
+    <ClCompile Include="source\osg\MeshSectionPlaneEditOperation.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetMeshSectionPlane.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetTcpTeach.cpp" />
+    <ClCompile Include="source\osg\OsgWidget.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetViewportInteractionHost.cpp" />
+    <ClCompile Include="source\osg\ViewportInteraction\OsgWidgetPickEngine.cpp" />
+    <ClCompile Include="source\osg\ViewportInteraction\ViewportInteractionController.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetBackendLoadController.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetImportController.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetCaptureController.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetPickAnnotationController.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetColorController.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetCameraFocusController.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetGizmoController.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetSceneBridge.cpp" />
+    <ClCompile Include="source\osg\OsgWidgetTransformHierarchyController.cpp" />
+    <ClCompile Include="source\osg\SelectionOperation.cpp" />
+    <ClCompile Include="source\osg\ViewportGestureRecognizer.cpp" />
+    <ClCompile Include="source\osg\PointPickOperation.cpp" />
+    <ClCompile Include="source\osg\LabelingPickOperation.cpp" />
+    <ClCompile Include="source\osg\PolylinePickOperation.cpp" />
+    <ClCompile Include="source\osg\MeshEdgeFacePickOperation.cpp" />
+    <ClCompile Include="source\osg\QWidgetViewer.cpp" />
+    <QtMoc Include="inc\osg\OsgWidget.h">
+      <Defines>CLOUDSIM_VIEWPORT_LIB;%(Defines)</Defines>
+    </QtMoc>
+    <QtMoc Include="inc\osg\QWidgetViewer.h">
+      <Defines>CLOUDSIM_VIEWPORT_LIB;%(Defines)</Defines>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="CloudSimHostCore.vcxproj">
+      <Project>{b3c4d5e6-f7a8-9012-3456-789abcdef012}</Project>
+      <!-- 仅供生成顺序；禁止对该库做整库归档。缺 Host 导出时从 Core.lib 解析少量符号 -->
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
+      <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\UI\OsgWidgetCore\OsgWidgetCore.vcxproj">
+      <Project>{e4f5a6b7-c8d9-4e0f-1a2b-3c4d5e6f7080}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\UI\BackendVisual\BackendVisual.vcxproj">
+      <Project>{f1e2d3c4-b5a6-4789-0123-456789abcdef}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Data\Data\Data.vcxproj">
+      <Project>{50119edf-918f-4bc8-a201-7ac6f0fe82a1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryServices\GeometryServices.vcxproj">
+      <Project>{b2c3d4e5-f6a7-4890-bcde-f123456789ab}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Infra\RunLogger\RunLogger.vcxproj">
+      <Project>{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryEngine\GeometryEngine.vcxproj">
+      <Project>{d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Robot\RobotScene\RobotScene.vcxproj">
+      <Project>{b2c4d6e8-0a1f-4e3c-9d5e-7f1a2b3c4d5e}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Robot\RobotUrdf\RobotUrdf.vcxproj">
+      <Project>{7a3e9b2c-4d1f-4e8a-b5c6-1d2e3f4a5b6c}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Robot\RobotKinematics\RobotKinematics.vcxproj">
+      <Project>{8f4e2c1a-9d3b-4e7f-8a1c-2b6d4e8f0a1c}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Plugins\CloudSimPluginSDK\CloudSimPluginSDK.vcxproj">
+      <Project>{c3d4e5f6-a7b8-9012-cdef-123456789abc}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Plugins\CloudSimAiSDK\CloudSimAiSDK.vcxproj">
+      <Project>{f7a8b9c0-d1e2-3456-7890-abcdef012345}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryAlgorithm\GeometryAlgorithm.vcxproj">
+      <Project>{a1b2c3d4-e5f6-4789-abcd-ef0123456789}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />
+</Project>

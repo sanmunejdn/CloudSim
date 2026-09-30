@@ -35,6 +35,7 @@
 #include "ViewportInteraction/Policies/GizmoAxisHitPolicy.h"
 #include "ViewportInteraction/Policies/PassthroughHitPolicy.h"
 #include "ViewportInteraction/Tools/SelectionOperationToolAdapter.h"
+#include "ViewportInteraction/ViewportHit.h"
 #include "ViewportInteraction/ViewportInteractionController.h"
 
 #include <QBuffer>
@@ -1843,6 +1844,11 @@ void OsgWidget::applyViewportWireframeToAllBackends()
 			applyViewportWireframeToBackendBranch(kv.second.get());
 		}
 	}
+}
+
+QWidget* OsgWidget::viewportOverlayHostWidget() const
+{
+	return m_glWidget ? static_cast<QWidget*>(m_glWidget) : const_cast<OsgWidget*>(this);
 }
 
 void OsgWidget::setWireframeMode(bool enabled)
@@ -4279,6 +4285,20 @@ void OsgWidget::endInteractionSession(bool cancel)
 bool OsgWidget::hasInteractionSession() const
 {
 	return m_interactionController && m_interactionController->hasSession();
+}
+
+bool OsgWidget::dispatchMeshPickCommitToInteractionSession(const PickResult& pick, const int pickKindInt)
+{
+	if (!hasInteractionSession() || !m_interactionController)
+	{
+		return false;
+	}
+	ViewportHit hit;
+	hit.phase = HitPhase::Commit;
+	hit.kind = static_cast<PickKind>(pickKindInt);
+	hit.raw = pick;
+	m_interactionController->dispatchCommit(hit, HitResolveContext{});
+	return true;
 }
 
 void OsgWidget::clearImportedContent()

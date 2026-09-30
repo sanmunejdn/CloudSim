@@ -8,10 +8,13 @@
 #include "ShapeIo.h"
 #include "detail/FeatureDiscretizeInternal.h"
 
+#include <cassert>
+
 namespace geoalgo
 {
 void setFeatureDiscretizerRegistry(FeatureDiscretizerRegistry* registry)
 {
+	assert(registry != nullptr);
 	FeatureDiscretizerRegistry::setProcessInstance(registry);
 }
 

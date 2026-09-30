@@ -1,6 +1,6 @@
 # LabelingPlugin
 
-侧栏标注插件（`com.cloudsim.labeling`）。训练 POD 以 PluginSDK `PluginLabelingTypes.h` 为准；`LabelingSession` 属宿主内部引擎（`CloudSimLabelingSDK`），本插件不链接该 SDK。
+侧栏标注插件（`com.cloudsim.labeling`）。训练 POD 以 PluginSDK `PluginLabelingTypes.h` 为准；标注会话 = HostCore `LabelingSession`（`CloudSimHostCore`）；**CloudSimLabelingSDK 已物理移除**。
 
 - 构建产物：`bin/x64(d)/plugins/com.cloudsim.labeling/`
 - 训练工具：`tools/pointnet-training/`

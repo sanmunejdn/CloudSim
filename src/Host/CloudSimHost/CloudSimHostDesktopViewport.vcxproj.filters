@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{39F29BA1-0CA0-4B15-AD46-01A73F12CBEA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\osg">
+      <UniqueIdentifier>{88AD4FA1-F8C0-4CDE-9C22-821AB4788C3D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\pluginhost">
+      <UniqueIdentifier>{D0997DE9-806A-4B1A-B5B5-EB858A59356C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{5A3FD7FB-C4D4-411D-B78D-451C219FB190}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Global">
+      <UniqueIdentifier>{2F372BFD-002B-4401-80F8-72BC1E3A1337}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\adapters">
+      <UniqueIdentifier>{7ED2A256-E94D-46BA-8201-14C9F4824C84}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\osg">
+      <UniqueIdentifier>{09F4F085-E53B-498E-8F06-ED89D17050D9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pluginhost">
+      <UniqueIdentifier>{E787A3C8-FA3F-4AFA-A73C-A2E66B4CC88C}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\cloudsim_viewport_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pluginhost\PluginPropertyBindingSelfTest.h">
+      <Filter>inc\pluginhost</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\adapters\OsgRenderViewAdapter.cpp">
+      <Filter>src\adapters</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HostOsgFlavorHooks_Desktop.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\GraphicsWindowQt1.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\LabelingPickOperation.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\MeshEdgeFacePickOperation.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\MeshSectionPlaneEditOperation.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\ObjectTransformOperation.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidget.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetBackendLoadController.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetCameraFocusController.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetCaptureController.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetColorController.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetGizmoController.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetImportController.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetMeshSectionPlane.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetPickAnnotationController.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetSceneBridge.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetTcpTeach.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetTransformHierarchyController.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\OsgWidgetViewportInteractionHost.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\PointPickOperation.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\PolylinePickOperation.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\QWidgetViewer.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\RobotTcpDragTeachOperation.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\SelectionOperation.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\ViewportGestureRecognizer.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\ViewportInteraction\OsgWidgetPickEngine.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\ViewportInteraction\ViewportInteractionController.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pluginhost\PluginPropertyBindingSelfTest.cpp">
+      <Filter>src\pluginhost</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\osg\OsgWidget.h">
+      <Filter>inc\osg</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\osg\QWidgetViewer.h">
+      <Filter>inc\osg</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

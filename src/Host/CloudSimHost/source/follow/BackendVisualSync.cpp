@@ -7,9 +7,8 @@
 #include "BackendDataManager.h"
 #include "BackendPropertyVisualAspect.h"
 #include "DocumentHost.h"
-#include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "visual/VisualAspect.h"
 
 namespace cloudsim::host
@@ -45,20 +44,20 @@ bool propertyKeyCommitsPose(const QString& key)
 
 void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& data, const bool applyColor)
 {
-	IOsgWidgetView* osg = osgWidgetFrom(host);
-	if (!osg)
+	IViewportSceneOps* ops = host.sceneOps();
+	if (!ops)
 	{
 		return;
 	}
 	const std::string backendId = data.id();
-	osg->syncSelectionForBackendId(backendId);
+	ops->syncSelectionForBackendId(backendId);
 	if (applyColor)
 	{
 		host.markVisualDirty(backendId, VisualAspect::Appearance);
 		(void)host.flushVisualSync();
 		return;
 	}
-	if (!osg->hasBackendObjectBranch(backendId))
+	if (!ops->hasBackendObjectBranch(backendId))
 	{
 		return;
 	}

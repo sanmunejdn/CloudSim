@@ -84,6 +84,12 @@ public:
 	explicit BackendManagerDataService(BackendDataManager* managerOverride) : m_managerOverride(managerOverride)
 	{
 		initBackendComponentCodecs();
+		// 嵌入 C API 无 Host 注入时自持 manager，禁止再走进程单例
+		if (m_managerOverride == nullptr)
+		{
+			ensureBackendBuiltinsRegistered();
+			m_ownedManager = std::make_unique<BackendDataManager>();
+		}
 	}
 
 	bool isValid(const ObjectId& id) const override { return !id.isEmpty() && mgr().contains(id.toStdString()); }
@@ -598,11 +604,11 @@ private:
 		{
 			return *m_managerOverride;
 		}
-		// 无 Host 注入时沿用进程级静态 manager（Headless/导出 API 路径）
-		return BackendDataManager::instance();
+		return *m_ownedManager;
 	}
 
 	BackendDataManager* m_managerOverride = nullptr;
+	std::unique_ptr<BackendDataManager> m_ownedManager;
 };
 
 } // namespace

@@ -7,6 +7,7 @@
 #include "HandEyePanelWidget.h"
 #include "HandEyeTypes.h"
 #include "IPluginHostContext.h"
+#include "IPluginRobotContext.h"
 #include "IPluginRobotHost.h"
 
 #include <QCheckBox>
@@ -290,7 +291,7 @@ void VisionGraspPanelWidget::refreshHandEyeStatus()
 
 void VisionGraspPanelWidget::onReadCurrentTcp()
 {
-	IPluginRobotHost* rh = host_ ? host_->robotHost() : nullptr;
+	IPluginRobotHost* rh = (host_ && host_->robotContext()) ? host_->robotContext()->robotHost() : nullptr;
 	if (!rh)
 	{
 		status_->setText(zh_ ? QStringLiteral("机器人宿主不可用") : QStringLiteral("Robot host unavailable"));
@@ -311,7 +312,7 @@ void VisionGraspPanelWidget::onReadCurrentTcp()
 
 void VisionGraspPanelWidget::onReadSelectedObject()
 {
-	IPluginRobotHost* rh = host_ ? host_->robotHost() : nullptr;
+	IPluginRobotHost* rh = (host_ && host_->robotContext()) ? host_->robotContext()->robotHost() : nullptr;
 	if (!rh)
 	{
 		status_->setText(zh_ ? QStringLiteral("机器人宿主不可用") : QStringLiteral("Robot host unavailable"));
@@ -349,7 +350,7 @@ bool VisionGraspPanelWidget::composeGraspPoses(PluginPose6d& approach, PluginPos
 		// Eye-in-hand 的 T_best 是 T_flange_cam，需再乘当前法兰
 		if (handEye_->lastMountMode() == HandEyeMountMode::EyeInHand)
 		{
-			IPluginRobotHost* rh = host_ ? host_->robotHost() : nullptr;
+			IPluginRobotHost* rh = (host_ && host_->robotContext()) ? host_->robotContext()->robotHost() : nullptr;
 			PluginPose6d tcp;
 			QString e2;
 			if (!rh || !rh->getActiveRobotTcpPose(tcp, &e2))
@@ -368,7 +369,7 @@ bool VisionGraspPanelWidget::composeGraspPoses(PluginPose6d& approach, PluginPos
 	grasp = obj;
 	if (lockEuler_ && lockEuler_->isChecked())
 	{
-		IPluginRobotHost* rh = host_ ? host_->robotHost() : nullptr;
+		IPluginRobotHost* rh = (host_ && host_->robotContext()) ? host_->robotContext()->robotHost() : nullptr;
 		PluginPose6d tcp;
 		QString e2;
 		if (rh && rh->getActiveRobotTcpPose(tcp, &e2))
@@ -422,7 +423,7 @@ void VisionGraspPanelWidget::onPlanAndConfirm()
 		hostLog(err, true);
 		return;
 	}
-	IPluginRobotHost* rh = host_ ? host_->robotHost() : nullptr;
+	IPluginRobotHost* rh = (host_ && host_->robotContext()) ? host_->robotContext()->robotHost() : nullptr;
 	if (!rh)
 	{
 		status_->setText(zh_ ? QStringLiteral("机器人宿主不可用") : QStringLiteral("Robot host unavailable"));

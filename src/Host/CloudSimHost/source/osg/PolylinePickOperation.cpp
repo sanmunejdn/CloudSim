@@ -3,8 +3,6 @@
 
 #include "PolylinePickOperation.h"
 
-#include "OsgWidget.h"
-
 #include <QEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -15,24 +13,26 @@ constexpr int kMinPolygonVertices = 3;
 
 } // namespace
 
-PolylinePickOperation::PolylinePickOperation(OsgWidget* owner) : SelectionOperation(owner) {}
+PolylinePickOperation::PolylinePickOperation(IViewportInteractionHost* host) : SelectionOperation(host) {}
 
 void PolylinePickOperation::refreshOverlay() const
 {
-	if (!m_owner)
+	IViewportInteractionHost* h = host();
+	if (!h)
 	{
 		return;
 	}
-	m_owner->updatePolylinePickOverlay(m_vertices, m_hasCursor ? &m_cursorPos : nullptr);
+	h->updatePolylinePickOverlay(m_vertices, m_hasCursor ? &m_cursorPos : nullptr);
 }
 
 bool PolylinePickOperation::tryCommitPolygon()
 {
-	if (!m_owner || static_cast<int>(m_vertices.size()) < kMinPolygonVertices)
+	IViewportInteractionHost* h = host();
+	if (!h || static_cast<int>(m_vertices.size()) < kMinPolygonVertices)
 	{
 		return false;
 	}
-	m_owner->commitPolylinePick(m_vertices);
+	h->commitPolylinePick(m_vertices);
 	m_vertices.clear();
 	m_hasCursor = false;
 	refreshOverlay();
@@ -42,19 +42,25 @@ bool PolylinePickOperation::tryCommitPolygon()
 bool PolylinePickOperation::canHandle(QObject* watched, QEvent* event) const
 {
 	(void)event;
-	return m_owner && watched == m_owner->m_glWidget && m_owner->m_polylinePickMode;
+	const IViewportInteractionHost* h = host();
+	return h && watched == h->viewportGlWidget() && h->polylinePickMode();
 }
 
 bool PolylinePickOperation::onMouseButtonPress(QMouseEvent* e)
 {
+	IViewportInteractionHost* h = host();
+	if (!h)
+	{
+		return false;
+	}
 	if (e->button() == Qt::LeftButton)
 	{
 		m_vertices.push_back(e->pos());
 		m_cursorPos = e->pos();
 		m_hasCursor = true;
 		refreshOverlay();
-		m_owner->requestRedraw();
-		emit m_owner->polylinePickFeedback(
+		h->requestRedraw();
+		h->emitPolylinePickFeedback(
 			QStringLiteral("Vertices: %1 (right-click or double-click to close, Esc to cancel)")
 				.arg(static_cast<int>(m_vertices.size())));
 		return true;
@@ -77,7 +83,6 @@ bool PolylinePickOperation::onMouseButtonRelease(QMouseEvent* e)
 
 bool PolylinePickOperation::onMouseDoubleClick(QMouseEvent* e)
 {
-	// 双击序列会先触发第二次 press 加点，闭合前去掉该重复点
 	if (e->button() == Qt::LeftButton && !m_vertices.empty())
 	{
 		m_vertices.pop_back();
@@ -98,9 +103,14 @@ bool PolylinePickOperation::onMouseMove(QMouseEvent* e)
 	{
 		return true;
 	}
+	IViewportInteractionHost* h = host();
+	if (!h)
+	{
+		return false;
+	}
 	m_cursorPos = e->pos();
 	m_hasCursor = true;
 	refreshOverlay();
-	m_owner->requestRedraw();
+	h->requestRedraw();
 	return true;
 }

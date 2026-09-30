@@ -19,7 +19,7 @@
 #include "HeadlessRobotContext.h"
 #include "IRenderView.h"
 #include "IRobotBackendPoseSink.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "OsgWidgetSceneBridge.h"
 #include "PropertyBag.h"
 #include "io/CustomDeviceRobotMountOps.h"
@@ -349,7 +349,7 @@ std::unordered_set<std::string> propagateCompoundAfterRootWorldChange(DocumentHo
 	return touched;
 }
 
-void runBackendFollowSolveAndSync(DocumentHost& page, IOsgWidgetView* osg, const FollowSolveContext* ctx,
+void runBackendFollowSolveAndSync(DocumentHost& page, IViewportSceneOps* sceneOps, const FollowSolveContext* ctx,
 								  const std::string* manualPoseAuthorityBackendId)
 {
 	if (ctx && ctx->skipAll && ctx->skipAll())
@@ -368,7 +368,8 @@ void runBackendFollowSolveAndSync(DocumentHost& page, IOsgWidgetView* osg, const
 	{
 		forced = true;
 	}
-	const bool gizmoDrag = osg && osg->isTransformGizmoDragging() && !osg->isTcpDragTeachActive();
+	const bool gizmoDrag =
+		sceneOps && sceneOps->isTransformGizmoDragging() && !sceneOps->isTcpDragTeachActive();
 	if (!forced && dirty.empty())
 	{
 		return;

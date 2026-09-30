@@ -27,9 +27,4 @@
       <Filter>inc\App</Filter>
     </ClInclude>
   </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\CloudSimApplicationContext.cpp">
-      <Filter>src\App</Filter>
-    </ClCompile>
-  </ItemGroup>
 </Project>

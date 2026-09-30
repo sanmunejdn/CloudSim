@@ -10,13 +10,13 @@
 #include <QJsonArray>
 #include <QJsonObject>
 
-class IOsgWidgetView;
+class IViewportOverlay;
 
 namespace cloudsim::host
 {
 /// 标注 JSON 读写
-CLOUDSIM_HOST_EXPORT QJsonArray buildAnnotationsJsonFromOsg(IOsgWidgetView& osg, QJsonObject& inOutRootExtras);
-CLOUDSIM_HOST_EXPORT void applyAnnotationsFromProjectJson(IOsgWidgetView& osg, const QJsonObject& root);
+CLOUDSIM_HOST_EXPORT QJsonArray buildAnnotationsJsonFromOsg(IViewportOverlay& overlay, QJsonObject& inOutRootExtras);
+CLOUDSIM_HOST_EXPORT void applyAnnotationsFromProjectJson(IViewportOverlay& overlay, const QJsonObject& root);
 
 } // namespace cloudsim::host
 

@@ -48,7 +48,8 @@ npm run build:release  # → 仓库根 bin/x64/web
 | 变量 | 作用 |
 |---|---|
 | `CLOUDSIM_WEB_SKIP_BUILD=1` | 跳过前端构建（纯 C++ 迭代） |
-| `CLOUDSIM_WEB_FALLBACK=1` | 临时 xcopy `_archive/public-fallback`（紧急回退） |
+
+PostBuild **禁止** `CLOUDSIM_WEB_FALLBACK`（`postbuild-web.cmd` 检测到即失败）。无 Node 时用 `CLOUDSIM_WEB_SKIP_BUILD=1` 或 `.tools/node`；紧急 xcopy `_archive/public-fallback` 仅允许在**打包脚本**侧显式 `-AllowWebFallback`（非 MSBuild PostBuild）。
 
 默认：Debug → `npm run build:debug`；Release → `npm run build:release`。失败则 MSBuild 失败。
 

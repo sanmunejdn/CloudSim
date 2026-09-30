@@ -11,8 +11,17 @@
 
 class OsgWidget;
 
+// 桌面实现在 Viewport；Headless 实现在 Headless DLL；Core 调用方按宏选 import/export
+#if defined(CLOUDSIM_VIEWPORT_LIB)
+#define OSG_SCENE_BRIDGE_API CLOUDSIM_VIEWPORT_EXPORT
+#elif defined(CLOUDSIM_HOST_HEADLESS_ONLY)
+#define OSG_SCENE_BRIDGE_API CLOUDSIM_HOST_EXPORT
+#else
+#define OSG_SCENE_BRIDGE_API CLOUDSIM_VIEWPORT_EXPORT
+#endif
+
 /// IBackendSceneBridge 委托至 OsgWidget；widget 未绑定时操作为空操作
-class WIDGET_EXPORT OsgWidgetSceneBridge final : public IBackendSceneBridge
+class OSG_SCENE_BRIDGE_API OsgWidgetSceneBridge final : public IBackendSceneBridge
 {
 public:
 	OsgWidgetSceneBridge() = default;

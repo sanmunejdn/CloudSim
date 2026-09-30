@@ -6,12 +6,28 @@
 #include "FeatureDiscretizeParamUtils.h"
 #include "FeatureDiscretizerRegistry.h"
 
+#include <cassert>
+
+namespace
+{
+geoalgo::FeatureDiscretizerConfigRegistry* g_processFeatureDiscretizerConfigRegistry = nullptr;
+
+// 多文档并发时隔离加载态，避免共享成员被串改
+thread_local std::string activeResourceBaseDir;
+}
+
 namespace geoalgo
 {
+void FeatureDiscretizerConfigRegistry::setProcessInstance(FeatureDiscretizerConfigRegistry* registry)
+{
+	assert(registry != nullptr);
+	g_processFeatureDiscretizerConfigRegistry = registry;
+}
+
 FeatureDiscretizerConfigRegistry& FeatureDiscretizerConfigRegistry::instance()
 {
-	static FeatureDiscretizerConfigRegistry registry;
-	return registry;
+	assert(g_processFeatureDiscretizerConfigRegistry != nullptr);
+	return *g_processFeatureDiscretizerConfigRegistry;
 }
 
 void FeatureDiscretizerConfigRegistry::registerConfig(std::unique_ptr<IFeatureDiscretizerConfig> config)
@@ -28,10 +44,14 @@ bool FeatureDiscretizerConfigRegistry::ensureLoaded(const std::string& resourceB
 	(void)errMsg;
 	if (!resourceBaseDir.empty())
 	{
-		m_resourceBaseDir = resourceBaseDir;
+		activeResourceBaseDir = resourceBaseDir;
 	}
-	m_loaded = true;
 	return true;
+}
+
+const std::string& FeatureDiscretizerConfigRegistry::resourceBaseDir() const
+{
+	return activeResourceBaseDir;
 }
 
 const IFeatureDiscretizerConfig* FeatureDiscretizerConfigRegistry::configFor(const std::string& strategyId) const

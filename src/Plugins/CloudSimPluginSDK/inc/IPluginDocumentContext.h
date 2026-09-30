@@ -13,6 +13,7 @@
 #include <functional>
 
 class IPluginDocument;
+class IPluginLabelingHost;
 
 /// 文档管理上下文：枚举/激活/关闭通知/未保存标记
 class IPluginDocumentContext
@@ -43,6 +44,10 @@ public:
 	virtual void markActiveDocumentModified() = 0;
 	virtual void clearActiveDocumentModified() = 0;
 	virtual bool isActiveDocumentModified() const = 0;
+
+	/// 分割标注宿主；宿主版本不足时可为 null
+	virtual IPluginLabelingHost* labelingHost() = 0;
+	virtual const IPluginLabelingHost* labelingHost() const = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINDOCUMENTCONTEXT_H

@@ -10,10 +10,10 @@
 #include "BackendProjectObjectIo.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
-#include "DocumentHostAccess.h"
 #include "IRobotService.h"
 #include "IRobotUrdfImportContext.h"
-#include "IOsgWidgetView.h"
+#include "IViewportOverlay.h"
+#include "IViewportSceneOps.h"
 #include "PointCloudBackendData.h"
 #include "RobotCollisionSettings.h"
 #include "RobotProjectKinematicsRestore.h"
@@ -45,17 +45,17 @@ bool isReloadablePointCloudSourcePath(const QString& path)
 }
 
 bool ensurePointCloudGeometryForSave(DocumentHost& host, PointCloudBackendData& pc, const std::string& backendId,
-									 IOsgWidgetView* osg, QStringList& warnings)
+									 IViewportSceneOps* sceneOps, QStringList& warnings)
 {
 	if (!pc.pointPositionsXyz().empty())
 	{
 		return true;
 	}
 	const QString idQs = QString::fromStdString(backendId);
-	if (osg)
+	if (sceneOps)
 	{
 		QString sceneErr;
-		if (osg->capturePointCloudBackendFromScene(backendId, pc, &sceneErr))
+		if (sceneOps->capturePointCloudBackendFromScene(backendId, pc, &sceneErr))
 		{
 			return true;
 		}
@@ -64,7 +64,7 @@ bool ensurePointCloudGeometryForSave(DocumentHost& host, PointCloudBackendData& 
 			warnings.append(QStringLiteral("Save: scene resync for %1: %2").arg(idQs, sceneErr));
 		}
 		QString stagingErr;
-		if (osg->captureImportedPointCloudBackend(pc, &stagingErr))
+		if (sceneOps->captureImportedPointCloudBackend(pc, &stagingErr))
 		{
 			return true;
 		}
@@ -126,7 +126,7 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 	QJsonArray objects;
 	const auto dataList = host.listObjects();
 
-	IOsgWidgetView* osg = osgWidgetFrom(host);
+	IViewportSceneOps* sceneOps = host.sceneOps();
 	for (const auto& data : dataList)
 	{
 		if (!data)
@@ -141,7 +141,7 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 
 		if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
 		{
-			if (!ensurePointCloudGeometryForSave(host, *pc, id, osg, out.warnings))
+			if (!ensurePointCloudGeometryForSave(host, *pc, id, sceneOps, out.warnings))
 			{
 				out.abortMessage =
 					QStringLiteral(
@@ -247,9 +247,9 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 	}
 	out.root.insert(QStringLiteral("edges"), edgeArray);
 
-	if (osg)
+	if (IViewportOverlay* overlay = host.overlay())
 	{
-		out.root.insert(QStringLiteral("annotations"), buildAnnotationsJsonFromOsg(*osg, out.root));
+		out.root.insert(QStringLiteral("annotations"), buildAnnotationsJsonFromOsg(*overlay, out.root));
 	}
 	else
 	{
@@ -260,12 +260,12 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 
 void applyProjectViewportFromJson(DocumentHost& host, const QJsonObject& root)
 {
-	IOsgWidgetView* osg = osgWidgetFrom(host);
-	if (!osg)
+	IViewportOverlay* overlay = host.overlay();
+	if (!overlay)
 	{
 		return;
 	}
-	applyAnnotationsFromProjectJson(*osg, root);
+	applyAnnotationsFromProjectJson(*overlay, root);
 }
 
 void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject& root, const bool useEdgesRelation,
@@ -282,11 +282,11 @@ void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject&
 	applyProjectViewportFromJson(host, root);
 	host.invalidateFollowReverseIndex();
 	host.requestFollowSolveForced(); // 工程打开首帧须全图求解
-	runBackendFollowSolveAndSync(host, osgWidgetFrom(host), solveCtx);
+	runBackendFollowSolveAndSync(host, host.sceneOps(), solveCtx);
 	// 打开工程后自适应视口（与工具栏「聚焦」同一接口）
-	if (IOsgWidgetView* osg = osgWidgetFrom(host))
+	if (IViewportSceneOps* sceneOps = host.sceneOps())
 	{
-		osg->focusCameraOnAllVisibleBackends();
+		sceneOps->focusCameraOnAllVisibleBackends();
 	}
 }
 

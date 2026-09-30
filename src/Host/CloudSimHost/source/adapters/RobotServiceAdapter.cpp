@@ -4,14 +4,13 @@
 #include "adapters/RobotServiceAdapter.h"
 
 #include "DocumentHost.h"
-#include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
 #include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotSimulationDocument.h"
 #include "IRobotUrdfImportContext.h"
 #include "KinematicModelApply.h"
 #include "KinematicModelRegistry.h"
-#include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "RobotKinematicApplyContext.h"
 #include "RobotPlanInstruction.h"
 #include "RobotProgramJsonIo.h"
@@ -130,9 +129,9 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 	}
 	// 跟随脏标记 + 同步求解已在 applyJointAnglesFromDocument → notifyRobotKinematicsAppliedToScene
 	publishRobotKinematicsApplied(m_host, sceneRootBackendId, aggregated);
-	if (IOsgWidgetView* osg = osgWidgetFrom(m_host))
+	if (IViewportSceneOps* ops = m_host.sceneOps())
 	{
-		osg->requestRedraw();
+		ops->requestRedraw();
 	}
 	return true;
 }

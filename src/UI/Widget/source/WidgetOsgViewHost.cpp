@@ -716,3 +716,27 @@ bool WidgetOsgViewHost::getCameraViewDirectionInBackendModel(const std::string& 
 	const OsgWidget* osg = osgWidget();
 	return osg && osg->getCameraViewDirectionInBackendModel(backendIdUtf8, outDirModel);
 }
+
+void WidgetOsgViewHost::setCrossObjectMeshPick(const bool enabled)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setCrossObjectMeshPick(enabled);
+	}
+}
+
+void WidgetOsgViewHost::showPinnedMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->showPinnedMeshFaceHighlight(vertsWorld);
+	}
+}
+
+void WidgetOsgViewHost::hidePinnedMeshFaceHighlight()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->hidePinnedMeshFaceHighlight();
+	}
+}

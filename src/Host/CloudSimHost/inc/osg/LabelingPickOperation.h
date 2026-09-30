@@ -7,6 +7,7 @@
 
 #include "PickTypes.h"
 #include "SelectionOperation.h"
+
 #include "ViewportGestureRecognizer.h"
 
 #include <QElapsedTimer>
@@ -18,7 +19,7 @@
 class LabelingPickOperation : public SelectionOperation
 {
 public:
-	explicit LabelingPickOperation(OsgWidget* owner);
+	explicit LabelingPickOperation(IViewportInteractionHost* host);
 
 private:
 	ViewportGestureRecognizer m_gesture;

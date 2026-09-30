@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <cstdlib>
 #include <mutex>
 #include <queue>
 #include <set>
@@ -54,9 +55,17 @@ void BackendDataManager::assertOwnerThread(const char* api) const
 
 BackendDataManager& BackendDataManager::instance()
 {
-	ensureBackendBuiltinsRegistered();
-	static BackendDataManager manager;
-	return manager;
+	// 已关门：Host 用 DocumentHost::backend()；嵌入 API 用 makeBackendManagerDataService 自持
+	assert(false && "BackendDataManager::instance removed; use DocumentHost::backend() or owned IDataService");
+	std::abort();
+	// 不可达；满足非 void 返回（Release 下 abort 亦为 noreturn）
+#if defined(_MSC_VER)
+	__assume(false);
+#else
+	for (;;)
+	{
+	}
+#endif
 }
 
 bool BackendDataManager::registerData(const std::shared_ptr<BackendDataBase>& data)

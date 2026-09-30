@@ -11,6 +11,8 @@
 #include "AiInferenceTypes.h"
 #include "AiTrajectoryFeatureTypes.h"
 #include "IAiAssistantHost.h"
+#include "IPluginAiContext.h"
+#include "IPluginGeometryContext.h"
 #include "IPluginHostContext.h"
 
 #include <QRegularExpression>
@@ -440,7 +442,7 @@ void AiAssistantCoordinator::resetFeatureSession()
 	m_pendingPipelineTemplate.clear();
 	if (m_pluginHost)
 	{
-		m_pluginHost->clearAiFeatureCandidatePreview();
+		m_pluginHost->aiContext()->clearAiFeatureCandidatePreview();
 	}
 	if (m_dock)
 	{
@@ -461,13 +463,13 @@ bool AiAssistantCoordinator::prepareTrajectoryFeatureRequest(const QString& user
 	}
 	QString backendId;
 	QString stepPath;
-	if (!m_pluginHost->resolveTrajectoryWorkpiece(backendId, stepPath, err))
+	if (!m_pluginHost->aiContext()->resolveTrajectoryWorkpiece(backendId, stepPath, err))
 	{
 		return false;
 	}
 	req.workpieceBackendId = backendId;
 	req.workpieceStepPathUtf8 = stepPath;
-	if (!m_pluginHost->buildTrajectoryFeatureCatalogSlice(backendId, stepPath, userText, req.catalogFullUtf8,
+	if (!m_pluginHost->aiContext()->buildTrajectoryFeatureCatalogSlice(backendId, stepPath, userText, req.catalogFullUtf8,
 														  req.catalogSliceUtf8, err))
 	{
 		return false;
@@ -524,7 +526,7 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 			return false;
 		}
 		m_pendingFeatureAxis = axis;
-		if (!m_pluginHost->buildTrajectoryFeatureCatalogSlice(m_pendingWorkpieceBackendId, m_pendingWorkpieceStepPath,
+		if (!m_pluginHost->aiContext()->buildTrajectoryFeatureCatalogSlice(m_pendingWorkpieceBackendId, m_pendingWorkpieceStepPath,
 															  text, m_pendingCatalogFullUtf8, m_pendingCatalogSliceUtf8,
 															  nullptr))
 		{
@@ -640,7 +642,7 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 								   "也可继续「选 N」调整。"));
 			}
 			if (m_pluginHost)
-				(void)m_pluginHost->showAiFeatureCandidatePreview(selectedSlice, nullptr);
+				(void)m_pluginHost->aiContext()->showAiFeatureCandidatePreview(selectedSlice, nullptr);
 			return true;
 		}
 
@@ -735,7 +737,7 @@ void AiAssistantCoordinator::handleTrajectoryParseResult(const AiParseResult& re
 
 	if (m_pluginHost)
 	{
-		(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
+		(void)m_pluginHost->aiContext()->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
 	}
 
 	m_dock->showTrajectoryFeatureResult(result.outputJsonUtf8, m_pendingCatalogSliceUtf8, result.parserVia);
@@ -923,7 +925,7 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 			return;
 		}
 		QString capErr;
-		if (!m_pluginHost->captureActiveViewportPng(req.imagePng, &capErr))
+		if (!m_pluginHost->geometryContext()->captureActiveViewportPng(req.imagePng, &capErr))
 		{
 			m_dock->setBusy(false);
 			const QString msg =
@@ -1093,16 +1095,16 @@ void AiAssistantCoordinator::restoreTrajectoryCandidatePreview()
 			const QByteArray slice = ids.empty() ? m_pendingCatalogSliceUtf8
 												 : filterCatalogSliceByCandidateIds(m_pendingCatalogSliceUtf8,
 																					m_pendingCatalogFullUtf8, ids);
-			(void)m_pluginHost->showAiFeatureCandidatePreview(slice, nullptr);
+			(void)m_pluginHost->aiContext()->showAiFeatureCandidatePreview(slice, nullptr);
 		}
 		catch (...)
 		{
-			(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
+			(void)m_pluginHost->aiContext()->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
 		}
 	}
 	else if (!m_pendingCatalogSliceUtf8.isEmpty())
 	{
-		(void)m_pluginHost->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
+		(void)m_pluginHost->aiContext()->showAiFeatureCandidatePreview(m_pendingCatalogSliceUtf8, nullptr);
 	}
 }
 
@@ -1116,7 +1118,7 @@ void AiAssistantCoordinator::openTrajectoryDiscretizeDialog(const QString& pendi
 	m_dock->hideAgentConfirmPanel();
 	QByteArray merged;
 	QString err;
-	const int code = m_pluginHost->proposeAndConfirmTrajectoryPlan(planIn, merged, &err, showRetry);
+	const int code = m_pluginHost->aiContext()->proposeAndConfirmTrajectoryPlan(planIn, merged, &err, showRetry);
 	if (code == 2)
 	{
 		m_aiHost->secondaryAgentConfirm(pendingId);
@@ -1149,7 +1151,7 @@ bool AiAssistantCoordinator::tryHandleTrajectoryPlanRevise(const QString& text)
 		return false;
 	QByteArray plan;
 	QString err;
-	if (!m_pluginHost->loadBoundTrajectoryPlanForAi(plan, &err) || plan.isEmpty())
+	if (!m_pluginHost->aiContext()->loadBoundTrajectoryPlanForAi(plan, &err) || plan.isEmpty())
 	{
 		m_dock->appendAssistantMessage(err.isEmpty() ? QStringLiteral("当前无已绑定的离散结果，请先完成特征离散。")
 													 : err);
@@ -1158,7 +1160,7 @@ bool AiAssistantCoordinator::tryHandleTrajectoryPlanRevise(const QString& text)
 	}
 	m_dock->appendSystemMessage(QStringLiteral("请在弹出对话框中修改离散策略、参数或管线算子。"));
 	QByteArray merged;
-	const int code = m_pluginHost->proposeAndConfirmTrajectoryPlan(plan, merged, &err, false);
+	const int code = m_pluginHost->aiContext()->proposeAndConfirmTrajectoryPlan(plan, merged, &err, false);
 	if (code != 1 || merged.isEmpty())
 	{
 		m_dock->appendSystemMessage(QStringLiteral("已取消修改。"));
@@ -1167,7 +1169,7 @@ bool AiAssistantCoordinator::tryHandleTrajectoryPlanRevise(const QString& text)
 	m_dock->setBusy(true);
 	QString summary;
 	QString reviseErr;
-	const bool ok = m_pluginHost->reviseAiTrajectoryPlan(merged, &summary, &reviseErr);
+	const bool ok = m_pluginHost->aiContext()->reviseAiTrajectoryPlan(merged, &summary, &reviseErr);
 	m_dock->setBusy(false);
 	if (!ok)
 	{

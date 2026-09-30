@@ -1,227 +1,482 @@
 ﻿/// @file MeshEdgeFacePickOperation.cpp
+
 /// @brief MeshEdgeFacePick 操作
+
+
 
 #include "MeshEdgeFacePickOperation.h"
 
+
+
 #include "OsgScene.h"
-#include "OsgWidget.h"
+
 #include "PickTypes.h"
+
 #include "ViewportInteraction/IViewportPickEngine.h"
 
+
+
 #include <QEvent>
+
 #include <QMouseEvent>
 
+
+
 namespace
+
 {
-IViewportPickEngine* meshPickEngineOf(OsgWidget* owner)
+
+IViewportPickEngine* meshPickEngineOf(IViewportInteractionHost* owner)
+
 {
+
 	return owner ? owner->pickEngine() : nullptr;
+
 }
 
-PickResult meshQueryPick(OsgWidget* owner, const PickQuery& query)
+
+
+PickResult meshQueryPick(IViewportInteractionHost* owner, const PickQuery& query)
+
 {
+
 	if (IViewportPickEngine* eng = meshPickEngineOf(owner))
+
 	{
+
 		return eng->queryPick(query);
+
 	}
+
 	return owner->queryPick(query);
+
 }
+
+
 
 bool hoverPickUnchanged(const PickResult& pick, const PickPreviewState& preview, bool faceMode)
+
 {
+
 	if (!preview.valid || !preview.result.hit || !pick.hit)
+
 	{
+
 		return false;
+
 	}
+
 	const PickResult& prev = preview.result;
+
 	if (pick.backendId != prev.backendId)
+
 	{
+
 		return false;
+
 	}
+
 	if (faceMode)
+
 	{
+
 		if (pick.brepNativePick)
+
 		{
+
 			return pick.brepFaceIndex == prev.brepFaceIndex;
+
 		}
+
 		return pick.pickedTriangleIndex >= 0 && pick.pickedTriangleIndex == prev.pickedTriangleIndex;
+
 	}
+
 	if (pick.brepNativePick)
+
 	{
+
 		return pick.brepEdgeIndex == prev.brepEdgeIndex;
+
 	}
+
 	return pick.meshEdgeA == prev.meshEdgeA && pick.meshEdgeB == prev.meshEdgeB;
+
 }
+
+
 
 } // namespace
 
-MeshEdgeFacePickOperation::MeshEdgeFacePickOperation(OsgWidget* owner) : SelectionOperation(owner) {}
+
+
+MeshEdgeFacePickOperation::MeshEdgeFacePickOperation(IViewportInteractionHost* host) : SelectionOperation(host) {}
+
+
 
 bool MeshEdgeFacePickOperation::canHandle(QObject* watched, QEvent* event) const
+
 {
+
 	(void)event;
-	return m_owner && watched == m_owner->m_glWidget && (m_owner->m_meshLinePickMode || m_owner->m_meshFacePickMode);
+
+	const IViewportInteractionHost* h = host();
+
+	return h && watched == h->viewportGlWidget() && (h->meshLinePickMode() || h->meshFacePickMode());
+
 }
+
+
 
 PickQuery MeshEdgeFacePickOperation::makePickQuery(const QPoint& pos) const
+
 {
+
+	const IViewportInteractionHost* h = host();
+
 	PickQuery query;
+
 	query.screenX = pos.x();
+
 	query.screenY = pos.y();
+
 	query.hoverPick = true;
-	query.kind = m_owner->m_meshFacePickMode ? PickKind::MeshFace : PickKind::MeshEdge;
-	if (!m_owner->m_crossObjectMeshPick && !m_owner->m_activeBackendId.empty())
+
+	query.kind = h->meshFacePickMode() ? PickKind::MeshFace : PickKind::MeshEdge;
+
+	if (!h->crossObjectMeshPick() && !h->activeBackendId().empty())
+
 	{
-		query.scopeBackendId = m_owner->m_activeBackendId;
+
+		query.scopeBackendId = h->activeBackendId();
+
 	}
+
 	return query;
+
 }
+
+
 
 void MeshEdgeFacePickOperation::applyPickResult(const PickResult& pick)
+
 {
-	if (!pick.hit)
+
+	IViewportInteractionHost* h = host();
+
+	if (!h || !pick.hit)
+
 	{
+
 		return;
+
 	}
-	if (m_owner->m_meshFacePickMode)
+
+	if (h->meshFacePickMode())
+
 	{
-		m_owner->showMeshFaceHighlight(pick.meshFaceVertsWorld);
+
+		h->showMeshFaceHighlight(pick.meshFaceVertsWorld);
+
 	}
+
 	else if (!pick.meshEdgePolylineWorld.empty())
+
 	{
-		m_owner->showMeshEdgeHighlight(pick.meshEdgePolylineWorld);
+
+		h->showMeshEdgeHighlight(pick.meshEdgePolylineWorld);
+
 	}
+
 	else
+
 	{
-		m_owner->showMeshEdgeHighlight(pick.meshEdgeA, pick.meshEdgeB);
+
+		h->showMeshEdgeHighlight(pick.meshEdgeA, pick.meshEdgeB);
+
 	}
+
 }
 
-void MeshEdgeFacePickOperation::emitMeshFeedback(bool click, const PickResult& pick) const
+
+
+void MeshEdgeFacePickOperation::emitMeshFeedback(bool click, const PickResult& pick)
+
 {
-	const QString phase = click ? QStringLiteral("Click") : QStringLiteral("Hover");
-	const QString kind = m_owner->m_meshFacePickMode ? QStringLiteral("face") : QStringLiteral("edge");
-	QString detail;
-	if (m_owner->m_meshLinePickMode && pick.hit)
+
+	IViewportInteractionHost* h = host();
+
+	if (!h)
+
 	{
-		detail = QStringLiteral(" | edge: %1 px").arg(pick.screenDistancePx, 0, 'f', 1);
+
+		return;
+
 	}
-	emit m_owner->meshPickFeedback(QStringLiteral("%1 %2 %3%4")
-									   .arg(phase)
-									   .arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
-									   .arg(kind)
-									   .arg(detail));
+
+	const QString phase = click ? QStringLiteral("Click") : QStringLiteral("Hover");
+
+	const QString kind = h->meshFacePickMode() ? QStringLiteral("face") : QStringLiteral("edge");
+
+	QString detail;
+
+	if (h->meshLinePickMode() && pick.hit)
+
+	{
+
+		detail = QStringLiteral(" | edge: %1 px").arg(pick.screenDistancePx, 0, 'f', 1);
+
+	}
+
+	h->emitMeshPickFeedback(QStringLiteral("%1 %2 %3%4")
+
+							.arg(phase)
+
+							.arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
+
+							.arg(kind)
+
+							.arg(detail));
+
 }
+
+
 
 bool MeshEdgeFacePickOperation::onMouseButtonPress(QMouseEvent* mouseEvent)
+
 {
+
 	if (mouseEvent->button() != Qt::LeftButton)
+
 	{
+
 		return mouseEvent->button() != Qt::MiddleButton;
+
 	}
+
 	m_gesture.onLeftPress(mouseEvent->pos());
+
 	return false;
+
 }
+
+
 
 bool MeshEdgeFacePickOperation::onMouseMove(QMouseEvent* mouseEvent)
+
 {
+
+	IViewportInteractionHost* h = host();
+
+	if (!h)
+
+	{
+
+		return false;
+
+	}
+
 	if (mouseEvent->buttons().testFlag(Qt::LeftButton))
+
 	{
+
 		m_gesture.onLeftMove(mouseEvent->pos());
+
 		return false;
+
 	}
+
 	if (mouseEvent->buttons().testFlag(Qt::MiddleButton))
+
 	{
+
 		return false;
+
 	}
-	// 草图支撑面会话：基面已胜出时不再画特征面高亮
-	if (m_owner->m_originPlanePickActive && m_owner->m_originPlaneHoverIndex >= 0)
+
+	if (h->originPlanePickActive() && h->originPlaneHoverIndex() >= 0)
+
 	{
+
 		m_preview.valid = false;
-		m_owner->hideMeshElementHighlight();
-		m_owner->m_feedbackTimer.restart();
+
+		h->hideMeshElementHighlight();
+
+		h->interactionPointerState().feedbackTimer.restart();
+
 		return true;
+
 	}
+
 	const int hoverThrottleMs =
-		m_owner->m_meshFacePickMode ? OsgScene::kPickHoverThrottleMs : OsgScene::kPickHoverEdgeThrottleMs;
-	if (ViewportGestureRecognizer::shouldThrottleHover(m_owner->m_feedbackTimer, hoverThrottleMs))
+
+		h->meshFacePickMode() ? OsgScene::kPickHoverThrottleMs : OsgScene::kPickHoverEdgeThrottleMs;
+
+	ViewportInteractionPointerState pointer = h->interactionPointerState();
+
+	if (ViewportGestureRecognizer::shouldThrottleHover(pointer.feedbackTimer, hoverThrottleMs))
+
 	{
+
 		return true;
+
 	}
+
+
 
 	const bool inClickHold = m_gesture.inClickHold(m_clickHoldTimer);
-	const PickResult pick = meshQueryPick(m_owner, makePickQuery(mouseEvent->pos()));
 
-	if (pick.hit && hoverPickUnchanged(pick, m_preview, m_owner->m_meshFacePickMode))
+	const PickResult pick = meshQueryPick(h, makePickQuery(mouseEvent->pos()));
+
+
+
+	if (pick.hit && hoverPickUnchanged(pick, m_preview, h->meshFacePickMode()))
+
 	{
+
 		emitMeshFeedback(false, pick);
-		m_owner->m_feedbackTimer.restart();
+
+		pointer.feedbackTimer.restart();
+
 		return true;
+
 	}
+
+
 
 	if (pick.hit)
+
 	{
+
 		m_preview.valid = true;
+
 		m_preview.result = pick;
+
 		applyPickResult(pick);
+
 	}
+
 	else if (!inClickHold)
+
 	{
+
 		m_preview.valid = false;
-		m_owner->hideMeshElementHighlight();
+
+		h->hideMeshElementHighlight();
+
 	}
+
+
 
 	emitMeshFeedback(false, pick);
-	m_owner->m_feedbackTimer.restart();
-	m_owner->requestRedraw();
+
+	pointer.feedbackTimer.restart();
+
+	h->requestRedraw();
+
 	return true;
+
 }
+
+
 
 bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
+
 {
-	if (mouseEvent->button() != Qt::LeftButton)
+
+	IViewportInteractionHost* h = host();
+
+	if (!h)
+
 	{
+
 		return false;
+
 	}
+
+	if (mouseEvent->button() != Qt::LeftButton)
+
+	{
+
+		return false;
+
+	}
+
+
 
 	bool swallowRelease = false;
+
 	if (!m_gesture.onLeftRelease(mouseEvent->pos(), &swallowRelease))
+
 	{
+
 		return false;
+
 	}
 
-	// 松手时基面更近：不提交特征面，与悬停/按下裁决一致
-	if (m_owner->m_originPlanePickActive &&
-		m_owner->resolveSketchSupportOriginIndex(mouseEvent->x(), mouseEvent->y()) >= 0)
+
+
+	if (h->originPlanePickActive() && h->resolveSketchSupportOriginIndex(mouseEvent->x(), mouseEvent->y()) >= 0)
+
 	{
+
 		m_preview.valid = false;
-		m_owner->hideMeshElementHighlight();
-		m_owner->requestRedraw();
+
+		h->hideMeshElementHighlight();
+
+		h->requestRedraw();
+
 		return swallowRelease;
+
 	}
+
+
 
 	PickResult pick = (m_preview.valid && m_preview.result.hit) ? m_preview.result : PickResult{};
+
 	if (!pick.hit)
+
 	{
+
 		PickQuery query = makePickQuery(mouseEvent->pos());
+
 		query.hoverPick = false;
-		pick = meshQueryPick(m_owner, query);
-	}
-	if (pick.hit)
-	{
-		m_preview.valid = true;
-		m_preview.result = pick;
-		applyPickResult(pick);
+
+		pick = meshQueryPick(h, query);
+
 	}
 
-	emitMeshFeedback(true, pick);
 	if (pick.hit)
+
 	{
-		const int kindInt =
-			m_owner->m_meshFacePickMode ? static_cast<int>(PickKind::MeshFace) : static_cast<int>(PickKind::MeshEdge);
-		emit m_owner->meshPickCommitted(pick, kindInt);
+
+		m_preview.valid = true;
+
+		m_preview.result = pick;
+
+		applyPickResult(pick);
+
 	}
+
+
+
+	emitMeshFeedback(true, pick);
+
+	if (pick.hit)
+
+	{
+
+		const int kindInt = h->meshFacePickMode() ? static_cast<int>(PickKind::MeshFace) : static_cast<int>(PickKind::MeshEdge);
+
+		h->emitMeshPickCommitted(pick, kindInt);
+
+	}
+
 	m_gesture.restartClickHold(m_clickHoldTimer);
-	m_owner->requestRedraw();
+
+	h->requestRedraw();
+
 	return swallowRelease;
+
 }
+

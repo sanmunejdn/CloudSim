@@ -4,6 +4,7 @@
 #include "DocumentHost.h"
 
 #include "IOsgWidgetView.h"
+#include "IViewportSceneOps.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
@@ -42,6 +43,7 @@
 #include "adapters/RobotServiceAdapter.h"
 #include "visual/BackendVisualSyncEngine.h"
 
+#include <QCoreApplication>
 #include <QVBoxLayout>
 #include <Qt>
 
@@ -52,11 +54,11 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 {
 }
 
-// enableOsgView������ؿ���Web Headless �أ��������ش������� OSG/OpenGL
 DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId,
 						   bool enableOsgView)
 	: QWidget(parent), m_documentId(documentId), m_events(events)
 {
+	m_configResourceBaseDir = QCoreApplication::applicationDirPath();
 	setContentsMargins(0, 0, 0, 0);
 	m_centralLayout = new QVBoxLayout(this);
 	m_centralLayout->setContentsMargins(0, 0, 0, 0);
@@ -74,6 +76,7 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 			{ m_visualSyncEngine.markDirty(id, static_cast<VisualAspect>(aspects), VisualChangeReason::FkWrite); });
 		m_osgWidget = mounted.osgWidget;
 		m_osgView = mounted.osgView;
+		m_viewportSceneSignals = mounted.viewportSceneSignals;
 		m_osgPane = mounted.osgPane;
 		m_renderView = std::move(mounted.renderView);
 	}
@@ -81,6 +84,7 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 	{
 		m_osgWidget = nullptr;
 		m_osgView = nullptr;
+		m_viewportSceneSignals = nullptr;
 		m_osgPane = nullptr;
 		m_sceneBridge.setOsgWidget(nullptr);
 		// �� Null������ layout�������� NullRenderView �ڲ� unique_ptr ˫���й�
@@ -407,6 +411,46 @@ bool DocumentHost::robotLocalJointAnglesForSceneRoot(const QString& sceneRootBac
 
 DocumentHost::~DocumentHost() = default;
 
+IViewportSceneOps* DocumentHost::sceneOps()
+{
+	return m_osgView;
+}
+
+const IViewportSceneOps* DocumentHost::sceneOps() const
+{
+	return m_osgView;
+}
+
+IViewportPickObserve* DocumentHost::pickObserve()
+{
+	return m_osgView;
+}
+
+const IViewportPickObserve* DocumentHost::pickObserve() const
+{
+	return m_osgView;
+}
+
+IViewportToolbar* DocumentHost::toolbar()
+{
+	return m_osgView;
+}
+
+const IViewportToolbar* DocumentHost::toolbar() const
+{
+	return m_osgView;
+}
+
+IViewportOverlay* DocumentHost::overlay()
+{
+	return m_osgView;
+}
+
+const IViewportOverlay* DocumentHost::overlay() const
+{
+	return m_osgView;
+}
+
 QString DocumentHost::documentId() const
 {
 	return m_documentId;
@@ -573,36 +617,36 @@ OsgWidgetSceneBridge& DocumentHost::sceneBridge()
 
 BackendSceneDocumentFacade DocumentHost::sceneFacade()
 {
-	return BackendSceneDocumentFacade(data(), backend(), sceneBridge(), followReverseIndex(), osgView());
+	return BackendSceneDocumentFacade(data(), backend(), sceneBridge(), followReverseIndex(), sceneOps());
 }
 
 bool DocumentHost::loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage,
 												const bool resetViewToHome, const bool showWireOutline,
 												const bool useSceneLighting)
 {
-	IOsgWidgetView* osg = osgView();
-	if (!osg)
+	IViewportSceneOps* ops = sceneOps();
+	if (!ops)
 	{
 		return false;
 	}
-	return osg->loadMeshFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
+	return ops->loadMeshFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 
 bool DocumentHost::loadUrdfLinkMeshIntoScene(const MeshBackendData& data, QString* errorMessage)
 {
-	IOsgWidgetView* osg = osgView();
-	if (!osg)
+	IViewportSceneOps* ops = sceneOps();
+	if (!ops)
 	{
 		return true;
 	}
-	return osg->loadMeshFromBackendData(data, errorMessage, true, true, true);
+	return ops->loadMeshFromBackendData(data, errorMessage, true, true, true);
 }
 
 void DocumentHost::clearStagingGeometry()
 {
-	if (IOsgWidgetView* osg = osgView())
+	if (IViewportSceneOps* ops = sceneOps())
 	{
-		osg->clearStagingGeometry();
+		ops->clearStagingGeometry();
 	}
 }
 
@@ -649,9 +693,9 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 		m_projectSidecar.parentId().remove(id);
 		m_projectSidecar.sourcePath().remove(id);
 		m_projectSidecar.sourceType().remove(id);
-		if (IOsgWidgetView* osg = osgView())
+		if (IViewportSceneOps* ops = sceneOps())
 		{
-			osg->removeBackendObjectVisual(id.toStdString());
+			ops->removeBackendObjectVisual(id.toStdString());
 		}
 		publishBackendObjectRemoved(*this, id);
 	}
@@ -675,6 +719,16 @@ void DocumentHost::setProjectFilePath(const QString& path)
 const QString& DocumentHost::projectFilePath() const
 {
 	return m_projectSidecar.projectFilePath();
+}
+
+void DocumentHost::setConfigResourceBaseDir(const QString& dir)
+{
+	m_configResourceBaseDir = dir;
+}
+
+const QString& DocumentHost::configResourceBaseDir() const
+{
+	return m_configResourceBaseDir;
 }
 
 std::unordered_set<std::string>& DocumentHost::followDirtyBackendIds()

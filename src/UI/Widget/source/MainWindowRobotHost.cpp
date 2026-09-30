@@ -1014,7 +1014,7 @@ IRobotOsgViewHost* MainWindowRobotHost::osgView()
 		m_osgHostPage = nullptr;
 		return nullptr;
 	}
-	if (!page->osgView())
+	if (!page->sceneOps())
 	{
 		return nullptr;
 	}
@@ -1026,11 +1026,31 @@ IRobotOsgViewHost* MainWindowRobotHost::osgView()
 	return m_osgHost.get();
 }
 
+IRobotOsgSceneOps* MainWindowRobotHost::osgScene()
+{
+	return osgView();
+}
+
+IRobotOsgPick* MainWindowRobotHost::osgPick()
+{
+	return osgView();
+}
+
+IRobotOsgOverlay* MainWindowRobotHost::osgOverlay()
+{
+	return osgView();
+}
+
+IRobotOsgTeach* MainWindowRobotHost::osgTeach()
+{
+	return osgView();
+}
+
 void MainWindowRobotHost::endMeshSectionPlaneEditDirect()
 {
 	auto tryEndOnPage = [](DocumentPage* page) -> bool
 	{
-		if (!page || !page->osgView())
+		if (!page || !page->sceneOps())
 		{
 			return false;
 		}
@@ -1049,7 +1069,7 @@ void MainWindowRobotHost::hideMeshSectionPlaneDirect()
 {
 	auto tryHideOnPage = [](DocumentPage* page) -> bool
 	{
-		if (!page || !page->osgView())
+		if (!page || !page->sceneOps())
 		{
 			return false;
 		}

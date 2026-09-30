@@ -17,7 +17,7 @@ class IDataService;
 /// cloudsimCreateDataService 的实现真源；视觉分支/Follow 求解等 Host 能力降级为告警+空转
 class BackendDataManager;
 
-/// @param managerOverride 非空时绑定文档级 BackendDataManager；空则回退 BackendDataManager::instance()
+/// @param managerOverride 非空时绑定该 manager；空则服务自持一份 BackendDataManager（嵌入 C API）
 DATA_EXPORT std::unique_ptr<cloudsim::core::IDataService> makeBackendManagerDataService(
 	BackendDataManager* managerOverride = nullptr);
 

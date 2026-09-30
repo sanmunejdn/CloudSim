@@ -13,6 +13,8 @@
 #include "GraphicsWindowQt1.h"
 #include "IOsgWidgetView.h"
 #include "IRobotBackendPoseSink.h"
+#include "IViewportSceneSignals.h"
+#include "ViewportInteraction/IViewportInteractionHost.h"
 
 #include <QElapsedTimer>
 #include <QEvent>
@@ -88,18 +90,16 @@ struct MeshCapturedPart;
 ///
 /// Viewer/相机、后端导入显示、拾取标注；对象变换与 TCP 示教罗盘（后者挂场景 overlay，
 /// 位姿经 syncTcpTeachWorldPatFromMount 与 mount PAT 对齐）
-class OSG_WIDGET_API OsgWidget : public QWidget, public IRobotBackendPoseSink, public OsgScene, public IOsgWidgetView
+class OSG_WIDGET_API OsgWidget : public QWidget,
+								 public IRobotBackendPoseSink,
+								 public OsgScene,
+								 public IOsgWidgetView,
+								 public IViewportSceneSignals,
+								 public IViewportInteractionHost
 {
 	Q_OBJECT
 public:
 	using DragAxis = OsgScene::DragAxis;
-	friend class PointPickOperation;
-	friend class PolylinePickOperation;
-	friend class ObjectTransformOperation;
-	friend class RobotTcpDragTeachOperation;
-	friend class MeshEdgeFacePickOperation;
-	friend class MeshSectionPlaneEditOperation;
-	friend class LabelingPickOperation;
 	friend class OsgWidgetImportController;
 	friend class OsgWidgetBackendLoadController;
 	friend class OsgWidgetCaptureController;
@@ -147,22 +147,22 @@ public:
 	void clearSketchLineOverlay() override;
 	void setSelectionActive(bool active) override;
 	void setObjectSelectionMode(bool enabled);
-	bool objectSelectionMode() const;
+	bool objectSelectionMode() const override;
 	/// 物体变换罗盘：物体系沿当前罗盘轴（与模型姿态一致）；世界系沿世界 X/Y/Z。
 	using TransformGizmoFrame = OsgScene::TransformGizmoFrame;
 	void setTransformGizmoFrame(TransformGizmoFrame frame);
-	TransformGizmoFrame transformGizmoFrame() const { return m_transformGizmoFrame; }
+	TransformGizmoFrame transformGizmoFrame() const override { return m_transformGizmoFrame; }
 	void setPointPickMode(bool enabled);
-	bool pointPickMode() const;
+	bool pointPickMode() const override;
 	void setPolylinePickMode(bool enabled) override;
-	bool polylinePickMode() const;
-	void updatePolylinePickOverlay(const std::vector<QPoint>& vertices, const QPoint* cursorPos);
-	void commitPolylinePick(const std::vector<QPoint>& vertices);
+	bool polylinePickMode() const override;
+	void updatePolylinePickOverlay(const std::vector<QPoint>& vertices, const QPoint* cursorPos) override;
+	void commitPolylinePick(const std::vector<QPoint>& vertices) override;
 	void clearPolylinePickOverlay();
 	void setMeshLinePickMode(bool enabled) override;
-	bool meshLinePickMode() const;
+	bool meshLinePickMode() const override;
 	void setMeshFacePickMode(bool enabled) override;
-	bool meshFacePickMode() const;
+	bool meshFacePickMode() const override;
 
 	/// 屏幕点 → 世界射线与平面求交（逻辑像素，与拾取一致）
 	bool intersectScreenWithPlaneMm(int screenX, int screenY, const osg::Vec3d& planeOrigin,
@@ -196,16 +196,16 @@ public:
 
 	void setLabelingClickPickMode(bool enabled, bool meshFace) override;
 	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx) override;
-	PickResult queryPick(const PickQuery& query);
+	PickResult queryPick(const PickQuery& query) override;
 	ViewportInteractionController* interactionController() { return m_interactionController.get(); }
-	IViewportPickEngine* pickEngine();
+	IViewportPickEngine* pickEngine() override;
 	void beginInteractionSession(std::shared_ptr<IInteractionSession> session);
 	void endInteractionSession(bool cancel = true);
 	bool hasInteractionSession() const;
 	void setupInteractionController();
-	osg::Vec3f selectedPosition() const;
+	osg::Vec3f selectedPosition() const override;
 	void setSelectedPosition(const osg::Vec3f& position) override;
-	osg::Vec3f selectedRotationEulerDeg() const;
+	osg::Vec3f selectedRotationEulerDeg() const override;
 	void setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg) override;
 	void setSelectedColor(float r, float g, float b, float a = 1.0f) override;
 	/// 按 backendId 刷新场景颜色，不发 selectedObjectColorChanged
@@ -243,8 +243,9 @@ public:
 	/// GL 视口控件，供浮动工具栏等 overlay 挂载
 	QWidget* viewportWidget() const { return m_glWidget; }
 	/// 线框/实体切换
-	void setWireframeMode(bool enabled);
+	void setWireframeMode(bool enabled) override;
 	bool wireframeMode() const { return m_wireframeMode; }
+	QWidget* viewportOverlayHostWidget() const override;
 	/// 至少一个后端有几何或存在导入预览
 	bool hasImportedContent() const;
 	/// Viewer 根节点（\c setSceneData），供场景树 UI/调试
@@ -350,13 +351,13 @@ public:
 	void setRobotObjectGizmoSyncHook(RobotObjectGizmoSyncFn fn);
 	void setRobotObjectGizmoFkRefreshHook(RobotObjectGizmoFkRefreshFn fn);
 	/// 写活动外层 PAT；per-link 机器人走 FK 钩子而非逻辑父子传播
-	void syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging);
+	void syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging) override;
 	/// 对象 gizmo 拖拽中，跳过对该选中跟随者的位姿覆写
 	bool isTransformGizmoDragging() const override;
 	/// 按缓存质心将 \a data 位姿写到外层 PAT
 	bool syncOuterPatFromBackend(const BackendDataBase& data) override;
 	/// 非拖拽时将 ObjectGizmoFrame 同步到活动后端根
-	void syncActiveBackendRootFromSelectedTransform();
+	void syncActiveBackendRootFromSelectedTransform() override;
 	/// OSG 位姿写回后端（跟随求解前）
 	bool writeActiveBackendPoseFromOsg(BackendDataBase& data);
 	/// 轨道相机中心跟随此后端世界原点（空则关闭）
@@ -427,29 +428,107 @@ public:
 		return QObject::connect(this, &OsgWidget::labelingPickCanceled, ctx, std::move(handler));
 	}
 
+	bool dispatchMeshPickCommitToInteractionSession(const PickResult& pick, int pickKindInt) override;
+
+	QMetaObject::Connection observeSelectedObjectPoseChanged(
+		QObject* ctx, std::function<void(float, float, float)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::selectedObjectPoseChanged, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeSelectedObjectRotationChanged(
+		QObject* ctx, std::function<void(float, float, float)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::selectedObjectRotationChanged, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeSelectedObjectColorChanged(
+		QObject* ctx, std::function<void(float, float, float, float)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::selectedObjectColorChanged, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeTransformGizmoCommitted(QObject* ctx, std::function<void()> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::transformGizmoCommitted, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeTcpDragTeachPoseChanged(
+		QObject* ctx, std::function<void(double, double, double, double, double, double)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::tcpDragTeachPoseChanged, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeTcpDragTeachEnded(QObject* ctx, std::function<void()> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::tcpDragTeachEnded, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeActiveAxisChanged(QObject* ctx,
+													 std::function<void(const QString&)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::activeAxisChanged, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeSelectionCanceledByEsc(QObject* ctx, std::function<void()> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::selectionCanceledByEsc, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeAnnotationCreated(QObject* ctx,
+													 std::function<void(const QString&, const QString&)> handler)
+		override
+	{
+		return QObject::connect(this, &OsgWidget::annotationCreated, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeAnnotationRemoved(QObject* ctx, std::function<void(const QString&)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::annotationRemoved, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeAnnotationVisibilityChanged(
+		QObject* ctx, std::function<void(const QString&, bool)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::annotationVisibilityChanged, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observePointPickFeedback(QObject* ctx, std::function<void(const QString&)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::pointPickFeedback, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeMeshPickFeedback(QObject* ctx, std::function<void(const QString&)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::meshPickFeedback, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeBackendObjectPicked(QObject* ctx,
+													   std::function<void(const QString&)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::backendObjectPicked, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeInstructionWaypointPicked(QObject* ctx,
+														   std::function<void(const QString&, bool)> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::instructionWaypointPicked, ctx, std::move(handler));
+	}
+	QMetaObject::Connection observeInstructionWaypointPickCanceled(QObject* ctx,
+																   std::function<void()> handler) override
+	{
+		return QObject::connect(this, &OsgWidget::instructionWaypointPickCanceled, ctx, std::move(handler));
+	}
+
 	using OsgScene::clearMeshFittedSurfacePreview;
 
-	/// TCP 示教罗盘（RobotTcpDragTeachOperation 友元，同 OsgScene 对象 gizmo）
-	void updateTcpTeachCompassHighlight(DragAxis axis, bool highlightRing = false);
+	/// TCP 示教罗盘（同 OsgScene 对象 gizmo）
+	void updateTcpTeachCompassHighlight(DragAxis axis, bool highlightRing = false) override;
 	void updateTcpTeachCompassScale();
 	/// @param outPivotWorld 出参，TCP 枢轴世界坐标 mm
-	void computeTcpTeachPivotWorld(osg::Vec3f& outPivotWorld) const;
+	void computeTcpTeachPivotWorld(osg::Vec3f& outPivotWorld) const override;
 	/// @param axis 拖拽轴
 	/// @param outAxisWorld 出参，单位轴方向（世界系）
 	bool tcpTeachCompassUnitAxisWorld(DragAxis axis, osg::Vec3d& outAxisWorld) const;
-	bool beginTcpTeachScreenDrag();
+	bool beginTcpTeachScreenDrag() override;
 	/// @param curPos 当前鼠标（控件逻辑像素）
 	/// @param lastPos 上一帧鼠标
 	/// @return 沿冻结屏幕轴的位移 mm
-	double tcpTeachScreenDragDsMm(const QPoint& curPos, const QPoint& lastPos) const;
+	double tcpTeachScreenDragDsMm(const QPoint& curPos, const QPoint& lastPos) const override;
 	/// @param mousePos 屏幕拾取点
 	/// @param preferRing 优先拾取旋转环
 	/// @param outPickedRing 非空时区分环/轴线
-	int pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing = nullptr) const;
+	int pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing = nullptr) const override;
 	void applyTcpTeachTranslationWorld(int axisIndex, double dsWorld);
-	void applyTcpTeachTranslationBody(int axisIndex, double dsWorld);
+	void applyTcpTeachTranslationBody(int axisIndex, double dsWorld) override;
 	void applyTcpTeachRotationWorld(int axisIndex, double deltaRad);
-	void applyTcpTeachRotationBody(int axisIndex, double deltaRad);
+	void applyTcpTeachRotationBody(int axisIndex, double deltaRad) override;
 	void syncTcpTeachCompassAttitude();
 	/// 从 \c m_tcpTeachMountPat 同步 \c m_tcpTeachWorldPat（兜底；示教 overlay 优先 FromTarget）
 	void syncTcpTeachWorldPatFromMount();
@@ -491,23 +570,23 @@ public:
 	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachAxisBranch[3];
 	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachRingBranch[3];
 
-	/// Mesh 截面罗盘（MeshSectionPlaneEditOperation 友元）
+	/// Mesh 截面罗盘
 	void setMeshSectionPlaneCompassVisible(bool visible);
 	void ensureMeshSectionPlaneOverlay(const std::string& backendIdUtf8);
-	void notifyMeshSectionPlaneChanged();
+	void notifyMeshSectionPlaneChanged() override;
 	void syncMeshSectionPlaneOverlayFromModel();
-	void updateMeshSectionPlaneCompassHighlight(DragAxis axis, bool highlightRing = false);
+	void updateMeshSectionPlaneCompassHighlight(DragAxis axis, bool highlightRing = false) override;
 	void updateMeshSectionPlaneCompassScale();
-	void computeMeshSectionPlanePivotWorld(osg::Vec3d& outPivotWorld) const;
-	bool meshSectionPlaneCompassUnitAxisWorld(DragAxis axis, osg::Vec3d& outAxisWorld) const;
-	bool beginMeshSectionPlaneScreenDrag();
-	double meshSectionPlaneScreenDragDsMm(const QPoint& curPos, const QPoint& lastPos) const;
-	void applyMeshSectionPlaneTranslationAxis(int axisIndex, double dsWorld);
-	void applyMeshSectionPlaneTranslationWorld(const osg::Vec3d& hitWorld, const osg::Vec3d& lastHitWorld);
-	void applyMeshSectionPlaneRotationAxis(int axisIndex, double deltaRad);
-	bool pickMeshSectionPlaneDragPoint(const QPoint& mousePos, osg::Vec3d& outHitWorld) const;
+	void computeMeshSectionPlanePivotWorld(osg::Vec3d& outPivotWorld) const override;
+	bool meshSectionPlaneCompassUnitAxisWorld(DragAxis axis, osg::Vec3d& outAxisWorld) const override;
+	bool beginMeshSectionPlaneScreenDrag() override;
+	double meshSectionPlaneScreenDragDsMm(const QPoint& curPos, const QPoint& lastPos) const override;
+	void applyMeshSectionPlaneTranslationAxis(int axisIndex, double dsWorld) override;
+	void applyMeshSectionPlaneTranslationWorld(const osg::Vec3d& hitWorld, const osg::Vec3d& lastHitWorld) override;
+	void applyMeshSectionPlaneRotationAxis(int axisIndex, double deltaRad) override;
+	bool pickMeshSectionPlaneDragPoint(const QPoint& mousePos, osg::Vec3d& outHitWorld) const override;
 	int pickMeshSectionPlaneAxisAtScreenPos(const QPoint& mousePos, bool preferRing,
-											bool* outPickedRing = nullptr) const;
+											bool* outPickedRing = nullptr) const override;
 	bool m_sectionPlaneVisible = false;
 	bool m_sectionPlaneEditActive = false;
 	std::string m_sectionPlaneBackendId;
@@ -539,6 +618,68 @@ public:
 	osg::ref_ptr<osg::Node> m_sectionPlaneCompassNode;
 	osg::ref_ptr<osg::MatrixTransform> m_sectionPlaneAxisBranch[3];
 	osg::ref_ptr<osg::MatrixTransform> m_sectionPlaneRingBranch[3];
+
+	// IViewportInteractionHost（SelectionOperation 专用，其余见上文已有 override）
+	QObject* viewportGlWidget() const override;
+	ViewportInteractionPointerState interactionPointerState() override;
+	bool tcpTeachActive() const override { return m_tcpTeachActive; }
+	bool meshSectionPlaneEditActive() const override;
+	bool labelingClickPickMode() const override { return m_labelingClickPickMode; }
+	bool labelingBrushPickMode() const override { return m_labelingBrushPickMode; }
+	bool labelingMeshFaceMode() const override { return m_labelingMeshFaceMode; }
+	float labelingBrushRadiusPx() const override { return m_labelingBrushRadiusPx; }
+	bool crossObjectMeshPick() const override { return OsgScene::crossObjectMeshPick(); }
+	bool originPlanePickActive() const override { return m_originPlanePickActive; }
+	int originPlaneHoverIndex() const override { return m_originPlaneHoverIndex; }
+	std::size_t pickablePointCount() const override;
+	void updatePointPickMarker(const osg::Vec3f& pointWorld, bool hit) override;
+	void clearPointPickMarker() override;
+	void addPointAnnotation(const osg::Vec3f& pointWorld) override;
+	void showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld) override;
+	void showMeshEdgeHighlight(const std::vector<osg::Vec3f>& polylineWorld) override;
+	void collectPointIndicesInScreenRadius(int screenX, int screenY, float radiusPx,
+										   std::vector<int>& outIndices) const override;
+	ViewportObjectGizmoDragState objectGizmoDragState() override;
+	bool hasActiveObjectOuterPat() const override;
+	osg::MatrixTransform* activeObjectOuterPat() override;
+	DragAxis pickObjectGizmoAxisAtScreenPos(const QPoint& mousePos, bool preferRing,
+											bool* outPickedRing = nullptr) override;
+	bool pickAndActivateBackendAtScreenPos(const QPoint& mousePos) override;
+	bool beginGizmoScreenDrag(DragAxis axis) override;
+	bool beginGizmoScreenRotate(DragAxis axis, double mouseX, double mouseY) override;
+	double gizmoScreenDragDs(double mouseXCur, double mouseYCur, double mouseXLast, double mouseYLast) const override;
+	double gizmoScreenRotateDeltaRad(double mouseX, double mouseY) override;
+	bool readActiveObjectGizmoFrame(ObjectGizmoFrame& out) const override;
+	void syncCompassGizmoOrientation() override;
+	void updateObjectGizmoCompassHighlight(DragAxis axis, bool highlightRing = false) override;
+	void cacheSelectionGizmoPose() override;
+	void refreshAnnotationTexts() override;
+	void logGizmoPivotDiagnostics(const char* reasonTag) const override;
+	QString gizmoAxisToString(DragAxis axis) const override;
+	void resetObjectGizmoDragSession() override;
+	bool cacheObjectGizmoRotatePivot() override;
+	double objectGizmoMaxTranslateStepWorld() const override;
+	osg::Vec3d gizmoWorldUnitAxis(DragAxis axis) const override;
+	bool computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld,
+									 osg::Vec3d& outRayDirUnitWorld) const override;
+	void computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const override;
+	ViewportTcpTeachDragState tcpTeachDragState() override;
+	osg::Vec3d tcpTeachWorldUnitAxis(DragAxis axis) const override;
+	void resetTcpTeachDragSession() override;
+	double tcpTeachMaxTranslateStep() const override;
+	void emitTcpDragTeachPoseChanged() override;
+	ViewportMeshSectionPlaneDragState meshSectionPlaneDragState() override;
+	void emitPointPickFeedback(const QString& text) override;
+	void emitPolylinePickFeedback(const QString& text) override;
+	void emitActiveAxisChanged(const QString& axisName) override;
+	void emitSelectedObjectPoseChanged(float x, float y, float z) override;
+	void emitSelectedObjectRotationChanged(float rx, float ry, float rz) override;
+	void emitTransformGizmoCommitted() override;
+	void emitMeshPickFeedback(const QString& text) override;
+	void emitMeshPickCommitted(const PickResult& pick, int pickKindInt) override;
+	void emitLabelingClickCommitted(const PickResult& pick) override;
+	void emitLabelingBrushStroke(const QVector<int>& indices) override;
+	void emitLabelingBrushFinished() override;
 
 signals:
 	void selectedObjectPoseChanged(float x, float y, float z);
@@ -604,27 +745,18 @@ private:
 	void updateCompassScale();
 	void refreshCompassDrawVisibility();
 	/// World：轴对齐世界 XYZ；Local：轴随物体；枢轴在模型原点
-	void syncCompassGizmoOrientation();
-	/// 环境变量 \c POINTCLOUD_GIZMO_PIVOT_DIAG 非空且不为 \c "0" 时：经 RunLogger 输出枢轴与场景图文件原点对比（调试用）。
-	void logGizmoPivotDiagnostics(const char* reasonTag) const;
 	void attachCompassGraphics();
 	void detachCompassGraphics();
 	void syncCameraManipulatorForModes();
-	bool pickAndActivateBackendAtScreenPos(const QPoint& mousePos);
 	void clearPointAnnotations();
 	bool pickPointAtScreenPos(const QPoint& mousePos, osg::Vec3f& outPointWorld) const;
 	bool pickNearestPointAtScreenPos(const QPoint& mousePos, osg::Vec3f& outPointWorld, double& outDistancePx,
 									 bool previewOnly) const;
 	bool pickPointByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld, double& outDistancePx) const;
-	void addPointAnnotation(const osg::Vec3f& pointWorld);
-	void updatePointPickMarker(const osg::Vec3f& pointWorld, bool hit);
-	void clearPointPickMarker();
-	void refreshAnnotationTexts();
-	void emitTcpDragTeachPoseChanged();
 
 public slots:
-	void onViewportFocusRequested();
-	void onViewportScreenshotRequested();
+	void onViewportFocusRequested() override;
+	void onViewportScreenshotRequested() override;
 
 private:
 	QWidgetViewer* m_glWidget = nullptr;

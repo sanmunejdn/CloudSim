@@ -32,6 +32,10 @@ public:
 	IRobotDocumentHost* document() override;
 	const IRobotDocumentHost* document() const override;
 	IRobotOsgViewHost* osgView() override;
+	IRobotOsgSceneOps* osgScene() override;
+	IRobotOsgPick* osgPick() override;
+	IRobotOsgOverlay* osgOverlay() override;
+	IRobotOsgTeach* osgTeach() override;
 	void endMeshSectionPlaneEditDirect() override;
 	void hideMeshSectionPlaneDirect() override;
 

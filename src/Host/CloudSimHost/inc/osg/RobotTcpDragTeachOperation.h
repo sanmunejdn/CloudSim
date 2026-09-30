@@ -12,7 +12,7 @@ class RobotTcpDragTeachOperation : public SelectionOperation
 {
 public:
 	/// @param owner 三维视图，读写 TCP 示教成员
-	explicit RobotTcpDragTeachOperation(OsgWidget* owner);
+	explicit RobotTcpDragTeachOperation(IViewportInteractionHost* host);
 
 	bool handleEvent(QObject* watched, QEvent* event) override;
 

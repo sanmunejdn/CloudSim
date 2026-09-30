@@ -7,7 +7,7 @@
 
 #include <QtCore/qglobal.h>
 
-/// Host 导出宏：静态库消费方可定义 CLOUDSIM_HOST_STATIC；
+/// Host 导出宏：Viewport 等静态消费 Core.lib 时定义 CLOUDSIM_HOST_STATIC（禁 dllimport）；
 /// HostCore 链入 DLL 时用 CLOUDSIM_HOST_LIB（dllexport），并由 DLL 以 /WHOLEARCHIVE 再导出给 Widget 等
 #if defined(CLOUDSIM_HOST_STATIC)
 #define CLOUDSIM_HOST_EXPORT

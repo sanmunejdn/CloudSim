@@ -3,7 +3,7 @@
 
 /// @file BackendDataManager.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好
+/// @brief 后端数据注册表：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好
 
 #include "data_global.h"
 
@@ -44,11 +44,12 @@ struct BackendBaselineMetrics
 	double snapshotMs = 0.0;
 };
 
-/// 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好
+/// 后端数据注册表：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好
 class DATA_EXPORT BackendDataManager : public IBackendDataQuery
 {
 public:
 	BackendDataManager();
+	/// 已废弃：调用即 assert；请用 DocumentHost::backend() 或 makeBackendManagerDataService
 	static BackendDataManager& instance();
 
 	/// 写路径应在构造时线程（通常 UI）；Debug 下跨线程写触发 assert

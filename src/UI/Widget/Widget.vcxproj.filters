@@ -44,18 +44,6 @@
     <Filter Include="inc\PickOperations">
       <UniqueIdentifier>{F2FFDF8D-FC8C-4CF0-A7A1-30A636AE3C96}</UniqueIdentifier>
     </Filter>
-    <Filter Include="inc\ViewportInteraction">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567001}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\ViewportInteraction\Overlays">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567003}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\ViewportInteraction\Policies">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567004}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\ViewportInteraction\Tools">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567002}</UniqueIdentifier>
-    </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
@@ -75,9 +63,6 @@
     <Filter Include="src\OsgWidget">
       <UniqueIdentifier>{30F01420-7810-4FDC-8C16-285464F41703}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\ViewportInteraction">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567005}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Host\CloudSimHost\inc\CloudSimHost.h">
@@ -91,12 +76,6 @@
     </ClInclude>
     <ClInclude Include="inc\ApplicationStyle.h">
       <Filter>inc\MainWindow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendFollowReverseIndex.h">
-      <Filter>inc\BackendTree</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendSceneDocumentFacade.h">
-      <Filter>inc\BackendTree</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendUnitsDisplayForest.h">
       <Filter>inc\BackendTree</Filter>
@@ -142,48 +121,6 @@
     </ClInclude>
     <ClInclude Include="inc\RobotTcpDragTeachOperation.h">
       <Filter>inc\PickOperations</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SelectionOperation.h">
-      <Filter>inc\PickOperations</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\IHitResolvePolicy.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\IInteractionSession.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\IOverlayOp.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\IPointerTool.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\IViewportPickEngine.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\MeshPickSession.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\Overlays\SelectionOperationOverlayAdapter.h">
-      <Filter>inc\ViewportInteraction\Overlays</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\Policies\GizmoAxisHitPolicy.h">
-      <Filter>inc\ViewportInteraction\Policies</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\Policies\PassthroughHitPolicy.h">
-      <Filter>inc\ViewportInteraction\Policies</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\Policies\RobotObjectSelectPolicy.h">
-      <Filter>inc\ViewportInteraction\Policies</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\Tools\SelectionOperationToolAdapter.h">
-      <Filter>inc\ViewportInteraction\Tools</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\ViewportHit.h">
-      <Filter>inc\ViewportInteraction</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewportInteraction\ViewportInteractionController.h">
-      <Filter>inc\ViewportInteraction</Filter>
     </ClInclude>
     <ClInclude Include="inc\widget_global.h">
       <Filter>inc\Global</Filter>
@@ -306,9 +243,6 @@
     </ClCompile>
     <ClCompile Include="source\StyledDockTitleBar.cpp">
       <Filter>src\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ViewportInteraction\ViewportInteractionController.cpp">
-      <Filter>src\ViewportInteraction</Filter>
     </ClCompile>
     <ClCompile Include="source\ViewportToolBar.cpp">
       <Filter>src\MainWindow</Filter>

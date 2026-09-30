@@ -12,9 +12,12 @@
 #include "BackendComponentCodecRegistry.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
+#include "BackendVisualRegistry.h"
 #include "FeatureDiscretizerBridge.h"
+#include "FeatureDiscretizerConfigRegistry.h"
 #include "FeatureDiscretizerRegistry.h"
 #include "TrajectoryOpBridge.h"
+#include "TrajectoryOpConfigRegistry.h"
 #include "TrajectoryOpRegistry.h"
 #include "import/GeometryFileImporterRegistry.h"
 
@@ -42,17 +45,31 @@ public:
 		auto codecReg = std::make_shared<BackendComponentCodecRegistry>();
 		BackendComponentCodecRegistry::setProcessInstance(codecReg.get());
 		m_services.registerService(codecReg);
+
+		auto visualReg = std::make_shared<BackendVisualRegistry>();
+		BackendVisualRegistry::setProcessInstance(visualReg.get());
+		m_services.registerService(visualReg);
+		BackendVisualRegistry::ensureBuiltinsRegistered();
+
 		ensureBackendBuiltinsRegistered();
 		initBackendComponentCodecs();
 
 		auto trajectoryReg = std::make_shared<trajectory_algo::TrajectoryOpRegistry>();
 		RobotInstruction::setTrajectoryOpRegistry(trajectoryReg.get());
 		m_services.registerService(trajectoryReg);
+
+		auto trajectoryCfg = std::make_shared<trajectory_algo::TrajectoryOpConfigRegistry>();
+		trajectory_algo::TrajectoryOpConfigRegistry::setProcessInstance(trajectoryCfg.get());
+		m_services.registerService(trajectoryCfg);
 		trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
 
 		auto featureReg = std::make_shared<geoalgo::FeatureDiscretizerRegistry>();
 		geoalgo::setFeatureDiscretizerRegistry(featureReg.get());
 		m_services.registerService(featureReg);
+
+		auto featureCfg = std::make_shared<geoalgo::FeatureDiscretizerConfigRegistry>();
+		geoalgo::FeatureDiscretizerConfigRegistry::setProcessInstance(featureCfg.get());
+		m_services.registerService(featureCfg);
 		geoalgo::ensureFeatureDiscretizersRegistered();
 
 		m_services.registerService(std::make_shared<cloudsim::host::GeometryFileImporterRegistry>());

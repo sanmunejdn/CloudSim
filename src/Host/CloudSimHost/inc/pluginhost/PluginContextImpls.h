@@ -35,6 +35,8 @@ public:
 	void markActiveDocumentModified() override;
 	void clearActiveDocumentModified() override;
 	bool isActiveDocumentModified() const override;
+	IPluginLabelingHost* labelingHost() override;
+	const IPluginLabelingHost* labelingHost() const override;
 
 private:
 	PluginHostContext& m_host;
@@ -107,6 +109,8 @@ public:
 	IPluginGeometryHost* geometryHost() override;
 	const IPluginGeometryHost* geometryHost() const override;
 	bool captureActiveViewportPng(QByteArray& outPng, QString* outError) override;
+	IPluginPointCloudHost* pointCloudHost() override;
+	const IPluginPointCloudHost* pointCloudHost() const override;
 
 private:
 	PluginHostContext& m_host;

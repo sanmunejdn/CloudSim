@@ -113,8 +113,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimAiSDK", "src\Plugin
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimPluginSDK", "src\Plugins\CloudSimPluginSDK\CloudSimPluginSDK.vcxproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimLabelingSDK", "src\Plugins\CloudSimLabelingSDK\CloudSimLabelingSDK.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimMeshTrajectorySDK", "src\Plugins\CloudSimMeshTrajectorySDK\CloudSimMeshTrajectorySDK.vcxproj", "{B2C3D4E5-F6A7-8901-BCDE-234567890ABC}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimWebGateway", "src\Web\CloudSimWebGateway\CloudSimWebGateway.vcxproj", "{B8E1A2C3-D4F5-6789-ABCD-EF0123456704}"
@@ -206,10 +204,6 @@ Global
 		{C0A11E51-0B12-4C0D-9E1F-2A3B4C5D6E70}.Debug|x64.Build.0 = Debug|x64
 		{C0A11E51-0B12-4C0D-9E1F-2A3B4C5D6E70}.Release|x64.ActiveCfg = Release|x64
 		{C0A11E51-0B12-4C0D-9E1F-2A3B4C5D6E70}.Release|x64.Build.0 = Release|x64
-		{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}.Debug|x64.ActiveCfg = Debug|x64
-		{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}.Debug|x64.Build.0 = Debug|x64
-		{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}.Release|x64.ActiveCfg = Release|x64
-		{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}.Release|x64.Build.0 = Release|x64
 		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Debug|x64.ActiveCfg = Debug|x64
 		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Debug|x64.Build.0 = Debug|x64
 		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Release|x64.ActiveCfg = Release|x64

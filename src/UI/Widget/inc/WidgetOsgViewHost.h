@@ -114,6 +114,10 @@ public:
 	void setMeshSectionPlanePreviewVisible(bool visible) override;
 	bool getCameraViewDirectionInBackendModel(const std::string& backendIdUtf8, double outDirModel[3]) const override;
 
+	void setCrossObjectMeshPick(bool enabled) override;
+	void showPinnedMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld) override;
+	void hidePinnedMeshFaceHighlight() override;
+
 private:
 	cloudsim::core::IRenderView* renderView() const;
 	OsgWidget* osgWidget() const;

@@ -3,16 +3,16 @@
 
 #include "AnnotationProjectIo.h"
 
-#include "IOsgWidgetView.h"
+#include "IViewportOverlay.h"
 
 #include <osg/Vec3f>
 
 namespace cloudsim::host
 {
-QJsonArray buildAnnotationsJsonFromOsg(IOsgWidgetView& osgWidget, QJsonObject& inOutRootExtras)
+QJsonArray buildAnnotationsJsonFromOsg(IViewportOverlay& overlay, QJsonObject& inOutRootExtras)
 {
 	QJsonArray annArray;
-	const auto snapshots = osgWidget.annotationSnapshots();
+	const auto snapshots = overlay.annotationSnapshots();
 	for (const auto& s : snapshots)
 	{
 		QJsonObject a;
@@ -35,7 +35,7 @@ QJsonArray buildAnnotationsJsonFromOsg(IOsgWidgetView& osgWidget, QJsonObject& i
 		a.insert(QStringLiteral("visible"), s.visible);
 		annArray.push_back(a);
 	}
-	const QString camFollow = QString::fromStdString(osgWidget.cameraFollowBackendId());
+	const QString camFollow = QString::fromStdString(overlay.cameraFollowBackendId());
 	if (!camFollow.isEmpty())
 	{
 		inOutRootExtras.insert(QStringLiteral("cameraFollowBackendId"), camFollow);
@@ -43,9 +43,9 @@ QJsonArray buildAnnotationsJsonFromOsg(IOsgWidgetView& osgWidget, QJsonObject& i
 	return annArray;
 }
 
-void applyAnnotationsFromProjectJson(IOsgWidgetView& osgWidget, const QJsonObject& root)
+void applyAnnotationsFromProjectJson(IViewportOverlay& overlay, const QJsonObject& root)
 {
-	QList<IOsgWidgetView::AnnotationSnapshot> snapshots;
+	QList<IViewportOverlay::AnnotationSnapshot> snapshots;
 	const QJsonArray annArray = root.value(QStringLiteral("annotations")).toArray();
 	for (const QJsonValue& v : annArray)
 	{
@@ -54,7 +54,7 @@ void applyAnnotationsFromProjectJson(IOsgWidgetView& osgWidget, const QJsonObjec
 			continue;
 		}
 		const QJsonObject a = v.toObject();
-		IOsgWidgetView::AnnotationSnapshot s;
+		IViewportOverlay::AnnotationSnapshot s;
 		s.id = a.value(QStringLiteral("id")).toString();
 		s.displayText = a.value(QStringLiteral("displayText")).toString();
 		s.backendId = a.value(QStringLiteral("backendId")).toString();
@@ -73,8 +73,8 @@ void applyAnnotationsFromProjectJson(IOsgWidgetView& osgWidget, const QJsonObjec
 		s.visible = a.value(QStringLiteral("visible")).toBool(true);
 		snapshots.push_back(s);
 	}
-	osgWidget.restoreAnnotations(snapshots);
-	osgWidget.setCameraFollowBackendId(root.value(QStringLiteral("cameraFollowBackendId")).toString().toStdString());
+	overlay.restoreAnnotations(snapshots);
+	overlay.setCameraFollowBackendId(root.value(QStringLiteral("cameraFollowBackendId")).toString().toStdString());
 }
 
 } // namespace cloudsim::host

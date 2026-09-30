@@ -352,7 +352,8 @@ QString nextExportSampleBaseNameFromDir(const QString& exportDir)
 } // namespace
 
 LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent), m_host(host), m_labelingHost(host ? host->labelingHost() : nullptr),
+	: QWidget(parent), m_host(host),
+	  m_labelingHost((host && host->documentContext()) ? host->documentContext()->labelingHost() : nullptr),
 	  m_inference(std::make_unique<PointNetInference>())
 {
 	auto* outer = new QVBoxLayout(this);

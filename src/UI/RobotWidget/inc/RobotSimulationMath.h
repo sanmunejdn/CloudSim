@@ -22,7 +22,7 @@
 #include <osg/Node>
 
 class IRobotDocumentHost;
-class IRobotOsgViewHost;
+class IRobotOsgSceneOps;
 namespace RobotInstruction
 {
 class Base;
@@ -37,7 +37,7 @@ ROBOTWIDGET_EXPORT bool decodeMatrix4Csv(const std::string& text, osg::Matrixd& 
 /// core::Mat4 列主序 ↔ osg::Matrixd（禁止 ptr 直拷）
 ROBOTWIDGET_EXPORT osg::Matrixd osgMatrixFromCoreMat4(const cloudsim::core::Mat4& columnMajor);
 ROBOTWIDGET_EXPORT cloudsim::core::Mat4 coreMat4FromOsgMatrix(const osg::Matrixd& m);
-ROBOTWIDGET_EXPORT bool getBackendRootWorldMatrixOsg(IRobotOsgViewHost* view, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool getBackendRootWorldMatrixOsg(IRobotOsgSceneOps* view, const std::string& backendId,
 													 osg::Matrixd& outWorld);
 
 /// @deprecated 有 URDF 勿再生成 DH；生产路径保持空 dhRows，IK 走 TeachIk/UrdfNumericalIk
@@ -60,7 +60,7 @@ ROBOTWIDGET_EXPORT bool targetRigidTransformFromUrdfFlangeFk(
 	const QString& fallbackFlangeLink, engine::RigidTransform& outTargetInBase, QString* outFlangeLinkName = nullptr,
 	const RobotInstruction::Base* instructionWithTool = nullptr);
 
-ROBOTWIDGET_EXPORT bool captureTcpFromSceneFlangeBackend(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
+ROBOTWIDGET_EXPORT bool captureTcpFromSceneFlangeBackend(IRobotDocumentHost* doc, IRobotOsgSceneOps* osg, int instIdx,
 														 const RobotCoordinate::RobotCoordinateFrameSet& frames,
 														 const QString& fallbackFlangeLink,
 														 const osg::Matrixd& robotBaseWorld, osg::Matrixd& outTcpLocal,
@@ -70,7 +70,7 @@ ROBOTWIDGET_EXPORT bool captureTcpFromSceneFlangeBackend(IRobotDocumentHost* doc
 ROBOTWIDGET_EXPORT osg::Matrixd osgMatrixFromRobotRigidFrame(const RobotCoordinate::RobotRigidFrame& frame);
 ROBOTWIDGET_EXPORT osg::Matrixd osgMatrixFromBackendMat4(const BackendMat4& m);
 
-ROBOTWIDGET_EXPORT bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
+ROBOTWIDGET_EXPORT bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgSceneOps* osg, int instIdx,
 														osg::Matrixd& outWorld,
 														const QVector<double>* jointAnglesRad = nullptr);
 

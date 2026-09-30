@@ -5,6 +5,8 @@
 
 #include "../RobotWidget/inc/DeviceCommandPageWidget.h"
 #include "../RobotWidget/inc/FeatureTrajectoryPageWidget.h"
+#include "../RobotWidget/inc/IRobotOsgPick.h"
+#include "../RobotWidget/inc/IRobotOsgSceneOps.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/IoSignalNetworkService.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
@@ -754,20 +756,20 @@ void MainWindow::onActiveAxisChanged(const QString& axisName)
 
 namespace
 {
-void resetInteractionPickModes(IRobotOsgViewHost& view)
+void resetInteractionPickModes(IRobotOsgSceneOps& scene, IRobotOsgPick& pick)
 {
-	view.setObjectSelectionMode(false);
-	view.setPointPickMode(false);
-	view.setMeshLinePickMode(false);
-	view.setMeshFacePickMode(false);
+	scene.setObjectSelectionMode(false);
+	pick.setPointPickMode(false);
+	pick.setMeshLinePickMode(false);
+	pick.setMeshFacePickMode(false);
 }
 } // namespace
 
 void MainWindow::onViewModeTriggered()
 {
-	IRobotOsgViewHost* view = activeOsgViewHost();
+	IRobotOsgViewHost* viewHost = activeOsgViewHost();
 	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
-		!m_meshFacePickModeAction || !view)
+		!m_meshFacePickModeAction || !viewHost)
 	{
 		return;
 	}
@@ -784,17 +786,19 @@ void MainWindow::onViewModeTriggered()
 	{
 		m_assemblyMatePanel->interruptPicking();
 	}
-	resetInteractionPickModes(*view);
+	resetInteractionPickModes(*viewHost, *viewHost);
 }
 
 void MainWindow::onObjectModeTriggered()
 {
-	IRobotOsgViewHost* view = activeOsgViewHost();
+	IRobotOsgViewHost* viewHost = activeOsgViewHost();
 	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
-		!m_meshFacePickModeAction || !view)
+		!m_meshFacePickModeAction || !viewHost)
 	{
 		return;
 	}
+	IRobotOsgSceneOps* scene = viewHost;
+	IRobotOsgPick* pick = viewHost;
 	m_viewModeAction->setChecked(false);
 	m_objectModeAction->setChecked(true);
 	m_pointPickModeAction->setChecked(false);
@@ -808,10 +812,10 @@ void MainWindow::onObjectModeTriggered()
 	{
 		m_assemblyMatePanel->interruptPicking();
 	}
-	view->setObjectSelectionMode(true);
-	view->setPointPickMode(false);
-	view->setMeshLinePickMode(false);
-	view->setMeshFacePickMode(false);
+	scene->setObjectSelectionMode(true);
+	pick->setPointPickMode(false);
+	pick->setMeshLinePickMode(false);
+	pick->setMeshFacePickMode(false);
 
 	// 导入后 activeBackend 常停在末根连杆；仅 setSelectionActive 会把罗盘挂在该轴上
 	DocumentPage* doc = currentPage();
@@ -832,19 +836,21 @@ void MainWindow::onObjectModeTriggered()
 		}
 		else
 		{
-			view->setSelectionActive(true);
+			scene->setSelectionActive(true);
 		}
 	}
 }
 
 void MainWindow::onPointPickModeTriggered()
 {
-	IRobotOsgViewHost* view = activeOsgViewHost();
+	IRobotOsgViewHost* viewHost = activeOsgViewHost();
 	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
-		!m_meshFacePickModeAction || !view)
+		!m_meshFacePickModeAction || !viewHost)
 	{
 		return;
 	}
+	IRobotOsgSceneOps* scene = viewHost;
+	IRobotOsgPick* pick = viewHost;
 	m_viewModeAction->setChecked(false);
 	m_objectModeAction->setChecked(false);
 	m_pointPickModeAction->setChecked(true);
@@ -858,22 +864,24 @@ void MainWindow::onPointPickModeTriggered()
 	{
 		m_assemblyMatePanel->interruptPicking();
 	}
-	view->setObjectSelectionMode(false);
-	view->setPointPickMode(true);
-	view->setMeshLinePickMode(false);
-	view->setMeshFacePickMode(false);
+	scene->setObjectSelectionMode(false);
+	pick->setPointPickMode(true);
+	pick->setMeshLinePickMode(false);
+	pick->setMeshFacePickMode(false);
 	MainWindowSelectionService::ensureBackendForPickMode(*this,
 														 MainWindowSelectionService::SelectedBackendKind::PointCloud);
 }
 
 void MainWindow::onMeshLinePickModeTriggered()
 {
-	IRobotOsgViewHost* view = activeOsgViewHost();
+	IRobotOsgViewHost* viewHost = activeOsgViewHost();
 	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
-		!m_meshFacePickModeAction || !view)
+		!m_meshFacePickModeAction || !viewHost)
 	{
 		return;
 	}
+	IRobotOsgSceneOps* scene = viewHost;
+	IRobotOsgPick* pick = viewHost;
 	m_viewModeAction->setChecked(false);
 	m_objectModeAction->setChecked(false);
 	m_pointPickModeAction->setChecked(false);
@@ -887,21 +895,23 @@ void MainWindow::onMeshLinePickModeTriggered()
 	{
 		m_assemblyMatePanel->interruptPicking();
 	}
-	view->setObjectSelectionMode(false);
-	view->setPointPickMode(false);
-	view->setMeshLinePickMode(true);
-	view->setMeshFacePickMode(false);
+	scene->setObjectSelectionMode(false);
+	pick->setPointPickMode(false);
+	pick->setMeshLinePickMode(true);
+	pick->setMeshFacePickMode(false);
 	MainWindowSelectionService::ensureBackendForPickMode(*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
 }
 
 void MainWindow::onMeshFacePickModeTriggered()
 {
-	IRobotOsgViewHost* view = activeOsgViewHost();
+	IRobotOsgViewHost* viewHost = activeOsgViewHost();
 	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
-		!m_meshFacePickModeAction || !view)
+		!m_meshFacePickModeAction || !viewHost)
 	{
 		return;
 	}
+	IRobotOsgSceneOps* scene = viewHost;
+	IRobotOsgPick* pick = viewHost;
 	m_viewModeAction->setChecked(false);
 	m_objectModeAction->setChecked(false);
 	m_pointPickModeAction->setChecked(false);
@@ -915,10 +925,10 @@ void MainWindow::onMeshFacePickModeTriggered()
 	{
 		m_assemblyMatePanel->interruptPicking();
 	}
-	view->setObjectSelectionMode(false);
-	view->setPointPickMode(false);
-	view->setMeshLinePickMode(false);
-	view->setMeshFacePickMode(true);
+	scene->setObjectSelectionMode(false);
+	pick->setPointPickMode(false);
+	pick->setMeshLinePickMode(false);
+	pick->setMeshFacePickMode(true);
 	MainWindowSelectionService::ensureBackendForPickMode(*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
 }
 
@@ -928,9 +938,9 @@ void MainWindow::onSelectionCanceledByEsc()
 	{
 		return;
 	}
-	IRobotOsgViewHost* view = activeOsgViewHost();
+	IRobotOsgViewHost* viewHost = activeOsgViewHost();
 	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
-		!m_meshFacePickModeAction || !view)
+		!m_meshFacePickModeAction || !viewHost)
 	{
 		return;
 	}
@@ -943,7 +953,7 @@ void MainWindow::onSelectionCanceledByEsc()
 	{
 		page->setViewportObjectSelectionChecked(false);
 	}
-	resetInteractionPickModes(*view);
+	resetInteractionPickModes(*viewHost, *viewHost);
 	MainWindowSelectionService::clearSelection(*this, true);
 }
 
@@ -2319,13 +2329,13 @@ void MainWindow::closeDocumentTab(int index)
 
 void MainWindow::syncViewModeActionsFromCurrentOsg()
 {
-	IRobotOsgViewHost* view = activeOsgViewHost();
+	IRobotOsgViewHost* viewHost = activeOsgViewHost();
 	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
 		!m_meshFacePickModeAction)
 	{
 		return;
 	}
-	if (!view)
+	if (!viewHost)
 	{
 		m_viewModeAction->setChecked(true);
 		m_objectModeAction->setChecked(false);
@@ -2346,23 +2356,25 @@ void MainWindow::syncViewModeActionsFromCurrentOsg()
 		}
 		return;
 	}
-	const bool inViewMode = !view->objectSelectionMode() && !view->pointPickMode() && !view->meshLinePickMode() &&
-							!view->meshFacePickMode();
+	IRobotOsgSceneOps* scene = viewHost;
+	IRobotOsgPick* pick = viewHost;
+	const bool inViewMode = !scene->objectSelectionMode() && !pick->pointPickMode() && !pick->meshLinePickMode() &&
+							!pick->meshFacePickMode();
 	m_viewModeAction->setChecked(inViewMode);
-	m_objectModeAction->setChecked(view->objectSelectionMode());
-	m_pointPickModeAction->setChecked(view->pointPickMode());
-	m_meshLinePickModeAction->setChecked(view->meshLinePickMode());
-	m_meshFacePickModeAction->setChecked(view->meshFacePickMode());
+	m_objectModeAction->setChecked(scene->objectSelectionMode());
+	m_pointPickModeAction->setChecked(pick->pointPickMode());
+	m_meshLinePickModeAction->setChecked(pick->meshLinePickMode());
+	m_meshFacePickModeAction->setChecked(pick->meshFacePickMode());
 	if (DocumentPage* page = currentPage())
 	{
-		page->setViewportObjectSelectionChecked(view->objectSelectionMode());
+		page->setViewportObjectSelectionChecked(scene->objectSelectionMode());
 	}
 	if (m_gizmoFrameGroup && m_gizmoLocalFrameAction && m_gizmoWorldFrameAction)
 	{
 		const QSignalBlocker bg(m_gizmoFrameGroup);
 		const QSignalBlocker b1(m_gizmoLocalFrameAction);
 		const QSignalBlocker b2(m_gizmoWorldFrameAction);
-		if (view->transformGizmoFrameIsLocal())
+		if (scene->transformGizmoFrameIsLocal())
 		{
 			m_gizmoLocalFrameAction->setChecked(true);
 			m_gizmoWorldFrameAction->setChecked(false);

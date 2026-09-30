@@ -3,8 +3,17 @@
 
 #include "BackendComponentCodecRegistry.h"
 
+#include <cassert>
+
 BackendComponentCodecRegistry*& BackendComponentCodecRegistry::processInstanceSlot()
 {
 	static BackendComponentCodecRegistry* slot = nullptr;
 	return slot;
+}
+
+BackendComponentCodecRegistry& BackendComponentCodecRegistry::instance()
+{
+	BackendComponentCodecRegistry* slot = processInstanceSlot();
+	assert(slot != nullptr);
+	return *slot;
 }

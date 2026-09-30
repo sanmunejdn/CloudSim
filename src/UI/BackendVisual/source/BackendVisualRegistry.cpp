@@ -1,5 +1,5 @@
 ﻿/// @file BackendVisualRegistry.cpp
-/// @brief BackendVisual 注册表
+/// @brief BackendVisual 注册表进程级 override 槽（跨 TU 单点）
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -21,75 +21,71 @@
 #include "PointCloudBackendData.h"
 #include "PointCloudBackendVisual.h"
 
-#include <mutex>
-#include <unordered_map>
+#include <cassert>
 
-namespace
+BackendVisualRegistry*& BackendVisualRegistry::processInstanceSlot()
 {
-std::unordered_map<std::string, BackendVisualRegistry::Factory>& factories()
-{
-	static std::unordered_map<std::string, BackendVisualRegistry::Factory> m;
-	return m;
+	static BackendVisualRegistry* slot = nullptr;
+	return slot;
 }
 
-std::once_flag& builtinsOnce()
+BackendVisualRegistry& BackendVisualRegistry::instance()
 {
-	static std::once_flag f;
-	return f;
+	BackendVisualRegistry* slot = processInstanceSlot();
+	assert(slot != nullptr);
+	return *slot;
 }
 
-void registerBuiltins()
+void BackendVisualRegistry::registerTypeImpl(const std::string& className, Factory factory)
 {
-	BackendVisualRegistry::registerType(
+	m_factories[className] = std::move(factory);
+}
+
+void BackendVisualRegistry::registerBuiltins()
+{
+	registerTypeImpl(
 		backend_type::kClassPointCloud,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<PointCloudBackendVisual>(); });
-	BackendVisualRegistry::registerType(
+	registerTypeImpl(
 		backend_type::kClassModel,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
-	BackendVisualRegistry::registerType(
+	registerTypeImpl(
 		backend_type::kClassModelVisualAlias,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
-	BackendVisualRegistry::registerType(
+	registerTypeImpl(
 		backend_type::kClassBrepModel,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<BrepBackendVisual>(); });
-	BackendVisualRegistry::registerType(
+	registerTypeImpl(
 		backend_type::kClassParametricBrep,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<BrepBackendVisual>(); });
-	BackendVisualRegistry::registerType(
+	registerTypeImpl(
 		backend_type::kClassFrame,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<FrameBackendVisual>(); });
-	BackendVisualRegistry::registerType(
+	registerTypeImpl(
 		backend_type::kClassCustomDevice,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<CustomDeviceBackendVisual>(); });
 }
 
-} // namespace
-
-void BackendVisualRegistry::registerType(const std::string& className, Factory factory)
+void BackendVisualRegistry::ensureBuiltinsRegisteredImpl()
 {
-	factories()[className] = std::move(factory);
+	std::call_once(m_builtinsOnce, [this]() { registerBuiltins(); });
 }
 
-void BackendVisualRegistry::ensureBuiltinsRegistered()
+std::unique_ptr<IBackendVisual> BackendVisualRegistry::createForClassNameImpl(const std::string& className) const
 {
-	std::call_once(builtinsOnce(), registerBuiltins);
-}
-
-std::unique_ptr<IBackendVisual> BackendVisualRegistry::createForClassName(const std::string& className)
-{
-	ensureBuiltinsRegistered();
-	const auto it = factories().find(className);
-	if (it == factories().end())
+	const_cast<BackendVisualRegistry*>(this)->ensureBuiltinsRegisteredImpl();
+	const auto it = m_factories.find(className);
+	if (it == m_factories.end())
 	{
 		return nullptr;
 	}
 	return it->second();
 }
 
-bool BackendVisualRegistry::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions,
-											 BranchBuildResult& out, std::string* errorMessage)
+bool BackendVisualRegistry::buildOuterBranchImpl(const BackendDataBase& data, const MeshVisualOptions& meshOptions,
+												 BranchBuildResult& out, std::string* errorMessage) const
 {
-	std::unique_ptr<IBackendVisual> v = createForClassName(data.className());
+	std::unique_ptr<IBackendVisual> v = createForClassNameImpl(data.className());
 	if (!v)
 	{
 		if (errorMessage)
@@ -101,10 +97,10 @@ bool BackendVisualRegistry::buildOuterBranch(const BackendDataBase& data, const 
 	return v->buildOuterBranch(data, meshOptions, out, errorMessage);
 }
 
-void BackendVisualRegistry::computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
-														  float& outDiagonal)
+void BackendVisualRegistry::computeModelCenterAndDiagonalImpl(const BackendDataBase& data, osg::Vec3f& outCenter,
+															  float& outDiagonal) const
 {
-	std::unique_ptr<IBackendVisual> v = createForClassName(data.className());
+	std::unique_ptr<IBackendVisual> v = createForClassNameImpl(data.className());
 	if (!v)
 	{
 		outCenter = osg::Vec3f(0.0f, 0.0f, 0.0f);
@@ -112,6 +108,33 @@ void BackendVisualRegistry::computeModelCenterAndDiagonal(const BackendDataBase&
 		return;
 	}
 	v->computeModelCenterAndDiagonal(data, outCenter, outDiagonal);
+}
+
+void BackendVisualRegistry::registerType(const std::string& className, Factory factory)
+{
+	instance().registerTypeImpl(className, std::move(factory));
+}
+
+void BackendVisualRegistry::ensureBuiltinsRegistered()
+{
+	instance().ensureBuiltinsRegisteredImpl();
+}
+
+std::unique_ptr<IBackendVisual> BackendVisualRegistry::createForClassName(const std::string& className)
+{
+	return instance().createForClassNameImpl(className);
+}
+
+bool BackendVisualRegistry::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions,
+											 BranchBuildResult& out, std::string* errorMessage)
+{
+	return instance().buildOuterBranchImpl(data, meshOptions, out, errorMessage);
+}
+
+void BackendVisualRegistry::computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
+														  float& outDiagonal)
+{
+	instance().computeModelCenterAndDiagonalImpl(data, outCenter, outDiagonal);
 }
 
 osg::ref_ptr<osg::Geode> BackendVisualRegistry::buildPointCloudGeode(const PointCloudBackendData& data,

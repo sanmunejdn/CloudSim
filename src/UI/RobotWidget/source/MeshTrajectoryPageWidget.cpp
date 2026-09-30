@@ -7,6 +7,9 @@
 #include "FeaturePickTransform.h"
 #include "IRobotDocumentHost.h"
 #include "IRobotMainWindowHost.h"
+#include "IRobotOsgOverlay.h"
+#include "IRobotOsgPick.h"
+#include "IRobotOsgSceneOps.h"
 #include "IRobotOsgViewHost.h"
 #include "MeshTrajectoryIngress.h"
 #include "MeshTriangleSelectionUtil.h"
@@ -291,9 +294,9 @@ void MeshTrajectoryPageWidget::bindHost(IRobotMainWindowHost* host)
 	hideSectionPlanePreview();
 	if (m_host)
 	{
-		if (IRobotOsgViewHost* osg = m_host->osgView())
+		if (IRobotOsgOverlay* overlay = m_host->osgOverlay())
 		{
-			osg->clearMeshFittedSurfacePreview();
+			overlay->clearMeshFittedSurfacePreview();
 		}
 		m_host->clearMeshTriangleLabelingPickHandlers();
 	}
@@ -354,11 +357,11 @@ void MeshTrajectoryPageWidget::wirePickHandlers()
 			return;
 		}
 		IRobotDocumentHost* doc = m_host->document();
-		IRobotOsgViewHost* osg = m_host->osgView();
+		IRobotOsgSceneOps* scene = m_host->osgScene();
 		const std::string backendId = m_backendCombo->currentData().toString().toStdString();
 		std::vector<int> kept;
 		std::string err;
-		if (mesh_triangle_selection::collectTrianglesByPolyline(doc, osg, backendId, polyline, mvp, vw, vh, kept, &err))
+		if (mesh_triangle_selection::collectTrianglesByPolyline(doc, scene, backendId, polyline, mvp, vw, vh, kept, &err))
 		{
 			applySelectionIndices(kept, MeshTrajectorySelectionMode::Add);
 		}
@@ -421,9 +424,9 @@ void MeshTrajectoryPageWidget::reloadMeshSession()
 		return;
 	}
 	(void)m_meshSession->beginMesh(backendId, mesh->triangleSoup());
-	if (IRobotOsgViewHost* osg = m_host->osgView())
+	if (IRobotOsgPick* pick = m_host->osgPick())
 	{
-		osg->setMeshPickScopeBackendId(backendId);
+		pick->setMeshPickScopeBackendId(backendId);
 	}
 	updateUiLabels();
 	syncSelectionHighlight();
@@ -432,12 +435,17 @@ void MeshTrajectoryPageWidget::reloadMeshSession()
 
 void MeshTrajectoryPageWidget::syncMethodPreview()
 {
+	// 构造期 onMethodChanged 早于 bindHost，勿碰宿主
+	if (!m_host)
+	{
+		return;
+	}
 	const auto method = static_cast<geoalgo::MeshTrajectoryMethod>(m_methodCombo->currentData().toInt());
 	if (method == geoalgo::MeshTrajectoryMethod::CrossSection)
 	{
-		if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+		if (IRobotOsgOverlay* overlay = m_host->osgOverlay())
 		{
-			osg->clearMeshFittedSurfacePreview();
+			overlay->clearMeshFittedSurfacePreview();
 		}
 		syncSectionPlanePreview();
 	}
@@ -455,9 +463,9 @@ void MeshTrajectoryPageWidget::clearMethodPreview()
 		return;
 	}
 	hideSectionPlanePreview();
-	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+	if (IRobotOsgOverlay* overlay = m_host ? m_host->osgOverlay() : nullptr)
 	{
-		osg->clearMeshFittedSurfacePreview();
+		overlay->clearMeshFittedSurfacePreview();
 	}
 }
 
@@ -467,20 +475,20 @@ void MeshTrajectoryPageWidget::syncSectionPlanePreview()
 	{
 		return;
 	}
-	IRobotOsgViewHost* osg = m_host->osgView();
-	if (!osg)
+	IRobotOsgSceneOps* scene = m_host->osgScene();
+	if (!scene)
 	{
 		return;
 	}
 	if (!m_showSectionCheck->isChecked())
 	{
-		osg->setMeshSectionPlanePreviewVisible(false);
+		scene->setMeshSectionPlanePreviewVisible(false);
 		return;
 	}
 	const std::string backendId = m_backendCombo->currentData().toString().toStdString();
 	const double origin[3] = {m_planeOx->value(), m_planeOy->value(), m_planeOz->value()};
 	const double normal[3] = {m_planeNx->value(), m_planeNy->value(), m_planeNz->value()};
-	osg->showMeshSectionPlane(backendId, origin, normal);
+	scene->showMeshSectionPlane(backendId, origin, normal);
 }
 
 void MeshTrajectoryPageWidget::onShowSectionToggled(const bool)
@@ -511,15 +519,16 @@ void MeshTrajectoryPageWidget::syncBsplineSurfacePreview()
 	{
 		return;
 	}
-	IRobotOsgViewHost* osg = m_host->osgView();
-	if (!osg)
+	IRobotOsgOverlay* overlay = m_host->osgOverlay();
+	IRobotOsgSceneOps* scene = m_host->osgScene();
+	if (!overlay || !scene)
 	{
 		return;
 	}
 	const auto& selected = m_meshSession->selectedTriangleIndices();
 	if (selected.size() < 3U)
 	{
-		osg->clearMeshFittedSurfacePreview();
+		overlay->clearMeshFittedSurfacePreview();
 		return;
 	}
 	geoalgo::MeshTrajectoryBsplineParams bspline;
@@ -530,19 +539,19 @@ void MeshTrajectoryPageWidget::syncBsplineSurfacePreview()
 	std::string err;
 	if (!geoalgo::buildBsplineRegionSurfacePreview(m_meshSession->triangleSoup(), region, bspline, previewSoup, &err))
 	{
-		osg->clearMeshFittedSurfacePreview();
+		overlay->clearMeshFittedSurfacePreview();
 		return;
 	}
 	const std::string backendId = m_meshSession->backendIdUtf8();
 	std::vector<cloudsim::core::Vec3> vertsWorld;
-	mesh_triangle_selection::triangleSoupModelToWorldVerts(osg, backendId, previewSoup, vertsWorld);
+	mesh_triangle_selection::triangleSoupModelToWorldVerts(scene, backendId, previewSoup, vertsWorld);
 	if (vertsWorld.empty())
 	{
-		osg->clearMeshFittedSurfacePreview();
+		overlay->clearMeshFittedSurfacePreview();
 	}
 	else
 	{
-		osg->showMeshFittedSurfacePreview(vertsWorld);
+		overlay->showMeshFittedSurfacePreview(vertsWorld);
 	}
 }
 
@@ -552,8 +561,9 @@ void MeshTrajectoryPageWidget::syncSelectionHighlight()
 	{
 		return;
 	}
-	IRobotOsgViewHost* osg = m_host->osgView();
-	if (!osg)
+	IRobotOsgOverlay* overlay = m_host->osgOverlay();
+	IRobotOsgSceneOps* scene = m_host->osgScene();
+	if (!overlay || !scene)
 	{
 		return;
 	}
@@ -562,27 +572,27 @@ void MeshTrajectoryPageWidget::syncSelectionHighlight()
 	auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data);
 	if (!mesh)
 	{
-		osg->clearMeshTriangleHighlight();
+		overlay->clearMeshTriangleHighlight();
 		return;
 	}
 	std::vector<cloudsim::core::Vec3> verts;
-	mesh_triangle_selection::selectedTrianglesToWorldVerts(*mesh, osg, backendId,
+	mesh_triangle_selection::selectedTrianglesToWorldVerts(*mesh, scene, backendId,
 														   m_meshSession->selectedTriangleIndices(), verts);
 	if (verts.empty())
 	{
-		osg->clearMeshTriangleHighlight();
+		overlay->clearMeshTriangleHighlight();
 	}
 	else
 	{
-		osg->showMeshTriangleHighlight(verts);
+		overlay->showMeshTriangleHighlight(verts);
 	}
 }
 
 void MeshTrajectoryPageWidget::cancelActivePick()
 {
-	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+	if (IRobotOsgPick* pick = m_host ? m_host->osgPick() : nullptr)
 	{
-		osg->cancelMeshTrianglePick();
+		pick->cancelMeshTrianglePick();
 	}
 }
 
@@ -622,8 +632,8 @@ void MeshTrajectoryPageWidget::startSectionPlaneEdit()
 	{
 		return;
 	}
-	IRobotOsgViewHost* osg = m_host->osgView();
-	if (!osg)
+	IRobotOsgSceneOps* scene = m_host->osgScene();
+	if (!scene)
 	{
 		return;
 	}
@@ -632,7 +642,7 @@ void MeshTrajectoryPageWidget::startSectionPlaneEdit()
 	const double normal[3] = {m_planeNx->value(), m_planeNy->value(), m_planeNz->value()};
 	m_sectionEditActive = true;
 	updateUiLabels();
-	osg->beginMeshSectionPlaneEdit(backendId, origin, normal,
+	scene->beginMeshSectionPlaneEdit(backendId, origin, normal,
 								   [this](const double o[3], const double n[3]) { syncPlaneSpinboxesFromModel(o, n); });
 }
 
@@ -662,8 +672,8 @@ void MeshTrajectoryPageWidget::pushPlaneSpinboxesToOsg()
 	{
 		return;
 	}
-	IRobotOsgViewHost* osg = m_host->osgView();
-	if (!osg)
+	IRobotOsgSceneOps* scene = m_host->osgScene();
+	if (!scene)
 	{
 		return;
 	}
@@ -671,12 +681,12 @@ void MeshTrajectoryPageWidget::pushPlaneSpinboxesToOsg()
 	const double normal[3] = {m_planeNx->value(), m_planeNy->value(), m_planeNz->value()};
 	if (m_sectionEditActive)
 	{
-		osg->updateMeshSectionPlanePose(origin, normal);
+		scene->updateMeshSectionPlanePose(origin, normal);
 	}
 	else
 	{
 		const std::string backendId = m_backendCombo->currentData().toString().toStdString();
-		osg->showMeshSectionPlane(backendId, origin, normal);
+		scene->showMeshSectionPlane(backendId, origin, normal);
 	}
 }
 
@@ -737,14 +747,14 @@ void MeshTrajectoryPageWidget::onFromCameraNormalClicked()
 	{
 		return;
 	}
-	IRobotOsgViewHost* osg = m_host->osgView();
-	if (!osg)
+	IRobotOsgSceneOps* scene = m_host->osgScene();
+	if (!scene)
 	{
 		return;
 	}
 	const std::string backendId = m_backendCombo->currentData().toString().toStdString();
 	double dir[3] = {};
-	if (!osg->getCameraViewDirectionInBackendModel(backendId, dir))
+	if (!scene->getCameraViewDirectionInBackendModel(backendId, dir))
 	{
 		return;
 	}
@@ -756,25 +766,25 @@ void MeshTrajectoryPageWidget::onFromCameraNormalClicked()
 
 void MeshTrajectoryPageWidget::onPickClickClicked()
 {
-	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+	if (IRobotOsgPick* pick = m_host ? m_host->osgPick() : nullptr)
 	{
-		osg->setMeshTrianglePickTool(MeshTrianglePickTool::Click);
+		pick->setMeshTrianglePickTool(MeshTrianglePickTool::Click);
 	}
 }
 
 void MeshTrajectoryPageWidget::onPickBrushClicked()
 {
-	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+	if (IRobotOsgPick* pick = m_host ? m_host->osgPick() : nullptr)
 	{
-		osg->setMeshTrianglePickTool(MeshTrianglePickTool::Brush, 14.f);
+		pick->setMeshTrianglePickTool(MeshTrianglePickTool::Brush, 14.f);
 	}
 }
 
 void MeshTrajectoryPageWidget::onPickPolylineClicked()
 {
-	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+	if (IRobotOsgPick* pick = m_host ? m_host->osgPick() : nullptr)
 	{
-		osg->setMeshTrianglePickTool(MeshTrianglePickTool::Polyline);
+		pick->setMeshTrianglePickTool(MeshTrianglePickTool::Polyline);
 	}
 }
 

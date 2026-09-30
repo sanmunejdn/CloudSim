@@ -12,7 +12,7 @@
 | PointCloudPlugin | 侧栏 | [DEVELOPER_GUIDE.md](PointCloudPlugin/DEVELOPER_GUIDE.md) |
 | PlcCommPlugin / SDK / UI | 侧栏 | [Plugin](PlcCommPlugin/DEVELOPER_GUIDE.md)、[SDK](PlcCommSDK/DEVELOPER_GUIDE.md)、[UI](PlcCommUI/DEVELOPER_GUIDE.md) |
 | IndustrialCameraPlugin / SDK | 侧栏 | [Plugin](IndustrialCameraPlugin/DEVELOPER_GUIDE.md)、[SDK](IndustrialCameraSDK/DEVELOPER_GUIDE.md) |
-| LabelingPlugin / CloudSimLabelingSDK | 侧栏 | [README.md](LabelingPlugin/README.md)、[SDK](CloudSimLabelingSDK/DEVELOPER_GUIDE.md) |
+| LabelingPlugin | 侧栏（会话 = HostCore `LabelingSession`；LabelingSDK 已移除） | [README.md](LabelingPlugin/README.md)、[DEVELOPER_GUIDE](LabelingPlugin/DEVELOPER_GUIDE.md) |
 | PointNetPlugin | 侧栏 / AI | [DEVELOPER_GUIDE.md](PointNetPlugin/DEVELOPER_GUIDE.md) |
 | HelloAiPlugin | 示例 AI | [README.md](HelloAiPlugin/README.md) |
 | CloudSimAiSDK | AI ABI / Dock | [DEVELOPER_GUIDE.md](CloudSimAiSDK/DEVELOPER_GUIDE.md) |

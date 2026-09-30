@@ -33,6 +33,11 @@ class EventHub;
 
 class OsgWidget;
 class IOsgWidgetView;
+class IViewportSceneSignals;
+class IViewportSceneOps;
+class IViewportPickObserve;
+class IViewportToolbar;
+class IViewportOverlay;
 class QVBoxLayout;
 class BackendDataManager;
 class IBackendDataQuery;
@@ -66,6 +71,7 @@ class HeadlessDrawingBridge;
 class HeadlessGeomodelBridge;
 class HeadlessLabelingBridge;
 class IoSignalNetwork;
+class OsgRenderViewAdapter;
 
 /// 单文档组合根
 class CLOUDSIM_HOST_EXPORT DocumentHost : public QWidget, public cloudsim::core::IDocumentScope
@@ -84,12 +90,20 @@ public:
 	cloudsim::core::IRenderView& render() override;
 	cloudsim::core::EventHub& events();
 
-	/// 文档内 OsgWidget（构造期可用，勿经 render().widget()）
-	OsgWidget* osgWidget() { return m_osgWidget; }
-	const OsgWidget* osgWidget() const { return m_osgWidget; }
 	/// 窄接口视图（不依赖 OsgWidget 完整类型，供 HostCore 共享编译）
 	IOsgWidgetView* osgView() { return m_osgView; }
 	const IOsgWidgetView* osgView() const { return m_osgView; }
+	/// IOsgWidgetView 切面入口（未建视口时为 nullptr）
+	IViewportSceneOps* sceneOps();
+	const IViewportSceneOps* sceneOps() const;
+	IViewportPickObserve* pickObserve();
+	const IViewportPickObserve* pickObserve() const;
+	IViewportToolbar* toolbar();
+	const IViewportToolbar* toolbar() const;
+	IViewportOverlay* overlay();
+	const IViewportOverlay* overlay() const;
+	IViewportSceneSignals* viewportSceneSignals() { return m_viewportSceneSignals; }
+	const IViewportSceneSignals* viewportSceneSignals() const { return m_viewportSceneSignals; }
 
 	/// 中央 alternate（流程画布等）；不销毁 OsgWidget
 	void setCentralAlternateWidget(QWidget* widget);
@@ -156,6 +170,10 @@ public:
 
 	void setProjectFilePath(const QString& path);
 	const QString& projectFilePath() const;
+
+	/// 轨迹/离散化 Config JSON 资源根；ensure*ConfigsLoaded 应传此目录，避免多文档互踩
+	void setConfigResourceBaseDir(const QString& dir);
+	const QString& configResourceBaseDir() const;
 
 	/// Follow 脏集
 	std::unordered_set<std::string>& followDirtyBackendIds();
@@ -235,7 +253,13 @@ signals:
 	void visualSceneDirty();
 
 private:
+	/// 构造期 OsgRenderViewAdapter 需要具体壳；外部请用 osgView()
+	friend class OsgRenderViewAdapter;
+	OsgWidget* osgWidget() { return m_osgWidget; }
+	const OsgWidget* osgWidget() const { return m_osgWidget; }
+
 	QString m_documentId;
+	QString m_configResourceBaseDir;
 	cloudsim::core::EventHub& m_events;
 	std::unique_ptr<cloudsim::core::IDataService> m_dataService;
 	std::unique_ptr<cloudsim::core::IRobotService> m_robotService;
@@ -249,6 +273,7 @@ private:
 	QVBoxLayout* m_centralLayout = nullptr;
 	OsgWidget* m_osgWidget = nullptr;
 	IOsgWidgetView* m_osgView = nullptr;
+	IViewportSceneSignals* m_viewportSceneSignals = nullptr;
 	QWidget* m_osgPane = nullptr;
 	QWidget* m_centralAlternate = nullptr;
 	bool m_osgEmbedded = false;

@@ -27,7 +27,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | **碰撞与关节路径规划** | Dock「碰撞与规划」：`RobotCollisionSettingsWidget`（启用/安全余量、未分配池、白/黑名单、**规划算法/时限**、起终点路点下拉、规划/清除/确认插入）；算法见 `RobotPathPlanning`、原理说明见 [`docs/机器人路径规划/PLANNERS_规划算法原理.md`](../../../docs/机器人路径规划/PLANNERS_规划算法原理.md)；场景同步 `BackendCollisionSync` |
 | Orchestration | `RobotSimulationController`（门面；含 `IoSignalNetworkService` 等小服务） |
 | **外置控制器** | 指令页勾选 + **设置…** → `ExternalControllerDialog`（语言/源码/运行 Python）；listen `19620`；见 [`docs/features/仿真外置控制器/`](../../../docs/features/仿真外置控制器/) |
-| Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
+| Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost`（聚合 `IRobotOsgSceneOps` / `IRobotOsgPick` / `IRobotOsgOverlay` / `IRobotOsgTeach`） |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
 | FK / matrix helpers | `RobotSimulationMath` |
 | Instruction planning context | `RobotInstructionPlanning` |
@@ -42,7 +42,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 
 ## Widget integration
 
-- `MainWindowRobotHost` implements `IRobotDocumentHost` / `IRobotOsgViewHost` / `IRobotMainWindowHost`.
+- `MainWindowRobotHost` implements `IRobotDocumentHost` / `IRobotOsgViewHost` / `IRobotMainWindowHost`（`osgScene()` / `osgPick()` / `osgOverlay()` / `osgTeach()` 与 `osgView()` 同实例，按切面传参）。
 - `MainWindowUiSetup` creates `RobotSimulationController`, simulation dock, and attaches `m_robotSimTimer` via `attachPlaybackTimer`.
 - `MainWindowRobotStubs.cpp` forwards slots (`onSimulationInstructionSelectionChanged`, `onRobotAxisJointAnglesChanged`, TCP teach, etc.) to the controller.
 - `MainWindowPropertyPanel` owns the Qt property browser shell; simulation instruction rows are built by `InstructionPropertyPanel`.
@@ -56,6 +56,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | **M0 与 P 分离** | bind 表 **M0** 在导入时冻结；整机关节链平移/旋转只更新 **P**（`basePlacementWorld`）。勿在 gizmo 松手或 TCP 前把场景世界矩阵 **W** 直接写入 **M0**。进入 TCP 示教前调用 `reconcilePerLinkOuterBindFromScene` 校正 bind。 |
 | `robotBaseWorldMatrixForInstance` | per-link 时返回 **P**，供 `tcpTeachSetTargetFromToolWorld` 做基座↔世界变换；**勿**用根连杆 OSG 世界矩阵冒充 URDF 基座。 |
 | `IRobotOsgViewHost` 生命周期 | `osgView()` 在文档页变化时重建 `WidgetOsgViewHost`；实现委托 `IRenderView`，勿缓存裸 `OsgWidget*`。 |
+| **OSG 切面** | 新代码默认依赖单切面（如 `host->osgScene()`）；仅同时用到 scene+pick+overlay+teach 等多切面时才传 `IRobotOsgViewHost*` / `osgView()`。 |
 | `IRobotOsgViewHost` 坐标 | `feature_pick_transform` 经 `resolvePickScopeBackendId` + `getBackendRootWorldMatrix` 做 STEP 文件坐标↔世界（**不**加减 `modelCenter`）；`backendSkipsInnerModelCenterRebase` 已恒 `false`（遗留 API）。 |
 | `IRobotDocumentHost` 文档切换 | `document()` 在 `currentPage()` 变化时重建 `DocumentHost`（与 OSG 规则一致）。 |
 

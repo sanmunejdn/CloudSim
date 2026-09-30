@@ -7,6 +7,7 @@
 
 #include "robotwidget_global.h"
 
+#include "IRobotOsgSceneOps.h"
 #include "IRobotOsgViewHost.h"
 #include "RobotOsgUiTypes.h"
 #include "RobotSimulationMath.h"
@@ -23,7 +24,7 @@
 
 namespace feature_pick_transform
 {
-inline bool backendWorldRotationMatrix(IRobotOsgViewHost* osg, const std::string& backendId, osg::Matrixd& outRot,
+inline bool backendWorldRotationMatrix(IRobotOsgSceneOps* osg, const std::string& backendId, osg::Matrixd& outRot,
 									   std::string* errMsg = nullptr)
 {
 	if (!osg)
@@ -48,15 +49,15 @@ inline bool backendWorldRotationMatrix(IRobotOsgViewHost* osg, const std::string
 	return true;
 }
 
-ROBOTWIDGET_EXPORT bool worldPointToStepModelMm(IRobotOsgViewHost* osg, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool worldPointToStepModelMm(IRobotOsgSceneOps* osg, const std::string& backendId,
 												const osg::Vec3f& worldMm, geoalgo::Point3d& outModel,
 												std::string* errMsg = nullptr);
 
-ROBOTWIDGET_EXPORT bool stepModelPointToWorldMm(IRobotOsgViewHost* osg, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool stepModelPointToWorldMm(IRobotOsgSceneOps* osg, const std::string& backendId,
 												const geoalgo::Point3d& modelMm, osg::Vec3f& outWorld,
 												std::string* errMsg = nullptr);
 
-inline bool stepModelDirectionToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+inline bool stepModelDirectionToWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 									  const geoalgo::Point3d& modelDir, osg::Vec3f& outWorldDir,
 									  std::string* errMsg = nullptr)
 {
@@ -78,32 +79,32 @@ inline bool stepModelDirectionToWorld(IRobotOsgViewHost* osg, const std::string&
 	return true;
 }
 
-ROBOTWIDGET_EXPORT bool transformTrajectoryPointToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool transformTrajectoryPointToWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 														const RobotInstruction::TrajectoryPoint& filePoint,
 														RobotInstruction::TrajectoryPoint& outWorld,
 														std::string* errMsg = nullptr);
 
-ROBOTWIDGET_EXPORT bool transformRawTrajectoryToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool transformRawTrajectoryToWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 													  const RobotInstruction::RawTrajectory& fileTraj,
 													  RobotInstruction::RawTrajectory& outWorld,
 													  std::string* errMsg = nullptr);
 
-ROBOTWIDGET_EXPORT bool transformTrajectoryPointToFile(IRobotOsgViewHost* osg, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool transformTrajectoryPointToFile(IRobotOsgSceneOps* osg, const std::string& backendId,
 													   const RobotInstruction::TrajectoryPoint& worldPoint,
 													   RobotInstruction::TrajectoryPoint& outFile,
 													   std::string* errMsg = nullptr);
 
-ROBOTWIDGET_EXPORT bool transformRawTrajectoryWorldToFile(IRobotOsgViewHost* osg, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool transformRawTrajectoryWorldToFile(IRobotOsgSceneOps* osg, const std::string& backendId,
 														  const RobotInstruction::RawTrajectory& worldTraj,
 														  RobotInstruction::RawTrajectory& outFile,
 														  std::string* errMsg = nullptr);
 
-ROBOTWIDGET_EXPORT bool buildRawTrajectoryOverlayWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool buildRawTrajectoryOverlayWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 													   const RobotInstruction::RawTrajectory& fileTraj,
 													   std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& outOverlay,
 													   std::string* errMsg = nullptr);
 
-ROBOTWIDGET_EXPORT bool buildRawTrajectoryPreviewWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+ROBOTWIDGET_EXPORT bool buildRawTrajectoryPreviewWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 													   const RobotInstruction::RawTrajectory& fileTraj,
 													   const RobotOsgUi::RawTrajectoryPreviewOptions& options,
 													   std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& outOverlay,
@@ -112,7 +113,7 @@ ROBOTWIDGET_EXPORT bool buildRawTrajectoryPreviewWorld(IRobotOsgViewHost* osg, c
 
 /// 追加一条 raw 到已有 overlay（多 PathPlan 叠加预览）
 ROBOTWIDGET_EXPORT bool
-appendRawTrajectoryOverlayWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+appendRawTrajectoryOverlayWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 								const RobotInstruction::RawTrajectory& fileTraj,
 								std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& inOutOverlay,
 								std::vector<std::size_t>& inOutSegmentEndExclusive, std::string* errMsg = nullptr);
@@ -154,7 +155,7 @@ inline void applyMeshLocalRawTrajectoryPreviewToOsg(IRobotOsgViewHost* osg, cons
 	applyRawTrajectoryPreviewToOsg(osg, backendId, meshLocalTraj, options, errMsg);
 }
 
-inline bool transformMeshLocalRawTrajectoryToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+inline bool transformMeshLocalRawTrajectoryToWorld(IRobotOsgSceneOps* osg, const std::string& backendId,
 												   const RobotInstruction::RawTrajectory& meshLocalTraj,
 												   RobotInstruction::RawTrajectory& outWorld,
 												   std::string* errMsg = nullptr)

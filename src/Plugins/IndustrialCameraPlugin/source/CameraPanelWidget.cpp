@@ -6,6 +6,7 @@
 #include "CameraResourceStore.h"
 #include "ICamera.h"
 #include "IPluginHostContext.h"
+#include "IPluginProjectContext.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -401,7 +402,13 @@ void CameraPanelWidget::onImportCloud()
 		appendLog(zh_ ? QStringLiteral("无 cloud.ply") : QStringLiteral("No cloud.ply"));
 		return;
 	}
-	const std::string id = host_->importFileIntoActiveDocument(ply.toStdString(), true);
+	IPluginProjectContext* proj = host_->projectContext();
+	if (!proj)
+	{
+		appendLog(zh_ ? QStringLiteral("导入失败") : QStringLiteral("Import failed"));
+		return;
+	}
+	const std::string id = proj->importFileIntoActiveDocument(ply.toStdString(), true);
 	appendLog(id.empty() ? (zh_ ? QStringLiteral("导入失败") : QStringLiteral("Import failed"))
 						 : (zh_ ? QStringLiteral("已导入 ") + QString::fromStdString(id)
 								: QStringLiteral("Imported ") + QString::fromStdString(id)));

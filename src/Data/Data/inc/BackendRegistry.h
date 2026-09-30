@@ -42,17 +42,8 @@ public:
 		processInstanceSlot() = registry;
 	}
 
-	// 兼容期入口：优先 setProcessInstance，否则静态兜底
-	static BackendRegistry& instance()
-	{
-		if (BackendRegistry* overrideInstance = processInstanceSlot())
-		{
-			return *overrideInstance;
-		}
-		// 静态兜底：Data.dll 无法反向访问宿主 ServiceRegistry
-		static BackendRegistry fallback;
-		return fallback;
-	}
+	/// 业务路径须先 setProcessInstance（组合根）
+	static BackendRegistry& instance();
 
 	void registerType(const BackendMeta& meta)
 
