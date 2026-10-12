@@ -8,6 +8,7 @@
 
 #include <QByteArray>
 #include <QDateTime>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QMetaObject>
 #include <QPlainTextEdit>
@@ -31,22 +32,32 @@ RunInfoPage::RunInfoPage(QWidget* parent) : QWidget(parent)
 
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(4, 4, 4, 4);
-	root->setSpacing(4);
+	root->setSpacing(0);
 
-	auto* toolRow = new QHBoxLayout;
-	toolRow->setContentsMargins(0, 0, 0, 0);
-	toolRow->addStretch(1);
-	m_clearBtn = new QPushButton(QStringLiteral("Clear"), this);
-	m_clearBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-	toolRow->addWidget(m_clearBtn);
-	root->addLayout(toolRow, 0);
+	// 清空叠在输出区右上角，避免单独占一行
+	auto* logHost = new QWidget(this);
+	auto* grid = new QGridLayout(logHost);
+	grid->setContentsMargins(0, 0, 0, 0);
+	grid->setSpacing(0);
 
-	m_logEdit = new QPlainTextEdit(this);
+	m_logEdit = new QPlainTextEdit(logHost);
 	m_logEdit->setReadOnly(true);
 	m_logEdit->setMaximumBlockCount(2000);
 	m_logEdit->setMinimumHeight(36);
 	m_logEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	root->addWidget(m_logEdit, 1);
+	grid->addWidget(m_logEdit, 0, 0);
+
+	auto* clearWrap = new QWidget(logHost);
+	auto* clearLay = new QHBoxLayout(clearWrap);
+	clearLay->setContentsMargins(0, 4, 6, 0);
+	clearLay->setSpacing(0);
+	m_clearBtn = new QPushButton(QStringLiteral("Clear"), clearWrap);
+	m_clearBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	m_clearBtn->setMinimumHeight(28);
+	clearLay->addWidget(m_clearBtn);
+	grid->addWidget(clearWrap, 0, 0, Qt::AlignTop | Qt::AlignRight);
+
+	root->addWidget(logHost, 1);
 
 	connect(m_clearBtn, &QPushButton::clicked, this, &RunInfoPage::clearLogs);
 	UiIconDecorators::apply(m_clearBtn, UiIconId::ClearLog);
@@ -56,6 +67,7 @@ RunInfoPage::RunInfoPage(QWidget* parent) : QWidget(parent)
 		m_clearBtn->style()->unpolish(m_clearBtn);
 		m_clearBtn->style()->polish(m_clearBtn);
 	}
+	m_clearBtn->raise();
 
 	RunLogger::setUiSink(
 		[this](RunLogger::LogLevel level, const std::string& message)

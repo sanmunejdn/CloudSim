@@ -218,7 +218,7 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 
 	m_pickStatusLabel = new QLabel(this);
 	m_pickStatusLabel->setWordWrap(true);
-	m_pickStatusLabel->setStyleSheet(QStringLiteral("color: #288cf0;"));
+	m_pickStatusLabel->setStyleSheet(QStringLiteral("color: palette(link);"));
 	layout->addWidget(m_pickStatusLabel);
 
 	auto* strategyRow = new QHBoxLayout;

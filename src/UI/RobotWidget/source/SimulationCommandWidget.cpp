@@ -33,7 +33,8 @@
 
 namespace
 {
-constexpr int kControlHeight = 30;
+/* 24 内容 + 2*2 padding + 2*1 border ≈ 30；略留余量给图标 */
+constexpr int kControlHeight = 32;
 constexpr int kContextLabelWidth = 40;
 constexpr int kTypeBtnMinWidth = 52;
 
@@ -363,7 +364,7 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 
 	auto* insertBtnsHost = new QWidget(insertBar);
 	auto* insertGrid = new QGridLayout(insertBtnsHost);
-	insertGrid->setContentsMargins(0, 1, 0, 1);
+	insertGrid->setContentsMargins(0, 2, 0, 2);
 	insertGrid->setHorizontalSpacing(2);
 	insertGrid->setVerticalSpacing(4);
 	int col = 0;
@@ -388,9 +389,10 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 
 	auto* editBar = new QWidget(this);
 	auto* editCol = new QVBoxLayout(editBar);
-	editCol->setContentsMargins(0, 1, 0, 1);
+	editCol->setContentsMargins(0, 2, 0, 2);
 	editCol->setSpacing(2);
 	auto* funcRow = new QHBoxLayout;
+	funcRow->setContentsMargins(0, 0, 0, 0);
 	funcRow->setSpacing(2);
 	m_editLabel = new QLabel(QStringLiteral("编辑"), editBar);
 	m_editLabel->setFixedWidth(kContextLabelWidth);
@@ -452,7 +454,7 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	m_tcpDragHintLabel = new QLabel(editBar);
 	m_tcpDragHintLabel->setWordWrap(true);
 	m_tcpDragHintLabel->setVisible(false);
-	m_tcpDragHintLabel->setStyleSheet(QStringLiteral("color: #288cf0;"));
+	m_tcpDragHintLabel->setStyleSheet(QStringLiteral("color: palette(link);"));
 	editCol->addWidget(m_tcpDragHintLabel);
 	root->addWidget(editBar);
 	root->addWidget(makeHLine(this));

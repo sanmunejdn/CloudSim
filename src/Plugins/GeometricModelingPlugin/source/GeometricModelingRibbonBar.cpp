@@ -23,9 +23,11 @@
 
 namespace
 {
-// 工程青绿：浅色/深色共用同一强调，避免紫粉 AI 默认色
-constexpr QRgb kAccent = 0xff0f766e;	 // teal-700
-constexpr QRgb kAccentSoft = 0xff14b8a6; // teal-500
+// 与 ApplicationStyle ThemeTokens.accent 对齐（插件不链 Widget）
+constexpr QRgb kAccentLight = 0xff2b79c2;
+constexpr QRgb kAccentDark = 0xff3b8fdd;
+constexpr QRgb kAccentSoftLight = 0xff3a8fd4;
+constexpr QRgb kAccentSoftDark = 0xff54a3eb;
 
 QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 {
@@ -33,7 +35,9 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	pm.fill(Qt::transparent);
 	QPainter p(&pm);
 	p.setRenderHint(QPainter::Antialiasing, true);
-	const QColor ink = accentFill ? QColor(kAccentSoft) : (dark ? QColor(0xf4, 0xf4, 0xf5) : QColor(0x18, 0x18, 0x1b));
+	const QColor ink =
+		accentFill ? QColor(dark ? kAccentSoftDark : kAccentSoftLight)
+				   : (dark ? QColor(0xf4, 0xf4, 0xf5) : QColor(0x18, 0x18, 0x1b));
 	const QColor fillSoft = dark ? QColor(0x3f, 0x3f, 0x46) : QColor(0xe4, 0xe4, 0xe7);
 	const QColor hole = dark ? QColor(0x27, 0x27, 0x2a) : QColor(0xfa, 0xfa, 0xfa);
 	p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -53,7 +57,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.setBrush(fillSoft);
 		p.setPen(QPen(ink, 1.6));
 		p.drawRect(QRectF(8, 16, 24, 14));
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(20, 8, 20, 16);
 		p.drawLine(16, 12, 20, 8);
 		p.drawLine(24, 12, 20, 8);
@@ -61,13 +65,13 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("solve"))
 	{
 		p.drawEllipse(QRectF(8, 8, 24, 24));
-		p.setPen(QPen(QColor(kAccentSoft), 2.2, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.2, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(16, 12, 16, 22);
 		p.drawLine(16, 22, 24, 18);
 	}
 	else if (kind == QLatin1String("pad"))
 	{
-		p.setBrush(QColor(kAccent));
+		p.setBrush(QColor(dark ? kAccentDark : kAccentLight));
 		p.setPen(Qt::NoPen);
 		p.drawRoundedRect(QRectF(9, 18, 22, 12), 2, 2);
 		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -86,7 +90,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	{
 		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 		p.drawArc(QRectF(6, 10, 28, 20), 200 * 16, 140 * 16);
-		p.setBrush(QColor(kAccent));
+		p.setBrush(QColor(dark ? kAccentDark : kAccentLight));
 		p.setPen(Qt::NoPen);
 		p.drawRoundedRect(QRectF(8, 22, 10, 8), 1, 1);
 	}
@@ -112,7 +116,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	{
 		p.setPen(QPen(ink, 2.4, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(8, 30, 32, 10);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(8, 30), 3, 3);
 		p.drawEllipse(QPointF(32, 10), 3, 3);
@@ -120,7 +124,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("arc"))
 	{
 		p.drawArc(QRectF(7, 7, 26, 26), 20 * 16, 140 * 16);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(11, 28), 2.5, 2.5);
 		p.drawEllipse(QPointF(20, 9), 2.5, 2.5);
@@ -129,14 +133,14 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("circle"))
 	{
 		p.drawEllipse(QRectF(8, 8, 24, 24));
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(20, 20), 2.5, 2.5);
 	}
 	else if (kind == QLatin1String("rect"))
 	{
 		p.drawRoundedRect(QRectF(8, 11, 24, 18), 2, 2);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(8, 11), 2.2, 2.2);
 		p.drawEllipse(QPointF(32, 11), 2.2, 2.2);
@@ -146,7 +150,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("ellipse"))
 	{
 		p.drawEllipse(QRectF(6, 12, 28, 16));
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(20, 20), 2.5, 2.5);
 	}
@@ -170,13 +174,13 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("offset"))
 	{
 		p.drawRoundedRect(QRectF(10, 12, 20, 16), 2, 2);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::DashLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::DashLine, Qt::RoundCap));
 		p.drawRoundedRect(QRectF(6, 8, 28, 24), 2, 2);
 	}
 	else if (kind == QLatin1String("convertEntities"))
 	{
 		p.drawRoundedRect(QRectF(8, 10, 24, 20), 2, 2);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(12, 28, 28, 12);
 	}
 	else if (kind == QLatin1String("spline"))
@@ -187,7 +191,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		path.cubicTo(12, 8, 18, 32, 22, 14);
 		path.cubicTo(26, 4, 30, 22, 33, 18);
 		p.drawPath(path);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(7, 28), 2.4, 2.4);
 		p.drawEllipse(QPointF(16, 16), 2.4, 2.4);
@@ -228,7 +232,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	}
 	else if (kind == QLatin1String("dimDist"))
 	{
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(10, 28), 3, 3);
 		p.drawEllipse(QPointF(30, 12), 3, 3);
@@ -239,20 +243,20 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("dimRad"))
 	{
 		p.drawEllipse(QRectF(8, 8, 24, 24));
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(20, 20, 30, 12);
 	}
 	else if (kind == QLatin1String("dimAng"))
 	{
 		p.drawLine(8, 30, 20, 10);
 		p.drawLine(20, 10, 32, 28);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawArc(QRectF(12, 8, 16, 16), 200 * 16, 140 * 16);
 	}
 	else if (kind == QLatin1String("dimArcR"))
 	{
 		p.drawArc(QRectF(7, 7, 26, 26), 30 * 16, 120 * 16);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(20, 20, 28, 12);
 	}
 	else if (kind == QLatin1String("constr"))
@@ -263,18 +267,18 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("geomH"))
 	{
 		p.drawLine(8, 20, 32, 20);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(14, 14, 26, 14);
 	}
 	else if (kind == QLatin1String("geomV"))
 	{
 		p.drawLine(20, 8, 20, 32);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(14, 14, 14, 26);
 	}
 	else if (kind == QLatin1String("geomCoin"))
 	{
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(16, 20), 4, 4);
 		p.setBrush(ink);
@@ -294,7 +298,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	{
 		p.drawLine(8, 26, 20, 14);
 		p.drawLine(20, 26, 32, 14);
-		p.setPen(QPen(QColor(kAccentSoft), 1.6, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 1.6, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(10, 30, 18, 30);
 		p.drawLine(22, 30, 30, 30);
 	}
@@ -306,7 +310,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	}
 	else if (kind == QLatin1String("geomSym"))
 	{
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::DashLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::DashLine, Qt::RoundCap));
 		p.drawLine(20, 8, 20, 32);
 		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.setBrush(Qt::NoBrush);
@@ -316,13 +320,13 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("geomMid"))
 	{
 		p.drawLine(8, 28, 32, 12);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(20, 20), 3.5, 3.5);
 	}
 	else if (kind == QLatin1String("geomFix"))
 	{
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(20, 18), 4, 4);
 		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap));
@@ -335,7 +339,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.setPen(QPen(ink, 1.6, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(10, 20, 30, 20);
 		p.drawLine(20, 10, 20, 30);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QPointF(20, 20), 3.5, 3.5);
 	}
@@ -347,7 +351,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	}
 	else if (kind == QLatin1String("mirror"))
 	{
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::DashLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::DashLine, Qt::RoundCap));
 		p.drawLine(20, 8, 20, 32);
 		p.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(8, 26, 16, 14);
@@ -362,7 +366,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("projectEdges"))
 	{
 		p.drawRoundedRect(QRectF(7, 18, 14, 12), 1, 1);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(22, 12, 30, 12);
 		p.drawLine(22, 20, 32, 20);
 		p.drawLine(22, 28, 28, 28);
@@ -371,20 +375,20 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	{
 		p.drawLine(8, 28, 8, 16);
 		p.drawLine(8, 28, 24, 28);
-		p.setPen(QPen(QColor(kAccentSoft), 2.2, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.2, Qt::SolidLine, Qt::RoundCap));
 		p.drawArc(QRectF(8, 12, 16, 16), 180 * 16, 90 * 16);
 	}
 	else if (kind == QLatin1String("chamfer"))
 	{
 		p.drawLine(8, 28, 8, 12);
 		p.drawLine(8, 28, 28, 28);
-		p.setPen(QPen(QColor(kAccentSoft), 2.2, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.2, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(8, 16, 20, 28);
 	}
 	else if (kind == QLatin1String("revolve"))
 	{
 		p.drawEllipse(QRectF(10, 8, 20, 24));
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(20, 6, 20, 34);
 	}
 	else if (kind == QLatin1String("revolveCut"))
@@ -402,13 +406,13 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.setPen(QPen(ink, 1.5));
 		p.drawRoundedRect(QRectF(6, 14, 10, 10), 1, 1);
 		p.drawRoundedRect(QRectF(18, 14, 10, 10), 1, 1);
-		p.setBrush(QColor(kAccent));
+		p.setBrush(QColor(dark ? kAccentDark : kAccentLight));
 		p.setPen(Qt::NoPen);
 		p.drawRoundedRect(QRectF(30, 14, 8, 10), 1, 1);
 	}
 	else if (kind == QLatin1String("mirror3d"))
 	{
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::DashLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::DashLine, Qt::RoundCap));
 		p.drawLine(20, 6, 20, 34);
 		p.setBrush(fillSoft);
 		p.setPen(QPen(ink, 1.5));
@@ -421,7 +425,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.setPen(QPen(ink, 1.5));
 		p.drawEllipse(QRectF(8, 6, 24, 10));
 		p.drawEllipse(QRectF(12, 24, 16, 10));
-		p.setPen(QPen(QColor(kAccentSoft), 1.8, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 1.8, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(12, 14, 14, 26);
 		p.drawLine(28, 14, 26, 26);
 	}
@@ -447,7 +451,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		trap << QPointF(10, 30) << QPointF(30, 30) << QPointF(26, 10) << QPointF(14, 10);
 		p.setBrush(fillSoft);
 		p.drawPolygon(trap);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.setBrush(Qt::NoBrush);
 		p.drawLine(8, 32, 32, 32);
 	}
@@ -457,19 +461,19 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 		p.setPen(QPen(ink, 1.5));
 		p.drawEllipse(QRectF(14, 6, 12, 12));
 		p.drawEllipse(QRectF(6, 22, 12, 12));
-		p.setBrush(QColor(kAccent));
+		p.setBrush(QColor(dark ? kAccentDark : kAccentLight));
 		p.setPen(Qt::NoPen);
 		p.drawEllipse(QRectF(22, 22, 12, 12));
-		p.setPen(QPen(QColor(kAccentSoft), 1.6, Qt::DashLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 1.6, Qt::DashLine, Qt::RoundCap));
 		p.setBrush(Qt::NoBrush);
 		p.drawEllipse(QRectF(10, 10, 20, 20));
 	}
 	else if (kind == QLatin1String("exportHistory"))
 	{
 		p.drawRoundedRect(QRectF(10, 8, 16, 20), 2, 2);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(20, 18, 20, 32);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		QPolygonF a;
 		a << QPointF(20, 34) << QPointF(15, 28) << QPointF(25, 28);
@@ -478,9 +482,9 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("importReplace"))
 	{
 		p.drawRoundedRect(QRectF(10, 12, 16, 20), 2, 2);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(20, 22, 20, 8);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		QPolygonF a;
 		a << QPointF(20, 6) << QPointF(15, 12) << QPointF(25, 12);
@@ -493,9 +497,9 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("importNew"))
 	{
 		p.drawRoundedRect(QRectF(8, 10, 16, 20), 2, 2);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap));
 		p.drawLine(18, 20, 18, 6);
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		QPolygonF a;
 		a << QPointF(18, 4) << QPointF(13, 10) << QPointF(23, 10);
@@ -506,7 +510,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	}
 	else if (kind == QLatin1String("runCompose"))
 	{
-		p.setBrush(QColor(kAccentSoft));
+		p.setBrush(QColor(dark ? kAccentSoftDark : kAccentSoftLight));
 		p.setPen(Qt::NoPen);
 		QPolygonF play;
 		play << QPointF(12, 8) << QPointF(30, 20) << QPointF(12, 32);
@@ -515,7 +519,7 @@ QIcon makeGlyphIcon(const QString& kind, bool dark, bool accentFill = false)
 	else if (kind == QLatin1String("pythonConsole"))
 	{
 		p.drawRoundedRect(QRectF(6, 8, 28, 24), 3, 3);
-		p.setPen(QPen(QColor(kAccentSoft), 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+		p.setPen(QPen(QColor(dark ? kAccentSoftDark : kAccentSoftLight), 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 		p.drawLine(12, 16, 18, 20);
 		p.drawLine(18, 20, 12, 24);
 		p.drawLine(20, 26, 28, 26);
@@ -1020,46 +1024,46 @@ void GeometricModelingRibbonBar::applyTheme(bool dark)
 	const QString sheet =
 		dark ? QStringLiteral("#GeometricModelingRibbonBar {"
 							  "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-							  "    stop:0 #27272a, stop:1 #18181b);"
-							  "  border-bottom: 2px solid #0f766e;"
+							  "    stop:0 #2c2c2e, stop:1 #242426);"
+							  "  border-bottom: 2px solid #3b8fdd;"
 							  "}"
 							  "#RibbonScroll, #RibbonHost { background: transparent; }"
 							  "#RibbonGroup {"
-							  "  background-color: #27272a;"
-							  "  border: 1px solid #3f3f46;"
+							  "  background-color: #2c2c2e;"
+							  "  border: 1px solid #48484a;"
 							  "  border-radius: 6px;"
 							  "}"
-							  "QFrame#RibbonSep { background: #3f3f46; border: none; }"
+							  "QFrame#RibbonSep { background: #48484a; border: none; }"
 							  "QLabel#RibbonGroupTitle {"
-							  "  color: #a1a1aa;"
+							  "  color: #8e8e93;"
 							  "  font-size: 9px;"
 							  "  font-weight: 600;"
 							  "}"
 							  "QToolButton#RibbonBtn {"
-							  "  background-color: #3f3f46;"
-							  "  color: #f4f4f5;"
-							  "  border: 1px solid #52525b;"
+							  "  background-color: #3a3a3c;"
+							  "  color: #f2f2f7;"
+							  "  border: 1px solid #5a5a5c;"
 							  "  border-radius: 5px;"
 							  "  padding: 1px;"
 							  "  font-size: 10px;"
 							  "  font-weight: 600;"
 							  "}"
 							  "QToolButton#RibbonBtn:hover {"
-							  "  background-color: #52525b;"
-							  "  border-color: #14b8a6;"
+							  "  background-color: #48484a;"
+							  "  border-color: #54a3eb;"
 							  "}"
-							  "QToolButton#RibbonBtn:pressed { background-color: #0f766e; }"
+							  "QToolButton#RibbonBtn:pressed { background-color: #2a74b8; }"
 							  "QToolButton#RibbonBtn:checked {"
-							  "  background-color: #115e59;"
-							  "  border: 2px solid #2dd4bf;"
-							  "  color: #ccfbf1;"
+							  "  background-color: #1e3a56;"
+							  "  border: 2px solid #3b8fdd;"
+							  "  color: #d6ebff;"
 							  "}"
 							  "QToolButton#RibbonBtn[btnRole=\"primary\"] {"
-							  "  background-color: #0f766e;"
-							  "  border-color: #14b8a6;"
+							  "  background-color: #3b8fdd;"
+							  "  border-color: #2a74b8;"
 							  "  color: #ffffff;"
 							  "}"
-							  "QToolButton#RibbonBtn[btnRole=\"primary\"]:hover { background-color: #0d9488; }"
+							  "QToolButton#RibbonBtn[btnRole=\"primary\"]:hover { background-color: #54a3eb; }"
 							  "QToolButton#RibbonBtn[btnRole=\"danger\"] {"
 							  "  background-color: #3f1d1d;"
 							  "  border-color: #7f1d1d;"
@@ -1068,46 +1072,46 @@ void GeometricModelingRibbonBar::applyTheme(bool dark)
 							  "QToolButton#RibbonBtn[btnRole=\"danger\"]:hover { background-color: #7f1d1d; }")
 			 : QStringLiteral("#GeometricModelingRibbonBar {"
 							  "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-							  "    stop:0 #ffffff, stop:1 #f4f4f5);"
-							  "  border-bottom: 2px solid #0f766e;"
+							  "    stop:0 #ffffff, stop:1 #f0f1f3);"
+							  "  border-bottom: 2px solid #2b79c2;"
 							  "}"
 							  "#RibbonScroll, #RibbonHost { background: transparent; }"
 							  "#RibbonGroup {"
 							  "  background-color: #ffffff;"
-							  "  border: 1px solid #d4d4d8;"
+							  "  border: 1px solid #e0e3e8;"
 							  "  border-radius: 6px;"
 							  "}"
-							  "QFrame#RibbonSep { background: #d4d4d8; border: none; }"
+							  "QFrame#RibbonSep { background: #e0e3e8; border: none; }"
 							  "QLabel#RibbonGroupTitle {"
-							  "  color: #71717a;"
+							  "  color: #8e8e93;"
 							  "  font-size: 9px;"
 							  "  font-weight: 600;"
 							  "}"
 							  "QToolButton#RibbonBtn {"
-							  "  background-color: #f4f4f5;"
-							  "  color: #18181b;"
-							  "  border: 1px solid #d4d4d8;"
+							  "  background-color: #f0f1f3;"
+							  "  color: #1c1c1e;"
+							  "  border: 1px solid #e0e3e8;"
 							  "  border-radius: 5px;"
 							  "  padding: 1px;"
 							  "  font-size: 10px;"
 							  "  font-weight: 600;"
 							  "}"
 							  "QToolButton#RibbonBtn:hover {"
-							  "  background-color: #ecfdf5;"
-							  "  border-color: #14b8a6;"
+							  "  background-color: #e8f0fe;"
+							  "  border-color: #2b79c2;"
 							  "}"
-							  "QToolButton#RibbonBtn:pressed { background-color: #ccfbf1; }"
+							  "QToolButton#RibbonBtn:pressed { background-color: #e8f0fe; }"
 							  "QToolButton#RibbonBtn:checked {"
-							  "  background-color: #ccfbf1;"
-							  "  border: 2px solid #0f766e;"
-							  "  color: #115e59;"
+							  "  background-color: #e8f0fe;"
+							  "  border: 2px solid #2b79c2;"
+							  "  color: #1a4f8a;"
 							  "}"
 							  "QToolButton#RibbonBtn[btnRole=\"primary\"] {"
-							  "  background-color: #0f766e;"
-							  "  border-color: #0d9488;"
+							  "  background-color: #2b79c2;"
+							  "  border-color: #2468a8;"
 							  "  color: #ffffff;"
 							  "}"
-							  "QToolButton#RibbonBtn[btnRole=\"primary\"]:hover { background-color: #0d9488; }"
+							  "QToolButton#RibbonBtn[btnRole=\"primary\"]:hover { background-color: #3a8fd4; }"
 							  "QToolButton#RibbonBtn[btnRole=\"danger\"] {"
 							  "  background-color: #fef2f2;"
 							  "  border-color: #fca5a5;"

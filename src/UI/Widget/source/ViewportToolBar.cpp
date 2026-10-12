@@ -3,6 +3,7 @@
 
 #include "ViewportToolBar.h"
 
+#include "ApplicationStyle.h"
 #include "UiIconDecorators.h"
 #include "UiIcons.h"
 
@@ -90,55 +91,38 @@ struct ViewportTipColors
 	QColor subtitle;
 };
 
+ApplicationStyle::ThemeTokens viewportTokens(bool dark)
+{
+	return ApplicationStyle::tokens(dark ? ApplicationStyle::Theme::Dark : ApplicationStyle::Theme::Light);
+}
+
 QColor viewportBaseColor(bool dark)
 {
-	return dark ? QColor(56, 61, 74) : QColor(214, 222, 235);
+	const auto t = viewportTokens(dark);
+	return dark ? t.button : t.hoverBg;
 }
 
 ViewportTipColors tipColorsForTheme(bool dark)
 {
-	if (dark)
-	{
-		return {
-			QColor(44, 46, 50),
-			QColor(72, 74, 78),
-			QColor(242, 242, 247),
-			QColor(142, 142, 147),
-		};
-	}
-	return {
-		QColor(255, 255, 255),
-		QColor(218, 220, 222),
-		QColor(28, 28, 30),
-		QColor(99, 99, 102),
-	};
+	const auto t = viewportTokens(dark);
+	return {t.base, t.border, t.text, t.textMuted};
 }
 
-QColor blendOnViewport(bool dark, int fgR, int fgG, int fgB, double alpha)
+QColor blendColors(const QColor& bg, const QColor& fg, double alpha)
 {
-	const int bgR = dark ? 56 : 214;
-	const int bgG = dark ? 61 : 222;
-	const int bgB = dark ? 74 : 235;
-	const auto mix = [alpha](int bg, int fg) { return static_cast<int>(bg + (fg - bg) * alpha + 0.5); };
-	return QColor(mix(bgR, fgR), mix(bgG, fgG), mix(bgB, fgB));
+	const auto mix = [alpha](int b, int f) { return static_cast<int>(b + (f - b) * alpha + 0.5); };
+	return QColor(mix(bg.red(), fg.red()), mix(bg.green(), fg.green()), mix(bg.blue(), fg.blue()));
 }
 
 ViewportButtonColors colorsForTheme(bool dark)
 {
-	if (dark)
-	{
-		return {
-			blendOnViewport(dark, 255, 255, 255, 0.12),
-			blendOnViewport(dark, 255, 255, 255, 0.22),
-			blendOnViewport(dark, 255, 255, 255, 0.30),
-			blendOnViewport(dark, 66, 130, 218, 0.55),
-		};
-	}
+	const auto t = viewportTokens(dark);
+	const QColor base = viewportBaseColor(dark);
 	return {
-		blendOnViewport(dark, 255, 255, 255, 0.55),
-		blendOnViewport(dark, 255, 255, 255, 0.72),
-		blendOnViewport(dark, 255, 255, 255, 0.82),
-		blendOnViewport(dark, 0, 120, 215, 0.30),
+		blendColors(base, t.base, dark ? 0.12 : 0.55),
+		blendColors(base, t.base, dark ? 0.22 : 0.72),
+		blendColors(base, t.base, dark ? 0.30 : 0.82),
+		t.selectionBg,
 	};
 }
 
@@ -355,7 +339,7 @@ protected:
 			font.setPointSize(13);
 			font.setWeight(QFont::DemiBold);
 			p.setFont(font);
-			p.setPen(m_darkTheme ? QColor(242, 242, 247) : QColor(28, 28, 30));
+			p.setPen(viewportTokens(m_darkTheme).text);
 			p.drawText(rect(), Qt::AlignCenter, m_textGlyph);
 		}
 		else if (!icon.isNull())

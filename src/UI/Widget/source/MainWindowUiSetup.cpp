@@ -53,6 +53,7 @@
 #include <QStandardItem>
 #include <QStandardItemModel>
 #include <QStatusBar>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
@@ -88,10 +89,34 @@ void setupDockTabWidget(QTabWidget* tabs)
 		return;
 	}
 	tabs->setDocumentMode(true);
-	// 允许标签页拖动重排
 	tabs->setMovable(true);
-	// 增加标签页内边距
-	tabs->setContentsMargins(4, 4, 4, 4);
+	// 外边距会露出父级底色，形成 Tab/页面假边框
+	tabs->setContentsMargins(0, 0, 0, 0);
+	if (QTabBar* bar = tabs->tabBar())
+	{
+		bar->setDrawBase(false);
+		bar->setExpanding(false);
+	}
+}
+
+// QStackedWidget 会对所有页取 max(minimumSize)；非当前页 Ignored，侧栏才能拖窄
+void syncTabPageSizePolicies(QTabWidget* tabs)
+{
+	if (!tabs)
+	{
+		return;
+	}
+	QWidget* current = tabs->currentWidget();
+	for (int i = 0; i < tabs->count(); ++i)
+	{
+		if (QWidget* page = tabs->widget(i))
+		{
+			const bool on = (page == current);
+			page->setSizePolicy(on ? QSizePolicy::Expanding : QSizePolicy::Ignored,
+								on ? QSizePolicy::Expanding : QSizePolicy::Ignored);
+		}
+	}
+	tabs->updateGeometry();
 }
 } // namespace
 
@@ -151,8 +176,8 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	auto* docHost = new QWidget;
 	docHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	auto* rootLayout = new QVBoxLayout(docHost);
-	rootLayout->setContentsMargins(12, 12, 12, 12);
-	rootLayout->setSpacing(12);
+	rootLayout->setContentsMargins(0, 0, 0, 0);
+	rootLayout->setSpacing(0);
 
 	m_documentTabs = new QTabWidget(docHost);
 	m_documentTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -161,6 +186,12 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	m_documentTabs->setElideMode(Qt::ElideNone);
 	m_documentTabs->setUsesScrollButtons(true);
 	m_documentTabs->setMovable(true);
+	m_documentTabs->setContentsMargins(0, 0, 0, 0);
+	if (QTabBar* bar = m_documentTabs->tabBar())
+	{
+		bar->setDrawBase(false);
+		bar->setExpanding(false);
+	}
 	rootLayout->addWidget(m_documentTabs, 1);
 
 	auto* firstPage = new DocumentPage(m_documentTabs, m_appEvents);
@@ -581,11 +612,13 @@ void MainWindow::setupDockWidgets()
 	connect(m_unitDockTabs, &QTabWidget::currentChanged, this,
 			[this](int)
 			{
+				syncTabPageSizePolicies(m_unitDockTabs);
 				if (m_unitDockTabs && m_unitDockTabs->currentWidget() == m_osgSceneTree)
 				{
 					refreshOsgSceneTree();
 				}
 			});
+	syncTabPageSizePolicies(m_unitDockTabs);
 
 	m_rightPanelTabs = new QTabWidget(m_unitDock);
 	setupDockTabWidget(m_rightPanelTabs);
@@ -593,7 +626,11 @@ void MainWindow::setupDockWidgets()
 	m_aiAssistantPage = new AiAssistantDockWidget(m_rightPanelTabs);
 	m_aiAssistantPage->setObjectName(QString::fromLatin1(ApplicationSettings::kAiAssistantTabKey));
 	m_unitDock->setWidget(m_rightPanelTabs);
+	connect(m_rightPanelTabs, &QTabWidget::currentChanged, this,
+			[this](int) { syncTabPageSizePolicies(m_rightPanelTabs); });
+	syncTabPageSizePolicies(m_rightPanelTabs);
 	hideDockTitleBar(m_unitDock);
+	m_unitDock->setMinimumWidth(0);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
 	// 右侧面板默认宽度：轨迹/AI 需要比属性栏更宽
 	resizeDocks({m_unitDock}, {360}, Qt::Horizontal);

@@ -344,7 +344,7 @@ void DeviceCommandPageWidget::fillBindingTable()
 			diCombo->addItem(QString::fromStdString(b.signalName) +
 							 i18n(QStringLiteral(" (missing)"), QStringLiteral("（已失效）")));
 			diCombo->setCurrentIndex(diCombo->count() - 1);
-			diCombo->setStyleSheet(QStringLiteral("color: #c62828;"));
+			diCombo->setStyleSheet(QStringLiteral("color: palette(bright-text);"));
 		}
 		m_bindTable->setCellWidget(row, 1, diCombo);
 		connect(diCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,

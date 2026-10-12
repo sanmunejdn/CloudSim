@@ -73,7 +73,7 @@ TrajectoryOpParamPanel::TrajectoryOpParamPanel(QWidget* parent) : QWidget(parent
 	m_scopeHintLabel = new QLabel(this);
 	m_scopeHintLabel->setWordWrap(true);
 	m_scopeHintLabel->setVisible(false);
-	m_scopeHintLabel->setStyleSheet(QStringLiteral("color: #288cf0;"));
+	m_scopeHintLabel->setStyleSheet(QStringLiteral("color: palette(link);"));
 	layout->addWidget(m_scopeHintLabel);
 }
 

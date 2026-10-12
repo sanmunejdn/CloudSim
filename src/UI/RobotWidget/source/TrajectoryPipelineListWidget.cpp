@@ -314,16 +314,14 @@ QWidget* TrajectoryPipelineListWidget::createRowWidget(const int index,
 {
 	auto* row = new QWidget(this);
 	auto* layout = new QHBoxLayout(row);
-	layout->setContentsMargins(4, 1, 4, 1);
+	layout->setContentsMargins(8, 4, 8, 4);
 	layout->setSpacing(6);
 
 	auto* summary = new QLabel(formatOpSummary(op), row);
 	summary->setObjectName(QStringLiteral("opSummary"));
 	summary->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-	if (!op.enabled)
-	{
-		summary->setStyleSheet(QStringLiteral("color: palette(mid);"));
-	}
+	summary->setStyleSheet(op.enabled ? QStringLiteral("color: palette(window-text); background: transparent;")
+									  : QStringLiteral("color: palette(mid); background: transparent;"));
 	layout->addWidget(summary, 1);
 
 	auto* enable = new QCheckBox(m_useChinese ? QStringLiteral("启用") : QStringLiteral("On"), row);
@@ -336,7 +334,8 @@ QWidget* TrajectoryPipelineListWidget::createRowWidget(const int index,
 	connect(enable, &QCheckBox::toggled, this, &TrajectoryPipelineListWidget::onEnableCheckToggled);
 	layout->addWidget(enable, 0);
 
-	row->setMinimumHeight(26);
+	row->setMinimumHeight(28);
+	row->setAttribute(Qt::WA_TranslucentBackground, true);
 	return row;
 }
 

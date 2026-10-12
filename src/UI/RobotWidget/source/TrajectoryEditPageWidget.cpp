@@ -175,6 +175,8 @@ public:
 		setSpacing(2);
 		setTextElideMode(Qt::ElideNone);
 		setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		// 纯文字项需要内边距；全局 QListWidget::item 为 0（避开 itemWidget 裁切）
+		setStyleSheet(QStringLiteral("QListWidget::item { padding: 6px 8px; }"));
 	}
 
 protected:

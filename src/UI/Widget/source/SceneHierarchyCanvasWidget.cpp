@@ -3,10 +3,12 @@
 
 #include "SceneHierarchyCanvasWidget.h"
 
+#include "ApplicationStyle.h"
 #include "OsgSceneNodeI18n.h"
 
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QFontMetrics>
 #include <QFormLayout>
 #include <QFrame>
 #include <QLabel>
@@ -17,6 +19,7 @@
 #include <QPlainTextEdit>
 #include <QResizeEvent>
 #include <QScrollArea>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <algorithm>
@@ -51,9 +54,21 @@ SceneHierarchyCanvasWidget::SceneHierarchyCanvasWidget(QWidget* parent) : QWidge
 {
 	setMouseTracking(true);
 	setFocusPolicy(Qt::StrongFocus);
-	setMinimumSize(160, 160);
+	// 侧栏可拖窄：不抬 minimumSize；画布内容靠缩放/平移，不反向撑开 Dock
+	setMinimumSize(0, 0);
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	setBackgroundRole(QPalette::Base);
 	setAutoFillBackground(true);
+}
+
+QSize SceneHierarchyCanvasWidget::sizeHint() const
+{
+	return QSize(240, 200);
+}
+
+QSize SceneHierarchyCanvasWidget::minimumSizeHint() const
+{
+	return QSize(0, 0);
 }
 
 void SceneHierarchyCanvasWidget::setUseChinese(const bool chinese)
@@ -372,8 +387,10 @@ void SceneHierarchyCanvasWidget::showNodeDetailDialog(const Node& node)
 
 void SceneHierarchyCanvasWidget::paintEvent(QPaintEvent*)
 {
+	const ApplicationStyle::ThemeTokens tok =
+		ApplicationStyle::tokens(ApplicationStyle::loadSavedTheme());
 	QPainter p(this);
-	p.fillRect(rect(), QColor(QStringLiteral("#EEF1F5")));
+	p.fillRect(rect(), tok.hoverBg);
 	p.setRenderHint(QPainter::Antialiasing, true);
 
 	if (m_nodes.isEmpty())
@@ -408,7 +425,7 @@ void SceneHierarchyCanvasWidget::paintEvent(QPaintEvent*)
 			const QPointF a = portPos(from, true);
 			const QPointF b = portPos(to, false);
 			p.setBrush(Qt::NoBrush);
-			p.setPen(QPen(QColor(QStringLiteral("#0066CC")), 2.0 / m_zoom));
+			p.setPen(QPen(tok.accent, 2.0 / m_zoom));
 			QPainterPath path;
 			path.moveTo(a);
 			const double dx = (b.x() - a.x()) * 0.45;
@@ -426,12 +443,11 @@ void SceneHierarchyCanvasWidget::paintEvent(QPaintEvent*)
 			p.setPen(Qt::NoPen);
 			p.setBrush(QColor(28, 28, 30, 28));
 			p.drawRoundedRect(n.rect.translated(0, 1.5 / m_zoom), 10, 10);
-			p.setPen(QPen(sel ? QColor(QStringLiteral("#0066CC")) : QColor(QStringLiteral("#C5CDD6")),
-						  (sel ? 2.4 : 1.2) / m_zoom));
-			p.setBrush(sel ? QColor(QStringLiteral("#F3F8FF")) : QColor(QStringLiteral("#FFFFFF")));
+			p.setPen(QPen(sel ? tok.accent : tok.borderStrong, (sel ? 2.4 : 1.2) / m_zoom));
+			p.setBrush(sel ? tok.selectionBg : tok.base);
 			p.drawRoundedRect(n.rect, 10, 10);
 
-			p.setPen(QColor(QStringLiteral("#1C1C1E")));
+			p.setPen(sel ? tok.selectionText : tok.text);
 			QFont f = font();
 			f.setBold(true);
 			p.setFont(f);
@@ -442,7 +458,7 @@ void SceneHierarchyCanvasWidget::paintEvent(QPaintEvent*)
 			f.setBold(false);
 			f.setPointSizeF(8);
 			p.setFont(f);
-			p.setPen(QColor(QStringLiteral("#6B7280")));
+			p.setPen(tok.textMuted);
 			QString sub = n.subtitle;
 			if (!n.childIndices.isEmpty() && !n.expanded)
 			{
@@ -455,15 +471,15 @@ void SceneHierarchyCanvasWidget::paintEvent(QPaintEvent*)
 				const QString badgeText = n.isRoot ? (m_useChinese ? QStringLiteral("根") : QStringLiteral("Root"))
 												   : (m_useChinese ? QStringLiteral("对象") : QStringLiteral("Obj"));
 				QRectF badge(n.rect.right() - 48, n.rect.top() + 6, 40, 16);
-				p.setBrush(n.isRoot ? QColor(QStringLiteral("#1F9D63")) : QColor(QStringLiteral("#0066CC")));
+				p.setBrush(n.isRoot ? QColor(QStringLiteral("#1F9D63")) : tok.accent);
 				p.setPen(Qt::NoPen);
 				p.drawRoundedRect(badge, 6, 6);
 				p.setPen(Qt::white);
 				p.drawText(badge, Qt::AlignCenter, badgeText);
 			}
 
-			p.setBrush(sel ? QColor(QStringLiteral("#0066CC")) : QColor(QStringLiteral("#4B5563")));
-			p.setPen(QPen(QColor(QStringLiteral("#FFFFFF")), 1.2 / m_zoom));
+			p.setBrush(sel ? tok.accent : tok.textMuted);
+			p.setPen(QPen(tok.base, 1.2 / m_zoom));
 			p.drawEllipse(portPos(n, false), 5, 5);
 			if (n.childIndices.isEmpty())
 			{
@@ -473,10 +489,10 @@ void SceneHierarchyCanvasWidget::paintEvent(QPaintEvent*)
 			{
 				// ▸ / ▾ 展开折叠
 				const QRectF btn = expandButtonRect(n);
-				p.setBrush(QColor(QStringLiteral("#EEF1F5")));
-				p.setPen(QPen(QColor(QStringLiteral("#6B7280")), 1.0 / m_zoom));
+				p.setBrush(tok.hoverBg);
+				p.setPen(QPen(tok.textMuted, 1.0 / m_zoom));
 				p.drawRoundedRect(btn, 4, 4);
-				p.setPen(QColor(QStringLiteral("#1C1C1E")));
+				p.setPen(tok.text);
 				QFont bf = font();
 				bf.setBold(true);
 				bf.setPointSizeF(9);
@@ -512,14 +528,18 @@ void SceneHierarchyCanvasWidget::paintEvent(QPaintEvent*)
 	}
 
 	const QRect tipBar(0, height() - 28, width(), 28);
-	p.fillRect(tipBar, QColor(255, 255, 255, 210));
-	p.setPen(QColor(QStringLiteral("#DADCE0")));
+	QColor tipBg = tok.base;
+	tipBg.setAlpha(220);
+	p.fillRect(tipBar, tipBg);
+	p.setPen(tok.border);
 	p.drawLine(0, tipBar.top(), width(), tipBar.top());
-	p.setPen(QColor(QStringLiteral("#4B5563")));
+	p.setPen(tok.textMuted);
 	QFont tipFont = font();
 	tipFont.setPointSizeF(8);
 	p.setFont(tipFont);
-	p.drawText(tipBar.adjusted(12, 0, -12, 0), Qt::AlignLeft | Qt::AlignVCenter, tip);
+	const QFontMetrics tipFm(tipFont);
+	const QString tipDraw = tipFm.elidedText(tip, Qt::ElideRight, std::max(0, tipBar.width() - 24));
+	p.drawText(tipBar.adjusted(12, 0, -12, 0), Qt::AlignLeft | Qt::AlignVCenter, tipDraw);
 }
 
 void SceneHierarchyCanvasWidget::mousePressEvent(QMouseEvent* event)

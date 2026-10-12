@@ -58,7 +58,7 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(const TrajectoryOpPa
 		auto* label = new QLabel(useChinese && !field.messageZh.empty() ? QString::fromStdString(field.messageZh)
 																		: QString::fromStdString(field.messageEn));
 		label->setWordWrap(true);
-		label->setStyleSheet(QStringLiteral("color: gray;"));
+		label->setStyleSheet(QStringLiteral("color: palette(mid);"));
 		binding.widget = label;
 		return binding;
 	}

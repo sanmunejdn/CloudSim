@@ -18,6 +18,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QShowEvent>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
@@ -98,6 +99,13 @@ TrajectoryGenerationPageWidget::TrajectoryGenerationPageWidget(QWidget* parent)
 	m_pathPlanBar->addWidget(m_cancelEditBtn);
 
 	m_tabs = new QTabWidget(this);
+	m_tabs->setDocumentMode(true);
+	m_tabs->setContentsMargins(0, 0, 0, 0);
+	if (QTabBar* bar = m_tabs->tabBar())
+	{
+		bar->setDrawBase(false);
+		bar->setExpanding(false);
+	}
 
 	layout->addWidget(m_tabs, 1);
 

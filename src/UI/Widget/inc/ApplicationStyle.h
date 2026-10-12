@@ -21,13 +21,25 @@ enum class Theme
 	Dark
 };
 
+/// 全局色源；QSS / Palette / 局部高亮都从这里取，避免浅深两套字面量漂移
 struct ThemeTokens
 {
 	QColor window;
+	QColor panel;
+	QColor base;
 	QColor text;
+	QColor textMuted;
 	QColor accent;
+	QColor accentHover;
+	QColor accentPressed;
+	QColor selectionBg;
+	QColor selectionText;
+	QColor hoverBg;
 	QColor danger;
 	QColor border;
+	QColor borderStrong;
+	QColor button;
+	QColor buttonHover;
 	int radiusSmPx = 4;
 };
 

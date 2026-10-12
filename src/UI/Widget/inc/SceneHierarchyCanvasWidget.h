@@ -12,6 +12,7 @@
 #include <QHash>
 #include <QPointF>
 #include <QRectF>
+#include <QSize>
 #include <QString>
 #include <QVector>
 #include <QWidget>
@@ -32,6 +33,9 @@ public:
 	void clearGraph();
 	void setEmptyHint(const QString& text);
 	void setSceneGraph(const cloudsim::core::IRenderView::SceneNodeInfo& root);
+
+	QSize sizeHint() const override;
+	QSize minimumSizeHint() const override;
 
 signals:
 	/// 双击带后端根的节点时发出，供 MainWindow 联动选中

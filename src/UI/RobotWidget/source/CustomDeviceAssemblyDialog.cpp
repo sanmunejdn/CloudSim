@@ -53,17 +53,18 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 	setModal(false);
 	setWindowModality(Qt::NonModal);
 	resize(1040, 680);
+	// 跟全局 Palette/Link，避免写死蓝与主题漂移
 	setStyleSheet(QStringLiteral("#CustomDeviceAssemblyDialog {"
-								 "  background-color: #f4f5f7;"
+								 "  background-color: palette(window);"
 								 "}"
 								 "#CustomDeviceAssemblyDialog QFrame#assemblyHeader,"
 								 "#CustomDeviceAssemblyDialog QFrame#assemblyProps {"
-								 "  background-color: #ffffff;"
-								 "  border: 1px solid #dadcde;"
+								 "  background-color: palette(base);"
+								 "  border: 1px solid palette(mid);"
 								 "  border-radius: 8px;"
 								 "}"
 								 "#CustomDeviceAssemblyDialog QLabel#assemblyPropsTitle {"
-								 "  color: #1c1c1e;"
+								 "  color: palette(window-text);"
 								 "  font-weight: 600;"
 								 "  font-size: 13px;"
 								 "  padding-bottom: 4px;"
@@ -73,14 +74,14 @@ CustomDeviceAssemblyDialog::CustomDeviceAssemblyDialog(ICustomDeviceAssemblyHost
 								 "  width: 8px;"
 								 "}"
 								 "#CustomDeviceAssemblyDialog QPushButton:checked {"
-								 "  background-color: #0066cc;"
+								 "  background-color: palette(link);"
 								 "  color: #ffffff;"
-								 "  border: 1px solid #0055aa;"
+								 "  border: 1px solid palette(link);"
 								 "}"
 								 "#CustomDeviceAssemblyDialog CustomDeviceAssemblyCanvasWidget {"
-								 "  border: 1px solid #dadcde;"
+								 "  border: 1px solid palette(mid);"
 								 "  border-radius: 8px;"
-								 "  background-color: #eef1f5;"
+								 "  background-color: palette(alternate-base);"
 								 "}"));
 
 	if (m_editMode && m_host && m_host->document())

@@ -3,10 +3,12 @@
 
 #include "CustomDeviceAssemblyCanvasWidget.h"
 
+#include <QApplication>
 #include <QLineF>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPalette>
 #include <QWheelEvent>
 #include <cmath>
 #include <cstring>
@@ -354,8 +356,17 @@ bool CustomDeviceAssemblyCanvasWidget::updateSelectedJointMotion(const CustomDev
 
 void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 {
+	const QPalette pal = QApplication::palette();
+	const QColor accent = pal.color(QPalette::Link);
+	const QColor selectionBg = pal.color(QPalette::Highlight);
+	const QColor text = pal.color(QPalette::WindowText);
+	const QColor muted = pal.color(QPalette::Mid);
+	const QColor base = pal.color(QPalette::Base);
+	const QColor border = pal.color(QPalette::Mid);
+	const QColor canvasBg = pal.color(QPalette::AlternateBase);
+
 	QPainter p(this);
-	p.fillRect(rect(), QColor(QStringLiteral("#EEF1F5")));
+	p.fillRect(rect(), canvasBg);
 	p.setRenderHint(QPainter::Antialiasing, true);
 
 	p.save();
@@ -385,10 +396,10 @@ void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 		const QPointF b = portPos(m_nodes[ti], false);
 		const bool sel = e.id == m_selectedJointId;
 		const bool rotate = e.motion.motionType == CustomDeviceMotionType::Rotate;
-		QColor col = rotate ? QColor(QStringLiteral("#C7771A")) : QColor(QStringLiteral("#0066CC"));
+		QColor col = rotate ? QColor(QStringLiteral("#C7771A")) : accent;
 		if (sel)
 		{
-			col = QColor(QStringLiteral("#C62828"));
+			col = pal.color(QPalette::BrightText);
 		}
 		// 仅描边；若 brush 残留（上一根线的标签白底），drawPath 会把曲线围成的区域填白
 		p.setBrush(Qt::NoBrush);
@@ -404,10 +415,10 @@ void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 		const QPointF mid = path.pointAtPercent(0.5);
 		QRectF badge(0, 0, 100, 24);
 		badge.moveCenter(mid);
-		p.setBrush(sel ? QColor(QStringLiteral("#FFEBEE")) : QColor(255, 255, 255, 242));
+		p.setBrush(sel ? QColor(255, 235, 238, 242) : QColor(base.red(), base.green(), base.blue(), 242));
 		p.setPen(QPen(col, 1.2 / m_zoom));
 		p.drawRoundedRect(badge, 10, 10);
-		p.setPen(QColor(QStringLiteral("#1C1C1E")));
+		p.setPen(text);
 		QFont f = font();
 		f.setPointSizeF(8.5);
 		f.setBold(true);
@@ -427,7 +438,7 @@ void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 		}
 		if (fi >= 0)
 		{
-			p.setPen(QPen(QColor(QStringLiteral("#0066CC")), 1.6 / m_zoom, Qt::DashLine));
+			p.setPen(QPen(accent, 1.6 / m_zoom, Qt::DashLine));
 			p.drawLine(portPos(m_nodes[fi], true), m_wireTo);
 		}
 	}
@@ -439,11 +450,10 @@ void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 		p.setPen(Qt::NoPen);
 		p.setBrush(QColor(28, 28, 30, 28));
 		p.drawRoundedRect(n.rect.translated(0, 1.5 / m_zoom), 10, 10);
-		p.setPen(QPen(sel ? QColor(QStringLiteral("#0066CC")) : QColor(QStringLiteral("#C5CDD6")),
-					  (sel ? 2.4 : 1.2) / m_zoom));
-		p.setBrush(sel ? QColor(QStringLiteral("#F3F8FF")) : QColor(QStringLiteral("#FFFFFF")));
+		p.setPen(QPen(sel ? accent : border, (sel ? 2.4 : 1.2) / m_zoom));
+		p.setBrush(sel ? selectionBg : base);
 		p.drawRoundedRect(n.rect, 10, 10);
-		p.setPen(QColor(QStringLiteral("#1C1C1E")));
+		p.setPen(text);
 		QFont f = font();
 		f.setBold(true);
 		p.setFont(f);
@@ -451,7 +461,7 @@ void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 		f.setBold(false);
 		f.setPointSizeF(8);
 		p.setFont(f);
-		p.setPen(QColor(QStringLiteral("#6B7280")));
+		p.setPen(muted);
 		p.drawText(n.rect.adjusted(10, 30, -10, -8), Qt::AlignLeft | Qt::AlignTop, n.geometryId);
 		if (n.fixed)
 		{
@@ -462,8 +472,8 @@ void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 			p.setPen(Qt::white);
 			p.drawText(badge, Qt::AlignCenter, m_useChinese ? QStringLiteral("固定") : QStringLiteral("Fixed"));
 		}
-		p.setBrush(sel ? QColor(QStringLiteral("#0066CC")) : QColor(QStringLiteral("#4B5563")));
-		p.setPen(QPen(QColor(QStringLiteral("#FFFFFF")), 1.2 / m_zoom));
+		p.setBrush(sel ? accent : muted);
+		p.setPen(QPen(base, 1.2 / m_zoom));
 		p.drawEllipse(portPos(n, false), 5, 5);
 		p.drawEllipse(portPos(n, true), 5, 5);
 	}
@@ -474,10 +484,12 @@ void CustomDeviceAssemblyCanvasWidget::paintEvent(QPaintEvent*)
 											: QStringLiteral("Connect: drag parent → child"))
 							: (m_useChinese ? QStringLiteral("选择 / 拖动块") : QStringLiteral("Select / drag blocks"));
 	const QRect tipBar(0, height() - 28, width(), 28);
-	p.fillRect(tipBar, QColor(255, 255, 255, 210));
-	p.setPen(QColor(QStringLiteral("#DADCE0")));
+	QColor tipBg = base;
+	tipBg.setAlpha(220);
+	p.fillRect(tipBar, tipBg);
+	p.setPen(border);
 	p.drawLine(0, tipBar.top(), width(), tipBar.top());
-	p.setPen(QColor(QStringLiteral("#4B5563")));
+	p.setPen(muted);
 	p.drawText(tipBar.adjusted(12, 0, -12, 0), Qt::AlignLeft | Qt::AlignVCenter, tip);
 }
 

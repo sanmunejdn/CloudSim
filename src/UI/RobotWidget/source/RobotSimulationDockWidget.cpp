@@ -21,6 +21,7 @@
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QStyle>
+#include <QTabBar>
 #include <QVBoxLayout>
 
 namespace
@@ -93,8 +94,22 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent) : QWidget(
 	m_modeStack = new QStackedWidget(this);
 	m_robotTabs = new QTabWidget(m_modeStack);
 	m_robotTabs->setMovable(false);
+	m_robotTabs->setDocumentMode(true);
+	m_robotTabs->setContentsMargins(0, 0, 0, 0);
+	if (QTabBar* bar = m_robotTabs->tabBar())
+	{
+		bar->setDrawBase(false);
+		bar->setExpanding(false);
+	}
 	m_deviceTabs = new QTabWidget(m_modeStack);
 	m_deviceTabs->setMovable(false);
+	m_deviceTabs->setDocumentMode(true);
+	m_deviceTabs->setContentsMargins(0, 0, 0, 0);
+	if (QTabBar* bar = m_deviceTabs->tabBar())
+	{
+		bar->setDrawBase(false);
+		bar->setExpanding(false);
+	}
 
 	m_commandPage = new SimulationCommandWidget(m_robotTabs);
 	m_axisPage = new RobotAxisControlWidget(this);
