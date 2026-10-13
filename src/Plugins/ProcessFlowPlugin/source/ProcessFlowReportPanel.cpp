@@ -3,6 +3,8 @@
 
 #include "ProcessFlowReportPanel.h"
 
+#include "PluginSidePanelLayout.h"
+
 #include "ProcessFlowResultDialog.h"
 
 #include <QCheckBox>
@@ -30,6 +32,8 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	m_title->setObjectName(QStringLiteral("ProcessFlowSectionTitle"));
 
 	auto* form = new QFormLayout();
+	form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+	form->setRowWrapPolicy(QFormLayout::WrapLongRows);
 	m_horizon = new QDoubleSpinBox(this);
 	m_horizon->setRange(1.0, 1e7);
 	m_horizon->setValue(3600.0);
@@ -73,7 +77,7 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	form->addRow(QString(), m_openGantt);
 	form->addRow(QString(), m_compareGantt);
 
-	auto* btnRow = new QHBoxLayout();
+	auto* btnRow = new FlowLayout(nullptr, 4, 4);
 	m_runBtn = new QPushButton(QStringLiteral("运行"), this);
 	m_runBtn->setObjectName(QStringLiteral("ProcessFlowPrimaryButton"));
 	m_optimizeBtn = new QPushButton(QStringLiteral("优化后仿真"), this);
@@ -87,7 +91,7 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	btnRow->addWidget(m_compareBtn);
 	btnRow->addWidget(m_stopBtn);
 
-	auto* exportRow = new QHBoxLayout();
+	auto* exportRow = new FlowLayout(nullptr, 4, 4);
 	exportRow->addWidget(m_exportJsonBtn);
 	exportRow->addWidget(m_exportCsvBtn);
 
@@ -106,7 +110,7 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	m_bufferTable->horizontalHeader()->setStretchLastSection(true);
 	m_bufferTable->setMaximumHeight(100);
 
-	auto* resultRow = new QHBoxLayout();
+	auto* resultRow = new FlowLayout(nullptr, 4, 4);
 	m_ganttBtn = new QPushButton(QStringLiteral("甘特图…"), this);
 	m_traceBtn = new QPushButton(QStringLiteral("操作 Trace…"), this);
 	m_compareViewBtn = new QPushButton(QStringLiteral("策略对比…"), this);
@@ -136,6 +140,7 @@ ProcessFlowReportPanel::ProcessFlowReportPanel(QWidget* parent) : QWidget(parent
 	layout->addLayout(resultRow);
 	layout->addLayout(playRow);
 	layout->addStretch(1);
+	applySidePanelControlPolicies(this);
 
 	updateEntryEnabled();
 

@@ -3,6 +3,8 @@
 
 #include "PointCloudDockWidget.h"
 
+#include "PluginSidePanelLayout.h"
+
 #include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 #include "IPluginDocumentContext.h"
@@ -108,6 +110,7 @@ QString truncateStatusText(const QString& text, const int maxChars = 120)
 	}
 	return text.left(maxChars - 3) + QStringLiteral("...");
 }
+
 } // namespace
 
 PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* parent)
@@ -116,19 +119,18 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	auto* outer = new QVBoxLayout(this);
 	outer->setContentsMargins(0, 0, 0, 0);
 	auto* scroll = new QScrollArea(this);
-	scroll->setWidgetResizable(true);
 	m_scrollContent = new QWidget(scroll);
+	configureSidePanelScroll(scroll, m_scrollContent);
 	auto* layout = new QVBoxLayout(m_scrollContent);
-	layout->setContentsMargins(12, 12, 12, 12);
+	layout->setContentsMargins(8, 8, 8, 8);
 	layout->setSpacing(8);
-	scroll->setWidget(m_scrollContent);
 	outer->addWidget(scroll);
 
 	m_docGroup = new QGroupBox(m_scrollContent);
 	auto* docLayout = new QVBoxLayout(m_docGroup);
 	m_docLabel = new QLabel(m_docGroup);
 	docLayout->addWidget(m_docLabel);
-	auto* importRow = new QHBoxLayout;
+	auto* importRow = new FlowLayout(nullptr, 4, 4);
 	m_importBtn = new QPushButton(m_docGroup);
 	m_refreshBtn = new QPushButton(m_docGroup);
 	importRow->addWidget(m_importBtn);
@@ -151,7 +153,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 
 	m_downGroup = new QGroupBox(m_scrollContent);
 	auto* downLayout = new QVBoxLayout(m_downGroup);
-	auto* voxelRow = new QHBoxLayout;
+	auto* voxelRow = new FlowLayout(nullptr, 4, 4);
 	m_voxelLabel = new QLabel(m_downGroup);
 	m_voxelSpin = new QDoubleSpinBox(m_downGroup);
 	m_voxelSpin->setRange(0.01, 1000.0);
@@ -162,7 +164,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	voxelRow->addWidget(m_voxelSpin);
 	voxelRow->addWidget(m_voxelBtn);
 	downLayout->addLayout(voxelRow);
-	auto* randomRow = new QHBoxLayout;
+	auto* randomRow = new FlowLayout(nullptr, 4, 4);
 	m_randomLabel = new QLabel(m_downGroup);
 	m_randomSpin = new QDoubleSpinBox(m_downGroup);
 	m_randomSpin->setRange(0.01, 1.0);
@@ -177,22 +179,22 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 
 	m_cropGroup = new QGroupBox(m_scrollContent);
 	auto* cropLayout = new QVBoxLayout(m_cropGroup);
-	auto* cropRow1 = new QHBoxLayout();
+	auto* cropRow1 = new FlowLayout(nullptr, 4, 4);
 	m_boxCropBtn = new QPushButton(m_cropGroup);
 	m_sphereCropBtn = new QPushButton(m_cropGroup);
 	cropRow1->addWidget(m_boxCropBtn);
 	cropRow1->addWidget(m_sphereCropBtn);
 	cropLayout->addLayout(cropRow1);
-	auto* cropRow2 = new QHBoxLayout();
+	auto* cropRow2 = new FlowLayout(nullptr, 4, 4);
 	m_polylineCropModeCombo = new QComboBox(m_cropGroup);
 	m_polylineCropBtn = new QPushButton(m_cropGroup);
-	cropRow2->addWidget(m_polylineCropModeCombo, 1);
+	cropRow2->addWidget(m_polylineCropModeCombo);
 	cropRow2->addWidget(m_polylineCropBtn);
 	cropLayout->addLayout(cropRow2);
 	layout->addWidget(m_cropGroup);
 
 	m_preGroup = new QGroupBox(m_scrollContent);
-	auto* preLayout = new QHBoxLayout(m_preGroup);
+	auto* preLayout = new FlowLayout(m_preGroup, 4, 4);
 	m_outlierBtn = new QPushButton(m_preGroup);
 	m_smoothBtn = new QPushButton(m_preGroup);
 	m_pcaBtn = new QPushButton(m_preGroup);
@@ -230,12 +232,12 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	spareTargetRow->addWidget(m_spareTargetCombo, 1);
 	icpLayout->addLayout(spareTargetRow);
 
-	auto* icpRow = new QHBoxLayout;
+	auto* icpRow = new FlowLayout(nullptr, 4, 4);
 	m_icpTargetLabel = new QLabel(m_icpGroup);
 	m_icpTargetCombo = new QComboBox(m_icpGroup);
 	m_icpBtn = new QPushButton(m_icpGroup);
 	icpRow->addWidget(m_icpTargetLabel);
-	icpRow->addWidget(m_icpTargetCombo, 1);
+	icpRow->addWidget(m_icpTargetCombo);
 	icpRow->addWidget(m_icpBtn);
 	icpLayout->addLayout(icpRow);
 
@@ -250,7 +252,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_spareVoxelSpin->setDecimals(2);
 	m_spareVoxelSpin->setValue(0.0);
 	spareVoxelRow->addWidget(spareVoxelLabel);
-	spareVoxelRow->addWidget(m_spareVoxelSpin);
+	spareVoxelRow->addWidget(m_spareVoxelSpin, 1);
 	spareOptLayout->addLayout(spareVoxelRow);
 	auto* spareSampleRow = new QHBoxLayout;
 	auto* spareSampleLabel = new QLabel(m_spareOptionsWidget);
@@ -262,7 +264,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_spareSampleRadiusSpin->setValue(0.0);
 	m_spareSampleRadiusSpin->setToolTip(QStringLiteral("0=auto(~3×edge). Smaller = denser deformation nodes."));
 	spareSampleRow->addWidget(spareSampleLabel);
-	spareSampleRow->addWidget(m_spareSampleRadiusSpin);
+	spareSampleRow->addWidget(m_spareSampleRadiusSpin, 1);
 	spareOptLayout->addLayout(spareSampleRow);
 	m_spareRigidPreAlignCheck = new QCheckBox(m_spareOptionsWidget);
 	m_spareCoarseGlobalAlignCheck = new QCheckBox(m_spareOptionsWidget);
@@ -334,7 +336,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_sdfFieldVoxelSpin->setDecimals(2);
 	m_sdfFieldVoxelSpin->setValue(0.0);
 	sdfVoxelRow->addWidget(sdfVoxelLabel);
-	sdfVoxelRow->addWidget(m_sdfFieldVoxelSpin);
+	sdfVoxelRow->addWidget(m_sdfFieldVoxelSpin, 1);
 	sdfOptLayout->addLayout(sdfVoxelRow);
 	auto* sdfFineRow = new QHBoxLayout;
 	auto* sdfFineLabel = new QLabel(m_sdfOptionsWidget);
@@ -416,7 +418,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_pyramidEdgeSpin->setDecimals(3);
 	m_pyramidEdgeSpin->setValue(0.0);
 	pyrEdgeRow->addWidget(pyrEdgeLabel);
-	pyrEdgeRow->addWidget(m_pyramidEdgeSpin);
+	pyrEdgeRow->addWidget(m_pyramidEdgeSpin, 1);
 	pyrOptLayout->addLayout(pyrEdgeRow);
 	auto* pyrSolverRow = new QHBoxLayout;
 	auto* pyrSolverLabel = new QLabel(m_pyramidOptionsWidget);
@@ -453,18 +455,18 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_poissonBtn = new QPushButton(m_reconGroup);
 	m_scaleBtn = new QPushButton(m_reconGroup);
 	prefilterRow->addWidget(m_prefilterLabel);
-	prefilterRow->addWidget(m_prefilterSpin);
+	prefilterRow->addWidget(m_prefilterSpin, 1);
 	reconLayout->addLayout(prefilterRow);
-	auto* reconRow = new QHBoxLayout;
+	auto* reconRow = new FlowLayout(nullptr, 4, 4);
 	reconRow->addWidget(m_poissonBtn);
 	reconRow->addWidget(m_scaleBtn);
 	reconLayout->addLayout(reconRow);
-	auto* exportRow = new QHBoxLayout;
+	auto* exportRow = new FlowLayout(nullptr, 4, 4);
 	m_meshExportLabel = new QLabel(m_reconGroup);
 	m_meshExportCombo = new QComboBox(m_reconGroup);
 	m_exportMeshBtn = new QPushButton(m_reconGroup);
 	exportRow->addWidget(m_meshExportLabel);
-	exportRow->addWidget(m_meshExportCombo, 1);
+	exportRow->addWidget(m_meshExportCombo);
 	exportRow->addWidget(m_exportMeshBtn);
 	reconLayout->addLayout(exportRow);
 	layout->addWidget(m_reconGroup);
@@ -490,7 +492,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_faceBandSpin->setValue(2.0);
 	m_faceBandSpin->setDecimals(2);
 	faceBandRow->addWidget(m_faceBandLabel);
-	faceBandRow->addWidget(m_faceBandSpin);
+	faceBandRow->addWidget(m_faceBandSpin, 1);
 	reLayout->addLayout(faceBandRow);
 	auto* reNormalRow = new QHBoxLayout;
 	m_reNormalLabel = new QLabel(m_reGroup);
@@ -499,7 +501,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_reNormalSpin->setValue(35.0);
 	m_reNormalSpin->setDecimals(1);
 	reNormalRow->addWidget(m_reNormalLabel);
-	reNormalRow->addWidget(m_reNormalSpin);
+	reNormalRow->addWidget(m_reNormalSpin, 1);
 	reLayout->addLayout(reNormalRow);
 	auto* reMinPtsRow = new QHBoxLayout;
 	m_reMinPtsLabel = new QLabel(m_reGroup);
@@ -508,7 +510,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_reMinPointsSpin->setValue(30);
 	m_reMinPointsSpin->setDecimals(0);
 	reMinPtsRow->addWidget(m_reMinPtsLabel);
-	reMinPtsRow->addWidget(m_reMinPointsSpin);
+	reMinPtsRow->addWidget(m_reMinPointsSpin, 1);
 	reLayout->addLayout(reMinPtsRow);
 	auto* reMaxDevRow = new QHBoxLayout;
 	m_reMaxDevLabel = new QLabel(m_reGroup);
@@ -517,9 +519,9 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_reMaxDevSpin->setValue(0.5);
 	m_reMaxDevSpin->setDecimals(3);
 	reMaxDevRow->addWidget(m_reMaxDevLabel);
-	reMaxDevRow->addWidget(m_reMaxDevSpin);
+	reMaxDevRow->addWidget(m_reMaxDevSpin, 1);
 	reLayout->addLayout(reMaxDevRow);
-	auto* bsplineGridRow = new QHBoxLayout;
+	auto* bsplineGridRow = new FlowLayout(nullptr, 4, 4);
 	m_bsplineUvGridLabel = new QLabel(m_reGroup);
 	m_bsplineUvGridUSpin = new QSpinBox(m_reGroup);
 	m_bsplineUvGridUSpin->setRange(4, 128);
@@ -538,7 +540,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_maxAssignPointsSpin->setSingleStep(100);
 	m_maxAssignPointsSpin->setValue(800);
 	maxAssignRow->addWidget(m_maxAssignPointsLabel);
-	maxAssignRow->addWidget(m_maxAssignPointsSpin);
+	maxAssignRow->addWidget(m_maxAssignPointsSpin, 1);
 	reLayout->addLayout(maxAssignRow);
 	auto* poleSmoothRow = new QHBoxLayout;
 	m_bsplinePoleSmoothLabel = new QLabel(m_reGroup);
@@ -546,9 +548,9 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_bsplinePoleSmoothSpin->setRange(0, 10);
 	m_bsplinePoleSmoothSpin->setValue(2);
 	poleSmoothRow->addWidget(m_bsplinePoleSmoothLabel);
-	poleSmoothRow->addWidget(m_bsplinePoleSmoothSpin);
+	poleSmoothRow->addWidget(m_bsplinePoleSmoothSpin, 1);
 	reLayout->addLayout(poleSmoothRow);
-	auto* facePickRow = new QHBoxLayout;
+	auto* facePickRow = new FlowLayout(nullptr, 4, 4);
 	m_pickFaceBtn = new QPushButton(m_reGroup);
 	m_clearFacesBtn = new QPushButton(m_reGroup);
 	facePickRow->addWidget(m_pickFaceBtn);
@@ -559,7 +561,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	reLayout->addWidget(m_selectedFacesList);
 	m_matchStatusLabel = new QLabel(m_reGroup);
 	reLayout->addWidget(m_matchStatusLabel);
-	auto* reBtnRow = new QHBoxLayout;
+	auto* reBtnRow = new FlowLayout(nullptr, 4, 4);
 	m_coarseMatchBtn = new QPushButton(m_reGroup);
 	m_fineMatchBtn = new QPushButton(m_reGroup);
 	m_refactorBtn = new QPushButton(m_reGroup);
@@ -587,7 +589,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	meshPostLayout->addWidget(m_meshInfoLabel);
 
 	// 简化行
-	auto* simplifyRow = new QHBoxLayout;
+	auto* simplifyRow = new FlowLayout(nullptr, 4, 4);
 	m_simplifyTargetLabel = new QLabel(m_meshPostGroup);
 	m_simplifyTargetSpin = new QSpinBox(m_meshPostGroup);
 	m_simplifyTargetSpin->setRange(100, 10000000);
@@ -607,7 +609,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	meshPostLayout->addLayout(simplifyRow);
 
 	// 平滑行
-	auto* smoothRow = new QHBoxLayout;
+	auto* smoothRow = new FlowLayout(nullptr, 4, 4);
 	m_smoothIterLabel = new QLabel(m_meshPostGroup);
 	m_smoothIterSpin = new QSpinBox(m_meshPostGroup);
 	m_smoothIterSpin->setRange(1, 100);
@@ -635,7 +637,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	meshPostLayout->addLayout(smoothRepairRow);
 
 	// 修复 + 重网格行
-	auto* repairRow = new QHBoxLayout;
+	auto* repairRow = new FlowLayout(nullptr, 4, 4);
 	m_repairBtn = new QPushButton(m_meshPostGroup);
 	m_fillHolesCheck = new QCheckBox(m_meshPostGroup);
 	m_holeMaxEdgeLabel = new QLabel(m_meshPostGroup);
@@ -649,7 +651,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	repairRow->addWidget(m_holeMaxEdgeSpin);
 	meshPostLayout->addLayout(repairRow);
 
-	auto* repairRemeshRow = new QHBoxLayout;
+	auto* repairRemeshRow = new FlowLayout(nullptr, 4, 4);
 	m_remeshEdgeLabel = new QLabel(m_meshPostGroup);
 	m_remeshEdgeSpin = new QDoubleSpinBox(m_meshPostGroup);
 	m_remeshEdgeSpin->setRange(0.01, 1000.0);
@@ -671,7 +673,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_surfaceReconPreprocessSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 2px;"));
 	surfaceReconLayout->addWidget(m_surfaceReconPreprocessSectionLabel);
 
-	auto* normalSmoothRow = new QHBoxLayout;
+	auto* normalSmoothRow = new FlowLayout(nullptr, 4, 4);
 	m_normalSmoothIterLabel = new QLabel(m_surfaceReconGroup);
 	m_normalSmoothIterSpin = new QSpinBox(m_surfaceReconGroup);
 	m_normalSmoothIterSpin->setRange(0, 50);
@@ -696,7 +698,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_runIsotropicRemeshCheck->setChecked(true);
 	surfaceReconLayout->addWidget(m_runIsotropicRemeshCheck);
 
-	auto* remeshRow = new QHBoxLayout;
+	auto* remeshRow = new FlowLayout(nullptr, 4, 4);
 	m_remeshTargetEdgeLabel = new QLabel(m_surfaceReconGroup);
 	m_remeshTargetEdgeSpin = new QDoubleSpinBox(m_surfaceReconGroup);
 	m_remeshTargetEdgeSpin->setRange(0.0, 1000.0);
@@ -734,7 +736,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_partitionModeCombo->addItem(QStringLiteral("AMRTO (IM+GMCG)"),
 								  static_cast<int>(PluginMeshSurfacePartitionMode::AmrtoImGmcg));
 	partitionModeRow->addWidget(m_partitionModeLabel);
-	partitionModeRow->addWidget(m_partitionModeCombo);
+	partitionModeRow->addWidget(m_partitionModeCombo, 1);
 	partitionModeRow->addStretch();
 	surfaceReconLayout->addLayout(partitionModeRow);
 
@@ -746,7 +748,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_patchCountSpin->setSpecialValueText(QStringLiteral("Auto"));
 	m_patchCountSpin->setToolTip(QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块"));
 	patchCountRow->addWidget(m_patchCountLabel);
-	patchCountRow->addWidget(m_patchCountSpin);
+	patchCountRow->addWidget(m_patchCountSpin, 1);
 	patchCountRow->addStretch();
 	surfaceReconLayout->addLayout(patchCountRow);
 
@@ -760,7 +762,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_partitionNormalSmoothSpin->setValue(2);
 	m_partitionNormalSmoothSpin->setToolTip(QStringLiteral("分块前法向平滑；0=保留锐角，2=默认抑制 confetti"));
 	partitionRow->addWidget(m_partitionNormalSmoothLabel);
-	partitionRow->addWidget(m_partitionNormalSmoothSpin);
+	partitionRow->addWidget(m_partitionNormalSmoothSpin, 1);
 	auto* partitionRow2 = new QHBoxLayout;
 	m_featureAnglePercentileLabel = new QLabel(m_v3PartitionParamsWidget);
 	m_featureAnglePercentileSpin = new QDoubleSpinBox(m_v3PartitionParamsWidget);
@@ -770,7 +772,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_featureAnglePercentileSpin->setValue(0.88);
 	m_featureAnglePercentileSpin->setToolTip(QStringLiteral("特征棱角度百分位；越低切分越多（如 0.75），越高越合并"));
 	partitionRow2->addWidget(m_featureAnglePercentileLabel);
-	partitionRow2->addWidget(m_featureAnglePercentileSpin);
+	partitionRow2->addWidget(m_featureAnglePercentileSpin, 1);
 	partitionRow2->addStretch();
 	v3PartitionLayout->addLayout(partitionRow);
 	v3PartitionLayout->addLayout(partitionRow2);
@@ -780,7 +782,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	auto* hybridPartitionLayout = new QVBoxLayout(m_hybridPartitionParamsWidget);
 	hybridPartitionLayout->setContentsMargins(0, 0, 0, 0);
 
-	auto* hybridRow1 = new QHBoxLayout;
+	auto* hybridRow1 = new FlowLayout(nullptr, 4, 4);
 	m_hybridFeatureAngleLabel = new QLabel(m_hybridPartitionParamsWidget);
 	m_hybridFeatureAngleSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
 	m_hybridFeatureAngleSpin->setRange(15.0, 90.0);
@@ -796,7 +798,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	hybridRow1->addWidget(m_hybridClusterItersSpin);
 	hybridPartitionLayout->addLayout(hybridRow1);
 
-	auto* hybridRow2 = new QHBoxLayout;
+	auto* hybridRow2 = new FlowLayout(nullptr, 4, 4);
 	m_hybridSampleScaleLabel = new QLabel(m_hybridPartitionParamsWidget);
 	m_hybridSampleScaleSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
 	m_hybridSampleScaleSpin->setRange(1.0, 50.0);
@@ -809,7 +811,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	hybridRow2->addWidget(m_hybridRegionAdjustCheck);
 	hybridPartitionLayout->addLayout(hybridRow2);
 
-	auto* hybridRow3 = new QHBoxLayout;
+	auto* hybridRow3 = new FlowLayout(nullptr, 4, 4);
 	m_hybridMergeCosHighLabel = new QLabel(m_hybridPartitionParamsWidget);
 	m_hybridMergeCosHighSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
 	m_hybridMergeCosHighSpin->setRange(0.50, 0.99);
@@ -833,7 +835,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	hybridRow3->addWidget(m_hybridMergeCosLowScaleSpin);
 	hybridPartitionLayout->addLayout(hybridRow3);
 
-	auto* hybridRow4 = new QHBoxLayout;
+	auto* hybridRow4 = new FlowLayout(nullptr, 4, 4);
 	m_hybridSmallRegionRatioLabel = new QLabel(m_hybridPartitionParamsWidget);
 	m_hybridSmallRegionRatioSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
 	m_hybridSmallRegionRatioSpin->setRange(0.001, 0.05);
@@ -855,7 +857,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	hybridRow4->addWidget(m_hybridSmallRegionMaxSpin);
 	hybridPartitionLayout->addLayout(hybridRow4);
 
-	auto* hybridRow5 = new QHBoxLayout;
+	auto* hybridRow5 = new FlowLayout(nullptr, 4, 4);
 	m_hybridCollapseValenceLabel = new QLabel(m_hybridPartitionParamsWidget);
 	m_hybridCollapseValenceSpin = new QSpinBox(m_hybridPartitionParamsWidget);
 	m_hybridCollapseValenceSpin->setRange(4, 12);
@@ -892,7 +894,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 								static_cast<int>(PluginMeshSurfaceGmcgBackend::GoldenLoader));
 	m_gmcgBackendCombo->setToolTip(QStringLiteral("GoldenLoader 仅适用于与 CODE_AMRTO/data_smooth 匹配的网格"));
 	amrtoRow1->addWidget(m_gmcgBackendLabel);
-	amrtoRow1->addWidget(m_gmcgBackendCombo);
+	amrtoRow1->addWidget(m_gmcgBackendCombo, 1);
 	amrtoRow1->addStretch();
 	amrtoPartitionLayout->addLayout(amrtoRow1);
 
@@ -903,7 +905,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_instantMeshesTargetQuadsSpin->setSpecialValueText(QStringLiteral("Auto"));
 	m_instantMeshesTargetQuadsSpin->setToolTip(QStringLiteral("Instant Meshes 目标 quad 顶点数；0=自动 (约 input/16)"));
 	amrtoRow2->addWidget(m_instantMeshesTargetQuadsLabel);
-	amrtoRow2->addWidget(m_instantMeshesTargetQuadsSpin);
+	amrtoRow2->addWidget(m_instantMeshesTargetQuadsSpin, 1);
 	amrtoRow2->addStretch();
 	amrtoPartitionLayout->addLayout(amrtoRow2);
 
@@ -912,7 +914,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_instantMeshesExeEdit = new QLineEdit(m_amrtoPartitionParamsWidget);
 	m_instantMeshesExeEdit->setPlaceholderText(QStringLiteral("可选；留空使用进程内 InstantMeshesLib"));
 	amrtoRow3->addWidget(m_instantMeshesExeLabel);
-	amrtoRow3->addWidget(m_instantMeshesExeEdit);
+	amrtoRow3->addWidget(m_instantMeshesExeEdit, 1);
 	amrtoPartitionLayout->addLayout(amrtoRow3);
 
 	m_amrtoHintLabel = new QLabel(m_amrtoPartitionParamsWidget);
@@ -937,11 +939,11 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_samplesPerEdgeSpin->setRange(4, 32);
 	m_samplesPerEdgeSpin->setValue(16);
 	patchSampleRow->addWidget(m_samplesPerEdgeLabel);
-	patchSampleRow->addWidget(m_samplesPerEdgeSpin);
+	patchSampleRow->addWidget(m_samplesPerEdgeSpin, 1);
 	patchSampleRow->addStretch();
 	surfaceReconLayout->addLayout(patchSampleRow);
 
-	auto* uvAdaptiveRow = new QHBoxLayout;
+	auto* uvAdaptiveRow = new FlowLayout(nullptr, 4, 4);
 	m_uvSpacingLabel = new QLabel(m_surfaceReconGroup);
 	m_uvSpacingSpin = new QDoubleSpinBox(m_surfaceReconGroup);
 	m_uvSpacingSpin->setRange(0.0, 500.0);
@@ -969,7 +971,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_surfaceReconFitSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 6px;"));
 	surfaceReconLayout->addWidget(m_surfaceReconFitSectionLabel);
 
-	auto* fitGridRow = new QHBoxLayout;
+	auto* fitGridRow = new FlowLayout(nullptr, 4, 4);
 	m_maxFitGridLabel = new QLabel(m_surfaceReconGroup);
 	m_maxFitGridSpin = new QSpinBox(m_surfaceReconGroup);
 	m_maxFitGridSpin->setRange(0, 9999);
@@ -987,7 +989,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	fitGridRow->addWidget(m_fitUvSpacingSpin);
 	surfaceReconLayout->addLayout(fitGridRow);
 
-	auto* amrtoRow = new QHBoxLayout();
+	auto* amrtoRow = new FlowLayout(nullptr, 4, 4);
 	m_sampleRateLabel = new QLabel(m_surfaceReconGroup);
 	m_sampleRateSpin = new QDoubleSpinBox(m_surfaceReconGroup);
 	m_sampleRateSpin->setRange(0.1, 20.0);
@@ -1020,7 +1022,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_surfaceReconBlendSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 6px;"));
 	surfaceReconLayout->addWidget(m_surfaceReconBlendSectionLabel);
 
-	auto* fairingRow = new QHBoxLayout;
+	auto* fairingRow = new FlowLayout(nullptr, 4, 4);
 	m_fairingEpsilonLabel = new QLabel(m_surfaceReconGroup);
 	m_fairingEpsilonSpin = new QDoubleSpinBox(m_surfaceReconGroup);
 	m_fairingEpsilonSpin->setRange(1e-6, 1.0);
@@ -1044,7 +1046,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_blendStripWidthSpin->setValue(0.0);
 	m_blendStripWidthSpin->setSpecialValueText(QStringLiteral("Auto"));
 	blendRow->addWidget(m_blendStripWidthLabel);
-	blendRow->addWidget(m_blendStripWidthSpin);
+	blendRow->addWidget(m_blendStripWidthSpin, 1);
 	surfaceReconLayout->addLayout(blendRow);
 
 	auto* tessRow = new QHBoxLayout;
@@ -1054,10 +1056,10 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_tessellateDeflectionSpin->setDecimals(3);
 	m_tessellateDeflectionSpin->setValue(0.1);
 	tessRow->addWidget(m_tessellateDeflectionLabel);
-	tessRow->addWidget(m_tessellateDeflectionSpin);
+	tessRow->addWidget(m_tessellateDeflectionSpin, 1);
 	surfaceReconLayout->addLayout(tessRow);
 
-	auto* stageRow1 = new QHBoxLayout;
+	auto* stageRow1 = new FlowLayout(nullptr, 4, 4);
 	m_surfaceReconPreprocessBtn = new QPushButton(m_surfaceReconGroup);
 	m_surfaceReconPartitionBtn = new QPushButton(m_surfaceReconGroup);
 	m_surfaceReconSampleBtn = new QPushButton(m_surfaceReconGroup);
@@ -1068,7 +1070,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	stageRow1->addWidget(m_surfaceReconFitBtn);
 	surfaceReconLayout->addLayout(stageRow1);
 
-	auto* stageRow2 = new QHBoxLayout;
+	auto* stageRow2 = new FlowLayout(nullptr, 4, 4);
 	m_surfaceReconBoundaryBtn = new QPushButton(m_surfaceReconGroup);
 	m_surfaceReconJunctionBtn = new QPushButton(m_surfaceReconGroup);
 	m_surfaceReconFairBtn = new QPushButton(m_surfaceReconGroup);
@@ -1079,7 +1081,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	stageRow2->addWidget(m_surfaceReconAssembleBtn);
 	surfaceReconLayout->addLayout(stageRow2);
 
-	auto* stageRow3 = new QHBoxLayout;
+	auto* stageRow3 = new FlowLayout(nullptr, 4, 4);
 	m_surfaceReconBtn = new QPushButton(m_surfaceReconGroup);
 	m_surfaceReconResetBtn = new QPushButton(m_surfaceReconGroup);
 	stageRow3->addWidget(m_surfaceReconBtn);
@@ -1107,6 +1109,8 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_progress->setValue(0);
 	layout->addWidget(m_progress);
 	layout->addStretch(1);
+
+	applySidePanelControlPolicies(m_scrollContent);
 
 	connect(m_importBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onImportClicked);
 	connect(m_refreshBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onRefreshListClicked);

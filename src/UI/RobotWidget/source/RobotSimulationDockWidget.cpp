@@ -96,6 +96,8 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent) : QWidget(
 	m_robotTabs->setMovable(false);
 	m_robotTabs->setDocumentMode(true);
 	m_robotTabs->setContentsMargins(0, 0, 0, 0);
+	m_robotTabs->setUsesScrollButtons(true);
+	m_robotTabs->setElideMode(Qt::ElideNone);
 	if (QTabBar* bar = m_robotTabs->tabBar())
 	{
 		bar->setDrawBase(false);
@@ -105,6 +107,8 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent) : QWidget(
 	m_deviceTabs->setMovable(false);
 	m_deviceTabs->setDocumentMode(true);
 	m_deviceTabs->setContentsMargins(0, 0, 0, 0);
+	m_deviceTabs->setUsesScrollButtons(true);
+	m_deviceTabs->setElideMode(Qt::ElideNone);
 	if (QTabBar* bar = m_deviceTabs->tabBar())
 	{
 		bar->setDrawBase(false);

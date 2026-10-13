@@ -81,6 +81,7 @@
 #include <QTabBar>
 #include <QTabWidget>
 #include <QToolBar>
+#include <QPalette>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QVBoxLayout>
@@ -283,6 +284,24 @@ void MainWindow::applyLanguage()
 		m_meshLinePickModeAction->setText(i18n(QStringLiteral("Line Pick"), QStringLiteral("线选择模式")));
 	if (m_meshFacePickModeAction)
 		m_meshFacePickModeAction->setText(i18n(QStringLiteral("Face Pick"), QStringLiteral("面选择模式")));
+	if (m_multiViewMenu)
+		m_multiViewMenu->setTitle(i18n(QStringLiteral("Multi-View"), QStringLiteral("多视角")));
+	if (m_multiViewSingleAction)
+		m_multiViewSingleAction->setText(i18n(QStringLiteral("Single"), QStringLiteral("单视口")));
+	if (m_multiViewSplitHAction)
+		m_multiViewSplitHAction->setText(i18n(QStringLiteral("Split Horizontal"), QStringLiteral("左右分屏")));
+	if (m_multiViewSplitVAction)
+		m_multiViewSplitVAction->setText(i18n(QStringLiteral("Split Vertical"), QStringLiteral("上下分屏")));
+	if (m_multiViewQuadAction)
+		m_multiViewQuadAction->setText(i18n(QStringLiteral("Quad"), QStringLiteral("四宫格")));
+	if (m_multiViewDetachedAction)
+		m_multiViewDetachedAction->setText(
+			i18n(QStringLiteral("Open View in New Window"), QStringLiteral("新窗口打开视角")));
+	if (auto* host = currentDocumentHost())
+	{
+		host->setMultiViewUseChinese(m_useChinese);
+	}
+
 	if (m_gizmoLocalFrameAction)
 	{
 		m_gizmoLocalFrameAction->setText(
@@ -1011,6 +1030,18 @@ void MainWindow::onThemeActionGroupTriggered(QAction* action)
 		}
 		setAllDocumentViewerDarkBackground(true);
 		refreshModeToolBarTheme();
+	}
+	// 属性树网格线用 Mid，主题切换后按边框色重刷
+	if (m_propertyBrowser)
+	{
+		if (QTreeWidget* tw = m_propertyBrowser->findChild<QTreeWidget*>(QStringLiteral("PropertyBrowserTree")))
+		{
+			const ApplicationStyle::ThemeTokens tok = ApplicationStyle::tokens(ApplicationStyle::loadSavedTheme());
+			QPalette pal = tw->palette();
+			pal.setColor(QPalette::Mid, tok.border);
+			pal.setColor(QPalette::AlternateBase, tok.panel);
+			tw->setPalette(pal);
+		}
 	}
 }
 

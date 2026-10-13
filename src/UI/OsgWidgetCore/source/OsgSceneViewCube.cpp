@@ -308,6 +308,7 @@ void OsgScene::initViewCubeHud()
 	m_viewCubeHudCamera->setAllowEventFocus(false);
 	m_viewCubeHudCamera->setProjectionMatrixAsOrtho(-1.45f, 1.45f, -1.45f, 1.45f, -10.0, 10.0);
 	m_viewCubeHudCamera->setCullMask(0xffffffffu);
+	m_viewCubeHudCamera->setNodeMask(kMaskPrimaryViewportOnly);
 	m_viewCubeHudCamera->setUpdateCallback(new ViewCubeHudUpdateCallback(m_viewer->getCamera()));
 
 	osg::ref_ptr<osg::Group> hudRoot = new osg::Group;

@@ -15,6 +15,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QTableWidget>
 #include <QVBoxLayout>
 
@@ -63,15 +64,17 @@ void IoSignalPageWidget::setupUi()
 	root->addWidget(m_tableWidget, 1);
 
 	auto* btnRow = new QHBoxLayout;
+	btnRow->setSpacing(4);
 	m_addBtn = new QPushButton(this);
 	m_removeBtn = new QPushButton(this);
 	m_resetBtn = new QPushButton(this);
 	m_stationBtn = new QPushButton(this);
-	btnRow->addWidget(m_addBtn);
-	btnRow->addWidget(m_removeBtn);
-	btnRow->addWidget(m_resetBtn);
-	btnRow->addWidget(m_stationBtn);
-	btnRow->addStretch(1);
+	for (QPushButton* btn : {m_addBtn, m_removeBtn, m_resetBtn, m_stationBtn})
+	{
+		btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+		btn->setMinimumWidth(0);
+		btnRow->addWidget(btn, 1);
+	}
 	root->addLayout(btnRow);
 
 	connect(m_ownerCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,

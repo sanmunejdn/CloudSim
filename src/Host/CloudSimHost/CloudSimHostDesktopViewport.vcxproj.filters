@@ -118,6 +118,15 @@
     <ClCompile Include="source\osg\SelectionOperation.cpp">
       <Filter>src\osg</Filter>
     </ClCompile>
+    <ClCompile Include="source\osg\SatelliteOsgView.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\MultiViewShell.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
+    <ClCompile Include="source\osg\DetachedViewWindow.cpp">
+      <Filter>src\osg</Filter>
+    </ClCompile>
     <ClCompile Include="source\osg\ViewportGestureRecognizer.cpp">
       <Filter>src\osg</Filter>
     </ClCompile>
@@ -139,6 +148,15 @@
       <Filter>inc\osg</Filter>
     </QtMoc>
     <QtMoc Include="inc\osg\QWidgetViewer.h">
+      <Filter>inc\osg</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\osg\SatelliteOsgView.h">
+      <Filter>inc\osg</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\osg\MultiViewShell.h">
+      <Filter>inc\osg</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\osg\DetachedViewWindow.h">
       <Filter>inc\osg</Filter>
     </QtMoc>
   </ItemGroup>

@@ -319,6 +319,44 @@ QTreeWidget, QTreeView {
 	show-decoration-selected: 1;
 }
 
+/* 属性页：斑马线 + 紧凑表头，与侧栏 ThemeTokens 对齐 */
+QtTreePropertyBrowser#PropertyBrowser,
+QWidget#PropertyBrowser {
+	background-color: {{base}};
+	border: none;
+}
+
+QTreeWidget#PropertyBrowserTree {
+	background-color: {{base}};
+	padding: 0;
+	alternate-background-color: {{panel}};
+}
+
+QTreeWidget#PropertyBrowserTree::item {
+	padding: 4px 8px;
+	min-height: 24px;
+	border: none;
+}
+
+QTreeWidget#PropertyBrowserTree QHeaderView::section {
+	background-color: {{panel}};
+	color: {{muted}};
+	padding: 7px 8px;
+	border: none;
+	border-right: 1px solid {{border}};
+	border-bottom: 1px solid {{border}};
+	font-weight: 500;
+}
+
+QTreeWidget#PropertyBrowserTree QHeaderView::section:last {
+	border-right: none;
+}
+
+QTabWidget#PropertyDockTabs::pane {
+	border: none;
+	top: 0px;
+}
+
 /* 表格外框+网格必须可见；勿与 Tab 去缝的淡 border 混用 */
 QTableWidget, QTableView {
 	background-color: {{base}};

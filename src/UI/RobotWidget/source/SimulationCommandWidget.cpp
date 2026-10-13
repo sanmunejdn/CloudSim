@@ -12,6 +12,7 @@
 #include "RobotProgramStore.h"
 #include "UiIconDecorators.h"
 
+#include <QAction>
 #include <QComboBox>
 #include <QCheckBox>
 #include <QFrame>
@@ -19,7 +20,11 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
+#include <QLayout>
+#include <QLayoutItem>
 #include <QLineEdit>
+#include <QList>
+#include <QMenu>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QSizePolicy>
@@ -37,6 +42,92 @@ namespace
 constexpr int kControlHeight = 32;
 constexpr int kContextLabelWidth = 40;
 constexpr int kTypeBtnMinWidth = 52;
+
+/// 窄侧栏插入按钮按宽换行
+class FlowLayout final : public QLayout
+{
+public:
+	explicit FlowLayout(QWidget* parent = nullptr, int hSpacing = 2, int vSpacing = 4)
+		: QLayout(parent), m_hSpace(hSpacing), m_vSpace(vSpacing)
+	{
+		setContentsMargins(0, 0, 0, 0);
+	}
+	~FlowLayout() override
+	{
+		while (QLayoutItem* item = takeAt(0))
+		{
+			delete item;
+		}
+	}
+	void addItem(QLayoutItem* item) override { m_items.append(item); }
+	int count() const override { return m_items.size(); }
+	QLayoutItem* itemAt(int index) const override
+	{
+		return (index >= 0 && index < m_items.size()) ? m_items.at(index) : nullptr;
+	}
+	QLayoutItem* takeAt(int index) override
+	{
+		return (index >= 0 && index < m_items.size()) ? m_items.takeAt(index) : nullptr;
+	}
+	Qt::Orientations expandingDirections() const override { return {}; }
+	bool hasHeightForWidth() const override { return true; }
+	int heightForWidth(int width) const override { return doLayout(QRect(0, 0, width, 0), true); }
+	void setGeometry(const QRect& rect) override
+	{
+		QLayout::setGeometry(rect);
+		doLayout(rect, false);
+	}
+	QSize sizeHint() const override { return minimumSize(); }
+	QSize minimumSize() const override
+	{
+		QSize size;
+		for (QLayoutItem* item : m_items)
+		{
+			size = size.expandedTo(item->minimumSize());
+		}
+		const QMargins m = contentsMargins();
+		size += QSize(m.left() + m.right(), m.top() + m.bottom());
+		return size;
+	}
+
+private:
+	int doLayout(const QRect& rect, bool testOnly) const
+	{
+		int left = 0;
+		int top = 0;
+		int right = 0;
+		int bottom = 0;
+		getContentsMargins(&left, &top, &right, &bottom);
+		const QRect effective = rect.adjusted(+left, +top, -right, -bottom);
+		int x = effective.x();
+		int y = effective.y();
+		int lineHeight = 0;
+		for (QLayoutItem* item : m_items)
+		{
+			const int spaceX = m_hSpace;
+			const int spaceY = m_vSpace;
+			int nextX = x + item->sizeHint().width() + spaceX;
+			if (lineHeight > 0 && nextX - spaceX > effective.right() + 1)
+			{
+				x = effective.x();
+				y = y + lineHeight + spaceY;
+				nextX = x + item->sizeHint().width() + spaceX;
+				lineHeight = 0;
+			}
+			if (!testOnly)
+			{
+				item->setGeometry(QRect(QPoint(x, y), item->sizeHint()));
+			}
+			x = nextX;
+			lineHeight = qMax(lineHeight, item->sizeHint().height());
+		}
+		return y + lineHeight - rect.y() + bottom;
+	}
+
+	QList<QLayoutItem*> m_items;
+	int m_hSpace = 2;
+	int m_vSpace = 4;
+};
 
 void applyBtnRole(QPushButton* btn, const char* role)
 {
@@ -237,12 +328,27 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	root->setContentsMargins(6, 6, 6, 6);
 	root->setSpacing(4);
 
+	// 方案A：主操作与参数分行，避免窄侧栏单行挤爆
 	auto* rowRun = new QHBoxLayout;
 	rowRun->setSpacing(4);
 	m_runBtn = new QPushButton(QStringLiteral("Run"));
 	m_stopBtn = new QPushButton(QStringLiteral("Stop"));
 	m_exportBtn = new QPushButton(QStringLiteral("Export"));
 	m_stopBtn->setEnabled(false);
+	configureCompactButton(m_runBtn);
+	configureCompactButton(m_stopBtn);
+	configureCompactButton(m_exportBtn);
+	applyBtnRole(m_runBtn, "primary");
+	applyBtnRole(m_stopBtn, "danger");
+	applyBtnRole(m_exportBtn, "secondary");
+	rowRun->addWidget(m_runBtn);
+	rowRun->addWidget(m_stopBtn);
+	rowRun->addStretch(1);
+	rowRun->addWidget(m_exportBtn);
+	root->addLayout(rowRun);
+
+	auto* rowParams = new QHBoxLayout;
+	rowParams->setSpacing(4);
 	m_playbackRateLabel = new QLabel(QStringLiteral("Sim Rate"), this);
 	m_playbackRateCombo = new QComboBox(this);
 	const double ratePresets[] = {0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0};
@@ -270,28 +376,18 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	m_allowApproxOrientCheck->setChecked(false);
 	m_allowApproxOrientCheck->setToolTip(
 		QStringLiteral("Allow SoftAccepted IK (wider orientation tolerance). Off = hard convergence only."));
-	configureCompactButton(m_runBtn);
-	configureCompactButton(m_stopBtn);
-	configureCompactButton(m_exportBtn);
 	configureCompactCombo(m_playbackRateCombo);
 	configureCompactCombo(m_ikSeedCombo);
-	m_playbackRateCombo->setMinimumWidth(64);
-	m_playbackRateCombo->setMaximumWidth(88);
-	m_ikSeedCombo->setMinimumWidth(72);
-	m_ikSeedCombo->setMaximumWidth(96);
-	applyBtnRole(m_runBtn, "primary");
-	applyBtnRole(m_stopBtn, "danger");
-	applyBtnRole(m_exportBtn, "secondary");
-	rowRun->addWidget(m_runBtn);
-	rowRun->addWidget(m_stopBtn);
-	rowRun->addWidget(m_playbackRateLabel);
-	rowRun->addWidget(m_playbackRateCombo);
-	rowRun->addWidget(m_ikSeedLabel);
-	rowRun->addWidget(m_ikSeedCombo);
-	rowRun->addWidget(m_allowApproxOrientCheck);
-	rowRun->addStretch(1);
-	rowRun->addWidget(m_exportBtn);
-	root->addLayout(rowRun);
+	m_playbackRateCombo->setMinimumWidth(56);
+	m_playbackRateCombo->setMaximumWidth(80);
+	m_ikSeedCombo->setMinimumWidth(64);
+	m_ikSeedCombo->setMaximumWidth(88);
+	rowParams->addWidget(m_playbackRateLabel);
+	rowParams->addWidget(m_playbackRateCombo);
+	rowParams->addWidget(m_ikSeedLabel);
+	rowParams->addWidget(m_ikSeedCombo);
+	rowParams->addWidget(m_allowApproxOrientCheck, 1);
+	root->addLayout(rowParams);
 
 	auto* rowExternal = new QHBoxLayout;
 	rowExternal->setSpacing(4);
@@ -322,25 +418,24 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	m_tcpLinkCombo->hide();
 
 	auto* programRow = new QHBoxLayout;
-	programRow->setSpacing(2);
+	programRow->setSpacing(4);
 	m_programLabel = new QLabel(QStringLiteral("程序"), this);
 	m_programLabel->setFixedWidth(kContextLabelWidth);
 	programRow->addWidget(m_programLabel);
 	m_programCombo = new QComboBox(this);
 	configureCompactCombo(m_programCombo);
 	programRow->addWidget(m_programCombo, 1);
-	m_programNewBtn = new QPushButton(QStringLiteral("新建"), this);
-	m_programRenameBtn = new QPushButton(QStringLiteral("重命名"), this);
-	m_programDeleteBtn = new QPushButton(QStringLiteral("删除"), this);
-	configureCompactButton(m_programNewBtn);
-	configureCompactButton(m_programRenameBtn);
-	configureCompactButton(m_programDeleteBtn);
-	applyBtnRole(m_programNewBtn, "secondary");
-	applyBtnRole(m_programRenameBtn, "secondary");
-	applyBtnRole(m_programDeleteBtn, "danger");
-	programRow->addWidget(m_programNewBtn);
-	programRow->addWidget(m_programRenameBtn);
-	programRow->addWidget(m_programDeleteBtn);
+	m_programMoreBtn = new QPushButton(QStringLiteral("···"), this);
+	configureCompactButton(m_programMoreBtn);
+	applyBtnRole(m_programMoreBtn, "secondary");
+	m_programMoreBtn->setFixedWidth(32);
+	m_programMoreBtn->setToolTip(QStringLiteral("Program actions"));
+	auto* programMenu = new QMenu(m_programMoreBtn);
+	m_programNewAct = programMenu->addAction(QStringLiteral("New"));
+	m_programRenameAct = programMenu->addAction(QStringLiteral("Rename"));
+	m_programDeleteAct = programMenu->addAction(QStringLiteral("Delete"));
+	m_programMoreBtn->setMenu(programMenu);
+	programRow->addWidget(m_programMoreBtn);
 	root->addLayout(programRow);
 
 	const RobotInstruction::Type motionTypes[] = {
@@ -363,27 +458,31 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	insertOuter->addWidget(m_insertLabel, 0, Qt::AlignTop);
 
 	auto* insertBtnsHost = new QWidget(insertBar);
-	auto* insertGrid = new QGridLayout(insertBtnsHost);
-	insertGrid->setContentsMargins(0, 2, 0, 2);
-	insertGrid->setHorizontalSpacing(2);
-	insertGrid->setVerticalSpacing(4);
-	int col = 0;
+	auto* insertCol = new QVBoxLayout(insertBtnsHost);
+	insertCol->setContentsMargins(0, 2, 0, 2);
+	insertCol->setSpacing(4);
+
+	auto* motionRow = new QHBoxLayout;
+	motionRow->setSpacing(2);
 	for (const RobotInstruction::Type t : motionTypes)
 	{
 		auto* typeBtn = createTypeButton(t);
 		configureCompactButton(typeBtn, kTypeBtnMinWidth);
 		applyBtnRole(typeBtn, "secondary");
-		insertGrid->addWidget(typeBtn, 0, col++);
+		motionRow->addWidget(typeBtn);
 	}
-	col = 0;
+	motionRow->addStretch(1);
+	insertCol->addLayout(motionRow);
+
+	auto* logicFlow = new FlowLayout(nullptr, 2, 4);
 	for (const RobotInstruction::Type t : logicTypes)
 	{
 		auto* typeBtn = createTypeButton(t);
 		configureCompactButton(typeBtn, kTypeBtnMinWidth);
 		applyBtnRole(typeBtn, "secondary");
-		insertGrid->addWidget(typeBtn, 1, col++);
+		logicFlow->addWidget(typeBtn);
 	}
-	insertGrid->setColumnStretch(col, 1);
+	insertCol->addLayout(logicFlow);
 	insertOuter->addWidget(insertBtnsHost, 1);
 	root->addWidget(insertBar);
 
@@ -466,9 +565,9 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 			&SimulationCommandWidget::onRobotComboChanged);
 	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&SimulationCommandWidget::onProgramComboChanged);
-	connect(m_programNewBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramNewClicked);
-	connect(m_programRenameBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramRenameClicked);
-	connect(m_programDeleteBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramDeleteClicked);
+	connect(m_programNewAct, &QAction::triggered, this, &SimulationCommandWidget::onProgramNewClicked);
+	connect(m_programRenameAct, &QAction::triggered, this, &SimulationCommandWidget::onProgramRenameClicked);
+	connect(m_programDeleteAct, &QAction::triggered, this, &SimulationCommandWidget::onProgramDeleteClicked);
 	connect(m_removeBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onRemoveClicked);
 	connect(m_clearBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onClearClicked);
 	connect(m_tree, &InstructionProgramTreeWidget::instructionSelected, this,
@@ -832,20 +931,22 @@ void SimulationCommandWidget::updateProgramGroupUi()
 	{
 		m_editLabel->setFixedWidth(labelW);
 	}
-	if (m_programNewBtn)
+	if (m_programMoreBtn)
 	{
-		m_programNewBtn->setText(zh ? QStringLiteral("新建") : QStringLiteral("New"));
-		m_programNewBtn->setToolTip(zh ? QStringLiteral("新建程序") : QStringLiteral("New program"));
+		m_programMoreBtn->setToolTip(zh ? QStringLiteral("程序：新建 / 重命名 / 删除")
+										: QStringLiteral("Program: New / Rename / Delete"));
 	}
-	if (m_programRenameBtn)
+	if (m_programNewAct)
 	{
-		m_programRenameBtn->setText(zh ? QStringLiteral("重命名") : QStringLiteral("Rename"));
-		m_programRenameBtn->setToolTip(zh ? QStringLiteral("重命名") : QStringLiteral("Rename"));
+		m_programNewAct->setText(zh ? QStringLiteral("新建") : QStringLiteral("New"));
 	}
-	if (m_programDeleteBtn)
+	if (m_programRenameAct)
 	{
-		m_programDeleteBtn->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
-		m_programDeleteBtn->setToolTip(zh ? QStringLiteral("删除程序") : QStringLiteral("Delete program"));
+		m_programRenameAct->setText(zh ? QStringLiteral("重命名") : QStringLiteral("Rename"));
+	}
+	if (m_programDeleteAct)
+	{
+		m_programDeleteAct->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
 	}
 }
 

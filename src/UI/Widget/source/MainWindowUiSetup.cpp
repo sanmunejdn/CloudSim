@@ -47,6 +47,7 @@
 #include <QItemSelectionModel>
 #include <QMenu>
 #include <QMenuBar>
+#include <QPalette>
 #include <QSize>
 #include <QSizePolicy>
 #include <QSplitter>
@@ -97,6 +98,44 @@ void setupDockTabWidget(QTabWidget* tabs)
 		bar->setDrawBase(false);
 		bar->setExpanding(false);
 	}
+}
+
+/// 属性树：名列可拖、值列铺满；Mid 驱动 Fusion 网格线，取边框色避免发黑
+void configurePropertyBrowserChrome(QtTreePropertyBrowser* browser)
+{
+	if (!browser)
+	{
+		return;
+	}
+	browser->setObjectName(QStringLiteral("PropertyBrowser"));
+	browser->setResizeMode(QtTreePropertyBrowser::Interactive);
+	browser->setAlternatingRowColors(true);
+	browser->setHeaderVisible(true);
+	browser->setRootIsDecorated(false);
+	browser->setIndentation(14);
+	if (QTreeWidget* propTree = browser->findChild<QTreeWidget*>())
+	{
+		propTree->setObjectName(QStringLiteral("PropertyBrowserTree"));
+		propTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
+		propTree->setUniformRowHeights(true);
+		propTree->setIndentation(14);
+		propTree->setRootIsDecorated(false);
+		propTree->setAnimated(false);
+		if (QHeaderView* header = propTree->header())
+		{
+			header->setStretchLastSection(true);
+			header->setMinimumSectionSize(72);
+			header->setSectionResizeMode(0, QHeaderView::Interactive);
+			header->setSectionResizeMode(1, QHeaderView::Stretch);
+			header->resizeSection(0, 120);
+		}
+		const ApplicationStyle::ThemeTokens tok = ApplicationStyle::tokens(ApplicationStyle::loadSavedTheme());
+		QPalette pal = propTree->palette();
+		pal.setColor(QPalette::Mid, tok.border);
+		pal.setColor(QPalette::AlternateBase, tok.panel);
+		propTree->setPalette(pal);
+	}
+	browser->setSplitterPosition(120);
 }
 
 // QStackedWidget 会对所有页取 max(minimumSize)；非当前页 Ignored，侧栏才能拖窄
@@ -431,6 +470,64 @@ void MainWindow::setupMenuBar()
 					scene->setTransformGizmoFrame(0);
 				}
 			});
+	m_viewMenu->addSeparator();
+	m_multiViewMenu = m_viewMenu->addMenu(QStringLiteral("Multi-View"));
+	m_multiViewLayoutGroup = new QActionGroup(this);
+	m_multiViewLayoutGroup->setExclusive(true);
+	m_multiViewSingleAction = m_multiViewMenu->addAction(QStringLiteral("Single"));
+	m_multiViewSingleAction->setCheckable(true);
+	m_multiViewLayoutGroup->addAction(m_multiViewSingleAction);
+	m_multiViewSplitHAction = m_multiViewMenu->addAction(QStringLiteral("Split Horizontal"));
+	m_multiViewSplitHAction->setCheckable(true);
+	m_multiViewLayoutGroup->addAction(m_multiViewSplitHAction);
+	m_multiViewSplitVAction = m_multiViewMenu->addAction(QStringLiteral("Split Vertical"));
+	m_multiViewSplitVAction->setCheckable(true);
+	m_multiViewLayoutGroup->addAction(m_multiViewSplitVAction);
+	m_multiViewQuadAction = m_multiViewMenu->addAction(QStringLiteral("Quad"));
+	m_multiViewQuadAction->setCheckable(true);
+	m_multiViewLayoutGroup->addAction(m_multiViewQuadAction);
+	m_multiViewSingleAction->setChecked(true);
+	m_multiViewMenu->addSeparator();
+	m_multiViewDetachedAction = m_multiViewMenu->addAction(QStringLiteral("Open View in New Window"));
+	const auto applyMultiViewLayout = [this](cloudsim::host::MultiViewLayout layout)
+	{
+		if (auto* host = currentDocumentHost())
+		{
+			host->setMultiViewLayout(layout);
+		}
+	};
+	connect(m_multiViewSingleAction, &QAction::triggered, this,
+			[applyMultiViewLayout](bool on)
+			{
+				if (on)
+					applyMultiViewLayout(cloudsim::host::MultiViewLayout::Single);
+			});
+	connect(m_multiViewSplitHAction, &QAction::triggered, this,
+			[applyMultiViewLayout](bool on)
+			{
+				if (on)
+					applyMultiViewLayout(cloudsim::host::MultiViewLayout::SplitH);
+			});
+	connect(m_multiViewSplitVAction, &QAction::triggered, this,
+			[applyMultiViewLayout](bool on)
+			{
+				if (on)
+					applyMultiViewLayout(cloudsim::host::MultiViewLayout::SplitV);
+			});
+	connect(m_multiViewQuadAction, &QAction::triggered, this,
+			[applyMultiViewLayout](bool on)
+			{
+				if (on)
+					applyMultiViewLayout(cloudsim::host::MultiViewLayout::Quad);
+			});
+	connect(m_multiViewDetachedAction, &QAction::triggered, this,
+			[this]()
+			{
+				if (auto* host = currentDocumentHost())
+				{
+					host->openDetachedViewWindow();
+				}
+			});
 	m_insertMenu = menuBar()->addMenu(QStringLiteral("Insert"));
 	m_createCoordinateFrameAction =
 		m_insertMenu->addAction(QStringLiteral("Coordinate Frame..."), this, &MainWindow::onCreateCoordinateFrame);
@@ -496,22 +593,13 @@ void MainWindow::setupDockWidgets()
 	m_variantFactory = new PropertyPanelVariantEditorFactory(this);
 	m_propertyBrowser = new QtTreePropertyBrowser();
 	m_propertyBrowser->setFactoryForManager(m_variantManager, m_variantFactory);
-	m_propertyBrowser->setResizeMode(QtTreePropertyBrowser::ResizeToContents);
-	m_propertyBrowser->setAlternatingRowColors(true);
-	m_propertyBrowser->setHeaderVisible(true);
-	m_propertyBrowser->setRootIsDecorated(false);
-	// 分割位置适应240px面板
-	m_propertyBrowser->setSplitterPosition(100);
-	if (QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>())
-	{
-		// 编辑由 QtTreePropertyBrowser/VariantFactory 接管；勿开 QTreeWidget 自带编辑，否则首键抢焦点
-		propTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
-		propTree->setUniformRowHeights(true);
-	}
+	// 编辑由 VariantFactory 接管；勿开 QTreeWidget 自带编辑，否则首键抢焦点
+	configurePropertyBrowserChrome(m_propertyBrowser);
 	connect(m_variantManager, &QtVariantPropertyManager::valueChanged, this,
 			&MainWindow::onVariantPropertyValueChanged);
 	installPropertyPanelEventFilter();
 	m_propertyDockTabs = new QTabWidget(m_propertyDock);
+	m_propertyDockTabs->setObjectName(QStringLiteral("PropertyDockTabs"));
 	setupDockTabWidget(m_propertyDockTabs);
 	m_propertyDockTabs->addTab(m_propertyBrowser, QStringLiteral("Property"));
 	m_devicePage = new DevicePageWidget(m_propertyDockTabs);
@@ -541,8 +629,8 @@ void MainWindow::setupDockWidgets()
 					m_assemblyMatePanel->endSession();
 				}
 			});
-	// 左侧属性面板宽度：240px
-	resizeDocks({m_propertyDock}, {240}, Qt::Horizontal);
+	// 中文属性名略长，默认略宽于旧 240
+	resizeDocks({m_propertyDock}, {280}, Qt::Horizontal);
 
 	m_unitDock = new QDockWidget(QStringLiteral("Workspace"), this);
 	m_unitDock->setObjectName(QStringLiteral("UnitDock"));

@@ -12,6 +12,7 @@
 #include "IDocumentScope.h"
 #include "IPerLinkKinematicsHost.h"
 #include "IPerLinkRobotStateAccessor.h"
+#include "MultiViewTypes.h"
 #include "visual/BackendVisualSyncEngine.h"
 #include "visual/VisualAspect.h"
 
@@ -111,6 +112,13 @@ public:
 	void showCentralAlternate();
 	bool isShowingCentralAlternate() const;
 	QWidget* centralAlternateWidget() const;
+
+	/// 多视角分屏（Desktop）；Headless no-op。render()/osgView() 仍指向 Primary
+	void setMultiViewLayout(MultiViewLayout layout);
+	MultiViewLayout multiViewLayout() const;
+	int activeViewIndex() const;
+	bool openDetachedViewWindow();
+	void setMultiViewUseChinese(bool useChinese);
 
 	/// 1.21.0+：把 OsgWidget reparent 到外部槽（建模页中区）
 	bool embedRenderWidget(QWidget* slot, QString* outError = nullptr);

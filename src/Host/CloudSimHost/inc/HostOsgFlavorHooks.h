@@ -6,6 +6,7 @@
 /// @brief 桌面/Headless 各自实现，消除共享源 CLOUDSIM_HOST_HEADLESS_ONLY
 
 #include "IRenderView.h"
+#include "MultiViewTypes.h"
 #include "cloudsim_viewport_global.h"
 
 #include <cstdint>
@@ -19,6 +20,7 @@ class IViewportSceneSignals;
 class OsgWidget;
 class QVBoxLayout;
 class QWidget;
+class QString;
 
 namespace cloudsim::host
 {
@@ -52,6 +54,16 @@ HOST_OSG_FLAVOR_API std::unique_ptr<core::IRenderView> wrapFlavorOsgWidget(OsgWi
 
 HOST_OSG_FLAVOR_API FlavorOsgViewportMount mountFlavorOsgViewport(DocumentHost& host, QVBoxLayout& centralLayout,
 											  BackendDataManager& backend, FlavorVisualSyncMarkDirtyFn markDirty);
+
+/// 多视角：osgPane 为 MultiViewShell 时生效；Headless no-op
+HOST_OSG_FLAVOR_API bool flavorSetMultiViewLayout(QWidget* osgPane, MultiViewLayout layout);
+HOST_OSG_FLAVOR_API MultiViewLayout flavorMultiViewLayout(QWidget* osgPane);
+HOST_OSG_FLAVOR_API int flavorActiveViewIndex(QWidget* osgPane);
+HOST_OSG_FLAVOR_API bool flavorOpenDetachedViewWindow(QWidget* osgPane);
+HOST_OSG_FLAVOR_API void flavorCloseDetachedViewWindows(QWidget* osgPane);
+HOST_OSG_FLAVOR_API void flavorPersistMultiViewSettings(QWidget* osgPane, const QString& documentId);
+HOST_OSG_FLAVOR_API void flavorRestoreMultiViewSettings(QWidget* osgPane, const QString& documentId);
+HOST_OSG_FLAVOR_API void flavorSetMultiViewUseChinese(QWidget* osgPane, bool useChinese);
 
 } // namespace cloudsim::host
 

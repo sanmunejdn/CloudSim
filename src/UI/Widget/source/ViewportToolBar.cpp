@@ -9,6 +9,8 @@
 
 #include <QEvent>
 #include <QLabel>
+#include <QMenu>
+#include <QPoint>
 #include <QPainter>
 #include <QPainterPath>
 #include <QSignalBlocker>
@@ -419,11 +421,15 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 																  QStringLiteral("Wireframe"));
 	m_wireBtn->setCheckable(true);
 
-	m_captureBtn = createToolButton(actionTip, ViewportChromeCorner::Trailing, m_host);
+	m_captureBtn = createToolButton(actionTip, ViewportChromeCorner::Middle, m_host);
 	UiIconDecorators::apply(m_captureBtn, UiIconId::Screenshot, UiIconDecorators::IconPlacement::IconOnly,
 							UiIcons::Size::Medium);
 	static_cast<ViewportIconButton*>(m_captureBtn)
 		->setActionTipText(QStringLiteral("截图"), QStringLiteral("Screenshot"));
+
+	m_multiViewBtn = createToolButton(actionTip, ViewportChromeCorner::Trailing, m_host);
+	static_cast<ViewportIconButton*>(m_multiViewBtn)->setTextGlyph(QStringLiteral("田"));
+	updateMultiViewTip();
 
 	connect(m_objectSelectBtn, &QToolButton::toggled, this, &ViewportToolBar::objectSelectionToggled);
 	connect(m_focusBtn, &QToolButton::clicked, this, &ViewportToolBar::focusRequested);
@@ -434,6 +440,7 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 				emit wireframeToggled(on);
 			});
 	connect(m_captureBtn, &QToolButton::clicked, this, &ViewportToolBar::screenshotRequested);
+	connect(m_multiViewBtn, &QToolButton::clicked, this, &ViewportToolBar::showMultiViewMenu);
 
 	m_leftPanelBtn = createToolButton(actionTip, ViewportChromeCorner::Leading, m_host);
 	m_leftPanelBtn->setCheckable(true);
@@ -472,6 +479,40 @@ void ViewportToolBar::setUseChinese(bool useChinese)
 	m_useChinese = useChinese;
 	updateObjectSelectTip();
 	updateSidePanelButtonTips();
+	updateMultiViewTip();
+}
+
+void ViewportToolBar::updateMultiViewTip()
+{
+	if (!m_multiViewBtn)
+	{
+		return;
+	}
+	static_cast<ViewportIconButton*>(m_multiViewBtn)
+		->setActionTipText(m_useChinese ? QStringLiteral("多视角") : QStringLiteral("Multi-View"),
+						   m_useChinese ? QStringLiteral("分屏与浮动视角窗")
+										: QStringLiteral("Split and detached views"));
+}
+
+void ViewportToolBar::showMultiViewMenu()
+{
+	if (!m_multiViewBtn)
+	{
+		return;
+	}
+	QMenu menu;
+	menu.addAction(m_useChinese ? QStringLiteral("单视口") : QStringLiteral("Single"), this,
+				   [this]() { emit multiViewLayoutRequested(0); });
+	menu.addAction(m_useChinese ? QStringLiteral("左右分屏") : QStringLiteral("Split Horizontal"), this,
+				   [this]() { emit multiViewLayoutRequested(1); });
+	menu.addAction(m_useChinese ? QStringLiteral("上下分屏") : QStringLiteral("Split Vertical"), this,
+				   [this]() { emit multiViewLayoutRequested(2); });
+	menu.addAction(m_useChinese ? QStringLiteral("四宫格") : QStringLiteral("Quad"), this,
+				   [this]() { emit multiViewLayoutRequested(3); });
+	menu.addSeparator();
+	menu.addAction(m_useChinese ? QStringLiteral("新窗口打开视角") : QStringLiteral("Open View in New Window"), this,
+				   [this]() { emit openDetachedViewRequested(); });
+	menu.exec(m_multiViewBtn->mapToGlobal(QPoint(0, m_multiViewBtn->height())));
 }
 
 void ViewportToolBar::setObjectSelectionChecked(const bool checked)
@@ -570,7 +611,8 @@ void ViewportToolBar::refreshChrome()
 
 void ViewportToolBar::showButtons()
 {
-	if (!m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_leftPanelBtn || !m_rightPanelBtn)
+	if (!m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_multiViewBtn || !m_leftPanelBtn ||
+		!m_rightPanelBtn)
 	{
 		return;
 	}
@@ -578,6 +620,7 @@ void ViewportToolBar::showButtons()
 	m_focusBtn->show();
 	m_wireBtn->show();
 	m_captureBtn->show();
+	m_multiViewBtn->show();
 	m_leftPanelBtn->show();
 	m_rightPanelBtn->show();
 	raiseButtons();
@@ -619,6 +662,10 @@ void ViewportToolBar::raiseButtons()
 	{
 		m_captureBtn->raise();
 	}
+	if (m_multiViewBtn)
+	{
+		m_multiViewBtn->raise();
+	}
 	if (m_leftPanelBtn)
 	{
 		m_leftPanelBtn->raise();
@@ -631,18 +678,19 @@ void ViewportToolBar::raiseButtons()
 
 void ViewportToolBar::reposition()
 {
-	if (!m_host || !m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_leftPanelBtn ||
-		!m_rightPanelBtn)
+	if (!m_host || !m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_multiViewBtn ||
+		!m_leftPanelBtn || !m_rightPanelBtn)
 	{
 		return;
 	}
-	const int viewGroupW = kBtnSize * 4 + kBarSpacing * 3;
+	const int viewGroupW = kBtnSize * 5 + kBarSpacing * 4;
 	const int totalW = viewGroupW + kGroupGap + kBtnSize * 2 + kBarSpacing;
 	const int x0 = (m_host->width() - totalW) / 2;
 	m_objectSelectBtn->move(x0, kTopMargin);
 	m_focusBtn->move(x0 + kBtnSize + kBarSpacing, kTopMargin);
 	m_wireBtn->move(x0 + (kBtnSize + kBarSpacing) * 2, kTopMargin);
 	m_captureBtn->move(x0 + (kBtnSize + kBarSpacing) * 3, kTopMargin);
+	m_multiViewBtn->move(x0 + (kBtnSize + kBarSpacing) * 4, kTopMargin);
 	const int sideX = x0 + viewGroupW + kGroupGap;
 	m_leftPanelBtn->move(sideX, kTopMargin);
 	m_rightPanelBtn->move(sideX + kBtnSize + kBarSpacing, kTopMargin);
@@ -654,6 +702,7 @@ void ViewportToolBar::applyButtonStyle()
 	applyChromeToButton(m_focusBtn, m_darkTheme);
 	applyChromeToButton(m_wireBtn, m_darkTheme);
 	applyChromeToButton(m_captureBtn, m_darkTheme);
+	applyChromeToButton(m_multiViewBtn, m_darkTheme);
 	applyChromeToButton(m_leftPanelBtn, m_darkTheme);
 	applyChromeToButton(m_rightPanelBtn, m_darkTheme);
 }

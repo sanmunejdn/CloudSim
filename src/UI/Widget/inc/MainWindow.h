@@ -408,6 +408,13 @@ protected:
 	QAction* m_gizmoLocalFrameAction = nullptr;
 	QAction* m_gizmoWorldFrameAction = nullptr;
 	QActionGroup* m_gizmoFrameGroup = nullptr;
+	QMenu* m_multiViewMenu = nullptr;
+	QActionGroup* m_multiViewLayoutGroup = nullptr;
+	QAction* m_multiViewSingleAction = nullptr;
+	QAction* m_multiViewSplitHAction = nullptr;
+	QAction* m_multiViewSplitVAction = nullptr;
+	QAction* m_multiViewQuadAction = nullptr;
+	QAction* m_multiViewDetachedAction = nullptr;
 	QAction* m_newDocumentAction = nullptr;
 	QAction* m_openModelAction = nullptr;
 	QAction* m_openPointCloudAction = nullptr;

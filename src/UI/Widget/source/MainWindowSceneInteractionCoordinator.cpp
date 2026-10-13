@@ -44,6 +44,34 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 					}
 				},
 				Qt::UniqueConnection);
+			connect(
+				toolbar, &ViewportToolBar::multiViewLayoutRequested, this,
+				[this](const int layout)
+				{
+					if (auto* host = currentDocumentHost())
+					{
+						host->setMultiViewLayout(static_cast<cloudsim::host::MultiViewLayout>(layout));
+					}
+					if (m_multiViewSingleAction && layout == 0)
+						m_multiViewSingleAction->setChecked(true);
+					else if (m_multiViewSplitHAction && layout == 1)
+						m_multiViewSplitHAction->setChecked(true);
+					else if (m_multiViewSplitVAction && layout == 2)
+						m_multiViewSplitVAction->setChecked(true);
+					else if (m_multiViewQuadAction && layout == 3)
+						m_multiViewQuadAction->setChecked(true);
+				},
+				Qt::UniqueConnection);
+			connect(
+				toolbar, &ViewportToolBar::openDetachedViewRequested, this,
+				[this]()
+				{
+					if (auto* host = currentDocumentHost())
+					{
+						host->openDetachedViewWindow();
+					}
+				},
+				Qt::UniqueConnection);
 			toolbar->setUseChinese(m_useChinese);
 			// Dock 可能尚未创建（首文档早于 setupDockWidgets）；勿用空指针写成「已隐藏」
 			if (m_propertyDock || m_unitDock)

@@ -7,6 +7,7 @@
 #include "ICamera.h"
 #include "IPluginHostContext.h"
 #include "IPluginProjectContext.h"
+#include "PluginSidePanelLayout.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -20,6 +21,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QTimer>
 #include <QUrl>
@@ -38,11 +40,19 @@ CameraPanelWidget::CameraPanelWidget(IPluginHostContext* host, QWidget* parent)
 	: QWidget(parent), host_(host), factory_(industrial_camera::createCameraFactory()),
 	  last2d_(std::make_unique<CameraFrame2D>()), last3d_(std::make_unique<CameraFrame3D>())
 {
-	auto* root = new QVBoxLayout(this);
-	root->setContentsMargins(12, 12, 12, 12);
+	auto* outer = new QVBoxLayout(this);
+	outer->setContentsMargins(0, 0, 0, 0);
+	auto* scroll = new QScrollArea(this);
+	auto* content = new QWidget(scroll);
+	configureSidePanelScroll(scroll, content);
+	auto* root = new QVBoxLayout(content);
+	root->setContentsMargins(8, 8, 8, 8);
+	outer->addWidget(scroll);
 
-	auto* deviceBox = new QGroupBox(this);
+	auto* deviceBox = new QGroupBox(content);
 	auto* grid = new QFormLayout(deviceBox);
+	grid->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+	grid->setRowWrapPolicy(QFormLayout::WrapLongRows);
 	brandCombo_ = new QComboBox(deviceBox);
 	brandCombo_->addItem(QStringLiteral("Hikvision"), static_cast<int>(CameraBrand::Hikvision));
 	brandCombo_->addItem(QStringLiteral("MechMind"), static_cast<int>(CameraBrand::MechMind));
@@ -61,27 +71,27 @@ CameraPanelWidget::CameraPanelWidget(IPluginHostContext* host, QWidget* parent)
 	discBtn->setObjectName(QStringLiteral("discBtn"));
 	grid->addRow(QStringLiteral("Brand"), brandCombo_);
 	grid->addRow(QStringLiteral("Type"), typeCombo_);
-	auto* enumRow = new QHBoxLayout;
+	auto* enumRow = new FlowLayout(nullptr, 4, 4);
 	enumRow->addWidget(enumBtn);
-	enumRow->addWidget(deviceCombo_, 1);
+	enumRow->addWidget(deviceCombo_);
 	grid->addRow(QStringLiteral("Device"), enumRow);
 	grid->addRow(QStringLiteral("IP"), ipEdit_);
-	auto* connRow = new QHBoxLayout;
+	auto* connRow = new FlowLayout(nullptr, 4, 4);
 	connRow->addWidget(connBtn);
 	connRow->addWidget(discBtn);
 	status_ = new QLabel(deviceBox);
-	connRow->addWidget(status_, 1);
+	connRow->addWidget(status_);
 	grid->addRow(QString(), connRow);
 	root->addWidget(deviceBox);
 
-	auto* previewBox = new QGroupBox(this);
+	auto* previewBox = new QGroupBox(content);
 	auto* pvLay = new QVBoxLayout(previewBox);
 	preview_ = new QLabel(previewBox);
 	preview_->setMinimumHeight(180);
 	preview_->setAlignment(Qt::AlignCenter);
 	preview_->setStyleSheet(QStringLiteral("background:#222;color:#aaa;"));
 	pvLay->addWidget(preview_);
-	auto* grabRow = new QHBoxLayout;
+	auto* grabRow = new FlowLayout(nullptr, 4, 4);
 	auto* grabBtn = new QPushButton(previewBox);
 	grabBtn->setObjectName(QStringLiteral("grabBtn"));
 	live_ = new QCheckBox(previewBox);
@@ -95,7 +105,7 @@ CameraPanelWidget::CameraPanelWidget(IPluginHostContext* host, QWidget* parent)
 	pvLay->addLayout(grabRow);
 	root->addWidget(previewBox);
 
-	auto* dataBox = new QGroupBox(this);
+	auto* dataBox = new QGroupBox(content);
 	auto* dataLay = new QVBoxLayout(dataBox);
 	saveColor_ = new QCheckBox(dataBox);
 	saveDepth_ = new QCheckBox(dataBox);
@@ -105,7 +115,7 @@ CameraPanelWidget::CameraPanelWidget(IPluginHostContext* host, QWidget* parent)
 	dataLay->addWidget(saveColor_);
 	dataLay->addWidget(saveDepth_);
 	dataLay->addWidget(saveCloud_);
-	auto* dataBtns = new QHBoxLayout;
+	auto* dataBtns = new FlowLayout(nullptr, 4, 4);
 	auto* saveBtn = new QPushButton(dataBox);
 	auto* importBtn = new QPushButton(dataBox);
 	auto* openBtn = new QPushButton(dataBox);
@@ -139,6 +149,7 @@ CameraPanelWidget::CameraPanelWidget(IPluginHostContext* host, QWidget* parent)
 	connect(importBtn, &QPushButton::clicked, this, &CameraPanelWidget::onImportCloud);
 	connect(openBtn, &QPushButton::clicked, this, &CameraPanelWidget::onOpenDir);
 
+	applySidePanelControlPolicies(content);
 	setConnectedUi(false);
 	onBrandChanged(brandCombo_->currentIndex());
 	applyLanguage();

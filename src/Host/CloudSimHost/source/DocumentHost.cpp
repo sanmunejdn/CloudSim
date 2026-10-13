@@ -409,7 +409,37 @@ bool DocumentHost::robotLocalJointAnglesForSceneRoot(const QString& sceneRootBac
 	return true;
 }
 
-DocumentHost::~DocumentHost() = default;
+DocumentHost::~DocumentHost()
+{
+	flavorPersistMultiViewSettings(m_osgPane, m_documentId);
+	flavorCloseDetachedViewWindows(m_osgPane);
+}
+
+void DocumentHost::setMultiViewLayout(MultiViewLayout layout)
+{
+	flavorSetMultiViewLayout(m_osgPane, layout);
+	flavorPersistMultiViewSettings(m_osgPane, m_documentId);
+}
+
+MultiViewLayout DocumentHost::multiViewLayout() const
+{
+	return flavorMultiViewLayout(m_osgPane);
+}
+
+int DocumentHost::activeViewIndex() const
+{
+	return flavorActiveViewIndex(m_osgPane);
+}
+
+bool DocumentHost::openDetachedViewWindow()
+{
+	return flavorOpenDetachedViewWindow(m_osgPane);
+}
+
+void DocumentHost::setMultiViewUseChinese(bool useChinese)
+{
+	flavorSetMultiViewUseChinese(m_osgPane, useChinese);
+}
 
 IViewportSceneOps* DocumentHost::sceneOps()
 {

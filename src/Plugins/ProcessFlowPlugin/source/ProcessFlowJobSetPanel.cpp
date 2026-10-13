@@ -8,6 +8,8 @@
 #include "sim/SimModelBuilder.h"
 #include "sim/SimRunConfig.h"
 
+#include "PluginSidePanelLayout.h"
+
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QJsonArray>
@@ -34,7 +36,7 @@ ProcessFlowJobSetPanel::ProcessFlowJobSetPanel(QWidget* parent) : QWidget(parent
 	m_ops->horizontalHeader()->setStretchLastSection(true);
 	m_ops->setMaximumHeight(140);
 
-	auto* row1 = new QHBoxLayout();
+	auto* row1 = new FlowLayout(nullptr, 4, 4);
 	m_addTpl = new QPushButton(QStringLiteral("加模板"), this);
 	m_delTpl = new QPushButton(QStringLiteral("删模板"), this);
 	m_genPath = new QPushButton(QStringLiteral("从路径生成"), this);
@@ -42,7 +44,7 @@ ProcessFlowJobSetPanel::ProcessFlowJobSetPanel(QWidget* parent) : QWidget(parent
 	row1->addWidget(m_delTpl);
 	row1->addWidget(m_genPath);
 
-	auto* row2 = new QHBoxLayout();
+	auto* row2 = new FlowLayout(nullptr, 4, 4);
 	m_addOp = new QPushButton(QStringLiteral("加Op"), this);
 	m_delOp = new QPushButton(QStringLiteral("删Op"), this);
 	row2->addWidget(m_addOp);
@@ -56,6 +58,7 @@ ProcessFlowJobSetPanel::ProcessFlowJobSetPanel(QWidget* parent) : QWidget(parent
 	root->addWidget(m_ops);
 	root->addLayout(row2);
 
+	applySidePanelControlPolicies(this);
 	connect(m_templates, &QListWidget::currentRowChanged, this, [this](int) { onTemplateSelectionChanged(); });
 	connect(m_addTpl, &QPushButton::clicked, this, &ProcessFlowJobSetPanel::addTemplate);
 	connect(m_delTpl, &QPushButton::clicked, this, &ProcessFlowJobSetPanel::removeTemplate);

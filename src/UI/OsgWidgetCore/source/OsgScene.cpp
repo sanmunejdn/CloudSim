@@ -505,6 +505,7 @@ void OsgScene::initWorldAxesHud()
 	m_worldAxesHudCamera->setAllowEventFocus(false);
 	m_worldAxesHudCamera->setProjectionMatrixAsOrtho(-1.2f, 1.2f, -1.2f, 1.2f, -10.0, 10.0);
 	m_worldAxesHudCamera->setCullMask(0xffffffffu);
+	m_worldAxesHudCamera->setNodeMask(kMaskPrimaryViewportOnly);
 	m_worldAxesHudCamera->setUpdateCallback(new WorldAxesHudUpdateCallback(m_viewer->getCamera()));
 	m_worldAxesHudCamera->addChild(createWorldAxesHudGeode());
 	m_root->addChild(m_worldAxesHudCamera.get());

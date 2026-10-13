@@ -106,6 +106,8 @@ public:
 	static constexpr int kPickHoverMinMovePx = 4;
 	static constexpr unsigned int kMaskPickContent = 0x1u;
 	static constexpr unsigned int kMaskPickOverlay = 0x2u;
+	/// 仅主视口渲染的 HUD/渐变（卫星用本地副本，避免绑错 GC/viewport）
+	static constexpr unsigned int kMaskPrimaryViewportOnly = 0x10u;
 
 	struct AnnotationEntry
 	{

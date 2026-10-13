@@ -11,6 +11,8 @@
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QFileDialog>
+#include "PluginSidePanelLayout.h"
+
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -41,21 +43,20 @@ LabelingTrainWidget::LabelingTrainWidget(IPluginHostContext* host, QWidget* pare
 	auto* outer = new QVBoxLayout(this);
 	outer->setContentsMargins(0, 0, 0, 0);
 	auto* scroll = new QScrollArea(this);
-	scroll->setWidgetResizable(true);
 	auto* content = new QWidget(scroll);
+	configureSidePanelScroll(scroll, content);
 	auto* layout = new QVBoxLayout(content);
-	layout->setContentsMargins(12, 12, 12, 12);
+	layout->setContentsMargins(8, 8, 8, 8);
 	layout->setSpacing(8);
-	scroll->setWidget(content);
 	outer->addWidget(scroll);
 
 	m_configGroup = new QGroupBox(content);
 	auto* cfgLayout = new QVBoxLayout(m_configGroup);
 	auto addRow = [cfgLayout](const QString& label, QWidget* field)
 	{
-		auto* row = new QHBoxLayout;
+		auto* row = new FlowLayout(nullptr, 4, 4);
 		row->addWidget(new QLabel(label));
-		row->addWidget(field, 1);
+		row->addWidget(field);
 		cfgLayout->addLayout(row);
 	};
 	m_datasetEdit = new QLineEdit(m_configGroup);
@@ -90,7 +91,7 @@ LabelingTrainWidget::LabelingTrainWidget(IPluginHostContext* host, QWidget* pare
 	addRow(QStringLiteral("Resume"), m_resumeEdit);
 	layout->addWidget(m_configGroup);
 
-	auto* btnRow = new QHBoxLayout;
+	auto* btnRow = new FlowLayout(nullptr, 4, 4);
 	m_validateBtn = new QPushButton(content);
 	m_startBtn = new QPushButton(content);
 	m_stopBtn = new QPushButton(content);
@@ -121,6 +122,7 @@ LabelingTrainWidget::LabelingTrainWidget(IPluginHostContext* host, QWidget* pare
 	m_metricsTable->horizontalHeader()->setStretchLastSection(true);
 	layout->addWidget(m_metricsTable);
 
+	applySidePanelControlPolicies(content);
 	loadLabelingConfig();
 	applyLanguage();
 	syncRunnerConfig();

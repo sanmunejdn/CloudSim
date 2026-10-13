@@ -9,12 +9,12 @@
 #include "CameraTypes.h"
 #include "ICamera.h"
 #include "IPluginHostContext.h"
+#include "PluginSidePanelLayout.h"
 
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
-#include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -22,6 +22,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QTableWidget>
@@ -55,12 +56,18 @@ QDoubleSpinBox* makeSpin(QWidget* p, double minV, double maxV, double step = 1.0
 HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHostContext* host, QWidget* parent)
 	: QWidget(parent), host_(host), cameraPanel_(cameraPanel)
 {
-	auto* root = new QVBoxLayout(this);
-	root->setContentsMargins(12, 12, 12, 12);
-	stageLabel_ = new QLabel(this);
+	auto* outer = new QVBoxLayout(this);
+	outer->setContentsMargins(0, 0, 0, 0);
+	auto* scroll = new QScrollArea(this);
+	auto* content = new QWidget(scroll);
+	configureSidePanelScroll(scroll, content);
+	auto* root = new QVBoxLayout(content);
+	root->setContentsMargins(8, 8, 8, 8);
+	outer->addWidget(scroll);
+	stageLabel_ = new QLabel(content);
 	root->addWidget(stageLabel_);
 
-	auto* stack = new QStackedWidget(this);
+	auto* stack = new QStackedWidget(content);
 
 	pageConfig_ = new QWidget(stack);
 	{
@@ -75,7 +82,7 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 		poseManual_->setChecked(true);
 		lay->addWidget(poseManual_);
 		lay->addWidget(poseReal_);
-		auto* hostRow = new QHBoxLayout;
+		auto* hostRow = new FlowLayout(nullptr, 4, 4);
 		robotHost_ = new QLineEdit(QStringLiteral("127.0.0.1"), pageConfig_);
 		robotPort_ = new QSpinBox(pageConfig_);
 		robotPort_->setRange(1, 65535);
@@ -85,6 +92,8 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 		lay->addLayout(hostRow);
 
 		auto* boardForm = new QFormLayout;
+		boardForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+		boardForm->setRowWrapPolicy(QFormLayout::WrapLongRows);
 		boardTypeCombo_ = new QComboBox(pageConfig_);
 		boardTypeCombo_->addItem(QStringLiteral("Chessboard"), static_cast<int>(BoardType::Chessboard));
 		boardTypeCombo_->addItem(QStringLiteral("ArUco"), static_cast<int>(BoardType::Aruco));
@@ -114,29 +123,33 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 	{
 		auto* lay = new QVBoxLayout(pageCollect_);
 		auto* poseBox = new QGroupBox(pageCollect_);
-		auto* g = new QGridLayout(poseBox);
+		auto* poseLay = new QVBoxLayout(poseBox);
 		px_ = makeSpin(poseBox, -1e6, 1e6);
 		py_ = makeSpin(poseBox, -1e6, 1e6);
 		pz_ = makeSpin(poseBox, -1e6, 1e6);
 		prx_ = makeSpin(poseBox, -360, 360, 1);
 		pry_ = makeSpin(poseBox, -360, 360, 1);
 		prz_ = makeSpin(poseBox, -360, 360, 1);
-		g->addWidget(new QLabel(QStringLiteral("X")), 0, 0);
-		g->addWidget(px_, 0, 1);
-		g->addWidget(new QLabel(QStringLiteral("Y")), 0, 2);
-		g->addWidget(py_, 0, 3);
-		g->addWidget(new QLabel(QStringLiteral("Z")), 0, 4);
-		g->addWidget(pz_, 0, 5);
-		g->addWidget(new QLabel(QStringLiteral("Rx")), 1, 0);
-		g->addWidget(prx_, 1, 1);
-		g->addWidget(new QLabel(QStringLiteral("Ry")), 1, 2);
-		g->addWidget(pry_, 1, 3);
-		g->addWidget(new QLabel(QStringLiteral("Rz")), 1, 4);
-		g->addWidget(prz_, 1, 5);
+		auto* poseRow1 = new FlowLayout(nullptr, 4, 4);
+		poseRow1->addWidget(new QLabel(QStringLiteral("X"), poseBox));
+		poseRow1->addWidget(px_);
+		poseRow1->addWidget(new QLabel(QStringLiteral("Y"), poseBox));
+		poseRow1->addWidget(py_);
+		poseRow1->addWidget(new QLabel(QStringLiteral("Z"), poseBox));
+		poseRow1->addWidget(pz_);
+		auto* poseRow2 = new FlowLayout(nullptr, 4, 4);
+		poseRow2->addWidget(new QLabel(QStringLiteral("Rx"), poseBox));
+		poseRow2->addWidget(prx_);
+		poseRow2->addWidget(new QLabel(QStringLiteral("Ry"), poseBox));
+		poseRow2->addWidget(pry_);
+		poseRow2->addWidget(new QLabel(QStringLiteral("Rz"), poseBox));
+		poseRow2->addWidget(prz_);
+		poseLay->addLayout(poseRow1);
+		poseLay->addLayout(poseRow2);
 		lay->addWidget(poseBox);
 
 		auto* boardBox = new QGroupBox(pageCollect_);
-		auto* bg = new QGridLayout(boardBox);
+		auto* boardLay = new QVBoxLayout(boardBox);
 		bx_ = makeSpin(boardBox, -1e6, 1e6);
 		by_ = makeSpin(boardBox, -1e6, 1e6);
 		bz_ = makeSpin(boardBox, -1e6, 1e6, 10);
@@ -144,21 +157,25 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 		bry_ = makeSpin(boardBox, -360, 360, 1);
 		brz_ = makeSpin(boardBox, -360, 360, 1);
 		bz_->setValue(500);
-		bg->addWidget(new QLabel(QStringLiteral("board X")), 0, 0);
-		bg->addWidget(bx_, 0, 1);
-		bg->addWidget(new QLabel(QStringLiteral("Y")), 0, 2);
-		bg->addWidget(by_, 0, 3);
-		bg->addWidget(new QLabel(QStringLiteral("Z")), 0, 4);
-		bg->addWidget(bz_, 0, 5);
-		bg->addWidget(new QLabel(QStringLiteral("Rx")), 1, 0);
-		bg->addWidget(brx_, 1, 1);
-		bg->addWidget(new QLabel(QStringLiteral("Ry")), 1, 2);
-		bg->addWidget(bry_, 1, 3);
-		bg->addWidget(new QLabel(QStringLiteral("Rz")), 1, 4);
-		bg->addWidget(brz_, 1, 5);
+		auto* boardRow1 = new FlowLayout(nullptr, 4, 4);
+		boardRow1->addWidget(new QLabel(QStringLiteral("board X"), boardBox));
+		boardRow1->addWidget(bx_);
+		boardRow1->addWidget(new QLabel(QStringLiteral("Y"), boardBox));
+		boardRow1->addWidget(by_);
+		boardRow1->addWidget(new QLabel(QStringLiteral("Z"), boardBox));
+		boardRow1->addWidget(bz_);
+		auto* boardRow2 = new FlowLayout(nullptr, 4, 4);
+		boardRow2->addWidget(new QLabel(QStringLiteral("Rx"), boardBox));
+		boardRow2->addWidget(brx_);
+		boardRow2->addWidget(new QLabel(QStringLiteral("Ry"), boardBox));
+		boardRow2->addWidget(bry_);
+		boardRow2->addWidget(new QLabel(QStringLiteral("Rz"), boardBox));
+		boardRow2->addWidget(brz_);
+		boardLay->addLayout(boardRow1);
+		boardLay->addLayout(boardRow2);
 		lay->addWidget(boardBox);
 
-		auto* btnRow = new QHBoxLayout;
+		auto* btnRow = new FlowLayout(nullptr, 4, 4);
 		auto* readBtn = new QPushButton(pageCollect_);
 		auto* detectBtn = new QPushButton(pageCollect_);
 		auto* addBtn = new QPushButton(pageCollect_);
@@ -182,7 +199,7 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 		sampleTable_->horizontalHeader()->setStretchLastSection(true);
 		lay->addWidget(sampleTable_);
 
-		auto* nav = new QHBoxLayout;
+		auto* nav = new FlowLayout(nullptr, 4, 4);
 		auto* back = new QPushButton(pageCollect_);
 		auto* solve = new QPushButton(pageCollect_);
 		back->setObjectName(QStringLiteral("backCollect"));
@@ -213,7 +230,7 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 		pathLabel_ = new QLabel(pageResult_);
 		pathLabel_->setWordWrap(true);
 		lay->addWidget(pathLabel_);
-		auto* row = new QHBoxLayout;
+		auto* row = new FlowLayout(nullptr, 4, 4);
 		auto* exp = new QPushButton(pageResult_);
 		auto* open = new QPushButton(pageResult_);
 		auto* again = new QPushButton(pageResult_);
@@ -236,6 +253,7 @@ HandEyePanelWidget::HandEyePanelWidget(CameraPanelWidget* cameraPanel, IPluginHo
 
 	stack->setObjectName(QStringLiteral("stageStack"));
 	setStage(Stage::Config);
+	applySidePanelControlPolicies(content);
 	applyLanguage();
 }
 

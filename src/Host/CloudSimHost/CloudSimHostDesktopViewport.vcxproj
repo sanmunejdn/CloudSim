@@ -151,10 +151,22 @@
     <ClCompile Include="source\osg\PolylinePickOperation.cpp" />
     <ClCompile Include="source\osg\MeshEdgeFacePickOperation.cpp" />
     <ClCompile Include="source\osg\QWidgetViewer.cpp" />
+    <ClCompile Include="source\osg\SatelliteOsgView.cpp" />
+    <ClCompile Include="source\osg\MultiViewShell.cpp" />
+    <ClCompile Include="source\osg\DetachedViewWindow.cpp" />
     <QtMoc Include="inc\osg\OsgWidget.h">
       <Defines>CLOUDSIM_VIEWPORT_LIB;%(Defines)</Defines>
     </QtMoc>
     <QtMoc Include="inc\osg\QWidgetViewer.h">
+      <Defines>CLOUDSIM_VIEWPORT_LIB;%(Defines)</Defines>
+    </QtMoc>
+    <QtMoc Include="inc\osg\SatelliteOsgView.h">
+      <Defines>CLOUDSIM_VIEWPORT_LIB;%(Defines)</Defines>
+    </QtMoc>
+    <QtMoc Include="inc\osg\MultiViewShell.h">
+      <Defines>CLOUDSIM_VIEWPORT_LIB;%(Defines)</Defines>
+    </QtMoc>
+    <QtMoc Include="inc\osg\DetachedViewWindow.h">
       <Defines>CLOUDSIM_VIEWPORT_LIB;%(Defines)</Defines>
     </QtMoc>
   </ItemGroup>

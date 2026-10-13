@@ -18,6 +18,8 @@
 
 #include <json.hpp>
 
+class QAction;
+
 class QComboBox;
 
 class QPushButton;
@@ -234,11 +236,13 @@ private:
 
 	QComboBox* m_programCombo = nullptr;
 
-	QPushButton* m_programNewBtn = nullptr;
+	QPushButton* m_programMoreBtn = nullptr;
 
-	QPushButton* m_programRenameBtn = nullptr;
+	QAction* m_programNewAct = nullptr;
 
-	QPushButton* m_programDeleteBtn = nullptr;
+	QAction* m_programRenameAct = nullptr;
+
+	QAction* m_programDeleteAct = nullptr;
 
 	InstructionProgramTreeWidget* m_tree = nullptr;
 

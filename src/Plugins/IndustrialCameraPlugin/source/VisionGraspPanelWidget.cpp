@@ -9,6 +9,7 @@
 #include "IPluginHostContext.h"
 #include "IPluginRobotContext.h"
 #include "IPluginRobotHost.h"
+#include "PluginSidePanelLayout.h"
 
 #include <QCheckBox>
 #include <QDoubleSpinBox>
@@ -18,6 +19,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QScrollArea>
 #include <QTimer>
 #include <QVector>
 #include <QVBoxLayout>
@@ -83,16 +85,22 @@ QDoubleSpinBox* makePoseSpin(QWidget* parent, double minV, double maxV, int deci
 VisionGraspPanelWidget::VisionGraspPanelWidget(HandEyePanelWidget* handEye, IPluginHostContext* host, QWidget* parent)
 	: QWidget(parent), host_(host), handEye_(handEye)
 {
-	auto* root = new QVBoxLayout(this);
-	root->setContentsMargins(12, 12, 12, 12);
+	auto* outer = new QVBoxLayout(this);
+	outer->setContentsMargins(0, 0, 0, 0);
+	auto* scroll = new QScrollArea(this);
+	auto* content = new QWidget(scroll);
+	configureSidePanelScroll(scroll, content);
+	auto* root = new QVBoxLayout(content);
+	root->setContentsMargins(8, 8, 8, 8);
+	outer->addWidget(scroll);
 
-	handEyeStatus_ = new QLabel(this);
-	planHint_ = new QLabel(this);
+	handEyeStatus_ = new QLabel(content);
+	planHint_ = new QLabel(content);
 	planHint_->setWordWrap(true);
 	root->addWidget(handEyeStatus_);
 	root->addWidget(planHint_);
 
-	srcBox_ = new QGroupBox(this);
+	srcBox_ = new QGroupBox(content);
 	auto* srcLay = new QVBoxLayout(srcBox_);
 	srcManualBase_ = new QRadioButton(srcBox_);
 	srcManualCam_ = new QRadioButton(srcBox_);
@@ -103,8 +111,10 @@ VisionGraspPanelWidget::VisionGraspPanelWidget(HandEyePanelWidget* handEye, IPlu
 	srcLay->addWidget(srcScene_);
 	root->addWidget(srcBox_);
 
-	poseBox_ = new QGroupBox(this);
+	poseBox_ = new QGroupBox(content);
 	auto* form = new QFormLayout(poseBox_);
+	form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+	form->setRowWrapPolicy(QFormLayout::WrapLongRows);
 	px_ = makePoseSpin(poseBox_, -1e6, 1e6, 3);
 	py_ = makePoseSpin(poseBox_, -1e6, 1e6, 3);
 	pz_ = makePoseSpin(poseBox_, -1e6, 1e6, 3);
@@ -119,15 +129,17 @@ VisionGraspPanelWidget::VisionGraspPanelWidget(HandEyePanelWidget* handEye, IPlu
 	form->addRow(QStringLiteral("Rz"), prz_);
 	root->addWidget(poseBox_);
 
-	auto* btnRow = new QHBoxLayout;
-	readTcpBtn_ = new QPushButton(this);
-	readObjBtn_ = new QPushButton(this);
+	auto* btnRow = new FlowLayout(nullptr, 4, 4);
+	readTcpBtn_ = new QPushButton(content);
+	readObjBtn_ = new QPushButton(content);
 	btnRow->addWidget(readTcpBtn_);
 	btnRow->addWidget(readObjBtn_);
 	root->addLayout(btnRow);
 
-	graspBox_ = new QGroupBox(this);
+	graspBox_ = new QGroupBox(content);
 	auto* gForm = new QFormLayout(graspBox_);
+	gForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+	gForm->setRowWrapPolicy(QFormLayout::WrapLongRows);
 	approachZ_ = makePoseSpin(graspBox_, 0, 1e5, 1);
 	approachZ_->setValue(50.0);
 	retractZ_ = makePoseSpin(graspBox_, 0, 1e5, 1);
@@ -139,11 +151,11 @@ VisionGraspPanelWidget::VisionGraspPanelWidget(HandEyePanelWidget* handEye, IPlu
 	gForm->addRow(QString(), lockEuler_);
 	root->addWidget(graspBox_);
 
-	previewBtn_ = new QPushButton(this);
-	planBtn_ = new QPushButton(this);
+	previewBtn_ = new QPushButton(content);
+	planBtn_ = new QPushButton(content);
 	root->addWidget(previewBtn_);
 	root->addWidget(planBtn_);
-	status_ = new QLabel(this);
+	status_ = new QLabel(content);
 	status_->setWordWrap(true);
 	root->addWidget(status_);
 	root->addStretch(1);
@@ -157,6 +169,7 @@ VisionGraspPanelWidget::VisionGraspPanelWidget(HandEyePanelWidget* handEye, IPlu
 	connect(timer, &QTimer::timeout, this, &VisionGraspPanelWidget::refreshHandEyeStatus);
 	timer->start(1000);
 
+	applySidePanelControlPolicies(content);
 	applyLanguage();
 	refreshHandEyeStatus();
 }

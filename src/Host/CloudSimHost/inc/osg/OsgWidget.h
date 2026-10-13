@@ -240,6 +240,8 @@ public:
 	void restoreAnnotations(const QList<AnnotationSnapshot>& snapshots) override;
 	/// 随 Qt 深/浅主题设置 OSG 背景色
 	void setViewerBackgroundForDarkUi(bool dark);
+	/// 当前是否暗色视口背景（卫星视口同步用）
+	bool darkUiTheme() const { return m_darkUiTheme; }
 	/// GL 视口控件，供浮动工具栏等 overlay 挂载
 	QWidget* viewportWidget() const { return m_glWidget; }
 	/// 线框/实体切换

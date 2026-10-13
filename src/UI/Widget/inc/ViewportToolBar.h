@@ -33,6 +33,9 @@ signals:
 	void screenshotRequested();
 	void leftPanelVisibilityToggled(bool visible);
 	void rightPanelVisibilityToggled(bool visible);
+	/// layout: 0=Single 1=SplitH 2=SplitV 3=Quad
+	void multiViewLayoutRequested(int layout);
+	void openDetachedViewRequested();
 
 protected:
 	bool eventFilter(QObject* obj, QEvent* ev) override;
@@ -50,10 +53,14 @@ private:
 	bool m_darkTheme = false;
 	bool m_useChinese = true;
 	bool m_wireframeOn = false;
+	void updateMultiViewTip();
+	void showMultiViewMenu();
+
 	QToolButton* m_objectSelectBtn = nullptr;
 	QToolButton* m_focusBtn = nullptr;
 	QToolButton* m_wireBtn = nullptr;
 	QToolButton* m_captureBtn = nullptr;
+	QToolButton* m_multiViewBtn = nullptr;
 	QToolButton* m_leftPanelBtn = nullptr;
 	QToolButton* m_rightPanelBtn = nullptr;
 	QWidget* m_actionTip = nullptr;

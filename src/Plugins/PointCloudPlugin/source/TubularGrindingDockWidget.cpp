@@ -3,6 +3,8 @@
 
 #include "TubularGrindingDockWidget.h"
 
+#include "PluginSidePanelLayout.h"
+
 #include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 #include "IPluginDocumentContext.h"
@@ -61,8 +63,8 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	auto* outer = new QVBoxLayout(this);
 	outer->setContentsMargins(4, 4, 4, 4);
 	auto* scroll = new QScrollArea(this);
-	scroll->setWidgetResizable(true);
 	auto* content = new QWidget(scroll);
+	configureSidePanelScroll(scroll, content);
 	auto* layout = new QVBoxLayout(content);
 	m_rootGroup = new QGroupBox(content);
 	auto* groupLayout = new QVBoxLayout(m_rootGroup);
@@ -77,6 +79,7 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	auto* centerlinePage = new QWidget(m_paramTabs);
 	auto* centerlineForm = new QFormLayout(centerlinePage);
 	centerlineForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+	centerlineForm->setRowWrapPolicy(QFormLayout::WrapLongRows);
 	centerlineForm->setLabelAlignment(Qt::AlignTop);
 	m_centerlineMethodCombo = new QComboBox(centerlinePage);
 	m_centerlineMethodCombo->addItem(QStringLiteral("Laplacian"),
@@ -154,6 +157,7 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	auto* trajectoryPage = new QWidget(m_paramTabs);
 	auto* trajectoryForm = new QFormLayout(trajectoryPage);
 	trajectoryForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+	trajectoryForm->setRowWrapPolicy(QFormLayout::WrapLongRows);
 	trajectoryForm->setLabelAlignment(Qt::AlignTop);
 	m_templateCombo = new QComboBox(trajectoryPage);
 	m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Auto, true),
@@ -184,6 +188,7 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	auto* fpfhPage = new QWidget(m_paramTabs);
 	auto* fpfhForm = new QFormLayout(fpfhPage);
 	fpfhForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+	fpfhForm->setRowWrapPolicy(QFormLayout::WrapLongRows);
 	fpfhForm->setLabelAlignment(Qt::AlignTop);
 	m_fpfhFeatureVoxelSpin = new QDoubleSpinBox(fpfhPage);
 	m_fpfhFeatureVoxelSpin->setRange(0.0, 50.0);
@@ -248,7 +253,7 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 				QString());
 	m_paramTabs->addTab(fpfhPage, QStringLiteral("Mesh region"));
 	groupLayout->addWidget(m_paramTabs);
-	auto* stageRow = new QHBoxLayout();
+	auto* stageRow = new FlowLayout(nullptr, 4, 4);
 	m_centerlineBtn = new QPushButton(m_rootGroup);
 	m_templateBtn = new QPushButton(m_rootGroup);
 	m_projectBtn = new QPushButton(m_rootGroup);
@@ -268,7 +273,7 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	m_summaryLabel->setWordWrap(true);
 	groupLayout->addWidget(m_summaryLabel);
 	layout->addWidget(m_rootGroup);
-	scroll->setWidget(content);
+	applySidePanelControlPolicies(content);
 	outer->addWidget(scroll);
 	connect(m_meshCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&TubularGrindingDockWidget::onMeshSelectionChanged);

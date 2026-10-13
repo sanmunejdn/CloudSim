@@ -7,6 +7,7 @@
 #include "IPluginDocument.h"
 #include "IPluginDocumentContext.h"
 #include "IPluginHostContext.h"
+#include "PluginSidePanelLayout.h"
 #include "IPluginLabelingHost.h"
 #include "PointNetInference.h"
 
@@ -359,12 +360,11 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	auto* outer = new QVBoxLayout(this);
 	outer->setContentsMargins(0, 0, 0, 0);
 	auto* scroll = new QScrollArea(this);
-	scroll->setWidgetResizable(true);
 	auto* content = new QWidget(scroll);
+	configureSidePanelScroll(scroll, content);
 	auto* layout = new QVBoxLayout(content);
-	layout->setContentsMargins(12, 12, 12, 12);
+	layout->setContentsMargins(8, 8, 8, 8);
 	layout->setSpacing(8);
-	scroll->setWidget(content);
 	outer->addWidget(scroll);
 
 	m_targetGroup = new QGroupBox(content);
@@ -373,8 +373,8 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	m_refreshBackendsBtn = new QPushButton(m_targetGroup);
 	m_summaryLabel = new QLabel(m_targetGroup);
 	m_summaryLabel->setWordWrap(true);
-	auto* backendRow = new QHBoxLayout;
-	backendRow->addWidget(m_backendCombo, 1);
+	auto* backendRow = new FlowLayout(nullptr, 4, 4);
+	backendRow->addWidget(m_backendCombo);
 	backendRow->addWidget(m_refreshBackendsBtn);
 	targetLayout->addLayout(backendRow);
 	targetLayout->addWidget(m_summaryLabel);
@@ -407,7 +407,7 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	m_toolButtons->addButton(m_brushTool, static_cast<int>(PluginLabelingTool::Brush));
 	m_toolButtons->addButton(m_lassoTool, static_cast<int>(PluginLabelingTool::Polyline));
 	m_toolButtons->addButton(m_eraseTool, static_cast<int>(PluginLabelingTool::Erase));
-	auto* toolRow = new QHBoxLayout;
+	auto* toolRow = new FlowLayout(nullptr, 4, 4);
 	toolRow->addWidget(m_clickTool);
 	toolRow->addWidget(m_brushTool);
 	toolRow->addWidget(m_lassoTool);
@@ -419,7 +419,7 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	m_brushRadiusSpin->setRange(4.0, 128.0);
 	m_brushRadiusSpin->setValue(16.0);
 	toolLayout->addWidget(m_brushRadiusSpin);
-	auto* undoRow = new QHBoxLayout;
+	auto* undoRow = new FlowLayout(nullptr, 4, 4);
 	m_undoBtn = new QPushButton(m_toolGroup);
 	m_redoBtn = new QPushButton(m_toolGroup);
 	undoRow->addWidget(m_undoBtn);
@@ -433,6 +433,7 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	layout->addWidget(m_exportBtn);
 	layout->addStretch(1);
 
+	applySidePanelControlPolicies(content);
 	rebuildDefaultClasses();
 	applyLanguage();
 

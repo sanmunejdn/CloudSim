@@ -8,6 +8,7 @@
 #include "IPluginGeometryContext.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
+#include "PluginSidePanelLayout.h"
 
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -17,6 +18,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
@@ -42,33 +44,40 @@ IPluginDocument* activeDocOf(IPluginHostContext* host)
 GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent)
 	: QWidget(parent), m_host(host), m_useChinese(host ? host->useChinese() : true)
 {
-	auto* layout = new QVBoxLayout(this);
-	layout->setContentsMargins(12, 12, 12, 12);
+	auto* outer = new QVBoxLayout(this);
+	outer->setContentsMargins(0, 0, 0, 0);
+	auto* scroll = new QScrollArea(this);
+	auto* content = new QWidget(scroll);
+	configureSidePanelScroll(scroll, content);
+	auto* layout = new QVBoxLayout(content);
+	layout->setContentsMargins(8, 8, 8, 8);
+	layout->setSpacing(8);
+	outer->addWidget(scroll);
 
-	m_docGroup = new QGroupBox(this);
+	m_docGroup = new QGroupBox(content);
 	auto* docLayout = new QVBoxLayout(m_docGroup);
 	m_docLabel = new QLabel(m_docGroup);
 	docLayout->addWidget(m_docLabel);
 	layout->addWidget(m_docGroup);
 
-	m_stepGroup = new QGroupBox(this);
+	m_stepGroup = new QGroupBox(content);
 	auto* stepLayout = new QVBoxLayout(m_stepGroup);
 	m_sourceCombo = new QComboBox(m_stepGroup);
 	m_sourceCombo->addItem(QStringLiteral("STEP"), static_cast<int>(SourceMode::File));
 	m_sourceCombo->addItem(QStringLiteral("Backend"), static_cast<int>(SourceMode::Backend));
 	stepLayout->addWidget(m_sourceCombo);
 
-	auto* backendRow = new QHBoxLayout;
+	auto* backendRow = new FlowLayout(nullptr, 4, 4);
 	m_backendCombo = new QComboBox(m_stepGroup);
 	m_refreshBackendsBtn = new QPushButton(m_stepGroup);
-	backendRow->addWidget(m_backendCombo, 1);
+	backendRow->addWidget(m_backendCombo);
 	backendRow->addWidget(m_refreshBackendsBtn);
 	stepLayout->addLayout(backendRow);
 
-	auto* pathRow = new QHBoxLayout;
+	auto* pathRow = new FlowLayout(nullptr, 4, 4);
 	m_stepPathEdit = new QLineEdit(m_stepGroup);
 	m_browseBtn = new QPushButton(m_stepGroup);
-	pathRow->addWidget(m_stepPathEdit, 1);
+	pathRow->addWidget(m_stepPathEdit);
 	pathRow->addWidget(m_browseBtn);
 	stepLayout->addLayout(pathRow);
 	m_densityModeCombo = new QComboBox(m_stepGroup);
@@ -109,9 +118,9 @@ GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent
 	stepLayout->addWidget(m_discretizeBtn);
 	layout->addWidget(m_stepGroup);
 
-	m_ixEdgeFaceGroup = new QGroupBox(this);
+	m_ixEdgeFaceGroup = new QGroupBox(content);
 	auto* ixLayout = new QVBoxLayout(m_ixEdgeFaceGroup);
-	auto* edgeRow = new QHBoxLayout;
+	auto* edgeRow = new FlowLayout(nullptr, 4, 4);
 	m_edgeSpin = new QSpinBox(m_ixEdgeFaceGroup);
 	m_edgeSpin->setRange(0, 9999);
 	m_faceSpin = new QSpinBox(m_ixEdgeFaceGroup);
@@ -122,7 +131,7 @@ GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent
 	edgeRow->addWidget(m_faceSpin);
 	ixLayout->addLayout(edgeRow);
 
-	auto* pickRow = new QHBoxLayout;
+	auto* pickRow = new FlowLayout(nullptr, 4, 4);
 	m_pickEdgeBtn = new QPushButton(m_ixEdgeFaceGroup);
 	m_pickFaceBtn = new QPushButton(m_ixEdgeFaceGroup);
 	pickRow->addWidget(m_pickEdgeBtn);
@@ -133,9 +142,9 @@ GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent
 	ixLayout->addWidget(m_ixEdgeFaceBtn);
 	layout->addWidget(m_ixEdgeFaceGroup);
 
-	m_ixFaceFaceGroup = new QGroupBox(this);
+	m_ixFaceFaceGroup = new QGroupBox(content);
 	auto* ffLayout = new QVBoxLayout(m_ixFaceFaceGroup);
-	auto* ffIdxRow = new QHBoxLayout;
+	auto* ffIdxRow = new FlowLayout(nullptr, 4, 4);
 	m_faceASpin = new QSpinBox(m_ixFaceFaceGroup);
 	m_faceASpin->setRange(0, 9999);
 	m_faceBSpin = new QSpinBox(m_ixFaceFaceGroup);
@@ -146,7 +155,7 @@ GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent
 	ffIdxRow->addWidget(m_faceBSpin);
 	ffLayout->addLayout(ffIdxRow);
 
-	auto* ffPickRow = new QHBoxLayout;
+	auto* ffPickRow = new FlowLayout(nullptr, 4, 4);
 	m_pickFaceABtn = new QPushButton(m_ixFaceFaceGroup);
 	m_pickFaceBBtn = new QPushButton(m_ixFaceFaceGroup);
 	ffPickRow->addWidget(m_pickFaceABtn);
@@ -157,19 +166,20 @@ GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent
 	ffLayout->addWidget(m_ixFaceFaceBtn);
 	layout->addWidget(m_ixFaceFaceGroup);
 
-	m_resultGroup = new QGroupBox(this);
-	auto* resultLayout = new QHBoxLayout(m_resultGroup);
+	m_resultGroup = new QGroupBox(content);
+	auto* resultLayout = new FlowLayout(m_resultGroup, 4, 4);
 	m_createTubeBtn = new QPushButton(m_resultGroup);
 	m_createRibbonBtn = new QPushButton(m_resultGroup);
 	resultLayout->addWidget(m_createTubeBtn);
 	resultLayout->addWidget(m_createRibbonBtn);
 	layout->addWidget(m_resultGroup);
 
-	m_statusLabel = new QLabel(this);
+	m_statusLabel = new QLabel(content);
 	m_statusLabel->setWordWrap(true);
 	layout->addWidget(m_statusLabel);
 	layout->addStretch();
 
+	applySidePanelControlPolicies(content);
 	wireSignals();
 	applyLanguage();
 	refreshDocumentLabel();

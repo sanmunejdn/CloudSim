@@ -7,6 +7,7 @@
 #include "DocumentHost.h"
 #include "NullCoreServices.h"
 
+#include <QString>
 #include <QVBoxLayout>
 
 namespace cloudsim::host
@@ -47,6 +48,54 @@ FlavorOsgViewportMount mountFlavorOsgViewport(DocumentHost& host, QVBoxLayout& c
 	(void)backend;
 	(void)markDirty;
 	return {};
+}
+
+bool flavorSetMultiViewLayout(QWidget* osgPane, MultiViewLayout layout)
+{
+	(void)osgPane;
+	(void)layout;
+	return false;
+}
+
+MultiViewLayout flavorMultiViewLayout(QWidget* osgPane)
+{
+	(void)osgPane;
+	return MultiViewLayout::Single;
+}
+
+int flavorActiveViewIndex(QWidget* osgPane)
+{
+	(void)osgPane;
+	return 0;
+}
+
+bool flavorOpenDetachedViewWindow(QWidget* osgPane)
+{
+	(void)osgPane;
+	return false;
+}
+
+void flavorCloseDetachedViewWindows(QWidget* osgPane)
+{
+	(void)osgPane;
+}
+
+void flavorPersistMultiViewSettings(QWidget* osgPane, const QString& documentId)
+{
+	(void)osgPane;
+	(void)documentId;
+}
+
+void flavorRestoreMultiViewSettings(QWidget* osgPane, const QString& documentId)
+{
+	(void)osgPane;
+	(void)documentId;
+}
+
+void flavorSetMultiViewUseChinese(QWidget* osgPane, bool useChinese)
+{
+	(void)osgPane;
+	(void)useChinese;
 }
 
 } // namespace cloudsim::host

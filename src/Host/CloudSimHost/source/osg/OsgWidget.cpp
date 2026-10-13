@@ -1698,6 +1698,8 @@ void OsgWidget::createGradientBackground()
 	m_gradientBackgroundCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
 	m_gradientBackgroundCamera->setGraphicsContext(m_viewer->getCamera()->getGraphicsContext());
 	m_gradientBackgroundCamera->setViewport(m_viewer->getCamera()->getViewport());
+	// 卫星视口用本地渐变；共享根上的此相机绑 Primary GC
+	m_gradientBackgroundCamera->setNodeMask(OsgScene::kMaskPrimaryViewportOnly);
 
 	// 创建渐变几何体
 	m_gradientBackgroundGeode = new osg::Geode;
