@@ -22,11 +22,12 @@ namespace geoalgo
 struct GEOMETRY_ALGORITHM_API BrepImportArtifacts
 {
 	std::vector<float> displaySoup;				   ///< 9T float 显示三角（mm）
-	std::vector<float> displayNormals;			   ///< 与 displaySoup 同布局，预计算光照法线
+	std::vector<float> displayNormals;			   ///< 可选；Phase1 不填充，OSG 上屏时现算后清空
 	std::vector<int> triangleFaceIndex;			   ///< 每三角 → shapeFaceAtIndex 面索引
-	std::vector<std::vector<float>> faceSoups;	   ///< 每面局部 soup（面拾取/高亮）
+	std::vector<std::vector<float>> faceSoups;	   ///< 可选；Phase1 不再填充，按需 extractFaceSoup
 	std::vector<std::vector<float>> edgePolylines; ///< Phase2 边线框折线
 	std::vector<std::vector<int>> faceEdgeIndices; ///< 每面边界边 global index
+	int faceCount = 0;							   ///< TopExp FACE 数；0 表示未知
 
 	std::atomic<bool> pickReady{false}; ///< Phase2 是否已构建
 	mutable std::mutex pickBuildMutex;
@@ -37,13 +38,21 @@ struct GEOMETRY_ALGORITHM_API BrepImportArtifacts
 
 struct GEOMETRY_ALGORITHM_API BrepImportBuildTimings
 {
-	std::int64_t meshMs = 0; ///< Phase1 耗时
+	std::int64_t meshMs = 0; ///< Phase1 耗时（含磁盘命中时的读盘）
 	std::int64_t pickMs = 0; ///< Phase2 耗时
 	std::size_t triangleCount = 0;
+	bool displayCacheHit = false; ///< Phase1 是否命中磁盘缓存
 };
 
 /**
- * Phase1：显示离散 + tri→face 映射 + displayNormals
+ * 从 displaySoup + triangleFaceIndex 抽出单面三角（不依赖 faceSoups）
+ * @return false：faceIndex 无效或该面无三角
+ */
+GEOMETRY_ALGORITHM_API bool extractFaceSoup(const BrepImportArtifacts& artifacts, int faceIndex,
+											std::vector<float>& outSoup);
+
+/**
+ * Phase1：显示离散 + tri→face 映射 + displayNormals（不写 faceSoups）
  * 相对包围盒偏差，避免装配体 0.01mm 绝对网格卡死
  * @return false：null shape 或 mesh 为空
  */
@@ -71,7 +80,7 @@ GEOMETRY_ALGORITHM_API bool buildBrepImportArtifacts(const ShapeHandle& shape, B
 													 std::string* errMsg = nullptr);
 
 /**
- * 按 ShapeHandle::isSame() 缓存 Phase1；最多 16 条目 LRU
+ * 按 ShapeHandle::isSame() 缓存 Phase1；最多 16 条目 LRU；未命中内存时试磁盘缓存
  * @return nullptr：构建失败（errMsg 有详情）
  */
 GEOMETRY_ALGORITHM_API std::shared_ptr<BrepImportArtifacts>
@@ -86,16 +95,26 @@ GEOMETRY_ALGORITHM_API void putBrepImportArtifacts(const ShapeHandle& shape,
 												   std::shared_ptr<BrepImportArtifacts> artifacts);
 
 /**
- * 按 dest 面序从 source 的 faceSoups 切片；面用 IsSame（clone 后 TShape 变了则失败）
- * 抽件后重剖会 Clean 装配共享三角网，剩余件网格经常空掉
+ * 按 dest 面序从 source 的 displaySoup+triangleFaceIndex 切片
+ * 面用 IsSame / IsPartner；抽件后重剖会 Clean 装配共享三角网，剩余件网格经常空掉
  * @return nullptr：对不上面或切片后无三角
  */
 GEOMETRY_ALGORITHM_API std::shared_ptr<BrepImportArtifacts>
 sliceBrepImportArtifactsForShape(const ShapeHandle& sourceShape, const BrepImportArtifacts& source,
 								 const ShapeHandle& destShape, std::string* errMsg = nullptr);
 
-/** 测试或工程切换时清空缓存 */
+/** 测试或工程切换时清空内存缓存 */
 GEOMETRY_ALGORITHM_API void clearBrepImportArtifactsCache();
+
+/**
+ * Phase1 磁盘缓存目录（UTF-8）；空字符串禁用
+ * 默认：系统 TEMP/CloudSim/brep_display_v1
+ */
+GEOMETRY_ALGORITHM_API void setBrepImportDisplayCacheDirectory(const std::string& pathUtf8);
+GEOMETRY_ALGORITHM_API std::string brepImportDisplayCacheDirectory();
+
+/** 清空磁盘缓存目录内 .csmsh（目录本身保留） */
+GEOMETRY_ALGORITHM_API void clearBrepImportDisplayDiskCache();
 
 /**
  * 从 displaySoup 均匀抽点作为模板点云（STEP 坐标，与 OSG 显示一致）

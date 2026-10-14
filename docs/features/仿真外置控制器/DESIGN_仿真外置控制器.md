@@ -51,7 +51,7 @@ flowchart LR
 | Client DLL | `src/Plugins/CloudSimControllerSDK/` |
 | Manager | `src/Host/CloudSimHost/`（含 headless 同构接入） |
 | UI 钩子 | `src/UI/RobotWidget/`（建议 `RobotSimulationController_controller.cpp` 等独立文件） |
-| Python | `resource/Python/ControllerPython/` |
+| Python | 源 `src/UI/RobotWidget/resource/Python/ControllerPython/` → 运行时 `{exe}/resource/Python/ControllerPython/` |
 
 ### 构建与输出
 

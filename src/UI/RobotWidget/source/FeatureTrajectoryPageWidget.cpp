@@ -2488,14 +2488,13 @@ bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray&
 									o.edgePolylineWorldMm);
 							}
 						}
-						if (highlightFaceBodies && !geometry.faceIndices.empty() && !artifacts->faceSoups.empty())
+						if (highlightFaceBodies && !geometry.faceIndices.empty() && artifacts->hasDisplayData())
 						{
 							const int faceIdx = geometry.faceIndices.front();
-							if (faceIdx >= 0 && static_cast<std::size_t>(faceIdx) < artifacts->faceSoups.size())
+							std::vector<float> faceSoup;
+							if (geoalgo::extractFaceSoup(*artifacts, faceIdx, faceSoup))
 							{
-								appendModelXyzToWorldPolyline(osg, backendStd,
-															  artifacts->faceSoups[static_cast<std::size_t>(faceIdx)],
-															  o.faceTrianglesWorldMm);
+								appendModelXyzToWorldPolyline(osg, backendStd, faceSoup, o.faceTrianglesWorldMm);
 							}
 						}
 					}

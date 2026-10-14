@@ -296,6 +296,9 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 	const std::vector<float>* preNormals =
 		artifacts.displayNormals.size() == soup.size() ? &artifacts.displayNormals : nullptr;
 	applySoupToFillGeometry(soup, *geometry, *vertices, normals.get(), opt.useSceneLighting, preNormals);
+	// 法线已进 OSG，释放 artifacts 侧双份缓冲
+	artifacts.displayNormals.clear();
+	artifacts.displayNormals.shrink_to_fit();
 
 	const std::unordered_map<int, BackendColor>& faceHighlights = data.faceHighlightColors();
 	const bool useFaceHighlights = !faceHighlights.empty() && !artifacts.triangleFaceIndex.empty();

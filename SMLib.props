@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 可选 SMLib：install 存在则定义 CLOUDSIM_HAS_SMLIB 并追加头/库路径 -->
+<Project>
+  <PropertyGroup>
+    <CloudSimSmlibRoot>$(CloudSimRepoRoot)bin\SDK\smlib\install</CloudSimSmlibRoot>
+    <CloudSimSmlibIncludeApi>$(CloudSimSmlibRoot)\include\SM_API</CloudSimSmlibIncludeApi>
+    <CloudSimSmlibIncludeKernel>$(CloudSimSmlibRoot)\include\SMLib</CloudSimSmlibIncludeKernel>
+    <CloudSimHasSmlib Condition="Exists('$(CloudSimSmlibIncludeApi)\SmApiTypes.h')">true</CloudSimHasSmlib>
+    <CloudSimHasSmlib Condition="'$(CloudSimHasSmlib)' == ''">false</CloudSimHasSmlib>
+    <CloudSimSmlibCfgDir Condition="'$(Configuration)'=='Debug'">debug</CloudSimSmlibCfgDir>
+    <CloudSimSmlibCfgDir Condition="'$(Configuration)'!='Debug'">release</CloudSimSmlibCfgDir>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(CloudSimHasSmlib)' == 'true'">
+    <ClCompile>
+      <PreprocessorDefinitions>CLOUDSIM_HAS_SMLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(CloudSimSmlibIncludeApi);$(CloudSimSmlibIncludeKernel);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(CloudSimSmlibRoot)\lib\$(CloudSimSmlibCfgDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SM_API.lib;SMLib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

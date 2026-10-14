@@ -16,7 +16,7 @@
 2. 进入本目录（或已拷贝到运行目录的副本）：
 
 ```text
-cd CloudSim\resource\Python\ControllerPython
+cd CloudSim\src\UI\RobotWidget\resource\Python\ControllerPython
 python example_sine_joints.py
 ```
 
@@ -24,26 +24,26 @@ python example_sine_joints.py
 
 ### 拷贝到 bin（如需要）
 
-Host 若从 `OutDir` 下 `resource` 加载资源，请把本目录同步到：
+构建 `RobotWidget` 会把本目录同步到 OutDir：
 
 - Debug：`bin\x64d\resource\Python\ControllerPython\`
 - Release：`bin\x64\resource\Python\ControllerPython\`
 
-源码树路径为 `CloudSim\resource\Python\ControllerPython\`；**不要**只拷到其它自定义目录。
+源码树路径为 `CloudSim\src\UI\RobotWidget\resource\Python\ControllerPython\`；**不要**只拷到其它自定义目录。
 
 ## 离线冒烟（mock，无需 Host）
 
 终端 1：
 
 ```text
-cd CloudSim\resource\Python\ControllerPython
+cd CloudSim\src\UI\RobotWidget\resource\Python\ControllerPython
 python mock_host_server.py
 ```
 
 终端 2：
 
 ```text
-cd CloudSim\resource\Python\ControllerPython
+cd CloudSim\src\UI\RobotWidget\resource\Python\ControllerPython
 python example_sine_joints.py
 ```
 

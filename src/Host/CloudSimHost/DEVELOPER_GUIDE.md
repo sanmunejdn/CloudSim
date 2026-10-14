@@ -304,7 +304,7 @@ Open Model / Registry `StepGeometryImporter`：`BrepBackendData::loadStepHierarc
 | `resolveAssemblyMatePick` / `applyAssemblyMate`（`AssemblyMateApply.h`） | 配合拾取：整件 `faceIndex`；确认时左乘动件 `worldMatrix`（同 ICP） |
 | `loadStepHierarchyFromFile(..., outAssembly?)` | Data：一层子装配 → `BrepHierarchyPart[]` |
 
-**显示网格（Phase1）**：Worker 对每个顶层子件 `getOrBuildBrepImportArtifacts`（相对 deflection **0.002**、串行 `IncrementalMesh`）。工程 sidecar `.brep` 不缓存 display soup。
+**显示网格（Phase1）**：Worker `getOrBuildBrepImportArtifacts`（相对 **0.001**、角 **3°**；>200 万三角自动放宽到 0.002/8°；多 Solid 并行；单实体 OCC `InParallel`；不常驻 displayNormals；磁盘缓存 v2）。日志含 `cache_hit=` / `tri=`。
 
 **异步导入（`ModelBackgroundLoadState` + Widget `JobSystem`）**
 

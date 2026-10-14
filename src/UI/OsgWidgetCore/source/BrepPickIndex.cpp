@@ -150,11 +150,36 @@ int BrepPickIndex::faceIndexForTriangle(unsigned triIndex) const
 const std::vector<float>& BrepPickIndex::faceSoupModel(int faceIndex) const
 {
 	static const std::vector<float> kEmpty;
-	if (faceIndex < 0 || static_cast<std::size_t>(faceIndex) >= m_faceSoupModel.size())
+	if (faceIndex < 0 || (m_faceCount > 0 && faceIndex >= m_faceCount) || m_displaySoup.empty())
 	{
 		return kEmpty;
 	}
-	return m_faceSoupModel[static_cast<std::size_t>(faceIndex)];
+	const auto it = m_faceSoupCache.find(faceIndex);
+	if (it != m_faceSoupCache.end())
+	{
+		return it->second;
+	}
+	const std::size_t triCount = m_displaySoup.size() / 9U;
+	if (triCount != m_triangleFaceIndex.size())
+	{
+		return kEmpty;
+	}
+	std::vector<float> soup;
+	for (std::size_t i = 0; i < triCount; ++i)
+	{
+		if (m_triangleFaceIndex[i] != faceIndex)
+		{
+			continue;
+		}
+		const std::size_t base = i * 9U;
+		soup.insert(soup.end(), m_displaySoup.begin() + static_cast<std::ptrdiff_t>(base),
+					m_displaySoup.begin() + static_cast<std::ptrdiff_t>(base + 9U));
+	}
+	if (soup.size() < 9U)
+	{
+		return kEmpty;
+	}
+	return m_faceSoupCache.emplace(faceIndex, std::move(soup)).first->second;
 }
 
 const std::vector<float>& BrepPickIndex::edgePolylineModel(int edgeIndex) const
@@ -174,10 +199,12 @@ const std::vector<std::vector<int>>& BrepPickIndex::faceEdgeIndices() const
 
 bool BrepPickIndex::build(const geoalgo::ShapeHandle& shape, std::string* errMsg)
 {
+	m_displaySoup.clear();
 	m_triangleFaceIndex.clear();
-	m_faceSoupModel.clear();
+	m_faceSoupCache.clear();
 	m_edgePolylinesModel.clear();
 	m_faceEdgeIndices.clear();
+	m_faceCount = 0;
 	if (shape.isNull())
 	{
 		if (errMsg)
@@ -186,12 +213,11 @@ bool BrepPickIndex::build(const geoalgo::ShapeHandle& shape, std::string* errMsg
 		}
 		return false;
 	}
-	std::vector<float> soup;
-	if (!geoalgo::tessellateShapePerFaceMedium(shape, soup, m_triangleFaceIndex, &m_faceSoupModel, errMsg))
+	if (!geoalgo::tessellateShapePerFaceMedium(shape, m_displaySoup, m_triangleFaceIndex, nullptr, errMsg))
 	{
 		return false;
 	}
-	const std::size_t triCount = soup.size() / 9U;
+	const std::size_t triCount = m_displaySoup.size() / 9U;
 	if (triCount != m_triangleFaceIndex.size())
 	{
 		if (errMsg)
@@ -219,27 +245,46 @@ bool BrepPickIndex::build(const geoalgo::ShapeHandle& shape, std::string* errMsg
 	{
 		m_edgePolylinesModel.push_back(pl.xyz);
 	}
+	int maxFace = -1;
+	for (const int fi : m_triangleFaceIndex)
+	{
+		maxFace = (std::max)(maxFace, fi);
+	}
+	m_faceCount = maxFace + 1;
 	return true;
 }
 
 bool BrepPickIndex::buildFromArtifacts(const geoalgo::BrepImportArtifacts& artifacts, std::string* errMsg)
 {
+	m_displaySoup = artifacts.displaySoup;
 	m_triangleFaceIndex = artifacts.triangleFaceIndex;
-	m_faceSoupModel = artifacts.faceSoups;
+	m_faceSoupCache.clear();
 	m_edgePolylinesModel = artifacts.edgePolylines;
 	m_faceEdgeIndices = artifacts.faceEdgeIndices;
-	const std::size_t triCount = artifacts.displaySoup.size() / 9U;
+	m_faceCount = artifacts.faceCount;
+	const std::size_t triCount = m_displaySoup.size() / 9U;
 	if (triCount != m_triangleFaceIndex.size())
 	{
 		if (errMsg)
 		{
 			*errMsg = "triangle face index size mismatch";
 		}
+		m_displaySoup.clear();
 		m_triangleFaceIndex.clear();
-		m_faceSoupModel.clear();
+		m_faceSoupCache.clear();
 		m_edgePolylinesModel.clear();
 		m_faceEdgeIndices.clear();
+		m_faceCount = 0;
 		return false;
+	}
+	if (m_faceCount <= 0)
+	{
+		int maxFace = -1;
+		for (const int fi : m_triangleFaceIndex)
+		{
+			maxFace = (std::max)(maxFace, fi);
+		}
+		m_faceCount = maxFace + 1;
 	}
 	return true;
 }

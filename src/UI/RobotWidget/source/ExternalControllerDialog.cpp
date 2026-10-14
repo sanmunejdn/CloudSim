@@ -333,7 +333,7 @@ void ExternalControllerDialog::appendProcessLog(const QString& text)
 
 QString ExternalControllerDialog::controllerPythonDir() const
 {
-	// 优先 OutDir；开发态回退仓库 CloudSim/resource
+	// 优先 OutDir；未拷贝时回退 RobotWidget 源树
 	const QDir app(QCoreApplication::applicationDirPath());
 	const QString outDir = app.filePath(QStringLiteral("resource/Python/ControllerPython"));
 	if (QFileInfo::exists(QDir(outDir).filePath(QStringLiteral("example_sine_joints.py"))) ||
@@ -341,8 +341,10 @@ QString ExternalControllerDialog::controllerPythonDir() const
 		return outDir;
 
 	const QString candidates[] = {
-		app.absoluteFilePath(QStringLiteral("../../CloudSim/resource/Python/ControllerPython")),
-		app.absoluteFilePath(QStringLiteral("../../../CloudSim/resource/Python/ControllerPython")),
+		app.absoluteFilePath(
+			QStringLiteral("../../CloudSim/src/UI/RobotWidget/resource/Python/ControllerPython")),
+		app.absoluteFilePath(
+			QStringLiteral("../../../CloudSim/src/UI/RobotWidget/resource/Python/ControllerPython")),
 	};
 	for (const QString& c : candidates)
 	{
@@ -358,8 +360,8 @@ QString ExternalControllerDialog::controllersRootDir() const
 	const QString outDir = app.filePath(QStringLiteral("resource/controllers"));
 	if (QDir(outDir).exists())
 		return outDir;
-	const QString fallback =
-		app.absoluteFilePath(QStringLiteral("../../CloudSim/resource/controllers"));
+	const QString fallback = app.absoluteFilePath(
+		QStringLiteral("../../CloudSim/src/UI/RobotWidget/resource/controllers"));
 	if (QDir(fallback).exists())
 		return QDir(fallback).absolutePath();
 	return outDir;

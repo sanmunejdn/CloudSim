@@ -18,7 +18,7 @@
 4. 可选：在设置对话框选择 Python、查看/编辑源码，点 **运行控制器**（须已 listen）；或另开终端：
 
 ```text
-cd CloudSim\resource\Python\ControllerPython
+cd CloudSim\src\UI\RobotWidget\resource\Python\ControllerPython
 python example_sine_joints.py
 ```
 

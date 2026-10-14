@@ -78,7 +78,7 @@ flowchart TB
 
 | 项 | 内容 |
 |----|------|
-| 独占写路径 | 仅 `resource/Python/ControllerPython/**` + 运行说明 |
+| 独占写路径 | 仅 `src/UI/RobotWidget/resource/Python/ControllerPython/**` + 运行说明（构建拷到 `{exe}/resource/...`） |
 | 输入契约 | CONSENSUS 帧格式与类型名；端口 19620 |
 | 输出契约 | `cloudsim_controller.py`（HELLO/STEP 循环封装）；示例脚本；README（如何对 Host ExternalController 运行） |
 | 实现约束 | 不改 C++；可先对 mock，后对 Host；资源拷贝约定随工程（`bin/x64(d)/resource/...`） |

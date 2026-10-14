@@ -182,8 +182,8 @@ buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
 
 | 入口 | 说明 |
 |------|------|
-| `meshShapeIncremental` | `BRepMesh_IncrementalMesh`，**`theInParallel=false`**（复合体开并行会空转，装配 STEP 表现为假死） |
-| `discretizeShapeToSoupPerFace(shape, params, soup, triFaceIndex, faceSoups?)` | `Clean` 后整件网格一次，再 `TopExp_Explorer(FACE)` 按面抽三角；勿对装配体用 0.01mm 绝对偏差 |
+| `meshShapeIncremental` | 多 Solid **按件并行**；单实体 `InParallel=true`；装配 Compound 整件仍串行（整复合体并行会假死） |
+| `discretizeShapeToSoupPerFace(shape, params, soup, triFaceIndex, faceSoups?)` | `Clean` 后 mesh，再按面抽三角；显示导入请 `faceSoups=nullptr`，按需 `extractFaceSoup` |
 | `tessellateShapePerFaceMedium(shape, …)` | 固定 Medium：`linearDeflectionMm=0.01`、`angularDeflectionDeg=0.5`；内部调用 `discretizeShapeToSoupPerFace` |
 | `collectBrepSolidParts` | 按 `TopAbs_SOLID` 抽出独立 `ShapeHandle`；无 Solid 时整件一块 |
 | `collectBrepTopLevelShapeParts` | **只拆一层**：根 Compound/CompSolid 的直接子 Shape；Open Model 用此路径 |
@@ -194,18 +194,20 @@ buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
 
 **`BRepTools::Clean` 隐性契约**：各离散入口的 `TopoDS_Shape copy = shape; BRepTools::Clean(copy);` 是**句柄浅拷贝**——`copy` 与调用方 `shape` 共享 `TShape`，`Clean`/网格化实际原地改调用方 shape 上的三角化缓存（`collectShapeHierarchy` 甚至 mesh `copy`、收集 `shape`，能 work 正依赖此共享）。这是 OCC 官方语义、结果正确，但意味着**对同一 shape 并发调用离散 API 不安全**（OCC 三角化非线程安全），调用方需自行串行化。
 
-**CSGK 后端降级（`CLOUDSIM_USE_CSGK`）**：`Discretize.h` 的 `ShapeHandle` 重载对 CSGK 后端 shape 走 `discretizeCsgkShapeToSoup`——只产整件三角 soup，`faceSoups` 返回空、`triangleFaceIndex` 全 0。因此 CSGK shape 的**面级拾取/高亮与 `sliceBrepImportArtifactsForShape`（要求 `faceSoups.size()==面数`）静默不可用**；其余 `TopoDS_Shape` 入口对 CSGK shape 不适用（`ShapeHandleAccess::nativeShape` 取不到原生面）。
+**CSGK 后端降级（`CLOUDSIM_USE_CSGK`）**：`Discretize.h` 的 `ShapeHandle` 重载对 CSGK 后端 shape 走 `discretizeCsgkShapeToSoup`——只产整件三角 soup，`triangleFaceIndex` 全 0。因此 CSGK shape 的**面级拾取/高亮与按面切片静默不可用**；其余 `TopoDS_Shape` 入口对 CSGK shape 不适用（`ShapeHandleAccess::nativeShape` 取不到原生面）。
 
 #### Artifacts API
 
 | API | 说明 |
 |-----|------|
-| `buildBrepImportArtifactsDisplay(shape, out[, timings])` | **Phase1**：相对包围盒 deflection **0.002** + 0.5°（勿用 Medium 绝对 0.01mm） |
+| `buildBrepImportArtifactsDisplay(shape, out[, timings])` | **Phase1**：相对 **0.001** + 角 **3°**（屏幕级；>200 万三角则降为 0.002/8°）；**不写 `faceSoups`/常驻 normals**；磁盘缓存 v2 |
+| `extractFaceSoup(artifacts, faceIndex, out)` | 从 `displaySoup`+`triangleFaceIndex` 按需抽单面 |
 | `buildBrepImportArtifactsPick(shape, out[, timings])` | **Phase2**：`collectShapeFaceEdgeIndices` + 边线框（0.05mm / 1°） |
 | `ensureBrepImportPickArtifacts(shape, artifacts)` | Phase2 懒构建（`pickReady` + mutex；**首次边拾取/线框**，非导入 bind） |
 | `buildBrepImportArtifacts(shape, out)` | Phase1 + Phase2 全量（兼容旧调用） |
-| `getOrBuildBrepImportArtifacts(shape[, err, timings])` | 按 `ShapeHandle::isSame()` 缓存 **Phase1**；返回 `shared_ptr<BrepImportArtifacts>` |
-| `clearBrepImportArtifactsCache()` | 测试或工程切换时清空 |
+| `getOrBuildBrepImportArtifacts(shape[, err, timings])` | 内存 LRU（16）→ 磁盘缓存 → 构建；`timings.displayCacheHit` |
+| `setBrepImportDisplayCacheDirectory` / `clearBrepImportDisplayDiskCache` | 磁盘缓存目录（空=禁用）/ 清空 `.csmsh` |
+| `clearBrepImportArtifactsCache()` | 测试或工程切换时清空**内存**缓存 |
 
 内存缓存最多 **16** 个 shape，超出淘汰最早条目。RunLogger 分段耗时由 Host 在导入时输出（`BrepImportBuildTimings::meshMs` / `pickMs` / `triangleCount`）。
 
@@ -225,7 +227,8 @@ Phase2（边折线）
 | `BrepImportArtifacts` 字段 | 用途 |
 |---------------------------|------|
 | `displaySoup` / `displayNormals` / `triangleFaceIndex` | 三角显示、光照法线、面 id 映射 |
-| `faceSoups` | 每面局部 soup（BREP 面拾取/高亮） |
+| `faceCount` | FACE 数；切片校验 |
+| `faceSoups` | Phase1 不再填充；高亮/拾取用 `extractFaceSoup` |
 | `edgePolylines` / `faceEdgeIndices` | 边线框与面-边拓扑（Phase2） |
 | `pickReady` | Phase2 是否已构建 |
 

@@ -171,7 +171,7 @@
 | Client DLL | `src/Plugins/CloudSimControllerSDK/` |
 | Manager | `src/Host/CloudSimHost/` |
 | UI 钩子 | `src/UI/RobotWidget/`（独立 cpp） |
-| Python | `resource/Python/ControllerPython/` |
+| Python | 源 `src/UI/RobotWidget/resource/Python/ControllerPython/` → 运行时 `{exe}/resource/Python/ControllerPython/` |
 
 ## 6. 构建约定
 

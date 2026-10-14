@@ -76,9 +76,9 @@ GEOMETRY_ALGORITHM_API bool discretizeShapeToSoup(const TopoDS_Shape& shape, con
 												  std::vector<float>& soup, std::string* errMsg = nullptr);
 
 /**
- * 整件 mesh 一次（InParallel），再按 shapeFaceAtIndex 顺序逐面提取
+ * 整件 mesh 一次（多 Solid 并行；单实体 OCC InParallel），再按面序提取
  * @param outTriangleFaceIndex 每三角对应面索引
- * @param outFaceSoups 可选，每面局部 soup
+ * @param outFaceSoups 可选，每面局部 soup（显示导入请传 nullptr，按需 extractFaceSoup）
  * @return false：null shape、无面或 mesh 为空
  */
 GEOMETRY_ALGORITHM_API bool discretizeShapeToSoupPerFace(const TopoDS_Shape& shape, const TessellateParams& params,
@@ -149,7 +149,8 @@ GEOMETRY_ALGORITHM_API bool collectBrepTopLevelShapeParts(const ShapeHandle& sha
 														  std::string* errMsg = nullptr);
 
 /**
- * BRepMesh_IncrementalMesh 整件三角化（不写 soup，供后续按面提取）
+ * BRepMesh_IncrementalMesh 三角化（不写 soup）
+ * 多 Solid 按件并行；非装配体开 OCC InParallel；装配 Compound 整件串行
  * @return false：null shape
  */
 GEOMETRY_ALGORITHM_API bool meshShapeIncremental(const TopoDS_Shape& shape, const TessellateParams& params,

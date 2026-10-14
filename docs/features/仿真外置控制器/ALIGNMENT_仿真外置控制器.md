@@ -63,7 +63,7 @@
 | Client DLL | `src/Plugins/CloudSimControllerSDK/` |
 | Manager | `src/Host/CloudSimHost/` |
 | UI 钩子 | `src/UI/RobotWidget/`（独立 cpp，避免与现有大文件冲突） |
-| Python | `resource/Python/ControllerPython/` |
+| Python | 源 `src/UI/RobotWidget/resource/Python/ControllerPython/` → 运行时 `{exe}/resource/Python/ControllerPython/` |
 
 构建产物：Debug\|x64 → `bin\x64d\`；Release\|x64 → `bin\x64\`。禁止私改 `OutDir`。
 

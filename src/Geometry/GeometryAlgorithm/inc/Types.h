@@ -31,7 +31,7 @@ struct TessellateParams
 {
 	double linearDeflectionMm = 0.01; ///< mm；relative=true 时为相对包围盒比例
 	bool linearDeflectionRelative = true;
-	double angularDeflectionDeg = 0.5; ///< °
+	double angularDeflectionDeg = 0.5; ///< °；BRepMesh 路径在 meshShapeIncremental 内转弧度
 	bool flipReversedFaces = true;	   ///< REVERSED 面翻转三角绕序
 };
 

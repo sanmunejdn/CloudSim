@@ -634,7 +634,7 @@ Webots 风格：用户进程经 TCP `127.0.0.1:19620` 发 `STEP`，Host tick 写
 
 - **无 Q_OBJECT / 无 Qt Widgets**；与 `RobotProgramExecutor` 互斥由 UI/Headless 调用方保证。
 - **勿与 RobotComm（19610）混用端口或帧类型**；真机通讯见 RobotCommSDK。
-- 客户端：`CloudSimControllerSDK` / `resource/Python/ControllerPython`。
+- 客户端：`CloudSimControllerSDK` / 源 `RobotWidget/resource/Python/ControllerPython`（运行时 `{exe}/resource/Python/ControllerPython`）。
 
 验收与手工步骤：[`ACCEPTANCE_仿真外置控制器.md`](../../../docs/features/仿真外置控制器/ACCEPTANCE_仿真外置控制器.md)。
 

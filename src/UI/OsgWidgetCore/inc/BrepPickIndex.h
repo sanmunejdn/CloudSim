@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <osg/Matrixd>
@@ -43,10 +44,12 @@ public:
 						  int& outEdgeIndex, double& outDistancePx, std::vector<osg::Vec3f>& outPolylineWorld) const;
 
 private:
+	std::vector<float> m_displaySoup;
 	std::vector<int> m_triangleFaceIndex;
-	std::vector<std::vector<float>> m_faceSoupModel;
+	mutable std::unordered_map<int, std::vector<float>> m_faceSoupCache;
 	std::vector<std::vector<float>> m_edgePolylinesModel;
 	std::vector<std::vector<int>> m_faceEdgeIndices;
+	int m_faceCount = 0;
 };
 
 #endif // OSGWIDGETCORE_BREPPICKINDEX_H

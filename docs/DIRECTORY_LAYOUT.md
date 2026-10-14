@@ -8,7 +8,8 @@
 
 ```text
 CloudSim/
-├── CloudSim.sln                 # 约 40 个产品 C++ 工程（无解决方案文件夹）
+├── CloudSim.sln                 # 桌面端：约 48 个 C++ 工程（按功能域解决方案文件夹）
+├── CloudSimWeb.sln              # 网页端：无头宿主 + WebGateway（同上文件夹约定）
 ├── Directory.Build.props
 ├── .clang-format
 ├── docs/                        # 常读 + 专题；历史见 docs/_archive/
@@ -70,7 +71,23 @@ CloudSim/
         └── RunLogger/
 ```
 
-**Visual Studio**：`CloudSim.sln` 列出产品 `.vcxproj`（约 **40** 项；**无**解决方案文件夹），避免 VS2019 将 `src` 等目录误判为「不兼容」工程。IDE 中按工程名浏览；磁盘分组见上表。
+**Visual Studio**：`CloudSim.sln`（桌面）与 `CloudSimWeb.sln`（网页）均用**解决方案文件夹**按功能域分组（与 `src/` 域对齐，不移动磁盘路径；含中文名时文件为 UTF-8 BOM）。维护脚本：`scripts/organize-sln-folders.ps1 [-SlnPath ...]`。
+
+| 解决方案文件夹 | 典型工程 |
+|----------------|----------|
+| 应用 | `CloudSim` / `CloudSimWeb`、`CloudSimBootstrap`、`SelfTestRunner` |
+| 契约 | `CloudSimCore`、`KinematicCore` |
+| 宿主 | `CloudSimHost`、`CloudSimHostCore`、`CloudSimHostDesktopViewport`、`CloudSimHostHeadless` |
+| 界面 | `Widget`、`OsgWidgetCore`、`BackendVisual`、`RobotWidget`、`AiWidget`、`CloudSimUiAssets` |
+| 数据 | `Data` |
+| 机器人 | `RobotScene`、`RobotKinematics`、`RobotUrdf`、`RobotPathPlanning`、`TrajectoryAlgorithm*` |
+| 算法库 | `GeometryEngine`、`GeometryAlgorithm`、`GeometryServices`、`CollisionAlgorithm`、`PointCloudAlgorithm`、`InstantMeshes*`、`VcgAlgorithms` |
+| 插件 / SDK | `CloudSimPluginSDK`、各业务 SDK、`PlcCommUI`、`CloudSimControllerSample` |
+| 插件 / 功能 | 各 `*Plugin`（主要在桌面 sln） |
+| 网页 | `CloudSimWebGateway`（`CloudSimWeb.sln`） |
+| 基础设施 | `RunLogger` |
+
+磁盘分组仍见上表；解决方案文件夹仅影响 Solution Explorer 显示。
 
 ## 旧路径对照（迁移参考）
 
@@ -105,6 +122,7 @@ CloudSim/
 - 插件输出：`$(CloudSimBinDir)plugins/<plugin.id>/`
 - 网页静态根：`$(CloudSimBinDir)web/`（`CloudSimWeb` PostBuild / `npm run build:debug|release`）
 - 第三方 SDK：`$(CloudSimRepoRoot)bin/SDK/...`（Include / Lib / 部署拷贝）
+  - 可选 **SMLib**（NVIDIA usd-brep v1.0.0）：`bin/SDK/smlib/`，见 [`bin/SDK/smlib/README.md`](../../bin/SDK/smlib/README.md)；`CloudSim/SMLib.props` → `CLOUDSIM_HAS_SMLIB`；冒烟 `src/App/SmlibSmoke`
 - **生成顺序建议**：`CloudSimCore` → `Data` 等 → **`CloudSimHost`** → `Widget` → `CloudSim`
 - 模块职责与文档入口见 [`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md)
 - 网页壳开发见 [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)

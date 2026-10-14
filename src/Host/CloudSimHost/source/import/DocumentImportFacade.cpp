@@ -243,7 +243,8 @@ AdoptRegistrationResult PointCloudBackgroundLoadState::adoptIntoDocument(Documen
 void logBrepImportTimings(const geoalgo::BrepImportBuildTimings& timings)
 {
 	RunLogger::info("[Import] brep mesh_ms=" + std::to_string(timings.meshMs) +
-					" pick_ms=" + std::to_string(timings.pickMs) + " tri=" + std::to_string(timings.triangleCount));
+					" pick_ms=" + std::to_string(timings.pickMs) + " tri=" + std::to_string(timings.triangleCount) +
+					" cache_hit=" + std::string(timings.displayCacheHit ? "1" : "0"));
 }
 
 bool warmBrepImportArtifactsDisplayOnly(const geoalgo::ShapeHandle& shape,

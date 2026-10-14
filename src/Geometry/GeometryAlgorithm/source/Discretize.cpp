@@ -10,9 +10,12 @@
 #include "detail/OccIncludes.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <limits>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace geoalgo
 {
@@ -202,10 +205,63 @@ bool meshShapeIncremental(const TopoDS_Shape& shape, const TessellateParams& par
 	}
 	const Standard_Real linDef = params.linearDeflectionMm;
 	const Standard_Boolean isRelative = params.linearDeflectionRelative ? Standard_True : Standard_False;
-	const Standard_Real angDef = params.angularDeflectionDeg;
-	// 复合体上开并行网格会空转，装配 STEP 表现为假死
-	BRepMesh_IncrementalMesh mesher(shape, linDef, isRelative, angDef, Standard_False);
-	(void)mesher;
+	// OCCT Angle 单位为弧度；字段按度入参，误传会导致曲面折面（0.5° 被当成 ~28.6°）
+	const Standard_Real angDef =
+		static_cast<Standard_Real>(params.angularDeflectionDeg * (3.14159265358979323846 / 180.0));
+
+	std::vector<TopoDS_Shape> solids;
+	for (TopExp_Explorer exp(shape, TopAbs_SOLID); exp.More(); exp.Next())
+	{
+		solids.push_back(exp.Current());
+	}
+
+	auto meshOne = [&](const TopoDS_Shape& s, Standard_Boolean inParallel) {
+		BRepMesh_IncrementalMesh mesher(s, linDef, isRelative, angDef, inParallel);
+		(void)mesher;
+	};
+
+	// 多 Solid：按 Solid 并行（整 Compound 开 InParallel 会假死）
+	if (solids.size() >= 2U)
+	{
+		const unsigned hw = std::max(1u, std::thread::hardware_concurrency());
+		const unsigned workers = static_cast<unsigned>((std::min)(static_cast<std::size_t>(hw), solids.size()));
+		std::atomic<std::size_t> next{0};
+		std::vector<std::thread> threads;
+		threads.reserve(workers);
+		for (unsigned t = 0; t < workers; ++t)
+		{
+			threads.emplace_back([&]() {
+				for (;;)
+				{
+					const std::size_t i = next.fetch_add(1U, std::memory_order_relaxed);
+					if (i >= solids.size())
+					{
+						break;
+					}
+					meshOne(solids[i], Standard_True);
+				}
+			});
+		}
+		for (std::thread& th : threads)
+		{
+			th.join();
+		}
+		// 不属任何 Solid 的面补网
+		for (TopExp_Explorer fe(shape, TopAbs_FACE); fe.More(); fe.Next())
+		{
+			const TopoDS_Face face = TopoDS::Face(fe.Current());
+			TopLoc_Location loc;
+			if (BRep_Tool::Triangulation(face, loc).IsNull())
+			{
+				meshOne(face, Standard_False);
+			}
+		}
+		return true;
+	}
+
+	// 装配 Compound 整件并行仍会假死；单 Solid/Shell 可开 OCC 内部并行
+	const Standard_Boolean occParallel = detail::isAssemblyGroup(shape) ? Standard_False : Standard_True;
+	meshOne(shape, occParallel);
 	return true;
 }
 

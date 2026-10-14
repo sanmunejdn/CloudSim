@@ -259,7 +259,8 @@
   </ItemGroup>
   <PropertyGroup>
     <_BrandExportPySrc>$(ProjectDir)resource\Python\ExportPython</_BrandExportPySrc>
-    <_ControllerPySrc>$(ProjectDir)..\..\..\resource\Python\ControllerPython</_ControllerPySrc>
+    <_ControllerPySrc>$(ProjectDir)resource\Python\ControllerPython</_ControllerPySrc>
+    <_ControllersSrc>$(ProjectDir)resource\controllers</_ControllersSrc>
   </PropertyGroup>
   <Target Name="CopyBrandExportPython" AfterTargets="Build">
     <ItemGroup>
@@ -271,14 +272,14 @@
   </Target>
   <Target Name="CopyControllerPython" AfterTargets="Build">
     <ItemGroup>
-      <_ControllerPyFiles Include="$(_ControllerPySrc)\*" />
+      <_ControllerPyFiles Include="$(_ControllerPySrc)\*.py;$(_ControllerPySrc)\README.md" />
     </ItemGroup>
     <MakeDir Directories="$(OutDir)resource\Python\ControllerPython" />
     <Copy SourceFiles="@(_ControllerPyFiles)" DestinationFolder="$(OutDir)resource\Python\ControllerPython" SkipUnchangedFiles="true" Condition="Exists('$(_ControllerPySrc)')" />
   </Target>
   <Target Name="CopyControllersDir" AfterTargets="Build">
     <ItemGroup>
-      <_ControllerEntryFiles Include="$(ProjectDir)..\..\..\resource\controllers\**\*" />
+      <_ControllerEntryFiles Include="$(_ControllersSrc)\**\*" Exclude="$(_ControllersSrc)\**\__pycache__\**" />
     </ItemGroup>
     <MakeDir Directories="$(OutDir)resource\controllers" />
     <Copy SourceFiles="@(_ControllerEntryFiles)" DestinationFiles="@(_ControllerEntryFiles->'$(OutDir)resource\controllers\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="'@(_ControllerEntryFiles)' != ''" />
