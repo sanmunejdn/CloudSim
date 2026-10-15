@@ -11,6 +11,7 @@
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
 #include "BackendTypeIdentity.h"
+#include "BrepBackendData.h"
 #include "CustomDeviceBackendData.h"
 #include "FrameBackendData.h"
 #include "MeshBackendData.h"
@@ -308,6 +309,78 @@ bool applyAxisLengthMm(BackendDataBase& d, const std::string& value, std::string
 	return false;
 }
 
+std::string formatDisplayLod(const BackendDataBase& d)
+{
+	const auto* brep = dynamic_cast<const BrepBackendData*>(&d);
+	const int lod = brep ? brep->displayLod() : 1;
+	if (lod <= 0)
+	{
+		return "Coarse";
+	}
+	if (lod >= 2)
+	{
+		return "Fine";
+	}
+	return "Medium";
+}
+
+bool applyDisplayLod(BackendDataBase& d, const std::string& value, std::string* err)
+{
+	auto* brep = dynamic_cast<BrepBackendData*>(&d);
+	if (!brep)
+	{
+		if (err)
+		{
+			*err = "displayLod not supported on this object.";
+		}
+		return false;
+	}
+	std::string v;
+	v.reserve(value.size());
+	for (unsigned char ch : value)
+	{
+		if (ch == ' ' || ch == '\t')
+		{
+			continue;
+		}
+		v.push_back(static_cast<char>(std::tolower(ch)));
+	}
+	int lod = -1;
+	if (v == "coarse" || v == "0")
+	{
+		lod = 0;
+	}
+	else if (v == "medium" || v == "1")
+	{
+		lod = 1;
+	}
+	else if (v == "fine" || v == "2")
+	{
+		lod = 2;
+	}
+	if (lod < 0)
+	{
+		if (err)
+		{
+			*err = "displayLod must be Coarse, Medium, or Fine.";
+		}
+		return false;
+	}
+	brep->setDisplayLod(lod);
+	return true;
+}
+
+PropertyDescriptor makeDisplayLodDesc()
+{
+	// 面板中文标签由 Widget propertyDisplayLabelForKey 覆盖；此处保留英文 schema 真源
+	PropertyDescriptor d =
+		makeDesc("displayLod", "Display quality", PropertyType::Enum, true, PropertySemanticFlags::AffectsGeometry);
+	d.defaultValue = std::string("Medium");
+	d.constraints.enumConstraint.options = {"Coarse", "Medium", "Fine"};
+	d.constraints.enumConstraint.allowCustom = false;
+	return d;
+}
+
 void appendPosePack(std::vector<BackendPropertyBinding>& out)
 {
 	const auto xform = PropertySemanticFlags::AffectsBackendRootWorldXform;
@@ -557,6 +630,17 @@ const std::vector<BackendPropertyBinding>& meshExtras()
 		v.push_back(
 			{makeDesc("mesh.triangle_count", "Triangles", PropertyType::Int, false, PropertySemanticFlags::None),
 			 formatMeshTriangleCount, applyReadOnly});
+		return v;
+	}();
+	return k;
+}
+
+const std::vector<BackendPropertyBinding>& brepExtras()
+{
+	static const std::vector<BackendPropertyBinding> k = []
+	{
+		std::vector<BackendPropertyBinding> v;
+		v.push_back({makeDisplayLodDesc(), formatDisplayLod, applyDisplayLod});
 		return v;
 	}();
 	return k;

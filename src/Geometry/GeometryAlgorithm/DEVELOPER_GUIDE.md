@@ -200,25 +200,27 @@ buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
 
 | API | 说明 |
 |-----|------|
-| `buildBrepImportArtifactsDisplay(shape, out[, timings])` | **Phase1**：相对 **0.001** + 角 **3°**（屏幕级；>200 万三角则降为 0.002/8°）；**不写 `faceSoups`/常驻 normals**；磁盘缓存 v2 |
+| `BrepDisplayLod` / `tessellateParamsForDisplayLod` | 显示 LOD：Coarse(0.002/8°) / Medium(0.001/3°) / Fine(0.0005/1.5°) |
+| `buildBrepImportArtifactsDisplay(shape, out[, timings, err, lod])` | **Phase1**：按 lod 相对弦高+角偏差（>200 万三角且非 Coarse 则降为 Coarse 参数）；**不写 `faceSoups`/常驻 normals**；磁盘缓存 v2 |
 | `extractFaceSoup(artifacts, faceIndex, out)` | 从 `displaySoup`+`triangleFaceIndex` 按需抽单面 |
 | `buildBrepImportArtifactsPick(shape, out[, timings])` | **Phase2**：`collectShapeFaceEdgeIndices` + 边线框（0.05mm / 1°） |
 | `ensureBrepImportPickArtifacts(shape, artifacts)` | Phase2 懒构建（`pickReady` + mutex；**首次边拾取/线框**，非导入 bind） |
-| `buildBrepImportArtifacts(shape, out)` | Phase1 + Phase2 全量（兼容旧调用） |
-| `getOrBuildBrepImportArtifacts(shape[, err, timings])` | 内存 LRU（16）→ 磁盘缓存 → 构建；`timings.displayCacheHit` |
+| `buildBrepImportArtifacts(shape, out[, err, lod])` | Phase1 + Phase2 全量（兼容旧调用） |
+| `getOrBuildBrepImportArtifacts(shape[, err, timings, lod])` | 内存 LRU（16，键=shape+lod）→ 磁盘缓存 → 构建；`timings.displayCacheHit` |
+| `removeBrepImportArtifactsCacheForShape(shape)` | 移除该 shape 全部 lod 内存项（换档重剖前） |
 | `setBrepImportDisplayCacheDirectory` / `clearBrepImportDisplayDiskCache` | 磁盘缓存目录（空=禁用）/ 清空 `.csmsh` |
 | `clearBrepImportArtifactsCache()` | 测试或工程切换时清空**内存**缓存 |
 
-内存缓存最多 **16** 个 shape，超出淘汰最早条目。RunLogger 分段耗时由 Host 在导入时输出（`BrepImportBuildTimings::meshMs` / `pickMs` / `triangleCount`）。
+内存缓存最多 **16** 条（shape×lod），超出淘汰最早条目。RunLogger 分段耗时由 Host 在导入时输出（`BrepImportBuildTimings::meshMs` / `pickMs` / `triangleCount`）。
 
 #### 异步导入编排（Host + Widget）
 
 ```text
 Worker executeLoad
   ├─ 读 STEP/BREP
-  └─ getOrBuildBrepImportArtifacts（仅 Phase1 显示网格）
+  └─ getOrBuildBrepImportArtifacts(..., lod)（仅 Phase1 显示网格）
 UI finishIntoDocument
-  ├─ registerAdoptedBrep… + loadBackend（showWireOutline=false）
+  ├─ registerAdoptedBrep… + setDisplayLod + loadBackend（showWireOutline=false）
   └─ 树/相机/选中
 Phase2（边折线）
   └─ 首次边拾取 / 线框时 ensureBrepImportPickArtifacts；Open Model 不再排队 warmPickArtifacts
@@ -227,6 +229,7 @@ Phase2（边折线）
 | `BrepImportArtifacts` 字段 | 用途 |
 |---------------------------|------|
 | `displaySoup` / `displayNormals` / `triangleFaceIndex` | 三角显示、光照法线、面 id 映射 |
+| `displayLod` | 本 soup 对应档位 |
 | `faceCount` | FACE 数；切片校验 |
 | `faceSoups` | Phase1 不再填充；高亮/拾取用 `extractFaceSoup` |
 | `edgePolylines` / `faceEdgeIndices` | 边线框与面-边拓扑（Phase2） |

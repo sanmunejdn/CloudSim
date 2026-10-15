@@ -29,7 +29,8 @@ void BackendIdUserData::attach(osg::Node* root, const std::string& backendId)
 	root->setUserData(meta);
 }
 
-void BackendIdUserData::attachBrep(osg::Node* root, const std::string& backendId, const geoalgo::ShapeHandle& shape)
+void BackendIdUserData::attachBrep(osg::Node* root, const std::string& backendId, const geoalgo::ShapeHandle& shape,
+								   const int displayLod)
 {
 	if (!root || backendId.empty() || shape.isNull())
 	{
@@ -38,6 +39,7 @@ void BackendIdUserData::attachBrep(osg::Node* root, const std::string& backendId
 	auto* meta = new BackendIdUserData(backendId);
 	meta->m_pickDomain = BackendPickDomain::Brep;
 	meta->m_brepShape = shape.clone();
+	meta->m_brepDisplayLod = displayLod < 0 ? 0 : (displayLod > 2 ? 2 : displayLod);
 	root->setUserData(meta);
 }
 

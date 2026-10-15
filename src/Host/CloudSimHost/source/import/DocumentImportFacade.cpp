@@ -57,7 +57,7 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 	const HierarchyFollowBindingFn followBinding;
 	QString extendedErr;
 	if (!importMeshFileExtended(host, filePath, options.catalogTypeName, options.quietUi, options.meshImportQuality,
-								followBinding, result.hierarchyDetail, &extendedErr))
+								followBinding, result.hierarchyDetail, &extendedErr, options.brepDisplayLod))
 	{
 		if (outError)
 		{
@@ -249,17 +249,19 @@ void logBrepImportTimings(const geoalgo::BrepImportBuildTimings& timings)
 
 bool warmBrepImportArtifactsDisplayOnly(const geoalgo::ShapeHandle& shape,
 										const std::function<void(double progress01, const QString& status)>& report,
-										const double progressAfterMesh, const double progressEnd, QString* outError)
+										const double progressAfterMesh, const double progressEnd, QString* outError,
+										const int brepDisplayLod)
 {
 	if (shape.isNull())
 	{
 		report(progressEnd, QString());
 		return true;
 	}
+	const geoalgo::BrepDisplayLod lod = geoalgo::clampBrepDisplayLod(brepDisplayLod);
 	geoalgo::BrepImportBuildTimings timings;
 	std::string artifactErr;
 	const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
-		geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr, &timings);
+		geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr, &timings, lod);
 	if (!artifacts)
 	{
 		if (outError)
@@ -275,15 +277,17 @@ bool warmBrepImportArtifactsDisplayOnly(const geoalgo::ShapeHandle& shape,
 	return true;
 }
 
-bool warmBrepImportPickArtifactsForShape(const geoalgo::ShapeHandle& shape, QString* outError)
+bool warmBrepImportPickArtifactsForShape(const geoalgo::ShapeHandle& shape, QString* outError,
+										 const int brepDisplayLod)
 {
 	if (shape.isNull())
 	{
 		return true;
 	}
+	const geoalgo::BrepDisplayLod lod = geoalgo::clampBrepDisplayLod(brepDisplayLod);
 	std::string artifactErr;
 	const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
-		geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr);
+		geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr, nullptr, lod);
 	if (!artifacts)
 	{
 		if (outError)
@@ -325,18 +329,21 @@ struct ModelBackgroundLoadState::Impl
 	QString displayName;
 	QString catalogTypeName;
 	int meshImportQuality = 1;
+	int brepDisplayLod = 1;
 	ModelLoadKind kind = ModelLoadKind::UseSyncExtended;
 	ImportParseResult parsed;
 };
 
 ModelBackgroundLoadState::ModelBackgroundLoadState(const QString& filePath, const QString& displayName,
-												   const QString& catalogTypeName, const int meshImportQuality)
+												   const QString& catalogTypeName, const int meshImportQuality,
+												   const int brepDisplayLod)
 	: m_impl(std::make_unique<Impl>())
 {
 	m_impl->filePath = filePath;
 	m_impl->displayName = displayName;
 	m_impl->catalogTypeName = catalogTypeName;
 	m_impl->meshImportQuality = meshImportQuality;
+	m_impl->brepDisplayLod = brepDisplayLod;
 }
 
 ModelBackgroundLoadState::~ModelBackgroundLoadState() = default;
@@ -404,13 +411,14 @@ bool ModelBackgroundLoadState::executeLoad(
 	{
 		m_impl->kind = ModelLoadKind::ParsedReady;
 		return warmBrepHierarchyPartsDisplayFromAssembly(m_impl->parsed.brepAssembly, m_impl->parsed.brepParts, report,
-														 outError);
+														 outError, m_impl->brepDisplayLod);
 	}
 	if (m_impl->parsed.kind == ImportParseKind::BrepSingle)
 	{
 		m_impl->kind = ModelLoadKind::ParsedReady;
 		report(0.4, QStringLiteral("Meshing B-rep..."));
-		if (!warmBrepImportArtifactsDisplayOnly(m_impl->parsed.brepSingle, report, 0.9, 1.0, outError))
+		if (!warmBrepImportArtifactsDisplayOnly(m_impl->parsed.brepSingle, report, 0.9, 1.0, outError,
+												m_impl->brepDisplayLod))
 		{
 			return false;
 		}
@@ -448,7 +456,7 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(DocumentHost& host
 	ImportFileResult result;
 	const HierarchyFollowBindingFn followBinding;
 	if (!applyGeometryImportParse(host, m_impl->filePath, m_impl->catalogTypeName, m_impl->parsed, followBinding,
-								  result.hierarchyDetail, outError) ||
+								  result.hierarchyDetail, outError, options.brepDisplayLod) ||
 		!result.hierarchyDetail.ok)
 	{
 		if (outError && outError->isEmpty())
@@ -526,7 +534,7 @@ bool ModelBackgroundLoadState::warmPickArtifacts(QString* outError)
 	{
 		for (const BrepHierarchyPart& p : m_impl->parsed.brepParts)
 		{
-			if (!warmBrepImportPickArtifactsForShape(p.shapeRef, outError))
+			if (!warmBrepImportPickArtifactsForShape(p.shapeRef, outError, m_impl->brepDisplayLod))
 			{
 				return false;
 			}
@@ -535,7 +543,7 @@ bool ModelBackgroundLoadState::warmPickArtifacts(QString* outError)
 	}
 	if (m_impl->parsed.kind == ImportParseKind::BrepSingle)
 	{
-		return warmBrepImportPickArtifactsForShape(m_impl->parsed.brepSingle, outError);
+		return warmBrepImportPickArtifactsForShape(m_impl->parsed.brepSingle, outError, m_impl->brepDisplayLod);
 	}
 	return true;
 }

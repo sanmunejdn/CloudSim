@@ -158,6 +158,15 @@ bool runBackendPropertyBindingSelfTest(std::vector<std::string>* failures)
 	check(backend_property_schema::visualAspectsForPropertyKey(backend_type::kClassModel, "no.such") == 0u,
 		  "unknown key aspects 0");
 
+	check(schemaKeys(backend_type::kClassBrepModel).count("displayLod") == 1, "BrepModel schema missing displayLod");
+	check(backend_property_schema::visualAspectsForPropertyKey(backend_type::kClassBrepModel, "displayLod") ==
+			  backend_property_schema::kVisualAspectGeometry,
+		  "displayLod -> Geometry");
+	const std::uint64_t brepRev0 = brep.geometryRevision();
+	check(brep.applyPropertyChange("displayLod", "Fine", nullptr), "apply displayLod=Fine");
+	check(brep.displayLod() == 2, "displayLod Fine==2");
+	check(brep.geometryRevision() > brepRev0, "displayLod bumps geometryRevision");
+
 	if (ok)
 	{
 		RunLogger::info("[BackendPropertyBindingSelfTest] PASS");

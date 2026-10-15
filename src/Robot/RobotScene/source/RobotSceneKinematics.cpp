@@ -353,6 +353,74 @@ bool applyPerLinkRobotBasePlacement(IRobotBackendPoseSink* osg, BackendDataManag
 	return any;
 }
 
+bool applyLocalJointAnglesOnly(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, int instanceIndex,
+							   const QVector<double>& localAnglesRad)
+{
+	if (!doc || !doc->hasRobotSimulationContext() || instanceIndex < 0 ||
+		instanceIndex >= doc->robotKinematicInstanceCount())
+	{
+		return false;
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(instanceIndex);
+	if (nj <= 0 || localAnglesRad.size() != nj)
+	{
+		return false;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instanceIndex);
+	if (urdfPath.isEmpty())
+	{
+		return false;
+	}
+
+	BackendDataManager* mgr = doc->robotBackendManagerForKinematics();
+	cloudsim::core::RobotPerLinkKinematicsSliceDto plDto;
+	if (doc->robotPerLinkKinematicsForInstance(instanceIndex, plDto))
+	{
+		if (!mgr || !osg)
+		{
+			RunLogger::warn("RobotSceneKinematics::applyLocalJointAnglesOnly per-link robot requires "
+							"BackendDataManager and OSG.");
+			return false;
+		}
+		const RobotPerLinkKinematicsSlice plSlice = robotPerLinkSliceFromDto(plDto);
+		if (!applyJointAnglesViaLinkBackends(doc, osg, *mgr, localAnglesRad, plSlice))
+		{
+			return false;
+		}
+		doc->noteRobotJointAnglesAppliedForInstance(instanceIndex, localAnglesRad);
+		doc->notifyRobotKinematicsAppliedToScene();
+		return true;
+	}
+
+	if (!osg)
+	{
+		return false;
+	}
+	QHash<QString, osg::Matrixd> newJointMatrices;
+	if (!UrdfRobotLoader::computeJointTransformMatrices(urdfPath, localAnglesRad, newJointMatrices, nullptr))
+	{
+		RunLogger::warn(qToUtf8Std(
+			QStringLiteral("RobotSceneKinematics::applyLocalJointAnglesOnly computeJointTransformMatrices failed "
+						   "for URDF '%1'")
+				.arg(urdfPath)));
+		return false;
+	}
+	const QString prefix = doc->robotJointKeyPrefixForInstance(instanceIndex);
+	QHash<QString, cloudsim::core::Mat4> localByKey;
+	for (auto it = newJointMatrices.constBegin(); it != newJointMatrices.constEnd(); ++it)
+	{
+		localByKey.insert(prefix + it.key(), coreMat4FromOsgMatrix(it.value()));
+	}
+	if (localByKey.isEmpty())
+	{
+		return false;
+	}
+	doc->applyRobotJointLocalMatrices(localByKey);
+	doc->noteRobotJointAnglesAppliedForInstance(instanceIndex, localAnglesRad);
+	doc->notifyRobotKinematicsAppliedToScene();
+	return true;
+}
+
 bool applyJointAnglesForInstance(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, int instanceIndex,
 								 const QVector<double>& localAnglesRad, QVector<double>& aggregatedAnglesRad)
 {
@@ -384,7 +452,7 @@ bool applyJointAnglesForInstance(IRobotSimulationDocument* doc, IRobotBackendPos
 	{
 		aggregatedAnglesRad[offset + j] = localAnglesRad[j];
 	}
-	return applyJointAnglesFromDocument(doc, osg, aggregatedAnglesRad);
+	return applyLocalJointAnglesOnly(doc, osg, instanceIndex, localAnglesRad);
 }
 
 bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg,

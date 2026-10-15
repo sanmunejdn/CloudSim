@@ -41,8 +41,14 @@ void RobotSimulationController::onExternalControllerToggled(bool enabled)
 
 	if (enabled)
 	{
-		if (m_programExecutor.isRunning())
+		if (isSimulationSessionActive())
 			stopRobotSimulation(false);
+
+		const int nAuth = doc ? qMax(1, doc->robotKinematicInstanceCount()) : 1;
+		for (int i = 0; i < nAuth; ++i)
+		{
+			m_simulationKernel.authority().setAuthority(i, ControlAuthorityKind::External);
+		}
 
 		for (auto& m : m_controllerManagers)
 		{
@@ -115,6 +121,7 @@ void RobotSimulationController::onExternalControllerToggled(bool enabled)
 			m->stopListening();
 		}
 		m_controllerManagers.clear();
+		m_simulationKernel.authority().clear();
 		if (m_host && m_host->simulationCommandPage())
 		{
 			m_host->simulationCommandPage()->setExternalControllerChecked(false);

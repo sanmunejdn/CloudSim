@@ -2,8 +2,7 @@
 #define ROBOTWIDGET_DEVICEPOSEMOTIONPLAYER_H
 
 /// @file DevicePoseMotionPlayer.h
-/// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief 自定义设备姿态插值播放（与机器人程序执行器隔离）
+/// @brief 自定义设备姿态插值（由 SimulationKernel / Controller 同拍 tick，无独立 QTimer）
 
 #include "robotwidget_global.h"
 
@@ -13,7 +12,6 @@
 #include <vector>
 
 class IRobotMainWindowHost;
-class QTimer;
 
 class ROBOTWIDGET_EXPORT DevicePoseMotionPlayer : public QObject
 {
@@ -34,12 +32,12 @@ public:
 	void stopDevice(const QString& deviceId);
 	void stopAll();
 
+	/// 由统一仿真时钟驱动
+	void tick(double dtSec);
+
 signals:
 	void statusChanged();
 	void motionFinished(const QString& deviceId);
-
-private slots:
-	void onTick();
 
 private:
 	struct ActiveMotion
@@ -53,10 +51,8 @@ private:
 	};
 
 	bool applyQNow(const QString& deviceId, const std::vector<double>& q);
-	void ensureTimer();
 
 	IRobotMainWindowHost* m_host = nullptr;
-	QTimer* m_timer = nullptr;
 	QHash<QString, ActiveMotion> m_active;
 };
 

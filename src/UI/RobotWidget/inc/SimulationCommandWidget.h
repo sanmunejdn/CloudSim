@@ -131,6 +131,9 @@ signals:
 
 	void runRequested();
 
+	/// 全部机器人实例 + 设备程序统一 Run
+	void runAllRequested();
+
 	void stopRequested();
 
 	void exportProgramRequested();
@@ -253,6 +256,7 @@ private:
 	QPushButton* m_clearBtn = nullptr;
 
 	QPushButton* m_runBtn = nullptr;
+	QPushButton* m_runAllBtn = nullptr;
 
 	QPushButton* m_stopBtn = nullptr;
 

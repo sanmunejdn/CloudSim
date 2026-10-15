@@ -75,6 +75,14 @@ std::shared_ptr<Base> makeEmptyOfType(const Type type)
 		return std::make_shared<RobotInstruction::DeviceAxisInstruction>();
 	case Type::PathPlan:
 		return std::make_shared<RobotInstruction::PathPlanInstruction>();
+	case Type::GoNamedPose:
+		return std::make_shared<RobotInstruction::GoNamedPoseInstruction>();
+	case Type::SyncBarrier:
+		return std::make_shared<RobotInstruction::SyncBarrierInstruction>();
+	case Type::AcquireResource:
+		return std::make_shared<RobotInstruction::AcquireResourceInstruction>();
+	case Type::ReleaseResource:
+		return std::make_shared<RobotInstruction::ReleaseResourceInstruction>();
 	default:
 		return std::make_shared<RobotInstruction::PtpInstruction>();
 	}
@@ -102,6 +110,14 @@ const char* objectTypeIdFor(const Type type)
 		return "robot_instruction.device_axis";
 	case Type::PathPlan:
 		return "robot_instruction.path_plan";
+	case Type::GoNamedPose:
+		return "robot_instruction.go_named_pose";
+	case Type::SyncBarrier:
+		return "robot_instruction.sync_barrier";
+	case Type::AcquireResource:
+		return "robot_instruction.acquire_resource";
+	case Type::ReleaseResource:
+		return "robot_instruction.release_resource";
 	case Type::PTP:
 	default:
 		return "robot_instruction.ptp";

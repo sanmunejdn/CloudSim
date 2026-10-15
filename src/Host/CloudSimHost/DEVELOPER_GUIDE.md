@@ -299,19 +299,22 @@ Open Model / Registry `StepGeometryImporter`：`BrepBackendData::loadStepHierarc
 |-----|------|
 | `registerAdoptedBrepAndLoadScene(..., loadScene)` | 注册 `BrepModel`；`loadScene=false` 时仅 Data/逻辑树，不建 OSG |
 | `importBrepHierarchyParts` | **空壳父（无 Shape）** + 各顶层子 Shape 独立 `BrepModel` 上屏；父勿挂整装配，否则选中根会再上屏整件导致子勾选隐藏无效 |
-| `warmBrepHierarchyPartsDisplayFromAssembly` | 装配一次 mesh，再 `sliceBrepImportArtifactsForShape` 写入各子件缓存 |
+| `warmBrepHierarchyPartsDisplayFromAssembly(..., brepDisplayLod)` | 装配一次 mesh（按 lod），再 `sliceBrepImportArtifactsForShape` 写入各子件缓存 |
+| `rebuildBrepDisplayLod(host, backendId, lod)` | 写 `BrepBackendData::displayLod`、清 artifacts 缓存、按档重剖 Phase1、Geometry 刷新 |
 | `extractBrepSolidByFace(host, brepId, faceIndex, outPartId)` | 点面所属 Solid 抽成子件；仅一块时返回原 id |
 | `resolveAssemblyMatePick` / `applyAssemblyMate`（`AssemblyMateApply.h`） | 配合拾取：整件 `faceIndex`；确认时左乘动件 `worldMatrix`（同 ICP） |
 | `loadStepHierarchyFromFile(..., outAssembly?)` | Data：一层子装配 → `BrepHierarchyPart[]` |
 
-**显示网格（Phase1）**：Worker `getOrBuildBrepImportArtifacts`（相对 **0.001**、角 **3°**；>200 万三角自动放宽到 0.002/8°；多 Solid 并行；单实体 OCC `InParallel`；不常驻 displayNormals；磁盘缓存 v2）。日志含 `cache_hit=` / `tri=`。
+**显示 LOD（`ImportOptionsDto.brepDisplayLod` / 属性 `displayLod`）**：Coarse / Medium（默认）/ Fine；仅影响显示 soup，Shape 真源不变。Open Model 对 step/stp/brep 弹 Display quality；导入后属性面板改档 → `rebuildBrepDisplayLod`。
+
+**显示网格（Phase1）**：Worker `getOrBuildBrepImportArtifacts(..., lod)`（Medium=0.001/3°；>200 万三角且非 Coarse 放宽到 0.002/8°；多 Solid 并行；不常驻 displayNormals；磁盘缓存 v2，键含 TessellateParams）。日志含 `cache_hit=` / `tri=`。
 
 **异步导入（`ModelBackgroundLoadState` + Widget `JobSystem`）**
 
 | 阶段 | 线程 | 行为 |
 |------|------|------|
-| `executeLoad` | Worker | 读 STEP；`parts.size()>1` → `BrepHierarchy`：**装配 Phase1 一次 + 切片到子件缓存**；否则 `SimpleBrep` |
-| `finishIntoDocument` | UI | `importBrepHierarchyParts`（空壳父无 Shape，子件各自上屏）或整件注册；**不**投递 `BREP pick warm` |
+| `executeLoad` | Worker | 读 STEP；`parts.size()>1` → `BrepHierarchy`：**装配 Phase1 一次 + 切片到子件缓存**（透传 `brepDisplayLod`）；否则 `SimpleBrep` |
+| `finishIntoDocument` | UI | `importBrepHierarchyParts`（空壳父无 Shape，子件 `setDisplayLod`）或整件注册；**不**投递 `BREP pick warm` |
 | Phase2 边折线 | 首次边拾取 / 线框 | `ensureBrepImportPickArtifacts` |
 
 `warmPickArtifacts` API 仍在，Open Model 回调不再 enqueue。无 `JobSystem` 时同步 `importFileIntoDocument` / `importMeshFileExtended`。

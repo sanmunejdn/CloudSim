@@ -332,16 +332,20 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	auto* rowRun = new QHBoxLayout;
 	rowRun->setSpacing(4);
 	m_runBtn = new QPushButton(QStringLiteral("Run"));
+	m_runAllBtn = new QPushButton(QStringLiteral("Run All"));
 	m_stopBtn = new QPushButton(QStringLiteral("Stop"));
 	m_exportBtn = new QPushButton(QStringLiteral("Export"));
 	m_stopBtn->setEnabled(false);
 	configureCompactButton(m_runBtn);
+	configureCompactButton(m_runAllBtn);
 	configureCompactButton(m_stopBtn);
 	configureCompactButton(m_exportBtn);
 	applyBtnRole(m_runBtn, "primary");
+	applyBtnRole(m_runAllBtn, "secondary");
 	applyBtnRole(m_stopBtn, "danger");
 	applyBtnRole(m_exportBtn, "secondary");
 	rowRun->addWidget(m_runBtn);
+	rowRun->addWidget(m_runAllBtn);
 	rowRun->addWidget(m_stopBtn);
 	rowRun->addStretch(1);
 	rowRun->addWidget(m_exportBtn);
@@ -581,6 +585,7 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	connect(m_tree, &InstructionProgramTreeWidget::renameGroupRequested, this,
 			&SimulationCommandWidget::onRenameGroupRequested);
 	connect(m_runBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runRequested);
+	connect(m_runAllBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runAllRequested);
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
 	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
 	connect(m_playbackRateCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
@@ -738,6 +743,10 @@ void SimulationCommandWidget::updateRunStopButtons()
 	const bool hasProg = m_programStore && !m_programStore->activeProgram().empty();
 	const bool canRun = m_hasRobotContext && hasProg;
 	m_runBtn->setEnabled(!m_simulationRunning && canRun);
+	if (m_runAllBtn)
+	{
+		m_runAllBtn->setEnabled(!m_simulationRunning && m_hasRobotContext);
+	}
 	m_stopBtn->setEnabled(m_simulationRunning);
 }
 
@@ -840,6 +849,10 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	m_removeBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
 	m_clearBtn->setText(chinese ? QStringLiteral("清空") : QStringLiteral("Clear"));
 	m_runBtn->setText(chinese ? QStringLiteral("运行") : QStringLiteral("Run"));
+	if (m_runAllBtn)
+	{
+		m_runAllBtn->setText(chinese ? QStringLiteral("全部运行") : QStringLiteral("Run All"));
+	}
 	m_stopBtn->setText(chinese ? QStringLiteral("停止") : QStringLiteral("Stop"));
 	if (m_playbackRateLabel)
 	{

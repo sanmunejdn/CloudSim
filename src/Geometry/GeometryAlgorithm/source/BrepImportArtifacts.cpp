@@ -18,6 +18,7 @@
 #include "ViewTessellate.h"
 #include "detail/OccIncludes.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <fstream>
@@ -35,6 +36,7 @@ namespace
 struct CacheEntry
 {
 	ShapeHandle shapeKey;
+	BrepDisplayLod lod = BrepDisplayLod::Medium;
 	std::shared_ptr<BrepImportArtifacts> artifacts;
 };
 
@@ -75,7 +77,8 @@ std::string defaultDiskCacheDirUtf8()
 	{
 		w.pop_back();
 	}
-	w += L"\\CloudSim\\brep_display_v1";
+	// v2：作废 Fine 超限后把粗网格写入 Fine 键的旧缓存
+	w += L"\\CloudSim\\brep_display_v2";
 	const int bytes = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
 	if (bytes <= 1)
 	{
@@ -85,7 +88,7 @@ std::string defaultDiskCacheDirUtf8()
 	WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, utf8.data(), bytes, nullptr, nullptr);
 	return utf8;
 #else
-	return "/tmp/CloudSim/brep_display_v1";
+	return "/tmp/CloudSim/brep_display_v2";
 #endif
 }
 
@@ -143,25 +146,6 @@ bool ensureDirUtf8(const std::string& pathUtf8)
 #else
 	return true;
 #endif
-}
-
-TessellateParams phase1DisplayParams()
-{
-	// 屏幕光滑即可：0.5° 绝对角偏差会在自由曲面上产生千万级三角、数 GB 内存
-	TessellateParams disc;
-	disc.linearDeflectionRelative = true;
-	disc.linearDeflectionMm = 0.001;
-	disc.angularDeflectionDeg = 3.0;
-	return disc;
-}
-
-TessellateParams phase1DisplayParamsCoarse()
-{
-	TessellateParams disc;
-	disc.linearDeflectionRelative = true;
-	disc.linearDeflectionMm = 0.002;
-	disc.angularDeflectionDeg = 8.0;
-	return disc;
 }
 
 std::string makeDisplayCacheKey(const ShapeHandle& shape, const TessellateParams& params)
@@ -371,6 +355,43 @@ int countFaces(const ShapeHandle& shape)
 
 } // namespace
 
+BrepDisplayLod clampBrepDisplayLod(int lod)
+{
+	if (lod <= 0)
+	{
+		return BrepDisplayLod::Coarse;
+	}
+	if (lod >= 2)
+	{
+		return BrepDisplayLod::Fine;
+	}
+	return BrepDisplayLod::Medium;
+}
+
+TessellateParams tessellateParamsForDisplayLod(BrepDisplayLod lod)
+{
+	TessellateParams disc;
+	// 相对包围盒对角线；三档拉开，避免肉眼难辨
+	disc.linearDeflectionRelative = true;
+	switch (lod)
+	{
+	case BrepDisplayLod::Coarse:
+		disc.linearDeflectionMm = 0.02;
+		disc.angularDeflectionDeg = 20.0;
+		break;
+	case BrepDisplayLod::Fine:
+		disc.linearDeflectionMm = 0.001;
+		disc.angularDeflectionDeg = 2.0;
+		break;
+	case BrepDisplayLod::Medium:
+	default:
+		disc.linearDeflectionMm = 0.005;
+		disc.angularDeflectionDeg = 8.0;
+		break;
+	}
+	return disc;
+}
+
 bool extractFaceSoup(const BrepImportArtifacts& artifacts, int faceIndex, std::vector<float>& outSoup)
 {
 	outSoup.clear();
@@ -410,24 +431,27 @@ bool extractFaceSoup(const BrepImportArtifacts& artifacts, int faceIndex, std::v
 }
 
 bool buildBrepImportArtifactsDisplay(const ShapeHandle& shape, BrepImportArtifacts& out,
-									 BrepImportBuildTimings* timings, std::string* errMsg)
+									 BrepImportBuildTimings* timings, std::string* errMsg, BrepDisplayLod lod)
 {
+	lod = clampBrepDisplayLod(static_cast<int>(lod));
 	out.displaySoup.clear();
 	out.displayNormals.clear();
 	out.triangleFaceIndex.clear();
 	out.faceSoups.clear();
 	out.faceCount = 0;
+	out.displayLod = lod;
 	out.pickReady.store(false, std::memory_order_release);
 	out.pickShapeKey = shape;
 	const auto t0 = std::chrono::steady_clock::now();
-	const TessellateParams disc = phase1DisplayParams();
+	const TessellateParams requested = tessellateParamsForDisplayLod(lod);
 
 	const std::string cacheDir = resolvedDiskCacheDir();
-	const std::string cacheKey = cacheDir.empty() ? std::string() : makeDisplayCacheKey(shape, disc);
+	const std::string cacheKey = cacheDir.empty() ? std::string() : makeDisplayCacheKey(shape, requested);
 	const std::string cachePath = cacheFilePath(cacheDir, cacheKey);
 	if (!cachePath.empty() && readDisplayCacheFile(cachePath, out))
 	{
 		out.pickShapeKey = shape;
+		out.displayLod = lod;
 		out.pickReady.store(false, std::memory_order_release);
 		if (out.faceCount <= 0)
 		{
@@ -448,23 +472,14 @@ bool buildBrepImportArtifactsDisplay(const ShapeHandle& shape, BrepImportArtifac
 		out.triangleFaceIndex.clear();
 		return discretizeShapeToSoupPerFace(shape, p, out.displaySoup, out.triangleFaceIndex, nullptr, errMsg);
 	};
-	if (!meshOnce(disc))
+	// Fine→Medium→Coarse 逐级放宽；禁止 Fine 一次跳到 Coarse（会污染 Fine 磁盘缓存）
+	BrepDisplayLod usedLod = lod;
+	TessellateParams used = requested;
+	std::size_t triCount = 0U;
+	for (;;)
 	{
-		return false;
-	}
-	std::size_t triCount = out.displaySoup.size() / 9U;
-	if (triCount != out.triangleFaceIndex.size())
-	{
-		if (errMsg)
-		{
-			*errMsg = "triangle face index size mismatch";
-		}
-		return false;
-	}
-	if (triCount > kMaxDisplayTriangles)
-	{
-		const TessellateParams coarse = phase1DisplayParamsCoarse();
-		if (!meshOnce(coarse))
+		used = tessellateParamsForDisplayLod(usedLod);
+		if (!meshOnce(used))
 		{
 			return false;
 		}
@@ -477,13 +492,32 @@ bool buildBrepImportArtifactsDisplay(const ShapeHandle& shape, BrepImportArtifac
 			}
 			return false;
 		}
+		if (triCount <= kMaxDisplayTriangles || usedLod == BrepDisplayLod::Coarse)
+		{
+			break;
+		}
+		usedLod = (usedLod == BrepDisplayLod::Fine) ? BrepDisplayLod::Medium : BrepDisplayLod::Coarse;
 	}
 	out.faceCount = countFaces(shape);
+	out.displayLod = lod;
 	out.displayNormals.clear();
 	out.displayNormals.shrink_to_fit();
-	if (!cachePath.empty() && ensureDirUtf8(cacheDir))
+	if (!cacheDir.empty() && ensureDirUtf8(cacheDir))
 	{
-		(void)writeDisplayCacheFile(cachePath, out);
+		auto writeForParams = [&](const TessellateParams& p) {
+			const std::string key = makeDisplayCacheKey(shape, p);
+			const std::string path = cacheFilePath(cacheDir, key);
+			if (!path.empty())
+			{
+				(void)writeDisplayCacheFile(path, out);
+			}
+		};
+		writeForParams(used);
+		// 请求档超限时也写入请求键（内容为降档网格），避免每次重剖；v2 起不再 Fine→Coarse 直跳
+		if (usedLod != lod)
+		{
+			writeForParams(requested);
+		}
 	}
 	if (timings)
 	{
@@ -542,10 +576,11 @@ bool ensureBrepImportPickArtifacts(const ShapeHandle& shape, BrepImportArtifacts
 	return ok;
 }
 
-bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out, std::string* errMsg)
+bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out, std::string* errMsg,
+							  BrepDisplayLod lod)
 {
 	BrepImportBuildTimings timings;
-	if (!buildBrepImportArtifactsDisplay(shape, out, &timings, errMsg))
+	if (!buildBrepImportArtifactsDisplay(shape, out, &timings, errMsg, lod))
 	{
 		return false;
 	}
@@ -553,8 +588,9 @@ bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out
 }
 
 std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(const ShapeHandle& shape, std::string* errMsg,
-																   BrepImportBuildTimings* timings)
+																   BrepImportBuildTimings* timings, BrepDisplayLod lod)
 {
+	lod = clampBrepDisplayLod(static_cast<int>(lod));
 	if (shape.isNull())
 	{
 		if (errMsg)
@@ -567,7 +603,7 @@ std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(const ShapeHa
 		std::lock_guard<std::mutex> lock(g_cacheMutex);
 		for (const CacheEntry& entry : g_cacheEntries)
 		{
-			if (entry.artifacts && shape.isSame(entry.shapeKey))
+			if (entry.artifacts && entry.lod == lod && shape.isSame(entry.shapeKey))
 			{
 				if (timings)
 				{
@@ -580,10 +616,9 @@ std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(const ShapeHa
 		}
 	}
 	// 有意在锁外做昂贵的 Phase1 构建：网格化耗时可达数秒，持锁会阻塞全部缓存查询。
-	// 代价是两线程并发首导同一 shape 会重复构建、败者在下方锁内复查时丢弃——结果正确，仅费工
 	auto artifacts = std::make_shared<BrepImportArtifacts>();
 	BrepImportBuildTimings localTimings;
-	if (!buildBrepImportArtifactsDisplay(shape, *artifacts, timings ? timings : &localTimings, errMsg))
+	if (!buildBrepImportArtifactsDisplay(shape, *artifacts, timings ? timings : &localTimings, errMsg, lod))
 	{
 		return {};
 	}
@@ -591,13 +626,14 @@ std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(const ShapeHa
 		std::lock_guard<std::mutex> lock(g_cacheMutex);
 		for (const CacheEntry& entry : g_cacheEntries)
 		{
-			if (entry.artifacts && shape.isSame(entry.shapeKey))
+			if (entry.artifacts && entry.lod == lod && shape.isSame(entry.shapeKey))
 			{
 				return entry.artifacts;
 			}
 		}
 		CacheEntry entry;
 		entry.shapeKey = shape;
+		entry.lod = lod;
 		entry.artifacts = artifacts;
 		if (g_cacheEntries.size() >= kMaxBrepArtifactsCacheEntries)
 		{
@@ -608,16 +644,19 @@ std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(const ShapeHa
 	return artifacts;
 }
 
-void putBrepImportArtifacts(const ShapeHandle& shape, std::shared_ptr<BrepImportArtifacts> artifacts)
+void putBrepImportArtifacts(const ShapeHandle& shape, std::shared_ptr<BrepImportArtifacts> artifacts,
+							BrepDisplayLod lod)
 {
+	lod = clampBrepDisplayLod(static_cast<int>(lod));
 	if (shape.isNull() || !artifacts || !artifacts->hasDisplayData())
 	{
 		return;
 	}
+	artifacts->displayLod = lod;
 	std::lock_guard<std::mutex> lock(g_cacheMutex);
 	for (CacheEntry& entry : g_cacheEntries)
 	{
-		if (entry.artifacts && shape.isSame(entry.shapeKey))
+		if (entry.artifacts && entry.lod == lod && shape.isSame(entry.shapeKey))
 		{
 			entry.artifacts = std::move(artifacts);
 			return;
@@ -625,12 +664,25 @@ void putBrepImportArtifacts(const ShapeHandle& shape, std::shared_ptr<BrepImport
 	}
 	CacheEntry entry;
 	entry.shapeKey = shape;
+	entry.lod = lod;
 	entry.artifacts = std::move(artifacts);
 	if (g_cacheEntries.size() >= kMaxBrepArtifactsCacheEntries)
 	{
 		g_cacheEntries.erase(g_cacheEntries.begin());
 	}
 	g_cacheEntries.push_back(std::move(entry));
+}
+
+void removeBrepImportArtifactsCacheForShape(const ShapeHandle& shape)
+{
+	if (shape.isNull())
+	{
+		return;
+	}
+	std::lock_guard<std::mutex> lock(g_cacheMutex);
+	g_cacheEntries.erase(std::remove_if(g_cacheEntries.begin(), g_cacheEntries.end(),
+										[&](const CacheEntry& e) { return e.artifacts && shape.isSame(e.shapeKey); }),
+						 g_cacheEntries.end());
 }
 
 std::shared_ptr<BrepImportArtifacts> sliceBrepImportArtifactsForShape(const ShapeHandle& sourceShape,
@@ -743,6 +795,7 @@ std::shared_ptr<BrepImportArtifacts> sliceBrepImportArtifactsForShape(const Shap
 		}
 	}
 	out->faceCount = dstIdx;
+	out->displayLod = source.displayLod;
 	out->displayNormals.clear();
 	if (dstIdx <= 0 || !out->hasDisplayData())
 	{
@@ -808,7 +861,8 @@ void clearBrepImportDisplayDiskCache()
 }
 
 bool extractDisplaySoupPointCloud(const ShapeHandle& shape, std::vector<float>& outXyz, std::vector<float>& outNormals,
-								  const std::size_t maxPoints, std::size_t* outTriangleCount, std::string* errMsg)
+								  const std::size_t maxPoints, std::size_t* outTriangleCount, std::string* errMsg,
+								  BrepDisplayLod lod)
 {
 	outXyz.clear();
 	outNormals.clear();
@@ -833,7 +887,7 @@ bool extractDisplaySoupPointCloud(const ShapeHandle& shape, std::vector<float>& 
 		return false;
 	}
 
-	const std::shared_ptr<BrepImportArtifacts> artifacts = getOrBuildBrepImportArtifacts(shape, errMsg);
+	const std::shared_ptr<BrepImportArtifacts> artifacts = getOrBuildBrepImportArtifacts(shape, errMsg, nullptr, lod);
 	if (!artifacts || !artifacts->hasDisplayData())
 	{
 		if (errMsg && errMsg->empty())

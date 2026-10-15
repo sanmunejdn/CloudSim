@@ -55,6 +55,14 @@ enum class MeshQualityPreset
 	Custom
 };
 
+/** B-rep 显示三角化 LOD（仅影响 display soup，不改 Shape 真源） */
+enum class BrepDisplayLod
+{
+	Coarse = 0,
+	Medium = 1,
+	Fine = 2
+};
+
 /** 与 quality 预设互斥的密度控制模式 */
 enum class MeshDensityControl
 {

@@ -1,5 +1,5 @@
 ﻿/// @file DevicePoseMotionPlayer.cpp
-/// @brief 设备姿态运动播放
+/// @brief 设备姿态运动播放（无独立定时器）
 
 #include "DevicePoseMotionPlayer.h"
 
@@ -8,14 +8,8 @@
 #include "IRobotDocumentHost.h"
 #include "IRobotMainWindowHost.h"
 
-#include <QTimer>
 #include <algorithm>
 #include <cmath>
-
-namespace
-{
-constexpr int kTickMs = 16;
-}
 
 DevicePoseMotionPlayer::DevicePoseMotionPlayer(QObject* parent) : QObject(parent) {}
 
@@ -70,16 +64,6 @@ bool DevicePoseMotionPlayer::applyQNow(const QString& deviceId, const std::vecto
 	return true;
 }
 
-void DevicePoseMotionPlayer::ensureTimer()
-{
-	if (!m_timer)
-	{
-		m_timer = new QTimer(this);
-		m_timer->setInterval(kTickMs);
-		connect(m_timer, &QTimer::timeout, this, &DevicePoseMotionPlayer::onTick);
-	}
-}
-
 bool DevicePoseMotionPlayer::start(const QString& deviceId, const QString& poseName, const std::vector<double>& targetQ,
 								   const double durationSec)
 {
@@ -114,10 +98,6 @@ bool DevicePoseMotionPlayer::start(const QString& deviceId, const QString& poseN
 	{
 		m_active.remove(deviceId);
 		const bool ok = applyQNow(deviceId, q1);
-		if (m_active.isEmpty() && m_timer)
-		{
-			m_timer->stop();
-		}
 		emit statusChanged();
 		if (ok)
 		{
@@ -134,11 +114,6 @@ bool DevicePoseMotionPlayer::start(const QString& deviceId, const QString& poseN
 	motion.durationSec = durationSec;
 	motion.elapsedSec = 0.0;
 	m_active.insert(deviceId, motion);
-	ensureTimer();
-	if (!m_timer->isActive())
-	{
-		m_timer->start();
-	}
 	emit statusChanged();
 	return true;
 }
@@ -148,10 +123,6 @@ void DevicePoseMotionPlayer::stopDevice(const QString& deviceId)
 	if (!m_active.remove(deviceId))
 	{
 		return;
-	}
-	if (m_active.isEmpty() && m_timer)
-	{
-		m_timer->stop();
 	}
 	emit statusChanged();
 }
@@ -163,24 +134,16 @@ void DevicePoseMotionPlayer::stopAll()
 		return;
 	}
 	m_active.clear();
-	if (m_timer)
-	{
-		m_timer->stop();
-	}
 	emit statusChanged();
 }
 
-void DevicePoseMotionPlayer::onTick()
+void DevicePoseMotionPlayer::tick(const double dtSec)
 {
 	if (m_active.isEmpty())
 	{
-		if (m_timer)
-		{
-			m_timer->stop();
-		}
 		return;
 	}
-	const double dt = static_cast<double>(kTickMs) / 1000.0;
+	const double dt = std::max(0.0, dtSec);
 	QStringList finished;
 	for (auto it = m_active.begin(); it != m_active.end(); ++it)
 	{
@@ -202,10 +165,6 @@ void DevicePoseMotionPlayer::onTick()
 	{
 		m_active.remove(id);
 		emit motionFinished(id);
-	}
-	if (m_active.isEmpty() && m_timer)
-	{
-		m_timer->stop();
 	}
 	emit statusChanged();
 }

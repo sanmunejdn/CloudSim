@@ -344,6 +344,21 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		return m;
 	};
 	IRobotBackendPoseSink* sink = ctx.urdfImportScenePoseSink();
+	// 先读 P：已保存的 mesh world 已含 M0·…·P，若再原样写入 outer 并恢复 P，FK 会再乘一次 P
+	const QJsonArray basePlacementArr = rk.value(QStringLiteral("basePlacementWorld")).toArray();
+	cloudsim::core::Mat4 basePlacement = cloudsim::core::PlanContextDto::identityMat4();
+	bool hasBasePlacement = false;
+	if (basePlacementArr.size() == 16)
+	{
+		for (int i = 0; i < 16; ++i)
+		{
+			basePlacement[static_cast<size_t>(i)] = basePlacementArr.at(i).toDouble((i % 5 == 0) ? 1.0 : 0.0);
+		}
+		hasBasePlacement = true;
+	}
+	const osg::Matrixd basePlacementInv =
+		osg::Matrixd::inverse(RobotSceneKinematics::osgMatrixFromCoreMat4(basePlacement));
+
 	for (auto it = linkMap.constBegin(); it != linkMap.constEnd(); ++it)
 	{
 		const QString& lname = it.key();
@@ -356,13 +371,12 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		const QString& bid = it.value();
 		(void)sink;
 		(void)maxMatAbsDiff;
-		// 从已加载的 backend 读取 worldMatrix（project.json 恢复时已还原），
-		// 而非用 identity；否则 applyJointAnglesViaLinkBackends 的公式
-		// Mnew = M0 * inv(T0) * Tq * P 会使所有 link 坍缩到原点。
+		// mesh world 来自工程对象；有 P 时 outer 需剥掉 P，使 M = M0·inv(T0)·Tq·P 只作用一次
 		const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(backend.getData(bid.toStdString()));
 		if (meshPtr)
 		{
-			outer.insert(bid, RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix()));
+			const osg::Matrixd world = RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix());
+			outer.insert(bid, hasBasePlacement ? (world * basePlacementInv) : world);
 		}
 		else
 		{
@@ -385,15 +399,8 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 	ctx.setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0Mat4, outerMat4, false);
 	reapplyUrdfRobotHierarchyEdges(backend, urdf, sceneRoot, linkMap);
 
-	// 恢复机器人基座放置位姿 P（JSON 列主序 16 元 ≡ core::Mat4）
-	const QJsonArray basePlacementArr = rk.value(QStringLiteral("basePlacementWorld")).toArray();
-	if (basePlacementArr.size() == 16)
+	if (hasBasePlacement)
 	{
-		cloudsim::core::Mat4 basePlacement{};
-		for (int i = 0; i < 16; ++i)
-		{
-			basePlacement[static_cast<size_t>(i)] = basePlacementArr.at(i).toDouble((i % 5 == 0) ? 1.0 : 0.0);
-		}
 		const int instIdx = ctx.robotKinematicInstanceCount() - 1;
 		if (instIdx >= 0)
 		{

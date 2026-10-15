@@ -175,6 +175,8 @@
 
 ## 7. 执行与回放
 
+> **统一内核**：多机器人/自定义设备并行见 [`docs/features/仿真统一内核/`](../../../docs/features/仿真统一内核/)。`SimulationKernel` 拥有 Lane、逻辑时钟、IO **下一拍**、租约 Abort、SyncBarrier、ControlAuthority、CollisionGuard；UI `RobotSimulationController` 仅作门面。
+
 ### 7.1 `RobotInstructionPlaybackEngine`（遗留）
 
 | 方法 | 说明 |

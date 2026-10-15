@@ -1518,30 +1518,24 @@ QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const 
 		return extLower == QLatin1String("obj") || extLower == QLatin1String("stl") ||
 			   extLower == QLatin1String("ply") || extLower == QLatin1String("off");
 	};
-
-	QString qualityProbePath;
-	for (const QString& path : paths)
+	auto isBrepLodExt = [](const QString& extLower)
 	{
-		if (isMeshQualityExt(QFileInfo(path).suffix().toLower()))
-		{
-			qualityProbePath = path;
-			break;
-		}
-	}
-	int quality = m_mw->meshImportQuality();
-	if (!qualityProbePath.isEmpty())
+		return extLower == QLatin1String("step") || extLower == QLatin1String("stp") ||
+			   extLower == QLatin1String("brep");
+	};
+	auto promptQuality = [this](const QString& title, const QString& rowLabel, const int current) -> int
 	{
 		QDialog dialog(m_mw);
-		dialog.setWindowTitle(QStringLiteral("Mesh Import Quality"));
+		dialog.setWindowTitle(title);
 		auto* layout = new QVBoxLayout(&dialog);
 		auto* form = new QFormLayout();
 		auto* qualityCombo = new QComboBox(&dialog);
 		qualityCombo->addItem(QStringLiteral("Coarse"), 0);
 		qualityCombo->addItem(QStringLiteral("Medium"), 1);
 		qualityCombo->addItem(QStringLiteral("Fine"), 2);
-		const int idx = qualityCombo->findData(quality);
+		const int idx = qualityCombo->findData(current);
 		qualityCombo->setCurrentIndex(idx >= 0 ? idx : 1);
-		form->addRow(QStringLiteral("Triangle density:"), qualityCombo);
+		form->addRow(rowLabel, qualityCombo);
 		layout->addLayout(form);
 		auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
 		layout->addWidget(buttons);
@@ -1549,10 +1543,44 @@ QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const 
 		QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 		if (dialog.exec() != QDialog::Accepted)
 		{
+			return -1;
+		}
+		return qualityCombo->currentData().toInt();
+	};
+
+	QString meshProbePath;
+	QString brepProbePath;
+	for (const QString& path : paths)
+	{
+		const QString ext = QFileInfo(path).suffix().toLower();
+		if (meshProbePath.isEmpty() && isMeshQualityExt(ext))
+		{
+			meshProbePath = path;
+		}
+		if (brepProbePath.isEmpty() && isBrepLodExt(ext))
+		{
+			brepProbePath = path;
+		}
+	}
+	int quality = m_mw->meshImportQuality();
+	if (!meshProbePath.isEmpty())
+	{
+		quality = promptQuality(QStringLiteral("Mesh Import Quality"), QStringLiteral("Triangle density:"), quality);
+		if (quality < 0)
+		{
 			return roots;
 		}
-		quality = qualityCombo->currentData().toInt();
 		m_mw->setMeshImportQuality(quality);
+	}
+	int brepLod = m_mw->brepDisplayLod();
+	if (!brepProbePath.isEmpty())
+	{
+		brepLod = promptQuality(QStringLiteral("B-rep Display Quality"), QStringLiteral("Display quality:"), brepLod);
+		if (brepLod < 0)
+		{
+			return roots;
+		}
+		m_mw->setBrepDisplayLod(brepLod);
 	}
 
 	cloudsim::core::ImportOptionsDto opt;
@@ -1560,6 +1588,7 @@ QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const 
 	opt.quietUi = true;
 	opt.catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 	opt.meshImportQuality = quality;
+	opt.brepDisplayLod = brepLod;
 	for (const QString& path : paths)
 	{
 		QString importErr;

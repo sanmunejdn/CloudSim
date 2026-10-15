@@ -8,6 +8,7 @@
 #include "geometry_algorithm_global.h"
 
 #include "ShapeHandle.h"
+#include "Types.h"
 
 #include <atomic>
 #include <cstdint>
@@ -28,6 +29,7 @@ struct GEOMETRY_ALGORITHM_API BrepImportArtifacts
 	std::vector<std::vector<float>> edgePolylines; ///< Phase2 边线框折线
 	std::vector<std::vector<int>> faceEdgeIndices; ///< 每面边界边 global index
 	int faceCount = 0;							   ///< TopExp FACE 数；0 表示未知
+	BrepDisplayLod displayLod = BrepDisplayLod::Medium;
 
 	std::atomic<bool> pickReady{false}; ///< Phase2 是否已构建
 	mutable std::mutex pickBuildMutex;
@@ -44,6 +46,12 @@ struct GEOMETRY_ALGORITHM_API BrepImportBuildTimings
 	bool displayCacheHit = false; ///< Phase1 是否命中磁盘缓存
 };
 
+/** 将 int 钳制为合法 BrepDisplayLod（默认 Medium） */
+GEOMETRY_ALGORITHM_API BrepDisplayLod clampBrepDisplayLod(int lod);
+
+/** 各 LOD 对应的相对弦高 / 角偏差 */
+GEOMETRY_ALGORITHM_API TessellateParams tessellateParamsForDisplayLod(BrepDisplayLod lod);
+
 /**
  * 从 displaySoup + triangleFaceIndex 抽出单面三角（不依赖 faceSoups）
  * @return false：faceIndex 无效或该面无三角
@@ -52,13 +60,13 @@ GEOMETRY_ALGORITHM_API bool extractFaceSoup(const BrepImportArtifacts& artifacts
 											std::vector<float>& outSoup);
 
 /**
- * Phase1：显示离散 + tri→face 映射 + displayNormals（不写 faceSoups）
- * 相对包围盒偏差，避免装配体 0.01mm 绝对网格卡死
+ * Phase1：按 lod 显示离散 + tri→face 映射（不写 faceSoups）
  * @return false：null shape 或 mesh 为空
  */
 GEOMETRY_ALGORITHM_API bool buildBrepImportArtifactsDisplay(const ShapeHandle& shape, BrepImportArtifacts& out,
 															BrepImportBuildTimings* timings = nullptr,
-															std::string* errMsg = nullptr);
+															std::string* errMsg = nullptr,
+															BrepDisplayLod lod = BrepDisplayLod::Medium);
 
 /**
  * Phase2：collectShapeFaceEdgeIndices + 边线框（0.05mm / 1°）
@@ -77,26 +85,31 @@ GEOMETRY_ALGORITHM_API bool ensureBrepImportPickArtifacts(const ShapeHandle& sha
 
 /** Phase1 + Phase2 全量（兼容旧调用） */
 GEOMETRY_ALGORITHM_API bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out,
-													 std::string* errMsg = nullptr);
+													 std::string* errMsg = nullptr,
+													 BrepDisplayLod lod = BrepDisplayLod::Medium);
 
 /**
- * 按 ShapeHandle::isSame() 缓存 Phase1；最多 16 条目 LRU；未命中内存时试磁盘缓存
+ * 按 ShapeHandle::isSame() + lod 缓存 Phase1；最多 16 条目 LRU
  * @return nullptr：构建失败（errMsg 有详情）
  */
 GEOMETRY_ALGORITHM_API std::shared_ptr<BrepImportArtifacts>
 getOrBuildBrepImportArtifacts(const ShapeHandle& shape, std::string* errMsg = nullptr,
-							  BrepImportBuildTimings* timings = nullptr);
+							  BrepImportBuildTimings* timings = nullptr,
+							  BrepDisplayLod lod = BrepDisplayLod::Medium);
 
 /**
- * 把已有 Phase1 写入缓存，供抽件后的 remaining/solid 免重剖
+ * 把已有 Phase1 写入缓存（指定 lod）
  * shape 空或 artifacts 无显示数据时忽略
  */
 GEOMETRY_ALGORITHM_API void putBrepImportArtifacts(const ShapeHandle& shape,
-												   std::shared_ptr<BrepImportArtifacts> artifacts);
+												   std::shared_ptr<BrepImportArtifacts> artifacts,
+												   BrepDisplayLod lod = BrepDisplayLod::Medium);
+
+/** 移除某 shape 在全部 lod 下的内存缓存项（换档重剖前调用） */
+GEOMETRY_ALGORITHM_API void removeBrepImportArtifactsCacheForShape(const ShapeHandle& shape);
 
 /**
  * 按 dest 面序从 source 的 displaySoup+triangleFaceIndex 切片
- * 面用 IsSame / IsPartner；抽件后重剖会 Clean 装配共享三角网，剩余件网格经常空掉
  * @return nullptr：对不上面或切片后无三角
  */
 GEOMETRY_ALGORITHM_API std::shared_ptr<BrepImportArtifacts>
@@ -124,7 +137,8 @@ GEOMETRY_ALGORITHM_API void clearBrepImportDisplayDiskCache();
 GEOMETRY_ALGORITHM_API bool extractDisplaySoupPointCloud(const ShapeHandle& shape, std::vector<float>& outXyz,
 														 std::vector<float>& outNormals, std::size_t maxPoints,
 														 std::size_t* outTriangleCount = nullptr,
-														 std::string* errMsg = nullptr);
+														 std::string* errMsg = nullptr,
+														 BrepDisplayLod lod = BrepDisplayLod::Medium);
 
 } // namespace geoalgo
 

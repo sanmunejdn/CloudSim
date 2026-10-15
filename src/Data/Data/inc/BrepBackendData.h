@@ -50,9 +50,15 @@ public:
 	const std::unordered_map<int, BackendColor>& faceHighlightColors() const;
 	void clearFaceHighlightColors();
 
+	/// 显示三角化 LOD：0=Coarse，1=Medium，2=Fine（不改 Shape 真源）
+	int displayLod() const { return m_displayLod; }
+	void setDisplayLod(int lod);
+
 	bool hasPoseProperty() const override { return true; }
 	bool hasRotationProperty() const override { return true; }
 	bool hasColorProperty() const override { return true; }
+
+	const std::vector<BackendPropertyBinding>& extraPropertyBindings() const override;
 
 	/// STEP 加载见 backend_io；此处转发兼容旧调用方
 	bool loadFromStepFile(const std::string& path, std::string* errMsg = nullptr);
@@ -76,6 +82,7 @@ protected:
 	BackendBoundingBox m_bounds;
 	BackendColor m_color;
 	std::unordered_map<int, BackendColor> m_faceHighlightColors;
+	int m_displayLod = 1; ///< Medium
 };
 
 /// 导入 STEP 与参数化建模工件共用判定

@@ -633,15 +633,19 @@ void mergeRobotKinematicsIntoProjectRoot(DocumentHost& host, QJsonObject& root)
 			rk.insert(QStringLiteral("externalAxes"), eaDoc.object());
 		}
 
-		QJsonArray baseArr;
-		for (int c = 0; c < 4; ++c)
+		// 落盘 P0；pl.robotBasePlacementWorld 为 P_eff
 		{
-			for (int r = 0; r < 4; ++r)
+			const cloudsim::core::Mat4 p0 = hrc->robotBasePlacementWorldForInstance(ri);
+			QJsonArray baseArr;
+			for (int c = 0; c < 4; ++c)
 			{
-				baseArr.append(pl.robotBasePlacementWorld[static_cast<size_t>(c * 4 + r)]);
+				for (int r = 0; r < 4; ++r)
+				{
+					baseArr.append(p0[static_cast<size_t>(c * 4 + r)]);
+				}
 			}
+			rk.insert(QStringLiteral("basePlacementWorld"), baseArr);
 		}
-		rk.insert(QStringLiteral("basePlacementWorld"), baseArr);
 
 		if (ri < instances.size())
 		{

@@ -143,21 +143,29 @@ bool targetRigidTransformFromUrdfFlangeFk(const QString& urdfPath, const QVector
 
 QString defaultTcpLinkNameForUrdf(const QString& urdfPath, const QString& comboTcpLink)
 {
+	// 末转轴子连杆优先于树叶固定法兰：FANUC link_6→flange 含 Rxπ，用 flange 做 IK/残差会 180° 无解
+	QStringList childLinks;
+	(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr);
+	const QString lastRevoluteChild = childLinks.isEmpty() ? QString() : childLinks.back();
+	QString primaryLeaf;
+	(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, primaryLeaf, nullptr);
+	auto preferIkFlange = [&](const QString& link) -> QString {
+		if (!link.isEmpty() && !lastRevoluteChild.isEmpty() && !primaryLeaf.isEmpty() && link == primaryLeaf &&
+			primaryLeaf != lastRevoluteChild)
+		{
+			return lastRevoluteChild;
+		}
+		return link;
+	};
 	if (!comboTcpLink.isEmpty())
 	{
-		return comboTcpLink;
+		return preferIkFlange(comboTcpLink);
 	}
-	QString preferred;
-	if (UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, preferred, nullptr) && !preferred.isEmpty())
+	if (!lastRevoluteChild.isEmpty())
 	{
-		return preferred;
+		return lastRevoluteChild;
 	}
-	QStringList childLinks;
-	if (UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr) && !childLinks.isEmpty())
-	{
-		return childLinks.back();
-	}
-	return QString();
+	return primaryLeaf;
 }
 
 osg::Matrixd osgMatrixFromRobotRigidFrame(const RobotCoordinate::RobotRigidFrame& frame)

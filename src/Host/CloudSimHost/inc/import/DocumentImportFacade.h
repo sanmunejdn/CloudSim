@@ -106,7 +106,7 @@ class CLOUDSIM_HOST_EXPORT ModelBackgroundLoadState
 {
 public:
 	explicit ModelBackgroundLoadState(const QString& filePath, const QString& displayName,
-									  const QString& catalogTypeName, int meshImportQuality);
+									  const QString& catalogTypeName, int meshImportQuality, int brepDisplayLod = 1);
 	~ModelBackgroundLoadState();
 
 	ModelBackgroundLoadState(const ModelBackgroundLoadState&) = delete;

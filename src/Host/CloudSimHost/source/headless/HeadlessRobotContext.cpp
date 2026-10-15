@@ -1248,6 +1248,15 @@ void HeadlessRobotContext::setRobotBasePlacementWorldForInstance(int instanceInd
 	rebuildAggregates();
 }
 
+cloudsim::core::Mat4 HeadlessRobotContext::robotBasePlacementWorldForInstance(int instanceIndex) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_robots.size())
+	{
+		return cloudsim::core::PlanContextDto::identityMat4();
+	}
+	return m_robots[instanceIndex].basePlacementWorld;
+}
+
 bool HeadlessRobotContext::hasRobotSimulationContext() const
 {
 	return !m_robots.isEmpty() || !m_robotUrdfAbsolutePath.isEmpty() || !m_robotLinkNameToBackendId.isEmpty();

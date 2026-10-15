@@ -45,26 +45,25 @@ bool isMeshQualityPromptExtension(const QString& extLower)
 		   extLower == QLatin1String("off");
 }
 
-int promptMeshImportQuality(MainWindow& mw, const QString& filePath)
+bool isBrepDisplayLodPromptExtension(const QString& extLower)
 {
-	const QFileInfo fileInfo(filePath);
-	if (!isMeshQualityPromptExtension(fileInfo.suffix().toLower()))
-	{
-		return mw.meshImportQuality();
-	}
+	return extLower == QLatin1String("step") || extLower == QLatin1String("stp") || extLower == QLatin1String("brep");
+}
 
+int promptDisplayQualityDialog(MainWindow& mw, const QString& title, const QString& rowLabel, const int current)
+{
+	const bool zh = mw.useChinese();
 	QDialog dialog(&mw);
-	dialog.setWindowTitle(QStringLiteral("Mesh Import Quality"));
+	dialog.setWindowTitle(title);
 	auto* layout = new QVBoxLayout(&dialog);
 	auto* form = new QFormLayout();
 	auto* qualityCombo = new QComboBox(&dialog);
-	qualityCombo->addItem(QStringLiteral("Coarse"), 0);
-	qualityCombo->addItem(QStringLiteral("Medium"), 1);
-	qualityCombo->addItem(QStringLiteral("Fine"), 2);
-	const int current = mw.meshImportQuality();
+	qualityCombo->addItem(zh ? QStringLiteral("粗糙") : QStringLiteral("Coarse"), 0);
+	qualityCombo->addItem(zh ? QStringLiteral("中等") : QStringLiteral("Medium"), 1);
+	qualityCombo->addItem(zh ? QStringLiteral("精细") : QStringLiteral("Fine"), 2);
 	const int idx = qualityCombo->findData(current);
 	qualityCombo->setCurrentIndex(idx >= 0 ? idx : 1);
-	form->addRow(QStringLiteral("Triangle density:"), qualityCombo);
+	form->addRow(rowLabel, qualityCombo);
 	layout->addLayout(form);
 	auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
 	layout->addWidget(buttons);
@@ -74,9 +73,45 @@ int promptMeshImportQuality(MainWindow& mw, const QString& filePath)
 	{
 		return -1;
 	}
-	const int quality = qualityCombo->currentData().toInt();
+	return qualityCombo->currentData().toInt();
+}
+
+int promptMeshImportQuality(MainWindow& mw, const QString& filePath)
+{
+	const QFileInfo fileInfo(filePath);
+	if (!isMeshQualityPromptExtension(fileInfo.suffix().toLower()))
+	{
+		return mw.meshImportQuality();
+	}
+	const bool zh = mw.useChinese();
+	const int quality = promptDisplayQualityDialog(
+		mw, zh ? QStringLiteral("网格导入质量") : QStringLiteral("Mesh Import Quality"),
+		zh ? QStringLiteral("三角密度:") : QStringLiteral("Triangle density:"), mw.meshImportQuality());
+	if (quality < 0)
+	{
+		return -1;
+	}
 	mw.setMeshImportQuality(quality);
 	return quality;
+}
+
+int promptBrepDisplayLod(MainWindow& mw, const QString& filePath)
+{
+	const QFileInfo fileInfo(filePath);
+	if (!isBrepDisplayLodPromptExtension(fileInfo.suffix().toLower()))
+	{
+		return mw.brepDisplayLod();
+	}
+	const bool zh = mw.useChinese();
+	const int lod = promptDisplayQualityDialog(
+		mw, zh ? QStringLiteral("B-rep 显示质量") : QStringLiteral("B-rep Display Quality"),
+		zh ? QStringLiteral("显示质量:") : QStringLiteral("Display quality:"), mw.brepDisplayLod());
+	if (lod < 0)
+	{
+		return -1;
+	}
+	mw.setBrepDisplayLod(lod);
+	return lod;
 }
 
 } // namespace
@@ -113,19 +148,30 @@ void MainWindow::onOpenModel()
 		return;
 	}
 
-	QString qualityProbePath;
+	QString meshQualityProbePath;
+	QString brepLodProbePath;
 	for (const QString& path : filePaths)
 	{
-		if (isMeshQualityPromptExtension(QFileInfo(path).suffix().toLower()))
+		const QString ext = QFileInfo(path).suffix().toLower();
+		if (meshQualityProbePath.isEmpty() && isMeshQualityPromptExtension(ext))
 		{
-			qualityProbePath = path;
-			break;
+			meshQualityProbePath = path;
+		}
+		if (brepLodProbePath.isEmpty() && isBrepDisplayLodPromptExtension(ext))
+		{
+			brepLodProbePath = path;
 		}
 	}
-	if (!qualityProbePath.isEmpty())
+	if (!meshQualityProbePath.isEmpty())
 	{
-		const int quality = promptMeshImportQuality(*this, qualityProbePath);
-		if (quality < 0)
+		if (promptMeshImportQuality(*this, meshQualityProbePath) < 0)
+		{
+			return;
+		}
+	}
+	if (!brepLodProbePath.isEmpty())
+	{
+		if (promptBrepDisplayLod(*this, brepLodProbePath) < 0)
 		{
 			return;
 		}

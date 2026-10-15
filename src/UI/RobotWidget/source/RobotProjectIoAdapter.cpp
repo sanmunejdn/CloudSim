@@ -64,14 +64,15 @@ void writeRobotKinematics(QJsonObject& root, IRobotDocumentHost* doc, const QVec
 			{
 				rk.insert(QStringLiteral("externalAxes"), eaDoc.object());
 			}
-			// 保存机器人基座放置位姿 P（列主序 16 元素）
+			// 落盘 P0（未外轴烘焙）；slice.robotBasePlacementWorld 是 P_eff，重开再 compose 会双乘
 			{
+				const cloudsim::core::Mat4 p0 = doc->robotBasePlacementWorldForInstance(ri);
 				QJsonArray baseArr;
 				for (int c = 0; c < 4; ++c)
 				{
 					for (int r = 0; r < 4; ++r)
 					{
-						baseArr.append(pl.robotBasePlacementWorld[static_cast<size_t>(c * 4 + r)]);
+						baseArr.append(p0[static_cast<size_t>(c * 4 + r)]);
 					}
 				}
 				rk.insert(QStringLiteral("basePlacementWorld"), baseArr);

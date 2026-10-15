@@ -35,6 +35,10 @@ ROBOT_SCENE_API bool applyJointAnglesForInstance(IRobotSimulationDocument* doc, 
 												 int instanceIndex, const QVector<double>& localAnglesRad,
 												 QVector<double>& aggregatedAnglesRad);
 
+/// 仅 FK 指定实例；多机回放时避免用各自聚合向量互盖其它机
+ROBOT_SCENE_API bool applyLocalJointAnglesOnly(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg,
+											   int instanceIndex, const QVector<double>& localAnglesRad);
+
 /// per-link URDF：FK → setBackendRootWorldMatrix + MeshBackendData pose；按后端父序写子连杆
 ROBOT_SCENE_API bool applyJointAnglesViaLinkBackends(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg,
 													 BackendDataManager& mgr, const QVector<double>& anglesRad,

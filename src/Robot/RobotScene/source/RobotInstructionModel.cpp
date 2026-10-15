@@ -61,6 +61,14 @@ std::string typeToString(const Type t)
 		return "path_plan";
 	case Type::DeviceAxis:
 		return "device_axis";
+	case Type::GoNamedPose:
+		return "go_named_pose";
+	case Type::SyncBarrier:
+		return "sync_barrier";
+	case Type::AcquireResource:
+		return "acquire_resource";
+	case Type::ReleaseResource:
+		return "release_resource";
 	default:
 		return "unknown";
 	}
@@ -116,6 +124,26 @@ bool typeFromString(const std::string& s, Type& out)
 	if (s == "device_axis" || s == "DeviceAxis" || s == "DEVICE_AXIS")
 	{
 		out = Type::DeviceAxis;
+		return true;
+	}
+	if (s == "go_named_pose" || s == "GoNamedPose" || s == "GO_NAMED_POSE")
+	{
+		out = Type::GoNamedPose;
+		return true;
+	}
+	if (s == "sync_barrier" || s == "SyncBarrier" || s == "SYNC_BARRIER")
+	{
+		out = Type::SyncBarrier;
+		return true;
+	}
+	if (s == "acquire_resource" || s == "AcquireResource" || s == "ACQUIRE_RESOURCE")
+	{
+		out = Type::AcquireResource;
+		return true;
+	}
+	if (s == "release_resource" || s == "ReleaseResource" || s == "RELEASE_RESOURCE")
+	{
+		out = Type::ReleaseResource;
 		return true;
 	}
 	return false;
@@ -277,6 +305,50 @@ DeviceAxisInstruction::DeviceAxisInstruction()
 {
 	setType(Type::DeviceAxis);
 	setName("Device Axis");
+}
+
+GoNamedPoseInstruction::GoNamedPoseInstruction()
+{
+	setType(Type::GoNamedPose);
+	setName("Go Named Pose");
+}
+
+SyncBarrierInstruction::SyncBarrierInstruction()
+{
+	setType(Type::SyncBarrier);
+	setName("Sync Barrier");
+}
+
+AcquireResourceInstruction::AcquireResourceInstruction()
+{
+	setType(Type::AcquireResource);
+	setName("Acquire Resource");
+}
+
+ReleaseResourceInstruction::ReleaseResourceInstruction()
+{
+	setType(Type::ReleaseResource);
+	setName("Release Resource");
+}
+
+GoNamedPoseInstruction* asGoNamedPose(Base& ins)
+{
+	return ins.type() == Type::GoNamedPose ? dynamic_cast<GoNamedPoseInstruction*>(&ins) : nullptr;
+}
+
+const GoNamedPoseInstruction* asGoNamedPose(const Base& ins)
+{
+	return ins.type() == Type::GoNamedPose ? dynamic_cast<const GoNamedPoseInstruction*>(&ins) : nullptr;
+}
+
+SyncBarrierInstruction* asSyncBarrier(Base& ins)
+{
+	return ins.type() == Type::SyncBarrier ? dynamic_cast<SyncBarrierInstruction*>(&ins) : nullptr;
+}
+
+const SyncBarrierInstruction* asSyncBarrier(const Base& ins)
+{
+	return ins.type() == Type::SyncBarrier ? dynamic_cast<const SyncBarrierInstruction*>(&ins) : nullptr;
 }
 
 } // namespace RobotInstruction

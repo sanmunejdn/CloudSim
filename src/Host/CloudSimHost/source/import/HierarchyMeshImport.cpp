@@ -102,7 +102,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 									 const std::vector<BrepHierarchyPart>& parts,
 									 const HierarchyFollowBindingFn& onParentFollow,
 									 const geoalgo::ShapeHandle& assemblyShape, HierarchyMeshImportResult& out,
-									 QString* outError)
+									 QString* outError, const int brepDisplayLod)
 {
 	if (parts.empty())
 	{
@@ -111,6 +111,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 	auto importParent = std::make_shared<BrepBackendData>();
 	const QString parentLabel = importParentDisplayName.isEmpty() ? defaultBaseName : importParentDisplayName;
 	importParent->setName(parentLabel.toStdString());
+	importParent->setDisplayLod(brepDisplayLod);
 	// 空壳父：勿挂整装配 Shape，否则选中根节点会 ensureSelectionVisual 把整件再上屏，子件勾选隐藏无效
 	(void)assemblyShape;
 	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath,
@@ -130,6 +131,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 		}
 		auto partBrep = std::make_shared<BrepBackendData>();
 		partBrep->setShape(p.shapeRef);
+		partBrep->setDisplayLod(brepDisplayLod);
 		const QString displayName = p.displayName.empty() ? defaultBaseName : QString::fromStdString(p.displayName);
 		partBrep->setName(displayName.toStdString());
 		const QString partPath = QString::fromStdString(p.partPath);
@@ -169,8 +171,10 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 
 bool warmBrepHierarchyPartsDisplayFromAssembly(
 	const geoalgo::ShapeHandle& assembly, const std::vector<BrepHierarchyPart>& parts,
-	const std::function<void(double progress01, const QString& status)>& progress, QString* outError)
+	const std::function<void(double progress01, const QString& status)>& progress, QString* outError,
+	const int brepDisplayLod)
 {
+	const geoalgo::BrepDisplayLod lod = geoalgo::clampBrepDisplayLod(brepDisplayLod);
 	auto report = [&](const double p, const QString& status)
 	{
 		if (progress)
@@ -192,7 +196,7 @@ bool warmBrepHierarchyPartsDisplayFromAssembly(
 		}
 		geoalgo::BrepImportBuildTimings timings;
 		std::string artifactErr;
-		const auto artifacts = geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr, &timings);
+		const auto artifacts = geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr, &timings, lod);
 		if (!artifacts)
 		{
 			if (outError)
@@ -227,7 +231,7 @@ bool warmBrepHierarchyPartsDisplayFromAssembly(
 	report(0.4, QStringLiteral("Meshing B-rep assembly..."));
 	geoalgo::BrepImportBuildTimings timings;
 	std::string artifactErr;
-	const auto assemblyArt = geoalgo::getOrBuildBrepImportArtifacts(assembly, &artifactErr, &timings);
+	const auto assemblyArt = geoalgo::getOrBuildBrepImportArtifacts(assembly, &artifactErr, &timings, lod);
 	if (!assemblyArt)
 	{
 		if (outError)
@@ -252,7 +256,7 @@ bool warmBrepHierarchyPartsDisplayFromAssembly(
 		auto sliced = geoalgo::sliceBrepImportArtifactsForShape(assembly, *assemblyArt, partShape, &sliceErr);
 		if (sliced)
 		{
-			geoalgo::putBrepImportArtifacts(partShape, std::move(sliced));
+			geoalgo::putBrepImportArtifacts(partShape, std::move(sliced), lod);
 		}
 		else if (!warmOne(partShape, 0.7 + 0.25 * (static_cast<double>(i + 1) / static_cast<double>(n))))
 		{
@@ -269,16 +273,17 @@ bool importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath,
 							  const std::vector<BrepHierarchyPart>& parts, const QString& defaultBaseName,
 							  const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
 							  QString* outError, const QString& importParentDisplayName,
-							  const geoalgo::ShapeHandle& assemblyShape)
+							  const geoalgo::ShapeHandle& assemblyShape, const int brepDisplayLod)
 {
 	out = {};
 	// 同步导入无 Worker 预热时在此补一次；异步路径缓存命中几乎无开销
-	if (!warmBrepHierarchyPartsDisplayFromAssembly(assemblyShape, parts, {}, outError))
+	if (!warmBrepHierarchyPartsDisplayFromAssembly(assemblyShape, parts, {}, outError, brepDisplayLod))
 	{
 		return false;
 	}
 	if (!registerBrepHierarchyPartMeshes(host, sourceFilePath, catalogTypeName, defaultBaseName,
-										 importParentDisplayName, parts, onParentFollow, assemblyShape, out, outError))
+										 importParentDisplayName, parts, onParentFollow, assemblyShape, out, outError,
+										 brepDisplayLod))
 	{
 		if (outError && outError->isEmpty())
 		{
@@ -328,17 +333,18 @@ bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const
 	}
 
 	const geoalgo::ShapeHandle origShape = brep->shapeRef();
+	const geoalgo::BrepDisplayLod lod = geoalgo::clampBrepDisplayLod(brep->displayLod());
 	std::string artErr;
 	// 复用装配三角网；拆掉再重剖会把剩余件显示掏空
-	if (const auto origArt = geoalgo::getOrBuildBrepImportArtifacts(origShape, &artErr))
+	if (const auto origArt = geoalgo::getOrBuildBrepImportArtifacts(origShape, &artErr, nullptr, lod))
 	{
 		if (auto remainArt = geoalgo::sliceBrepImportArtifactsForShape(origShape, *origArt, remaining, &artErr))
 		{
-			geoalgo::putBrepImportArtifacts(remaining, std::move(remainArt));
+			geoalgo::putBrepImportArtifacts(remaining, std::move(remainArt), lod);
 		}
 		if (auto solidArt = geoalgo::sliceBrepImportArtifactsForShape(origShape, *origArt, solid, &artErr))
 		{
-			geoalgo::putBrepImportArtifacts(solid, std::move(solidArt));
+			geoalgo::putBrepImportArtifacts(solid, std::move(solidArt), lod);
 		}
 	}
 
@@ -366,6 +372,7 @@ bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, const
 
 	auto partBrep = std::make_shared<BrepBackendData>();
 	partBrep->setShape(solid);
+	partBrep->setDisplayLod(brep->displayLod());
 	partBrep->setWorldMatrix(parentWorld);
 	partBrep->setColor(brep->color());
 	const QString partName = QStringLiteral("%1 Solid").arg(QString::fromStdString(brep->name()));
@@ -416,7 +423,7 @@ bool importMeshHierarchyParts(DocumentHost& host, const QString& sourceFilePath,
 bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const QString& catalogTypeName,
 							const bool quietUi, const int meshImportQuality,
 							const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
-							QString* outError)
+							QString* outError, const int brepDisplayLod)
 {
 	(void)quietUi;
 	out = {};
@@ -450,7 +457,8 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 		out.ok = false;
 		return true;
 	}
-	return applyGeometryImportParse(host, filePath, catalogTypeName, parsed, onParentFollow, out, outError);
+	return applyGeometryImportParse(host, filePath, catalogTypeName, parsed, onParentFollow, out, outError,
+									brepDisplayLod);
 }
 
 } // namespace cloudsim::host

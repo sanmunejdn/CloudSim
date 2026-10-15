@@ -16,9 +16,11 @@
 #include "RobotCollisionSettingsWidget.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionIkRequest.h"
-#include "RobotProgramExecutor.h"
-
 #include "ControllerManager.h"
+#include "DeviceMotionTickerAdapter.h"
+#include "DeviceProgramStore.h"
+#include "IoSignalNetworkAdapter.h"
+#include "SimulationKernel.h"
 
 #include <QElapsedTimer>
 #include <QHash>
@@ -90,7 +92,14 @@ public:
 	void attachPlaybackTimer(QTimer* externalTimer);
 
 	RobotInstruction::Controller& instructionController() { return m_instructionController; }
-	RobotProgramExecutor& programExecutor() { return m_programExecutor; }
+	RobotProgramExecutor& programExecutor();
+	const RobotProgramExecutor& programExecutor() const;
+	SimulationKernel& simulationKernel() { return m_simulationKernel; }
+	DeviceProgramStore& deviceProgramStore() { return m_devicePrograms; }
+	bool isSimulationSessionActive() const
+	{
+		return m_simulationKernel.isSessionActive() || m_simulationKernel.anyLaneRunning();
+	}
 	IoSignalNetworkService* ioSignalNetwork() const { return m_ioNetwork; }
 	/// 属性「信号」页当前 Owner；空则无表
 	QString ioUiOwnerId() const { return m_ioUiOwnerId; }
@@ -143,6 +152,7 @@ public slots:
 	void onUrdfImportRequested(const QString& urdfPath);
 	void onSimulationStartTriggered();
 	void onSimulationRunRequested();
+	void onSimulationRunAllRequested();
 	void onSimulationStopRequested();
 	void onSimulationAddInstructionRequested(RobotInstruction::Type type);
 	void onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction);
@@ -196,6 +206,8 @@ public slots:
 	void forgetDocumentJointUiState(const QString& documentId);
 	void restoreAggregatedJointStateAfterProjectLoad(const QVector<double>& allJointAnglesRad);
 	void applyProgramStartPoseAfterProjectLoad();
+	/// 整机移动/工程重开后：基座系路点按当前 P 重算 render.tcpWorldMat4
+	void recomputeBaseRelativeInstructionWorldCaches(int instanceIndex = -1);
 	void refreshInstructionPoseAxes(bool computeReachability = true);
 	void refreshPathPlanRawOverlays();
 	void refreshBoundPathPlanPreview(const RobotInstruction::RawTrajectory* preferRaw = nullptr);
@@ -302,6 +314,8 @@ private:
 	TrajectoryEditSession* m_trajectoryEditSession = nullptr;
 	QTimer* m_playbackTimer = nullptr;
 	bool m_ownsPlaybackTimer = false;
+	/// Run All：先启齐各 Lane 再开 timer，避免首机已推进而它机尚未 start
+	bool m_deferPlaybackTimerStart = false;
 
 	std::unique_ptr<IRobotMotionClient> m_robotCommClient;
 	QTimer* m_robotCommPollTimer = nullptr;
@@ -314,7 +328,11 @@ private:
 	std::unique_ptr<collision::CollisionWorld> m_collisionWorld;
 	QString m_cachedInstructionDhUrdfPath;
 	quint64 m_poseAxesRefreshToken = 0;
-	RobotProgramExecutor m_programExecutor;
+	SimulationKernel m_simulationKernel;
+	DeviceProgramStore m_devicePrograms;
+	IoSignalNetworkAdapter m_ioNetworkAdapter;
+	DeviceMotionTickerAdapter m_deviceMotionTicker;
+	int m_lastRunRobotInstance = 0;
 	IoSignalNetworkService* m_ioNetwork = nullptr;
 	QString m_ioUiOwnerId;
 	CustomDeviceSimService* m_customDeviceSim = nullptr;

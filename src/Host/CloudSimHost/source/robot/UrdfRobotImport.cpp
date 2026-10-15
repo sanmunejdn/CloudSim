@@ -347,16 +347,12 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 	{
 		const int instIdx = ctx.robotKinematicInstanceCount() - 1;
 		IRobotBackendPoseSink* importSink = ctx.urdfImportScenePoseSink();
-		if (instIdx <= 0)
+		// 每台都要正向 FK：reparent 后 OSG 可能与 M0 不一致；跳过会导致法兰示教用 inv(P)×OSG 校准出不可达目标
+		// 勿对多机调 FromDocument(q0)：q0 仅本机切片
+		if (instIdx >= 0 &&
+			!RobotSceneKinematics::applyLocalJointAnglesOnly(robotDoc, importSink, instIdx, q0))
 		{
-			if (!RobotSceneKinematics::applyJointAnglesFromDocument(robotDoc, importSink, q0))
-			{
-				warn(QStringLiteral("URDF: initial kinematics sync failed."));
-			}
-		}
-		else
-		{
-			// M0/T0 已从 Data.Tbind 采集。reparent 后 OSG 本地矩阵未对齐，从 OSG 反推会污染 M0 致连杆飞散
+			warn(QStringLiteral("URDF: initial kinematics sync failed."));
 			robotDoc->noteRobotJointAnglesAppliedForInstance(instIdx, q0);
 			robotDoc->notifyRobotKinematicsAppliedToScene();
 		}

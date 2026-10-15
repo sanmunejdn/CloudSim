@@ -86,6 +86,8 @@ struct ImportOptionsDto
 	ObjectId persistedId;
 	/// 网格导入精度：0=Coarse，1=Medium，2=Fine（STL/OBJ/PLY/OFF）
 	int meshImportQuality = 1;
+	/// B-rep 显示三角化 LOD：0=Coarse，1=Medium，2=Fine（仅影响显示 soup）
+	int brepDisplayLod = 1;
 };
 
 /// 规划结果

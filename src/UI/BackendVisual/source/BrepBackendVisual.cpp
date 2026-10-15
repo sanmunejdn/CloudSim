@@ -400,8 +400,9 @@ bool applyBrepViewportWireframeImpl(osg::Node* outerBranch, bool enabled)
 	}
 
 	std::string pickErr;
+	const geoalgo::BrepDisplayLod lod = geoalgo::clampBrepDisplayLod(meta->brepDisplayLod());
 	const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
-		geoalgo::getOrBuildBrepImportArtifacts(meta->brepShape(), &pickErr);
+		geoalgo::getOrBuildBrepImportArtifacts(meta->brepShape(), &pickErr, nullptr, lod);
 	if (!artifacts || !geoalgo::ensureBrepImportPickArtifacts(meta->brepShape(), *artifacts, &pickErr) ||
 		artifacts->edgePolylines.empty())
 	{
@@ -462,8 +463,9 @@ bool BrepBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 		return false;
 	}
 	std::string artifactErr;
+	const geoalgo::BrepDisplayLod lod = geoalgo::clampBrepDisplayLod(brep->displayLod());
 	const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
-		geoalgo::getOrBuildBrepImportArtifacts(brep->shapeRef(), errorMessage ? &artifactErr : nullptr);
+		geoalgo::getOrBuildBrepImportArtifacts(brep->shapeRef(), errorMessage ? &artifactErr : nullptr, nullptr, lod);
 	if (!artifacts)
 	{
 		if (errorMessage)
@@ -495,7 +497,7 @@ bool BrepBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 	{
 		oss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	}
-	BackendIdUserData::attachBrep(outer.get(), brep->id(), brep->shapeRef());
+	BackendIdUserData::attachBrep(outer.get(), brep->id(), brep->shapeRef(), brep->displayLod());
 	out.outer = outer;
 	out.modelCenter = center;
 	out.diagonal = diagonal;

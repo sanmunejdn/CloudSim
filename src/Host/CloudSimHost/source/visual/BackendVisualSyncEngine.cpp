@@ -9,7 +9,6 @@
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "IViewportSceneOps.h"
-#include "visual/BackendVisualEnsure.h"
 #include "RunLogger.h"
 
 #include <algorithm>
@@ -230,12 +229,17 @@ bool BackendVisualSyncEngine::flushGeometryForId(const std::string& backendId)
 							backendId + " " + err);
 		}
 	}
-	EnsureVisualOptions opts;
-	const EnsureVisualResult res = ensureVisual(m_host, backendId, EnsureVisualPolicy::FullRebuild, opts);
-	if (!res.ok)
+	// 禁止走 ensureVisual（末尾 flush 会重入）；已有分支时 ensureSelection 也不换 mesh，须整枝重载
+	IViewportSceneOps* osg = m_host.sceneOps();
+	if (!osg)
 	{
 		return false;
 	}
+	if (!osg->loadBackendFromBackendData(*obj, nullptr, false, true, true))
+	{
+		return false;
+	}
+	(void)osg->applyWorldMatrixToOsg(backendId, backendManagerOf(m_host));
 	m_lastSyncedGeometryRevision[backendId] = rev;
 	return true;
 }
@@ -269,6 +273,13 @@ bool BackendVisualSyncEngine::flushTransform(const std::vector<std::string>& ord
 bool BackendVisualSyncEngine::flush(FlushPolicy policy)
 {
 	(void)policy;
+	// ensureVisual 等路径嵌套 flush 时 Geometry 尚未清脏，再进会死循环；外层会继续扫剩余脏位
+	if (m_flushDepth > 0)
+	{
+		return true;
+	}
+	++m_flushDepth;
+
 	std::vector<std::string> transformIds;
 	for (const auto& kv : m_dirty)
 	{
@@ -320,6 +331,7 @@ bool BackendVisualSyncEngine::flush(FlushPolicy policy)
 			++it;
 		}
 	}
+	--m_flushDepth;
 	return allOk;
 }
 

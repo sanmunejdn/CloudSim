@@ -493,6 +493,9 @@
     <ClCompile Include="source\import\HierarchyMeshImport.cpp">
       <Filter>src\import</Filter>
     </ClCompile>
+    <ClCompile Include="source\import\BrepDisplayLodRebuild.cpp">
+      <Filter>src\import</Filter>
+    </ClCompile>
     <ClCompile Include="source\io\CustomDeviceHostOps.cpp">
       <Filter>src\io</Filter>
     </ClCompile>

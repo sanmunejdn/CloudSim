@@ -156,6 +156,7 @@
     <ClCompile Include="source\CustomDeviceAssemblyDialog.cpp" />
     <ClCompile Include="source\DeviceCommandPageWidget.cpp" />
     <ClCompile Include="source\DevicePoseMotionPlayer.cpp" />
+    <ClCompile Include="source\DeviceMotionTickerAdapter.cpp" />
     <ClCompile Include="source\DevicePoseSignalDriver.cpp" />
     <ClCompile Include="source\RobotCollisionSettingsWidget.cpp" />
     <ClCompile Include="source\MotionPathPlanDialog.cpp" />

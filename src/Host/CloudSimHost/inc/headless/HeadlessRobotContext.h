@@ -141,6 +141,7 @@ public:
 	RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) override;
 	RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) override;
 	void setRobotBasePlacementWorldForInstance(int instanceIndex, const cloudsim::core::Mat4& placementWorld) override;
+	cloudsim::core::Mat4 robotBasePlacementWorldForInstance(int instanceIndex) const;
 
 	// —— IRobotSimulationDocument ——
 	bool hasRobotSimulationContext() const override;

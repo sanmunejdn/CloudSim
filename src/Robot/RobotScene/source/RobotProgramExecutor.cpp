@@ -67,6 +67,14 @@ void RobotProgramExecutor::stop()
 	m_inWaitForSignal = false;
 	m_waitCondition = {};
 	m_waitingForLazyPlan = false;
+	m_inSyncBarrier = false;
+	m_syncBarrierName.clear();
+}
+
+void RobotProgramExecutor::clearSyncBarrier()
+{
+	m_inSyncBarrier = false;
+	m_syncBarrierName.clear();
 }
 
 void RobotProgramExecutor::setPlaybackRate(double rate)
@@ -189,7 +197,14 @@ bool RobotProgramExecutor::updateMotionPlanResult(const RobotInstruction::Base* 
 
 bool RobotProgramExecutor::applyJointAngles(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
 {
-	return RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, m_jointAnglesRad);
+	if (!doc || m_jointCount <= 0 || m_jointOffset < 0 ||
+		m_jointAnglesRad.size() < m_jointOffset + m_jointCount)
+	{
+		return false;
+	}
+	// 只写本实例：多机各 Executor 私有聚合向量里其它机切片是陈旧的，FromDocument 会互盖导致瞬跳
+	const QVector<double> local = m_jointAnglesRad.mid(m_jointOffset, m_jointCount);
+	return RobotSceneKinematics::applyLocalJointAnglesOnly(doc, osg, m_robotInstanceIndex, local);
 }
 
 bool RobotProgramExecutor::startMotionSegment(const RobotInstruction::Base& ins)
@@ -421,6 +436,17 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 			const int axisIndex = ins->deviceAxisIndex();
 			const double targetQ = ins->deviceAxisTargetQ();
 			const double duration = std::max(0.0, ins->durationSec());
+			if (m_deviceAxisLeaseFn)
+			{
+				QString leaseErr;
+				if (!m_deviceAxisLeaseFn(deviceId, axisIndex, &leaseErr))
+				{
+					m_abortedDueToFailedPlan = true;
+					m_lastAbortSummary = leaseErr.isEmpty() ? "DeviceAxis lease conflict" : leaseErr.toStdString();
+					m_running = false;
+					return false;
+				}
+			}
 			double q0 = targetQ;
 			if (BackendDataManager* mgr = doc ? doc->robotBackendManagerForKinematics() : nullptr)
 			{
@@ -455,6 +481,16 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 			return true;
 		}
 		case RobotInstruction::Type::PathPlan:
+			continue;
+		case RobotInstruction::Type::SyncBarrier:
+			m_inSyncBarrier = true;
+			m_syncBarrierName = ins->syncBarrierName().empty() ? std::string("cycle") : ins->syncBarrierName();
+			return true;
+		case RobotInstruction::Type::AcquireResource:
+		case RobotInstruction::Type::ReleaseResource:
+			// 租约由 SimulationKernel / RobotLane 在 step 前处理；此处跳过以免卡死
+			continue;
+		case RobotInstruction::Type::GoNamedPose:
 			continue;
 		case RobotInstruction::Type::IF:
 		{
@@ -643,6 +679,8 @@ bool RobotProgramExecutor::tryStart(IRobotSimulationDocument* doc, IRobotBackend
 	m_inDeviceAxis = false;
 	m_inWaitForSignal = false;
 	m_waitingForLazyPlan = false;
+	m_inSyncBarrier = false;
+	m_syncBarrierName.clear();
 	RunLogger::info("RobotProgramExecutor started.");
 	return true;
 }
@@ -657,6 +695,12 @@ RobotInstructionPlaybackTickResult RobotProgramExecutor::tick(IRobotSimulationDo
 	{
 		stop();
 		return RobotInstructionPlaybackTickResult::Aborted;
+	}
+
+	// 屏障由 SimulationKernel 调用 clearSyncBarrier 放行
+	if (m_inSyncBarrier)
+	{
+		return RobotInstructionPlaybackTickResult::Continue;
 	}
 
 	if (m_waitingForLazyPlan && m_activeMotion)

@@ -334,6 +334,36 @@ std::shared_ptr<Base> createFromJson(const nlohmann::json& j, std::string* errMs
 		ins = p;
 		break;
 	}
+	case Type::GoNamedPose:
+	{
+		auto p = std::make_shared<GoNamedPoseInstruction>();
+		p->setDeviceBackendId(j.value("deviceBackendId", std::string()));
+		p->setNamedPoseId(j.value("poseId", std::string()));
+		p->setDurationSec(j.value("durationSec", 1.0));
+		ins = p;
+		break;
+	}
+	case Type::SyncBarrier:
+	{
+		auto p = std::make_shared<SyncBarrierInstruction>();
+		p->setSyncBarrierName(j.value("barrierName", std::string("cycle")));
+		ins = p;
+		break;
+	}
+	case Type::AcquireResource:
+	{
+		auto p = std::make_shared<AcquireResourceInstruction>();
+		p->setLeaseResourceKey(j.value("resourceKey", std::string()));
+		ins = p;
+		break;
+	}
+	case Type::ReleaseResource:
+	{
+		auto p = std::make_shared<ReleaseResourceInstruction>();
+		p->setLeaseResourceKey(j.value("resourceKey", std::string()));
+		ins = p;
+		break;
+	}
 	case Type::PathPlan:
 	{
 		auto p = std::make_shared<PathPlanInstruction>();
@@ -513,6 +543,18 @@ nlohmann::json toJson(const Base& ins)
 		j["axisIndex"] = ins.deviceAxisIndex();
 		j["targetQ"] = ins.deviceAxisTargetQ();
 		j["durationSec"] = ins.durationSec();
+		break;
+	case Type::GoNamedPose:
+		j["deviceBackendId"] = ins.deviceBackendId();
+		j["poseId"] = ins.namedPoseId();
+		j["durationSec"] = ins.durationSec();
+		break;
+	case Type::SyncBarrier:
+		j["barrierName"] = ins.syncBarrierName();
+		break;
+	case Type::AcquireResource:
+	case Type::ReleaseResource:
+		j["resourceKey"] = ins.leaseResourceKey();
 		break;
 	case Type::PathPlan:
 	{

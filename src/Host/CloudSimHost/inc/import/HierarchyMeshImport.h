@@ -52,12 +52,13 @@ importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath, cons
 						 const std::vector<BrepHierarchyPart>& parts, const QString& defaultBaseName,
 						 const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
 						 QString* outError = nullptr, const QString& importParentDisplayName = QString(),
-						 const geoalgo::ShapeHandle& assemblyShape = {});
+						 const geoalgo::ShapeHandle& assemblyShape = {}, int brepDisplayLod = 1);
 
 /// 装配 Phase1 一次再切片到各子 Shape 缓存；Worker / 同步导入共用
 CLOUDSIM_HOST_EXPORT bool warmBrepHierarchyPartsDisplayFromAssembly(
 	const geoalgo::ShapeHandle& assembly, const std::vector<BrepHierarchyPart>& parts,
-	const std::function<void(double progress01, const QString& status)>& progress, QString* outError = nullptr);
+	const std::function<void(double progress01, const QString& status)>& progress, QString* outError = nullptr,
+	int brepDisplayLod = 1);
 
 /// 3D 点到的面所属 Solid 抽成独立 B-rep；仅一块时返回原对象
 CLOUDSIM_HOST_EXPORT bool extractBrepSolidByFace(DocumentHost& host, const std::string& brepId, int faceIndex,
@@ -67,7 +68,8 @@ CLOUDSIM_HOST_EXPORT bool extractBrepSolidByFace(DocumentHost& host, const std::
 CLOUDSIM_HOST_EXPORT bool importMeshFileExtended(DocumentHost& host, const QString& filePath,
 												 const QString& catalogTypeName, bool quietUi, int meshImportQuality,
 												 const HierarchyFollowBindingFn& onParentFollow,
-												 HierarchyMeshImportResult& out, QString* outError = nullptr);
+												 HierarchyMeshImportResult& out, QString* outError = nullptr,
+												 int brepDisplayLod = 1);
 
 } // namespace cloudsim::host
 

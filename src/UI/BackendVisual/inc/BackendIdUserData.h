@@ -29,10 +29,12 @@ public:
 	const std::string& backendId() const { return m_id; }
 	BackendPickDomain pickDomain() const { return m_pickDomain; }
 	const geoalgo::ShapeHandle& brepShape() const { return m_brepShape; }
+	int brepDisplayLod() const { return m_brepDisplayLod; }
 	bool hasBrepShape() const { return m_pickDomain == BackendPickDomain::Brep && !m_brepShape.isNull(); }
 
 	static void attach(osg::Node* root, const std::string& backendId);
-	static void attachBrep(osg::Node* root, const std::string& backendId, const geoalgo::ShapeHandle& shape);
+	static void attachBrep(osg::Node* root, const std::string& backendId, const geoalgo::ShapeHandle& shape,
+						   int displayLod = 1);
 	/// 自叶向根遍历，首个 BackendIdUserData 生效
 	static const BackendIdUserData* findInNodePath(const osg::NodePath& path);
 
@@ -40,6 +42,7 @@ private:
 	std::string m_id;
 	BackendPickDomain m_pickDomain = BackendPickDomain::Mesh;
 	geoalgo::ShapeHandle m_brepShape;
+	int m_brepDisplayLod = 1;
 };
 
 /// 同 OsgWidget upsert：外层 MT → 内层 PAT → 几何根

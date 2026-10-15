@@ -6,6 +6,8 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendPropertyVisualAspect.h"
+#include "BrepBackendData.h"
+#include "BrepDisplayLodRebuild.h"
 #include "DocumentHost.h"
 #include "DocumentHostEvents.h"
 #include "IViewportSceneOps.h"
@@ -84,6 +86,15 @@ void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& d
 	if (host.deferPropertyPanelVisualFullSync() &&
 		(key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation."))))
 	{
+		return;
+	}
+	// 换档需清缓存并按 lod 重剖；勿只靠 Geometry dirty（可能仍命中旧档缓存）
+	if (key == QStringLiteral("displayLod"))
+	{
+		if (const auto* brep = dynamic_cast<const BrepBackendData*>(&data))
+		{
+			(void)rebuildBrepDisplayLod(host, data.id(), brep->displayLod(), nullptr);
+		}
 		return;
 	}
 	const std::string className = data.className();

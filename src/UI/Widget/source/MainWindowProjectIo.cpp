@@ -528,6 +528,12 @@ void MainWindow::onOpenProjectFile()
 	{
 		m_robotSimulation->applyProgramStartPoseAfterProjectLoad();
 	}
+	else if (m_robotSimulation && projectHadPrograms)
+	{
+		// 已恢复关节角：仍须按当前基座 P 重算基座系路点世界缓存
+		m_robotSimulation->recomputeBaseRelativeInstructionWorldCaches();
+		m_robotSimulation->refreshInstructionPoseAxes(false);
+	}
 
 	endBackendTreeEventRefreshSuppress();
 	refreshBackendTree();

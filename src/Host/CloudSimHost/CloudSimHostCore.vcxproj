@@ -360,6 +360,7 @@
     <ClCompile Include="source\import\GeometryImportUiFilters.cpp"  />
     <ClCompile Include="source\import\GeometryImportersBuiltins.cpp"  />
     <ClCompile Include="source\import\HierarchyMeshImport.cpp"  />
+    <ClCompile Include="source\import\BrepDisplayLodRebuild.cpp"  />
     <ClCompile Include="source\io\CustomDeviceHostOps.cpp"  />
     <ClCompile Include="source\io\CustomDevicePoseMotionHost.cpp"  />
     <ClCompile Include="source\io\CustomDeviceRobotMountOps.cpp"  />
@@ -475,6 +476,7 @@
     <ClInclude Include="inc\headless\HeadlessRobotCollisionBridge.h"  />
     <ClInclude Include="inc\headless\HeadlessRobotExportBridge.h"  />
     <ClInclude Include="inc\import\ApplyGeometryImportParse.h"  />
+    <ClInclude Include="inc\import\BrepDisplayLodRebuild.h"  />
     <ClInclude Include="inc\import\GeometryFileImporterRegistry.h"  />
     <ClInclude Include="inc\import\GeometryImportUiFilters.h"  />
     <ClInclude Include="inc\import\IGeometryFileImporter.h"  />

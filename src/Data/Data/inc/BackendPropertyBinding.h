@@ -42,6 +42,7 @@ DATA_EXPORT bool applyBindingKey(BackendDataBase& data, const std::string& key, 
 namespace backend_property_binding_extras
 {
 DATA_EXPORT const std::vector<BackendPropertyBinding>& meshExtras();
+DATA_EXPORT const std::vector<BackendPropertyBinding>& brepExtras();
 DATA_EXPORT const std::vector<BackendPropertyBinding>& axisLengthExtras();
 DATA_EXPORT const std::vector<BackendPropertyBinding>& emptyExtras();
 } // namespace backend_property_binding_extras

@@ -19,7 +19,8 @@ class DocumentHost;
 CLOUDSIM_HOST_EXPORT bool applyGeometryImportParse(DocumentHost& host, const QString& sourceFilePath,
 												   const QString& catalogTypeName, ImportParseResult& parsed,
 												   const HierarchyFollowBindingFn& onParentFollow,
-												   HierarchyMeshImportResult& out, QString* outError = nullptr);
+												   HierarchyMeshImportResult& out, QString* outError = nullptr,
+												   int brepDisplayLod = 1);
 
 } // namespace cloudsim::host
 

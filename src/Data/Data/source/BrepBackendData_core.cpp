@@ -4,11 +4,14 @@
 #include "pch.h"
 
 #include "BackendSpatial.h"
+#include "BackendPropertyBinding.h"
 #include "BrepBackendData.h"
 #include "GeometryMutator.h"
 
 #include <Adapters.h>
 #include <ShapeIo.h>
+
+#include <algorithm>
 
 BrepBackendData::BrepBackendData()
 {
@@ -86,6 +89,22 @@ const std::unordered_map<int, BackendColor>& BrepBackendData::faceHighlightColor
 	return m_faceHighlightColors;
 }
 
+void BrepBackendData::setDisplayLod(int lod)
+{
+	const int clamped = std::clamp(lod, 0, 2);
+	if (m_displayLod == clamped)
+	{
+		return;
+	}
+	GeometryMutator guard([this] { bumpGeometryRevision(); });
+	m_displayLod = clamped;
+}
+
+const std::vector<BackendPropertyBinding>& BrepBackendData::extraPropertyBindings() const
+{
+	return backend_property_binding_extras::brepExtras();
+}
+
 void BrepBackendData::clearFaceHighlightColors()
 {
 	// C1: 同上，单独 clear 时也需 bump
@@ -159,6 +178,7 @@ void BrepBackendData::saveDerivedJson(nlohmann::json& out) const
 {
 	out["geometry"] = nlohmann::json::object();
 	out["geometry"]["kind"] = "brep";
+	out["geometry"]["displayLod"] = m_displayLod;
 	if (!m_brepSidecarRel.empty())
 	{
 		out["geometry"]["brepSidecar"] = m_brepSidecarRel;
@@ -185,6 +205,10 @@ bool BrepBackendData::loadDerivedJson(const nlohmann::json& in, std::string* err
 	if (geom.contains("brepSidecar") && geom["brepSidecar"].is_string())
 	{
 		m_brepSidecarRel = geom["brepSidecar"].get<std::string>();
+	}
+	if (geom.contains("displayLod") && geom["displayLod"].is_number_integer())
+	{
+		m_displayLod = std::clamp(geom["displayLod"].get<int>(), 0, 2);
 	}
 	(void)errMsg;
 	return true;

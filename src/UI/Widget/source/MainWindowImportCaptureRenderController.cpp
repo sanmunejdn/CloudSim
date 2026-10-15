@@ -188,7 +188,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 	if (mw.jobSystem())
 	{
 		const auto loadState = std::make_shared<cloudsim::host::ModelBackgroundLoadState>(
-			filePath, fileInfo.fileName(), typeName, mw.meshImportQuality());
+			filePath, fileInfo.fileName(), typeName, mw.meshImportQuality(), mw.brepDisplayLod());
 		const auto loadOk = std::make_shared<bool>(false);
 		const auto loadErr = std::make_shared<QString>();
 		const QPointer<MainWindow> mwPtr(&mw);
@@ -242,6 +242,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 				importOpt.resetViewToHome = true;
 				importOpt.catalogTypeName = typeName;
 				importOpt.meshImportQuality = mwRef.meshImportQuality();
+				importOpt.brepDisplayLod = mwRef.brepDisplayLod();
 				QString importErr;
 				const cloudsim::host::ImportFileResult imported =
 					loadState->finishIntoDocument(docRef, importOpt, &importErr);
@@ -294,6 +295,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 	importOpt.resetViewToHome = true;
 	importOpt.catalogTypeName = typeName;
 	importOpt.meshImportQuality = mw.meshImportQuality();
+	importOpt.brepDisplayLod = mw.brepDisplayLod();
 	QString importErr;
 	const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
 		*doc, filePath, cloudsim::host::ImportFileKind::Mesh, importOpt, &importErr);

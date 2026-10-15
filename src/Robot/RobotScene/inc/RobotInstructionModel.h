@@ -38,7 +38,11 @@ enum class ROBOT_SCENE_API Type
 	SET_DO,
 	SET_AO,
 	PathPlan,
-	DeviceAxis
+	DeviceAxis,
+	GoNamedPose,
+	SyncBarrier,
+	AcquireResource,
+	ReleaseResource
 };
 
 enum class ROBOT_SCENE_API Category
@@ -144,6 +148,30 @@ public:
 
 	virtual double ioAnalogValue() const { return 0.0; }
 	virtual void setIoAnalogValue(double v) { (void)v; }
+
+	virtual bool hasNamedPoseProperty() const { return false; }
+	virtual const std::string& namedPoseId() const
+	{
+		static const std::string kEmpty;
+		return kEmpty;
+	}
+	virtual void setNamedPoseId(const std::string& id) { (void)id; }
+
+	virtual bool hasSyncBarrierProperty() const { return false; }
+	virtual const std::string& syncBarrierName() const
+	{
+		static const std::string kEmpty;
+		return kEmpty;
+	}
+	virtual void setSyncBarrierName(const std::string& name) { (void)name; }
+
+	virtual bool hasLeaseResourceProperty() const { return false; }
+	virtual const std::string& leaseResourceKey() const
+	{
+		static const std::string kEmpty;
+		return kEmpty;
+	}
+	virtual void setLeaseResourceKey(const std::string& key) { (void)key; }
 
 	virtual bool hasDeviceAxisProperty() const { return false; }
 	virtual const std::string& deviceBackendId() const;
@@ -433,6 +461,68 @@ private:
 	double m_durationSec = 0.0;
 };
 
+class ROBOT_SCENE_API GoNamedPoseInstruction final : public Base
+{
+public:
+	GoNamedPoseInstruction();
+
+	bool hasDurationProperty() const override { return true; }
+	double durationSec() const override { return m_durationSec; }
+	void setDurationSec(double v) override { m_durationSec = v; }
+
+	bool hasNamedPoseProperty() const override { return true; }
+	const std::string& namedPoseId() const override { return m_poseId; }
+	void setNamedPoseId(const std::string& id) override { m_poseId = id; }
+
+	bool hasDeviceAxisProperty() const override { return true; }
+	const std::string& deviceBackendId() const override { return m_deviceBackendId; }
+	void setDeviceBackendId(const std::string& id) override { m_deviceBackendId = id; }
+
+private:
+	std::string m_deviceBackendId;
+	std::string m_poseId;
+	double m_durationSec = 1.0;
+};
+
+class ROBOT_SCENE_API SyncBarrierInstruction final : public Base
+{
+public:
+	SyncBarrierInstruction();
+
+	bool hasSyncBarrierProperty() const override { return true; }
+	const std::string& syncBarrierName() const override { return m_barrierName; }
+	void setSyncBarrierName(const std::string& name) override { m_barrierName = name; }
+
+private:
+	std::string m_barrierName{"cycle"};
+};
+
+class ROBOT_SCENE_API AcquireResourceInstruction final : public Base
+{
+public:
+	AcquireResourceInstruction();
+
+	bool hasLeaseResourceProperty() const override { return true; }
+	const std::string& leaseResourceKey() const override { return m_resourceKey; }
+	void setLeaseResourceKey(const std::string& key) override { m_resourceKey = key; }
+
+private:
+	std::string m_resourceKey;
+};
+
+class ROBOT_SCENE_API ReleaseResourceInstruction final : public Base
+{
+public:
+	ReleaseResourceInstruction();
+
+	bool hasLeaseResourceProperty() const override { return true; }
+	const std::string& leaseResourceKey() const override { return m_resourceKey; }
+	void setLeaseResourceKey(const std::string& key) override { m_resourceKey = key; }
+
+private:
+	std::string m_resourceKey;
+};
+
 class ROBOT_SCENE_API PathPlanInstruction final : public Base
 {
 public:
@@ -476,6 +566,10 @@ ROBOT_SCENE_API PathPlanInstruction* asPathPlan(Base& ins);
 ROBOT_SCENE_API const PathPlanInstruction* asPathPlan(const Base& ins);
 ROBOT_SCENE_API DeviceAxisInstruction* asDeviceAxis(Base& ins);
 ROBOT_SCENE_API const DeviceAxisInstruction* asDeviceAxis(const Base& ins);
+ROBOT_SCENE_API GoNamedPoseInstruction* asGoNamedPose(Base& ins);
+ROBOT_SCENE_API const GoNamedPoseInstruction* asGoNamedPose(const Base& ins);
+ROBOT_SCENE_API SyncBarrierInstruction* asSyncBarrier(Base& ins);
+ROBOT_SCENE_API const SyncBarrierInstruction* asSyncBarrier(const Base& ins);
 
 ROBOT_SCENE_API std::string makeInstructionId();
 

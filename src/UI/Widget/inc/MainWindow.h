@@ -162,6 +162,8 @@ public:
 	JobSystem* jobSystem();
 	int meshImportQuality() const { return m_meshImportQuality; }
 	void setMeshImportQuality(int quality) { m_meshImportQuality = quality; }
+	int brepDisplayLod() const { return m_brepDisplayLod; }
+	void setBrepDisplayLod(int lod) { m_brepDisplayLod = lod; }
 	void focusBackendInTree(const std::string& backendId) override;
 	void focusBackendInTreeAfterImport(const QString& backendId) override;
 	QString selectedBackendId() const override;
@@ -513,6 +515,7 @@ protected:
 	MainWindowSelectionState m_selectionState;
 	JobSystem* m_jobSystem = nullptr;
 	int m_meshImportQuality = 1;
+	int m_brepDisplayLod = 1;
 	PluginManager* m_pluginManager = nullptr;
 	bool m_pluginsLoadStarted = false;
 	bool m_runtimeShutdownDone = false;

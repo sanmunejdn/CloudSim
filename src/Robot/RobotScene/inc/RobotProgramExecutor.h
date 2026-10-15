@@ -15,6 +15,7 @@
 #include <QElapsedTimer>
 #include <QHash>
 #include <QVector>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -48,6 +49,15 @@ public:
 	/// 因规划失败停机时的摘要；正常结束为空
 	const std::string& lastAbortSummary() const { return m_lastAbortSummary; }
 	bool abortedDueToFailedPlan() const { return m_abortedDueToFailedPlan; }
+
+	/// Kernel SyncBarrier：停在屏障上直至 clearSyncBarrier
+	bool inSyncBarrier() const { return m_inSyncBarrier; }
+	const std::string& syncBarrierName() const { return m_syncBarrierName; }
+	void clearSyncBarrier();
+
+	/// 设备轴写前租约；返回 false 则本段 Abort（Kernel 注入）
+	using DeviceAxisLeaseFn = std::function<bool(const std::string& deviceId, int axisIndex, QString* err)>;
+	void setDeviceAxisLeaseFn(DeviceAxisLeaseFn fn) { m_deviceAxisLeaseFn = std::move(fn); }
 
 	/// 运行中懒规划：用最终结果替换占位 PlanResult
 	bool updateMotionPlanResult(const RobotInstruction::Base* ins, const RobotInstruction::PlanResult& plan);
@@ -108,6 +118,10 @@ private:
 	RobotInstruction::Condition m_waitCondition{};
 	/// 等前瞻写入计划；播放中 UI 现算会把倍速卡顿
 	bool m_waitingForLazyPlan = false;
+
+	bool m_inSyncBarrier = false;
+	std::string m_syncBarrierName;
+	DeviceAxisLeaseFn m_deviceAxisLeaseFn;
 
 	QHash<QString, osg::Matrixd> m_fkMeshWorldT0;
 	std::unordered_map<std::string, osg::Matrixd> m_outerWorldAtStart;

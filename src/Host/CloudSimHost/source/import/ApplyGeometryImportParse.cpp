@@ -156,7 +156,7 @@ bool applyOsgCapture(DocumentHost& host, const QString& sourceFilePath, const QS
 
 bool applyGeometryImportParse(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
 							  ImportParseResult& parsed, const HierarchyFollowBindingFn& onParentFollow,
-							  HierarchyMeshImportResult& out, QString* outError)
+							  HierarchyMeshImportResult& out, QString* outError, const int brepDisplayLod)
 {
 	out = {};
 	if (!parsed.ok)
@@ -229,7 +229,8 @@ bool applyGeometryImportParse(DocumentHost& host, const QString& sourceFilePath,
 
 	case ImportParseKind::BrepHierarchy:
 		if (!importBrepHierarchyParts(host, sourceFilePath, catalogTypeName, parsed.brepParts, defaultBaseName,
-									  onParentFollow, out, outError, displayParent, parsed.brepAssembly))
+									  onParentFollow, out, outError, displayParent, parsed.brepAssembly,
+									  brepDisplayLod))
 		{
 			if (outError && outError->isEmpty())
 			{
@@ -254,6 +255,7 @@ bool applyGeometryImportParse(DocumentHost& host, const QString& sourceFilePath,
 		auto brep = std::make_shared<BrepBackendData>();
 		brep->setName(displayParent.toStdString());
 		brep->setShape(parsed.brepSingle);
+		brep->setDisplayLod(brepDisplayLod);
 		QString regErr;
 		if (!registerAdoptedBrepAndLoadScene(host, brep, sourceFilePath, QLatin1String(backend_type::kCatalogBrepModel),
 											 QString(), true, &regErr))

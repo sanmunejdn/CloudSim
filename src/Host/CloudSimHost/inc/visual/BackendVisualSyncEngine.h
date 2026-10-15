@@ -55,6 +55,7 @@ private:
 	std::unordered_map<std::string, std::size_t> m_lastGeometryElementCount;
 	std::unordered_set<std::string> m_batchTransformIds;
 	int m_kinematicsBatchDepth = 0;
+	int m_flushDepth = 0;
 	bool m_deferFollowSolveUntilBatchEnd = false;
 	bool m_pendingFollowSolveAfterBatch = false;
 };

@@ -156,6 +156,8 @@ int propertyEditorTypeForKey(const QString& key, bool editable)
 			return QVariant::Int;
 		case property_core::PropertyType::Double:
 			return QVariant::Double;
+		case property_core::PropertyType::Enum:
+			return QtVariantPropertyManager::enumTypeId();
 		default:
 			return QVariant::String;
 		}
@@ -195,6 +197,18 @@ QString instructionEnumTokenFromValue(const QString& propertyKey, const QVariant
 
 QString axisConfigEnumDisplayName(const QString& propertyKey, const QString& token, bool chinese)
 {
+	if (propertyKey == QStringLiteral("displayLod"))
+	{
+		if (token.compare(QStringLiteral("Coarse"), Qt::CaseInsensitive) == 0)
+		{
+			return chinese ? QStringLiteral("粗糙") : QStringLiteral("Coarse");
+		}
+		if (token.compare(QStringLiteral("Fine"), Qt::CaseInsensitive) == 0)
+		{
+			return chinese ? QStringLiteral("精细") : QStringLiteral("Fine");
+		}
+		return chinese ? QStringLiteral("中等") : QStringLiteral("Medium");
+	}
 	if (propertyKey == QStringLiteral("motion.axisConfig.preset"))
 	{
 		if (token == QStringLiteral("AUTO"))
@@ -526,7 +540,7 @@ void MainWindow::appendPropertyBrowserRow(const QString& propertyKey, const QStr
 	}
 	else if (editorType == QtVariantPropertyManager::enumTypeId())
 	{
-		const property_core::PropertyDescriptor* descriptor = instructionPropertyDescriptorForKey(propertyKey);
+		const property_core::PropertyDescriptor* descriptor = panelPropertyDescriptorForKey(propertyKey);
 		const std::vector<std::string>* optionsPtr = nullptr;
 		std::vector<std::string> descriptorOptions;
 		if (enumOptionTokens && !enumOptionTokens->empty())
@@ -688,6 +702,10 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	if (key == QStringLiteral("visible"))
 	{
 		return tr(QStringLiteral("Visible"), QStringLiteral("可见"));
+	}
+	if (key == QStringLiteral("displayLod"))
+	{
+		return tr(QStringLiteral("Display quality"), QStringLiteral("显示质量"));
 	}
 	if (key == QStringLiteral("axisLengthMm"))
 	{
@@ -1416,7 +1434,10 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	{
 		return;
 	}
-	const QString valueText = variantValueToString(value);
+	// 枚举编辑器 value 是下标；提交用 token（Coarse/Medium/Fine）
+	const QString valueText = m_propertyEnumTokens.contains(property)
+								  ? instructionEnumTokenFromProperty(property, value)
+								  : variantValueToString(value);
 	const QString currentText = propertyRowValue(*docPage, backendId, propertyKey);
 	if (valueText == currentText)
 	{
