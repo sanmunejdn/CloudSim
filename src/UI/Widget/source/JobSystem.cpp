@@ -162,8 +162,8 @@ void JobSystem::shutdown()
 quint64 JobSystem::enqueue(const QString& title, std::function<void(const JobProgressSink&)> work,
 						   std::function<void(bool threw, const QString& throwMessage)> onFinished)
 {
-	return enqueueCancellable(
-		title,
+	return enqueueInternal(
+		title, false,
 		[work = std::move(work)](const JobProgressSink& sink, const JobCancelToken&)
 		{
 			if (work)
@@ -176,6 +176,12 @@ quint64 JobSystem::enqueue(const QString& title, std::function<void(const JobPro
 
 quint64 JobSystem::enqueueCancellable(const QString& title, JobCancellableWork work,
 									  std::function<void(bool threw, const QString& throwMessage)> onFinished)
+{
+	return enqueueInternal(title, true, std::move(work), std::move(onFinished));
+}
+
+quint64 JobSystem::enqueueInternal(const QString& title, bool uiCancellable, JobCancellableWork work,
+								   std::function<void(bool threw, const QString& throwMessage)> onFinished)
 {
 	if (m_shuttingDown.load() || !m_pool)
 	{
@@ -193,7 +199,7 @@ quint64 JobSystem::enqueueCancellable(const QString& title, JobCancellableWork w
 	}
 	if (m_progress)
 	{
-		m_progress->reportJobStarted(id, title);
+		m_progress->reportJobStarted(id, title, uiCancellable);
 	}
 	JobCancelToken token(flag);
 	const QPointer<JobSystem> self(this);

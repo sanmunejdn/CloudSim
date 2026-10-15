@@ -61,6 +61,7 @@ class QDockWidget;
 class QActionGroup;
 class MainWindowImportCaptureRenderController;
 class JobSystem;
+class ProgressDialogController;
 class DevicePageWidget;
 class IoSignalPageWidget;
 class RobotSimulationController;
@@ -514,6 +515,7 @@ protected:
 	int m_propertyBrowserUpdateGuardGeneration = 0;
 	MainWindowSelectionState m_selectionState;
 	JobSystem* m_jobSystem = nullptr;
+	ProgressDialogController* m_progressController = nullptr;
 	int m_meshImportQuality = 1;
 	int m_brepDisplayLod = 1;
 	PluginManager* m_pluginManager = nullptr;

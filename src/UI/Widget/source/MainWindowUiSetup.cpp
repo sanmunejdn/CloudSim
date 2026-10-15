@@ -24,6 +24,8 @@
 #include "MainWindow_p.h"
 #include "NamedSignalIoSink.h"
 #include "PluginManager.h"
+#include "Progress.h"
+#include "ProgressDialogController.h"
 #include "ProgressManager.h"
 #include "PropertyPanelVariantEditorFactory.h"
 #include "RunInfoPage.h"
@@ -336,17 +338,17 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	m_propertyVisualPreviewTimer.setSingleShot(true);
 	connect(&m_propertyVisualPreviewTimer, &QTimer::timeout, this, &MainWindow::onPropertyVisualPreviewTimer);
 	m_jobSystem = new JobSystem(this);
-	if (m_jobSystem->progressManager())
-	{
-		connect(m_jobSystem->progressManager(), &ProgressManager::jobProgress, this,
-				[this](quint64 /*jobId*/, double /*fraction*/, const QString& message)
-				{
-					if (!message.isEmpty() && m_runInfoPage)
-					{
-						m_runInfoPage->appendInfo(message);
-					}
-				});
-	}
+	Progress::initialize();
+	m_progressController = new ProgressDialogController(this, this);
+	m_progressController->attachJobSystem(m_jobSystem);
+	m_progressController->setRunInfoPage(m_runInfoPage);
+	Progress::setUiSink([this](const Progress::Event& ev)
+						{
+							if (m_progressController)
+							{
+								m_progressController->handleProgressEvent(ev);
+							}
+						});
 	applyLanguage();
 	const ApplicationStyle::Theme savedTheme = m_uiPreferences.theme;
 	ApplicationStyle::applyTheme(qApp, savedTheme);
@@ -785,6 +787,8 @@ void MainWindow::shutdownRuntimeWorkers()
 	{
 		m_jobSystem->shutdown();
 	}
+	Progress::clearUiSink();
+	Progress::shutdown();
 }
 
 void MainWindow::shutdownApplicationLogging()

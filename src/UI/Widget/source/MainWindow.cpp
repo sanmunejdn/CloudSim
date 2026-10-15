@@ -37,6 +37,7 @@
 #include "IoSignalPageWidget.h"
 #include "JobSystem.h"
 #include "MainWindowRobotHost.h"
+#include "ProgressDialogController.h"
 #include "MainWindowSelectionService.h"
 #include "MainWindow_p.h"
 #include "PluginHostContext.h"
@@ -186,6 +187,10 @@ void MainWindow::applySavedViewLayout()
 
 void MainWindow::applyLanguage()
 {
+	if (m_progressController)
+	{
+		m_progressController->setChinese(m_useChinese);
+	}
 	setWindowTitle(i18n(QStringLiteral("CloudSim - MainWindow"), QStringLiteral("CloudSim - 主窗口")));
 	if (m_fileMenu)
 		m_fileMenu->setTitle(i18n(QStringLiteral("File"), QStringLiteral("文件")));

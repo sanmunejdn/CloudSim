@@ -68,7 +68,8 @@ CloudSim/
     │   ├── PlcCommPlugin/
     │   └── HelloAiPlugin/         # 示例（可不在 sln；保留）
     └── Infra/
-        └── RunLogger/
+        ├── RunLogger/
+        └── Progress/              # 横切进度总线（UiSink → 桌面进度对话框）
 ```
 
 **Visual Studio**：`CloudSim.sln`（桌面）与 `CloudSimWeb.sln`（网页）均用**解决方案文件夹**按功能域分组（与 `src/` 域对齐，不移动磁盘路径；含中文名时文件为 UTF-8 BOM）。维护脚本：`scripts/organize-sln-folders.ps1 [-SlnPath ...]`。
@@ -85,7 +86,7 @@ CloudSim/
 | 插件 / SDK | `CloudSimPluginSDK`、各业务 SDK、`PlcCommUI`、`CloudSimControllerSample` |
 | 插件 / 功能 | 各 `*Plugin`（主要在桌面 sln） |
 | 网页 | `CloudSimWebGateway`（`CloudSimWeb.sln`） |
-| 基础设施 | `RunLogger` |
+| 基础设施 | `RunLogger`、`Progress` |
 
 磁盘分组仍见上表；解决方案文件夹仅影响 Solution Explorer 显示。
 
@@ -111,6 +112,7 @@ CloudSim/
 | `PlcCommUI/` | `src/Plugins/PlcCommUI/` |
 | `PlcCommPlugin/` | `src/Plugins/PlcCommPlugin/` |
 | `RunLogger/` | `src/Infra/RunLogger/` |
+| （新增） | `src/Infra/Progress/` |
 
 ## 构建与输出
 
@@ -137,7 +139,7 @@ CloudSim/
 | 应用/UI | `CloudSim.exe`、`Widget.dll`、`RobotWidget.dll`、`AiWidget.dll`、`OsgWidgetCore.dll`、`BackendVisual.dll` |
 | 数据 | `Data.dll` |
 | 几何/机器人 | `GeometryEngine.dll`、`GeometryAlgorithm.dll`、`VcgAlgorithms.dll`、`RobotKinematics.dll`、`RobotUrdf.dll`、`RobotScene.dll` |
-| 日志 | `RunLogger.dll` |
+| 日志/进度 | `RunLogger.dll`、`Progress.dll` |
 | 插件 ABI | `CloudSimPluginSDK.dll`、`CloudSimAiSDK.dll` 等；`plugins/<id>/` 下各插件 DLL |
 | PLC | `PlcCommSDK.dll`、`PlcCommUI.dll`、`plctag.dll`（见 `bin/SDK/libplctag-...`） |
 

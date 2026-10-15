@@ -108,7 +108,7 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 					if (cancel && cancel->load())
 						break;
 					if (progress)
-						progress(5 + (90 * step) / std::max(1, pols.size()), policyName);
+						progress(0.05 + (0.9 * step) / std::max(1, pols.size()), policyName);
 					DesEngine engine;
 					engine.setDispatchPolicy(createDispatchPolicy(policyName));
 					if (cfg.executorMode.compare(QStringLiteral("drivePreview"), Qt::CaseInsensitive) == 0)
@@ -132,7 +132,7 @@ void ProcessFlowSimController::runInternal(ProcessFlowCanvasWidget* canvas, cons
 					++step;
 				}
 				if (progress)
-					progress(100, QStringLiteral("done"));
+					progress(1.0, QStringLiteral("done"));
 				Q_UNUSED(compareMode);
 			}
 			catch (const std::exception& ex)

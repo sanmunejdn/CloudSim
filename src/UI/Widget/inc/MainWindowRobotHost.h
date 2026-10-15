@@ -83,6 +83,9 @@ public:
 
 	void enqueueBackgroundJob(const QString& title, std::function<void()> work,
 							  std::function<void(bool threw, const QString& msg)> onFinished) override;
+	void enqueueBackgroundJob(const QString& title,
+							  std::function<void(const RobotJobProgressFn& progress)> work,
+							  std::function<void(bool threw, const QString& msg)> onFinished) override;
 
 	void setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler) override;
 	void clearMeshPickCommittedHandler() override;

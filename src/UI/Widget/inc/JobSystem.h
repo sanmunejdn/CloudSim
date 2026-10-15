@@ -49,9 +49,11 @@ public:
 
 	/// UI 线程调用；work 在线程池执行，onFinished 在 work 返回后于 UI 线程执行
 	/// work 抛异常时 onFinished 仍执行，threw 为 true 且 throwMessage 有值
+	/// 后台任务；进度条不显示取消（内部仍有 cancel token，供系统 shutdown）
 	quint64 enqueue(const QString& title, std::function<void(const JobProgressSink&)> work,
 					std::function<void(bool threw, const QString& throwMessage)> onFinished);
 
+	/// 可取消任务：进度对话框显示取消按钮
 	quint64 enqueueCancellable(const QString& title, JobCancellableWork work,
 							   std::function<void(bool threw, const QString& throwMessage)> onFinished);
 
@@ -63,6 +65,9 @@ public:
 	bool isShutdown() const { return m_shuttingDown.load(); }
 
 private:
+	quint64 enqueueInternal(const QString& title, bool uiCancellable, JobCancellableWork work,
+							std::function<void(bool threw, const QString& throwMessage)> onFinished);
+
 	ProgressManager* m_progress = nullptr;
 	std::unique_ptr<QThreadPool> m_pool;
 	std::atomic<quint64> m_nextJobId{0};

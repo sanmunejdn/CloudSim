@@ -76,6 +76,7 @@ $map = @{
   ProcessFlowPlugin = $F_FUNC; GeometricModelingPlugin = $F_FUNC; EngineeringDrawingPlugin = $F_FUNC
   CloudSimWebGateway = $F_WEB
   RunLogger = $F_INFRA
+  Progress = $F_INFRA
 }
 
 $unmapped = @($projGuid.Keys | Where-Object { -not $map.ContainsKey($_) })

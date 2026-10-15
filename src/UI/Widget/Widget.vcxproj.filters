@@ -95,6 +95,15 @@
     <ClInclude Include="inc\JobSystem.h">
       <Filter>inc\Infrastructure</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ProgressDialog.h">
+      <Filter>inc\Infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ProgressDialogController.h">
+      <Filter>inc\Infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ProgressUiText.h">
+      <Filter>inc\Infrastructure</Filter>
+    </ClInclude>
     <ClInclude Include="inc\MainWindow_p.h">
       <Filter>inc\MainWindow</Filter>
     </ClInclude>
@@ -247,6 +256,15 @@
     <ClCompile Include="source\ProgressManager.cpp">
       <Filter>src\Infrastructure</Filter>
     </ClCompile>
+    <ClCompile Include="source\ProgressDialog.cpp">
+      <Filter>src\Infrastructure</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProgressDialogController.cpp">
+      <Filter>src\Infrastructure</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProgressUiText.cpp">
+      <Filter>src\Infrastructure</Filter>
+    </ClCompile>
     <ClCompile Include="source\ProjectPackageZip.cpp">
       <Filter>src\Infrastructure</Filter>
     </ClCompile>
@@ -286,6 +304,12 @@
       <Filter>inc\MainWindow</Filter>
     </QtMoc>
     <QtMoc Include="inc\ProgressManager.h">
+      <Filter>inc\Infrastructure</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProgressDialog.h">
+      <Filter>inc\Infrastructure</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProgressDialogController.h">
       <Filter>inc\Infrastructure</Filter>
     </QtMoc>
     <QtMoc Include="inc\RunInfoPage.h">

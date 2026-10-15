@@ -94,7 +94,14 @@ public:
 											const QString& defaultTcpLinkName, const QString& sceneRootBackendId,
 											RobotInstruction::PlanResult& out, std::string* outErr) = 0;
 
+	/// 无细粒度进度：对话框显示不定进度条
 	virtual void enqueueBackgroundJob(const QString& title, std::function<void()> work,
+									  std::function<void(bool threw, const QString& msg)> onFinished) = 0;
+
+	using RobotJobProgressFn = std::function<void(double fraction, const QString& message)>;
+	/// 带进度回调（fraction∈[0,1]，<0 不定）
+	virtual void enqueueBackgroundJob(const QString& title,
+									  std::function<void(const RobotJobProgressFn& progress)> work,
 									  std::function<void(bool threw, const QString& msg)> onFinished) = 0;
 
 	virtual void setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler) = 0;

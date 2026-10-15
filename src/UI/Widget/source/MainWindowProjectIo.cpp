@@ -22,6 +22,7 @@
 #include "IDataService.h"
 #include "IRenderView.h"
 #include "IRobotService.h"
+#include "JobSystem.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
 #include "MainWindowSelectionService.h"
@@ -46,8 +47,10 @@
 #include <QJsonObject>
 #include <QList>
 #include <QMessageBox>
+#include <QPointer>
 #include <QSet>
 #include <QTemporaryDir>
+#include <memory>
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -254,45 +257,57 @@ void MainWindow::onOpenProjectFile()
 		return;
 	}
 
-	QTemporaryDir zipExtractDir;
-	QString projectJsonPath = openPath;
-	QString projectDir = QFileInfo(openPath).absolutePath();
-	if (project_package_zip::isZipArchiveFile(openPath))
+	struct OpenProjectIoState
 	{
-		if (!zipExtractDir.isValid())
-		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
-								 i18n(QStringLiteral("Cannot create a temporary folder to unpack the project."),
-									  QStringLiteral("无法创建临时目录解压工程。")));
-			return;
-		}
-		QString unpackErr;
-		if (!project_package_zip::extractZipArchive(openPath, zipExtractDir.path(), &unpackErr))
-		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")), unpackErr);
-			return;
-		}
-		projectJsonPath = QDir(zipExtractDir.path()).filePath(QStringLiteral("project.json"));
-		projectDir = zipExtractDir.path();
-		if (!QFileInfo::exists(projectJsonPath))
-		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
-								 i18n(QStringLiteral("The archive does not contain project.json."),
-									  QStringLiteral("压缩包中没有 project.json。")));
-			return;
-		}
-	}
+		std::shared_ptr<QTemporaryDir> tempDir;
+		QString projectDir;
+		QByteArray jsonBytes;
+		QString error;
+	};
 
-	QFile file(projectJsonPath);
-	if (!file.open(QIODevice::ReadOnly))
+	const auto loadProjectIo = [](const QString& path, OpenProjectIoState& io,
+								  const JobProgressSink& sink) -> bool
 	{
-		QMessageBox::warning(
-			this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
-			i18n(QStringLiteral("Failed to open project file."), QStringLiteral("打开工程文件失败。")));
-		return;
-	}
-	const QJsonDocument jsonDoc = QJsonDocument::fromJson(file.readAll());
-	file.close();
+		sink(0.05, QStringLiteral("Reading project..."));
+		QString projectJsonPath = path;
+		io.projectDir = QFileInfo(path).absolutePath();
+		if (project_package_zip::isZipArchiveFile(path))
+		{
+			io.tempDir = std::make_shared<QTemporaryDir>();
+			if (!io.tempDir->isValid())
+			{
+				io.error = QStringLiteral("Cannot create a temporary folder to unpack the project.");
+				return false;
+			}
+			QString unpackErr;
+			if (!project_package_zip::extractZipArchive(path, io.tempDir->path(), &unpackErr))
+			{
+				io.error = unpackErr;
+				return false;
+			}
+			projectJsonPath = QDir(io.tempDir->path()).filePath(QStringLiteral("project.json"));
+			io.projectDir = io.tempDir->path();
+			if (!QFileInfo::exists(projectJsonPath))
+			{
+				io.error = QStringLiteral("The archive does not contain project.json.");
+				return false;
+			}
+		}
+		sink(0.45, QStringLiteral("Loading JSON..."));
+		QFile file(projectJsonPath);
+		if (!file.open(QIODevice::ReadOnly))
+		{
+			io.error = QStringLiteral("Failed to open project file.");
+			return false;
+		}
+		io.jsonBytes = file.readAll();
+		sink(1.0, QString());
+		return true;
+	};
+
+	auto applyOpenedProject = [this](const QString& openPath, const QString& projectDir, const QByteArray& jsonBytes)
+	{
+	const QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonBytes);
 	if (!jsonDoc.isObject())
 	{
 		QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
@@ -557,4 +572,52 @@ void MainWindow::onOpenProjectFile()
 			rebuildUnitsDocument(page->documentId());
 		}
 	}
+	}; // applyOpenedProject
+
+	if (!m_jobSystem)
+	{
+		OpenProjectIoState io;
+		const JobProgressSink noop = [](double, const QString&) {};
+		if (!loadProjectIo(openPath, io, noop))
+		{
+			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
+								 io.error.isEmpty()
+									 ? i18n(QStringLiteral("Failed to open project file."),
+											QStringLiteral("打开工程文件失败。"))
+									 : io.error);
+			return;
+		}
+		applyOpenedProject(openPath, io.projectDir, io.jsonBytes);
+		return;
+	}
+
+	const auto io = std::make_shared<OpenProjectIoState>();
+	const QPointer<MainWindow> self(this);
+	const QString openPathCopy = openPath;
+	m_jobSystem->enqueue(
+		QStringLiteral("Open project: %1").arg(QFileInfo(openPath).fileName()),
+		[openPathCopy, io, loadProjectIo](const JobProgressSink& sink)
+		{
+			if (!loadProjectIo(openPathCopy, *io, sink) && io->error.isEmpty())
+			{
+				io->error = QStringLiteral("Failed to open project file.");
+			}
+		},
+		[self, openPathCopy, io, applyOpenedProject](const bool threw, const QString& throwMsg)
+		{
+			if (!self)
+			{
+				return;
+			}
+			if (threw || !io->error.isEmpty() || io->jsonBytes.isEmpty())
+			{
+				const QString msg =
+					threw ? (throwMsg.isEmpty() ? QStringLiteral("Background project open failed.") : throwMsg)
+						  : io->error;
+				QMessageBox::warning(self.data(),
+									 self->i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")), msg);
+				return;
+			}
+			applyOpenedProject(openPathCopy, io->projectDir, io->jsonBytes);
+		});
 }

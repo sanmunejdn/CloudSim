@@ -33,6 +33,7 @@
 | **TrajectoryAlgorithm** | `ITrajectoryOp` 框架、Registry、Codec、ConfigRegistry | [TrajectoryAlgorithm/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithm/DEVELOPER_GUIDE.md) |
 | **TrajectoryAlgorithmBuiltins** | 18 种原子块实现、`UnifiedTrajectoryPathMath`、注册注入 | [TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md) |
 | **RunLogger** | 文件/控制台/UI 日志；x64 动态 DLL | [RunLogger/DEVELOPER_GUIDE.md](../src/Infra/RunLogger/DEVELOPER_GUIDE.md) |
+| **Progress** | 横切进度总线 + 桌面进度对话框 UiSink；x64 动态 DLL | [Progress/DEVELOPER_GUIDE.md](../src/Infra/Progress/DEVELOPER_GUIDE.md) |
 | **CloudSimPluginSDK** | 动态插件 ABI、宿主上下文、几何/点云 API；**1.54.0+** Path B `propertyBindings` | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)、[指令与插件属性Binding](features/Binding/) |
 | **CloudSimMeshTrajectorySDK** | Mesh 轨迹会话、区域选择、`generateRawPath`；**UI 内部**（RobotWidget），非插件 ABI | [CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md) |
 | **CloudSimControllerSDK** | 仿真外置控制器 TCP 客户端（`127.0.0.1:19620`）；与 RobotComm `19610` 分离 | [CloudSimControllerSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimControllerSDK/DEVELOPER_GUIDE.md)、[仿真外置控制器](features/仿真外置控制器/) |
@@ -104,6 +105,7 @@ flowchart TB
 | 工程 | x64 产物 | 构建时定义 | 消费方（默认 dllimport） |
 |------|---------|-----------|-------------------------|
 | RunLogger | `RunLogger.dll` | `RUN_LOGGER_LIB` | 是 |
+| Progress | `Progress.dll` | `PROGRESS_LIB` | 是（Widget） |
 | GeometryEngine | `GeometryEngine.dll` | `GEOMETRY_ENGINE_LIB` | 是 |
 | RobotKinematics | `RobotKinematics.dll` | `ROBOT_KINEMATICS_LIB` | 是 |
 | RobotUrdf | `RobotUrdf.dll` | `ROBOT_URDF_LIB` | 是 |

@@ -24,6 +24,7 @@
 #include "IRobotService.h"
 #include "JobSystem.h"
 #include "KinematicModelIk.h"
+#include "Progress.h"
 #include "KinematicModelRegistry.h"
 #include "MainWindow.h"
 #include "MainWindowImportCaptureRenderController.h"
@@ -137,8 +138,10 @@ bool computeMountTcpWorld(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, const
 } // namespace
 
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QEventLoop>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QVBoxLayout>
@@ -1284,6 +1287,26 @@ bool MainWindowRobotHost::planRobotMotionInstruction(RobotInstruction::Base& ins
 void MainWindowRobotHost::enqueueBackgroundJob(const QString& title, std::function<void()> work,
 											   std::function<void(bool threw, const QString& msg)> onFinished)
 {
+	enqueueBackgroundJob(
+		title,
+		[work = std::move(work)](const RobotJobProgressFn& progress)
+		{
+			if (progress)
+			{
+				progress(-1.0, QString());
+			}
+			if (work)
+			{
+				work();
+			}
+		},
+		std::move(onFinished));
+}
+
+void MainWindowRobotHost::enqueueBackgroundJob(const QString& title,
+											   std::function<void(const RobotJobProgressFn& progress)> work,
+											   std::function<void(bool threw, const QString& msg)> onFinished)
+{
 	if (!m_mw || !m_mw->jobSystem())
 	{
 		if (onFinished)
@@ -1294,11 +1317,12 @@ void MainWindowRobotHost::enqueueBackgroundJob(const QString& title, std::functi
 	}
 	m_mw->jobSystem()->enqueue(
 		title,
-		[work = std::move(work)](const JobProgressSink&)
+		[work = std::move(work)](const JobProgressSink& sink)
 		{
+			RobotJobProgressFn pluginSink = [&sink](double fraction, const QString& msg) { sink(fraction, msg); };
 			if (work)
 			{
-				work();
+				work(pluginSink);
 			}
 		},
 		std::move(onFinished));
@@ -1589,8 +1613,15 @@ QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const 
 	opt.catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 	opt.meshImportQuality = quality;
 	opt.brepDisplayLod = brepLod;
+	Progress::Scope progressScope("Assembly model import");
+	const int pathCount = paths.size();
+	int pathIndex = 0;
 	for (const QString& path : paths)
 	{
+		++pathIndex;
+		progressScope.report(pathCount > 0 ? (static_cast<double>(pathIndex - 1) / pathCount) : 0.0,
+							 QFileInfo(path).fileName().toStdString());
+		QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 		QString importErr;
 		const cloudsim::host::ImportFileResult imported =
 			cloudsim::host::importFileIntoDocument(*host, path, cloudsim::host::ImportFileKind::Mesh, opt, &importErr);
@@ -1610,6 +1641,7 @@ QStringList MainWindowRobotHost::importModelsForAssembly(QWidget* parent, const 
 			roots.append(imported.hierarchyDetail.partBackendIds);
 		}
 	}
+	progressScope.report(1.0, {});
 	return roots;
 }
 

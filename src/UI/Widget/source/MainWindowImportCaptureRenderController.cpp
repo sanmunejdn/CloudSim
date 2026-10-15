@@ -17,11 +17,11 @@
 #include <QByteArray>
 #include <QFile>
 #include <QFileInfo>
+#include <QLatin1String>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QPointer>
 #include <memory>
-
-#include <QLatin1String>
 
 bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& mw, const QString& filePath,
 																	const QString& typeName, bool isPointCloud,
@@ -91,7 +91,8 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 			return true;
 		}
 
-		if (!isLasLaz && mw.jobSystem())
+		Q_UNUSED(isLasLaz);
+		if (mw.jobSystem())
 		{
 			const auto loadState =
 				std::make_shared<cloudsim::host::PointCloudBackgroundLoadState>(filePath, fileInfo.fileName());
@@ -340,45 +341,96 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 	cloudsim::core::ImportOptionsDto options;
 	options.quietUi = quietUi;
 
-	const cloudsim::core::RobotRegistrationDto result = doc->robot().registerUrdfRobot(urdfFilePath, options);
-
-	if (!result.ok)
+	const auto finishUi = [&mw, quietUi](const cloudsim::core::RobotRegistrationDto& result) -> bool
 	{
-		const QString title = QStringLiteral("URDF");
-		const QString& msg = result.error;
-		if (quietUi)
+		if (!result.ok)
 		{
-			if (mw.m_runInfoPage)
+			const QString title = QStringLiteral("URDF");
+			const QString& msg = result.error;
+			if (quietUi)
 			{
-				mw.m_runInfoPage->appendWarning(title + QStringLiteral(": ") + msg);
+				if (mw.m_runInfoPage)
+				{
+					mw.m_runInfoPage->appendWarning(title + QStringLiteral(": ") + msg);
+				}
+			}
+			else
+			{
+				QMessageBox::warning(&mw, title, msg);
+			}
+			return false;
+		}
+		if (mw.m_runInfoPage)
+		{
+			for (const QString& w : result.warnings)
+			{
+				mw.m_runInfoPage->appendWarning(w);
 			}
 		}
-		else
+		mw.refreshSimulationJointListFromCurrentDoc();
+		if (mw.m_runInfoPage && !quietUi)
 		{
-			QMessageBox::warning(&mw, title, msg);
+			mw.m_runInfoPage->appendInfo(
+				QStringLiteral("URDF robot added (per-link backends): %1, Links: %2, Joints: %3, Root=%4")
+					.arg(result.sourceDisplayName)
+					.arg(result.linkCount)
+					.arg(result.jointCount)
+					.arg(result.sceneRootBackendId));
 		}
-		return false;
+		return true;
+	};
+
+	if (!mw.jobSystem())
+	{
+		const cloudsim::core::RobotRegistrationDto result = doc->robot().registerUrdfRobot(urdfFilePath, options);
+		return finishUi(result);
 	}
 
-	if (mw.m_runInfoPage)
-	{
-		for (const QString& w : result.warnings)
+	const QPointer<MainWindow> mwPtr(&mw);
+	const QPointer<DocumentPage> docPtr(doc);
+	const auto resultHolder = std::make_shared<cloudsim::core::RobotRegistrationDto>();
+	mw.jobSystem()->enqueue(
+		QStringLiteral("URDF: %1").arg(QFileInfo(urdfFilePath).fileName()),
+		[mwPtr, docPtr, urdfFilePath, options, resultHolder](const JobProgressSink& sink)
 		{
-			mw.m_runInfoPage->appendWarning(w);
-		}
-	}
-
-	mw.refreshSimulationJointListFromCurrentDoc();
-
-	if (mw.m_runInfoPage && !quietUi)
-	{
-		mw.m_runInfoPage->appendInfo(
-			QStringLiteral("URDF robot added (per-link backends): %1, Links: %2, Joints: %3, Root=%4")
-				.arg(result.sourceDisplayName)
-				.arg(result.linkCount)
-				.arg(result.jointCount)
-				.arg(result.sceneRootBackendId));
-	}
-
+			sink(-1.0, QStringLiteral("Reading URDF / building scene..."));
+			if (!mwPtr || !docPtr)
+			{
+				resultHolder->ok = false;
+				resultHolder->error = QStringLiteral("Document closed.");
+				return;
+			}
+			// BackendDataManager 写必须在 owner 线程；Job 池线程经 BlockingQueued 回投 UI
+			QMetaObject::invokeMethod(
+				mwPtr.data(),
+				[docPtr, urdfFilePath, options, resultHolder]()
+				{
+					if (!docPtr)
+					{
+						resultHolder->ok = false;
+						resultHolder->error = QStringLiteral("Document closed.");
+						return;
+					}
+					*resultHolder = docPtr->robot().registerUrdfRobot(urdfFilePath, options);
+				},
+				Qt::BlockingQueuedConnection);
+			sink(1.0, QString());
+		},
+		[mwPtr, quietUi, resultHolder, finishUi](const bool threw, const QString& throwMsg)
+		{
+			if (!mwPtr)
+			{
+				return;
+			}
+			if (threw)
+			{
+				cloudsim::core::RobotRegistrationDto failed;
+				failed.ok = false;
+				failed.error = throwMsg.isEmpty() ? QStringLiteral("URDF job failed.") : throwMsg;
+				finishUi(failed);
+				return;
+			}
+			finishUi(*resultHolder);
+		});
 	return true;
 }
