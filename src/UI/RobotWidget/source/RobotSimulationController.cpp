@@ -9766,7 +9766,7 @@ void RobotSimulationController::scheduleDeferredFeasibleAxisProbe(
 	jobResult->fingerprint = fingerprint;
 	jobResult->seedJointRad = rollingQ;
 	QPointer<RobotSimulationController> guard(this);
-	m_host->enqueueBackgroundJob(
+	m_host->enqueueBackgroundJobQuiet(
 		QStringLiteral("Feasible axis IK"),
 		[jobResult, payload]() { jobResult->options = runFeasibleAxisProbeJob(payload); },
 		[this, guard, token, jobResult, purpose](const bool threw, const QString&)
@@ -10631,7 +10631,7 @@ void RobotSimulationController::tickLookaheadPlanning()
 		++m_lookaheadPendingJobs;
 		++jobsStarted;
 		m_lookaheadInFlight.insert(targetMi);
-		m_host->enqueueBackgroundJob(
+		m_host->enqueueBackgroundJobQuiet(
 			QStringLiteral("Lookahead: %1").arg(insIdQ),
 			[jobResult, payload]() { jobResult->plan = planLookaheadMotion(payload); },
 			[this, jobResult](const bool threw, const QString&)
@@ -10744,7 +10744,7 @@ void RobotSimulationController::enqueueReachabilityBatch(const int batchStart)
 	const auto jobResult = std::make_shared<ReachabilityJobOutput>();
 	QPointer<RobotSimulationController> guard(this);
 	++m_reachabilityPendingJobs;
-	m_host->enqueueBackgroundJob(
+	m_host->enqueueBackgroundJobQuiet(
 		QStringLiteral("Motion reachability"),
 		[input = std::move(input), jobResult]() { *jobResult = runReachabilityJob(input); },
 		[this, guard, token, jobResult, end, nj, motionCount = static_cast<int>(motions.size())](const bool threw,

@@ -5,7 +5,6 @@ import { useStatus } from "../../state/statusStore";
 const DOMAINS: { id: AiDomainId; label: string }[] = [
   { id: "scene.ops", label: "场景" },
   { id: "robot.command", label: "机器人" },
-  { id: "process.flow", label: "工艺流程" },
 ];
 
 export default function AiPanel() {

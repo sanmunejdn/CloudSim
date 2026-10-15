@@ -31,7 +31,6 @@ QString mapExact(const QString& text, bool zh)
 		{"Running SPARE (world frame)...", "正在运行 SPARE…"},
 		{"Running SDF/DDF (world frame)...", "正在运行 SDF/DDF…"},
 		{"Running TPS...", "正在运行 TPS…"},
-		{"HLR...", "正在生成工程图 (HLR)…"},
 		{"ProcessFlow DES", "工艺流 DES 仿真"},
 	};
 	for (const Pair& p : kExact)

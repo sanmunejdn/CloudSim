@@ -1187,8 +1187,8 @@ bool AiAssistantCoordinator::shouldUseAgentRuntime(const QString& resolvedDomain
 {
 	return resolvedDomainId == AiDomainIds::meshCreate() || resolvedDomainId == AiDomainIds::meshCompose() ||
 		   resolvedDomainId == AiDomainIds::pointCloudOps() || resolvedDomainId == AiDomainIds::documentImport() ||
-		   resolvedDomainId == AiDomainIds::geometryOps() || resolvedDomainId == AiDomainIds::featureBuild() ||
-		   resolvedDomainId == AiDomainIds::labelingAnnot() || resolvedDomainId == AiDomainIds::sceneOps() ||
+		   resolvedDomainId == AiDomainIds::geometryOps() || resolvedDomainId == AiDomainIds::labelingAnnot() ||
+		   resolvedDomainId == AiDomainIds::sceneOps() ||
 		   resolvedDomainId == AiDomainIds::processFlow();
 }
 

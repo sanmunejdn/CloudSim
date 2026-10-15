@@ -132,11 +132,9 @@ void HelpBrowserDialog::buildTocTree()
 			QStringLiteral("scene.html"));
 
 	QTreeWidgetItem* modeling =
-		addGroup(m_tocTree, nullptr, zh ? QStringLiteral("建模与出图") : QStringLiteral("Modeling & Drawing"));
+		addGroup(m_tocTree, nullptr, zh ? QStringLiteral("几何建模") : QStringLiteral("Geometric Modeling"));
 	addPage(modeling, zh ? QStringLiteral("几何建模") : QStringLiteral("Geometric Modeling"),
 			QStringLiteral("geometry.html"));
-	addPage(modeling, zh ? QStringLiteral("工程图纸") : QStringLiteral("Engineering Drawing"),
-			QStringLiteral("drawing.html"));
 
 	QTreeWidgetItem* robot =
 		addGroup(m_tocTree, nullptr, zh ? QStringLiteral("机器人与仿真") : QStringLiteral("Robot & Simulation"));

@@ -6,11 +6,7 @@
 #include "DocumentHost.h"
 #include "WebGateway.h"
 #include "headless/HeadlessAiBridge.h"
-#include "headless/HeadlessDrawingBridge.h"
 #include "headless/HeadlessGeometryBridge.h"
-#include "headless/HeadlessGeomodelBridge.h"
-#include "headless/HeadlessLabelingBridge.h"
-#include "headless/HeadlessProcessFlowBridge.h"
 #include "headless/HeadlessProgramEditBridge.h"
 #include "headless/HeadlessRobotCollisionBridge.h"
 #include "headless/HeadlessRobotExportBridge.h"
@@ -416,167 +412,10 @@ void WebGateway::registerParityRoutes(cloudsim::host::DocumentHost* host)
 						  writeJson(res, out);
 					  });
 
-	httpServer().Get("/api/processflow/graph",
-					 [this](const httplib::Request&, httplib::Response& res)
-					 {
-						 QJsonObject out;
-						 QMetaObject::invokeMethod(
-							 this,
-							 [this, &out]()
-							 {
-								 auto* h = docHost(m_document.get());
-								 out = h && h->headlessProcessFlowBridge() ? h->headlessProcessFlowBridge()->getGraph()
-																		   : QJsonObject{{QStringLiteral("ok"), false}};
-							 },
-							 Qt::BlockingQueuedConnection);
-						 writeJson(res, out);
-					 });
-
-	httpServer().Put("/api/processflow/graph",
-					 [this](const httplib::Request& req, httplib::Response& res)
-					 {
-						 QJsonObject out;
-						 QMetaObject::invokeMethod(
-							 this,
-							 [this, body = QByteArray::fromStdString(req.body), &out]()
-							 {
-								 auto* h = docHost(m_document.get());
-								 out = h && h->headlessProcessFlowBridge() ? h->headlessProcessFlowBridge()->putGraph(
-																				 QJsonDocument::fromJson(body).object())
-																		   : QJsonObject{{QStringLiteral("ok"), false}};
-							 },
-							 Qt::BlockingQueuedConnection);
-						 writeJson(res, out);
-					 });
-
-	httpServer().Post("/api/processflow/sim/run",
-					  [this](const httplib::Request& req, httplib::Response& res)
-					  {
-						  QJsonObject out;
-						  QMetaObject::invokeMethod(
-							  this,
-							  [this, body = QByteArray::fromStdString(req.body), &out]()
-							  {
-								  auto* h = docHost(m_document.get());
-								  out = h && h->headlessProcessFlowBridge()
-											? h->headlessProcessFlowBridge()->runSim(
-												  QJsonDocument::fromJson(body).object())
-											: QJsonObject{{QStringLiteral("ok"), false}};
-							  },
-							  Qt::BlockingQueuedConnection);
-						  writeJson(res, out);
-					  });
-
-	httpServer().Post("/api/drawing/export",
-					  [this](const httplib::Request& req, httplib::Response& res)
-					  {
-						  QJsonObject out;
-						  QMetaObject::invokeMethod(
-							  this,
-							  [this, body = QByteArray::fromStdString(req.body), &out]()
-							  {
-								  auto* h = docHost(m_document.get());
-								  out = h && h->headlessDrawingBridge() ? h->headlessDrawingBridge()->exportDrawing(
-																			  QJsonDocument::fromJson(body).object())
-																		: QJsonObject{{QStringLiteral("ok"), false}};
-							  },
-							  Qt::BlockingQueuedConnection);
-						  writeJson(res, out);
-					  });
-
-	httpServer().Get("/api/geomodeling/summary",
-					 [this](const httplib::Request&, httplib::Response& res)
-					 {
-						 QJsonObject out;
-						 QMetaObject::invokeMethod(
-							 this,
-							 [this, &out]()
-							 {
-								 auto* h = docHost(m_document.get());
-								 out = h && h->headlessGeomodelBridge() ? h->headlessGeomodelBridge()->summaryJson()
-																		: QJsonObject{{QStringLiteral("ok"), false}};
-							 },
-							 Qt::BlockingQueuedConnection);
-						 writeJson(res, out);
-					 });
-
-	httpServer().Get("/api/geomodeling/history",
-					 [this](const httplib::Request& req, httplib::Response& res)
-					 {
-						 const QString backendId = QString::fromStdString(req.get_param_value("backendId"));
-						 QJsonObject out;
-						 QMetaObject::invokeMethod(
-							 this,
-							 [this, backendId, &out]()
-							 {
-								 auto* h = docHost(m_document.get());
-								 out = h && h->headlessGeomodelBridge()
-										   ? h->headlessGeomodelBridge()->historyJson(backendId)
-										   : QJsonObject{
-												 {QStringLiteral("ok"), false},
-												 {QStringLiteral("error"), QStringLiteral("No geomodel bridge.")}};
-							 },
-							 Qt::BlockingQueuedConnection);
-						 writeJson(res, out);
-					 });
-
-	httpServer().Put(
-		"/api/geomodeling/history",
-		[this](const httplib::Request& req, httplib::Response& res)
-		{
-			QJsonObject out;
-			QMetaObject::invokeMethod(
-				this,
-				[this, body = QByteArray::fromStdString(req.body), &out]()
-				{
-					auto* h = docHost(m_document.get());
-					out = h && h->headlessGeomodelBridge()
-							  ? h->headlessGeomodelBridge()->setHistory(QJsonDocument::fromJson(body).object())
-							  : QJsonObject{{QStringLiteral("ok"), false},
-											{QStringLiteral("error"), QStringLiteral("No geomodel bridge.")}};
-				},
-				Qt::BlockingQueuedConnection);
-			writeJson(res, out);
-		});
+	// 网页端暂仅主程序：不注册 geomodeling / processflow / labeling 专用路由
 
 	httpServer().Post(
-		"/api/geomodeling/op",
-		[this](const httplib::Request& req, httplib::Response& res)
-		{
-			QJsonObject out;
-			QMetaObject::invokeMethod(
-				this,
-				[this, body = QByteArray::fromStdString(req.body), &out]()
-				{
-					auto* h = docHost(m_document.get());
-					out = h && h->headlessGeomodelBridge()
-							  ? h->headlessGeomodelBridge()->applyOp(QJsonDocument::fromJson(body).object())
-							  : QJsonObject{{QStringLiteral("ok"), false},
-											{QStringLiteral("error"), QStringLiteral("No geomodel bridge.")}};
-				},
-				Qt::BlockingQueuedConnection);
-			writeJson(res, out);
-		});
-
-	httpServer().Get("/api/labeling/tasks",
-					 [this](const httplib::Request&, httplib::Response& res)
-					 {
-						 QJsonObject out;
-						 QMetaObject::invokeMethod(
-							 this,
-							 [this, &out]()
-							 {
-								 auto* h = docHost(m_document.get());
-								 out = h && h->headlessLabelingBridge() ? h->headlessLabelingBridge()->tasksJson()
-																		: QJsonObject{{QStringLiteral("ok"), false}};
-							 },
-							 Qt::BlockingQueuedConnection);
-						 writeJson(res, out);
-					 });
-
-	httpServer().Post(
-		"/api/assembly/mate",
-		[this](const httplib::Request& req, httplib::Response& res)
+		"/api/assembly/mate",		[this](const httplib::Request& req, httplib::Response& res)
 		{
 			QJsonObject out;
 			QMetaObject::invokeMethod(

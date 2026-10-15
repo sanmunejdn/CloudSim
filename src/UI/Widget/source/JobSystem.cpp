@@ -19,11 +19,11 @@ constexpr int kShutdownWaitMs = 1500;
 class JobRunnable : public QRunnable
 {
 public:
-	JobRunnable(quint64 jobId, QPointer<ProgressManager> progress, JobCancellableWork work, JobCancelToken token,
-				std::function<void(bool threw, const QString& throwMessage)> onFinished,
+	JobRunnable(quint64 jobId, QPointer<ProgressManager> progress, bool publishProgress, JobCancellableWork work,
+				JobCancelToken token, std::function<void(bool threw, const QString& throwMessage)> onFinished,
 				std::function<void(quint64)> onDone)
-		: m_jobId(jobId), m_progress(std::move(progress)), m_work(std::move(work)), m_token(std::move(token)),
-		  m_onFinished(std::move(onFinished)), m_onDone(std::move(onDone))
+		: m_jobId(jobId), m_progress(std::move(progress)), m_publishProgress(publishProgress), m_work(std::move(work)),
+		  m_token(std::move(token)), m_onFinished(std::move(onFinished)), m_onDone(std::move(onDone))
 	{
 		setAutoDelete(true);
 	}
@@ -35,7 +35,7 @@ public:
 		const bool canceledUpfront = m_token.canceled();
 		const JobProgressSink sink = [this](double fraction, const QString& message)
 		{
-			if (m_progress)
+			if (m_publishProgress && m_progress)
 			{
 				m_progress->reportProgress(m_jobId, fraction, message);
 			}
@@ -75,9 +75,10 @@ public:
 			return;
 		}
 		const quint64 id = m_jobId;
+		const bool publishProgress = m_publishProgress;
 		auto onFinished = std::move(m_onFinished);
 		pm->queueOnMainThread(
-			[pm, id, threw, throwMsg, onFinished = std::move(onFinished)]()
+			[pm, id, threw, throwMsg, publishProgress, onFinished = std::move(onFinished)]()
 			{
 				if (onFinished)
 				{
@@ -97,7 +98,7 @@ public:
 										 QString::number(id).toStdString());
 					}
 				}
-				if (pm)
+				if (publishProgress && pm)
 				{
 					pm->reportJobFinished(id, !threw && throwMsg != QStringLiteral("Canceled"),
 										  threw ? throwMsg : QString());
@@ -108,6 +109,7 @@ public:
 private:
 	quint64 m_jobId = 0;
 	QPointer<ProgressManager> m_progress;
+	bool m_publishProgress = true;
 	JobCancellableWork m_work;
 	JobCancelToken m_token;
 	std::function<void(bool threw, const QString& throwMessage)> m_onFinished;
@@ -163,7 +165,22 @@ quint64 JobSystem::enqueue(const QString& title, std::function<void(const JobPro
 						   std::function<void(bool threw, const QString& throwMessage)> onFinished)
 {
 	return enqueueInternal(
-		title, false,
+		title, false, true,
+		[work = std::move(work)](const JobProgressSink& sink, const JobCancelToken&)
+		{
+			if (work)
+			{
+				work(sink);
+			}
+		},
+		std::move(onFinished));
+}
+
+quint64 JobSystem::enqueueQuiet(const QString& title, std::function<void(const JobProgressSink&)> work,
+								std::function<void(bool threw, const QString& throwMessage)> onFinished)
+{
+	return enqueueInternal(
+		title, false, false,
 		[work = std::move(work)](const JobProgressSink& sink, const JobCancelToken&)
 		{
 			if (work)
@@ -177,10 +194,11 @@ quint64 JobSystem::enqueue(const QString& title, std::function<void(const JobPro
 quint64 JobSystem::enqueueCancellable(const QString& title, JobCancellableWork work,
 									  std::function<void(bool threw, const QString& throwMessage)> onFinished)
 {
-	return enqueueInternal(title, true, std::move(work), std::move(onFinished));
+	return enqueueInternal(title, true, true, std::move(work), std::move(onFinished));
 }
 
-quint64 JobSystem::enqueueInternal(const QString& title, bool uiCancellable, JobCancellableWork work,
+quint64 JobSystem::enqueueInternal(const QString& title, bool uiCancellable, bool publishProgress,
+								   JobCancellableWork work,
 								   std::function<void(bool threw, const QString& throwMessage)> onFinished)
 {
 	if (m_shuttingDown.load() || !m_pool)
@@ -197,13 +215,14 @@ quint64 JobSystem::enqueueInternal(const QString& title, bool uiCancellable, Job
 		QMutexLocker lock(&m_cancelMutex);
 		m_cancelFlags.insert(id, flag);
 	}
-	if (m_progress)
+	if (publishProgress && m_progress)
 	{
 		m_progress->reportJobStarted(id, title, uiCancellable);
 	}
 	JobCancelToken token(flag);
 	const QPointer<JobSystem> self(this);
-	auto* runnable = new JobRunnable(id, m_progress, std::move(work), std::move(token), std::move(onFinished),
+	auto* runnable = new JobRunnable(id, m_progress, publishProgress, std::move(work), std::move(token),
+									 std::move(onFinished),
 									 [self](quint64 doneId)
 									 {
 										 if (!self)

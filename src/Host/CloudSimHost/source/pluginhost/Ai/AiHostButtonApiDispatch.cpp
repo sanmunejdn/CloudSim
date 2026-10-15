@@ -39,12 +39,6 @@ struct SurfaceSessionState
 	std::string meshBackendId;
 };
 
-struct TubularSessionState
-{
-	PluginTubularGrindingSessionId sessionId;
-	std::string meshBackendId;
-};
-
 struct LabelingSessionState
 {
 	PluginLabelingSessionId sessionId = kInvalidLabelingSessionId;
@@ -52,7 +46,6 @@ struct LabelingSessionState
 };
 
 SurfaceSessionState g_surface;
-TubularSessionState g_tubular;
 LabelingSessionState g_labeling;
 PluginGeometryStepRef g_lastEdge;
 PluginGeometryStepRef g_lastFace;
@@ -277,23 +270,6 @@ bool ensureSurfaceSession(IPluginPointCloudHost* pch, IPluginDocument* doc, cons
 	return true;
 }
 
-bool ensureTubularSession(IPluginPointCloudHost* pch, IPluginDocument* doc, const std::string& meshId,
-						  QString* outError)
-{
-	if (g_tubular.sessionId.valid() && g_tubular.meshBackendId == meshId)
-		return true;
-	if (g_tubular.sessionId.valid())
-		pch->clearTubularGrindingSession(doc, g_tubular.sessionId);
-	g_tubular.sessionId = pch->beginTubularGrindingSession(doc, meshId);
-	g_tubular.meshBackendId = meshId;
-	if (!g_tubular.sessionId.valid())
-	{
-		setErr(outError, QStringLiteral("无法启动特征构建会话。"));
-		return false;
-	}
-	return true;
-}
-
 bool runSurfaceStage(PluginHostContext& host, nlohmann::json& args, PluginMeshSurfaceReconstructStage stage,
 					 QString* outError)
 {
@@ -322,35 +298,6 @@ bool runSurfaceStage(PluginHostContext& host, nlohmann::json& args, PluginMeshSu
 	loop.exec();
 	if (!ok)
 		setErr(outError, err.isEmpty() ? QStringLiteral("曲面重构阶段失败。") : err);
-	return ok;
-}
-
-bool runTubularStage(PluginHostContext& host, nlohmann::json& args, PluginTubularGrindingStage stage, QString* outError)
-{
-	auto* pch = requirePc(host, outError);
-	auto* doc = requireDoc(host, outError);
-	if (!pch || !doc)
-		return false;
-	const std::string id =
-		resolveBackendId(host, args, outError, AiAgentPickDialog::BackendKindFilter::Mesh, QStringLiteral("选择网格"));
-	if (id.empty())
-		return false;
-	if (!ensureTubularSession(pch, doc, id, outError))
-		return false;
-	PluginTubularGrindingParams params;
-	QEventLoop loop;
-	bool ok = false;
-	QString err;
-	pch->runTubularGrindingStage(doc, g_tubular.sessionId, stage, params,
-								 [&](bool success, const QString& error, const PluginTubularGrindingReport&)
-								 {
-									 ok = success;
-									 err = error;
-									 loop.quit();
-								 });
-	loop.exec();
-	if (!ok)
-		setErr(outError, err.isEmpty() ? QStringLiteral("特征构建阶段失败。") : err);
 	return ok;
 }
 
@@ -760,38 +707,6 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		if (g_surface.sessionId.valid())
 			pch->clearMeshSurfaceReconstructSession(doc, g_surface.sessionId);
 		g_surface = {};
-		return true;
-	}
-
-	if (api == "runTubularGrindingCenterline")
-	{
-		runTubularStage(host, args, PluginTubularGrindingStage::Centerline, outError);
-		return true;
-	}
-	if (api == "runTubularGrindingTemplatePoints")
-	{
-		runTubularStage(host, args, PluginTubularGrindingStage::TemplatePoints, outError);
-		return true;
-	}
-	if (api == "runTubularGrindingProject")
-	{
-		runTubularStage(host, args, PluginTubularGrindingStage::Project, outError);
-		return true;
-	}
-	if (api == "runTubularGrindingFpfhRegionPartition")
-	{
-		runTubularStage(host, args, PluginTubularGrindingStage::FpfhRegionPartition, outError);
-		return true;
-	}
-	if (api == "clearTubularGrindingSession")
-	{
-		auto* pch = requirePc(host, outError);
-		auto* doc = requireDoc(host, outError);
-		if (!pch || !doc)
-			return true;
-		if (g_tubular.sessionId.valid())
-			pch->clearTubularGrindingSession(doc, g_tubular.sessionId);
-		g_tubular = {};
 		return true;
 	}
 

@@ -18,4 +18,4 @@
 
 ## 与其它模式
 
-切到几何建模 / 工艺流程 / 工程图时由对应插件 `claimWorkspaceMode`；返回主程序调用宿主 `returnToMainWorkspace`（空 `modeId`）。
+切到几何建模 / 工艺流程时由对应插件 `claimWorkspaceMode`；返回主程序调用宿主 `returnToMainWorkspace`（空 `modeId`）。工程图已从产品移除。

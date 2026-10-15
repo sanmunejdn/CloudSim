@@ -37,6 +37,7 @@ def test_sse_workspace_mode_event(api: str) -> None:
     t = threading.Thread(target=reader, daemon=True)
     t.start()
     time.sleep(0.5)
+    # 非 scene3d 请求会被强制归一为主程序
     put = requests.put(
         f"{api}/api/sidecar/workspaceMode",
         json={"mode": "geomodeling"},
@@ -46,7 +47,10 @@ def test_sse_workspace_mode_event(api: str) -> None:
     assert put.json().get("ok") is True
     t.join(timeout=15)
     assert got["event"] is not None
-    assert got["event"].get("mode") == "geomodeling"
+    assert got["event"].get("mode") == "scene3d"
+    modes = requests.get(f"{api}/api/modes", timeout=10).json()
+    assert modes.get("active") == "scene3d"
+    assert [m.get("id") for m in modes.get("modes", [])] == ["scene3d"]
 
 
 def test_sidecar_roundtrip(api: str) -> None:

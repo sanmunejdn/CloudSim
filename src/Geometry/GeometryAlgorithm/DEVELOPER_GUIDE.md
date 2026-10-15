@@ -313,7 +313,7 @@ Phase2（边折线）
 
 三角 soup（mm）→ **中心线** → 模板理想点位 → 表面投影。会话式 API 对齐曲面重构。
 
-**当前 UI 流水线**（`PointCloudPlugin/TubularGrindingDockWidget`）：`None → Centerline → TemplatePoints → Project`。Segment 阶段已从 UI 移除，但 **API 与 `runPipeSegmentation` 仍保留**，自检 `SelfTest` 仍走四阶段。
+算法与 `SelfTest` 保留。Plugin SDK / 点云侧栏「特征构建」UI / AI `feature.build` 已拆除；调用请直接走 `geoalgo::TubularGrinding*` 或 `GeometryBackendOps`。
 
 | `TubularGrindingStage` | 源文件 | 说明 |
 |------------------------|--------|------|
@@ -672,7 +672,7 @@ const bool ok = geoalgo::runSelfTest(&err);
 
 - [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
-- [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../../Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) — 特征构建 UI 与调参
+- [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../../Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) — 点云侧栏（特征构建 UI 已拆除）
 - `docs/ARCHIVE_ZIP_LOCATION.txt`
 - `docs/ARCHIVE_ZIP_LOCATION.txt`
 - [`RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §14 — `RawTrajectory` 编辑流水线；`TubularGrindingTrajectoryIngress`（桩）

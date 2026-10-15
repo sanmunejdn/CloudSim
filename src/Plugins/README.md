@@ -7,7 +7,6 @@
 | CloudSimPluginSDK | 契约 SDK | [DEVELOPER_GUIDE.md](CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
 | GeometricModelingPlugin | 工作区模式 | [README.md](GeometricModelingPlugin/README.md) → [docs/几何建模/](../../docs/几何建模/) |
 | ProcessFlowPlugin | 工作区模式 | [README.md](ProcessFlowPlugin/README.md) → [docs/工艺流程/](../../docs/工艺流程/) |
-| EngineeringDrawingPlugin | 工作区模式 | [README.md](EngineeringDrawingPlugin/README.md) → [docs/工程图/](../../docs/工程图/) |
 | GeometryPlugin | 侧栏 | [DEVELOPER_GUIDE.md](GeometryPlugin/DEVELOPER_GUIDE.md) |
 | PointCloudPlugin | 侧栏 | [DEVELOPER_GUIDE.md](PointCloudPlugin/DEVELOPER_GUIDE.md) |
 | PlcCommPlugin / SDK / UI | 侧栏 | [Plugin](PlcCommPlugin/DEVELOPER_GUIDE.md)、[SDK](PlcCommSDK/DEVELOPER_GUIDE.md)、[UI](PlcCommUI/DEVELOPER_GUIDE.md) |

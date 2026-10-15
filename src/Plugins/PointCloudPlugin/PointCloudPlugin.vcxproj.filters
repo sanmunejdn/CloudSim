@@ -29,9 +29,6 @@
     <ClCompile Include="source\PointCloudPlugin.cpp">
       <Filter>src\Plugin</Filter>
     </ClCompile>
-    <ClCompile Include="source\TubularGrindingDockWidget.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="inc\PointCloudDockWidget.h">
@@ -39,9 +36,6 @@
     </QtMoc>
     <QtMoc Include="inc\PointCloudPlugin.h">
       <Filter>inc\Plugin</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\TubularGrindingDockWidget.h">
-      <Filter>inc\UI</Filter>
     </QtMoc>
   </ItemGroup>
   <ItemGroup>

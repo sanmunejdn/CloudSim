@@ -23,7 +23,7 @@ type Props = {
 };
 
 export default function MenuBar({ onInsertFrame, onInsertMate, onFocus, onAbout, docks }: Props) {
-  const { health, modes, mode, setMode, doNew, doOpen, doOpenFolder, doSave } = useProject();
+  const { health, doNew, doOpen, doOpenFolder, doSave } = useProject();
   const {
     interactMode,
     setInteractMode,
@@ -163,16 +163,6 @@ export default function MenuBar({ onInsertFrame, onInsertMate, onFocus, onAbout,
           设置
         </button>
         <div className="menu-drop">
-          <label className="menu-label">
-            工作区模式
-            <select value={mode} onChange={(e) => void setMode(e.target.value)}>
-              {modes.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.title}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="menu-label">
             语言
             <select value={lang} onChange={(e) => setLang(e.target.value)}>

@@ -9,7 +9,6 @@
 | [主程序](主程序/README.md) | 空 modeId；Widget / Host / RobotWidget / Data |
 | [几何建模](几何建模/README.md) | `com.cloudsim.geomodeling`；FEATURES / ARCHITECTURE |
 | [工艺流程](工艺流程/README.md) | `com.cloudsim.processflow` |
-| [工程图](工程图/README.md) | `com.cloudsim.drawing` |
 | [插件](插件/README.md) | 插件类型索引 |
 
 ## Host / 后端 / 空间

@@ -453,38 +453,6 @@ struct PluginSupportPlaneCandidate
 using PluginSupportPlanePickedFn = std::function<void(bool ok, const QString& error, PluginOriginPlaneKind kind,
 													  const PluginSketchPlane& plane, const QString& tag)>;
 
-/// 1.33.0+：单视图 HLR 折线（xy 交错，无 z）
-struct PluginDrawingHlrViewResult
-{
-	std::string viewId;
-	std::vector<std::vector<float>> visibleXy;
-	std::vector<std::vector<float>> hiddenXy;
-};
-
-struct PluginDrawingHlrResult
-{
-	std::vector<PluginDrawingHlrViewResult> views;
-};
-
-using PluginDrawingHlrFinishedFn =
-	std::function<void(bool ok, const QString& error, const PluginDrawingHlrResult& result)>;
-
-/// 1.34.0+：工程图投影参数；1.42.0+ 追加自定义剖切平面；1.xx+ coarseView
-struct PluginDrawingProjectParams
-{
-	bool thirdAngle = false;
-	bool includeIso = true;
-	bool includeSection = false;
-	/// 0=正视平行中面 1=俯视平行 2=右视平行（customSection=false 时）
-	int sectionPlane = 0;
-	/// 1.42.0+：为 true 时用 sectionOriginMm / sectionNormal
-	bool customSection = false;
-	double sectionOriginMm[3] = {0.0, 0.0, 0.0};
-	double sectionNormal[3] = {0.0, 1.0, 0.0};
-	/// true：PolyAlgo 快速预览（正式出图请保持 false）
-	bool coarseView = false;
-};
-
 /// 1.37.0+：世界原点 + XY/XZ/YZ 基准面显隐（建模特征树眼开关）
 struct PluginOriginReferenceVisibility
 {

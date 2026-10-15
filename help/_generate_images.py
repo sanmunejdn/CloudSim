@@ -191,23 +191,6 @@ def geometry():
     save(im, "geometry.png")
 
 
-def drawing():
-    im, d = new_img(920, 400)
-    rounded(d, (40, 56, 560, 360), WHITE, LINE, 3, 10)
-    rounded(d, (80, 100, 230, 300), (248, 250, 252), TEAL, 2, 8)
-    rounded(d, (260, 100, 410, 300), (248, 250, 252), TEAL, 2, 8)
-    rounded(d, (440, 120, 530, 220), TEAL_SOFT, TEAL, 2, 8)
-    text(d, (125, 320), "Front", MUTED, 15)
-    text(d, (310, 320), "Top", MUTED, 15)
-    text(d, (460, 245), "Iso", MUTED, 15)
-    rounded(d, (600, 80, 880, 340), PANEL, LINE, 2, 10)
-    text(d, (640, 130), "Dims / Notes", TEAL, 18)
-    text(d, (640, 180), "SVG / DXF / PDF", INK, 16)
-    text(d, (640, 220), "Layers", INK, 16)
-    text(d, (340, 18), "Engineering drawing", MUTED, 18)
-    save(im, "drawing.png")
-
-
 def robot():
     im, d = new_img(920, 400)
     line(d, [(140, 320), (220, 210)], TEAL, 14)
@@ -383,7 +366,6 @@ if __name__ == "__main__":
     view3d()
     import_assets()
     geometry()
-    drawing()
     robot()
     trajectory()
     process_flow()

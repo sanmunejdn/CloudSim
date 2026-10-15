@@ -339,7 +339,6 @@
     <ClCompile Include="source\HostBackendRegistries.cpp"  />
     <ClCompile Include="source\follow\SelectionVisualService.cpp"  />
     <ClCompile Include="source\headless\HeadlessAiBridge.cpp"  />
-    <ClCompile Include="source\headless\HeadlessDrawingBridge.cpp"  />
     <ClCompile Include="source\headless\HeadlessGeometryBridge.cpp"  />
     <ClCompile Include="source\headless\HeadlessGeomodelBridge.cpp"  />
     <ClCompile Include="source\headless\HeadlessInstructionPropertyDelegate.cpp"  />
@@ -467,7 +466,6 @@
     <ClInclude Include="inc\adapters\RobotServiceAdapter.h"  />
     <ClInclude Include="inc\cloudsim_host_global.h"  />
     <ClInclude Include="inc\headless\HeadlessAiBridge.h"  />
-    <ClInclude Include="inc\headless\HeadlessDrawingBridge.h"  />
     <ClInclude Include="inc\headless\HeadlessGeometryBridge.h"  />
     <ClInclude Include="inc\headless\HeadlessGeomodelBridge.h"  />
     <ClInclude Include="inc\headless\HeadlessLabelingBridge.h"  />

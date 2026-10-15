@@ -55,10 +55,6 @@ inline QString geometryOps()
 {
 	return QStringLiteral("geometry.ops");
 }
-inline QString featureBuild()
-{
-	return QStringLiteral("feature.build");
-}
 inline QString labelingAnnot()
 {
 	return QStringLiteral("labeling.annot");

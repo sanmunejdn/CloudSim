@@ -14,7 +14,6 @@
 #include <BackendFollowMath.h>
 #include <MeshSurfaceReconstruction.h>
 #include <TemplateBrepUpdate.h>
-#include <TubularGrinding.h>
 
 class PluginHostContext;
 
@@ -139,15 +138,6 @@ public:
 	void clearMeshSurfaceReconstructSession(IPluginDocument* doc,
 											const PluginMeshSurfaceReconstructSessionId& sessionId) override;
 
-	PluginTubularGrindingSessionId beginTubularGrindingSession(IPluginDocument* doc,
-															   const std::string& meshBackendIdUtf8) override;
-
-	void runTubularGrindingStage(IPluginDocument* doc, const PluginTubularGrindingSessionId& sessionId,
-								 PluginTubularGrindingStage stage, const PluginTubularGrindingParams& params,
-								 PluginTubularGrindingFinishedFn onFinished) override;
-
-	void clearTubularGrindingSession(IPluginDocument* doc, const PluginTubularGrindingSessionId& sessionId) override;
-
 	void nonRigidRegisterSpare(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
 							   const PluginPointCloudSpareParams& params,
 							   PluginPointCloudFinishedFn onFinished) override;
@@ -177,26 +167,6 @@ private:
 		std::string junctionBlendPreviewBrepBackendId;
 	};
 
-	struct TubularGrindingHostSession
-	{
-		std::string sessionId;
-		std::string docId;
-		std::string meshBackendId;
-		std::vector<float> rawSoup;
-		std::vector<float> rawPointXyz;
-		int inputKind = 0; // 0=mesh, 1=pointcloud
-		geoalgo::TubularGrindingSessionPtr geoSession;
-		PluginTubularGrindingStage lastCompleted = PluginTubularGrindingStage::None;
-		std::string normalAxisLinesBackendId;
-		std::string localAxisLinesBackendId;
-		std::string centerlinePointsBackendId;
-		std::string centerlinePcaAxisBackendId;
-		std::string templatePointsBackendId;
-		std::string projectedPointsBackendId;
-		std::string fpfhRegionColoredMeshBackendId;
-		std::vector<std::string> iterationSnapshotBackendIds;
-	};
-
 	struct TemplateBrepAlignCache
 	{
 		IPluginDocument* doc = nullptr;
@@ -213,13 +183,9 @@ private:
 	void eraseSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc);
 	SurfaceReconHostSession* findSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc);
 
-	void eraseTubularGrindingSession(const std::string& sessionId, IPluginDocument* doc);
-	TubularGrindingHostSession* findTubularGrindingSession(const std::string& sessionId, IPluginDocument* doc);
-
 	PluginHostContext* m_host = nullptr;
 	TemplateBrepAlignCache m_templateBrepAlignCache;
 	std::unordered_map<std::string, SurfaceReconHostSession> m_surfaceReconSessions;
-	std::unordered_map<std::string, TubularGrindingHostSession> m_tubularGrindingSessions;
 };
 
 #endif // CLOUDSIMHOST_PLUGINPOINTCLOUDHOSTIMPL_H

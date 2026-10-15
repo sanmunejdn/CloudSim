@@ -33,6 +33,9 @@ public:
 	void setRunInfoPage(RunInfoPage* page);
 	void setChinese(bool useChinese);
 
+	/// 关窗：清空状态并隐藏对话框，忽略后续排队事件
+	void dismissAll();
+
 	/// 供 Progress::setUiSink；任意线程可调，内部 Queued 到 UI
 	void handleProgressEvent(const Progress::Event& ev);
 
@@ -56,6 +59,7 @@ private:
 	QHash<quint64, JobState> m_jobsState;
 	QVector<quint64> m_stack;
 	bool m_useChinese = true;
+	bool m_dismissed = false;
 };
 
 #endif // WIDGET_PROGRESSDIALOGCONTROLLER_H

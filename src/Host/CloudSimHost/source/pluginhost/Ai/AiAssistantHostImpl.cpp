@@ -191,7 +191,6 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 	m_docImportHandler.emplace(AiDomainIds::documentImport(), catalog);
 	m_pcOpsHandler.emplace(AiDomainIds::pointCloudOps(), catalog);
 	m_geomOpsHandler.emplace(AiDomainIds::geometryOps(), catalog);
-	m_featureHandler.emplace(AiDomainIds::featureBuild(), catalog);
 	m_labelHandler.emplace(AiDomainIds::labelingAnnot(), catalog);
 	m_sceneOpsHandler.emplace(AiDomainIds::sceneOps(), catalog);
 	m_processFlowHandler.emplace(AiDomainIds::processFlow(), catalog);
@@ -209,7 +208,6 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 	regCatalog(AiDomainIds::documentImport(), QStringLiteral("Document import"), &*m_docImportHandler);
 	regCatalog(AiDomainIds::pointCloudOps(), QStringLiteral("Point cloud ops"), &*m_pcOpsHandler);
 	regCatalog(AiDomainIds::geometryOps(), QStringLiteral("Geometry ops"), &*m_geomOpsHandler);
-	regCatalog(AiDomainIds::featureBuild(), QStringLiteral("Feature build"), &*m_featureHandler);
 	regCatalog(AiDomainIds::labelingAnnot(), QStringLiteral("Labeling"), &*m_labelHandler);
 	regCatalog(AiDomainIds::sceneOps(), QStringLiteral("Scene ops"), &*m_sceneOpsHandler);
 	regCatalog(AiDomainIds::processFlow(), QStringLiteral("Process flow"), &*m_processFlowHandler);
@@ -247,9 +245,8 @@ AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainI
 	r.domainId = d;
 
 	const bool catalogDomain = d == AiDomainIds::documentImport() || d == AiDomainIds::pointCloudOps() ||
-							   d == AiDomainIds::geometryOps() || d == AiDomainIds::featureBuild() ||
-							   d == AiDomainIds::labelingAnnot() || d == AiDomainIds::sceneOps() ||
-							   d == AiDomainIds::processFlow();
+							   d == AiDomainIds::geometryOps() || d == AiDomainIds::labelingAnnot() ||
+							   d == AiDomainIds::sceneOps() || d == AiDomainIds::processFlow();
 	if (catalogDomain)
 	{
 		const auto m = AiCatalogKeywordMatcher::tryMatch(apiCatalogJson(), text, d);

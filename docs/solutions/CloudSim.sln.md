@@ -43,8 +43,8 @@
 | 工程 | 指南 |
 |------|------|
 | CloudSimPluginSDK / AiSDK / MeshTrajectorySDK | [PluginSDK](../../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) · [Ai](../../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) · [MeshTraj](../../src/Plugins/CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md)（标注会话 = HostCore `LabelingSession`；**LabelingSDK 已移除**） |
-| GeometricModeling / ProcessFlow / EngineeringDrawing | [Geomodel](../../src/Plugins/GeometricModelingPlugin/DEVELOPER_GUIDE.md) · [Process](../../src/Plugins/ProcessFlowPlugin/DEVELOPER_GUIDE.md) · [Drawing](../../src/Plugins/EngineeringDrawingPlugin/DEVELOPER_GUIDE.md) |
+| GeometricModeling / ProcessFlow | [Geomodel](../../src/Plugins/GeometricModelingPlugin/DEVELOPER_GUIDE.md) · [Process](../../src/Plugins/ProcessFlowPlugin/DEVELOPER_GUIDE.md) |
 | Geometry / PointCloud / PointNet / Labeling | [Geometry](../../src/Plugins/GeometryPlugin/DEVELOPER_GUIDE.md) · [PointCloud](../../src/Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) · [PointNet](../../src/Plugins/PointNetPlugin/DEVELOPER_GUIDE.md) · [LabelingPlugin](../../src/Plugins/LabelingPlugin/DEVELOPER_GUIDE.md) |
 | PlcComm* / IndustrialCamera* / RobotCommSDK | [Plc SDK](../../src/Plugins/PlcCommSDK/DEVELOPER_GUIDE.md) · [Plc UI](../../src/Plugins/PlcCommUI/DEVELOPER_GUIDE.md) · [Plc Plugin](../../src/Plugins/PlcCommPlugin/DEVELOPER_GUIDE.md) · [Cam SDK](../../src/Plugins/IndustrialCameraSDK/DEVELOPER_GUIDE.md) · [Cam Plugin](../../src/Plugins/IndustrialCameraPlugin/DEVELOPER_GUIDE.md) · [RobotComm](../../src/Plugins/RobotCommSDK/DEVELOPER_GUIDE.md) |
 
-模式专题：[../features/主程序](../features/主程序/) · [几何建模](../features/几何建模/) · [工艺流程](../features/工艺流程/) · [工程图](../features/工程图/) · [插件](../features/插件/)。
+模式专题：[../features/主程序](../features/主程序/) · [几何建模](../features/几何建模/) · [工艺流程](../features/工艺流程/) · [插件](../features/插件/)。

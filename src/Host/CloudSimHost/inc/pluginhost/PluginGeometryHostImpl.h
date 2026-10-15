@@ -150,13 +150,6 @@ public:
 	void draftFacesToBrep(IPluginDocument* doc, const PluginSketchDraftParams& params,
 						  PluginGeometryFinishedFn onFinished) override;
 
-	void projectBrepHlrToDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
-								 PluginDrawingHlrFinishedFn onFinished) override;
-
-	void projectBrepToEngineeringDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
-										 const PluginDrawingProjectParams& params,
-										 PluginDrawingHlrFinishedFn onFinished) override;
-
 	void setOriginReferenceVisibility(IPluginDocument* doc, const PluginOriginReferenceVisibility& visibility) override;
 
 	bool previewCircularPattern(IPluginDocument* doc, const PluginSketchCircularPatternParams& params,

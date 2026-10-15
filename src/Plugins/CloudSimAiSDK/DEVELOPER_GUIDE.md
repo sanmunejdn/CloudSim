@@ -154,7 +154,6 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | `pointcloud.ops` | qwen2.5:3b | ActionPlan：点云 Dock 按钮 API（keywords=按钮名） |
 | `document.import` | qwen2.5:3b | ActionPlan：导入文件 |
 | `geometry.ops` | qwen2.5:3b | ActionPlan：几何 Dock 按钮 API |
-| `feature.build` | qwen2.5:3b | ActionPlan：特征构建 Tab |
 | `design.parts` | qwen2.5:3b（rules 优先） | ActionPlan：标准件库 `part.json` 填模 → feature.compose 毛坯 |
 | `labeling.annot` | qwen2.5:3b | ActionPlan：标注工具按钮 |
 | `scene.ops` | qwen2.5:3b | ActionPlan：删除/平移/旋转场景对象 |

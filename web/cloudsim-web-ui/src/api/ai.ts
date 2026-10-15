@@ -1,6 +1,6 @@
 import { postJson } from "./client";
 
-export type AiDomainId = "scene.ops" | "robot.command" | "process.flow";
+export type AiDomainId = "scene.ops" | "robot.command";
 
 export type AiChatResult = {
   ok: boolean;

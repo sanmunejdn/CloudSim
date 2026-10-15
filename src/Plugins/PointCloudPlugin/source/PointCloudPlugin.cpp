@@ -11,7 +11,6 @@
 #include "IPluginProjectContext.h"
 #include "IPluginUiContext.h"
 #include "PointCloudDockWidget.h"
-#include "TubularGrindingDockWidget.h"
 
 #include <QMenu>
 
@@ -31,9 +30,9 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	if (host->hostVersion() < 0x00013800U)
+	if (host->hostVersion() < 0x00013A00U)
 	{
-		host->logError(QStringLiteral("PointCloudPlugin requires host 1.56.0+ (narrow contexts)"));
+		host->logError(QStringLiteral("PointCloudPlugin requires host 1.58.0+ (tubular feature-build ABI removed)"));
 		return false;
 	}
 	IPluginUiContext* uiCtx = host->uiContext();
@@ -61,19 +60,6 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 		return false;
 	}
 
-	m_featureBuildWidget = new TubularGrindingDockWidget(host, nullptr);
-	const char* featureTabTitle = host->useChinese() ? "特征构建" : "Feature Build";
-	if (host->hostVersion() >= 0x00010F00U)
-	{
-		if (uiCtx->registerSidePanelTab(featureTabTitle, m_featureBuildWidget) < 0)
-		{
-			host->logWarn(host->useChinese() ? QStringLiteral("特征构建侧栏注册失败，点云主功能仍可用。")
-											 : QStringLiteral("Feature Build tab failed; Point Cloud tab remains."));
-			delete m_featureBuildWidget;
-			m_featureBuildWidget = nullptr;
-		}
-	}
-
 	docCtx->onActiveDocumentChanged(
 		[this](IPluginDocument*)
 		{
@@ -82,20 +68,12 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 				m_dockWidget->refreshDocumentLabel();
 				m_dockWidget->refreshPointCloudList();
 			}
-			if (m_featureBuildWidget)
-			{
-				m_featureBuildWidget->refreshMeshList();
-			}
 		});
 
 	host->onLanguageChanged(
 		[this](const bool)
 		{
 			applyLanguage();
-			if (m_featureBuildWidget)
-			{
-				m_featureBuildWidget->applyLanguage();
-			}
 		});
 
 	registerMenus();
@@ -114,15 +92,7 @@ void PointCloudPlugin::shutdown()
 			uiCtx->unregisterSidePanelTab(m_dockWidget);
 		}
 	}
-	if (m_host && m_featureBuildWidget)
-	{
-		if (IPluginUiContext* uiCtx = m_host->uiContext())
-		{
-			uiCtx->unregisterSidePanelTab(m_featureBuildWidget);
-		}
-	}
 	m_dockWidget = nullptr;
-	m_featureBuildWidget = nullptr;
 	m_host = nullptr;
 	m_pointCloudMenu = nullptr;
 	m_importAction = nullptr;

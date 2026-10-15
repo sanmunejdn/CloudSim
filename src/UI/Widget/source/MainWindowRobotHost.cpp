@@ -1303,6 +1303,29 @@ void MainWindowRobotHost::enqueueBackgroundJob(const QString& title, std::functi
 		std::move(onFinished));
 }
 
+void MainWindowRobotHost::enqueueBackgroundJobQuiet(const QString& title, std::function<void()> work,
+													std::function<void(bool threw, const QString& msg)> onFinished)
+{
+	if (!m_mw || !m_mw->jobSystem())
+	{
+		if (onFinished)
+		{
+			onFinished(true, QStringLiteral("JobSystem unavailable"));
+		}
+		return;
+	}
+	m_mw->jobSystem()->enqueueQuiet(
+		title,
+		[work = std::move(work)](const JobProgressSink&)
+		{
+			if (work)
+			{
+				work();
+			}
+		},
+		std::move(onFinished));
+}
+
 void MainWindowRobotHost::enqueueBackgroundJob(const QString& title,
 											   std::function<void(const RobotJobProgressFn& progress)> work,
 											   std::function<void(bool threw, const QString& msg)> onFinished)

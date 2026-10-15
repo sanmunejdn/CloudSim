@@ -37,7 +37,6 @@ inline constexpr const char* kDisplayCustomDevice = "CustomDevice";
 /// project.json 插件侧车根键
 inline constexpr const char* kProjectKeyProcessFlow = "processFlow";
 inline constexpr const char* kProjectKeyGeometricModeling = "geometricModeling";
-inline constexpr const char* kProjectKeyEngineeringDrawing = "engineeringDrawing";
 inline constexpr const char* kProjectKeyIoSignals = "ioSignals";
 /// 每台机器人信号表 + 跨 Owner DO→DI 接线（设备表在 CustomDevice 对象内）
 inline constexpr const char* kProjectKeyIoSignalNetwork = "ioSignalNetwork";

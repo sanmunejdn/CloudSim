@@ -467,38 +467,6 @@ body.dock-resizing *{cursor:col-resize!important}
 .workspace-toolbar button,.workspace-toolbar .primary{padding:5px 10px;border:1px solid #aaa;border-radius:3px;background:#f0f0f0}
 .workspace-toolbar .primary{background:var(--cs-accent);border-color:#2468a8;color:#fff}
 .workspace-body{flex:1;min-height:0;overflow:auto;padding:10px 12px}
-.workspace-list{list-style:none;margin:0;padding:0}
-.workspace-list li{padding:6px 8px;border-bottom:1px solid #eee}
-.processflow-canvas{min-height:280px}
-.processflow-canvas .react-flow{min-height:260px;border:1px solid var(--cs-border);border-radius:4px;background:#fff}
-.feature-tree li{display:flex;flex-direction:column;gap:2px}
-.feature-tree-name{font-weight:600}
-.feature-tree-meta{font-size:11px;color:#666}
-.geomodeling-shell{background:transparent}
-.gm-ribbon{display:flex;align-items:stretch;flex-shrink:0;flex-wrap:wrap;row-gap:2px;background:#f4f7f6;border-bottom:1px solid var(--cs-border);padding:2px 4px}
-.gm-ribbon-group{display:flex;flex-direction:column;justify-content:center;padding:4px 8px;border-right:1px solid #d5d5d5}
-.gm-ribbon-label{font-size:10px;color:#0f766e;font-weight:600;letter-spacing:.04em;margin-bottom:4px}
-.gm-ribbon-btns{display:flex;flex-wrap:wrap;gap:4px}
-.gm-ribbon-btns button{padding:5px 8px;border:1px solid #aaa;border-radius:3px;background:#f0f0f0;font-size:12px}
-.gm-ribbon-btns button:hover{background:#fff}
-.gm-ribbon-btns button.active{background:#ccfbf1;border-color:#0f766e;color:#134e4a}
-.gm-ribbon-btns .primary{background:var(--cs-accent);border-color:#2468a8;color:#fff}
-.gm-ribbon-meta{margin-left:auto;align-self:center;font-size:11px;color:#666;padding:0 10px;white-space:nowrap}
-.geomodeling-layout{display:flex;flex:1;min-height:0}
-.geomodeling-side{width:252px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;background:var(--cs-panel);border-right:1px solid var(--cs-border)}
-.geomodeling-tree{flex:3;min-height:0;overflow:auto;width:auto;border:0;padding:0}
-.gm-side-caption{font-weight:600;font-size:12px;padding:6px 8px;background:#eee;border-bottom:1px solid #ddd}
-.geomodeling-viewport{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
-.geomodeling-viewport .viewport{flex:1}
-.geomodeling-props{flex:2;min-height:120px;overflow:auto;width:auto;border:0;border-top:1px solid var(--cs-border);padding:8px 10px;display:flex;flex-direction:column;gap:8px}
-.geomodeling-props button{padding:5px 10px;border:1px solid #aaa;border-radius:3px;background:#f0f0f0}
-.geomodeling-props .primary{background:var(--cs-accent);border-color:#2468a8;color:#fff}
-.gm-field-block{display:flex;flex-direction:column;gap:4px;font-size:12px}
-.gm-field-block input,.gm-field-block select{width:100%;padding:4px 6px}
-.gm-tree-body,.gm-feat{display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:4px 6px;border:0;background:transparent;text-align:left;cursor:pointer}
-.gm-feat.active,.gm-active-body>.gm-tree-body{background:#e3f0fb}
-.gm-feat-list{list-style:none;margin:0 0 8px 10px;padding:0;border-left:2px solid #ddd}
-.drawing-preview{margin-top:10px;border:1px solid var(--cs-border);background:#fff;padding:8px;max-height:360px;overflow:auto}
 .doc-tab{cursor:pointer}
 .doc-tab:not(.active){background:#e8e8e8}
 .annotations-panel .annotation-row{display:flex;flex-direction:column;gap:6px;padding:8px}

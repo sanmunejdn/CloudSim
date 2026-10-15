@@ -51,7 +51,6 @@
 | **GeometryPlugin** / **PointCloudPlugin** | 几何/点云侧栏插件 | [GeometryPlugin](../src/Plugins/GeometryPlugin/DEVELOPER_GUIDE.md)、[PointCloudPlugin](../src/Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) |
 | **GeometricModelingPlugin** | 几何建模工作区 | [README](../src/Plugins/GeometricModelingPlugin/README.md)、[docs/几何建模/](features/几何建模/) |
 | **ProcessFlowPlugin** | 工艺流程工作区 | [README](../src/Plugins/ProcessFlowPlugin/README.md)、[docs/工艺流程/](features/工艺流程/) |
-| **EngineeringDrawingPlugin** | 工程图工作区 | [README](../src/Plugins/EngineeringDrawingPlugin/README.md)、[docs/工程图/](features/工程图/) |
 | **HelloAiPlugin** / **LabelingPlugin** | 示例 AI / 标注侧栏 | [HelloAi](../src/Plugins/HelloAiPlugin/README.md)、[Labeling](../src/Plugins/LabelingPlugin/README.md) |
 | **Plugins 目录** | 插件总览 | [src/Plugins/README.md](../src/Plugins/README.md)、[docs/插件/](features/插件/) |
 

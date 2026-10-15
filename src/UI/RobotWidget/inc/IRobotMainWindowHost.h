@@ -98,6 +98,10 @@ public:
 	virtual void enqueueBackgroundJob(const QString& title, std::function<void()> work,
 									  std::function<void(bool threw, const QString& msg)> onFinished) = 0;
 
+	/// 静默后台：不刷进度对话框（指令 IK/前瞻/可达性等高频任务）
+	virtual void enqueueBackgroundJobQuiet(const QString& title, std::function<void()> work,
+										   std::function<void(bool threw, const QString& msg)> onFinished) = 0;
+
 	using RobotJobProgressFn = std::function<void(double fraction, const QString& message)>;
 	/// 带进度回调（fraction∈[0,1]，<0 不定）
 	virtual void enqueueBackgroundJob(const QString& title,

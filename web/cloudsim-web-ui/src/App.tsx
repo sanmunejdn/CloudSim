@@ -106,13 +106,11 @@ function Shell() {
   const [aboutDlg, setAboutDlg] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const { requestFocus, interactMode, setInteractMode } = useScene();
-  const { mode } = useProject();
   const docks = useResizableDocks();
-  const isGeomodeling = mode === "geomodeling";
-  const showLeftDock = docks.leftVisible && !isGeomodeling;
+  const showLeftDock = docks.leftVisible;
 
   return (
-    <div className={`shell${isGeomodeling ? " mode-geomodeling" : ""}`}>
+    <div className="shell">
       <MenuBar
         onInsertFrame={() => setFrameDlg(true)}
         onInsertMate={() => setMateDlg(true)}
@@ -144,7 +142,6 @@ function Shell() {
         <section className="center">
           <DocTabs />
           <WorkspaceModeRouter
-            sideVisible={docks.leftVisible}
             scene3dChildren={
               <div className="viewport">
                 <SceneViewport ref={sceneRef} />
@@ -185,7 +182,7 @@ function Shell() {
                   </button>
                   <button
                     type="button"
-                    title={isGeomodeling ? "特征树" : "左侧面板"}
+                    title="左侧面板"
                     className={docks.leftVisible ? "active" : ""}
                     onClick={() => docks.setLeftVisible(!docks.leftVisible)}
                   >
@@ -194,7 +191,7 @@ function Shell() {
                   </button>
                   <button
                     type="button"
-                    title={isGeomodeling ? "AI 助手" : "右侧面板"}
+                    title="右侧面板"
                     className={docks.rightVisible ? "active" : ""}
                     onClick={() => docks.setRightVisible(!docks.rightVisible)}
                   >

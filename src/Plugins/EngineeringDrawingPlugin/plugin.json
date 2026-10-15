@@ -1,8 +1,0 @@
-{
-  "id": "com.cloudsim.drawing",
-  "name": "Engineering Drawing",
-  "version": "1.0.0",
-  "minHostVersion": "1.42.0",
-  "library": "EngineeringDrawingPlugin.dll",
-  "enabled": true
-}

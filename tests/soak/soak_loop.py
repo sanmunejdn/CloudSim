@@ -1,4 +1,4 @@
-"""稳定性循环：建模/碰撞设置/侧车往返，记录内存与耗时"""
+"""稳定性循环：碰撞设置/侧车往返，记录内存与耗时（网页端暂仅主程序）"""
 
 from __future__ import annotations
 
@@ -42,26 +42,8 @@ def wait_ready(base: str, proc: subprocess.Popen, timeout: float = 60.0) -> None
 
 
 def one_round(base: str) -> None:
-    r = requests.post(
-        f"{base}/api/geomodeling/op",
-        json={"op": "primitive", "kind": "box", "lengthMm": 40, "widthMm": 30, "heightMm": 20},
-        timeout=60,
-    )
-    r.raise_for_status()
-    body = r.json()
-    if not body.get("ok"):
-        raise RuntimeError(body)
-    bid = body["backendId"]
-    summary = requests.get(f"{base}/api/geomodeling/summary", timeout=30).json()
-    feats = next(b["features"] for b in summary["bodies"] if b["backendId"] == bid)
-    pad = next(f for f in feats if f.get("kind") == "Pad")
-    requests.post(
-        f"{base}/api/geomodeling/op",
-        json={"op": "patch", "backendId": bid, "featureId": pad["id"], "lengthMm": 25.0},
-        timeout=60,
-    ).raise_for_status()
-    requests.post(f"{base}/api/geomodeling/op", json={"op": "undo"}, timeout=30).raise_for_status()
-    requests.post(f"{base}/api/geomodeling/op", json={"op": "redo"}, timeout=30).raise_for_status()
+    help_r = requests.get(f"{base}/api/help", timeout=15)
+    help_r.raise_for_status()
 
     cs = requests.get(f"{base}/api/robot/collision-settings", timeout=15).json()
     margin = float(cs.get("securityMarginMm", 1.0))
@@ -74,6 +56,14 @@ def one_round(base: str) -> None:
         json={"soak": True, "t": time.time()},
         timeout=15,
     ).raise_for_status()
+    requests.put(
+        f"{base}/api/sidecar/workspaceMode",
+        json={"mode": "processflow"},
+        timeout=15,
+    ).raise_for_status()
+    mode = requests.get(f"{base}/api/sidecar/workspaceMode", timeout=15).json()
+    if mode.get("mode") != "scene3d":
+        raise RuntimeError(f"workspaceMode not normalized: {mode}")
 
 
 def slope(xs: list[float], ys: list[float]) -> float:

@@ -8,7 +8,7 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00013800` = 1.56.0；含 7 个窄上下文查询）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00013A00` = 1.58.0；含 7 个窄上下文查询；已移除工程图出图 ABI 与管状特征构建 Plugin API）
 - IID：`CloudSimPlugin_iid` = `com.cloudsim.ICloudSimPlugin/1.0.0x00013A00`（写在 `ICloudSimPlugin.h`，**bump 后须 Rebuild 全部插件**，增量编译不会重跑 moc）
 - SDK ABI：`CLOUDSIM_PLUGIN_SDK_VERSION` = `0x00013A00`（聚合虚表 major 砍刀：仅门面 + 窄 getter）
 - `ICloudSimPlugin::sdkAbiVersion()`：vtable 末尾默认返回 `CLOUDSIM_PLUGIN_SDK_VERSION`；宿主在 IID 校验后比对 `cloudsimPluginSdkVersion()`
@@ -134,9 +134,6 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `beginMeshSurfaceReconstructSession` | **1.13.0+** 绑定 `docId + meshBackendId`，返回 `PluginMeshSurfaceReconstructSessionId` |
 | `runMeshSurfaceReconstructStage` | **1.13.0+** 按 `PluginMeshSurfaceReconstructStage` 单步执行；回调 `PluginMeshSurfaceReconstructReport`（含 `stageSummaryZh`） |
 | `clearMeshSurfaceReconstructSession` | **1.13.0+** 清除会话及临时 `*_预处理后` 网格 |
-| `beginTubularGrindingSession` | **1.15.0+** 绑定 `docId + meshBackendId`，返回 `PluginTubularGrindingSessionId` |
-| `runTubularGrindingStage` | **1.15.0+** 按 `PluginTubularGrindingStage` 单步执行；回调 `PluginTubularGrindingReport`（含 `stageSummaryZh` 与各阶段场景 backendId） |
-| `clearTubularGrindingSession` | **1.15.0+** 清除会话及临时着色/辅助对象 |
 | `nonRigidRegisterSpare` | **1.16.0+** SPARE 非刚性配准；源/目标可为点云或网格（`PluginPointCloudSpareParams`） |
 | `nonRigidRegisterSdf` | **1.17.0+** SDF/DDF 混合非刚性配准（`PluginPointCloudSdfParams`） |
 | `nonRigidRegisterPyramid` | **1.53.0+** 几何多分辨率金字塔（`PluginPointCloudPyramidParams`；网格↔网格） |

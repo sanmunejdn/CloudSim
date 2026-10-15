@@ -10,12 +10,10 @@ import {
 } from "react";
 import {
   fetchHealth,
-  fetchModes,
   dialogOpen,
   newProject,
   openProject,
   saveProject,
-  setWorkspaceMode,
   type Health,
 } from "../api";
 import { eventHub } from "../sse/EventHub";
@@ -26,9 +24,6 @@ type ProjectCtx = {
   health: Health | null;
   path: string;
   setPath: (p: string) => void;
-  modes: { id: string; title: string }[];
-  mode: string;
-  setMode: (m: string) => void;
   docTitle: string;
   dirty: boolean;
   refreshHealth: () => Promise<void>;
@@ -66,8 +61,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const { setStatus } = useStatus();
   const [health, setHealth] = useState<Health | null>(null);
   const [path, setPath] = useState("");
-  const [modes, setModes] = useState<{ id: string; title: string }[]>([]);
-  const [mode, setModeState] = useState("scene3d");
   const [bump, setBump] = useState(0);
   const [dirty, setDirty] = useState(false);
   const dirtyRef = useRef(false);
@@ -83,17 +76,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const setMode = useCallback(async (m: string) => {
-    setModeState(m);
-    await setWorkspaceMode(m);
-  }, []);
-
   useEffect(() => {
     void refreshHealth();
-    void fetchModes().then((m) => {
-      setModes(m.modes || []);
-      if (m.active) setModeState(m.active);
-    });
     const t = setInterval(() => void refreshHealth(), 5000);
     eventHub.start();
     const offAny = eventHub.onAny((_d, type) => {
@@ -114,18 +98,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         setDirty(true);
       }
     });
-    const offMode = eventHub.on("WorkspaceModeChanged", (data) => {
-      try {
-        const j = JSON.parse(data) as { mode?: string };
-        if (j.mode) setModeState(j.mode);
-      } catch {
-        /* keepalive */
-      }
-    });
     return () => {
       clearInterval(t);
       offAny();
-      offMode();
       eventHub.stop();
     };
   }, [refreshHealth]);
@@ -192,9 +167,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       health,
       path,
       setPath,
-      modes,
-      mode,
-      setMode,
       docTitle,
       dirty,
       refreshHealth,
@@ -204,7 +176,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       doSave,
       onProjectChanged: bump,
     }),
-    [health, path, modes, mode, setMode, docTitle, dirty, refreshHealth, doNew, doOpen, doOpenFolder, doSave, bump],
+    [health, path, docTitle, dirty, refreshHealth, doNew, doOpen, doOpenFolder, doSave, bump],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

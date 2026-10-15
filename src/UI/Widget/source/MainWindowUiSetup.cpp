@@ -789,6 +789,11 @@ void MainWindow::shutdownRuntimeWorkers()
 	}
 	Progress::clearUiSink();
 	Progress::shutdown();
+	// JobSystem 限时弃池后仍可能有已排队的 Progress 事件；强制收掉对话框
+	if (m_progressController)
+	{
+		m_progressController->dismissAll();
+	}
 }
 
 void MainWindow::shutdownApplicationLogging()

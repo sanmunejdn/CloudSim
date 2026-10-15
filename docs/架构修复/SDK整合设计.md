@@ -32,7 +32,6 @@
 | CloudSimPluginHost (UI) | ● | ● | | | | | |
 | GeometryPlugin | ● | | | | | | |
 | GeometricModelingPlugin | ● | | | | | | |
-| EngineeringDrawingPlugin | ● | | | | | | |
 | PointCloudPlugin | ● | | | | | | |
 | ProcessFlowPlugin | ● | | | | | | |
 | HelloAiPlugin | ● | ● | | | | | |

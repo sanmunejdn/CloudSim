@@ -12,7 +12,6 @@ NAV_ZH = [
     ("import.html", "导入资源"),
     ("scene.html", "场景树与属性"),
     ("geometry.html", "几何建模"),
-    ("drawing.html", "工程图纸"),
     ("robot.html", "机器人仿真"),
     ("trajectory.html", "轨迹生成与编辑"),
     ("process-flow.html", "工艺流程"),
@@ -33,7 +32,6 @@ NAV_EN = [
     ("import.html", "Import"),
     ("scene.html", "Scene & Properties"),
     ("geometry.html", "Geometric Modeling"),
-    ("drawing.html", "Engineering Drawing"),
     ("robot.html", "Robot Simulation"),
     ("trajectory.html", "Trajectories"),
     ("process-flow.html", "Process Flow"),
@@ -55,7 +53,6 @@ FIGURES = {
     "import.html": ("import.png", "模型 / 点云 / URDF 导入", "Model / cloud / URDF import"),
     "scene.html": ("scene.png", "对象树与属性面板", "Object tree and property panel"),
     "geometry.html": ("geometry.png", "几何建模工作区", "Geometric modeling workspace"),
-    "drawing.html": ("drawing.png", "工程图纸多视图", "Engineering drawing views"),
     "robot.html": ("robot.png", "机器人仿真与指令", "Robot simulation and instructions"),
     "trajectory.html": ("trajectory.png", "轨迹生成与编辑流水线", "Trajectory generation pipeline"),
     "process-flow.html": ("process-flow.png", "工艺流程节点示意", "Process flow nodes"),
@@ -110,7 +107,7 @@ PAGES_ZH["index.html"] = (
     "CloudSim 帮助",
     """
 <h1>CloudSim 帮助文档</h1>
-<p>CloudSim 是面向<strong>工业机器人仿真</strong>的桌面应用，覆盖三维场景、机器人编程与轨迹、几何建模、工程图纸、工艺流程仿真，以及点云/标注/PLC/工业相机等插件能力，并集成 AI 助手。</p>
+<p>CloudSim 是面向<strong>工业机器人仿真</strong>的桌面应用，覆盖三维场景、机器人编程与轨迹、几何建模、工艺流程仿真，以及点云/标注/PLC/工业相机等插件能力，并集成 AI 助手。</p>
 <div class="note">通过菜单 <strong>帮助 → 帮助文档</strong> 打开本手册；界面语言切换后将自动选择中文或英文入口页。</div>
 <h2>手册目录</h2>
 <ol>
@@ -120,7 +117,6 @@ PAGES_ZH["index.html"] = (
   <li><a href="import.html">导入模型、点云与机器人</a></li>
   <li><a href="scene.html">场景树、属性与坐标系</a></li>
   <li><a href="geometry.html">几何建模工作区</a></li>
-  <li><a href="drawing.html">工程图纸工作区</a></li>
   <li><a href="robot.html">机器人编程与仿真</a></li>
   <li><a href="trajectory.html">轨迹生成与编辑</a></li>
   <li><a href="process-flow.html">工艺流程与离散事件仿真</a></li>
@@ -153,7 +149,7 @@ PAGES_ZH["getting-started.html"] = (
   <li><strong>中央</strong>：文档标签页中的三维视口；下方为运行日志（Run Info）</li>
   <li><strong>左侧</strong>：对象/单元树（Units）、场景结构</li>
   <li><strong>右侧</strong>：工作区标签（属性、设备、仿真相关页、插件页、AI 助手等）</li>
-  <li><strong>顶栏</strong>：工作区模式切换（主程序 / 几何建模 / 工艺流程 / 工程图）</li>
+  <li><strong>顶栏</strong>：工作区模式切换（主程序 / 几何建模 / 工艺流程）</li>
 </ul>
 <div class="tip">工作区模式只切换工具与 Ribbon，<strong>不会清空场景对象</strong>；同一文档内的模型在各模式间共享。</div>
 <h2>菜单栏</h2>
@@ -171,9 +167,8 @@ PAGES_ZH["getting-started.html"] = (
   <li><strong>主程序</strong>：三维仿真、导入、机器人与通用插件侧栏</li>
   <li><strong>几何建模</strong>：特征树 + Ribbon 草图/实体特征</li>
   <li><strong>工艺流程</strong>：流程画布与 DES 仿真（替换中央三维区）</li>
-  <li><strong>工程图</strong>：出图、标注、导出图纸</li>
 </ul>
-<p>也可通过 <strong>设置 → 模式切换</strong> 或快捷键 <code>Ctrl+1</code>～<code>Ctrl+4</code> 切换（插件已加载时可用）。</p>
+<p>也可通过 <strong>设置 → 模式切换</strong> 或快捷键 <code>Ctrl+1</code>～<code>Ctrl+3</code> 切换（插件已加载时可用）。</p>
 <h2>仿真相关 Dock（主程序）</h2>
 <p>典型标签包括：指令、关节轴、坐标系（工具/用户）、外部轴、轨迹编辑/生成、机器人通讯、碰撞等（以当前加载插件与布局为准）。</p>
 <p>设备页提供 URDF 等机器人导入入口。</p>
@@ -201,7 +196,7 @@ PAGES_ZH["projects.html"] = (
   <li>场景对象与父子层级（edges）</li>
   <li>可见性、标注、相机位姿</li>
   <li>机器人运动学绑定与程序指令</li>
-  <li>可选侧车：<code>processFlow</code>（工艺）、<code>geometricModeling</code>（建模）、<code>engineeringDrawing</code>（工程图）等</li>
+  <li>可选侧车：<code>processFlow</code>（工艺）、<code>geometricModeling</code>（建模）等</li>
 </ul>
 <div class="note">在工艺流程等工作区编辑后，请记得保存工程，侧车数据会一并写入。</div>
 <h2>从对象树导出</h2>
@@ -318,44 +313,6 @@ PAGES_ZH["geometry.html"] = (
 </table>
 <h2>脚本建模</h2>
 <p>支持特征历史 JSON 导入导出、Compose 文件，以及进程内 <code>cloudsim_geom</code> 脚本接口（详见产品脚本建模文档）。</p>
-""",
-)
-
-PAGES_ZH["drawing.html"] = (
-    "工程图纸",
-    """
-<h1>工程图纸工作区</h1>
-<p>切换到<strong>工程图</strong>模式后，使用 Ribbon（视图 / 绘制 / 标注 / 修改 / 捕捉 / 输出）从三维 B-rep 生成二维图纸。右侧<strong>属性</strong>面板可改图层与 ByLayer / ByBlock 覆盖。</p>
-
-<h2>进入与生成</h2>
-<ul>
-  <li>基于 HLR 的多视图：正视 / 俯视 / 右视、等轴测、剖视；第一角 / 第三角投影</li>
-  <li>剖视：切线握柄可拖；再生时可驱动切面；支持<strong>半剖</strong>（正视一侧表达层裁剪）</li>
-  <li>局部放大：父视图细节圆可拖改；局部视图随区域更新</li>
-  <li>可选<strong>钉住投影</strong>，避免拖视图时投影约束被冲掉</li>
-  <li>图幅 A0–A4 / 自定义、标题栏字段、内容比例；侧车 <code>engineeringDrawing</code> 随项目保存</li>
-</ul>
-
-<h2>绘制与修改</h2>
-<ul>
-  <li>草图：直线、矩形、圆、弧、样条；修剪 / 延伸 / 偏移 / 缩放 / 倒圆 / 倒角 / 打断 / 合并；拉伸；矩形阵列与环形阵列（含草图实体）</li>
-  <li>对象捕捉：端点 / 中点 / 交点 / 圆心 / 垂足 / 最近点；正交与极轴</li>
-  <li>拾取时高亮点（端点方框、中点三角等）与悬停线/实体，便于区分点选与线选</li>
-</ul>
-
-<h2>标注</h2>
-<ul>
-  <li>线性、角度、半径、直径；<strong>连续尺寸</strong>与<strong>基线尺寸</strong></li>
-  <li>尺寸样式、公差覆盖；弱关联边键（移动视图时尽量跟边）</li>
-  <li>引线注释、多行文字；<strong>粗糙度</strong>与<strong>形位公差框</strong>（轻量符号，DXF 以文字/几何近似）</li>
-</ul>
-
-<h2>图层、图块与互通</h2>
-<ul>
-  <li>用户图层：可见 / 锁定 / 冻结 / 可打印；实体 ByLayer / ByBlock / 覆盖</li>
-  <li>建块、插入、炸开；图框属性上图（ATTDEF）；属性面板改参照</li>
-  <li>DXF：圆 / 弧 / 块与属性往返；导出另支持 SVG、PDF；打印预览与 CTB 灰度表</li>
-</ul>
 """,
 )
 
@@ -525,7 +482,7 @@ PAGES_ZH["settings.html"] = (
 <h1>设置</h1>
 <table>
   <tr><th>项</th><th>说明</th></tr>
-  <tr><td>模式切换</td><td>与顶栏工作区模式一致：主程序 / 几何建模 / 工艺流程 / 工程图</td></tr>
+  <tr><td>模式切换</td><td>与顶栏工作区模式一致：主程序 / 几何建模 / 工艺流程</td></tr>
   <tr><td>主题</td><td>浅色 / 深色，写入本地设置并影响视口背景</td></tr>
   <tr><td>语言</td><td>English / 中文；菜单、Dock 与已适配插件文案同步；帮助文档切换 zh/en</td></tr>
 </table>
@@ -539,7 +496,7 @@ PAGES_ZH["appendix.html"] = (
 <h2>常用快捷键</h2>
 <table>
   <tr><th>快捷键</th><th>功能</th></tr>
-  <tr><td>Ctrl+1 … Ctrl+4</td><td>切换工作区模式（主程序 / 几何建模 / 工艺流程 / 工程图）</td></tr>
+  <tr><td>Ctrl+1 … Ctrl+3</td><td>切换工作区模式（主程序 / 几何建模 / 工艺流程）</td></tr>
 </table>
 <p class="muted">更多快捷键以当前版本菜单与插件为准。</p>
 <h2>常见文件扩展名</h2>
@@ -551,7 +508,6 @@ PAGES_ZH["appendix.html"] = (
   <tr><td>.step / .stp / .iges</td><td>CAD B-rep</td></tr>
   <tr><td>.obj / .stl / .ply</td><td>网格</td></tr>
   <tr><td>.las / .laz / .xyz</td><td>点云</td></tr>
-  <tr><td>.svg / .dxf / .pdf</td><td>工程图导出</td></tr>
 </table>
 <h2>获取帮助</h2>
 <ul>
@@ -568,7 +524,7 @@ PAGES_EN["index.html"] = (
     "CloudSim Help",
     """
 <h1>CloudSim Help</h1>
-<p>CloudSim is a desktop application for <strong>industrial robot simulation</strong>, covering 3D scenes, robot programming and trajectories, geometric modeling, engineering drawings, process-flow DES, plus plugins for point clouds, labeling, PLC, cameras, and an AI assistant.</p>
+<p>CloudSim is a desktop application for <strong>industrial robot simulation</strong>, covering 3D scenes, robot programming and trajectories, geometric modeling, process-flow DES, plus plugins for point clouds, labeling, PLC, cameras, and an AI assistant.</p>
 <div class="note">Open via <strong>Help → Documentation</strong>. The UI language selects the <code>help/zh</code> or <code>help/en</code> entry.</div>
 <h2>Contents</h2>
 <ol>
@@ -578,7 +534,6 @@ PAGES_EN["index.html"] = (
   <li><a href="import.html">Import assets &amp; robots</a></li>
   <li><a href="scene.html">Scene tree &amp; properties</a></li>
   <li><a href="geometry.html">Geometric modeling</a></li>
-  <li><a href="drawing.html">Engineering drawings</a></li>
   <li><a href="robot.html">Robot simulation</a></li>
   <li><a href="trajectory.html">Trajectory generation &amp; editing</a></li>
   <li><a href="process-flow.html">Process flow</a></li>
@@ -623,7 +578,7 @@ PAGES_EN["getting-started.html"] = (
   <tr><td>Settings</td><td>Mode switch, theme, language</td></tr>
   <tr><td>Help</td><td>Documentation, About</td></tr>
 </table>
-<p>Plugins may add a <strong>Tools</strong> menu. Use <code>Ctrl+1</code>–<code>Ctrl+4</code> for workspace modes when available.</p>
+<p>Plugins may add a <strong>Tools</strong> menu. Use <code>Ctrl+1</code>–<code>Ctrl+3</code> for workspace modes when available.</p>
 """,
 )
 
@@ -635,7 +590,7 @@ PAGES_EN["projects.html"] = (
   <li><strong>New / Open / Save</strong> under File</li>
   <li><code>.pcp</code>: packaged zip project (recommended)</li>
   <li>JSON project root: objects, hierarchy edges, camera, robot programs</li>
-  <li>Sidecars: <code>processFlow</code>, <code>geometricModeling</code>, <code>engineeringDrawing</code>, …</li>
+  <li>Sidecars: <code>processFlow</code>, <code>geometricModeling</code>, …</li>
 </ul>
 <p>Tree visibility is persisted. Export PLY/STEP from the object tree context menu when applicable.</p>
 """,
@@ -691,44 +646,6 @@ PAGES_EN["geometry.html"] = (
   <li>Dimensions &amp; constraints (H/V, coincident, parallel, …); project/convert/offset</li>
   <li>Solids: Pad/Pocket, Sweep, Revolve, Fillet/Chamfer, patterns, mirror, loft, shell, draft, datum planes</li>
   <li>Script modeling: history/compose JSON and <code>cloudsim_geom</code></li>
-</ul>
-""",
-)
-
-PAGES_EN["drawing.html"] = (
-    "Engineering Drawing",
-    """
-<h1>Engineering drawing workspace</h1>
-<p>Switch to <strong>Drawing</strong> mode and use the Ribbon (Views / Draw / Annotate / Modify / Snap / Output) to generate 2D sheets from B-rep. The right <strong>Properties</strong> panel edits layers and ByLayer / ByBlock overrides.</p>
-
-<h2>Views &amp; generation</h2>
-<ul>
-  <li>HLR multi-views: front / top / right, isometric, sections; 1st / 3rd angle</li>
-  <li>Section cut marks are draggable and can drive the plane on regenerate; <strong>half-section</strong> clips the front view expression</li>
-  <li>Detail bubbles are editable; detail views refresh with the region</li>
-  <li>Optional <strong>pin projection</strong> to keep projection constraints when dragging views</li>
-  <li>Sheet sizes A0–A4 / custom, title block, scale; sidecar <code>engineeringDrawing</code></li>
-</ul>
-
-<h2>Draw &amp; modify</h2>
-<ul>
-  <li>Sketch lines, rect, circle, arc, spline; Trim / Extend / Offset / Scale / Fillet / Chamfer / Break / Join; Stretch; rectangular and polar arrays (including sketch entities)</li>
-  <li>Osnap: end / mid / intersection / center / perpendicular / nearest; ortho and polar</li>
-  <li>Pick feedback highlights snap points vs hovered edges/entities</li>
-</ul>
-
-<h2>Annotation</h2>
-<ul>
-  <li>Linear, angular, radius, diameter; <strong>continued</strong> and <strong>baseline</strong> dimensions</li>
-  <li>Dim styles, tolerance overrides; weak edge keys when views move</li>
-  <li>Leaders, MText; <strong>roughness</strong> and lightweight <strong>GD&amp;T</strong> frames (DXF as text/geometry approx.)</li>
-</ul>
-
-<h2>Layers, blocks &amp; interchange</h2>
-<ul>
-  <li>User layers (visible / locked / frozen / plot); entity ByLayer / ByBlock / override</li>
-  <li>Block create / insert / explode; title-block attributes on sheet</li>
-  <li>DXF round-trip for circles, arcs, blocks/attributes; also SVG / PDF; print preview and CTB table</li>
 </ul>
 """,
 )
@@ -853,7 +770,7 @@ PAGES_EN["appendix.html"] = (
 <h2>Shortcuts</h2>
 <table>
   <tr><th>Keys</th><th>Action</th></tr>
-  <tr><td>Ctrl+1 … Ctrl+4</td><td>Workspace modes</td></tr>
+  <tr><td>Ctrl+1 … Ctrl+3</td><td>Workspace modes</td></tr>
 </table>
 <h2>Extensions</h2>
 <table>

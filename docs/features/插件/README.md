@@ -10,7 +10,6 @@
 |----|------|------|
 | `com.cloudsim.geomodeling` | GeometricModelingPlugin | [几何建模/](../几何建模/)、[插件 README](../../src/Plugins/GeometricModelingPlugin/README.md) |
 | `com.cloudsim.processflow` | ProcessFlowPlugin | [工艺流程/](../工艺流程/)、[插件 README](../../src/Plugins/ProcessFlowPlugin/README.md) |
-| `com.cloudsim.drawing` | EngineeringDrawingPlugin | [工程图/](../工程图/)、[插件 README](../../src/Plugins/EngineeringDrawingPlugin/README.md) |
 
 ## 侧栏 / 工具插件
 

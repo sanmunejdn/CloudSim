@@ -153,17 +153,6 @@ public:
 	virtual void clearMeshSurfaceReconstructSession(IPluginDocument* doc,
 													const PluginMeshSurfaceReconstructSessionId& sessionId) = 0;
 
-	// === 管状铸件特征构建分阶段（1.15.0+） ===
-
-	virtual PluginTubularGrindingSessionId beginTubularGrindingSession(IPluginDocument* doc,
-																	   const std::string& meshBackendIdUtf8) = 0;
-
-	virtual void runTubularGrindingStage(IPluginDocument* doc, const PluginTubularGrindingSessionId& sessionId,
-										 PluginTubularGrindingStage stage, const PluginTubularGrindingParams& params,
-										 PluginTubularGrindingFinishedFn onFinished) = 0;
-
-	virtual void clearTubularGrindingSession(IPluginDocument* doc, const PluginTubularGrindingSessionId& sessionId) = 0;
-
 	/// 1.16.0+：SPARE 非刚性配准（点云/网格源 → 点云/网格目标）
 	/// 必须追加在接口末尾，禁止在中间插入虚函数（会破坏插件/宿主 vtable 兼容）
 	virtual void nonRigidRegisterSpare(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,

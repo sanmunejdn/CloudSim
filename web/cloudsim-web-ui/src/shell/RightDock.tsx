@@ -17,7 +17,6 @@ import AiPanel from "../docks/ai/AiPanel";
 import PointCloudPanel from "../docks/cloud/PointCloudPanel";
 import GeometryPanel from "../docks/geometry/GeometryPanel";
 import { useDockNav, ROBOT_MORE_TABS, ROBOT_PRIMARY_TABS, type RobotTab } from "../state/dockNavStore";
-import { useProject } from "../state/projectStore";
 
 function RobotPanel({ robot }: { robot: RobotTab }) {
   switch (robot) {
@@ -43,7 +42,6 @@ function RobotPanel({ robot }: { robot: RobotTab }) {
 }
 
 export default function RightDock() {
-  const { mode } = useProject();
   const {
     primary,
     setPrimary,
@@ -59,17 +57,6 @@ export default function RightDock() {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const robotInMore = useMemo(() => ROBOT_MORE_TABS.some((t) => t.id === robot), [robot]);
-
-  if (mode === "geomodeling") {
-    return (
-      <aside className="right dock">
-        <div className="dock-tabs primary">
-          <span className="tab active">AI 助手</span>
-        </div>
-        <AiPanel />
-      </aside>
-    );
-  }
 
   return (
     <aside className="right dock">

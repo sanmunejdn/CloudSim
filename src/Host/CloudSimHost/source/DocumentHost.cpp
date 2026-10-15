@@ -28,7 +28,6 @@
 #include "RobotProgramStore.h"
 #include "adapters/DataServiceAdapter.h"
 #include "headless/HeadlessAiBridge.h"
-#include "headless/HeadlessDrawingBridge.h"
 #include "headless/HeadlessGeometryBridge.h"
 #include "headless/HeadlessGeomodelBridge.h"
 #include "headless/HeadlessLabelingBridge.h"
@@ -106,7 +105,6 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 		m_headlessRobotCollisionBridge = std::make_unique<HeadlessRobotCollisionBridge>(*this);
 		m_headlessProgramEditBridge = std::make_unique<HeadlessProgramEditBridge>(*this);
 		m_headlessProcessFlowBridge = std::make_unique<HeadlessProcessFlowBridge>(*this);
-		m_headlessDrawingBridge = std::make_unique<HeadlessDrawingBridge>(*this);
 		m_headlessGeomodelBridge = std::make_unique<HeadlessGeomodelBridge>(*this);
 		m_headlessLabelingBridge = std::make_unique<HeadlessLabelingBridge>(*this);
 	}
@@ -329,11 +327,6 @@ HeadlessProgramEditBridge* DocumentHost::headlessProgramEditBridge() const
 HeadlessProcessFlowBridge* DocumentHost::headlessProcessFlowBridge() const
 {
 	return m_headlessProcessFlowBridge.get();
-}
-
-HeadlessDrawingBridge* DocumentHost::headlessDrawingBridge() const
-{
-	return m_headlessDrawingBridge.get();
 }
 
 HeadlessGeomodelBridge* DocumentHost::headlessGeomodelBridge() const

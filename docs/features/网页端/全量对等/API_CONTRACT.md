@@ -64,7 +64,7 @@
 ### `POST /api/ai/chat`
 
 ```json
-{ "message": "...", "domain": "scene.ops|robot.command|process.flow", "systemPrompt": "optional" }
+{ "message": "...", "domain": "scene.ops|robot.command", "systemPrompt": "optional" }
 ```
 
 响应：`{ "ok": true, "assistantText": "..." }` 或配置缺失错误。
@@ -103,62 +103,14 @@
 
 ---
 
-## W3 — 工作区侧车
+## W3 — 侧车（无专用工作区 UI）
 
-### `GET|PUT /api/processflow/graph`
-
-`processFlow` 侧车图 JSON。
-
-### `POST /api/processflow/sim/run`
-
-DES 仿真启动。
-
-### `POST /api/drawing/export`
-
-```json
-{ "format": "svg|dxf|pdf", "outputPath": "optional" }
-```
-
-### `GET /api/geomodeling/summary`
-
-特征树 / Body 摘要。每条 Body 含 `features[]`（id / kind / 抑制 / Pad 深度等）。
-
-### `GET /api/geomodeling/history?backendId=`
-
-返回 `{ ok, backendId, history }`，`history` 与 Data `parametricHistory` 同构（`seq` + `features`）。
-
-### `PUT /api/geomodeling/history`
-
-```json
-{ "backendId": "uuid", "history": { "seq": 3, "features": [] } }
-```
-
-整表替换特征链并 rebuild。
-
-### `POST /api/geomodeling/op`
-
-分发字段 `op`：
-
-| op | 作用 |
-|----|------|
-| `primitive` | 新建 Body：`kind=box\|cylinder\|polygon\|slot\|ellipse`（轮廓模板 + Pad） |
-| `extrude` | Pad/Pocket：`mode=pad\|pocket`，`profile=rectangle\|circle\|polygon\|polyline\|slot\|ellipse`，`plane=XY\|XZ\|YZ`，`useLastSketch` |
-| `append` | 追加 `kind=Sketch\|Fillet\|Chamfer\|Revolve\|RevolveCut\|LinearPattern\|CircularPattern\|Mirror3D\|Shell\|Draft\|Sweep\|SweepCut\|Loft\|LoftCut`；Sweep/Loft/Revolve/Pad/Sketch 可无 `backendId` 新建 |
-| `patch` | 改单特征参数（`lengthMm` / `radiusMm` / `twistDeg` / `suppressed` / `visible`…）后 rebuild |
-| `delete` | 删除 `featureId` 后 rebuild |
-| `rebuild` | 仅重放特征链 |
-| `setHistory` | 同 PUT history |
-| `undo` / `redo` | Host 特征史快照；`summary` 含 `undoCount`/`redoCount` |
-| `exportHistory` | `{ backendId, path }` 写出 JSON |
-| `importHistory` | `{ path, createNew, backendId? }` 读入 JSON |
-
-内核与桌面 `ParametricBrepBackendData::rebuild` 相同；不加载 `GeometricModelingPlugin`。
-
-### `GET /api/labeling/tasks`
-
-标注任务列表。
+网页端**暂仅主程序**：已移除 `/api/geomodeling/*`、`/api/processflow/*`、`/api/labeling/*`（`/api/drawing/*` 亦随工程图产品移除而不存在）。  
+`GET /api/modes` 仅返回 `scene3d`（标题「主程序」）；`PUT /api/sidecar/workspaceMode` 一律归一为 `scene3d`。
 
 ### `GET|PUT /api/sidecar/<key>`
+
+仍可读写真源侧车（打开含桌面侧车字段的工程不丢数据，无 Web UI）：
 
 `processFlow` | `geometricModeling` | `annotations` | `workspaceMode`
 

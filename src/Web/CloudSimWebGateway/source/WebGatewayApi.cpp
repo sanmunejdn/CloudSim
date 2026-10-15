@@ -23,7 +23,6 @@
 #include "StoreZipExtract.h"
 #include "WebGateway.h"
 #include "WebGatewaySidecars.h"
-#include "headless/HeadlessDrawingBridge.h"
 #include "headless/HeadlessLabelingBridge.h"
 #include "headless/HeadlessProcessFlowBridge.h"
 #include "io/CustomDeviceHostOps.h"
@@ -168,8 +167,6 @@ void webGatewaySyncSidecarsToHost(cloudsim::host::DocumentHost* host, const QJso
 		return;
 	if (auto* b = host->headlessProcessFlowBridge())
 		b->loadSidecarFromProject(projectRoot);
-	if (auto* b = host->headlessDrawingBridge())
-		b->loadSidecarFromProject(projectRoot);
 	if (auto* b = host->headlessLabelingBridge())
 		b->loadSidecarFromProject(projectRoot);
 }
@@ -179,8 +176,6 @@ void webGatewayMergeHostSidecarsIntoProject(cloudsim::host::DocumentHost* host, 
 	if (!host)
 		return;
 	if (auto* b = host->headlessProcessFlowBridge())
-		b->mergeSidecarIntoProject(projectRoot);
-	if (auto* b = host->headlessDrawingBridge())
 		b->mergeSidecarIntoProject(projectRoot);
 	if (auto* b = host->headlessLabelingBridge())
 		b->mergeSidecarIntoProject(projectRoot);
@@ -1550,7 +1545,7 @@ QByteArray WebGateway::sidecarGetOnGuiThread(const QString& key)
 	if (key == QLatin1String("annotations"))
 		return QJsonDocument(g_sidecars.annotations).toJson(QJsonDocument::Compact);
 	if (key == QLatin1String("workspaceMode"))
-		return QJsonDocument(QJsonObject{{QStringLiteral("mode"), g_sidecars.workspaceMode}})
+		return QJsonDocument(QJsonObject{{QStringLiteral("mode"), QStringLiteral("scene3d")}})
 			.toJson(QJsonDocument::Compact);
 	return QByteArrayLiteral("{}");
 }
@@ -1575,8 +1570,9 @@ bool WebGateway::sidecarPutOnGuiThread(const QString& key, const QByteArray& bod
 	}
 	if (key == QLatin1String("workspaceMode") && doc.isObject())
 	{
-		g_sidecars.workspaceMode = doc.object().value(QStringLiteral("mode")).toString(QStringLiteral("scene3d"));
-		pushEvent(QStringLiteral("{\"type\":\"WorkspaceModeChanged\",\"mode\":\"%1\"}").arg(g_sidecars.workspaceMode));
+		// 网页端暂仅主程序：非 scene3d 一律归一
+		g_sidecars.workspaceMode = QStringLiteral("scene3d");
+		pushEvent(QStringLiteral("{\"type\":\"WorkspaceModeChanged\",\"mode\":\"scene3d\"}"));
 		return true;
 	}
 	if (err)
@@ -1588,17 +1584,9 @@ QByteArray WebGateway::modesCatalogJson() const
 {
 	QJsonArray modes;
 	modes.append(QJsonObject{{QStringLiteral("id"), QStringLiteral("scene3d")},
-							 {QStringLiteral("title"), QStringLiteral("三维场景")}});
-	modes.append(QJsonObject{{QStringLiteral("id"), QStringLiteral("geomodeling")},
-							 {QStringLiteral("title"), QStringLiteral("几何建模")}});
-	modes.append(QJsonObject{{QStringLiteral("id"), QStringLiteral("processflow")},
-							 {QStringLiteral("title"), QStringLiteral("工艺流程")}});
-	modes.append(QJsonObject{{QStringLiteral("id"), QStringLiteral("drawing")},
-							 {QStringLiteral("title"), QStringLiteral("工程图")}});
-	modes.append(QJsonObject{{QStringLiteral("id"), QStringLiteral("labeling")},
-							 {QStringLiteral("title"), QStringLiteral("标注")}});
-	return QJsonDocument(
-			   QJsonObject{{QStringLiteral("modes"), modes}, {QStringLiteral("active"), g_sidecars.workspaceMode}})
+							 {QStringLiteral("title"), QStringLiteral("主程序")}});
+	return QJsonDocument(QJsonObject{{QStringLiteral("modes"), modes},
+									 {QStringLiteral("active"), QStringLiteral("scene3d")}})
 		.toJson(QJsonDocument::Compact);
 }
 

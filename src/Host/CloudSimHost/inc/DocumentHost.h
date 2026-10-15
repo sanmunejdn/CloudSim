@@ -68,7 +68,6 @@ class HeadlessAiBridge;
 class HeadlessRobotCollisionBridge;
 class HeadlessProgramEditBridge;
 class HeadlessProcessFlowBridge;
-class HeadlessDrawingBridge;
 class HeadlessGeomodelBridge;
 class HeadlessLabelingBridge;
 class IoSignalNetwork;
@@ -226,7 +225,6 @@ public:
 	HeadlessRobotCollisionBridge* headlessRobotCollisionBridge() const;
 	HeadlessProgramEditBridge* headlessProgramEditBridge() const;
 	HeadlessProcessFlowBridge* headlessProcessFlowBridge() const;
-	HeadlessDrawingBridge* headlessDrawingBridge() const;
 	HeadlessGeomodelBridge* headlessGeomodelBridge() const;
 	void resetHeadlessGeomodelHistory();
 	HeadlessLabelingBridge* headlessLabelingBridge() const;
@@ -299,7 +297,6 @@ private:
 	std::unique_ptr<HeadlessRobotCollisionBridge> m_headlessRobotCollisionBridge;
 	std::unique_ptr<HeadlessProgramEditBridge> m_headlessProgramEditBridge;
 	std::unique_ptr<HeadlessProcessFlowBridge> m_headlessProcessFlowBridge;
-	std::unique_ptr<HeadlessDrawingBridge> m_headlessDrawingBridge;
 	std::unique_ptr<HeadlessGeomodelBridge> m_headlessGeomodelBridge;
 	std::unique_ptr<HeadlessLabelingBridge> m_headlessLabelingBridge;
 	std::unique_ptr<IoSignalNetwork> m_ioSignalNetwork;

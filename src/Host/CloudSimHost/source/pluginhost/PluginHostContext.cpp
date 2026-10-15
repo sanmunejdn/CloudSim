@@ -1068,7 +1068,7 @@ void PluginHostContext::claimWorkspaceMode(const QString& modeId)
 		return;
 	}
 	m_workspaceMode = modeId;
-	// Ribbon 由各模式 enter/exit 或 returnToMainWorkspace 显式管理，避免工程图 claim 后无法再挂栏
+	// Ribbon 由各模式 enter/exit 或 returnToMainWorkspace 显式管理
 	for (const auto& cb : m_workspaceModeCallbacks)
 	{
 		if (cb)
@@ -1128,9 +1128,9 @@ void PluginHostContext::registerWorkspaceMode(const QString& modeId, const QStri
 		}
 	}
 
-	// 固定顺序：主 → 几何 → 工艺 → 工程图 → 其它
+	// 固定顺序：主 → 几何 → 工艺 → 其它
 	const QStringList preferred = {QStringLiteral("com.cloudsim.geomodeling"),
-								   QStringLiteral("com.cloudsim.processflow"), QStringLiteral("com.cloudsim.drawing")};
+								   QStringLiteral("com.cloudsim.processflow")};
 	WorkspaceModeRegistration entry;
 	entry.modeId = modeId;
 	entry.titleZh = titleZh;

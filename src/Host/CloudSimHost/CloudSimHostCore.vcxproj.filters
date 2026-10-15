@@ -125,9 +125,6 @@
     <ClInclude Include="inc\headless\HeadlessAiBridge.h">
       <Filter>inc\headless</Filter>
     </ClInclude>
-    <ClInclude Include="inc\headless\HeadlessDrawingBridge.h">
-      <Filter>inc\headless</Filter>
-    </ClInclude>
     <ClInclude Include="inc\headless\HeadlessGeometryBridge.h">
       <Filter>inc\headless</Filter>
     </ClInclude>
@@ -422,9 +419,6 @@
       <Filter>src\follow</Filter>
     </ClCompile>
     <ClCompile Include="source\headless\HeadlessAiBridge.cpp">
-      <Filter>src\headless</Filter>
-    </ClCompile>
-    <ClCompile Include="source\headless\HeadlessDrawingBridge.cpp">
       <Filter>src\headless</Filter>
     </ClCompile>
     <ClCompile Include="source\headless\HeadlessGeometryBridge.cpp">

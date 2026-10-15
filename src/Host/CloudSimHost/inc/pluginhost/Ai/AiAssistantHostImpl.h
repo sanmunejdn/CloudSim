@@ -83,7 +83,6 @@ private:
 	std::optional<CatalogActionPlanDomainHandler> m_docImportHandler;
 	std::optional<CatalogActionPlanDomainHandler> m_pcOpsHandler;
 	std::optional<CatalogActionPlanDomainHandler> m_geomOpsHandler;
-	std::optional<CatalogActionPlanDomainHandler> m_featureHandler;
 	std::optional<CatalogActionPlanDomainHandler> m_labelHandler;
 	std::optional<CatalogActionPlanDomainHandler> m_sceneOpsHandler;
 	std::optional<CatalogActionPlanDomainHandler> m_processFlowHandler;

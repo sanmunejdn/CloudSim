@@ -49,6 +49,17 @@ void ProgressDialogController::setChinese(bool useChinese)
 	}
 }
 
+void ProgressDialogController::dismissAll()
+{
+	m_dismissed = true;
+	m_jobsState.clear();
+	m_stack.clear();
+	if (m_dialog)
+	{
+		m_dialog->hide();
+	}
+}
+
 void ProgressDialogController::handleProgressEvent(const Progress::Event& ev)
 {
 	QMetaObject::invokeMethod(
@@ -57,6 +68,10 @@ void ProgressDialogController::handleProgressEvent(const Progress::Event& ev)
 
 void ProgressDialogController::applyEventOnUi(const Progress::Event& ev)
 {
+	if (m_dismissed)
+	{
+		return;
+	}
 	const quint64 id = static_cast<quint64>(ev.id);
 	switch (ev.kind)
 	{

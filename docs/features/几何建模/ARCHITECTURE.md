@@ -36,7 +36,7 @@ flowchart TB
 - 模式 id = 插件 id：`com.cloudsim.geomodeling`
 - 进入后：`setModeToolBar`（Ribbon）+ `enterAlternateSideUi`（特征树）+ 共用 3D 视口
 - `registerMenus()` 为空；勿再写「菜单 → 进入几何建模」
-- 与工艺流程 / 工程图互斥（同一 claim 机制）
+- 与工艺流程互斥（同一 claim 机制）
 
 ## 草图态 vs 特征态
 

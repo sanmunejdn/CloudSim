@@ -73,7 +73,7 @@ $map = @{
   CloudSimControllerSDK = $F_SDK; PlcCommUI = $F_SDK; CloudSimControllerSample = $F_SDK
   PointCloudPlugin = $F_FUNC; GeometryPlugin = $F_FUNC; PlcCommPlugin = $F_FUNC
   PointNetPlugin = $F_FUNC; LabelingPlugin = $F_FUNC; IndustrialCameraPlugin = $F_FUNC
-  ProcessFlowPlugin = $F_FUNC; GeometricModelingPlugin = $F_FUNC; EngineeringDrawingPlugin = $F_FUNC
+  ProcessFlowPlugin = $F_FUNC; GeometricModelingPlugin = $F_FUNC
   CloudSimWebGateway = $F_WEB
   RunLogger = $F_INFRA
   Progress = $F_INFRA

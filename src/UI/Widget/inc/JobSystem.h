@@ -53,6 +53,10 @@ public:
 	quint64 enqueue(const QString& title, std::function<void(const JobProgressSink&)> work,
 					std::function<void(bool threw, const QString& throwMessage)> onFinished);
 
+	/// 静默入队：不刷进度对话框（指令可达性/前瞻等高频短任务）
+	quint64 enqueueQuiet(const QString& title, std::function<void(const JobProgressSink&)> work,
+						 std::function<void(bool threw, const QString& throwMessage)> onFinished);
+
 	/// 可取消任务：进度对话框显示取消按钮
 	quint64 enqueueCancellable(const QString& title, JobCancellableWork work,
 							   std::function<void(bool threw, const QString& throwMessage)> onFinished);
@@ -65,7 +69,7 @@ public:
 	bool isShutdown() const { return m_shuttingDown.load(); }
 
 private:
-	quint64 enqueueInternal(const QString& title, bool uiCancellable, JobCancellableWork work,
+	quint64 enqueueInternal(const QString& title, bool uiCancellable, bool publishProgress, JobCancellableWork work,
 							std::function<void(bool threw, const QString& throwMessage)> onFinished);
 
 	ProgressManager* m_progress = nullptr;

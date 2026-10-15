@@ -40,7 +40,6 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent) : QWidget(parent)
 	m_domainCombo->addItem(QStringLiteral("Point cloud"), AiDomainIds::pointCloudOps());
 	m_domainCombo->addItem(QStringLiteral("Document import"), AiDomainIds::documentImport());
 	m_domainCombo->addItem(QStringLiteral("Geometry ops"), AiDomainIds::geometryOps());
-	m_domainCombo->addItem(QStringLiteral("Feature build"), AiDomainIds::featureBuild());
 	m_domainCombo->addItem(QStringLiteral("Labeling"), AiDomainIds::labelingAnnot());
 	m_domainCombo->addItem(QStringLiteral("Scene ops"), AiDomainIds::sceneOps());
 	m_domainCombo->addItem(QStringLiteral("Process flow"), AiDomainIds::processFlow());
@@ -144,7 +143,6 @@ void AiAssistantDockWidget::setUseChinese(bool chinese)
 	setById(AiDomainIds::pointCloudOps(), QStringLiteral("点云操作"), QStringLiteral("Point cloud"));
 	setById(AiDomainIds::documentImport(), QStringLiteral("文档导入"), QStringLiteral("Document import"));
 	setById(AiDomainIds::geometryOps(), QStringLiteral("几何操作"), QStringLiteral("Geometry ops"));
-	setById(AiDomainIds::featureBuild(), QStringLiteral("特征构建"), QStringLiteral("Feature build"));
 	setById(AiDomainIds::labelingAnnot(), QStringLiteral("标注"), QStringLiteral("Labeling"));
 	setById(AiDomainIds::sceneOps(), QStringLiteral("场景操作"), QStringLiteral("Scene ops"));
 	setById(AiDomainIds::processFlow(), QStringLiteral("工艺流程"), QStringLiteral("Process flow"));

@@ -26,7 +26,6 @@
 
 ### M4 拆分
 
-- `workspaces/geomodelRibbon.ts`：Ribbon 工具表
 - `robot/ioProgramSteps.ts`：程序 Run 的 IO 解析
 
 ## 验证
@@ -42,3 +41,4 @@ npm run build:release
 ## 未纳入（产品债）
 
 - PLC/相机 stub、几何选面体验等能力对等项
+- 几何建模 / 工艺工作区：网页端已裁剪（见 [网页端主程序裁剪](../网页端主程序裁剪/CONSENSUS_网页端主程序裁剪.md)）；工程图已从产品移除

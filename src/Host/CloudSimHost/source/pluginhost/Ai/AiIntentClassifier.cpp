@@ -76,9 +76,6 @@ Result classifyByRules(const QString& userText, const int minScore)
 	if (booleanCue || (holeCue && hasAny(t, {"网格", "mesh", "实体", "布尔"}, Qt::CaseInsensitive)))
 		addScore(scores, AiDomainIds::meshCompose(), 3);
 
-	if (hasAny(t, {"中心线", "模板点位", "区域划分", "特征构建", "centerline"}, Qt::CaseInsensitive))
-		addScore(scores, AiDomainIds::featureBuild(), 3);
-
 	if (hasAny(t,
 			   {"离散生成网格", "线面求交", "面面求交", "管状网格", "带状网格", "点选边", "点选面", "Pick Edge",
 				"Pick Face"},
@@ -152,7 +149,7 @@ Result classifyByLocalLlm(const QString& userText, const AiConfigDto& config)
 	const QString system = QStringLiteral(
 		"你是 CloudSim 意图分类器。只输出一个 domain id，不要解释。可选：\n"
 		"mesh.create, mesh.compose, feature.compose, design.parts, geometry.recognize, trajectory.feature,\n"
-		"pointcloud.ops, document.import, geometry.ops, feature.build, labeling.annot,\n"
+		"pointcloud.ops, document.import, geometry.ops, labeling.annot,\n"
 		"scene.ops, process.flow\n"
 		"若无法判断，输出 unknown。");
 	const auto lr = AiLlmClient::chatText(system, t, llm, {});
@@ -169,8 +166,8 @@ Result classifyByLocalLlm(const QString& userText, const AiConfigDto& config)
 	static const QStringList kAllowed = {
 		AiDomainIds::meshCreate(),		  AiDomainIds::meshCompose(),		AiDomainIds::featureCompose(),
 		AiDomainIds::geometryRecognize(), AiDomainIds::trajectoryFeature(), AiDomainIds::pointCloudOps(),
-		AiDomainIds::documentImport(),	  AiDomainIds::geometryOps(),		AiDomainIds::featureBuild(),
-		AiDomainIds::labelingAnnot(),	  AiDomainIds::sceneOps(),			AiDomainIds::processFlow()};
+		AiDomainIds::documentImport(),	  AiDomainIds::geometryOps(),		AiDomainIds::labelingAnnot(),
+		AiDomainIds::sceneOps(),		  AiDomainIds::processFlow()};
 	if (!kAllowed.contains(id))
 		return out;
 	out.domainId = id;
