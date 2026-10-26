@@ -51,6 +51,8 @@ public:
 	void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames) override;
 	void setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ) override;
 	void clearRawTrajectoryOverlayFrames() override;
+	void setTcpMotionTrailOverlay(const std::vector<cloudsim::core::Vec3>& pointsWorldMm) override;
+	void clearTcpMotionTrailOverlay() override;
 	void setCameraFollowBackendId(const std::string& backendId) override;
 
 	void setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate& update) override;

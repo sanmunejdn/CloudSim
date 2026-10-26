@@ -16,7 +16,13 @@ std::string laneKey(const SimulationParticipantId& id)
 
 void SimulationKernel::setIoNetwork(IIoSignalNetwork* network)
 {
+	m_ioNetwork = network;
 	m_ioPhase.setNetwork(network);
+}
+
+void SimulationKernel::setCeeRules(const QVector<CeeRule>& rules)
+{
+	m_cee.setRules(rules);
 }
 
 bool SimulationKernel::anyLaneRunning() const
@@ -173,6 +179,7 @@ void SimulationKernel::beginSession()
 	m_leases.clear();
 	m_barriers.clear();
 	m_ioPhase.clear();
+	m_cee.resetEdgeState();
 }
 
 void SimulationKernel::stopLane(const SimulationParticipantId& id)
@@ -185,7 +192,7 @@ void SimulationKernel::stopLane(const SimulationParticipantId& id)
 	it->second->stop();
 	m_leases.releaseAll(id);
 	m_barriers.leave(id);
-	if (!anyLaneRunning())
+	if (!anyLaneRunning() && !m_keepSessionAliveWithoutLanes)
 	{
 		m_sessionActive = false;
 	}
@@ -216,6 +223,13 @@ void SimulationKernel::collectDiPorts(QHash<QString, QList<int>>& portsByOwner) 
 	{
 		ports.append(p);
 	}
+	const auto insertOwner = [&](const QString& ownerId)
+	{
+		if (!ownerId.isEmpty())
+		{
+			portsByOwner.insert(ownerId, ports);
+		}
+	};
 	for (const auto& kv : m_lanes)
 	{
 		if (!kv.second)
@@ -224,14 +238,33 @@ void SimulationKernel::collectDiPorts(QHash<QString, QList<int>>& portsByOwner) 
 		}
 		if (const RobotLane* rl = dynamic_cast<const RobotLane*>(kv.second.get()))
 		{
-			if (!rl->ioOwnerId().isEmpty())
-			{
-				portsByOwner.insert(rl->ioOwnerId(), ports);
-			}
+			insertOwner(rl->ioOwnerId());
 		}
 		else if (kv.second->id().kind == SimulationParticipantKind::Device)
 		{
-			portsByOwner.insert(kv.second->id().deviceBackendId, ports);
+			insertOwner(kv.second->id().deviceBackendId);
+		}
+	}
+	// 事件模式：无 Lane 也要采规则/网络 Owner，否则 CEE 读不到 DI
+	if (m_runMode == SimRunMode::EventBased)
+	{
+		if (m_ioNetwork)
+		{
+			for (const QString& id : m_ioNetwork->ownerIds())
+			{
+				insertOwner(id);
+			}
+		}
+		for (const CeeRule& rule : m_cee.rules())
+		{
+			insertOwner(rule.when.ownerId);
+			for (const CeeAction& a : rule.actions)
+			{
+				if (a.type == CeeAction::Type::SetDo)
+				{
+					insertOwner(a.ownerId);
+				}
+			}
 		}
 	}
 }
@@ -282,6 +315,11 @@ SimulationKernelTickResult SimulationKernel::tick(IRobotSimulationDocument* doc,
 	m_ioPhase.latchAfterPropagate(ports);
 	m_ioPhase.swapAll();
 
+	if (m_runMode == SimRunMode::EventBased && m_eventLogicAuthority == EventLogicAuthority::LocalCee)
+	{
+		m_cee.evaluate(m_ioNetwork, m_ioPhase, *this, m_ceeHandler);
+	}
+
 	m_applyOrder.applyInOrder(expected, [](const SimulationParticipantId&) {});
 
 	const CollisionGuard::Result cg = m_collisionGuard.evaluate(m_clock.tickIndex());
@@ -302,7 +340,8 @@ SimulationKernelTickResult SimulationKernel::tick(IRobotSimulationDocument* doc,
 
 	result.anyRunning = anyLaneRunning();
 	result.sessionActive = m_sessionActive;
-	if (!result.anyRunning)
+	// EventBased 等信号 / 时间轴空窗：无 Lane 也保持会话
+	if (!result.anyRunning && m_runMode != SimRunMode::EventBased && !m_keepSessionAliveWithoutLanes)
 	{
 		m_sessionActive = false;
 		result.sessionActive = false;

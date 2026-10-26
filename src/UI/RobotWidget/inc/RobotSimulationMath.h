@@ -44,6 +44,24 @@ ROBOTWIDGET_EXPORT bool getBackendRootWorldMatrixOsg(IRobotOsgSceneOps* view, co
 ROBOTWIDGET_EXPORT bool buildDhRowsFromUrdf(const QString& urdfPath, std::vector<robot_kinematics::DhRow>& outRows,
 											QString* errMsg = nullptr);
 
+/// DH 展示失败时回退：URDF joint origin / axis（只读 UI）
+struct ROBOTWIDGET_EXPORT UrdfJointDisplayRow
+{
+	QString name;
+	QString type;
+	double x = 0.0;
+	double y = 0.0;
+	double z = 0.0;
+	double roll = 0.0;
+	double pitch = 0.0;
+	double yaw = 0.0;
+	double ax = 0.0;
+	double ay = 0.0;
+	double az = 1.0;
+};
+ROBOTWIDGET_EXPORT bool loadUrdfJointDisplayRows(const QString& urdfPath, QVector<UrdfJointDisplayRow>& outRows,
+												  QString* errMsg = nullptr);
+
 ROBOTWIDGET_EXPORT QString defaultTcpLinkNameForUrdf(const QString& urdfPath, const QString& comboTcpLink);
 
 ROBOTWIDGET_EXPORT BackendMat4 toolMat4ForFrames(const RobotCoordinate::RobotCoordinateFrameSet& frames,

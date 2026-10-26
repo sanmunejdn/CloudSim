@@ -22,6 +22,7 @@
 #include <QSlider>
 #include <QString>
 #include <QStringList>
+#include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QVector>
@@ -94,6 +95,10 @@ public:
 	/// 可达点密度 1～100，默认 50
 	int reachableWorkspaceDensityPercent() const;
 
+	/// 刷新只读 DH/URDF 表；空路径清空
+	void setDhUrdfPath(const QString& urdfPath);
+	QStringList jointNamesInOrder() const;
+
 signals:
 	void jointAngleChanged(const QString& jointName, double angleRad);
 
@@ -107,6 +112,8 @@ signals:
 	/// 密度滑条变更（1～100）
 	void reachableWorkspaceDensityChanged(int percent);
 	void controlTargetChanged(AxisControlTargetKind kind, const QString& id);
+	/// 打开点动控制器（非外置控制器）
+	void openJogControllerRequested();
 
 private slots:
 	void onSliderValueChanged(int value);
@@ -157,6 +164,10 @@ private:
 
 	QLabel* m_targetLabel = nullptr;
 	QComboBox* m_targetCombo = nullptr;
+	QGroupBox* m_dhGroup = nullptr;
+	QLabel* m_dhHintLabel = nullptr;
+	QTableWidget* m_dhTable = nullptr;
+	QPushButton* m_jogControllerButton = nullptr;
 	QScrollArea* m_scrollArea = nullptr;
 	QWidget* m_contentWidget = nullptr;
 	QVBoxLayout* m_contentLayout = nullptr;
@@ -165,6 +176,7 @@ private:
 	QSlider* m_reachableWorkspaceDensitySlider = nullptr;
 	QTimer* m_reachableWorkspaceDensityDebounce = nullptr;
 	QPushButton* m_resetAllButton = nullptr;
+	QString m_dhUrdfPath;
 	bool m_useChinese = true;
 	bool m_reachableWorkspaceBusy = false;
 	bool m_reachableWorkspaceFeatureEnabled = true;
@@ -181,6 +193,9 @@ private:
 	void emitExternalAxisValuesNow();
 	void updateJointTransform(const QString& jointName, double angleRad);
 	void emitAllJointAnglesNow();
+	void refreshDhDisplay();
+	void updateDhChromeTexts();
+	void updateJogControllerEnabled();
 	int angleToSliderValue(double angleRad) const;
 	double sliderValueToAngle(int value) const;
 	int mmToSliderValue(double mm) const;

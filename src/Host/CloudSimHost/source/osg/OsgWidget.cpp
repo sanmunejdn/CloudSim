@@ -1100,6 +1100,54 @@ void OsgWidget::clearRawTrajectoryOverlay()
 	requestRedraw();
 }
 
+void OsgWidget::setTcpMotionTrailOverlay(const std::vector<cloudsim::core::Vec3>& pointsWorldMm)
+{
+	if (!m_trajectoryOverlayGroup.valid())
+	{
+		return;
+	}
+	if (!m_tcpMotionTrailOverlayGeode.valid())
+	{
+		m_tcpMotionTrailOverlayGeode = new osg::Geode;
+		m_tcpMotionTrailOverlayGeode->setName("TcpMotionTrailOverlay");
+		m_tcpMotionTrailOverlayGeode->setNodeMask(OsgScene::kMaskPickOverlay);
+		m_trajectoryOverlayGroup->addChild(m_tcpMotionTrailOverlayGeode.get());
+	}
+	m_tcpMotionTrailOverlayGeode->removeDrawables(0, m_tcpMotionTrailOverlayGeode->getNumDrawables());
+	if (pointsWorldMm.size() < 2U)
+	{
+		requestRedraw();
+		return;
+	}
+	osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+	lineVerts->reserve(pointsWorldMm.size());
+	for (const cloudsim::core::Vec3& p : pointsWorldMm)
+	{
+		lineVerts->push_back(osgVec3FromCore(p));
+	}
+	osg::ref_ptr<osg::Geometry> lineGeom = new osg::Geometry;
+	lineGeom->setVertexArray(lineVerts.get());
+	osg::ref_ptr<osg::Vec4Array> lineColor = new osg::Vec4Array;
+	lineColor->push_back(osg::Vec4(1.0f, 0.55f, 0.12f, 1.0f));
+	lineGeom->setColorArray(lineColor.get(), osg::Array::BIND_OVERALL);
+	lineGeom->addPrimitiveSet(
+		new osg::DrawArrays(osg::PrimitiveSet::LINE_STRIP, 0, static_cast<GLsizei>(lineVerts->size())));
+	osg::StateSet* ss = lineGeom->getOrCreateStateSet();
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ss->setAttribute(new osg::LineWidth(2.5f));
+	m_tcpMotionTrailOverlayGeode->addDrawable(lineGeom.get());
+	requestRedraw();
+}
+
+void OsgWidget::clearTcpMotionTrailOverlay()
+{
+	if (m_tcpMotionTrailOverlayGeode.valid())
+	{
+		m_tcpMotionTrailOverlayGeode->removeDrawables(0, m_tcpMotionTrailOverlayGeode->getNumDrawables());
+	}
+	requestRedraw();
+}
+
 void OsgWidget::setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay)
 {
 	if (!m_trajectoryOverlayGroup.valid())

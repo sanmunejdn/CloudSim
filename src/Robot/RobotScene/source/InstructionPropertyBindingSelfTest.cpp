@@ -4,6 +4,7 @@
 #include "InstructionPropertyBindingSelfTest.h"
 
 #include "InstructionPropertyBinding.h"
+#include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionPropertySchema.h"
 #include "RunLogger.h"
@@ -122,6 +123,30 @@ bool runInstructionPropertyBindingSelfTest(std::vector<std::string>* failures)
 
 	check(ptp.applyPropertyChange("motion.target.pose.x", "123.456", nullptr), "PTP apply pose.x");
 	check(std::abs(ptp.pose().x - 123.456) < 1e-3, "PTP pose.x value");
+
+	// PTP 切配置：同/异配置类决定是否跳过最短角折圈；腕跳门仍供 LINE 硬拦
+	{
+		RobotInstruction::JointConfigurationClass a{};
+		a.elbow = RobotInstruction::ElbowPosture::Up;
+		a.wrist = RobotInstruction::WristPosture::NoFlip;
+		a.arm = RobotInstruction::ArmPosture::Front;
+		RobotInstruction::JointConfigurationClass b = a;
+		check(RobotInstruction::sameJointConfigurationClass(a, b), "same class equal");
+		check(!RobotInstruction::ptpShouldSkipShortestAngleFold(a, b), "same class keep fold");
+		b.elbow = RobotInstruction::ElbowPosture::Down;
+		check(RobotInstruction::ptpShouldSkipShortestAngleFold(a, b), "elbow switch skip fold");
+		RobotInstruction::MotionAxisConfiguration want{};
+		want.preset = "CUSTOM";
+		want.elbow = RobotInstruction::ElbowPosture::Down;
+		check(want.matchesClass(b), "matchesClass Down");
+		check(!want.matchesClass(a), "matchesClass reject Up");
+		const std::vector<std::string> names = {"joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6"};
+		const std::vector<double> seed(6, 0.0);
+		std::vector<double> flipped = seed;
+		flipped[4] = 2.0; // > π/2 腕跳
+		const double jump = RobotInstruction::wristConfigurationJumpRad(flipped, seed, names);
+		check(jump > RobotInstruction::kWristContinuityGateRad, "wrist jump exceeds LINE gate");
+	}
 
 	if (ok)
 	{

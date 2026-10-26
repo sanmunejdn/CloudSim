@@ -28,6 +28,7 @@ public:
 	void setHost(IRobotMainWindowHost* host);
 	void wire(IRobotMainWindowHost* host, IoSignalNetworkService* network, DeviceCommandPageWidget* deviceCmdPage);
 
+	void setSignalDriverEnabled(bool enabled);
 	void resetEdgeState();
 
 private:

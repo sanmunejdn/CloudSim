@@ -317,6 +317,11 @@ public:
 		(void)showY;
 		(void)showZ;
 	}
+	void setTcpMotionTrailOverlay(const std::vector<cloudsim::core::Vec3>& pointsWorldMm)
+	{
+		(void)pointsWorldMm;
+	}
+	void clearTcpMotionTrailOverlay() {}
 	void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay){ (void)overlay; }
 	void clearReachableWorkspaceOverlay(){}
 	void setPlaybackCursorOverlay(const RobotOsgUi::PlaybackCursorOverlay& cursor){ (void)cursor; }

@@ -3,12 +3,16 @@
 
 #include "RobotAxisControlWidget.h"
 
+#include "RobotSimulationMath.h"
+
+#include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDebug>
 #include <QDoubleValidator>
 #include <QFrame>
 #include <QGridLayout>
+#include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QSignalBlocker>
@@ -17,6 +21,7 @@
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 static constexpr double kPi = 3.14159265358979323846;
 
@@ -58,6 +63,18 @@ void RobotAxisControlWidget::setUseChinese(bool chinese)
 		m_reachableWorkspaceDensitySlider->setToolTip(
 			chinese ? QStringLiteral("控制可达点采样密度（默认 50%）")
 					: QStringLiteral("Reachable-point sample density (default 50%)"));
+	}
+	updateDhChromeTexts();
+	if (!m_dhUrdfPath.isEmpty())
+	{
+		refreshDhDisplay();
+	}
+	if (m_jogControllerButton)
+	{
+		m_jogControllerButton->setText(chinese ? QStringLiteral("控制器") : QStringLiteral("Controller"));
+		m_jogControllerButton->setToolTip(
+			chinese ? QStringLiteral("打开 TCP / 轴点动控制器（非外置控制器）")
+					: QStringLiteral("Open TCP / joint jog controller (not external controller)"));
 	}
 	rebuildExternalAxisControls();
 }
@@ -143,6 +160,16 @@ void RobotAxisControlWidget::selectControlTarget(const AxisControlTargetKind kin
 void RobotAxisControlWidget::updateTargetDependentChrome(const AxisControlTargetItem&)
 {
 	updateReachableWorkspaceChrome();
+	updateJogControllerEnabled();
+	const bool isRobot = currentControlTarget().kind == AxisControlTargetKind::RobotInstance;
+	if (m_dhGroup)
+	{
+		m_dhGroup->setVisible(isRobot);
+	}
+	if (!isRobot)
+	{
+		setDhUrdfPath(QString());
+	}
 }
 
 void RobotAxisControlWidget::updateReachableWorkspaceChrome()
@@ -344,6 +371,50 @@ void RobotAxisControlWidget::createUI()
 	connect(m_targetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 			&RobotAxisControlWidget::onControlTargetComboChanged);
 
+	m_dhGroup = new QGroupBox(QStringLiteral("DH 参数"), this);
+	m_dhGroup->setCheckable(true);
+	m_dhGroup->setChecked(false);
+	m_dhGroup->setFlat(true);
+	auto* dhLayout = new QVBoxLayout(m_dhGroup);
+	dhLayout->setContentsMargins(4, 4, 4, 4);
+	dhLayout->setSpacing(2);
+	m_dhHintLabel = new QLabel(m_dhGroup);
+	m_dhHintLabel->setWordWrap(true);
+	m_dhHintLabel->setStyleSheet(QStringLiteral("color: gray; font-size: 11px;"));
+	m_dhHintLabel->hide();
+	dhLayout->addWidget(m_dhHintLabel);
+	m_dhTable = new QTableWidget(0, 7, m_dhGroup);
+	m_dhTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+	m_dhTable->setSelectionMode(QAbstractItemView::NoSelection);
+	m_dhTable->setFocusPolicy(Qt::NoFocus);
+	m_dhTable->verticalHeader()->setVisible(false);
+	m_dhTable->horizontalHeader()->setStretchLastSection(true);
+	m_dhTable->setMaximumHeight(140);
+	dhLayout->addWidget(m_dhTable);
+	mainLayout->addWidget(m_dhGroup);
+	connect(m_dhGroup, &QGroupBox::toggled, this,
+			[this](bool on)
+			{
+				if (m_dhTable)
+				{
+					m_dhTable->setVisible(on);
+				}
+				if (m_dhHintLabel)
+				{
+					m_dhHintLabel->setVisible(on && !m_dhHintLabel->text().isEmpty());
+				}
+			});
+	m_dhTable->setVisible(false);
+
+	m_jogControllerButton = new QPushButton(QStringLiteral("控制器"), this);
+	m_jogControllerButton->setProperty("btnRole", QLatin1String("primary"));
+	m_jogControllerButton->setMinimumHeight(34);
+	m_jogControllerButton->setToolTip(QStringLiteral("打开 TCP / 轴点动控制器（非外置控制器）"));
+	connect(m_jogControllerButton, &QPushButton::clicked, this, &RobotAxisControlWidget::openJogControllerRequested);
+	mainLayout->addWidget(m_jogControllerButton);
+	updateJogControllerEnabled();
+	updateDhChromeTexts();
+
 	m_reachableWorkspaceCheck = new QCheckBox(this);
 	m_reachableWorkspaceCheck->setText(QStringLiteral("显示可达域"));
 	m_reachableWorkspaceCheck->setToolTip(
@@ -487,6 +558,7 @@ void RobotAxisControlWidget::setupJointControls(const QStringList& jointNames, c
 	}
 	m_jointControls.clear();
 	m_jointOrder.clear();
+	// 稍后重建完再 refreshDh / jog 按钮状态
 
 	// 重建关节时会清掉外轴控件指针，配置暂存后重建
 	RobotExternal::RobotExternalAxisConfigSet extSet;
@@ -510,6 +582,7 @@ void RobotAxisControlWidget::setupJointControls(const QStringList& jointNames, c
 				setExternalAxisValuesSilent(extValues);
 			}
 		}
+		updateJogControllerEnabled();
 		return;
 	}
 
@@ -596,6 +669,11 @@ void RobotAxisControlWidget::setupJointControls(const QStringList& jointNames, c
 		{
 			setExternalAxisValuesSilent(extValues);
 		}
+	}
+	updateJogControllerEnabled();
+	if (!m_dhUrdfPath.isEmpty())
+	{
+		refreshDhDisplay();
 	}
 }
 
@@ -961,4 +1039,140 @@ double RobotAxisControlWidget::uiValueFromInternal(const RobotExternal::RobotExt
 double RobotAxisControlWidget::internalFromUiValue(const RobotExternal::RobotExternalAxisConfig& cfg, double ui)
 {
 	return isTranslateAxis(cfg) ? ui : (ui * kPi / 180.0);
+}
+
+QStringList RobotAxisControlWidget::jointNamesInOrder() const
+{
+	return QStringList(m_jointOrder.begin(), m_jointOrder.end());
+}
+
+void RobotAxisControlWidget::setDhUrdfPath(const QString& urdfPath)
+{
+	if (m_dhUrdfPath == urdfPath)
+	{
+		if (!urdfPath.isEmpty())
+		{
+			refreshDhDisplay();
+		}
+		return;
+	}
+	m_dhUrdfPath = urdfPath;
+	refreshDhDisplay();
+}
+
+void RobotAxisControlWidget::updateJogControllerEnabled()
+{
+	if (!m_jogControllerButton)
+	{
+		return;
+	}
+	const bool ok = currentControlTarget().kind == AxisControlTargetKind::RobotInstance && jointCount() > 0;
+	m_jogControllerButton->setEnabled(ok);
+}
+
+void RobotAxisControlWidget::updateDhChromeTexts()
+{
+	if (m_dhGroup)
+	{
+		m_dhGroup->setTitle(m_useChinese ? QStringLiteral("DH 参数") : QStringLiteral("DH parameters"));
+	}
+}
+
+void RobotAxisControlWidget::refreshDhDisplay()
+{
+	if (!m_dhTable)
+	{
+		return;
+	}
+	m_dhTable->clear();
+	m_dhTable->setRowCount(0);
+	if (m_dhHintLabel)
+	{
+		m_dhHintLabel->clear();
+		m_dhHintLabel->hide();
+	}
+	if (m_dhUrdfPath.isEmpty())
+	{
+		return;
+	}
+
+	std::vector<robot_kinematics::DhRow> dhRows;
+	QString dhErr;
+	if (RobotSimulationMath::buildDhRowsFromUrdf(m_dhUrdfPath, dhRows, &dhErr) && !dhRows.empty())
+	{
+		m_dhTable->setColumnCount(7);
+		m_dhTable->setHorizontalHeaderLabels(
+			m_useChinese
+				? QStringList{QStringLiteral("i"), QStringLiteral("a"), QStringLiteral("alpha"), QStringLiteral("d"),
+							  QStringLiteral("θ偏置"), QStringLiteral("关节"), QStringLiteral("类型")}
+				: QStringList{QStringLiteral("i"), QStringLiteral("a"), QStringLiteral("alpha"), QStringLiteral("d"),
+							  QStringLiteral("θ offset"), QStringLiteral("joint"), QStringLiteral("type")});
+		m_dhTable->setRowCount(static_cast<int>(dhRows.size()));
+		for (int i = 0; i < static_cast<int>(dhRows.size()); ++i)
+		{
+			const robot_kinematics::DhRow& r = dhRows[static_cast<size_t>(i)];
+			const QString joint =
+				r.jointIndex >= 0 && r.jointIndex < m_jointOrder.size() ? m_jointOrder[r.jointIndex] : QStringLiteral("-");
+			const QString type = r.isPrismatic ? (m_useChinese ? QStringLiteral("移动") : QStringLiteral("prism"))
+											  : (m_useChinese ? QStringLiteral("转动") : QStringLiteral("revolute"));
+			m_dhTable->setItem(i, 0, new QTableWidgetItem(QString::number(i)));
+			m_dhTable->setItem(i, 1, new QTableWidgetItem(QString::number(r.a, 'g', 6)));
+			m_dhTable->setItem(i, 2, new QTableWidgetItem(QString::number(r.alpha, 'g', 6)));
+			m_dhTable->setItem(i, 3, new QTableWidgetItem(QString::number(r.d, 'g', 6)));
+			m_dhTable->setItem(i, 4, new QTableWidgetItem(QString::number(r.thetaOffset, 'g', 6)));
+			m_dhTable->setItem(i, 5, new QTableWidgetItem(joint));
+			m_dhTable->setItem(i, 6, new QTableWidgetItem(type));
+		}
+		return;
+	}
+
+	QVector<RobotSimulationMath::UrdfJointDisplayRow> urdfRows;
+	QString urdfErr;
+	if (!RobotSimulationMath::loadUrdfJointDisplayRows(m_dhUrdfPath, urdfRows, &urdfErr) || urdfRows.isEmpty())
+	{
+		if (m_dhHintLabel)
+		{
+			const QString msg = m_useChinese ? QStringLiteral("无法读取运动学参数")
+											 : QStringLiteral("Unable to load kinematic parameters");
+			m_dhHintLabel->setText(msg);
+			m_dhHintLabel->setVisible(m_dhGroup && m_dhGroup->isChecked());
+		}
+		return;
+	}
+
+	if (m_dhHintLabel)
+	{
+		m_dhHintLabel->setText(m_useChinese ? QStringLiteral("无法分解为标准 DH，显示 URDF 关节 origin")
+											: QStringLiteral("Not decomposable to standard DH; showing URDF origins"));
+		m_dhHintLabel->setVisible(m_dhGroup && m_dhGroup->isChecked());
+	}
+	m_dhTable->setColumnCount(5);
+	m_dhTable->setHorizontalHeaderLabels(
+		m_useChinese
+			? QStringList{QStringLiteral("关节"), QStringLiteral("xyz"), QStringLiteral("rpy"), QStringLiteral("axis"),
+						  QStringLiteral("类型")}
+			: QStringList{QStringLiteral("joint"), QStringLiteral("xyz"), QStringLiteral("rpy"), QStringLiteral("axis"),
+						  QStringLiteral("type")});
+	m_dhTable->setRowCount(urdfRows.size());
+	for (int i = 0; i < urdfRows.size(); ++i)
+	{
+		const auto& r = urdfRows[i];
+		const QString xyz = QStringLiteral("%1 %2 %3")
+								.arg(r.x, 0, 'g', 5)
+								.arg(r.y, 0, 'g', 5)
+								.arg(r.z, 0, 'g', 5);
+		const QString rpy = QStringLiteral("%1 %2 %3")
+								.arg(r.roll, 0, 'g', 5)
+								.arg(r.pitch, 0, 'g', 5)
+								.arg(r.yaw, 0, 'g', 5);
+		const QString axis = QStringLiteral("%1 %2 %3")
+								 .arg(r.ax, 0, 'g', 4)
+								 .arg(r.ay, 0, 'g', 4)
+								 .arg(r.az, 0, 'g', 4);
+		m_dhTable->setItem(i, 0, new QTableWidgetItem(r.name));
+		m_dhTable->setItem(i, 1, new QTableWidgetItem(xyz));
+		m_dhTable->setItem(i, 2, new QTableWidgetItem(rpy));
+		m_dhTable->setItem(i, 3, new QTableWidgetItem(axis));
+		m_dhTable->setItem(i, 4, new QTableWidgetItem(r.type));
+	}
 }

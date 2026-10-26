@@ -44,21 +44,24 @@ std::vector<double> solveArmPoseDampedLeastSquares(const QString& urdfPath, cons
 		return {};
 	}
 
-	std::string analyticalFail;
-	IkConvergenceStatus analyticalStatus = IkConvergenceStatus::Failed;
-	std::vector<double> qAnalytical =
-		g_sphericalWristSolver.solve(urdfPath, ikLink, target, q, options, &analyticalFail, &analyticalStatus);
-	if (!qAnalytical.empty())
+	if (!options.preferNumericalOnly)
 	{
-		if (status)
+		std::string analyticalFail;
+		IkConvergenceStatus analyticalStatus = IkConvergenceStatus::Failed;
+		std::vector<double> qAnalytical =
+			g_sphericalWristSolver.solve(urdfPath, ikLink, target, q, options, &analyticalFail, &analyticalStatus);
+		if (!qAnalytical.empty())
 		{
-			*status = analyticalStatus;
+			if (status)
+			{
+				*status = analyticalStatus;
+			}
+			if (failReason)
+			{
+				failReason->clear();
+			}
+			return qAnalytical;
 		}
-		if (failReason)
-		{
-			failReason->clear();
-		}
-		return qAnalytical;
 	}
 
 	return solveArmPoseViaKinematicCore(urdfPath, ikLink, target, std::move(q), options, failReason, status);

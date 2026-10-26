@@ -627,6 +627,12 @@ JointConfigurationClass classifyJointConfiguration(const std::vector<double>& qR
 	return c;
 }
 
+bool sameJointConfigurationClass(const JointConfigurationClass& a, const JointConfigurationClass& b)
+{
+	return a.elbow == b.elbow && a.wrist == b.wrist && a.arm == b.arm && a.turnJ1 == b.turnJ1 && a.turnJ4 == b.turnJ4 &&
+		   a.turnJ6 == b.turnJ6;
+}
+
 double wristConfigurationJumpRad(const std::vector<double>& qRad, const std::vector<double>& seedRad,
 								 const std::vector<std::string>& jointNames)
 {

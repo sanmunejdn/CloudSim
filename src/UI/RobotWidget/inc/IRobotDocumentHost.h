@@ -16,6 +16,8 @@
 #include "RobotExternalAxes.h"
 #include "RobotProgramStore.h"
 
+#include <RigidTransform.h>
+
 #include <QHash>
 #include <QString>
 #include <QStringList>
@@ -124,14 +126,31 @@ public:
 		bool hasExternalAxisQ = false;
 		double externalAxisQ = 0.0;
 		std::vector<double> externalAxisQs;
+		double residualTcpMm = -1.0;
+		double residualOrientDeg = -1.0;
 		QString error;
 	};
+	/// 优先走四元数目标，避免欧拉往返在万向节附近改姿态
+	/// @param continuousIncremental 点动等小步连续：纯数值 DLS、放宽迭代/步进，跳过球形腕解析换支
+	virtual TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, const engine::RigidTransform& T_base_target,
+												const QVector<double>& seedJointRad, const QString& ikLinkName,
+												const std::vector<double>& externalAxisQSeed = {},
+												bool hasExternalAxisQSeed = false,
+												bool allowApproximateOrientation = false,
+												bool continuousIncremental = false) = 0;
 	virtual TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, double pxMm, double pyMm, double pzMm, double exDeg,
 												double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
 												const QString& ikLinkName,
 												const std::vector<double>& externalAxisQSeed = {},
 												bool hasExternalAxisQSeed = false,
-												bool allowApproximateOrientation = false) = 0;
+												bool allowApproximateOrientation = false,
+												bool continuousIncremental = false)
+	{
+		return solveTcpDragTeachIk(
+			instanceIndex, engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg),
+			seedJointRad, ikLinkName, externalAxisQSeed, hasExternalAxisQSeed, allowApproximateOrientation,
+			continuousIncremental);
+	}
 
 	/// 导出程序规划结果（不含 UI 文件对话框）
 	struct ExportPlanResult

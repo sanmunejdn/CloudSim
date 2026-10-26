@@ -83,8 +83,20 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\CeeEvaluator.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CeeRule.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CollisionGuard.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\CompositeKinematicModel.h">
       <Filter>inc\KinematicCore</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ControlAuthority.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\ControlContext.h">
       <Filter>inc\Other</Filter>
@@ -107,6 +119,12 @@
     <ClInclude Include="inc\CustomDeviceMat4Layout.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
+    <ClInclude Include="inc\DeviceProgramStore.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\EventLogicAuthority.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ExternalAxisGraphBuilder.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
@@ -116,6 +134,15 @@
     <ClInclude Include="inc\ExternalAxisSearchService.h">
       <Filter>inc\KinematicsFrames</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ICeeActionHandler.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IDeviceMotionTicker.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IIoSignalNetwork.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\InstructionProgramDocument.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
@@ -123,6 +150,9 @@
       <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\InstructionPropertyBindingSelfTest.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IoPhase.h">
       <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\IRobotBackendPoseSink.h">
@@ -146,10 +176,19 @@
     <ClInclude Include="inc\KinematicModelRegistry.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
+    <ClInclude Include="inc\LatchedIoSink.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\LogicalClock.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\MeshTrajectoryIngress.h">
       <Filter>inc\Trajectory</Filter>
     </ClInclude>
     <ClInclude Include="inc\NamedSignalTable.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ParticipantLane.h">
       <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\ProcessFlowPresetLoader.h">
@@ -166,6 +205,9 @@
     </ClInclude>
     <ClInclude Include="inc\RecipeBlueprint.h">
       <Filter>inc\ProgramExport</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ResourceLeaseMap.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\robot_scene_global.h">
       <Filter>inc\Global</Filter>
@@ -266,6 +308,18 @@
     <ClInclude Include="inc\RuckigPtpTrajectory.h">
       <Filter>inc\Trajectory</Filter>
     </ClInclude>
+    <ClInclude Include="inc\SimRunMode.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SimulationKernel.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SimulationParticipantId.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SyncBarrierRegistry.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\TrajectoryGeometryResolver.h">
       <Filter>inc\Trajectory</Filter>
     </ClInclude>
@@ -293,13 +347,28 @@
     <ClInclude Include="inc\UrdfRobotKinematicModelSink.h">
       <Filter>inc\KinematicCore</Filter>
     </ClInclude>
+    <ClInclude Include="inc\WorldApplyOrder.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\CeeEvaluator.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CeeRule.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\CloudSimCoreExport.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
+    <ClCompile Include="source\CollisionGuard.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\CompositeKinematicModel.cpp">
       <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ControlAuthority.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\ControlContext.cpp">
       <Filter>src\Other</Filter>
@@ -322,6 +391,9 @@
     <ClCompile Include="source\CustomDeviceMat4Layout.cpp">
       <Filter>src\KinematicCore</Filter>
     </ClCompile>
+    <ClCompile Include="source\DeviceProgramStore.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\ExternalAxisGraphBuilder.cpp">
       <Filter>src\KinematicCore</Filter>
     </ClCompile>
@@ -340,6 +412,9 @@
     <ClCompile Include="source\InstructionPropertyBindingSelfTest.cpp">
       <Filter>src\Other</Filter>
     </ClCompile>
+    <ClCompile Include="source\IoPhase.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\JointMotionAdapters.cpp">
       <Filter>src\KinematicCore</Filter>
     </ClCompile>
@@ -352,10 +427,16 @@
     <ClCompile Include="source\KinematicModelRegistry.cpp">
       <Filter>src\KinematicCore</Filter>
     </ClCompile>
+    <ClCompile Include="source\LatchedIoSink.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\MeshTrajectoryIngress.cpp">
       <Filter>src\Trajectory</Filter>
     </ClCompile>
     <ClCompile Include="source\NamedSignalTable.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ParticipantLane.cpp">
       <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\PathPlanRawStore.cpp">
@@ -375,6 +456,9 @@
     </ClCompile>
     <ClCompile Include="source\RecipeBlueprint.cpp">
       <Filter>src\ProgramExport</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ResourceLeaseMap.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotCanonicalProgramExport.cpp">
       <Filter>src\ProgramExport</Filter>
@@ -454,6 +538,12 @@
     <ClCompile Include="source\RuckigPtpTrajectory.cpp">
       <Filter>src\Trajectory</Filter>
     </ClCompile>
+    <ClCompile Include="source\SimulationKernel.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SyncBarrierRegistry.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\TrajectoryGeometryResolver.cpp">
       <Filter>src\Trajectory</Filter>
     </ClCompile>
@@ -477,6 +567,9 @@
     </ClCompile>
     <ClCompile Include="source\UrdfRobotKinematicModelSink.cpp">
       <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\WorldApplyOrder.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="third_party\ruckig\src\ruckig\brake.cpp">
       <Filter>third_party\ruckig\src\ruckig</Filter>

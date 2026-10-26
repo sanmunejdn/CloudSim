@@ -8,6 +8,7 @@
 #include "Adapters.h"
 #include "AxisControlTargetService.h"
 #include "BackendCollisionSync.h"
+#include "BackendDataBase.h"
 #include "BackendTypeIds.h"
 #include "BrandProgramExportDialog.h"
 #include "BrepBackendData.h"
@@ -20,6 +21,10 @@
 #include "DevicePoseMotionPlayer.h"
 #include "DevicePoseSignalDriver.h"
 #include "DockNavigationService.h"
+#include "ExternalPlcBridge.h"
+#include "SimulationTimelinePageWidget.h"
+#include "TimelineScheduler.h"
+#include "EventLogicAuthority.h"
 #include "FeaturePickTransform.h"
 #include "FeatureTrajectoryPageWidget.h"
 #include "IRobotBackendPoseSink.h"
@@ -38,6 +43,7 @@
 #include "PythonScriptCaller.h"
 #include "RawTrajectory.h"
 #include "RobotAxisControlWidget.h"
+#include "RobotAxisJogControllerDialog.h"
 #include "RobotCanonicalProgramExport.h"
 #include "RobotCollisionSettingsWidget.h"
 #include "RobotCommPageWidget.h"
@@ -53,6 +59,7 @@
 #include "RobotOsgUiTypes.h"
 #include "RobotPathPlanning.h"
 #include "RobotProgramExport.h"
+#include "RobotProgramStore.h"
 #include "RobotSceneKinematics.h"
 #include "RobotSimulationDockWidget.h"
 #include "RobotSimulationMath.h"
@@ -88,6 +95,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <random>
@@ -107,6 +115,22 @@ using namespace RobotSimulation;
 
 namespace
 {
+
+/// 时间轴估时长：无 IK 时用笛卡尔梯形近似（与 Controller 规划同形）
+double roughTrapezoidSecForTimelineEstimate(double distance, double vmax, double amax)
+{
+	vmax = std::max(1e-6, vmax);
+	amax = std::max(1e-6, amax);
+	const double tAcc = vmax / amax;
+	const double dAcc = 0.5 * amax * tAcc * tAcc;
+	if (2.0 * dAcc >= distance)
+	{
+		return 2.0 * std::sqrt(std::max(0.0, distance / amax));
+	}
+	return 2.0 * tAcc + (distance - 2.0 * dAcc) / vmax;
+}
+
+
 /// 随机兜底候选的连续性硬门：与链式种子的未折圈逐关节最大偏差（执行器真实行程，±2π 必淘汰）
 /// 只约束随机兜底；确定性种子 / 示教 CSV 不受此限
 constexpr double kFallbackConsistencyRad = 2.6;
@@ -881,6 +905,27 @@ RobotSimulationController::RobotSimulationController(QObject* parent)
 	m_ioNetworkAdapter.setService(m_ioNetwork);
 	m_simulationKernel.setIoNetwork(&m_ioNetworkAdapter);
 	m_simulationKernel.setDeviceMotionTicker(&m_deviceMotionTicker);
+	m_simulationKernel.setCeeActionHandler(this);
+	m_externalPlcBridge = new ExternalPlcBridge(this);
+	m_externalPlcBridge->setNetwork(m_ioNetwork);
+	connect(m_externalPlcBridge, &ExternalPlcBridge::plcWarning, this,
+			[this](const QString& msg)
+			{
+				if (m_host && m_host->runInfoPage())
+				{
+					m_host->appendRunWarning(msg);
+				}
+			});
+	m_timelineScheduler = new TimelineScheduler(this);
+	m_timelineScheduler->setController(this);
+	connect(m_timelineScheduler, &TimelineScheduler::warningMessage, this,
+			[this](const QString& msg)
+			{
+				if (m_host && m_host->runInfoPage())
+				{
+					m_host->appendRunWarning(msg);
+				}
+			});
 }
 
 RobotSimulationController::~RobotSimulationController()
@@ -1121,6 +1166,32 @@ void RobotSimulationController::wireSimulationSignals()
 				&RobotSimulationController::onSimulationRunAllRequested);
 		connect(cmd, &SimulationCommandWidget::stopRequested, this,
 				&RobotSimulationController::onSimulationStopRequested);
+		connect(cmd, &SimulationCommandWidget::runModeChanged, this,
+				&RobotSimulationController::onSimulationRunModeChanged);
+		connect(cmd, &SimulationCommandWidget::syncCeeRulesFromBindingsRequested, this,
+				[this, cmd]()
+				{
+					const int n = syncCeeRulesFromPoseSignalBindings();
+					cmd->refreshCeeRulesList(ceeRules());
+					if (m_host && m_host->runInfoPage())
+					{
+						m_host->appendRunInfo(
+							m_host->i18n(QStringLiteral("Synced %1 poseSignalBindings into CEE rules.").arg(n),
+										 QStringLiteral("已将 %1 条 poseSignalBindings 同步到 CEE 规则。").arg(n)));
+					}
+				});
+		connect(cmd, &SimulationCommandWidget::ceeRulesEdited, this,
+				[this](const QVector<CeeRule>& rules) { setCeeRules(rules); });
+		connect(cmd, &SimulationCommandWidget::eventLogicAuthorityChanged, this,
+				&RobotSimulationController::onEventLogicAuthorityChanged);
+		connect(cmd, &SimulationCommandWidget::externalPlcConnectRequested, this,
+				&RobotSimulationController::onExternalPlcConnectRequested);
+		connect(cmd, &SimulationCommandWidget::externalPlcDisconnectRequested, this,
+				&RobotSimulationController::onExternalPlcDisconnectRequested);
+		connect(cmd, &SimulationCommandWidget::externalPlcLinkEdited, this,
+				[this](const ExternalPlcLinkConfig& c) { setExternalPlcLinkConfig(c); });
+		connect(cmd, &SimulationCommandWidget::plcSignalMapEdited, this,
+				[this](const QVector<PlcSignalMapEntry>& m) { setPlcSignalMap(m); });
 		connect(cmd, &SimulationCommandWidget::exportProgramRequested, this,
 				&RobotSimulationController::onSimulationExportRequested);
 		connect(cmd, &SimulationCommandWidget::playbackRateChanged, this,
@@ -1142,6 +1213,23 @@ void RobotSimulationController::wireSimulationSignals()
 					m_allowApproximateOrientation = enabled;
 					m_planResultCache.invalidateAll();
 				});
+		connect(cmd, &SimulationCommandWidget::tcpMotionTrailToggled, this,
+				&RobotSimulationController::onTcpMotionTrailToggled);
+	}
+	if (SimulationTimelinePageWidget* tl = m_simulationDock->timelinePage())
+	{
+		connect(tl, &SimulationTimelinePageWidget::runRequested, this,
+				&RobotSimulationController::onTimelineRunRequested);
+		connect(tl, &SimulationTimelinePageWidget::stopRequested, this,
+				&RobotSimulationController::onTimelineStopRequested);
+		connect(tl, &SimulationTimelinePageWidget::studyEdited, this,
+				&RobotSimulationController::onTimelineStudyEdited);
+		connect(tl, &SimulationTimelinePageWidget::playheadScrubbed, this,
+				&RobotSimulationController::onTimelinePlayheadScrubbed);
+		tl->setProgramDurationEstimator(
+			[this](int instanceIndex, const QString& programId) {
+				return estimateRobotProgramDurationSec(instanceIndex, programId);
+			});
 	}
 	connect(cmd, &SimulationCommandWidget::addInstructionRequested, this,
 			&RobotSimulationController::onSimulationAddInstructionRequested);
@@ -1165,6 +1253,8 @@ void RobotSimulationController::wireSimulationSignals()
 			&RobotSimulationController::onReachableWorkspaceToggled);
 	connect(axis, &RobotAxisControlWidget::reachableWorkspaceDensityChanged, this,
 			&RobotSimulationController::onReachableWorkspaceDensityChanged);
+	connect(axis, &RobotAxisControlWidget::openJogControllerRequested, this,
+			&RobotSimulationController::openAxisJogController);
 	connect(frame, &RobotFrameSettingsWidget::framesChanged, this,
 			&RobotSimulationController::onRobotCoordinateFramesChanged);
 	connect(frame, &RobotFrameSettingsWidget::captureToolFromTcpRequested, this,
@@ -1279,7 +1369,7 @@ void RobotSimulationController::attachPlaybackTimer(QTimer* externalTimer)
 	if (m_playbackTimer)
 	{
 		// CoarseTimer：回放不必 Precise，省唤醒开销
-		m_playbackTimer->setTimerType(Qt::CoarseTimer);
+		m_playbackTimer->setTimerType(Qt::PreciseTimer);
 		connect(m_playbackTimer, &QTimer::timeout, this, &RobotSimulationController::onRobotSimulationTick);
 	}
 }
@@ -1445,6 +1535,17 @@ void RobotSimulationController::stopRobotSimulation(const bool applyLastPoseToSc
 	cancelArcTeach();
 	const QVector<double> lastJointAngles = programExecutor().jointAnglesRad();
 	m_simulationKernel.stopAll();
+	// 事件+外接 PLC：停仿真即停镜像，避免后台线程在无会话时继续读写
+	if (m_externalPlcBridge && eventLogicAuthority() == EventLogicAuthority::ExternalPlc)
+	{
+		m_externalPlcBridge->disconnectPlc();
+	}
+	m_timelineRunning = false;
+	m_simulationKernel.setKeepSessionAliveWithoutLanes(false);
+	if (m_simulationDock && m_simulationDock->timelinePage())
+	{
+		m_simulationDock->timelinePage()->setReadOnly(runMode() == SimRunMode::EventBased);
+	}
 	if (m_customDeviceSim)
 	{
 		m_customDeviceSim->resetEdgeState();
@@ -1783,10 +1884,12 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		if (!jn.isEmpty() && lower.size() == jn.size() && upper.size() == jn.size())
 		{
 			m_host->robotAxisControlPage()->setJoints(jn, lower, upper);
+			m_host->robotAxisControlPage()->setDhUrdfPath(doc->robotUrdfAbsolutePathForInstance(instIdx));
 		}
 		else
 		{
 			m_host->robotAxisControlPage()->clearJoints();
+			m_host->robotAxisControlPage()->setDhUrdfPath(QString());
 		}
 		syncRobotAxisControlExternalAxes(instIdx);
 
@@ -4199,6 +4302,7 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 	if (!jn.isEmpty() && lower.size() == jn.size() && upper.size() == jn.size())
 	{
 		m_host->robotAxisControlPage()->setJoints(jn, lower, upper);
+		m_host->robotAxisControlPage()->setDhUrdfPath(doc->robotUrdfAbsolutePathForInstance(instanceIndex));
 	}
 	syncRobotAxisControlExternalAxes(instanceIndex);
 	{
@@ -4257,6 +4361,7 @@ void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<doub
 	{
 		m_host->osgView()->requestRedraw();
 	}
+	sampleTcpMotionTrailIfEnabled();
 	if (tcpDragActive)
 	{
 		syncTcpDragTeachAnchorFromCurrentJoints();
@@ -4566,6 +4671,255 @@ void RobotSimulationController::onAxisControlTargetChanged(const AxisControlTarg
 	{
 		m_axisControlTargets->onTargetChanged(kind, id);
 	}
+	if (m_axisJogDialog && m_host && m_host->robotAxisControlPage())
+	{
+		m_axisJogDialog->setJointNames(m_host->robotAxisControlPage()->jointNamesInOrder());
+	}
+}
+
+void RobotSimulationController::openAxisJogController()
+{
+	if (!m_host || !m_host->robotAxisControlPage())
+	{
+		return;
+	}
+	RobotAxisControlWidget* axis = m_host->robotAxisControlPage();
+	if (axis->currentControlTarget().kind != AxisControlTargetKind::RobotInstance || axis->jointCount() <= 0)
+	{
+		return;
+	}
+	if (!m_axisJogDialog)
+	{
+		QWidget* parent = m_simulationDock ? static_cast<QWidget*>(m_simulationDock) : axis;
+		m_axisJogDialog = new RobotAxisJogControllerDialog(parent);
+		connect(m_axisJogDialog, &RobotAxisJogControllerDialog::jogTcpDeltaRequested, this,
+				&RobotSimulationController::onJogTcpDeltaRequested);
+		connect(m_axisJogDialog, &RobotAxisJogControllerDialog::jogJointDeltaRequested, this,
+				&RobotSimulationController::onJogJointDeltaRequested);
+	}
+	m_axisJogDialog->setUseChinese(m_host->useChinese());
+	m_axisJogDialog->setJointNames(axis->jointNamesInOrder());
+	m_axisJogDialog->show();
+	m_axisJogDialog->raise();
+	m_axisJogDialog->activateWindow();
+}
+
+void RobotSimulationController::onJogTcpDeltaRequested(const double dxMm, const double dyMm, const double dzMm,
+													   const double dExDeg, const double dEyDeg, const double dEzDeg,
+													   const RobotAxisJogTcpFrame frame)
+{
+	// 连发对齐 16ms；IK 未完成时丢帧，避免队列堆积加重顿挫
+	if (m_jogTcpBusy || !m_host || programExecutor().isRunning())
+	{
+		return;
+	}
+	m_jogTcpBusy = true;
+	struct JogBusyGuard
+	{
+		bool& flag;
+		~JogBusyGuard() { flag = false; }
+	} busyGuard{m_jogTcpBusy};
+	RobotAxisControlWidget* axis = m_host->robotAxisControlPage();
+	IRobotDocumentHost* doc = m_host->document();
+	if (!axis || !doc || axis->currentControlTarget().kind != AxisControlTargetKind::RobotInstance)
+	{
+		return;
+	}
+	const int instIdx = axisControlActiveRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		return;
+	}
+
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	const QString preferredTcp =
+		m_host->simulationCommandPage() ? m_host->simulationCommandPage()->selectedTcpLink() : QString();
+	QString tcpLink = RobotSimulationMath::defaultTcpLinkNameForUrdf(urdfPath, preferredTcp);
+
+	// 与 TeachIk 同源：机器人基座系下的 TCP（法兰叶已在 FK 内归一到末转轴）
+	engine::RigidTransform currentInBase{};
+	if (!RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(urdfPath, axis->jointAnglesRad(), frames, tcpLink,
+																   currentInBase, &tcpLink, nullptr))
+	{
+		if (m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Jog: failed to read TCP pose (FK)."),
+												  QStringLiteral("点动：无法读取当前 TCP 位姿（FK）。")));
+		}
+		return;
+	}
+
+	const engine::RigidTransform delta =
+		engine::RigidTransform::fromTranslationEulerDeg(dxMm, dyMm, dzMm, dExDeg, dEyDeg, dEzDeg);
+	engine::RigidTransform targetInBase = currentInBase;
+	switch (frame)
+	{
+	case RobotAxisJogTcpFrame::Tool:
+		// 物体系：右乘
+		targetInBase = currentInBase.composeColumn(delta);
+		break;
+	case RobotAxisJogTcpFrame::Base:
+		// 基座系：左乘
+		targetInBase = delta.composeColumn(currentInBase);
+		break;
+	case RobotAxisJogTcpFrame::World:
+	{
+		osg::Matrixd baseWorldOsg;
+		baseWorldOsg.makeIdentity();
+		(void)RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, m_host->osgView(), instIdx, baseWorldOsg,
+																   nullptr);
+		const engine::RigidTransform T_world_base = engine::rigidTransformFromOsg(baseWorldOsg);
+		const engine::RigidTransform T_world_tcp = T_world_base.composeColumn(currentInBase);
+		const engine::RigidTransform T_world_tcpNew = delta.composeColumn(T_world_tcp);
+		targetInBase = T_world_base.inverse().composeColumn(T_world_tcpNew);
+		break;
+	}
+	case RobotAxisJogTcpFrame::User:
+	{
+		const RobotCoordinate::RobotUserFrame* user = RobotCoordinate::activeUserFrame(frames);
+		if (!user)
+		{
+			if (m_host->runInfoPage())
+			{
+				static QElapsedTimer jogUserWarn;
+				if (!jogUserWarn.isValid() || jogUserWarn.elapsed() >= 800)
+				{
+					jogUserWarn.start();
+					m_host->appendRunWarning(m_host->i18n(QStringLiteral("Jog: no active user frame; use Tool."),
+														  QStringLiteral("点动：无活动用户坐标系，请改用 TCP/工具系。")));
+				}
+			}
+			return;
+		}
+		const engine::RigidTransform T_base_user = RobotCoordinate::rigidTransformFromFrame(user->T_base_user);
+		const engine::RigidTransform T_user_tcp = T_base_user.inverse().composeColumn(currentInBase);
+		const engine::RigidTransform T_user_tcpNew = delta.composeColumn(T_user_tcp);
+		targetInBase = T_base_user.composeColumn(T_user_tcpNew);
+		break;
+	}
+	}
+
+	QVector<double> seedQ = axis->jointAnglesRad();
+	std::vector<double> qeSeed = doc->robotExternalAxisQ(instIdx);
+	const bool hasQe = RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx));
+	// 四元数目标 + 连续数值 IK（勿强制 Soft；门控交给 TeachIk）
+	const auto ikResult = doc->solveTcpDragTeachIk(instIdx, targetInBase, seedQ, tcpLink, qeSeed, hasQe,
+												   m_allowApproximateOrientation, true);
+	if (!ikResult.ok)
+	{
+		if (m_host->runInfoPage())
+		{
+			static QElapsedTimer jogIkFailTimer;
+			if (!jogIkFailTimer.isValid() || jogIkFailTimer.elapsed() >= 500)
+			{
+				jogIkFailTimer.start();
+				const QString detail = ikResult.error.isEmpty() ? QStringLiteral("IK failed") : ikResult.error;
+				m_host->appendRunWarning(m_host->i18n(QStringLiteral("Jog TCP IK failed: %1").arg(detail),
+													  QStringLiteral("TCP 点动 IK 失败：%1").arg(detail)));
+			}
+		}
+		return;
+	}
+
+	QVector<double> qRad = ikResult.jointRad;
+	wrapJointAnglesTowardSeed(qRad, seedQ);
+	QVector<double> qClamped = clampJointAnglesToInstanceLimits(doc, instIdx, qRad);
+
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	const int njInst = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
+	{
+		resyncAggregatedJointAnglesFromDocument(doc);
+	}
+	for (int j = 0; j < njInst && jointOffset + j < m_aggregatedJointAnglesRad.size(); ++j)
+	{
+		m_aggregatedJointAnglesRad[jointOffset + j] = qClamped[j];
+	}
+
+	const RobotExternal::RobotExternalAxisConfigSet& extSet = doc->robotExternalAxesForInstance(instIdx);
+	std::vector<double> qeNewFull;
+	bool haveExt = false;
+	if (!ikResult.externalAxisQs.empty())
+	{
+		qeNewFull = padExternalAxisQToConfig(extSet, ikResult.externalAxisQs);
+		haveExt = true;
+	}
+	else if (ikResult.hasExternalAxisQ)
+	{
+		qeNewFull = expandScalarExternalAxisQ(extSet, ikResult.externalAxisQ);
+		haveExt = true;
+	}
+	if (haveExt)
+	{
+		const QVector<double> enabledVals = enabledValuesFromFullQ(extSet, qeNewFull);
+		if (axis->externalAxisCount() == enabledVals.size())
+		{
+			axis->setExternalAxisValuesSilent(enabledVals);
+		}
+		applyAxisControlExternalPose(instIdx, enabledVals);
+	}
+
+	m_tcpDragApplyingIk = true;
+	QString applyErr;
+	const bool ok = doc->applyJointAnglesRad(instIdx, qClamped, m_aggregatedJointAnglesRad, &applyErr);
+	m_tcpDragApplyingIk = false;
+	if (!ok)
+	{
+		if (m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(m_host->i18n(
+				QStringLiteral("Jog apply joints failed: %1")
+					.arg(applyErr.isEmpty() ? QStringLiteral("applyJointAnglesRad") : applyErr),
+				QStringLiteral("点动写回关节失败：%1")
+					.arg(applyErr.isEmpty() ? QStringLiteral("applyJointAnglesRad") : applyErr)));
+		}
+		return;
+	}
+	if (m_host)
+	{
+		doc->requestFollowSolveForced();
+		m_host->runFollowSolveAndSyncForCurrentDocument();
+	}
+	if (axis->jointCount() == njInst)
+	{
+		axis->setJointAnglesRadSilent(qClamped);
+	}
+	if (m_host->osgView())
+	{
+		m_host->osgView()->requestRedraw();
+	}
+	refreshRobotCoordinateFrameOverlays();
+}
+
+void RobotSimulationController::onJogJointDeltaRequested(const int jointIndex, const double deltaRad)
+{
+	if (!m_host || programExecutor().isRunning())
+	{
+		return;
+	}
+	RobotAxisControlWidget* axis = m_host->robotAxisControlPage();
+	if (!axis || axis->currentControlTarget().kind != AxisControlTargetKind::RobotInstance)
+	{
+		return;
+	}
+	QVector<double> q = axis->jointAnglesRad();
+	if (jointIndex < 0 || jointIndex >= q.size())
+	{
+		return;
+	}
+	q[jointIndex] += deltaRad;
+	IRobotDocumentHost* doc = m_host->document();
+	const int instIdx = axisControlActiveRobotInstanceIndex();
+	if (doc && instIdx >= 0)
+	{
+		q = clampJointAnglesToInstanceLimits(doc, instIdx, q);
+	}
+	axis->setJointAnglesRad(q);
 }
 
 void RobotSimulationController::clearReachableWorkspaceOverlayUi()
@@ -5403,11 +5757,7 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	double ikPx = 0.0;
 	double ikPy = 0.0;
 	double ikPz = 0.0;
-	double ikEx = 0.0;
-	double ikEy = 0.0;
-	double ikEz = 0.0;
 	targetForIkStep.translationMm(ikPx, ikPy, ikPz);
-	targetForIkStep.eulerDegForDisplay(ikEx, ikEy, ikEz);
 
 	// 多轴联立种子：沿各 RobotBase 平移轴投影本步位移
 	std::vector<double> qeSeed = doc->robotExternalAxisQ(instIdx);
@@ -5418,9 +5768,9 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		tcpDragProjectExternalSeed(doc, instIdx, ikPx - tPrev.x(), ikPy - tPrev.y(), ikPz - tPrev.z(), qeSeed);
 	}
 
-	const auto ikResult = doc->solveTcpDragTeachIk(instIdx, ikPx, ikPy, ikPz, ikEx, ikEy, ikEz, seedQ,
-												   m_tcpDragTeachFlangeLink, qeSeed, hasQeSeed,
-												   m_allowApproximateOrientation);
+	// 直传四元数目标（注释曾写「IK 仍吃欧拉」已过时）
+	const auto ikResult = doc->solveTcpDragTeachIk(instIdx, targetForIkStep, seedQ, m_tcpDragTeachFlangeLink, qeSeed,
+												   hasQeSeed, m_allowApproximateOrientation);
 	if (!ikResult.ok)
 	{
 		if (m_host && m_host->runInfoPage())
@@ -5746,11 +6096,824 @@ void RobotSimulationController::onSimulationStopRequested()
 
 void RobotSimulationController::onSimulationRunRequested()
 {
+	if (m_timelineRunning)
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Stop timeline before running instructions."),
+							 QStringLiteral("请先停止时间轴再运行指令。")));
+		}
+		return;
+	}
+	if (m_simulationKernel.runMode() == SimRunMode::EventBased)
+	{
+		onEventBasedSimulationStart();
+		return;
+	}
 	onSimulationStartTriggered();
+}
+
+void RobotSimulationController::onSimulationRunModeChanged(int modeIndex)
+{
+	const SimRunMode mode = (modeIndex == 1) ? SimRunMode::EventBased : SimRunMode::TimeBased;
+	setRunMode(mode);
+}
+
+void RobotSimulationController::applyRunModeToDrivers()
+{
+	const bool eventBased = m_simulationKernel.runMode() == SimRunMode::EventBased;
+	if (m_customDeviceSim)
+	{
+		m_customDeviceSim->setSignalDriverEnabled(!eventBased);
+	}
+}
+
+void RobotSimulationController::setRunMode(SimRunMode mode)
+{
+	if (isSimulationSessionActive() || (m_playbackTimer && m_playbackTimer->isActive()))
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Stop simulation before changing run mode."),
+							 QStringLiteral("请先停止仿真再切换运行模式。")));
+		}
+		if (m_host && m_host->simulationCommandPage())
+		{
+			m_host->simulationCommandPage()->setRunModeIndex(runMode() == SimRunMode::EventBased ? 1 : 0);
+		}
+		return;
+	}
+	m_simulationKernel.setRunMode(mode);
+	applyRunModeToDrivers();
+	if (m_simulationDock && m_simulationDock->timelinePage())
+	{
+		m_simulationDock->timelinePage()->setReadOnly(mode == SimRunMode::EventBased || m_timelineRunning);
+	}
+}
+
+void RobotSimulationController::setEventLogicAuthority(EventLogicAuthority authority)
+{
+	if (isSimulationSessionActive() || (m_playbackTimer && m_playbackTimer->isActive()))
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Stop simulation before changing event logic authority."),
+							 QStringLiteral("请先停止仿真再切换事件逻辑权威。")));
+		}
+		if (m_host && m_host->simulationCommandPage())
+		{
+			m_host->simulationCommandPage()->setEventLogicAuthorityIndex(
+				eventLogicAuthority() == EventLogicAuthority::ExternalPlc ? 1 : 0);
+		}
+		return;
+	}
+	m_simulationKernel.setEventLogicAuthority(authority);
+}
+
+void RobotSimulationController::setExternalPlcLinkConfig(const ExternalPlcLinkConfig& config)
+{
+	if (m_externalPlcBridge)
+	{
+		m_externalPlcBridge->setLinkConfig(config);
+	}
+}
+
+void RobotSimulationController::setPlcSignalMap(const QVector<PlcSignalMapEntry>& map)
+{
+	if (m_externalPlcBridge)
+	{
+		m_externalPlcBridge->setSignalMap(map);
+	}
+}
+
+void RobotSimulationController::onEventLogicAuthorityChanged(int authorityIndex)
+{
+	setEventLogicAuthority(authorityIndex == 1 ? EventLogicAuthority::ExternalPlc : EventLogicAuthority::LocalCee);
+}
+
+void RobotSimulationController::onExternalPlcConnectRequested()
+{
+	if (!m_externalPlcBridge)
+	{
+		return;
+	}
+	QString err;
+	if (!m_externalPlcBridge->connectPlc(&err) && m_host && m_host->runInfoPage())
+	{
+		m_host->appendRunWarning(err.isEmpty() ? QStringLiteral("PLC connect failed") : err);
+	}
+	else if (m_host && m_host->runInfoPage())
+	{
+		m_host->appendRunInfo(m_host->i18n(QStringLiteral("External PLC connected."), QStringLiteral("外接 PLC 已连接。")));
+	}
+}
+
+void RobotSimulationController::onExternalPlcDisconnectRequested()
+{
+	if (m_externalPlcBridge)
+	{
+		m_externalPlcBridge->disconnectPlc();
+	}
+	if (m_host && m_host->runInfoPage())
+	{
+		m_host->appendRunInfo(
+			m_host->i18n(QStringLiteral("External PLC disconnected."), QStringLiteral("外接 PLC 已断开。")));
+	}
+}
+
+void RobotSimulationController::setTimelineStudy(const TimelineStudy& study)
+{
+	if (m_timelineScheduler)
+	{
+		m_timelineScheduler->setStudy(study);
+	}
+	if (m_simulationDock && m_simulationDock->timelinePage())
+	{
+		m_simulationDock->timelinePage()->setStudy(study);
+	}
+}
+
+TimelineStudy RobotSimulationController::timelineStudy() const
+{
+	return m_timelineScheduler ? m_timelineScheduler->study() : TimelineStudy{};
+}
+
+QJsonObject RobotSimulationController::timelineStudyToProjectJson() const
+{
+	QJsonObject o;
+	o.insert(QLatin1String(backend_type::kProjectKeyTimelineStudy), timelineStudyToJson(timelineStudy()));
+	return o;
+}
+
+bool RobotSimulationController::timelineStudyFromProjectJson(const QJsonObject& root, QString* outError)
+{
+	const QJsonValue v = root.value(QLatin1String(backend_type::kProjectKeyTimelineStudy));
+	if (!v.isObject())
+	{
+		return true;
+	}
+	TimelineStudy s;
+	if (!timelineStudyFromJson(v.toObject(), &s, outError))
+	{
+		return false;
+	}
+	setTimelineStudy(s);
+	return true;
+}
+
+void RobotSimulationController::onTimelineStudyEdited(const TimelineStudy& study)
+{
+	if (m_timelineScheduler)
+	{
+		m_timelineScheduler->setStudy(study);
+	}
+}
+
+void RobotSimulationController::onTimelineRunRequested()
+{
+	if (m_timelineRunning)
+	{
+		return;
+	}
+	if (runMode() == SimRunMode::EventBased)
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Switch to TimeBased before running the timeline."),
+							 QStringLiteral("请先切到基于时间模式再运行时间轴。")));
+		}
+		return;
+	}
+	if (isSimulationSessionActive())
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Stop instruction simulation before timeline run."),
+							 QStringLiteral("请先停止指令仿真再运行时间轴。")));
+		}
+		return;
+	}
+	for (const auto& m : m_controllerManagers)
+	{
+		if (m && m->isEnabled())
+		{
+			if (m_host && m_host->runInfoPage())
+			{
+				m_host->appendRunWarning(
+					m_host->i18n(QStringLiteral("Disable External Controller before timeline run."),
+								 QStringLiteral("请先关闭外置控制器再运行时间轴。")));
+			}
+			return;
+		}
+	}
+	QString verr;
+	if (!timelineStudyValidate(timelineStudy(), &verr))
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(verr);
+		}
+		return;
+	}
+	m_ioNetworkAdapter.setService(m_ioNetwork);
+	m_simulationKernel.setIoNetwork(&m_ioNetworkAdapter);
+	m_deviceMotionTicker.setHost(m_host);
+	m_deviceMotionTicker.setPlayer(devicePoseMotionPlayer());
+	m_simulationKernel.setDeviceMotionTicker(&m_deviceMotionTicker);
+	m_playbackTape.clear();
+	m_lastTapeSampleSec = -1.0;
+	const TimelineStudy study = timelineStudy();
+	m_playbackTape.setCapacityHint(static_cast<int>(std::ceil(study.durationSec * std::max(1.0, study.sampleHz))) + 8);
+	if (m_timelineScheduler)
+	{
+		m_timelineScheduler->setStudy(study);
+		m_timelineScheduler->resetEdgeState();
+	}
+	m_timelineRunning = true;
+	m_simulationKernel.setKeepSessionAliveWithoutLanes(true);
+	m_simulationKernel.beginSession();
+	if (m_host && m_host->simulationCommandPage())
+	{
+		m_host->simulationCommandPage()->setSimulationRunning(true);
+	}
+	if (m_simulationDock && m_simulationDock->timelinePage())
+	{
+		m_simulationDock->timelinePage()->setReadOnly(true);
+		m_simulationDock->timelinePage()->setPlayheadSec(0);
+		m_simulationDock->timelinePage()->setStatusHint(
+			m_host ? m_host->i18n(QStringLiteral("Timeline running…"), QStringLiteral("时间轴运行中…"))
+				   : QStringLiteral("Timeline running…"));
+	}
+	if (m_playbackTimer)
+	{
+		m_playbackTimer->start();
+	}
+}
+
+void RobotSimulationController::onTimelineStopRequested()
+{
+	if (!m_timelineRunning)
+	{
+		return;
+	}
+	m_timelineRunning = false;
+	m_simulationKernel.setKeepSessionAliveWithoutLanes(false);
+	stopRobotSimulation(false);
+	if (m_simulationDock && m_simulationDock->timelinePage())
+	{
+		m_simulationDock->timelinePage()->setReadOnly(runMode() == SimRunMode::EventBased);
+		m_simulationDock->timelinePage()->setStatusHint(
+			m_host ? m_host->i18n(QStringLiteral("Timeline stopped."), QStringLiteral("时间轴已停止。"))
+				   : QStringLiteral("Timeline stopped."));
+	}
+}
+
+void RobotSimulationController::onTimelinePlayheadScrubbed(double tSec)
+{
+	if (m_timelineRunning)
+	{
+		return;
+	}
+	TapeFrame frame;
+	const bool ok = m_playbackTape.sampleAt(tSec, &frame);
+	if (!ok)
+	{
+		if (m_simulationDock && m_simulationDock->timelinePage())
+		{
+			m_simulationDock->timelinePage()->setStatusHint(
+				m_host ? m_host->i18n(QStringLiteral("No tape sample at this time; play first."),
+									  QStringLiteral("该时刻无采样，请先运行时间轴。"))
+					   : QStringLiteral("No tape sample; play first."));
+		}
+		return;
+	}
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (doc && !frame.jointAnglesRad.isEmpty())
+	{
+		QVector<double> agg = frame.jointAnglesRad;
+		const int n = doc->robotKinematicInstanceCount();
+		for (int i = 0; i < n; ++i)
+		{
+			const int off = doc->robotJointOffsetInAggregatedVector(i);
+			const int nj = doc->robotRevoluteJointCountForInstance(i);
+			if (nj > 0 && off + nj <= agg.size())
+			{
+				(void)doc->applyJointAnglesRad(i, agg.mid(off, nj), agg);
+			}
+		}
+		m_aggregatedJointAnglesRad = agg;
+	}
+	if (doc)
+	{
+		for (auto it = frame.materials.constBegin(); it != frame.materials.constEnd(); ++it)
+		{
+			doc->documentData().setVisible(it.key(), it.value().visible);
+			if (auto obj = doc->findObject(it.key().toStdString()))
+			{
+				obj->setPose(BackendVec3{it.value().pose.x, it.value().pose.y, it.value().pose.z});
+				obj->setRotation(BackendVec3{it.value().pose.exDeg, it.value().pose.eyDeg, it.value().pose.ezDeg});
+			}
+		}
+		doc->requestFollowSolveForced();
+	}
+	if (m_simulationDock && m_simulationDock->timelinePage())
+	{
+		m_simulationDock->timelinePage()->setPlayheadSec(tSec);
+		m_simulationDock->timelinePage()->setStatusHint(QString());
+	}
+}
+
+void RobotSimulationController::setCeeRules(const QVector<CeeRule>& rules)
+{
+	m_simulationKernel.setCeeRules(rules);
+}
+
+int RobotSimulationController::syncCeeRulesFromPoseSignalBindings()
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc)
+	{
+		return 0;
+	}
+	QVector<CeeRule> rules = m_simulationKernel.ceeRules();
+	QHash<QString, int> indexById;
+	for (int i = 0; i < rules.size(); ++i)
+	{
+		indexById.insert(rules[i].id, i);
+	}
+	int synced = 0;
+	for (const auto& obj : doc->listObjects())
+	{
+		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(obj);
+		if (!device)
+		{
+			continue;
+		}
+		const QString deviceId = QString::fromStdString(device->id());
+		for (const CustomDevicePoseSignalBinding& b : device->poseSignalBindings())
+		{
+			if (!b.enabled || b.signalName.empty() || b.poseId.empty())
+			{
+				continue;
+			}
+			const QString ruleId = QStringLiteral("cee-bind-%1").arg(QString::fromStdString(b.id));
+			CeeRule rule;
+			rule.id = ruleId;
+			rule.enabled = true;
+			rule.when.type = CeeCondition::Type::RisingEdge;
+			rule.when.ownerId = deviceId;
+			rule.when.signal = QString::fromStdString(b.signalName);
+			CeeAction act;
+			act.type = CeeAction::Type::GoNamedPose;
+			act.deviceId = deviceId;
+			act.poseId = QString::fromStdString(b.poseId);
+			act.durationSec = b.durationSec;
+			rule.actions = {act};
+			if (indexById.contains(ruleId))
+			{
+				rules[indexById.value(ruleId)] = rule;
+			}
+			else
+			{
+				indexById.insert(ruleId, rules.size());
+				rules.push_back(rule);
+			}
+			++synced;
+		}
+	}
+	m_simulationKernel.setCeeRules(rules);
+	return synced;
+}
+
+QJsonObject RobotSimulationController::simulationModeToJson() const
+{
+	QJsonObject o;
+	o.insert(QLatin1String(backend_type::kProjectKeySimulationRunMode), simRunModeToString(runMode()));
+	o.insert(QLatin1String(backend_type::kProjectKeyCeeRules), ceeRulesToJson(ceeRules()));
+	o.insert(QLatin1String(backend_type::kProjectKeyEventLogicAuthority),
+			 eventLogicAuthorityToString(eventLogicAuthority()));
+	if (m_externalPlcBridge)
+	{
+		o.insert(QLatin1String(backend_type::kProjectKeyExternalPlcLink),
+				 externalPlcLinkToJson(m_externalPlcBridge->linkConfig()));
+		o.insert(QLatin1String(backend_type::kProjectKeyPlcSignalMap),
+				 plcSignalMapToJson(m_externalPlcBridge->signalMap()));
+	}
+	return o;
+}
+
+bool RobotSimulationController::simulationModeFromJson(const QJsonObject& root, QString* outError)
+{
+	const QString modeStr = root.value(QLatin1String(backend_type::kProjectKeySimulationRunMode)).toString();
+	setRunMode(simRunModeFromString(modeStr));
+	setEventLogicAuthority(
+		eventLogicAuthorityFromString(root.value(QLatin1String(backend_type::kProjectKeyEventLogicAuthority)).toString()));
+	const QJsonValue rulesVal = root.value(QLatin1String(backend_type::kProjectKeyCeeRules));
+	if (rulesVal.isArray())
+	{
+		QVector<CeeRule> rules;
+		if (!ceeRulesFromJson(rulesVal.toArray(), &rules, outError))
+		{
+			return false;
+		}
+		setCeeRules(rules);
+	}
+	if (m_externalPlcBridge)
+	{
+		const QJsonValue linkVal = root.value(QLatin1String(backend_type::kProjectKeyExternalPlcLink));
+		if (linkVal.isObject())
+		{
+			m_externalPlcBridge->setLinkConfig(externalPlcLinkFromJson(linkVal.toObject()));
+		}
+		const QJsonValue mapVal = root.value(QLatin1String(backend_type::kProjectKeyPlcSignalMap));
+		if (mapVal.isArray())
+		{
+			QVector<PlcSignalMapEntry> map;
+			if (!plcSignalMapFromJson(mapVal.toArray(), &map, outError))
+			{
+				return false;
+			}
+			m_externalPlcBridge->setSignalMap(map);
+		}
+	}
+	if (m_host && m_host->simulationCommandPage())
+	{
+		SimulationCommandWidget* cmd = m_host->simulationCommandPage();
+		cmd->setRunModeIndex(runMode() == SimRunMode::EventBased ? 1 : 0);
+		cmd->refreshCeeRulesList(ceeRules());
+		cmd->setEventLogicAuthorityIndex(eventLogicAuthority() == EventLogicAuthority::ExternalPlc ? 1 : 0);
+		if (m_externalPlcBridge)
+		{
+			cmd->setExternalPlcLinkConfig(m_externalPlcBridge->linkConfig());
+			cmd->setPlcSignalMap(m_externalPlcBridge->signalMap());
+		}
+	}
+	return true;
+}
+
+bool RobotSimulationController::onGoNamedPose(const QString& deviceId, const QString& poseId, double durationSec,
+											  QString* err)
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	DevicePoseMotionPlayer* player = devicePoseMotionPlayer();
+	if (!doc || !player)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("missing document or motion player");
+		}
+		return false;
+	}
+	const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(deviceId.toStdString()));
+	if (!device)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("device not found");
+		}
+		return false;
+	}
+	const CustomDeviceNamedPose* pose = device->findNamedPose(poseId.toStdString());
+	if (!pose)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("pose not found");
+		}
+		return false;
+	}
+	return player->start(deviceId, QString::fromStdString(pose->name), pose->q, durationSec);
+}
+
+bool RobotSimulationController::startRobotLaneFromCatalog(int instanceIndex, QString* errorOut)
+{
+	if (!m_host || !m_host->simulationCommandPage())
+	{
+		if (errorOut)
+		{
+			*errorOut = QStringLiteral("no simulation command page");
+		}
+		return false;
+	}
+	m_host->simulationCommandPage()->setCurrentRobotInstanceIndex(instanceIndex);
+	const bool wasDefer = m_deferPlaybackTimerStart;
+	m_deferPlaybackTimerStart = true;
+	// 时间轴会话内启 Lane 须放行互斥，否则 onSimulationStartTriggered 会直接 return
+	++m_timelineLaneStartDepth;
+	onSimulationStartTriggered();
+	--m_timelineLaneStartDepth;
+	m_deferPlaybackTimerStart = wasDefer;
+	if (RobotLane* lane = m_simulationKernel.robotLane(instanceIndex))
+	{
+		return lane->isRunning();
+	}
+	if (errorOut && errorOut->isEmpty())
+	{
+		*errorOut = QStringLiteral("robot lane failed to start");
+	}
+	return false;
+}
+
+bool RobotSimulationController::onStartRobotProgram(int instanceIndex, const QString& programId, QString* err)
+{
+	if (m_host && m_host->simulationCommandPage() && !programId.trimmed().isEmpty())
+	{
+		const bool selected = m_host->simulationCommandPage()->selectProgramByIdOrName(programId.trimmed());
+		if (!selected)
+		{
+			if (err)
+			{
+				*err = QStringLiteral("program not found: %1").arg(programId);
+			}
+			return false;
+		}
+	}
+	const bool ok = startRobotLaneFromCatalog(instanceIndex, err);
+	return ok;
+}
+
+double RobotSimulationController::estimateRobotProgramDurationSec(int instanceIndex, const QString& programIdOrName)
+{
+	constexpr double kFallbackSec = 3.0;
+	constexpr double kMinMotionSec = 0.05;
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || programIdOrName.trimmed().isEmpty())
+	{
+		return kFallbackSec;
+	}
+	RobotProgramStore& store = doc->robotProgramStore();
+	const QStringList backendIds = store.robotBackendIds();
+	int inst = instanceIndex;
+	if (inst < 0 || inst >= backendIds.size())
+	{
+		inst = store.activeInstanceIndex();
+	}
+	if (inst < 0 || inst >= backendIds.size())
+	{
+		return kFallbackSec;
+	}
+	const QString backendId = backendIds[inst];
+	const RobotInstruction::RobotProgramCatalog& catalog = store.catalogFor(backendId);
+	const QString key = programIdOrName.trimmed();
+	const RobotInstruction::RobotProgram* prog = catalog.findProgram(key.toStdString());
+	if (!prog)
+	{
+		for (const RobotInstruction::RobotProgram& p : catalog.programs())
+		{
+			if (QString::fromStdString(p.name).compare(key, Qt::CaseInsensitive) == 0 ||
+				QString::fromStdString(p.id).compare(key, Qt::CaseInsensitive) == 0)
+			{
+				prog = &p;
+				break;
+			}
+		}
+	}
+	if (!prog || prog->steps.empty())
+	{
+		return kFallbackSec;
+	}
+
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(inst);
+	const int nj = doc->robotRevoluteJointCountForInstance(inst);
+	const bool canPlan = !urdfPath.isEmpty() && nj > 0;
+	if (canPlan)
+	{
+		ensureInstructionControllerKinematics(doc, inst, urdfPath);
+	}
+	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
+		urdfPath, m_host->simulationCommandPage() ? m_host->simulationCommandPage()->selectedTcpLink() : QString());
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(inst);
+	QVector<double> rollingQ =
+		canPlan ? motionPreviewProgramStartJointsLocal(nj, jointOffset) : QVector<double>(std::max(0, nj), 0.0);
+	const QVector<double> programStartQ = rollingQ;
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(inst);
+
+	double totalSec = 0.0;
+	int motionCount = 0;
+	bool havePrevPose = false;
+	RobotInstruction::Vec3 prevPose{};
+	const std::vector<const RobotInstruction::Base*> motions =
+		RobotInstruction::collectMotionInstructions(prog->steps);
+	for (const RobotInstruction::Base* motionPtr : motions)
+	{
+		if (!motionPtr)
+		{
+			continue;
+		}
+		++motionCount;
+		RobotInstruction::Base& ins = *const_cast<RobotInstruction::Base*>(motionPtr);
+		const double fromExt = RobotInstructionPlanning::motionDurationSecFromInstruction(ins, 0.0);
+		double segSec = fromExt;
+		if (segSec <= 1e-6)
+		{
+			if (const RobotInstruction::PlanResult* hit =
+					m_planResultCache.findLatestOkByInstructionId(QString::fromStdString(ins.id())))
+			{
+				if (hit->durationSec > 1e-6)
+				{
+					segSec = hit->durationSec;
+					if (static_cast<int>(hit->jointTargetsRad.size()) == nj)
+					{
+						for (int j = 0; j < nj; ++j)
+						{
+							rollingQ[j] = hit->jointTargetsRad[static_cast<size_t>(j)];
+						}
+					}
+				}
+			}
+		}
+		if (segSec <= 1e-6 && canPlan)
+		{
+			const RobotInstructionPlanning::MotionPoseBackup backup =
+				RobotInstructionPlanning::backupInstructionPose(ins);
+			ins.eraseExtensionProperty("context.playbackPlanLite");
+			auto tryPlan = [&](bool forceAutoAxis) -> bool {
+				RobotInstruction::MotionAxisConfiguration cfgBackup;
+				const bool hadAxis = ins.hasMotionAxisConfigurationProperty();
+				if (forceAutoAxis && hadAxis)
+				{
+					cfgBackup = ins.motionAxisConfiguration();
+					RobotInstruction::MotionAxisConfiguration autoCfg;
+					autoCfg.preset = "AUTO";
+					ins.setMotionAxisConfiguration(autoCfg);
+				}
+				RobotInstruction::PlanResult plan{};
+				std::string planErr;
+				const bool ok = planMotionConsistentWithPreview(ins, rollingQ, programStartQ, inst, urdfPath,
+																defaultTcpLinkName, backendId, frames, plan, &planErr,
+																false);
+				if (forceAutoAxis && hadAxis)
+				{
+					ins.setMotionAxisConfiguration(cfgBackup);
+				}
+				if (ok && plan.ok && plan.durationSec > 1e-6)
+				{
+					segSec = plan.durationSec;
+					if (static_cast<int>(plan.jointTargetsRad.size()) == nj)
+					{
+						for (int j = 0; j < nj; ++j)
+						{
+							rollingQ[j] = plan.jointTargetsRad[static_cast<size_t>(j)];
+						}
+					}
+					return true;
+				}
+				return false;
+			};
+			if (!tryPlan(false))
+			{
+				(void)tryPlan(true);
+			}
+			RobotInstructionPlanning::restoreInstructionPose(ins, backup);
+		}
+		if (segSec <= 1e-6 && ins.hasPoseProperty())
+		{
+			const RobotInstruction::Vec3 p = ins.pose();
+			double distMm = 50.0;
+			if (havePrevPose)
+			{
+				const double dx = p.x - prevPose.x;
+				const double dy = p.y - prevPose.y;
+				const double dz = p.z - prevPose.z;
+				distMm = std::sqrt(dx * dx + dy * dy + dz * dz);
+			}
+			const double vmax = ins.hasSpeedProperty() && ins.speed() > 1e-6 ? ins.speed() : 200.0;
+			const double amax = ins.hasAccelProperty() && ins.accel() > 1e-6 ? ins.accel() : 200.0;
+			segSec = roughTrapezoidSecForTimelineEstimate(std::max(1.0, distMm), vmax, amax);
+		}
+		if (ins.hasPoseProperty())
+		{
+			prevPose = ins.pose();
+			havePrevPose = true;
+		}
+		const double addSec = std::max(kMinMotionSec, segSec > 1e-6 ? segSec : 0.5);
+		totalSec += addSec;
+	}
+	// Wait 纯延时计入估算（嵌套在 motion 收集之外，再扫一遍顶层树）
+	std::function<void(const std::vector<std::shared_ptr<RobotInstruction::Base>>&)> addWaits;
+	addWaits = [&](const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps) {
+		for (const std::shared_ptr<RobotInstruction::Base>& ins : steps)
+		{
+			if (!ins)
+			{
+				continue;
+			}
+			if (ins->type() == RobotInstruction::Type::WAIT && ins->durationSec() > 1e-6)
+			{
+				totalSec += ins->durationSec();
+			}
+			if (!ins->nestedSteps().empty())
+			{
+				addWaits(ins->nestedSteps());
+			}
+			if (!ins->elseSteps().empty())
+			{
+				addWaits(ins->elseSteps());
+			}
+		}
+	};
+	addWaits(prog->steps);
+
+	if (totalSec < 1e-3 || motionCount == 0)
+	{
+		totalSec = kFallbackSec;
+	}
+	return totalSec;
+}
+
+void RobotSimulationController::onEventBasedSimulationStart()
+{
+	bool externalOn = false;
+	for (const auto& m : m_controllerManagers)
+	{
+		if (m && m->isEnabled())
+		{
+			externalOn = true;
+			break;
+		}
+	}
+	if (externalOn)
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Disable External Controller before running the program."),
+							 QStringLiteral("请先关闭「外置控制器」再运行程序。")));
+		}
+		return;
+	}
+	if (!m_host || !m_host->simulationCommandPage())
+	{
+		return;
+	}
+	if (m_simulationKernel.isSessionActive())
+	{
+		return;
+	}
+	applyRunModeToDrivers();
+	m_ioNetworkAdapter.setService(m_ioNetwork);
+	m_simulationKernel.setIoNetwork(&m_ioNetworkAdapter);
+	m_simulationKernel.setCeeActionHandler(this);
+	m_deviceMotionTicker.setHost(m_host);
+	m_deviceMotionTicker.setPlayer(devicePoseMotionPlayer());
+	m_simulationKernel.setDeviceMotionTicker(&m_deviceMotionTicker);
+	if (m_externalPlcBridge)
+	{
+		m_externalPlcBridge->setNetwork(m_ioNetwork);
+	}
+	if (eventLogicAuthority() == EventLogicAuthority::ExternalPlc)
+	{
+		if (!m_externalPlcBridge || !m_externalPlcBridge->isPlcConnected())
+		{
+			QString err;
+			if (!m_externalPlcBridge || !m_externalPlcBridge->connectPlc(&err))
+			{
+				if (m_host && m_host->runInfoPage())
+				{
+					m_host->appendRunWarning(err.isEmpty() ? QStringLiteral("External PLC not connected") : err);
+				}
+				return;
+			}
+		}
+	}
+	m_simulationKernel.beginSession();
+	if (m_customDeviceSim)
+	{
+		m_customDeviceSim->resetEdgeState();
+	}
+	m_simulationKernel.setPlaybackRate(m_host->simulationCommandPage()->playbackRate());
+	m_host->simulationCommandPage()->setSimulationRunning(true);
+	if (m_simulationDock && m_simulationDock->trajectoryEditPage())
+	{
+		m_simulationDock->trajectoryEditPage()->setReadOnly(true);
+	}
+	if (m_playbackTimer)
+	{
+		m_playbackTimer->start();
+	}
+	if (m_host->runInfoPage())
+	{
+		const bool ext = eventLogicAuthority() == EventLogicAuthority::ExternalPlc;
+		m_host->appendRunInfo(
+			ext ? m_host->i18n(QStringLiteral("Event-based simulation started (External PLC)."),
+							   QStringLiteral("事件模式仿真已开始（外接 PLC）。"))
+				: m_host->i18n(QStringLiteral("Event-based simulation started (CEE)."),
+							   QStringLiteral("事件模式仿真已开始（薄 CEE）。")));
+	}
 }
 
 void RobotSimulationController::onSimulationRunAllRequested()
 {
+	if (m_simulationKernel.runMode() == SimRunMode::EventBased)
+	{
+		onEventBasedSimulationStart();
+		return;
+	}
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	if (!doc || !m_host->simulationCommandPage())
 	{
@@ -7942,6 +9105,17 @@ void RobotSimulationController::refreshInstructionPoseAxes(const bool computeRea
 
 void RobotSimulationController::onSimulationStartTriggered()
 {
+	// 指令页手动 Run 与时间轴互斥；Scheduler 内部启 Lane 除外
+	if (m_timelineRunning && m_timelineLaneStartDepth <= 0)
+	{
+		if (m_host && m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Stop timeline before running instructions."),
+							 QStringLiteral("请先停止时间轴再运行指令。")));
+		}
+		return;
+	}
 	bool externalOn = false;
 	for (const auto& m : m_controllerManagers)
 	{
@@ -7984,6 +9158,11 @@ void RobotSimulationController::onSimulationStartTriggered()
 							 QStringLiteral("请先导入机器人(URDF)，再添加仿真指令。")));
 		}
 		return;
+	}
+	// 每次 Run 重新采样，避免与上次回放轨迹叠在一起
+	if (m_tcpMotionTrailEnabled)
+	{
+		clearTcpMotionTrail();
 	}
 	// 碰撞页绕障结果仅预览；未确认插入时 Run 仍按原指令 Direct，易全员穿模失败
 	if (m_motionPathPreviewActive && m_lastMotionPathRawValid && m_host->runInfoPage())
@@ -8406,6 +9585,82 @@ void RobotSimulationController::logPlaybackFrameComparison(const QVector<double>
 	}
 }
 
+void RobotSimulationController::onTcpMotionTrailToggled(const bool enabled)
+{
+	m_tcpMotionTrailEnabled = enabled;
+	if (!enabled)
+	{
+		clearTcpMotionTrail();
+		return;
+	}
+	m_tcpMotionTrailPoints.clear();
+	sampleTcpMotionTrailIfEnabled();
+}
+
+void RobotSimulationController::clearTcpMotionTrail()
+{
+	m_tcpMotionTrailPoints.clear();
+	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+	{
+		osg->clearTcpMotionTrailOverlay();
+	}
+}
+
+void RobotSimulationController::pushTcpMotionTrailOverlay()
+{
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!osg)
+	{
+		return;
+	}
+	if (m_tcpMotionTrailPoints.size() < 2U)
+	{
+		osg->clearTcpMotionTrailOverlay();
+		return;
+	}
+	osg->setTcpMotionTrailOverlay(m_tcpMotionTrailPoints);
+}
+
+void RobotSimulationController::sampleTcpMotionTrailIfEnabled()
+{
+	if (!m_tcpMotionTrailEnabled || !m_host)
+	{
+		return;
+	}
+	RobotInstruction::Vec3 pose{};
+	RobotInstruction::Vec3 euler{};
+	osg::Matrixd tcpRenderWorld;
+	if (!tryCaptureCurrentRobotTcpPose(pose, euler, nullptr, &tcpRenderWorld, nullptr, nullptr))
+	{
+		return;
+	}
+	const osg::Vec3d t = tcpRenderWorld.getTrans();
+	cloudsim::core::Vec3 p{};
+	p.x = t.x();
+	p.y = t.y();
+	p.z = t.z();
+	constexpr double kMinDistMmSq = 0.25; // 0.5mm
+	if (!m_tcpMotionTrailPoints.empty())
+	{
+		const cloudsim::core::Vec3& last = m_tcpMotionTrailPoints.back();
+		const double dx = p.x - last.x;
+		const double dy = p.y - last.y;
+		const double dz = p.z - last.z;
+		if (dx * dx + dy * dy + dz * dz < kMinDistMmSq)
+		{
+			return;
+		}
+	}
+	m_tcpMotionTrailPoints.push_back(p);
+	constexpr std::size_t kMaxPoints = 50000U;
+	if (m_tcpMotionTrailPoints.size() > kMaxPoints)
+	{
+		m_tcpMotionTrailPoints.erase(m_tcpMotionTrailPoints.begin(),
+									 m_tcpMotionTrailPoints.begin() + static_cast<std::ptrdiff_t>(10000));
+	}
+	pushTcpMotionTrailOverlay();
+}
+
 void RobotSimulationController::onRobotSimulationTick()
 {
 	const bool deviceBusy = devicePoseMotionPlayer() && devicePoseMotionPlayer()->isBusy();
@@ -8426,6 +9681,59 @@ void RobotSimulationController::onRobotSimulationTick()
 	ensurePlaybackPlansReady();
 	const double dtWall = m_playbackTimer ? (static_cast<double>(m_playbackTimer->interval()) / 1000.0) : 0.016;
 	const SimulationKernelTickResult kr = m_simulationKernel.tick(doc, poseSink, dtWall);
+	if (m_timelineRunning && m_timelineScheduler)
+	{
+		const double t = m_simulationKernel.clock().simTimeSec();
+		const bool ended = m_timelineScheduler->onSimTime(t);
+		const double hz = std::max(1.0, m_timelineScheduler->study().sampleHz);
+		const double dtSample = 1.0 / hz;
+		const bool dueSample =
+			m_lastTapeSampleSec < 0.0 || (t + 1e-9 >= m_lastTapeSampleSec + dtSample) || ended;
+		if (dueSample)
+		{
+			TapeFrame sample;
+			sample.t = t;
+			sample.jointAnglesRad = programExecutor().jointAnglesRad();
+			if (sample.jointAnglesRad.isEmpty())
+			{
+				sample.jointAnglesRad = m_aggregatedJointAnglesRad;
+			}
+			if (doc)
+			{
+				for (const TimelineTrack& tr : m_timelineScheduler->study().tracks)
+				{
+					if (tr.type != TimelineTrackType::Material || tr.objectId.isEmpty())
+					{
+						continue;
+					}
+					TapeMaterialState ms;
+					if (auto obj = doc->findObject(tr.objectId.toStdString()))
+					{
+						ms.visible = obj->isVisible();
+						const BackendVec3 p = obj->pose();
+						const BackendVec3 r = obj->rotation();
+						ms.pose = TimelinePose3{p.x, p.y, p.z, r.x, r.y, r.z};
+					}
+					sample.materials.insert(tr.objectId, ms);
+				}
+			}
+			m_playbackTape.push(sample);
+			m_lastTapeSampleSec = t;
+		}
+		if (m_simulationDock && m_simulationDock->timelinePage())
+		{
+			m_simulationDock->timelinePage()->setPlayheadSec(t);
+		}
+		if (ended && !deviceBusy && !m_simulationKernel.anyLaneRunning())
+		{
+			onTimelineStopRequested();
+		}
+	}
+	if (kr.sessionActive && m_simulationKernel.runMode() == SimRunMode::EventBased &&
+		m_simulationKernel.eventLogicAuthority() == EventLogicAuthority::ExternalPlc && m_externalPlcBridge)
+	{
+		m_externalPlcBridge->onAfterIoPhase();
+	}
 	for (const QString& msg : kr.abortMessages)
 	{
 		if (m_host && m_host->runInfoPage())
@@ -8434,10 +9742,14 @@ void RobotSimulationController::onRobotSimulationTick()
 		}
 	}
 	RobotInstructionPlaybackTickResult r = RobotInstructionPlaybackTickResult::Continue;
-	if (kr.stopAllRequested || (!kr.anyRunning && !deviceBusy))
+	// EventBased/时间轴：无 Lane 时仍由会话保活或排程结束，勿自动 Finished
+	if (kr.stopAllRequested || (!kr.sessionActive && !kr.anyRunning && !deviceBusy))
 	{
-		r = kr.abortMessages.isEmpty() ? RobotInstructionPlaybackTickResult::Finished
-									   : RobotInstructionPlaybackTickResult::Aborted;
+		if (!(m_timelineRunning && !kr.stopAllRequested))
+		{
+			r = kr.abortMessages.isEmpty() ? RobotInstructionPlaybackTickResult::Finished
+										   : RobotInstructionPlaybackTickResult::Aborted;
+		}
 	}
 	m_aggregatedJointAnglesRad = programExecutor().jointAnglesRad();
 	if (doc && osg)
@@ -8467,6 +9779,7 @@ void RobotSimulationController::onRobotSimulationTick()
 		{
 			refreshRobotCoordinateFrameOverlaysForPlayback();
 		}
+		sampleTcpMotionTrailIfEnabled();
 		osg->requestRedraw();
 
 		if (SimulationCommandWidget* cmd = m_host->simulationCommandPage())
@@ -9168,7 +10481,8 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 			{
 				const double maxAbs = maxFoldedJointAbsDelta(resultQ, chainSeedQ);
 				const double sse = unfoldedJointSse(resultQ, chainSeedQ);
-				if (maxAbs > kFallbackConsistencyRad)
+				// PTP 允许切轴配置，关节跳变可大于链式连续性门；LINE/ARC 仍硬拦
+				if (instruction.type() != RobotInstruction::Type::PTP && maxAbs > kFallbackConsistencyRad)
 				{
 					lastErr = "random fallback candidate exceeds continuity gate";
 					continue;
@@ -9180,7 +10494,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 				}
 				continue;
 			}
-			// 确定性种子：先收齐过门候选，按腕连续优先再终接受（避免硬拒导致全败）
+			// 确定性种子：收齐过门候选，腕连续仅排序偏好（PTP 可跨配置）
 			nearestCands.push_back(NearestCand{0.0, wristJump, std::move(plan), trySeed});
 		}
 		if (!nearestCands.empty())
@@ -9548,7 +10862,8 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 			{
 				const double maxAbs = maxFoldedJointAbsDelta(resultQ, chainSeedQ);
 				const double sse = unfoldedJointSse(resultQ, chainSeedQ);
-				if (maxAbs > kFallbackConsistencyRad)
+				// 与 Preview 一致：PTP 切配置可超行程门；LINE/ARC 仍硬拦
+				if (ins.type() != RobotInstruction::Type::PTP && maxAbs > kFallbackConsistencyRad)
 				{
 					continue;
 				}

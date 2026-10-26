@@ -182,6 +182,31 @@ void MainWindow::onSaveProject()
 					root.remove(QLatin1String(backend_type::kProjectKeyIoSignalNetwork));
 				}
 				root.remove(QLatin1String(backend_type::kProjectKeyIoSignals));
+				const QJsonObject modeObj = m_robotSimulation->simulationModeToJson();
+				root.insert(QLatin1String(backend_type::kProjectKeySimulationRunMode),
+							modeObj.value(QLatin1String(backend_type::kProjectKeySimulationRunMode)));
+				root.insert(QLatin1String(backend_type::kProjectKeyCeeRules),
+							modeObj.value(QLatin1String(backend_type::kProjectKeyCeeRules)));
+				root.insert(QLatin1String(backend_type::kProjectKeyEventLogicAuthority),
+							modeObj.value(QLatin1String(backend_type::kProjectKeyEventLogicAuthority)));
+				root.insert(QLatin1String(backend_type::kProjectKeyExternalPlcLink),
+							modeObj.value(QLatin1String(backend_type::kProjectKeyExternalPlcLink)));
+				root.insert(QLatin1String(backend_type::kProjectKeyPlcSignalMap),
+							modeObj.value(QLatin1String(backend_type::kProjectKeyPlcSignalMap)));
+				{
+					const QJsonObject tl = m_robotSimulation->timelineStudyToProjectJson();
+					root.insert(QLatin1String(backend_type::kProjectKeyTimelineStudy),
+								tl.value(QLatin1String(backend_type::kProjectKeyTimelineStudy)));
+				}
+				const QJsonObject devicePrograms = m_robotSimulation->deviceProgramStore().toProjectJson();
+				if (!devicePrograms.isEmpty())
+				{
+					root.insert(QLatin1String(backend_type::kProjectKeyDevicePrograms), devicePrograms);
+				}
+				else
+				{
+					root.remove(QLatin1String(backend_type::kProjectKeyDevicePrograms));
+				}
 			}
 			{
 				nlohmann::json colJ;
@@ -480,6 +505,45 @@ void MainWindow::onOpenProjectFile()
 			m_robotSimulation->ioSignalNetwork()->clear();
 		}
 		m_robotSimulation->syncIoOwnersFromDocument();
+		{
+			QJsonObject modeRoot;
+			modeRoot.insert(QLatin1String(backend_type::kProjectKeySimulationRunMode),
+							root.value(QLatin1String(backend_type::kProjectKeySimulationRunMode)));
+			modeRoot.insert(QLatin1String(backend_type::kProjectKeyCeeRules),
+							root.value(QLatin1String(backend_type::kProjectKeyCeeRules)));
+			modeRoot.insert(QLatin1String(backend_type::kProjectKeyEventLogicAuthority),
+							root.value(QLatin1String(backend_type::kProjectKeyEventLogicAuthority)));
+			modeRoot.insert(QLatin1String(backend_type::kProjectKeyExternalPlcLink),
+							root.value(QLatin1String(backend_type::kProjectKeyExternalPlcLink)));
+			modeRoot.insert(QLatin1String(backend_type::kProjectKeyPlcSignalMap),
+							root.value(QLatin1String(backend_type::kProjectKeyPlcSignalMap)));
+			QString modeErr;
+			if (!m_robotSimulation->simulationModeFromJson(modeRoot, &modeErr) && m_runInfoPage && !modeErr.isEmpty())
+			{
+				m_runInfoPage->appendWarning(modeErr);
+			}
+			QString tlErr;
+			if (!m_robotSimulation->timelineStudyFromProjectJson(root, &tlErr) && m_runInfoPage && !tlErr.isEmpty())
+			{
+				m_runInfoPage->appendWarning(tlErr);
+			}
+		}
+		{
+			const QJsonValue dpVal = root.value(QLatin1String(backend_type::kProjectKeyDevicePrograms));
+			if (dpVal.isObject())
+			{
+				QString dpErr;
+				if (!m_robotSimulation->deviceProgramStore().fromProjectJson(dpVal.toObject(), &dpErr) &&
+					m_runInfoPage && !dpErr.isEmpty())
+				{
+					m_runInfoPage->appendWarning(dpErr);
+				}
+			}
+			else
+			{
+				m_robotSimulation->deviceProgramStore().clear();
+			}
+		}
 		if (m_ioSignalPage)
 		{
 			m_ioSignalPage->setNetwork(m_robotSimulation->ioSignalNetwork());

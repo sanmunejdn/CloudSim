@@ -871,6 +871,17 @@ QRadioButton::indicator:disabled {
 	border-color: {{border}};
 }
 
+/* 负 margin 把手会溢出 groove；控件高度不足时上下被裁成扁圆 */
+QSlider:horizontal {
+	min-height: 22px;
+	padding: 2px 0;
+}
+
+QSlider:vertical {
+	min-width: 22px;
+	padding: 0 2px;
+}
+
 QSlider::groove:horizontal {
 	height: 4px;
 	background-color: {{borderStrong}};
@@ -896,7 +907,7 @@ QSlider::add-page:horizontal, QSlider::sub-page:vertical {
 QSlider::handle:horizontal {
 	width: 14px;
 	height: 14px;
-	margin: -6px 0;
+	margin: -5px 0;
 	border-radius: 7px;
 	background-color: {{base}};
 	border: 1px solid {{borderStrong}};
@@ -905,7 +916,7 @@ QSlider::handle:horizontal {
 QSlider::handle:vertical {
 	width: 14px;
 	height: 14px;
-	margin: 0 -6px;
+	margin: 0 -5px;
 	border-radius: 7px;
 	background-color: {{base}};
 	border: 1px solid {{borderStrong}};

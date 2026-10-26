@@ -4,12 +4,14 @@
 #include "../../Data/PropertyCore/inc/PropertyAttributeHelpers.h"
 #include "../../Data/PropertyCore/inc/PropertyTypes.h"
 #include "InstructionPropertyBinding.h"
+#include "CeeEvaluator.h"
 #include "InstructionPropertyBindingSelfTest.h"
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionTransform.h"
 #include "RunLogger.h"
 
+#include <QString>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -997,6 +999,13 @@ const property_core::PropertySchema& schemaForType(const Type type)
 		if (!runInstructionPropertyBindingSelfTest(nullptr))
 		{
 			RunLogger::error("InstructionPropertyBindingSelfTest failed.");
+		}
+		{
+			QString ceeErr;
+			if (!runCeeEvaluatorSelfTest(&ceeErr))
+			{
+				RunLogger::error(std::string("CeeEvaluatorSelfTest failed: ") + ceeErr.toStdString());
+			}
 		}
 		selfTestState = 2;
 	}

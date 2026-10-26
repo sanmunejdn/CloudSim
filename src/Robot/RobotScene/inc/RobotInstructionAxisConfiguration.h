@@ -109,6 +109,16 @@ ROBOT_SCENE_API JointConfigurationClass classifyJointConfiguration(const std::ve
 																   const std::vector<std::string>& jointNames,
 																   const std::vector<double>* referenceQRad = nullptr);
 
+/// 肘/腕/臂/转数类是否一致（用于 PTP 是否跳过最短角折圈）
+ROBOT_SCENE_API bool sameJointConfigurationClass(const JointConfigurationClass& a, const JointConfigurationClass& b);
+
+/// PTP：相对种子发生配置类切换时保留 IK 转数，不做 ±2π 最短折圈
+inline bool ptpShouldSkipShortestAngleFold(const JointConfigurationClass& seedAbs,
+										   const JointConfigurationClass& targetAbs)
+{
+	return !sameJointConfigurationClass(seedAbs, targetAbs);
+}
+
 /// 相对种子的腕区跳变（J4/J5/J6 最短角差的最大者，rad；已对 2π 折同构）
 /// 邻点连续：小于约 π/2 视为未翻腕；球腕 J4/J6 对调通常 ≥π
 ROBOT_SCENE_API double wristConfigurationJumpRad(const std::vector<double>& qRad, const std::vector<double>& seedRad,

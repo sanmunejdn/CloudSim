@@ -99,8 +99,10 @@ bool targetInBaseFromUrdfFlangeFk(const QString& urdfPath, const QVector<double>
 								  const QString& fallbackFlangeLink, BackendMat4& outTargetInBase,
 								  const RobotInstruction::Base* instructionWithTool, QString* outFlangeLinkName)
 {
-	const std::string flangeLink = resolveFlangeLinkName(frames, fallbackFlangeLink, instructionWithTool);
-	if (flangeLink.empty())
+	// 工具配置的法兰叶若相对末轴有固定旋转（如 FANUC flange），须落到末转轴子连杆再 FK/IK
+	const QString flangeQ = defaultTcpLinkNameForUrdf(
+		urdfPath, QString::fromStdString(resolveFlangeLinkName(frames, fallbackFlangeLink, instructionWithTool)));
+	if (flangeQ.isEmpty())
 	{
 		return false;
 	}
@@ -109,7 +111,6 @@ bool targetInBaseFromUrdfFlangeFk(const QString& urdfPath, const QVector<double>
 	{
 		return false;
 	}
-	const QString flangeQ = QString::fromStdString(flangeLink);
 	if (!linkWorld.contains(flangeQ))
 	{
 		return false;

@@ -26,6 +26,10 @@ public:
 	void setNetwork(IoSignalNetworkService* network);
 	void setMotionPlayer(DevicePoseMotionPlayer* player);
 
+	/// EventBased 下关闭，避免与薄 CEE 双触发
+	void setEnabled(bool enabled);
+	bool isEnabled() const { return m_enabled; }
+
 	void resetEdgeState();
 
 private slots:
@@ -38,6 +42,7 @@ private:
 	IRobotMainWindowHost* m_host = nullptr;
 	IoSignalNetworkService* m_network = nullptr;
 	DevicePoseMotionPlayer* m_player = nullptr;
+	bool m_enabled = true;
 	/// key = deviceId|signalName
 	QHash<QString, bool> m_lastDi;
 };

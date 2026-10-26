@@ -129,6 +129,7 @@ void AxisControlTargetService::onTargetChanged(const AxisControlTargetKind kind,
 			m_host->prepareCustomDeviceAxisControlTarget(id);
 		}
 		axis->clearJoints();
+		axis->setDhUrdfPath(QString());
 		const auto device = std::dynamic_pointer_cast<CustomDeviceBackendData>(doc->findObject(id.toStdString()));
 		if (!device)
 		{
@@ -174,6 +175,7 @@ void AxisControlTargetService::onTargetChanged(const AxisControlTargetKind kind,
 	QVector<double> upper;
 	doc->robotJointLimitsForInstance(instIdx, lower, upper);
 	axis->setJoints(doc->robotRevoluteJointNamesForInstance(instIdx), lower, upper);
+	axis->setDhUrdfPath(urdfPath);
 	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
 	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
 	if (m_controller)

@@ -28,6 +28,10 @@ public:
 	virtual void setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ) = 0;
 	virtual void clearRawTrajectoryOverlayFrames() = 0;
 
+	/// 指令/点动过程中 TCP 实际走过的轨迹（与规划预览 raw overlay 分离）
+	virtual void setTcpMotionTrailOverlay(const std::vector<cloudsim::core::Vec3>& pointsWorldMm) = 0;
+	virtual void clearTcpMotionTrailOverlay() = 0;
+
 	virtual void setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate& update) = 0;
 	virtual void clearRobotFrameOverlays(const std::string& robotRootBackendId) = 0;
 

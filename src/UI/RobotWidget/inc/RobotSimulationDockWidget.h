@@ -23,13 +23,15 @@ class RobotCommPageWidget;
 class RobotExternalAxisSettingsWidget;
 class RobotFrameSettingsWidget;
 class SimulationCommandWidget;
+class SimulationTimelinePageWidget;
 class TrajectoryEditPageWidget;
 class TrajectoryGenerationPageWidget;
 
 enum class SimulationDockMode : int
 {
 	Robot = 0,
-	CustomDevice = 1
+	CustomDevice = 1,
+	Timeline = 2
 };
 
 class ROBOTWIDGET_EXPORT RobotSimulationDockWidget : public QWidget
@@ -74,6 +76,7 @@ public:
 	MeshTrajectoryPageWidget* meshTrajectoryPage() const;
 	TrajectoryGenerationPageWidget* trajectoryGenerationPage() const { return m_generationPage; }
 	RobotCommPageWidget* robotCommPage() const { return m_commPage; }
+	SimulationTimelinePageWidget* timelinePage() const { return m_timelinePage; }
 
 signals:
 	void dockModeChanged(SimulationDockMode mode);
@@ -92,6 +95,7 @@ private:
 	QButtonGroup* m_modeGroup = nullptr;
 	QAbstractButton* m_robotModeBtn = nullptr;
 	QAbstractButton* m_deviceModeBtn = nullptr;
+	QAbstractButton* m_timelineModeBtn = nullptr;
 
 	RobotAxisControlWidget* m_axisPage = nullptr;
 	QWidget* m_axisTabHost = nullptr;
@@ -99,6 +103,7 @@ private:
 	QStackedWidget* m_modeStack = nullptr;
 	QTabWidget* m_robotTabs = nullptr;
 	QTabWidget* m_deviceTabs = nullptr;
+	SimulationTimelinePageWidget* m_timelinePage = nullptr;
 
 	SimulationCommandWidget* m_commandPage = nullptr;
 	DeviceCommandPageWidget* m_deviceCommandPage = nullptr;

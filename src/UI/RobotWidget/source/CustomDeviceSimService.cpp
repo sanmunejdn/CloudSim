@@ -48,6 +48,14 @@ void CustomDeviceSimService::wire(IRobotMainWindowHost* host, IoSignalNetworkSer
 	}
 }
 
+void CustomDeviceSimService::setSignalDriverEnabled(bool enabled)
+{
+	if (m_driver)
+	{
+		m_driver->setEnabled(enabled);
+	}
+}
+
 void CustomDeviceSimService::resetEdgeState()
 {
 	if (m_driver)

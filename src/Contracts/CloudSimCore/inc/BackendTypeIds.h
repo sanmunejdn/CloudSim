@@ -40,6 +40,20 @@ inline constexpr const char* kProjectKeyGeometricModeling = "geometricModeling";
 inline constexpr const char* kProjectKeyIoSignals = "ioSignals";
 /// 每台机器人信号表 + 跨 Owner DO→DI 接线（设备表在 CustomDevice 对象内）
 inline constexpr const char* kProjectKeyIoSignalNetwork = "ioSignalNetwork";
+/// 仿真运行模式：timeBased | eventBased
+inline constexpr const char* kProjectKeySimulationRunMode = "simulationRunMode";
+/// 薄 CEE 规则表（事件模式）
+inline constexpr const char* kProjectKeyCeeRules = "ceeRules";
+/// 自定义设备程序侧车（按 backendId）
+inline constexpr const char* kProjectKeyDevicePrograms = "devicePrograms";
+/// 事件模式逻辑权威：localCee | externalPlc
+inline constexpr const char* kProjectKeyEventLogicAuthority = "eventLogicAuthority";
+/// 外接 PLC 连接参数
+inline constexpr const char* kProjectKeyExternalPlcLink = "externalPlcLink";
+/// PLC↔仿真信号映射表
+inline constexpr const char* kProjectKeyPlcSignalMap = "plcSignalMap";
+/// Study 多轨时间轴编排
+inline constexpr const char* kProjectKeyTimelineStudy = "timelineStudy";
 
 inline bool isBrepWorkpieceClassName(const std::string& className)
 {

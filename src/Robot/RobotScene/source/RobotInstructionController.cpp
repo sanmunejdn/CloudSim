@@ -1859,9 +1859,10 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 	return solveTargetByUrdfNumericalIkFromSeed(cmd, std::move(q0), failReason);
 }
 
+/// requireWristContinuityWithSeed：LINE/ARC 硬门；PTP 仅软偏好以便切轴配置
 std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& cmd,
 												 const RobotInstruction::MotionAxisConfiguration& cfg,
-												 std::string* failReason)
+												 std::string* failReason, const bool requireWristContinuityWithSeed)
 {
 	std::vector<double> qSeed = currentJointVectorFromInstruction(cmd);
 	if (qSeed.empty())
@@ -1931,10 +1932,10 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 		}
 		return {};
 	}
-	// 显式轴约束：腕连续门硬失败，禁止静默吃翻腕解
 	std::vector<Candidate> continuousOnly;
 	const std::vector<Candidate>* pool = &poolBase;
-	if (!cfg.isFullyAuto())
+	// LINE/ARC：显式约束时腕连续硬失败，禁止静默吃翻腕解；PTP 跳过硬门，仅靠下方排序偏好
+	if (requireWristContinuityWithSeed && !cfg.isFullyAuto())
 	{
 		for (const Candidate& c : poolBase)
 		{
@@ -2002,20 +2003,22 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 	return best->q;
 }
 
-std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& cmd, std::string* failReason)
+std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& cmd, std::string* failReason,
+												 const bool requireWristContinuityWithSeed)
 {
 	RobotInstruction::MotionAxisConfiguration cfg;
 	if (cmd.hasMotionAxisConfigurationProperty())
 	{
 		cfg = cmd.motionAxisConfiguration();
 	}
-	return solveIkWithAxisConfiguration(cmd, cfg, failReason);
+	return solveIkWithAxisConfiguration(cmd, cfg, failReason, requireWristContinuityWithSeed);
 }
 
 bool canSolveIkWithAxisConfiguration(const RobotInstruction::Base& cmd,
 									 const RobotInstruction::MotionAxisConfiguration& cfg)
 {
-	return !solveIkWithAxisConfiguration(cmd, cfg, nullptr).empty();
+	// 可行性查询按更严的路径连续门，避免 LINE 误判可解
+	return !solveIkWithAxisConfiguration(cmd, cfg, nullptr, true).empty();
 }
 
 struct IkPostureClassEntry
@@ -2143,7 +2146,8 @@ public:
 			// 仅显式轴约束走 axis_cfg；AUTO 用普通 URDF IK（expandSeedVariants）
 			if (constrainAxis)
 			{
-				targetQ = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+				// PTP 允许跨轴配置：腕连续仅软偏好
+				targetQ = solveIkWithAxisConfiguration(cmd, &ikFailReason, false);
 				if (!targetQ.empty())
 				{
 					solvePath = "urdf_axis_cfg";
@@ -2201,14 +2205,27 @@ public:
 			}
 			return false;
 		}
-		// 终点相对种子折圈，再交 Ruckig（与回放最短角一致）
+		// 切轴配置时保留 IK 转数；同配置类仍折最短角避免无意义绕圈
+		bool axisSwitched = false;
 		{
-			constexpr double kTwoPi = 6.283185307179586;
-			for (size_t i = 0; i < targetQ.size(); ++i)
+			const std::vector<std::string> jointNames = revoluteJointNamesFromInstructionContext(cmd);
+			if (!jointNames.empty() && jointNames.size() == q0.size() && jointNames.size() == targetQ.size())
 			{
-				double d = targetQ[i] - q0[i];
-				d -= kTwoPi * std::round(d / kTwoPi);
-				targetQ[i] = q0[i] + d;
+				const RobotInstruction::JointConfigurationClass seedCls =
+					RobotInstruction::classifyJointConfiguration(q0, jointNames, nullptr);
+				const RobotInstruction::JointConfigurationClass tgtCls =
+					RobotInstruction::classifyJointConfiguration(targetQ, jointNames, nullptr);
+				axisSwitched = RobotInstruction::ptpShouldSkipShortestAngleFold(seedCls, tgtCls);
+			}
+			if (!axisSwitched)
+			{
+				constexpr double kTwoPi = 6.283185307179586;
+				for (size_t i = 0; i < targetQ.size(); ++i)
+				{
+					double d = targetQ[i] - q0[i];
+					d -= kTwoPi * std::round(d / kTwoPi);
+					targetQ[i] = q0[i] + d;
+				}
 			}
 		}
 		double maxJointDelta = 0.0;
@@ -2228,6 +2245,10 @@ public:
 		{
 			out.summary += " [ikPath=" + solvePath + "]";
 		}
+		if (axisSwitched)
+		{
+			out.summary += " [axisSwitch]";
+		}
 		out.durationSec = durationSec;
 		out.jointTargetsRad = targetQ;
 		out.jointTrajectoryRad = {targetQ};
@@ -2245,6 +2266,10 @@ public:
 				if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
 				{
 					out.summary += " [ikPath=" + solvePath + "]";
+				}
+				if (axisSwitched)
+				{
+					out.summary += " [axisSwitch]";
 				}
 			}
 		}
@@ -2335,7 +2360,7 @@ public:
 		{
 			if (constrainAxis)
 			{
-				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason, true);
 				if (!qTarget.empty())
 				{
 					solvePath = "urdf_axis_cfg";
@@ -2679,7 +2704,7 @@ public:
 		{
 			if (constrainAxis)
 			{
-				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason, true);
 				if (!qTarget.empty())
 				{
 					solvePath = "urdf_axis_cfg";

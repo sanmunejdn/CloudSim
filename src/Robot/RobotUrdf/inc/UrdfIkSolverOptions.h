@@ -36,6 +36,8 @@ struct ROBOT_URDF_API UrdfIkSolverOptions
 	bool allowApproximateOrientation = false;
 	/// 内核 SoftAccepted 分类用（默认 2°）；对外验收见 IkAcceptanceGates（硬 0.5° / 软 5°）
 	double softOrientationToleranceRad = 2.0 * 3.14159265358979323846 / 180.0;
+	/// 点动等增量场景：跳过球形腕解析（其仅位置阶段易换肘/腕支）
+	bool preferNumericalOnly = false;
 };
 
 } // namespace UrdfRobotLoader

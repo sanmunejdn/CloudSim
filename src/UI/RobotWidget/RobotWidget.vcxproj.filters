@@ -110,6 +110,12 @@
     <ClInclude Include="inc\PlanResultCache.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
+    <ClInclude Include="inc\PlaybackTape.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PlcSignalMapTypes.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\PythonScriptCaller.h">
       <Filter>inc\Simulation</Filter>
     </ClInclude>
@@ -133,6 +139,9 @@
     </ClInclude>
     <ClInclude Include="inc\SimulationLogIoSink.h">
       <Filter>inc\Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TimelineStudyTypes.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\TrajectoryGeometryResolverHost.h">
       <Filter>inc\TrajectoryUi</Filter>
@@ -187,6 +196,9 @@
     <ClCompile Include="source\DeviceCommandPageWidget.cpp">
       <Filter>src\Simulation</Filter>
     </ClCompile>
+    <ClCompile Include="source\DeviceMotionTickerAdapter.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\DevicePageWidget.cpp">
       <Filter>src\RobotSettings</Filter>
     </ClCompile>
@@ -200,6 +212,9 @@
       <Filter>src\Simulation</Filter>
     </ClCompile>
     <ClCompile Include="source\ExternalControllerDialog.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ExternalPlcBridge.cpp">
       <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\FeatureDiscretizerParamPanel.cpp">
@@ -244,6 +259,12 @@
     <ClCompile Include="source\PlanResultCache.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
+    <ClCompile Include="source\PlaybackTape.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcSignalMapTypes.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\ProgramEditService.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
@@ -251,6 +272,9 @@
       <Filter>src\Simulation</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotAxisControlWidget.cpp">
+      <Filter>src\RobotSettings</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotAxisJogControllerDialog.cpp">
       <Filter>src\RobotSettings</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotCollisionSettingsWidget.cpp">
@@ -303,6 +327,15 @@
     </ClCompile>
     <ClCompile Include="source\SimulationLogIoSink.cpp">
       <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SimulationTimelinePageWidget.cpp">
+      <Filter>src\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TimelineScheduler.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TimelineStudyTypes.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\TrajectoryEditObserver.cpp">
       <Filter>src\TrajectoryUi</Filter>
@@ -369,6 +402,9 @@
     <QtMoc Include="inc\ExternalControllerDialog.h">
       <Filter>inc\Other</Filter>
     </QtMoc>
+    <QtMoc Include="inc\ExternalPlcBridge.h">
+      <Filter>inc\Other</Filter>
+    </QtMoc>
     <QtMoc Include="inc\FeatureDiscretizerParamPanel.h">
       <Filter>inc\FeatureTrajectory</Filter>
     </QtMoc>
@@ -402,6 +438,9 @@
     <QtMoc Include="inc\RobotAxisControlWidget.h">
       <Filter>inc\RobotSettings</Filter>
     </QtMoc>
+    <QtMoc Include="inc\RobotAxisJogControllerDialog.h">
+      <Filter>inc\RobotSettings</Filter>
+    </QtMoc>
     <QtMoc Include="inc\RobotCollisionSettingsWidget.h">
       <Filter>inc\RobotSettings</Filter>
     </QtMoc>
@@ -425,6 +464,12 @@
     </QtMoc>
     <QtMoc Include="inc\SimulationCommandWidget.h">
       <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\SimulationTimelinePageWidget.h">
+      <Filter>inc\Simulation</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\TimelineScheduler.h">
+      <Filter>inc\Other</Filter>
     </QtMoc>
     <QtMoc Include="inc\TrajectoryEditObserver.h">
       <Filter>inc\TrajectoryUi</Filter>

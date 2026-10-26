@@ -13,14 +13,24 @@
 #include "NamedSignalTable.h"
 #include "PlanResultCache.h"
 #include "RawTrajectory.h"
+#include "RobotAxisJogControllerDialog.h"
 #include "RobotCollisionSettingsWidget.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionIkRequest.h"
+#include "CeeRule.h"
 #include "ControllerManager.h"
 #include "DeviceMotionTickerAdapter.h"
 #include "DeviceProgramStore.h"
+#include "EventLogicAuthority.h"
+#include "ExternalPlcBridge.h"
+#include "ICeeActionHandler.h"
 #include "IoSignalNetworkAdapter.h"
+#include "PlaybackTape.h"
+#include "PlcSignalMapTypes.h"
+#include "SimRunMode.h"
 #include "SimulationKernel.h"
+#include "TimelineScheduler.h"
+#include "TimelineStudyTypes.h"
 
 #include <QElapsedTimer>
 #include <QHash>
@@ -33,6 +43,7 @@
 #include <string>
 #include <vector>
 
+#include <CoreTypes.h>
 #include <RigidTransform.h>
 #include <osg/Matrixd>
 
@@ -71,7 +82,7 @@ struct ROBOTWIDGET_EXPORT PrecomputedChainSeed
 };
 
 /// 机器人仿真/示教/指令编排（自 MainWindow 迁出）
-class ROBOTWIDGET_EXPORT RobotSimulationController : public QObject
+class ROBOTWIDGET_EXPORT RobotSimulationController : public QObject, public ICeeActionHandler
 {
 	Q_OBJECT
 
@@ -81,6 +92,31 @@ public:
 
 	void setHost(IRobotMainWindowHost* host);
 	IRobotMainWindowHost* host() const { return m_host; }
+
+	void setRunMode(SimRunMode mode);
+	SimRunMode runMode() const { return m_simulationKernel.runMode(); }
+	void setEventLogicAuthority(EventLogicAuthority authority);
+	EventLogicAuthority eventLogicAuthority() const { return m_simulationKernel.eventLogicAuthority(); }
+	void setCeeRules(const QVector<CeeRule>& rules);
+	const QVector<CeeRule>& ceeRules() const { return m_simulationKernel.ceeRules(); }
+	ExternalPlcBridge* externalPlcBridge() { return m_externalPlcBridge; }
+	void setExternalPlcLinkConfig(const ExternalPlcLinkConfig& config);
+	void setPlcSignalMap(const QVector<PlcSignalMapEntry>& map);
+	/// 合并写入：按 binding.id 作为规则 id（cee-bind-<id>）
+	int syncCeeRulesFromPoseSignalBindings();
+	QJsonObject simulationModeToJson() const;
+	bool simulationModeFromJson(const QJsonObject& root, QString* outError = nullptr);
+
+	void setTimelineStudy(const TimelineStudy& study);
+	TimelineStudy timelineStudy() const;
+	QJsonObject timelineStudyToProjectJson() const;
+	bool timelineStudyFromProjectJson(const QJsonObject& root, QString* outError = nullptr);
+	bool isTimelineSessionActive() const { return m_timelineRunning; }
+
+	bool onGoNamedPose(const QString& deviceId, const QString& poseId, double durationSec, QString* err) override;
+	bool onStartRobotProgram(int instanceIndex, const QString& programId, QString* err) override;
+	/// 按规划（缓存/现算）估算程序总时长，供时间轴片段默认 tEnd；失败回落默认 3s
+	double estimateRobotProgramDurationSec(int instanceIndex, const QString& programIdOrName);
 
 	RobotSimulationDockWidget* simulationDock() const { return m_simulationDock; }
 	ProgramEditService* programEditService() { return m_programEditService; }
@@ -151,9 +187,18 @@ public:
 public slots:
 	void onUrdfImportRequested(const QString& urdfPath);
 	void onSimulationStartTriggered();
+	void onEventBasedSimulationStart();
 	void onSimulationRunRequested();
 	void onSimulationRunAllRequested();
 	void onSimulationStopRequested();
+	void onSimulationRunModeChanged(int modeIndex);
+	void onEventLogicAuthorityChanged(int authorityIndex);
+	void onExternalPlcConnectRequested();
+	void onExternalPlcDisconnectRequested();
+	void onTimelineRunRequested();
+	void onTimelineStopRequested();
+	void onTimelineStudyEdited(const TimelineStudy& study);
+	void onTimelinePlayheadScrubbed(double tSec);
 	void onSimulationAddInstructionRequested(RobotInstruction::Type type);
 	void onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void onInstructionGroupVisibilityChangeRequested(const std::string& groupId, bool visible);
@@ -177,6 +222,10 @@ public slots:
 	void onResetToolFrame();
 	void onSimulationDockTabChanged(int index);
 	void onReachableWorkspaceToggled(bool enabled);
+	void openAxisJogController();
+	void onJogTcpDeltaRequested(double dxMm, double dyMm, double dzMm, double dExDeg, double dEyDeg, double dEzDeg,
+								RobotAxisJogTcpFrame frame);
+	void onJogJointDeltaRequested(int jointIndex, double deltaRad);
 	void onReachableWorkspaceDensityChanged(int percent);
 	void onMotionPathPlanRequested();
 	void onMotionPathPreviewClearRequested();
@@ -282,6 +331,11 @@ private:
 	void syncTcpDragTeachAnchorFromCurrentJoints();
 	void syncTcpDragExitJointState();
 
+	void onTcpMotionTrailToggled(bool enabled);
+	void clearTcpMotionTrail();
+	void sampleTcpMotionTrailIfEnabled();
+	void pushTcpMotionTrailOverlay();
+
 	bool planMotionOnHost(RobotInstruction::Base& instruction, const QVector<double>& seedJointRad, int instanceIndex,
 						  const QString& urdfPath, const QString& defaultTcpLinkName, const QString& sceneRootBackendId,
 						  RobotInstruction::PlanResult& plan, std::string* planErr, bool skipValidate = false,
@@ -304,6 +358,8 @@ private:
 	const std::string& ikSeedInstructionId() const { return m_ikSeedInstructionId; }
 
 	void ensureInstructionControllerKinematics(IRobotDocumentHost* doc, int instanceIndex, const QString& urdfPath);
+	void applyRunModeToDrivers();
+	bool startRobotLaneFromCatalog(int instanceIndex, QString* errorOut);
 	void scheduleInstructionPoseAxesRefresh(bool computeReachability = false);
 	/// wire 时可能尚无页；进入拾取时再绑到当前 OsgWidget
 	void bindInstructionWaypointPickCallbacks();
@@ -330,6 +386,14 @@ private:
 	quint64 m_poseAxesRefreshToken = 0;
 	SimulationKernel m_simulationKernel;
 	DeviceProgramStore m_devicePrograms;
+	ExternalPlcBridge* m_externalPlcBridge = nullptr;
+	TimelineScheduler* m_timelineScheduler = nullptr;
+	PlaybackTape m_playbackTape;
+	bool m_timelineRunning = false;
+	/// 上次入带仿真时刻；按 study.sampleHz 节流，避免挤掉早期帧
+	double m_lastTapeSampleSec = -1.0;
+	/// >0：时间轴 Scheduler 内部启 Lane，跳过「先停时间轴」互斥
+	int m_timelineLaneStartDepth = 0;
 	IoSignalNetworkAdapter m_ioNetworkAdapter;
 	DeviceMotionTickerAdapter m_deviceMotionTicker;
 	int m_lastRunRobotInstance = 0;
@@ -338,6 +402,7 @@ private:
 	CustomDeviceSimService* m_customDeviceSim = nullptr;
 	DockNavigationService* m_dockNavigation = nullptr;
 	AxisControlTargetService* m_axisControlTargets = nullptr;
+	RobotAxisJogControllerDialog* m_axisJogDialog = nullptr;
 	QVector<double> m_aggregatedJointAnglesRad;
 	/// 上次已与聚合角对齐的机器人 sceneBackendId；同文档内无交集时丢弃旧角（删机再导）
 	QStringList m_syncedRobotSceneBackendIds;
@@ -362,6 +427,7 @@ private:
 	QElapsedTimer m_tcpDragTeachIkTimer;
 	QElapsedTimer m_tcpDragOverlayRefreshTimer;
 	bool m_tcpDragApplyingIk = false;
+	bool m_jogTcpBusy = false;
 	bool m_tcpDragIkPosePending = false;
 	bool m_tcpDragIkFlushScheduled = false;
 	double m_tcpDragIkPendingPx = 0.0;
@@ -398,6 +464,8 @@ private:
 	RobotInstruction::IkSeedPolicy m_ikSeedPolicy = RobotInstruction::IkSeedPolicy::FromInstruction;
 	std::string m_ikSeedInstructionId;
 	bool m_allowApproximateOrientation = false;
+	bool m_tcpMotionTrailEnabled = false;
+	std::vector<cloudsim::core::Vec3> m_tcpMotionTrailPoints;
 	QHash<QString, bool> m_motionReachabilityCache;
 	quint64 m_reachabilityJobToken = 0;
 	int m_reachabilityPendingJobs = 0;

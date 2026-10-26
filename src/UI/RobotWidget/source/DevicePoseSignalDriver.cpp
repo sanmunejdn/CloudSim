@@ -36,6 +36,15 @@ void DevicePoseSignalDriver::setMotionPlayer(DevicePoseMotionPlayer* player)
 	m_player = player;
 }
 
+void DevicePoseSignalDriver::setEnabled(bool enabled)
+{
+	m_enabled = enabled;
+	if (!m_enabled)
+	{
+		m_lastDi.clear();
+	}
+}
+
 void DevicePoseSignalDriver::resetEdgeState()
 {
 	m_lastDi.clear();
@@ -122,7 +131,7 @@ void DevicePoseSignalDriver::processDeviceRisingEdges(const QString& deviceId)
 
 void DevicePoseSignalDriver::onOwnerIoChanged(const QString& ownerId)
 {
-	if (!m_network || m_network->ownerKind(ownerId) != IoSignalOwnerKind::Device)
+	if (!m_enabled || !m_network || m_network->ownerKind(ownerId) != IoSignalOwnerKind::Device)
 	{
 		return;
 	}

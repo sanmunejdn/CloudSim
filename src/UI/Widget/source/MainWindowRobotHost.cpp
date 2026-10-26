@@ -523,11 +523,11 @@ public:
 		}
 	}
 
-	TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, double pxMm, double pyMm, double pzMm, double exDeg,
-										double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
-										const QString& ikLinkName, const std::vector<double>& externalAxisQSeed = {},
-										bool hasExternalAxisQSeed = false,
-										bool allowApproximateOrientation = false) override
+	TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, const engine::RigidTransform& T_base_target,
+										const QVector<double>& seedJointRad, const QString& ikLinkName,
+										const std::vector<double>& externalAxisQSeed = {},
+										bool hasExternalAxisQSeed = false, bool allowApproximateOrientation = false,
+										bool continuousIncremental = false) override
 	{
 		TcpDragIkResult result;
 		if (!m_page)
@@ -550,8 +550,9 @@ public:
 		}
 		RobotTeachIk::TeachIkContext ctx;
 		ctx.urdfPath = urdfPath;
-		ctx.ikLinkName = ikLinkName;
-		ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+		// 与 FK 同源：末转轴子连杆优先于固定法兰叶
+		ctx.ikLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(urdfPath, ikLinkName);
+		ctx.T_base_target = T_base_target;
 		ctx.seedJointRad.reserve(static_cast<size_t>(seedJointRad.size()));
 		for (double v : seedJointRad)
 		{
@@ -559,12 +560,25 @@ public:
 		}
 		ctx.useOrientation = true;
 		ctx.T_flange_tool = toolMat;
-		// 拖动：小步增量 + 与 FK/罗盘同源的 URDF DLS
-		ctx.maxIkIterations = 32;
-		ctx.options.maxIterations = 32;
-		ctx.options.maxJointStepRad = 0.22;
-		ctx.options.positionToleranceMm = 1.0;
-		ctx.options.orientationToleranceRad = 0.35 * 3.14159265358979323846 / 180.0;
+		if (continuousIncremental)
+		{
+			// 点动：跟种子连续，纯 DLS；步进可能到 50mm，给足迭代
+			ctx.maxIkIterations = 96;
+			ctx.options.maxIterations = 96;
+			ctx.options.maxJointStepRad = 0.5;
+			ctx.options.positionToleranceMm = 0.5;
+			ctx.options.orientationToleranceRad = 0.15 * 3.14159265358979323846 / 180.0;
+			ctx.options.preferNumericalOnly = true;
+		}
+		else
+		{
+			// 拖动：小步增量 + 与 FK/罗盘同源的 URDF DLS
+			ctx.maxIkIterations = 32;
+			ctx.options.maxIterations = 32;
+			ctx.options.maxJointStepRad = 0.22;
+			ctx.options.positionToleranceMm = 1.0;
+			ctx.options.orientationToleranceRad = 0.35 * 3.14159265358979323846 / 180.0;
+		}
 		// Soft 开关由仿真控制器会话态传入，DocumentHost 不持有 MainWindow
 		ctx.options.allowApproximateOrientation = allowApproximateOrientation;
 		const QString sceneRootId = m_page->robotSceneBackendIdForInstance(instanceIndex);
@@ -746,6 +760,8 @@ public:
 							  const RobotTeachIk::TeachIkExternalAxisDof& baseDof, const std::vector<double>& qeBest)
 		{
 			result.ok = true;
+			result.residualTcpMm = ik.residualTcpMm;
+			result.residualOrientDeg = ik.residualOrientDeg;
 			result.jointRad.reserve(static_cast<int>(ik.jointRad.size()));
 			for (double v : ik.jointRad)
 			{
@@ -911,7 +927,8 @@ public:
 
 		if (!bestIk.ok)
 		{
-			ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+			// 工件系采样会改写目标；回退时恢复入参姿态
+			ctx.T_base_target = T_base_target;
 			if (baseDof.active())
 			{
 				ctx.externalAxes = baseDof;

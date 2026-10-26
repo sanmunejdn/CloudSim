@@ -354,7 +354,7 @@ Executor 侧：`RobotProgramExecutor::currentInstruction()`（见 [`../Robot/Rob
 | 类 | 说明 |
 |----|------|
 | `SimulationCommandWidget` | 指令树、Run/Stop、**仿真倍率**下拉、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；扁工具条插入（PTP/LINE/ARC/…/PathPlan）与编辑（末端拖动/删除/清空）；TCP combo **界面隐藏**（`setTcpLinkOptions` / `selectedTcpLink` 仍供规划回退）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged`；**ARC 两步示教**（`setArcTeachPending`） |
-| `RobotAxisControlWidget` | 关节/外轴滑条；顶部「显示可达域」+ 密度滑条（默认 50%，调采样数/体素边长）；Halton 采样细点 overlay | 关节滑块（`qBound` 限位）；外轴滑条（平移 mm / 旋转 deg，内部 rad） |
+| `RobotAxisControlWidget` | 关节/外轴滑条；目标下 **DH 只读表**（失败回退 URDF origin）+ **控制器**（非模态 TCP/轴点动，`RobotAxisJogControllerDialog`；**速率点动** mm/s、°/s，按住连续移动；坐标系可选 TCP/基座/世界/用户；FK 取位 + TeachIk，失败不写关节）；「显示可达域」+ 密度滑条；Halton overlay | 关节滑块（`qBound` 限位）；外轴滑条（平移 mm / 旋转 deg，内部 rad）；点动≠外置控制器 |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → `onRobotCoordinateFramesChanged`（见下） |
 | `RobotExternalAxisSettingsWidget` | 多轴 Translate/Rotate × RobotBase/Workpiece；`workingFrameId` 工作架下拉（空=绑定根）；`setBackendIdOptions`；`externalAxesChanged` → `onRobotExternalAxesChanged`；Run 时由 `applyExternalAxisFromPlan` 按段进度插值 `externalAxisQs` |
 

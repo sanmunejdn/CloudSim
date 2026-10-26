@@ -29,6 +29,9 @@
 | [指令IK轨迹](指令IK轨迹/) | IK / 轨迹开发说明 |
 | [运动副](运动副/) | 1-DOF FK 与架构图 |
 | [仿真外置控制器](仿真外置控制器/README.md) | Webots 风格外置控制器（TCP 19620） |
+| [仿真统一内核](仿真统一内核/README.md) | 多 Lane / IO 下一拍 / 租约 |
+| [仿真事件模式CEE](仿真事件模式CEE/README.md) | TimeBased \| EventBased 薄 CEE（#68） |
+| [仿真时间轴编排](仿真时间轴编排/README.md) | Study 多轨时间轴编排 + scrub（#70） |
 | [视觉抓取](视觉抓取/README.md) | 工业相机 Tab：手眼 + 碰撞页轨迹规划抓取 |
 
 ## 网页端

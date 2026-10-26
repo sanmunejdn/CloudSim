@@ -177,6 +177,10 @@ void RobotSimulationController::onExternalControllerTick()
 	if (m_host && m_host->simulationCommandPage())
 		m_host->simulationCommandPage()->setExternalControllerClientConnected(anyClient);
 
-	if (anyApplied && osg)
-		osg->requestRedraw();
+	if (anyApplied)
+	{
+		sampleTcpMotionTrailIfEnabled();
+		if (osg)
+			osg->requestRedraw();
+	}
 }

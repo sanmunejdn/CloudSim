@@ -289,6 +289,22 @@ void WidgetOsgViewHost::clearRawTrajectoryOverlayFrames()
 	}
 }
 
+void WidgetOsgViewHost::setTcpMotionTrailOverlay(const std::vector<cloudsim::core::Vec3>& pointsWorldMm)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setTcpMotionTrailOverlay(pointsWorldMm);
+	}
+}
+
+void WidgetOsgViewHost::clearTcpMotionTrailOverlay()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->clearTcpMotionTrailOverlay();
+	}
+}
+
 void WidgetOsgViewHost::setCameraFollowBackendId(const std::string& backendId)
 {
 	if (cloudsim::core::IRenderView* rv = renderView())

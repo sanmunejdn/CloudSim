@@ -239,6 +239,11 @@
     <ClInclude Include="inc\IDeviceMotionTicker.h" />
     <ClInclude Include="inc\ParticipantLane.h" />
     <ClInclude Include="inc\SimulationKernel.h" />
+    <ClInclude Include="inc\SimRunMode.h" />
+    <ClInclude Include="inc\EventLogicAuthority.h" />
+    <ClInclude Include="inc\CeeRule.h" />
+    <ClInclude Include="inc\CeeEvaluator.h" />
+    <ClInclude Include="inc\ICeeActionHandler.h" />
     <ClInclude Include="inc\DeviceProgramStore.h" />
     <ClInclude Include="inc\RobotProgramExport.h" />
     <ClInclude Include="inc\RobotInstructionTransform.h" />
@@ -338,6 +343,8 @@
     <ClCompile Include="source\SyncBarrierRegistry.cpp" />
     <ClCompile Include="source\ParticipantLane.cpp" />
     <ClCompile Include="source\SimulationKernel.cpp" />
+    <ClCompile Include="source\CeeRule.cpp" />
+    <ClCompile Include="source\CeeEvaluator.cpp" />
     <ClCompile Include="source\DeviceProgramStore.cpp" />
     <ClCompile Include="source\RobotProgramExport.cpp" />
     <ClCompile Include="source\RobotInstructionTransform.cpp" />

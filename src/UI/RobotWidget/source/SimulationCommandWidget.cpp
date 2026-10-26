@@ -24,8 +24,10 @@
 #include <QLayoutItem>
 #include <QLineEdit>
 #include <QList>
+#include <QListWidget>
 #include <QMenu>
 #include <QPushButton>
+#include <QUuid>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QString>
@@ -351,6 +353,78 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	rowRun->addWidget(m_exportBtn);
 	root->addLayout(rowRun);
 
+	auto* rowMode = new QHBoxLayout;
+	rowMode->setSpacing(4);
+	m_runModeLabel = new QLabel(QStringLiteral("Mode"), this);
+	m_runModeCombo = new QComboBox(this);
+	m_runModeCombo->addItem(QStringLiteral("Time-based"), 0);
+	m_runModeCombo->addItem(QStringLiteral("Event-based"), 1);
+	m_runModeCombo->setToolTip(
+		QStringLiteral("Time-based: program playback. Event-based: CEE rules drive resources (mutex with External Controller)."));
+	configureCompactCombo(m_runModeCombo);
+	rowMode->addWidget(m_runModeLabel);
+	rowMode->addWidget(m_runModeCombo, 1);
+	root->addLayout(rowMode);
+
+	m_ceeRulesList = new QListWidget(this);
+	m_ceeRulesList->setMaximumHeight(90);
+	auto* rowCeeBtns = new QHBoxLayout;
+	m_ceeSyncBindingsBtn = new QPushButton(QStringLiteral("Sync bindings"), this);
+	m_ceeAddRuleBtn = new QPushButton(QStringLiteral("Add"), this);
+	m_ceeRemoveRuleBtn = new QPushButton(QStringLiteral("Remove"), this);
+	configureCompactButton(m_ceeSyncBindingsBtn);
+	configureCompactButton(m_ceeAddRuleBtn);
+	configureCompactButton(m_ceeRemoveRuleBtn);
+	rowCeeBtns->addWidget(m_ceeSyncBindingsBtn);
+	rowCeeBtns->addWidget(m_ceeAddRuleBtn);
+	rowCeeBtns->addWidget(m_ceeRemoveRuleBtn);
+	rowCeeBtns->addStretch(1);
+	root->addWidget(m_ceeRulesList);
+	root->addLayout(rowCeeBtns);
+
+	auto* rowAuth = new QHBoxLayout;
+	rowAuth->setSpacing(4);
+	m_authorityLabel = new QLabel(QStringLiteral("Authority"), this);
+	m_authorityCombo = new QComboBox(this);
+	m_authorityCombo->addItem(QStringLiteral("Local CEE"), 0);
+	m_authorityCombo->addItem(QStringLiteral("External PLC"), 1);
+	configureCompactCombo(m_authorityCombo);
+	rowAuth->addWidget(m_authorityLabel);
+	rowAuth->addWidget(m_authorityCombo, 1);
+	root->addLayout(rowAuth);
+
+	auto* rowPlc = new QHBoxLayout;
+	rowPlc->setSpacing(4);
+	m_plcGatewayEdit = new QLineEdit(QStringLiteral("127.0.0.1"), this);
+	m_plcPortEdit = new QLineEdit(QStringLiteral("502"), this);
+	m_plcUnitEdit = new QLineEdit(QStringLiteral("1"), this);
+	m_plcGatewayEdit->setPlaceholderText(QStringLiteral("IP"));
+	m_plcPortEdit->setMaximumWidth(56);
+	m_plcUnitEdit->setMaximumWidth(40);
+	m_plcConnectBtn = new QPushButton(QStringLiteral("Connect"), this);
+	m_plcDisconnectBtn = new QPushButton(QStringLiteral("Disconnect"), this);
+	configureCompactButton(m_plcConnectBtn);
+	configureCompactButton(m_plcDisconnectBtn);
+	rowPlc->addWidget(m_plcGatewayEdit, 1);
+	rowPlc->addWidget(m_plcPortEdit);
+	rowPlc->addWidget(m_plcUnitEdit);
+	rowPlc->addWidget(m_plcConnectBtn);
+	rowPlc->addWidget(m_plcDisconnectBtn);
+	root->addLayout(rowPlc);
+
+	m_plcMapList = new QListWidget(this);
+	m_plcMapList->setMaximumHeight(72);
+	auto* rowPlcMapBtns = new QHBoxLayout;
+	m_plcMapAddBtn = new QPushButton(QStringLiteral("Add map"), this);
+	m_plcMapRemoveBtn = new QPushButton(QStringLiteral("Remove"), this);
+	configureCompactButton(m_plcMapAddBtn);
+	configureCompactButton(m_plcMapRemoveBtn);
+	rowPlcMapBtns->addWidget(m_plcMapAddBtn);
+	rowPlcMapBtns->addWidget(m_plcMapRemoveBtn);
+	rowPlcMapBtns->addStretch(1);
+	root->addWidget(m_plcMapList);
+	root->addLayout(rowPlcMapBtns);
+
 	auto* rowParams = new QHBoxLayout;
 	rowParams->setSpacing(4);
 	m_playbackRateLabel = new QLabel(QStringLiteral("Sim Rate"), this);
@@ -380,6 +454,9 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	m_allowApproxOrientCheck->setChecked(false);
 	m_allowApproxOrientCheck->setToolTip(
 		QStringLiteral("Allow SoftAccepted IK (wider orientation tolerance). Off = hard convergence only."));
+	m_tcpMotionTrailCheck = new QCheckBox(QStringLiteral("TCP trail"), this);
+	m_tcpMotionTrailCheck->setChecked(false);
+	m_tcpMotionTrailCheck->setToolTip(QStringLiteral("Draw TCP path as the robot moves"));
 	configureCompactCombo(m_playbackRateCombo);
 	configureCompactCombo(m_ikSeedCombo);
 	m_playbackRateCombo->setMinimumWidth(56);
@@ -392,6 +469,11 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	rowParams->addWidget(m_ikSeedCombo);
 	rowParams->addWidget(m_allowApproxOrientCheck, 1);
 	root->addLayout(rowParams);
+
+	auto* rowTrail = new QHBoxLayout;
+	rowTrail->setSpacing(4);
+	rowTrail->addWidget(m_tcpMotionTrailCheck, 1);
+	root->addLayout(rowTrail);
 
 	auto* rowExternal = new QHBoxLayout;
 	rowExternal->setSpacing(4);
@@ -586,6 +668,29 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 			&SimulationCommandWidget::onRenameGroupRequested);
 	connect(m_runBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runRequested);
 	connect(m_runAllBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runAllRequested);
+	connect(m_runModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				updateCeeRulesUiVisibility();
+				emit runModeChanged(runModeIndex());
+			});
+	connect(m_ceeSyncBindingsBtn, &QPushButton::clicked, this,
+			&SimulationCommandWidget::syncCeeRulesFromBindingsRequested);
+	connect(m_ceeAddRuleBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onCeeAddRuleClicked);
+	connect(m_ceeRemoveRuleBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onCeeRemoveRuleClicked);
+	connect(m_authorityCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
+			{
+				updateCeeRulesUiVisibility();
+				emit eventLogicAuthorityChanged(eventLogicAuthorityIndex());
+			});
+	connect(m_plcConnectBtn, &QPushButton::clicked, this, &SimulationCommandWidget::externalPlcConnectRequested);
+	connect(m_plcDisconnectBtn, &QPushButton::clicked, this, &SimulationCommandWidget::externalPlcDisconnectRequested);
+	connect(m_plcGatewayEdit, &QLineEdit::editingFinished, this, &SimulationCommandWidget::emitExternalPlcLinkFromUi);
+	connect(m_plcPortEdit, &QLineEdit::editingFinished, this, &SimulationCommandWidget::emitExternalPlcLinkFromUi);
+	connect(m_plcUnitEdit, &QLineEdit::editingFinished, this, &SimulationCommandWidget::emitExternalPlcLinkFromUi);
+	connect(m_plcMapAddBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onPlcMapAddClicked);
+	connect(m_plcMapRemoveBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onPlcMapRemoveClicked);
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
 	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
 	connect(m_playbackRateCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
@@ -608,6 +713,7 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 			[this](int) { emit ikSeedPolicyChanged(m_ikSeedCombo->currentData().toInt()); });
 	connect(m_allowApproxOrientCheck, &QCheckBox::toggled, this,
 			&SimulationCommandWidget::allowApproximateOrientationChanged);
+	connect(m_tcpMotionTrailCheck, &QCheckBox::toggled, this, &SimulationCommandWidget::tcpMotionTrailToggled);
 
 	UiIconDecorators::apply(m_tcpDragTeachBtn, UiIconId::TcpDragTeach);
 	UiIconDecorators::apply(m_waypointPickBtn, UiIconId::PickFace);
@@ -620,6 +726,297 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	updateTypeButtonLabels();
 	updateRunStopButtons();
 	setUseChinese(m_useChinese);
+	updateCeeRulesUiVisibility();
+}
+
+void SimulationCommandWidget::setRunModeIndex(int index)
+{
+	if (!m_runModeCombo)
+	{
+		return;
+	}
+	const QSignalBlocker blocker(m_runModeCombo);
+	m_runModeCombo->setCurrentIndex(index < 0 ? 0 : index);
+	updateCeeRulesUiVisibility();
+}
+
+int SimulationCommandWidget::runModeIndex() const
+{
+	if (!m_runModeCombo)
+	{
+		return 0;
+	}
+	return m_runModeCombo->currentData().toInt();
+}
+
+void SimulationCommandWidget::refreshCeeRulesList(const QVector<CeeRule>& rules)
+{
+	m_ceeRulesCache = rules;
+	rebuildCeeRulesListWidget();
+}
+
+void SimulationCommandWidget::updateCeeRulesUiVisibility()
+{
+	const bool eventBased = runModeIndex() == 1;
+	const bool localCee = eventBased && eventLogicAuthorityIndex() == 0;
+	const bool extPlc = eventBased && eventLogicAuthorityIndex() == 1;
+	if (m_authorityLabel)
+	{
+		m_authorityLabel->setVisible(eventBased);
+	}
+	if (m_authorityCombo)
+	{
+		m_authorityCombo->setVisible(eventBased);
+	}
+	if (m_ceeRulesList)
+	{
+		m_ceeRulesList->setVisible(localCee);
+		m_ceeRulesList->setEnabled(localCee);
+	}
+	if (m_ceeSyncBindingsBtn)
+	{
+		m_ceeSyncBindingsBtn->setVisible(localCee);
+	}
+	if (m_ceeAddRuleBtn)
+	{
+		m_ceeAddRuleBtn->setVisible(localCee);
+	}
+	if (m_ceeRemoveRuleBtn)
+	{
+		m_ceeRemoveRuleBtn->setVisible(localCee);
+	}
+	const auto setPlcVisible = [extPlc](QWidget* w)
+	{
+		if (w)
+		{
+			w->setVisible(extPlc);
+		}
+	};
+	setPlcVisible(m_plcGatewayEdit);
+	setPlcVisible(m_plcPortEdit);
+	setPlcVisible(m_plcUnitEdit);
+	setPlcVisible(m_plcConnectBtn);
+	setPlcVisible(m_plcDisconnectBtn);
+	setPlcVisible(m_plcMapList);
+	setPlcVisible(m_plcMapAddBtn);
+	setPlcVisible(m_plcMapRemoveBtn);
+}
+
+void SimulationCommandWidget::setEventLogicAuthorityIndex(int index)
+{
+	if (!m_authorityCombo)
+	{
+		return;
+	}
+	const QSignalBlocker blocker(m_authorityCombo);
+	m_authorityCombo->setCurrentIndex(index < 0 ? 0 : index);
+	updateCeeRulesUiVisibility();
+}
+
+int SimulationCommandWidget::eventLogicAuthorityIndex() const
+{
+	if (!m_authorityCombo)
+	{
+		return 0;
+	}
+	return m_authorityCombo->currentData().toInt();
+}
+
+void SimulationCommandWidget::setExternalPlcLinkConfig(const ExternalPlcLinkConfig& config)
+{
+	if (m_plcGatewayEdit)
+	{
+		const QSignalBlocker b(m_plcGatewayEdit);
+		m_plcGatewayEdit->setText(config.gateway);
+	}
+	if (m_plcPortEdit)
+	{
+		const QSignalBlocker b(m_plcPortEdit);
+		m_plcPortEdit->setText(QString::number(config.port));
+	}
+	if (m_plcUnitEdit)
+	{
+		const QSignalBlocker b(m_plcUnitEdit);
+		m_plcUnitEdit->setText(config.path);
+	}
+}
+
+void SimulationCommandWidget::setPlcSignalMap(const QVector<PlcSignalMapEntry>& map)
+{
+	m_plcMapCache = map;
+	if (!m_plcMapList)
+	{
+		return;
+	}
+	m_plcMapList->clear();
+	for (const PlcSignalMapEntry& e : m_plcMapCache)
+	{
+		const QString dir = e.direction == PlcMapDirection::Out ? QStringLiteral("OUT") : QStringLiteral("IN");
+		m_plcMapList->addItem(QStringLiteral("%1 %2 ↔ %3.%4").arg(dir, e.plcTag, e.ownerId, e.signal));
+	}
+}
+
+void SimulationCommandWidget::emitExternalPlcLinkFromUi()
+{
+	ExternalPlcLinkConfig c;
+	c.protocol = QStringLiteral("modbusTcp");
+	c.gateway = m_plcGatewayEdit ? m_plcGatewayEdit->text().trimmed() : QStringLiteral("127.0.0.1");
+	c.port = m_plcPortEdit ? m_plcPortEdit->text().toInt() : 502;
+	c.path = m_plcUnitEdit ? m_plcUnitEdit->text().trimmed() : QStringLiteral("1");
+	c.timeoutMs = 3000;
+	c.enabled = true;
+	emit externalPlcLinkEdited(c);
+}
+
+void SimulationCommandWidget::onPlcMapAddClicked()
+{
+	bool ok = false;
+	const QString tag = QInputDialog::getText(this, QStringLiteral("PLC map"), QStringLiteral("PLC tag (e.g. co0)"),
+											  QLineEdit::Normal, QStringLiteral("co0"), &ok);
+	if (!ok || tag.isEmpty())
+	{
+		return;
+	}
+	const QString owner = QInputDialog::getText(this, QStringLiteral("PLC map"), QStringLiteral("OwnerId"),
+												QLineEdit::Normal, QString(), &ok);
+	if (!ok || owner.isEmpty())
+	{
+		return;
+	}
+	const QString signal = QInputDialog::getText(this, QStringLiteral("PLC map"), QStringLiteral("Signal"),
+												 QLineEdit::Normal, QStringLiteral("Start"), &ok);
+	if (!ok || signal.isEmpty())
+	{
+		return;
+	}
+	const QStringList dirs = {QStringLiteral("in"), QStringLiteral("out")};
+	const QString dir = QInputDialog::getItem(this, QStringLiteral("PLC map"), QStringLiteral("Direction"), dirs, 0,
+											  false, &ok);
+	if (!ok)
+	{
+		return;
+	}
+	PlcSignalMapEntry e;
+	e.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+	e.plcTag = tag;
+	e.ownerId = owner;
+	e.signal = signal;
+	e.direction = (dir == QStringLiteral("out")) ? PlcMapDirection::Out : PlcMapDirection::In;
+	m_plcMapCache.push_back(e);
+	setPlcSignalMap(m_plcMapCache);
+	emit plcSignalMapEdited(m_plcMapCache);
+}
+
+void SimulationCommandWidget::onPlcMapRemoveClicked()
+{
+	if (!m_plcMapList)
+	{
+		return;
+	}
+	const int row = m_plcMapList->currentRow();
+	if (row < 0 || row >= m_plcMapCache.size())
+	{
+		return;
+	}
+	m_plcMapCache.removeAt(row);
+	setPlcSignalMap(m_plcMapCache);
+	emit plcSignalMapEdited(m_plcMapCache);
+}
+
+void SimulationCommandWidget::rebuildCeeRulesListWidget()
+{
+	if (!m_ceeRulesList)
+	{
+		return;
+	}
+	m_ceeRulesList->clear();
+	for (const CeeRule& r : m_ceeRulesCache)
+	{
+		QString when = r.when.signal;
+		switch (r.when.type)
+		{
+		case CeeCondition::Type::LevelHigh:
+			when = QStringLiteral("HIGH %1").arg(r.when.signal);
+			break;
+		case CeeCondition::Type::LevelLow:
+			when = QStringLiteral("LOW %1").arg(r.when.signal);
+			break;
+		case CeeCondition::Type::RisingEdge:
+		default:
+			when = QStringLiteral("↑ %1").arg(r.when.signal);
+			break;
+		}
+		const QString text = QStringLiteral("%1 | %2.%3 → %4 act")
+								 .arg(r.enabled ? QStringLiteral("ON") : QStringLiteral("OFF"))
+								 .arg(r.when.ownerId)
+								 .arg(when)
+								 .arg(r.actions.size());
+		m_ceeRulesList->addItem(text);
+	}
+}
+
+void SimulationCommandWidget::onCeeAddRuleClicked()
+{
+	bool ok = false;
+	const QString owner = QInputDialog::getText(this, QStringLiteral("CEE"),
+												m_useChinese ? QStringLiteral("OwnerId") : QStringLiteral("OwnerId"),
+												QLineEdit::Normal, QString(), &ok);
+	if (!ok || owner.isEmpty())
+	{
+		return;
+	}
+	const QString signal = QInputDialog::getText(this, QStringLiteral("CEE"),
+												 m_useChinese ? QStringLiteral("DI 信号名") : QStringLiteral("DI signal"),
+												 QLineEdit::Normal, QStringLiteral("Start"), &ok);
+	if (!ok || signal.isEmpty())
+	{
+		return;
+	}
+	const QString deviceId = QInputDialog::getText(
+		this, QStringLiteral("CEE"), m_useChinese ? QStringLiteral("设备 Id（goNamedPose）") : QStringLiteral("Device Id"),
+		QLineEdit::Normal, owner, &ok);
+	if (!ok || deviceId.isEmpty())
+	{
+		return;
+	}
+	const QString poseId = QInputDialog::getText(this, QStringLiteral("CEE"),
+												 m_useChinese ? QStringLiteral("姿态 Id") : QStringLiteral("Pose Id"),
+												 QLineEdit::Normal, QString(), &ok);
+	if (!ok || poseId.isEmpty())
+	{
+		return;
+	}
+	CeeRule rule;
+	rule.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+	rule.enabled = true;
+	rule.when.type = CeeCondition::Type::RisingEdge;
+	rule.when.ownerId = owner;
+	rule.when.signal = signal;
+	CeeAction act;
+	act.type = CeeAction::Type::GoNamedPose;
+	act.deviceId = deviceId;
+	act.poseId = poseId;
+	act.durationSec = 1.0;
+	rule.actions = {act};
+	m_ceeRulesCache.push_back(rule);
+	rebuildCeeRulesListWidget();
+	emit ceeRulesEdited(m_ceeRulesCache);
+}
+
+void SimulationCommandWidget::onCeeRemoveRuleClicked()
+{
+	if (!m_ceeRulesList)
+	{
+		return;
+	}
+	const int row = m_ceeRulesList->currentRow();
+	if (row < 0 || row >= m_ceeRulesCache.size())
+	{
+		return;
+	}
+	m_ceeRulesCache.removeAt(row);
+	rebuildCeeRulesListWidget();
+	emit ceeRulesEdited(m_ceeRulesCache);
 }
 
 QPushButton* SimulationCommandWidget::createTypeButton(const RobotInstruction::Type type)
@@ -853,6 +1250,62 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	{
 		m_runAllBtn->setText(chinese ? QStringLiteral("全部运行") : QStringLiteral("Run All"));
 	}
+	if (m_runModeLabel)
+	{
+		m_runModeLabel->setText(chinese ? QStringLiteral("模式") : QStringLiteral("Mode"));
+	}
+	if (m_runModeCombo && m_runModeCombo->count() >= 2)
+	{
+		const int cur = m_runModeCombo->currentIndex();
+		const QSignalBlocker blocker(m_runModeCombo);
+		m_runModeCombo->setItemText(0, chinese ? QStringLiteral("基于时间") : QStringLiteral("Time-based"));
+		m_runModeCombo->setItemText(1, chinese ? QStringLiteral("基于事件") : QStringLiteral("Event-based"));
+		m_runModeCombo->setCurrentIndex(cur);
+		m_runModeCombo->setToolTip(
+			chinese ? QStringLiteral("基于时间：程序回放。基于事件：CEE 规则启停资源（与外置控制器互斥）。")
+					: QStringLiteral(
+						  "Time-based: program playback. Event-based: CEE rules (mutex with External Controller)."));
+	}
+	if (m_ceeSyncBindingsBtn)
+	{
+		m_ceeSyncBindingsBtn->setText(chinese ? QStringLiteral("同步绑定") : QStringLiteral("Sync bindings"));
+	}
+	if (m_ceeAddRuleBtn)
+	{
+		m_ceeAddRuleBtn->setText(chinese ? QStringLiteral("添加") : QStringLiteral("Add"));
+	}
+	if (m_ceeRemoveRuleBtn)
+	{
+		m_ceeRemoveRuleBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
+	}
+	if (m_authorityLabel)
+	{
+		m_authorityLabel->setText(chinese ? QStringLiteral("逻辑权威") : QStringLiteral("Authority"));
+	}
+	if (m_authorityCombo && m_authorityCombo->count() >= 2)
+	{
+		const int cur = m_authorityCombo->currentIndex();
+		const QSignalBlocker blocker(m_authorityCombo);
+		m_authorityCombo->setItemText(0, chinese ? QStringLiteral("本地 CEE") : QStringLiteral("Local CEE"));
+		m_authorityCombo->setItemText(1, chinese ? QStringLiteral("外接 PLC") : QStringLiteral("External PLC"));
+		m_authorityCombo->setCurrentIndex(cur);
+	}
+	if (m_plcConnectBtn)
+	{
+		m_plcConnectBtn->setText(chinese ? QStringLiteral("连接") : QStringLiteral("Connect"));
+	}
+	if (m_plcDisconnectBtn)
+	{
+		m_plcDisconnectBtn->setText(chinese ? QStringLiteral("断开") : QStringLiteral("Disconnect"));
+	}
+	if (m_plcMapAddBtn)
+	{
+		m_plcMapAddBtn->setText(chinese ? QStringLiteral("添加映射") : QStringLiteral("Add map"));
+	}
+	if (m_plcMapRemoveBtn)
+	{
+		m_plcMapRemoveBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
+	}
 	m_stopBtn->setText(chinese ? QStringLiteral("停止") : QStringLiteral("Stop"));
 	if (m_playbackRateLabel)
 	{
@@ -898,6 +1351,12 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 		m_allowApproxOrientCheck->setToolTip(
 			chinese ? QStringLiteral("勾选后允许 SoftAccepted（放宽姿态容差）；默认仅硬收敛")
 					: QStringLiteral("Allow SoftAccepted IK (wider orientation tolerance). Off = hard only."));
+	}
+	if (m_tcpMotionTrailCheck)
+	{
+		m_tcpMotionTrailCheck->setText(chinese ? QStringLiteral("末端轨迹") : QStringLiteral("TCP trail"));
+		m_tcpMotionTrailCheck->setToolTip(chinese ? QStringLiteral("绘制机器人末端实际走过的轨迹")
+												  : QStringLiteral("Draw TCP path as the robot moves"));
 	}
 	if (m_exportBtn)
 	{
@@ -1224,6 +1683,35 @@ void SimulationCommandWidget::rebuildCommandListWidget()
 		}
 		m_tree->rebuildFromProgram();
 	}
+}
+
+bool SimulationCommandWidget::selectProgramByIdOrName(const QString& programIdOrName)
+{
+	if (!m_programCombo || !m_programStore || programIdOrName.isEmpty())
+	{
+		return false;
+	}
+	refreshProgramCombo();
+	int idx = m_programCombo->findData(programIdOrName);
+	if (idx < 0)
+	{
+		for (int i = 0; i < m_programCombo->count(); ++i)
+		{
+			if (m_programCombo->itemText(i).compare(programIdOrName, Qt::CaseInsensitive) == 0 ||
+				m_programCombo->itemData(i).toString().compare(programIdOrName, Qt::CaseInsensitive) == 0)
+			{
+				idx = i;
+				break;
+			}
+		}
+	}
+	if (idx < 0)
+	{
+		return false;
+	}
+	m_programCombo->setCurrentIndex(idx);
+	onProgramComboChanged(idx);
+	return true;
 }
 
 void SimulationCommandWidget::refreshProgramCombo()

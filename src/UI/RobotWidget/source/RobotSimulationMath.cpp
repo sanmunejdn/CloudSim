@@ -530,4 +530,33 @@ ROBOTWIDGET_EXPORT bool buildDhRowsFromUrdf(const QString& urdfPath, std::vector
 	return buildDhRowsFromUrdfImpl(urdfPath, outRows, errMsg);
 }
 
+ROBOTWIDGET_EXPORT bool loadUrdfJointDisplayRows(const QString& urdfPath, QVector<UrdfJointDisplayRow>& outRows,
+												  QString* errMsg)
+{
+	outRows.clear();
+	QVector<ParsedUrdfJoint> joints;
+	if (!loadUrdfJointList(urdfPath, joints, errMsg))
+	{
+		return false;
+	}
+	outRows.reserve(joints.size());
+	for (const ParsedUrdfJoint& j : joints)
+	{
+		UrdfJointDisplayRow row;
+		row.name = j.name;
+		row.type = j.type;
+		row.x = j.x;
+		row.y = j.y;
+		row.z = j.z;
+		row.roll = j.roll;
+		row.pitch = j.pitch;
+		row.yaw = j.yaw;
+		row.ax = j.ax;
+		row.ay = j.ay;
+		row.az = j.az;
+		outRows.push_back(row);
+	}
+	return true;
+}
+
 } // namespace RobotSimulationMath

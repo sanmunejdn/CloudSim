@@ -10,6 +10,7 @@
 #include "RobotExternalAxisSettingsWidget.h"
 #include "RobotFrameSettingsWidget.h"
 #include "SimulationCommandWidget.h"
+#include "SimulationTimelinePageWidget.h"
 #include "TrajectoryEditPageWidget.h"
 #include "TrajectoryGenerationPageWidget.h"
 
@@ -76,19 +77,25 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent) : QWidget(
 	modeLayout->setSpacing(6);
 	m_robotModeBtn = new QPushButton(modeBar);
 	m_deviceModeBtn = new QPushButton(modeBar);
+	m_timelineModeBtn = new QPushButton(modeBar);
 	m_robotModeBtn->setCheckable(true);
 	m_deviceModeBtn->setCheckable(true);
+	m_timelineModeBtn->setCheckable(true);
 	m_robotModeBtn->setMinimumHeight(28);
 	m_deviceModeBtn->setMinimumHeight(28);
+	m_timelineModeBtn->setMinimumHeight(28);
 	polishBtnRole(m_robotModeBtn, "primary");
 	polishBtnRole(m_deviceModeBtn, "secondary");
+	polishBtnRole(m_timelineModeBtn, "secondary");
 	m_modeGroup = new QButtonGroup(this);
 	m_modeGroup->setExclusive(true);
 	m_modeGroup->addButton(m_robotModeBtn, static_cast<int>(SimulationDockMode::Robot));
 	m_modeGroup->addButton(m_deviceModeBtn, static_cast<int>(SimulationDockMode::CustomDevice));
+	m_modeGroup->addButton(m_timelineModeBtn, static_cast<int>(SimulationDockMode::Timeline));
 	m_robotModeBtn->setChecked(true);
 	modeLayout->addWidget(m_robotModeBtn, 1);
 	modeLayout->addWidget(m_deviceModeBtn, 1);
+	modeLayout->addWidget(m_timelineModeBtn, 1);
 	root->addWidget(modeBar);
 
 	m_modeStack = new QStackedWidget(this);
@@ -139,8 +146,11 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent) : QWidget(
 	m_deviceTabs->addTab(wrapInScrollArea(m_deviceCommandPage, m_deviceTabs), QStringLiteral("Device instructions"));
 	m_deviceTabs->addTab(m_axisPlaceholder, QStringLiteral("Axis"));
 
+	m_timelinePage = new SimulationTimelinePageWidget(m_modeStack);
+
 	m_modeStack->addWidget(m_robotTabs);
 	m_modeStack->addWidget(m_deviceTabs);
+	m_modeStack->addWidget(m_timelinePage);
 	root->addWidget(m_modeStack, 1);
 
 	connect(m_modeGroup, QOverload<int>::of(&QButtonGroup::buttonClicked), this,
@@ -202,6 +212,10 @@ void RobotSimulationDockWidget::placeAxisTab()
 	{
 		return;
 	}
+	if (m_mode == SimulationDockMode::Timeline)
+	{
+		return;
+	}
 	const QString title = m_useChinese ? QStringLiteral("轴控制") : QStringLiteral("Axis");
 	detachTabPage(m_robotTabs, m_axisTabHost);
 	detachTabPage(m_robotTabs, m_axisPlaceholder);
@@ -222,6 +236,8 @@ void RobotSimulationDockWidget::placeAxisTab()
 void RobotSimulationDockWidget::applyModeUi()
 {
 	const bool robot = m_mode == SimulationDockMode::Robot;
+	const bool device = m_mode == SimulationDockMode::CustomDevice;
+	const bool timeline = m_mode == SimulationDockMode::Timeline;
 	placeAxisTab();
 	if (m_axisPage)
 	{
@@ -229,10 +245,11 @@ void RobotSimulationDockWidget::applyModeUi()
 	}
 	if (m_modeStack)
 	{
-		m_modeStack->setCurrentIndex(robot ? 0 : 1);
+		m_modeStack->setCurrentIndex(timeline ? 2 : (device ? 1 : 0));
 	}
 	polishBtnRole(m_robotModeBtn, robot ? "primary" : "secondary");
-	polishBtnRole(m_deviceModeBtn, robot ? "secondary" : "primary");
+	polishBtnRole(m_deviceModeBtn, device ? "primary" : "secondary");
+	polishBtnRole(m_timelineModeBtn, timeline ? "primary" : "secondary");
 }
 
 void RobotSimulationDockWidget::retranslateUi()
@@ -245,6 +262,14 @@ void RobotSimulationDockWidget::retranslateUi()
 	if (m_deviceModeBtn)
 	{
 		m_deviceModeBtn->setText(t(QStringLiteral("Custom device"), QStringLiteral("自定义设备")));
+	}
+	if (m_timelineModeBtn)
+	{
+		m_timelineModeBtn->setText(t(QStringLiteral("Timeline"), QStringLiteral("时间轴")));
+	}
+	if (m_timelinePage)
+	{
+		m_timelinePage->setUseChinese(m_useChinese);
 	}
 	if (m_robotTabs)
 	{
@@ -263,6 +288,10 @@ void RobotSimulationDockWidget::retranslateUi()
 	if (m_collisionPage)
 	{
 		m_collisionPage->setUseChinese(m_useChinese);
+	}
+	if (m_axisPage)
+	{
+		m_axisPage->setUseChinese(m_useChinese);
 	}
 	if (m_deviceTabs)
 	{

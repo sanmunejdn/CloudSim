@@ -7,6 +7,8 @@
 
 #include "robotwidget_global.h"
 
+#include "CeeRule.h"
+#include "PlcSignalMapTypes.h"
 #include "RobotInstructionModel.h"
 #include "RobotSimulationTypes.h"
 
@@ -27,6 +29,9 @@ class QPushButton;
 class QLabel;
 
 class QCheckBox;
+
+class QListWidget;
+class QLineEdit;
 
 class ExternalControllerDialog;
 
@@ -54,6 +59,14 @@ public:
 
 	void setSimulationRunning(bool running);
 
+	void setRunModeIndex(int index);
+	int runModeIndex() const;
+	void refreshCeeRulesList(const QVector<CeeRule>& rules);
+	void setEventLogicAuthorityIndex(int index);
+	int eventLogicAuthorityIndex() const;
+	void setExternalPlcLinkConfig(const ExternalPlcLinkConfig& config);
+	void setPlcSignalMap(const QVector<PlcSignalMapEntry>& map);
+
 	/// 当前仿真播放倍率（预设下拉）
 	double playbackRate() const;
 
@@ -70,6 +83,9 @@ public:
 	int currentRobotInstanceIndex() const;
 
 	void setCurrentRobotInstanceIndex(int instanceIndex);
+
+	/// 按程序 id 或显示名切换当前程序；找不到返回 false
+	bool selectProgramByIdOrName(const QString& programIdOrName);
 
 	QString currentRobotBackendId() const;
 
@@ -136,6 +152,18 @@ signals:
 
 	void stopRequested();
 
+	/// 0=TimeBased，1=EventBased
+	void runModeChanged(int modeIndex);
+
+	void syncCeeRulesFromBindingsRequested();
+	void ceeRulesEdited(const QVector<CeeRule>& rules);
+	/// 0=LocalCee，1=ExternalPlc
+	void eventLogicAuthorityChanged(int authorityIndex);
+	void externalPlcConnectRequested();
+	void externalPlcDisconnectRequested();
+	void externalPlcLinkEdited(const ExternalPlcLinkConfig& config);
+	void plcSignalMapEdited(const QVector<PlcSignalMapEntry>& map);
+
 	void exportProgramRequested();
 
 	void playbackRateChanged(double rate);
@@ -148,6 +176,9 @@ signals:
 
 	/// 会话级：允许 SoftAccepted 姿态
 	void allowApproximateOrientationChanged(bool enabled);
+
+	/// 勾选后在三维视图绘制 TCP 实际走过的轨迹
+	void tcpMotionTrailToggled(bool enabled);
 
 	void tcpDragTeachModeChanged(bool enabled);
 
@@ -212,6 +243,14 @@ private:
 
 	void onExternalControllerDialogListenToggled(bool enabled);
 
+	void updateCeeRulesUiVisibility();
+	void rebuildCeeRulesListWidget();
+	void onCeeAddRuleClicked();
+	void onCeeRemoveRuleClicked();
+	void emitExternalPlcLinkFromUi();
+	void onPlcMapAddClicked();
+	void onPlcMapRemoveClicked();
+
 	QPushButton* createTypeButton(RobotInstruction::Type type);
 
 	RobotProgramStore* m_programStore = nullptr;
@@ -260,6 +299,25 @@ private:
 
 	QPushButton* m_stopBtn = nullptr;
 
+	QLabel* m_runModeLabel = nullptr;
+	QComboBox* m_runModeCombo = nullptr;
+	QListWidget* m_ceeRulesList = nullptr;
+	QPushButton* m_ceeSyncBindingsBtn = nullptr;
+	QPushButton* m_ceeAddRuleBtn = nullptr;
+	QPushButton* m_ceeRemoveRuleBtn = nullptr;
+	QVector<CeeRule> m_ceeRulesCache;
+	QLabel* m_authorityLabel = nullptr;
+	QComboBox* m_authorityCombo = nullptr;
+	QLineEdit* m_plcGatewayEdit = nullptr;
+	QLineEdit* m_plcPortEdit = nullptr;
+	QLineEdit* m_plcUnitEdit = nullptr;
+	QPushButton* m_plcConnectBtn = nullptr;
+	QPushButton* m_plcDisconnectBtn = nullptr;
+	QListWidget* m_plcMapList = nullptr;
+	QPushButton* m_plcMapAddBtn = nullptr;
+	QPushButton* m_plcMapRemoveBtn = nullptr;
+	QVector<PlcSignalMapEntry> m_plcMapCache;
+
 	QLabel* m_playbackRateLabel = nullptr;
 
 	QComboBox* m_playbackRateCombo = nullptr;
@@ -275,6 +333,8 @@ private:
 	QComboBox* m_ikSeedCombo = nullptr;
 
 	QCheckBox* m_allowApproxOrientCheck = nullptr;
+
+	QCheckBox* m_tcpMotionTrailCheck = nullptr;
 
 	QPushButton* m_exportBtn = nullptr;
 

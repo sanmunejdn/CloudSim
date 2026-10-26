@@ -292,6 +292,8 @@ public:
 	void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames);
 	void setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ);
 	void clearRawTrajectoryOverlayFrames();
+	void setTcpMotionTrailOverlay(const std::vector<cloudsim::core::Vec3>& pointsWorldMm);
+	void clearTcpMotionTrailOverlay();
 	void setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate& update);
 	void clearRobotFrameOverlays(const std::string& robotRootBackendId);
 	void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items);
@@ -807,6 +809,7 @@ private:
 	std::unordered_set<std::string> m_litMeshBackendIds;
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
 	osg::ref_ptr<osg::Geode> m_rawTrajectoryOverlayGeode;
+	osg::ref_ptr<osg::Geode> m_tcpMotionTrailOverlayGeode;
 	osg::ref_ptr<osg::Geode> m_sketchLineOverlayGeode;
 	osg::ref_ptr<osg::Group> m_rawTrajectoryFramesGroup;
 	osg::ref_ptr<osg::Geode> m_reachableWorkspaceOverlayGeode;
