@@ -84,7 +84,12 @@
 |-----|------|
 | `classifyJointConfiguration(q, jointNames, seedQ?)` | 肘/腕/臂/转数观测 |
 | `classifyJointTurnRevolutions(q, ref)` | `round((q-ref)/2π)` |
-| `solveIkWithAxisConfiguration`（Controller 内） | 多初值 IK + 筛选 |
+| `IkSelectionPolicy` / `makePtpIkPolicy` / `makeCartesianPathIkPolicy` | 腕门/class/budget/RankMode/竞速/贴种子/allowCartDegrade |
+| `applyIkPolicyExtensionOverrides` / `adaptIkPolicyForRobot` / `formatIkPolicySummaryTags` | profile 预算、机型收紧竞速、summary 短标记 |
+| `IkFailKind` / `classifyIkFailMessage` | 失败分类（Budget/Topology…） |
+| `Controller::setIkCollisionCostProbe` | IK 候选终点单姿态粗检（≥1e6 硬拒）；全轨迹仍在 plan 后 `validateJointTrajectory` |
+| `shouldSkipShortestAngleFold(seed, target, names)` | 相对种子构型变化则跳过 ±2π 折圈 |
+| `solveIkWithAxisConfiguration`（Controller 内） | 按 policy 多初值 IK + wrap 距离择优 |
 | `motionAxisConfigurationFromJson` / `writeMotionAxisConfigurationToJson` | 含 `turns.j1/j4/j6` |
 | `suggestMotionAxisPresetToken(observed)` | UI 默认 preset |
 | `motionAxisConfigurationRequiresConstraint(cfg)` | 显式约束时禁止无约束回退 |
@@ -484,7 +489,7 @@ DH：`setDhRows` 仅 **无 URDF** legacy；有 URDF 时保持 `clearDhRows`。
 
 ## 12. 多程序与分组（`RobotProgramCatalog`）
 
-每台机器人实例对应一份 `RobotProgramCatalog`（`RobotProgramStore::catalogFor`）。JSON v4 含 `programs[]` 与 `groups[]`；旧工程兼容见 `RobotProgramJsonIo`。
+每台机器人实例对应一份 `RobotProgramCatalog`（`RobotProgramStore::catalogFor`，键为 `sceneBackendId`）。删机须 `removeRobotBackendId`（`setRobotInstances` 也会修剪孤儿），否则同型号再导入会复用 id 复活旧指令。JSON v4 含 `programs[]` 与 `groups[]`；旧工程兼容见 `RobotProgramJsonIo`。
 
 | 类型 | 说明 |
 |------|------|

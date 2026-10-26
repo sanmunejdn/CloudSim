@@ -856,23 +856,25 @@ void DocumentPage::clearRobotSimulationIfContains(const QString& removedBackendI
 	for (int i = 0; i < m_hierarchicalRobots.size(); ++i)
 	{
 		const HierarchicalRobotInstance& ri = m_hierarchicalRobots[i];
-		if (ri.sceneBackendId == removedBackendId)
-		{
-			m_hierarchicalRobots.removeAt(i);
-			rebuildHierarchicalRobotAggregates();
-			return;
-		}
-		if (ri.perLinkBackends)
+		bool hit = (ri.sceneBackendId == removedBackendId);
+		if (!hit && ri.perLinkBackends)
 		{
 			for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
 			{
 				if (it.value() == removedBackendId)
 				{
-					m_hierarchicalRobots.removeAt(i);
-					rebuildHierarchicalRobotAggregates();
-					return;
+					hit = true;
+					break;
 				}
 			}
+		}
+		if (hit)
+		{
+			const QString sceneId = ri.sceneBackendId;
+			m_hierarchicalRobots.removeAt(i);
+			rebuildHierarchicalRobotAggregates();
+			robotProgramStore().removeRobotBackendId(sceneId);
+			return;
 		}
 	}
 

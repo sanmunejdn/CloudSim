@@ -18,7 +18,10 @@
 #include "UrdfNumericalIk.h"
 #include "UrdfRobotLoader.h"
 #include "IkSeedExpand.h"
+#include "KinematicCoreUrdfIk.h"
+#include "SphericalWristAnalyticalIk.h"
 
+#include <QElapsedTimer>
 #include <QHash>
 #include <QString>
 #include <QStringList>
@@ -38,6 +41,9 @@
 namespace
 {
 constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
+
+/// 规划期碰撞软代价（Controller::setIkCollisionCostProbe）
+RobotInstruction::Controller::IkCollisionCostFn g_ikCollisionCostProbe;
 
 /// 规划期间生效的外轴配置（Controller::plan 设置）
 const RobotExternal::RobotExternalAxisConfigSet* g_activeExternalAxes = nullptr;
@@ -1094,9 +1100,13 @@ std::string formatIkResidualText(const double posErrMm, const bool useOrientatio
 
 std::vector<std::vector<double>> buildIkSeedVariants(const std::vector<double>& qSeed,
 													 const std::vector<std::string>& jointNames,
-													 const RobotInstruction::MotionAxisConfiguration* axisCfg)
+													 const RobotInstruction::MotionAxisConfiguration* axisCfg,
+													 const bool sphericalWrist = true,
+													 const int elbowJointIndexOverride = -1,
+													 const int wristJointIndexOverride = -1)
 {
-	std::vector<std::vector<double>> seeds = UrdfRobotLoader::expandPoseIkSeeds(qSeed);
+	std::vector<std::vector<double>> seeds = UrdfRobotLoader::expandPoseIkSeeds(
+		qSeed, jointNames, nullptr, sphericalWrist, elbowJointIndexOverride, wristJointIndexOverride);
 	auto pushUnique = [&](std::vector<double> q)
 	{
 		for (const auto& existing : seeds)
@@ -1108,8 +1118,17 @@ std::vector<std::vector<double>> buildIkSeedVariants(const std::vector<double>& 
 		}
 		seeds.push_back(std::move(q));
 	};
-	const int elbowIdx = jointIndexByNameHint(jointNames, "elbow", 2);
-	const int wristIdx = jointIndexByNameHint(jointNames, "wrist", 4);
+	const int n = static_cast<int>(qSeed.size());
+	int elbowIdx = elbowJointIndexOverride;
+	if (elbowIdx < 0 || elbowIdx >= n)
+	{
+		elbowIdx = jointIndexByNameHint(jointNames, "elbow", 2);
+	}
+	int wristIdx = wristJointIndexOverride;
+	if (wristIdx < 0 || wristIdx >= n)
+	{
+		wristIdx = jointIndexByNameHint(jointNames, "wrist", 4);
+	}
 	const int j1Idx = jointIndexByNameHint(jointNames, nullptr, 0);
 	if (axisCfg && RobotInstruction::motionAxisConfigurationRequiresConstraint(*axisCfg))
 	{
@@ -1136,7 +1155,8 @@ std::vector<std::vector<double>> buildIkSeedVariants(const std::vector<double>& 
 				pushUnique(std::move(q));
 			}
 		}
-		if (wristIdx >= 0)
+		// 腕+π / 解析向扰动仅球形腕有意义
+		if (sphericalWrist && wristIdx >= 0)
 		{
 			if (want.wrist == RobotInstruction::WristPosture::Flip)
 			{
@@ -1170,8 +1190,10 @@ std::vector<std::vector<double>> buildIkSeedVariants(const std::vector<double>& 
 	return seeds;
 }
 
-std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction::Base& cmd, std::vector<double> q,
-														 std::string* failReason, const bool expandSeedVariants = true)
+std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
+	const RobotInstruction::Base& cmd, std::vector<double> q, std::string* failReason,
+	const bool expandSeedVariants = true, const bool preferNumericalOnly = false,
+	const bool raceAnalyticalAndNumerical = false, const double seedAttractionWeight = 0.0)
 {
 	if (!cmd.hasPoseProperty())
 	{
@@ -1259,6 +1281,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		return {};
 	}
 	const QString urdfPath = QString::fromStdString(itUrdf->second);
+	const std::vector<double> seedAttractionQ = q;
 	foldJointsIntoUrdfLimits(urdfPath, q);
 	const QString ikLink = QString::fromStdString(ikLinkName);
 	IkLinkTarget linkTarget{};
@@ -1709,6 +1732,10 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	UrdfRobotLoader::UrdfIkSolverOptions opt{};
 	opt.maxIterations = 120;
 	opt.maxPosThenOriAttempts = 18;
+	opt.preferNumericalOnly = preferNumericalOnly;
+	opt.raceAnalyticalAndNumerical = raceAnalyticalAndNumerical && !preferNumericalOnly;
+	opt.seedAttractionWeight = seedAttractionWeight;
+	opt.seedAttractionQ = seedAttractionQ;
 	{
 		const auto& extOpt = cmd.extensionProperties();
 		const auto itApprox = extOpt.find("context.allowApproximateOrientation");
@@ -1729,7 +1756,22 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	std::vector<std::vector<double>> seeds;
 	if (expandSeedVariants)
 	{
-		seeds = buildIkSeedVariants(q, jointNames, &axisCfg);
+		const auto& extSeeds = cmd.extensionProperties();
+		std::string urdfForSeeds;
+		{
+			const auto itU = extSeeds.find("context.urdfPath");
+			if (itU != extSeeds.end())
+			{
+				urdfForSeeds = itU->second;
+			}
+		}
+		int elbowOv = -1;
+		int wristOv = -1;
+		RobotInstruction::parseIkJointIndexOverrides(extSeeds, elbowOv, wristOv);
+		const bool spherical =
+			!urdfForSeeds.empty() &&
+			UrdfRobotLoader::SphericalWristAnalyticalIk::isEligible(QString::fromStdString(urdfForSeeds));
+		seeds = buildIkSeedVariants(q, jointNames, &axisCfg, spherical, elbowOv, wristOv);
 	}
 	else
 	{
@@ -1859,12 +1901,117 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 	return solveTargetByUrdfNumericalIkFromSeed(cmd, std::move(q0), failReason);
 }
 
-/// requireWristContinuityWithSeed：LINE/ARC 硬门；PTP 仅软偏好以便切轴配置
+/// Yoshikawa：sqrt(det(J J^T))，J 为 6×n 行主序
+double yoshikawaManipulability(const std::vector<double>& Jrow, const int rows, const int cols)
+{
+	if (rows <= 0 || cols <= 0 || static_cast<int>(Jrow.size()) < rows * cols)
+	{
+		return 0.0;
+	}
+	std::vector<double> JJT(static_cast<size_t>(rows * rows), 0.0);
+	for (int r = 0; r < rows; ++r)
+	{
+		for (int c = 0; c < rows; ++c)
+		{
+			double s = 0.0;
+			for (int k = 0; k < cols; ++k)
+			{
+				s += Jrow[static_cast<size_t>(r * cols + k)] * Jrow[static_cast<size_t>(c * cols + k)];
+			}
+			JJT[static_cast<size_t>(r * rows + c)] = s;
+		}
+	}
+	// 高斯消元求 det（小维 6）
+	std::vector<double> a = JJT;
+	double det = 1.0;
+	for (int i = 0; i < rows; ++i)
+	{
+		int piv = i;
+		for (int r = i + 1; r < rows; ++r)
+		{
+			if (std::abs(a[static_cast<size_t>(r * rows + i)]) > std::abs(a[static_cast<size_t>(piv * rows + i)]))
+			{
+				piv = r;
+			}
+		}
+		if (std::abs(a[static_cast<size_t>(piv * rows + i)]) < 1e-18)
+		{
+			return 0.0;
+		}
+		if (piv != i)
+		{
+			for (int c = 0; c < rows; ++c)
+			{
+				std::swap(a[static_cast<size_t>(i * rows + c)], a[static_cast<size_t>(piv * rows + c)]);
+			}
+			det = -det;
+		}
+		const double diag = a[static_cast<size_t>(i * rows + i)];
+		det *= diag;
+		for (int r = i + 1; r < rows; ++r)
+		{
+			const double f = a[static_cast<size_t>(r * rows + i)] / diag;
+			for (int c = i; c < rows; ++c)
+			{
+				a[static_cast<size_t>(r * rows + c)] -= f * a[static_cast<size_t>(i * rows + c)];
+			}
+		}
+	}
+	if (det <= 0.0)
+	{
+		return 0.0;
+	}
+	return std::sqrt(det);
+}
+
+double estimateManipulabilityForCmd(const RobotInstruction::Base& cmd, const std::vector<double>& qRad)
+{
+	const auto& ext = cmd.extensionProperties();
+	const auto itUrdf = ext.find("context.urdfPath");
+	const auto itTcp = ext.find("context.tcpLinkName");
+	const auto itFlange = ext.find("context.flangeLinkName");
+	if (itUrdf == ext.end() || itUrdf->second.empty() || qRad.empty())
+	{
+		return 0.0;
+	}
+	std::string link = (itFlange != ext.end() && !itFlange->second.empty())
+						   ? itFlange->second
+						   : ((itTcp != ext.end()) ? itTcp->second : std::string());
+	if (link.empty())
+	{
+		return 0.0;
+	}
+	QVector<double> qQt;
+	qQt.reserve(static_cast<int>(qRad.size()));
+	for (double v : qRad)
+	{
+		qQt.push_back(v);
+	}
+	double pos[3] = {0, 0, 0};
+	double quat[4] = {0, 0, 0, 1};
+	std::vector<double> J;
+	if (!UrdfRobotLoader::computeLinkPoseAndJacobianViaCore(QString::fromStdString(itUrdf->second), qQt,
+															QString::fromStdString(link), pos, quat, J, true, 1.0,
+															nullptr))
+	{
+		return 0.0;
+	}
+	const int cols = static_cast<int>(qRad.size());
+	const int rows = cols > 0 ? static_cast<int>(J.size()) / cols : 0;
+	if (rows < 6)
+	{
+		return 0.0;
+	}
+	return yoshikawaManipulability(J, 6, cols);
+}
+
+/// 轴配置多解择优；classRefQ 缺省用 qSeed（路径样点可传起点作转数参照）
 std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& cmd,
 												 const RobotInstruction::MotionAxisConfiguration& cfg,
-												 std::string* failReason, const bool requireWristContinuityWithSeed)
+												 const std::vector<double>& qSeed, std::string* failReason,
+												 const RobotInstruction::IkSelectionPolicy& policy,
+												 const std::vector<double>* classRefQ = nullptr)
 {
-	std::vector<double> qSeed = currentJointVectorFromInstruction(cmd);
 	if (qSeed.empty())
 	{
 		if (failReason)
@@ -1874,50 +2021,147 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 		return {};
 	}
 	const std::vector<std::string> jointNames = revoluteJointNamesFromInstructionContext(cmd);
-	const std::vector<std::vector<double>> seeds = buildIkSeedVariants(qSeed, jointNames, &cfg);
+	const std::vector<double>& classRef = (classRefQ && classRefQ->size() == qSeed.size()) ? *classRefQ : qSeed;
+	const auto& ext = cmd.extensionProperties();
+	std::string urdfPath;
+	{
+		const auto itUrdf = ext.find("context.urdfPath");
+		if (itUrdf != ext.end())
+		{
+			urdfPath = itUrdf->second;
+		}
+	}
+	int elbowOverride = -1;
+	int wristOverride = -1;
+	RobotInstruction::parseIkJointIndexOverrides(ext, elbowOverride, wristOverride);
+	const bool sphericalWrist =
+		!urdfPath.empty() &&
+		UrdfRobotLoader::SphericalWristAnalyticalIk::isEligible(QString::fromStdString(urdfPath));
+
+	RobotInstruction::IkSelectionPolicy effectivePolicy = policy;
+	RobotInstruction::applyIkPolicyExtensionOverrides(ext, effectivePolicy);
+	RobotInstruction::adaptIkPolicyForRobot(urdfPath, effectivePolicy, &ext);
+
+	std::vector<std::vector<double>> seeds;
+	if (effectivePolicy.mode == RobotInstruction::IkSolveMode::Search)
+	{
+		seeds = buildIkSeedVariants(qSeed, jointNames, &cfg, sphericalWrist, elbowOverride, wristOverride);
+		// 截断前按距种子近→远排序，保留更有希望的支
+		std::sort(seeds.begin(), seeds.end(),
+				  [&](const std::vector<double>& a, const std::vector<double>& b)
+				  {
+					  return UrdfRobotLoader::wrappedJointDistance(a, qSeed) <
+							 UrdfRobotLoader::wrappedJointDistance(b, qSeed);
+				  });
+	}
+	else
+	{
+		seeds.push_back(qSeed);
+	}
+	if (effectivePolicy.maxSeeds > 0 && static_cast<int>(seeds.size()) > effectivePolicy.maxSeeds)
+	{
+		seeds.resize(static_cast<size_t>(effectivePolicy.maxSeeds));
+	}
 
 	struct Candidate
 	{
 		std::vector<double> q;
 		double dist = 0.0;
 		double wristJump = 0.0;
+		double manip = 0.0;
+		double collisionCost = 0.0;
+		int seedOrder = 0;
 	};
 	std::vector<Candidate> matching;
 	std::vector<Candidate> converged;
 	std::string lastSeedFail;
-	for (const std::vector<double>& seed : seeds)
+	QElapsedTimer budget;
+	budget.start();
+	const bool useBudget = effectivePolicy.budgetMs > 0;
+	bool budgetExhausted = false;
+	int seedOrder = 0;
+	bool usedNumRace = false;
+
+	auto trySeedPass = [&](const bool numericalOnly)
 	{
-		std::string seedFail;
-		std::vector<double> qTry = solveTargetByUrdfNumericalIkFromSeed(cmd, seed, &seedFail, false);
-		if (qTry.empty())
+		for (const std::vector<double>& seed : seeds)
 		{
-			if (!seedFail.empty())
+			if (useBudget && budget.elapsed() >= effectivePolicy.budgetMs)
 			{
-				lastSeedFail = std::move(seedFail);
+				budgetExhausted = true;
+				break;
 			}
-			continue;
+			std::string seedFail;
+			const bool raceBoth = effectivePolicy.raceAnalyticalAndNumerical && !numericalOnly;
+			std::vector<double> qTry = solveTargetByUrdfNumericalIkFromSeed(
+				cmd, seed, &seedFail, false, numericalOnly, raceBoth, effectivePolicy.seedAttractionWeight);
+			++seedOrder;
+			if (qTry.empty())
+			{
+				if (!seedFail.empty())
+				{
+					lastSeedFail = std::move(seedFail);
+				}
+				continue;
+			}
+			Candidate c;
+			c.dist = UrdfRobotLoader::wrappedJointDistance(qTry, qSeed);
+			c.wristJump = RobotInstruction::wristConfigurationJumpRad(qTry, qSeed, jointNames);
+			c.collisionCost = g_ikCollisionCostProbe ? g_ikCollisionCostProbe(qTry) : 0.0;
+			if (c.collisionCost >= 1e6)
+			{
+				continue;
+			}
+			c.manip = (effectivePolicy.rankMode == RobotInstruction::IkRankMode::Manip)
+						  ? estimateManipulabilityForCmd(cmd, qTry)
+						  : 0.0;
+			c.seedOrder = seedOrder;
+			c.q = std::move(qTry);
+			converged.push_back(std::move(c));
+			if (effectivePolicy.rankMode == RobotInstruction::IkRankMode::Speed &&
+				!effectivePolicy.requireWristContinuity && !effectivePolicy.requireMatchesClass)
+			{
+				break;
+			}
 		}
-		Candidate c;
-		c.dist = jointVectorDistance(qTry, qSeed);
-		c.wristJump = RobotInstruction::wristConfigurationJumpRad(qTry, qSeed, jointNames);
-		c.q = std::move(qTry);
-		converged.push_back(std::move(c));
-	}
-	for (Candidate& c : converged)
+	};
+
+	trySeedPass(false);
+	if (converged.empty() && effectivePolicy.raceNumericalFallback &&
+		!(useBudget && budget.elapsed() >= effectivePolicy.budgetMs))
 	{
-		const RobotInstruction::JointConfigurationClass observed =
-			RobotInstruction::classifyJointConfiguration(c.q, jointNames, &qSeed);
-		if (cfg.matchesClass(observed))
+		usedNumRace = true;
+		trySeedPass(true);
+	}
+	else if (converged.empty() && useBudget && budget.elapsed() >= effectivePolicy.budgetMs)
+	{
+		budgetExhausted = true;
+	}
+	(void)usedNumRace;
+
+	if (effectivePolicy.requireMatchesClass)
+	{
+		for (const Candidate& c : converged)
 		{
-			matching.push_back(std::move(c));
+			const RobotInstruction::JointConfigurationClass observed =
+				RobotInstruction::classifyJointConfiguration(c.q, jointNames, &classRef, elbowOverride, wristOverride);
+			if (cfg.matchesClass(observed))
+			{
+				matching.push_back(c);
+			}
 		}
 	}
-	const std::vector<Candidate>& poolBase = cfg.isFullyAuto() ? converged : matching;
+	const std::vector<Candidate>& poolBase = effectivePolicy.requireMatchesClass ? matching : converged;
 	if (poolBase.empty())
 	{
 		if (failReason)
 		{
-			if (!cfg.isFullyAuto() && !converged.empty())
+			if (budgetExhausted && converged.empty())
+			{
+				// 超时优先标 Budget，避免拓扑文案冒充主因
+				*failReason = "IK预算耗尽";
+			}
+			else if (effectivePolicy.requireMatchesClass && !converged.empty())
 			{
 				*failReason = "无满足轴配置的IK解（已收敛但肘/腕/臂/转数不匹配）";
 			}
@@ -1929,13 +2173,14 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 			{
 				*failReason = "IK未收敛";
 			}
+			const RobotInstruction::IkFailKind kind = RobotInstruction::classifyIkFailMessage(*failReason);
+			*failReason += RobotInstruction::formatIkFailKindTag(kind);
 		}
 		return {};
 	}
 	std::vector<Candidate> continuousOnly;
 	const std::vector<Candidate>* pool = &poolBase;
-	// LINE/ARC：显式约束时腕连续硬失败，禁止静默吃翻腕解；PTP 跳过硬门，仅靠下方排序偏好
-	if (requireWristContinuityWithSeed && !cfg.isFullyAuto())
+	if (effectivePolicy.requireWristContinuity)
 	{
 		for (const Candidate& c : poolBase)
 		{
@@ -1954,13 +2199,59 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 		}
 		pool = &continuousOnly;
 	}
-	const auto isCandidateBetter = [](const Candidate& c, const Candidate& best)
+	// Distance 平局才补算 Manip，避免每候选雅可比
+	if (effectivePolicy.rankMode == RobotInstruction::IkRankMode::Distance &&
+		effectivePolicy.manipOnDistanceTie && pool->size() >= 2)
 	{
+		std::vector<Candidate>& mutablePool =
+			effectivePolicy.requireWristContinuity
+				? continuousOnly
+				: (effectivePolicy.requireMatchesClass ? matching : converged);
+		double bestDist = 1e30;
+		for (const Candidate& c : mutablePool)
+		{
+			bestDist = std::min(bestDist, c.dist);
+		}
+		for (Candidate& c : mutablePool)
+		{
+			if (c.dist <= bestDist + 1e-3 && c.manip <= 0.0)
+			{
+				c.manip = estimateManipulabilityForCmd(cmd, c.q);
+			}
+		}
+		pool = &mutablePool;
+	}
+	const RobotInstruction::IkRankMode rankMode = effectivePolicy.rankMode;
+	const auto isCandidateBetter = [rankMode](const Candidate& c, const Candidate& best)
+	{
+		if (c.collisionCost + 1e-9 < best.collisionCost)
+		{
+			return true;
+		}
+		if (c.collisionCost > best.collisionCost + 1e-9)
+		{
+			return false;
+		}
 		const bool cCont = c.wristJump <= RobotInstruction::kWristContinuityGateRad;
 		const bool bCont = best.wristJump <= RobotInstruction::kWristContinuityGateRad;
 		if (cCont != bCont)
 		{
 			return cCont;
+		}
+		if (rankMode == RobotInstruction::IkRankMode::Speed)
+		{
+			return c.seedOrder < best.seedOrder;
+		}
+		if (rankMode == RobotInstruction::IkRankMode::Manip)
+		{
+			if (c.manip > best.manip + 1e-12)
+			{
+				return true;
+			}
+			if (c.manip < best.manip - 1e-12)
+			{
+				return false;
+			}
 		}
 		if (c.wristJump < best.wristJump - 1e-9)
 		{
@@ -1975,6 +2266,14 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 			return true;
 		}
 		if (c.dist > best.dist + 1e-9)
+		{
+			return false;
+		}
+		if (c.manip > best.manip + 1e-12)
+		{
+			return true;
+		}
+		if (c.manip < best.manip - 1e-12)
 		{
 			return false;
 		}
@@ -2003,22 +2302,166 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 	return best->q;
 }
 
+std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& cmd,
+												 const RobotInstruction::MotionAxisConfiguration& cfg,
+												 std::string* failReason,
+												 const RobotInstruction::IkSelectionPolicy& policy)
+{
+	return solveIkWithAxisConfiguration(cmd, cfg, currentJointVectorFromInstruction(cmd), failReason, policy, nullptr);
+}
+
 std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& cmd, std::string* failReason,
-												 const bool requireWristContinuityWithSeed)
+												 const RobotInstruction::IkSelectionPolicy& policy)
 {
 	RobotInstruction::MotionAxisConfiguration cfg;
 	if (cmd.hasMotionAxisConfigurationProperty())
 	{
 		cfg = cmd.motionAxisConfiguration();
 	}
-	return solveIkWithAxisConfiguration(cmd, cfg, failReason, requireWristContinuityWithSeed);
+	return solveIkWithAxisConfiguration(cmd, cfg, failReason, policy);
 }
 
 bool canSolveIkWithAxisConfiguration(const RobotInstruction::Base& cmd,
 									 const RobotInstruction::MotionAxisConfiguration& cfg)
 {
-	// 可行性查询按更严的路径连续门，避免 LINE 误判可解
-	return !solveIkWithAxisConfiguration(cmd, cfg, nullptr, true).empty();
+	// 可行性按笛卡尔路径策略，避免 LINE 误判可解
+	return !solveIkWithAxisConfiguration(cmd, cfg, nullptr, RobotInstruction::makeCartesianPathIkPolicy(cfg)).empty();
+}
+
+/// LINE/ARC 样点：NearSeed→必要时 Search；腕相对上一点与路径起点双门
+std::vector<double> solveCartesianPathSampleIk(const RobotInstruction::Base& cmd,
+											   const RobotInstruction::MotionAxisConfiguration& cfg,
+											   const std::vector<double>& pathStartQ,
+											   const std::vector<double>& rollingSeedQ, std::string* failReason)
+{
+	RobotInstruction::IkSelectionPolicy nearPol = RobotInstruction::makeCartesianPathIkPolicy(cfg);
+	nearPol.mode = RobotInstruction::IkSolveMode::NearSeed;
+	nearPol.maxSeeds = 1;
+	nearPol.budgetMs = 40;
+	nearPol.raceNumericalFallback = true;
+	std::string err;
+	std::vector<double> q =
+		solveIkWithAxisConfiguration(cmd, cfg, rollingSeedQ, &err, nearPol, &pathStartQ);
+	const std::vector<std::string> jointNames = revoluteJointNamesFromInstructionContext(cmd);
+	auto acceptSample = [&](const std::vector<double>& cand) -> bool
+	{
+		if (cand.empty() || cand.size() != pathStartQ.size())
+		{
+			return false;
+		}
+		const double jumpPrev =
+			RobotInstruction::wristConfigurationJumpRad(cand, rollingSeedQ, jointNames);
+		const double jumpStart = RobotInstruction::wristConfigurationJumpRad(cand, pathStartQ, jointNames);
+		if (jumpPrev > RobotInstruction::kWristContinuityGateRad ||
+			jumpStart > RobotInstruction::kWristContinuityGateRad)
+		{
+			return false;
+		}
+		if (nearPol.requireMatchesClass)
+		{
+			const RobotInstruction::JointConfigurationClass observed =
+				RobotInstruction::classifyJointConfiguration(cand, jointNames, &pathStartQ);
+			if (!cfg.matchesClass(observed))
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+	if (acceptSample(q))
+	{
+		return q;
+	}
+	RobotInstruction::IkSelectionPolicy searchPol = RobotInstruction::makeCartesianPathIkPolicy(cfg);
+	searchPol.mode = RobotInstruction::IkSolveMode::Search;
+	searchPol.maxSeeds = 16;
+	searchPol.budgetMs = 60;
+	std::string err2;
+	q = solveIkWithAxisConfiguration(cmd, cfg, rollingSeedQ, &err2, searchPol, &pathStartQ);
+	if (acceptSample(q))
+	{
+		return q;
+	}
+	if (failReason)
+	{
+		if (nearPol.requireMatchesClass && !q.empty())
+		{
+			const RobotInstruction::JointConfigurationClass observed =
+				RobotInstruction::classifyJointConfiguration(q, jointNames, &pathStartQ);
+			if (!cfg.matchesClass(observed))
+			{
+				*failReason = "路径样点轴配置不匹配";
+				return {};
+			}
+		}
+		*failReason = err2.empty() ? (err.empty() ? std::string("路径样点腕连续失败") : err) : err2;
+		if (failReason->find("腕") == std::string::npos && failReason->find("轴配置") == std::string::npos)
+		{
+			*failReason = "路径样点腕连续失败（相对上一点或起点超过门限）";
+		}
+	}
+	return {};
+}
+
+void applyConditionalShortestAngleFold(const std::vector<double>& q0, std::vector<double>& qTarget,
+									   const std::vector<std::string>& jointNames, bool* outAxisSwitched)
+{
+	bool axisSwitched = false;
+	if (!jointNames.empty() && jointNames.size() == q0.size() && jointNames.size() == qTarget.size())
+	{
+		axisSwitched = RobotInstruction::shouldSkipShortestAngleFold(q0, qTarget, jointNames);
+	}
+	if (!axisSwitched)
+	{
+		constexpr double kTwoPi = 6.283185307179586;
+		for (size_t i = 0; i < qTarget.size(); ++i)
+		{
+			double d = qTarget[i] - q0[i];
+			d -= kTwoPi * std::round(d / kTwoPi);
+			qTarget[i] = q0[i] + d;
+		}
+	}
+	if (outAxisSwitched)
+	{
+		*outAxisSwitched = axisSwitched;
+	}
+}
+
+bool cartesianPathEndAccepted(const std::vector<double>& qEnd, const std::vector<double>& pathStartQ,
+							  const RobotInstruction::MotionAxisConfiguration& cfg,
+							  const std::vector<std::string>& jointNames, std::string* failReason)
+{
+	if (qEnd.empty() || qEnd.size() != pathStartQ.size())
+	{
+		if (failReason)
+		{
+			*failReason = "路径终点关节维数无效";
+		}
+		return false;
+	}
+	const double jumpStart = RobotInstruction::wristConfigurationJumpRad(qEnd, pathStartQ, jointNames);
+	if (jumpStart > RobotInstruction::kWristContinuityGateRad)
+	{
+		if (failReason)
+		{
+			*failReason = "路径终点腕连续失败（相对起点超过门限）";
+		}
+		return false;
+	}
+	if (RobotInstruction::motionAxisConfigurationRequiresConstraint(cfg))
+	{
+		const RobotInstruction::JointConfigurationClass observed =
+			RobotInstruction::classifyJointConfiguration(qEnd, jointNames, &pathStartQ);
+		if (!cfg.matchesClass(observed))
+		{
+			if (failReason)
+			{
+				*failReason = "路径终点轴配置不匹配";
+			}
+			return false;
+		}
+	}
+	return true;
 }
 
 struct IkPostureClassEntry
@@ -2026,19 +2469,12 @@ struct IkPostureClassEntry
 	RobotInstruction::JointConfigurationClass cls;
 };
 
-bool postureClassEquivalent(const RobotInstruction::JointConfigurationClass& a,
-							const RobotInstruction::JointConfigurationClass& b)
-{
-	return a.elbow == b.elbow && a.wrist == b.wrist && a.arm == b.arm && a.turnJ1 == b.turnJ1 && a.turnJ4 == b.turnJ4 &&
-		   a.turnJ6 == b.turnJ6;
-}
-
 void appendUniquePostureClass(std::vector<IkPostureClassEntry>& out,
 							  const RobotInstruction::JointConfigurationClass& cls)
 {
 	for (const IkPostureClassEntry& e : out)
 	{
-		if (postureClassEquivalent(e.cls, cls))
+		if (RobotInstruction::sameJointConfigurationClass(e.cls, cls))
 		{
 			return;
 		}
@@ -2143,23 +2579,12 @@ public:
 		}
 		if (preferUrdfIk)
 		{
-			// 仅显式轴约束走 axis_cfg；AUTO 用普通 URDF IK（expandSeedVariants）
-			if (constrainAxis)
+			// AUTO 与显式约束统一走 PTP policy（腕软 + Search 预算）
+			targetQ = solveIkWithAxisConfiguration(cmd, axisCfg, &ikFailReason,
+												   RobotInstruction::makePtpIkPolicy(axisCfg));
+			if (!targetQ.empty())
 			{
-				// PTP 允许跨轴配置：腕连续仅软偏好
-				targetQ = solveIkWithAxisConfiguration(cmd, &ikFailReason, false);
-				if (!targetQ.empty())
-				{
-					solvePath = "urdf_axis_cfg";
-				}
-			}
-			else
-			{
-				targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
-				if (!targetQ.empty())
-				{
-					solvePath = "urdf";
-				}
+				solvePath = constrainAxis ? "urdf_axis_cfg" : "urdf";
 			}
 		}
 		// 有 URDF/TCP 时禁止 DH/legacy 冒充位姿解；仅无 URDF 且无姿态时允许 DH 位置回退
@@ -2205,29 +2630,9 @@ public:
 			}
 			return false;
 		}
-		// 切轴配置时保留 IK 转数；同配置类仍折最短角避免无意义绕圈
+		// 相对种子切支保留转数；同支最短折圈
 		bool axisSwitched = false;
-		{
-			const std::vector<std::string> jointNames = revoluteJointNamesFromInstructionContext(cmd);
-			if (!jointNames.empty() && jointNames.size() == q0.size() && jointNames.size() == targetQ.size())
-			{
-				const RobotInstruction::JointConfigurationClass seedCls =
-					RobotInstruction::classifyJointConfiguration(q0, jointNames, nullptr);
-				const RobotInstruction::JointConfigurationClass tgtCls =
-					RobotInstruction::classifyJointConfiguration(targetQ, jointNames, nullptr);
-				axisSwitched = RobotInstruction::ptpShouldSkipShortestAngleFold(seedCls, tgtCls);
-			}
-			if (!axisSwitched)
-			{
-				constexpr double kTwoPi = 6.283185307179586;
-				for (size_t i = 0; i < targetQ.size(); ++i)
-				{
-					double d = targetQ[i] - q0[i];
-					d -= kTwoPi * std::round(d / kTwoPi);
-					targetQ[i] = q0[i] + d;
-				}
-			}
-		}
+		applyConditionalShortestAngleFold(q0, targetQ, revoluteJointNamesFromInstructionContext(cmd), &axisSwitched);
 		double maxJointDelta = 0.0;
 		for (size_t i = 0; i < targetQ.size(); ++i)
 		{
@@ -2240,36 +2645,52 @@ public:
 
 		out.ok = true;
 		out.plannerName = "PtpPlanner";
-		out.summary = "PTP solved with joint target output.";
-		if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
 		{
-			out.summary += " [ikPath=" + solvePath + "]";
-		}
-		if (axisSwitched)
-		{
-			out.summary += " [axisSwitch]";
-		}
-		out.durationSec = durationSec;
-		out.jointTargetsRad = targetQ;
-		out.jointTrajectoryRad = {targetQ};
-		{
-			const RobotInstruction::RuckigPtpLimits lim =
-				RobotInstruction::ruckigLimitsFromPtpDegScalars(q0.size(), cmd.speed(), cmd.accel());
-			std::vector<std::vector<double>> ruckigTraj;
-			double ruckigDur = 0.0;
-			if (RobotInstruction::buildRuckigPtpJointTrajectory(q0, targetQ, lim, 0.02, ruckigTraj, ruckigDur) &&
-				ruckigTraj.size() >= 2U)
+			RobotInstruction::IkSelectionPolicy ptpPol = RobotInstruction::makePtpIkPolicy(axisCfg);
+			const auto& ptpExt = cmd.extensionProperties();
+			RobotInstruction::applyIkPolicyExtensionOverrides(ptpExt, ptpPol);
+			std::string urdfForPol;
 			{
-				out.durationSec = std::max(0.05, ruckigDur);
-				out.jointTrajectoryRad = std::move(ruckigTraj);
-				out.summary = "PTP solved with Ruckig joint trajectory.";
-				if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
+				const auto itU = ptpExt.find("context.urdfPath");
+				if (itU != ptpExt.end())
 				{
-					out.summary += " [ikPath=" + solvePath + "]";
+					urdfForPol = itU->second;
 				}
-				if (axisSwitched)
+			}
+			RobotInstruction::adaptIkPolicyForRobot(urdfForPol, ptpPol, &ptpExt);
+			out.summary = "PTP solved with joint target output.";
+			out.summary += RobotInstruction::formatIkPolicySummaryTags(ptpPol, false, false, false);
+			if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
+			{
+				out.summary += " [ikPath=" + solvePath + "]";
+			}
+			if (axisSwitched)
+			{
+				out.summary += " [axisSwitch]";
+			}
+			out.durationSec = durationSec;
+			out.jointTargetsRad = targetQ;
+			out.jointTrajectoryRad = {targetQ};
+			{
+				const RobotInstruction::RuckigPtpLimits lim =
+					RobotInstruction::ruckigLimitsFromPtpDegScalars(q0.size(), cmd.speed(), cmd.accel());
+				std::vector<std::vector<double>> ruckigTraj;
+				double ruckigDur = 0.0;
+				if (RobotInstruction::buildRuckigPtpJointTrajectory(q0, targetQ, lim, 0.02, ruckigTraj, ruckigDur) &&
+					ruckigTraj.size() >= 2U)
 				{
-					out.summary += " [axisSwitch]";
+					out.durationSec = std::max(0.05, ruckigDur);
+					out.jointTrajectoryRad = std::move(ruckigTraj);
+					out.summary = "PTP solved with Ruckig joint trajectory.";
+					out.summary += RobotInstruction::formatIkPolicySummaryTags(ptpPol, false, false, false);
+					if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
+					{
+						out.summary += " [ikPath=" + solvePath + "]";
+					}
+					if (axisSwitched)
+					{
+						out.summary += " [axisSwitch]";
+					}
 				}
 			}
 		}
@@ -2358,21 +2779,12 @@ public:
 		}
 		if (preferUrdfIk)
 		{
-			if (constrainAxis)
+			// AUTO 亦走路径策略（腕硬门）；显式约束另加 matchesClass
+			qTarget = solveIkWithAxisConfiguration(cmd, axisCfg, &ikFailReason,
+												   RobotInstruction::makeCartesianPathIkPolicy(axisCfg));
+			if (!qTarget.empty())
 			{
-				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason, true);
-				if (!qTarget.empty())
-				{
-					solvePath = "urdf_axis_cfg";
-				}
-			}
-			else
-			{
-				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
-				if (!qTarget.empty())
-				{
-					solvePath = "urdf";
-				}
+				solvePath = constrainAxis ? "urdf_axis_cfg" : "urdf";
 			}
 		}
 		if (qTarget.empty() && !preferUrdfIk && m_dhRows && !m_dhRows->empty() && !constrainAxis &&
@@ -2416,16 +2828,7 @@ public:
 			}
 			return false;
 		}
-		// IK 多解分支稳定：折圈到种子最近圈，避免 LINE 链路整体跨支（同 PTP）
-		{
-			constexpr double kTwoPi = 6.283185307179586;
-			for (size_t i = 0; i < qTarget.size(); ++i)
-			{
-				double d = qTarget[i] - q0[i];
-				d -= kTwoPi * std::round(d / kTwoPi);
-				qTarget[i] = q0[i] + d;
-			}
-		}
+		applyConditionalShortestAngleFold(q0, qTarget, revoluteJointNamesFromInstructionContext(cmd), nullptr);
 
 		double durationSec = 0.0;
 		double cartDistMm = 0.0;
@@ -2453,6 +2856,20 @@ public:
 
 		out.jointTrajectoryRad.clear();
 		bool usedCartesianSamples = false;
+		bool cartDegraded = false;
+		bool denseRetry = false;
+		RobotInstruction::IkSelectionPolicy pathPol = RobotInstruction::makeCartesianPathIkPolicy(axisCfg);
+		const auto& pathExt = cmd.extensionProperties();
+		RobotInstruction::applyIkPolicyExtensionOverrides(pathExt, pathPol);
+		{
+			std::string urdfForPol;
+			const auto itU = pathExt.find("context.urdfPath");
+			if (itU != pathExt.end())
+			{
+				urdfForPol = itU->second;
+			}
+			RobotInstruction::adaptIkPolicyForRobot(urdfForPol, pathPol, &pathExt);
+		}
 		engine::RigidTransform T_end{};
 		engine::RigidTransform T_start{};
 		const bool canCartesian = preferUrdfIk && haveCartStart &&
@@ -2460,7 +2877,6 @@ public:
 								  toolOriginTransformFromJoints(cmd, q0, T_start);
 		if (canCartesian)
 		{
-			// 按路径长度自适应采样，短段少点、长段多点
 			const int maxSamples = [&]()
 			{
 				const auto& ext = cmd.extensionProperties();
@@ -2471,9 +2887,8 @@ public:
 				}
 				return 64;
 			}();
-			const int samples =
+			const int baseSamples =
 				std::max(8, std::min(maxSamples, static_cast<int>(std::ceil(std::max(cartDistMm, 1.0) / 8.0))));
-			out.jointTrajectoryRad.reserve(static_cast<size_t>(samples));
 			RobotInstruction::Base& mutableCmd = const_cast<RobotInstruction::Base&>(cmd);
 			engine::RigidTransform T_backup{};
 			const bool hadBackup = RobotInstruction::readTargetTransformFromInstruction(cmd, T_backup);
@@ -2496,57 +2911,64 @@ public:
 				}
 			}
 
-			std::vector<double> seedQ = q0;
-			bool sampleOk = true;
-			std::string sampleFail;
+			const std::vector<double> endpointQ = qTarget;
 			const std::vector<std::string> sampleJointNames = revoluteJointNamesFromInstructionContext(cmd);
-			for (int i = 1; i <= samples; ++i)
+			auto runSamplePass = [&](const int samples, std::string* failOut) -> bool
 			{
-				const double u = static_cast<double>(i) / static_cast<double>(samples);
-				const Eigen::Vector3d t = T_start.translationMm() * (1.0 - u) + T_end.translationMm() * u;
-				Eigen::Quaterniond q = T_start.rotation().normalized().slerp(u, T_end.rotation().normalized());
-				if (q.coeffs().hasNaN())
+				out.jointTrajectoryRad.clear();
+				out.jointTrajectoryRad.reserve(static_cast<size_t>(samples));
+				std::vector<double> seedQ = q0;
+				for (int i = 1; i <= samples; ++i)
 				{
-					q = T_end.rotation().normalized();
-				}
-				const engine::RigidTransform T_sample = engine::RigidTransform::fromTranslationQuat(t, q);
-				RobotInstruction::writeTargetTransformToInstruction(mutableCmd, T_sample);
-				std::vector<double> qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &sampleFail, false);
-				if (qSample.empty() || qSample.size() != q0.size())
-				{
-					sampleFail = sampleFail.empty()
-									 ? ("LINE 路径中间点 IK 失败（样点 " + std::to_string(i) + ")")
-									 : (sampleFail + " (样点 " + std::to_string(i) + ")");
-					sampleOk = false;
-					break;
-				}
-				double wristJump =
-					RobotInstruction::wristConfigurationJumpRad(qSample, seedQ, sampleJointNames);
-				if (wristJump > RobotInstruction::kWristContinuityGateRad)
-				{
-					std::string retryFail;
-					qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &retryFail, true);
+					const double u = static_cast<double>(i) / static_cast<double>(samples);
+					const Eigen::Vector3d t = T_start.translationMm() * (1.0 - u) + T_end.translationMm() * u;
+					Eigen::Quaterniond q = T_start.rotation().normalized().slerp(u, T_end.rotation().normalized());
+					if (q.coeffs().hasNaN())
+					{
+						q = T_end.rotation().normalized();
+					}
+					const engine::RigidTransform T_sample = engine::RigidTransform::fromTranslationQuat(t, q);
+					RobotInstruction::writeTargetTransformToInstruction(mutableCmd, T_sample);
+					std::string sampleFail;
+					std::vector<double> qSample =
+						solveCartesianPathSampleIk(cmd, axisCfg, q0, seedQ, &sampleFail);
 					if (qSample.empty() || qSample.size() != q0.size())
 					{
-						sampleFail = "LINE 路径中间点腕连续失败（样点 " + std::to_string(i) + "）";
-						if (!retryFail.empty())
+						if (failOut)
 						{
-							sampleFail += ": " + retryFail;
+							*failOut = sampleFail.empty()
+										   ? ("LINE 路径中间点 IK 失败（样点 " + std::to_string(i) + ")")
+										   : (sampleFail + " (样点 " + std::to_string(i) + ")");
 						}
-						sampleOk = false;
-						break;
+						out.jointTrajectoryRad.clear();
+						return false;
 					}
-					wristJump = RobotInstruction::wristConfigurationJumpRad(qSample, seedQ, sampleJointNames);
-					if (wristJump > RobotInstruction::kWristContinuityGateRad)
-					{
-						sampleFail = "LINE 路径中间点腕连续失败（样点 " + std::to_string(i) +
-									 "，wristJump=" + std::to_string(wristJump) + "rad）";
-						sampleOk = false;
-						break;
-					}
+					seedQ = qSample;
+					out.jointTrajectoryRad.push_back(std::move(qSample));
 				}
-				seedQ = qSample;
-				out.jointTrajectoryRad.push_back(std::move(qSample));
+				std::string endFail;
+				if (!cartesianPathEndAccepted(out.jointTrajectoryRad.back(), q0, axisCfg, sampleJointNames, &endFail))
+				{
+					if (failOut)
+					{
+						*failOut = endFail;
+					}
+					out.jointTrajectoryRad.clear();
+					return false;
+				}
+				return true;
+			};
+
+			std::string sampleFail;
+			bool sampleOk = runSamplePass(baseSamples, &sampleFail);
+			if (!sampleOk)
+			{
+				const int denseSamples = std::min(128, std::max(baseSamples * 2, baseSamples + 8));
+				if (denseSamples > baseSamples)
+				{
+					denseRetry = true;
+					sampleOk = runSamplePass(denseSamples, &sampleFail);
+				}
 			}
 
 			if (hadBackup)
@@ -2586,8 +3008,17 @@ public:
 			}
 			else
 			{
-				// 笛卡尔采样失败时退回关节插值：端点 IK 已成功，勿整段判死
 				out.jointTrajectoryRad.clear();
+				qTarget = endpointQ;
+				if (!pathPol.allowCartDegrade)
+				{
+					if (errMsg)
+					{
+						*errMsg = sampleFail.empty() ? "LINE 笛卡尔路径失败且禁止关节降级" : sampleFail;
+					}
+					return false;
+				}
+				cartDegraded = true;
 			}
 		}
 
@@ -2608,9 +3039,11 @@ public:
 		}
 
 		out.ok = true;
+		out.cartDegraded = cartDegraded;
 		out.plannerName = "LinePlanner";
 		out.summary = usedCartesianSamples ? "LINE cartesian samples with IK."
 										   : "LINE joint-space trajectory (no URDF cartesian path).";
+		out.summary += RobotInstruction::formatIkPolicySummaryTags(pathPol, denseRetry, false, cartDegraded);
 		if (solvePath == "dh" || solvePath == "legacy" || solvePath == "urdf_late")
 		{
 			out.summary += " [ikPath=" + solvePath + "]";
@@ -2702,21 +3135,11 @@ public:
 		}
 		if (preferUrdfIk)
 		{
-			if (constrainAxis)
+			qTarget = solveIkWithAxisConfiguration(cmd, axisCfg, &ikFailReason,
+												   RobotInstruction::makeCartesianPathIkPolicy(axisCfg));
+			if (!qTarget.empty())
 			{
-				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason, true);
-				if (!qTarget.empty())
-				{
-					solvePath = "urdf_axis_cfg";
-				}
-			}
-			else
-			{
-				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
-				if (!qTarget.empty())
-				{
-					solvePath = "urdf";
-				}
+				solvePath = constrainAxis ? "urdf_axis_cfg" : "urdf";
 			}
 		}
 		if (qTarget.empty() && !preferUrdfIk && m_dhRows && !m_dhRows->empty() && !constrainAxis &&
@@ -2753,16 +3176,7 @@ public:
 			}
 			return false;
 		}
-		// IK 多解分支稳定：折圈到种子最近圈，避免 ARC 链路整体跨支（同 PTP/LINE）
-		{
-			constexpr double kTwoPi = 6.283185307179586;
-			for (size_t i = 0; i < qTarget.size(); ++i)
-			{
-				double d = qTarget[i] - q0[i];
-				d -= kTwoPi * std::round(d / kTwoPi);
-				qTarget[i] = q0[i] + d;
-			}
-		}
+		applyConditionalShortestAngleFold(q0, qTarget, revoluteJointNamesFromInstructionContext(cmd), nullptr);
 
 		engine::RigidTransform T_end{};
 		engine::RigidTransform T_start{};
@@ -2816,23 +3230,6 @@ public:
 				}
 				return 64;
 			}();
-			std::vector<double> samplesXyz;
-			std::vector<double> sampleU;
-			if (!robot_kinematics::sampleArcByChord(fit, 8.0, 8, maxSamples, samplesXyz, &sampleU))
-			{
-				if (errMsg)
-					*errMsg = "ARC sampling failed.";
-				return false;
-			}
-			const int samples = static_cast<int>(samplesXyz.size() / 3);
-			if (samples <= 0 || static_cast<int>(sampleU.size()) != samples)
-			{
-				if (errMsg)
-					*errMsg = "ARC sampling failed.";
-				return false;
-			}
-			out.jointTrajectoryRad.reserve(static_cast<size_t>(samples));
-
 			RobotInstruction::Base& mutableCmd = const_cast<RobotInstruction::Base&>(cmd);
 			engine::RigidTransform T_backup{};
 			const bool hadBackup = RobotInstruction::readTargetTransformFromInstruction(cmd, T_backup);
@@ -2850,62 +3247,82 @@ public:
 				if (itT != ext.end())
 					transCsvBackup = itT->second;
 			}
-
-			std::vector<double> seedQ = q0;
-			bool sampleOk = true;
-			std::string sampleFail;
 			const Eigen::Quaterniond qStart = T_start.rotation().normalized();
 			const Eigen::Quaterniond qEnd = T_end.rotation().normalized();
 			const std::vector<std::string> sampleJointNames = revoluteJointNamesFromInstructionContext(cmd);
-			for (int i = 0; i < samples; ++i)
+
+			auto runArcSamplePass = [&](const double chordMm, std::string* failOut) -> bool
 			{
-				const double u = sampleU[static_cast<size_t>(i)];
-				const Eigen::Vector3d t(samplesXyz[static_cast<size_t>(i) * 3u],
-										samplesXyz[static_cast<size_t>(i) * 3u + 1u],
-										samplesXyz[static_cast<size_t>(i) * 3u + 2u]);
-				Eigen::Quaterniond q = qStart.slerp(u, qEnd);
-				if (q.coeffs().hasNaN())
+				std::vector<double> samplesXyz;
+				std::vector<double> sampleU;
+				if (!robot_kinematics::sampleArcByChord(fit, chordMm, 8, maxSamples, samplesXyz, &sampleU))
 				{
-					q = qEnd;
+					if (failOut)
+					{
+						*failOut = "ARC sampling failed.";
+					}
+					return false;
 				}
-				const engine::RigidTransform T_sample = engine::RigidTransform::fromTranslationQuat(t, q);
-				RobotInstruction::writeTargetTransformToInstruction(mutableCmd, T_sample);
-				std::vector<double> qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &sampleFail, false);
-				if (qSample.empty() || qSample.size() != q0.size())
+				const int samples = static_cast<int>(samplesXyz.size() / 3);
+				if (samples <= 0 || static_cast<int>(sampleU.size()) != samples)
 				{
-					sampleFail = sampleFail.empty()
-									 ? ("ARC 路径中间点 IK 失败（样点 " + std::to_string(i) + ")")
-									 : (sampleFail + " (样点 " + std::to_string(i) + ")");
-					sampleOk = false;
-					break;
+					if (failOut)
+					{
+						*failOut = "ARC sampling failed.";
+					}
+					return false;
 				}
-				double wristJump =
-					RobotInstruction::wristConfigurationJumpRad(qSample, seedQ, sampleJointNames);
-				if (wristJump > RobotInstruction::kWristContinuityGateRad)
+				out.jointTrajectoryRad.clear();
+				out.jointTrajectoryRad.reserve(static_cast<size_t>(samples));
+				std::vector<double> seedQ = q0;
+				for (int i = 0; i < samples; ++i)
 				{
-					std::string retryFail;
-					qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &retryFail, true);
+					const double u = sampleU[static_cast<size_t>(i)];
+					const Eigen::Vector3d t(samplesXyz[static_cast<size_t>(i) * 3u],
+											samplesXyz[static_cast<size_t>(i) * 3u + 1u],
+											samplesXyz[static_cast<size_t>(i) * 3u + 2u]);
+					Eigen::Quaterniond q = qStart.slerp(u, qEnd);
+					if (q.coeffs().hasNaN())
+					{
+						q = qEnd;
+					}
+					const engine::RigidTransform T_sample = engine::RigidTransform::fromTranslationQuat(t, q);
+					RobotInstruction::writeTargetTransformToInstruction(mutableCmd, T_sample);
+					std::string sampleFail;
+					std::vector<double> qSample =
+						solveCartesianPathSampleIk(cmd, axisCfg, q0, seedQ, &sampleFail);
 					if (qSample.empty() || qSample.size() != q0.size())
 					{
-						sampleFail = "ARC 路径中间点腕连续失败（样点 " + std::to_string(i) + "）";
-						if (!retryFail.empty())
+						if (failOut)
 						{
-							sampleFail += ": " + retryFail;
+							*failOut = sampleFail.empty()
+										   ? ("ARC 路径中间点 IK 失败（样点 " + std::to_string(i) + ")")
+										   : (sampleFail + " (样点 " + std::to_string(i) + ")");
 						}
-						sampleOk = false;
-						break;
+						out.jointTrajectoryRad.clear();
+						return false;
 					}
-					wristJump = RobotInstruction::wristConfigurationJumpRad(qSample, seedQ, sampleJointNames);
-					if (wristJump > RobotInstruction::kWristContinuityGateRad)
-					{
-						sampleFail = "ARC 路径中间点腕连续失败（样点 " + std::to_string(i) +
-									 "，wristJump=" + std::to_string(wristJump) + "rad）";
-						sampleOk = false;
-						break;
-					}
+					seedQ = qSample;
+					out.jointTrajectoryRad.push_back(std::move(qSample));
 				}
-				seedQ = qSample;
-				out.jointTrajectoryRad.push_back(std::move(qSample));
+				std::string endFail;
+				if (!cartesianPathEndAccepted(out.jointTrajectoryRad.back(), q0, axisCfg, sampleJointNames, &endFail))
+				{
+					if (failOut)
+					{
+						*failOut = endFail;
+					}
+					out.jointTrajectoryRad.clear();
+					return false;
+				}
+				return true;
+			};
+
+			std::string sampleFail;
+			bool sampleOk = runArcSamplePass(8.0, &sampleFail);
+			if (!sampleOk)
+			{
+				sampleOk = runArcSamplePass(4.0, &sampleFail);
 			}
 
 			if (hadBackup)
@@ -2999,6 +3416,16 @@ void Controller::setWorkpieceIkFrameContext(const WorkpieceIkFrameContext& ctx)
 void Controller::clearWorkpieceIkFrameContext()
 {
 	m_workpieceIkFrame = {};
+}
+
+void Controller::setIkCollisionCostProbe(IkCollisionCostFn fn)
+{
+	g_ikCollisionCostProbe = std::move(fn);
+}
+
+void Controller::clearIkCollisionCostProbe()
+{
+	g_ikCollisionCostProbe = {};
 }
 
 void Controller::registerPlanner(const std::shared_ptr<PlannerBase>& planner)

@@ -3,6 +3,10 @@
 
 #include "RobotInstructionAxisConfiguration.h"
 
+#include "SphericalWristAnalyticalIk.h"
+
+#include <QString>
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -563,15 +567,35 @@ std::string suggestMotionAxisPresetToken(const JointConfigurationClass& c)
 
 JointConfigurationClass classifyJointConfiguration(const std::vector<double>& qRad,
 												   const std::vector<std::string>& jointNames,
-												   const std::vector<double>* referenceQRad)
+												   const std::vector<double>* referenceQRad,
+												   const int elbowJointIndexOverride,
+												   const int wristJointIndexOverride)
 {
 	JointConfigurationClass c;
 	if (qRad.empty())
 	{
 		return c;
 	}
-	const int elbowIdx = findJointIndexByHint(jointNames, "elbow", 2);
-	const int wristIdx = findJointIndexByHint(jointNames, "wrist", 4);
+	const int n = static_cast<int>(qRad.size());
+	int elbowIdx = elbowJointIndexOverride;
+	if (elbowIdx < 0 || elbowIdx >= n)
+	{
+		// 先名字再 joint_3，与工业 6 轴肘索引惯例对齐
+		elbowIdx = findJointIndexByHint(jointNames, "elbow", -1);
+		if (elbowIdx < 0)
+		{
+			elbowIdx = findJointIndexByHint(jointNames, "joint_3", 2);
+		}
+	}
+	int wristIdx = wristJointIndexOverride;
+	if (wristIdx < 0 || wristIdx >= n)
+	{
+		wristIdx = findJointIndexByHint(jointNames, "wrist", -1);
+		if (wristIdx < 0)
+		{
+			wristIdx = findJointIndexByHint(jointNames, "joint_5", 4);
+		}
+	}
 	const int j1Idx = findJointIndexByHint(jointNames, nullptr, 0);
 	const int j4Idx = findJointIndexByHint(jointNames, "joint_4", 3);
 	const int j6Idx = findJointIndexByHint(jointNames, "joint_6", 5);
@@ -631,6 +655,320 @@ bool sameJointConfigurationClass(const JointConfigurationClass& a, const JointCo
 {
 	return a.elbow == b.elbow && a.wrist == b.wrist && a.arm == b.arm && a.turnJ1 == b.turnJ1 && a.turnJ4 == b.turnJ4 &&
 		   a.turnJ6 == b.turnJ6;
+}
+
+IkSelectionPolicy makePtpIkPolicy(const MotionAxisConfiguration& cfg)
+{
+	IkSelectionPolicy p;
+	p.requireWristContinuity = false;
+	const bool constrain = motionAxisConfigurationRequiresConstraint(cfg);
+	p.requireMatchesClass = constrain;
+	p.mode = IkSolveMode::Search;
+	p.rankMode = IkRankMode::Distance;
+	p.maxSeeds = constrain ? 32 : 24;
+	// 非球形腕每种子走完整 DLS，预算过紧会误失败
+	p.budgetMs = constrain ? 250 : 200;
+	p.raceNumericalFallback = true;
+	// 默认串行：解析失败再数值；竞速可选扩展打开
+	p.raceAnalyticalAndNumerical = false;
+	p.allowCartDegrade = true;
+	p.manipOnDistanceTie = true;
+	p.seedAttractionWeight = 0.0;
+	return p;
+}
+
+IkSelectionPolicy makeCartesianPathIkPolicy(const MotionAxisConfiguration& cfg)
+{
+	IkSelectionPolicy p;
+	p.requireWristContinuity = true;
+	p.requireMatchesClass = motionAxisConfigurationRequiresConstraint(cfg);
+	p.mode = IkSolveMode::Search;
+	p.rankMode = IkRankMode::Distance;
+	p.maxSeeds = 32;
+	p.budgetMs = 200;
+	p.raceNumericalFallback = true;
+	p.raceAnalyticalAndNumerical = false;
+	p.allowCartDegrade = true;
+	p.manipOnDistanceTie = true;
+	p.seedAttractionWeight = 0.0;
+	return p;
+}
+
+IkFailKind classifyIkFailMessage(const std::string& message)
+{
+	if (message.empty())
+	{
+		return IkFailKind::Other;
+	}
+	std::string lower = message;
+	std::transform(lower.begin(), lower.end(), lower.begin(),
+				   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+	auto has = [&](const char* needle) { return lower.find(needle) != std::string::npos; };
+	if (has("spherical-wrist") || has("topology") || has("拓扑") || (has("解析") && has("失败")))
+	{
+		return IkFailKind::Topology;
+	}
+	if (has("budget") || has("预算") || has("耗尽"))
+	{
+		return IkFailKind::Budget;
+	}
+	if (has("collision") || has("碰撞"))
+	{
+		return IkFailKind::Collision;
+	}
+	if (has("轴配置") || has("肘/腕") || has("不匹配"))
+	{
+		return IkFailKind::AxisClass;
+	}
+	if (has("腕部跳变") || (has("wrist") && (has("连续") || has("跳"))))
+	{
+		return IkFailKind::Wrist;
+	}
+	if (has("缺少ik种子") || has("无可用ik种子") || (has("seed") && (has("missing") || has("empty"))))
+	{
+		return IkFailKind::NoSeed;
+	}
+	if (has("residual") || has("残差") || has("未收敛") || has("ik未收敛"))
+	{
+		return IkFailKind::Residual;
+	}
+	return IkFailKind::Other;
+}
+
+std::string formatIkFailKindTag(const IkFailKind kind)
+{
+	switch (kind)
+	{
+	case IkFailKind::None:
+		return {};
+	case IkFailKind::Topology:
+		return " [fail=Topology]";
+	case IkFailKind::Residual:
+		return " [fail=Residual]";
+	case IkFailKind::Budget:
+		return " [fail=Budget]";
+	case IkFailKind::Wrist:
+		return " [fail=Wrist]";
+	case IkFailKind::AxisClass:
+		return " [fail=AxisClass]";
+	case IkFailKind::Collision:
+		return " [fail=Collision]";
+	case IkFailKind::NoSeed:
+		return " [fail=NoSeed]";
+	case IkFailKind::Other:
+	default:
+		return " [fail=Other]";
+	}
+}
+
+std::string formatIkFailKindZh(const IkFailKind kind)
+{
+	switch (kind)
+	{
+	case IkFailKind::None:
+		return {};
+	case IkFailKind::Topology:
+		return "机型拓扑不匹配";
+	case IkFailKind::Residual:
+		return "IK残差未收敛";
+	case IkFailKind::Budget:
+		return "IK预算耗尽";
+	case IkFailKind::Wrist:
+		return "腕构型跳变过大";
+	case IkFailKind::AxisClass:
+		return "轴配置无匹配解";
+	case IkFailKind::Collision:
+		return "候选碰撞";
+	case IkFailKind::NoSeed:
+		return "无可用IK种子";
+	case IkFailKind::Other:
+	default:
+		return "IK失败";
+	}
+}
+
+void parseIkJointIndexOverrides(const std::unordered_map<std::string, std::string>& ext, int& elbowJointIndex,
+								int& wristJointIndex)
+{
+	elbowJointIndex = -1;
+	wristJointIndex = -1;
+	const auto itElbow = ext.find("context.elbowJointIndex");
+	if (itElbow != ext.end())
+	{
+		try
+		{
+			const int v = std::stoi(itElbow->second);
+			if (v >= 0)
+			{
+				elbowJointIndex = v;
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+	const auto itWrist = ext.find("context.wristJointIndex");
+	if (itWrist != ext.end())
+	{
+		try
+		{
+			const int v = std::stoi(itWrist->second);
+			if (v >= 0)
+			{
+				wristJointIndex = v;
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+}
+
+void applyIkPolicyExtensionOverrides(const std::unordered_map<std::string, std::string>& ext, IkSelectionPolicy& policy)
+{
+	const auto itProfile = ext.find("context.ikProfile");
+	if (itProfile != ext.end())
+	{
+		const std::string& p = itProfile->second;
+		if (p == "drag")
+		{
+			policy.budgetMs = 80;
+			policy.maxSeeds = 8;
+		}
+		else if (p == "preview")
+		{
+			policy.budgetMs = 120;
+			policy.maxSeeds = 16;
+		}
+		else if (p == "run")
+		{
+			policy.budgetMs = 250;
+			policy.maxSeeds = 32;
+		}
+	}
+	const auto itRank = ext.find("context.ikRankMode");
+	if (itRank != ext.end())
+	{
+		if (itRank->second == "Manip" || itRank->second == "manip")
+		{
+			policy.rankMode = IkRankMode::Manip;
+		}
+		else if (itRank->second == "Speed" || itRank->second == "speed")
+		{
+			policy.rankMode = IkRankMode::Speed;
+		}
+		else if (itRank->second == "Distance" || itRank->second == "distance")
+		{
+			policy.rankMode = IkRankMode::Distance;
+		}
+	}
+	const auto itBudget = ext.find("context.ikBudgetMs");
+	if (itBudget != ext.end())
+	{
+		try
+		{
+			const int ms = std::stoi(itBudget->second);
+			if (ms >= 0)
+			{
+				policy.budgetMs = ms;
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+	const auto itDegrade = ext.find("context.allowCartDegrade");
+	if (itDegrade != ext.end())
+	{
+		policy.allowCartDegrade = !(itDegrade->second == "0" || itDegrade->second == "false");
+	}
+	const auto itLite = ext.find("context.playbackPlanLite");
+	if (itLite != ext.end() && itLite->second == "1")
+	{
+		policy.budgetMs = std::max(20, policy.budgetMs / 2);
+		policy.maxSeeds = std::max(4, policy.maxSeeds / 2);
+	}
+}
+
+void adaptIkPolicyForRobot(const std::string& urdfPath, IkSelectionPolicy& policy,
+						   const std::unordered_map<std::string, std::string>* ext)
+{
+	const bool spherical =
+		!urdfPath.empty() && UrdfRobotLoader::SphericalWristAnalyticalIk::isEligible(QString::fromStdString(urdfPath));
+	if (!spherical)
+	{
+		policy.raceAnalyticalAndNumerical = false;
+		policy.seedAttractionWeight = 0.0;
+		return;
+	}
+	if (!ext)
+	{
+		return;
+	}
+	const auto itRace = ext->find("context.ikRace");
+	if (itRace != ext->end() && (itRace->second == "1" || itRace->second == "true"))
+	{
+		policy.raceAnalyticalAndNumerical = true;
+	}
+	const auto itAttract = ext->find("context.ikSeedAttract");
+	if (itAttract != ext->end())
+	{
+		try
+		{
+			const double w = std::stod(itAttract->second);
+			if (w >= 0.0)
+			{
+				policy.seedAttractionWeight = w;
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+}
+
+std::string formatIkPolicySummaryTags(const IkSelectionPolicy& policy, const bool denseRetry, const bool numRace,
+									  const bool cartDegraded)
+{
+	std::string t;
+	t += (policy.mode == IkSolveMode::Search) ? " [ikMode=Search]" : " [ikMode=NearSeed]";
+	if (policy.rankMode == IkRankMode::Manip)
+	{
+		t += " [rank=Manip]";
+	}
+	else if (policy.rankMode == IkRankMode::Speed)
+	{
+		t += " [rank=Speed]";
+	}
+	else
+	{
+		t += " [rank=Distance]";
+	}
+	if (denseRetry)
+	{
+		t += " [denseRetry]";
+	}
+	if (numRace)
+	{
+		t += " [numRace]";
+	}
+	if (cartDegraded)
+	{
+		t += " [cartDegraded]";
+	}
+	return t;
+}
+
+bool shouldSkipShortestAngleFold(const std::vector<double>& seedQ, const std::vector<double>& targetQ,
+								 const std::vector<std::string>& jointNames)
+{
+	if (seedQ.empty() || seedQ.size() != targetQ.size() || jointNames.size() != seedQ.size())
+	{
+		return false;
+	}
+	const JointConfigurationClass seedCls = classifyJointConfiguration(seedQ, jointNames, &seedQ);
+	const JointConfigurationClass tgtCls = classifyJointConfiguration(targetQ, jointNames, &seedQ);
+	return !sameJointConfigurationClass(seedCls, tgtCls);
 }
 
 double wristConfigurationJumpRad(const std::vector<double>& qRad, const std::vector<double>& seedRad,

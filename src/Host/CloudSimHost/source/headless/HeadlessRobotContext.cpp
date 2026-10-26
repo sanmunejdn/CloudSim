@@ -73,35 +73,36 @@ void HeadlessRobotContext::clearRobotSimulationContext()
 	rebuildAggregates();
 }
 
-void HeadlessRobotContext::clearRobotSimulationIfContains(const QString& removedBackendId)
+QString HeadlessRobotContext::clearRobotSimulationIfContains(const QString& removedBackendId)
 {
 	if (removedBackendId.isEmpty())
 	{
-		return;
+		return {};
 	}
 	for (int i = 0; i < m_robots.size(); ++i)
 	{
 		const HierarchicalRobotInstance& ri = m_robots[i];
-		if (ri.sceneBackendId == removedBackendId)
+		bool hit = (ri.sceneBackendId == removedBackendId);
+		if (!hit && ri.perLinkBackends)
 		{
-			m_robots.removeAt(i);
-			rebuildAggregates();
-			return;
-		}
-		if (!ri.perLinkBackends)
-		{
-			continue;
-		}
-		for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
-		{
-			if (it.value() == removedBackendId)
+			for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
 			{
-				m_robots.removeAt(i);
-				rebuildAggregates();
-				return;
+				if (it.value() == removedBackendId)
+				{
+					hit = true;
+					break;
+				}
 			}
 		}
+		if (hit)
+		{
+			const QString sceneId = ri.sceneBackendId;
+			m_robots.removeAt(i);
+			rebuildAggregates();
+			return sceneId;
+		}
 	}
+	return {};
 }
 
 namespace

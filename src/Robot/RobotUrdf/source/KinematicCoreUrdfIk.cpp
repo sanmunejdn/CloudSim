@@ -568,12 +568,20 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 			break;
 		}
 
+		const double attractW = options.seedAttractionWeight;
+		const bool doAttract = attractW > 0.0 && !options.seedAttractionQ.empty() &&
+							   static_cast<int>(options.seedAttractionQ.size()) == n;
 		for (int j = 0; j < n; ++j)
 		{
 			double step = 0.0;
 			for (int r = 0; r < taskDim; ++r)
 			{
 				step += ws.J[static_cast<size_t>(r * n + j)] * ws.e[static_cast<size_t>(r)];
+			}
+			if (doAttract)
+			{
+				// 贴种子弹簧：抑制无必要跨圈/远支
+				step -= attractW * (q[static_cast<size_t>(j)] - options.seedAttractionQ[static_cast<size_t>(j)]);
 			}
 			if (step > stepCap)
 			{

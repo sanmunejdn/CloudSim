@@ -9,6 +9,7 @@
 #include "TreeForwardKinematics.h"
 #include "UrdfRobotLoader.h"
 
+#include <QHash>
 #include <QVector>
 #include <algorithm>
 #include <array>
@@ -262,20 +263,40 @@ IkConvergenceStatus classifyStatus(const UrdfIkSolverOptions& options, double po
 }
 } // namespace
 
+namespace
+{
+QHash<QString, bool> g_sphericalWristEligibleCache;
+}
+
 bool SphericalWristAnalyticalIk::isEligible(const QString& urdfPath)
 {
+	if (urdfPath.isEmpty())
+	{
+		return false;
+	}
+	const auto it = g_sphericalWristEligibleCache.constFind(urdfPath);
+	if (it != g_sphericalWristEligibleCache.constEnd())
+	{
+		return it.value();
+	}
+	bool ok = false;
 	kinematic_core::KinematicGraph graph;
-	if (!buildUrdfKinematicGraph(urdfPath, graph, nullptr) || graph.dofCount() != 6)
+	if (buildUrdfKinematicGraph(urdfPath, graph, nullptr) && graph.dofCount() == 6)
 	{
-		return false;
+		std::vector<const kinematic_core::KinematicJoint*> rev;
+		if (collectRevoluteJoints(graph, rev) && rev.size() == 6)
+		{
+			double c[3] = {};
+			ok = sphericalWristCenter(graph, rev, c);
+		}
 	}
-	std::vector<const kinematic_core::KinematicJoint*> rev;
-	if (!collectRevoluteJoints(graph, rev) || rev.size() != 6)
-	{
-		return false;
-	}
-	double c[3] = {};
-	return sphericalWristCenter(graph, rev, c);
+	g_sphericalWristEligibleCache.insert(urdfPath, ok);
+	return ok;
+}
+
+void SphericalWristAnalyticalIk::clearEligibilityCache()
+{
+	g_sphericalWristEligibleCache.clear();
 }
 
 std::vector<double> SphericalWristAnalyticalIk::solve(const QString& urdfPath, const QString& ikLink,

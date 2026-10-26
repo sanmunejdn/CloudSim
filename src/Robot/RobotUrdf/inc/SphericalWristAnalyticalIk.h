@@ -18,8 +18,10 @@ public:
 							  std::vector<double> seedJointRad, const UrdfIkSolverOptions& options,
 							  std::string* failReason, IkConvergenceStatus* status) override;
 
-	/// 6 转 + 末三轴近交于一点
+	/// 6 转 + 末三轴近交于一点（进程内按 urdfPath 缓存）
 	static bool isEligible(const QString& urdfPath);
+	/// URDF 热加载后清缓存
+	static void clearEligibilityCache();
 };
 
 } // namespace UrdfRobotLoader

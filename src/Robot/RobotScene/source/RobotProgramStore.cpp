@@ -65,6 +65,17 @@ void RobotProgramStore::setRobotInstances(const QStringList& labels, const QStri
 			m_catalogs.insert(id, RobotInstruction::RobotProgramCatalog::withDefaultMain());
 		}
 	}
+	// 实例表外的 catalog 视为删机残留，否则同 id 再导入会填回旧指令
+	{
+		const QList<QString> keys = m_catalogs.keys();
+		for (const QString& key : keys)
+		{
+			if (!m_backendIds.contains(key))
+			{
+				m_catalogs.remove(key);
+			}
+		}
+	}
 	ensureActiveCatalog();
 }
 
@@ -80,6 +91,42 @@ bool RobotProgramStore::ensureRobotBackendId(const QString& sceneBackendId, cons
 	if (!m_catalogs.contains(sceneBackendId))
 		m_catalogs.insert(sceneBackendId, RobotInstruction::RobotProgramCatalog::withDefaultMain());
 	setActiveRobotBackendId(sceneBackendId);
+	return true;
+}
+
+bool RobotProgramStore::removeRobotBackendId(const QString& sceneBackendId)
+{
+	if (sceneBackendId.isEmpty())
+	{
+		return false;
+	}
+	const int idx = m_backendIds.indexOf(sceneBackendId);
+	const bool hadCatalog = m_catalogs.contains(sceneBackendId);
+	if (idx < 0 && !hadCatalog)
+	{
+		return false;
+	}
+	if (idx >= 0)
+	{
+		m_backendIds.removeAt(idx);
+		if (idx < m_labels.size())
+		{
+			m_labels.removeAt(idx);
+		}
+		if (m_activeInstanceIndex == idx)
+		{
+			m_activeInstanceIndex = 0;
+		}
+		else if (m_activeInstanceIndex > idx)
+		{
+			--m_activeInstanceIndex;
+		}
+		if (m_activeInstanceIndex >= m_backendIds.size())
+		{
+			m_activeInstanceIndex = m_backendIds.isEmpty() ? 0 : m_backendIds.size() - 1;
+		}
+	}
+	m_catalogs.remove(sceneBackendId);
 	return true;
 }
 

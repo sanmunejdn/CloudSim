@@ -722,12 +722,16 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 		}
 		publishBackendObjectRemoved(*this, id);
 	}
-	// ������ clearRobotSimulationIfContains ���룺ɾ������ж�����������ʵ��
+	// 与桌面 clearRobotSimulationIfContains 对齐：卸实例并丢掉程序目录，防同 id 再导入复活旧指令
 	if (m_headlessRobotContext)
 	{
 		for (const QString& id : ids)
 		{
-			m_headlessRobotContext->clearRobotSimulationIfContains(id);
+			const QString sceneId = m_headlessRobotContext->clearRobotSimulationIfContains(id);
+			if (!sceneId.isEmpty() && m_robotProgramStore)
+			{
+				m_robotProgramStore->removeRobotBackendId(sceneId);
+			}
 		}
 	}
 	m_followReverseIndex.invalidate(); // ����ɾ���� follower ���˿��ܶ���

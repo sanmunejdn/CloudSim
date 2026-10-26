@@ -58,7 +58,8 @@ public:
 
 	void clearRobotSimulationContext();
 	/// 删除后端对象时：若命中场景根或任一连杆，卸掉该机器人实例（对齐 DocumentPage）
-	void clearRobotSimulationIfContains(const QString& removedBackendId);
+	/// @return 被卸掉实例的 sceneBackendId；未命中返回空
+	QString clearRobotSimulationIfContains(const QString& removedBackendId);
 	QVector<InstanceInfo> listInstances() const;
 	bool jointMetaForSceneRoot(const QString& sceneRootBackendId, QStringList& outNames, QVector<double>& outLower,
 							   QVector<double>& outUpper, QVector<double>& outAngles) const;

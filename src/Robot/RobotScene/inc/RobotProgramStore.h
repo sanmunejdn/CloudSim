@@ -34,6 +34,8 @@ public:
 	void setRobotInstances(const QStringList& labels, const QStringList& backendIds);
 	/// 登记 scene 到实例表；未登记时 activeCatalog 会落到静态空目录
 	bool ensureRobotBackendId(const QString& sceneBackendId, const QString& label = QString());
+	/// 删机时卸掉目录，避免同 sceneBackendId 再导入复活旧指令
+	bool removeRobotBackendId(const QString& sceneBackendId);
 
 	RobotInstruction::RobotProgramCatalog& catalogFor(const QString& sceneBackendId);
 	const RobotInstruction::RobotProgramCatalog& catalogFor(const QString& sceneBackendId) const;

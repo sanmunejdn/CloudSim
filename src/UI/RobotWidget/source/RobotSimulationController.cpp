@@ -51,6 +51,7 @@
 #include "RobotExternalAxisSceneApply.h"
 #include "RobotExternalAxisSettingsWidget.h"
 #include "RobotFrameSettingsWidget.h"
+#include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionPlanningHelpers.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
@@ -7558,6 +7559,11 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 		ins->setExtensionProperty("context.renderToFkDeltaPosMmCsv", deltaOss.str());
 		ins->setExtensionProperty("context.poseFrame", "base_tool_origin");
 		ins->setExtensionProperty("context.capturedTcpLinkName", tcpLinkName.toStdString());
+		// 拖点示教落点用短预算；后续 planMotionOnHost 未设则走 preview/run
+		if (usedGizmoTarget)
+		{
+			ins->setExtensionProperty("context.ikProfile", "drag");
+		}
 		if (IRobotDocumentHost* capDoc2 = m_host->document())
 		{
 			const int capInstIdx2 = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
@@ -9880,13 +9886,79 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 		}
 		return false;
 	}
-	if (!self->m_instructionController.plan(instruction, plan, &err) || !plan.ok)
+	// Preview/Run 与 Planner 共用扩展覆盖（lite 预算、RankMode、allowCartDegrade）
+	if (!instruction.extensionProperties().count("context.ikProfile"))
 	{
+		const auto itLite = instruction.extensionProperties().find("context.playbackPlanLite");
+		const bool lite = itLite != instruction.extensionProperties().end() && itLite->second == "1";
+		instruction.setExtensionProperty("context.ikProfile", lite ? "preview" : "run");
+	}
+	if (instruction.type() == RobotInstruction::Type::LINE || instruction.type() == RobotInstruction::Type::ARC)
+	{
+		if (!instruction.extensionProperties().count("context.allowCartDegrade"))
+		{
+			instruction.setExtensionProperty("context.allowCartDegrade", "1");
+		}
+	}
+	if (!skipCollision && doc)
+	{
+		const RobotCollision::Settings& colPre = doc->robotCollisionSettings();
+		if (colPre.enabled && self->m_collisionWorld)
+		{
+			// IK 候选期仅终点单姿态粗检；全轨迹验收在 plan 成功后单独做，禁止在此扩多样点
+			self->m_instructionController.setIkCollisionCostProbe(
+				[self, doc, instanceIndex, colPre](const std::vector<double>& qRad) -> double
+				{
+					if (qRad.empty())
+					{
+						return 0.0;
+					}
+					std::vector<std::vector<double>> onePose = {qRad};
+					std::string colErr;
+					QVector<double> seedQ;
+					seedQ.reserve(static_cast<int>(qRad.size()));
+					for (double v : qRad)
+					{
+						seedQ.push_back(v);
+					}
+					if (!BackendCollisionSync::validateJointTrajectory(*self->m_collisionWorld, doc, instanceIndex,
+																	   seedQ, onePose, colPre, &colErr,
+																	   self->m_host->osgView()))
+					{
+						return 1e6;
+					}
+					return 0.0;
+				});
+		}
+	}
+	const bool planOk = self->m_instructionController.plan(instruction, plan, &err) && plan.ok;
+	self->m_instructionController.clearIkCollisionCostProbe();
+	if (!planOk)
+	{
+		const std::string failMsg =
+			plan.summary.empty() ? (err.empty() ? "Instruction planning failed" : err) : plan.summary;
 		if (planErr)
 		{
-			*planErr = plan.summary.empty() ? (err.empty() ? "Instruction planning failed" : err) : plan.summary;
+			*planErr = failMsg;
+		}
+		const auto itProf = instruction.extensionProperties().find("context.ikProfile");
+		if (m_host && itProf != instruction.extensionProperties().end() && itProf->second == "drag")
+		{
+			const RobotInstruction::IkFailKind kind = RobotInstruction::classifyIkFailMessage(failMsg);
+			const std::string zh = RobotInstruction::formatIkFailKindZh(kind);
+			if (!zh.empty())
+			{
+				m_host->appendRunWarning(QString::fromStdString(zh + RobotInstruction::formatIkFailKindTag(kind)));
+			}
 		}
 		return false;
+	}
+	if (plan.cartDegraded || plan.summary.find("[cartDegraded]") != std::string::npos)
+	{
+		if (m_host)
+		{
+			m_host->appendRunWarning(QStringLiteral("笛卡尔路径已降级为关节插值（cartDegraded）"));
+		}
 	}
 
 	if (!skipCollision)

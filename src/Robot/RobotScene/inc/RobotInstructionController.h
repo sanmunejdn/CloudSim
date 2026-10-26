@@ -12,6 +12,7 @@
 #include "SerialLinkKinematics.h"
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,6 +32,8 @@ struct ROBOT_SCENE_API PlanResult
 	double externalAxisQ = 0.0;
 	/// 完整配置下标对齐；写计划时与 externalAxisQ 同时填充
 	std::vector<double> externalAxisQs;
+	/// LINE 笛卡尔样点失败后退关节插值
+	bool cartDegraded = false;
 };
 
 /// 当前指令上下文中通过 IK+姿态约束的轴配置枚举
@@ -82,6 +85,11 @@ public:
 	void registerPlanner(const std::shared_ptr<PlannerBase>& planner);
 	void clearPlanners();
 	void buildDefaultPlanners();
+
+	/// 规划期碰撞软代价：0=无碰，>0 越大越差，≥1e6 硬拒；空清除
+	using IkCollisionCostFn = std::function<double(const std::vector<double>& qRad)>;
+	void setIkCollisionCostProbe(IkCollisionCostFn fn);
+	void clearIkCollisionCostProbe();
 
 	bool validate(const Base& cmd, std::string* errMsg) const;
 	bool plan(const Base& cmd, PlanResult& out, std::string* errMsg) const;

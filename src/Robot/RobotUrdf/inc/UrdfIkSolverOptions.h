@@ -7,6 +7,8 @@
 
 #include "robot_urdf_global.h"
 
+#include <vector>
+
 namespace UrdfRobotLoader
 {
 /// 对外成功分级：Soft 仅当 allowApproximateOrientation
@@ -38,6 +40,12 @@ struct ROBOT_URDF_API UrdfIkSolverOptions
 	double softOrientationToleranceRad = 2.0 * 3.14159265358979323846 / 180.0;
 	/// 点动等增量场景：跳过球形腕解析（其仅位置阶段易换肘/腕支）
 	bool preferNumericalOnly = false;
+	/// 同种子上解析与数值都算，取距 seedAttractionQ 更近者
+	bool raceAnalyticalAndNumerical = false;
+	/// DLS 每步向种子弹簧（0=关）
+	double seedAttractionWeight = 0.0;
+	/// 贴种子参考；空则用求解初值
+	std::vector<double> seedAttractionQ;
 };
 
 } // namespace UrdfRobotLoader
