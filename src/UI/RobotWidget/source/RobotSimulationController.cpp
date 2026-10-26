@@ -9941,14 +9941,21 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 		{
 			*planErr = failMsg;
 		}
-		const auto itProf = instruction.extensionProperties().find("context.ikProfile");
-		if (m_host && itProf != instruction.extensionProperties().end() && itProf->second == "drag")
+		if (m_host)
 		{
 			const RobotInstruction::IkFailKind kind = RobotInstruction::classifyIkFailMessage(failMsg);
-			const std::string zh = RobotInstruction::formatIkFailKindZh(kind);
-			if (!zh.empty())
+			const auto itProf = instruction.extensionProperties().find("context.ikProfile");
+			const bool dragProf =
+				itProf != instruction.extensionProperties().end() && itProf->second == "drag";
+			// drag 全量短句；其它仅 Wrist/Budget/AxisClass 提示，避免淹没日志
+			if (dragProf || kind == RobotInstruction::IkFailKind::Wrist ||
+				kind == RobotInstruction::IkFailKind::Budget || kind == RobotInstruction::IkFailKind::AxisClass)
 			{
-				m_host->appendRunWarning(QString::fromStdString(zh + RobotInstruction::formatIkFailKindTag(kind)));
+				const std::string zh = RobotInstruction::formatIkFailKindZh(kind);
+				if (!zh.empty())
+				{
+					m_host->appendRunWarning(QString::fromStdString(zh + RobotInstruction::formatIkFailKindTag(kind)));
+				}
 			}
 		}
 		return false;

@@ -8,6 +8,7 @@
 #include "RobotInstructionModel.h"
 #include "RobotInstructionPropertySchema.h"
 #include "RunLogger.h"
+#include "UrdfIkMachineProfile.h"
 
 #include <cmath>
 #include <set>
@@ -194,6 +195,21 @@ bool runInstructionPropertyBindingSelfTest(std::vector<std::string>* failures)
 				  std::string::npos,
 			  "fail tag Budget");
 		check(!RobotInstruction::formatIkFailKindZh(RobotInstruction::IkFailKind::Residual).empty(), "fail zh");
+		check(RobotInstruction::formatIkFailKindZh(RobotInstruction::IkFailKind::Budget).find("ikProfile=run") !=
+				  std::string::npos,
+			  "Budget zh escalate hint");
+		check(RobotInstruction::classifyIkFailMessage("路径终点腕连续失败（相对起点超过门限）") ==
+				  RobotInstruction::IkFailKind::Wrist,
+			  "fail Wrist");
+		check(RobotInstruction::classifyIkFailMessage("路径终点轴配置不匹配") ==
+				  RobotInstruction::IkFailKind::AxisClass,
+			  "fail AxisClass");
+
+		RobotInstruction::clearIkEscalateSummaryTag();
+		RobotInstruction::setIkEscalateSummaryTag(" [ikEscalate=preview]");
+		check(RobotInstruction::consumeIkEscalateSummaryTag().find("[ikEscalate=preview]") != std::string::npos,
+			  "escalate tag");
+		check(RobotInstruction::consumeIkEscalateSummaryTag().empty(), "escalate consume once");
 
 		RobotInstruction::IkSelectionPolicy dragPol = ptpPol;
 		std::unordered_map<std::string, std::string> dragExt;
@@ -209,6 +225,22 @@ bool runInstructionPropertyBindingSelfTest(std::vector<std::string>* failures)
 		RobotInstruction::adaptIkPolicyForRobot({}, adaptPol, nullptr);
 		check(!adaptPol.raceAnalyticalAndNumerical, "adapt non-spherical race off");
 		check(adaptPol.seedAttractionWeight == 0.0, "adapt non-spherical attract off");
+
+		const auto emptyMach = UrdfRobotLoader::resolveIkMachineProfile(QString());
+		check(emptyMach.elbowJointIndex < 0 && emptyMach.wristJointIndex < 0, "empty urdf profile");
+		check(UrdfRobotLoader::ikMachinePackageKeyFromUrdfPath(
+				  QStringLiteral("D:/robots/abb_irb1100/urdf/irb1100.urdf")) == QStringLiteral("abb_irb1100"),
+			  "packageKey from urdf dir");
+
+		std::vector<double> qElbow(6, 0.0);
+		qElbow[2] = 1.0;
+		qElbow[1] = -1.0;
+		const auto clsHint =
+			RobotInstruction::classifyJointConfiguration(qElbow, names, &seed, -1, -1);
+		check(clsHint.elbow == RobotInstruction::ElbowPosture::Up, "elbow hint joint_3");
+		const auto clsOv =
+			RobotInstruction::classifyJointConfiguration(qElbow, names, &seed, 1, -1);
+		check(clsOv.elbow == RobotInstruction::ElbowPosture::Down, "elbow override index 1");
 	}
 
 	if (ok)

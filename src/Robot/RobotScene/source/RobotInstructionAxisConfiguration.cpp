@@ -4,6 +4,7 @@
 #include "RobotInstructionAxisConfiguration.h"
 
 #include "SphericalWristAnalyticalIk.h"
+#include "UrdfIkMachineProfile.h"
 
 #include <QString>
 
@@ -720,7 +721,7 @@ IkFailKind classifyIkFailMessage(const std::string& message)
 	{
 		return IkFailKind::AxisClass;
 	}
-	if (has("腕部跳变") || (has("wrist") && (has("连续") || has("跳"))))
+	if (has("腕部跳变") || has("腕连续") || (has("wrist") && (has("连续") || has("跳"))))
 	{
 		return IkFailKind::Wrist;
 	}
@@ -772,7 +773,7 @@ std::string formatIkFailKindZh(const IkFailKind kind)
 	case IkFailKind::Residual:
 		return "IK残差未收敛";
 	case IkFailKind::Budget:
-		return "IK预算耗尽";
+		return "IK预算耗尽；可设 context.ikProfile=run 或加大 ikBudgetMs";
 	case IkFailKind::Wrist:
 		return "腕构型跳变过大";
 	case IkFailKind::AxisClass:
@@ -890,11 +891,49 @@ void applyIkPolicyExtensionOverrides(const std::unordered_map<std::string, std::
 	}
 }
 
+namespace
+{
+thread_local std::string t_ikEscalateSummaryTag;
+}
+
+void clearIkEscalateSummaryTag()
+{
+	t_ikEscalateSummaryTag.clear();
+}
+
+void setIkEscalateSummaryTag(const std::string& tag)
+{
+	t_ikEscalateSummaryTag = tag;
+}
+
+std::string consumeIkEscalateSummaryTag()
+{
+	std::string out = t_ikEscalateSummaryTag;
+	t_ikEscalateSummaryTag.clear();
+	return out;
+}
+
 void adaptIkPolicyForRobot(const std::string& urdfPath, IkSelectionPolicy& policy,
 						   const std::unordered_map<std::string, std::string>* ext)
 {
-	const bool spherical =
-		!urdfPath.empty() && UrdfRobotLoader::SphericalWristAnalyticalIk::isEligible(QString::fromStdString(urdfPath));
+	bool spherical = false;
+	if (!urdfPath.empty())
+	{
+		const UrdfRobotLoader::UrdfIkMachineProfile mach =
+			UrdfRobotLoader::resolveIkMachineProfile(QString::fromStdString(urdfPath));
+		if (mach.forceSphericalWrist == UrdfRobotLoader::SphericalWristForce::No)
+		{
+			spherical = false;
+		}
+		else if (mach.forceSphericalWrist == UrdfRobotLoader::SphericalWristForce::Yes)
+		{
+			spherical = true;
+		}
+		else
+		{
+			spherical = UrdfRobotLoader::SphericalWristAnalyticalIk::isEligible(QString::fromStdString(urdfPath));
+		}
+	}
 	if (!spherical)
 	{
 		policy.raceAnalyticalAndNumerical = false;

@@ -80,6 +80,9 @@
     <ClInclude Include="inc\SphericalWristAnalyticalIk.h">
       <Filter>inc\Kinematics</Filter>
     </ClInclude>
+    <ClInclude Include="inc\UrdfIkMachineProfile.h">
+      <Filter>inc\Kinematics</Filter>
+    </ClInclude>
     <ClInclude Include="inc\UrdfRobotKinematicModel.h">
       <Filter>inc\Kinematics</Filter>
     </ClInclude>
@@ -113,6 +116,9 @@
       <Filter>src\Kinematics</Filter>
     </ClCompile>
     <ClCompile Include="source\SphericalWristAnalyticalIk.cpp">
+      <Filter>src\Kinematics</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UrdfIkMachineProfile.cpp">
       <Filter>src\Kinematics</Filter>
     </ClCompile>
     <ClCompile Include="source\UrdfRobotKinematicModel.cpp">

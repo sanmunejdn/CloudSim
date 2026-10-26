@@ -86,7 +86,9 @@
 | `classifyJointTurnRevolutions(q, ref)` | `round((q-ref)/2π)` |
 | `IkSelectionPolicy` / `makePtpIkPolicy` / `makeCartesianPathIkPolicy` | 腕门/class/budget/RankMode/竞速/贴种子/allowCartDegrade |
 | `applyIkPolicyExtensionOverrides` / `adaptIkPolicyForRobot` / `formatIkPolicySummaryTags` | profile 预算、机型收紧竞速、summary 短标记 |
-| `IkFailKind` / `classifyIkFailMessage` | 失败分类（Budget/Topology…） |
+| `IkFailKind` / `classifyIkFailMessage` | 失败分类（Budget/Topology/Wrist…）；Budget 中文含升档提示 |
+| 索引优先级 | `context.elbow/wristJointIndex` > `UrdfIkMachineProfile` > 名字 hint |
+| drag Budget 升档 | 预算耗尽自动再试 preview 一次；summary `[ikEscalate=preview]` |
 | `Controller::setIkCollisionCostProbe` | IK 候选终点单姿态粗检（≥1e6 硬拒）；全轨迹仍在 plan 后 `validateJointTrajectory` |
 | `shouldSkipShortestAngleFold(seed, target, names)` | 相对种子构型变化则跳过 ±2π 折圈 |
 | `solveIkWithAxisConfiguration`（Controller 内） | 按 policy 多初值 IK + wrap 距离择优 |
@@ -435,7 +437,7 @@ M_link = M0 · inv(T0) · Tq · P
 | `snapshotPropertyRows` / `applyPropertyChange` | 只走 Binding；未知 key → `"Unknown property key."` |
 | `m_extensionProperties` | 仅 load/save 兼容，不进 snapshot / apply |
 
-自检：`runInstructionPropertyBindingSelfTest`（Debug 下首次取 schema once）。设计见 [`docs/指令与插件属性Binding/DESIGN_指令与插件属性Binding.md`](../../../docs/指令与插件属性Binding/DESIGN_指令与插件属性Binding.md)。
+自检：`runInstructionPropertyBindingSelfTest`（Debug 下首次取 schema once）。设计见 [`docs/features/Binding/`](../../../docs/features/Binding/README.md)。
 
 ---
 
@@ -614,7 +616,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 ## 15. 自定义设备运动学（`CustomDeviceKinematics`）
 
-Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`../../../docs/运动副/DESIGN_运动副.md`](../../../docs/运动副/DESIGN_运动副.md) §6）。
+Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`docs/features/运动副/`](../../../docs/features/运动副/README.md)）。
 
 | API | 说明 |
 |-----|------|
@@ -632,7 +634,7 @@ Link/Joint 图 FK 与旋转中心 Frame 视觉同步（详见 [`../../../docs/�
 
 ## 15a. 外置控制器（`ControlContext` / `ControllerManager`）
 
-Webots 风格：用户进程经 TCP `127.0.0.1:19620` 发 `STEP`，Host tick 写关节。协议以 [`docs/features/仿真外置控制器/CONSENSUS_仿真外置控制器.md`](../../../docs/features/仿真外置控制器/CONSENSUS_仿真外置控制器.md) 为准。
+Webots 风格：用户进程经 TCP `127.0.0.1:19620` 发 `STEP`，Host tick 写关节。协议以 [`docs/features/仿真外置控制器/协议.md`](../../../docs/features/仿真外置控制器/协议.md) 为准。
 
 | 类型 | 职责 |
 |------|------|
@@ -643,7 +645,7 @@ Webots 风格：用户进程经 TCP `127.0.0.1:19620` 发 `STEP`，Host tick 写
 - **勿与 RobotComm（19610）混用端口或帧类型**；真机通讯见 RobotCommSDK。
 - 客户端：`CloudSimControllerSDK` / 源 `RobotWidget/resource/Python/ControllerPython`（运行时 `{exe}/resource/Python/ControllerPython`）。
 
-验收与手工步骤：[`ACCEPTANCE_仿真外置控制器.md`](../../../docs/features/仿真外置控制器/ACCEPTANCE_仿真外置控制器.md)。
+实现与接线：[`实现说明.md`](../../../docs/features/仿真外置控制器/实现说明.md)。
 
 ---
 

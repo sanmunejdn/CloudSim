@@ -92,6 +92,6 @@
 ## 8. 网页对等（暂缓）
 
 网页端**暂仅主程序**：已移除 `GeomodelingShell` 与 `/api/geomodeling/*`。  
-Host 侧 `HeadlessGeomodelBridge` 与侧车键 `geometricModeling` 仍保留，便于日后恢复。范围说明：[网页端主程序裁剪](../网页端主程序裁剪/CONSENSUS_网页端主程序裁剪.md)；契约：[网页端全量对等/API_CONTRACT.md](../网页端/全量对等/API_CONTRACT.md)。
+Host 侧 `HeadlessGeomodelBridge` 与侧车键 `geometricModeling` 仍保留，便于日后恢复。范围说明：[网页端主程序裁剪](../网页端主程序裁剪/README.md)；契约：[网页端全量对等/API_CONTRACT.md](../网页端/全量对等/API_CONTRACT.md)。
 
 下一期增量见 [ROADMAP.md](ROADMAP.md)。

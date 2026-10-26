@@ -45,6 +45,9 @@
 | 专题 | 说明 |
 |------|------|
 | [自动化测试](自动化测试/README.md) | SelfTestRunner / API pytest / soak / CI / 修复闭环 |
+| [Bug管理系统](Bug管理系统/README.md) | BugTracker；手册见 [10-Bug管理](../开发手册/10-Bug管理.md) |
+
+各专题以 **README（入口）+ 实现说明/协议（逻辑）** 为准；已清理 ALIGNMENT/TASK/ACCEPTANCE 等 6A 过程稿。
 
 ## 领域资产
 

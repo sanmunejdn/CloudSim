@@ -31,13 +31,15 @@
 | 07 | [URDF 与机器人](开发手册/07-URDF与机器人.md) |
 | 08 | [网页端](开发手册/08-网页端.md) |
 | 09 | [打包·SDK·日志](开发手册/09-打包SDK与日志.md) |
+| 10 | [Bug 管理](开发手册/10-Bug管理.md) |
 
 ## 本目录结构
 
 | 路径 | 说明 |
 |------|------|
 | [solutions/](solutions/) | 按 .sln 列工程 → 指南 |
-| [features/](features/) | 跨工程、已交付功能专题 |
+| [features/](features/) | 跨工程功能专题（`README` + `实现说明` / 协议；无 6A 过程稿） |
 | [开发手册/](开发手册/) | 横切主题正文 |
+| [架构修复/](架构修复/路线图.md) | 主程序架构终态与专题设计 |
 | DIRECTORY_LAYOUT / SOURCE_CONVENTIONS / spatial_contract / MODULE_DEVELOPER_GUIDES | 产品约定 |
 | [ARCHIVE_ZIP_LOCATION.txt](ARCHIVE_ZIP_LOCATION.txt) | 仓库外归档 zip 路径 |

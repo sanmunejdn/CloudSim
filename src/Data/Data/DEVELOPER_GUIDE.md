@@ -489,7 +489,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 基类 `snapshotPropertyRows` / `applyPropertyChange` 为**默认**实现（仍 virtual，供 `PluginDelegatedBackend` 覆盖）：identity 行 + Binding + component。未知 key → `"Unknown property key."`（不再 Legacy 全脏）。
 
-自检：`runBackendPropertyBindingSelfTest`（Debug 下首次取 schema 时 once 跑）。设计见 [`docs/后端属性Binding/DESIGN_后端属性Binding.md`](../../../docs/后端属性Binding/DESIGN_后端属性Binding.md)；指令/插件扩展见 [`docs/指令与插件属性Binding/`](../../../docs/指令与插件属性Binding/)。
+自检：`runBackendPropertyBindingSelfTest`（Debug 下首次取 schema 时 once 跑）。设计见 [`docs/features/Binding/`](../../../docs/features/Binding/README.md)。
 
 ### 5.4 `backend_property_schema` + 视觉 aspect
 

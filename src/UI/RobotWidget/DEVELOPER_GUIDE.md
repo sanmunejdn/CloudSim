@@ -252,7 +252,7 @@ DH/外轴经 `ensureInstructionControllerKinematics` 按 URDF 路径缓存，避
 4. **部分失败**：占位并停止后续急算；成功段≥1 则 `tryStart`。
 5. 初始化 `m_playbackRollingSeedQ` / `m_playbackProgramStartQ` / 段起点外轴 qe；tick 前 `ensurePlaybackPlansReady`。
 
-播放：`jointTrajectoryRad.size() >= 2` 时 Executor 优先轨迹插帧，否则起止 lerp；段结束对齐 `jointTargetsRad`。外轴按 `motionSegmentProgress01` 在段起点与 `plan.externalAxisQs` 间逐分量插值（见 [`docs/外部轴类型拓宽/DESIGN_外部轴类型拓宽.md`](../../../docs/外部轴类型拓宽/DESIGN_外部轴类型拓宽.md)）。
+播放：`jointTrajectoryRad.size() >= 2` 时 Executor 优先轨迹插帧，否则起止 lerp；段结束对齐 `jointTargetsRad`。外轴按 `motionSegmentProgress01` 在段起点与 `plan.externalAxisQs` 间逐分量插值（见 RobotScene DEVELOPER_GUIDE 外轴章节）。
 
 #### 段前补算（`ensurePlaybackPlansReady` / `syncPlanMotionAtIndex`）
 

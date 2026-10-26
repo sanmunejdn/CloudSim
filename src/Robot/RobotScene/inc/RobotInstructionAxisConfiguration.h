@@ -172,6 +172,11 @@ ROBOT_SCENE_API IkFailKind classifyIkFailMessage(const std::string& message);
 ROBOT_SCENE_API std::string formatIkFailKindTag(IkFailKind kind);
 ROBOT_SCENE_API std::string formatIkFailKindZh(IkFailKind kind);
 
+/// drag 预算耗尽升 preview 成功时写入；调用方读后清空
+ROBOT_SCENE_API void clearIkEscalateSummaryTag();
+ROBOT_SCENE_API void setIkEscalateSummaryTag(const std::string& tag);
+ROBOT_SCENE_API std::string consumeIkEscalateSummaryTag();
+
 ROBOT_SCENE_API IkSelectionPolicy makePtpIkPolicy(const MotionAxisConfiguration& cfg);
 /// 笛卡尔路径终点用；样点可将 mode 改为 NearSeed
 ROBOT_SCENE_API IkSelectionPolicy makeCartesianPathIkPolicy(const MotionAxisConfiguration& cfg);

@@ -1,6 +1,6 @@
 # CloudSimControllerSDK
 
-> **文档导航**：[全库入口](../../../docs/README.md) · [仿真外置控制器](../../../docs/features/仿真外置控制器/README.md) · [CONSENSUS](../../../docs/features/仿真外置控制器/CONSENSUS_仿真外置控制器.md)
+> **文档导航**：[全库入口](../../../docs/README.md) · [仿真外置控制器](../../../docs/features/仿真外置控制器/README.md) · [协议](../../../docs/features/仿真外置控制器/协议.md)
 
 C++ 客户端 DLL：经 localhost TCP JSON（`127.0.0.1:19620`）连接 Host `ControllerManager`，驱动仿真关节。
 

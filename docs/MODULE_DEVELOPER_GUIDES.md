@@ -178,7 +178,7 @@ python scripts/generate_vcxproj_filters.py --full
 
 ## 工程持久化（v4）
 
-设计与任务文档见 （`DESIGN_*`、`TASK_*`、`REGRESSION_CHECKLIST_*`、`ACCEPTANCE_*`）；类型契约见 [`后端对象与软件模式/`](features/后端对象与软件模式/)。
+功能与实现说明见 [`features/`](features/) 各专题 `README` / `实现说明.md`；类型契约见 [`后端对象与软件模式/`](features/后端对象与软件模式/)。
 
 ## 约定索引
 

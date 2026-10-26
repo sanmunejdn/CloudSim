@@ -41,6 +41,7 @@
 | `solveArmPoseDampedLeastSquares` | 主路径：球形腕解析（若适用）→ `KinematicCoreUrdfIk::runUrdfDlsLoop`；`allowApproximateOrientation` 控制 SoftAccepted |
 | `solveArmPoseViaKinematicCore` | DLS 实现；供解析回退与 SelfTest |
 | `IPoseIkSolver` / `SphericalWristAnalyticalIk` | 可插拔位姿 IK；`isEligible` 按 urdfPath 进程内缓存；竞速/贴种子仅球形腕扩展打开 |
+| `UrdfIkMachineProfile` / `resolveIkMachineProfile` | 包名 + 旁路 `ik_profile.json`（肘腕下标 / forceSphericalWrist）；热加载随 eligibility 清缓存 |
 | `expandPoseIkSeeds` / `selectNearestWrappedSolution` | 多种子扩展（可传 jointNames 与 classify 对齐）与最短折圈选解 |
 | `solveArmPoseViaUrdfJacobianLegacy` | **仅 SelfTest**；legacy BFS 雅可比 DLS |
 | `buildUrdfKinematicGraph` | URDF → `kinematic_core::KinematicGraph`（`JointMotion1D.hasLimit`） |

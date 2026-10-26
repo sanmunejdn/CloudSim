@@ -45,7 +45,7 @@
 | 阶段 | 内容 |
 |------|------|
 | 包 D 起步 | 视口点选硬化、特征 Suppress；可与 TopoNaming P0 并行 |
-| TopoNaming 专题 | 见 [`docs/拓扑命名/ALIGNMENT_TopoNaming.md`](../拓扑命名/ALIGNMENT_TopoNaming.md)；弱命名表 → rebuild 映射 → Host API |
+| TopoNaming 专题 | 弱命名表 → rebuild 映射 → Host API（实现见几何建模模块代码与 ARCHITECTURE） |
 
 ## 4b. 脚本建模（已交付）
 

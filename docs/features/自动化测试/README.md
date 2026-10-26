@@ -4,15 +4,9 @@
 
 | 文档 | 说明 |
 |------|------|
-| [ALIGNMENT_自动化测试.md](ALIGNMENT_自动化测试.md) | 需求对齐与边界 |
-| [CONSENSUS_自动化测试.md](CONSENSUS_自动化测试.md) | 验收标准与约定冻结 |
-| [DESIGN_自动化测试.md](DESIGN_自动化测试.md) | 架构与数据流 |
-| [TASK_自动化测试.md](TASK_自动化测试.md) | 原子任务 |
+| [实现说明.md](实现说明.md) | 架构与数据流 |
 | [CI_RUNNER_SETUP.md](CI_RUNNER_SETUP.md) | self-hosted runner 配置 |
 | [BUGFIX_LOOP.md](BUGFIX_LOOP.md) | 失败 → Agent 修复闭环 |
-| [ACCEPTANCE_自动化测试.md](ACCEPTANCE_自动化测试.md) | 验收清单 |
-| [FINAL_自动化测试.md](FINAL_自动化测试.md) | 交付总结 |
-| [TODO_自动化测试.md](TODO_自动化测试.md) | 待办与缺配置 |
 
 ## 一键命令（在 `CloudSim/` 根）
 

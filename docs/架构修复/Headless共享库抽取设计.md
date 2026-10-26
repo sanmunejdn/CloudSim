@@ -113,7 +113,7 @@ src/Host/CloudSimHostCore/CloudSimHostCore.vcxproj
 | CloudSimHostHeadless.dll | Core `/WHOLEARCHIVE`（不链 Viewport） |
 | Widget.dll | Host.lib + Viewport.lib |
 
-详见 [`DESIGN_终态A+B+C.md`](DESIGN_终态A+B+C.md)。
+详见本目录 [路线图.md](路线图.md) 阶段 3 与 [LIFECYCLE_CONTRACT.md](LIFECYCLE_CONTRACT.md)。
 
 ## 8. 导出面护栏（链接硬化）
 
@@ -132,5 +132,5 @@ src/Host/CloudSimHostCore/CloudSimHostCore.vcxproj
 - 表面控制继续由 `check_host_export_surface.py` 承担；消灭 WA / 改写 `.def` / mass `/EXPORT` **不在主程序关闭范围**。
 - DesktopViewport **禁止** WHOLEARCHIVE（既有三方源校验）。
 
-详见 [`DESIGN_主程序架构全量.md`](DESIGN_主程序架构全量.md)。
+详见 [主程序架构.md](主程序架构.md)。
 

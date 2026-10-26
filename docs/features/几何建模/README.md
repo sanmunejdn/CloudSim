@@ -8,7 +8,7 @@
 - 草图：PlaneGCS 约束求解 + 多种绘制/标注/引用工具
 - 实体：Pad/Pocket、Sweep、Fillet/Chamfer、Revolve、Pattern、Mirror、Loft、Shell、Draft、DatumPlane
 - Body 落在 `ParametricBrepModel`；特征历史经 Host/Data rebuild
-- **网页端**：暂不提供几何建模工作区 UI / `/api/geomodeling/*`（见 [网页端主程序裁剪](../网页端主程序裁剪/CONSENSUS_网页端主程序裁剪.md)）；Host 仍保留 `HeadlessGeomodelBridge` 与工程侧车 `geometricModeling` 保真。清单 §8 见 [FEATURES.md](FEATURES.md)
+- **网页端**：暂不提供几何建模工作区 UI / `/api/geomodeling/*`（见 [网页端主程序裁剪](../网页端主程序裁剪/README.md)）；Host 仍保留 `HeadlessGeomodelBridge` 与工程侧车 `geometricModeling` 保真。清单 §8 见 [FEATURES.md](FEATURES.md)
 
 ## 本目录
 

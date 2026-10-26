@@ -4,6 +4,7 @@
 #include "SphericalWristAnalyticalIk.h"
 
 #include "IkSeedExpand.h"
+#include "UrdfIkMachineProfile.h"
 #include "KinematicCoreUrdfIk.h"
 #include "KinematicGraph.h"
 #include "TreeForwardKinematics.h"
@@ -297,6 +298,7 @@ bool SphericalWristAnalyticalIk::isEligible(const QString& urdfPath)
 void SphericalWristAnalyticalIk::clearEligibilityCache()
 {
 	g_sphericalWristEligibleCache.clear();
+	clearIkMachineProfileCache();
 }
 
 std::vector<double> SphericalWristAnalyticalIk::solve(const QString& urdfPath, const QString& ikLink,
