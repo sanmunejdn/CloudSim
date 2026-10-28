@@ -60,10 +60,10 @@ TrajConnectMode parseTrajConnectMode(const std::string& mode)
 	return TrajConnectMode::Bow;
 }
 
-gp_Dir computeSectionNormal(const double rxDeg, const double ryDeg)
+gp_Dir computeSectionNormal(const double rxDeg, const double ryDeg, const double rzDeg = 0.0)
 {
 	gp_Quaternion quat;
-	quat.SetEulerAngles(gp_Intrinsic_XYZ, rxDeg * kDeg2Rad, ryDeg * kDeg2Rad, 0.0);
+	quat.SetEulerAngles(gp_Intrinsic_XYZ, rxDeg * kDeg2Rad, ryDeg * kDeg2Rad, rzDeg * kDeg2Rad);
 	gp_Vec axis;
 	Standard_Real angle = 0.0;
 	quat.GetVectorAndAngle(axis, angle);
@@ -967,22 +967,35 @@ bool discretizeFaceSectionGrid(const TopoDS_Shape& shape, const FeatureDiscretiz
 		}
 	}
 
-	const gp_Dir sectionNormal = computeSectionNormal(paramDouble(input.params, "sectionRxDeg", 0.0),
-													  paramDouble(input.params, "sectionRyDeg", 0.0));
-	const gp_Pnt sectionOrigin(paramDouble(input.params, "sectionOriginX", 0.0),
-							   paramDouble(input.params, "sectionOriginY", 0.0),
-							   paramDouble(input.params, "sectionOriginZ", 0.0));
+	const gp_Dir sectionNormal =
+		computeSectionNormal(paramDouble(input.params, "sectionRxDeg", 0.0),
+							 paramDouble(input.params, "sectionRyDeg", 0.0),
+							 paramDouble(input.params, "sectionRzDeg", 0.0));
+
+	double x1 = 0.0;
+	double y1 = 0.0;
+	double z1 = 0.0;
+	double x2 = 0.0;
+	double y2 = 0.0;
+	double z2 = 0.0;
+	if (hasBox && !totalBox.IsOpen())
+	{
+		totalBox.Get(x1, y1, z1, x2, y2, z2);
+	}
+	// 未显式给原点时取 bbox 中心，避免工件远离世界原点时语义不清
+	const bool hasExplicitOrigin = input.params.contains("sectionOriginX") || input.params.contains("sectionOriginY") ||
+								   input.params.contains("sectionOriginZ");
+	gp_Pnt sectionOrigin(paramDouble(input.params, "sectionOriginX", 0.0),
+						 paramDouble(input.params, "sectionOriginY", 0.0),
+						 paramDouble(input.params, "sectionOriginZ", 0.0));
+	if (!hasExplicitOrigin && hasBox && !totalBox.IsOpen())
+	{
+		sectionOrigin = gp_Pnt(0.5 * (x1 + x2), 0.5 * (y1 + y2), 0.5 * (z1 + z2));
+	}
 
 	std::vector<double> sectionOffsets;
 	if (hasBox && !totalBox.IsOpen())
 	{
-		double x1 = 0.0;
-		double y1 = 0.0;
-		double z1 = 0.0;
-		double x2 = 0.0;
-		double y2 = 0.0;
-		double z2 = 0.0;
-		totalBox.Get(x1, y1, z1, x2, y2, z2);
 		double dMin = 1e30;
 		double dMax = -1e30;
 		for (int i = 0; i < 8; ++i)

@@ -305,15 +305,21 @@ bool discretizeFeatureListInternal(const FeatureListDocument& doc, const TopoDS_
 		return false;
 	}
 
+	// 按策略首次出现顺序处理，避免 map 字母序打乱 features 表序
+	std::vector<std::string> strategyOrder;
 	std::map<std::string, std::vector<FeatureEntry>> byStrategy;
 	for (const FeatureEntry& entry : doc.features)
 	{
+		if (byStrategy.find(entry.strategyId) == byStrategy.end())
+		{
+			strategyOrder.push_back(entry.strategyId);
+		}
 		byStrategy[entry.strategyId].push_back(entry);
 	}
 
-	for (auto& kv : byStrategy)
+	for (const std::string& strategyId : strategyOrder)
 	{
-		if (!processStrategyGroup(doc, shape, kv.first, kv.second, out, errMsg))
+		if (!processStrategyGroup(doc, shape, strategyId, byStrategy[strategyId], out, errMsg))
 		{
 			return false;
 		}

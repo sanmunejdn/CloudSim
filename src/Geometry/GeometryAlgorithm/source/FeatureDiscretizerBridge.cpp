@@ -82,6 +82,7 @@ FeatureGeometrySchema getFeatureGeometrySchema(const std::string& strategyId)
 	}
 	if (strategyId == "FaceIntersection")
 	{
+		schema.allowCrossWorkpiece = true;
 		FeatureGeometrySlotSchema s;
 		s.kind = GeometryRefKind::Face;
 		s.minCount = 2;

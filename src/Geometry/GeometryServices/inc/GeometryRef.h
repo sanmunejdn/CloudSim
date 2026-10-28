@@ -59,7 +59,7 @@ GEOMETRY_SERVICES_EXPORT bool buildFeatureDiscretizeContext(const geoalgo::Featu
 															geoalgo::FeatureDiscretizeContext& outCtx,
 															std::string* errMsg = nullptr);
 
-/// 逐行 buildContext+discretizeEx；表级按 primary 换算到首特征工件模型系并插段边界
+/// 跨工件离散：同工件 LineConnectivity/FaceUnion 收批走 Coordinator；其余逐行 discretizeEx
 GEOMETRY_SERVICES_EXPORT bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& doc,
 																	const IBackendDataQuery& mgr,
 																	geoalgo::RawPath& out,

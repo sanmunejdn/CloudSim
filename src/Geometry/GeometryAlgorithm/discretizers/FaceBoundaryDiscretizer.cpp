@@ -36,34 +36,43 @@ bool FaceBoundaryDiscretizer::discretize(const TopoDS_Shape& shape, const Featur
 		return false;
 	}
 
-	TopoDS_Face face;
-	if (!shapeFaceAtIndex(shape, faceIndices[0], face, errMsg))
+	const DiscretizeParams disc = detail::buildDiscretizeParamsFromInput(input);
+	const TessellateParams tess = detail::toTessellate(disc);
+
+	for (const int faceIdx : faceIndices)
 	{
-		return false;
-	}
-	const TopoDS_Wire wire = BRepTools::OuterWire(face);
-	if (wire.IsNull())
-	{
-		if (errMsg)
+		TopoDS_Face face;
+		if (!shapeFaceAtIndex(shape, faceIdx, face, errMsg))
 		{
-			*errMsg = "face has no outer wire";
+			return false;
 		}
-		return false;
+		const TopoDS_Wire wire = BRepTools::OuterWire(face);
+		if (wire.IsNull())
+		{
+			if (errMsg)
+			{
+				*errMsg = "face has no outer wire";
+			}
+			return false;
+		}
+		Polyline3d poly;
+		if (!discretizeWire(wire, tess, poly, errMsg))
+		{
+			return false;
+		}
+		if (!out.points.empty())
+		{
+			out.segmentEndExclusive.push_back(out.points.size());
+		}
+		const std::vector<TopoDS_Face> contextFaces{face};
+		detail::PolylineFrameContext frameCtx;
+		frameCtx.faces = &contextFaces;
+		frameCtx.normalConvention = detail::FaceNormalConvention::LineReverseFace;
+		frameCtx.pathClosed = true;
+		detail::appendPolylineToRawPath(poly, out, disc, true, frameCtx);
 	}
 
-	const DiscretizeParams disc = detail::buildDiscretizeParamsFromInput(input);
-	Polyline3d poly;
-	if (!discretizeWire(wire, detail::toTessellate(disc), poly, errMsg))
-	{
-		return false;
-	}
-	const std::vector<TopoDS_Face> contextFaces{face};
-	detail::PolylineFrameContext frameCtx;
-	frameCtx.faces = &contextFaces;
-	frameCtx.normalConvention = detail::FaceNormalConvention::LineReverseFace;
-	frameCtx.pathClosed = true;
-	detail::appendPolylineToRawPath(poly, out, disc, true, frameCtx);
-	out.closed = true;
+	out.closed = faceIndices.size() == 1U;
 	detail::applyPostDiscretizeResample(strategyId(), input.params, out);
 	return !out.points.empty();
 }

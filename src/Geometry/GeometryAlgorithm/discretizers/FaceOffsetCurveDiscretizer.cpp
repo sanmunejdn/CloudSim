@@ -1,5 +1,5 @@
 /// @file FaceOffsetCurveDiscretizer.cpp
-/// @brief FaceOffsetCurveDiscretizer 实现（支持跨工件：源边折线已在 primary/面系）
+/// @brief FaceOffsetCurveDiscretizer 实现（投影曲线；跨工件源边折线已在 primary/面系）
 
 #include "FaceOffsetCurveDiscretizer.h"
 
@@ -11,12 +11,29 @@
 #include "detail/FeatureDiscretizeCommon.h"
 #include "detail/OccIncludes.h"
 
-#include <BRepAdaptor_Surface.hxx>
+#include <Precision.hxx>
+#include <cmath>
 
 namespace geoalgo
 {
 namespace
 {
+enum class OffsetMode
+{
+	Normal,	 ///< 投影后沿面法向抬高
+	Surface ///< 投影后在切平面内横向偏置再回投
+};
+
+OffsetMode parseOffsetMode(const nlohmann::json& params)
+{
+	const std::string mode = paramString(params, "offsetMode", "Normal");
+	if (mode == "Surface" || mode == "surface")
+	{
+		return OffsetMode::Surface;
+	}
+	return OffsetMode::Normal;
+}
+
 bool resolveOffsetRoles(const FeatureGeometry& geometry, int& edgeIdx, int& faceIdx, std::string* errMsg)
 {
 	edgeIdx = -1;
@@ -53,44 +70,141 @@ bool resolveOffsetRoles(const FeatureGeometry& geometry, int& edgeIdx, int& face
 	return true;
 }
 
-bool projectPolylineOntoFace(const Polyline3d& poly, const TopoDS_Face& face, double offsetMm, Polyline3d& offsetPoly,
+// 点在 shape 全局系；必须先变到 Face Location 局部再 Project（与 FeatureDiscretizeFrame 一致）
+bool projectPointOntoFace(const gp_Pnt& ptWorld, const TopoDS_Face& face, gp_Pnt& onSWorld, gp_Vec& nrmWorld)
+{
+	TopLoc_Location faceLoc;
+	const Handle(Geom_Surface) surf = BRep_Tool::Surface(face, faceLoc);
+	if (surf.IsNull())
+	{
+		return false;
+	}
+
+	const gp_Trsf& toGlobal = faceLoc.Transformation();
+	gp_Trsf toLocal = toGlobal;
+	toLocal.Invert();
+
+	gp_Pnt ptLocal = ptWorld;
+	ptLocal.Transform(toLocal);
+
+	GeomAPI_ProjectPointOnSurf proj(ptLocal, surf);
+	if (!proj.IsDone() || proj.NbPoints() < 1)
+	{
+		return false;
+	}
+
+	Standard_Real u = 0.0;
+	Standard_Real v = 0.0;
+	proj.LowerDistanceParameters(u, v);
+
+	gp_Pnt pOnSurf;
+	gp_Vec du;
+	gp_Vec dv;
+	surf->D1(u, v, pOnSurf, du, dv);
+	pOnSurf.Transform(toGlobal);
+	onSWorld = pOnSurf;
+
+	gp_Vec nLocal = du.Crossed(dv);
+	if (nLocal.SquareMagnitude() <= Precision::SquareConfusion())
+	{
+		return false;
+	}
+	nLocal.Normalize();
+	if (face.Orientation() == TopAbs_REVERSED)
+	{
+		nLocal.Reverse();
+	}
+	nLocal.Transform(toGlobal);
+	if (nLocal.Magnitude() < 1e-12)
+	{
+		return false;
+	}
+	nLocal.Normalize();
+	nrmWorld = nLocal;
+	return true;
+}
+
+bool projectPolylineOntoFace(const Polyline3d& poly, const TopoDS_Face& face, double offsetMm, OffsetMode mode,
+							 Polyline3d& offsetPoly, std::vector<std::size_t>& segmentEnds, std::size_t& outOkCount,
 							 std::string* errMsg)
 {
 	(void)errMsg;
-	const BRepAdaptor_Surface surf(face);
+	outOkCount = 0;
 	const std::size_t n = poly.xyz.size() / 3U;
+	offsetPoly.xyz.clear();
+	segmentEnds.clear();
 	offsetPoly.xyz.reserve(poly.xyz.size());
+
+	gp_Pnt prevOnS;
+	bool havePrev = false;
+	bool inSegment = false;
+
+	auto finishSegment = [&]()
+	{
+		if (inSegment && !offsetPoly.xyz.empty())
+		{
+			segmentEnds.push_back(offsetPoly.xyz.size() / 3U);
+			inSegment = false;
+		}
+		havePrev = false;
+	};
+
 	for (std::size_t i = 0; i < n; ++i)
 	{
 		const std::size_t b = i * 3U;
 		gp_Pnt p(poly.xyz[b], poly.xyz[b + 1U], poly.xyz[b + 2U]);
-		GeomAPI_ProjectPointOnSurf proj(p, BRep_Tool::Surface(face));
-		if (proj.NbPoints() < 1)
-		{
-			continue;
-		}
-		Standard_Real u = 0.0;
-		Standard_Real v = 0.0;
-		proj.LowerDistanceParameters(u, v);
 		gp_Pnt onS;
-		gp_Vec du;
-		gp_Vec dv;
-		surf.D1(u, v, onS, du, dv);
-		gp_Vec nrm = du.Crossed(dv);
-		if (face.Orientation() == TopAbs_REVERSED)
+		gp_Vec nrm;
+		if (!projectPointOntoFace(p, face, onS, nrm))
 		{
-			nrm.Reverse();
-		}
-		if (nrm.Magnitude() < 1e-12)
-		{
+			finishSegment();
 			continue;
 		}
-		nrm.Normalize();
-		onS.Translate(nrm.Multiplied(offsetMm));
-		offsetPoly.xyz.push_back(static_cast<float>(onS.X()));
-		offsetPoly.xyz.push_back(static_cast<float>(onS.Y()));
-		offsetPoly.xyz.push_back(static_cast<float>(onS.Z()));
+		++outOkCount;
+
+		gp_Pnt outPt = onS;
+		if (mode == OffsetMode::Normal)
+		{
+			outPt.Translate(nrm.Multiplied(offsetMm));
+		}
+		else
+		{
+			gp_Vec lateral(0.0, 0.0, 0.0);
+			if (havePrev)
+			{
+				gp_Vec tan(prevOnS, onS);
+				if (tan.Magnitude() > 1e-9)
+				{
+					tan.Normalize();
+					lateral = nrm.Crossed(tan);
+					if (lateral.Magnitude() > 1e-12)
+					{
+						lateral.Normalize();
+						lateral.Multiply(offsetMm);
+					}
+					else
+					{
+						lateral = gp_Vec(0.0, 0.0, 0.0);
+					}
+				}
+			}
+			outPt.Translate(lateral);
+			gp_Pnt reprojected;
+			gp_Vec n2;
+			if (projectPointOntoFace(outPt, face, reprojected, n2))
+			{
+				outPt = reprojected;
+			}
+		}
+
+		offsetPoly.xyz.push_back(static_cast<float>(outPt.X()));
+		offsetPoly.xyz.push_back(static_cast<float>(outPt.Y()));
+		offsetPoly.xyz.push_back(static_cast<float>(outPt.Z()));
+		inSegment = true;
+		prevOnS = onS;
+		havePrev = true;
 	}
+
 	return !offsetPoly.xyz.empty();
 }
 
@@ -117,7 +231,11 @@ REGISTER_FEATURE_DISCRETIZER(FaceOffsetCurveDiscretizer);
 std::vector<FeatureDiscretizerParamField> FaceOffsetCurveDiscretizer::paramFields() const
 {
 	std::vector<FeatureDiscretizerParamField> fields = featureDiscretizerCommonParamFields();
-	fields.push_back(doubleFeatureParamField("offsetMm", "Offset", "偏置距离", "mm", -1000.0, 1000.0, 0.01, 0.0, 10));
+	fields.push_back(
+		doubleFeatureParamField("offsetMm", "Normal lift", "法向抬高（可选）", "mm", -1000.0, 1000.0, 0.01, 0.0, 10));
+	fields.push_back(enumFeatureParamField("offsetMode", "Offset mode", "抬高模式", {"Normal", "Surface"},
+										   {"法向抬高", "面内横向"}, {"Normal", "Surface"}, 0, 11));
+	fields.push_back(boolFeatureParamField("flipNormal", "Flip normal", "翻转法向/横向", false, 12));
 	return fields;
 }
 
@@ -206,14 +324,20 @@ bool FaceOffsetCurveDiscretizer::discretizeEx(const FeatureDiscretizeContext& ct
 	}
 
 	TopoDS_Face face;
-	if (!shapeFaceAtIndex(faceShape, faceIdx, face, errMsg))
+	std::string faceErr;
+	if (!shapeFaceAtIndex(faceShape, faceIdx, face, &faceErr))
 	{
+		if (errMsg)
+		{
+			*errMsg = faceErr;
+		}
 		return false;
 	}
 
 	const DiscretizeParams disc = detail::buildDiscretizeParamsFromInput(ctx.input);
 	Polyline3d poly;
-	if (edgeSlot && !edgeSlot->polylineInPrimaryMm.empty())
+	const bool usePreXformPoly = edgeSlot && !edgeSlot->polylineInPrimaryMm.empty();
+	if (usePreXformPoly)
 	{
 		poly.xyz = edgeSlot->polylineInPrimaryMm;
 	}
@@ -226,8 +350,13 @@ bool FaceOffsetCurveDiscretizer::discretizeEx(const FeatureDiscretizeContext& ct
 			edgeShape = faceShape;
 		}
 		TopoDS_Edge edge;
-		if (edgeIdx < 0 || !shapeEdgeAtIndex(edgeShape, edgeIdx, edge, errMsg))
+		std::string edgeErr;
+		if (edgeIdx < 0 || !shapeEdgeAtIndex(edgeShape, edgeIdx, edge, &edgeErr))
 		{
+			if (errMsg)
+			{
+				*errMsg = edgeErr.empty() ? "FaceOffsetCurve missing edge" : edgeErr;
+			}
 			return false;
 		}
 		if (!discretizeEdge(edge, detail::toTessellate(disc), poly, errMsg))
@@ -236,13 +365,22 @@ bool FaceOffsetCurveDiscretizer::discretizeEx(const FeatureDiscretizeContext& ct
 		}
 	}
 
-	const double offset = paramDouble(ctx.input.params, "offsetMm", 0.0);
-	Polyline3d offsetPoly;
-	if (!projectPolylineOntoFace(poly, face, offset, offsetPoly, errMsg))
+	double offset = paramDouble(ctx.input.params, "offsetMm", 0.0);
+	if (paramBool(ctx.input.params, "flipNormal", false))
 	{
-		if (errMsg && errMsg->empty())
+		offset = -offset;
+	}
+	const OffsetMode mode = parseOffsetMode(ctx.input.params);
+	Polyline3d offsetPoly;
+	std::vector<std::size_t> segmentEnds;
+	std::size_t okCount = 0;
+	const std::size_t srcCount = poly.xyz.size() / 3U;
+	if (!projectPolylineOntoFace(poly, face, offset, mode, offsetPoly, segmentEnds, okCount, errMsg))
+	{
+		if (errMsg)
 		{
-			*errMsg = "FaceOffsetCurve projection produced no points";
+			*errMsg = "FaceOffsetCurve projection produced no points (src=" + std::to_string(srcCount) +
+					  ", projected=" + std::to_string(okCount) + ")";
 		}
 		return false;
 	}
@@ -251,7 +389,41 @@ bool FaceOffsetCurveDiscretizer::discretizeEx(const FeatureDiscretizeContext& ct
 	detail::PolylineFrameContext frameCtx;
 	frameCtx.faces = &contextFaces;
 	frameCtx.normalConvention = detail::FaceNormalConvention::LineReverseFace;
-	detail::appendPolylineToRawPath(offsetPoly, out, disc, true, frameCtx);
+
+	if (segmentEnds.empty())
+	{
+		detail::appendPolylineToRawPath(offsetPoly, out, disc, true, frameCtx);
+	}
+	else
+	{
+		std::size_t start = 0;
+		for (const std::size_t endExclusive : segmentEnds)
+		{
+			if (endExclusive <= start)
+			{
+				continue;
+			}
+			Polyline3d part;
+			part.xyz.assign(offsetPoly.xyz.begin() + static_cast<std::ptrdiff_t>(start * 3U),
+							offsetPoly.xyz.begin() + static_cast<std::ptrdiff_t>(endExclusive * 3U));
+			if (!out.points.empty())
+			{
+				out.segmentEndExclusive.push_back(out.points.size());
+			}
+			detail::appendPolylineToRawPath(part, out, disc, true, frameCtx);
+			start = endExclusive;
+		}
+		if (start * 3U < offsetPoly.xyz.size())
+		{
+			Polyline3d part;
+			part.xyz.assign(offsetPoly.xyz.begin() + static_cast<std::ptrdiff_t>(start * 3U), offsetPoly.xyz.end());
+			if (!out.points.empty())
+			{
+				out.segmentEndExclusive.push_back(out.points.size());
+			}
+			detail::appendPolylineToRawPath(part, out, disc, true, frameCtx);
+		}
+	}
 
 	detail::applyPostDiscretizeResample(strategyId(), ctx.input.params, out);
 	return !out.points.empty();

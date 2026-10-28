@@ -23,15 +23,17 @@ std::vector<FeatureDiscretizerParamField> FaceSectionDiscretizer::paramFields() 
 											 13, "section"));
 	fields.push_back(doubleFeatureParamField("sectionRyDeg", "Section RY", "截面绕 Y", "deg", -360.0, 360.0, 1.0, 0.0,
 											 14, "section"));
-	fields.push_back(intFeatureParamField("uvCountU", "Uniform segments", "均匀段数", 2, 9999, 3, 15, "section"));
+	fields.push_back(doubleFeatureParamField("sectionRzDeg", "Section RZ", "截面绕 Z", "deg", -360.0, 360.0, 1.0, 0.0,
+											 15, "section"));
+	fields.push_back(intFeatureParamField("uvCountU", "Uniform segments", "均匀段数", 2, 9999, 3, 16, "section"));
 	fields.push_back(enumFeatureParamField("edgeDiscretizeMode", "Edge mode", "边离散模式", {"Uniform", "ChordHeight"},
-										   {"均匀", "等弦高"}, {"Uniform", "ChordHeight"}, 0, 16, "section"));
+										   {"均匀", "等弦高"}, {"Uniform", "ChordHeight"}, 0, 17, "section"));
 	fields.push_back(enumFeatureParamField("trajConnectMode", "Connect mode", "层间连接", {"Bow", "Z", "Zhi"},
-										   {"弓", "Z", "之"}, {"Bow", "Z", "Zhi"}, 0, 17, "section"));
-	fields.push_back(boolFeatureParamField("reverseLayer", "Reverse layer", "反转层", false, 18, "section"));
+										   {"弓", "Z", "之"}, {"Bow", "Z", "Zhi"}, 0, 18, "section"));
+	fields.push_back(boolFeatureParamField("reverseLayer", "Reverse layer", "反转层", false, 19, "section"));
 	fields.push_back(
-		intFeatureParamField("layerKeepStart", "Layer keep start", "层保留起点", 0, 9999, 0, 19, "section"));
-	fields.push_back(intFeatureParamField("layerKeepEnd", "Layer keep end", "层保留终点", 0, 9999, 0, 20, "section"));
+		intFeatureParamField("layerKeepStart", "Layer keep start", "层保留起点", 0, 9999, 0, 20, "section"));
+	fields.push_back(intFeatureParamField("layerKeepEnd", "Layer keep end", "层保留终点", 0, 9999, 0, 21, "section"));
 	return fields;
 }
 

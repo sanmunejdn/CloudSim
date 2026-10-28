@@ -21,6 +21,8 @@ public:
 	bool discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
 					std::string* errMsg = nullptr) const override;
 
+	bool discretizeEx(const FeatureDiscretizeContext& ctx, RawPath& out, std::string* errMsg = nullptr) const override;
+
 	bool validate(const FeatureDiscretizeInput& input, std::string* errMsg = nullptr) const override;
 };
 

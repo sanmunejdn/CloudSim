@@ -12,7 +12,7 @@ class FaceOffsetCurveDiscretizer final : public IFeatureDiscretizer
 {
 public:
 	std::string strategyId() const override { return "FaceOffsetCurve"; }
-	std::string displayNameZh() const override { return "面内偏置曲线"; }
+	std::string displayNameZh() const override { return "投影曲线"; }
 	GeometryAffinity affinity() const override { return GeometryAffinity::Any; }
 	MergePolicy mergePolicy() const override { return MergePolicy::None; }
 

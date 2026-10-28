@@ -51,14 +51,14 @@
       "affinity": "Face",
       "mergePolicy": "None",
       "geometrySchema": {
-        "allowCrossWorkpiece": false,
+        "allowCrossWorkpiece": true,
         "primaryRole": "",
         "slots": [ { "role": "", "kind": "Face", "min": 2, "max": 2 } ]
       }
     },
     {
       "strategyId": "FaceOffsetCurve",
-      "displayNameZh": "面内偏置曲线",
+      "displayNameZh": "投影曲线",
       "affinity": "Any",
       "mergePolicy": "None",
       "geometrySchema": {

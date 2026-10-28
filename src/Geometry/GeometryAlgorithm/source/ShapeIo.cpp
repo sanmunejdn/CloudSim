@@ -4,6 +4,7 @@
 #include "ShapeIo.h"
 
 #include "CsgkBackend.h"
+#include "ShapeQuery.h"
 #include "detail/OccIncludes.h"
 
 #include <filesystem>
@@ -12,6 +13,7 @@
 
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepTools.hxx>
+#include <TopoDS_Face.hxx>
 #include <gp_Trsf.hxx>
 
 namespace geoalgo
@@ -296,6 +298,37 @@ ShapeHandle transformShape(const ShapeHandle& shape, const Eigen::Isometry3d& is
 
 	BRepBuilderAPI_Transform transformer(native, trsf, true);
 	return ShapeHandleAccess::fromNativeShape(&transformer.Shape());
+}
+
+bool relocateFaceHandle(const ShapeHandle& shape, int faceIndex, const Eigen::Isometry3d& toTargetFrame,
+						ShapeHandle& outFaceShape, std::string* errMsg)
+{
+	outFaceShape = ShapeHandle{};
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native) || native.IsNull())
+	{
+		if (errMsg)
+		{
+			*errMsg = "shape access failed";
+		}
+		return false;
+	}
+	TopoDS_Face face;
+	if (!shapeFaceAtIndex(native, faceIndex, face, errMsg))
+	{
+		return false;
+	}
+	const ShapeHandle faceOnly = ShapeHandleAccess::fromNativeShape(&face);
+	outFaceShape = transformShape(faceOnly, toTargetFrame);
+	if (outFaceShape.isNull())
+	{
+		if (errMsg)
+		{
+			*errMsg = "face transform failed";
+		}
+		return false;
+	}
+	return true;
 }
 
 } // namespace geoalgo

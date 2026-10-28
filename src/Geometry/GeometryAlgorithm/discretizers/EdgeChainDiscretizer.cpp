@@ -47,6 +47,7 @@ bool EdgeChainDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDi
 	frameCtx.faces = contextFaces.empty() ? nullptr : &contextFaces;
 	frameCtx.normalConvention = detail::FaceNormalConvention::LineReverseFace;
 
+	Polyline3d poly;
 	if (edgeIndices.size() == 1)
 	{
 		TopoDS_Edge edge;
@@ -54,22 +55,21 @@ bool EdgeChainDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDi
 		{
 			return false;
 		}
-		Polyline3d poly;
 		if (!discretizeEdge(edge, tess, poly, errMsg))
 		{
 			return false;
 		}
-		detail::appendPolylineToRawPath(poly, out, disc, true, frameCtx);
 	}
-	else
+	else if (!fuseShapeEdgesToPolyline(shape, edgeIndices, tess, poly, errMsg))
 	{
-		Polyline3d poly;
-		if (!fuseStepEdgesToPolyline(input.workpiece.stepPathUtf8, edgeIndices, tess, poly, errMsg))
+		// 内存 shape 失败时才回退 STEP（AI/内存 B-rep 通常无路径）
+		if (input.workpiece.stepPathUtf8.empty() ||
+			!fuseStepEdgesToPolyline(input.workpiece.stepPathUtf8, edgeIndices, tess, poly, errMsg))
 		{
 			return false;
 		}
-		detail::appendPolylineToRawPath(poly, out, disc, true, frameCtx);
 	}
+	detail::appendPolylineToRawPath(poly, out, disc, true, frameCtx);
 
 	detail::applyPostDiscretizeResample(strategyId(), input.params, out);
 	return !out.points.empty();

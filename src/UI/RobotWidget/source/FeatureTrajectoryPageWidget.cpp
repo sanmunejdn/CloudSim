@@ -37,6 +37,7 @@
 #include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGroupBox>
@@ -204,20 +205,24 @@ int countGeometryRole(const geoalgo::FeatureGeometry& geometry, const std::strin
 	return n;
 }
 
-/// 按 schema 给新建拾取的 ref 填 role，并把 primary 工件写到 entry
+/// 按 schema 槽位给 ref 补 role（策略切换后常无 role），并写 primary 工件
 void assignPickRoleAndPrimary(geoalgo::FeatureEntry& entry, const std::string& backendId, const geoalgo::WorkpieceRef& wp)
 {
 	const geoalgo::FeatureGeometrySchema schema = geoalgo::getFeatureGeometrySchema(entry.strategyId);
-	if (entry.geometry.refs.size() == 1U && !schema.slotDefs.empty())
+	for (const geoalgo::FeatureGeometrySlotSchema& slot : schema.slotDefs)
 	{
-		const geoalgo::GeometryRefKind kind = entry.geometry.refs.front().kind;
-		for (const geoalgo::FeatureGeometrySlotSchema& slot : schema.slotDefs)
+		if (slot.role.empty() || countGeometryRole(entry.geometry, slot.role) > 0)
 		{
-			if (slot.kind == kind && (slot.role.empty() || countGeometryRole(entry.geometry, slot.role) == 0))
+			continue;
+		}
+		for (geoalgo::GeometryRef& ref : entry.geometry.refs)
+		{
+			if (ref.kind != slot.kind || (!ref.role.empty() && ref.role != slot.role))
 			{
-				entry.geometry.refs.front().role = slot.role;
-				break;
+				continue;
 			}
+			ref.role = slot.role;
+			break;
 		}
 	}
 	for (geoalgo::GeometryRef& ref : entry.geometry.refs)
@@ -774,9 +779,14 @@ std::string FeatureTrajectoryPageWidget::resolveStrategyIdForPick(const bool pic
 	if (m_strategyCombo && m_strategyCombo->currentIndex() >= 0)
 	{
 		const std::string currentId = m_strategyCombo->currentData().toString().toStdString();
-		if (!currentId.empty() && geometry_backend_ops::featureDiscretizerAffinity(currentId) == required)
+		// Any（如投影曲线）对边/面拾取都合法，否则会落到 EdgeChain 再改策略时缺面
+		if (!currentId.empty())
 		{
-			return currentId;
+			const geoalgo::GeometryAffinity aff = geometry_backend_ops::featureDiscretizerAffinity(currentId);
+			if (aff == required || aff == geoalgo::GeometryAffinity::Any)
+			{
+				return currentId;
+			}
 		}
 	}
 	for (const std::string& id : geometry_backend_ops::featureDiscretizerListStrategyIds())
@@ -919,8 +929,25 @@ void FeatureTrajectoryPageWidget::onStrategyComboChanged()
 	}
 	entry.strategyId = strategyIdUtf8;
 	entry.params = geometry_backend_ops::featureDiscretizerDefaultParams(entry.strategyId);
+	assignPickRoleAndPrimary(entry, entry.workpiece.backendIdUtf8, entry.workpiece);
 	(void)m_featureModel->updateEntry(row, entry);
 	loadParamsForSelectedRow();
+	// 投影曲线等双槽策略几何未齐时不要离散，避免「离散失败」假阴性
+	if (featureNeedsMoreGeometry(entry))
+	{
+		const QString hint =
+			entry.strategyId == "FaceOffsetCurve"
+				? (!geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face)
+					   ? (m_chinese ? QStringLiteral("投影曲线还需拾取面（追加模式点面）")
+									: QStringLiteral("FaceOffsetCurve still needs a face (append-pick)"))
+					   : (m_chinese ? QStringLiteral("投影曲线还需拾取边（追加模式点边）")
+									: QStringLiteral("FaceOffsetCurve still needs an edge (append-pick)")))
+				: (m_chinese ? QStringLiteral("当前策略几何未齐，请继续拾取")
+							 : QStringLiteral("Geometry incomplete for strategy; keep picking"));
+		setStatus(hint);
+		m_featureModel->setRowStatus(row, m_chinese ? QStringLiteral("待补几何") : QStringLiteral("need geometry"));
+		return;
+	}
 	scheduleParameterRediscretize();
 }
 
@@ -1685,8 +1712,8 @@ bool FeatureTrajectoryPageWidget::tryAppendPickToSelectedFeature(const bool pick
 			if (err)
 			{
 				*err = m_chinese
-						   ? QStringLiteral("当前策略不允许跨工件；选中特征已绑定其它工件，请新建特征或改用面内偏置曲线")
-						   : QStringLiteral("Strategy forbids cross-workpiece; create a new feature");
+						   ? QStringLiteral("当前策略不允许跨工件；选中特征已绑定其它工件，请新建特征或改用投影曲线")
+						   : QStringLiteral("Strategy forbids cross-workpiece; create a new feature or use ProjectCurve");
 			}
 			return false;
 		}
@@ -1897,9 +1924,9 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		else if (entry.strategyId == "FaceOffsetCurve")
 		{
 			hint = !geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face)
-					   ? (m_chinese ? QStringLiteral("面内偏置还需拾取面")
+									? (m_chinese ? QStringLiteral("投影曲线还需拾取面")
 									: QStringLiteral("FaceOffsetCurve still needs a face"))
-					   : (m_chinese ? QStringLiteral("面内偏置还需拾取边")
+							   : (m_chinese ? QStringLiteral("投影曲线还需拾取边")
 									: QStringLiteral("FaceOffsetCurve still needs an edge"));
 		}
 		setStatus((appended ? (m_chinese ? QStringLiteral("已追加到 %1；") : QStringLiteral("Appended to %1; "))
@@ -2279,6 +2306,35 @@ bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 		else if (!prepErr.isEmpty())
 		{
 			setStatus(prepErr);
+		}
+		return false;
+	}
+
+	for (std::size_t i = 0; i < doc.features.size(); ++i)
+	{
+		geoalgo::FeatureEntry& fe = doc.features[i];
+		assignPickRoleAndPrimary(fe, fe.workpiece.backendIdUtf8, fe.workpiece);
+		if (!featureNeedsMoreGeometry(fe))
+		{
+			continue;
+		}
+		const QString needErr =
+			fe.strategyId == "FaceOffsetCurve"
+				? (m_chinese ? QStringLiteral("投影曲线需要同时拾取边和面（当前几何未齐）")
+							 : QStringLiteral("FaceOffsetCurve needs both edge and face"))
+				: (m_chinese ? QStringLiteral("特征 %1 几何未齐，无法离散")
+								   .arg(QString::fromStdString(fe.featureId))
+							 : QStringLiteral("Feature %1 geometry incomplete")
+								   .arg(QString::fromStdString(fe.featureId)));
+		m_featureModel->setRowStatus(static_cast<int>(i),
+									 m_chinese ? QStringLiteral("待补几何") : QStringLiteral("need geometry"));
+		if (!quiet)
+		{
+			QMessageBox::warning(this, QStringLiteral("离散"), needErr);
+		}
+		else
+		{
+			setStatus(needErr);
 		}
 		return false;
 	}

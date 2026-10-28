@@ -227,12 +227,23 @@ bool brepBooleanStepFilesToMesh(const std::string& targetPathLocal, const std::s
 	return brepBooleanToMesh(target, tool, op, meshParams, outSoup, errMsg);
 }
 
-bool fuseStepEdgesToPolyline(const std::string& pathLocal, const std::vector<int>& edgeIndices,
-							 const TessellateParams& disc, Polyline3d& out, std::string* errMsg)
+bool fuseShapeEdgesToPolyline(const TopoDS_Shape& shape, const std::vector<int>& edgeIndices,
+							  const TessellateParams& disc, Polyline3d& out, std::string* errMsg)
 {
-	TopoDS_Shape shape;
-	if (!loadStepOrErr(pathLocal, shape, errMsg))
+	if (shape.IsNull())
 	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	if (edgeIndices.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "no edges to fuse";
+		}
 		return false;
 	}
 	std::vector<TopoDS_Wire> wires;
@@ -256,6 +267,17 @@ bool fuseStepEdgesToPolyline(const std::string& pathLocal, const std::vector<int
 		wires.push_back(mk.Wire());
 	}
 	return fuseWiresToPolyline(wires, disc, out, errMsg);
+}
+
+bool fuseStepEdgesToPolyline(const std::string& pathLocal, const std::vector<int>& edgeIndices,
+							 const TessellateParams& disc, Polyline3d& out, std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!loadStepOrErr(pathLocal, shape, errMsg))
+	{
+		return false;
+	}
+	return fuseShapeEdgesToPolyline(shape, edgeIndices, disc, out, errMsg);
 }
 
 bool sewStepFacesToMesh(const std::string& pathLocal, const std::vector<int>& faceIndices, double toleranceMm,

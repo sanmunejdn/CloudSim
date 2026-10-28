@@ -49,6 +49,11 @@ GEOMETRY_ALGORITHM_API bool writeStepFile(const std::string& pathLocal, const Sh
 /** 对 shape 应用刚体变换，返回变换后的 ShapeHandle 副本 */
 GEOMETRY_ALGORITHM_API ShapeHandle transformShape(const ShapeHandle& shape, const Eigen::Isometry3d& iso);
 
+/** 抽取单面并刚体变换到目标系；成功后 outFaceShape 仅含该面（索引按 0 使用） */
+GEOMETRY_ALGORITHM_API bool relocateFaceHandle(const ShapeHandle& shape, int faceIndex,
+											   const Eigen::Isometry3d& toTargetFrame, ShapeHandle& outFaceShape,
+											   std::string* errMsg = nullptr);
+
 } // namespace geoalgo
 
 #endif // GEOMETRYALGORITHM_SHAPEIO_H

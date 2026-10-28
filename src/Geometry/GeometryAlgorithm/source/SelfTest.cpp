@@ -34,12 +34,14 @@
 #include <limits>
 #include <sstream>
 
+#include <BRepBuilderAPI_Transform.hxx>
 #include <BRepGProp.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <Eigen/Geometry>
 #include <GProp_GProps.hxx>
 #include <TopoDS_Compound.hxx>
+#include <gp_Trsf.hxx>
 
 namespace geoalgo
 {
@@ -1579,6 +1581,92 @@ bool runSelfTest(std::vector<std::string>& failures)
 			{
 				fail("faceOffsetCurveDiscretizeEx", err.empty() ? "discretizeEx failed" : err);
 			}
+
+			ctx.input.params["offsetMm"] = 2.0;
+			ctx.input.params["offsetMode"] = "Surface";
+			RawPath surfPath;
+			if (!offDisc->discretizeEx(ctx, surfPath, &err) || surfPath.points.size() < 2U)
+			{
+				fail("faceOffsetCurveSurfaceMode", err.empty() ? "Surface offset failed" : err);
+			}
+
+			// 带 Location 的面：投影须走局部系，否则真实 STEP 易整段失败
+			{
+				gp_Trsf move;
+				move.SetTranslation(gp_Vec(120.0, -40.0, 55.0));
+				BRepBuilderAPI_Transform xf(box2, move, Standard_True);
+				const TopoDS_Shape moved = xf.Shape();
+				FeatureListDocument locDoc;
+				locDoc.workpiece.stepPathUtf8 = "selftest_offset_loc";
+				FeatureEntry locEntry;
+				locEntry.featureId = "proj";
+				locEntry.strategyId = "FaceOffsetCurve";
+				GeometryRef eRef;
+				eRef.kind = GeometryRefKind::Edge;
+				eRef.role = "sourceEdge";
+				eRef.index = 0;
+				GeometryRef fRef;
+				fRef.kind = GeometryRefKind::Face;
+				fRef.role = "targetFace";
+				fRef.index = 0;
+				locEntry.geometry.refs = {eRef, fRef};
+				locEntry.params["offsetMm"] = 0.0;
+				locEntry.params["stepMm"] = 5.0;
+				locDoc.features.push_back(locEntry);
+				RawPath locPath;
+				if (!discretizeFeatureList(locDoc, ShapeHandleAccess::fromNativeShape(&moved), locPath, &err) ||
+					locPath.points.size() < 2U)
+				{
+					fail("faceOffsetCurveWithFaceLocation", err.empty() ? "projection with location failed" : err);
+				}
+			}
+
+			if (offDisc->displayNameZh() != "投影曲线")
+			{
+				fail("faceOffsetCurveDisplayName", "expected 投影曲线");
+			}
+		}
+
+		// 内存 shape 多边 fuse（不依赖 STEP 路径）
+		{
+			const TopoDS_Shape box3 = BRepPrimAPI_MakeBox(80.0, 80.0, 80.0).Shape();
+			TessellateParams tess;
+			tess.linearDeflectionMm = 0.2;
+			Polyline3d fused;
+			if (!fuseShapeEdgesToPolyline(box3, {0, 1}, tess, fused, &err) || fused.xyz.size() < 6U)
+			{
+				fail("fuseShapeEdgesToPolyline", err.empty() ? "fuse failed" : err);
+			}
+		}
+
+		// FaceBoundary 多面：每面外轮廓独立成段
+		{
+			const TopoDS_Shape box4 = BRepPrimAPI_MakeBox(60.0, 60.0, 60.0).Shape();
+			FeatureListDocument faceDoc;
+			faceDoc.workpiece.stepPathUtf8 = "selftest_box4";
+			FeatureEntry fb;
+			fb.featureId = "faces";
+			fb.strategyId = "FaceBoundary";
+			GeometryRef f0;
+			f0.kind = GeometryRefKind::Face;
+			f0.index = 0;
+			GeometryRef f1;
+			f1.kind = GeometryRefKind::Face;
+			f1.index = 1;
+			fb.geometry.refs = {f0, f1};
+			fb.params["stepMm"] = 5.0;
+			faceDoc.features.push_back(fb);
+			RawPath facePath;
+			if (!discretizeFeatureList(faceDoc, ShapeHandleAccess::fromNativeShape(&box4), facePath, &err) ||
+				facePath.points.size() < 4U || facePath.segmentEndExclusive.empty())
+			{
+				fail("faceBoundaryMultiFace", err.empty() ? "expected multi-face segments" : err);
+			}
+		}
+
+		if (getFeatureGeometrySchema("FaceIntersection").allowCrossWorkpiece != true)
+		{
+			fail("faceIntersectionSchema", "allowCrossWorkpiece should be true");
 		}
 	}
 

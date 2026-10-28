@@ -80,6 +80,11 @@ GEOMETRY_ALGORITHM_API bool brepBooleanStepFilesToMesh(const std::string& target
 													   const MeshDiscretizeParams& meshParams,
 													   std::vector<float>& outSoup, std::string* errMsg = nullptr);
 
+/** 已有 shape 上按 edgeIndices 建 wire 融合并离散为折线（优先于重读 STEP） */
+GEOMETRY_ALGORITHM_API bool fuseShapeEdgesToPolyline(const TopoDS_Shape& shape, const std::vector<int>& edgeIndices,
+													 const TessellateParams& disc, Polyline3d& out,
+													 std::string* errMsg = nullptr);
+
 /** 读 STEP，按 edgeIndices 融合并离散为折线 */
 GEOMETRY_ALGORITHM_API bool fuseStepEdgesToPolyline(const std::string& pathLocal, const std::vector<int>& edgeIndices,
 													const TessellateParams& disc, Polyline3d& out,

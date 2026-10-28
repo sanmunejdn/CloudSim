@@ -3499,6 +3499,20 @@ bool buildFeatureDiscretizeContext(const geoalgo::FeatureListDocument& doc, cons
 				slot.polylineInPrimaryMm.push_back(static_cast<float>(primaryPt.z));
 			}
 		}
+		else if (gref.kind == geoalgo::GeometryRefKind::Face && refWp.backendIdUtf8 != primary.backendIdUtf8 &&
+				 gref.index >= 0)
+		{
+			BackendMat4 toPrimary = BackendMat4::identity();
+			(void)backend_mat4_multiply(primaryInv, cs.world, toPrimary);
+			geoalgo::ShapeHandle relocated;
+			if (!geoalgo::relocateFaceHandle(cs.handle, gref.index, rigidFromBackendWorldMat(toPrimary).isometry(),
+											relocated, errMsg))
+			{
+				return false;
+			}
+			slot.shapeHandle = std::move(relocated);
+			slot.localIndex = 0;
+		}
 		else if (gref.kind == geoalgo::GeometryRefKind::Polyline && !gref.polylineXyz.empty())
 		{
 			slot.polylineInPrimaryMm = gref.polylineXyz;
@@ -3546,52 +3560,9 @@ bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& d
 	BackendMat4 docPrimaryInv = BackendMat4::identity();
 	bool haveDocPrimary = false;
 
-	for (std::size_t fi = 0; fi < resolved.features.size(); ++fi)
+	auto appendPartToOut = [&](geoalgo::RawPath& part, const std::string& rowWp, std::size_t fi,
+							   const std::string* prevWp) -> bool
 	{
-		geoalgo::FeatureEntry& entry = resolved.features[fi];
-		geoalgo::FeatureDiscretizeContext ctx;
-		std::string stepErr;
-		if (!buildFeatureDiscretizeContext(doc, entry, mgr, ctx, &stepErr))
-		{
-			if (errMsg)
-			{
-				*errMsg = stepErr;
-			}
-			return false;
-		}
-		entry.workpiece = ctx.primaryWorkpiece;
-		if (!haveDocPrimary)
-		{
-			docPrimaryId = entry.workpiece.backendIdUtf8;
-			resolved.workpiece = entry.workpiece;
-			if (const auto data = mgr.getData(docPrimaryId))
-			{
-				(void)backend_mat4_invert_rigid(objectWorldMatrix(*data), docPrimaryInv);
-			}
-			haveDocPrimary = true;
-		}
-
-		const geoalgo::IFeatureDiscretizer* disc = geoalgo::featureDiscretizerGet(entry.strategyId);
-		if (!disc)
-		{
-			if (errMsg)
-			{
-				*errMsg = "unknown strategyId: " + entry.strategyId;
-			}
-			return false;
-		}
-		geoalgo::RawPath part;
-		part.sourceFeatureId = entry.featureId;
-		if (!disc->discretizeEx(ctx, part, &stepErr))
-		{
-			if (errMsg)
-			{
-				*errMsg = "feature " + entry.featureId + ": " + stepErr;
-			}
-			return false;
-		}
-
-		const std::string& rowWp = entry.workpiece.backendIdUtf8;
 		if (rowWp != docPrimaryId)
 		{
 			const auto data = mgr.getData(rowWp);
@@ -3629,7 +3600,7 @@ bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& d
 			out.sourceFeatureId = part.sourceFeatureId;
 			out.closed = part.closed;
 		}
-		else if (fi > 0 && resolved.features[fi - 1].workpiece.backendIdUtf8 != rowWp)
+		else if (fi > 0 && prevWp && *prevWp != rowWp)
 		{
 			if (out.segmentEndExclusive.empty() || out.segmentEndExclusive.back() != out.points.size())
 			{
@@ -3643,6 +3614,132 @@ bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& d
 		{
 			out.segmentEndExclusive.push_back(base + endExclusive);
 		}
+		return true;
+	};
+
+	auto ensureDocPrimary = [&](const geoalgo::WorkpieceRef& wp)
+	{
+		if (haveDocPrimary)
+		{
+			return;
+		}
+		docPrimaryId = wp.backendIdUtf8;
+		resolved.workpiece = wp;
+		if (const auto data = mgr.getData(docPrimaryId))
+		{
+			(void)backend_mat4_invert_rigid(objectWorldMatrix(*data), docPrimaryInv);
+		}
+		haveDocPrimary = true;
+	};
+
+	auto canMergeBatch = [&](const geoalgo::IFeatureDiscretizer* disc, const std::string& strategyId) -> bool
+	{
+		if (!disc)
+		{
+			return false;
+		}
+		const geoalgo::MergePolicy policy = disc->mergePolicy();
+		if (policy != geoalgo::MergePolicy::LineConnectivity && policy != geoalgo::MergePolicy::FaceUnion)
+		{
+			return false;
+		}
+		return !geoalgo::getFeatureGeometrySchema(strategyId).allowCrossWorkpiece;
+	};
+
+	std::size_t fi = 0;
+	while (fi < resolved.features.size())
+	{
+		geoalgo::FeatureEntry& entry = resolved.features[fi];
+		geoalgo::FeatureDiscretizeContext ctx;
+		std::string stepErr;
+		if (!buildFeatureDiscretizeContext(doc, entry, mgr, ctx, &stepErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = stepErr;
+			}
+			return false;
+		}
+		entry.workpiece = ctx.primaryWorkpiece;
+		ensureDocPrimary(entry.workpiece);
+
+		const geoalgo::IFeatureDiscretizer* disc = geoalgo::featureDiscretizerGet(entry.strategyId);
+		if (!disc)
+		{
+			if (errMsg)
+			{
+				*errMsg = "unknown strategyId: " + entry.strategyId;
+			}
+			return false;
+		}
+
+		const std::string rowWp = entry.workpiece.backendIdUtf8;
+		const std::string* prevWp =
+			fi > 0 ? &resolved.features[fi - 1].workpiece.backendIdUtf8 : static_cast<const std::string*>(nullptr);
+
+		// 同工件 + LineConnectivity/FaceUnion：收批后走 Coordinator，与单工件入口语义对齐
+		if (canMergeBatch(disc, entry.strategyId))
+		{
+			std::size_t end = fi + 1;
+			while (end < resolved.features.size())
+			{
+				geoalgo::FeatureEntry& next = resolved.features[end];
+				geoalgo::FeatureDiscretizeContext nextCtx;
+				if (!buildFeatureDiscretizeContext(doc, next, mgr, nextCtx, &stepErr))
+				{
+					if (errMsg)
+					{
+						*errMsg = stepErr;
+					}
+					return false;
+				}
+				next.workpiece = nextCtx.primaryWorkpiece;
+				if (next.strategyId != entry.strategyId ||
+					next.workpiece.backendIdUtf8 != entry.workpiece.backendIdUtf8 ||
+					!canMergeBatch(geoalgo::featureDiscretizerGet(next.strategyId), next.strategyId))
+				{
+					break;
+				}
+				++end;
+			}
+
+			geoalgo::FeatureListDocument batchDoc;
+			batchDoc.workpiece = entry.workpiece;
+			batchDoc.features.assign(resolved.features.begin() + static_cast<std::ptrdiff_t>(fi),
+									 resolved.features.begin() + static_cast<std::ptrdiff_t>(end));
+			geoalgo::RawPath part;
+			part.sourceFeatureId = entry.featureId;
+			if (!geoalgo::discretizeFeatureList(batchDoc, ctx.primaryShapeHandle, part, &stepErr))
+			{
+				if (errMsg)
+				{
+					*errMsg = "feature batch " + entry.featureId + ": " + stepErr;
+				}
+				return false;
+			}
+			if (!appendPartToOut(part, rowWp, fi, prevWp))
+			{
+				return false;
+			}
+			fi = end;
+			continue;
+		}
+
+		geoalgo::RawPath part;
+		part.sourceFeatureId = entry.featureId;
+		if (!disc->discretizeEx(ctx, part, &stepErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = "feature " + entry.featureId + ": " + stepErr;
+			}
+			return false;
+		}
+		if (!appendPartToOut(part, rowWp, fi, prevWp))
+		{
+			return false;
+		}
+		++fi;
 	}
 
 	if (outResolvedDoc)
