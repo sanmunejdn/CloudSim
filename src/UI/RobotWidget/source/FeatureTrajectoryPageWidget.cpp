@@ -1,4 +1,4 @@
-﻿/// @file FeatureTrajectoryPageWidget.cpp
+/// @file FeatureTrajectoryPageWidget.cpp
 /// @brief 特征轨迹页
 
 #include "FeatureTrajectoryPageWidget.h"
@@ -11,6 +11,8 @@
 #include "FeaturePickTransform.h"
 #include "FeatureTableModel.h"
 #include "GeometryRef.h"
+
+#include <FeatureDiscretizerBridge.h>
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
 #include "PickTypes.h"
@@ -87,60 +89,192 @@ bool isTopLevelWorkpieceBackend(const IRobotDocumentHost* doc, const std::string
 	return doc->documentData().parentsOf(QString::fromStdString(backendId)).isEmpty();
 }
 
+/// STEP 装配子件：父件是无自有 shape 的 BrepModel 空壳，子件才有可拾取几何与场景节点
+bool isBrepAssemblyPartBackend(const IRobotDocumentHost* doc, const BackendDataBase& data)
+{
+	if (!backend_type::isBrepWorkpieceClassName(data.className()) || !data.hasGeometry())
+	{
+		return false;
+	}
+	const QVector<QString> parents = doc->documentData().parentsOf(QString::fromStdString(data.id()));
+	if (parents.size() != 1)
+	{
+		return false;
+	}
+	const auto parent = doc->findObject(parents.front().toStdString());
+	return parent && backend_type::isBrepWorkpieceClassName(parent->className()) && !parent->hasGeometry();
+}
+
 bool isStepSourcePath(const QString& stepPath)
 {
 	const QString ext = QFileInfo(stepPath).suffix().toLower();
 	return ext == QStringLiteral("step") || ext == QStringLiteral("stp");
 }
 
-struct WorkpieceComboCandidate
-{
-	QString backendId;
-	QString label;
-	QString dedupeKey;
-	bool isBrepModel = false;
-};
-
 bool readGeometryFromCandidateJson(const nlohmann::json& candidate, geoalgo::FeatureGeometry& out)
 {
 	out = geoalgo::FeatureGeometry{};
-	if (candidate.contains("geometry"))
+	const nlohmann::json* g = nullptr;
+	if (candidate.contains("geometry") && candidate["geometry"].is_object())
 	{
-		const auto& g = candidate["geometry"];
-		if (g.contains("edgeIndices") && g["edgeIndices"].is_array())
+		g = &candidate["geometry"];
+	}
+	else if (candidate.contains("refs") && candidate["refs"].is_object())
+	{
+		// 旧 catalog 把 indices 放在 refs 下
+		g = &candidate["refs"];
+	}
+	if (!g)
+	{
+		return false;
+	}
+	if (g->contains("refs") && (*g)["refs"].is_array())
+	{
+		for (const auto& item : (*g)["refs"])
 		{
-			for (const auto& v : g["edgeIndices"])
+			if (!item.is_object())
 			{
-				out.edgeIndices.push_back(v.get<int>());
+				continue;
+			}
+			geoalgo::GeometryRef ref;
+			const std::string kind = item.value("kind", std::string("Edge"));
+			if (kind == "Face" || kind == "face")
+			{
+				ref.kind = geoalgo::GeometryRefKind::Face;
+			}
+			else if (kind == "Polyline" || kind == "polyline")
+			{
+				ref.kind = geoalgo::GeometryRefKind::Polyline;
+			}
+			else
+			{
+				ref.kind = geoalgo::GeometryRefKind::Edge;
+			}
+			ref.role = item.value("role", std::string());
+			ref.index = item.value("index", -1);
+			if (item.contains("workpiece") && item["workpiece"].is_object())
+			{
+				ref.workpiece.backendIdUtf8 = item["workpiece"].value("backendIdUtf8", std::string());
+				ref.workpiece.stepPathUtf8 = item["workpiece"].value("stepPathUtf8", std::string());
+			}
+			out.refs.push_back(std::move(ref));
+		}
+	}
+	else
+	{
+		if (g->contains("edgeIndices") && (*g)["edgeIndices"].is_array())
+		{
+			for (const auto& v : (*g)["edgeIndices"])
+			{
+				geoalgo::GeometryRef ref;
+				ref.kind = geoalgo::GeometryRefKind::Edge;
+				ref.index = v.get<int>();
+				out.refs.push_back(std::move(ref));
 			}
 		}
-		if (g.contains("faceIndices") && g["faceIndices"].is_array())
+		if (g->contains("faceIndices") && (*g)["faceIndices"].is_array())
 		{
-			for (const auto& v : g["faceIndices"])
+			for (const auto& v : (*g)["faceIndices"])
 			{
-				out.faceIndices.push_back(v.get<int>());
+				geoalgo::GeometryRef ref;
+				ref.kind = geoalgo::GeometryRefKind::Face;
+				ref.index = v.get<int>();
+				out.refs.push_back(std::move(ref));
 			}
 		}
 	}
-	else if (candidate.contains("refs"))
+	return !out.refs.empty();
+}
+
+int countGeometryKind(const geoalgo::FeatureGeometry& geometry, geoalgo::GeometryRefKind kind)
+{
+	return static_cast<int>(geoalgo::collectGeometryIndices(geometry, kind).size());
+}
+
+int countGeometryRole(const geoalgo::FeatureGeometry& geometry, const std::string& role)
+{
+	int n = 0;
+	for (const geoalgo::GeometryRef& ref : geometry.refs)
 	{
-		const auto& r = candidate["refs"];
-		if (r.contains("edgeIndices") && r["edgeIndices"].is_array())
+		if (ref.role == role)
 		{
-			for (const auto& v : r["edgeIndices"])
-			{
-				out.edgeIndices.push_back(v.get<int>());
-			}
+			++n;
 		}
-		if (r.contains("faceIndices") && r["faceIndices"].is_array())
+	}
+	return n;
+}
+
+/// 按 schema 给新建拾取的 ref 填 role，并把 primary 工件写到 entry
+void assignPickRoleAndPrimary(geoalgo::FeatureEntry& entry, const std::string& backendId, const geoalgo::WorkpieceRef& wp)
+{
+	const geoalgo::FeatureGeometrySchema schema = geoalgo::getFeatureGeometrySchema(entry.strategyId);
+	if (entry.geometry.refs.size() == 1U && !schema.slotDefs.empty())
+	{
+		const geoalgo::GeometryRefKind kind = entry.geometry.refs.front().kind;
+		for (const geoalgo::FeatureGeometrySlotSchema& slot : schema.slotDefs)
 		{
-			for (const auto& v : r["faceIndices"])
+			if (slot.kind == kind && (slot.role.empty() || countGeometryRole(entry.geometry, slot.role) == 0))
 			{
-				out.faceIndices.push_back(v.get<int>());
+				entry.geometry.refs.front().role = slot.role;
+				break;
 			}
 		}
 	}
-	return !out.edgeIndices.empty() || !out.faceIndices.empty();
+	for (geoalgo::GeometryRef& ref : entry.geometry.refs)
+	{
+		if (ref.workpiece.backendIdUtf8.empty())
+		{
+			ref.workpiece = wp;
+			ref.workpiece.backendIdUtf8 = backendId;
+		}
+	}
+	if (!schema.primaryRole.empty())
+	{
+		if (const geoalgo::GeometryRef* pref = geoalgo::findGeometryRef(entry.geometry, schema.primaryRole))
+		{
+			entry.workpiece = pref->workpiece.backendIdUtf8.empty() ? wp : pref->workpiece;
+			if (entry.workpiece.backendIdUtf8.empty())
+			{
+				entry.workpiece.backendIdUtf8 = backendId;
+			}
+			return;
+		}
+	}
+	entry.workpiece = wp;
+	entry.workpiece.backendIdUtf8 = backendId;
+}
+
+bool schemaAllowsCrossWorkpiece(const std::string& strategyId)
+{
+	return geoalgo::getFeatureGeometrySchema(strategyId).allowCrossWorkpiece;
+}
+
+bool findOpenSlotForPick(const geoalgo::FeatureEntry& entry, const bool pickFace, std::string& outRole,
+						 QString* err)
+{
+	const geoalgo::FeatureGeometrySchema schema = geoalgo::getFeatureGeometrySchema(entry.strategyId);
+	const geoalgo::GeometryRefKind want =
+		pickFace ? geoalgo::GeometryRefKind::Face : geoalgo::GeometryRefKind::Edge;
+	for (const geoalgo::FeatureGeometrySlotSchema& slot : schema.slotDefs)
+	{
+		if (slot.kind != want)
+		{
+			continue;
+		}
+		const int have = slot.role.empty() ? countGeometryKind(entry.geometry, want)
+										   : countGeometryRole(entry.geometry, slot.role);
+		const int maxCount = slot.maxCount < 0 ? 1000000 : slot.maxCount;
+		if (have < maxCount)
+		{
+			outRole = slot.role;
+			return true;
+		}
+	}
+	if (err)
+	{
+		*err = QStringLiteral("当前特征几何槽已满，请新建特征");
+	}
+	return false;
 }
 
 void appendModelXyzToWorldPolyline(IRobotOsgViewHost* osg, const std::string& backendId, const std::vector<float>& xyz,
@@ -168,13 +302,17 @@ constexpr int kFeatureBodyHighlightMaxCandidates = 16;
 FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWidget(parent)
 {
 	auto* layout = new QVBoxLayout(this);
-	layout->addWidget(new QLabel(QStringLiteral("工件 backend")));
-	m_backendCombo = new QComboBox(this);
-	layout->addWidget(m_backendCombo);
 
 	m_featureModel = new FeatureTableModel(this);
 	m_featureModel->setStrategyDisplayNameResolver([this](const std::string& strategyId)
 												   { return strategyDisplayName(strategyId); });
+	m_featureModel->setWorkpieceDisplayNameResolver(
+		[this](const std::string& backendId)
+		{
+			const auto data = (m_host && m_host->document()) ? m_host->document()->findObject(backendId) : nullptr;
+			return (data && !data->name().empty()) ? QString::fromStdString(data->name())
+												   : QString::fromStdString(backendId);
+		});
 	m_featureTable = new QTableView(this);
 	m_featureTable->setModel(m_featureModel);
 	m_featureTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -323,11 +461,11 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 				QAction* removeFacesAct =
 					menu.addAction(m_chinese ? QStringLiteral("移除面…") : QStringLiteral("Remove faces…"), this,
 								   &FeatureTrajectoryPageWidget::onRemoveFacesFromFeature);
-				removeFacesAct->setEnabled(row >= 0 && !entry.geometry.faceIndices.empty());
+				removeFacesAct->setEnabled(row >= 0 && geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face));
 				QAction* removeEdgesAct =
 					menu.addAction(m_chinese ? QStringLiteral("移除边…") : QStringLiteral("Remove edges…"), this,
 								   &FeatureTrajectoryPageWidget::onRemoveEdgesFromFeature);
-				removeEdgesAct->setEnabled(row >= 0 && !entry.geometry.edgeIndices.empty());
+				removeEdgesAct->setEnabled(row >= 0 && geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Edge));
 				menu.addSeparator();
 				menu.addAction(m_chinese ? QStringLiteral("删除选中行") : QStringLiteral("Delete selected"), this,
 							   &FeatureTrajectoryPageWidget::onDeleteSelectedRows);
@@ -354,23 +492,6 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 
 	UiIconDecorators::apply(m_pickEdgeBtn, UiIconId::PickEdge);
 	UiIconDecorators::apply(m_pickFaceBtn, UiIconId::PickFace);
-
-	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-			[this]()
-			{
-				const QString backendId = m_backendCombo ? m_backendCombo->currentData().toString() : QString();
-				if (backendId == m_lastWorkpieceBackendId)
-				{
-					return;
-				}
-				m_lastWorkpieceBackendId = backendId;
-				clearCandidatePreview();
-				m_cachedCatalogBackendId.clear();
-				m_cachedCatalogJsonUtf8.clear();
-				m_featureModel->clearAll();
-				(void)autoEnumerateCatalogForCurrentWorkpiece(true, nullptr);
-				emit workpieceComboChanged();
-			});
 
 	setUseChinese(m_chinese);
 	ensureDiscretizerRuntimeLoaded();
@@ -519,7 +640,7 @@ void FeatureTrajectoryPageWidget::bindHost(IRobotMainWindowHost* host)
 		m_host->setMeshPickCommittedHandler([this](const PickResult& pick, const PickKind kind)
 											{ onMeshPickCommitted(pick, static_cast<int>(kind)); });
 	}
-	refreshBackendCombo();
+	refreshWorkpieceAvailability();
 }
 
 void FeatureTrajectoryPageWidget::bindSession(TrajectoryEditSession* session)
@@ -543,18 +664,18 @@ void FeatureTrajectoryPageWidget::bindSimulationController(RobotSimulationContro
 void FeatureTrajectoryPageWidget::setStepPathResolver(std::function<QString(const QString& backendId)> resolver)
 {
 	m_stepPathResolver = std::move(resolver);
-	refreshBackendCombo();
+	refreshWorkpieceAvailability();
 }
 
 void FeatureTrajectoryPageWidget::refreshWorkpieces()
 {
-	refreshBackendCombo();
+	refreshWorkpieceAvailability();
 }
 
 void FeatureTrajectoryPageWidget::showEvent(QShowEvent* event)
 {
 	QWidget::showEvent(event);
-	refreshBackendCombo();
+	refreshWorkpieceAvailability();
 }
 
 void FeatureTrajectoryPageWidget::onTableSelectionChanged()
@@ -569,8 +690,8 @@ void FeatureTrajectoryPageWidget::syncStrategyComboToEntry(const geoalgo::Featur
 	{
 		return;
 	}
-	const bool faceOnly = !entry.geometry.faceIndices.empty() && entry.geometry.edgeIndices.empty();
-	const bool lineOnly = !entry.geometry.edgeIndices.empty() && entry.geometry.faceIndices.empty();
+	const bool faceOnly = geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face) && !geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Edge);
+	const bool lineOnly = geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Edge) && !geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face);
 	geoalgo::GeometryAffinity filter = geoalgo::GeometryAffinity::Any;
 	if (faceOnly)
 	{
@@ -615,8 +736,8 @@ std::string FeatureTrajectoryPageWidget::defaultStrategyIdForGeometry(const geoa
 
 void FeatureTrajectoryPageWidget::normalizeEntryStrategyForGeometry(geoalgo::FeatureEntry& entry) const
 {
-	const bool hasFace = !entry.geometry.faceIndices.empty();
-	const bool hasEdge = !entry.geometry.edgeIndices.empty();
+	const bool hasFace = geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face);
+	const bool hasEdge = geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Edge);
 	if (hasFace == hasEdge)
 	{
 		return;
@@ -701,8 +822,8 @@ void FeatureTrajectoryPageWidget::refreshBrepInfoForSelection()
 		return;
 	}
 	const geoalgo::FeatureEntry entry = m_featureModel->entryAt(m_featureModel->selectedRow());
-	const bool hasFace = !entry.geometry.faceIndices.empty();
-	const bool hasEdge = !entry.geometry.edgeIndices.empty();
+	const bool hasFace = geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face);
+	const bool hasEdge = geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Edge);
 	QString typeText;
 	if (hasFace && hasEdge)
 	{
@@ -736,12 +857,15 @@ void FeatureTrajectoryPageWidget::refreshBrepInfoForSelection()
 	};
 	const QString featureId = entry.featureId.empty() ? (zh ? QStringLiteral("(无)") : QStringLiteral("(none)"))
 													  : QString::fromStdString(entry.featureId);
-	m_brepInfoLabel->setText(zh ? QStringLiteral("特征: %1\n类型: %2\nfaceIndices: %3\nedgeIndices: %4")
-									  .arg(featureId, typeText, formatIndices(entry.geometry.faceIndices),
-										   formatIndices(entry.geometry.edgeIndices))
-								: QStringLiteral("Feature: %1\nType: %2\nfaceIndices: %3\nedgeIndices: %4")
-									  .arg(featureId, typeText, formatIndices(entry.geometry.faceIndices),
-										   formatIndices(entry.geometry.edgeIndices)));
+	const QString workpiece =
+		m_featureModel->data(m_featureModel->index(m_featureModel->selectedRow(), FeatureTableModel::ColWorkpiece))
+			.toString();
+	m_brepInfoLabel->setText(zh ? QStringLiteral("特征: %1\n工件: %5\n类型: %2\nfaceIndices: %3\nedgeIndices: %4")
+									  .arg(featureId, typeText, formatIndices(geoalgo::collectGeometryIndices(entry.geometry, geoalgo::GeometryRefKind::Face)),
+										   formatIndices(geoalgo::collectGeometryIndices(entry.geometry, geoalgo::GeometryRefKind::Edge)), workpiece)
+								: QStringLiteral("Feature: %1\nWorkpiece: %5\nType: %2\nfaceIndices: %3\nedgeIndices: %4")
+									  .arg(featureId, typeText, formatIndices(geoalgo::collectGeometryIndices(entry.geometry, geoalgo::GeometryRefKind::Face)),
+										   formatIndices(geoalgo::collectGeometryIndices(entry.geometry, geoalgo::GeometryRefKind::Edge)), workpiece));
 }
 
 void FeatureTrajectoryPageWidget::applyParamsToSelectedRow()
@@ -777,8 +901,8 @@ void FeatureTrajectoryPageWidget::onStrategyComboChanged()
 	}
 	const std::string strategyIdUtf8 = strategyId.toStdString();
 	const geoalgo::GeometryAffinity affinity = geometry_backend_ops::featureDiscretizerAffinity(strategyIdUtf8);
-	const bool hasFace = !entry.geometry.faceIndices.empty();
-	const bool hasEdge = !entry.geometry.edgeIndices.empty();
+	const bool hasFace = geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face);
+	const bool hasEdge = geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Edge);
 	if (affinity == geoalgo::GeometryAffinity::Line && hasFace && !hasEdge)
 	{
 		setStatus(m_chinese ? QStringLiteral("线策略不能用于面特征，请选择面离散策略")
@@ -842,7 +966,9 @@ void FeatureTrajectoryPageWidget::removeGeometryIndicesFromRow(const int row, co
 		return;
 	}
 	geoalgo::FeatureEntry entry = m_featureModel->entryAt(row);
-	std::vector<int>& indices = removeFaces ? entry.geometry.faceIndices : entry.geometry.edgeIndices;
+	const geoalgo::GeometryRefKind kind =
+		removeFaces ? geoalgo::GeometryRefKind::Face : geoalgo::GeometryRefKind::Edge;
+	const std::vector<int> indices = geoalgo::collectGeometryIndices(entry.geometry, kind);
 	if (indices.empty())
 	{
 		return;
@@ -890,18 +1016,19 @@ void FeatureTrajectoryPageWidget::removeGeometryIndicesFromRow(const int row, co
 		return;
 	}
 
-	std::vector<int> kept;
-	kept.reserve(indices.size());
-	for (const int idx : indices)
+	std::vector<geoalgo::GeometryRef> kept;
+	kept.reserve(entry.geometry.refs.size());
+	for (geoalgo::GeometryRef& ref : entry.geometry.refs)
 	{
-		if (!toRemove.contains(idx))
+		if (ref.kind == kind && toRemove.contains(ref.index))
 		{
-			kept.push_back(idx);
+			continue;
 		}
+		kept.push_back(std::move(ref));
 	}
-	indices = std::move(kept);
+	entry.geometry.refs = std::move(kept);
 
-	if (entry.geometry.faceIndices.empty() && entry.geometry.edgeIndices.empty())
+	if (entry.geometry.refs.empty())
 	{
 		m_featureModel->removeRows(QList<int>{row});
 	}
@@ -1108,26 +1235,6 @@ void FeatureTrajectoryPageWidget::refreshPreviewFromSession()
 	}
 }
 
-bool FeatureTrajectoryPageWidget::selectBackendComboById(const QString& backendId)
-{
-	if (!m_backendCombo || backendId.isEmpty())
-	{
-		return false;
-	}
-	for (int i = 0; i < m_backendCombo->count(); ++i)
-	{
-		if (m_backendCombo->itemData(i).toString() == backendId)
-		{
-			if (m_backendCombo->currentIndex() != i)
-			{
-				m_backendCombo->setCurrentIndex(i);
-			}
-			return true;
-		}
-	}
-	return false;
-}
-
 bool FeatureTrajectoryPageWidget::applyFeatureListDocument(const geoalgo::FeatureListDocument& doc,
 														   const bool restoreWorkpiece)
 {
@@ -1140,12 +1247,15 @@ bool FeatureTrajectoryPageWidget::applyFeatureListDocument(const geoalgo::Featur
 	if (restoreWorkpiece && !normalized.workpiece.backendIdUtf8.empty())
 	{
 		const QString backendId = QString::fromStdString(normalized.workpiece.backendIdUtf8);
-		if (!selectBackendComboById(backendId))
+		if (isAvailableWorkpieceId(backendId))
 		{
-			setStatus(m_chinese
-						  ? QStringLiteral("未找到工件 %1，特征表已加载但请手动选择工件").arg(backendId)
-						  : QStringLiteral("Workpiece %1 not found; feature table loaded, select workpiece manually")
-								.arg(backendId));
+			noteActiveWorkpiece(backendId);
+		}
+		else
+		{
+			setStatus(m_chinese ? QStringLiteral("未找到工件 %1，特征表已加载（工件以特征行为准）").arg(backendId)
+							   : QStringLiteral("Workpiece %1 not found; feature table loaded (per-row workpiece)")
+									 .arg(backendId));
 		}
 	}
 	else
@@ -1169,6 +1279,7 @@ bool FeatureTrajectoryPageWidget::applyFeatureListDocument(const geoalgo::Featur
 	++m_strategyRowSyncDepth;
 	for (geoalgo::FeatureEntry& feature : normalized.features)
 	{
+		feature.workpiece = geoalgo::featureEntryWorkpiece(normalized, feature);
 		normalizeEntryStrategyForGeometry(feature);
 	}
 	m_featureModel->setEntries(normalized.features);
@@ -1252,7 +1363,7 @@ void FeatureTrajectoryPageWidget::onPathPlanBound(const std::string& pathPlanId)
 
 void FeatureTrajectoryPageWidget::updatePickUiState()
 {
-	const bool hasWorkpiece = m_backendCombo && m_backendCombo->currentIndex() >= 0;
+	const bool hasWorkpiece = m_hasAnyWorkpiece;
 	const bool appendMode = isAppendPickMode();
 	applyBtnRole(m_pickModeAppendBtn, appendMode ? "primary" : "secondary");
 	applyBtnRole(m_pickModeNewBtn, appendMode ? "secondary" : "primary");
@@ -1347,13 +1458,14 @@ void FeatureTrajectoryPageWidget::exitPickMode()
 	{
 		osg->setMeshLinePickMode(false);
 		osg->setMeshFacePickMode(false);
+		osg->setCrossObjectMeshPick(false);
 	}
 	updatePickUiState();
 }
 
 void FeatureTrajectoryPageWidget::onPickEdge()
 {
-	if (!m_host || m_backendCombo->currentIndex() < 0)
+	if (!m_host || !m_hasAnyWorkpiece)
 	{
 		setStatus(emptyWorkpieceHint());
 		return;
@@ -1363,11 +1475,10 @@ void FeatureTrajectoryPageWidget::onPickEdge()
 	{
 		return;
 	}
-	const QString backendId = m_backendCombo->currentData().toString();
 	osg->setObjectSelectionMode(false);
 	osg->setMeshFacePickMode(false);
+	osg->setCrossObjectMeshPick(true);
 	osg->setMeshLinePickMode(true);
-	osg->setMeshPickScopeBackendId(backendId.toStdString());
 	m_pickSession = PickSessionKind::Edge;
 	m_lastPickAffinity = geoalgo::GeometryAffinity::Line;
 	refreshStrategyCombo(geoalgo::GeometryAffinity::Line);
@@ -1389,7 +1500,7 @@ void FeatureTrajectoryPageWidget::onPickEdge()
 
 void FeatureTrajectoryPageWidget::onPickFace()
 {
-	if (!m_host || m_backendCombo->currentIndex() < 0)
+	if (!m_host || !m_hasAnyWorkpiece)
 	{
 		setStatus(emptyWorkpieceHint());
 		return;
@@ -1399,11 +1510,10 @@ void FeatureTrajectoryPageWidget::onPickFace()
 	{
 		return;
 	}
-	const QString backendId = m_backendCombo->currentData().toString();
 	osg->setObjectSelectionMode(false);
 	osg->setMeshLinePickMode(false);
+	osg->setCrossObjectMeshPick(true);
 	osg->setMeshFacePickMode(true);
-	osg->setMeshPickScopeBackendId(backendId.toStdString());
 	m_pickSession = PickSessionKind::Face;
 	m_lastPickAffinity = geoalgo::GeometryAffinity::Face;
 	refreshStrategyCombo(geoalgo::GeometryAffinity::Face);
@@ -1430,20 +1540,21 @@ void FeatureTrajectoryPageWidget::onCancelPick()
 	setStatus(m_chinese ? QStringLiteral("已取消 3D 拾取") : QStringLiteral("3D pick cancelled"));
 }
 
-bool FeatureTrajectoryPageWidget::buildFeatureEntryFromPick(const bool pickFace, const geoalgo::Point3d& modelA,
+bool FeatureTrajectoryPageWidget::buildFeatureEntryFromPick(const bool pickFace, const QString& pickBackendId,
+															const geoalgo::Point3d& modelA,
 															const geoalgo::Point3d& modelB, const int knownFaceIndex,
 															const int knownEdgeIndex, geoalgo::FeatureEntry& out,
 															QString* err) const
 {
-	if (m_backendCombo->currentIndex() < 0)
+	if (pickBackendId.isEmpty())
 	{
 		if (err)
 		{
-			*err = QStringLiteral("未选择工件");
+			*err = m_chinese ? QStringLiteral("拾取未命中工件") : QStringLiteral("Pick has no workpiece backendId");
 		}
 		return false;
 	}
-	const QString backendId = m_backendCombo->currentData().toString();
+	const QString backendId = pickBackendId;
 	geoalgo::ShapeHandle shape;
 	geoalgo::WorkpieceRef wp;
 	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, err))
@@ -1476,6 +1587,7 @@ bool FeatureTrajectoryPageWidget::buildFeatureEntryFromPick(const bool pickFace,
 		}
 		return false;
 	}
+	assignPickRoleAndPrimary(out, backendId.toStdString(), wp);
 	normalizeEntryStrategyForGeometry(out);
 	return true;
 }
@@ -1509,18 +1621,21 @@ bool FeatureTrajectoryPageWidget::canAppendPickToFeature(const geoalgo::FeatureE
 
 bool FeatureTrajectoryPageWidget::featureNeedsMoreGeometry(const geoalgo::FeatureEntry& entry)
 {
-	if (entry.strategyId == "FaceIntersection")
+	const geoalgo::FeatureGeometrySchema schema = geoalgo::getFeatureGeometrySchema(entry.strategyId);
+	for (const geoalgo::FeatureGeometrySlotSchema& slot : schema.slotDefs)
 	{
-		return entry.geometry.faceIndices.size() < 2U;
-	}
-	if (entry.strategyId == "FaceOffsetCurve")
-	{
-		return entry.geometry.faceIndices.empty() || entry.geometry.edgeIndices.empty();
+		const int have = slot.role.empty() ? countGeometryKind(entry.geometry, slot.kind)
+										   : countGeometryRole(entry.geometry, slot.role);
+		if (have < slot.minCount)
+		{
+			return true;
+		}
 	}
 	return false;
 }
 
-bool FeatureTrajectoryPageWidget::tryAppendPickToSelectedFeature(const bool pickFace, const geoalgo::Point3d& modelA,
+bool FeatureTrajectoryPageWidget::tryAppendPickToSelectedFeature(const bool pickFace, const QString& pickBackendId,
+																 const geoalgo::Point3d& modelA,
 																 const geoalgo::Point3d& modelB,
 																 const int knownFaceIndex, const int knownEdgeIndex,
 																 QString* err)
@@ -1539,15 +1654,48 @@ bool FeatureTrajectoryPageWidget::tryAppendPickToSelectedFeature(const bool pick
 	{
 		return false;
 	}
-	if (m_backendCombo->currentIndex() < 0)
+	if (pickBackendId.isEmpty())
 	{
 		if (err)
 		{
-			*err = QStringLiteral("未选择工件");
+			*err = m_chinese ? QStringLiteral("拾取未命中工件") : QStringLiteral("Pick has no workpiece backendId");
 		}
 		return false;
 	}
-	const QString backendId = m_backendCombo->currentData().toString();
+	const QString backendId = pickBackendId;
+	const bool allowCross = schemaAllowsCrossWorkpiece(entry.strategyId);
+	if (!allowCross)
+	{
+		// 同工件策略：行内已有几何的工件须与本次拾取一致（不看 combo）
+		std::string lockedWp = entry.workpiece.backendIdUtf8;
+		for (const geoalgo::GeometryRef& ref : entry.geometry.refs)
+		{
+			const std::string id = geoalgo::geometryRefWorkpiece(entry, ref).backendIdUtf8;
+			if (id.empty())
+			{
+				continue;
+			}
+			if (lockedWp.empty())
+			{
+				lockedWp = id;
+			}
+		}
+		if (!lockedWp.empty() && lockedWp != backendId.toStdString())
+		{
+			if (err)
+			{
+				*err = m_chinese
+						   ? QStringLiteral("当前策略不允许跨工件；选中特征已绑定其它工件，请新建特征或改用面内偏置曲线")
+						   : QStringLiteral("Strategy forbids cross-workpiece; create a new feature");
+			}
+			return false;
+		}
+	}
+	std::string slotRole;
+	if (!findOpenSlotForPick(entry, pickFace, slotRole, err))
+	{
+		return false;
+	}
 	geoalgo::ShapeHandle shape;
 	geoalgo::WorkpieceRef wp;
 	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, err))
@@ -1568,56 +1716,58 @@ bool FeatureTrajectoryPageWidget::tryAppendPickToSelectedFeature(const bool pick
 		}
 		return false;
 	}
-
-	if (pickFace)
+	if (picked.geometry.refs.empty())
 	{
-		if (picked.geometry.faceIndices.empty())
+		if (err)
+		{
+			*err = pickFace ? QStringLiteral("未解析到面索引") : QStringLiteral("未解析到边索引");
+		}
+		return false;
+	}
+	geoalgo::GeometryRef add = picked.geometry.refs.front();
+	add.role = slotRole;
+	add.workpiece = wp;
+	add.workpiece.backendIdUtf8 = backendId.toStdString();
+	for (const geoalgo::GeometryRef& existing : entry.geometry.refs)
+	{
+		if (existing.kind == add.kind && existing.index == add.index &&
+			geoalgo::geometryRefWorkpiece(entry, existing).backendIdUtf8 == add.workpiece.backendIdUtf8 &&
+			(slotRole.empty() || existing.role == slotRole || existing.role.empty()))
 		{
 			if (err)
 			{
-				*err = QStringLiteral("未解析到面索引");
+				*err = m_chinese ? QStringLiteral("几何 %1 已在当前特征中").arg(add.index)
+								 : QStringLiteral("Geometry %1 already in feature").arg(add.index);
 			}
 			return false;
 		}
-		const int faceIdx = picked.geometry.faceIndices.front();
-		for (const int existing : entry.geometry.faceIndices)
-		{
-			if (existing == faceIdx)
-			{
-				if (err)
-				{
-					*err = m_chinese ? QStringLiteral("面 %1 已在当前特征中").arg(faceIdx)
-									 : QStringLiteral("Face %1 already in feature").arg(faceIdx);
-				}
-				return false;
-			}
-		}
-		entry.geometry.faceIndices.push_back(faceIdx);
+	}
+	if (!slotRole.empty())
+	{
+		geoalgo::upsertGeometryRef(entry.geometry, std::move(add));
 	}
 	else
 	{
-		if (picked.geometry.edgeIndices.empty())
+		entry.geometry.refs.push_back(std::move(add));
+	}
+	assignPickRoleAndPrimary(entry, entry.workpiece.backendIdUtf8.empty() ? backendId.toStdString()
+																		  : entry.workpiece.backendIdUtf8,
+							 entry.workpiece.backendIdUtf8.empty() ? wp : entry.workpiece);
+	// primary 以 schema 为准（如 FaceOffsetCurve → targetFace）
+	{
+		const geoalgo::FeatureGeometrySchema schema = geoalgo::getFeatureGeometrySchema(entry.strategyId);
+		if (!schema.primaryRole.empty())
 		{
-			if (err)
+			if (const geoalgo::GeometryRef* pref = geoalgo::findGeometryRef(entry.geometry, schema.primaryRole))
 			{
-				*err = QStringLiteral("未解析到边索引");
-			}
-			return false;
-		}
-		const int edgeIdx = picked.geometry.edgeIndices.front();
-		for (const int existing : entry.geometry.edgeIndices)
-		{
-			if (existing == edgeIdx)
-			{
-				if (err)
-				{
-					*err = m_chinese ? QStringLiteral("边 %1 已在当前特征中").arg(edgeIdx)
-									 : QStringLiteral("Edge %1 already in feature").arg(edgeIdx);
-				}
-				return false;
+				entry.workpiece = pref->workpiece;
 			}
 		}
-		entry.geometry.edgeIndices.push_back(edgeIdx);
+		else if (entry.workpiece.backendIdUtf8.empty())
+		{
+			entry.workpiece = wp;
+			entry.workpiece.backendIdUtf8 = backendId.toStdString();
+		}
 	}
 
 	if (!m_featureModel->updateEntry(row, entry))
@@ -1643,20 +1793,15 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 	{
 		return;
 	}
-	if (m_backendCombo->currentIndex() < 0)
-	{
-		exitPickMode();
-		return;
-	}
-	const QString expectedBackendId = m_backendCombo->currentData().toString();
-	if (QString::fromStdString(pick.backendId) != expectedBackendId)
+	const QString pickBackendId = QString::fromStdString(pick.backendId);
+	if (pickBackendId.isEmpty())
 	{
 		QMessageBox::warning(this, QStringLiteral("Pick"),
-							 m_chinese ? QStringLiteral("拾取 backend 与当前工件不一致")
-									   : QStringLiteral("Picked backend mismatch"));
+							 m_chinese ? QStringLiteral("拾取未命中工件") : QStringLiteral("Pick has no workpiece"));
 		exitPickMode();
 		return;
 	}
+	noteActiveWorkpiece(pickBackendId);
 	IRobotOsgViewHost* osg = m_host->osgView();
 	geoalgo::Point3d modelA{};
 	geoalgo::Point3d modelB{};
@@ -1706,7 +1851,8 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 	bool appended = false;
 	if (wantAppend)
 	{
-		if (!tryAppendPickToSelectedFeature(pickFace, modelA, modelB, knownFaceIndex, knownEdgeIndex, &pickErr))
+		if (!tryAppendPickToSelectedFeature(pickFace, pickBackendId, modelA, modelB, knownFaceIndex, knownEdgeIndex,
+											&pickErr))
 		{
 			m_suppressParamRediscretize = false;
 			--m_strategyRowSyncDepth;
@@ -1719,7 +1865,8 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 	else
 	{
 		geoalgo::FeatureEntry entry;
-		if (!buildFeatureEntryFromPick(pickFace, modelA, modelB, knownFaceIndex, knownEdgeIndex, entry, &pickErr))
+		if (!buildFeatureEntryFromPick(pickFace, pickBackendId, modelA, modelB, knownFaceIndex, knownEdgeIndex, entry,
+										&pickErr))
 		{
 			m_suppressParamRediscretize = false;
 			--m_strategyRowSyncDepth;
@@ -1749,7 +1896,7 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		}
 		else if (entry.strategyId == "FaceOffsetCurve")
 		{
-			hint = entry.geometry.faceIndices.empty()
+			hint = !geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face)
 					   ? (m_chinese ? QStringLiteral("面内偏置还需拾取面")
 									: QStringLiteral("FaceOffsetCurve still needs a face"))
 					   : (m_chinese ? QStringLiteral("面内偏置还需拾取边")
@@ -1762,13 +1909,13 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		// FaceOffsetCurve 缺边/面时切换拾取种类；交线保持面拾取
 		if (entry.strategyId == "FaceOffsetCurve")
 		{
-			if (entry.geometry.faceIndices.empty() && m_pickSession != PickSessionKind::Face)
+			if (!geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Face) && m_pickSession != PickSessionKind::Face)
 			{
 				--m_strategyRowSyncDepth;
 				onPickFace();
 				return;
 			}
-			if (entry.geometry.edgeIndices.empty() && m_pickSession != PickSessionKind::Edge)
+			if (!geoalgo::geometryHasKind(entry.geometry, geoalgo::GeometryRefKind::Edge) && m_pickSession != PickSessionKind::Edge)
 			{
 				--m_strategyRowSyncDepth;
 				onPickEdge();
@@ -1808,44 +1955,61 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 	}
 }
 
-void FeatureTrajectoryPageWidget::refreshBackendCombo()
+bool FeatureTrajectoryPageWidget::isAvailableWorkpieceId(const QString& backendId) const
 {
-	const QString prevBackendId = m_backendCombo ? m_backendCombo->currentData().toString() : QString();
-	const QSignalBlocker blocker(m_backendCombo);
-	m_backendCombo->clear();
-	if (!m_host)
+	if (backendId.isEmpty() || !m_host || !m_host->document())
 	{
-		m_lastWorkpieceBackendId.clear();
-		updatePickUiState();
-		return;
+		return false;
 	}
 	IRobotDocumentHost* doc = m_host->document();
-	if (!doc)
+	const auto data = doc->findObject(backendId.toStdString());
+	if (!data)
 	{
-		m_lastWorkpieceBackendId.clear();
-		updatePickUiState();
-		return;
+		return false;
 	}
-	const auto all = doc->listObjects();
-	QVector<WorkpieceComboCandidate> candidates;
-	candidates.reserve(static_cast<int>(all.size()));
-	for (const auto& data : all)
+	if (!isTopLevelWorkpieceBackend(doc, data->id()) && !isBrepAssemblyPartBackend(doc, *data))
+	{
+		return false;
+	}
+	const std::string cn = data->className();
+	if (!backend_type::isMeshClassName(cn) && !backend_type::isBrepWorkpieceClassName(cn))
+	{
+		return false;
+	}
+	if (backendId.startsWith(QStringLiteral("RobotURDF_")))
+	{
+		return false;
+	}
+	QString stepPath;
+	if (m_stepPathResolver)
+	{
+		stepPath = m_stepPathResolver(backendId);
+	}
+	if (backend_type::isBrepWorkpieceClassName(cn))
+	{
+		return std::dynamic_pointer_cast<BrepBackendData>(data) && data->hasGeometry();
+	}
+	return !stepPath.isEmpty() && isStepSourcePath(stepPath);
+}
+
+QStringList FeatureTrajectoryPageWidget::availableWorkpieceIds() const
+{
+	QStringList ids;
+	if (!m_host || !m_host->document())
+	{
+		return ids;
+	}
+	IRobotDocumentHost* doc = m_host->document();
+	QHash<QString, QString> bestByKey; // dedupeKey -> backendId
+	QHash<QString, bool> keyIsBrep;
+	for (const auto& data : doc->listObjects())
 	{
 		if (!data)
 		{
 			continue;
 		}
-		if (!isTopLevelWorkpieceBackend(doc, data->id()))
-		{
-			continue;
-		}
-		const std::string cn = data->className();
-		if (!backend_type::isMeshClassName(cn) && !backend_type::isBrepWorkpieceClassName(cn))
-		{
-			continue;
-		}
 		const QString backendId = QString::fromStdString(data->id());
-		if (backendId.startsWith(QStringLiteral("RobotURDF_")))
+		if (!isAvailableWorkpieceId(backendId))
 		{
 			continue;
 		}
@@ -1854,93 +2018,46 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		{
 			stepPath = m_stepPathResolver(backendId);
 		}
-		const bool isBrepModel = backend_type::isBrepWorkpieceClassName(cn);
-		if (isBrepModel)
+		const bool isBrepModel = backend_type::isBrepWorkpieceClassName(data->className());
+		const QString dedupeKey = (!isBrepModel && isStepSourcePath(stepPath)) ? stepPath.toLower() : backendId;
+		if (!bestByKey.contains(dedupeKey) || (!keyIsBrep.value(dedupeKey) && isBrepModel))
 		{
-			if (!std::dynamic_pointer_cast<BrepBackendData>(data) || !data->hasGeometry())
-			{
-				continue;
-			}
+			bestByKey.insert(dedupeKey, backendId);
+			keyIsBrep.insert(dedupeKey, isBrepModel);
 		}
-		else if (stepPath.isEmpty() || !isStepSourcePath(stepPath))
-		{
-			continue;
-		}
-		const QString displayName = QString::fromStdString(data->name());
-		QString label;
-		if (isBrepModel)
-		{
-			// 内存 B-rep / AI 基本体无磁盘 STEP 名，用显示名
-			label = displayName.isEmpty() ? backendId : QStringLiteral("%1 (%2)").arg(displayName, backendId);
-		}
-		else
-		{
-			const QString fileName = QFileInfo(stepPath).fileName();
-			label = fileName.isEmpty() ? backendId : QStringLiteral("%1 (%2)").arg(backendId, fileName);
-		}
-		WorkpieceComboCandidate candidate;
-		candidate.backendId = backendId;
-		candidate.label = label;
-		// 仅对真实 STEP 路径去重；ai:// 等虚拟路径按 backendId 保留各自条目
-		candidate.dedupeKey = (!isBrepModel && isStepSourcePath(stepPath)) ? stepPath.toLower() : backendId;
-		candidate.isBrepModel = isBrepModel;
-		candidates.append(candidate);
 	}
+	ids.reserve(bestByKey.size());
+	for (auto it = bestByKey.cbegin(); it != bestByKey.cend(); ++it)
+	{
+		ids.push_back(it.value());
+	}
+	ids.sort();
+	return ids;
+}
 
-	QHash<QString, int> bestIndexByKey;
-	for (int i = 0; i < candidates.size(); ++i)
+void FeatureTrajectoryPageWidget::noteActiveWorkpiece(const QString& backendId)
+{
+	if (backendId.isEmpty() || backendId == m_activeWorkpieceBackendId)
 	{
-		const WorkpieceComboCandidate& candidate = candidates[i];
-		if (!bestIndexByKey.contains(candidate.dedupeKey))
-		{
-			bestIndexByKey.insert(candidate.dedupeKey, i);
-			continue;
-		}
-		const int prev = bestIndexByKey.value(candidate.dedupeKey);
-		if (!candidates[prev].isBrepModel && candidate.isBrepModel)
-		{
-			bestIndexByKey[candidate.dedupeKey] = i;
-		}
+		return;
 	}
+	m_activeWorkpieceBackendId = backendId;
+	clearCandidatePreview();
+	m_cachedCatalogBackendId.clear();
+	m_cachedCatalogJsonUtf8.clear();
+	(void)autoEnumerateCatalogForCurrentWorkpiece(true, nullptr);
+}
 
-	QSet<int> keepIndices;
-	keepIndices.reserve(bestIndexByKey.size());
-	for (int idx : bestIndexByKey)
+void FeatureTrajectoryPageWidget::refreshWorkpieceAvailability()
+{
+	const QStringList ids = availableWorkpieceIds();
+	m_hasAnyWorkpiece = !ids.isEmpty();
+	if (!m_activeWorkpieceBackendId.isEmpty() && !ids.contains(m_activeWorkpieceBackendId))
 	{
-		keepIndices.insert(idx);
-	}
-
-	int stepCount = 0;
-	for (int i = 0; i < candidates.size(); ++i)
-	{
-		if (!keepIndices.contains(i))
-		{
-			continue;
-		}
-		m_backendCombo->addItem(candidates[i].label, candidates[i].backendId);
-		++stepCount;
-	}
-	if (stepCount == 0)
-	{
-		m_lastWorkpieceBackendId.clear();
-	}
-	else
-	{
-		if (!prevBackendId.isEmpty() && selectBackendComboById(prevBackendId))
-		{
-			m_lastWorkpieceBackendId = prevBackendId;
-		}
-		else if (m_backendCombo->currentIndex() < 0)
-		{
-			m_backendCombo->setCurrentIndex(0);
-			m_lastWorkpieceBackendId = m_backendCombo->currentData().toString();
-		}
-		else
-		{
-			m_lastWorkpieceBackendId = m_backendCombo->currentData().toString();
-		}
-		// Open Model 后 bindHost 会刷新 combo；全量边/面目录含二面角，大型装配可达数分钟，不能排队到导入路径上
-		// 目录在用户切换工件或 AI 调用 ensureFeatureCatalogEnumerated 时再算
+		m_activeWorkpieceBackendId.clear();
+		m_cachedCatalogBackendId.clear();
+		m_cachedCatalogJsonUtf8.clear();
+		clearCandidatePreview();
 	}
 	updatePickUiState();
 }
@@ -2095,14 +2212,6 @@ void FeatureTrajectoryPageWidget::showTrajectoryPreview(const RobotInstruction::
 
 bool FeatureTrajectoryPageWidget::buildFeatureListDocument(geoalgo::FeatureListDocument& out, QString* err) const
 {
-	if (m_backendCombo->currentIndex() < 0)
-	{
-		if (err)
-		{
-			*err = emptyWorkpieceHint();
-		}
-		return false;
-	}
 	if (m_featureModel->entries().empty())
 	{
 		if (err)
@@ -2112,21 +2221,37 @@ bool FeatureTrajectoryPageWidget::buildFeatureListDocument(geoalgo::FeatureListD
 		}
 		return false;
 	}
-	const QString backendId = m_backendCombo->currentData().toString();
-	QString stepPath;
-	if (m_stepPathResolver)
+	// 旧数据行无工件时回落当前活动工件（最近拾取 / 选中行 / 文档首个）
+	geoalgo::WorkpieceRef current;
 	{
-		stepPath = m_stepPathResolver(backendId);
+		QString backendId;
+		QString stepPath;
+		if (currentWorkpiece(backendId, stepPath))
+		{
+			current.backendIdUtf8 = backendId.toStdString();
+			current.stepPathUtf8 = stepPath.toStdString();
+		}
 	}
 	out = geoalgo::FeatureListDocument{};
 	out.schemaVersion = 2;
-	out.workpiece.backendIdUtf8 = backendId.toStdString();
-	out.workpiece.stepPathUtf8 = stepPath.toStdString();
 	out.features = m_featureModel->entries();
 	for (geoalgo::FeatureEntry& feature : out.features)
 	{
+		if (feature.workpiece.backendIdUtf8.empty())
+		{
+			if (current.backendIdUtf8.empty())
+			{
+				if (err)
+				{
+					*err = emptyWorkpieceHint();
+				}
+				return false;
+			}
+			feature.workpiece = current;
+		}
 		normalizeEntryStrategyForGeometry(feature);
 	}
+	out.workpiece = out.features.front().workpiece;
 	return true;
 }
 
@@ -2158,27 +2283,18 @@ bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 		return false;
 	}
 
-	geoalgo::ShapeHandle shape;
-	geoalgo::WorkpieceRef wp;
-	QString shapeErr;
-	const QString backendId = m_backendCombo ? m_backendCombo->currentData().toString() : QString();
-	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, &shapeErr))
+	IRobotDocumentHost* docHost = m_host ? m_host->document() : nullptr;
+	if (!docHost)
 	{
-		if (!quiet)
-		{
-			QMessageBox::warning(this, QStringLiteral("离散"), shapeErr);
-		}
-		else if (!shapeErr.isEmpty())
-		{
-			setStatus(shapeErr);
-		}
+		setStatus(QStringLiteral("文档未就绪"));
 		return false;
 	}
-	doc.workpiece = wp;
 
 	geoalgo::RawPath path;
+	geoalgo::FeatureListDocument resolvedDoc;
 	std::string err;
-	if (!geometry_backend_ops::discretizeFeatureList(doc, shape, path, &err))
+	if (!geometry_backend_ops::discretizeFeatureListAcrossWorkpieces(doc, docHost->backend(), path, &resolvedDoc,
+																	 &err))
 	{
 		for (int i = 0; i < static_cast<int>(m_featureModel->entries().size()); ++i)
 		{
@@ -2219,7 +2335,7 @@ bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 		}
 		return false;
 	}
-	traj.sourceFeatureJson = geometry_backend_ops::featureListToJson(doc);
+	traj.sourceFeatureJson = geometry_backend_ops::featureListToJson(resolvedDoc);
 	if (m_session)
 	{
 		m_session->setRawTrajectory(traj);
@@ -2259,30 +2375,35 @@ bool FeatureTrajectoryPageWidget::currentWorkpiece(QString& backendId, QString& 
 {
 	backendId.clear();
 	stepPath.clear();
-	if (!m_backendCombo || m_backendCombo->currentIndex() < 0)
+	const auto fill = [this, &backendId, &stepPath](const QString& id) -> bool
 	{
-		return false;
-	}
-	backendId = m_backendCombo->currentData().toString();
-	if (backendId.isEmpty())
-	{
-		return false;
-	}
-	if (m_stepPathResolver)
-	{
-		stepPath = m_stepPathResolver(backendId);
-	}
-	if (m_host && m_host->document())
-	{
-		if (const auto data = m_host->document()->findObject(backendId.toStdString()))
+		if (!isAvailableWorkpieceId(id))
 		{
-			if (isBrepWorkpieceClassName(data->className()) && data->hasGeometry())
+			return false;
+		}
+		backendId = id;
+		stepPath = m_stepPathResolver ? m_stepPathResolver(id) : QString();
+		return true;
+	};
+	if (fill(m_activeWorkpieceBackendId))
+	{
+		return true;
+	}
+	if (m_featureModel)
+	{
+		const int row = m_featureModel->selectedRow();
+		const auto& entries = m_featureModel->entries();
+		if (row >= 0 && row < static_cast<int>(entries.size()))
+		{
+			const QString fromRow = QString::fromStdString(entries[static_cast<std::size_t>(row)].workpiece.backendIdUtf8);
+			if (fill(fromRow))
 			{
 				return true;
 			}
 		}
 	}
-	return !stepPath.isEmpty();
+	const QStringList ids = availableWorkpieceIds();
+	return !ids.isEmpty() && fill(ids.front());
 }
 
 bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& catalogSliceUtf8,
@@ -2294,7 +2415,7 @@ bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& cata
 	{
 		if (err)
 		{
-			*err = QStringLiteral("请先在轨迹生成页选择工件");
+			*err = emptyWorkpieceHint();
 		}
 		return false;
 	}
@@ -2478,9 +2599,9 @@ bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray&
 						if (it == geomByDisplay.end())
 							continue;
 						const geoalgo::FeatureGeometry& geometry = it->second;
-						if (!geometry.edgeIndices.empty() && !artifacts->edgePolylines.empty())
+						if (geoalgo::geometryHasKind(geometry, geoalgo::GeometryRefKind::Edge) && !artifacts->edgePolylines.empty())
 						{
-							const int edgeIdx = geometry.edgeIndices.front();
+							const int edgeIdx = geoalgo::collectGeometryIndices(geometry, geoalgo::GeometryRefKind::Edge).front();
 							if (edgeIdx >= 0 && static_cast<std::size_t>(edgeIdx) < artifacts->edgePolylines.size())
 							{
 								appendModelXyzToWorldPolyline(
@@ -2488,9 +2609,9 @@ bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray&
 									o.edgePolylineWorldMm);
 							}
 						}
-						if (highlightFaceBodies && !geometry.faceIndices.empty() && artifacts->hasDisplayData())
+						if (highlightFaceBodies && geoalgo::geometryHasKind(geometry, geoalgo::GeometryRefKind::Face) && artifacts->hasDisplayData())
 						{
-							const int faceIdx = geometry.faceIndices.front();
+							const int faceIdx = geoalgo::collectGeometryIndices(geometry, geoalgo::GeometryRefKind::Face).front();
 							std::vector<float> faceSoup;
 							if (geoalgo::extractFaceSoup(*artifacts, faceIdx, faceSoup))
 							{
@@ -2546,6 +2667,11 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 			{
 				geoalgo::FeatureEntry entry{};
 				entry.featureId = item.value("featureId", std::string());
+				if (item.contains("workpiece") && item["workpiece"].is_object())
+				{
+					entry.workpiece.backendIdUtf8 = item["workpiece"].value("backendIdUtf8", std::string());
+					entry.workpiece.stepPathUtf8 = item["workpiece"].value("stepPathUtf8", std::string());
+				}
 				if (item.contains("strategyId"))
 				{
 					entry.strategyId = item["strategyId"].get<std::string>();
@@ -2620,7 +2746,7 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 		}
 		for (const geoalgo::FeatureEntry& f : doc.features)
 		{
-			if (f.geometry.edgeIndices.empty() && f.geometry.faceIndices.empty())
+			if (f.geometry.refs.empty())
 			{
 				if (err)
 				{
@@ -2629,6 +2755,39 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 				}
 				return false;
 			}
+		}
+
+		// revise 计划由已绑定的全表导出，整体替换；新计划只针对单工件 catalog，叠加到现有表
+		if (plan.value("mode", std::string()) != "revise" && !m_featureModel->entries().empty())
+		{
+			QString backendId;
+			QString stepPath;
+			if (doc.workpiece.backendIdUtf8.empty() && currentWorkpiece(backendId, stepPath))
+			{
+				doc.workpiece.backendIdUtf8 = backendId.toStdString();
+				doc.workpiece.stepPathUtf8 = stepPath.toStdString();
+			}
+			std::vector<geoalgo::FeatureEntry> merged = m_featureModel->entries();
+			for (geoalgo::FeatureEntry& entry : doc.features)
+			{
+				entry.workpiece = geoalgo::featureEntryWorkpiece(doc, entry);
+				const auto same = std::find_if(merged.begin(), merged.end(),
+											   [&](const geoalgo::FeatureEntry& e)
+											   {
+												   return e.featureId == entry.featureId &&
+													   e.workpiece.backendIdUtf8 == entry.workpiece.backendIdUtf8;
+											   });
+				if (same != merged.end())
+				{
+					*same = std::move(entry);
+				}
+				else
+				{
+					merged.push_back(std::move(entry));
+				}
+			}
+			doc.features = std::move(merged);
+			doc.workpiece = doc.features.front().workpiece;
 		}
 
 		if (!applyFeatureListDocument(doc, false))
@@ -2781,10 +2940,31 @@ bool FeatureTrajectoryPageWidget::loadBoundTrajectoryPlanJson(QByteArray& planOu
 		{
 			nlohmann::json f;
 			f["featureId"] = entry.featureId;
+			const geoalgo::WorkpieceRef& wp = geoalgo::featureEntryWorkpiece(doc, entry);
+			f["workpiece"] = {{"backendIdUtf8", wp.backendIdUtf8}, {"stepPathUtf8", wp.stepPathUtf8}};
 			f["strategyId"] = entry.strategyId;
 			f["kind"] = entry.strategyId;
 			f["params"] = entry.params;
-			f["geometry"] = {{"faceIndices", entry.geometry.faceIndices}, {"edgeIndices", entry.geometry.edgeIndices}};
+			nlohmann::json geom;
+			nlohmann::json refs = nlohmann::json::array();
+			for (const geoalgo::GeometryRef& ref : entry.geometry.refs)
+			{
+				nlohmann::json item;
+				item["kind"] = ref.kind == geoalgo::GeometryRefKind::Face
+								   ? "Face"
+								   : (ref.kind == geoalgo::GeometryRefKind::Polyline ? "Polyline" : "Edge");
+				if (!ref.role.empty())
+					item["role"] = ref.role;
+				item["index"] = ref.index;
+				if (!ref.workpiece.backendIdUtf8.empty())
+				{
+					item["workpiece"] = {{"backendIdUtf8", ref.workpiece.backendIdUtf8},
+										 {"stepPathUtf8", ref.workpiece.stepPathUtf8}};
+				}
+				refs.push_back(std::move(item));
+			}
+			geom["refs"] = refs;
+			f["geometry"] = std::move(geom);
 			feats.push_back(std::move(f));
 		}
 		plan["features"] = feats;

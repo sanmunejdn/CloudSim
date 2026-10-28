@@ -5,6 +5,7 @@
 #include "../../Data/PropertyCore/inc/PropertyTypes.h"
 #include "InstructionPropertyBinding.h"
 #include "CeeEvaluator.h"
+#include "IkGoldenSelfTest.h"
 #include "InstructionPropertyBindingSelfTest.h"
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionModel.h"
@@ -999,6 +1000,10 @@ const property_core::PropertySchema& schemaForType(const Type type)
 		if (!runInstructionPropertyBindingSelfTest(nullptr))
 		{
 			RunLogger::error("InstructionPropertyBindingSelfTest failed.");
+		}
+		if (!runIkGoldenSelfTest(nullptr))
+		{
+			RunLogger::error("IkGoldenSelfTest failed.");
 		}
 		{
 			QString ceeErr;

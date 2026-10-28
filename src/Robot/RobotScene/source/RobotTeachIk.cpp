@@ -981,11 +981,12 @@ TeachIkResult solveTeachIkCoordinatedDrag(const TeachIkContext& ctxIn, const dou
 	// 多轴：先试固定外轴，再联立/采样；避免只拧臂
 	if (dof.axes.size() > 1)
 	{
+		const CoordinatedIkCostWeights costW = CoordinatedIkCostWeights::defaults();
 		TeachIkContext ctx = ctxIn;
 		ctx.externalAxes = dof;
 		ctx.externalAxis.enabled = false;
-		ctx.externalAxes.adaptiveExternalDamping = true;
-		ctx.externalAxes.externalDeltaPriorWeight = 0.05;
+		ctx.externalAxes.adaptiveExternalDamping = costW.adaptiveExternalDamping;
+		ctx.externalAxes.externalDeltaPriorWeight = costW.externalDeltaPriorWeight;
 		ctx.maxIkIterations = ctx.maxIkIterations > 0 ? ctx.maxIkIterations : 16;
 
 		auto score = [&](const TeachIkResult& r) -> double
@@ -1067,6 +1068,7 @@ TeachIkResult solveTeachIkCoordinatedDrag(const TeachIkContext& ctxIn, const dou
 		}
 	};
 
+	const CoordinatedIkCostWeights costW = CoordinatedIkCostWeights::defaults();
 	auto makeSingleCtx = [&](const double qe, const bool optimize)
 	{
 		TeachIkContext a = ctxIn;
@@ -1074,14 +1076,14 @@ TeachIkResult solveTeachIkCoordinatedDrag(const TeachIkContext& ctxIn, const dou
 		{
 			a.externalAxes.qExternal[0] = qe;
 			a.externalAxes.optimizeExternal = optimize;
-			a.externalAxes.adaptiveExternalDamping = true;
+			a.externalAxes.adaptiveExternalDamping = costW.adaptiveExternalDamping;
 			a.externalAxis.enabled = false;
 		}
 		else
 		{
 			a.externalAxis.qExternal = qe;
 			a.externalAxis.optimizeExternal = optimize;
-			a.externalAxis.adaptiveExternalDamping = true;
+			a.externalAxis.adaptiveExternalDamping = costW.adaptiveExternalDamping;
 		}
 		return a;
 	};
@@ -1097,16 +1099,17 @@ TeachIkResult solveTeachIkCoordinatedDrag(const TeachIkContext& ctxIn, const dou
 		return best;
 	}
 
-	// B：自适应联立
+	// B：自适应联立（略抬 prior 抑外轴抖）
 	{
 		TeachIkContext b = makeSingleCtx(qCurrent, true);
+		const double priorB = costW.externalDeltaPriorWeight * 1.6;
 		if (b.externalAxes.active())
 		{
-			b.externalAxes.externalDeltaPriorWeight = 0.08;
+			b.externalAxes.externalDeltaPriorWeight = priorB;
 		}
 		else
 		{
-			b.externalAxis.externalDeltaPriorWeight = 0.08;
+			b.externalAxis.externalDeltaPriorWeight = priorB;
 		}
 		b.maxIkIterations = 16;
 		consider(solveTeachIk(b));
@@ -1116,17 +1119,18 @@ TeachIkResult solveTeachIkCoordinatedDrag(const TeachIkContext& ctxIn, const dou
 		return best;
 	}
 
-	// C：大沿轨提示时再试投影种子
+	// C：大沿轨提示时再试投影种子（放宽 prior）
 	if (hasExternalHint && hintDelta > 0.5)
 	{
 		TeachIkContext c = makeSingleCtx(qHint, true);
+		const double priorC = costW.externalDeltaPriorWeight * 0.4;
 		if (c.externalAxes.active())
 		{
-			c.externalAxes.externalDeltaPriorWeight = 0.02;
+			c.externalAxes.externalDeltaPriorWeight = priorC;
 		}
 		else
 		{
-			c.externalAxis.externalDeltaPriorWeight = 0.02;
+			c.externalAxis.externalDeltaPriorWeight = priorC;
 		}
 		c.maxIkIterations = 16;
 		consider(solveTeachIk(c));

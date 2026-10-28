@@ -164,6 +164,7 @@
     <ClInclude Include="inc\OsgCompassGeometry.h" />
     <ClInclude Include="inc\OsgSectionPlaneGeometry.h" />
     <ClInclude Include="inc\OsgCompassRender.h" />
+    <ClInclude Include="inc\OrthoProjectionCallback.h" />
     <ClInclude Include="inc\OsgScene.h" />
     <ClInclude Include="inc\PickSpatialIndex.h" />
     <ClInclude Include="inc\PickTypes.h" />

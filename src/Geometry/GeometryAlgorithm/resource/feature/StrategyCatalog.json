@@ -5,43 +5,81 @@
       "strategyId": "EdgeChain",
       "displayNameZh": "边链",
       "affinity": "Line",
-      "mergePolicy": "LineConnectivity"
+      "mergePolicy": "LineConnectivity",
+      "geometrySchema": {
+        "allowCrossWorkpiece": false,
+        "primaryRole": "",
+        "slots": [ { "role": "", "kind": "Edge", "min": 1, "max": -1 } ]
+      }
     },
     {
       "strategyId": "FaceBoundary",
       "displayNameZh": "面外轮廓",
       "affinity": "Face",
-      "mergePolicy": "FaceUnion"
+      "mergePolicy": "FaceUnion",
+      "geometrySchema": {
+        "allowCrossWorkpiece": false,
+        "primaryRole": "",
+        "slots": [ { "role": "", "kind": "Face", "min": 1, "max": -1 } ]
+      }
     },
     {
       "strategyId": "FaceSection",
       "displayNameZh": "面截面阵列",
       "affinity": "Face",
-      "mergePolicy": "FaceUnion"
+      "mergePolicy": "FaceUnion",
+      "geometrySchema": {
+        "allowCrossWorkpiece": false,
+        "primaryRole": "",
+        "slots": [ { "role": "", "kind": "Face", "min": 1, "max": -1 } ]
+      }
     },
     {
       "strategyId": "FaceParamSurface",
       "displayNameZh": "参数面扫描",
       "affinity": "Face",
-      "mergePolicy": "FaceUnion"
+      "mergePolicy": "FaceUnion",
+      "geometrySchema": {
+        "allowCrossWorkpiece": false,
+        "primaryRole": "",
+        "slots": [ { "role": "", "kind": "Face", "min": 1, "max": -1 } ]
+      }
     },
     {
       "strategyId": "FaceIntersection",
       "displayNameZh": "两面交线",
       "affinity": "Face",
-      "mergePolicy": "None"
+      "mergePolicy": "None",
+      "geometrySchema": {
+        "allowCrossWorkpiece": false,
+        "primaryRole": "",
+        "slots": [ { "role": "", "kind": "Face", "min": 2, "max": 2 } ]
+      }
     },
     {
       "strategyId": "FaceOffsetCurve",
       "displayNameZh": "面内偏置曲线",
       "affinity": "Any",
-      "mergePolicy": "None"
+      "mergePolicy": "None",
+      "geometrySchema": {
+        "allowCrossWorkpiece": true,
+        "primaryRole": "targetFace",
+        "slots": [
+          { "role": "sourceEdge", "kind": "Edge", "min": 1, "max": 1 },
+          { "role": "targetFace", "kind": "Face", "min": 1, "max": 1 }
+        ]
+      }
     },
     {
       "strategyId": "SyntheticPolyline",
       "displayNameZh": "合成折线",
       "affinity": "Any",
-      "mergePolicy": "None"
+      "mergePolicy": "None",
+      "geometrySchema": {
+        "allowCrossWorkpiece": false,
+        "primaryRole": "",
+        "slots": [ { "role": "", "kind": "Polyline", "min": 1, "max": 1 } ]
+      }
     }
   ]
 }

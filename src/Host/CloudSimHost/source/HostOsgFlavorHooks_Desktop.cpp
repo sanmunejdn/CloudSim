@@ -75,6 +75,14 @@ MultiViewShell* asShell(QWidget* osgPane)
 }
 } // namespace
 
+void flavorSetOrthographicProjection(QWidget* osgPane, bool on)
+{
+	if (auto* shell = asShell(osgPane))
+	{
+		shell->setOrthographicProjection(on);
+	}
+}
+
 bool flavorSetMultiViewLayout(QWidget* osgPane, MultiViewLayout layout)
 {
 	if (auto* shell = asShell(osgPane))

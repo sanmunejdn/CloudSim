@@ -8,6 +8,7 @@
 #include "geometry_algorithm_global.h"
 
 #include "FeatureListDocument.h"
+#include "ShapeHandle.h"
 
 #include <string>
 
@@ -15,6 +16,23 @@
 
 namespace geoalgo
 {
+/** Services 解析后的槽：异工件边已变到 primary 模型系折线 */
+struct ShapeSlot
+{
+	std::string role;
+	ShapeHandle shapeHandle;
+	int localIndex = -1;
+	std::vector<float> polylineInPrimaryMm;
+};
+
+struct FeatureDiscretizeContext
+{
+	WorkpieceRef primaryWorkpiece;
+	std::vector<ShapeSlot> shapeSlots; ///< 不用名 slots：与 Qt slots 宏冲突
+	FeatureDiscretizeInput input;
+	ShapeHandle primaryShapeHandle;
+};
+
 class GEOMETRY_ALGORITHM_API IFeatureDiscretizer
 {
 public:
@@ -29,6 +47,9 @@ public:
 
 	virtual bool discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
 							std::string* errMsg = nullptr) const = 0;
+
+	/// 默认转发到 discretize(primaryShape)；跨工件策略可覆盖
+	virtual bool discretizeEx(const FeatureDiscretizeContext& ctx, RawPath& out, std::string* errMsg = nullptr) const;
 
 	virtual bool validate(const FeatureDiscretizeInput& input, std::string* errMsg = nullptr) const;
 };

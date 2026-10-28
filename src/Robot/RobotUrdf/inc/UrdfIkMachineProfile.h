@@ -19,12 +19,21 @@ enum class ROBOT_URDF_API SphericalWristForce
 	No
 };
 
+/// 白名单解析族；None 强制走数值，防非球形腕误开解析
+enum class ROBOT_URDF_API AnalyticalIkFamily
+{
+	Auto = 0,
+	SphericalWrist6R,
+	None
+};
+
 struct ROBOT_URDF_API UrdfIkMachineProfile
 {
 	QString packageKey;
 	int elbowJointIndex = -1;
 	int wristJointIndex = -1;
 	SphericalWristForce forceSphericalWrist = SphericalWristForce::Auto;
+	AnalyticalIkFamily analyticalFamily = AnalyticalIkFamily::Auto;
 	/// 空=不建议；drag|preview|run 仅导入缺省，不覆盖指令已写 profile
 	std::string preferredIkProfile;
 };

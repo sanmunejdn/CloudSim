@@ -83,7 +83,7 @@ FeatureDiscretizeInput makeInputFromEntry(const FeatureListDocument& doc, const 
 										  const FeatureGeometry& geometryOverride)
 {
 	FeatureDiscretizeInput input{};
-	input.workpiece = doc.workpiece;
+	input.workpiece = featureEntryWorkpiece(doc, entry);
 	input.geometry = geometryOverride;
 	input.params = entry.params;
 	input.strategyId = entry.strategyId;
@@ -179,7 +179,7 @@ std::vector<int> unionFaceIndices(const std::vector<FeatureEntry>& entries)
 	std::vector<int> faces;
 	for (const FeatureEntry& entry : entries)
 	{
-		for (const int idx : entry.geometry.faceIndices)
+		for (const int idx : collectGeometryIndices(entry.geometry, GeometryRefKind::Face))
 		{
 			if (std::find(faces.begin(), faces.end(), idx) == faces.end())
 			{
@@ -195,7 +195,8 @@ std::vector<int> unionEdgeIndices(const std::vector<FeatureEntry>& entries)
 	std::vector<int> edges;
 	for (const FeatureEntry& entry : entries)
 	{
-		edges.insert(edges.end(), entry.geometry.edgeIndices.begin(), entry.geometry.edgeIndices.end());
+		const std::vector<int> part = collectGeometryIndices(entry.geometry, GeometryRefKind::Edge);
+		edges.insert(edges.end(), part.begin(), part.end());
 	}
 	std::sort(edges.begin(), edges.end());
 	edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
@@ -215,7 +216,13 @@ bool processLineConnectivityGroup(const FeatureListDocument& doc, const TopoDS_S
 	{
 		const FeatureEntry& templateEntry = entries.front();
 		FeatureGeometry geometry{};
-		geometry.edgeIndices = component;
+		for (const int idx : component)
+		{
+			GeometryRef ref;
+			ref.kind = GeometryRefKind::Edge;
+			ref.index = idx;
+			geometry.refs.push_back(std::move(ref));
+		}
 		const FeatureDiscretizeInput input = makeInputFromEntry(doc, templateEntry, geometry);
 		if (!discretizeWithStrategy(shape, input, out, errMsg))
 		{
@@ -234,7 +241,13 @@ bool processFaceUnionGroup(const FeatureListDocument& doc, const TopoDS_Shape& s
 	}
 	const FeatureEntry& templateEntry = entries.front();
 	FeatureGeometry geometry{};
-	geometry.faceIndices = unionFaceIndices(entries);
+	for (const int idx : unionFaceIndices(entries))
+	{
+		GeometryRef ref;
+		ref.kind = GeometryRefKind::Face;
+		ref.index = idx;
+		geometry.refs.push_back(std::move(ref));
+	}
 	const FeatureDiscretizeInput input = makeInputFromEntry(doc, templateEntry, geometry);
 	return discretizeWithStrategy(shape, input, out, errMsg);
 }

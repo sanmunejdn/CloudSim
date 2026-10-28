@@ -10,6 +10,7 @@
 #include "BackendPickIndexRegistry.h"
 #include "BackendVisualBindingIndex.h"
 #include "ObjectGizmoFrame.h"
+#include "OrthoProjectionCallback.h"
 #include "PickTypes.h"
 
 #include <cstddef>
@@ -97,7 +98,8 @@ public:
 	static constexpr double kPointPickHitRadiusPx = 32.0;
 	/// 仅在此半径内显示绿色预览环（小于 hit 半径，避免环与光标相距过远）
 	static constexpr double kPointPickPreviewRadiusPx = 18.0;
-	static constexpr double kMeshEdgeHitRadiusPx = 18.0;
+	/// 边比三角面更「细」，略大于面邻域；过小会出现 Hover Miss 且无高亮
+	static constexpr double kMeshEdgeHitRadiusPx = 28.0;
 	static constexpr int kPickClickMoveThresholdPx = 25;
 	static constexpr int kPickDragMoveThresholdPx = 25;
 	static constexpr int kPickClickHoldMs = 150;
@@ -216,6 +218,12 @@ public:
 	/// 聚焦到所有可见后端对象的合并包围球（视角自适应）
 	void focusCameraOnAllVisibleBackends();
 	void setCameraViewPreset(CameraViewPreset preset);
+	/// 正交投影：画幅随视距换算，关闭恢复 30° 透视
+	void setOrthographicProjection(bool on);
+	bool isOrthographicProjection() const
+	{
+		return m_orthoProjectionCallback.valid() && m_orthoProjectionCallback->isEnabled();
+	}
 	/// 仅写入逻辑父 id（不改 OSG 场景父链），供分件导入后 focusCameraOnBackend 聚合子树包围球
 	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId);
 
@@ -299,6 +307,7 @@ public:
 	/// 与 GL_LIGHT0 对应；通过 View::HEADLIGHT 随相机移动（等价于头灯挂在视点）。
 	osg::ref_ptr<osg::Light> m_headlight;
 	osg::ref_ptr<osgGA::TrackballManipulator> m_trackballManipulator;
+	osg::ref_ptr<OrthoProjectionCallback> m_orthoProjectionCallback;
 	osg::ref_ptr<osgViewer::GraphicsWindow> m_graphicsWindow;
 
 	osg::ref_ptr<osg::Group> m_root;

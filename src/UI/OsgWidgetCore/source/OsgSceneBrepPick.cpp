@@ -9,8 +9,10 @@
 #include "OsgScene.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
+#include <BrepImportArtifacts.h>
 #include <Discretize.h>
 #include <ShapeHandle.h>
 #include <ShapeQuery.h>
@@ -326,24 +328,90 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 	}
 	else
 	{
+		// bind 只拷了 Phase1；边折线 Phase2 懒构建，否则 pickEdgeByScreen 恒空 → 拾不到线
+		(void)const_cast<BackendPickIndexRegistry&>(m_backendPickIndexes).ensureBrepEdgePickReady(xformBackendId, shape);
+		brepIndex = brepPickIndexForBackend(m_backendPickIndexes, xformBackendId);
+
 		const osg::Matrixd mvp = m_viewer->getCamera()->getViewMatrix() * m_viewer->getCamera()->getProjectionMatrix();
 		int edgeIndex = -1;
 		double edgeDistPx = 0.0;
 		std::vector<osg::Vec3f> polyWorld;
 		const auto modelToWorld = [this, &xformBackendId](const geoalgo::Point3d& mp, osg::Vec3f& wp)
 		{ return stepModelPointToWorldMm(xformBackendId, mp, wp); };
+		const auto fillPolyWorld = [&](const int ei)
+		{
+			polyWorld.clear();
+			if (!brepIndex || ei < 0)
+			{
+				return;
+			}
+			const std::vector<float>& pl = brepIndex->edgePolylineModel(ei);
+			polyWorld.reserve(pl.size() / 3U);
+			for (std::size_t i = 0; i + 2U < pl.size(); i += 3U)
+			{
+				const geoalgo::Point3d mp{pl[i], pl[i + 1U], pl[i + 2U]};
+				osg::Vec3f wp;
+				if (stepModelPointToWorldMm(xformBackendId, mp, wp))
+				{
+					polyWorld.push_back(wp);
+				}
+			}
+		};
+		const auto screenDistOfPoly = [&](const std::vector<osg::Vec3f>& poly) -> double
+		{
+			if (poly.size() < 2U)
+			{
+				return (std::numeric_limits<double>::max)();
+			}
+			const auto toScreen = [&](const osg::Vec3f& world, double& sx, double& sy)
+			{
+				const osg::Vec3d clip = osg::Vec3d(world) * mvp;
+				sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+				sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+			};
+			double best = (std::numeric_limits<double>::max)();
+			for (std::size_t i = 1; i < poly.size(); ++i)
+			{
+				double s0x = 0.0;
+				double s0y = 0.0;
+				double s1x = 0.0;
+				double s1y = 0.0;
+				toScreen(poly[i - 1U], s0x, s0y);
+				toScreen(poly[i], s1x, s1y);
+				const double segVx = s1x - s0x;
+				const double segVy = s1y - s0y;
+				const double offVx = query.screenX - s0x;
+				const double offVy = query.screenY - s0y;
+				const double len2Seg = segVx * segVx + segVy * segVy;
+				double dist = 0.0;
+				if (len2Seg <= 1e-9)
+				{
+					dist = std::hypot(query.screenX - s0x, query.screenY - s0y);
+				}
+				else
+				{
+					const double t = (std::max)(0.0, (std::min)(1.0, (offVx * segVx + offVy * segVy) / len2Seg));
+					dist = std::hypot(query.screenX - (s0x + segVx * t), query.screenY - (s0y + segVy * t));
+				}
+				best = (std::min)(best, dist);
+			}
+			return best;
+		};
 		if (brepIndex)
 		{
 			(void)brepIndex->pickEdgeByScreen(faceIndex, query.screenX, query.screenY, mvp, viewportWidth(),
 											  viewportHeight(), kMeshEdgeHitRadiusPx, modelToWorld, edgeIndex,
 											  edgeDistPx, polyWorld);
 		}
+		// 贴边仍 Miss 时放宽一档再扫（hover/click 共用），避免「准了却无高亮」
+		if (edgeIndex < 0 && brepIndex)
+		{
+			(void)brepIndex->pickEdgeByScreen(faceIndex, query.screenX, query.screenY, mvp, viewportWidth(),
+											  viewportHeight(), kMeshEdgeHitRadiusPx * 1.75, modelToWorld, edgeIndex,
+											  edgeDistPx, polyWorld);
+		}
 		if (edgeIndex < 0)
 		{
-			if (query.hoverPick)
-			{
-				return false;
-			}
 			double edgeTolMm = 5.0;
 			const auto rootIt = m_backendObjectRoots.find(xformBackendId);
 			if (rootIt != m_backendObjectRoots.end() && rootIt->second.valid())
@@ -360,22 +428,35 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 				return false;
 			}
 			edgeIndex = pick.edgeIndex;
-			if (brepIndex)
+			fillPolyWorld(edgeIndex);
+			if (polyWorld.size() < 2U)
 			{
-				const std::vector<float>& pl = brepIndex->edgePolylineModel(edgeIndex);
-				polyWorld.clear();
-				polyWorld.reserve(pl.size() / 3U);
-				for (std::size_t i = 0; i + 2U < pl.size(); i += 3U)
+				geoalgo::TessellateParams edgeParams;
+				edgeParams.linearDeflectionMm = 0.05;
+				edgeParams.angularDeflectionDeg = 1.0;
+				edgeParams.linearDeflectionRelative = false;
+				geoalgo::Polyline3d edgePoly;
+				if (geoalgo::discretizeShapeEdgeByIndex(shape, edgeIndex, edgeParams, edgePoly, nullptr))
 				{
-					const geoalgo::Point3d mp{pl[i], pl[i + 1U], pl[i + 2U]};
-					osg::Vec3f wp;
-					if (stepModelPointToWorldMm(xformBackendId, mp, wp))
+					polyWorld.reserve(edgePoly.xyz.size() / 3U);
+					for (std::size_t i = 0; i + 2U < edgePoly.xyz.size(); i += 3U)
 					{
-						polyWorld.push_back(wp);
+						const geoalgo::Point3d mp{edgePoly.xyz[i], edgePoly.xyz[i + 1U], edgePoly.xyz[i + 2U]};
+						osg::Vec3f wp;
+						if (stepModelPointToWorldMm(xformBackendId, mp, wp))
+						{
+							polyWorld.push_back(wp);
+						}
 					}
 				}
 			}
-			edgeDistPx = 0.0;
+			edgeDistPx = screenDistOfPoly(polyWorld);
+			// 量得出屏幕距才卡半径；空折线不能把 click 否掉
+			const double maxFallbackPx = kMeshEdgeHitRadiusPx * (query.hoverPick ? 2.0 : 2.5);
+			if (polyWorld.size() >= 2U && edgeDistPx > maxFallbackPx)
+			{
+				return false;
+			}
 		}
 		else
 		{

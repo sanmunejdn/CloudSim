@@ -3,10 +3,14 @@
 
 #include "InstructionPropertyBindingSelfTest.h"
 
+#include "IkGoldenSelfTest.h"
+#include "IkSolveMetrics.h"
+#include "IkSolveTypes.h"
 #include "InstructionPropertyBinding.h"
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionPropertySchema.h"
+#include "RobotTeachIk.h"
 #include "RunLogger.h"
 #include "UrdfIkMachineProfile.h"
 
@@ -160,12 +164,13 @@ bool runInstructionPropertyBindingSelfTest(std::vector<std::string>* failures)
 		check(ptpPol.maxSeeds > 0, "PTP maxSeeds");
 		check(ptpPol.raceNumericalFallback, "PTP race numerical");
 		check(!ptpPol.raceAnalyticalAndNumerical, "PTP default sequential IK");
-		check(ptpPol.allowCartDegrade, "PTP allowCartDegrade default");
+		check(!ptpPol.allowCartDegrade, "PTP allowCartDegrade default false");
 		check(ptpPol.budgetMs >= 200, "PTP budget ample");
 		RobotInstruction::MotionAxisConfiguration pathCfg = want;
 		const auto pathPol = RobotInstruction::makeCartesianPathIkPolicy(pathCfg);
 		check(pathPol.requireWristContinuity, "path wrist hard");
-		check(pathPol.requireMatchesClass, "path class hard");
+		check(pathPol.requireMatchesClass, "path class hard factory");
+		check(!pathPol.allowCartDegrade, "path allowCartDegrade default false");
 		check(pathPol.mode == RobotInstruction::IkSolveMode::Search, "path endpoint Search");
 		check(pathPol.rankMode == RobotInstruction::IkRankMode::Distance, "path rank Distance");
 		const auto pathAuto = RobotInstruction::makeCartesianPathIkPolicy(autoCfg);
@@ -174,11 +179,11 @@ bool runInstructionPropertyBindingSelfTest(std::vector<std::string>* failures)
 		RobotInstruction::IkSelectionPolicy ov = pathAuto;
 		std::unordered_map<std::string, std::string> ext;
 		ext["context.ikRankMode"] = "Manip";
-		ext["context.allowCartDegrade"] = "0";
+		ext["context.allowCartDegrade"] = "1";
 		ext["context.playbackPlanLite"] = "1";
 		RobotInstruction::applyIkPolicyExtensionOverrides(ext, ov);
 		check(ov.rankMode == RobotInstruction::IkRankMode::Manip, "override rank Manip");
-		check(!ov.allowCartDegrade, "override degrade off");
+		check(ov.allowCartDegrade, "override degrade on");
 		check(ov.budgetMs < pathAuto.budgetMs, "lite halves budget");
 		const std::string tags =
 			RobotInstruction::formatIkPolicySummaryTags(ov, true, true, true);
@@ -205,26 +210,60 @@ bool runInstructionPropertyBindingSelfTest(std::vector<std::string>* failures)
 				  RobotInstruction::IkFailKind::AxisClass,
 			  "fail AxisClass");
 
-		RobotInstruction::clearIkEscalateSummaryTag();
-		RobotInstruction::setIkEscalateSummaryTag(" [ikEscalate=preview]");
-		check(RobotInstruction::consumeIkEscalateSummaryTag().find("[ikEscalate=preview]") != std::string::npos,
-			  "escalate tag");
-		check(RobotInstruction::consumeIkEscalateSummaryTag().empty(), "escalate consume once");
+		check(RobotInstruction::encodeIkBranchId(1, 1) == 3, "branch encode");
+		check(RobotInstruction::ikBranchElbowSign(3) == 1 && RobotInstruction::ikBranchWrist(3) == 1, "branch decode");
 
 		RobotInstruction::IkSelectionPolicy dragPol = ptpPol;
 		std::unordered_map<std::string, std::string> dragExt;
 		dragExt["context.ikProfile"] = "drag";
 		RobotInstruction::applyIkPolicyExtensionOverrides(dragExt, dragPol);
+		check(dragPol.mode == RobotInstruction::IkSolveMode::NearSeed, "drag NearSeed");
 		check(dragPol.budgetMs <= 80, "drag budget<=80");
-		check(dragPol.maxSeeds <= 8, "drag maxSeeds<=8");
+		check(dragPol.maxSeeds <= 1, "drag maxSeeds<=1");
+		check(!dragPol.allowParallelSeeds, "drag no parallel");
+
+		RobotInstruction::IkSelectionPolicy parPol = ptpPol;
+		std::unordered_map<std::string, std::string> parExt;
+		parExt["context.ikParallel"] = "1";
+		RobotInstruction::applyIkPolicyExtensionOverrides(parExt, parPol);
+		check(parPol.allowParallelSeeds, "ikParallel on");
+		check(!ptpPol.softLimitSingularityPenalty, "soft limit penalty default off");
+		RobotInstruction::IkSelectionPolicy softPol = ptpPol;
+		std::unordered_map<std::string, std::string> softExt;
+		softExt["context.ikSoftLimitPenalty"] = "1";
+		RobotInstruction::applyIkPolicyExtensionOverrides(softExt, softPol);
+		check(softPol.softLimitSingularityPenalty, "ikSoftLimitPenalty on");
+
+		// golden：支编码约定（无整臂仿真）
+		check(RobotInstruction::encodeIkBranchId(0, 0) == 0, "golden branch 0");
+		check(RobotInstruction::encodeIkBranchId(1, 1) == 3, "golden branch 3");
+		RobotInstruction::resetIkSolveMetrics();
+		RobotInstruction::recordIkSolveSuccess(12);
+		RobotInstruction::recordIkSolveFailure(RobotInstruction::IkFailKind::Budget, 30);
+		const auto snap = RobotInstruction::ikSolveMetricsSnapshot();
+		check(snap.success == 1 && snap.failBudget == 1, "metrics snapshot");
+		check(RobotInstruction::formatIkSolveMetricsSummary().find("ikStats") != std::string::npos, "metrics fmt");
 
 		RobotInstruction::IkSelectionPolicy adaptPol = ptpPol;
 		adaptPol.raceAnalyticalAndNumerical = true;
 		adaptPol.seedAttractionWeight = 0.02;
-		// 空路径视为非球形：强制关竞速/贴种子
+		adaptPol.requireMatchesClass = true;
+		// 空路径视为非球形：关竞速/贴种子，且 2A 关硬 class
 		RobotInstruction::adaptIkPolicyForRobot({}, adaptPol, nullptr);
 		check(!adaptPol.raceAnalyticalAndNumerical, "adapt non-spherical race off");
 		check(adaptPol.seedAttractionWeight == 0.0, "adapt non-spherical attract off");
+		check(!adaptPol.requireMatchesClass, "adapt 2A no hard class");
+
+		{
+			const auto w0 = RobotTeachIk::CoordinatedIkCostWeights::defaults();
+			check(w0.externalDeltaPriorWeight > 0.0, "coord cost default prior");
+			std::unordered_map<std::string, std::string> wExt;
+			wExt["context.externalDeltaPriorWeight"] = "0.12";
+			wExt["context.adaptiveExternalDamping"] = "0";
+			const auto w1 = RobotTeachIk::CoordinatedIkCostWeights::fromExtension(wExt);
+			check(std::abs(w1.externalDeltaPriorWeight - 0.12) < 1e-9, "coord cost ext prior");
+			check(!w1.adaptiveExternalDamping, "coord cost ext adaptive off");
+		}
 
 		const auto emptyMach = UrdfRobotLoader::resolveIkMachineProfile(QString());
 		check(emptyMach.elbowJointIndex < 0 && emptyMach.wristJointIndex < 0, "empty urdf profile");
@@ -241,6 +280,11 @@ bool runInstructionPropertyBindingSelfTest(std::vector<std::string>* failures)
 		const auto clsOv =
 			RobotInstruction::classifyJointConfiguration(qElbow, names, &seed, 1, -1);
 		check(clsOv.elbow == RobotInstruction::ElbowPosture::Down, "elbow override index 1");
+	}
+
+	if (ok && !RobotInstruction::runIkGoldenSelfTest(failures))
+	{
+		ok = false;
 	}
 
 	if (ok)

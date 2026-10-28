@@ -1910,15 +1910,16 @@ bool collectInputFaces(const TopoDS_Shape& shape, const FeatureGeometry& geometr
 					   std::string* errMsg)
 {
 	outFaces.clear();
-	if (geometry.faceIndices.empty())
+	const std::vector<int> faceIndices = collectGeometryIndices(geometry, GeometryRefKind::Face);
+	if (faceIndices.empty())
 	{
 		if (errMsg)
 		{
-			*errMsg = "faceIndices is empty";
+			*errMsg = "Face refs is empty";
 		}
 		return false;
 	}
-	for (int idx : geometry.faceIndices)
+	for (int idx : faceIndices)
 	{
 		TopoDS_Face face;
 		std::string faceErr;

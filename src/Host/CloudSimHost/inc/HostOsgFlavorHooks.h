@@ -64,6 +64,7 @@ HOST_OSG_FLAVOR_API void flavorCloseDetachedViewWindows(QWidget* osgPane);
 HOST_OSG_FLAVOR_API void flavorPersistMultiViewSettings(QWidget* osgPane, const QString& documentId);
 HOST_OSG_FLAVOR_API void flavorRestoreMultiViewSettings(QWidget* osgPane, const QString& documentId);
 HOST_OSG_FLAVOR_API void flavorSetMultiViewUseChinese(QWidget* osgPane, bool useChinese);
+HOST_OSG_FLAVOR_API void flavorSetOrthographicProjection(QWidget* osgPane, bool on);
 
 } // namespace cloudsim::host
 

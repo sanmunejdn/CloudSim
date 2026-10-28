@@ -672,7 +672,7 @@ IkSelectionPolicy makePtpIkPolicy(const MotionAxisConfiguration& cfg)
 	p.raceNumericalFallback = true;
 	// 默认串行：解析失败再数值；竞速可选扩展打开
 	p.raceAnalyticalAndNumerical = false;
-	p.allowCartDegrade = true;
+	p.allowCartDegrade = false;
 	p.manipOnDistanceTie = true;
 	p.seedAttractionWeight = 0.0;
 	return p;
@@ -689,7 +689,7 @@ IkSelectionPolicy makeCartesianPathIkPolicy(const MotionAxisConfiguration& cfg)
 	p.budgetMs = 200;
 	p.raceNumericalFallback = true;
 	p.raceAnalyticalAndNumerical = false;
-	p.allowCartDegrade = true;
+	p.allowCartDegrade = false;
 	p.manipOnDistanceTie = true;
 	p.seedAttractionWeight = 0.0;
 	return p;
@@ -833,8 +833,11 @@ void applyIkPolicyExtensionOverrides(const std::unordered_map<std::string, std::
 		const std::string& p = itProfile->second;
 		if (p == "drag")
 		{
+			// 拖点跟手：贴当前种子，不扩 Search
+			policy.mode = IkSolveMode::NearSeed;
 			policy.budgetMs = 80;
-			policy.maxSeeds = 8;
+			policy.maxSeeds = 1;
+			policy.allowParallelSeeds = false;
 		}
 		else if (p == "preview")
 		{
@@ -889,28 +892,16 @@ void applyIkPolicyExtensionOverrides(const std::unordered_map<std::string, std::
 		policy.budgetMs = std::max(20, policy.budgetMs / 2);
 		policy.maxSeeds = std::max(4, policy.maxSeeds / 2);
 	}
-}
-
-namespace
-{
-thread_local std::string t_ikEscalateSummaryTag;
-}
-
-void clearIkEscalateSummaryTag()
-{
-	t_ikEscalateSummaryTag.clear();
-}
-
-void setIkEscalateSummaryTag(const std::string& tag)
-{
-	t_ikEscalateSummaryTag = tag;
-}
-
-std::string consumeIkEscalateSummaryTag()
-{
-	std::string out = t_ikEscalateSummaryTag;
-	t_ikEscalateSummaryTag.clear();
-	return out;
+	const auto itPar = ext.find("context.ikParallel");
+	if (itPar != ext.end())
+	{
+		policy.allowParallelSeeds = (itPar->second == "1" || itPar->second == "true");
+	}
+	const auto itSoft = ext.find("context.ikSoftLimitPenalty");
+	if (itSoft != ext.end())
+	{
+		policy.softLimitSingularityPenalty = (itSoft->second == "1" || itSoft->second == "true");
+	}
 }
 
 void adaptIkPolicyForRobot(const std::string& urdfPath, IkSelectionPolicy& policy,
@@ -921,13 +912,18 @@ void adaptIkPolicyForRobot(const std::string& urdfPath, IkSelectionPolicy& polic
 	{
 		const UrdfRobotLoader::UrdfIkMachineProfile mach =
 			UrdfRobotLoader::resolveIkMachineProfile(QString::fromStdString(urdfPath));
-		if (mach.forceSphericalWrist == UrdfRobotLoader::SphericalWristForce::No)
+		if (mach.analyticalFamily == UrdfRobotLoader::AnalyticalIkFamily::None)
 		{
 			spherical = false;
 		}
-		else if (mach.forceSphericalWrist == UrdfRobotLoader::SphericalWristForce::Yes)
+		else if (mach.analyticalFamily == UrdfRobotLoader::AnalyticalIkFamily::SphericalWrist6R ||
+				 mach.forceSphericalWrist == UrdfRobotLoader::SphericalWristForce::Yes)
 		{
 			spherical = true;
+		}
+		else if (mach.forceSphericalWrist == UrdfRobotLoader::SphericalWristForce::No)
+		{
+			spherical = false;
 		}
 		else
 		{
@@ -938,6 +934,8 @@ void adaptIkPolicyForRobot(const std::string& urdfPath, IkSelectionPolicy& polic
 	{
 		policy.raceAnalyticalAndNumerical = false;
 		policy.seedAttractionWeight = 0.0;
+		// 非球形腕无可靠离散支：显式 preset 只做软排序
+		policy.requireMatchesClass = false;
 		return;
 	}
 	if (!ext)

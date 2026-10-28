@@ -46,6 +46,10 @@ public:
 	void setUseChinese(bool chinese);
 	void refreshChrome();
 
+	/// Primary、分屏卫星与浮动窗统一切换
+	void setOrthographicProjection(bool on);
+	bool isOrthographicProjection() const { return m_orthographic; }
+
 signals:
 	void layoutChanged(cloudsim::host::MultiViewLayout layout);
 	void activeViewChanged(int index);
@@ -78,6 +82,7 @@ private:
 	cloudsim::host::MultiViewLayout m_layout = cloudsim::host::MultiViewLayout::Single;
 	int m_activeIndex = 0;
 	bool m_useChinese = true;
+	bool m_orthographic = false;
 
 	QSplitter* m_rootSplitter = nullptr;
 	QVector<Cell> m_cells;

@@ -37,6 +37,11 @@ void FeatureTableModel::setStrategyDisplayNameResolver(std::function<QString(con
 	m_strategyDisplayResolver = std::move(resolver);
 }
 
+void FeatureTableModel::setWorkpieceDisplayNameResolver(std::function<QString(const std::string& backendId)> resolver)
+{
+	m_workpieceDisplayResolver = std::move(resolver);
+}
+
 void FeatureTableModel::setEntries(const std::vector<geoalgo::FeatureEntry>& entries)
 {
 	beginResetModel();
@@ -187,6 +192,9 @@ QVariant FeatureTableModel::data(const QModelIndex& idx, const int role) const
 			return idx.row() + 1;
 		case ColFeatureId:
 			return QString::fromStdString(entry.featureId);
+		case ColWorkpiece:
+			return m_workpieceDisplayResolver ? m_workpieceDisplayResolver(entry.workpiece.backendIdUtf8)
+											  : QString::fromStdString(entry.workpiece.backendIdUtf8);
 		case ColStrategy:
 			return strategyDisplayName(entry.strategyId);
 		case ColGeometry:
@@ -226,6 +234,8 @@ QVariant FeatureTableModel::headerData(const int section, const Qt::Orientation 
 			return QStringLiteral("#");
 		case ColFeatureId:
 			return QStringLiteral("特征 ID");
+		case ColWorkpiece:
+			return QStringLiteral("工件");
 		case ColStrategy:
 			return QStringLiteral("离散策略");
 		case ColGeometry:
@@ -242,6 +252,8 @@ QVariant FeatureTableModel::headerData(const int section, const Qt::Orientation 
 		return QStringLiteral("#");
 	case ColFeatureId:
 		return QStringLiteral("Feature ID");
+	case ColWorkpiece:
+		return QStringLiteral("Workpiece");
 	case ColStrategy:
 		return QStringLiteral("Strategy");
 	case ColGeometry:
@@ -265,10 +277,10 @@ Qt::ItemFlags FeatureTableModel::flags(const QModelIndex& index) const
 
 QString FeatureTableModel::geometrySummary(const geoalgo::FeatureGeometry& geometry) const
 {
-	const QString edgeText =
-		joinIndices(geometry.edgeIndices, m_chinese ? QStringLiteral("边 ") : QStringLiteral("edge "));
-	const QString faceText =
-		joinIndices(geometry.faceIndices, m_chinese ? QStringLiteral("面 ") : QStringLiteral("face "));
+	const QString edgeText = joinIndices(geoalgo::collectGeometryIndices(geometry, geoalgo::GeometryRefKind::Edge),
+										 m_chinese ? QStringLiteral("边 ") : QStringLiteral("edge "));
+	const QString faceText = joinIndices(geoalgo::collectGeometryIndices(geometry, geoalgo::GeometryRefKind::Face),
+										 m_chinese ? QStringLiteral("面 ") : QStringLiteral("face "));
 	if (!edgeText.isEmpty() && !faceText.isEmpty())
 	{
 		return edgeText + QStringLiteral("; ") + faceText;
@@ -281,9 +293,10 @@ QString FeatureTableModel::geometrySummary(const geoalgo::FeatureGeometry& geome
 	{
 		return faceText;
 	}
-	if (!geometry.polylineXyz.empty())
+	const std::vector<float> poly = geoalgo::collectPolylineXyz(geometry);
+	if (!poly.empty())
 	{
-		const int ptCount = static_cast<int>(geometry.polylineXyz.size() / 3U);
+		const int ptCount = static_cast<int>(poly.size() / 3U);
 		return m_chinese ? QStringLiteral("折线 %1 点").arg(ptCount) : QStringLiteral("polyline %1 pts").arg(ptCount);
 	}
 	return m_chinese ? QStringLiteral("—") : QStringLiteral("—");

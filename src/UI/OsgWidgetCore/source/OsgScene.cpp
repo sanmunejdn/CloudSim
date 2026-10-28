@@ -419,9 +419,19 @@ void OsgScene::initScene()
 	m_meshPickedEdgeColors = new osg::Vec4Array;
 	m_meshPickedEdgeColors->push_back(osg::Vec4(1.0f, 0.15f, 0.1f, 0.95f));
 	m_meshPickedEdgeGeom->setColorArray(m_meshPickedEdgeColors.get(), osg::Array::BIND_OVERALL);
+	// 与面高亮一致关深度：边贴在表面上，开深度会被三角网格吃掉，表现为「无高亮」
 	m_meshPickedEdgeGeom->getOrCreateStateSet()->setMode(GL_LIGHTING,
 														 osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	m_meshPickedEdgeGeom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(3.0f));
+	m_meshPickedEdgeGeom->getOrCreateStateSet()->setMode(GL_DEPTH_TEST,
+														 osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshPickedEdgeGeom->getOrCreateStateSet()->setMode(GL_LINE_SMOOTH,
+														 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	m_meshPickedEdgeGeom->getOrCreateStateSet()->setMode(GL_BLEND,
+														 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	m_meshPickedEdgeGeom->getOrCreateStateSet()->setAttributeAndModes(
+		new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+	m_meshPickedEdgeGeom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(4.5f));
+	m_meshPickedEdgeGeom->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 
 	osg::ref_ptr<osg::Geode> overlayGeode = new osg::Geode;
 	overlayGeode->addDrawable(m_meshPickedFaceGeom.get());

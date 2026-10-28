@@ -22,6 +22,7 @@ public:
 	{
 		ColIndex = 0,
 		ColFeatureId,
+		ColWorkpiece,
 		ColStrategy,
 		ColGeometry,
 		ColStatus,
@@ -50,6 +51,7 @@ public:
 	Qt::ItemFlags flags(const QModelIndex& index) const override;
 
 	void setStrategyDisplayNameResolver(std::function<QString(const std::string& strategyId)> resolver);
+	void setWorkpieceDisplayNameResolver(std::function<QString(const std::string& backendId)> resolver);
 
 signals:
 	void selectionRowChanged(int row);
@@ -63,6 +65,7 @@ private:
 	std::vector<geoalgo::FeatureEntry> m_entries;
 	std::vector<QString> m_statusByRow;
 	std::function<QString(const std::string& strategyId)> m_strategyDisplayResolver;
+	std::function<QString(const std::string& backendId)> m_workpieceDisplayResolver;
 };
 
 #endif // ROBOTWIDGET_FEATURETABLEMODEL_H

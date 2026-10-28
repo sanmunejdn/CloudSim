@@ -1,4 +1,4 @@
-﻿/// @file GeometryBackendOps.cpp
+/// @file GeometryBackendOps.cpp
 /// @brief geometry_backend_ops 编排层实现：STEP 导入离散、模板 B-rep 配准（PCA/RANSAC 粗配 + ICP 阶梯）、
 ///        扫描驱动面更新、管状特征构建、特征轨迹桥接等
 
@@ -18,6 +18,7 @@
 #include <Discretize.h>
 #include <Downsample.h>
 #include <FeatureDiscretizerBridge.h>
+#include <IFeatureDiscretizer.h>
 #include <KdTreePointSet.h>
 #include <Measure.h>
 #include <MeshDiscretize.h>
@@ -47,6 +48,7 @@
 #include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
 #include <RigidTransform.h>
+#include <ShapeHandle.h>
 #include <ShapeIo.h>
 #include <ShapeQuery.h>
 
@@ -3374,6 +3376,282 @@ WorkpieceShapeSource resolveWorkpieceShape(const std::string& backendIdUtf8, con
 	return WorkpieceShapeSource::Unavailable;
 }
 
+bool buildFeatureDiscretizeContext(const geoalgo::FeatureListDocument& doc, const geoalgo::FeatureEntry& entryIn,
+								   const IBackendDataQuery& mgr, geoalgo::FeatureDiscretizeContext& outCtx,
+								   std::string* errMsg)
+{
+	outCtx = geoalgo::FeatureDiscretizeContext{};
+	geoalgo::FeatureEntry entry = entryIn;
+	const geoalgo::FeatureGeometrySchema schema = geoalgo::getFeatureGeometrySchema(entry.strategyId);
+
+	// primary：schema.primaryRole 对应 ref，否则 entry/doc 工件
+	geoalgo::WorkpieceRef primary = geoalgo::featureEntryWorkpiece(doc, entry);
+	if (!schema.primaryRole.empty())
+	{
+		if (const geoalgo::GeometryRef* pref = geoalgo::findGeometryRef(entry.geometry, schema.primaryRole))
+		{
+			primary = geoalgo::geometryRefWorkpiece(doc, entry, *pref);
+		}
+	}
+	if (primary.backendIdUtf8.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "feature " + entry.featureId + " has no primary workpiece";
+		}
+		return false;
+	}
+	entry.workpiece = primary;
+
+	struct CachedShape
+	{
+		geoalgo::ShapeHandle handle;
+		geoalgo::WorkpieceRef ref;
+		BackendMat4 world = BackendMat4::identity();
+	};
+	std::unordered_map<std::string, CachedShape> cache;
+	auto loadWp = [&](const geoalgo::WorkpieceRef& wp, CachedShape& out, std::string* loadErr) -> bool
+	{
+		const auto it = cache.find(wp.backendIdUtf8);
+		if (it != cache.end())
+		{
+			out = it->second;
+			return true;
+		}
+		CachedShape cs;
+		if (resolveWorkpieceShape(wp.backendIdUtf8, mgr, wp.stepPathUtf8, cs.handle, cs.ref, loadErr) ==
+			WorkpieceShapeSource::Unavailable)
+		{
+			return false;
+		}
+		if (cs.handle.isNull())
+		{
+			if (loadErr)
+			{
+				*loadErr = "shape access failed: " + wp.backendIdUtf8;
+			}
+			return false;
+		}
+		if (const auto data = mgr.getData(wp.backendIdUtf8))
+		{
+			cs.world = objectWorldMatrix(*data);
+		}
+		cache.emplace(wp.backendIdUtf8, cs);
+		out = cs;
+		return true;
+	};
+
+	CachedShape primaryCs;
+	std::string loadErr;
+	if (!loadWp(primary, primaryCs, &loadErr))
+	{
+		if (errMsg)
+		{
+			*errMsg = loadErr;
+		}
+		return false;
+	}
+	BackendMat4 primaryInv = BackendMat4::identity();
+	(void)backend_mat4_invert_rigid(primaryCs.world, primaryInv);
+
+	outCtx.primaryWorkpiece = primaryCs.ref.backendIdUtf8.empty() ? primary : primaryCs.ref;
+	outCtx.primaryShapeHandle = primaryCs.handle;
+	outCtx.input.workpiece = outCtx.primaryWorkpiece;
+	outCtx.input.geometry = entry.geometry;
+	outCtx.input.params = entry.params;
+	outCtx.input.strategyId = entry.strategyId;
+	outCtx.input.featureId = entry.featureId;
+
+	auto appendSlot = [&](const geoalgo::GeometryRef& gref) -> bool
+	{
+		const geoalgo::WorkpieceRef refWp = geoalgo::geometryRefWorkpiece(doc, entry, gref);
+		CachedShape cs;
+		if (!loadWp(refWp, cs, &loadErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = "workpiece " + refWp.backendIdUtf8 + ": " + loadErr;
+			}
+			return false;
+		}
+		geoalgo::ShapeSlot slot;
+		slot.role = gref.role;
+		slot.shapeHandle = cs.handle;
+		slot.localIndex = gref.index;
+		if (gref.kind == geoalgo::GeometryRefKind::Edge && refWp.backendIdUtf8 != primary.backendIdUtf8 &&
+			gref.index >= 0)
+		{
+			std::vector<float> xyz;
+			if (!geoalgo::discretizeShapeEdgeIndex(cs.handle, gref.index, 0.1, xyz, errMsg))
+			{
+				return false;
+			}
+			slot.polylineInPrimaryMm.reserve(xyz.size());
+			const std::size_t n = xyz.size() / 3U;
+			for (std::size_t i = 0; i < n; ++i)
+			{
+				const std::size_t b = i * 3U;
+				const BackendVec3 worldPt =
+					backend_mat4_transform_point(cs.world, BackendVec3{xyz[b], xyz[b + 1U], xyz[b + 2U]});
+				const BackendVec3 primaryPt = backend_mat4_transform_point(primaryInv, worldPt);
+				slot.polylineInPrimaryMm.push_back(static_cast<float>(primaryPt.x));
+				slot.polylineInPrimaryMm.push_back(static_cast<float>(primaryPt.y));
+				slot.polylineInPrimaryMm.push_back(static_cast<float>(primaryPt.z));
+			}
+		}
+		else if (gref.kind == geoalgo::GeometryRefKind::Polyline && !gref.polylineXyz.empty())
+		{
+			slot.polylineInPrimaryMm = gref.polylineXyz;
+		}
+		outCtx.shapeSlots.push_back(std::move(slot));
+		return true;
+	};
+
+	if (!entry.geometry.refs.empty())
+	{
+		for (const geoalgo::GeometryRef& gref : entry.geometry.refs)
+		{
+			if (!appendSlot(gref))
+			{
+				return false;
+			}
+		}
+	}
+	else
+	{
+		geoalgo::ShapeSlot only;
+		only.shapeHandle = primaryCs.handle;
+		outCtx.shapeSlots.push_back(std::move(only));
+	}
+	return true;
+}
+
+bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& doc, const IBackendDataQuery& mgr,
+										   geoalgo::RawPath& out, geoalgo::FeatureListDocument* outResolvedDoc,
+										   std::string* errMsg)
+{
+	out = geoalgo::RawPath{};
+	if (doc.features.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "feature list is empty";
+		}
+		return false;
+	}
+
+	geoalgo::ensureFeatureDiscretizersRegistered();
+	geoalgo::FeatureListDocument resolved = doc;
+	std::string docPrimaryId;
+	BackendMat4 docPrimaryInv = BackendMat4::identity();
+	bool haveDocPrimary = false;
+
+	for (std::size_t fi = 0; fi < resolved.features.size(); ++fi)
+	{
+		geoalgo::FeatureEntry& entry = resolved.features[fi];
+		geoalgo::FeatureDiscretizeContext ctx;
+		std::string stepErr;
+		if (!buildFeatureDiscretizeContext(doc, entry, mgr, ctx, &stepErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = stepErr;
+			}
+			return false;
+		}
+		entry.workpiece = ctx.primaryWorkpiece;
+		if (!haveDocPrimary)
+		{
+			docPrimaryId = entry.workpiece.backendIdUtf8;
+			resolved.workpiece = entry.workpiece;
+			if (const auto data = mgr.getData(docPrimaryId))
+			{
+				(void)backend_mat4_invert_rigid(objectWorldMatrix(*data), docPrimaryInv);
+			}
+			haveDocPrimary = true;
+		}
+
+		const geoalgo::IFeatureDiscretizer* disc = geoalgo::featureDiscretizerGet(entry.strategyId);
+		if (!disc)
+		{
+			if (errMsg)
+			{
+				*errMsg = "unknown strategyId: " + entry.strategyId;
+			}
+			return false;
+		}
+		geoalgo::RawPath part;
+		part.sourceFeatureId = entry.featureId;
+		if (!disc->discretizeEx(ctx, part, &stepErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = "feature " + entry.featureId + ": " + stepErr;
+			}
+			return false;
+		}
+
+		const std::string& rowWp = entry.workpiece.backendIdUtf8;
+		if (rowWp != docPrimaryId)
+		{
+			const auto data = mgr.getData(rowWp);
+			if (!data)
+			{
+				if (errMsg)
+				{
+					*errMsg = "backend not found: " + rowWp;
+				}
+				return false;
+			}
+			const BackendMat4 world = objectWorldMatrix(*data);
+			const auto mapPoint = [&](double x, double y, double z)
+			{
+				return backend_mat4_transform_point(docPrimaryInv,
+												   backend_mat4_transform_point(world, BackendVec3{x, y, z}));
+			};
+			const BackendVec3 origin = mapPoint(0.0, 0.0, 0.0);
+			const auto mapDir = [&](geoalgo::Vec3d& d)
+			{
+				const BackendVec3 p = mapPoint(d.x, d.y, d.z);
+				d = geoalgo::Vec3d{p.x - origin.x, p.y - origin.y, p.z - origin.z};
+			};
+			for (geoalgo::RawPathPoint& pt : part.points)
+			{
+				const BackendVec3 p = mapPoint(pt.positionMm.x, pt.positionMm.y, pt.positionMm.z);
+				pt.positionMm = geoalgo::Point3d{p.x, p.y, p.z};
+				mapDir(pt.tangent);
+				mapDir(pt.normal);
+			}
+		}
+
+		if (out.points.empty())
+		{
+			out.sourceFeatureId = part.sourceFeatureId;
+			out.closed = part.closed;
+		}
+		else if (fi > 0 && resolved.features[fi - 1].workpiece.backendIdUtf8 != rowWp)
+		{
+			if (out.segmentEndExclusive.empty() || out.segmentEndExclusive.back() != out.points.size())
+			{
+				out.segmentEndExclusive.push_back(out.points.size());
+			}
+			out.closed = false;
+		}
+		const std::size_t base = out.points.size();
+		out.points.insert(out.points.end(), part.points.begin(), part.points.end());
+		for (const std::size_t endExclusive : part.segmentEndExclusive)
+		{
+			out.segmentEndExclusive.push_back(base + endExclusive);
+		}
+	}
+
+	if (outResolvedDoc)
+	{
+		*outResolvedDoc = std::move(resolved);
+	}
+	return true;
+}
+
 bool discretizeFeatureList(const geoalgo::FeatureListDocument& doc, geoalgo::RawPath& out, std::string* errMsg)
 {
 	return geoalgo::discretizeFeatureList(doc, out, errMsg);
@@ -3472,6 +3750,11 @@ geoalgo::GeometryAffinity featureDiscretizerAffinity(const std::string& strategy
 	return geoalgo::GeometryAffinity::Any;
 }
 
+geoalgo::FeatureGeometrySchema featureDiscretizerGeometrySchema(const std::string& strategyId)
+{
+	return geoalgo::getFeatureGeometrySchema(strategyId);
+}
+
 nlohmann::json featureDiscretizerDefaultParams(const std::string& strategyId)
 {
 	return geoalgo::featureDiscretizerConfigRegistry().defaultParamsForStrategy(strategyId);
@@ -3501,7 +3784,10 @@ bool buildFeatureEntryFromModelPick(const geoalgo::WorkpieceRef& workpiece, cons
 			return false;
 		}
 		out.featureId = "face_" + std::to_string(faceIdx);
-		out.geometry.faceIndices = {faceIdx};
+		geoalgo::GeometryRef faceRef;
+		faceRef.kind = geoalgo::GeometryRefKind::Face;
+		faceRef.index = faceIdx;
+		out.geometry.refs.push_back(std::move(faceRef));
 	}
 	else
 	{
@@ -3518,7 +3804,10 @@ bool buildFeatureEntryFromModelPick(const geoalgo::WorkpieceRef& workpiece, cons
 			return false;
 		}
 		out.featureId = "edge_" + std::to_string(edgeIdx);
-		out.geometry.edgeIndices = {edgeIdx};
+		geoalgo::GeometryRef edgeRef;
+		edgeRef.kind = geoalgo::GeometryRefKind::Edge;
+		edgeRef.index = edgeIdx;
+		out.geometry.refs.push_back(std::move(edgeRef));
 	}
 	(void)workpiece;
 	return true;

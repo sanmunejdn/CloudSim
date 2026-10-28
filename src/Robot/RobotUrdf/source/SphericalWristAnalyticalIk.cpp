@@ -299,17 +299,13 @@ void SphericalWristAnalyticalIk::clearEligibilityCache()
 {
 	g_sphericalWristEligibleCache.clear();
 	clearIkMachineProfileCache();
+	clearCachedUrdfKinematicGraph();
 }
 
-std::vector<double> SphericalWristAnalyticalIk::solve(const QString& urdfPath, const QString& ikLink,
-													  const UrdfPoseIkTarget& target, std::vector<double> seedJointRad,
-													  const UrdfIkSolverOptions& options, std::string* failReason,
-													  IkConvergenceStatus* status)
+std::vector<SphericalWristAnalyticalIk::AnalyticalCandidate> SphericalWristAnalyticalIk::solveAll(
+	const QString& urdfPath, const QString& ikLink, const UrdfPoseIkTarget& target, std::vector<double> seedJointRad,
+	const UrdfIkSolverOptions& options, std::string* failReason)
 {
-	if (status)
-	{
-		*status = IkConvergenceStatus::Failed;
-	}
 	if (!isEligible(urdfPath))
 	{
 		if (failReason)
@@ -333,14 +329,13 @@ std::vector<double> SphericalWristAnalyticalIk::solve(const QString& urdfPath, c
 	posOpt.maxIterations = std::max(options.maxIterations > 0 ? options.maxIterations : 80, 48);
 
 	const auto seeds = expandPoseIkSeeds(seedJointRad);
-	std::vector<std::vector<double>> accepted;
+	std::vector<AnalyticalCandidate> accepted;
 	std::string lastFail;
 
 	for (const auto& seed : seeds)
 	{
 		std::string fr;
-		std::vector<double> qArm =
-			solveArmPoseViaKinematicCore(urdfPath, ikLink, posOnly, seed, posOpt, &fr);
+		std::vector<double> qArm = solveArmPoseViaKinematicCore(urdfPath, ikLink, posOnly, seed, posOpt, &fr);
 		if (qArm.size() != 6)
 		{
 			if (!fr.empty())
@@ -406,20 +401,46 @@ std::vector<double> SphericalWristAnalyticalIk::solve(const QString& urdfPath, c
 			{
 				continue;
 			}
-			accepted.push_back(std::move(q));
+			AnalyticalCandidate c;
+			c.q = std::move(q);
+			c.wristBranch = branch;
+			accepted.push_back(std::move(c));
 		}
 	}
 
+	if (accepted.empty() && failReason)
+	{
+		*failReason = lastFail.empty() ? "analytical spherical-wrist IK failed" : lastFail;
+	}
+	else if (failReason)
+	{
+		failReason->clear();
+	}
+	return accepted;
+}
+
+std::vector<double> SphericalWristAnalyticalIk::solve(const QString& urdfPath, const QString& ikLink,
+													  const UrdfPoseIkTarget& target, std::vector<double> seedJointRad,
+													  const UrdfIkSolverOptions& options, std::string* failReason,
+													  IkConvergenceStatus* status)
+{
+	if (status)
+	{
+		*status = IkConvergenceStatus::Failed;
+	}
+	const auto accepted = solveAll(urdfPath, ikLink, target, seedJointRad, options, failReason);
 	if (accepted.empty())
 	{
-		if (failReason)
-		{
-			*failReason = lastFail.empty() ? "analytical spherical-wrist IK failed" : lastFail;
-		}
 		return {};
 	}
 
-	std::vector<double> best = selectNearestWrappedSolution(accepted, seedJointRad);
+	std::vector<std::vector<double>> qs;
+	qs.reserve(accepted.size());
+	for (const auto& c : accepted)
+	{
+		qs.push_back(c.q);
+	}
+	std::vector<double> best = selectNearestWrappedSolution(qs, seedJointRad);
 	double posErr = 0.0;
 	double rotErr = 0.0;
 	if (!measurePoseError(urdfPath, ikLink, best, target, posErr, rotErr))

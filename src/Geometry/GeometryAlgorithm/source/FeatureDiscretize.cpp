@@ -131,19 +131,106 @@ void writeWorkpieceJson(nlohmann::json& j, const WorkpieceRef& wp)
 	}
 }
 
+const char* geometryRefKindToString(GeometryRefKind kind)
+{
+	switch (kind)
+	{
+	case GeometryRefKind::Face:
+		return "Face";
+	case GeometryRefKind::Polyline:
+		return "Polyline";
+	case GeometryRefKind::Edge:
+	default:
+		return "Edge";
+	}
+}
+
+bool geometryRefKindFromString(const std::string& s, GeometryRefKind& out)
+{
+	if (s == "Face" || s == "face")
+	{
+		out = GeometryRefKind::Face;
+		return true;
+	}
+	if (s == "Polyline" || s == "polyline")
+	{
+		out = GeometryRefKind::Polyline;
+		return true;
+	}
+	if (s == "Edge" || s == "edge" || s.empty())
+	{
+		out = GeometryRefKind::Edge;
+		return true;
+	}
+	return false;
+}
+
+void writeGeometryRefJson(nlohmann::json& j, const GeometryRef& ref)
+{
+	j["kind"] = geometryRefKindToString(ref.kind);
+	if (!ref.role.empty())
+	{
+		j["role"] = ref.role;
+	}
+	if (ref.index >= 0)
+	{
+		j["index"] = ref.index;
+	}
+	if (!ref.workpiece.backendIdUtf8.empty() || !ref.workpiece.stepPathUtf8.empty())
+	{
+		nlohmann::json wp;
+		writeWorkpieceJson(wp, ref.workpiece);
+		j["workpiece"] = std::move(wp);
+	}
+	if (!ref.polylineXyz.empty())
+	{
+		j["polylineXyz"] = ref.polylineXyz;
+	}
+}
+
 void writeGeometryJson(nlohmann::json& j, const FeatureGeometry& geometry)
 {
-	if (!geometry.edgeIndices.empty())
+	nlohmann::json arr = nlohmann::json::array();
+	for (const GeometryRef& ref : geometry.refs)
 	{
-		j["edgeIndices"] = geometry.edgeIndices;
+		nlohmann::json item;
+		writeGeometryRefJson(item, ref);
+		arr.push_back(std::move(item));
 	}
-	if (!geometry.faceIndices.empty())
+	j["refs"] = std::move(arr);
+}
+
+void upgradeLegacyGeometryJson(const nlohmann::json& j, FeatureGeometry& geometry)
+{
+	if (j.contains("edgeIndices") && j["edgeIndices"].is_array())
 	{
-		j["faceIndices"] = geometry.faceIndices;
+		for (const auto& v : j["edgeIndices"])
+		{
+			GeometryRef ref;
+			ref.kind = GeometryRefKind::Edge;
+			ref.index = v.get<int>();
+			geometry.refs.push_back(std::move(ref));
+		}
 	}
-	if (!geometry.polylineXyz.empty())
+	if (j.contains("faceIndices") && j["faceIndices"].is_array())
 	{
-		j["polylineXyz"] = geometry.polylineXyz;
+		for (const auto& v : j["faceIndices"])
+		{
+			GeometryRef ref;
+			ref.kind = GeometryRefKind::Face;
+			ref.index = v.get<int>();
+			geometry.refs.push_back(std::move(ref));
+		}
+	}
+	if (j.contains("polylineXyz") && j["polylineXyz"].is_array())
+	{
+		GeometryRef ref;
+		ref.kind = GeometryRefKind::Polyline;
+		for (const auto& v : j["polylineXyz"])
+		{
+			ref.polylineXyz.push_back(static_cast<float>(v.get<double>()));
+		}
+		geometry.refs.push_back(std::move(ref));
 	}
 }
 
@@ -165,31 +252,41 @@ bool readWorkpieceJson(const nlohmann::json& j, WorkpieceRef& wp, std::string* e
 
 bool readGeometryJson(const nlohmann::json& j, FeatureGeometry& geometry)
 {
+	geometry = FeatureGeometry{};
 	if (!j.is_object())
 	{
 		return true;
 	}
-	if (j.contains("edgeIndices") && j["edgeIndices"].is_array())
+	if (j.contains("refs") && j["refs"].is_array())
 	{
-		for (const auto& v : j["edgeIndices"])
+		for (const auto& item : j["refs"])
 		{
-			geometry.edgeIndices.push_back(v.get<int>());
+			if (!item.is_object())
+			{
+				continue;
+			}
+			GeometryRef ref;
+			GeometryRefKind kind = GeometryRefKind::Edge;
+			(void)geometryRefKindFromString(item.value("kind", std::string("Edge")), kind);
+			ref.kind = kind;
+			ref.role = item.value("role", std::string());
+			ref.index = item.value("index", -1);
+			if (item.contains("workpiece") && item["workpiece"].is_object())
+			{
+				(void)readWorkpieceJson(item["workpiece"], ref.workpiece, nullptr);
+			}
+			if (item.contains("polylineXyz") && item["polylineXyz"].is_array())
+			{
+				for (const auto& v : item["polylineXyz"])
+				{
+					ref.polylineXyz.push_back(static_cast<float>(v.get<double>()));
+				}
+			}
+			geometry.refs.push_back(std::move(ref));
 		}
+		return true;
 	}
-	if (j.contains("faceIndices") && j["faceIndices"].is_array())
-	{
-		for (const auto& v : j["faceIndices"])
-		{
-			geometry.faceIndices.push_back(v.get<int>());
-		}
-	}
-	if (j.contains("polylineXyz") && j["polylineXyz"].is_array())
-	{
-		for (const auto& v : j["polylineXyz"])
-		{
-			geometry.polylineXyz.push_back(static_cast<float>(v.get<double>()));
-		}
-	}
+	upgradeLegacyGeometryJson(j, geometry);
 	return true;
 }
 
@@ -236,7 +333,7 @@ bool validateFeatureEntryInternal(const FeatureEntry& entry, bool requireStepPat
 		}
 		const int edgeCount = shapeEdgeCount(shape);
 		const int faceCount = shapeFaceCount(shape);
-		for (int idx : entry.geometry.edgeIndices)
+		for (int idx : collectGeometryIndices(entry.geometry, GeometryRefKind::Edge))
 		{
 			if (idx < 0 || idx >= edgeCount)
 			{
@@ -247,7 +344,7 @@ bool validateFeatureEntryInternal(const FeatureEntry& entry, bool requireStepPat
 				return false;
 			}
 		}
-		for (int idx : entry.geometry.faceIndices)
+		for (int idx : collectGeometryIndices(entry.geometry, GeometryRefKind::Face))
 		{
 			if (idx < 0 || idx >= faceCount)
 			{
@@ -543,6 +640,13 @@ bool featureListFromJson(const std::string& jsonUtf8, FeatureListDocument& out, 
 				{
 					entry.params = item["params"];
 				}
+				if (item.contains("workpiece") && item["workpiece"].is_object())
+				{
+					if (!readWorkpieceJson(item["workpiece"], entry.workpiece, errMsg))
+					{
+						return false;
+					}
+				}
 				out.features.push_back(std::move(entry));
 			}
 		}
@@ -582,6 +686,12 @@ std::string featureListToJson(const FeatureListDocument& doc)
 		{
 			item["params"] = entry.params;
 		}
+		if (!entry.workpiece.backendIdUtf8.empty())
+		{
+			nlohmann::json entryWp;
+			writeWorkpieceJson(entryWp, entry.workpiece);
+			item["workpiece"] = entryWp;
+		}
 		features.push_back(item);
 	}
 	j["features"] = features;
@@ -619,7 +729,10 @@ bool enumerateFeatureCatalog(const WorkpieceRef& workpiece, const ShapeHandle& s
 		const double dihedral = edgeDihedralDeg(shape, edge);
 		FeatureCandidate c;
 		c.candidateId = "edge_" + std::to_string(edgeIdx);
-		c.geometry.edgeIndices = {edgeIdx};
+		GeometryRef edgeRef;
+		edgeRef.kind = GeometryRefKind::Edge;
+		edgeRef.index = edgeIdx;
+		c.geometry.refs.push_back(std::move(edgeRef));
 		c.lengthMm = len;
 		c.dihedralDeg = dihedral;
 		c.suggestedStrategyId = "EdgeChain";
@@ -641,7 +754,10 @@ bool enumerateFeatureCatalog(const WorkpieceRef& workpiece, const ShapeHandle& s
 		const double area = faceAreaMm2(face);
 		FeatureCandidate c;
 		c.candidateId = "face_" + std::to_string(faceIdx);
-		c.geometry.faceIndices = {faceIdx};
+		GeometryRef faceRef;
+		faceRef.kind = GeometryRefKind::Face;
+		faceRef.index = faceIdx;
+		c.geometry.refs.push_back(std::move(faceRef));
 		c.areaMm2 = area;
 		if (area > 10000.0)
 		{
@@ -730,19 +846,20 @@ bool suggestFeaturesFromCatalog(const FeatureCatalog& catalog, const std::string
 		entry.featureId = c.candidateId;
 		entry.geometry = c.geometry;
 
-		if (weld && !c.geometry.edgeIndices.empty() && c.dihedralDeg > 30.0 && c.dihedralDeg < 150.0)
+		if (weld && geometryHasKind(c.geometry, GeometryRefKind::Edge) && c.dihedralDeg > 30.0 &&
+			c.dihedralDeg < 150.0)
 		{
 			entry.strategyId = "EdgeChain";
 			entry.params["stepMm"] = 5.0;
 			out.features.push_back(entry);
 		}
-		else if (glue && !c.geometry.faceIndices.empty() && c.areaMm2 > 0.0 && c.areaMm2 < 50000.0)
+		else if (glue && geometryHasKind(c.geometry, GeometryRefKind::Face) && c.areaMm2 > 0.0 && c.areaMm2 < 50000.0)
 		{
 			entry.strategyId = "FaceBoundary";
 			entry.params["stepMm"] = 2.0;
 			out.features.push_back(entry);
 		}
-		else if (grind && !c.geometry.faceIndices.empty() && c.areaMm2 > 10000.0)
+		else if (grind && geometryHasKind(c.geometry, GeometryRefKind::Face) && c.areaMm2 > 10000.0)
 		{
 			entry.strategyId = "FaceParamSurface";
 			entry.params["stepMm"] = 10.0;
@@ -784,9 +901,10 @@ bool computeFeatureAnchor(const WorkpieceRef& workpiece, const ShapeHandle& shap
 		return false;
 	}
 
-	if (!geometry.edgeIndices.empty())
+	const std::vector<int> edgeIndices = collectGeometryIndices(geometry, GeometryRefKind::Edge);
+	if (!edgeIndices.empty())
 	{
-		const int edgeIdx = geometry.edgeIndices.front();
+		const int edgeIdx = edgeIndices.front();
 		TopoDS_Edge edge;
 		if (!edgeByIndex(shape, edgeIdx, edge))
 		{
@@ -817,9 +935,10 @@ bool computeFeatureAnchor(const WorkpieceRef& workpiece, const ShapeHandle& shap
 		return true;
 	}
 
-	if (!geometry.faceIndices.empty())
+	const std::vector<int> faceIndices = collectGeometryIndices(geometry, GeometryRefKind::Face);
+	if (!faceIndices.empty())
 	{
-		const int faceIdx = geometry.faceIndices.front();
+		const int faceIdx = faceIndices.front();
 		TopoDS_Face face;
 		if (!faceByIndex(shape, faceIdx, face))
 		{

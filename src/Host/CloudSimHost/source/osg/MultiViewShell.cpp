@@ -167,7 +167,32 @@ void MultiViewShell::destroySatellitesBeyond(int keep)
 
 SatelliteOsgView* MultiViewShell::createSatellite()
 {
-	return new SatelliteOsgView(m_primary, this);
+	auto* sat = new SatelliteOsgView(m_primary, this);
+	sat->setOrthographicProjection(m_orthographic);
+	return sat;
+}
+
+void MultiViewShell::setOrthographicProjection(bool on)
+{
+	m_orthographic = on;
+	if (m_primary)
+	{
+		m_primary->setOrthographicProjection(on);
+	}
+	for (const Cell& cell : m_cells)
+	{
+		if (cell.satellite)
+		{
+			cell.satellite->setOrthographicProjection(on);
+		}
+	}
+	for (const auto& p : m_detached)
+	{
+		if (p && p->satelliteView())
+		{
+			p->satelliteView()->setOrthographicProjection(on);
+		}
+	}
 }
 
 void MultiViewShell::placePrimaryInCell(int index)
@@ -394,6 +419,10 @@ bool MultiViewShell::openDetachedViewWindow()
 	}
 	auto* dlg = new DetachedViewWindow(m_primary, window());
 	dlg->setWindowTitle(m_useChinese ? QStringLiteral("视角窗口") : QStringLiteral("View Window"));
+	if (dlg->satelliteView())
+	{
+		dlg->satelliteView()->setOrthographicProjection(m_orthographic);
+	}
 	m_detached.push_back(dlg);
 	dlg->show();
 	return true;

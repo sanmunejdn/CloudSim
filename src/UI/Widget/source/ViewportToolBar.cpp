@@ -421,6 +421,11 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 																  QStringLiteral("Wireframe"));
 	m_wireBtn->setCheckable(true);
 
+	m_orthoBtn = createToolButton(actionTip, ViewportChromeCorner::Middle, m_host);
+	static_cast<ViewportIconButton*>(m_orthoBtn)->setTextGlyph(QStringLiteral("正"));
+	m_orthoBtn->setCheckable(true);
+	updateOrthoTip();
+
 	m_captureBtn = createToolButton(actionTip, ViewportChromeCorner::Middle, m_host);
 	UiIconDecorators::apply(m_captureBtn, UiIconId::Screenshot, UiIconDecorators::IconPlacement::IconOnly,
 							UiIcons::Size::Medium);
@@ -439,6 +444,7 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 				m_wireframeOn = on;
 				emit wireframeToggled(on);
 			});
+	connect(m_orthoBtn, &QToolButton::toggled, this, &ViewportToolBar::orthographicToggled);
 	connect(m_captureBtn, &QToolButton::clicked, this, &ViewportToolBar::screenshotRequested);
 	connect(m_multiViewBtn, &QToolButton::clicked, this, &ViewportToolBar::showMultiViewMenu);
 
@@ -480,6 +486,19 @@ void ViewportToolBar::setUseChinese(bool useChinese)
 	updateObjectSelectTip();
 	updateSidePanelButtonTips();
 	updateMultiViewTip();
+	updateOrthoTip();
+}
+
+void ViewportToolBar::updateOrthoTip()
+{
+	if (!m_orthoBtn)
+	{
+		return;
+	}
+	static_cast<ViewportIconButton*>(m_orthoBtn)
+		->setActionTipText(m_useChinese ? QStringLiteral("正交投影") : QStringLiteral("Orthographic"),
+						   m_useChinese ? QStringLiteral("关闭恢复透视投影")
+										: QStringLiteral("Uncheck for perspective"));
 }
 
 void ViewportToolBar::updateMultiViewTip()
@@ -611,14 +630,15 @@ void ViewportToolBar::refreshChrome()
 
 void ViewportToolBar::showButtons()
 {
-	if (!m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_multiViewBtn || !m_leftPanelBtn ||
-		!m_rightPanelBtn)
+	if (!m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_orthoBtn || !m_captureBtn || !m_multiViewBtn ||
+		!m_leftPanelBtn || !m_rightPanelBtn)
 	{
 		return;
 	}
 	m_objectSelectBtn->show();
 	m_focusBtn->show();
 	m_wireBtn->show();
+	m_orthoBtn->show();
 	m_captureBtn->show();
 	m_multiViewBtn->show();
 	m_leftPanelBtn->show();
@@ -658,6 +678,10 @@ void ViewportToolBar::raiseButtons()
 	{
 		m_wireBtn->raise();
 	}
+	if (m_orthoBtn)
+	{
+		m_orthoBtn->raise();
+	}
 	if (m_captureBtn)
 	{
 		m_captureBtn->raise();
@@ -678,19 +702,20 @@ void ViewportToolBar::raiseButtons()
 
 void ViewportToolBar::reposition()
 {
-	if (!m_host || !m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_multiViewBtn ||
-		!m_leftPanelBtn || !m_rightPanelBtn)
+	if (!m_host || !m_objectSelectBtn || !m_focusBtn || !m_wireBtn || !m_orthoBtn || !m_captureBtn ||
+		!m_multiViewBtn || !m_leftPanelBtn || !m_rightPanelBtn)
 	{
 		return;
 	}
-	const int viewGroupW = kBtnSize * 5 + kBarSpacing * 4;
+	const int viewGroupW = kBtnSize * 6 + kBarSpacing * 5;
 	const int totalW = viewGroupW + kGroupGap + kBtnSize * 2 + kBarSpacing;
 	const int x0 = (m_host->width() - totalW) / 2;
 	m_objectSelectBtn->move(x0, kTopMargin);
 	m_focusBtn->move(x0 + kBtnSize + kBarSpacing, kTopMargin);
 	m_wireBtn->move(x0 + (kBtnSize + kBarSpacing) * 2, kTopMargin);
-	m_captureBtn->move(x0 + (kBtnSize + kBarSpacing) * 3, kTopMargin);
-	m_multiViewBtn->move(x0 + (kBtnSize + kBarSpacing) * 4, kTopMargin);
+	m_orthoBtn->move(x0 + (kBtnSize + kBarSpacing) * 3, kTopMargin);
+	m_captureBtn->move(x0 + (kBtnSize + kBarSpacing) * 4, kTopMargin);
+	m_multiViewBtn->move(x0 + (kBtnSize + kBarSpacing) * 5, kTopMargin);
 	const int sideX = x0 + viewGroupW + kGroupGap;
 	m_leftPanelBtn->move(sideX, kTopMargin);
 	m_rightPanelBtn->move(sideX + kBtnSize + kBarSpacing, kTopMargin);
@@ -701,6 +726,7 @@ void ViewportToolBar::applyButtonStyle()
 	applyChromeToButton(m_objectSelectBtn, m_darkTheme);
 	applyChromeToButton(m_focusBtn, m_darkTheme);
 	applyChromeToButton(m_wireBtn, m_darkTheme);
+	applyChromeToButton(m_orthoBtn, m_darkTheme);
 	applyChromeToButton(m_captureBtn, m_darkTheme);
 	applyChromeToButton(m_multiViewBtn, m_darkTheme);
 	applyChromeToButton(m_leftPanelBtn, m_darkTheme);

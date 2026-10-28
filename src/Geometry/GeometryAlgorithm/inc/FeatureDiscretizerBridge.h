@@ -36,6 +36,9 @@ GEOMETRY_ALGORITHM_API FeatureDiscretizerConfigRegistry& featureDiscretizerConfi
 GEOMETRY_ALGORITHM_API const IFeatureDiscretizer* featureDiscretizerGet(const std::string& strategyId);
 GEOMETRY_ALGORITHM_API std::vector<std::string> featureDiscretizerListStrategyIds();
 
+/// 策略几何槽位契约（跨工件闸门 / 拾取 role）；未知 strategyId 返回默认 Edge×N
+GEOMETRY_ALGORITHM_API FeatureGeometrySchema getFeatureGeometrySchema(const std::string& strategyId);
+
 GEOMETRY_ALGORITHM_API std::vector<FeatureDiscretizerParamField>
 featureDiscretizerAllParamFields(const std::string& strategyId);
 
@@ -92,6 +95,11 @@ GEOMETRY_ALGORITHM_API bool computeFeatureAnchor(const WorkpieceRef& workpiece, 
 GEOMETRY_ALGORITHM_API bool computeFeatureAnchor(const WorkpieceRef& workpiece, const ShapeHandle& shape,
 												 const FeatureGeometry& geometry, FeatureAnchor& out,
 												 std::string* errMsg = nullptr);
+
+/// 按边索引离散为折线 xyz（3N）；供 Services 跨工件预变换，避免其直接依赖 TopoDS
+GEOMETRY_ALGORITHM_API bool discretizeShapeEdgeIndex(const ShapeHandle& shape, int edgeIndex,
+													 double linearDeflectionMm, std::vector<float>& outXyz,
+													 std::string* errMsg = nullptr);
 
 } // namespace geoalgo
 

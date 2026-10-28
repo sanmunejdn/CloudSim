@@ -29,14 +29,27 @@ bool containsAny(const QString& text, const QStringList& keys)
 
 void writeGeometryJson(nlohmann::json& geometry, const geoalgo::FeatureGeometry& g)
 {
-	if (!g.edgeIndices.empty())
+	nlohmann::json refs = nlohmann::json::array();
+	for (const geoalgo::GeometryRef& ref : g.refs)
 	{
-		geometry["edgeIndices"] = g.edgeIndices;
+		nlohmann::json item;
+		item["kind"] = ref.kind == geoalgo::GeometryRefKind::Face
+						   ? "Face"
+						   : (ref.kind == geoalgo::GeometryRefKind::Polyline ? "Polyline" : "Edge");
+		if (!ref.role.empty())
+			item["role"] = ref.role;
+		if (ref.index >= 0)
+			item["index"] = ref.index;
+		if (!ref.workpiece.backendIdUtf8.empty())
+		{
+			item["workpiece"] = {{"backendIdUtf8", ref.workpiece.backendIdUtf8},
+								 {"stepPathUtf8", ref.workpiece.stepPathUtf8}};
+		}
+		if (!ref.polylineXyz.empty())
+			item["polylineXyz"] = ref.polylineXyz;
+		refs.push_back(std::move(item));
 	}
-	if (!g.faceIndices.empty())
-	{
-		geometry["faceIndices"] = g.faceIndices;
-	}
+	geometry["refs"] = std::move(refs);
 }
 
 nlohmann::json featureEntryToJsonObj(const geoalgo::FeatureEntry& entry)
@@ -72,23 +85,46 @@ bool parseCatalogJson(const QByteArray& jsonUtf8, geoalgo::FeatureCatalog& out)
 			if (item.contains("geometry") && item["geometry"].is_object())
 			{
 				const auto& geometry = item["geometry"];
-				if (geometry.contains("edgeIndices") && geometry["edgeIndices"].is_array())
+				if (geometry.contains("refs") && geometry["refs"].is_array())
 				{
-					for (const auto& ei : geometry["edgeIndices"])
+					for (const auto& ri : geometry["refs"])
 					{
-						if (ei.is_number_integer())
-						{
-							c.geometry.edgeIndices.push_back(ei.get<int>());
-						}
+						if (!ri.is_object())
+							continue;
+						geoalgo::GeometryRef ref;
+						const std::string kind = ri.value("kind", std::string("Edge"));
+						ref.kind = (kind == "Face")	  ? geoalgo::GeometryRefKind::Face
+								   : (kind == "Polyline") ? geoalgo::GeometryRefKind::Polyline
+														  : geoalgo::GeometryRefKind::Edge;
+						ref.role = ri.value("role", std::string());
+						ref.index = ri.value("index", -1);
+						c.geometry.refs.push_back(std::move(ref));
 					}
 				}
-				if (geometry.contains("faceIndices") && geometry["faceIndices"].is_array())
+				else
 				{
-					for (const auto& fi : geometry["faceIndices"])
+					if (geometry.contains("edgeIndices") && geometry["edgeIndices"].is_array())
 					{
-						if (fi.is_number_integer())
+						for (const auto& ei : geometry["edgeIndices"])
 						{
-							c.geometry.faceIndices.push_back(fi.get<int>());
+							if (!ei.is_number_integer())
+								continue;
+							geoalgo::GeometryRef ref;
+							ref.kind = geoalgo::GeometryRefKind::Edge;
+							ref.index = ei.get<int>();
+							c.geometry.refs.push_back(std::move(ref));
+						}
+					}
+					if (geometry.contains("faceIndices") && geometry["faceIndices"].is_array())
+					{
+						for (const auto& fi : geometry["faceIndices"])
+						{
+							if (!fi.is_number_integer())
+								continue;
+							geoalgo::GeometryRef ref;
+							ref.kind = geoalgo::GeometryRefKind::Face;
+							ref.index = fi.get<int>();
+							c.geometry.refs.push_back(std::move(ref));
 						}
 					}
 				}
@@ -211,8 +247,9 @@ QByteArray buildCatalogSliceJson(const geoalgo::FeatureCatalog& catalog, const A
 	matched.reserve(catalog.candidates.size());
 	for (const geoalgo::FeatureCandidate& c : catalog.candidates)
 	{
-		const bool lineCandidate = !c.geometry.edgeIndices.empty();
-		const bool surfaceCandidate = !c.geometry.faceIndices.empty() && c.geometry.edgeIndices.empty();
+		const bool lineCandidate = geoalgo::geometryHasKind(c.geometry, geoalgo::GeometryRefKind::Edge);
+		const bool surfaceCandidate = geoalgo::geometryHasKind(c.geometry, geoalgo::GeometryRefKind::Face) &&
+									  !geoalgo::geometryHasKind(c.geometry, geoalgo::GeometryRefKind::Edge);
 		if (axis == AiFeatureAxis::Line && !lineCandidate)
 			continue;
 		if (axis == AiFeatureAxis::Surface && !surfaceCandidate)

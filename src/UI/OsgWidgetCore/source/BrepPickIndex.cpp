@@ -254,6 +254,13 @@ bool BrepPickIndex::build(const geoalgo::ShapeHandle& shape, std::string* errMsg
 	return true;
 }
 
+bool BrepPickIndex::applyEdgePickArtifacts(const geoalgo::BrepImportArtifacts& artifacts)
+{
+	m_edgePolylinesModel = artifacts.edgePolylines;
+	m_faceEdgeIndices = artifacts.faceEdgeIndices;
+	return !m_edgePolylinesModel.empty();
+}
+
 bool BrepPickIndex::buildFromArtifacts(const geoalgo::BrepImportArtifacts& artifacts, std::string* errMsg)
 {
 	m_displaySoup = artifacts.displaySoup;

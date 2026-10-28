@@ -84,14 +84,27 @@
 |-----|------|
 | `classifyJointConfiguration(q, jointNames, seedQ?)` | 肘/腕/臂/转数观测 |
 | `classifyJointTurnRevolutions(q, ref)` | `round((q-ref)/2π)` |
-| `IkSelectionPolicy` / `makePtpIkPolicy` / `makeCartesianPathIkPolicy` | 腕门/class/budget/RankMode/竞速/贴种子/allowCartDegrade |
-| `applyIkPolicyExtensionOverrides` / `adaptIkPolicyForRobot` / `formatIkPolicySummaryTags` | profile 预算、机型收紧竞速、summary 短标记 |
-| `IkFailKind` / `classifyIkFailMessage` | 失败分类（Budget/Topology/Wrist…）；Budget 中文含升档提示 |
+| `IkSelectionPolicy` / `makePtpIkPolicy` / `makeCartesianPathIkPolicy` | 腕门/class/budget/RankMode/竞速；`allowCartDegrade` 默认 false |
+| `IkSolveRequest` / `IkSolveResult`（`IkSolveTypes.h`） | 强类型求解入出；FailKind 直出、branchId、escalateTag |
+| `applyIkPolicyExtensionOverrides` / `adaptIkPolicyForRobot` / `formatIkPolicySummaryTags` | profile 预算；非球形腕关竞速/硬 class（2A） |
+| `IkFailKind` / `classifyIkFailMessage` | 主路径直出；classify 仅兼容旧摘要 |
 | 索引优先级 | `context.elbow/wristJointIndex` > `UrdfIkMachineProfile` > 名字 hint |
-| drag Budget 升档 | 预算耗尽自动再试 preview 一次；summary `[ikEscalate=preview]` |
+| `analyticalFamily` | Auto / SphericalWrist6R / None（加固解析白名单） |
+| drag | `ikProfile=drag` → NearSeed + 短预算；升档 preview 切 Search |
+| `context.ikParallel=1` | Search 有界并行种子（≤4）；外轴激活时强制串行 |
+| `context.ikSoftLimitPenalty=1` | URDF 限位端 10% 区软罚并入距离项（默认关，不越过腕连续/腕跳优先级） |
+| 规划上下文线程局部 | 外轴/工件坐标/碰撞 probe/`g_lastIk*`/escalate 标签均 `thread_local`，UI 与前瞻线程互不串扰 |
+| FK 图缓存 | `clearCachedUrdfKinematicGraph`；随球形腕 eligibility 清缓存 |
+| `IkSolveMetrics` | 成功/失败/Budget/Wrist/耗时；只进诊断日志，**不拼** `PlanResult.summary`；Budget 失败时附 UI 警告 |
+| `runIkGoldenSelfTest` | `testdata/ik_golden/synthetic.json`（源码树路径，缺失则 SKIP）；可扩包级位姿 |
+| LINE/ARC 局部加密 | 样点失败先插段内中点，再全局 densify |
+| drag 升档 | 单种子任意失败都再试 preview 一次；`IkSolveResult.escalateTag` |
+| `branchId` | 仅解析候选带腕支（诊断标签），数值候选为 -1；轴配置硬约束只看 `classifyJointConfiguration` |
+| UI 随机兜底 | 非 PTP 候选超 `kFallbackConsistencyRad`(2.6) 硬拒；确定性种子收齐后按腕连续排序 |
+| `CoordinatedIkCostWeights` | 示教/规划外轴 prior 共用；扩展键可覆盖 |
 | `Controller::setIkCollisionCostProbe` | IK 候选终点单姿态粗检（≥1e6 硬拒）；全轨迹仍在 plan 后 `validateJointTrajectory` |
 | `shouldSkipShortestAngleFold(seed, target, names)` | 相对种子构型变化则跳过 ±2π 折圈 |
-| `solveIkWithAxisConfiguration`（Controller 内） | 按 policy 多初值 IK + wrap 距离择优 |
+| `solveIkWithAxisConfiguration`（Controller 内） | Seed→Solver→Filter→Rank；球形腕 class 硬门 / 非球形软排序 |
 | `motionAxisConfigurationFromJson` / `writeMotionAxisConfigurationToJson` | 含 `turns.j1/j4/j6` |
 | `suggestMotionAxisPresetToken(observed)` | UI 默认 preset |
 | `motionAxisConfigurationRequiresConstraint(cfg)` | 显式约束时禁止无约束回退 |

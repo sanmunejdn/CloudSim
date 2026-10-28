@@ -141,7 +141,7 @@ m_stagingGroup（导入预览）
 |------|------|
 | `PickSpatialIndex` | `bindBackendVisualRoot` 时从 Geode 构建 KD（**BREP 域跳过**） |
 | `BackendPickIndexRegistry` | `backendId → { pointIndex, brepIndex, generation }`；BREP 仅建 `brepIndex`（`buildFromArtifacts`，导入时**不**跑 Phase2 边离散） |
-| `BrepPickIndex` | 面拾取复用 Phase1；边折线延到首次边拾取 `ensureBrepImportPickArtifacts` |
+| `BrepPickIndex` | 面拾取复用 Phase1；边折线延到首次边拾取：`ensureBrepEdgePickReady` → `ensureBrepImportPickArtifacts` 再 `applyEdgePickArtifacts` |
 | `cachePickablePointsFromNode` | 优先 registry；`brepIndex` 非空则**跳过**显示顶点 KD（装配体会卡死） |
 | `pickPointAtScreenPos` / `pickNearestPointAtScreenPos` | 屏幕最近点（legacy，内部仍可用） |
 | `pickPointByRayIntersection` | 射线拾取 |
@@ -152,8 +152,8 @@ m_stagingGroup（导入预览）
 |------|------|
 | `MeshTopologyIndex` | 绑定 Visual 时缓存三角 soup（局部坐标）；**BREP 域不使用** |
 | `pickMeshFaceByRayIntersection` | 三角命中 + 共面合并（Mesh / 点云） |
-| `pickMeshEdgeByRayIntersection` | 边段最近（`kMeshEdgeHitRadiusPx`） |
-| `showMeshFaceHighlight` / `showMeshEdgeHighlight` / `hideMeshElementHighlight` | 高亮 overlay（mask `kMaskPickOverlay`） |
+| `pickMeshEdgeByRayIntersection` | 边段最近（`kMeshEdgeHitRadiusPx`，当前 28px） |
+| `showMeshFaceHighlight` / `showMeshEdgeHighlight` / `hideMeshElementHighlight` | 高亮 overlay（mask `kMaskPickOverlay`）；边高亮关深度测试，避免被网格遮挡 |
 
 ### 5.7a 拾取 — B-rep（`BrepModel`）
 

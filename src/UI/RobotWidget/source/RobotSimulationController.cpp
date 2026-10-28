@@ -51,6 +51,7 @@
 #include "RobotExternalAxisSceneApply.h"
 #include "RobotExternalAxisSettingsWidget.h"
 #include "RobotFrameSettingsWidget.h"
+#include "IkSolveMetrics.h"
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionPlanningHelpers.h"
 #include "RobotInstructionProgram.h"
@@ -9893,19 +9894,17 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 		const bool lite = itLite != instruction.extensionProperties().end() && itLite->second == "1";
 		instruction.setExtensionProperty("context.ikProfile", lite ? "preview" : "run");
 	}
-	if (instruction.type() == RobotInstruction::Type::LINE || instruction.type() == RobotInstruction::Type::ARC)
-	{
-		if (!instruction.extensionProperties().count("context.allowCartDegrade"))
-		{
-			instruction.setExtensionProperty("context.allowCartDegrade", "1");
-		}
-	}
-	if (!skipCollision && doc)
+	// allowCartDegrade 默认 false（1B）；仅用户/工程显式扩展键打开
+	// 候选期默认终点单姿态粗检；context.ikCollisionProbe=0 跳过以减拖点开销（全轨迹仍验收）
+	const auto itProbe = instruction.extensionProperties().find("context.ikCollisionProbe");
+	const bool skipIkProbe =
+		itProbe != instruction.extensionProperties().end() &&
+		(itProbe->second == "0" || itProbe->second == "off" || itProbe->second == "false");
+	if (!skipCollision && !skipIkProbe && doc)
 	{
 		const RobotCollision::Settings& colPre = doc->robotCollisionSettings();
 		if (colPre.enabled && self->m_collisionWorld)
 		{
-			// IK 候选期仅终点单姿态粗检；全轨迹验收在 plan 成功后单独做，禁止在此扩多样点
 			self->m_instructionController.setIkCollisionCostProbe(
 				[self, doc, instanceIndex, colPre](const std::vector<double>& qRad) -> double
 				{
@@ -9936,7 +9935,7 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 	if (!planOk)
 	{
 		const std::string failMsg =
-			plan.summary.empty() ? (err.empty() ? "Instruction planning failed" : err) : plan.summary;
+			!err.empty() ? err : (plan.summary.empty() ? "Instruction planning failed" : plan.summary);
 		if (planErr)
 		{
 			*planErr = failMsg;
@@ -9955,6 +9954,15 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 				if (!zh.empty())
 				{
 					m_host->appendRunWarning(QString::fromStdString(zh + RobotInstruction::formatIkFailKindTag(kind)));
+				}
+			}
+			// 仅预算类失败附累计统计，便于调 budgetMs
+			if (kind == RobotInstruction::IkFailKind::Budget)
+			{
+				const std::string stats = RobotInstruction::formatIkSolveMetricsSummary();
+				if (!stats.empty())
+				{
+					m_host->appendRunWarning(QString::fromStdString(stats));
 				}
 			}
 		}

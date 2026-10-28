@@ -80,6 +80,22 @@ bool isTopLevelWorkpieceBackend(const cloudsim::host::DocumentHost* page, const 
 	return page->backendParentsOf(backendId).empty();
 }
 
+/// STEP 装配子件：父件是无自有 shape 的 BrepModel 空壳，子件才有可拾取几何与场景节点
+bool isBrepAssemblyPartBackend(cloudsim::host::DocumentHost* page, const BackendDataBase& data)
+{
+	if (!isBrepWorkpieceClassName(data.className()) || !data.hasGeometry())
+	{
+		return false;
+	}
+	const std::vector<std::string> parents = page->backendParentsOf(data.id());
+	if (parents.size() != 1)
+	{
+		return false;
+	}
+	const auto parent = page->findObject(parents.front());
+	return parent && isBrepWorkpieceClassName(parent->className()) && !parent->hasGeometry();
+}
+
 geoalgo::SketchCurveSegment toCurveSeg(const PluginSketchSweepPathSegment& p)
 {
 	geoalgo::SketchCurveSegment g;
@@ -177,7 +193,7 @@ std::shared_ptr<BackendDataBase> resolveComputableBackend(cloudsim::host::Docume
 
 	if (auto byId = page->findObject(stepPathOrBackendId))
 	{
-		if (isTopLevelWorkpieceBackend(page, byId->id()))
+		if (isTopLevelWorkpieceBackend(page, byId->id()) || isBrepAssemblyPartBackend(page, *byId))
 		{
 			return byId;
 		}
@@ -731,7 +747,8 @@ bool PluginGeometryHostImpl::listComputableBackends(IPluginDocument* doc,
 			continue;
 		}
 		const std::string backendId = data->id();
-		if (!isTopLevelWorkpieceBackend(page, backendId))
+		const bool assemblyPart = isBrepAssemblyPartBackend(page, *data);
+		if (!isTopLevelWorkpieceBackend(page, backendId) && !assemblyPart)
 		{
 			continue;
 		}
@@ -758,7 +775,8 @@ bool PluginGeometryHostImpl::listComputableBackends(IPluginDocument* doc,
 		candidate.entry.className = data->className();
 		candidate.entry.stepPathUtf8 = stepPath.toStdString();
 		candidate.entry.pickable = true;
-		candidate.dedupeKey = stepPath.isEmpty() ? QString::fromStdString(backendId) : stepPath.toLower();
+		// 装配各子件共用同一 STEP 路径，须按 backendId 区分
+		candidate.dedupeKey = (stepPath.isEmpty() || assemblyPart) ? QString::fromStdString(backendId) : stepPath.toLower();
 		candidate.isBrepModel = isBrepModel;
 		candidates.append(candidate);
 	}
@@ -970,21 +988,23 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(IPluginDocument* doc,
 			outRef.hitWorldMm = {pick.worldPoint.x(), pick.worldPoint.y(), pick.worldPoint.z()};
 			if (pickFace)
 			{
-				if (entry.geometry.faceIndices.empty())
+				const auto faces = geoalgo::collectGeometryIndices(entry.geometry, geoalgo::GeometryRefKind::Face);
+				if (faces.empty())
 				{
 					complete(false, QStringLiteral("Failed to resolve face index"), {});
 					return;
 				}
-				outRef.faceIndex = entry.geometry.faceIndices.front();
+				outRef.faceIndex = faces.front();
 			}
 			else
 			{
-				if (entry.geometry.edgeIndices.empty())
+				const auto edges = geoalgo::collectGeometryIndices(entry.geometry, geoalgo::GeometryRefKind::Edge);
+				if (edges.empty())
 				{
 					complete(false, QStringLiteral("Failed to resolve edge index"), {});
 					return;
 				}
-				outRef.edgeIndex = entry.geometry.edgeIndices.front();
+				outRef.edgeIndex = edges.front();
 				{
 					geoalgo::Point3d ea, eb;
 					if (geoalgo::shapeHandleEdgeEndpoints(shape, outRef.edgeIndex, ea, eb, nullptr))
@@ -1640,9 +1660,10 @@ void PluginGeometryHostImpl::pickSketchSupportPlane(IPluginDocument* doc,
 				if (!geometry_backend_ops::buildFeatureEntryFromModelPick(wp, shape, "FaceBoundary", true, modelA,
 																		  modelA, entry, &err, knownFaceIndex, -1))
 					return;
-				if (entry.geometry.faceIndices.empty())
+				const auto faces = geoalgo::collectGeometryIndices(entry.geometry, geoalgo::GeometryRefKind::Face);
+				if (faces.empty())
 					return;
-				outRef.faceIndex = entry.geometry.faceIndices.front();
+				outRef.faceIndex = faces.front();
 			}
 
 			PluginSketchPlane plane;

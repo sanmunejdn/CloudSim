@@ -6,6 +6,7 @@
 #include "IkSeedExpand.h"
 #include "KinematicCoreUrdfIk.h"
 #include "SphericalWristAnalyticalIk.h"
+#include "UrdfIkMachineProfile.h"
 
 #include <cmath>
 
@@ -60,8 +61,11 @@ std::vector<double> solveArmPoseDampedLeastSquares(const QString& urdfPath, cons
 		return runNumerical(failReason, status);
 	}
 
-	// 非球形腕：禁止把拓扑失败文案顶成最终错误，并跳过无意义解析
-	if (!g_sphericalWristSolver.isEligible(urdfPath))
+	const UrdfIkMachineProfile mach = resolveIkMachineProfile(urdfPath);
+	const bool allowAnalytical =
+		mach.analyticalFamily != AnalyticalIkFamily::None &&
+		(mach.analyticalFamily == AnalyticalIkFamily::SphericalWrist6R || g_sphericalWristSolver.isEligible(urdfPath));
+	if (!allowAnalytical)
 	{
 		return runNumerical(failReason, status);
 	}

@@ -31,12 +31,26 @@ struct WorkpieceRef
 	std::string frameId = "workpiece";
 };
 
-/** 策略无关几何索引；策略专有参数在 FeatureEntry::params */
+enum class GeometryRefKind
+{
+	Edge = 0,
+	Face,
+	Polyline
+};
+
+/** 带可选独立工件的几何引用；索引相对所属 shape */
+struct GeometryRef
+{
+	GeometryRefKind kind = GeometryRefKind::Edge;
+	std::string role; ///< "" | sourceEdge | targetFace
+	WorkpieceRef workpiece; ///< 空 → 回落 FeatureEntry.workpiece
+	int index = -1;
+	std::vector<float> polylineXyz; ///< kind==Polyline：3N mm
+};
+
 struct FeatureGeometry
 {
-	std::vector<int> edgeIndices;	///< shapeEdgeAtIndex 顺序
-	std::vector<int> faceIndices;	///< shapeFaceAtIndex 顺序
-	std::vector<float> polylineXyz; ///< SyntheticPolyline 等：3N mm
+	std::vector<GeometryRef> refs;
 };
 
 struct FeatureEntry
@@ -45,8 +59,11 @@ struct FeatureEntry
 	std::string strategyId = "EdgeChain"; ///< EdgeChain / FaceBoundary / FaceIntersection 等
 	FeatureGeometry geometry;
 	nlohmann::json params = nlohmann::json::object(); ///< stepMm、linearDeflectionMm 等
+	/// 输出坐标系工件（primary）；空则取 FeatureListDocument::workpiece
+	WorkpieceRef workpiece;
 };
 
+/// 跨工件叠加时 workpiece 为首个特征的工件，离散点统一在其模型系
 struct FeatureListDocument
 {
 	int schemaVersion = 2;
@@ -54,6 +71,105 @@ struct FeatureListDocument
 	std::string defaultStrategyId = "EdgeChain";
 	std::vector<FeatureEntry> features;
 };
+
+inline const WorkpieceRef& featureEntryWorkpiece(const FeatureListDocument& doc, const FeatureEntry& entry)
+{
+	return entry.workpiece.backendIdUtf8.empty() ? doc.workpiece : entry.workpiece;
+}
+
+inline const WorkpieceRef& geometryRefWorkpiece(const FeatureEntry& entry, const GeometryRef& ref)
+{
+	return ref.workpiece.backendIdUtf8.empty() ? entry.workpiece : ref.workpiece;
+}
+
+inline const WorkpieceRef& geometryRefWorkpiece(const FeatureListDocument& doc, const FeatureEntry& entry,
+											   const GeometryRef& ref)
+{
+	return ref.workpiece.backendIdUtf8.empty() ? featureEntryWorkpiece(doc, entry) : ref.workpiece;
+}
+
+inline std::vector<int> collectGeometryIndices(const FeatureGeometry& geometry, GeometryRefKind kind,
+											   const std::string& role = {})
+{
+	std::vector<int> out;
+	for (const GeometryRef& ref : geometry.refs)
+	{
+		if (ref.kind != kind)
+		{
+			continue;
+		}
+		if (!role.empty() && ref.role != role)
+		{
+			continue;
+		}
+		if (ref.index >= 0)
+		{
+			out.push_back(ref.index);
+		}
+	}
+	return out;
+}
+
+inline const GeometryRef* findGeometryRef(const FeatureGeometry& geometry, const std::string& role)
+{
+	for (const GeometryRef& ref : geometry.refs)
+	{
+		if (ref.role == role)
+		{
+			return &ref;
+		}
+	}
+	return nullptr;
+}
+
+inline GeometryRef* findGeometryRef(FeatureGeometry& geometry, const std::string& role)
+{
+	for (GeometryRef& ref : geometry.refs)
+	{
+		if (ref.role == role)
+		{
+			return &ref;
+		}
+	}
+	return nullptr;
+}
+
+inline void upsertGeometryRef(FeatureGeometry& geometry, GeometryRef ref)
+{
+	if (!ref.role.empty())
+	{
+		if (GeometryRef* existing = findGeometryRef(geometry, ref.role))
+		{
+			*existing = std::move(ref);
+			return;
+		}
+	}
+	geometry.refs.push_back(std::move(ref));
+}
+
+inline bool geometryHasKind(const FeatureGeometry& geometry, GeometryRefKind kind)
+{
+	for (const GeometryRef& ref : geometry.refs)
+	{
+		if (ref.kind == kind)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+inline std::vector<float> collectPolylineXyz(const FeatureGeometry& geometry)
+{
+	for (const GeometryRef& ref : geometry.refs)
+	{
+		if (ref.kind == GeometryRefKind::Polyline && !ref.polylineXyz.empty())
+		{
+			return ref.polylineXyz;
+		}
+	}
+	return {};
+}
 
 struct RawPathPoint
 {
@@ -159,6 +275,21 @@ struct FeatureDiscretizeInput
 	nlohmann::json params = nlohmann::json::object();
 	std::string strategyId;
 	std::string featureId;
+};
+
+struct FeatureGeometrySlotSchema
+{
+	std::string role;
+	GeometryRefKind kind = GeometryRefKind::Edge;
+	int minCount = 1;
+	int maxCount = 1; ///< -1 = 不限
+};
+
+struct FeatureGeometrySchema
+{
+	bool allowCrossWorkpiece = false;
+	std::string primaryRole;
+	std::vector<FeatureGeometrySlotSchema> slotDefs; ///< 不用名 slots：与 Qt slots 宏冲突
 };
 
 struct DiscretizeParams

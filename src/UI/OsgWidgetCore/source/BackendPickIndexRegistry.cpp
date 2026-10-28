@@ -60,6 +60,7 @@ void BackendPickIndexRegistry::bindBackendRoot(const std::string& backendId, osg
 	}
 	BackendPickBundle& bundle = m_bundles[backendId];
 	bundle.generation = m_nextGeneration++;
+	bundle.brepArtifacts = brepArtifacts;
 	const BackendIdUserData* meta = dynamic_cast<const BackendIdUserData*>(rootNode->getUserData());
 	const bool isBrep = meta && meta->pickDomain() == BackendPickDomain::Brep;
 	const auto t0 = std::chrono::steady_clock::now();
@@ -77,6 +78,52 @@ void BackendPickIndexRegistry::bindBackendRoot(const std::string& backendId, osg
 	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0);
 	RunLogger::info("[Import] bindBackendPickIndex " + std::to_string(ms.count()) + " ms, id=" + backendId +
 					(isBrep ? ", brep" : ""));
+}
+
+bool BackendPickIndexRegistry::ensureBrepEdgePickReady(const std::string& backendId, const geoalgo::ShapeHandle& shape)
+{
+	if (backendId.empty() || shape.isNull())
+	{
+		return false;
+	}
+	const auto it = m_bundles.find(backendId);
+	if (it == m_bundles.end())
+	{
+		return false;
+	}
+	BackendPickBundle& bundle = it->second;
+	if (bundle.brepIndex.edgesReady())
+	{
+		return true;
+	}
+	if (!bundle.brepArtifacts)
+	{
+		bundle.brepArtifacts = geoalgo::getOrBuildBrepImportArtifacts(shape, nullptr);
+	}
+	if (!bundle.brepArtifacts)
+	{
+		return false;
+	}
+	// 线框路径可能已写好 Phase2，索引仍是 bind 时的空拷贝 → 先 sync
+	if (bundle.brepArtifacts->pickReady.load(std::memory_order_acquire) &&
+		bundle.brepIndex.applyEdgePickArtifacts(*bundle.brepArtifacts))
+	{
+		return true;
+	}
+	std::string err;
+	if (!geoalgo::ensureBrepImportPickArtifacts(shape, *bundle.brepArtifacts, &err))
+	{
+		RunLogger::warn("[Pick] ensureBrepEdgePickReady Phase2 failed id=" + backendId + " err=" + err);
+		return false;
+	}
+	if (!bundle.brepIndex.applyEdgePickArtifacts(*bundle.brepArtifacts))
+	{
+		RunLogger::warn("[Pick] ensureBrepEdgePickReady empty edge polylines id=" + backendId);
+		return false;
+	}
+	RunLogger::info("[Pick] ensureBrepEdgePickReady ok id=" + backendId +
+					" edges=" + std::to_string(bundle.brepArtifacts->edgePolylines.size()));
+	return true;
 }
 
 void BackendPickIndexRegistry::unbindBackend(const std::string& backendId)

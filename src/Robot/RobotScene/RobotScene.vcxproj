@@ -249,6 +249,9 @@
     <ClInclude Include="inc\RobotInstructionTransform.h" />
     <ClInclude Include="inc\RobotInstructionIkContext.h" />
     <ClInclude Include="inc\RobotInstructionIkRequest.h" />
+    <ClInclude Include="inc\IkSolveTypes.h" />
+    <ClInclude Include="inc\IkSolveMetrics.h" />
+    <ClInclude Include="inc\IkGoldenSelfTest.h" />
     <ClInclude Include="inc\RuckigPtpTrajectory.h" />
     <ClInclude Include="inc\InstructionProgramDocument.h" />
     <ClInclude Include="inc\ProgramEditCommand.h" />
@@ -300,6 +303,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
+    <ClCompile Include="source\IkSolveMetrics.cpp" />
+    <ClCompile Include="source\IkGoldenSelfTest.cpp" />
     <ClCompile Include="source\InstructionPropertyBindingSelfTest.cpp" />
     <ClCompile Include="source\InstructionPropertyBindings.cpp" />
     <ClCompile Include="source\RobotInstructionCondition.cpp" />

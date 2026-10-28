@@ -146,12 +146,16 @@ struct ROBOT_SCENE_API IkSelectionPolicy
 	bool raceNumericalFallback = true;
 	/// 同种子上解析与数值并行择近（默认关；球形腕可扩展打开）
 	bool raceAnalyticalAndNumerical = false;
-	/// LINE 笛卡尔失败是否允许退关节插值
-	bool allowCartDegrade = true;
+	/// LINE 笛卡尔失败是否允许退关节插值（默认 false；需扩展键显式打开）
+	bool allowCartDegrade = false;
 	/// Distance 平局时再算可操作度（省雅可比）
 	bool manipOnDistanceTie = true;
 	/// DLS 贴种子弹簧权重（0=关闭；默认关防非球形腕误用）
 	double seedAttractionWeight = 0.0;
+	/// Search 多种子有界并行（扩展 context.ikParallel=1；默认关；外轴激活时强制串行）
+	bool allowParallelSeeds = false;
+	/// 距离项叠加 URDF 限位端软罚（扩展 context.ikSoftLimitPenalty=1；默认关）
+	bool softLimitSingularityPenalty = false;
 };
 
 /// IK 失败分类（summary [fail=…] / UI 短句）
@@ -168,14 +172,10 @@ enum class ROBOT_SCENE_API IkFailKind
 	Other
 };
 
+/// 兼容旧摘要；主路径应直出 IkFailKind
 ROBOT_SCENE_API IkFailKind classifyIkFailMessage(const std::string& message);
 ROBOT_SCENE_API std::string formatIkFailKindTag(IkFailKind kind);
 ROBOT_SCENE_API std::string formatIkFailKindZh(IkFailKind kind);
-
-/// drag 预算耗尽升 preview 成功时写入；调用方读后清空
-ROBOT_SCENE_API void clearIkEscalateSummaryTag();
-ROBOT_SCENE_API void setIkEscalateSummaryTag(const std::string& tag);
-ROBOT_SCENE_API std::string consumeIkEscalateSummaryTag();
 
 ROBOT_SCENE_API IkSelectionPolicy makePtpIkPolicy(const MotionAxisConfiguration& cfg);
 /// 笛卡尔路径终点用；样点可将 mode 改为 NearSeed

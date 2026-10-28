@@ -558,7 +558,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | 状态标签 | `TrajectoryEditSession::hasRawTrajectory()` → 点数；否则提示先在轨迹生成页离散 |
 | 工艺下拉 | 焊缝 / 涂胶 / 打磨（`buildRecipePreset` → `ProcessFlowPresets.json` 原子 `pipeline`） |
 | 填充工艺流水线 | `ProcessFlowPresetLoader` 展开 Resample/Offset/Approach/Retract 等 → `m_pipeline->setOps(...)` |
-| 生成程序 | 保留 `emitRawTrajectoryToProgram` 入口用于 raw 直出；绑定 PathPlan 时仅替换该条 `PathPlanOutput`，不删除其它 PathPlan 的分组与路点；**Apply 成功后自动禁用**，避免覆盖已应用结果；发生新编辑或 Raw 更新后恢复可用 |
+| 生成程序 | 保留 `emitRawTrajectoryToProgram` 入口用于 raw 直出；绑定 PathPlan 时仅替换该条 `PathPlanOutput`，不删除其它 PathPlan 的分组与路点；**Apply 成功后自动禁用**，避免覆盖已应用结果；发生新编辑或 Raw 更新后恢复可用；**无机器人时「应用/生成」弹窗提示并拦截**（`warnIfNoRobotForCommit`） |
 
 `rawTrajectoryChanged` 刷新状态；`reset()` / `abandonPreview` **不清** `m_rawTrajectory`。Apply 统一走 `TrajectoryPipelineEngine`；有 raw 时引擎 `setUsingRaw(true)`，无 raw 时从程序 Ingress。
 
@@ -836,11 +836,11 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 | 选 PathPlan | 顶栏 `m_pathPlanCombo` → `TrajectoryEditSession::bindPathPlan` |
 | 开始修改 | `beginEditBoundPathPlan()` — 特征表 + 离散参数 + 算子流程 + 预览 |
 | 取消修改 | `cancelEditBoundPathPlan()` — 退出编辑态、清表/预览；已落盘 PathPlan 保留 |
-| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；切页/`showEvent` 会 `refreshWorkpieces`（`blockSignals` + 恢复原 backendId）。**不**在 `refreshBackendCombo` 里排队全量特征目录（Open Model 后 `bindHost` 会走到这里，大装配含二面角可达数分钟）。目录在用户切换 combo 或 AI `ensureFeatureCatalogEnumerated` 时再算 |
+| 工件（无下拉） | 文档内 CAD/BREP 可用性由 `refreshWorkpieceAvailability` 维护；活动工件 = 最近 3D 拾取 `pick.backendId`（`noteActiveWorkpiece`）→ 选中特征行 → 文档首个可用件。`currentWorkpiece` / 特征目录 / AI 预览走该解析。拾取开 `crossObjectMeshPick`，范围不以 UI 锁定 |
 | **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → 由互斥按钮「追加到选中 / 新建特征」决定写入方式（当前模式 `btnRole=primary` 高亮 + 状态行提示；追加须表有选中行）；`FaceIntersection` 需同行 ≥2 面、`FaceOffsetCurve` 需同行面+边，几何未齐时保持/切换拾取态；右键「移除面/边…」勾选剔除索引 |
 | 离散策略 | 拾取前下拉（面/线 affinity 过滤）；`resolveStrategyIdForPick` 严格匹配；`normalizeEntryStrategyForGeometry` 纠正策略/几何不一致 |
 | 离散参数模板 | 策略行下方命名模板：保存/加载/删除/导入/导出（`UserTemplateLibrary` · Discretize；仅 `strategyId`+`params`） |
-| 特征表 | `FeatureTableModel` + `FeatureDiscretizerParamPanel`；`discretizeFeatureList` → `setRawTrajectory` |
+| 特征表 | `FeatureTableModel` + `FeatureDiscretizerParamPanel`；「工件」列显示每行 primary（`FeatureEntry.workpiece`）。几何为 `geometry.refs[]`（`GeometryRef`：kind/role/index/可选工件）；旧 `edgeIndices`/`faceIndices` 仅读路径升级。`getFeatureGeometrySchema`：`FaceOffsetCurve` 允许跨工件（`sourceEdge`+`targetFace`，primary=`targetFace`），其它策略异工件追加仍拒。`discretizeFeatureListAcrossWorkpieces`：逐行 `buildFeatureDiscretizeContext`（异工件边预变换到 primary）+ `discretizeEx`，再按表首特征工件换算/插段 → `setRawTrajectory`。AI/Headless/Web 同口径 |
 | 3D 轨迹叠加 | 仅 `m_featureEditActive` 时 `refreshBoundPathPlanPreview`（拾取/开始修改后）；轴控件控制 `previewOptions()` |
 | BREP 信息 | 底部预览组只读展示选中特征 `featureId` / 类型 / `faceIndices` / `edgeIndices`；无「离散预览」按钮，离散仅走策略/参数/拾取自动路径 |
 | 删除特征 | `syncDiscretizationAfterFeatureTableChange`：有剩余 → `discretizeFromTable`；清空 → `clearRawTrajectory`（含 `pathPlanRaws.remove`）经既有 `rawTrajectoryChanged` → `refreshPathPlanPreviewForActiveTab` 刷新 3D |

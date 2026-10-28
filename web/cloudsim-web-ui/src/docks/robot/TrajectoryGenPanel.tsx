@@ -11,11 +11,16 @@ import { useRobotProgram } from "../../state/robotProgramStore";
 import { useScene } from "../../state/sceneStore";
 import { useStatus } from "../../state/statusStore";
 import {
+  collectIndices,
   filterStrategies,
+  geometryRefs,
   isFaceStrategy,
+  nextSlotRole,
   normalizeFeatureStrategy,
   resolveFeatureStrategy,
+  schemaAllowsCrossWorkpiece,
   strategyFilterForFeature,
+  type GeometryRef,
   type StrategyInfo,
 } from "./featureStrategy";
 import { uiEvents, UI_EVT, type PickCommitDetail } from "../../ui/uiEvents";
@@ -153,20 +158,57 @@ export default function TrajectoryGenPanel() {
         result?: { faceIndex?: number; edgeIndex?: number };
       };
       if (detail.workpieceBackendId) setWorkpieceId(detail.workpieceBackendId);
+      const pickWp = detail.workpieceBackendId || workpieceId;
       const faceIndex = detail.result?.faceIndex;
       const edgeIndex = detail.result?.edgeIndex;
       const strategy = resolveFeatureStrategy(pickMode, strategyId, strategies);
       setStrategyId(strategy);
-      const geom = {
-        faceIndices: pickMode === "face" && faceIndex != null && faceIndex >= 0 ? [faceIndex] : [],
-        edgeIndices: pickMode === "edge" && edgeIndex != null && edgeIndex >= 0 ? [edgeIndex] : [],
-      };
+      const idx = pickMode === "face" ? faceIndex : edgeIndex;
+      if (idx == null || idx < 0) {
+        setPickMode(null);
+        return;
+      }
       const pickedKind = pickMode === "face" ? "面" : "线";
+      const makeRef = (role: string): GeometryRef => ({
+        kind: pickMode === "face" ? "Face" : "Edge",
+        role: role || undefined,
+        index: idx,
+        workpiece: pickWp ? { backendIdUtf8: pickWp } : undefined,
+      });
       if (appendMode && featSel >= 0 && features[featSel]) {
+        const curFeat = features[featSel];
+        const rowWp = curFeat.workpiece?.backendIdUtf8;
+        if (!schemaAllowsCrossWorkpiece(curFeat.strategyId, strategies) && rowWp && pickWp && rowWp !== pickWp) {
+          setStatus("选中特征属于其它工件，不能追加当前工件的面/边；请新建特征", "warn");
+          setPickMode(null);
+          return;
+        }
+        const role = nextSlotRole(curFeat.strategyId, curFeat.geometry, pickMode === "face", strategies);
+        if (role === null) {
+          setStatus("当前特征几何槽已满，请新建特征", "warn");
+          setPickMode(null);
+          return;
+        }
         const next = [...features];
-        const cur = { ...next[featSel], geometry: { ...(next[featSel].geometry || {}) } };
-        cur.geometry!.faceIndices = [...(cur.geometry!.faceIndices || []), ...geom.faceIndices];
-        cur.geometry!.edgeIndices = [...(cur.geometry!.edgeIndices || []), ...geom.edgeIndices];
+        const refs = [...geometryRefs(curFeat.geometry)];
+        const add = makeRef(role);
+        if (role) {
+          const i = refs.findIndex((r) => r.role === role);
+          if (i >= 0) refs[i] = add;
+          else refs.push(add);
+        } else {
+          refs.push(add);
+        }
+        const cur = {
+          ...curFeat,
+          geometry: { refs },
+          workpiece: curFeat.workpiece || (pickWp ? { backendIdUtf8: pickWp } : undefined),
+        };
+        const schema = strategies.find((s) => s.strategyId === cur.strategyId)?.geometrySchema;
+        if (schema?.primaryRole) {
+          const pref = refs.find((r) => r.role === schema.primaryRole);
+          if (pref?.workpiece?.backendIdUtf8) cur.workpiece = pref.workpiece;
+        }
         if (pickMode === "face" && !isFaceStrategy(cur.strategyId, strategies)) cur.strategyId = strategy;
         if (pickMode === "edge" && isFaceStrategy(cur.strategyId, strategies)) cur.strategyId = strategy;
         next[featSel] = cur;
@@ -175,10 +217,21 @@ export default function TrajectoryGenPanel() {
       } else {
         void (async () => {
           const params = await makeFeatureParams(strategy);
+          const role = nextSlotRole(strategy, undefined, pickMode === "face", strategies) || "";
+          const refs = [makeRef(role)];
+          const schema = strategies.find((s) => s.strategyId === strategy)?.geometrySchema;
+          let wp = pickWp ? { backendIdUtf8: pickWp } : undefined;
+          if (schema?.primaryRole) {
+            const pref = refs.find((r) => r.role === schema.primaryRole);
+            if (pref?.workpiece?.backendIdUtf8) {
+              wp = { backendIdUtf8: pref.workpiece.backendIdUtf8 };
+            }
+          }
           const feat = {
             featureId: `F${features.length + 1}`,
             strategyId: strategy,
-            geometry: { ...geom, polylineXyz: [] as number[] },
+            workpiece: wp,
+            geometry: { refs },
             params,
           };
           setFeatures([...features, feat]);
@@ -200,6 +253,7 @@ export default function TrajectoryGenPanel() {
     featSel,
     features,
     setFeatures,
+    workpieceId,
     setWorkpieceId,
     setPickMode,
     setStatus,
@@ -269,25 +323,28 @@ export default function TrajectoryGenPanel() {
       return;
     }
     await ensurePlan();
-    if (!wp) {
-      if (!opts.silent) setStatus("请选择工件", "warn");
-      return;
-    }
     if (!feats.length) {
       if (!opts.silent) setStatus("无特征可离散", "warn");
       return;
     }
+    if (!wp && feats.some((f) => !f.workpiece?.backendIdUtf8)) {
+      if (!opts.silent) setStatus("请选择工件", "warn");
+      return;
+    }
     const normalized = feats.map((f) => {
       const sid = normalizeFeatureStrategy(f, cats);
-      return { ...f, strategyId: sid };
+      const workpiece = f.workpiece?.backendIdUtf8 ? f.workpiece : { backendIdUtf8: wp };
+      return { ...f, strategyId: sid, workpiece };
     });
-    if (normalized.some((f, i) => f.strategyId !== feats[i].strategyId)) {
+    if (normalized.some((f, i) => f.strategyId !== feats[i].strategyId || f.workpiece !== feats[i].workpiece)) {
       setFeatures(normalized);
     }
+    // 合并轨迹落在首特征工件的模型系
+    const primaryWp = normalized[0].workpiece.backendIdUtf8 || wp;
     const defaultSid = resolveFeatureStrategy(null, curSid, cats) || cats[0]?.strategyId || "EdgeChain";
     const r = await trajDiscretize({
       schemaVersion: 2,
-      workpiece: { backendIdUtf8: wp, stepPathUtf8: "", frameId: "workpiece" },
+      workpiece: { backendIdUtf8: primaryWp, stepPathUtf8: "", frameId: "workpiece" },
       defaultStrategyId: defaultSid,
       features: normalized,
     });
@@ -422,6 +479,7 @@ export default function TrajectoryGenPanel() {
                 <tr>
                   <th>#</th>
                   <th>特征ID</th>
+                  <th>工件</th>
                   <th>离散策略</th>
                   <th>几何摘要</th>
                   <th>状态</th>
@@ -430,14 +488,16 @@ export default function TrajectoryGenPanel() {
               <tbody>
                 {!features.length && (
                   <tr className="empty">
-                    <td colSpan={5}>暂无特征</td>
+                    <td colSpan={6}>暂无特征</td>
                   </tr>
                 )}
                 {features.map((f, i) => {
-                  const faces = f.geometry?.faceIndices || [];
-                  const edges = f.geometry?.edgeIndices || [];
+                  const faces = collectIndices(f.geometry, "Face");
+                  const edges = collectIndices(f.geometry, "Edge");
                   const summary = `F${faces.length}/E${edges.length}`;
                   const sid = normalizeFeatureStrategy(f, strategies);
+                  const rowWp = f.workpiece?.backendIdUtf8 || "";
+                  const rowWpName = objects.find((o) => o.id === rowWp)?.name || rowWp;
                   return (
                     <tr
                       key={f.featureId}
@@ -449,6 +509,7 @@ export default function TrajectoryGenPanel() {
                     >
                       <td>{i + 1}</td>
                       <td title={f.featureId}>{f.featureId}</td>
+                      <td title={rowWp}>{rowWpName}</td>
                       <td title={sid}>{strategyLabel(sid, strategies)}</td>
                       <td>{summary}</td>
                       <td className="st-draft">草稿</td>

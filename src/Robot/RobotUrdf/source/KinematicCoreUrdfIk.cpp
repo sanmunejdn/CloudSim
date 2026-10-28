@@ -791,16 +791,59 @@ std::vector<double> runUrdfDlsLoop(const QString& urdfPath, const QString& ikLin
 }
 } // namespace
 
+namespace
+{
+/// 同线程同路径复用图，避免每种子重建
+struct ThreadLocalUrdfGraphCache
+{
+	QString path;
+	kinematic_core::KinematicGraph graph;
+};
+
+ThreadLocalUrdfGraphCache& urdfGraphCache()
+{
+	thread_local ThreadLocalUrdfGraphCache cache;
+	return cache;
+}
+
+const kinematic_core::KinematicGraph* cachedUrdfGraph(const QString& urdfPath, QString* errorMessage)
+{
+	ThreadLocalUrdfGraphCache& cache = urdfGraphCache();
+	if (cache.path == urdfPath && cache.graph.dofCount() > 0)
+	{
+		return &cache.graph;
+	}
+	kinematic_core::KinematicGraph built;
+	if (!buildUrdfKinematicGraph(urdfPath, built, errorMessage))
+	{
+		cache.path.clear();
+		return nullptr;
+	}
+	cache.graph = std::move(built);
+	cache.path = urdfPath;
+	return &cache.graph;
+}
+
+} // namespace
+
+void clearCachedUrdfKinematicGraph()
+{
+	auto& cache = urdfGraphCache();
+	cache.path.clear();
+	cache.graph = kinematic_core::KinematicGraph{};
+}
+
 bool computeLinkPoseAndJacobianViaCore(const QString& urdfPath, const QVector<double>& jointAnglesRad,
 									   const QString& linkName, double outPosMm[3], double* outQuatXyzw,
 									   std::vector<double>& outJ_rowMajor, const bool includeOrientation,
 									   const double orientationWeight, QString* errorMessage)
 {
-	kinematic_core::KinematicGraph graph;
-	if (!buildUrdfKinematicGraph(urdfPath, graph, errorMessage))
+	const kinematic_core::KinematicGraph* graphPtr = cachedUrdfGraph(urdfPath, errorMessage);
+	if (!graphPtr)
 	{
 		return false;
 	}
+	const kinematic_core::KinematicGraph& graph = *graphPtr;
 	const int linkIdx = graph.linkIndexById(linkName.toStdString());
 	if (linkIdx < 0)
 	{
@@ -850,8 +893,8 @@ std::vector<double> solveArmPoseViaKinematicCore(const QString& urdfPath, const 
 	{
 		*status = IkConvergenceStatus::Failed;
 	}
-	kinematic_core::KinematicGraph graph;
-	if (!buildUrdfKinematicGraph(urdfPath, graph, nullptr))
+	const kinematic_core::KinematicGraph* graphPtr = cachedUrdfGraph(urdfPath, nullptr);
+	if (!graphPtr)
 	{
 		if (failReason)
 		{
@@ -859,6 +902,7 @@ std::vector<double> solveArmPoseViaKinematicCore(const QString& urdfPath, const 
 		}
 		return {};
 	}
+	const kinematic_core::KinematicGraph& graph = *graphPtr;
 	const int linkIdx = graph.linkIndexById(ikLink.toStdString());
 	if (linkIdx < 0)
 	{

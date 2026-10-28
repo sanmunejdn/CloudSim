@@ -28,6 +28,9 @@ ROBOT_URDF_API bool computeLinkPoseAndJacobianViaCore(const QString& urdfPath, c
 													  std::vector<double>& outJ_rowMajor, bool includeOrientation,
 													  double orientationWeight = 300.0,
 													  QString* errorMessage = nullptr);
+
+/// URDF 热加载后清线程内图缓存
+ROBOT_URDF_API void clearCachedUrdfKinematicGraph();
 } // namespace UrdfRobotLoader
 
 #endif // ROBOTURDF_KINEMATICCOREURDFIK_H

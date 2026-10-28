@@ -378,6 +378,35 @@ void OsgScene::setCameraViewPreset(CameraViewPreset preset)
 	requestRedraw();
 }
 
+void OsgScene::setOrthographicProjection(bool on)
+{
+	if (!m_viewer.valid() || !m_viewer->getCamera())
+	{
+		return;
+	}
+	osg::Camera* cam = m_viewer->getCamera();
+	if (!m_orthoProjectionCallback.valid())
+	{
+		if (!on)
+		{
+			return;
+		}
+		m_orthoProjectionCallback = new OrthoProjectionCallback(m_trackballManipulator.get());
+		cam->setUpdateCallback(m_orthoProjectionCallback.get());
+	}
+	m_orthoProjectionCallback->setEnabled(on);
+	if (on)
+	{
+		m_orthoProjectionCallback->applyOrtho(*cam);
+	}
+	else
+	{
+		OrthoProjectionCallback::applyPerspective(*cam);
+	}
+	updateCompassScale();
+	requestRedraw();
+}
+
 void OsgScene::setCameraViewDirection(const osg::Vec3d& eyeDirectionFromCenter, const osg::Vec3d& upHint)
 {
 	if (!m_trackballManipulator.valid() || !m_viewer.valid() || !m_viewer->getCamera())

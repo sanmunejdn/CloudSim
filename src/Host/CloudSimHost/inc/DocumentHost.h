@@ -118,6 +118,8 @@ public:
 	int activeViewIndex() const;
 	bool openDetachedViewWindow();
 	void setMultiViewUseChinese(bool useChinese);
+	/// 本文档全部视口（含分屏/浮动窗）透视⇄正交
+	void setOrthographicProjection(bool on);
 
 	/// 1.21.0+：把 OsgWidget reparent 到外部槽（建模页中区）
 	bool embedRenderWidget(QWidget* slot, QString* outError = nullptr);

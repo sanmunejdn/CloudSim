@@ -139,6 +139,9 @@ private:
 
 	void onRawEmitProgram();
 
+	/// 应用/生成依赖程序与机器人上下文；无机器人时弹窗并返回 false
+	bool warnIfNoRobotForCommit(const QString& actionTitleZh, const QString& actionTitleEn);
+
 	void onProgramChanged(int index);
 
 	void onGroupChanged(int index);

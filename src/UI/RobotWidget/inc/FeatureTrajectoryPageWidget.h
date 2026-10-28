@@ -9,6 +9,7 @@
 
 #include "RobotOsgUiTypes.h"
 
+#include <QStringList>
 #include <QWidget>
 #include <functional>
 #include <string>
@@ -77,10 +78,10 @@ public:
 
 	void setStepPathResolver(std::function<QString(const QString& backendId)> resolver);
 
-	/// AI / 宿主：轨迹页 combo 当前 STEP 工件
+	/// AI / 宿主：最近拾取或选中特征的工件（无下拉框）
 	bool currentWorkpiece(QString& backendId, QString& stepPath) const;
 
-	/// 刷新工件下拉（导入/AI 创建后或切回本页时调用）
+	/// 刷新文档内可拾取工件可用性（导入/AI 创建后或切回本页时调用）
 	void refreshWorkpieces();
 
 	/// 确保当前工件特征目录已枚举（AI 解析前调用）
@@ -118,7 +119,6 @@ public:
 	bool isFeatureEditActive() const { return m_featureEditActive; }
 
 signals:
-	void workpieceComboChanged();
 	void featureEditActiveChanged(bool active);
 
 private slots:
@@ -165,7 +165,7 @@ private:
 
 	};
 
-	void refreshBackendCombo();
+	void refreshWorkpieceAvailability();
 
 	void refreshStrategyCombo(geoalgo::GeometryAffinity filterAffinity = geoalgo::GeometryAffinity::Any);
 
@@ -190,13 +190,15 @@ private:
 
 	void onMeshPickCommitted(const struct PickResult& pick, int pickKindInt);
 
-	bool buildFeatureEntryFromPick(bool pickFace, const geoalgo::Point3d& modelA, const geoalgo::Point3d& modelB,
-								   int knownFaceIndex, int knownEdgeIndex, geoalgo::FeatureEntry& out,
-								   QString* err) const;
+	/// pickBackendId：场景命中 backend，不以 combo 为范围
+	bool buildFeatureEntryFromPick(bool pickFace, const QString& pickBackendId, const geoalgo::Point3d& modelA,
+								   const geoalgo::Point3d& modelB, int knownFaceIndex, int knownEdgeIndex,
+								   geoalgo::FeatureEntry& out, QString* err) const;
 
-	/// 将拾取的面/边追加到选中行（两面交线、面+边偏置等）
-	bool tryAppendPickToSelectedFeature(bool pickFace, const geoalgo::Point3d& modelA, const geoalgo::Point3d& modelB,
-										int knownFaceIndex, int knownEdgeIndex, QString* err);
+	/// 将拾取的面/边追加到选中行；工件以 pickBackendId 为准，跨工件仅 schema 允许时放开
+	bool tryAppendPickToSelectedFeature(bool pickFace, const QString& pickBackendId, const geoalgo::Point3d& modelA,
+										const geoalgo::Point3d& modelB, int knownFaceIndex, int knownEdgeIndex,
+										QString* err);
 
 	static bool featureNeedsMoreGeometry(const geoalgo::FeatureEntry& entry);
 	static bool canAppendPickToFeature(const geoalgo::FeatureEntry& entry, bool pickFace, QString* err);
@@ -253,7 +255,11 @@ private:
 
 	bool loadFeatureListFromJson(const std::string& jsonUtf8, QString* err = nullptr);
 
-	bool selectBackendComboById(const QString& backendId);
+	bool isAvailableWorkpieceId(const QString& backendId) const;
+
+	QStringList availableWorkpieceIds() const;
+
+	void noteActiveWorkpiece(const QString& backendId);
 
 	IRobotMainWindowHost* m_host = nullptr;
 
@@ -285,9 +291,9 @@ private:
 
 	std::string m_lastLoadedSourceJson;
 
-	QString m_lastWorkpieceBackendId;
+	QString m_activeWorkpieceBackendId;
 
-	QComboBox* m_backendCombo = nullptr;
+	bool m_hasAnyWorkpiece = false;
 
 	QTableView* m_featureTable = nullptr;
 

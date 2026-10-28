@@ -917,7 +917,8 @@ void addShapeToBox(const TopoDS_Shape& shape, Bnd_Box& box, bool& hasBox)
 bool discretizeFaceSectionGrid(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
 							   std::string* errMsg)
 {
-	if (input.geometry.faceIndices.empty())
+	const std::vector<int> faceIndices = collectGeometryIndices(input.geometry, GeometryRefKind::Face);
+	if (faceIndices.empty())
 	{
 		if (errMsg)
 		{
@@ -937,8 +938,8 @@ bool discretizeFaceSectionGrid(const TopoDS_Shape& shape, const FeatureDiscretiz
 	}
 
 	std::vector<TopoDS_Face> faces;
-	faces.reserve(input.geometry.faceIndices.size());
-	for (const int faceIdx : input.geometry.faceIndices)
+	faces.reserve(faceIndices.size());
+	for (const int faceIdx : faceIndices)
 	{
 		TopoDS_Face face;
 		if (!shapeFaceAtIndex(shape, faceIdx, face, errMsg))

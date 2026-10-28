@@ -25,20 +25,21 @@ bool EdgeChainDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDi
 	{
 		return false;
 	}
-	if (input.geometry.edgeIndices.empty())
+	const std::vector<int> edgeIndices = collectGeometryIndices(input.geometry, GeometryRefKind::Edge);
+	const std::vector<int> faceIndices = collectGeometryIndices(input.geometry, GeometryRefKind::Face);
+	if (edgeIndices.empty())
 	{
 		if (errMsg)
 		{
-			*errMsg = "EdgeChain requires edgeIndices";
+			*errMsg = "EdgeChain requires Edge refs";
 		}
 		return false;
 	}
 
 	const DiscretizeParams disc = detail::buildDiscretizeParamsFromInput(input);
 	const TessellateParams tess = detail::toTessellate(disc);
-	const std::vector<TopoDS_Face> contextFaces =
-		detail::collectContextFaces(shape, input.geometry.edgeIndices, input.geometry.faceIndices, errMsg);
-	if (!input.geometry.faceIndices.empty() && contextFaces.empty())
+	const std::vector<TopoDS_Face> contextFaces = detail::collectContextFaces(shape, edgeIndices, faceIndices, errMsg);
+	if (!faceIndices.empty() && contextFaces.empty())
 	{
 		return false;
 	}
@@ -46,10 +47,10 @@ bool EdgeChainDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDi
 	frameCtx.faces = contextFaces.empty() ? nullptr : &contextFaces;
 	frameCtx.normalConvention = detail::FaceNormalConvention::LineReverseFace;
 
-	if (input.geometry.edgeIndices.size() == 1)
+	if (edgeIndices.size() == 1)
 	{
 		TopoDS_Edge edge;
-		if (!shapeEdgeAtIndex(shape, input.geometry.edgeIndices[0], edge, errMsg))
+		if (!shapeEdgeAtIndex(shape, edgeIndices[0], edge, errMsg))
 		{
 			return false;
 		}
@@ -63,7 +64,7 @@ bool EdgeChainDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDi
 	else
 	{
 		Polyline3d poly;
-		if (!fuseStepEdgesToPolyline(input.workpiece.stepPathUtf8, input.geometry.edgeIndices, tess, poly, errMsg))
+		if (!fuseStepEdgesToPolyline(input.workpiece.stepPathUtf8, edgeIndices, tess, poly, errMsg))
 		{
 			return false;
 		}

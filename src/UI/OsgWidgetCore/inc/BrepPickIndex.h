@@ -43,6 +43,10 @@ public:
 						  const std::function<bool(const geoalgo::Point3d&, osg::Vec3f&)>& modelPointToWorld,
 						  int& outEdgeIndex, double& outDistancePx, std::vector<osg::Vec3f>& outPolylineWorld) const;
 
+	bool edgesReady() const { return !m_edgePolylinesModel.empty(); }
+	/// Phase2 边折线/面边表写入索引（display soup 保持不变）
+	bool applyEdgePickArtifacts(const geoalgo::BrepImportArtifacts& artifacts);
+
 private:
 	std::vector<float> m_displaySoup;
 	std::vector<int> m_triangleFaceIndex;

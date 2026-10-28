@@ -50,6 +50,12 @@ FlavorOsgViewportMount mountFlavorOsgViewport(DocumentHost& host, QVBoxLayout& c
 	return {};
 }
 
+void flavorSetOrthographicProjection(QWidget* osgPane, bool on)
+{
+	(void)osgPane;
+	(void)on;
+}
+
 bool flavorSetMultiViewLayout(QWidget* osgPane, MultiViewLayout layout)
 {
 	(void)osgPane;

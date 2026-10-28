@@ -9,6 +9,7 @@
 
 #include <QString>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <BackendDataBase.h>
@@ -17,6 +18,41 @@
 
 namespace RobotTeachIk
 {
+/// 示教联立与规划外轴共用默认代价（扩展键可覆盖）
+struct ROBOT_SCENE_API CoordinatedIkCostWeights
+{
+	double externalDeltaPriorWeight = 0.05;
+	bool adaptiveExternalDamping = true;
+
+	static CoordinatedIkCostWeights defaults() { return {}; }
+
+	static CoordinatedIkCostWeights fromExtension(const std::unordered_map<std::string, std::string>& ext)
+	{
+		CoordinatedIkCostWeights w = defaults();
+		const auto itW = ext.find("context.externalDeltaPriorWeight");
+		if (itW != ext.end())
+		{
+			try
+			{
+				const double v = std::stod(itW->second);
+				if (v >= 0.0)
+				{
+					w.externalDeltaPriorWeight = v;
+				}
+			}
+			catch (...)
+			{
+			}
+		}
+		const auto itA = ext.find("context.adaptiveExternalDamping");
+		if (itA != ext.end())
+		{
+			w.adaptiveExternalDamping = !(itA->second == "0" || itA->second == "false");
+		}
+		return w;
+	}
+};
+
 struct ROBOT_SCENE_API TeachIkExternalAxis
 {
 	bool enabled = false;

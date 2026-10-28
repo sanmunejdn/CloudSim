@@ -91,6 +91,8 @@ DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& eve
 				[tb]() { tb->onViewportFocusRequested(); });
 		connect(chrome, &ViewportToolBar::wireframeToggled, this,
 				[tb](const bool enabled) { tb->setWireframeMode(enabled); });
+		connect(chrome, &ViewportToolBar::orthographicToggled, this,
+				[this](const bool on) { setOrthographicProjection(on); });
 		connect(chrome, &ViewportToolBar::screenshotRequested, this,
 				[tb]() { tb->onViewportScreenshotRequested(); });
 	}

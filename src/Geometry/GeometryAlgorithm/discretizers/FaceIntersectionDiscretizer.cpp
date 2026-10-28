@@ -24,11 +24,11 @@ bool FaceIntersectionDiscretizer::validate(const FeatureDiscretizeInput& input, 
 	{
 		return false;
 	}
-	if (input.geometry.faceIndices.size() < 2U)
+	if (collectGeometryIndices(input.geometry, GeometryRefKind::Face).size() < 2U)
 	{
 		if (errMsg)
 		{
-			*errMsg = "FaceIntersection requires two faceIndices";
+			*errMsg = "FaceIntersection requires two Face refs";
 		}
 		return false;
 	}
@@ -43,10 +43,10 @@ bool FaceIntersectionDiscretizer::discretize(const TopoDS_Shape& shape, const Fe
 		return false;
 	}
 
+	const std::vector<int> faceIndices = collectGeometryIndices(input.geometry, GeometryRefKind::Face);
 	TopoDS_Face f1;
 	TopoDS_Face f2;
-	if (!shapeFaceAtIndex(shape, input.geometry.faceIndices[0], f1, errMsg) ||
-		!shapeFaceAtIndex(shape, input.geometry.faceIndices[1], f2, errMsg))
+	if (!shapeFaceAtIndex(shape, faceIndices[0], f1, errMsg) || !shapeFaceAtIndex(shape, faceIndices[1], f2, errMsg))
 	{
 		return false;
 	}

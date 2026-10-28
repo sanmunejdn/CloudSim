@@ -14,6 +14,11 @@
 #include <ShapeHandle.h>
 #include <json.hpp>
 
+namespace geoalgo
+{
+struct FeatureDiscretizeContext;
+}
+
 class IBackendDataQuery;
 
 namespace geometry_backend_ops
@@ -46,6 +51,20 @@ GEOMETRY_SERVICES_EXPORT bool discretizeFeatureList(const geoalgo::FeatureListDo
 GEOMETRY_SERVICES_EXPORT bool discretizeFeatureList(const geoalgo::FeatureListDocument& doc,
 													const geoalgo::ShapeHandle& shape, geoalgo::RawPath& out,
 													std::string* errMsg = nullptr);
+
+/// 解析行内多工件 GeometryRef → FeatureDiscretizeContext（异工件边预变换到 primary）
+GEOMETRY_SERVICES_EXPORT bool buildFeatureDiscretizeContext(const geoalgo::FeatureListDocument& doc,
+															const geoalgo::FeatureEntry& entry,
+															const IBackendDataQuery& mgr,
+															geoalgo::FeatureDiscretizeContext& outCtx,
+															std::string* errMsg = nullptr);
+
+/// 逐行 buildContext+discretizeEx；表级按 primary 换算到首特征工件模型系并插段边界
+GEOMETRY_SERVICES_EXPORT bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& doc,
+																	const IBackendDataQuery& mgr,
+																	geoalgo::RawPath& out,
+																	geoalgo::FeatureListDocument* outResolvedDoc,
+																	std::string* errMsg = nullptr);
 
 GEOMETRY_SERVICES_EXPORT bool featureListFromJson(const std::string& jsonUtf8, geoalgo::FeatureListDocument& out,
 												  std::string* errMsg = nullptr);
@@ -91,6 +110,8 @@ featureDiscretizerAllParamFields(const std::string& strategyId);
 GEOMETRY_SERVICES_EXPORT std::string featureDiscretizerDisplayNameZh(const std::string& strategyId);
 
 GEOMETRY_SERVICES_EXPORT geoalgo::GeometryAffinity featureDiscretizerAffinity(const std::string& strategyId);
+
+GEOMETRY_SERVICES_EXPORT geoalgo::FeatureGeometrySchema featureDiscretizerGeometrySchema(const std::string& strategyId);
 
 GEOMETRY_SERVICES_EXPORT nlohmann::json featureDiscretizerDefaultParams(const std::string& strategyId);
 

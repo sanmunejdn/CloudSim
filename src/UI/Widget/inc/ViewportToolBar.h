@@ -30,6 +30,7 @@ signals:
 	void objectSelectionToggled(bool on);
 	void focusRequested();
 	void wireframeToggled(bool on);
+	void orthographicToggled(bool on);
 	void screenshotRequested();
 	void leftPanelVisibilityToggled(bool visible);
 	void rightPanelVisibilityToggled(bool visible);
@@ -54,11 +55,13 @@ private:
 	bool m_useChinese = true;
 	bool m_wireframeOn = false;
 	void updateMultiViewTip();
+	void updateOrthoTip();
 	void showMultiViewMenu();
 
 	QToolButton* m_objectSelectBtn = nullptr;
 	QToolButton* m_focusBtn = nullptr;
 	QToolButton* m_wireBtn = nullptr;
+	QToolButton* m_orthoBtn = nullptr;
 	QToolButton* m_captureBtn = nullptr;
 	QToolButton* m_multiViewBtn = nullptr;
 	QToolButton* m_leftPanelBtn = nullptr;

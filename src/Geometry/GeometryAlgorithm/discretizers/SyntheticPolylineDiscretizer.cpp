@@ -25,7 +25,7 @@ bool SyntheticPolylineDiscretizer::validate(const FeatureDiscretizeInput& input,
 		}
 		return false;
 	}
-	if (input.geometry.polylineXyz.size() < 6U)
+	if (collectPolylineXyz(input.geometry).size() < 6U)
 	{
 		if (errMsg)
 		{
@@ -47,7 +47,7 @@ bool SyntheticPolylineDiscretizer::discretize(const TopoDS_Shape& shape, const F
 
 	const DiscretizeParams disc = detail::buildDiscretizeParamsFromInput(input);
 	Polyline3d poly;
-	poly.xyz = input.geometry.polylineXyz;
+	poly.xyz = collectPolylineXyz(input.geometry);
 	detail::appendPolylineToRawPath(poly, out, disc, true);
 	detail::applyPostDiscretizeResample(strategyId(), input.params, out);
 	return !out.points.empty();

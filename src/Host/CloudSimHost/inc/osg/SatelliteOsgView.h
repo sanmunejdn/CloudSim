@@ -20,6 +20,7 @@
 #include <osg/Vec3d>
 #include <osg/ref_ptr>
 
+class OrthoProjectionCallback;
 class OsgWidget;
 class QWidgetViewer;
 class GraphicsWindowQt1;
@@ -56,6 +57,7 @@ public:
 	void applyViewPreset(ViewPreset preset);
 	osg::Matrixd cameraMatrix() const;
 	void setCameraMatrix(const osg::Matrixd& matrix);
+	void setOrthographicProjection(bool on);
 	void requestRedraw();
 	/// 清屏色 + 本地渐变跟 Primary 主题对齐
 	void syncBackgroundFromPrimary();
@@ -80,6 +82,7 @@ private:
 	QWidgetViewer* m_glWidget = nullptr;
 	osg::ref_ptr<osgViewer::Viewer> m_viewer;
 	osg::ref_ptr<osgGA::TrackballManipulator> m_manipulator;
+	osg::ref_ptr<OrthoProjectionCallback> m_orthoProjectionCallback;
 	osg::ref_ptr<osg::GraphicsContext> m_graphicsWindow;
 	/// 卫星本地根：渐变/HUD + 共享场景（主视口 HUD 绑 Primary GC，卫星需本地副本）
 	osg::ref_ptr<osg::Group> m_localRoot;

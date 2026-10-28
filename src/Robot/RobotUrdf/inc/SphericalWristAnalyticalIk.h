@@ -18,6 +18,18 @@ public:
 							  std::vector<double> seedJointRad, const UrdfIkSolverOptions& options,
 							  std::string* failReason, IkConvergenceStatus* status) override;
 
+	struct AnalyticalCandidate
+	{
+		std::vector<double> q;
+		/// ZYZ 腕支 0|1
+		int wristBranch = 0;
+	};
+
+	/// 收齐腕支候选；失败返回空
+	static std::vector<AnalyticalCandidate> solveAll(const QString& urdfPath, const QString& ikLink,
+													 const UrdfPoseIkTarget& target, std::vector<double> seedJointRad,
+													 const UrdfIkSolverOptions& options, std::string* failReason);
+
 	/// 6 转 + 末三轴近交于一点（进程内按 urdfPath 缓存）
 	static bool isEligible(const QString& urdfPath);
 	/// URDF 热加载后清缓存

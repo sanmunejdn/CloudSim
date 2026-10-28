@@ -618,6 +618,34 @@ void SatelliteOsgView::setCameraMatrix(const osg::Matrixd& matrix)
 	requestRedraw();
 }
 
+void SatelliteOsgView::setOrthographicProjection(bool on)
+{
+	if (!m_viewer.valid() || !m_viewer->getCamera())
+	{
+		return;
+	}
+	osg::Camera* cam = m_viewer->getCamera();
+	if (!m_orthoProjectionCallback.valid())
+	{
+		if (!on)
+		{
+			return;
+		}
+		m_orthoProjectionCallback = new OrthoProjectionCallback(m_manipulator.get());
+		cam->setUpdateCallback(m_orthoProjectionCallback.get());
+	}
+	m_orthoProjectionCallback->setEnabled(on);
+	if (on)
+	{
+		m_orthoProjectionCallback->applyOrtho(*cam);
+	}
+	else
+	{
+		OrthoProjectionCallback::applyPerspective(*cam);
+	}
+	requestRedraw();
+}
+
 void SatelliteOsgView::requestRedraw()
 {
 	if (m_glWidget)

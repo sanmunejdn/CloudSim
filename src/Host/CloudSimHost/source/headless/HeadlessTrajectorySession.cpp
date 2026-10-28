@@ -1,4 +1,4 @@
-﻿/// @file HeadlessTrajectorySession.cpp
+/// @file HeadlessTrajectorySession.cpp
 /// @brief Web 轨迹会话实现
 
 #include "HeadlessTrajectorySession.h"
@@ -861,6 +861,26 @@ bool HeadlessTrajectorySession::featureSchemaJson(const QString& strategyId, QJs
 			s.insert(QStringLiteral("displayNameZh"),
 					 QString::fromStdString(geometry_backend_ops::featureDiscretizerDisplayNameZh(sid)));
 			s.insert(QStringLiteral("affinity"), affinityToken(geometry_backend_ops::featureDiscretizerAffinity(sid)));
+			const geoalgo::FeatureGeometrySchema schema = geometry_backend_ops::featureDiscretizerGeometrySchema(sid);
+			QJsonObject gs;
+			gs.insert(QStringLiteral("allowCrossWorkpiece"), schema.allowCrossWorkpiece);
+			gs.insert(QStringLiteral("primaryRole"), QString::fromStdString(schema.primaryRole));
+			QJsonArray slotArr;
+			for (const auto& slot : schema.slotDefs)
+			{
+				QJsonObject so;
+				so.insert(QStringLiteral("role"), QString::fromStdString(slot.role));
+				so.insert(QStringLiteral("kind"),
+						  slot.kind == geoalgo::GeometryRefKind::Face
+							  ? QStringLiteral("Face")
+							  : (slot.kind == geoalgo::GeometryRefKind::Polyline ? QStringLiteral("Polyline")
+																				: QStringLiteral("Edge")));
+				so.insert(QStringLiteral("min"), slot.minCount);
+				so.insert(QStringLiteral("max"), slot.maxCount);
+				slotArr.append(so);
+			}
+			gs.insert(QStringLiteral("slots"), slotArr);
+			s.insert(QStringLiteral("geometrySchema"), gs);
 			arr.append(s);
 		}
 		(*out)[QStringLiteral("ok")] = true;
@@ -936,19 +956,11 @@ bool HeadlessTrajectorySession::setFeaturesAndDiscretize(const QByteArray& featu
 			*err = jerr.empty() ? QStringLiteral("FeatureList JSON 无效") : QString::fromStdString(jerr);
 		return false;
 	}
-	geoalgo::ShapeHandle shape;
-	geoalgo::WorkpieceRef wpRef;
 	std::string geoErr;
-	const std::string wpId = doc.workpiece.backendIdUtf8;
-	if (geometry_backend_ops::resolveWorkpieceShape(wpId, m_host.dataQuery(), doc.workpiece.stepPathUtf8, shape, wpRef,
-													&geoErr) == geometry_backend_ops::WorkpieceShapeSource::Unavailable)
-	{
-		if (err)
-			*err = geoErr.empty() ? QStringLiteral("无法解析工件形状") : QString::fromStdString(geoErr);
-		return false;
-	}
 	geoalgo::RawPath path;
-	if (!geoalgo::discretizeFeatureList(doc, shape, path, &geoErr))
+	geoalgo::FeatureListDocument resolvedDoc;
+	if (!geometry_backend_ops::discretizeFeatureListAcrossWorkpieces(doc, m_host.dataQuery(), path, &resolvedDoc,
+																	 &geoErr))
 	{
 		if (err)
 			*err = geoErr.empty() ? QStringLiteral("离散失败") : QString::fromStdString(geoErr);
@@ -962,7 +974,7 @@ bool HeadlessTrajectorySession::setFeaturesAndDiscretize(const QByteArray& featu
 			*err = QString::fromStdString(geoErr);
 		return false;
 	}
-	traj.sourceFeatureJson = geoalgo::featureListToJson(doc);
+	traj.sourceFeatureJson = geoalgo::featureListToJson(resolvedDoc);
 	pushUndo();
 	m_raw = std::move(traj);
 	m_emitDisabledAfterApply = false;

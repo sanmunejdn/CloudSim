@@ -414,6 +414,11 @@ void DocumentHost::setMultiViewLayout(MultiViewLayout layout)
 	flavorPersistMultiViewSettings(m_osgPane, m_documentId);
 }
 
+void DocumentHost::setOrthographicProjection(bool on)
+{
+	flavorSetOrthographicProjection(m_osgPane, on);
+}
+
 MultiViewLayout DocumentHost::multiViewLayout() const
 {
 	return flavorMultiViewLayout(m_osgPane);

@@ -26,17 +26,18 @@ bool FaceBoundaryDiscretizer::discretize(const TopoDS_Shape& shape, const Featur
 	{
 		return false;
 	}
-	if (input.geometry.faceIndices.empty())
+	const std::vector<int> faceIndices = collectGeometryIndices(input.geometry, GeometryRefKind::Face);
+	if (faceIndices.empty())
 	{
 		if (errMsg)
 		{
-			*errMsg = "FaceBoundary requires faceIndices";
+			*errMsg = "FaceBoundary requires Face refs";
 		}
 		return false;
 	}
 
 	TopoDS_Face face;
-	if (!shapeFaceAtIndex(shape, input.geometry.faceIndices[0], face, errMsg))
+	if (!shapeFaceAtIndex(shape, faceIndices[0], face, errMsg))
 	{
 		return false;
 	}

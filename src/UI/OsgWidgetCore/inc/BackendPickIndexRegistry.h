@@ -19,6 +19,7 @@
 
 namespace geoalgo
 {
+class ShapeHandle;
 struct BrepImportArtifacts;
 }
 
@@ -26,6 +27,8 @@ struct OSGWIDGETCORE_EXPORT BackendPickBundle
 {
 	PickSpatialIndex pointIndex;
 	BrepPickIndex brepIndex;
+	/// bind 时持有；Phase2 边折线懒构建后 sync 进 brepIndex
+	std::shared_ptr<geoalgo::BrepImportArtifacts> brepArtifacts;
 	std::uint64_t generation = 0;
 };
 
@@ -41,6 +44,8 @@ public:
 
 	const BackendPickBundle* find(const std::string& backendId) const;
 	void bumpGeneration(const std::string& backendId);
+	/// 首次边拾取：ensure Phase2 并写入 brepIndex（导入时不做，避免装配体卡死）
+	bool ensureBrepEdgePickReady(const std::string& backendId, const geoalgo::ShapeHandle& shape);
 
 private:
 	std::unordered_map<std::string, BackendPickBundle> m_bundles;

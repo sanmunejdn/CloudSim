@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { trajSession, trajBeginEdit, trajCancelEdit, trajPathPlans, trajBind } from "../api";
+import type { FeatureGeom } from "../docks/robot/featureStrategy";
 import { publishRawPreview } from "../scene/rawPreview";
 import { uiEvents, UI_EVT } from "../ui/uiEvents";
 import { useStatus } from "./statusStore";
@@ -14,7 +15,9 @@ import { useStatus } from "./statusStore";
 export type TrajFeature = {
   featureId: string;
   strategyId: string;
-  geometry?: { faceIndices?: number[]; edgeIndices?: number[]; polylineXyz?: number[] };
+  /** 缺省回落文档 workpiece；跨工件叠加时每行各自记录 */
+  workpiece?: { backendIdUtf8?: string; stepPathUtf8?: string };
+  geometry?: FeatureGeom["geometry"];
   params?: Record<string, unknown>;
 };
 
@@ -28,13 +31,14 @@ function featuresFromSession(s: Record<string, unknown> | null | undefined): {
   try {
     const doc = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
       features?: TrajFeature[];
-      workpiece?: { backendIdUtf8?: string };
+      workpiece?: { backendIdUtf8?: string; stepPathUtf8?: string };
       defaultStrategyId?: string;
     };
     if (!Array.isArray(doc.features)) return { features: [] };
     return {
       features: doc.features.map((f) => ({
         ...f,
+        workpiece: f.workpiece?.backendIdUtf8 ? f.workpiece : doc.workpiece,
         params: f.params || {},
       })),
       workpieceId: doc.workpiece?.backendIdUtf8,

@@ -58,6 +58,22 @@ void mergeJsonObject(const QJsonObject& o, UrdfIkMachineProfile& p)
 			p.preferredIkProfile = pref.toStdString();
 		}
 	}
+	if (o.contains(QStringLiteral("analyticalFamily")))
+	{
+		const QString f = o.value(QStringLiteral("analyticalFamily")).toString().trimmed().toLower();
+		if (f == QStringLiteral("sphericalwrist6r") || f == QStringLiteral("spherical_wrist_6r"))
+		{
+			p.analyticalFamily = AnalyticalIkFamily::SphericalWrist6R;
+		}
+		else if (f == QStringLiteral("none") || f == QStringLiteral("dls") || f == QStringLiteral("numerical"))
+		{
+			p.analyticalFamily = AnalyticalIkFamily::None;
+		}
+		else
+		{
+			p.analyticalFamily = AnalyticalIkFamily::Auto;
+		}
+	}
 }
 
 bool loadSidecarJson(const QString& urdfPath, UrdfIkMachineProfile& p)

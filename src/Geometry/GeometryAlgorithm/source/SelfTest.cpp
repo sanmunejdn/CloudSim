@@ -1,4 +1,4 @@
-﻿/// @file SelfTest.cpp
+/// @file SelfTest.cpp
 /// @brief SelfTest 实现
 
 #include "SelfTest.h"
@@ -1486,7 +1486,16 @@ bool runSelfTest(std::vector<std::string>& failures)
 		FeatureEntry edgeEntry;
 		edgeEntry.featureId = "edge_0";
 		edgeEntry.strategyId = "EdgeChain";
-		edgeEntry.geometry.edgeIndices = {1, 2};
+		{
+			geoalgo::GeometryRef e1;
+			e1.kind = geoalgo::GeometryRefKind::Edge;
+			e1.index = 1;
+			geoalgo::GeometryRef e2;
+			e2.kind = geoalgo::GeometryRefKind::Edge;
+			e2.index = 2;
+			edgeEntry.geometry.refs.push_back(std::move(e1));
+			edgeEntry.geometry.refs.push_back(std::move(e2));
+		}
 		edgeEntry.params["stepMm"] = 5.0;
 		edgeEntry.params["linearDeflectionMm"] = 0.1;
 		doc.features.push_back(edgeEntry);
@@ -1496,6 +1505,80 @@ bool runSelfTest(std::vector<std::string>& failures)
 			path.points.size() < 2U)
 		{
 			fail("featureDiscretizeEdgeChain", err.empty() ? "too few points" : err);
+		}
+
+		doc.workpiece.backendIdUtf8 = "wpA";
+		FeatureEntry otherWp = edgeEntry;
+		otherWp.featureId = "edge_1";
+		otherWp.workpiece.backendIdUtf8 = "wpB";
+		otherWp.workpiece.stepPathUtf8 = "b.step";
+		doc.features.push_back(otherWp);
+		FeatureListDocument back;
+		if (!featureListFromJson(featureListToJson(doc), back, &err) || back.features.size() != 2U)
+		{
+			fail("featureListEntryWorkpieceJson", err.empty() ? "round trip failed" : err);
+		}
+		else if (featureEntryWorkpiece(back, back.features[0]).backendIdUtf8 != "wpA" ||
+				 featureEntryWorkpiece(back, back.features[1]).backendIdUtf8 != "wpB" ||
+				 back.features[1].workpiece.stepPathUtf8 != "b.step")
+		{
+			fail("featureListEntryWorkpieceJson", "per-feature workpiece lost");
+		}
+
+		// 旧 geometry.edgeIndices 升级为 refs
+		{
+			const std::string legacy = R"({"schemaVersion":2,"workpiece":{"backendIdUtf8":"w"},"features":[{"featureId":"f","strategyId":"EdgeChain","geometry":{"edgeIndices":[3,4]}}]})";
+			FeatureListDocument upgraded;
+			if (!featureListFromJson(legacy, upgraded, &err) || upgraded.features.size() != 1U ||
+				collectGeometryIndices(upgraded.features[0].geometry, GeometryRefKind::Edge).size() != 2U)
+			{
+				fail("featureGeometryRefsUpgrade", err.empty() ? "legacy edgeIndices upgrade failed" : err);
+			}
+			else
+			{
+				const std::string dumped = featureListToJson(upgraded);
+				if (dumped.find("edgeIndices") != std::string::npos || dumped.find("\"refs\"") == std::string::npos)
+				{
+					fail("featureGeometryRefsUpgrade", "write path still emits edgeIndices or missing refs");
+				}
+			}
+		}
+
+		// FaceOffsetCurve discretizeEx：预变换折线投到面
+		{
+			ensureFeatureDiscretizersRegistered();
+			const TopoDS_Shape box2 = BRepPrimAPI_MakeBox(50.0, 50.0, 50.0).Shape();
+			FeatureDiscretizeContext ctx;
+			ctx.primaryShapeHandle = ShapeHandleAccess::fromNativeShape(&box2);
+			ctx.input.strategyId = "FaceOffsetCurve";
+			ctx.input.featureId = "off";
+			ctx.input.params["offsetMm"] = 0.0;
+			ctx.input.params["stepMm"] = 5.0;
+			GeometryRef edgeRef;
+			edgeRef.kind = GeometryRefKind::Edge;
+			edgeRef.role = "sourceEdge";
+			edgeRef.index = 0;
+			GeometryRef faceRef;
+			faceRef.kind = GeometryRefKind::Face;
+			faceRef.role = "targetFace";
+			faceRef.index = 0;
+			ctx.input.geometry.refs = {edgeRef, faceRef};
+			ShapeSlot edgeSlot;
+			edgeSlot.role = "sourceEdge";
+			edgeSlot.shapeHandle = ctx.primaryShapeHandle;
+			edgeSlot.localIndex = 0;
+			edgeSlot.polylineInPrimaryMm = {0.f, 0.f, 25.f, 50.f, 0.f, 25.f, 50.f, 50.f, 25.f};
+			ShapeSlot faceSlot;
+			faceSlot.role = "targetFace";
+			faceSlot.shapeHandle = ctx.primaryShapeHandle;
+			faceSlot.localIndex = 0;
+			ctx.shapeSlots = {edgeSlot, faceSlot};
+			RawPath offPath;
+			const IFeatureDiscretizer* offDisc = featureDiscretizerGet("FaceOffsetCurve");
+			if (!offDisc || !offDisc->discretizeEx(ctx, offPath, &err) || offPath.points.size() < 2U)
+			{
+				fail("faceOffsetCurveDiscretizeEx", err.empty() ? "discretizeEx failed" : err);
+			}
 		}
 	}
 

@@ -66,11 +66,13 @@ bool ExternalAxisSearchService::search(UnifiedTrajectory& traj,
 		snaps.push_back(snap);
 	}
 
+	const RobotTeachIk::CoordinatedIkCostWeights costW = RobotTeachIk::CoordinatedIkCostWeights::defaults();
 	auto fillDof = [&](RobotTeachIk::TeachIkExternalAxisDof& dof, const bool optimize)
 	{
 		dof = {};
 		dof.optimizeExternal = optimize;
-		dof.adaptiveExternalDamping = true;
+		dof.adaptiveExternalDamping = costW.adaptiveExternalDamping;
+		dof.externalDeltaPriorWeight = optimize ? costW.externalDeltaPriorWeight : 0.0;
 		for (size_t i = 0; i < enabled.size(); ++i)
 		{
 			const auto* cfg = enabled[i];

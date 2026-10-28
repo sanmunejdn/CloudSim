@@ -11,6 +11,9 @@
     <Filter Include="inc\Global">
       <UniqueIdentifier>{312091A5-2C75-4126-B100-6CE276B1399F}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{8BFC67B5-9356-4F01-963E-B67337D1B3AC}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\Pick">
       <UniqueIdentifier>{647BC8F6-44D0-4F6F-9596-89D964134DA3}</UniqueIdentifier>
     </Filter>
@@ -49,6 +52,9 @@
     </ClInclude>
     <ClInclude Include="inc\ObjectGizmoFrame.h">
       <Filter>inc\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OrthoProjectionCallback.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\OsgCompassGeometry.h">
       <Filter>inc\Scene</Filter>

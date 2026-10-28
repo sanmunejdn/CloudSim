@@ -245,6 +245,15 @@
     <ClInclude Include="inc\RobotInstructionIkContext.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
+    <ClInclude Include="inc\IkSolveTypes.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkSolveMetrics.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkGoldenSelfTest.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
     <ClInclude Include="inc\RobotInstructionIkRequest.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
@@ -474,6 +483,12 @@
     </ClCompile>
     <ClCompile Include="source\RobotExternalAxisSceneApply.cpp">
       <Filter>src\KinematicCore</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IkSolveMetrics.cpp">
+      <Filter>source\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IkGoldenSelfTest.cpp">
+      <Filter>source\Instructions</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp">
       <Filter>src\Instructions</Filter>

@@ -85,7 +85,7 @@
     {
       "featureId": "edge_001",
       "strategyId": "EdgeChain",
-      "geometry": { "edgeIndices": [3, 7] },
+      "geometry": { "refs": [ { "kind": "Edge", "index": 3 }, { "kind": "Edge", "index": 7 } ] },
       "params": { "stepMm": 2.0, "linearDeflectionMm": 0.01 }
     }
   ]

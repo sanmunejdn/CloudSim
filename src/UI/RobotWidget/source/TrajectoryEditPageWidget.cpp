@@ -958,9 +958,30 @@ void TrajectoryEditPageWidget::applyPipelineOps(std::vector<RobotInstruction::Tr
 	schedulePreviewRun(120, false);
 }
 
+bool TrajectoryEditPageWidget::warnIfNoRobotForCommit(const QString& actionTitleZh, const QString& actionTitleEn)
+{
+	const IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	const bool hasDocRobot = doc && doc->hasRobotSimulationContext();
+	const bool hasCmdRobot = m_commandPage && m_commandPage->currentRobotInstanceIndex() >= 0 &&
+							 !m_commandPage->currentRobotBackendId().isEmpty();
+	if (hasDocRobot || hasCmdRobot)
+	{
+		return true;
+	}
+	QMessageBox::warning(
+		this, m_useChinese ? actionTitleZh : actionTitleEn,
+		m_useChinese ? QStringLiteral("当前没有机器人，请先导入机器人后再%1。").arg(actionTitleZh)
+					 : QStringLiteral("No robot in the scene. Import a robot before %1.").arg(actionTitleEn));
+	return false;
+}
+
 void TrajectoryEditPageWidget::onRawEmitProgram()
 {
 	if (!m_session || !m_store || !m_session->hasRawTrajectory())
+	{
+		return;
+	}
+	if (!warnIfNoRobotForCommit(QStringLiteral("生成"), QStringLiteral("Emit")))
 	{
 		return;
 	}
@@ -2030,6 +2051,10 @@ void TrajectoryEditPageWidget::showPipelineContextMenu(const QPoint& pos)
 void TrajectoryEditPageWidget::onApplyClicked()
 {
 	if (!m_session)
+	{
+		return;
+	}
+	if (!warnIfNoRobotForCommit(QStringLiteral("应用"), QStringLiteral("Apply")))
 	{
 		return;
 	}
