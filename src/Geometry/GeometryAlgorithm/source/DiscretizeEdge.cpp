@@ -6,7 +6,10 @@
 #include "ShapeQuery.h"
 #include "detail/OccIncludes.h"
 
+#include <BRepTools_WireExplorer.hxx>
+#include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace geoalgo
 {
@@ -17,6 +20,59 @@ void appendPoint(Polyline3d& out, const gp_Pnt& p)
 	out.xyz.push_back(static_cast<float>(p.X()));
 	out.xyz.push_back(static_cast<float>(p.Y()));
 	out.xyz.push_back(static_cast<float>(p.Z()));
+}
+
+double distXyz(const float* a, const float* b)
+{
+	const double dx = static_cast<double>(a[0]) - b[0];
+	const double dy = static_cast<double>(a[1]) - b[1];
+	const double dz = static_cast<double>(a[2]) - b[2];
+	return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+void reversePolylineXyz(Polyline3d& poly)
+{
+	const std::size_t n = poly.xyz.size() / 3U;
+	for (std::size_t i = 0; i < n / 2U; ++i)
+	{
+		const std::size_t j = n - 1U - i;
+		for (std::size_t k = 0; k < 3U; ++k)
+		{
+			std::swap(poly.xyz[i * 3U + k], poly.xyz[j * 3U + k]);
+		}
+	}
+}
+
+/// 按线序拼接：若首点与前段尾点错位，尝试反转本段（容错 MakeWire 取向）
+void appendOrientedSegment(Polyline3d& out, Polyline3d& segment)
+{
+	if (segment.xyz.size() < 6U)
+	{
+		return;
+	}
+	if (out.xyz.empty())
+	{
+		out.xyz = std::move(segment.xyz);
+		return;
+	}
+	const std::size_t pn = out.xyz.size() / 3U;
+	const float* prev = &out.xyz[(pn - 1U) * 3U];
+	const std::size_t sn = segment.xyz.size() / 3U;
+	const float* s0 = &segment.xyz[0];
+	const float* s1 = &segment.xyz[(sn - 1U) * 3U];
+	const double gapFwd = distXyz(prev, s0);
+	const double gapRev = distXyz(prev, s1);
+	if (gapRev + 1e-6 < gapFwd)
+	{
+		reversePolylineXyz(segment);
+	}
+	const double gap = (std::min)(gapFwd, gapRev);
+	// 重合端点去重，避免尖点叠点放大切向噪声
+	const std::size_t start = gap < 1e-3 ? 3U : 0U;
+	for (std::size_t i = start; i < segment.xyz.size(); ++i)
+	{
+		out.xyz.push_back(segment.xyz[i]);
+	}
 }
 
 bool sampleByParameterCount(const BRepAdaptor_Curve& curve, Standard_Integer nbPts, Polyline3d& out)
@@ -123,7 +179,8 @@ bool discretizeWire(const TopoDS_Wire& wire, const TessellateParams& params, Pol
 		return false;
 	}
 	out.xyz.clear();
-	for (TopExp_Explorer exp(wire, TopAbs_EDGE); exp.More(); exp.Next())
+	// TopExp_Explorer 不保证线序，错序拼接会在尖点拉出跨空弦；WireExplorer 按连通取向遍历
+	for (BRepTools_WireExplorer exp(wire); exp.More(); exp.Next())
 	{
 		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
 		Polyline3d segment;
@@ -131,15 +188,7 @@ bool discretizeWire(const TopoDS_Wire& wire, const TessellateParams& params, Pol
 		{
 			return false;
 		}
-		if (segment.xyz.size() < 6U)
-		{
-			continue;
-		}
-		const std::size_t start = out.xyz.empty() ? 0U : 3U;
-		for (std::size_t i = start; i < segment.xyz.size(); ++i)
-		{
-			out.xyz.push_back(segment.xyz[i]);
-		}
+		appendOrientedSegment(out, segment);
 	}
 	if (out.xyz.size() < 6U)
 	{

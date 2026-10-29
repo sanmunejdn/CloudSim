@@ -13,6 +13,8 @@
 #include "IRobotOsgViewHost.h"
 #include "MeshTrajectoryIngress.h"
 #include "MeshTriangleSelectionUtil.h"
+#include "RobotOsgUiTypes.h"
+#include "RobotSimulationController.h"
 #include "TrajectoryEditSession.h"
 
 #include <QCheckBox>
@@ -898,8 +900,11 @@ void MeshTrajectoryPageWidget::onGenerateClicked()
 				return;
 			}
 			m_session->setRawTrajectory(traj);
+			const RobotOsgUi::RawTrajectoryPreviewOptions previewOpts =
+				m_simController ? m_simController->rawTrajectoryPreviewOptions()
+								: RobotOsgUi::RawTrajectoryPreviewOptions{};
 			feature_pick_transform::applyMeshLocalRawTrajectoryPreviewToOsg(
-				m_host->osgView(), backendId.toStdString(), traj, RobotOsgUi::RawTrajectoryPreviewOptions{}, &err);
+				m_host->osgView(), backendId.toStdString(), traj, previewOpts, &err);
 			const int segCount =
 				traj.segmentEndExclusive.empty() ? 1 : static_cast<int>(traj.segmentEndExclusive.size());
 			m_statusLabel->setText(m_chinese

@@ -1151,12 +1151,7 @@ bool TrajectoryEditSession::showUnifiedOverlayPreview(const RobotInstruction::Un
 		return false;
 	}
 	osg->clearInstructionPoseAxes();
-	RobotOsgUi::RawTrajectoryPreviewOptions options;
-	options.showAxisX = true;
-	options.showAxisY = true;
-	options.showAxisZ = true;
-	options.showAxes = true;
-	options.axisInterval = 0;
+	const RobotOsgUi::RawTrajectoryPreviewOptions options = m_simController->rawTrajectoryPreviewOptions();
 	feature_pick_transform::applyWorldRawTrajectoryPreviewToOsg(osg, worldPreview, options, &err);
 	if (!err.empty())
 	{

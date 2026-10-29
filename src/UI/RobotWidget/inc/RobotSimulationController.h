@@ -45,6 +45,7 @@
 
 #include <CoreTypes.h>
 #include <RigidTransform.h>
+#include "RobotOsgUiTypes.h"
 #include <osg/Matrixd>
 
 class BackendDataBase;
@@ -269,6 +270,8 @@ public slots:
 	bool isInstructionVisibleIn3d(const std::string& instructionId) const;
 	void setRawTrajectoryPreviewActive(bool active);
 	bool rawTrajectoryPreviewActive() const { return m_rawTrajectoryPreviewActive; }
+	/// 轴显隐/间隔仅在轨迹生成页配置，其它预览入口共用
+	RobotOsgUi::RawTrajectoryPreviewOptions rawTrajectoryPreviewOptions() const;
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
 	void syncRobotExternalAxisSettingsFromDocument(int instanceIndex);

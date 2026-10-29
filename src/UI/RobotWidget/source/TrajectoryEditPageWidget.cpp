@@ -875,12 +875,8 @@ void TrajectoryEditPageWidget::showRawTrajectoryPreview(const RobotInstruction::
 	{
 		return;
 	}
-	RobotOsgUi::RawTrajectoryPreviewOptions options;
-	options.showAxisX = true;
-	options.showAxisY = true;
-	options.showAxisZ = true;
-	options.showAxes = true;
-	options.axisInterval = 0;
+	const RobotOsgUi::RawTrajectoryPreviewOptions options =
+		m_simController ? m_simController->rawTrajectoryPreviewOptions() : RobotOsgUi::RawTrajectoryPreviewOptions{};
 	std::string err;
 	if (posesAlreadyWorldMm)
 	{

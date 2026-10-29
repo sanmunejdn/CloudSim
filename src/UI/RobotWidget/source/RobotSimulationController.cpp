@@ -3183,7 +3183,7 @@ void RobotSimulationController::runMotionPathPlanFromWaypoints(const QString& st
 	}
 
 	std::string previewErr;
-	RobotOsgUi::RawTrajectoryPreviewOptions previewOpts;
+	const RobotOsgUi::RawTrajectoryPreviewOptions previewOpts = rawTrajectoryPreviewOptions();
 	feature_pick_transform::applyWorldRawTrajectoryPreviewToOsg(osg, raw, previewOpts, &previewErr);
 	m_lastMotionPathRaw = raw;
 	m_lastMotionPathRawValid = !raw.points.empty();
@@ -3723,7 +3723,7 @@ bool RobotSimulationController::planAndConfirmTcpWaypoints(const QVector<RobotIn
 	}
 
 	std::string previewErr;
-	RobotOsgUi::RawTrajectoryPreviewOptions previewOpts;
+	const RobotOsgUi::RawTrajectoryPreviewOptions previewOpts = rawTrajectoryPreviewOptions();
 	feature_pick_transform::applyWorldRawTrajectoryPreviewToOsg(osg, combined, previewOpts, &previewErr);
 	m_lastMotionPathRaw = combined;
 	m_lastMotionPathRawValid = true;
@@ -8861,6 +8861,15 @@ void RobotSimulationController::clearBoundPathPlanPreview()
 	}
 }
 
+RobotOsgUi::RawTrajectoryPreviewOptions RobotSimulationController::rawTrajectoryPreviewOptions() const
+{
+	if (FeatureTrajectoryPageWidget* feat = m_simulationDock ? m_simulationDock->featureTrajectoryPage() : nullptr)
+	{
+		return feat->previewOptions();
+	}
+	return {};
+}
+
 void RobotSimulationController::refreshBoundPathPlanPreview(const RobotInstruction::RawTrajectory* preferRaw)
 {
 	if (!m_host)
@@ -8908,11 +8917,7 @@ void RobotSimulationController::refreshBoundPathPlanPreview(const RobotInstructi
 		return;
 	}
 
-	RobotOsgUi::RawTrajectoryPreviewOptions options;
-	if (FeatureTrajectoryPageWidget* feat = m_simulationDock ? m_simulationDock->featureTrajectoryPage() : nullptr)
-	{
-		options = feat->previewOptions();
-	}
+	const RobotOsgUi::RawTrajectoryPreviewOptions options = rawTrajectoryPreviewOptions();
 
 	std::string err;
 	feature_pick_transform::applyRawTrajectoryPreviewToOsg(osg, backendId, *src, options, &err);
@@ -8955,11 +8960,7 @@ void RobotSimulationController::refreshPathPlanRawOverlays()
 	const std::string programId = catalog.activeProgramId();
 	const std::vector<RobotInstruction::PathPlanInstruction*> pathPlans = catalog.listPathPlans(programId);
 
-	RobotOsgUi::RawTrajectoryPreviewOptions options;
-	if (FeatureTrajectoryPageWidget* feat = m_simulationDock ? m_simulationDock->featureTrajectoryPage() : nullptr)
-	{
-		options = feat->previewOptions();
-	}
+	const RobotOsgUi::RawTrajectoryPreviewOptions options = rawTrajectoryPreviewOptions();
 
 	std::vector<RobotOsgUi::RawTrajectoryOverlayVertex> mergedOverlay;
 	std::vector<std::size_t> mergedSegmentEnds;
