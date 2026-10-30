@@ -129,6 +129,8 @@ private:
 	void updateUiLabels();
 
 	void refreshRawTrajectoryStatus();
+	/// 当前选中算子作用域用的点数上限（含前面复制/删除后的结果）
+	int scopePointIndexLimitForSelection() const;
 	void setPipelineAppliedState(bool applied, bool announce = false);
 
 	void showRawTrajectoryPreview(const RobotInstruction::RawTrajectory& traj, bool posesAlreadyWorldMm = false);

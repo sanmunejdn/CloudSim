@@ -290,7 +290,15 @@
     <None Include="resource\trajectory\ops\Duplicate.json" />
     <None Include="resource\trajectory\ops\Reorder.json" />
     <None Include="resource\trajectory\ops\Resample.json" />
-    <None Include="resource\trajectory\ops\OffsetAlongNormal.json" />
+    <None Include="resource\trajectory\ops\SpikeFilter.json" />
+    <None Include="resource\trajectory\ops\SpeedRamp.json" />
+    <None Include="resource\trajectory\ops\ScalePath.json" />
+    <None Include="resource\trajectory\ops\ClampToPlane.json" />
+    <None Include="resource\trajectory\ops\InsertMid.json" />
+    <None Include="resource\trajectory\ops\ShiftStart.json" />
+    <None Include="resource\trajectory\ops\TrimPath.json" />
+    <None Include="resource\trajectory\ops\OrientToPath.json" />
+    <None Include="resource\trajectory\ops\ReversePath.json" />
     <None Include="resource\trajectory\ops\OffsetLateral.json" />
     <None Include="resource\trajectory\ops\SmoothPose.json" />
     <None Include="resource\trajectory\ops\AssignBlend.json" />

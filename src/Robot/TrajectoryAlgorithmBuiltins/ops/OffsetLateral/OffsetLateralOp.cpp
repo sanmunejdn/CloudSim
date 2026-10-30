@@ -1,7 +1,7 @@
 ﻿/// @file OffsetLateralOp.cpp
 /// @brief OffsetLateral 轨迹算子
 
-// OffsetLateral 原子块：沿横向偏移路径点
+// OffsetLateral：按航向在水平面内侧移（非工具局部 Y）
 #include "OffsetLateralOp.h"
 
 #include "TrajectoryOpFormat.h"
@@ -18,7 +18,7 @@ RobotInstruction::TrajectoryOpKind OffsetLateralOp::kind() const
 
 const char* OffsetLateralOp::displayName(const bool chinese) const
 {
-	return chinese ? "横向偏移" : "OffsetLateral";
+	return chinese ? "航向水平侧移" : "Heading Lateral Offset";
 }
 
 TrajectoryOpCapability OffsetLateralOp::capabilities() const
@@ -40,7 +40,7 @@ OffsetLateralOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultS
 std::vector<TrajectoryOpParamField> OffsetLateralOp::paramFields() const
 {
 	return {
-		doubleParamField("offset.lateralMm", "Lateral", "横向偏移", "mm", -1e5, 1e5, 0.01, 0.0, 0),
+		doubleParamField("offset.lateralMm", "Lateral", "侧移量", "mm", -1e5, 1e5, 0.01, 0.0, 0),
 	};
 }
 

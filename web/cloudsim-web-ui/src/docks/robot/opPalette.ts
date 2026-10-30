@@ -9,8 +9,7 @@ export const OP_PALETTE_FALLBACK: OpPaletteEntry[] = [
   { kind: "Mirror", displayNameZh: "轴反向" },
   { kind: "Reorder", displayNameZh: "固定姿态" },
   { kind: "Resample", displayNameZh: "重采样" },
-  { kind: "OffsetAlongNormal", displayNameZh: "法向偏移" },
-  { kind: "OffsetLateral", displayNameZh: "横向偏移" },
+  { kind: "OffsetLateral", displayNameZh: "航向水平侧移" },
   { kind: "SmoothPose", displayNameZh: "姿态平滑" },
   { kind: "AssignBlend", displayNameZh: "过渡半径" },
   { kind: "AssignSpeedZone", displayNameZh: "速度区" },
@@ -22,6 +21,15 @@ export const OP_PALETTE_FALLBACK: OpPaletteEntry[] = [
   { kind: "ProjectToGeometry", displayNameZh: "轨迹投影" },
   { kind: "NonRigidRegistration", displayNameZh: "非刚性配准纠正" },
   { kind: "ToWorkpieceInHand", displayNameZh: "转换工件型" },
+  { kind: "ReversePath", displayNameZh: "路径反向" },
+  { kind: "OrientToPath", displayNameZh: "按路径定向" },
+  { kind: "TrimPath", displayNameZh: "弧长裁剪" },
+  { kind: "ShiftStart", displayNameZh: "闭环起点平移" },
+  { kind: "InsertMid", displayNameZh: "段中插点" },
+  { kind: "ClampToPlane", displayNameZh: "贴平面" },
+  { kind: "ScalePath", displayNameZh: "路径缩放" },
+  { kind: "SpeedRamp", displayNameZh: "速度坡道" },
+  { kind: "SpikeFilter", displayNameZh: "尖点滤波" },
 ];
 
 export function normalizeOpPalette(r: {

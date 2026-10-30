@@ -60,7 +60,7 @@ VS 筛选器：`inc` 放所有 `.h`，`src` 放所有 `.cpp`（含 `ops/` 下源
 | 结构编辑 | Delete / Duplicate | `ops/Delete` `ops/Duplicate` | 自有逻辑 | **是**（OSG overlay） |
 | 姿态策略 | Mirror / Reorder | `ops/Mirror` `ops/Reorder` | `UnifiedTrajectorySemanticMath` | 否 |
 | 路径几何 | Resample | `ops/Resample` | `resampleUnifiedTrajectory` | **是** |
-| 路径几何 | OffsetAlongNormal / OffsetLateral | `ops/Offset*` | `*InScope`（`TrajectoryUnifiedScope`） | **是**（OSG overlay） |
+| 路径几何 | OffsetLateral（航向水平侧移） | `ops/OffsetLateral*` | `*InScope`（`TrajectoryUnifiedScope`） | **是**（OSG overlay） |
 | 路径几何 | SmoothPose | `ops/SmoothPose` | `smoothPoseUnifiedInScope` | **是** |
 | 工艺属性 | AssignBlend / AssignSpeedZone | `ops/Assign*` | `assign*InScope` | 否（写回 blend/speed） |
 | 工艺属性 | Weave | `ops/Weave` | `weaveUnifiedInScope` | **是** |
@@ -208,7 +208,7 @@ std::unique_ptr<IOpParamConfig> makeFooOpConfig()
 
 [`ProcessFlowPresets.json`](../RobotScene/resource/trajectory/ProcessFlowPresets.json) 的焊缝/涂胶/打磨预设由 **本库原子块** 组成，例如焊缝：
 
-`Resample → OffsetAlongNormal → SmoothPose → AssignBlend → Approach → Retract`
+`Resample → SmoothPose → AssignBlend → Approach → Retract`
 
 ### 验收场景（手工）
 

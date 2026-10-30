@@ -6,7 +6,8 @@
       {
         "key": "weave.amplitudeMm",
         "type": "Double",
-        "labelZh": "振幅",
+        "labelZh": "位置振幅",
+        "labelEn": "Position amplitude",
         "unit": "mm",
         "default": 2.0,
         "order": 0
@@ -15,9 +16,38 @@
         "key": "weave.periodMm",
         "type": "Double",
         "labelZh": "周期",
+        "labelEn": "Period",
         "unit": "mm",
         "default": 10.0,
         "order": 1
+      },
+      {
+        "key": "weave.wavePose",
+        "type": "Bool",
+        "labelZh": "姿态摆",
+        "labelEn": "Wave pose",
+        "defaultBool": false,
+        "order": 2
+      },
+      {
+        "key": "weave.poseAmplitudeDeg",
+        "type": "Double",
+        "labelZh": "姿态振幅",
+        "labelEn": "Pose amplitude",
+        "unit": "deg",
+        "default": 5.0,
+        "order": 3
+      },
+      {
+        "key": "weave.poseAxis",
+        "type": "Enum",
+        "labelZh": "姿态摆轴",
+        "labelEn": "Pose axis",
+        "enumValues": ["0", "1", "2"],
+        "enumLabelsZh": ["绕工具X", "绕工具Y", "绕工具Z"],
+        "enumLabelsEn": ["About X", "About Y", "About Z"],
+        "defaultInt": 0,
+        "order": 4
       }
     ]
   },
@@ -27,7 +57,10 @@
     },
     "params": {
       "weave.amplitudeMm": 2.0,
-      "weave.periodMm": 10.0
+      "weave.periodMm": 10.0,
+      "weave.wavePose": false,
+      "weave.poseAmplitudeDeg": 5.0,
+      "weave.poseAxis": 0
     }
   }
 }

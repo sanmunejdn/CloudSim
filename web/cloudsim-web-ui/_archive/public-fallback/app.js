@@ -4091,8 +4091,7 @@ const OP_PALETTE_FALLBACK = [
   ["Mirror", "轴反向"],
   ["Reorder", "固定姿态"],
   ["Resample", "重采样"],
-  ["OffsetAlongNormal", "法向偏移"],
-  ["OffsetLateral", "横向偏移"],
+  ["OffsetLateral", "航向水平侧移"],
   ["SmoothPose", "姿态平滑"],
   ["AssignBlend", "过渡半径"],
   ["AssignSpeedZone", "速度区"],
@@ -4104,6 +4103,15 @@ const OP_PALETTE_FALLBACK = [
   ["ProjectToGeometry", "轨迹投影"],
   ["NonRigidRegistration", "非刚性配准纠正"],
   ["ToWorkpieceInHand", "转换工件型"],
+  ["ReversePath", "路径反向"],
+  ["OrientToPath", "按路径定向"],
+  ["TrimPath", "弧长裁剪"],
+  ["ShiftStart", "闭环起点平移"],
+  ["InsertMid", "段中插点"],
+  ["ClampToPlane", "贴平面"],
+  ["ScalePath", "路径缩放"],
+  ["SpeedRamp", "速度坡道"],
+  ["SpikeFilter", "尖点滤波"],
 ];
 let opPaletteEntries = OP_PALETTE_FALLBACK.map(([kind, zh]) => ({ kind, displayNameZh: zh }));
 const opDisplayNameMap = Object.fromEntries(OP_PALETTE_FALLBACK);

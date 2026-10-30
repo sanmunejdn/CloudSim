@@ -21,23 +21,11 @@ ATOMIC_OPS = [
         "json_params": {"resample.stepMm": 5.0},
     },
     {
-        "name": "OffsetAlongNormal",
-        "kind": "OffsetAlongNormal",
-        "zh": "法向偏移",
-        "prefix": "offset.",
-        "fields": [("offset.offsetMm", "Offset", "法向偏移", "mm", 0.0)],
-        "struct_reads": [
-            ('offset.offsetMm', 'pathOffset.offsetMm', 'Double'),
-        ],
-        "math_fn": "offsetAlongNormalUnified(traj, op.pathOffset.offsetMm)",
-        "json_params": {"offset.offsetMm": 0.0},
-    },
-    {
         "name": "OffsetLateral",
         "kind": "OffsetLateral",
-        "zh": "横向偏移",
+        "zh": "航向水平侧移",
         "prefix": "offset.",
-        "fields": [("offset.lateralMm", "Lateral", "横向偏移", "mm", 0.0)],
+        "fields": [("offset.lateralMm", "Lateral", "侧移量", "mm", 0.0)],
         "struct_reads": [
             ('offset.lateralMm', 'pathOffset.lateralMm', 'Double'),
         ],

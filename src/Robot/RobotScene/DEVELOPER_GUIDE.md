@@ -550,7 +550,7 @@ DH：`setDhRows` 仅 **无 URDF** legacy；有 URDF 时保持 `clearDhRows`。
 
 | 类型 | 说明 |
 |------|------|
-| `TrajectoryOpKind` | Translate / Rotate / Mirror / Delete / Duplicate / Reorder / Approach / Retract / Resample / OffsetAlongNormal / OffsetLateral / SmoothPose / AssignBlend / AssignSpeedZone / Weave / ReachabilityFilter / ExternalAxisSearch / ProjectToGeometry / NonRigidRegistration |
+| `TrajectoryOpKind` | Translate / Rotate / Mirror / Delete / Duplicate / Reorder / Approach / Retract / Resample / OffsetLateral（航向水平侧移）/ SmoothPose / AssignBlend / AssignSpeedZone / Weave / ReachabilityFilter / ExternalAxisSearch / ProjectToGeometry / NonRigidRegistration |
 | `TrajectoryOpDescriptor` | `kind` + `OpScope` + `params` + `enabled`（未启用则引擎跳过） |
 | `TransformReferenceFrame` | `World` / `Body`（`TranslateParams` / `RotateParams` 的 `frame`） |
 | `TrajectoryPipelineEngine` | `UnifiedTrajectory` 管道 IR；Session 持有并驱动预览/Apply（`executeFull` / `executeFrom`） |

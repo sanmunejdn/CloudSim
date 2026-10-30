@@ -219,10 +219,8 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 		return zh ? QStringLiteral("固定姿态") : QStringLiteral("Fixed Orientation");
 	case RobotInstruction::TrajectoryOpKind::Resample:
 		return zh ? QStringLiteral("重采样") : QStringLiteral("Resample");
-	case RobotInstruction::TrajectoryOpKind::OffsetAlongNormal:
-		return zh ? QStringLiteral("法向偏移") : QStringLiteral("Offset Along Normal");
 	case RobotInstruction::TrajectoryOpKind::OffsetLateral:
-		return zh ? QStringLiteral("横向偏移") : QStringLiteral("Offset Lateral");
+		return zh ? QStringLiteral("航向水平侧移") : QStringLiteral("Heading Lateral Offset");
 	case RobotInstruction::TrajectoryOpKind::SmoothPose:
 		return zh ? QStringLiteral("姿态平滑") : QStringLiteral("Smooth Pose");
 	case RobotInstruction::TrajectoryOpKind::AssignBlend:
@@ -243,6 +241,26 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 		return zh ? QStringLiteral("轨迹投影") : QStringLiteral("ProjectToGeometry");
 	case RobotInstruction::TrajectoryOpKind::NonRigidRegistration:
 		return zh ? QStringLiteral("非刚性配准纠正") : QStringLiteral("NonRigidRegistration");
+	case RobotInstruction::TrajectoryOpKind::ToWorkpieceInHand:
+		return zh ? QStringLiteral("转换工件型") : QStringLiteral("ToWorkpieceInHand");
+	case RobotInstruction::TrajectoryOpKind::ReversePath:
+		return zh ? QStringLiteral("路径反向") : QStringLiteral("Reverse Path");
+	case RobotInstruction::TrajectoryOpKind::OrientToPath:
+		return zh ? QStringLiteral("按路径定向") : QStringLiteral("Orient To Path");
+	case RobotInstruction::TrajectoryOpKind::TrimPath:
+		return zh ? QStringLiteral("弧长裁剪") : QStringLiteral("Trim Path");
+	case RobotInstruction::TrajectoryOpKind::ShiftStart:
+		return zh ? QStringLiteral("闭环起点平移") : QStringLiteral("Shift Start");
+	case RobotInstruction::TrajectoryOpKind::InsertMid:
+		return zh ? QStringLiteral("段中插点") : QStringLiteral("Insert Midpoints");
+	case RobotInstruction::TrajectoryOpKind::ClampToPlane:
+		return zh ? QStringLiteral("贴平面") : QStringLiteral("Clamp To Plane");
+	case RobotInstruction::TrajectoryOpKind::ScalePath:
+		return zh ? QStringLiteral("路径缩放") : QStringLiteral("Scale Path");
+	case RobotInstruction::TrajectoryOpKind::SpeedRamp:
+		return zh ? QStringLiteral("速度坡道") : QStringLiteral("Speed Ramp");
+	case RobotInstruction::TrajectoryOpKind::SpikeFilter:
+		return zh ? QStringLiteral("尖点滤波") : QStringLiteral("Spike Filter");
 	case RobotInstruction::TrajectoryOpKind::Translate:
 	default:
 		return zh ? QStringLiteral("平移") : QStringLiteral("Translate");
@@ -270,7 +288,6 @@ void updateTransformActionButtons(const RobotInstruction::TrajectoryOpDescriptor
 	const bool unifiedOnlyOp = op.kind == RobotInstruction::TrajectoryOpKind::Approach ||
 							   op.kind == RobotInstruction::TrajectoryOpKind::Retract ||
 							   op.kind == RobotInstruction::TrajectoryOpKind::Resample ||
-							   op.kind == RobotInstruction::TrajectoryOpKind::OffsetAlongNormal ||
 							   op.kind == RobotInstruction::TrajectoryOpKind::OffsetLateral ||
 							   op.kind == RobotInstruction::TrajectoryOpKind::SmoothPose ||
 							   op.kind == RobotInstruction::TrajectoryOpKind::AssignBlend ||
@@ -281,7 +298,16 @@ void updateTransformActionButtons(const RobotInstruction::TrajectoryOpDescriptor
 							   op.kind == RobotInstruction::TrajectoryOpKind::Delete ||
 							   op.kind == RobotInstruction::TrajectoryOpKind::Duplicate ||
 							   op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry ||
-							   op.kind == RobotInstruction::TrajectoryOpKind::NonRigidRegistration;
+							   op.kind == RobotInstruction::TrajectoryOpKind::NonRigidRegistration ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::ReversePath ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::OrientToPath ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::TrimPath ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::ShiftStart ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::InsertMid ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::ClampToPlane ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::ScalePath ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::SpeedRamp ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::SpikeFilter;
 	const bool canPosePreview =
 		algo && trajectory_algo::hasCapability(algo->capabilities(),
 											   trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform);
@@ -800,6 +826,26 @@ void TrajectoryEditPageWidget::setPipelineAppliedState(const bool applied, const
 	}
 }
 
+int TrajectoryEditPageWidget::scopePointIndexLimitForSelection() const
+{
+	if (!m_session || !m_session->hasRawTrajectory())
+	{
+		return 0;
+	}
+	const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
+	const int sourceN = traj ? static_cast<int>(traj->points.size()) : 0;
+	if (!m_pipeline || sourceN <= 0)
+	{
+		return sourceN;
+	}
+	const int selected = m_pipeline->selectedOpIndex();
+	if (selected < 0)
+	{
+		return m_session->pointCountBeforePipelineOp(m_pipeline->ops(), static_cast<int>(m_pipeline->ops().size()));
+	}
+	return m_session->pointCountBeforePipelineOp(m_pipeline->ops(), selected);
+}
+
 void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
 {
 	const bool zh = m_useChinese;
@@ -813,7 +859,7 @@ void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
 	if (m_paramPanel)
 	{
 		m_paramPanel->setEditingRawCloud(hasRaw && n > 0);
-		m_paramPanel->setPointIndexLimit(n);
+		m_paramPanel->setPointIndexLimit(scopePointIndexLimitForSelection());
 	}
 	if (!m_rawStatusLabel)
 	{
@@ -1419,8 +1465,11 @@ RobotInstruction::OpScope TrajectoryEditPageWidget::defaultScopeForNewOp() const
 	RobotInstruction::OpScope scope{};
 	if (m_session && m_session->hasRawTrajectory())
 	{
-		const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
-		const int n = traj ? static_cast<int>(traj->points.size()) : 0;
+		// 新算子默认作用在「当前流水线全部跑完后」的点数上
+		const int n =
+			m_pipeline ? m_session->pointCountBeforePipelineOp(m_pipeline->ops(),
+															  static_cast<int>(m_pipeline->ops().size()))
+					   : scopePointIndexLimitForSelection();
 		if (n > 0)
 		{
 			scope.kind = RobotInstruction::OpScope::Kind::PointIndexRange;
@@ -1560,12 +1609,11 @@ void TrajectoryEditPageWidget::loadSelectedOpToParamsImpl()
 	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
 	m_loadingParams = true;
 	m_paramPanel->setLoading(true);
-	if (m_session && m_session->hasRawTrajectory())
+	const int limitN = scopePointIndexLimitForSelection();
+	if (limitN > 0)
 	{
-		const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
-		const int n = traj ? static_cast<int>(traj->points.size()) : 0;
-		m_paramPanel->setEditingRawCloud(n > 0);
-		m_paramPanel->setPointIndexLimit(n);
+		m_paramPanel->setEditingRawCloud(true);
+		m_paramPanel->setPointIndexLimit(limitN);
 	}
 	else
 	{

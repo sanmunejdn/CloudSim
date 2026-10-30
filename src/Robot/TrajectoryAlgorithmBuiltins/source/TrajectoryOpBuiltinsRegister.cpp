@@ -8,20 +8,24 @@
 #include "AssignBlendOpConfig.h"
 #include "AssignSpeedZoneOp.h"
 #include "AssignSpeedZoneOpConfig.h"
+#include "ClampToPlaneOp.h"
+#include "ClampToPlaneOpConfig.h"
 #include "DeleteOp.h"
 #include "DeleteOpConfig.h"
 #include "DuplicateOp.h"
 #include "DuplicateOpConfig.h"
 #include "ExternalAxisSearchOp.h"
 #include "ExternalAxisSearchOpConfig.h"
+#include "InsertMidOp.h"
+#include "InsertMidOpConfig.h"
 #include "MirrorOp.h"
 #include "MirrorOpConfig.h"
 #include "NonRigidRegistrationOp.h"
 #include "NonRigidRegistrationOpConfig.h"
-#include "OffsetAlongNormalOp.h"
-#include "OffsetAlongNormalOpConfig.h"
 #include "OffsetLateralOp.h"
 #include "OffsetLateralOpConfig.h"
+#include "OrientToPathOp.h"
+#include "OrientToPathOpConfig.h"
 #include "ProjectToGeometryOp.h"
 #include "ProjectToGeometryOpConfig.h"
 #include "ReachabilityFilterOp.h"
@@ -32,16 +36,28 @@
 #include "ResampleOpConfig.h"
 #include "RetractOp.h"
 #include "RetractOpConfig.h"
+#include "ReversePathOp.h"
+#include "ReversePathOpConfig.h"
 #include "RotateOp.h"
 #include "RotateOpConfig.h"
+#include "ScalePathOp.h"
+#include "ScalePathOpConfig.h"
+#include "ShiftStartOp.h"
+#include "ShiftStartOpConfig.h"
 #include "SmoothPoseOp.h"
 #include "SmoothPoseOpConfig.h"
+#include "SpeedRampOp.h"
+#include "SpeedRampOpConfig.h"
+#include "SpikeFilterOp.h"
+#include "SpikeFilterOpConfig.h"
 #include "ToWorkpieceInHandOp.h"
 #include "ToWorkpieceInHandOpConfig.h"
 #include "TrajectoryOpConfigRegistry.h"
 #include "TrajectoryOpRegistry.h"
 #include "TranslateOp.h"
 #include "TranslateOpConfig.h"
+#include "TrimPathOp.h"
+#include "TrimPathOpConfig.h"
 #include "WeaveOp.h"
 #include "WeaveOpConfig.h"
 
@@ -60,7 +76,6 @@ void registerOpConfigs(TrajectoryOpConfigRegistry& registry)
 	registry.registerOpConfig(makeDuplicateOpConfig());
 	registry.registerOpConfig(makeReorderOpConfig());
 	registry.registerOpConfig(makeResampleOpConfig());
-	registry.registerOpConfig(makeOffsetAlongNormalOpConfig());
 	registry.registerOpConfig(makeOffsetLateralOpConfig());
 	registry.registerOpConfig(makeSmoothPoseOpConfig());
 	registry.registerOpConfig(makeAssignBlendOpConfig());
@@ -73,6 +88,15 @@ void registerOpConfigs(TrajectoryOpConfigRegistry& registry)
 	registry.registerOpConfig(makeProjectToGeometryOpConfig());
 	registry.registerOpConfig(makeNonRigidRegistrationOpConfig());
 	registry.registerOpConfig(makeToWorkpieceInHandOpConfig());
+	registry.registerOpConfig(makeReversePathOpConfig());
+	registry.registerOpConfig(makeOrientToPathOpConfig());
+	registry.registerOpConfig(makeTrimPathOpConfig());
+	registry.registerOpConfig(makeShiftStartOpConfig());
+	registry.registerOpConfig(makeInsertMidOpConfig());
+	registry.registerOpConfig(makeClampToPlaneOpConfig());
+	registry.registerOpConfig(makeScalePathOpConfig());
+	registry.registerOpConfig(makeSpeedRampOpConfig());
+	registry.registerOpConfig(makeSpikeFilterOpConfig());
 }
 } // namespace
 
@@ -85,7 +109,6 @@ void registerTrajectoryOpBuiltins(TrajectoryOpRegistry& registry)
 	registry.registerOp(std::make_unique<MirrorOp>());
 	registry.registerOp(std::make_unique<ReorderOp>());
 	registry.registerOp(std::make_unique<ResampleOp>());
-	registry.registerOp(std::make_unique<OffsetAlongNormalOp>());
 	registry.registerOp(std::make_unique<OffsetLateralOp>());
 	registry.registerOp(std::make_unique<SmoothPoseOp>());
 	registry.registerOp(std::make_unique<AssignBlendOp>());
@@ -98,6 +121,15 @@ void registerTrajectoryOpBuiltins(TrajectoryOpRegistry& registry)
 	registry.registerOp(std::make_unique<ProjectToGeometryOp>());
 	registry.registerOp(std::make_unique<NonRigidRegistrationOp>());
 	registry.registerOp(std::make_unique<ToWorkpieceInHandOp>());
+	registry.registerOp(std::make_unique<ReversePathOp>());
+	registry.registerOp(std::make_unique<OrientToPathOp>());
+	registry.registerOp(std::make_unique<TrimPathOp>());
+	registry.registerOp(std::make_unique<ShiftStartOp>());
+	registry.registerOp(std::make_unique<InsertMidOp>());
+	registry.registerOp(std::make_unique<ClampToPlaneOp>());
+	registry.registerOp(std::make_unique<ScalePathOp>());
+	registry.registerOp(std::make_unique<SpeedRampOp>());
+	registry.registerOp(std::make_unique<SpikeFilterOp>());
 }
 
 void ensureTrajectoryOpBuiltinsRegistered()

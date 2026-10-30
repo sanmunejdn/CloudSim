@@ -7,7 +7,6 @@
       "labelEn": "Weld",
       "ops": [
         "Resample",
-        "OffsetAlongNormal",
         "SmoothPose",
         "AssignBlend",
         "Approach",
@@ -20,7 +19,6 @@
       "labelEn": "Glue",
       "ops": [
         "Resample",
-        "OffsetAlongNormal",
         "SmoothPose",
         "AssignSpeedZone"
       ]
@@ -31,7 +29,6 @@
       "labelEn": "Grind",
       "ops": [
         "Resample",
-        "OffsetAlongNormal",
         "SmoothPose",
         "Weave",
         "Approach",

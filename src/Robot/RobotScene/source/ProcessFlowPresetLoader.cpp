@@ -32,14 +32,13 @@ std::vector<TrajectoryOpKind> hardcodedPresetOpKinds(const RecipeKind kind)
 	switch (kind)
 	{
 	case RecipeKind::Weld:
-		return {TrajectoryOpKind::Resample,	   TrajectoryOpKind::OffsetAlongNormal, TrajectoryOpKind::SmoothPose,
-				TrajectoryOpKind::AssignBlend, TrajectoryOpKind::Approach,			TrajectoryOpKind::Retract};
+		return {TrajectoryOpKind::Resample, TrajectoryOpKind::SmoothPose, TrajectoryOpKind::AssignBlend,
+				TrajectoryOpKind::Approach, TrajectoryOpKind::Retract};
 	case RecipeKind::Glue:
-		return {TrajectoryOpKind::Resample, TrajectoryOpKind::OffsetAlongNormal, TrajectoryOpKind::SmoothPose,
-				TrajectoryOpKind::AssignSpeedZone};
+		return {TrajectoryOpKind::Resample, TrajectoryOpKind::SmoothPose, TrajectoryOpKind::AssignSpeedZone};
 	case RecipeKind::Grind:
-		return {TrajectoryOpKind::Resample, TrajectoryOpKind::OffsetAlongNormal, TrajectoryOpKind::SmoothPose,
-				TrajectoryOpKind::Weave,	TrajectoryOpKind::Approach,			 TrajectoryOpKind::Retract};
+		return {TrajectoryOpKind::Resample, TrajectoryOpKind::SmoothPose, TrajectoryOpKind::Weave,
+				TrajectoryOpKind::Approach, TrajectoryOpKind::Retract};
 	}
 	return {};
 }

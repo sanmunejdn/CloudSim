@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "kind": "OrientToPath",
+  "schema": {
+    "fields": [
+      {
+        "key": "orient.flipToolZ",
+        "type": "Bool",
+        "labelZh": "翻转工具Z",
+        "order": 0,
+        "defaultBool": false
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "orient.flipToolZ": false
+    }
+  }
+}

@@ -14,12 +14,11 @@
 namespace trajectory_algo
 {
 void resampleUnifiedTrajectory(RobotInstruction::UnifiedTrajectory& traj, double stepMm);
-void offsetAlongNormalUnified(RobotInstruction::UnifiedTrajectory& traj, double offsetMm);
 void offsetLateralUnified(RobotInstruction::UnifiedTrajectory& traj, double lateralMm);
 void smoothPoseUnified(RobotInstruction::UnifiedTrajectory& traj);
 void assignBlendUnified(RobotInstruction::UnifiedTrajectory& traj, double blendRadiusMm);
 void assignSpeedUnified(RobotInstruction::UnifiedTrajectory& traj, double speedMmPerSec);
-void weaveUnified(RobotInstruction::UnifiedTrajectory& traj, double amplitudeMm, double periodMm);
+void weaveUnified(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::WeaveParams& params);
 /// 委托 ctx.reachabilityProbe；未注入返回 false
 bool reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
 							   bool useOrientation, double residualTolMm, std::string* errMsg);
@@ -28,8 +27,6 @@ void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj, const 
 
 void resampleUnifiedTrajectoryInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
 									  const RobotInstruction::RobotProgram* program, double stepMm);
-void offsetAlongNormalUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
-									 const RobotInstruction::RobotProgram* program, double offsetMm);
 void offsetLateralUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
 								 const RobotInstruction::RobotProgram* program, double lateralMm);
 void smoothPoseUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
@@ -39,11 +36,30 @@ void assignBlendUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const 
 void assignSpeedUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
 							   const RobotInstruction::RobotProgram* program, double speedMmPerSec);
 void weaveUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
-						 const RobotInstruction::RobotProgram* program, double amplitudeMm, double periodMm);
+						 const RobotInstruction::RobotProgram* program, const RobotInstruction::WeaveParams& params);
 bool reachabilityFilterUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
 									  const RobotInstruction::RobotProgram* program,
 									  const TrajectoryOpExecutionContext& ctx, bool useOrientation,
 									  double residualTolMm, std::string* errMsg);
+
+void reversePathUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+							   const RobotInstruction::RobotProgram* program);
+void orientToPathUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+								const RobotInstruction::RobotProgram* program, bool flipToolZ);
+void trimPathUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+							const RobotInstruction::RobotProgram* program, double startMm, double endMm);
+void shiftStartUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+							  const RobotInstruction::RobotProgram* program, int startIndex1);
+void insertMidpointsUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+								   const RobotInstruction::RobotProgram* program, int passes);
+void clampToPlaneUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+								const RobotInstruction::RobotProgram* program, int axis, double valueMm);
+void scalePathUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+							 const RobotInstruction::RobotProgram* program, double factor);
+void speedRampUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+							 const RobotInstruction::RobotProgram* program, double startMmPerSec, double endMmPerSec);
+void spikeFilterUnifiedInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
+							   const RobotInstruction::RobotProgram* program, double maxDetourRatio);
 
 } // namespace trajectory_algo
 

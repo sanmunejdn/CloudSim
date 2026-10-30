@@ -152,7 +152,8 @@ bool isSegmentStart(std::size_t index, const std::vector<std::size_t>* segmentEn
 bool bestFaceNormalAtPoint(const std::vector<TopoDS_Face>& faces, const Point3d& pt, Vec3d& outNormal)
 {
 	const gp_Pnt gpPt(pt.x, pt.y, pt.z);
-	const double maxDist = Precision::Confusion() * 100.0 * 10.0;
+	// 原 Confusion×1000≈1e-4mm 过严，高曲率离散点稍离面即失败
+	constexpr double kFaceNormalMaxDistMm = 1.0;
 
 	double bestDist = std::numeric_limits<double>::max();
 	gp_Vec bestNormal;
@@ -163,7 +164,7 @@ bool bestFaceNormalAtPoint(const std::vector<TopoDS_Face>& faces, const Point3d&
 		found = tryFaceNormalAtPoint(face, gpPt, bestDist, bestNormal) || found;
 	}
 
-	if (!found || bestDist > maxDist)
+	if (!found || bestDist > kFaceNormalMaxDistMm)
 	{
 		return false;
 	}
@@ -291,9 +292,14 @@ void appendPolylineToRawPath(const Polyline3d& poly, RawPath& out, const Discret
 			{
 				rp.hasNormal = true;
 			}
+			else if (!out.points.empty() && out.points.back().hasNormal)
+			{
+				// 投影失败沿用前点，避免与 T×up 混用造成 180° 跳变
+				rp.normal = out.points.back().normal;
+				rp.hasNormal = true;
+			}
 			else if (rp.hasTangent)
 			{
-				// 无关联面时退化为切向叉乘参考轴
 				rp.normal = fallbackNormalFromTangent(rp.tangent);
 				rp.hasNormal = true;
 			}

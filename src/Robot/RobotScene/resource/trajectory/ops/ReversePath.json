@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "kind": "ReversePath",
+  "schema": {
+    "fields": []
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {}
+  }
+}

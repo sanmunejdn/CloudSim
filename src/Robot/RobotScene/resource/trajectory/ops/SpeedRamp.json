@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "kind": "SpeedRamp",
+  "schema": {
+    "fields": [
+      {
+        "key": "speed.startMmPerSec",
+        "type": "Double",
+        "labelZh": "起点速度",
+        "order": 0,
+        "unit": "mm/s",
+        "default": 50.0
+      },
+      {
+        "key": "speed.endMmPerSec",
+        "type": "Double",
+        "labelZh": "终点速度",
+        "order": 1,
+        "unit": "mm/s",
+        "default": 100.0
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "speed.startMmPerSec": 50.0,
+      "speed.endMmPerSec": 100.0
+    }
+  }
+}

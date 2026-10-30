@@ -6,7 +6,7 @@
       {
         "key": "offset.lateralMm",
         "type": "Double",
-        "labelZh": "横向偏移",
+        "labelZh": "侧移量",
         "unit": "mm",
         "default": 0.0,
         "order": 0

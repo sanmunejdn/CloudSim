@@ -1639,28 +1639,56 @@ bool runSelfTest(std::vector<std::string>& failures)
 			}
 		}
 
-		// FaceBoundary 多面：每面外轮廓独立成段
+		// FaceBoundary 多相邻面：区域整体外轮廓（共享边剔除），非各面外轮廓集合
 		{
 			const TopoDS_Shape box4 = BRepPrimAPI_MakeBox(60.0, 60.0, 60.0).Shape();
-			FeatureListDocument faceDoc;
-			faceDoc.workpiece.stepPathUtf8 = "selftest_box4";
-			FeatureEntry fb;
-			fb.featureId = "faces";
-			fb.strategyId = "FaceBoundary";
-			GeometryRef f0;
-			f0.kind = GeometryRefKind::Face;
-			f0.index = 0;
-			GeometryRef f1;
-			f1.kind = GeometryRefKind::Face;
-			f1.index = 1;
-			fb.geometry.refs = {f0, f1};
-			fb.params["stepMm"] = 5.0;
-			faceDoc.features.push_back(fb);
-			RawPath facePath;
-			if (!discretizeFeatureList(faceDoc, ShapeHandleAccess::fromNativeShape(&box4), facePath, &err) ||
-				facePath.points.size() < 4U || facePath.segmentEndExclusive.empty())
+			TopTools_IndexedDataMapOfShapeListOfShape edgeFaceMap;
+			TopExp::MapShapesAndAncestors(box4, TopAbs_EDGE, TopAbs_FACE, edgeFaceMap);
+			TopTools_IndexedMapOfShape faceMap;
+			TopExp::MapShapes(box4, TopAbs_FACE, faceMap);
+			int faceA = -1;
+			int faceB = -1;
+			for (int ei = 1; ei <= edgeFaceMap.Extent() && faceA < 0; ++ei)
 			{
-				fail("faceBoundaryMultiFace", err.empty() ? "expected multi-face segments" : err);
+				const TopTools_ListOfShape& adj = edgeFaceMap.FindFromIndex(ei);
+				if (adj.Extent() < 2)
+				{
+					continue;
+				}
+				TopTools_ListIteratorOfListOfShape it(adj);
+				const TopoDS_Face fa = TopoDS::Face(it.Value());
+				it.Next();
+				const TopoDS_Face fbFace = TopoDS::Face(it.Value());
+				faceA = faceMap.FindIndex(fa) - 1;
+				faceB = faceMap.FindIndex(fbFace) - 1;
+			}
+			if (faceA < 0 || faceB < 0)
+			{
+				fail("faceBoundaryMultiFace", "no adjacent face pair on box");
+			}
+			else
+			{
+				FeatureListDocument faceDoc;
+				faceDoc.workpiece.stepPathUtf8 = "selftest_box4";
+				FeatureEntry fb;
+				fb.featureId = "faces";
+				fb.strategyId = "FaceBoundary";
+				GeometryRef r0;
+				r0.kind = GeometryRefKind::Face;
+				r0.index = faceA;
+				GeometryRef r1;
+				r1.kind = GeometryRefKind::Face;
+				r1.index = faceB;
+				fb.geometry.refs = {r0, r1};
+				fb.params["stepMm"] = 5.0;
+				faceDoc.features.push_back(fb);
+				RawPath facePath;
+				if (!discretizeFeatureList(faceDoc, ShapeHandleAccess::fromNativeShape(&box4), facePath, &err) ||
+					facePath.points.size() < 4U || !facePath.segmentEndExclusive.empty())
+				{
+					fail("faceBoundaryMultiFace",
+						 err.empty() ? "expected single region outer loop (no per-face segments)" : err);
+				}
 			}
 		}
 

@@ -93,7 +93,6 @@
 #include <QTemporaryFile>
 #include <QTimer>
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -8806,7 +8805,9 @@ void RobotSimulationController::onSimulationDockTabChanged(int index)
 	{
 		if (TrajectoryGenerationPageWidget* gen =
 				m_simulationDock ? m_simulationDock->trajectoryGenerationPage() : nullptr)
+		{
 			gen->refreshWorkpieces();
+		}
 	}
 	refreshCollisionPageMotionWaypoints();
 	refreshCollisionPageSceneObjects();
@@ -8817,9 +8818,23 @@ void RobotSimulationController::refreshPathPlanPreviewForActiveTab(const RobotIn
 {
 	if (isTrajectoryGenerationTabActive())
 	{
-		if (shouldShowTrajectoryGenerationPreview())
+		const bool showGen = shouldShowTrajectoryGenerationPreview();
+		if (showGen)
 		{
-			refreshBoundPathPlanPreview(preferRaw);
+			// 无显式 preferRaw 时走生成页逻辑（默认同编辑流水线，勿直接刷 session 原始 raw）
+			if (preferRaw && !preferRaw->points.empty())
+			{
+				refreshBoundPathPlanPreview(preferRaw);
+			}
+			else if (FeatureTrajectoryPageWidget* feat =
+						 m_simulationDock ? m_simulationDock->featureTrajectoryPage() : nullptr)
+			{
+				feat->onGenerationPageActivated();
+			}
+			else
+			{
+				refreshBoundPathPlanPreview(nullptr);
+			}
 		}
 		else
 		{
@@ -8938,7 +8953,16 @@ void RobotSimulationController::refreshPathPlanRawOverlays()
 	{
 		if (shouldShowTrajectoryGenerationPreview())
 		{
-			refreshBoundPathPlanPreview();
+			// 与 tab 刷新一致：走生成页流水线预览，禁止直接刷 session 原始 raw
+			if (FeatureTrajectoryPageWidget* feat =
+					m_simulationDock ? m_simulationDock->featureTrajectoryPage() : nullptr)
+			{
+				feat->onGenerationPageActivated();
+			}
+			else
+			{
+				refreshBoundPathPlanPreview();
+			}
 		}
 		else
 		{

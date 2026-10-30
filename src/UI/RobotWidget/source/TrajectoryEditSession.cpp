@@ -106,7 +106,6 @@ bool isUnifiedPathOpKind(const RobotInstruction::TrajectoryOpKind kind)
 	case RobotInstruction::TrajectoryOpKind::Approach:
 	case RobotInstruction::TrajectoryOpKind::Retract:
 	case RobotInstruction::TrajectoryOpKind::Resample:
-	case RobotInstruction::TrajectoryOpKind::OffsetAlongNormal:
 	case RobotInstruction::TrajectoryOpKind::OffsetLateral:
 	case RobotInstruction::TrajectoryOpKind::SmoothPose:
 	case RobotInstruction::TrajectoryOpKind::AssignBlend:
@@ -118,10 +117,48 @@ bool isUnifiedPathOpKind(const RobotInstruction::TrajectoryOpKind kind)
 	case RobotInstruction::TrajectoryOpKind::Duplicate:
 	case RobotInstruction::TrajectoryOpKind::ProjectToGeometry:
 	case RobotInstruction::TrajectoryOpKind::NonRigidRegistration:
+	case RobotInstruction::TrajectoryOpKind::ReversePath:
+	case RobotInstruction::TrajectoryOpKind::OrientToPath:
+	case RobotInstruction::TrajectoryOpKind::TrimPath:
+	case RobotInstruction::TrajectoryOpKind::ShiftStart:
+	case RobotInstruction::TrajectoryOpKind::InsertMid:
+	case RobotInstruction::TrajectoryOpKind::ClampToPlane:
+	case RobotInstruction::TrajectoryOpKind::ScalePath:
+	case RobotInstruction::TrajectoryOpKind::SpeedRamp:
+	case RobotInstruction::TrajectoryOpKind::SpikeFilter:
 		return true;
 	default:
 		return false;
 	}
+}
+
+bool pipelinePrefixMayChangePointCount(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops,
+									   const int beforeOpIndex)
+{
+	const int n = std::min(beforeOpIndex, static_cast<int>(ops.size()));
+	for (int i = 0; i < n; ++i)
+	{
+		if (!ops[static_cast<std::size_t>(i)].enabled)
+		{
+			continue;
+		}
+		switch (ops[static_cast<std::size_t>(i)].kind)
+		{
+		case RobotInstruction::TrajectoryOpKind::Delete:
+		case RobotInstruction::TrajectoryOpKind::Duplicate:
+		case RobotInstruction::TrajectoryOpKind::Resample:
+		case RobotInstruction::TrajectoryOpKind::Approach:
+		case RobotInstruction::TrajectoryOpKind::Retract:
+		case RobotInstruction::TrajectoryOpKind::ReachabilityFilter:
+		case RobotInstruction::TrajectoryOpKind::TrimPath:
+		case RobotInstruction::TrajectoryOpKind::InsertMid:
+		case RobotInstruction::TrajectoryOpKind::SpikeFilter:
+			return true;
+		default:
+			break;
+		}
+	}
+	return false;
 }
 
 void mergeOpsInto(std::vector<RobotInstruction::TrajectoryOpDescriptor>& target,
@@ -161,11 +198,18 @@ bool pipelineNeedsOverlayPreview(const std::vector<RobotInstruction::TrajectoryO
 		case RobotInstruction::TrajectoryOpKind::Retract:
 		case RobotInstruction::TrajectoryOpKind::Delete:
 		case RobotInstruction::TrajectoryOpKind::Duplicate:
-		case RobotInstruction::TrajectoryOpKind::OffsetAlongNormal:
 		case RobotInstruction::TrajectoryOpKind::OffsetLateral:
 		case RobotInstruction::TrajectoryOpKind::SmoothPose:
 		case RobotInstruction::TrajectoryOpKind::Weave:
 		case RobotInstruction::TrajectoryOpKind::ProjectToGeometry:
+		case RobotInstruction::TrajectoryOpKind::ReversePath:
+		case RobotInstruction::TrajectoryOpKind::OrientToPath:
+		case RobotInstruction::TrajectoryOpKind::TrimPath:
+		case RobotInstruction::TrajectoryOpKind::ShiftStart:
+		case RobotInstruction::TrajectoryOpKind::InsertMid:
+		case RobotInstruction::TrajectoryOpKind::ClampToPlane:
+		case RobotInstruction::TrajectoryOpKind::ScalePath:
+		case RobotInstruction::TrajectoryOpKind::SpikeFilter:
 			return true;
 		default:
 			break;
@@ -1701,6 +1745,45 @@ bool TrajectoryEditSession::hasRawTrajectory() const
 	return m_rawTrajectory.has_value() && !m_rawTrajectory->points.empty();
 }
 
+bool TrajectoryEditSession::buildRawWorkingWithPipeline(
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
+	RobotInstruction::RawTrajectory& outPreviewRaw, QString* outError) const
+{
+	if (!configurePipelineEngineForRaw(pipelineOps))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("无原始轨迹");
+		}
+		return false;
+	}
+	ensureGeometryResolverBound();
+	injectWorkpieceReferenceOnEngine();
+	std::string err;
+	if (!m_pipelineEngine.executeFull(&err))
+	{
+		if (outError)
+		{
+			*outError = err.empty() ? QStringLiteral("unified preview failed") : QString::fromStdString(err);
+		}
+		return false;
+	}
+	outPreviewRaw = m_pipelineEngine.rawWorking();
+	if (outPreviewRaw.points.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("流水线结果为空");
+		}
+		return false;
+	}
+	if (outPreviewRaw.sourceFeatureJson.empty() && m_rawTrajectory.has_value())
+	{
+		outPreviewRaw.sourceFeatureJson = m_rawTrajectory->sourceFeatureJson;
+	}
+	return true;
+}
+
 void TrajectoryEditSession::clearRawTrajectory()
 {
 	bool hadStoreRaw = false;
@@ -1806,6 +1889,35 @@ bool TrajectoryEditSession::runPipelineEngineFrom(const std::size_t nodeIndex, Q
 		return false;
 	}
 	return true;
+}
+
+int TrajectoryEditSession::pointCountBeforePipelineOp(
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops, const int beforeOpIndex) const
+{
+	if (!m_rawTrajectory.has_value() || m_rawTrajectory->points.empty())
+	{
+		return 0;
+	}
+	const int sourceN = static_cast<int>(m_rawTrajectory->points.size());
+	if (beforeOpIndex <= 0 || ops.empty() || !pipelinePrefixMayChangePointCount(ops, beforeOpIndex))
+	{
+		return sourceN;
+	}
+	const int prefixLen = std::min(beforeOpIndex, static_cast<int>(ops.size()));
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> prefix(
+		ops.begin(), ops.begin() + static_cast<std::ptrdiff_t>(prefixLen));
+	if (!configurePipelineEngineForRaw(prefix))
+	{
+		return sourceN;
+	}
+	ensureGeometryResolverBound();
+	injectWorkpieceReferenceOnEngine();
+	std::string err;
+	if (!m_pipelineEngine.executeFull(&err))
+	{
+		return sourceN;
+	}
+	return static_cast<int>(m_pipelineEngine.result().points.size());
 }
 
 bool TrajectoryEditSession::buildRawPreviewWithPipeline(

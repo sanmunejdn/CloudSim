@@ -648,9 +648,6 @@
     <None Include="resource\trajectory\ops\NonRigidRegistration.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
-    <None Include="resource\trajectory\ops\OffsetAlongNormal.json">
-      <Filter>resource\trajectory\ops</Filter>
-    </None>
     <None Include="resource\trajectory\ops\OffsetLateral.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>

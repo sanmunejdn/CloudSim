@@ -25,7 +25,6 @@ enum class ROBOT_SCENE_API TrajectoryOpKind
 	Approach,
 	Retract,
 	Resample,
-	OffsetAlongNormal,
 	OffsetLateral,
 	SmoothPose,
 	AssignBlend,
@@ -35,7 +34,16 @@ enum class ROBOT_SCENE_API TrajectoryOpKind
 	ExternalAxisSearch,
 	ProjectToGeometry,
 	NonRigidRegistration,
-	ToWorkpieceInHand
+	ToWorkpieceInHand,
+	ReversePath,
+	OrientToPath,
+	TrimPath,
+	ShiftStart,
+	InsertMid,
+	ClampToPlane,
+	ScalePath,
+	SpeedRamp,
+	SpikeFilter
 };
 
 /// 轨迹增量参考系（相对路点当前 T_base_target）
@@ -90,7 +98,6 @@ struct ROBOT_SCENE_API ResampleParams
 
 struct ROBOT_SCENE_API PathOffsetParams
 {
-	double offsetMm = 0.0;
 	double lateralMm = 0.0;
 };
 
@@ -98,6 +105,11 @@ struct ROBOT_SCENE_API WeaveParams
 {
 	double amplitudeMm = 2.0;
 	double periodMm = 10.0;
+	/// 是否叠加物体系姿态摆
+	bool wavePose = false;
+	double poseAmplitudeDeg = 5.0;
+	/// 0/1/2 = 绕工具 X/Y/Z
+	int poseAxis = 0;
 };
 
 struct ROBOT_SCENE_API AssignMotionParams

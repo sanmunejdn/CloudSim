@@ -19,7 +19,7 @@ python CloudSim/tools/gen_atomic_ops.py        # ops/ 原子块四件套 + JSON
 |------|------|
 | `ops/<Name>.json` | 原子算法块：schema + defaults，由 `<Name>OpConfig` 加载 |
 | `CommonScope.json` | 作用域公共字段（scope.kind / groupId / pointFrom / pointTo） |
-| `ProcessFlowPresets.json` | 工艺预设；`pipeline` 为原子块列表（如 Resample → OffsetAlongNormal → …） |
+| `ProcessFlowPresets.json` | 工艺预设；`pipeline` 为原子块列表（如 Resample → SmoothPose → …） |
 
 ## 执行约定
 

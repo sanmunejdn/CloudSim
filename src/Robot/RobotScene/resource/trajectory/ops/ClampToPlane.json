@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "kind": "ClampToPlane",
+  "schema": {
+    "fields": [
+      {
+        "key": "clamp.axis",
+        "type": "Enum",
+        "labelZh": "锁定轴",
+        "order": 0,
+        "enumValues": [
+          "0",
+          "1",
+          "2"
+        ],
+        "enumLabelsZh": [
+          "X",
+          "Y",
+          "Z"
+        ],
+        "enumLabelsEn": [
+          "X",
+          "Y",
+          "Z"
+        ],
+        "defaultInt": 2
+      },
+      {
+        "key": "clamp.valueMm",
+        "type": "Double",
+        "labelZh": "目标值",
+        "order": 1,
+        "unit": "mm",
+        "default": 0.0
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "clamp.axis": 2,
+      "clamp.valueMm": 0.0
+    }
+  }
+}

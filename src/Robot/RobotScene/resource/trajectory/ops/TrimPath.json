@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "kind": "TrimPath",
+  "schema": {
+    "fields": [
+      {
+        "key": "trim.startMm",
+        "type": "Double",
+        "labelZh": "起点裁剪",
+        "order": 0,
+        "unit": "mm",
+        "default": 0.0
+      },
+      {
+        "key": "trim.endMm",
+        "type": "Double",
+        "labelZh": "终点裁剪",
+        "order": 1,
+        "unit": "mm",
+        "default": 0.0
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "trim.startMm": 0.0,
+      "trim.endMm": 0.0
+    }
+  }
+}

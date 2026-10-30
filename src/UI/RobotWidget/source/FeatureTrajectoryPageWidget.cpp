@@ -409,6 +409,11 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	axisRow->addWidget(m_axisIntervalSpin);
 	axisRow->addStretch();
 	previewLayout->addLayout(axisRow);
+	m_showOriginalTrajectoryCheck = new QCheckBox(QStringLiteral("显示原始轨迹"), m_previewGroup);
+	m_showOriginalTrajectoryCheck->setChecked(false);
+	m_showOriginalTrajectoryCheck->setToolTip(
+		QStringLiteral("默认与轨迹编辑预览同步；勾选后仅显示离散得到的原始轨迹"));
+	previewLayout->addWidget(m_showOriginalTrajectoryCheck);
 	m_brepInfoLabel = new QLabel(m_previewGroup);
 	m_brepInfoLabel->setWordWrap(true);
 	m_brepInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -494,6 +499,7 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent) : QWid
 	connect(m_showAxisZCheck, &QCheckBox::toggled, this, [this]() { refreshPreviewFromSession(); });
 	connect(m_axisIntervalSpin, QOverload<int>::of(&QSpinBox::valueChanged), this,
 			[this]() { refreshPreviewFromSession(); });
+	connect(m_showOriginalTrajectoryCheck, &QCheckBox::toggled, this, [this]() { refreshPreviewFromSession(); });
 
 	UiIconDecorators::apply(m_pickEdgeBtn, UiIconId::PickEdge);
 	UiIconDecorators::apply(m_pickFaceBtn, UiIconId::PickFace);
@@ -563,6 +569,14 @@ void FeatureTrajectoryPageWidget::updateUiLabels()
 	if (m_showAxisZCheck)
 	{
 		m_showAxisZCheck->setText(zh ? QStringLiteral("Z 轴") : QStringLiteral("Z axis"));
+	}
+	if (m_showOriginalTrajectoryCheck)
+	{
+		m_showOriginalTrajectoryCheck->setText(zh ? QStringLiteral("显示原始轨迹")
+												  : QStringLiteral("Show original trajectory"));
+		m_showOriginalTrajectoryCheck->setToolTip(
+			zh ? QStringLiteral("默认与轨迹编辑预览同步；勾选后仅显示离散得到的原始轨迹")
+			   : QStringLiteral("Default syncs with edit preview; check to show discrete source only"));
 	}
 	if (m_saveDiscretizeTemplateBtn)
 	{
@@ -681,6 +695,12 @@ void FeatureTrajectoryPageWidget::showEvent(QShowEvent* event)
 {
 	QWidget::showEvent(event);
 	refreshWorkpieceAvailability();
+	onGenerationPageActivated();
+}
+
+void FeatureTrajectoryPageWidget::onGenerationPageActivated()
+{
+	refreshPreviewFromSession();
 }
 
 void FeatureTrajectoryPageWidget::onTableSelectionChanged()
@@ -1253,6 +1273,31 @@ void FeatureTrajectoryPageWidget::refreshPreviewFromSession()
 	if (!m_session || !m_session->hasRawTrajectory())
 	{
 		m_simController->refreshBoundPathPlanPreview();
+		return;
+	}
+	const bool showOriginal = m_showOriginalTrajectoryCheck && m_showOriginalTrajectoryCheck->isChecked();
+	const auto& ops = m_session->pipelineOps();
+	if (!showOriginal && !ops.empty())
+	{
+		RobotInstruction::RawTrajectory previewRaw;
+		QString err;
+		// 与编辑页一致：unified→世界系 raw；rawWorking 不被几何算子改写
+		if (m_session->buildRawPreviewWithPipeline(ops, previewRaw, &err))
+		{
+			showTrajectoryPreview(previewRaw, true);
+			return;
+		}
+		if (!err.isEmpty())
+		{
+			setStatus(err);
+		}
+	}
+	// 原始轨迹：与编辑预览同一套 unified→世界系，避免 file→world 与流水线基线两套路径观感不一致
+	RobotInstruction::RawTrajectory baselineWorld;
+	QString baseErr;
+	if (m_session->buildRawPreviewWithPipeline({}, baselineWorld, &baseErr) && !baselineWorld.points.empty())
+	{
+		showTrajectoryPreview(baselineWorld, true);
 		return;
 	}
 	const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
@@ -2229,8 +2274,33 @@ RobotOsgUi::RawTrajectoryPreviewOptions FeatureTrajectoryPageWidget::previewOpti
 	return currentPreviewOptions();
 }
 
-void FeatureTrajectoryPageWidget::showTrajectoryPreview(const RobotInstruction::RawTrajectory& traj)
+void FeatureTrajectoryPageWidget::showTrajectoryPreview(const RobotInstruction::RawTrajectory& traj,
+														const bool posesAlreadyWorldMm)
 {
+	if (posesAlreadyWorldMm)
+	{
+		if (!m_simController)
+		{
+			return;
+		}
+		IRobotMainWindowHost* host = m_simController->host();
+		IRobotOsgViewHost* osg = host ? host->osgView() : nullptr;
+		if (!osg || traj.points.empty())
+		{
+			return;
+		}
+		std::string err;
+		feature_pick_transform::applyWorldRawTrajectoryPreviewToOsg(osg, traj, previewOptions(), &err);
+		if (!err.empty())
+		{
+			m_simController->setRawTrajectoryPreviewActive(false);
+			setStatus(QString::fromStdString(err));
+			return;
+		}
+		m_simController->setRawTrajectoryPreviewActive(true);
+		osg->requestRedraw();
+		return;
+	}
 	if (m_simController)
 	{
 		m_simController->refreshBoundPathPlanPreview(&traj);
@@ -2392,14 +2462,16 @@ bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 		return false;
 	}
 	traj.sourceFeatureJson = geometry_backend_ops::featureListToJson(resolvedDoc);
+	// 先进入修改态，再写 raw：rawTrajectoryChanged → 生成页会按流水线刷新预览
+	setFeatureEditActive(true);
+	m_lastLoadedPathPlanId = m_session ? m_session->boundPathPlanId() : std::string{};
+	m_lastLoadedSourceJson = traj.sourceFeatureJson;
 	if (m_session)
 	{
 		m_session->setRawTrajectory(traj);
 	}
-	setFeatureEditActive(true);
-	m_lastLoadedPathPlanId = m_session ? m_session->boundPathPlanId() : std::string{};
-	m_lastLoadedSourceJson = traj.sourceFeatureJson;
-	showTrajectoryPreview(traj);
+	// 勿再 showTrajectoryPreview(source)：会盖掉上面信号里已刷出的编辑流水线预览
+	refreshPreviewFromSession();
 
 	const int n = static_cast<int>(traj.points.size());
 	QString msg = m_chinese ? QStringLiteral("已离散 %1 个特征 → 共 %2 点；请在「轨迹编辑」应用配方")

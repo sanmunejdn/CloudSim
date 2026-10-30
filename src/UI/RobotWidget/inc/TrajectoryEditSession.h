@@ -75,9 +75,16 @@ public:
 	const RobotInstruction::RawTrajectory* rawTrajectory() const;
 	bool hasRawTrajectory() const;
 	void clearRawTrajectory();
-	/// 与 Apply 相同顺序：pending → recipe(流水线) → accumulated → geometry(流水线)
+	/// 跑流水线后仍返回工件系 rawWorking（=source，几何算子不改写它）
+	bool buildRawWorkingWithPipeline(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
+									 RobotInstruction::RawTrajectory& outPreviewRaw, QString* outError = nullptr) const;
+	/// unified result → 世界系 raw，与编辑页预览同一路径
 	bool buildRawPreviewWithPipeline(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
 									 RobotInstruction::RawTrajectory& outPreviewRaw, QString* outError = nullptr) const;
+
+	/// 跑完 ops[0..beforeOpIndex) 后的点数；供作用域 P 范围上限（复制/删除后刷新）
+	int pointCountBeforePipelineOp(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops,
+								   int beforeOpIndex) const;
 
 	RobotInstruction::TrajectoryPipelineEngine& pipelineEngine() { return m_pipelineEngine; }
 	const RobotInstruction::TrajectoryPipelineEngine& pipelineEngine() const { return m_pipelineEngine; }

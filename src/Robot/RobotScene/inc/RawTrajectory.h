@@ -68,7 +68,6 @@ enum class ROBOT_SCENE_API RawTrajectoryOpKind
 {
 	FrameFromPath = 0,
 	Resample,
-	OffsetAlongNormal,
 	OffsetLateral,
 	SmoothPose,
 	AssignBlend,
@@ -85,7 +84,6 @@ struct ROBOT_SCENE_API RawTrajectoryOpDescriptor
 	RawTrajectoryOpKind kind = RawTrajectoryOpKind::FrameFromPath;
 	FrameStrategy frameStrategy = FrameStrategy::SurfaceNormalZ;
 	double stepMm = 2.0;
-	double offsetMm = 0.0;
 	double lateralMm = 0.0;
 	double blendRadiusMm = 2.0;
 	double speedMmPerSec = 100.0;

@@ -7,7 +7,6 @@
       "labelEn": "Weld",
       "ops": [
         "Resample",
-        "OffsetAlongNormal",
         "SmoothPose",
         "AssignBlend",
         "Approach",
@@ -17,10 +16,6 @@
         {
           "kind": "Resample",
           "params": { "resample.stepMm": 5.0 }
-        },
-        {
-          "kind": "OffsetAlongNormal",
-          "params": { "offset.offsetMm": 0.0 }
         },
         { "kind": "SmoothPose" },
         {
@@ -43,7 +38,6 @@
       "labelEn": "Glue",
       "ops": [
         "Resample",
-        "OffsetAlongNormal",
         "SmoothPose",
         "AssignSpeedZone"
       ],
@@ -51,10 +45,6 @@
         {
           "kind": "Resample",
           "params": { "resample.stepMm": 3.0 }
-        },
-        {
-          "kind": "OffsetAlongNormal",
-          "params": { "offset.offsetMm": 1.0 }
         },
         { "kind": "SmoothPose" },
         {
@@ -69,7 +59,6 @@
       "labelEn": "Grind",
       "ops": [
         "Resample",
-        "OffsetAlongNormal",
         "SmoothPose",
         "Weave",
         "Approach",
@@ -79,10 +68,6 @@
         {
           "kind": "Resample",
           "params": { "resample.stepMm": 4.0 }
-        },
-        {
-          "kind": "OffsetAlongNormal",
-          "params": { "offset.offsetMm": 0.0 }
         },
         { "kind": "SmoothPose" },
         {

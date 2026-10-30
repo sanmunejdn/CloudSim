@@ -118,6 +118,9 @@ public:
 
 	bool isFeatureEditActive() const { return m_featureEditActive; }
 
+	/// 切回生成页：按勾选刷新预览（默认同编辑结果，勾选则显示离散原始）
+	void onGenerationPageActivated();
+
 signals:
 	void featureEditActiveChanged(bool active);
 
@@ -173,7 +176,8 @@ private:
 
 	void updatePickUiState();
 
-	void showTrajectoryPreview(const RobotInstruction::RawTrajectory& traj);
+	/// posesAlreadyWorldMm：流水线结果已是世界系，勿再走工件 file→world
+	void showTrajectoryPreview(const RobotInstruction::RawTrajectory& traj, bool posesAlreadyWorldMm = false);
 
 	std::string resolvePreviewBackendId(const RobotInstruction::RawTrajectory& traj) const;
 
@@ -333,6 +337,8 @@ private:
 	QCheckBox* m_showAxisYCheck = nullptr;
 
 	QCheckBox* m_showAxisZCheck = nullptr;
+
+	QCheckBox* m_showOriginalTrajectoryCheck = nullptr;
 
 	QSpinBox* m_axisIntervalSpin = nullptr;
 

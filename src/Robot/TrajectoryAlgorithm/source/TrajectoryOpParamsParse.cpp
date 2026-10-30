@@ -212,14 +212,12 @@ void writeResampleParams(nlohmann::json& params, const RobotInstruction::Resampl
 RobotInstruction::PathOffsetParams parsePathOffsetParams(const nlohmann::json& params)
 {
 	RobotInstruction::PathOffsetParams out{};
-	out.offsetMm = trajectoryParamDouble(params, "offset.offsetMm", out.offsetMm);
 	out.lateralMm = trajectoryParamDouble(params, "offset.lateralMm", out.lateralMm);
 	return out;
 }
 
 void writePathOffsetParams(nlohmann::json& params, const RobotInstruction::PathOffsetParams& value)
 {
-	setTrajectoryParamDouble(params, "offset.offsetMm", value.offsetMm);
 	setTrajectoryParamDouble(params, "offset.lateralMm", value.lateralMm);
 }
 
@@ -228,6 +226,9 @@ RobotInstruction::WeaveParams parseWeaveParams(const nlohmann::json& params)
 	RobotInstruction::WeaveParams out{};
 	out.amplitudeMm = trajectoryParamDouble(params, "weave.amplitudeMm", out.amplitudeMm);
 	out.periodMm = trajectoryParamDouble(params, "weave.periodMm", out.periodMm);
+	out.wavePose = trajectoryParamBool(params, "weave.wavePose", out.wavePose);
+	out.poseAmplitudeDeg = trajectoryParamDouble(params, "weave.poseAmplitudeDeg", out.poseAmplitudeDeg);
+	out.poseAxis = trajectoryParamInt(params, "weave.poseAxis", out.poseAxis);
 	return out;
 }
 
@@ -235,6 +236,9 @@ void writeWeaveParams(nlohmann::json& params, const RobotInstruction::WeaveParam
 {
 	setTrajectoryParamDouble(params, "weave.amplitudeMm", value.amplitudeMm);
 	setTrajectoryParamDouble(params, "weave.periodMm", value.periodMm);
+	setTrajectoryParamBool(params, "weave.wavePose", value.wavePose);
+	setTrajectoryParamDouble(params, "weave.poseAmplitudeDeg", value.poseAmplitudeDeg);
+	setTrajectoryParamInt(params, "weave.poseAxis", value.poseAxis);
 }
 
 RobotInstruction::AssignMotionParams parseAssignMotionParams(const nlohmann::json& params)

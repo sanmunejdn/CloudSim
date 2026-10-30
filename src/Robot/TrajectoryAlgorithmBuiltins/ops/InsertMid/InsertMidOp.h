@@ -1,19 +1,19 @@
-﻿#ifndef TRAJECTORYALGORITHMBUILTINS_OFFSETALONGNORMALOP_H
-#define TRAJECTORYALGORITHMBUILTINS_OFFSETALONGNORMALOP_H
+#ifndef TRAJECTORYALGORITHMBUILTINS_INSERTMIDOP_H
+#define TRAJECTORYALGORITHMBUILTINS_INSERTMIDOP_H
 
-/// @file OffsetAlongNormalOp.h
-/// @brief OffsetAlongNormalOp 接口
+/// @file InsertMidOp.h
+/// @brief InsertMidOp 接口
 
-// OffsetAlongNormal 原子块：沿法向偏移路径点
+// InsertMid：每段中点插值加密
 #include "ITrajectoryOp.h"
 
 namespace trajectory_algo
 {
-class OffsetAlongNormalOp final : public ITrajectoryOp
+class InsertMidOp final : public ITrajectoryOp
 {
 public:
 	RobotInstruction::TrajectoryOpKind kind() const override;
-	const char* kindToken() const override { return "OffsetAlongNormal"; }
+	const char* kindToken() const override { return "InsertMid"; }
 	const char* displayName(bool chinese) const override;
 	TrajectoryOpCapability capabilities() const override;
 	RobotInstruction::TrajectoryOpDescriptor
@@ -27,4 +27,4 @@ public:
 
 } // namespace trajectory_algo
 
-#endif // TRAJECTORYALGORITHMBUILTINS_OFFSETALONGNORMALOP_H
+#endif // TRAJECTORYALGORITHMBUILTINS_INSERTMIDOP_H

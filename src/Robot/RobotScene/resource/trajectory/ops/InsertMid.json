@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "kind": "InsertMid",
+  "schema": {
+    "fields": [
+      {
+        "key": "insert.passes",
+        "type": "Int",
+        "labelZh": "加密遍数",
+        "order": 0,
+        "defaultInt": 1
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "insert.passes": 1
+    }
+  }
+}

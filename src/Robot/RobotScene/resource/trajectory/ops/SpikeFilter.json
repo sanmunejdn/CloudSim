@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "kind": "SpikeFilter",
+  "schema": {
+    "fields": [
+      {
+        "key": "spike.maxDetourRatio",
+        "type": "Double",
+        "labelZh": "绕行比阈值",
+        "order": 0,
+        "default": 1.5
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "spike.maxDetourRatio": 1.5
+    }
+  }
+}

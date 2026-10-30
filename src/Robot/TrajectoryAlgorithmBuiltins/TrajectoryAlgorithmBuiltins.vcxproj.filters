@@ -38,9 +38,6 @@
     <Filter Include="ops\NonRigidRegistration">
       <UniqueIdentifier>{AD493574-4B21-4D44-ADAF-5FB1F48E972D}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ops\OffsetAlongNormal">
-      <UniqueIdentifier>{ACF983AE-F3C2-4264-B7B9-7D72287EBE81}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ops\OffsetLateral">
       <UniqueIdentifier>{041FE2BD-DBF7-45E2-BC9D-02D424E475EA}</UniqueIdentifier>
     </Filter>
@@ -148,12 +145,6 @@
     </ClInclude>
     <ClInclude Include="ops\NonRigidRegistration\NonRigidRegistrationOpConfig.h">
       <Filter>ops\NonRigidRegistration</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\OffsetAlongNormal\OffsetAlongNormalOp.h">
-      <Filter>ops\OffsetAlongNormal</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\OffsetAlongNormal\OffsetAlongNormalOpConfig.h">
-      <Filter>ops\OffsetAlongNormal</Filter>
     </ClInclude>
     <ClInclude Include="ops\OffsetLateral\OffsetLateralOp.h">
       <Filter>ops\OffsetLateral</Filter>
@@ -270,12 +261,6 @@
     </ClCompile>
     <ClCompile Include="ops\NonRigidRegistration\NonRigidRegistrationOpConfig.cpp">
       <Filter>ops\NonRigidRegistration</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\OffsetAlongNormal\OffsetAlongNormalOp.cpp">
-      <Filter>ops\OffsetAlongNormal</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\OffsetAlongNormal\OffsetAlongNormalOpConfig.cpp">
-      <Filter>ops\OffsetAlongNormal</Filter>
     </ClCompile>
     <ClCompile Include="ops\OffsetLateral\OffsetLateralOp.cpp">
       <Filter>ops\OffsetLateral</Filter>

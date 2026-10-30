@@ -459,7 +459,7 @@ bool tryFaceNormalAtPoint(const TopoDS_Face& face, const gp_Pnt& ptWorld, double
 
 bool getBestFaceNormalAtPoint(const std::vector<TopoDS_Face>& faces, const gp_Pnt& ptWorld, gp_Vec& outNormal)
 {
-	const double maxDist = Precision::Confusion() * 100.0 * 10.0;
+	constexpr double kFaceNormalMaxDistMm = 1.0;
 
 	double bestDist = std::numeric_limits<double>::max();
 	gp_Vec bestNormal;
@@ -470,7 +470,7 @@ bool getBestFaceNormalAtPoint(const std::vector<TopoDS_Face>& faces, const gp_Pn
 		found = tryFaceNormalAtPoint(face, ptWorld, bestDist, bestNormal) || found;
 	}
 
-	if (!found || bestDist > maxDist)
+	if (!found || bestDist > kFaceNormalMaxDistMm)
 	{
 		return false;
 	}

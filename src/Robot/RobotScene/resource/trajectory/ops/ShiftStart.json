@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "kind": "ShiftStart",
+  "schema": {
+    "fields": [
+      {
+        "key": "shift.startIndex1",
+        "type": "Int",
+        "labelZh": "新起点序号",
+        "order": 0,
+        "defaultInt": 1
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "shift.startIndex1": 1
+    }
+  }
+}

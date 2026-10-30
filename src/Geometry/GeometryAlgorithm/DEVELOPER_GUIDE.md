@@ -95,7 +95,7 @@
 | strategyId | mergePolicy | 说明 |
 |------------|-------------|------|
 | `EdgeChain` | LineConnectivity | 相连边合并 wire；不相连分量分段后拼接 |
-| `FaceBoundary` / `FaceSection` / `FaceParamSurface` | FaceUnion | 多面按策略离散；`FaceParamSurface`+`RowStitch`：各面自然行数取 max 后强制同档再逐行拼接；`faceIndices` **保留拾取顺序**（不去重排序） |
+| `FaceBoundary` / `FaceSection` / `FaceParamSurface` | FaceUnion | `FaceBoundary`：单面=该面 OuterWire；多相邻面=选中集合自由边串成的**区域外轮廓**（共享内边剔除，非各面外轮廓并集）；`FaceParamSurface`+`RowStitch`：各面自然行数取 max 后强制同档再逐行拼接；`faceIndices` **保留拾取顺序**（不去重排序） |
 | `FaceIntersection` / `FaceOffsetCurve` / `SyntheticPolyline` | None | 逐行离散后拼接 |
 
 外置参数：`resource/feature/discretizers/<StrategyId>.json`（PostBuild 拷贝至 `bin/x64(d)/resource/feature/`）。

@@ -48,7 +48,7 @@
       <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_BUILTINS_LIB;TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/Approach;ops/Retract;ops/ExternalAxisSearch;ops/ReachabilityFilter;ops/Weave;ops/AssignSpeedZone;ops/AssignBlend;ops/SmoothPose;ops/OffsetLateral;ops/OffsetAlongNormal;ops/Resample;ops/ProjectToGeometry;ops/NonRigidRegistration;ops/ToWorkpieceInHand;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/Approach;ops/Retract;ops/ExternalAxisSearch;ops/ReachabilityFilter;ops/Weave;ops/AssignSpeedZone;ops/AssignBlend;ops/SmoothPose;ops/OffsetLateral;ops/Resample;ops/SpikeFilter;ops/SpeedRamp;ops/ScalePath;ops/ClampToPlane;ops/InsertMid;ops/ShiftStart;ops/TrimPath;ops/OrientToPath;ops/ReversePath;ops/ProjectToGeometry;ops/NonRigidRegistration;ops/ToWorkpieceInHand;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -58,7 +58,7 @@
       <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_BUILTINS_LIB;TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/Approach;ops/Retract;ops/ExternalAxisSearch;ops/ReachabilityFilter;ops/Weave;ops/AssignSpeedZone;ops/AssignBlend;ops/SmoothPose;ops/OffsetLateral;ops/OffsetAlongNormal;ops/Resample;ops/ProjectToGeometry;ops/NonRigidRegistration;ops/ToWorkpieceInHand;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/Approach;ops/Retract;ops/ExternalAxisSearch;ops/ReachabilityFilter;ops/Weave;ops/AssignSpeedZone;ops/AssignBlend;ops/SmoothPose;ops/OffsetLateral;ops/Resample;ops/SpikeFilter;ops/SpeedRamp;ops/ScalePath;ops/ClampToPlane;ops/InsertMid;ops/ShiftStart;ops/TrimPath;ops/OrientToPath;ops/ReversePath;ops/ProjectToGeometry;ops/NonRigidRegistration;ops/ToWorkpieceInHand;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -82,8 +82,6 @@
     <ClInclude Include="ops\ExternalAxisSearch\ExternalAxisSearchOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\Mirror\MirrorOp.h"><Filter>src</Filter></ClInclude>
     <ClInclude Include="ops\Mirror\MirrorOpConfig.h"><Filter>src</Filter></ClInclude>
-<ClInclude Include="ops\OffsetAlongNormal\OffsetAlongNormalOp.h"><Filter>src</Filter></ClInclude>
-    <ClInclude Include="ops\OffsetAlongNormal\OffsetAlongNormalOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\OffsetLateral\OffsetLateralOp.h"><Filter>src</Filter></ClInclude>
     <ClInclude Include="ops\OffsetLateral\OffsetLateralOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\ProjectToGeometry\ProjectToGeometryOp.h"><Filter>src</Filter></ClInclude>
@@ -98,6 +96,24 @@
     <ClInclude Include="ops\Reorder\ReorderOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\Resample\ResampleOp.h"><Filter>src</Filter></ClInclude>
     <ClInclude Include="ops\Resample\ResampleOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\SpikeFilter\SpikeFilterOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\SpikeFilter\SpikeFilterOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\SpeedRamp\SpeedRampOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\SpeedRamp\SpeedRampOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\ScalePath\ScalePathOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\ScalePath\ScalePathOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\ClampToPlane\ClampToPlaneOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\ClampToPlane\ClampToPlaneOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\InsertMid\InsertMidOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\InsertMid\InsertMidOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\ShiftStart\ShiftStartOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\ShiftStart\ShiftStartOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\TrimPath\TrimPathOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\TrimPath\TrimPathOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\OrientToPath\OrientToPathOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\OrientToPath\OrientToPathOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\ReversePath\ReversePathOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\ReversePath\ReversePathOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\Retract\RetractOp.h"><Filter>src</Filter></ClInclude>
     <ClInclude Include="ops\Retract\RetractOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\Rotate\RotateOp.h"><Filter>src</Filter></ClInclude>
@@ -130,8 +146,6 @@
     <ClCompile Include="ops\ExternalAxisSearch\ExternalAxisSearchOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\Mirror\MirrorOp.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="ops\Mirror\MirrorOpConfig.cpp"><Filter>src</Filter></ClCompile>
-<ClCompile Include="ops\OffsetAlongNormal\OffsetAlongNormalOp.cpp"><Filter>src</Filter></ClCompile>
-    <ClCompile Include="ops\OffsetAlongNormal\OffsetAlongNormalOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\OffsetLateral\OffsetLateralOp.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="ops\OffsetLateral\OffsetLateralOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\ProjectToGeometry\ProjectToGeometryOp.cpp"><Filter>src</Filter></ClCompile>
@@ -146,6 +160,24 @@
     <ClCompile Include="ops\Reorder\ReorderOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\Resample\ResampleOp.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="ops\Resample\ResampleOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\SpikeFilter\SpikeFilterOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\SpikeFilter\SpikeFilterOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\SpeedRamp\SpeedRampOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\SpeedRamp\SpeedRampOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\ScalePath\ScalePathOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\ScalePath\ScalePathOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\ClampToPlane\ClampToPlaneOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\ClampToPlane\ClampToPlaneOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\InsertMid\InsertMidOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\InsertMid\InsertMidOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\ShiftStart\ShiftStartOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\ShiftStart\ShiftStartOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\TrimPath\TrimPathOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\TrimPath\TrimPathOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\OrientToPath\OrientToPathOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\OrientToPath\OrientToPathOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\ReversePath\ReversePathOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\ReversePath\ReversePathOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\Retract\RetractOp.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="ops\Retract\RetractOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\Rotate\RotateOp.cpp"><Filter>src</Filter></ClCompile>
