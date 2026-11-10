@@ -11,6 +11,7 @@
 #include <QSizePolicy>
 #include <QSpinBox>
 #include <QWidget>
+#include <algorithm>
 
 namespace trajectory_algo
 {
@@ -152,35 +153,48 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(const TrajectoryOpPa
 																	   : QString::fromStdString(field.enumValues[i]));
 			combo->addItem(label, QString::fromStdString(field.enumValues[i]));
 		}
+		// itemData 存枚举字符串；按 defaultInt 初始选中（勿默认停在 0）
+		if (!field.enumValues.empty())
+		{
+			const int defIdx = std::clamp(field.defaultInt, 0, static_cast<int>(field.enumValues.size()) - 1);
+			combo->setCurrentIndex(defIdx);
+		}
 		binding.read = [combo](TrajectoryParamValue& out)
 		{
-			out.kind = TrajectoryParamValue::Kind::Int;
-			bool ok = false;
-			out.asInt = combo->currentData().toInt(&ok);
-			if (!ok)
+			out.kind = TrajectoryParamValue::Kind::String;
+			out.asString = combo->currentData().toString().toStdString();
+			if (out.asString.empty() && combo->currentIndex() >= 0)
 			{
-				out.asInt = combo->currentIndex();
+				out.asString = combo->itemData(combo->currentIndex()).toString().toStdString();
 			}
-			return true;
+			return !out.asString.empty() || combo->count() == 0;
 		};
-		binding.write = [combo, field](const TrajectoryParamValue& in)
+		binding.write = [combo](const TrajectoryParamValue& in)
 		{
-			if (in.kind != TrajectoryParamValue::Kind::Int)
+			if (in.kind == TrajectoryParamValue::Kind::String)
 			{
+				const int idx = combo->findData(QString::fromStdString(in.asString));
+				if (idx >= 0)
+				{
+					combo->setCurrentIndex(idx);
+					return true;
+				}
 				return false;
 			}
-			const int idx = combo->findData(QString::number(in.asInt));
-			if (idx >= 0)
+			if (in.kind == TrajectoryParamValue::Kind::Int)
 			{
-				combo->setCurrentIndex(idx);
-				return true;
+				if (in.asInt >= 0 && in.asInt < combo->count())
+				{
+					combo->setCurrentIndex(in.asInt);
+					return true;
+				}
+				const int byData = combo->findData(QString::number(in.asInt));
+				if (byData >= 0)
+				{
+					combo->setCurrentIndex(byData);
+					return true;
+				}
 			}
-			if (in.asInt >= 0 && in.asInt < combo->count())
-			{
-				combo->setCurrentIndex(in.asInt);
-				return true;
-			}
-			(void)field;
 			return false;
 		};
 	}

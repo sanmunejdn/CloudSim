@@ -84,8 +84,16 @@ nlohmann::json FeatureDiscretizerConfigImpl::defaultParams() const
 		switch (field.type)
 		{
 		case FeatureParamType::Int:
-		case FeatureParamType::Enum:
 			params[field.key] = field.defaultInt;
+			break;
+		case FeatureParamType::Enum:
+			// 存枚举字符串；下标会让前端 select 匹配失败并回落到第一项
+			if (!field.enumValues.empty())
+			{
+				const int idx = field.defaultInt;
+				const int n = static_cast<int>(field.enumValues.size());
+				params[field.key] = field.enumValues[idx >= 0 && idx < n ? static_cast<std::size_t>(idx) : 0U];
+			}
 			break;
 		case FeatureParamType::Bool:
 			params[field.key] = field.defaultBool;

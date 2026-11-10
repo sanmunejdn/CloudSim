@@ -23,7 +23,7 @@ bool resampleRawPathByStep(RawPath& path, double stepMm);
 
 void appendRawPath(const RawPath& part, RawPath& out);
 
-bool shouldResampleAfterDiscretize(const std::string& strategyId, double stepMm);
+bool shouldResampleAfterDiscretize(const std::string& strategyId, const DiscretizeParams& disc);
 
 void applyPostDiscretizeResample(const std::string& strategyId, const nlohmann::json& params, RawPath& path);
 

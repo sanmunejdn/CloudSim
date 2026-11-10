@@ -591,9 +591,14 @@ export default function TrajectoryGenPanel() {
             editable={featSel >= 0}
             onEnsureParams={(defaults) => {
               if (featSel < 0 || !features[featSel]) return;
-              if (features[featSel].params && Object.keys(features[featSel].params!).length) return;
+              const cur = (features[featSel].params || {}) as Record<string, unknown>;
+              const nextParams = { ...defaults, ...cur };
+              const same =
+                Object.keys(nextParams).length === Object.keys(cur).length &&
+                Object.keys(nextParams).every((k) => nextParams[k] === cur[k]);
+              if (same) return;
               const next = [...features];
-              next[featSel] = { ...next[featSel], params: defaults };
+              next[featSel] = { ...next[featSel], params: nextParams };
               setFeatures(next);
             }}
             onParamChange={(key, value) => {

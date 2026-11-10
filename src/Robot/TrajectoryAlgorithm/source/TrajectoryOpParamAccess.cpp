@@ -7,6 +7,8 @@
 #include "TrajectoryOpConfigRegistry.h"
 #include "TrajectoryOpParamsParse.h"
 
+#include <string>
+
 namespace trajectory_algo
 {
 namespace
@@ -105,7 +107,6 @@ bool readJsonParamField(const nlohmann::json& params, const TrajectoryOpParamFie
 		out.asDouble = item.get<double>();
 		return true;
 	case TrajectoryParamType::Int:
-	case TrajectoryParamType::Enum:
 		if (!item.is_number_integer() && !item.is_number())
 		{
 			return false;
@@ -113,6 +114,21 @@ bool readJsonParamField(const nlohmann::json& params, const TrajectoryOpParamFie
 		out.kind = TrajectoryParamValue::Kind::Int;
 		out.asInt = item.get<int>();
 		return true;
+	case TrajectoryParamType::Enum:
+		// Combo itemData 为枚举字符串；JSON 可能是 int 或 "0"/"1"
+		if (item.is_number_integer() || item.is_number())
+		{
+			out.kind = TrajectoryParamValue::Kind::Int;
+			out.asInt = item.get<int>();
+			return true;
+		}
+		if (item.is_string())
+		{
+			out.kind = TrajectoryParamValue::Kind::String;
+			out.asString = item.get<std::string>();
+			return true;
+		}
+		return false;
 	case TrajectoryParamType::Bool:
 		if (!item.is_boolean())
 		{
@@ -152,13 +168,49 @@ bool writeJsonParamField(nlohmann::json& params, const TrajectoryOpParamField& f
 		setTrajectoryParamDouble(params, field.key.c_str(), in.asDouble);
 		return true;
 	case TrajectoryParamType::Int:
-	case TrajectoryParamType::Enum:
 		if (in.kind != TrajectoryParamValue::Kind::Int)
 		{
 			return false;
 		}
 		setTrajectoryParamInt(params, field.key.c_str(), in.asInt);
 		return true;
+	case TrajectoryParamType::Enum:
+	{
+		// 统一落盘为 int，供 parseTranslateParams/frame 等 trajectoryParamInt 读取
+		int idx = -1;
+		if (in.kind == TrajectoryParamValue::Kind::Int)
+		{
+			idx = in.asInt;
+		}
+		else if (in.kind == TrajectoryParamValue::Kind::String)
+		{
+			try
+			{
+				idx = std::stoi(in.asString);
+			}
+			catch (...)
+			{
+				idx = -1;
+			}
+			if (idx < 0)
+			{
+				for (std::size_t i = 0; i < field.enumValues.size(); ++i)
+				{
+					if (field.enumValues[i] == in.asString)
+					{
+						idx = static_cast<int>(i);
+						break;
+					}
+				}
+			}
+		}
+		if (idx < 0)
+		{
+			return false;
+		}
+		setTrajectoryParamInt(params, field.key.c_str(), idx);
+		return true;
+	}
 	case TrajectoryParamType::Bool:
 		if (in.kind != TrajectoryParamValue::Kind::Bool)
 		{

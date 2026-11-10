@@ -292,10 +292,19 @@ struct FeatureGeometrySchema
 	std::vector<FeatureGeometrySlotSchema> slotDefs; ///< 不用名 slots：与 Qt slots 宏冲突
 };
 
+/// 路径离散：弦高 / 步距互斥，或先弦高后步距串行
+enum class DiscretizeMode
+{
+	ChordHeight = 0, ///< 仅弦高，点数自动
+	Step,			 ///< 仅步距等间距（内部紧弦高贴形后再重采样）
+	ChordThenStep	 ///< 先弦高再按步距重采样（兼容旧行为）
+};
+
 struct DiscretizeParams
 {
-	double stepMm = 2.0;			  ///< 弧长重采样间距（mm）
-	double linearDeflectionMm = 0.01; ///< BREP 边/面离散线性偏差（mm）
+	DiscretizeMode mode = DiscretizeMode::ChordThenStep;
+	double stepMm = 2.0;			  ///< 弧长重采样间距（mm）；ChordHeight 模式忽略
+	double linearDeflectionMm = 0.01; ///< BREP 弦高（mm）；Step 模式忽略，改用内部紧弦高
 	bool closedPreserveEndpoint = false;
 	bool outputTangent = true;
 	bool outputNormal = true;
@@ -323,8 +332,11 @@ GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField enumFeatureParamField(
 	const std::vector<std::string>& values, const std::vector<std::string>& labelsZh,
 	const std::vector<std::string>& labelsEn, int defaultIndex, int order = 0, const std::string& group = "discretize");
 
-/** 各策略共用的 stepMm / linearDeflectionMm 等字段定义 */
+/** 各策略共用的 discretizeMode / stepMm / linearDeflectionMm 等字段定义 */
 GEOMETRY_ALGORITHM_API std::vector<FeatureDiscretizerParamField> featureDiscretizerCommonParamFields();
+
+/** 去掉路径离散模式（截面/参数面等 stepMm 语义不是轨迹步距时用） */
+GEOMETRY_ALGORITHM_API void eraseDiscretizeModeField(std::vector<FeatureDiscretizerParamField>& fields);
 
 } // namespace geoalgo
 

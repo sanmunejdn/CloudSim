@@ -13,6 +13,7 @@ REGISTER_FEATURE_DISCRETIZER(FaceParamSurfaceDiscretizer);
 std::vector<FeatureDiscretizerParamField> FaceParamSurfaceDiscretizer::paramFields() const
 {
 	std::vector<FeatureDiscretizerParamField> fields = featureDiscretizerCommonParamFields();
+	eraseDiscretizeModeField(fields);
 	// 与 HPL 参数面扫描默认一致：行间距 10、弦高 1
 	for (FeatureDiscretizerParamField& field : fields)
 	{

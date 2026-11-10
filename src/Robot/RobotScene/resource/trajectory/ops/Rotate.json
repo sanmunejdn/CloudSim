@@ -4,12 +4,51 @@
   "schema": {
     "fields": [
       {
+        "key": "rotate.frame",
+        "type": "Enum",
+        "labelZh": "坐标系",
+        "enumValues": ["0", "1"],
+        "enumLabelsZh": ["世界系", "物体系"],
+        "defaultInt": 0,
+        "order": 0,
+        "group": "transform"
+      },
+      {
+        "key": "rotate.axisX",
+        "type": "Double",
+        "labelZh": "轴X",
+        "default": 0.0,
+        "order": 1
+      },
+      {
+        "key": "rotate.axisY",
+        "type": "Double",
+        "labelZh": "轴Y",
+        "default": 0.0,
+        "order": 2
+      },
+      {
+        "key": "rotate.axisZ",
+        "type": "Double",
+        "labelZh": "轴Z",
+        "default": 1.0,
+        "order": 3
+      },
+      {
         "key": "rotate.angleDeg",
         "type": "Double",
-        "labelZh": "角度",
+        "labelZh": "角度(起点)",
         "unit": "deg",
         "default": 0.0,
         "order": 4
+      },
+      {
+        "key": "rotate.endAngleDeg",
+        "type": "Double",
+        "labelZh": "角度(终点)",
+        "unit": "deg",
+        "default": 0.0,
+        "order": 5
       }
     ]
   },
@@ -18,6 +57,7 @@
       "kind": 1
     },
     "params": {
+      "rotate.frame": 0,
       "rotate.axisZ": 1.0,
       "rotate.angleDeg": 0.0
     }

@@ -3,6 +3,8 @@
 
 #include "TrajectoryOpParamsParse.h"
 
+#include <string>
+
 namespace trajectory_algo
 {
 namespace
@@ -57,6 +59,18 @@ int trajectoryParamInt(const nlohmann::json& params, const char* key, const int 
 	if (item.is_number())
 	{
 		return static_cast<int>(item.get<double>());
+	}
+	// UI Enum itemData 常为 "0"/"1" 字符串；不解析则 frame 等会静默回落默认世界系
+	if (item.is_string())
+	{
+		try
+		{
+			return std::stoi(item.get<std::string>());
+		}
+		catch (...)
+		{
+			return defaultValue;
+		}
 	}
 	return defaultValue;
 }

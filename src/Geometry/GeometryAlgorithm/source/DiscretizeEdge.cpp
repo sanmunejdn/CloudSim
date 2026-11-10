@@ -100,6 +100,12 @@ bool discretizeCurveAdaptor(const BRepAdaptor_Curve& curve, const TessellatePara
 	const double angDeg = params.angularDeflectionDeg > 1e-6 ? params.angularDeflectionDeg : 0.0;
 	const GeomAbs_CurveType ty = curve.GetType();
 
+	// 直线弦高/转角再密也只需端点；避免 TangentialDeflection(minPts=8) 抬成 8 点
+	if (ty == GeomAbs_Line)
+	{
+		return sampleByParameterCount(curve, 2, out);
+	}
+
 	// 圆/椭圆按转角采样；点数封顶，复杂模型否则边过多易卡死（绘制侧可升成椭圆）
 	if (ty == GeomAbs_Circle || ty == GeomAbs_Ellipse)
 	{

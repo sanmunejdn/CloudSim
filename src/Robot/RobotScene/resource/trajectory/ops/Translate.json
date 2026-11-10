@@ -4,6 +4,16 @@
   "schema": {
     "fields": [
       {
+        "key": "translate.frame",
+        "type": "Enum",
+        "labelZh": "坐标系",
+        "enumValues": ["0", "1"],
+        "enumLabelsZh": ["世界系", "物体系"],
+        "defaultInt": 0,
+        "order": 0,
+        "group": "transform"
+      },
+      {
         "key": "translate.dxMm",
         "type": "Double",
         "labelZh": "ΔX(起点)",
@@ -26,6 +36,30 @@
         "unit": "mm",
         "default": 0.0,
         "order": 3
+      },
+      {
+        "key": "translate.endDxMm",
+        "type": "Double",
+        "labelZh": "ΔX(终点)",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 4
+      },
+      {
+        "key": "translate.endDyMm",
+        "type": "Double",
+        "labelZh": "ΔY(终点)",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 5
+      },
+      {
+        "key": "translate.endDzMm",
+        "type": "Double",
+        "labelZh": "ΔZ(终点)",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 6
       }
     ]
   },
@@ -33,6 +67,8 @@
     "scope": {
       "kind": 1
     },
-    "params": {}
+    "params": {
+      "translate.frame": 0
+    }
   }
 }

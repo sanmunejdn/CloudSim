@@ -328,7 +328,36 @@ void FeatureDiscretizerParamPanel::loadParams(const nlohmann::json& params)
 		trajectory_algo::TrajectoryParamValue value{};
 		if (!readJsonValue(params, row.field, value))
 		{
-			continue;
+			// JSON 缺键时回落到字段默认，避免 Enum 停在未初始化项
+			switch (row.field.type)
+			{
+			case geoalgo::FeatureParamType::Enum:
+				if (row.field.enumValues.empty())
+				{
+					continue;
+				}
+				{
+					const int idx =
+						std::clamp(row.field.defaultInt, 0, static_cast<int>(row.field.enumValues.size()) - 1);
+					value.kind = trajectory_algo::TrajectoryParamValue::Kind::String;
+					value.asString = row.field.enumValues[static_cast<std::size_t>(idx)];
+				}
+				break;
+			case geoalgo::FeatureParamType::Int:
+				value.kind = trajectory_algo::TrajectoryParamValue::Kind::Int;
+				value.asInt = row.field.defaultInt;
+				break;
+			case geoalgo::FeatureParamType::Bool:
+				value.kind = trajectory_algo::TrajectoryParamValue::Kind::Bool;
+				value.asBool = row.field.defaultBool;
+				break;
+			case geoalgo::FeatureParamType::Double:
+				value.kind = trajectory_algo::TrajectoryParamValue::Kind::Double;
+				value.asDouble = row.field.defaultDouble;
+				break;
+			default:
+				continue;
+			}
 		}
 		if (row.write)
 		{

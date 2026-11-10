@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { defaultsFromSchema, loadFeatureSchema, type SchemaField } from "./featureSchema";
+import {
+  defaultsFromSchema,
+  loadFeatureSchema,
+  resolveEnumParamValue,
+  type SchemaField,
+} from "./featureSchema";
 
 type Props = {
   strategyId: string;
@@ -50,7 +55,12 @@ export default function FeatureParamForm({
       setDrafts({});
       setHint("");
       const defs = defaultsFromSchema(schema);
-      if (!params || !Object.keys(params).length) onEnsureParams(defs);
+      // 空 params 或缺少离散模式时补齐（父组件 merge，不覆盖已有键）
+      const needEnsure =
+        !params ||
+        !Object.keys(params).length ||
+        (defs.discretizeMode !== undefined && params.discretizeMode === undefined);
+      if (needEnsure) onEnsureParams(defs);
     });
     return () => {
       cancelled = true;
@@ -75,6 +85,13 @@ export default function FeatureParamForm({
   }
 
   const values = params && Object.keys(params).length ? params : {};
+  const modeField = fields.find((f) => f.key === "discretizeMode");
+  const hasDiscretizeMode = !!modeField;
+  const discretizeMode = resolveEnumParamValue(
+    values.discretizeMode,
+    modeField?.enumValues,
+    modeField?.defaultInt,
+  );
 
   return (
     <div className={`op-params-form feat-param-form${disabled ? " disabled-pane" : ""}`}>
@@ -85,6 +102,11 @@ export default function FeatureParamForm({
               {field.messageZh || field.key}
             </div>
           );
+        }
+        // 有离散模式时按档显隐：仅弦高藏步距，仅步距藏弦高
+        if (hasDiscretizeMode) {
+          if (field.key === "stepMm" && discretizeMode === "ChordHeight") return null;
+          if (field.key === "linearDeflectionMm" && discretizeMode === "Step") return null;
         }
         const label =
           (field.labelZh || field.labelEn || field.key) + (field.unit ? ` (${field.unit})` : "");
@@ -107,12 +129,13 @@ export default function FeatureParamForm({
 
         if (field.type === "Enum") {
           const opts = field.enumValues || [];
+          const enumValue = resolveEnumParamValue(cur, opts, field.defaultInt);
           return (
             <div key={field.key} className="op-field">
               <label>{label}</label>
               <select
                 disabled={!canEdit}
-                value={cur !== undefined && cur !== null ? String(cur) : opts[0] || ""}
+                value={enumValue}
                 onChange={(e) => onParamChange(field.key, e.target.value)}
               >
                 {opts.map((v, i) => (

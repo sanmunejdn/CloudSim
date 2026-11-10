@@ -13,6 +13,7 @@ REGISTER_FEATURE_DISCRETIZER(FaceSectionDiscretizer);
 std::vector<FeatureDiscretizerParamField> FaceSectionDiscretizer::paramFields() const
 {
 	std::vector<FeatureDiscretizerParamField> fields = featureDiscretizerCommonParamFields();
+	eraseDiscretizeModeField(fields);
 	fields.push_back(doubleFeatureParamField("sectionOriginX", "Section origin X", "截面原点 X", "mm", -1e6, 1e6, 0.1,
 											 0.0, 10, "section"));
 	fields.push_back(doubleFeatureParamField("sectionOriginY", "Section origin Y", "截面原点 Y", "mm", -1e6, 1e6, 0.1,

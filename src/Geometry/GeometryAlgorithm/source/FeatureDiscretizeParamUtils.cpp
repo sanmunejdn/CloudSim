@@ -3,6 +3,8 @@
 
 #include "FeatureDiscretizeParamUtils.h"
 
+#include <algorithm>
+
 namespace geoalgo
 {
 double paramDouble(const nlohmann::json& params, const std::string& key, const double defaultValue)
@@ -65,9 +67,27 @@ int paramInt(const nlohmann::json& params, const std::string& key, const int def
 	return defaultValue;
 }
 
+namespace
+{
+DiscretizeMode parseDiscretizeMode(const nlohmann::json& params)
+{
+	const std::string token = paramString(params, "discretizeMode", "ChordThenStep");
+	if (token == "ChordHeight")
+	{
+		return DiscretizeMode::ChordHeight;
+	}
+	if (token == "Step")
+	{
+		return DiscretizeMode::Step;
+	}
+	return DiscretizeMode::ChordThenStep;
+}
+} // namespace
+
 DiscretizeParams buildDiscretizeParams(const nlohmann::json& params)
 {
 	DiscretizeParams d;
+	d.mode = parseDiscretizeMode(params);
 	d.stepMm = paramDouble(params, "stepMm", 2.0);
 	d.linearDeflectionMm = paramDouble(params, "linearDeflectionMm", 0.01);
 	d.closedPreserveEndpoint = paramBool(params, "closedPreserveEndpoint", false);
@@ -152,11 +172,22 @@ FeatureDiscretizerParamField enumFeatureParamField(const std::string& key, const
 std::vector<FeatureDiscretizerParamField> featureDiscretizerCommonParamFields()
 {
 	return {
+		// ChordThenStep 置首：旧前端缺省回落 opts[0] 时仍显示「弦高+步距」
+		enumFeatureParamField("discretizeMode", "Discretize mode", "离散模式",
+							  {"ChordThenStep", "ChordHeight", "Step"}, {"弦高+步距", "仅弦高", "仅步距"},
+							  {"Chord then step", "Chord height", "Step"}, 0, 0),
 		doubleFeatureParamField("stepMm", "Step", "步距", "mm", 0.1, 1000.0, 0.1, 2.0, 1),
 		doubleFeatureParamField("linearDeflectionMm", "Chord height", "弦高", "mm", 0.001, 100.0, 0.001, 0.01, 2),
 		boolFeatureParamField("outputTangent", "Output tangent", "输出切向", true, 3),
 		boolFeatureParamField("outputNormal", "Output normal", "输出法向", true, 4),
 	};
+}
+
+void eraseDiscretizeModeField(std::vector<FeatureDiscretizerParamField>& fields)
+{
+	fields.erase(std::remove_if(fields.begin(), fields.end(),
+								[](const FeatureDiscretizerParamField& f) { return f.key == "discretizeMode"; }),
+				 fields.end());
 }
 
 } // namespace geoalgo

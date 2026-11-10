@@ -3618,20 +3618,37 @@ async function fetchFeatureSchema(strategyId) {
   return r;
 }
 
+function resolveEnumParamValue(cur, enumValues, defaultInt) {
+  const opts = enumValues || [];
+  const fallback = opts[defaultInt ?? 0] ?? opts[0] ?? "";
+  if (cur === undefined || cur === null || cur === "") return fallback;
+  if (typeof cur === "number" || (typeof cur === "string" && /^\d+$/.test(cur))) {
+    const idx = Number(cur);
+    if (Number.isInteger(idx) && idx >= 0 && idx < opts.length && !opts.includes(String(cur))) {
+      return opts[idx] ?? fallback;
+    }
+  }
+  const s = String(cur);
+  return opts.includes(s) ? s : fallback;
+}
+
 function defaultsFromSchema(schema) {
   if (!schema) return {};
   const out = {};
   for (const f of schema.fields || []) {
     if (f.type === "Bool") out[f.key] = !!f.defaultBool;
     else if (f.type === "Int") out[f.key] = f.defaultInt ?? 0;
-    else if (f.type === "Enum") out[f.key] = (f.enumValues || [])[f.defaultInt || 0] ?? "";
+    else if (f.type === "Enum") out[f.key] = resolveEnumParamValue(undefined, f.enumValues, f.defaultInt);
     else if (f.type === "Message" || f.type === "Vec3") continue;
     else out[f.key] = f.defaultDouble ?? 0;
   }
   const d = schema.defaults;
   if (d && typeof d === "object") {
     const flat = d.params && typeof d.params === "object" ? d.params : d;
-    Object.assign(out, flat);
+    for (const [k, v] of Object.entries(flat)) {
+      const field = (schema.fields || []).find((f) => f.key === k);
+      out[k] = field?.type === "Enum" ? resolveEnumParamValue(v, field.enumValues, field.defaultInt) : v;
+    }
   }
   return out;
 }
@@ -3765,6 +3782,9 @@ async function rebuildFeatParamForm() {
   box.classList.remove("muted");
   box.innerHTML = "";
   const fields = [...(schema.fields || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const modeField = fields.find((f) => f.key === "discretizeMode");
+  const hasDiscretizeMode = !!modeField;
+  const discretizeMode = resolveEnumParamValue(values.discretizeMode, modeField?.enumValues, modeField?.defaultInt);
   for (const field of fields) {
     if (field.type === "Message") {
       const row = document.createElement("div");
@@ -3772,6 +3792,10 @@ async function rebuildFeatParamForm() {
       row.textContent = field.messageZh || field.key;
       box.appendChild(row);
       continue;
+    }
+    if (hasDiscretizeMode) {
+      if (field.key === "stepMm" && discretizeMode === "ChordHeight") continue;
+      if (field.key === "linearDeflectionMm" && discretizeMode === "Step") continue;
     }
     const row = document.createElement("div");
     row.className = "op-field";
@@ -3791,7 +3815,8 @@ async function rebuildFeatParamForm() {
       else target.params[field.key] = Number(ctrl.value);
       target.status = "草稿";
       renderFeatTable();
-      scheduleAutoDiscretize();
+      if (field.key === "discretizeMode") void rebuildFeatParamForm();
+      else scheduleAutoDiscretize();
     };
     if (field.type === "Bool") {
       ctrl = document.createElement("input");
@@ -3806,7 +3831,7 @@ async function rebuildFeatParamForm() {
         o.textContent = (field.enumLabelsZh || [])[i] || v;
         ctrl.appendChild(o);
       });
-      ctrl.value = cur !== undefined && cur !== null ? String(cur) : (field.enumValues || [])[0] || "";
+      ctrl.value = resolveEnumParamValue(cur, field.enumValues, field.defaultInt);
       ctrl.onchange = onChange;
     } else {
       ctrl = document.createElement("input");

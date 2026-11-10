@@ -19,8 +19,19 @@ DiscretizeParams buildDiscretizeParamsFromInput(const FeatureDiscretizeInput& in
 TessellateParams toTessellate(const DiscretizeParams& p)
 {
 	TessellateParams t;
-	t.linearDeflectionMm = p.linearDeflectionMm;
+	// 仅步距时内部紧弦高贴形，避免等距重采样落在粗糙折线上
+	if (p.mode == DiscretizeMode::Step)
+	{
+		const double cap = (std::max)(1e-4, p.stepMm * 0.05);
+		t.linearDeflectionMm = (std::min)(0.01, cap);
+	}
+	else
+	{
+		t.linearDeflectionMm = p.linearDeflectionMm;
+	}
 	t.linearDeflectionRelative = true;
+	// 特征 UI 不暴露转角；沿用 TessellateParams 默认 0.5° 会误走 TangentialDeflection(minPts=8)
+	t.angularDeflectionDeg = 0.0;
 	return t;
 }
 
@@ -163,19 +174,24 @@ void appendRawPath(const RawPath& part, RawPath& out)
 	}
 }
 
-bool shouldResampleAfterDiscretize(const std::string& strategyId, double stepMm)
+bool shouldResampleAfterDiscretize(const std::string& strategyId, const DiscretizeParams& disc)
 {
-	if (stepMm <= 0.0)
+	if (disc.stepMm <= 0.0)
 	{
 		return false;
 	}
-	return strategyId != "FaceSection" && strategyId != "FaceParamSurface";
+	if (strategyId == "FaceSection" || strategyId == "FaceParamSurface")
+	{
+		return false;
+	}
+	// 仅弦高：保留 BREP 自适应点列，不做等距抽稀/加密
+	return disc.mode != DiscretizeMode::ChordHeight;
 }
 
 void applyPostDiscretizeResample(const std::string& strategyId, const nlohmann::json& params, RawPath& path)
 {
 	const DiscretizeParams disc = buildDiscretizeParams(params);
-	if (shouldResampleAfterDiscretize(strategyId, disc.stepMm))
+	if (shouldResampleAfterDiscretize(strategyId, disc))
 	{
 		resampleRawPathByStep(path, disc.stepMm);
 	}

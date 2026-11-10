@@ -23,6 +23,9 @@
     <Filter Include="ops\AssignSpeedZone">
       <UniqueIdentifier>{3165D250-47F2-4F9E-9962-B2522EAE1C71}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ops\ClampToPlane">
+      <UniqueIdentifier>{69A47548-9A0D-4807-9227-00BE8FAAE31D}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ops\Delete">
       <UniqueIdentifier>{A1F6DF10-F3DC-4D94-AE40-FCF6D4C19E8E}</UniqueIdentifier>
     </Filter>
@@ -32,6 +35,9 @@
     <Filter Include="ops\ExternalAxisSearch">
       <UniqueIdentifier>{511C0EAC-A9C2-4CD8-B73A-5FC0A7155209}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ops\InsertMid">
+      <UniqueIdentifier>{0962DB77-DF85-4185-986B-989F981B0D1F}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ops\Mirror">
       <UniqueIdentifier>{183B7E96-B849-433B-9883-D7CA742B139A}</UniqueIdentifier>
     </Filter>
@@ -40,6 +46,9 @@
     </Filter>
     <Filter Include="ops\OffsetLateral">
       <UniqueIdentifier>{041FE2BD-DBF7-45E2-BC9D-02D424E475EA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\OrientToPath">
+      <UniqueIdentifier>{797AE637-527A-4FFC-955C-7F1A83BEDCB3}</UniqueIdentifier>
     </Filter>
     <Filter Include="ops\ProjectToGeometry">
       <UniqueIdentifier>{F3C8BDA8-1CA1-4BDC-81E3-868B67BDA32C}</UniqueIdentifier>
@@ -56,17 +65,35 @@
     <Filter Include="ops\Retract">
       <UniqueIdentifier>{16832F9B-FAB4-416E-BE82-B4D5D880EE51}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ops\ReversePath">
+      <UniqueIdentifier>{7AACC2AF-EAC4-4A00-AEE3-4E253D96BA7A}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ops\Rotate">
       <UniqueIdentifier>{6A7C776C-0550-4753-81A5-5C2AB75F172A}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ops\ScalePath">
+      <UniqueIdentifier>{524BC002-F603-47EB-A7FE-38952A17F4B4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\ShiftStart">
+      <UniqueIdentifier>{B8C0DBBB-6B07-4A11-B2DA-FAC55D91DDFB}</UniqueIdentifier>
+    </Filter>
     <Filter Include="ops\SmoothPose">
       <UniqueIdentifier>{4FF4CBE1-8B98-4566-8784-1D97C80B8217}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\SpeedRamp">
+      <UniqueIdentifier>{419705F8-B933-45BE-AD13-745CF844B57E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\SpikeFilter">
+      <UniqueIdentifier>{C141982A-9FA3-446E-84C4-90C7819DEA7B}</UniqueIdentifier>
     </Filter>
     <Filter Include="ops\ToWorkpieceInHand">
       <UniqueIdentifier>{3E21F3DB-042C-4A76-B462-9196EE61220D}</UniqueIdentifier>
     </Filter>
     <Filter Include="ops\Translate">
       <UniqueIdentifier>{04B65307-BD9C-4757-AA04-9528D3399993}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\TrimPath">
+      <UniqueIdentifier>{B8282C24-B252-4351-B633-881BFDC495D7}</UniqueIdentifier>
     </Filter>
     <Filter Include="ops\Weave">
       <UniqueIdentifier>{CC046D7C-1DDC-43A0-9BD2-BECD6ED14D00}</UniqueIdentifier>
@@ -116,6 +143,12 @@
     <ClInclude Include="ops\AssignSpeedZone\AssignSpeedZoneOpConfig.h">
       <Filter>ops\AssignSpeedZone</Filter>
     </ClInclude>
+    <ClInclude Include="ops\ClampToPlane\ClampToPlaneOp.h">
+      <Filter>ops\ClampToPlane</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ClampToPlane\ClampToPlaneOpConfig.h">
+      <Filter>ops\ClampToPlane</Filter>
+    </ClInclude>
     <ClInclude Include="ops\Delete\DeleteOp.h">
       <Filter>ops\Delete</Filter>
     </ClInclude>
@@ -134,6 +167,12 @@
     <ClInclude Include="ops\ExternalAxisSearch\ExternalAxisSearchOpConfig.h">
       <Filter>ops\ExternalAxisSearch</Filter>
     </ClInclude>
+    <ClInclude Include="ops\InsertMid\InsertMidOp.h">
+      <Filter>ops\InsertMid</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\InsertMid\InsertMidOpConfig.h">
+      <Filter>ops\InsertMid</Filter>
+    </ClInclude>
     <ClInclude Include="ops\Mirror\MirrorOp.h">
       <Filter>ops\Mirror</Filter>
     </ClInclude>
@@ -151,6 +190,12 @@
     </ClInclude>
     <ClInclude Include="ops\OffsetLateral\OffsetLateralOpConfig.h">
       <Filter>ops\OffsetLateral</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\OrientToPath\OrientToPathOp.h">
+      <Filter>ops\OrientToPath</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\OrientToPath\OrientToPathOpConfig.h">
+      <Filter>ops\OrientToPath</Filter>
     </ClInclude>
     <ClInclude Include="ops\ProjectToGeometry\ProjectToGeometryOp.h">
       <Filter>ops\ProjectToGeometry</Filter>
@@ -182,17 +227,47 @@
     <ClInclude Include="ops\Retract\RetractOpConfig.h">
       <Filter>ops\Retract</Filter>
     </ClInclude>
+    <ClInclude Include="ops\ReversePath\ReversePathOp.h">
+      <Filter>ops\ReversePath</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ReversePath\ReversePathOpConfig.h">
+      <Filter>ops\ReversePath</Filter>
+    </ClInclude>
     <ClInclude Include="ops\Rotate\RotateOp.h">
       <Filter>ops\Rotate</Filter>
     </ClInclude>
     <ClInclude Include="ops\Rotate\RotateOpConfig.h">
       <Filter>ops\Rotate</Filter>
     </ClInclude>
+    <ClInclude Include="ops\ScalePath\ScalePathOp.h">
+      <Filter>ops\ScalePath</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ScalePath\ScalePathOpConfig.h">
+      <Filter>ops\ScalePath</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ShiftStart\ShiftStartOp.h">
+      <Filter>ops\ShiftStart</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ShiftStart\ShiftStartOpConfig.h">
+      <Filter>ops\ShiftStart</Filter>
+    </ClInclude>
     <ClInclude Include="ops\SmoothPose\SmoothPoseOp.h">
       <Filter>ops\SmoothPose</Filter>
     </ClInclude>
     <ClInclude Include="ops\SmoothPose\SmoothPoseOpConfig.h">
       <Filter>ops\SmoothPose</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\SpeedRamp\SpeedRampOp.h">
+      <Filter>ops\SpeedRamp</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\SpeedRamp\SpeedRampOpConfig.h">
+      <Filter>ops\SpeedRamp</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\SpikeFilter\SpikeFilterOp.h">
+      <Filter>ops\SpikeFilter</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\SpikeFilter\SpikeFilterOpConfig.h">
+      <Filter>ops\SpikeFilter</Filter>
     </ClInclude>
     <ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.h">
       <Filter>ops\ToWorkpieceInHand</Filter>
@@ -205,6 +280,12 @@
     </ClInclude>
     <ClInclude Include="ops\Translate\TranslateOpConfig.h">
       <Filter>ops\Translate</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\TrimPath\TrimPathOp.h">
+      <Filter>ops\TrimPath</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\TrimPath\TrimPathOpConfig.h">
+      <Filter>ops\TrimPath</Filter>
     </ClInclude>
     <ClInclude Include="ops\Weave\WeaveOp.h">
       <Filter>ops\Weave</Filter>
@@ -232,6 +313,12 @@
     <ClCompile Include="ops\AssignSpeedZone\AssignSpeedZoneOpConfig.cpp">
       <Filter>ops\AssignSpeedZone</Filter>
     </ClCompile>
+    <ClCompile Include="ops\ClampToPlane\ClampToPlaneOp.cpp">
+      <Filter>ops\ClampToPlane</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ClampToPlane\ClampToPlaneOpConfig.cpp">
+      <Filter>ops\ClampToPlane</Filter>
+    </ClCompile>
     <ClCompile Include="ops\Delete\DeleteOp.cpp">
       <Filter>ops\Delete</Filter>
     </ClCompile>
@@ -250,6 +337,12 @@
     <ClCompile Include="ops\ExternalAxisSearch\ExternalAxisSearchOpConfig.cpp">
       <Filter>ops\ExternalAxisSearch</Filter>
     </ClCompile>
+    <ClCompile Include="ops\InsertMid\InsertMidOp.cpp">
+      <Filter>ops\InsertMid</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\InsertMid\InsertMidOpConfig.cpp">
+      <Filter>ops\InsertMid</Filter>
+    </ClCompile>
     <ClCompile Include="ops\Mirror\MirrorOp.cpp">
       <Filter>ops\Mirror</Filter>
     </ClCompile>
@@ -267,6 +360,12 @@
     </ClCompile>
     <ClCompile Include="ops\OffsetLateral\OffsetLateralOpConfig.cpp">
       <Filter>ops\OffsetLateral</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\OrientToPath\OrientToPathOp.cpp">
+      <Filter>ops\OrientToPath</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\OrientToPath\OrientToPathOpConfig.cpp">
+      <Filter>ops\OrientToPath</Filter>
     </ClCompile>
     <ClCompile Include="ops\ProjectToGeometry\ProjectToGeometryOp.cpp">
       <Filter>ops\ProjectToGeometry</Filter>
@@ -298,17 +397,47 @@
     <ClCompile Include="ops\Retract\RetractOpConfig.cpp">
       <Filter>ops\Retract</Filter>
     </ClCompile>
+    <ClCompile Include="ops\ReversePath\ReversePathOp.cpp">
+      <Filter>ops\ReversePath</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ReversePath\ReversePathOpConfig.cpp">
+      <Filter>ops\ReversePath</Filter>
+    </ClCompile>
     <ClCompile Include="ops\Rotate\RotateOp.cpp">
       <Filter>ops\Rotate</Filter>
     </ClCompile>
     <ClCompile Include="ops\Rotate\RotateOpConfig.cpp">
       <Filter>ops\Rotate</Filter>
     </ClCompile>
+    <ClCompile Include="ops\ScalePath\ScalePathOp.cpp">
+      <Filter>ops\ScalePath</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ScalePath\ScalePathOpConfig.cpp">
+      <Filter>ops\ScalePath</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ShiftStart\ShiftStartOp.cpp">
+      <Filter>ops\ShiftStart</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ShiftStart\ShiftStartOpConfig.cpp">
+      <Filter>ops\ShiftStart</Filter>
+    </ClCompile>
     <ClCompile Include="ops\SmoothPose\SmoothPoseOp.cpp">
       <Filter>ops\SmoothPose</Filter>
     </ClCompile>
     <ClCompile Include="ops\SmoothPose\SmoothPoseOpConfig.cpp">
       <Filter>ops\SmoothPose</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\SpeedRamp\SpeedRampOp.cpp">
+      <Filter>ops\SpeedRamp</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\SpeedRamp\SpeedRampOpConfig.cpp">
+      <Filter>ops\SpeedRamp</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\SpikeFilter\SpikeFilterOp.cpp">
+      <Filter>ops\SpikeFilter</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\SpikeFilter\SpikeFilterOpConfig.cpp">
+      <Filter>ops\SpikeFilter</Filter>
     </ClCompile>
     <ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.cpp">
       <Filter>ops\ToWorkpieceInHand</Filter>
@@ -321,6 +450,12 @@
     </ClCompile>
     <ClCompile Include="ops\Translate\TranslateOpConfig.cpp">
       <Filter>ops\Translate</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\TrimPath\TrimPathOp.cpp">
+      <Filter>ops\TrimPath</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\TrimPath\TrimPathOpConfig.cpp">
+      <Filter>ops\TrimPath</Filter>
     </ClCompile>
     <ClCompile Include="ops\Weave\WeaveOp.cpp">
       <Filter>ops\Weave</Filter>

@@ -7,6 +7,7 @@
 #include "detail/FeatureDiscretizeCommon.h"
 
 #include <TopoDS_Face.hxx>
+#include <algorithm>
 #include <cmath>
 
 namespace geoalgo
@@ -15,7 +16,19 @@ REGISTER_FEATURE_DISCRETIZER(SyntheticPolylineDiscretizer);
 
 std::vector<FeatureDiscretizerParamField> SyntheticPolylineDiscretizer::paramFields() const
 {
-	return featureDiscretizerCommonParamFields();
+	std::vector<FeatureDiscretizerParamField> fields = featureDiscretizerCommonParamFields();
+	// 折线无 BREP 弦高；ChordHeight=保留原点列，Step/ChordThenStep=按步距重采样
+	fields.erase(std::remove_if(fields.begin(), fields.end(),
+								[](const FeatureDiscretizerParamField& f) { return f.key == "linearDeflectionMm"; }),
+				 fields.end());
+	for (FeatureDiscretizerParamField& field : fields)
+	{
+		if (field.key == "discretizeMode")
+		{
+			field.defaultInt = 2; // Step（顺序：ChordThenStep, ChordHeight, Step）
+		}
+	}
+	return fields;
 }
 
 bool SyntheticPolylineDiscretizer::validate(const FeatureDiscretizeInput& input, std::string* errMsg) const

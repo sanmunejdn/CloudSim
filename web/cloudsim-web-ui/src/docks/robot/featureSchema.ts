@@ -27,13 +27,32 @@ export type FeatureSchema = {
   defaults?: Record<string, unknown> | { params?: Record<string, unknown> };
 };
 
+/** Enum 存字符串；兼容误写成下标的旧/后端默认 */
+export function resolveEnumParamValue(
+  cur: unknown,
+  enumValues: string[] | undefined,
+  defaultInt?: number,
+): string {
+  const opts = enumValues || [];
+  const fallback = opts[defaultInt ?? 0] ?? opts[0] ?? "";
+  if (cur === undefined || cur === null || cur === "") return fallback;
+  if (typeof cur === "number" || (typeof cur === "string" && /^\d+$/.test(cur))) {
+    const idx = Number(cur);
+    if (Number.isInteger(idx) && idx >= 0 && idx < opts.length && !opts.includes(String(cur))) {
+      return opts[idx] ?? fallback;
+    }
+  }
+  const s = String(cur);
+  return opts.includes(s) ? s : fallback;
+}
+
 export function defaultsFromSchema(schema: FeatureSchema | null | undefined): Record<string, unknown> {
   if (!schema) return {};
   const out: Record<string, unknown> = {};
   for (const f of schema.fields || []) {
     if (f.type === "Bool") out[f.key] = !!f.defaultBool;
     else if (f.type === "Int") out[f.key] = f.defaultInt ?? 0;
-    else if (f.type === "Enum") out[f.key] = (f.enumValues || [])[f.defaultInt || 0] ?? "";
+    else if (f.type === "Enum") out[f.key] = resolveEnumParamValue(undefined, f.enumValues, f.defaultInt);
     else if (f.type === "Message" || f.type === "Vec3") continue;
     else out[f.key] = f.defaultDouble ?? 0;
   }
@@ -43,7 +62,10 @@ export function defaultsFromSchema(schema: FeatureSchema | null | undefined): Re
       "params" in d && d.params && typeof d.params === "object"
         ? (d.params as Record<string, unknown>)
         : (d as Record<string, unknown>);
-    Object.assign(out, flat);
+    for (const [k, v] of Object.entries(flat)) {
+      const field = (schema.fields || []).find((f) => f.key === k);
+      out[k] = field?.type === "Enum" ? resolveEnumParamValue(v, field.enumValues, field.defaultInt) : v;
+    }
   }
   return out;
 }
