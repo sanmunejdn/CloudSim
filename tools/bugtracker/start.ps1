@@ -5,18 +5,49 @@ $ErrorActionPreference = "Stop"
 
 $pidFile = Join-Path $BtDataDir "server.pid"
 
-# 已在运行则直接报告（pid 文件 + 命令行双重确认，防止 pid 复用误判）
+# Win11 上部分环境 State 为空，-State Listen 恒匹配不到；用 RemotePort=0 识别监听套接字
+function Get-BtListeners([int]$Port) {
+    Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+        Where-Object { $_.RemotePort -eq 0 }
+}
+
+function Test-BtCommandLine([int]$ProcId) {
+    $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcId" -ErrorAction SilentlyContinue
+    return ($proc -and $proc.CommandLine -match "bugtracker")
+}
+
+function Test-BtProcessTreeOwnsPort([int]$RootPid, [int]$Port) {
+    $owner = (Get-BtListeners $Port | Select-Object -First 1).OwningProcess
+    if (-not $owner) { return $false }
+    if ($owner -eq $RootPid) { return $true }
+    $node = Get-CimInstance Win32_Process -Filter "ProcessId=$owner" -ErrorAction SilentlyContinue
+    while ($node) {
+        if ($node.ProcessId -eq $RootPid) { return $true }
+        if (-not $node.ParentProcessId -or $node.ParentProcessId -eq 0) { break }
+        $node = Get-CimInstance Win32_Process -Filter "ProcessId=$($node.ParentProcessId)" -ErrorAction SilentlyContinue
+    }
+    return $false
+}
+
+# 已在运行则直接报告（pid 文件 + 端口属主，防止 pid 复用误判）
 if (Test-Path $pidFile) {
     $oldPid = [int](Get-Content $pidFile).Trim()
-    $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$oldPid" -ErrorAction SilentlyContinue
-    if ($proc -and $proc.CommandLine -match "bugtracker") {
+    if ((Test-BtCommandLine $oldPid) -and (Test-BtProcessTreeOwnsPort $oldPid $BtPort)) {
         Write-Host "[BugTracker] 已在运行（PID $oldPid）：http://127.0.0.1:$BtPort"
         exit 0
     }
-    Remove-Item $pidFile -Force
+    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
 }
-if (Get-NetTCPConnection -LocalPort $BtPort -State Listen -ErrorAction SilentlyContinue) {
-    Write-Host "[BugTracker] 端口 $BtPort 被占用且无 pid 记录（可能是前台模式在跑），先执行 .\stop.ps1"
+
+$existing = Get-BtListeners $BtPort | Select-Object -First 1
+if ($existing) {
+    $owner = [int]$existing.OwningProcess
+    if (Test-BtCommandLine $owner) {
+        Set-Content $pidFile $owner -Encoding ASCII
+        Write-Host "[BugTracker] 已在运行（PID $owner）：http://127.0.0.1:$BtPort"
+        exit 0
+    }
+    Write-Host "[BugTracker] 端口 $BtPort 被占用（PID $owner）且非 BugTracker，先释放端口或改 .env 中 BT_PORT"
     exit 1
 }
 
@@ -37,17 +68,30 @@ $proc = Start-Process -FilePath $BtPython -ArgumentList "-m", "bugtracker" `
     -RedirectStandardOutput $outLog -RedirectStandardError $errLog
 Set-Content $pidFile $proc.Id -Encoding ASCII
 
-# 轮询健康检查，确认服务真正可用
+# 轮询健康检查，且确认端口属主属于本次进程树（避免旧实例健康响应冒充成功）
 $ok = $false
 foreach ($i in 1..40) {
     Start-Sleep -Milliseconds 500
+    if (-not (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue)) {
+        break
+    }
     try {
         $r = Invoke-RestMethod "http://127.0.0.1:$BtPort/api/health" -TimeoutSec 2
-        if ($r.ok) { $ok = $true; break }
+        if ($r.ok -and (Test-BtProcessTreeOwnsPort $proc.Id $BtPort)) {
+            $ok = $true
+            break
+        }
     } catch { }
 }
 if (-not $ok) {
-    Write-Host "[BugTracker] 启动超时，日志见：$errLog"
+    if (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue) {
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    }
+    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+    Write-Host "[BugTracker] 启动失败，日志见：$errLog"
+    if (Test-Path $errLog) {
+        Get-Content $errLog -Tail 12 | ForEach-Object { Write-Host $_ }
+    }
     exit 1
 }
 Write-Host "[BugTracker] 已后台启动（PID $($proc.Id)）：本机 http://127.0.0.1:$BtPort ，局域网 http://<本机IP>:$BtPort"

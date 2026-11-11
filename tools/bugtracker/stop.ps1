@@ -13,6 +13,12 @@ if (Test-Path $envFile) {
     }
 }
 
+# Win11 上部分环境 State 为空，-State Listen 恒匹配不到；用 RemotePort=0 识别监听套接字
+function Get-BtListeners([int]$Port) {
+    Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+        Where-Object { $_.RemotePort -eq 0 }
+}
+
 # 只杀命令行含 -m bugtracker 的 python，防止误杀同 pid/同端口的无关进程
 function Stop-BtProcess([int]$ProcId) {
     $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcId" -ErrorAction SilentlyContinue
@@ -21,7 +27,11 @@ function Stop-BtProcess([int]$ProcId) {
         Write-Host "[BugTracker] PID $ProcId 不是 BugTracker 进程，跳过（防误杀）"
         return $false
     }
-    Stop-Process -Id $ProcId -Force
+    # uvicorn 可能再拉起子进程；先杀子再杀父，避免孤儿占端口
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.ParentProcessId -eq $ProcId -and $_.CommandLine -match "bugtracker" } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Stop-Process -Id $ProcId -Force -ErrorAction SilentlyContinue
     return $true
 }
 
@@ -32,9 +42,8 @@ if (Test-Path $pidFile) {
     Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
 }
 if (-not $stopped) {
-    # 兜底：谁占着端口谁就是服务（覆盖前台模式、pid 文件丢失等场景）
-    $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+    # 兜底：谁占着监听端口谁就是服务（覆盖前台模式、pid 文件丢失等场景）
+    $conn = Get-BtListeners $port | Select-Object -First 1
     if ($conn) { $stopped = Stop-BtProcess $conn.OwningProcess }
 }
 
@@ -46,6 +55,6 @@ if (-not $stopped) {
 # 等端口真正释放
 foreach ($i in 1..20) {
     Start-Sleep -Milliseconds 500
-    if (-not (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)) { break }
+    if (-not (Get-BtListeners $port)) { break }
 }
 Write-Host "[BugTracker] 已停止（端口 $port 已释放，数据保留在 data\）"
