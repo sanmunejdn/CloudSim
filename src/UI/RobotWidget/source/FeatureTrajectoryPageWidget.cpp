@@ -11,6 +11,9 @@
 #include "FeaturePickTransform.h"
 #include "FeatureTableModel.h"
 #include "GeometryRef.h"
+#include "IWorkpieceWorldMatrixProvider.h"
+#include "OsgWorkpieceWorldMatrixProvider.h"
+#include "RunLogger.h"
 
 #include <FeatureDiscretizerBridge.h>
 #include "IRobotMainWindowHost.h"
@@ -65,6 +68,7 @@
 #include <algorithm>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <ShapeHandle.h>
 #include <json.hpp>
@@ -84,6 +88,31 @@ void applyBtnRole(QPushButton* btn, const char* role)
 		btn->style()->polish(btn);
 	}
 }
+
+
+/// 桌面优先 OSG，失败回落 Backend，避免视觉根解析失败时离散/预览整链断开
+class PreferOsgThenBackendWorldMatrixProvider final : public IWorkpieceWorldMatrixProvider
+{
+public:
+	PreferOsgThenBackendWorldMatrixProvider(IRobotOsgSceneOps* osg, const IBackendDataQuery& query)
+		: m_osg(osg), m_backend(query)
+	{
+	}
+
+	bool getWorldMatrix(const std::string& backendId, BackendMat4& out) const override
+	{
+		if (m_osg.getWorldMatrix(backendId, out))
+		{
+			return true;
+		}
+		const bool ok = m_backend.getWorldMatrix(backendId, out);
+		return ok;
+	}
+
+private:
+	OsgWorkpieceWorldMatrixProvider m_osg;
+	BackendDataWorldMatrixProvider m_backend;
+};
 
 bool isTopLevelWorkpieceBackend(const IRobotDocumentHost* doc, const std::string& backendId)
 {
@@ -647,6 +676,16 @@ void FeatureTrajectoryPageWidget::refreshStrategyCombo(const geoalgo::GeometryAf
 	m_strategyCombo->blockSignals(false);
 }
 
+void FeatureTrajectoryPageWidget::ensureMeshPickHandlerBound()
+{
+	if (!m_host)
+	{
+		return;
+	}
+	m_host->setMeshPickCommittedHandler([this](const PickResult& pick, const PickKind kind)
+										{ onMeshPickCommitted(pick, static_cast<int>(kind)); });
+}
+
 void FeatureTrajectoryPageWidget::bindHost(IRobotMainWindowHost* host)
 {
 	if (m_host)
@@ -654,11 +693,7 @@ void FeatureTrajectoryPageWidget::bindHost(IRobotMainWindowHost* host)
 		m_host->clearMeshPickCommittedHandler();
 	}
 	m_host = host;
-	if (m_host)
-	{
-		m_host->setMeshPickCommittedHandler([this](const PickResult& pick, const PickKind kind)
-											{ onMeshPickCommitted(pick, static_cast<int>(kind)); });
-	}
+	ensureMeshPickHandlerBound();
 	refreshWorkpieceAvailability();
 }
 
@@ -1300,6 +1335,11 @@ void FeatureTrajectoryPageWidget::refreshPreviewFromSession()
 		showTrajectoryPreview(baselineWorld, true);
 		return;
 	}
+	if (!baseErr.isEmpty())
+	{
+		RunLogger::warn(std::string("[FeatureDiscretize] preview file→world failed: ") + baseErr.toStdString());
+		setStatus(baseErr);
+	}
 	const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
 	if (traj)
 	{
@@ -1547,6 +1587,7 @@ void FeatureTrajectoryPageWidget::onPickEdge()
 	{
 		return;
 	}
+	ensureMeshPickHandlerBound();
 	osg->setObjectSelectionMode(false);
 	osg->setMeshFacePickMode(false);
 	osg->setCrossObjectMeshPick(true);
@@ -1582,6 +1623,7 @@ void FeatureTrajectoryPageWidget::onPickFace()
 	{
 		return;
 	}
+	ensureMeshPickHandlerBound();
 	osg->setObjectSelectionMode(false);
 	osg->setMeshLinePickMode(false);
 	osg->setCrossObjectMeshPick(true);
@@ -2006,7 +2048,8 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 						: QStringLiteral("%1 feature %2, discretizing…")
 							  .arg(appended ? QStringLiteral("Updated") : QStringLiteral("Added"),
 								   QString::fromStdString(entry.featureId)));
-	const bool ok = discretizeFromTable(true);
+	// 拾取后失败要弹窗，避免只写状态栏被忽略
+	const bool ok = discretizeFromTable(false);
 	--m_strategyRowSyncDepth;
 	if (ok && m_session && m_session->hasRawTrajectory())
 	{
@@ -2019,11 +2062,22 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		{
 			msg += m_chinese ? QStringLiteral("；已写入当前路径规划") : QStringLiteral("; saved to path plan");
 		}
+		if (n <= 0)
+		{
+			msg += m_chinese ? QStringLiteral("（路径为空，请查离散参数）") : QStringLiteral(" (empty path)");
+			QMessageBox::warning(this, QStringLiteral("离散"), msg);
+		}
 		setStatus(msg);
 	}
 	else if (!ok)
 	{
 		setFeatureEditActive(false);
+	}
+	else if (!m_session)
+	{
+		QMessageBox::warning(this, QStringLiteral("离散"),
+							 m_chinese ? QStringLiteral("离散完成但轨迹会话未绑定，无法写入/预览点")
+									   : QStringLiteral("Discretized but trajectory session is not bound"));
 	}
 }
 
@@ -2416,11 +2470,60 @@ bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 		return false;
 	}
 
+	IRobotOsgSceneOps* osg = m_host ? m_host->osgScene() : nullptr;
+	// 离散前把表内工件 OSG 位姿写入 Backend，避免保存/Web 仍读到旧矩阵；数值以 OSG provider 为准
+	int syncOk = 0;
+	int syncFail = 0;
+	if (osg)
+	{
+		std::unordered_set<std::string> wpIds;
+		if (!doc.workpiece.backendIdUtf8.empty())
+		{
+			wpIds.insert(doc.workpiece.backendIdUtf8);
+		}
+		for (const geoalgo::FeatureEntry& fe : doc.features)
+		{
+			const geoalgo::WorkpieceRef& rowWp = geoalgo::featureEntryWorkpiece(doc, fe);
+			if (!rowWp.backendIdUtf8.empty())
+			{
+				wpIds.insert(rowWp.backendIdUtf8);
+			}
+			for (const geoalgo::GeometryRef& gref : fe.geometry.refs)
+			{
+				const geoalgo::WorkpieceRef& refWp = geoalgo::geometryRefWorkpiece(doc, fe, gref);
+				if (!refWp.backendIdUtf8.empty())
+				{
+					wpIds.insert(refWp.backendIdUtf8);
+				}
+			}
+		}
+		for (const std::string& bid : wpIds)
+		{
+			if (const auto obj = docHost->findObject(bid))
+			{
+				if (syncBackendWorldPoseFromOsg(osg, *obj))
+				{
+					++syncOk;
+				}
+				else
+				{
+					++syncFail;
+				}
+			}
+		}
+		if (syncOk == 0 && syncFail > 0)
+		{
+			setStatus(m_chinese ? QStringLiteral("位姿未写入 Backend，保存/Web 可能仍旧")
+							   : QStringLiteral("Pose not written to Backend; save/Web may stay stale"));
+		}
+	}
+
 	geoalgo::RawPath path;
 	geoalgo::FeatureListDocument resolvedDoc;
 	std::string err;
-	if (!geometry_backend_ops::discretizeFeatureListAcrossWorkpieces(doc, docHost->backend(), path, &resolvedDoc,
-																	 &err))
+	PreferOsgThenBackendWorldMatrixProvider poses(osg, docHost->backend());
+	if (!geometry_backend_ops::discretizeFeatureListAcrossWorkpieces(doc, docHost->backend(), poses, path,
+																	 &resolvedDoc, &err))
 	{
 		for (int i = 0; i < static_cast<int>(m_featureModel->entries().size()); ++i)
 		{
@@ -2429,6 +2532,7 @@ bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 		const QString errText = err.empty()
 									? (m_chinese ? QStringLiteral("离散失败") : QStringLiteral("Discretization failed"))
 									: QString::fromStdString(err);
+		RunLogger::warn(std::string("[FeatureDiscretize] AcrossWorkpieces failed: ") + errText.toStdString());
 		if (!quiet)
 		{
 			QMessageBox::warning(this, QStringLiteral("离散"), errText);
@@ -2439,6 +2543,9 @@ bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 		}
 		return false;
 	}
+	RunLogger::info(std::string("[FeatureDiscretize] ok features=") + std::to_string(resolvedDoc.features.size()) +
+					" points=" + std::to_string(path.points.size()) +
+					" wp=" + resolvedDoc.workpiece.backendIdUtf8);
 
 	for (int i = 0; i < static_cast<int>(m_featureModel->entries().size()); ++i)
 	{

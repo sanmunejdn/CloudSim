@@ -188,6 +188,7 @@
     <ClInclude Include="inc\BackendHierarchyChange.h" />
     <ClInclude Include="inc\BackendHierarchyModel.h" />
     <ClInclude Include="inc\IBackendDataQuery.h" />
+    <ClInclude Include="inc\IWorkpieceWorldMatrixProvider.h" />
     <ClInclude Include="inc\data_global.h" />
     <ClInclude Include="inc\geometry_base64.h" />
     <ClInclude Include="inc\GeometryMutator.h" />
@@ -210,6 +211,7 @@
     <ClCompile Include="source\BackendImporters.cpp" />
     <ClCompile Include="source\BackendFollowMath.cpp" />
     <ClCompile Include="source\BackendSpatial.cpp" />
+    <ClCompile Include="source\IWorkpieceWorldMatrixProvider.cpp" />
     <ClCompile Include="source\BackendFollowTransformSolver.cpp" />
     <ClCompile Include="source\BackendCompoundPropagate.cpp" />
     <ClCompile Include="source\FollowAttachmentComponent.cpp" />

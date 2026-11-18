@@ -126,6 +126,7 @@ bool worldPointToStepModelMm(IRobotOsgSceneOps* osg, const std::string& backendI
 		return false;
 	}
 	const std::string xformId = transformBackendId(osg, backendId);
+	// 与 OsgWorkpieceWorldMatrixProvider 同源：桌面世界矩阵只认 OSG 场景根
 	osg::Matrixd worldMat;
 	if (!RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, xformId, worldMat))
 	{

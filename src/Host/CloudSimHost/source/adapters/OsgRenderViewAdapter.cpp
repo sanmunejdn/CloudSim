@@ -494,7 +494,7 @@ bool OsgRenderViewAdapter::commitGizmoPoseToBackend(const core::ObjectId& id)
 		return false;
 	}
 	const BackendMat4 worldBefore = obj->worldMatrix();
-	if (!m_widget.writeActiveBackendPoseFromOsg(*obj))
+	if (!m_widget.writeBackendPoseFromOsg(id.toStdString(), *obj))
 	{
 		return false;
 	}

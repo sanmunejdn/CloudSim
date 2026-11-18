@@ -320,6 +320,7 @@ void AssemblyMatePanel::startFacePick(const int slot)
 	osg->setSelectionActive(false);
 	m_mw->m_robotHost->setMeshPickCommittedHandler(
 		[this](const PickResult& pick, const PickKind kind) { onPickCommitted(pick, kind); });
+	m_ownsMeshPickHandler = true;
 	setStatus(m_mw->i18n(QStringLiteral("Pick a B-rep face in the view"), QStringLiteral("在视口点选 B-rep 面")),
 			  false);
 }
@@ -327,9 +328,10 @@ void AssemblyMatePanel::startFacePick(const int slot)
 void AssemblyMatePanel::stopFacePick()
 {
 	m_pickSlot = -1;
-	if (m_mw && m_mw->m_robotHost)
+	if (m_ownsMeshPickHandler && m_mw && m_mw->m_robotHost)
 	{
 		m_mw->m_robotHost->clearMeshPickCommittedHandler();
+		m_ownsMeshPickHandler = false;
 	}
 	if (IRobotOsgViewHost* osg = m_mw->activeOsgViewHost())
 		{

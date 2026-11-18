@@ -64,6 +64,8 @@ private:
 	QLabel* m_angleLabel = nullptr;
 
 	int m_pickSlot = -1;
+	// 仅清自己挂上的 handler，避免打断装配拾取时误删特征轨迹等页的回调
+	bool m_ownsMeshPickHandler = false;
 	cloudsim::host::AssemblyMateFaceRef m_face1;
 	cloudsim::host::AssemblyMateFaceRef m_face2;
 	std::vector<osg::Vec3f> m_face1Verts;

@@ -20,6 +20,7 @@ struct FeatureDiscretizeContext;
 }
 
 class IBackendDataQuery;
+class IWorkpieceWorldMatrixProvider;
 
 namespace geometry_backend_ops
 {
@@ -53,15 +54,18 @@ GEOMETRY_SERVICES_EXPORT bool discretizeFeatureList(const geoalgo::FeatureListDo
 													std::string* errMsg = nullptr);
 
 /// 解析行内多工件 GeometryRef → FeatureDiscretizeContext（异工件边预变换到 primary）
+/// poses：桌面传 OSG、Headless 传 Backend；禁止在实现内再直读 objectWorldMatrix
 GEOMETRY_SERVICES_EXPORT bool buildFeatureDiscretizeContext(const geoalgo::FeatureListDocument& doc,
 															const geoalgo::FeatureEntry& entry,
 															const IBackendDataQuery& mgr,
+															const IWorkpieceWorldMatrixProvider& poses,
 															geoalgo::FeatureDiscretizeContext& outCtx,
 															std::string* errMsg = nullptr);
 
 /// 跨工件离散：同工件 LineConnectivity/FaceUnion 收批走 Coordinator；其余逐行 discretizeEx
 GEOMETRY_SERVICES_EXPORT bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& doc,
 																	const IBackendDataQuery& mgr,
+																	const IWorkpieceWorldMatrixProvider& poses,
 																	geoalgo::RawPath& out,
 																	geoalgo::FeatureListDocument* outResolvedDoc,
 																	std::string* errMsg = nullptr);

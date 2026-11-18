@@ -3909,14 +3909,14 @@ void OsgWidget::syncActiveBackendRootFromSelectedTransform()
 	syncActiveBackendRootFromObjectFrame(f, false);
 }
 
-bool OsgWidget::writeActiveBackendPoseFromOsg(BackendDataBase& data)
+bool OsgWidget::writeBackendPoseFromOsg(const std::string& backendId, BackendDataBase& data)
 {
-	if (!data.hasPoseProperty() || data.id() != m_activeBackendId || !m_activeBackendOuterPat.valid())
+	if (!data.hasPoseProperty() || backendId.empty() || data.id() != backendId)
 	{
 		return false;
 	}
 	osg::Matrixd world;
-	if (!getBackendRootWorldMatrix(m_activeBackendId, world))
+	if (!getBackendRootWorldMatrix(backendId, world))
 	{
 		return false;
 	}
@@ -3936,6 +3936,11 @@ bool OsgWidget::writeActiveBackendPoseFromOsg(BackendDataBase& data)
 		}
 	}
 	return true;
+}
+
+bool OsgWidget::writeActiveBackendPoseFromOsg(BackendDataBase& data)
+{
+	return writeBackendPoseFromOsg(data.id(), data);
 }
 
 void OsgWidget::setSelectedColor(float r, float g, float b, float a)

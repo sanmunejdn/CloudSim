@@ -124,7 +124,7 @@ CloudSim/
 - 插件输出：`$(CloudSimBinDir)plugins/<plugin.id>/`
 - 网页静态根：`$(CloudSimBinDir)web/`（`CloudSimWeb` PostBuild / `npm run build:debug|release`）
 - 第三方 SDK：`$(CloudSimRepoRoot)bin/SDK/...`（Include / Lib / 部署拷贝）
-  - 可选 **SMLib**（NVIDIA usd-brep v1.0.0）：`bin/SDK/smlib/`，见 [`bin/SDK/smlib/README.md`](../../bin/SDK/smlib/README.md)；`CloudSim/SMLib.props` → `CLOUDSIM_HAS_SMLIB`；冒烟 `src/App/SmlibSmoke`
+  - 可选 **SMLib**（NVIDIA usd-brep v1.0.0）：`bin/SDK/smlib/`，见 [`bin/SDK/smlib/README.md`](../../bin/SDK/smlib/README.md) 与详细文档 [`bin/SDK/smlib/docs/README.md`](../../bin/SDK/smlib/docs/README.md)；`CloudSim/SMLib.props` → `CLOUDSIM_HAS_SMLIB`；冒烟 `src/App/SmlibSmoke`
 - **生成顺序建议**：`CloudSimCore` → `Data` 等 → **`CloudSimHost`** → `Widget` → `CloudSim`
 - 模块职责与文档入口见 [`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md)
 - 网页壳开发见 [`web/cloudsim-web-ui/DEVELOPER_GUIDE.md`](../web/cloudsim-web-ui/DEVELOPER_GUIDE.md)

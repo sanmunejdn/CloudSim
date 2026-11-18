@@ -143,6 +143,9 @@
     <ClInclude Include="inc\GeometryMutator.h">
       <Filter>inc\GeometryBackends</Filter>
     </ClInclude>
+    <ClInclude Include="inc\IWorkpieceWorldMatrixProvider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="inc\IBackendDataQuery.h">
       <Filter>inc\Other</Filter>
     </ClInclude>
@@ -204,6 +207,9 @@
     </ClCompile>
     <ClCompile Include="source\BackendPropertyVisualAspect.cpp">
       <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IWorkpieceWorldMatrixProvider.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendSpatial.cpp">
       <Filter>src\SpatialPrimitive</Filter>

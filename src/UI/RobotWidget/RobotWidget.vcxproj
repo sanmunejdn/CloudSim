@@ -180,6 +180,7 @@
     <ClCompile Include="source\TrajectoryEditObserver.cpp" />
     <ClCompile Include="source\TrajectoryEditPageWidget.cpp" />
     <ClCompile Include="source\FeaturePickTransform.cpp" />
+    <ClCompile Include="source\OsgWorkpieceWorldMatrixProvider.cpp" />
     <ClCompile Include="source\TrajectoryGeometryResolverHost.cpp" />
     <ClCompile Include="source\FeatureTrajectoryPageWidget.cpp" />
     <ClCompile Include="source\FeatureTableModel.cpp" />

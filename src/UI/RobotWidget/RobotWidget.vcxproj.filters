@@ -220,6 +220,9 @@
     <ClCompile Include="source\FeatureDiscretizerParamPanel.cpp">
       <Filter>src\FeatureTrajectory</Filter>
     </ClCompile>
+    <ClCompile Include="source\OsgWorkpieceWorldMatrixProvider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="source\FeaturePickTransform.cpp">
       <Filter>src\FeatureTrajectory</Filter>
     </ClCompile>

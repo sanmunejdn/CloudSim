@@ -11,6 +11,7 @@
 #include "BrepBackendData.h"
 #include "GeometryRef.h"
 #include "IBackendDataQuery.h"
+#include "IWorkpieceWorldMatrixProvider.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 
@@ -3377,8 +3378,8 @@ WorkpieceShapeSource resolveWorkpieceShape(const std::string& backendIdUtf8, con
 }
 
 bool buildFeatureDiscretizeContext(const geoalgo::FeatureListDocument& doc, const geoalgo::FeatureEntry& entryIn,
-								   const IBackendDataQuery& mgr, geoalgo::FeatureDiscretizeContext& outCtx,
-								   std::string* errMsg)
+								   const IBackendDataQuery& mgr, const IWorkpieceWorldMatrixProvider& poses,
+								   geoalgo::FeatureDiscretizeContext& outCtx, std::string* errMsg)
 {
 	outCtx = geoalgo::FeatureDiscretizeContext{};
 	geoalgo::FeatureEntry entry = entryIn;
@@ -3432,9 +3433,17 @@ bool buildFeatureDiscretizeContext(const geoalgo::FeatureListDocument& doc, cons
 			}
 			return false;
 		}
-		if (const auto data = mgr.getData(wp.backendIdUtf8))
+		// 优先 poses（桌面 OSG）；失败回落 Backend，避免 B-rep 视觉根 id 未解析时整次离散被掐死
+		if (!poses.getWorldMatrix(wp.backendIdUtf8, cs.world))
 		{
-			cs.world = objectWorldMatrix(*data);
+			if (const auto data = mgr.getData(wp.backendIdUtf8))
+			{
+				cs.world = objectWorldMatrix(*data);
+			}
+			else
+			{
+				cs.world = BackendMat4::identity();
+			}
 		}
 		cache.emplace(wp.backendIdUtf8, cs);
 		out = cs;
@@ -3541,8 +3550,8 @@ bool buildFeatureDiscretizeContext(const geoalgo::FeatureListDocument& doc, cons
 }
 
 bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& doc, const IBackendDataQuery& mgr,
-										   geoalgo::RawPath& out, geoalgo::FeatureListDocument* outResolvedDoc,
-										   std::string* errMsg)
+										   const IWorkpieceWorldMatrixProvider& poses, geoalgo::RawPath& out,
+										   geoalgo::FeatureListDocument* outResolvedDoc, std::string* errMsg)
 {
 	out = geoalgo::RawPath{};
 	if (doc.features.empty())
@@ -3565,16 +3574,14 @@ bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& d
 	{
 		if (rowWp != docPrimaryId)
 		{
-			const auto data = mgr.getData(rowWp);
-			if (!data)
+			BackendMat4 world = BackendMat4::identity();
+			if (!poses.getWorldMatrix(rowWp, world))
 			{
-				if (errMsg)
+				if (const auto data = mgr.getData(rowWp))
 				{
-					*errMsg = "backend not found: " + rowWp;
+					world = objectWorldMatrix(*data);
 				}
-				return false;
 			}
-			const BackendMat4 world = objectWorldMatrix(*data);
 			const auto mapPoint = [&](double x, double y, double z)
 			{
 				return backend_mat4_transform_point(docPrimaryInv,
@@ -3625,10 +3632,15 @@ bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& d
 		}
 		docPrimaryId = wp.backendIdUtf8;
 		resolved.workpiece = wp;
-		if (const auto data = mgr.getData(docPrimaryId))
+		BackendMat4 primaryWorld = BackendMat4::identity();
+		if (!poses.getWorldMatrix(docPrimaryId, primaryWorld))
 		{
-			(void)backend_mat4_invert_rigid(objectWorldMatrix(*data), docPrimaryInv);
+			if (const auto data = mgr.getData(docPrimaryId))
+			{
+				primaryWorld = objectWorldMatrix(*data);
+			}
 		}
+		(void)backend_mat4_invert_rigid(primaryWorld, docPrimaryInv);
 		haveDocPrimary = true;
 	};
 
@@ -3652,7 +3664,7 @@ bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& d
 		geoalgo::FeatureEntry& entry = resolved.features[fi];
 		geoalgo::FeatureDiscretizeContext ctx;
 		std::string stepErr;
-		if (!buildFeatureDiscretizeContext(doc, entry, mgr, ctx, &stepErr))
+		if (!buildFeatureDiscretizeContext(doc, entry, mgr, poses, ctx, &stepErr))
 		{
 			if (errMsg)
 			{
@@ -3685,7 +3697,7 @@ bool discretizeFeatureListAcrossWorkpieces(const geoalgo::FeatureListDocument& d
 			{
 				geoalgo::FeatureEntry& next = resolved.features[end];
 				geoalgo::FeatureDiscretizeContext nextCtx;
-				if (!buildFeatureDiscretizeContext(doc, next, mgr, nextCtx, &stepErr))
+				if (!buildFeatureDiscretizeContext(doc, next, mgr, poses, nextCtx, &stepErr))
 				{
 					if (errMsg)
 					{

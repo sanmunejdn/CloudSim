@@ -192,6 +192,9 @@ private:
 
 	void exitPickMode();
 
+	/// 其它面板 interrupt 可能清掉全局 handler；进入拾取前重新挂上
+	void ensureMeshPickHandlerBound();
+
 	void onMeshPickCommitted(const struct PickResult& pick, int pickKindInt);
 
 	/// pickBackendId：场景命中 backend，不以 combo 为范围

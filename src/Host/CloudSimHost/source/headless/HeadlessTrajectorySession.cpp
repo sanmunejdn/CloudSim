@@ -13,6 +13,7 @@
 #include "HeadlessRobotContext.h"
 #include "IBackendDataQuery.h"
 #include "ITrajectoryOp.h"
+#include "IWorkpieceWorldMatrixProvider.h"
 #include "MeshTrajectory.h"
 #include "MeshTrajectoryIngress.h"
 #include "RecipeBlueprint.h"
@@ -429,15 +430,16 @@ bool HeadlessTrajectorySession::transformRawToWorld(const RobotInstruction::RawT
 		// 已是世界或无工件：原样
 		return true;
 	}
-	const auto data = m_host.dataQuery().getData(backendId);
-	if (!data)
+	// 与离散同源：Headless 无 OSG，统一经 BackendDataWorldMatrixProvider
+	BackendDataWorldMatrixProvider poses(m_host.dataQuery());
+	BackendMat4 worldBe = BackendMat4::identity();
+	if (!poses.getWorldMatrix(backendId, worldBe))
 	{
 		if (err)
 			*err = QStringLiteral("工件世界矩阵不可用");
 		return false;
 	}
-	// 与桌面 FeaturePickTransform 同式：位置走 Backend 世界矩阵；姿态 OSG mFile*rot（勿用仅 Eigen 链替代）
-	const engine::RigidTransform T_wm = rigidFromBackendMat4(data->worldMatrix());
+	const engine::RigidTransform T_wm = rigidFromBackendMat4(worldBe);
 	osg::Matrixd worldMat = engine::osgMatrixFromRigidTransform(T_wm);
 	osg::Matrixd rot = worldMat;
 	rot.setTrans(0.0, 0.0, 0.0);
@@ -959,8 +961,9 @@ bool HeadlessTrajectorySession::setFeaturesAndDiscretize(const QByteArray& featu
 	std::string geoErr;
 	geoalgo::RawPath path;
 	geoalgo::FeatureListDocument resolvedDoc;
-	if (!geometry_backend_ops::discretizeFeatureListAcrossWorkpieces(doc, m_host.dataQuery(), path, &resolvedDoc,
-																	 &geoErr))
+	BackendDataWorldMatrixProvider poses(m_host.dataQuery());
+	if (!geometry_backend_ops::discretizeFeatureListAcrossWorkpieces(doc, m_host.dataQuery(), poses, path,
+																	 &resolvedDoc, &geoErr))
 	{
 		if (err)
 			*err = geoErr.empty() ? QStringLiteral("离散失败") : QString::fromStdString(geoErr);

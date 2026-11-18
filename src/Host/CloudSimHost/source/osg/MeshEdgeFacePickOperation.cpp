@@ -22,6 +22,10 @@
 
 
 
+
+
+
+
 namespace
 
 {
@@ -403,13 +407,11 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	}
 
 
-
 	bool swallowRelease = false;
 
 	if (!m_gesture.onLeftRelease(mouseEvent->pos(), &swallowRelease))
 
 	{
-
 		return false;
 
 	}
@@ -467,7 +469,6 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	{
 
 		const int kindInt = h->meshFacePickMode() ? static_cast<int>(PickKind::MeshFace) : static_cast<int>(PickKind::MeshEdge);
-
 		h->emitMeshPickCommitted(pick, kindInt);
 
 	}

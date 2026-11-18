@@ -666,7 +666,14 @@ void MainWindow::onTransformGizmoCommitted()
 		cloudsim::host::publishPoseCommittedFromBackendId(*doc, backendId);
 		return;
 	}
-	(void)doc->render().commitGizmoPoseToBackend(backendId);
+	if (!doc->render().commitGizmoPoseToBackend(backendId))
+	{
+		RunLogger::warn(QStringLiteral("[Gizmo] commitGizmoPoseToBackend failed id=%1").arg(backendId).toStdString());
+		if (statusBar())
+		{
+			statusBar()->showMessage(tr("工件位姿写回失败，离散/保存可能仍用旧位置"), 5000);
+		}
+	}
 	syncRobotKinematicsAfterPoseEdit(backendId);
 	// follower 手动拖完要烘焙 local，否则松手 Follow 会用旧偏移写回
 	cloudsim::host::bakeFollowLocalAfterManualPoseEdit(*doc, backendId.toStdString());

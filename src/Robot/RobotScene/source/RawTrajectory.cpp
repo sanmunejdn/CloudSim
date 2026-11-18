@@ -402,10 +402,21 @@ std::string rawTrajectoryWorkpieceBackendId(const RawTrajectory& trajectory)
 	// FeatureList v2 与 MeshTrajectorySpec v1 同构，读 sourceFeatureJson
 	geoalgo::FeatureListDocument featureDoc{};
 	std::string err;
-	if (geometry_backend_ops::featureListFromJson(trajectory.sourceFeatureJson, featureDoc, &err) &&
-		!featureDoc.workpiece.backendIdUtf8.empty())
+	if (geometry_backend_ops::featureListFromJson(trajectory.sourceFeatureJson, featureDoc, &err))
 	{
-		return featureDoc.workpiece.backendIdUtf8;
+		if (!featureDoc.workpiece.backendIdUtf8.empty())
+		{
+			return featureDoc.workpiece.backendIdUtf8;
+		}
+		// 文档级工件空时回落首行特征工件，避免预览 file→world 丢 backendId
+		if (!featureDoc.features.empty())
+		{
+			const geoalgo::WorkpieceRef& wp = geoalgo::featureEntryWorkpiece(featureDoc, featureDoc.features.front());
+			if (!wp.backendIdUtf8.empty())
+			{
+				return wp.backendIdUtf8;
+			}
+		}
 	}
 	geoalgo::MeshTrajectorySpec meshSpec{};
 	if (geoalgo::meshTrajectorySpecFromJson(trajectory.sourceFeatureJson, meshSpec, &err) &&

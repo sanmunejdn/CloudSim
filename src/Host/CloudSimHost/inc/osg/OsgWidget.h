@@ -362,7 +362,9 @@ public:
 	bool syncOuterPatFromBackend(const BackendDataBase& data) override;
 	/// 非拖拽时将 ObjectGizmoFrame 同步到活动后端根
 	void syncActiveBackendRootFromSelectedTransform() override;
-	/// OSG 位姿写回后端（跟随求解前）
+	/// 按 backendId 把 OSG 场景根世界矩阵写回 Backend（不依赖当前选中）
+	bool writeBackendPoseFromOsg(const std::string& backendId, BackendDataBase& data);
+	/// 兼容旧调用：写活动选中件
 	bool writeActiveBackendPoseFromOsg(BackendDataBase& data);
 	/// 轨道相机中心跟随此后端世界原点（空则关闭）
 	void setCameraFollowBackendId(std::string backendId) override;

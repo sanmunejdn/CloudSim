@@ -35,8 +35,11 @@ inline bool backendWorldRotationMatrix(IRobotOsgSceneOps* osg, const std::string
 		}
 		return false;
 	}
+	// 与 worldPointToStepModelMm 一致：B-rep 逻辑 id 须先解析到视觉根
+	const std::string xformId = osg->resolvePickScopeBackendId(backendId);
 	osg::Matrixd worldMat;
-	if (!RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, backendId, worldMat))
+	if (!RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, xformId, worldMat) &&
+		(xformId == backendId || !RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, backendId, worldMat)))
 	{
 		if (errMsg)
 		{
