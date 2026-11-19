@@ -74,6 +74,66 @@ void mergeJsonObject(const QJsonObject& o, UrdfIkMachineProfile& p)
 			p.analyticalFamily = AnalyticalIkFamily::Auto;
 		}
 	}
+	if (o.contains(QStringLiteral("topologyHint")))
+	{
+		const QString t = o.value(QStringLiteral("topologyHint")).toString().trimmed().toLower();
+		if (t == QStringLiteral("spherical6r") || t == QStringLiteral("spherical_6r"))
+		{
+			p.topologyHint = IkTopologyHint::Spherical6R;
+		}
+		else if (t == QStringLiteral("genericserial") || t == QStringLiteral("generic_serial"))
+		{
+			p.topologyHint = IkTopologyHint::GenericSerial;
+		}
+		else
+		{
+			p.topologyHint = IkTopologyHint::Unknown;
+		}
+	}
+	if (o.contains(QStringLiteral("defaultRankMode")))
+	{
+		const QString r = o.value(QStringLiteral("defaultRankMode")).toString().trimmed().toLower();
+		if (r == QStringLiteral("distance") || r == QStringLiteral("speed") || r == QStringLiteral("manip"))
+		{
+			p.defaultRankMode = r.toStdString();
+		}
+	}
+	if (o.contains(QStringLiteral("defaultBudgetMsSearch")))
+	{
+		const int v = o.value(QStringLiteral("defaultBudgetMsSearch")).toInt(0);
+		if (v > 0)
+		{
+			p.defaultBudgetMsSearch = v;
+		}
+	}
+	if (o.contains(QStringLiteral("externalCoupleMode")))
+	{
+		const QString m = o.value(QStringLiteral("externalCoupleMode")).toString().trimmed().toLower();
+		if (m == QStringLiteral("gridonly") || m == QStringLiteral("grid_only"))
+		{
+			p.externalCoupleMode = ExternalCoupleMode::GridOnly;
+		}
+		else if (m == QStringLiteral("armonly") || m == QStringLiteral("arm_only"))
+		{
+			p.externalCoupleMode = ExternalCoupleMode::ArmOnly;
+		}
+		else
+		{
+			p.externalCoupleMode = ExternalCoupleMode::PreferCoupled;
+		}
+	}
+	if (o.contains(QStringLiteral("seedExpandElbow")))
+	{
+		p.seedStrategyFlags.expandElbow = o.value(QStringLiteral("seedExpandElbow")).toBool(true);
+	}
+	if (o.contains(QStringLiteral("seedExpandWrist")))
+	{
+		p.seedStrategyFlags.expandWrist = o.value(QStringLiteral("seedExpandWrist")).toBool(true);
+	}
+	if (o.contains(QStringLiteral("seedExpandTail")))
+	{
+		p.seedStrategyFlags.expandTail = o.value(QStringLiteral("seedExpandTail")).toBool(true);
+	}
 }
 
 bool loadSidecarJson(const QString& urdfPath, UrdfIkMachineProfile& p)

@@ -189,9 +189,12 @@
     <ClInclude Include="inc\KinematicCoreUrdfIk.h" />
     <ClInclude Include="inc\UrdfRobotKinematicModel.h" />
     <ClInclude Include="inc\UrdfNumericalIkLegacy.h" />
+    <ClInclude Include="inc\PoseIkCandidate.h" />
     <ClInclude Include="inc\IPoseIkSolver.h" />
     <ClInclude Include="inc\IkSeedExpand.h" />
     <ClInclude Include="inc\SphericalWristAnalyticalIk.h" />
+    <ClInclude Include="inc\KinematicCoreDlsIk.h" />
+    <ClInclude Include="inc\PoseIkSolverRegistry.h" />
     <ClInclude Include="inc\UrdfIkMachineProfile.h" />
     <ClInclude Include="inc\SelfTest.h" />
   </ItemGroup>
@@ -206,6 +209,8 @@
     <ClCompile Include="source\UrdfNumericalIkLegacy.cpp" />
     <ClCompile Include="source\IkSeedExpand.cpp" />
     <ClCompile Include="source\SphericalWristAnalyticalIk.cpp" />
+    <ClCompile Include="source\KinematicCoreDlsIk.cpp" />
+    <ClCompile Include="source\PoseIkSolverRegistry.cpp" />
     <ClCompile Include="source\UrdfIkMachineProfile.cpp" />
     <ClCompile Include="source\SelfTest.cpp" />
   </ItemGroup>

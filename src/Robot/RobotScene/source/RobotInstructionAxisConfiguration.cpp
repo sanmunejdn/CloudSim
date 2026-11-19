@@ -908,10 +908,10 @@ void adaptIkPolicyForRobot(const std::string& urdfPath, IkSelectionPolicy& polic
 						   const std::unordered_map<std::string, std::string>* ext)
 {
 	bool spherical = false;
+	UrdfRobotLoader::UrdfIkMachineProfile mach;
 	if (!urdfPath.empty())
 	{
-		const UrdfRobotLoader::UrdfIkMachineProfile mach =
-			UrdfRobotLoader::resolveIkMachineProfile(QString::fromStdString(urdfPath));
+		mach = UrdfRobotLoader::resolveIkMachineProfile(QString::fromStdString(urdfPath));
 		if (mach.analyticalFamily == UrdfRobotLoader::AnalyticalIkFamily::None)
 		{
 			spherical = false;
@@ -928,6 +928,26 @@ void adaptIkPolicyForRobot(const std::string& urdfPath, IkSelectionPolicy& polic
 		else
 		{
 			spherical = UrdfRobotLoader::SphericalWristAnalyticalIk::isEligible(QString::fromStdString(urdfPath));
+		}
+		// 机型缺省：仅当 Policy 仍为出厂默认时写入
+		if (!mach.defaultRankMode.empty())
+		{
+			if (mach.defaultRankMode == "manip")
+			{
+				policy.rankMode = IkRankMode::Manip;
+			}
+			else if (mach.defaultRankMode == "speed")
+			{
+				policy.rankMode = IkRankMode::Speed;
+			}
+			else if (mach.defaultRankMode == "distance")
+			{
+				policy.rankMode = IkRankMode::Distance;
+			}
+		}
+		if (mach.defaultBudgetMsSearch > 0 && policy.mode == IkSolveMode::Search && policy.budgetMs <= 0)
+		{
+			policy.budgetMs = mach.defaultBudgetMsSearch;
 		}
 	}
 	if (!spherical)

@@ -3,6 +3,7 @@
 
 #include "TrajectoryReachabilityProbeService.h"
 
+#include "IkSolveSession.h"
 #include "RobotTeachIk.h"
 #include "UnifiedTrajectory.h"
 
@@ -89,7 +90,7 @@ bool TrajectoryReachabilityProbeService::probe(UnifiedTrajectory& traj, const st
 		ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(
 			tp.poseMm.x, tp.poseMm.y, tp.poseMm.z, tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z);
 
-		const RobotTeachIk::TeachIkResult r = RobotTeachIk::solveTeachIk(ctx);
+		const RobotTeachIk::TeachIkResult r = RobotInstruction::runIkSolveSession(ctx);
 		const bool orientOk = !oriWanted || r.residualOrientDeg < 0.0 || r.residualOrientDeg <= oriGate;
 		tp.reachable = r.ok && r.residualTcpMm >= 0.0 && r.residualTcpMm < tol && orientOk;
 		++probed;

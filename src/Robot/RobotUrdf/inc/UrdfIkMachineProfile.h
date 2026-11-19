@@ -27,6 +27,27 @@ enum class ROBOT_URDF_API AnalyticalIkFamily
 	None
 };
 
+enum class ROBOT_URDF_API IkTopologyHint
+{
+	Unknown = 0,
+	Spherical6R,
+	GenericSerial
+};
+
+enum class ROBOT_URDF_API ExternalCoupleMode
+{
+	PreferCoupled = 0,
+	GridOnly,
+	ArmOnly
+};
+
+struct ROBOT_URDF_API IkSeedStrategyFlags
+{
+	bool expandElbow = true;
+	bool expandWrist = true;
+	bool expandTail = true;
+};
+
 struct ROBOT_URDF_API UrdfIkMachineProfile
 {
 	QString packageKey;
@@ -36,6 +57,12 @@ struct ROBOT_URDF_API UrdfIkMachineProfile
 	AnalyticalIkFamily analyticalFamily = AnalyticalIkFamily::Auto;
 	/// 空=不建议；drag|preview|run 仅导入缺省，不覆盖指令已写 profile
 	std::string preferredIkProfile;
+	IkTopologyHint topologyHint = IkTopologyHint::Unknown;
+	/// Distance|Speed|Manip；空=不改 Policy
+	std::string defaultRankMode;
+	int defaultBudgetMsSearch = 0;
+	ExternalCoupleMode externalCoupleMode = ExternalCoupleMode::PreferCoupled;
+	IkSeedStrategyFlags seedStrategyFlags{};
 };
 
 /// 缓存 → 旁路 ik_profile.json → 内置表 → 空 profile（下标 -1）

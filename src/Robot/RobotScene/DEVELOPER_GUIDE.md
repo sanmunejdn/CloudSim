@@ -85,9 +85,9 @@
 | `classifyJointConfiguration(q, jointNames, seedQ?)` | 肘/腕/臂/转数观测 |
 | `classifyJointTurnRevolutions(q, ref)` | `round((q-ref)/2π)` |
 | `IkSelectionPolicy` / `makePtpIkPolicy` / `makeCartesianPathIkPolicy` | 腕门/class/budget/RankMode/竞速；`allowCartDegrade` 默认 false |
-| `IkSolveRequest` / `IkSolveResult`（`IkSolveTypes.h`） | 强类型求解入出；FailKind 直出、branchId、escalateTag |
-| `applyIkPolicyExtensionOverrides` / `adaptIkPolicyForRobot` / `formatIkPolicySummaryTags` | profile 预算；非球形腕关竞速/硬 class（2A） |
-| `IkFailKind` / `classifyIkFailMessage` | 主路径直出；classify 仅兼容旧摘要 |
+| `IkSolveRequest` / `IkSolveResult`（`IkSolveTypes.h`） | 强类型求解入出；FailKind、branchId、escalateTag；`elapsedMs` / `candidatesTried` / `bestPartialQ`（单次诊断） |
+| `applyIkPolicyExtensionOverrides` / `adaptIkPolicyForRobot` / `formatIkPolicySummaryTags` | profile 预算；非球形腕关竞速/硬 class；可读机型 `defaultRankMode` / `defaultBudgetMsSearch` |
+| `IkFailKind` / `classifyIkFailMessage` | 优先直出 FailKind；classify 兼容旧摘要字符串 |
 | 索引优先级 | `context.elbow/wristJointIndex` > `UrdfIkMachineProfile` > 名字 hint |
 | `analyticalFamily` | Auto / SphericalWrist6R / None（加固解析白名单） |
 | drag | `ikProfile=drag` → NearSeed + 短预算；升档 preview 切 Search |
@@ -104,7 +104,9 @@
 | `CoordinatedIkCostWeights` | 示教/规划外轴 prior 共用；扩展键可覆盖 |
 | `Controller::setIkCollisionCostProbe` | IK 候选终点单姿态粗检（≥1e6 硬拒）；全轨迹仍在 plan 后 `validateJointTrajectory` |
 | `shouldSkipShortestAngleFold(seed, target, names)` | 相对种子构型变化则跳过 ±2π 折圈 |
-| `solveIkWithAxisConfiguration`（Controller 内） | Seed→Solver→Filter→Rank；球形腕 class 硬门 / 非球形软排序 |
+| `IkCandidatePipeline` / `IkSeedProvider` / `IkRankAndFilter` | Seed→Registry 解析/DLS→Filter→Rank→Budget；球形腕 class 硬门 / 非球形软排序 |
+| `IkSolveSession` | 臂+外轴统一入口；按机型 `externalCoupleMode` 调 TeachIk（示教/外轴搜索/可达性/Host 拖动） |
+| `solveIkWithAxisConfiguration`（Controller） | 组 `IkPipelineContext`（含 armSolve 回调）后调 Pipeline |
 | `motionAxisConfigurationFromJson` / `writeMotionAxisConfigurationToJson` | 含 `turns.j1/j4/j6` |
 | `suggestMotionAxisPresetToken(observed)` | UI 默认 preset |
 | `motionAxisConfigurationRequiresConstraint(cfg)` | 显式约束时禁止无约束回退 |
@@ -169,15 +171,31 @@
 | `context.tcpLinkName` | link 名 | TCP 位姿 IK |
 | `legacy.jointIndex` / `legacy.angleDeg` | int / deg | 最后回退 |
 
-### 5.5 IK 解析顺序（运动指令）
+### 5.5 IK 架构（现状）
 
-1. 有 TCP → URDF 数值 IK（`UrdfNumericalIk` / TeachIk；有欧拉则含姿态）
-2. 有 `MotionAxisConfiguration` 约束 → `solveIkWithAxisConfiguration`（无解且显式约束 → **失败，不回退**）
-3. DH `ikPositionDampedLeastSquares`（**legacy**，仅 `hasDhRows()`；有 URDF 时生产保持空表）
+```text
+Controller（组 Policy / 机型 / 回调）
+  → IkCandidatePipeline（纯臂多种子）
+       → PoseIkSolverRegistry（球形腕解析 / KinematicCore DLS）
+       → IkRankAndFilter（class / 腕连续 / Rank / Budget）
+  → IkSolveSession（有外轴）→ TeachIk（固定 unbake / ≤2 平移联立 / 否则网格）
+```
+
+- 有 URDF 时生产路径不建 DH 表；DH `ikPositionDampedLeastSquares` 仅 legacy 回退。
+- 外轴激活时 Pipeline **跳过**解析入池（目标需先换算到臂基座，尚未做）。
+- TeachIk 联立 DLS 仍限 **≤2 全平移**；旋转/更高维走网格。
+- `UrdfIkMachineProfile.seedStrategyFlags` / `topologyHint` 可旁路配置，**SeedProvider 尚未消费**（扩种仍走默认）。
+- `bestPartialQ` 等字段已写入 `IkSolveResult`，上层规划/UI 尚未系统消费。
+
+### 5.6 IK 解析顺序（运动指令）
+
+1. 有 TCP → URDF IK（Registry / TeachIk / Session；有欧拉则含姿态）
+2. 有 `MotionAxisConfiguration` 约束 → `solveIkWithAxisConfiguration`→Pipeline（无解且显式约束 → **失败，不回退**）
+3. DH `ikPositionDampedLeastSquares`（**legacy**，仅 `hasDhRows()`）
 4. URDF 重试 / legacy 单关节增量
 
 **失败原因（`PlanResult` / `errMsg`）**会区分：
-- **主因优先**：缺少上下文、目标过远、未收敛残差、雅可比奇异、轴配置不匹配
+- **主因优先**：缺少上下文、目标过远、未收敛残差、雅可比奇异、轴配置不匹配、Budget（仅空池）
 - **关节超限**仅在位姿已收敛但解超限时作为主因；未收敛时迭代末越限只作附注（非主因）
 
 ---

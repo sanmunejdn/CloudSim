@@ -3,6 +3,7 @@
 
 #include "ControllerManager.h"
 
+#include "IkSolveSession.h"
 #include "RobotTeachIk.h"
 #include "UrdfRobotLoader.h"
 
@@ -245,7 +246,7 @@ bool ControllerManager::trySolveStepPose(const std::vector<double>& tcpMm, const
 	for (double v : seed)
 		ctx.seedJointRad.push_back(v);
 
-	const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
+	const RobotTeachIk::TeachIkResult ik = RobotInstruction::runIkSolveSession(ctx);
 	if (!ik.ok || static_cast<int>(ik.jointRad.size()) != m_context.jointCount())
 	{
 		errOut = ik.error.empty() ? QStringLiteral("IK failed") : QString::fromStdString(ik.error);

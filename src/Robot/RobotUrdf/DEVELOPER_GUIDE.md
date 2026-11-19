@@ -38,10 +38,11 @@
 | `computeMeshWorldMatrices(urdf, angles, out, err, meshVerticesAlreadyInLinkFrame)` | 各 link **网格**世界矩阵；末参 `true` 时 visual 为单位（顶点已在连杆系） |
 | `computeLinkPoseAndGeometricJacobian(...)` | 一次 FK + 几何雅可比（legacy BFS；SelfTest 对照） |
 | `computeLinkPoseAndJacobianViaCore(...)` | Core 图雅可比 + `computeLinkWorldMatrices` 位姿（与显示 FK 同源） |
-| `solveArmPoseDampedLeastSquares` | 主路径：球形腕解析（若适用）→ `KinematicCoreUrdfIk::runUrdfDlsLoop`；`allowApproximateOrientation` 控制 SoftAccepted |
+| `solveArmPoseDampedLeastSquares` | 主路径入口 → `PoseIkSolverRegistry`（解析优先 / 竞速 / DLS） |
+| `solveArmPoseViaRegistry` / `collectPoseIkCandidates` | 注册调度与多候选收集（Pipeline 解析入池用后者） |
 | `solveArmPoseViaKinematicCore` | DLS 实现；供解析回退与 SelfTest |
-| `IPoseIkSolver` / `SphericalWristAnalyticalIk` | 可插拔位姿 IK；`isEligible` 按 urdfPath 进程内缓存；竞速/贴种子仅球形腕扩展打开 |
-| `UrdfIkMachineProfile` / `resolveIkMachineProfile` | 包名 + 旁路 `ik_profile.json`（肘腕下标 / forceSphericalWrist）；热加载随 eligibility 清缓存 |
+| `IPoseIkSolver` / `PoseIkCandidate` / `KinematicCoreDlsIk` / `SphericalWristAnalyticalIk` | 可插拔多候选；`solveCandidates` 默认包装 `solve`；`isEligible` 按 urdfPath 缓存 |
+| `UrdfIkMachineProfile` / `resolveIkMachineProfile` | 包名 + 旁路 `ik_profile.json`：肘腕下标、`analyticalFamily`、`forceSphericalWrist`、`preferredIkProfile`、`topologyHint`、`defaultRankMode`、`defaultBudgetMsSearch`、`externalCoupleMode`、`seedStrategyFlags`。**已消费**：Rank/Budget 缺省、CoupleMode（Session）。**未接线**：`seedStrategyFlags`→扩种、`topologyHint`→路径选择（需旁路 JSON 时先配，后续再接） |
 | `expandPoseIkSeeds` / `selectNearestWrappedSolution` | 多种子扩展（可传 jointNames 与 classify 对齐）与最短折圈选解 |
 | `solveArmPoseViaUrdfJacobianLegacy` | **仅 SelfTest**；legacy BFS 雅可比 DLS |
 | `buildUrdfKinematicGraph` | URDF → `kinematic_core::KinematicGraph`（`JointMotion1D.hasLimit`） |

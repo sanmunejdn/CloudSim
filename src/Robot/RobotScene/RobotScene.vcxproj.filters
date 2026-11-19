@@ -41,6 +41,12 @@
     <Filter Include="resource\trajectory\ops">
       <UniqueIdentifier>{27126AA0-3872-4539-8D1A-E7F3033246D8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="source">
+      <UniqueIdentifier>{2CC23EF8-1881-4318-A584-23D7B7F8AF60}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Instructions">
+      <UniqueIdentifier>{F235E383-1AEA-4AB9-A8EF-EA73E787945F}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{77E4FD0D-8C67-40A1-84FC-66E24444A2E6}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
@@ -143,6 +149,30 @@
     <ClInclude Include="inc\IIoSignalNetwork.h">
       <Filter>inc\Other</Filter>
     </ClInclude>
+    <ClInclude Include="inc\IkCandidate.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkCandidatePipeline.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkGoldenSelfTest.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkRankAndFilter.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkSeedProvider.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkSolveMetrics.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkSolveSession.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkSolveTypes.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
     <ClInclude Include="inc\InstructionProgramDocument.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
@@ -243,15 +273,6 @@
       <Filter>inc\Instructions</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionIkContext.h">
-      <Filter>inc\Instructions</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IkSolveTypes.h">
-      <Filter>inc\Instructions</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IkSolveMetrics.h">
-      <Filter>inc\Instructions</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IkGoldenSelfTest.h">
       <Filter>inc\Instructions</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionIkRequest.h">
@@ -412,6 +433,24 @@
     <ClCompile Include="source\ExternalAxisSearchService.cpp">
       <Filter>src\KinematicsFrames</Filter>
     </ClCompile>
+    <ClCompile Include="source\IkCandidatePipeline.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IkGoldenSelfTest.cpp">
+      <Filter>source\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IkRankAndFilter.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IkSeedProvider.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IkSolveMetrics.cpp">
+      <Filter>source\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IkSolveSession.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\InstructionProgramDocument.cpp">
       <Filter>src\Instructions</Filter>
     </ClCompile>
@@ -483,12 +522,6 @@
     </ClCompile>
     <ClCompile Include="source\RobotExternalAxisSceneApply.cpp">
       <Filter>src\KinematicCore</Filter>
-    </ClCompile>
-    <ClCompile Include="source\IkSolveMetrics.cpp">
-      <Filter>source\Instructions</Filter>
-    </ClCompile>
-    <ClCompile Include="source\IkGoldenSelfTest.cpp">
-      <Filter>source\Instructions</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp">
       <Filter>src\Instructions</Filter>
@@ -633,6 +666,9 @@
     <None Include="resource\trajectory\ops\AssignSpeedZone.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
+    <None Include="resource\trajectory\ops\ClampToPlane.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
     <None Include="resource\trajectory\ops\Delete.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
@@ -642,6 +678,9 @@
     <None Include="resource\trajectory\ops\ExternalAxisSearch.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
+    <None Include="resource\trajectory\ops\InsertMid.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
     <None Include="resource\trajectory\ops\Mirror.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
@@ -649,6 +688,9 @@
       <Filter>resource\trajectory\ops</Filter>
     </None>
     <None Include="resource\trajectory\ops\OffsetLateral.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\OrientToPath.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
     <None Include="resource\trajectory\ops\ProjectToGeometry.json">
@@ -666,13 +708,31 @@
     <None Include="resource\trajectory\ops\Retract.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
+    <None Include="resource\trajectory\ops\ReversePath.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
     <None Include="resource\trajectory\ops\Rotate.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\ScalePath.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\ShiftStart.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
     <None Include="resource\trajectory\ops\SmoothPose.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
+    <None Include="resource\trajectory\ops\SpeedRamp.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\SpikeFilter.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
     <None Include="resource\trajectory\ops\Translate.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\TrimPath.json">
       <Filter>resource\trajectory\ops</Filter>
     </None>
     <None Include="resource\trajectory\ops\Weave.json">

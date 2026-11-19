@@ -4,6 +4,7 @@
 #include "InstructionPropertyBindingSelfTest.h"
 
 #include "IkGoldenSelfTest.h"
+#include "IkRankAndFilter.h"
 #include "IkSolveMetrics.h"
 #include "IkSolveTypes.h"
 #include "InstructionPropertyBinding.h"
@@ -267,6 +268,26 @@ bool runInstructionPropertyBindingSelfTest(std::vector<std::string>* failures)
 
 		const auto emptyMach = UrdfRobotLoader::resolveIkMachineProfile(QString());
 		check(emptyMach.elbowJointIndex < 0 && emptyMach.wristJointIndex < 0, "empty urdf profile");
+		check(emptyMach.topologyHint == UrdfRobotLoader::IkTopologyHint::Unknown, "profile topology default");
+		check(emptyMach.externalCoupleMode == UrdfRobotLoader::ExternalCoupleMode::PreferCoupled,
+			  "profile couple default");
+
+		{
+			RobotInstruction::IkCandidate a;
+			a.q = {0.1};
+			a.dist = 1.0;
+			a.seedOrder = 2;
+			RobotInstruction::IkCandidate b = a;
+			b.dist = 0.5;
+			b.seedOrder = 1;
+			check(RobotInstruction::isIkCandidateBetter(b, a, RobotInstruction::IkRankMode::Distance),
+				  "rank distance prefers nearer");
+			std::vector<RobotInstruction::IkCandidate> empty;
+			const auto failBudget = RobotInstruction::rankAndSelectIkCandidates(
+				empty, RobotInstruction::makePtpIkPolicy({}), {}, {}, {}, false, -1, -1, true, "", {});
+			check(failBudget.failKind == RobotInstruction::IkFailKind::Budget, "rank empty+budget => Budget");
+		}
+
 		check(UrdfRobotLoader::ikMachinePackageKeyFromUrdfPath(
 				  QStringLiteral("D:/robots/abb_irb1100/urdf/irb1100.urdf")) == QStringLiteral("abb_irb1100"),
 			  "packageKey from urdf dir");

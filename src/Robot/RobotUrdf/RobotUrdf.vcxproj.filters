@@ -14,6 +14,9 @@
     <Filter Include="inc\Loader">
       <UniqueIdentifier>{1B8CE729-975F-4E5C-8799-8F9749F8FB17}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Other">
+      <UniqueIdentifier>{3B495416-4B04-4BA6-BD5B-1D3676ED4C75}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc\SelfTest">
       <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
     </Filter>
@@ -33,6 +36,9 @@
     <Filter Include="src\Loader">
       <UniqueIdentifier>{36340E4E-2123-40E1-AF5C-9C7FBB481B36}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Other">
+      <UniqueIdentifier>{3E414D37-2985-4F37-8D32-4885D1A7B729}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\SelfTest">
       <UniqueIdentifier>{D4E5F6A7-B8C9-0123-DEF0-234567890123}</UniqueIdentifier>
     </Filter>
@@ -41,8 +47,26 @@
     <ClInclude Include="inc\CustomDeviceUrdfExporter.h">
       <Filter>inc\Loader</Filter>
     </ClInclude>
+    <ClInclude Include="inc\IkAcceptanceGates.h">
+      <Filter>inc\Kinematics</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IkSeedExpand.h">
+      <Filter>inc\Kinematics</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPoseIkSolver.h">
+      <Filter>inc\Kinematics</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KinematicCoreDlsIk.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
     <ClInclude Include="inc\KinematicCoreUrdfIk.h">
       <Filter>inc\Kinematics</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PoseIkCandidate.h">
+      <Filter>inc\Other</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PoseIkSolverRegistry.h">
+      <Filter>inc\Other</Filter>
     </ClInclude>
     <ClInclude Include="inc\robot_urdf_global.h">
       <Filter>inc\Global</Filter>
@@ -53,13 +77,16 @@
     <ClInclude Include="inc\SelfTest.h">
       <Filter>inc\SelfTest</Filter>
     </ClInclude>
+    <ClInclude Include="inc\SphericalWristAnalyticalIk.h">
+      <Filter>inc\Kinematics</Filter>
+    </ClInclude>
     <ClInclude Include="inc\UrdfGraphBuilder.h">
       <Filter>inc\Kinematics</Filter>
     </ClInclude>
-    <ClInclude Include="inc\UrdfIkSolverOptions.h">
+    <ClInclude Include="inc\UrdfIkMachineProfile.h">
       <Filter>inc\Kinematics</Filter>
     </ClInclude>
-    <ClInclude Include="inc\IkAcceptanceGates.h">
+    <ClInclude Include="inc\UrdfIkSolverOptions.h">
       <Filter>inc\Kinematics</Filter>
     </ClInclude>
     <ClInclude Include="inc\UrdfKinematicsWorkspace.h">
@@ -69,18 +96,6 @@
       <Filter>inc\Kinematics</Filter>
     </ClInclude>
     <ClInclude Include="inc\UrdfNumericalIkLegacy.h">
-      <Filter>inc\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IPoseIkSolver.h">
-      <Filter>inc\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IkSeedExpand.h">
-      <Filter>inc\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SphericalWristAnalyticalIk.h">
-      <Filter>inc\Kinematics</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UrdfIkMachineProfile.h">
       <Filter>inc\Kinematics</Filter>
     </ClInclude>
     <ClInclude Include="inc\UrdfRobotKinematicModel.h">
@@ -94,13 +109,28 @@
     <ClCompile Include="source\CustomDeviceUrdfExporter.cpp">
       <Filter>src\Loader</Filter>
     </ClCompile>
+    <ClCompile Include="source\IkSeedExpand.cpp">
+      <Filter>src\Kinematics</Filter>
+    </ClCompile>
+    <ClCompile Include="source\KinematicCoreDlsIk.cpp">
+      <Filter>src\Other</Filter>
+    </ClCompile>
     <ClCompile Include="source\KinematicCoreUrdfIk.cpp">
       <Filter>src\Kinematics</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PoseIkSolverRegistry.cpp">
+      <Filter>src\Other</Filter>
     </ClCompile>
     <ClCompile Include="source\SelfTest.cpp">
       <Filter>src\SelfTest</Filter>
     </ClCompile>
+    <ClCompile Include="source\SphericalWristAnalyticalIk.cpp">
+      <Filter>src\Kinematics</Filter>
+    </ClCompile>
     <ClCompile Include="source\UrdfGraphBuilder.cpp">
+      <Filter>src\Kinematics</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UrdfIkMachineProfile.cpp">
       <Filter>src\Kinematics</Filter>
     </ClCompile>
     <ClCompile Include="source\UrdfKinematicsWorkspace.cpp">
@@ -110,15 +140,6 @@
       <Filter>src\Kinematics</Filter>
     </ClCompile>
     <ClCompile Include="source\UrdfNumericalIkLegacy.cpp">
-      <Filter>src\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="source\IkSeedExpand.cpp">
-      <Filter>src\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="source\SphericalWristAnalyticalIk.cpp">
-      <Filter>src\Kinematics</Filter>
-    </ClCompile>
-    <ClCompile Include="source\UrdfIkMachineProfile.cpp">
       <Filter>src\Kinematics</Filter>
     </ClCompile>
     <ClCompile Include="source\UrdfRobotKinematicModel.cpp">

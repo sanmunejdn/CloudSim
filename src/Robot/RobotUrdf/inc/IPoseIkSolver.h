@@ -3,10 +3,11 @@
 
 /// @file IPoseIkSolver.h
 /// @note 自研代码仅供研究学习，不得商用；商用请联系 921857463@qq.com
-/// @brief 位姿 IK 可插拔接口（本波：球形腕解析 + DLS；Pinocchio 仅预留）
+/// @brief 位姿 IK 可插拔接口（多候选；Pinocchio 仅预留）
 
 #include "robot_urdf_global.h"
 
+#include "PoseIkCandidate.h"
 #include "UrdfIkSolverOptions.h"
 #include "UrdfNumericalIk.h"
 
@@ -16,7 +17,6 @@
 
 namespace UrdfRobotLoader
 {
-/// 未来可接 PinocchioPoseIkSolver；本波不引入 SDK
 class ROBOT_URDF_API IPoseIkSolver
 {
 public:
@@ -28,6 +28,25 @@ public:
 	virtual std::vector<double> solve(const QString& urdfPath, const QString& ikLink, const UrdfPoseIkTarget& target,
 									  std::vector<double> seedJointRad, const UrdfIkSolverOptions& options,
 									  std::string* failReason, IkConvergenceStatus* status) = 0;
+
+	/// 多候选；默认取 solve 单解包装
+	virtual std::vector<PoseIkCandidate> solveCandidates(const QString& urdfPath, const QString& ikLink,
+														 const UrdfPoseIkTarget& target,
+														 std::vector<double> seedJointRad,
+														 const UrdfIkSolverOptions& options, std::string* failReason)
+	{
+		IkConvergenceStatus st = IkConvergenceStatus::Failed;
+		std::vector<double> q = solve(urdfPath, ikLink, target, std::move(seedJointRad), options, failReason, &st);
+		if (q.empty())
+		{
+			return {};
+		}
+		PoseIkCandidate c;
+		c.q = std::move(q);
+		c.status = st;
+		c.solverName = name();
+		return {std::move(c)};
+	}
 };
 
 } // namespace UrdfRobotLoader

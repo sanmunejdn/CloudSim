@@ -3,6 +3,7 @@
 
 #include "ExternalAxisSearchService.h"
 
+#include "IkSolveSession.h"
 #include "RobotTeachIk.h"
 #include "UnifiedTrajectory.h"
 
@@ -105,7 +106,7 @@ bool ExternalAxisSearchService::search(UnifiedTrajectory& traj,
 			tp.poseMm.x, tp.poseMm.y, tp.poseMm.z, tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z);
 		ctx.externalAxisConfigCount = static_cast<int>(enabled.size());
 		fillDof(ctx.externalAxes, false);
-		RobotTeachIk::TeachIkResult r = RobotTeachIk::solveTeachIk(ctx);
+		RobotTeachIk::TeachIkResult r = RobotInstruction::runIkSolveSession(ctx);
 		if (r.ok && allowCoupledRefine && enabled.size() <= 2)
 		{
 			ctx.seedJointRad = r.jointRad;
@@ -115,7 +116,7 @@ bool ExternalAxisSearchService::search(UnifiedTrajectory& traj,
 				ctx.externalAxes.qExternal[i] = r.externalAxisQs[i];
 			}
 			ctx.maxIkIterations = 60;
-			const RobotTeachIk::TeachIkResult refined = RobotTeachIk::solveTeachIk(ctx);
+			const RobotTeachIk::TeachIkResult refined = RobotInstruction::runIkSolveSession(ctx);
 			if (refined.ok)
 			{
 				r = refined;

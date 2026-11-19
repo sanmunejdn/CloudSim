@@ -38,6 +38,7 @@
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPlanInstruction.h"
 #include "RobotSimulationMath.h"
+#include "IkSolveSession.h"
 #include "RobotTeachIk.h"
 #include "RunInfoPage.h"
 #include "UrdfRobotLoader.h"
@@ -593,17 +594,13 @@ public:
 			{
 				return KinematicModelIk::solveTeachPose(c.registryKey, c);
 			}
-			return RobotTeachIk::solveTeachIk(c);
+			return RobotInstruction::runIkSolveSession(c);
 		};
 		auto solveIkDrag = [](const RobotTeachIk::TeachIkContext& c, const double hint,
 							  const bool hasHint) -> RobotTeachIk::TeachIkResult
 		{
-			if (!c.registryKey.empty())
-			{
-				RobotTeachIk::TeachIkContext cc = c;
-				return RobotTeachIk::solveTeachIkCoordinatedDrag(cc, hint, hasHint);
-			}
-			return RobotTeachIk::solveTeachIkCoordinatedDrag(c, hint, hasHint);
+			RobotTeachIk::TeachIkContext cc = c;
+			return RobotInstruction::runIkSolveSessionCoordinatedDrag(std::move(cc), hint, hasHint);
 		};
 
 		const RobotExternal::RobotExternalAxisConfigSet& extSet = m_page->robotExternalAxesForInstance(instanceIndex);

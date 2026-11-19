@@ -250,6 +250,11 @@
     <ClInclude Include="inc\RobotInstructionIkContext.h" />
     <ClInclude Include="inc\RobotInstructionIkRequest.h" />
     <ClInclude Include="inc\IkSolveTypes.h" />
+    <ClInclude Include="inc\IkCandidate.h" />
+    <ClInclude Include="inc\IkSeedProvider.h" />
+    <ClInclude Include="inc\IkRankAndFilter.h" />
+    <ClInclude Include="inc\IkCandidatePipeline.h" />
+    <ClInclude Include="inc\IkSolveSession.h" />
     <ClInclude Include="inc\IkSolveMetrics.h" />
     <ClInclude Include="inc\IkGoldenSelfTest.h" />
     <ClInclude Include="inc\RuckigPtpTrajectory.h" />
@@ -311,6 +316,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
+    <ClCompile Include="source\IkSeedProvider.cpp" />
+    <ClCompile Include="source\IkRankAndFilter.cpp" />
+    <ClCompile Include="source\IkCandidatePipeline.cpp" />
+    <ClCompile Include="source\IkSolveSession.cpp" />
     <ClCompile Include="source\IkSolveMetrics.cpp" />
     <ClCompile Include="source\IkGoldenSelfTest.cpp" />
     <ClCompile Include="source\InstructionPropertyBindingSelfTest.cpp" />

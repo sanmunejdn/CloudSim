@@ -53,6 +53,10 @@ struct ROBOT_SCENE_API IkSolveResult
 	int branchId = -1;
 	/// 例： [ikEscalate=preview]
 	std::string escalateTag;
+	/// 预算耗尽前池内最优（空池时仍可空）
+	std::vector<double> bestPartialQ;
+	int candidatesTried = 0;
+	int elapsedMs = 0;
 
 	bool ok() const { return !q.empty(); }
 };
